@@ -148,16 +148,18 @@ export function bandMapSpotColor(spot: BandMapSpot): string {
   return paletteColor(opportunityStatus(spot), undefined, clusterStatusColors);
 }
 export function contestBandMapSpotWorked(spot:BandMapSpot):boolean{
-  const status=opportunityStatus(spot).toLowerCase();
-  return (finite(spot.workedBefore)??0)>0||spot.contestPoints===0||status.includes("worked")||status.includes("confirmed");
+  return spot.contestDupe===true;
 }
 export function contestBandMapSpotColor(spot:BandMapSpot):string{
   if(contestBandMapSpotWorked(spot))return "#8b98a5";
-  const points=finite(spot.contestPoints);return points===1?"#4da3ff":points===3?"#ff5b5b":points!==null?"#f4b942":bandMapSpotColor(spot);
+  const multipliers=finite(spot.contestMultiplierCount);
+  return multipliers===0?"#4da3ff":multipliers===1?"#ff5b5b":multipliers!==null&&multipliers>=2?"#28c76f":bandMapSpotColor(spot);
 }
 function contestPointDescription(spot:BandMapSpot):string{
   const points=finite(spot.contestPoints);if(points===null)return "Contest points unavailable";
-  return `${points} contest point${points===1?"":"s"} · ${points===0?"worked or zero-point":points===1?"blue":points===3?"red":"other-point"}`;
+  if(spot.contestDupe===true)return `${points} contest point${points===1?"":"s"} · duplicate · grey`;
+  const multipliers=finite(spot.contestMultiplierCount);
+  return `${points} contest point${points===1?"":"s"} · ${multipliers??"unknown"} needed multiplier${multipliers===1?"":"s"} · ${multipliers===0?"blue":multipliers===1?"red":multipliers!==null&&multipliers>=2?"green":"unclassified"}`;
 }
 function bandColor(band: string, spots: BandMapSpot[]): string {
   const configured = spots.find((spot) => spot.band === band && hex(spot.bandHex))?.bandHex;

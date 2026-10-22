@@ -803,8 +803,10 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
         }
         "score_send_now" => exact(params, &[], "score reporting send params")?,
         "log_page" => {
-            exact(params, &["offset"], "log page params")?;
+            exact(params, &["offset", "limit"], "log page params")?;
             uint_value(&params["offset"], 1_000_000, "log offset")?;
+            let limit = uint_value(&params["limit"], 20, "log page size")?;
+            if limit == 0 { return Err("The log page size is invalid.".into()); }
         }
         "log_edit_begin" | "log_edit_cancel" => qso(params, &[])?,
         "log_edit_set_text" => {
@@ -968,7 +970,7 @@ fn validate_spot_projection(value: &Map<String, Value>) -> Result<(), String> {
     for item in array(&value["spots"], 2_000, "contest spots")? {
         let spot = object(item, "contest spot")?;
         exact(spot, &["id", "receivedAt", "clusterName", "spotter", "spotterContinent", "frequencyKHz", "frequencyText", "callsign", "comment",
-            "band", "mode", "country", "adif", "continent", "cqZone", "ituZone", "callStatus", "dxccStatus", "workedBefore", "specialTags", "score", "contestPoints",
+            "band", "mode", "country", "adif", "continent", "cqZone", "ituZone", "callStatus", "dxccStatus", "workedBefore", "specialTags", "score", "contestPoints", "contestDupe", "contestMultiplierCount",
             "scoreReasons", "aggregateCount", "aggregateSpotters", "source", "statusHex", "bandHex", "modeHex", "marked"], "contest spot")?;
         let id = text_value(&spot["id"], 128, false, "spot ID")?;
         if !ids.insert(id) { return Err("Contest spot IDs must be unique.".into()); }
@@ -977,6 +979,8 @@ fn validate_spot_projection(value: &Map<String, Value>) -> Result<(), String> {
             if spot[key].is_null() { return Err("Contest spot numbers cannot be null.".into()); }
         }
         nullable_nonnegative_number(&spot["contestPoints"], "contest QSO points")?;
+        if !spot["contestDupe"].is_null() { boolean(&spot["contestDupe"], "contest duplicate state")?; }
+        nullable_uint(&spot["contestMultiplierCount"], MAX_SAFE_INTEGER, "contest needed multiplier count")?;
         uint_value(&spot["aggregateCount"], MAX_SAFE_INTEGER, "aggregate spot count")?;
         for key in ["clusterName", "spotter", "frequencyText", "comment", "country", "continent", "callStatus", "dxccStatus", "source", "statusHex", "bandHex", "modeHex"] {
             text_value(&spot[key], 512, true, "spot text")?;
@@ -1853,6 +1857,9 @@ fn validate_statistics_projection_v2(value: &Map<String, Value>) -> Result<(), S
 }
 
 fn validate_statistics_projection_v3(value: &Map<String, Value>) -> Result<(), String> {
+    if value.get("layout").and_then(Value::as_str) == Some("cq_ww") {
+        return validate_cq_ww_statistics_projection(value);
+    }
     exact(
         value,
         &["schemaVersion", "status", "score", "rows", "total", "busy"],
@@ -1897,6 +1904,44 @@ fn validate_statistics_projection_v3(value: &Map<String, Value>) -> Result<(), S
         return Err("The contest score does not match the statistics total.".into());
     }
     Ok(())
+}
+
+fn validate_cq_ww_statistics_projection(value: &Map<String, Value>) -> Result<(), String> {
+    exact(value, &["schemaVersion", "status", "layout", "score", "rows", "total", "busy"], "CQ WW statistics projection")?;
+    boolean(&value["busy"], "statistics busy")?;
+    validate_statistics_score_v3(&value["score"])?;
+    let rows = array(&value["rows"], 64, "CQ WW statistics rows")?;
+    let mut bands = BTreeSet::new();
+    let mut sums = [0_u64; 4];
+    for row in rows {
+        let (band, counts) = validate_cq_ww_statistics_row(row, false)?;
+        if !bands.insert(band) { return Err("The CQ WW statistics bands are not unique.".into()); }
+        for (sum, value) in sums.iter_mut().zip(counts) {
+            *sum = sum.checked_add(value).ok_or("The CQ WW statistics totals overflow.")?;
+        }
+    }
+    let (_, total) = validate_cq_ww_statistics_row(&value["total"], true)?;
+    if sums != total { return Err("The CQ WW statistics totals do not match the band rows.".into()); }
+    let score = object(&value["score"], "contest score")?;
+    if uint_value(&score["qsos"], MAX_SAFE_INTEGER, "contest score QSOs")? != total[0]
+        || integer_value(&score["points"], "contest score points")? != total[1] as i64
+        || uint_value(&score["multipliers"], MAX_SAFE_INTEGER, "contest score multipliers")? != total[2] + total[3]
+    { return Err("The contest score does not match the CQ WW statistics total.".into()); }
+    Ok(())
+}
+
+fn validate_cq_ww_statistics_row(value: &Value, total: bool) -> Result<(String, [u64; 4]), String> {
+    let row = object(value, "CQ WW statistics row")?;
+    exact(row, &["band", "qsos", "points", "countries", "zones"], "CQ WW statistics row")?;
+    let band = text_value(&row["band"], 16, false, "CQ WW statistics band")?;
+    if (band == "TOTAL") != total { return Err("The CQ WW statistics band identifier is invalid.".into()); }
+    let qsos = uint_value(&row["qsos"], MAX_SAFE_INTEGER, "CQ WW QSO count")?;
+    let points = integer_value(&row["points"], "CQ WW points")?;
+    if points < 0 { return Err("The CQ WW statistics points are invalid.".into()); }
+    let countries = uint_value(&row["countries"], MAX_SAFE_INTEGER, "CQ WW country count")?;
+    let zones = uint_value(&row["zones"], MAX_SAFE_INTEGER, "CQ WW zone count")?;
+    if countries > qsos || zones > qsos { return Err("The CQ WW multiplier counts exceed its QSOs.".into()); }
+    Ok((band.to_owned(), [qsos, points as u64, countries, zones]))
 }
 
 fn validate_statistics_score_v3(value: &Value) -> Result<(), String> {
@@ -3140,6 +3185,18 @@ mod tests {
             "digital":0,"wpx":0,"points":0
         })).collect::<Vec<_>>());
         assert!(validate_projection("propagation", &too_many).is_err());
+
+        let cq_ww = json!({"schemaVersion":3,"status":"ready","layout":"cq_ww",
+            "score":{"qsos":6,"points":21,"multipliers":8,"claimedScore":168,
+                "multiplierLabels":["4 countries","4 zones"],"multiplierDisplayLabels":["4 countries","4 zones"],
+                "sourceVerification":"verified"},
+            "rows":[{"band":"20m","qsos":4,"points":15,"countries":3,"zones":2},
+                {"band":"40m","qsos":2,"points":6,"countries":1,"zones":2}],
+            "total":{"band":"TOTAL","qsos":6,"points":21,"countries":4,"zones":4},"busy":false});
+        assert!(validate_projection("propagation", &cq_ww).is_ok());
+        let mut cq_ww_mismatch = cq_ww;
+        cq_ww_mismatch["total"]["zones"] = json!(3);
+        assert!(validate_projection("propagation", &cq_ww_mismatch).is_err());
     }
 
     #[test]
@@ -3710,7 +3767,7 @@ mod tests {
         let spot = json!({"id":"spot-1","receivedAt":1,"clusterName":"SK6AW","spotter":"K1ABC","spotterContinent":null,
             "frequencyKHz":14025.0,"frequencyText":"14025.0","callsign":"DL1ABC","comment":"CQ","band":"20m","mode":"CW",
             "country":"Germany","adif":230,"continent":"EU","cqZone":14,"ituZone":28,"callStatus":"New","dxccStatus":"New",
-            "workedBefore":null,"specialTags":[],"score":80,"contestPoints":null,"scoreReasons":[],"aggregateCount":1,"aggregateSpotters":["K1ABC"],
+            "workedBefore":null,"specialTags":[],"score":80,"contestPoints":null,"contestDupe":null,"contestMultiplierCount":null,"scoreReasons":[],"aggregateCount":1,"aggregateSpotters":["K1ABC"],
             "source":"DX Cluster","statusHex":"","bandHex":"","modeHex":"","marked":false});
         let projection = json!({"schemaVersion":2,"status":"ready","draftID":"draft","draftRevision":2,
             "radioFrequencyHz":14025000,"connectedClusters":1,"loadedSpots":1,"selectedSpotID":"spot-1",

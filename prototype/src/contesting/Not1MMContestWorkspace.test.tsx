@@ -219,7 +219,7 @@ it("routes Digital logging saves, starts, and stops through the real host servic
 it("persists exact confirm, mark, marked-only and delete spot lifecycle semantics",()=>{
   const base={receivedAt:1,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,frequencyText:"14025.0",comment:"CQ",
     band:"20m",mode:"CW",country:"Germany",adif:230,continent:"EU",cqZone:14,ituZone:28,callStatus:"New",dxccStatus:"New",
-    workedBefore:null,specialTags:[],score:80,contestPoints:null,scoreReasons:[],aggregateCount:1,aggregateSpotters:["K1ABC"],source:"DX Cluster",
+    workedBefore:null,specialTags:[],score:80,contestPoints:null,contestDupe:null,contestMultiplierCount:null,scoreReasons:[],aggregateCount:1,aggregateSpotters:["K1ABC"],source:"DX Cluster",
     statusHex:"",bandHex:"",modeHex:"",marked:false};
   const spots=[{...base,id:"one",callsign:"DL1ABC",frequencyKHz:14025},{...base,id:"collision",callsign:"DL2ABC",frequencyKHz:14025.1},
     {...base,id:"other",callsign:"DL3ABC",frequencyKHz:14025.2}];
@@ -242,7 +242,7 @@ it("namespaces, expires, compacts and quota-retries bounded persisted spot overl
   expect(contestSpotWorkflowStorageKey(scopeA)).not.toBe(contestSpotWorkflowStorageKey(scopeB));
   const base={receivedAt:1,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,frequencyKHz:14025,frequencyText:"14025",
     callsign:"DL1ABC",comment:"CQ",band:"20m",mode:"CW",country:"Germany",adif:230,continent:"EU",cqZone:14,ituZone:28,
-    callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,contestPoints:null,scoreReasons:[],aggregateCount:1,
+    callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,contestPoints:null,contestDupe:null,contestMultiplierCount:null,scoreReasons:[],aggregateCount:1,
     aggregateSpotters:["K1ABC"],source:"DX Cluster",statusHex:"",bandHex:"",modeHex:"",marked:true};
   const now=contestSpotWorkflowTTLms+10_000,entries=Object.fromEntries(Array.from({length:contestSpotWorkflowMaxEntries+25},(_,index)=>{
     const id=`spot-${index}`;return[id,{spot:{...base,id,callsign:`D${index}`},deleted:false,updatedAt:now-index}];
@@ -271,7 +271,7 @@ it("never resurrects dropped confirmed or unmarked authority while retaining a m
   const scope={operatingContext:"radio:one",sessionID:"session-1",workspaceGeneration:"generation-1"},now=1_000;
   const spot={id:"one",receivedAt:1,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,frequencyKHz:14025,frequencyText:"14025",
     callsign:"DL1ABC",comment:"CQ",band:"20m",mode:"CW",country:"Germany",adif:230,continent:"EU",cqZone:14,ituZone:28,
-    callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,contestPoints:null,scoreReasons:[],aggregateCount:1,
+    callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,contestPoints:null,contestDupe:null,contestMultiplierCount:null,scoreReasons:[],aggregateCount:1,
     aggregateSpotters:["K1ABC"],source:"DX Cluster",statusHex:"",bandHex:"",modeHex:"",marked:false};
   const confirmed=updateContestSpotWorkflow(decodeContestSpotWorkflow(null,scope,now),[spot],spot.id,"confirm",false,2,now);
   expect(projectContestSpotWorkflow([],confirmed,false)).toEqual([]);
@@ -498,7 +498,8 @@ const operationalRequest=(current:()=>ReturnType<typeof projection>,point:(spotI
   if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
   if(method==="contest_spot_points_preview")return{id:crypto.randomUUID(),ok:true,result:{sessionID:active.sessionID,
     workspaceGeneration:active.workspaceGeneration,revision:active.revision,spots:(params.spots as {spotID:string}[]).map(spot=>({
-      spotID:spot.spotID,points:point(spot.spotID),reason:point(spot.spotID)===null?"scoring_unavailable":null}))}};
+      spotID:spot.spotID,points:point(spot.spotID),dupe:false,multiplierCount:point(spot.spotID)===null?null:0,
+      reason:point(spot.spotID)===null?"scoring_unavailable":null}))}};
   const result=method==="contest_catalog"?{plugins:[]}:method==="contest_sessions"?{sessions:[]}:
     method==="contest_create"?{projection:active}:method==="contest_log_page"?{rows:[],total:0}:
     method==="contest_score"?{score:active.score}:null;
@@ -1240,6 +1241,12 @@ it("projects Trans Tasman low bands, serial exchange, plugin dupe period and ret
 });
 
 it.each([
+  { pluginID:"cq_ww_ssb", pluginName:"CQ WW SSB",
+    columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","M1","ZN","M2","PFX","PTS"],
+    row:{ID:"cqww-ssb-qso",TS:"2026-10-20 11:00:00",Call:"K1ABC",Freq:14250,Band:14,Mode:"USB",SNT:"59",RCV:"59",SentNr:15,ZN:5,
+      CountryPrefix:"K",WPXPrefix:"K1",IsMultiplier1:1,IsMultiplier2:1,Points:3},
+    receivedExchange:"5", multiplierLabels:["K","Zone 5"],
+    values:["2026-10-20 11:00:00","K1ABC","14250","59","59","✓","5","✓","K","3"], correction:undefined },
   { pluginID:"oceania_dx_ssb", pluginName:"Oceania DX SSB",
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","M1","PTS"],
     row:{ID:"oc-ssb-qso",TS:"2026-10-20 11:00:00",Call:"VK4ABC",Freq:14250,Band:14,Mode:"USB",SNT:"59",RCV:"59",SentNr:1,NR:123,WPXPrefix:"VK4",IsMultiplier1:1,Points:1},
@@ -1774,6 +1781,7 @@ it("records only a confirmed CQ at the observed VFO and returns through the owne
   view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}
     radioFrequencyHz={radioFrequencyHz} stationTune={tune}/>);
   await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].draft.frequencyHz).toBe(7_025_000));
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].draft.revision).toBe(current.revision));
   entry=surfaceOwner.current.projections["active-qso"];
   await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"entry_return_cq_frequency",
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision}}));
@@ -2591,7 +2599,7 @@ it("pages past QSO 100 and sends the complete correction contract", async () => 
   await createContestThroughSetup();
   const envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
     panelID:"logbook",projectionRevision:1,requestID:crypto.randomUUID()} as const;
-  await act(async()=>surfaceOwner.current.handle({...envelope,action:"log_page",params:{offset:100}}));
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"log_page",params:{offset:100,limit:20}}));
   await waitFor(()=>expect(surfaceOwner.current.projections.logbook.page.rows[0]?.qsoID).toBe("qso-001"));
   expect(surfaceOwner.current.projections.logbook.page.rows[0]?.workedAt).toBe("2026-10-19T08:00:00.000Z");
   expect(validContestSurfaceProjection("logbook", surfaceOwner.current.projections.logbook)).toBe(true);
@@ -2924,7 +2932,7 @@ it("pages, edits, and deletes through the detached Log owner actions", async () 
   await createContestThroughSetup();
   const envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
     panelID:"logbook",projectionRevision:1,requestID:crypto.randomUUID()};
-  await act(async()=>surfaceOwner.current.handle({...envelope,action:"log_page",params:{offset:20}}));
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"log_page",params:{offset:20,limit:20}}));
   await waitFor(()=>expect(surfaceOwner.current.projections.logbook.page.rows[0]?.qsoID).toBe("qso-021"));
   await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_edit_begin",params:{qsoID:"qso-021"}}));
   await waitFor(()=>expect(surfaceOwner.current.projections.logbook.editing?.qsoID).toBe("qso-021"));

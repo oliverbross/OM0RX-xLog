@@ -168,6 +168,10 @@ def require(condition, message, code="invalid_request"):
 
 
 CQ_WW_STATION_ZONE_PLUGINS = {"cq_ww_cw", "cq_ww_ssb"}
+CQ_WW_SSB_LOG_COLUMNS = (
+    "YYYY-MM-DD HH:MM:SS", "Call", "Freq", "Snt", "Rcv",
+    "M1", "ZN", "M2", "PFX", "PTS",
+)
 
 
 def apply_canonical_cq_ww_station_zone(plugin_id, station, settings):
@@ -968,7 +972,8 @@ class Desk:
                                     "Duplicate checking disabled." if self.contest.dupe_type == 4 else
                                     "Worked on this band."),
                 "countryResolved": bool(self.cty_lookup(call)), "history": self.history_info.text(),
-                "columns": self.contest.columns, "score": self.score()}
+                "columns": (list(CQ_WW_SSB_LOG_COLUMNS) if self.state["pluginID"] == "cq_ww_ssb"
+                            else self.contest.columns), "score": self.score()}
 
     def score(self):
         if self.state["pluginID"] == "nac_vhf":
@@ -1354,7 +1359,7 @@ class Host:
                     "persistenceVerified": False, "confirmed": False}
         if method == "check_partial":
             query = text(params.get("query", ""), 32).upper()
-            require(re.fullmatch(r"[A-Z0-9/]{1,32}", query) is not None, "Partial callsign must contain letters, digits or slash")
+            require(re.fullmatch(r"[A-Z0-9/]{3,32}", query) is not None, "Partial callsign requires at least three letters, digits or slash")
             limit = params.get("limit", 100)
             require(type(limit) is int and 1 <= limit <= 500, "Invalid partial result limit")
             # Mirror pinned DataBase.fetch_like_calls: substring, contest scope,
@@ -1366,14 +1371,18 @@ class Host:
                 expected = params.get("expectedRevision")
                 require(expected is None or type(expected) is int and expected == state["revision"],
                         "Contest changed before partial log lookup", "stale_revision")
-                match = (f"%{query}%", store.current_contest)
-                total = store.exec_sql("SELECT count(*) AS n FROM DXLOG WHERE Call LIKE ? AND ContestNR=?", match)["n"]
+                patterns = [f"%{query}%", *(f"{query[:index]}_{query[index + 1:]}%" for index in range(len(query)))]
+                predicate = "(" + " OR ".join("d.Call LIKE ?" for _ in patterns) + ")"
+                match = (*patterns, store.current_contest)
+                total = store.exec_sql(
+                    f"SELECT count(*) AS n FROM DXLOG AS d WHERE {predicate} AND d.ContestNR=?", match
+                )["n"]
                 rows = store.exec_sql_mult(
                     "SELECT d.*,i.raw_fields,coalesce((SELECT max(a.revision) "
                     "FROM xlog_qso_audit AS a WHERE a.qso_id=d.ID),0) AS change_revision "
                     "FROM DXLOG AS d "
                     "LEFT JOIN xlog_qso_identity AS i ON i.id=d.ID "
-                    "WHERE d.Call LIKE ? AND d.ContestNR=? "
+                    f"WHERE {predicate} AND d.ContestNR=? "
                     "ORDER BY d.TS ASC,d.rowid ASC LIMIT ?",
                     (*match, limit),
                 )
@@ -1429,12 +1438,14 @@ class Host:
                     preview["draft"]["frequencyHz"] = frequency
                     desk = Desk(store, preview, self.commit)
                     if desk.cty_lookup(callsign) is None:
-                        results.append({"spotID": spot_id, "points": None, "reason": "unresolved_callsign"})
+                        results.append({"spotID": spot_id, "points": None, "dupe": None,
+                                        "multiplierCount": None, "reason": "unresolved_callsign"})
                         continue
                     try:
                         desk.contest_band(frequency)
                     except HostError:
-                        results.append({"spotID": spot_id, "points": None, "reason": "unsupported_band"})
+                        results.append({"spotID": spot_id, "points": None, "dupe": None,
+                                        "multiplierCount": None, "reason": "unsupported_band"})
                         continue
                     desk.clear_inputs()
                     desk.callsign.setText(callsign)
@@ -1443,16 +1454,28 @@ class Host:
                         fields = desk.values()
                         self.validate_exchange(desk, fields)
                     except (HostError, ValueError, TypeError, AttributeError):
-                        results.append({"spotID": spot_id, "points": None, "reason": "exchange_required"})
+                        results.append({"spotID": spot_id, "points": None, "dupe": None,
+                                        "multiplierCount": None, "reason": "exchange_required"})
                         continue
                     try:
                         contact = desk.contact_for(fields, str(uuid.uuid4()), now(), frequency)
                         points = contact.get("Points")
                         require(type(points) in {int, float} and math.isfinite(points) and points >= 0,
                                 "Plugin returned invalid spot points")
-                        results.append({"spotID": spot_id, "points": points, "reason": None})
+                        before = desk.score()["multipliers"]
+                        desk.database.conn.execute("SAVEPOINT spot_preview")
+                        try:
+                            contact["ContestNR"] = store.current_contest
+                            desk.database.exec_sql_insert("DXLOG", contact, commit=False)
+                            multiplier_count = max(0, desk.score()["multipliers"] - before)
+                        finally:
+                            desk.database.conn.execute("ROLLBACK TO spot_preview")
+                            desk.database.conn.execute("RELEASE spot_preview")
+                        results.append({"spotID": spot_id, "points": points, "dupe": bool(desk.contact_is_dupe),
+                                        "multiplierCount": multiplier_count, "reason": None})
                     except (HostError, ValueError, TypeError, AttributeError, ArithmeticError):
-                        results.append({"spotID": spot_id, "points": None, "reason": "scoring_unavailable"})
+                        results.append({"spotID": spot_id, "points": None, "dupe": None,
+                                        "multiplierCount": None, "reason": "scoring_unavailable"})
                 return {"sessionID": session_id, "workspaceGeneration": workspace_generation(current),
                         "revision": current["revision"], "spots": results}
             finally:
@@ -1470,7 +1493,7 @@ class Host:
                 desk = Desk(store, state, self.commit)
                 score_band = desk.database.score_band
                 rows = store.exec_sql_mult(
-                    "SELECT Band,Call,Mode,WPXPrefix,Points FROM DXLOG WHERE ContestNR=?"
+                    "SELECT Band,Call,Mode,WPXPrefix,Points,IsMultiplier1,IsMultiplier2 FROM DXLOG WHERE ContestNR=?"
                     + (" AND Band=?" if score_band is not None else ""),
                     (store.current_contest, *(() if score_band is None else (score_band,))),
                 )
@@ -2358,6 +2381,8 @@ class Host:
                     self.prefill(desk)
                 key = params.get("key")
                 require(key in {f"F{i}" for i in range(1, 13)}, "Unknown function key")
+                if key == "F1" and not state["run"]:
+                    desk.set_running(True)
                 desk.process_function_key(getattr(desk, key))
             elif method == "qso_commit":
                 if "fields" in params or "frequencyHz" in params or "countries" in params or "mode" in params:
@@ -3484,6 +3509,20 @@ class Host:
             raise HostError("invalid_request", "Invalid UTC timestamp") from error
         contact = desk.contact_for(fields, qso_id, timestamp,
                                    frequency or desk.state["draft"]["frequencyHz"], base=base, operator=operator)
+        if desk.state["pluginID"] == "cq_ww_ssb":
+            country = str(contact.get("CountryPrefix", "")).strip().upper()
+            zone = str(contact.get("ZN", "")).strip()
+            eligible = not desk.contact_is_dupe and bool(country)
+            country_count = desk.database.exec_sql(
+                "SELECT count(*) AS n FROM DXLOG WHERE ContestNR=? AND Band=? AND CountryPrefix=?",
+                (desk.database.current_contest, contact.get("Band"), country),
+            )["n"]
+            zone_count = desk.database.exec_sql(
+                "SELECT count(*) AS n FROM DXLOG WHERE ContestNR=? AND Band=? AND ZN=? AND CountryPrefix<>''",
+                (desk.database.current_contest, contact.get("Band"), zone),
+            )["n"]
+            contact["IsMultiplier1"] = int(eligible and country_count == 0)
+            contact["IsMultiplier2"] = int(eligible and bool(zone) and zone_count == 0)
         try:
             desk.database.log_contact(contact)
         except sqlite3.IntegrityError as error:
@@ -3757,6 +3796,21 @@ class Host:
             desk.other_1.setText(replay_other_1)
             desk.callsign.setText(replay_callsign)
         desk.contest.recalculate_mults(desk)
+        if desk.state["pluginID"] == "cq_ww_ssb":
+            countries, zones = set(), set()
+            for row in desk.database.fetch_all_contacts_asc():
+                band = row.get("Band")
+                country = str(row.get("CountryPrefix", "")).strip().upper()
+                zone = str(row.get("ZN", "")).strip()
+                country_key, zone_key = (band, country), (band, zone)
+                duplicate = row["ID"] in duplicate_ids
+                row["IsMultiplier1"] = int(not duplicate and bool(country) and country_key not in countries)
+                row["IsMultiplier2"] = int(not duplicate and bool(country) and bool(zone) and zone_key not in zones)
+                desk.database.change_contact(row)
+                if not duplicate and country:
+                    countries.add(country_key)
+                if not duplicate and country and zone:
+                    zones.add(zone_key)
         if desk.state["pluginID"] == "ca_qso_party":
             seen = set()
             for row in desk.database.fetch_all_contacts_asc():

@@ -359,8 +359,8 @@ class HostTests(unittest.TestCase):
         self.assertEqual(self.read("setup_get")["setup"], expected_setup)
         action = self.mutate("function_key", key="F1")["actions"][0]
         self.assertEqual((action["label"], action["template"], action["stationCall"], action["sentExchange"]),
-                         ("My S&P", "de {MYCALL}", "OM1ABC", "16"))
-        self.mutate("run_state", run=True)
+                         ("My CQ", "cq test {MYCALL}", "OM1ABC", "16"))
+        self.assertTrue(self.read("projection")["projection"]["run"])
         action = self.mutate("function_key", key="F1")["actions"][0]
         self.assertEqual((action["label"], action["template"]), ("My CQ", "cq test {MYCALL}"))
         self.assertEqual(self.mutate("function_key", key="F3")["actions"][0]["template"], "{RST} {EXCHANGE}")
@@ -493,12 +493,15 @@ class HostTests(unittest.TestCase):
         for index in range(125):
             store.log_contact({**base, "ID": uid(), "TS": (start + timedelta(seconds=index)).isoformat(" "),
                                "Call": f"K{index}ABC"})
+        store.log_contact({**base, "ID": uid(), "TS": (start + timedelta(minutes=3)).isoformat(" "), "Call": "YT1A"})
+        store.log_contact({**base, "ID": uid(), "TS": (start + timedelta(minutes=4)).isoformat(" "), "Call": "YT1ET"})
         store.conn.commit()
         result = self.read("contest_check_partial", query="abc", limit=120, expectedRevision=self.revision)
         self.assertEqual((result["query"], result["total"], len(result["rows"])), ("ABC", 126, 120))
         self.assertEqual(result["rows"][0]["ID"], qso)
         self.assertEqual(result["rows"][-1]["Call"], "K118ABC")
-        self.assertEqual(self.read("check_partial", query="124")["rows"][0]["Call"], "K124ABC")
+        self.assertIn("K124ABC", [row["Call"] for row in self.read("check_partial", query="124")["rows"]])
+        self.assertEqual([row["Call"] for row in self.read("check_partial", query="YT1E")["rows"]], ["YT1A", "YT1ET"])
         self.assertEqual(self.read("check_partial", query="NOTFOUND")["total"], 0)
         row = result["rows"][0]
         self.assertTrue({"TS", "Call", "Freq", "SNT", "RCV", "SentNr", "ZN", "WPXPrefix", "CountryPrefix", "Points"} <= set(row))
@@ -511,7 +514,7 @@ class HostTests(unittest.TestCase):
         with self.assertRaises(HostError) as error:
             self.read("check_partial", query="ABC", expectedRevision=self.revision - 1)
         self.assertEqual(error.exception.code, "stale_revision")
-        for params in ({"query": "%"}, {"query": ""}, {"query": "ABC", "limit": 501}, {"query": "ABC", "limit": True}):
+        for params in ({"query": "%"}, {"query": ""}, {"query": "AB"}, {"query": "ABC", "limit": 501}, {"query": "ABC", "limit": True}):
             with self.subTest(params=params), self.assertRaises(HostError):
                 self.read("check_partial", **params)
 

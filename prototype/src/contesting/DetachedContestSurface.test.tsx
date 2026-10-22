@@ -32,6 +32,7 @@ const snapshot={operatingContext,scope:"contesting",sessionID,workspaceGeneratio
 const sharedSpot={id:"spot-1",receivedAt:Math.floor(Date.now()/1000)-978_307_200,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,
   frequencyKHz:14025,frequencyText:"14025.0",callsign:"DL1ABC",comment:"CQ",band:"20m",mode:"CW",country:"Germany",adif:230,
   continent:"EU",cqZone:14,ituZone:28,callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,contestPoints:null,
+  contestDupe:null,contestMultiplierCount:null,
   scoreReasons:[],aggregateCount:1,aggregateSpotters:["K1ABC"],source:"DX Cluster",statusHex:"",bandHex:"",modeHex:"",marked:false};
 const tabMaps={tabNext:{callsign:"sent",sent:"receive",receive:"other_1",other_1:"other_2",other_2:"callsign"},
   tabPrevious:{callsign:"other_2",sent:"callsign",receive:"sent",other_1:"receive",other_2:"other_1"}} as const;
@@ -66,7 +67,7 @@ it("ignores publication wakes for other detached contest panels",async()=>{
   native.invoke.mockImplementation(async(command:string)=>command==="contest_surface_snapshot"
     ?{...snapshot,panelID:"callsign-intelligence",projection:check}:Promise.reject(new Error(command)));
   render(<DetachedContestSurface/>);
-  expect(await screen.findByDisplayValue("OM0A")).toBeTruthy();
+  expect(await screen.findByRole("heading",{name:"Check Partial"})).toBeTruthy();
   const reads=()=>native.invoke.mock.calls.filter(([command])=>command==="contest_surface_snapshot").length;
   const initial=reads();
   await act(async()=>{native.emit!("active-qso");await Promise.resolve();});
@@ -225,6 +226,22 @@ it("renders Statistics v3 as the original compact table with TOTAL last", async 
   expect(screen.queryByRole("button")).toBeNull();
   expect(document.querySelector("canvas")).toBeNull();
   expect(document.querySelector("dl")).toBeNull();
+});
+
+it("renders the CQ WW score breakdown with zones, countries and claimed score", async () => {
+  window.history.replaceState({}, "", search.replace("view=active-qso", "view=propagation"));
+  const view={schemaVersion:3,status:"ready",layout:"cq_ww",score:{qsos:6,points:21,multipliers:8,claimedScore:168,
+    multiplierLabels:["4 countries","4 zones"],multiplierDisplayLabels:["4 countries","4 zones"],sourceVerification:"verified"},
+    rows:[{band:"20m",qsos:4,points:15,countries:3,zones:2},{band:"40m",qsos:2,points:6,countries:1,zones:2}],
+    total:{band:"TOTAL",qsos:6,points:21,countries:4,zones:4},busy:false} as const;
+  expect(validContestSurfaceProjection("propagation",view)).toBe(true);
+  native.invoke.mockResolvedValue({...snapshot,panelID:"propagation",projection:view});render(<DetachedContestSurface/>);
+  const table=await screen.findByRole("table",{name:"CQ WW statistics"});
+  expect(Array.from(table.querySelectorAll("thead th")).map(cell=>cell.textContent)).toEqual(["BAND","QSO","PTS","ZN","CTY"]);
+  expect(Array.from(table.querySelectorAll("tbody tr")).map(row=>Array.from(row.children).map(cell=>cell.textContent))).toEqual([
+    ["20m","4","15","2","3"],["40m","2","6","2","1"],["TOTAL","6","21","4","4"],
+  ]);
+  expect(screen.getByText("Claimed score").parentElement?.textContent).toContain("168");
 });
 
 it("shows actionable bounded HTTPS RTC reporting separately from legacy and UDP paths", async () => {
@@ -595,6 +612,28 @@ it("renders the exact plugin log columns for both paged and partial rows",async(
   }));
 });
 
+it("fits the detached Log page to the visible primary pane and requests that exact limit",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
+  let resized=()=>{};
+  class TestResizeObserver { constructor(callback:()=>void){resized=callback;} observe(){} disconnect(){} }
+  vi.stubGlobal("ResizeObserver",TestResizeObserver);
+  const height=Object.getOwnPropertyDescriptor(HTMLElement.prototype,"clientHeight");
+  Object.defineProperty(HTMLElement.prototype,"clientHeight",{configurable:true,get:()=>240});
+  try {
+    const view={schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,
+      page:{offset:20,limit:20,total:32,rows:[]},manualRows:[],partialRows:[],editing:null,busy:false};
+    native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>command==="contest_surface_snapshot"
+      ? {...snapshot,panelID:"logbook",projection:view}:{requestID:args.requestID,status:"queued"});
+    render(<DetachedContestSurface/>);await screen.findByRole("heading",{name:"Log Display"});
+    await act(async()=>resized());
+    await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="log_page")?.[1])
+      .toMatchObject({panelID:"logbook",action:"log_page",params:{offset:16,limit:8}}));
+  } finally {
+    if(height)Object.defineProperty(HTMLElement.prototype,"clientHeight",height);else delete (HTMLElement.prototype as any).clientHeight;
+    vi.unstubAllGlobals();
+  }
+});
+
 it.each([
   ["Export Cabrillo…","log_export_cabrillo",{}],
   ["Export ADIF…","log_export_adif",{}],
@@ -624,14 +663,21 @@ it("hides Cabrillo when the Python contest projection only admits ADIF export",a
   expect(screen.queryByRole("button",{name:"Export EDI…"})).toBeNull();
 });
 
-it("uses supplied full-log and cluster calls in their manual Check Partial columns",async()=>{
+it("uses four N1MM Check Partial panes with exact, changed, and extra character highlighting",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=callsign-intelligence"));
-  const view={schemaVersion:1,status:"ready",draftID:"draft-1",draftRevision:5,inputCallsign:"DL1",loggedCalls:["DL1ABC"],clusterCalls:["DL1XYZ"],scp:{source:null,candidates:[]},history:{source:null,rows:[]},busy:false};
+  const view={schemaVersion:1,status:"ready",draftID:"draft-1",draftRevision:5,inputCallsign:"DL1A",
+    loggedCandidates:[{candidateID:"log:DL1A",callsign:"DL1A"}],clusterCandidates:[{candidateID:"cluster:DL1E",callsign:"DL1E"}],
+    scp:{source:"MASTER.SCP",candidates:[{candidateID:"scp:KDL1A",callsign:"KDL1A"},{candidateID:"scp:DL1ABC",callsign:"DL1ABC"}]},
+    history:{source:"Call History",rows:[{candidateID:"history:DL1AX",callsign:"DL1AX",fields:[]}]},busy:false};
   expect(validContestSurfaceProjection("callsign-intelligence",view)).toBe(true);
   native.invoke.mockResolvedValue({...snapshot,panelID:"callsign-intelligence",projection:view});render(<DetachedContestSurface/>);
   await screen.findByRole("heading",{name:"Check Partial"});
-  expect(screen.getByRole("heading",{name:"Log"}).parentElement?.textContent).toBe("LogDL1ABC");
-  expect(screen.getByRole("heading",{name:"Telnet"}).parentElement?.textContent).toBe("TelnetDL1XYZ");
+  expect(["Log","Master","Telnet","Call History"].map(name=>screen.getByRole("heading",{name}).textContent)).toHaveLength(4);
+  expect(screen.getByRole("button",{name:"DL1A"}).querySelector(".contest-check-exact")?.textContent).toBe("DL1A");
+  expect(screen.getByRole("button",{name:"DL1E"}).querySelector(".contest-check-changed")?.textContent).toBe("E");
+  expect(screen.getByRole("button",{name:"DL1ABC"}).querySelectorAll(".contest-check-extra")).toHaveLength(2);
+  expect(screen.getByRole("button",{name:"KDL1A"}).querySelector(".contest-check-extra")?.textContent).toBe("K");
+  expect(screen.getByRole("button",{name:"KDL1A"}).querySelectorAll(".contest-check-match")).toHaveLength(4);
 });
 
 it("routes missing-corpus download, refresh, and retry through the contest owner",async()=>{
@@ -1353,19 +1399,17 @@ it("routes the default Ctrl+Q return-to-CQ binding through one fenced owner acti
     .toMatchObject({action:"entry_return_cq_frequency",params:{draftID:"draft-1",expectedDraftRevision:5}}));
 });
 
-it("retains the manual Check Partial Log, Master and Telnet columns with explicit missing sources",async()=>{
+it("retains four Check Partial columns with explicit missing sources",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=callsign-intelligence"));
   native.invoke.mockResolvedValue({...snapshot,panelID:"callsign-intelligence",projection:{schemaVersion:1,status:"ready",draftID:"draft-1",draftRevision:5,
     inputCallsign:"OM0",scp:{source:null,candidates:[{candidateID:"scp-1",callsign:"OM0RX"}]},history:{source:null,rows:[]},busy:false}});
   render(<DetachedContestSurface/>);
   await screen.findByRole("heading",{name:"Check Partial"});
-  expect(["Log","Master","Telnet"].map(name=>screen.getByRole("heading",{name}).textContent)).toEqual(["Log","Master","Telnet"]);
+  expect(["Log","Master","Telnet","Call History"].map(name=>screen.getByRole("heading",{name}).textContent)).toEqual(["Log","Master","Telnet","Call History"]);
   expect(screen.getByLabelText("Matching logged calls unavailable").textContent).toBe("—");
   expect(screen.getByLabelText("Matching cluster calls unavailable").textContent).toBe("—");
   expect(screen.getByRole("button",{name:"OM0RX"})).toBeTruthy();
-  const tools=screen.getByText("Query & call history").closest("details");
-  expect(tools?.hasAttribute("open")).toBe(false);
-  expect(tools?.contains(screen.getByLabelText("Callsign query"))).toBe(true);
+  expect(screen.queryByLabelText("Callsign query")).toBeNull();
 });
 
 it("retains the original log headings and an empty partial pane when the log is empty",async()=>{

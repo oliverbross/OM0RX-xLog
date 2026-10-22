@@ -35,7 +35,7 @@ export type ContestSurfaceAction =
   | { action: "assistance_select"; params: DraftRevision & { kind: "scp" | "history" | "log" | "cluster"; candidateID: string } }
   | { action: "log_export_cabrillo" | "log_export_adif" | "log_export_edi"; params: Record<string, never> }
   | { action: "log_recalculate"; params: { expectedSessionRevision: Revision } }
-  | { action: "log_page"; params: { offset: number } }
+  | { action: "log_page"; params: { offset: number; limit: number } }
   | { action: "log_edit_begin" | "log_edit_cancel"; params: { qsoID: string } }
   | { action: "log_edit_set_text"; params: { qsoID: string; field: "callsign" | "sentReport" | "receivedReport" |
       "timestamp" | "operator" | "name" | "qth" | "comment" | "correctionReason" | "deletionReason"; value: string } }
@@ -116,8 +116,10 @@ export type ContestStatisticsSurfaceProjectionV1 = { schemaVersion: 1; status: "
   score: ContestStatisticsScore; busy: boolean };
 export type ContestStatisticsRow = { band: string; qsos: number; calls: number; cw: number; phone: number;
   digital: number; wpx: number; points: number };
-export type ContestStatisticsSurfaceProjectionV3 = { schemaVersion: 3; status: "ready";
-  score: ContestStatisticsScore; rows: ContestStatisticsRow[]; total: ContestStatisticsRow; busy: boolean };
+export type ContestCQWWStatisticsRow = { band: string; qsos: number; points: number; countries: number; zones: number };
+export type ContestStatisticsSurfaceProjectionV3 = { schemaVersion: 3; status: "ready"; score: ContestStatisticsScore; busy: boolean } & (
+  { layout?: "generic"; rows: ContestStatisticsRow[]; total: ContestStatisticsRow } |
+  { layout: "cq_ww"; rows: ContestCQWWStatisticsRow[]; total: ContestCQWWStatisticsRow });
 export type ContestStatisticsSurfaceProjection = ContestStatisticsSurfaceProjectionV1 | ContestStatisticsSurfaceProjectionV3;
 // Rates are computed from the full Python-owned contest log, never a displayed log page.
 export type ContestRatesSurfaceProjection = { schemaVersion: 1; status: "ready";
@@ -141,7 +143,8 @@ export type ContestSurfaceSpot = { id: string; receivedAt: number; clusterName: 
   spotterContinent: string | null; frequencyKHz: number; frequencyText: string; callsign: string; comment: string;
   band: string; mode: string; country: string; adif: number | null; continent: string; cqZone: number | null;
   ituZone: number | null; callStatus: string; dxccStatus: string; workedBefore: number | null; specialTags: string[];
-  score: number; contestPoints: number | null; scoreReasons: string[]; aggregateCount: number; aggregateSpotters: string[]; source: string;
+  score: number; contestPoints: number | null; contestDupe: boolean | null; contestMultiplierCount: number | null;
+  scoreReasons: string[]; aggregateCount: number; aggregateSpotters: string[]; source: string;
   statusHex: string; bandHex: string; modeHex: string; marked: boolean };
 export type ContestSpotSurfaceProjection = { schemaVersion: 2; status: "ready"; draftID: string; draftRevision: number;
   radioFrequencyHz: number | null; connectedClusters: number; loadedSpots: number; selectedSpotID: string | null;
@@ -343,10 +346,30 @@ function validStatisticsRow(value: unknown, total: boolean): value is ContestSta
   return (value.calls as number) <= (value.qsos as number) && (value.wpx as number) <= (value.qsos as number) &&
     (value.cw as number) + (value.phone as number) + (value.digital as number) <= (value.qsos as number);
 }
+function validCQWWStatisticsRow(value: unknown, total: boolean): value is ContestCQWWStatisticsRow {
+  return record(value) && exact(value, ["band", "qsos", "points", "countries", "zones"]) && text(value.band, 16) &&
+    (total ? value.band === "TOTAL" : value.band !== "TOTAL") && uint(value.qsos) && Number.isSafeInteger(value.points) &&
+    uint(value.countries) && uint(value.zones) && (value.countries as number) <= (value.qsos as number) &&
+    (value.zones as number) <= (value.qsos as number);
+}
 function validStatisticsProjectionV3(value: Record<string, unknown>) {
-  if (!exact(value, ["schemaVersion", "status", "score", "rows", "total", "busy"]) || typeof value.busy !== "boolean" ||
+  const cqWW = value.layout === "cq_ww";
+  if (!(cqWW ? exact(value, ["schemaVersion", "status", "layout", "score", "rows", "total", "busy"])
+      : optionalKeys(value, ["schemaVersion", "status", "score", "rows", "total", "busy"], ["layout"])) ||
+      (!cqWW && value.layout !== undefined && value.layout !== "generic") || typeof value.busy !== "boolean" ||
       !validStatisticsScore(value.score, true) || !Array.isArray(value.rows) || value.rows.length > 64 ||
-      !value.rows.every(row => validStatisticsRow(row, false)) || !validStatisticsRow(value.total, true)) return false;
+      !value.rows.every(row => cqWW ? validCQWWStatisticsRow(row, false) : validStatisticsRow(row, false)) ||
+      !(cqWW ? validCQWWStatisticsRow(value.total, true) : validStatisticsRow(value.total, true))) return false;
+  if (cqWW) {
+    const rows = value.rows as ContestCQWWStatisticsRow[], total = value.total as ContestCQWWStatisticsRow;
+    if (new Set(rows.map(row => row.band)).size !== rows.length) return false;
+    const sums = rows.reduce((result, row) => ({ qsos:result.qsos+row.qsos, points:result.points+row.points,
+      countries:result.countries+row.countries, zones:result.zones+row.zones }), {qsos:0,points:0,countries:0,zones:0});
+    const score = value.score as Exclude<ContestStatisticsScore, null> | null;
+    return Object.values(sums).every(Number.isSafeInteger) && (["qsos","points","countries","zones"] as const)
+      .every(key => total[key] === sums[key]) && !!score && score.qsos === total.qsos && score.points === total.points &&
+      score.multipliers === total.countries + total.zones;
+  }
   const rows = value.rows as ContestStatisticsRow[], total = value.total as ContestStatisticsRow;
   if (new Set(rows.map(row => row.band)).size !== rows.length) return false;
   const sums = rows.reduce((result, row) => ({ qsos: result.qsos + row.qsos, calls: result.calls + row.calls,
@@ -445,10 +468,12 @@ function validSpotProjection(value: Record<string, unknown>) {
   return value.spots.every(item => {
     if (!record(item) || !exact(item, ["id", "receivedAt", "clusterName", "spotter", "spotterContinent", "frequencyKHz",
         "frequencyText", "callsign", "comment", "band", "mode", "country", "adif", "continent", "cqZone", "ituZone",
-        "callStatus", "dxccStatus", "workedBefore", "specialTags", "score", "contestPoints", "scoreReasons", "aggregateCount",
+        "callStatus", "dxccStatus", "workedBefore", "specialTags", "score", "contestPoints", "contestDupe", "contestMultiplierCount", "scoreReasons", "aggregateCount",
         "aggregateSpotters", "source", "statusHex", "bandHex", "modeHex", "marked"]) || !text(item.id, 128) || ids.has(item.id as string) ||
         !["receivedAt", "frequencyKHz", "score"].every(key => typeof item[key] === "number" && Number.isFinite(item[key]) && (item[key] as number) >= 0) ||
         item.contestPoints !== null && (typeof item.contestPoints !== "number" || !Number.isFinite(item.contestPoints) || item.contestPoints < 0) ||
+        item.contestDupe !== null && typeof item.contestDupe !== "boolean" ||
+        item.contestMultiplierCount !== null && !uint(item.contestMultiplierCount) ||
         !uint(item.aggregateCount) || !["clusterName", "spotter", "frequencyText", "comment", "country", "continent", "callStatus",
           "dxccStatus", "source", "statusHex", "bandHex", "modeHex"].every(key => text(item[key], 512, true)) ||
         !text(item.callsign, 32) || !text(item.band, 16) || !text(item.mode, 16) ||
@@ -533,7 +558,8 @@ function validParams(action: string, params: Record<string, unknown>) {
     oneOf(params.kind, ["scp", "history", "log", "cluster"]) && text(params.candidateID, 160);
   if (action === "log_export_cabrillo" || action === "log_export_adif" || action === "log_export_edi") return exact(params, []);
   if (action === "log_recalculate") return exact(params, ["expectedSessionRevision"]) && uint(params.expectedSessionRevision);
-  if (action === "log_page") return exact(params, ["offset"]) && uint(params.offset, 1_000_000);
+  if (action === "log_page") return exact(params, ["offset", "limit"]) && uint(params.offset, 1_000_000) &&
+    uint(params.limit, 20) && (params.limit as number) > 0;
   if (action === "log_edit_begin" || action === "log_edit_cancel") return qso(params, []);
   if (action === "log_edit_set_text") return qso(params, ["field", "value"]) &&
     oneOf(params.field, ["callsign", "sentReport", "receivedReport", "timestamp", "operator", "name", "qth", "comment", "correctionReason", "deletionReason"]) && text(params.value, 1024, true);

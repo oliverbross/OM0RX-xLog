@@ -31,7 +31,7 @@ def calculate_statistics(rows):
         band = _band(row.get("Band"))
         values = grouped.setdefault(band, {
             "qsos": 0, "calls": set(), "cw": 0, "phone": 0, "digital": 0,
-            "wpx": set(), "points": 0,
+            "wpx": set(), "countries": 0, "zones": 0, "points": 0,
         })
         values["qsos"] += 1
         call = row.get("Call")
@@ -53,6 +53,8 @@ def calculate_statistics(rows):
         prefix = row.get("WPXPrefix")
         if prefix is not None:
             values["wpx"].add(prefix)
+        values["countries"] += 1 if _integer(row.get("IsMultiplier1")) else 0
+        values["zones"] += 1 if _integer(row.get("IsMultiplier2")) else 0
         values["points"] += _integer(row.get("Points"))
 
     ordered = sorted(grouped, reverse=True)
@@ -64,7 +66,8 @@ def calculate_statistics(rows):
             "band": f"{band:.1f}", "qsos": values["qsos"],
             "calls": len(values["calls"]), "cw": values["cw"],
             "phone": values["phone"], "digital": values["digital"],
-            "wpx": len(values["wpx"]), "points": values["points"],
+            "wpx": len(values["wpx"]), "countries": values["countries"],
+            "zones": values["zones"], "points": values["points"],
         })
     total = {
         "band": "TOTAL", "qsos": sum(row["qsos"] for row in result),
@@ -72,6 +75,8 @@ def calculate_statistics(rows):
         "phone": sum(row["phone"] for row in result),
         "digital": sum(row["digital"] for row in result),
         "wpx": sum(row["wpx"] for row in result),
+        "countries": sum(row["countries"] for row in result),
+        "zones": sum(row["zones"] for row in result),
         "points": sum(row["points"] for row in result),
     }
     return {"rows": result, "total": total}

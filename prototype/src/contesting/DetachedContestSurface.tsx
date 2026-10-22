@@ -628,6 +628,21 @@ function Check({ projection, disabled, projectionRevision, receipts, send }: { p
     availability==="status_unavailable"?"Local SCP status is unavailable. Any previously active corpus is retained.":
     "No local MASTER.SCP corpus is active.";
   const assistance=(action:"assistance_download"|"assistance_refresh")=>void send({action,params:base},projectionRevision);
+  const candidateLabel=(callsign:string)=>{
+    const query=String(projection.inputCallsign??"").trim().toUpperCase();
+    if(callsign===query)return <em className="contest-check-exact">{callsign}</em>;
+    const substring=callsign.indexOf(query);
+    return <>{[...callsign].map((character,index)=>{
+      const extra=substring>=0?(index<substring||index>=substring+query.length):index>=query.length;
+      const changed=substring<0&&index<query.length&&character!==query[index];
+      return <span key={`${index}-${character}`} className={extra?"contest-check-extra":changed?"contest-check-changed":"contest-check-match"}>{character}</span>;
+    })}</>;
+  };
+  const candidates=(kind:"log"|"scp"|"cluster"|"history",items:any[])=>items.length?<ContestCandidates className="contest-surface-results"
+    disabled={disabled} strongLabel={false} candidates={items.map(item=>({id:item.candidateID,label:candidateLabel(item.callsign),
+      detail:kind==="history"?item.fields.map((field:any)=>`${field.label}: ${field.value}`).join(" · "):undefined,
+      className:kind==="history"?"contest-surface-history":undefined}))}
+    onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind,candidateID}},projectionRevision)}/>:<p>—</p>;
   return <section className="contest-surface-check"><h1>Check Partial</h1>
     <div className="contest-surface-check-recovery" role="region" aria-label="Super Check Partial corpus">
       <div><strong>{projection.scp.source??"MASTER.SCP unavailable"}</strong>{availability!=="ready"&&<p>{unavailableMessage}</p>}</div>
@@ -636,26 +651,28 @@ function Check({ projection, disabled, projectionRevision, receipts, send }: { p
         {projection.scp.error&&<button type="button" disabled={disabled} onClick={()=>assistance(availability==="status_unavailable"?"assistance_refresh":"assistance_download")}>Retry</button>}</div>
       {projection.scp.notice&&<p role="status">{projection.scp.notice}</p>}{projection.scp.error&&<p role="alert">{projection.scp.error}</p>}
     </div>
-    <div className="contest-surface-check-columns"><div><h2>Log</h2>{projection.loggedCandidates ? <ContestCandidates className="contest-surface-results" disabled={disabled} strongLabel={false}
-      candidates={projection.loggedCandidates.map((item:any)=>({id:item.candidateID,label:item.callsign}))}
-      onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"log",candidateID}},projectionRevision)}/> : projection.loggedCalls?.map((call:string)=><p key={call}>{call}</p>)}{!projection.loggedCandidates&&!projection.loggedCalls&&<p aria-label="Matching logged calls unavailable">—</p>}</div><div><h2>Master</h2><ContestCandidates className="contest-surface-results" disabled={disabled} strongLabel={false}
-      candidates={projection.scp.candidates.map((item:any)=>({id:item.candidateID,label:item.callsign}))}
-      onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"scp",candidateID}},projectionRevision)}/></div><div><h2>Telnet</h2>{projection.clusterCandidates ? <ContestCandidates className="contest-surface-results" disabled={disabled} strongLabel={false}
-      candidates={projection.clusterCandidates.map((item:any)=>({id:item.candidateID,label:item.callsign}))}
-      onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"cluster",candidateID}},projectionRevision)}/> : projection.clusterCalls?.map((call:string)=><p key={call}>{call}</p>)}{!projection.clusterCandidates&&!projection.clusterCalls&&<p aria-label="Matching cluster calls unavailable">—</p>}</div></div>
-    <details className="contest-surface-check-tools"><summary>Query &amp; call history</summary><div>
-      <IntentInput label="Callsign query" value={projection.inputCallsign}
-        identity={`${projection.draftID}/query`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled}
-        maximumUTF8Bytes={32} send={send} action={inputCallsign=>({action:"assistance_query",params:{...base,inputCallsign}})}/>
-      <section aria-label="Call history"><ContestCandidates disabled={disabled}
-        candidates={projection.history.rows.map((row:any)=>({id:row.candidateID,label:row.callsign,className:"contest-surface-history",
-          detail:row.fields.map((field:any)=>`${field.label}: ${field.value}`).join(" · ")}))}
-        onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"history",candidateID}},projectionRevision)}/></section>
-    </div></details></section>;
+    <div className="contest-surface-check-columns">
+      <div><h2>Log</h2>{projection.loggedCandidates?candidates("log",projection.loggedCandidates):<p aria-label="Matching logged calls unavailable">—</p>}</div>
+      <div><h2>Master</h2>{candidates("scp",projection.scp.candidates)}</div>
+      <div><h2>Telnet</h2>{projection.clusterCandidates?candidates("cluster",projection.clusterCandidates):<p aria-label="Matching cluster calls unavailable">—</p>}</div>
+      <div><h2>Call History</h2>{candidates("history",projection.history.rows)}</div>
+    </div></section>;
 }
 function Statistics({ projection }: { projection: ContestStatisticsSurfaceProjection }) {
   if (projection.schemaVersion === 1)
     return <section className="contest-surface-statistics"><h1>Statistics</h1><ContestScoreSummary score={projection.score} detached/></section>;
+  if (projection.layout === "cq_ww") {
+    const rows=[...projection.rows,projection.total];
+    return <section className="contest-surface-statistics contest-surface-statistics-v3" aria-label="CQ WW Statistics" aria-busy={projection.busy}>
+      <div className="contest-surface-statistics-scroll" role="region" aria-label="CQ WW contest statistics" tabIndex={0}><table aria-label="CQ WW statistics"><thead><tr>
+        {(["BAND","QSO","PTS","ZN","CTY"] as const).map(label=><th key={label} scope="col">{label}</th>)}
+      </tr></thead><tbody>{rows.map(row=><tr key={row.band} className={row.band==="TOTAL"?"contest-surface-statistics-total":undefined}>
+        <th scope="row">{row.band}</th><td>{row.qsos.toLocaleString()}</td><td>{row.points.toLocaleString()}</td>
+        <td>{row.zones.toLocaleString()}</td><td>{row.countries.toLocaleString()}</td>
+      </tr>)}</tbody></table></div>
+      <footer className="contest-surface-statistics-score"><span>Claimed score</span><strong>{projection.score?.claimedScore.toLocaleString()??"—"}</strong></footer>
+    </section>;
+  }
   const rows = [...projection.rows, projection.total];
   return <section className="contest-surface-statistics contest-surface-statistics-v3" aria-label="Statistics" aria-busy={projection.busy}>
     <div className="contest-surface-statistics-scroll" role="region" aria-label="Scrollable contest statistics" tabIndex={0}><table aria-label="Contest statistics"><thead><tr>
@@ -782,6 +799,20 @@ function ContactEditor({projection,disabled,sending,projectionRevision,receipts,
 }
 function Log({projection,disabled,sending,projectionRevision,send,openEditor}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;send:Send;openEditor:(qsoID:string)=>Promise<void>}) {
   const partialRows=projection.partialRows??[], pluginPartialRows=projection.pluginPartialRows??[], [inline,setInline]=useState<InlineLogCell|null>(null);
+  const primaryPane=useRef<HTMLElement|null>(null);
+  useLayoutEffect(()=>{
+    const element=primaryPane.current;
+    if(!element||typeof ResizeObserver==="undefined")return;
+    let last=projection.page.limit;
+    const resize=new ResizeObserver(()=>{
+      const next=Math.max(1,Math.min(20,Math.floor((element.clientHeight-48)/24)));
+      if(next===last||next===projection.page.limit)return;
+      last=next;
+      const offset=Math.floor(projection.page.offset/next)*next;
+      void send({action:"log_page",params:{offset,limit:next}},projectionRevision);
+    });
+    resize.observe(element);return()=>resize.disconnect();
+  },[projection.page.limit,projection.page.offset,projectionRevision,send]);
   const beginInline=async(qsoID:string,columnIndex:number,edit:ContestLogInlineEdit,source:string)=>{
     const result=await send({action:"log_edit_begin",params:{qsoID}},projectionRevision);
     if(result.applied&&result.projectionRevision!==null)setInline({qsoID,columnIndex,source,edit,value:edit.value,
@@ -812,15 +843,15 @@ function Log({projection,disabled,sending,projectionRevision,send,openEditor}:{p
   {projection.canExportEdi===true&&<button disabled={disabled||sending} onClick={()=>void send({action:"log_export_edi",params:{}},projectionRevision)}>Export EDI…</button>}
   <button disabled={disabled||sending} onClick={()=>void send({action:"log_recalculate",params:{expectedSessionRevision:projection.sessionRevision}},projectionRevision)}>Recalculate</button></div></details></header>
   <div className="contest-surface-log-panes">{projection.exchangeLayout==="plugin" ? <>
-    <section className="contest-surface-log-pane-primary"><h2>Chronological log</h2><PluginLogTable columns={projection.pluginColumns} rows={projection.pluginRows} disabled={disabled} label="Contest log" inline={inline} inlineInput={inlineInput}
+    <section ref={primaryPane} className="contest-surface-log-pane-primary"><h2>Chronological log</h2><PluginLogTable columns={projection.pluginColumns} rows={projection.pluginRows} disabled={disabled} label="Contest log" inline={inline} inlineInput={inlineInput}
       onInlineEdit={(qsoID,columnIndex,edit)=>void beginInline(qsoID,columnIndex,edit,"Contest log")} onEdit={qsoID=>{setInline(null);void openEditor(qsoID);}}/></section>
     <section className="contest-surface-log-pane-secondary"><h2>Callsign partial matches</h2><PluginLogTable columns={projection.pluginColumns} rows={pluginPartialRows} disabled={disabled} label="Callsign partial matches" inline={inline} inlineInput={inlineInput}
       onInlineEdit={(qsoID,columnIndex,edit)=>void beginInline(qsoID,columnIndex,edit,"Callsign partial matches")} onEdit={qsoID=>{setInline(null);void openEditor(qsoID);}}/></section></>
-    : <><section className="contest-surface-log-pane-primary"><h2>Chronological log</h2><ManualLogTable rows={projection.manualRows??projection.page.rows} disabled={disabled} label="Contest log" onEdit={qsoID=>void openEditor(qsoID)}/></section>
+    : <><section ref={primaryPane} className="contest-surface-log-pane-primary"><h2>Chronological log</h2><ManualLogTable rows={projection.manualRows??projection.page.rows} disabled={disabled} label="Contest log" onEdit={qsoID=>void openEditor(qsoID)}/></section>
       <section className="contest-surface-log-pane-secondary"><h2>Callsign partial matches</h2><ManualLogTable rows={partialRows} disabled={disabled} label="Callsign partial matches" onEdit={qsoID=>void openEditor(qsoID)}/></section></>}</div>
-  <footer><button disabled={disabled||projection.page.offset===0} onClick={()=>void send({action:"log_page",params:{offset:Math.max(0,projection.page.offset-projection.page.limit)}},projectionRevision)}>Previous</button>
+  <footer><button disabled={disabled||projection.page.offset===0} onClick={()=>void send({action:"log_page",params:{offset:Math.max(0,projection.page.offset-projection.page.limit),limit:projection.page.limit}},projectionRevision)}>Previous</button>
     <span>{projection.page.total?`${projection.page.offset+1}–${projection.page.offset+projection.page.rows.length} of ${projection.page.total}`:"No contacts"}</span>
-    <button disabled={disabled||projection.page.offset+projection.page.rows.length>=projection.page.total} onClick={()=>void send({action:"log_page",params:{offset:projection.page.offset+projection.page.limit}},projectionRevision)}>Next</button></footer></section>; }
+    <button disabled={disabled||projection.page.offset+projection.page.rows.length>=projection.page.total} onClick={()=>void send({action:"log_page",params:{offset:projection.page.offset+projection.page.limit,limit:projection.page.limit}},projectionRevision)}>Next</button></footer></section>; }
 
 function SharedContestSurface() {
   const context = useMemo(() => contestSurfaceContextFromSearch(window.location.search), []);

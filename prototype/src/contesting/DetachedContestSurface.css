@@ -157,7 +157,7 @@
 .contest-surface-contact-footer > div > span { display:block; text-align:left; }
 .contest-surface-contact-footer > output { display:flex; justify-content:space-between; color:var(--amber); }
 .contest-surface-entry-options > summary { color:var(--secondary); cursor:pointer; font-size:12px; }
-.contest-surface-check-columns { display:grid; flex:1 1 0; grid-template-columns:repeat(3,minmax(0,1fr)); min-height:220px; overflow:hidden; border:1px solid var(--border); }
+.contest-surface-check-columns { display:grid; flex:1 1 0; grid-template-columns:repeat(4,minmax(0,1fr)); min-height:220px; overflow:hidden; border:1px solid var(--border); }
 .contest-surface-check > h1 { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
 .contest-surface-check > details { flex:none; }
 .contest-surface-check-tools > summary { color:var(--secondary); cursor:pointer; font-size:11px; }
@@ -168,6 +168,10 @@
 .contest-surface-check-columns h2 { text-align:center; border-bottom:1px solid var(--border); padding:4px; }
 .contest-surface-check-columns .contest-surface-results { display:flex; flex:1 1 0; flex-direction:column; flex-wrap:nowrap; align-items:stretch; min-height:0; gap:0; overflow-x:hidden; overflow-y:auto; }
 .contest-surface-check-columns button { width:100%; min-width:0; overflow:hidden; text-overflow:ellipsis; text-align:left; border:0; border-radius:0; padding:4px; min-height:24px; }
+.contest-check-exact { color:var(--cyan); font-weight:800; }
+.contest-check-match { color:var(--cyan); font-weight:700; }
+.contest-check-changed { color:var(--error); }
+.contest-check-extra { color:var(--teal); }
 .contest-surface-statistics { max-width:520px; }
 .contest-surface-statistics .contest-surface-results > span { color:var(--amber); background:var(--control); }
 .contest-surface-statistics-v3 { max-width:none; gap:0; overflow:hidden; }
@@ -180,6 +184,8 @@
 .contest-surface-statistics-v3 tbody th { color:var(--text); text-align:left; font-weight:500; }
 .contest-surface-statistics-v3 tbody td { color:var(--text); }
 .contest-surface-statistics-v3 .contest-surface-statistics-total :is(th,td) { border-top:1px solid var(--teal); border-bottom:0; color:var(--teal); font-weight:700; }
+.contest-surface-statistics-score { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:7px; border:1px solid var(--border); border-top:0; color:var(--secondary); background:var(--control); }
+.contest-surface-statistics-score strong { color:var(--teal); font:700 16px ui-monospace,monospace; font-variant-numeric:tabular-nums; }
 .contest-surface-rates { width:100%; font-family:ui-monospace,monospace; }
 .contest-surface-rates .contest-surface-rate-scope { text-align:center; font-size:12px; color:var(--secondary); }
 .contest-surface-rates dl { display:flex; flex-direction:column; gap:2px; margin:0; }
@@ -194,7 +200,7 @@
 .contest-surface-log-panes { display:grid; flex:1 1 0; grid-template-rows:minmax(112px,2fr) minmax(76px,1fr); min-height:0; gap:1px; border:1px solid var(--border); background:var(--border); }
 .contest-surface-log-panes > section { display:flex; flex-direction:column; min-width:0; min-height:0; gap:4px; }
 .contest-surface-log-pane-primary,.contest-surface-log-pane-secondary { background:var(--canvas); }
-.contest-surface-log-scroll { flex:1; min-width:0; max-width:100%; min-height:0; overflow:auto; overscroll-behavior:contain; border:0; }
+.contest-surface-log-scroll { flex:1; min-width:0; max-width:100%; min-height:0; overflow:hidden; border:0; }
 .contest-surface-log-scroll table { min-width:max-content; }
 .contest-surface-log-scroll .contest-surface-original-log { width:100%; min-width:720px; table-layout:fixed; }
 .contest-surface-original-log th:nth-child(1) { width:21%; }

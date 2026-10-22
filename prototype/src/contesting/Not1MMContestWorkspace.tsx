@@ -12,7 +12,7 @@ import { not1mmHistoryCandidate } from "./contestCallHistory";
 import type { ContestRequest } from "./types";
 import { contestInputFieldIDs, contestSurfacePanelIDs, type ContestInputFieldID, type ContestSurfaceActionEnvelope, type ContestSurfacePanelID,
   type ContestSurfaceProjection, type ContestLogInlineEdit, type ContestManualRow, type ContestManualContext, type ContestPluginLogRow,
-  type ContestStatisticsRow, type ContestSurfaceSpot, validContestSurfaceProjection } from "./contestSurfaceProtocol";
+  type ContestCQWWStatisticsRow, type ContestStatisticsRow, type ContestSurfaceSpot, validContestSurfaceProjection } from "./contestSurfaceProtocol";
 import type { ContestTransitionController } from "./ContestWorkspace";
 import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
 import { openContestCallHistoryWindow, openContestSurfaceWindow } from "./contestSurfaceNative";
@@ -114,7 +114,9 @@ type Score = { qsos: number; points: number; countries: number; zones: number; m
 type ContestBandDefinition = { id: string; lowHz: number; highHz: number; value: number };
 type ContestSurfaceMode = "CW" | "SSB" | "RTTY" | "AM" | "FM";
 type PythonContestExportFormat = "cabrillo" | "adif" | "edi";
-type StatisticsState = { sessionID: string; revision: number; rows: ContestStatisticsRow[]; total: ContestStatisticsRow };
+type StatisticsState = { sessionID: string; revision: number } & (
+  { layout: "generic"; rows: ContestStatisticsRow[]; total: ContestStatisticsRow } |
+  { layout: "cq_ww"; rows: ContestCQWWStatisticsRow[]; total: ContestCQWWStatisticsRow });
 type AuxiliaryLane = "log" | "score" | "rates";
 type Projection = {
   sessionID: string; engine: "not1mm-python"; pluginID: string; pluginName?: string; reservedSerial?: number | null; allocatedSerialFieldID?: string | null; sourceRevision: string; referenceID: string;
@@ -184,7 +186,7 @@ const spotWorkflowKey = "xlog.contesting.not1mm.spot-workflow.v2";
 export const contestSpotWorkflowMaxEntries = 2_000;
 export const contestSpotWorkflowMaxBytes = 1_048_576;
 export const contestSpotWorkflowTTLms = 7 * 24 * 60 * 60 * 1_000;
-const logPageSize = 20;
+const initialLogPageSize = 20;
 const contestBands = ["160m", "80m", "40m", "20m", "15m", "10m"];
 // Compatibility for protocol-v1/older test catalogs. The current host supplies
 // these definitions from the pinned Not1MM plan and remains the authority.
@@ -374,7 +376,7 @@ function pluginContactMetadataColumns(fields: { label?: string; visible?: boolea
 }
 const pluginColumnFields: Record<string, string> = {
   "YYYY-MM-DD HH:MM:SS": "TS", Snt: "SNT", Rcv: "RCV", RcvNr: "NR", WPX: "WPXPrefix",
-  PFX: "WPXPrefix", M1: "IsMultiplier1", M2: "IsMultiplier2", PTS: "Points",
+  M1: "IsMultiplier1", M2: "IsMultiplier2", PTS: "Points",
 };
 function not1mmLogColumns(value: unknown): string[] {
   if (!Array.isArray(value) || value.length === 0 || value.length > 32) return [];
@@ -390,7 +392,8 @@ function not1mmLogRows(rows: Data[], columns: string[], fields: Field[], pluginI
     const exchange = correctionExchangeValues(row, pluginID);
     const editableValue = (fieldID: "other_1" | "other_2") => String(raw[fieldID] ?? exchange[fieldID]);
     const values = columns.map(column => {
-      const value = row[pluginColumnFields[column] ?? column];
+      const field = column === "PFX" ? pluginID === "cq_ww_ssb" ? "CountryPrefix" : "WPXPrefix" : pluginColumnFields[column] ?? column;
+      const value = row[field];
       if (column === "M1" || column === "M2") return value && value !== "0" ? "✓" : "";
       return String(value ?? "");
     });
@@ -419,10 +422,16 @@ function not1mmLogRows(rows: Data[], columns: string[], fields: Field[], pluginI
   });
 }
 
+function partialCallMatches(call:string,query:string){
+  if(!/^[A-Z0-9/]{3,32}$/.test(query)||call.length<query.length)return false;
+  if(call.includes(query))return true;
+  let differences=0;for(let index=0;index<query.length;index+=1)if(call[index]!==query[index]&&++differences>1)return false;
+  return true;
+}
 function partialCandidates(kind: "log" | "cluster", calls: unknown[], query: string) {
-  if (!/^[A-Z0-9/]{1,32}$/.test(query)) return [];
+  if (!/^[A-Z0-9/]{3,32}$/.test(query)) return [];
   return [...new Set(calls.map(call => String(call ?? "").trim().toUpperCase())
-    .filter(call => /^[A-Z0-9/]{1,32}$/.test(call) && call.includes(query)))].slice(0, 500)
+    .filter(call => /^[A-Z0-9/]{1,32}$/.test(call) && partialCallMatches(call,query)))].slice(0, 500)
     .map(callsign => ({ candidateID: `${kind}:${callsign}`, callsign }));
 }
 
@@ -443,7 +452,8 @@ function contestSurfaceSpots(spots: BandMapSpot[]) {
       frequencyText:bounded(spot.frequencyText),callsign,comment:bounded(spot.comment),band,mode,
       country:bounded(spot.country),adif:uintOrNull(spot.adif),continent:bounded(spot.continent),cqZone:uintOrNull(spot.cqZone),
       ituZone:uintOrNull(spot.ituZone),callStatus:bounded(spot.callStatus),dxccStatus:bounded(spot.dxccStatus),
-      workedBefore:uintOrNull(spot.workedBefore),specialTags:strings(spot.specialTags,32,64),score:Math.max(0,Number(spot.score)||0),contestPoints:null,
+      workedBefore:uintOrNull(spot.workedBefore),specialTags:strings(spot.specialTags,32,64),score:Math.max(0,Number(spot.score)||0),
+      contestPoints:null,contestDupe:null,contestMultiplierCount:null,
       scoreReasons:strings(spot.scoreReasons,64,160),aggregateCount:uintOrNull(spot.aggregateCount)??0,
       aggregateSpotters:strings(spot.aggregateSpotters,64,64),source:bounded(spot.source),statusHex:bounded(spot.statusHex),
       bandHex:bounded(spot.bandHex),modeHex:bounded(spot.modeHex),marked:false}];
@@ -451,13 +461,15 @@ function contestSurfaceSpots(spots: BandMapSpot[]) {
 }
 
 type SpotPointsPreview = { sessionID:string; workspaceGeneration:string; revision:number;
-  spots:{spotID:string;points:number|null;reason:"unresolved_callsign"|"unsupported_band"|"exchange_required"|"scoring_unavailable"|null}[] };
+  spots:{spotID:string;points:number|null;dupe:boolean|null;multiplierCount:number|null;
+    reason:"unresolved_callsign"|"unsupported_band"|"exchange_required"|"scoring_unavailable"|null}[] };
 function validSpotPointsPreview(value:unknown,sessionID:string,workspaceGeneration:string,revision:number):value is SpotPointsPreview{
   if(!value||typeof value!=="object"||Array.isArray(value))return false;const row=value as Data;
   if(row.sessionID!==sessionID||row.workspaceGeneration!==workspaceGeneration||row.revision!==revision||!Array.isArray(row.spots)||row.spots.length>256)return false;
   const ids=new Set<string>();return row.spots.every(item=>item&&typeof item==="object"&&!Array.isArray(item)&&
-    Object.keys(item).length===3&&typeof item.spotID==="string"&&new TextEncoder().encode(item.spotID).length<=128&&!ids.has(item.spotID)&&
+    Object.keys(item).length===5&&typeof item.spotID==="string"&&new TextEncoder().encode(item.spotID).length<=128&&!ids.has(item.spotID)&&
     (item.points===null||typeof item.points==="number"&&Number.isFinite(item.points)&&item.points>=0)&&
+    (item.dupe===null||typeof item.dupe==="boolean")&&(item.multiplierCount===null||Number.isSafeInteger(item.multiplierCount)&&item.multiplierCount>=0)&&
     [null,"unresolved_callsign","unsupported_band","exchange_required","scoring_unavailable"].includes(item.reason)&&!!ids.add(item.spotID));
 }
 
@@ -641,6 +653,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const [correctionReason, setCorrectionReason] = useState("Operator correction"), [deletionReason, setDeletionReason] = useState("Operator deletion");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [logOffset, setLogOffset] = useState(0), [logTotal, setLogTotal] = useState(0);
+  const [logPageSize, setLogPageSize] = useState(initialLogPageSize);
   const [scpSurface, setSCPSurface] = useState<ContestSCPPanelSurface | null>(null);
   const fieldRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const focusRef = useRef("callsign");
@@ -687,10 +700,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const timer=window.setInterval(refresh,5_000);return()=>{current=false;window.clearInterval(timer);};
   },[projection?.sessionID,setupOnly,contestingTest,request]);
   const sharedSpots=useMemo(()=>contestSurfaceSpots(spots),[spots]);
-  const [spotPointPreview,setSpotPointPreview]=useState<{scope:string;points:Map<string,number|null>}>({scope:"",points:new Map()});
+  const [spotPointPreview,setSpotPointPreview]=useState<{scope:string;rows:Map<string,{points:number|null;dupe:boolean|null;multiplierCount:number|null}>}>({scope:"",rows:new Map()});
   const spotPointScope=projection?`${projection.sessionID}/${projection.workspaceGeneration}/${projection.revision}`:"";
   useEffect(()=>{
-    if(!projection||!sharedSpots.length){setSpotPointPreview({scope:spotPointScope,points:new Map()});return;}
+    if(!projection||!sharedSpots.length){setSpotPointPreview({scope:spotPointScope,rows:new Map()});return;}
     const supported=new Set(contestSurfaceModes(projection.supportedModes??[],projection.mode));
     const supportedBands=new Set(activeSupportedBands.map(band=>band.trim().toLowerCase()));
     const candidates=sharedSpots.flatMap(spot=>{
@@ -698,16 +711,16 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       return mode&&supported.has(mode)&&supportedBands.has(spot.band.trim().toLowerCase())&&Number.isSafeInteger(frequencyHz)
         ?[{spotID:spot.id,callsign:spot.callsign,frequencyHz,mode}]:[];
     });
-    let current=true;(async()=>{const points=new Map<string,number|null>();
+    let current=true;(async()=>{const rows=new Map<string,{points:number|null;dupe:boolean|null;multiplierCount:number|null}>();
       for(let offset=0;offset<candidates.length;offset+=256){
         const value=unwrap<unknown>(await request("contest_spot_points_preview",{sessionID:projection.sessionID,
           workspaceGeneration:projection.workspaceGeneration,expectedRevision:projection.revision,spots:candidates.slice(offset,offset+256)}));
         if(!validSpotPointsPreview(value,projection.sessionID,projection.workspaceGeneration,projection.revision))
           throw new Error("The contest host returned an invalid spot points preview.");
-        for(const item of value.spots)points.set(item.spotID,item.points);
+        for(const item of value.spots)rows.set(item.spotID,{points:item.points,dupe:item.dupe,multiplierCount:item.multiplierCount});
       }
-      if(current)setSpotPointPreview({scope:spotPointScope,points});
-    })().catch(()=>{if(current)setSpotPointPreview({scope:spotPointScope,points:new Map()});});return()=>{current=false;};
+      if(current)setSpotPointPreview({scope:spotPointScope,rows});
+    })().catch(()=>{if(current)setSpotPointPreview({scope:spotPointScope,rows:new Map()});});return()=>{current=false;};
   },[projection?.sessionID,projection?.workspaceGeneration,projection?.revision,projection?.supportedModes,projection?.mode,
     activeSupportedBands,request,sharedSpots,spotPointScope]);
   const spotWorkflowScope=useMemo<SpotWorkflowScope>(()=>({operatingContext,workspaceGeneration,
@@ -785,7 +798,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const clusterCandidates = partialCandidates("cluster", spots.map(spot => spot.callsign), partialQuery);
   useEffect(() => {
     let cancelled = false;
-    if (!projection || !/^[A-Z0-9/]{1,32}$/.test(partialQuery)) { setPartial(null); return; }
+    if (!projection || !/^[A-Z0-9/]{3,32}$/.test(partialQuery)) { setPartial(null); return; }
     const {sessionID, revision} = projection;
     void result<Data>("contest_check_partial", {sessionID, expectedRevision:revision, query:partialQuery, limit:500})
       .then(value => { if (!cancelled) setPartial({sessionID, revision, query:partialQuery, rows:Array.isArray(value.rows)?value.rows:[]}); })
@@ -821,21 +834,37 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     if (raw === undefined) { setStatistics(undefined); return true; }
     const exactStatistics = !!raw && typeof raw === "object" && !Array.isArray(raw) &&
       Object.keys(raw).length === 2 && "rows" in raw && "total" in raw;
-    const candidate = { schemaVersion: 3 as const, status: "ready" as const, score: scoreSummary(next.score as Score, current.pluginID),
-      rows: raw?.rows, total: raw?.total, busy: false };
+    const layout = current.pluginID === "cq_ww_ssb" ? "cq_ww" as const : "generic" as const;
+    const sourceRows = Array.isArray(raw?.rows) ? raw.rows as Data[] : [];
+    const cqMultiplier = (row: Data, key: "countries" | "zones") => {
+      const value=Number(row?.[key]);
+      if(Number.isSafeInteger(value)&&value>=0)return value;
+      return sourceRows.length<=1?Number((next.score as Score)?.[key]):Number.NaN;
+    };
+    const cqRow = (row: Data) => ({ band:String(row?.band ?? ""), qsos:Number(row?.qsos), points:Number(row?.points),
+      countries:cqMultiplier(row,"countries"), zones:cqMultiplier(row,"zones") });
+    const genericRow = (row: Data) => ({ band:String(row?.band ?? ""), qsos:Number(row?.qsos), calls:Number(row?.calls),
+      cw:Number(row?.cw), phone:Number(row?.phone), digital:Number(row?.digital), wpx:Number(row?.wpx), points:Number(row?.points) });
+    const candidate = layout === "cq_ww"
+      ? { schemaVersion:3 as const,status:"ready" as const,layout,score:scoreSummary(next.score as Score,current.pluginID),
+          rows:sourceRows.map(cqRow),total:cqRow(raw?.total as Data),busy:false }
+      : { schemaVersion:3 as const,status:"ready" as const,score:scoreSummary(next.score as Score,current.pluginID),
+          rows:sourceRows.map(genericRow),total:genericRow(raw?.total as Data),busy:false };
     if (!exactStatistics || !validContestSurfaceProjection("propagation", candidate)) {
       setStatistics(null); return false;
     }
-    setStatistics({ sessionID, revision, rows: candidate.rows, total: candidate.total });
+    setStatistics(layout === "cq_ww"
+      ? { sessionID,revision,layout,rows:candidate.rows as ContestCQWWStatisticsRow[],total:candidate.total as ContestCQWWStatisticsRow }
+      : { sessionID,revision,layout,rows:candidate.rows as ContestStatisticsRow[],total:candidate.total as ContestStatisticsRow });
     return true;
   };
   const refresh = async (sessionID: string, next?: Projection, offset = 0,
-      lanes: readonly AuxiliaryLane[] = ["log", "score", "rates"]) => {
+      lanes: readonly AuxiliaryLane[] = ["log", "score", "rates"], pageLimit = logPageSize) => {
     const expected = next ?? projectionRef.current;
     if (!expected || expected.sessionID !== sessionID) return;
     const revision = expected.revision;
     const operations = lanes.map(lane => lane === "log"
-      ? result<Data>("contest_log_page", { sessionID, expectedRevision: revision, offset, limit: logPageSize })
+      ? result<Data>("contest_log_page", { sessionID, expectedRevision: revision, offset, limit: pageLimit })
       : lane === "score" ? result<Data>("contest_score", { sessionID, expectedRevision: revision })
       : result<Data>("contest_rates", { sessionID, expectedRevision: revision }));
     const settled = await Promise.allSettled(operations);
@@ -1678,14 +1707,14 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       fields: fieldsRef.current, frequencyHz: fallbackFrequencyHz,
     }), false, false, true);
   };
-  const loadLogPage = async (offset: number, throwFailures = false) => {
+  const loadLogPage = async (offset: number, throwFailures = false, limit = logPageSize) => {
     const active = projectionRef.current;
     if (!active || busyRef.current || offset < 0) {
       if (throwFailures) throw new Error(!active ? "Open a contest session before paging its log." : "The contest owner is busy.");
       return;
     }
     busyRef.current = true; setBusy(true); setError("");
-    try { await refresh(active.sessionID, active, offset); }
+    try { await refresh(active.sessionID, active, offset, ["log"], limit); }
     catch (cause) { setError(errorMessage(cause)); if (throwFailures) throw cause; }
     finally { busyRef.current = false; setBusy(false); }
   };
@@ -1854,15 +1883,15 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     for(const panelID of ["band-maps","dx-cluster"] as const) unavailable[panelID]={schemaVersion:2,status:"ready",
       draftID:projection.draftID,draftRevision:projection.revision,radioFrequencyHz:radioFrequencyHz??null,
       connectedClusters,loadedSpots,selectedSpotID,configuredClusters,connections,
-      markedOnly:effectiveSpotWorkflow.markedOnly,spots:visibleWorkflowSpots.map(spot=>({...spot,
-        mode:canonicalContestSurfaceMode(spot.mode)??spot.mode,
-        contestPoints:spotPointPreview.scope===spotPointScope?(spotPointPreview.points.get(spot.id)??null):null})),busy:busy||retiring};
+      markedOnly:effectiveSpotWorkflow.markedOnly,spots:visibleWorkflowSpots.map(spot=>{const preview=spotPointPreview.scope===spotPointScope?spotPointPreview.rows.get(spot.id):undefined;return{...spot,
+        mode:canonicalContestSurfaceMode(spot.mode)??spot.mode,contestPoints:preview?.points??null,
+        contestDupe:preview?.dupe??null,contestMultiplierCount:preview?.multiplierCount??null};}),busy:busy||retiring};
     unavailable["station-control"] = { schemaVersion: 1, status: "ready",
       radioFrequencyHz: selectedRadioFrequencyHz, contestFrequencyHz: frequencyHz,
       band: bandLabels[String(projection.band)] ?? String(projection.band), mode: projection.mode, busy: busy || retiring };
     if (statistics?.sessionID === projection.sessionID && statistics.revision === projection.revision) {
-      unavailable.propagation = { schemaVersion: 3, status: "ready", score: scoreView,
-        rows: statistics.rows, total: statistics.total, busy: busy || retiring };
+      unavailable.propagation = { schemaVersion: 3, status: "ready", ...(statistics.layout==="cq_ww"?{layout:"cq_ww" as const}:{}),
+        score: scoreView, rows: statistics.rows, total: statistics.total, busy: busy || retiring } as ContestSurfaceProjection;
     }
     else if (statistics === undefined) unavailable.propagation = {
       schemaVersion: 1, status: "ready", score: scoreView, busy: busy || retiring,
@@ -2054,7 +2083,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         const spot:ContestSurfaceSpot=existing??{id:`contest-mark:${selectedRadioFrequencyHz}:${callsign}`,receivedAt,clusterName:"Contest",
           spotter:stationCall,spotterContinent:null,frequencyKHz,frequencyText:frequencyKHz.toFixed(3),callsign,comment:"Marked from Main Logging",
           band:bandLabels[String(active.band)]??String(active.band),mode:active.mode,country:"",adif:null,continent:"",cqZone:null,ituZone:null,
-          callStatus:"",dxccStatus:"",workedBefore:null,specialTags:[],score:0,contestPoints:null,scoreReasons:[],aggregateCount:1,
+          callStatus:"",dxccStatus:"",workedBefore:null,specialTags:[],score:0,contestPoints:null,contestDupe:null,contestMultiplierCount:null,
+          scoreReasons:[],aggregateCount:1,
           aggregateSpotters:stationCall?[stationCall]:[],source:"Contest mark",statusHex:"",bandHex:"",modeHex:"",marked:false};
         setSpotWorkflow(current=>updateContestSpotWorkflow(workflowBase(current),[...allWorkflowSpots.filter(item=>item.id!==spot.id),spot],
           spot.id,"mark",!spot.marked,receivedAt));return;
@@ -2195,7 +2225,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         if (await runMutation(base => mutate("contest_recalculate", base), true, true, false, true))
           setNotice("Score and multipliers recalculated from the complete contest log.");
         return;
-      case "log_page": await loadLogPage(action.params.offset, true); return;
+      case "log_page":
+        setLogPageSize(action.params.limit);
+        await loadLogPage(action.params.offset, true, action.params.limit);
+        return;
       case "log_edit_begin": await beginEdit(action.params.qsoID, true); return;
       case "log_edit_cancel": requireEditing(action.params.qsoID); setEditing(null); setConfirmDelete(false); return;
       case "log_edit_set_text":

@@ -7,7 +7,8 @@ const base = { operatingContext: "00000000-0000-4000-8000-000000000001", scope: 
 const draft = { draftID: "draft-1", expectedDraftRevision: 5 };
 const spot = {id:"spot-1",receivedAt:1,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,frequencyKHz:14025,
   frequencyText:"14025.0",callsign:"DL1ABC",comment:"CQ",band:"20m",mode:"CW",country:"Germany",adif:230,continent:"EU",
-  cqZone:14,ituZone:28,callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,contestPoints:null,scoreReasons:[],
+  cqZone:14,ituZone:28,callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,contestPoints:null,
+  contestDupe:null,contestMultiplierCount:null,scoreReasons:[],
   aggregateCount:1,aggregateSpotters:["K1ABC"],source:"DX Cluster",statusHex:"",bandHex:"",modeHex:"",marked:false};
 
 it.each(["band-maps","dx-cluster"] as const)("validates fenced %s spot selection and bounded projections",panelID=>{
@@ -23,6 +24,8 @@ it.each(["band-maps","dx-cluster"] as const)("validates fenced %s spot selection
   expect(validContestSurfaceProjection(panelID,{...projection,spots:[{...spot,contestPoints:3}]})).toBe(true);
   expect(validContestSurfaceProjection(panelID,{...projection,spots:[{...spot,contestPoints:-1}]})).toBe(false);
   expect(validContestSurfaceProjection(panelID,{...projection,spots:[{...spot,contestPoints:Number.NaN}]})).toBe(false);
+  expect(validContestSurfaceProjection(panelID,{...projection,spots:[{...spot,contestDupe:true,contestMultiplierCount:2}]})).toBe(true);
+  expect(validContestSurfaceProjection(panelID,{...projection,spots:[{...spot,contestMultiplierCount:-1}]})).toBe(false);
   expect(validContestSurfaceProjection(panelID,{...projection,spots:[spot,{...spot}]})).toBe(false);
   expect(validContestSurfaceProjection(panelID,{...projection,connections:[{...projection.connections[0],phase:"x".repeat(33)}]})).toBe(false);
 });
@@ -91,7 +94,7 @@ const valid = [
   { panelID: "callsign-intelligence", action: "assistance_download", params: draft },
   { panelID: "callsign-intelligence", action: "assistance_refresh", params: draft },
   { panelID: "callsign-intelligence", action: "assistance_select", params: { ...draft, kind: "history", candidateID: "history-1" } },
-  { panelID: "logbook", action: "log_page", params: { offset: 20 } },
+  { panelID: "logbook", action: "log_page", params: { offset: 20, limit: 12 } },
   { panelID: "logbook", action: "log_export_cabrillo", params: {} },
   { panelID: "logbook", action: "log_export_adif", params: {} },
   { panelID: "logbook", action: "log_export_edi", params: {} },
@@ -145,7 +148,8 @@ describe("contest native surface action v1", () => {
     { ...base, ...valid[1], params: { ...valid[1].params, value: "😀".repeat(257) } },
     { ...base, ...valid[2], params: { ...valid[2].params, value: "1".repeat(12) } },
     { ...base, ...validAction("log_edit_set_exchange"), params: { ...validAction("log_edit_set_exchange").params, value: "😀".repeat(257) } },
-    { ...base, ...validAction("log_page"), params: { offset: 1_000_001 } },
+    { ...base, ...validAction("log_page"), params: { offset: 1_000_001, limit: 12 } },
+    { ...base, ...validAction("log_page"), params: { offset: 0, limit: 0 } },
   ])("rejects malformed, cross-panel or over-bound envelopes %#", envelope => {
     expect(() => validateContestSurfaceActionEnvelope(envelope)).toThrow("could not be verified");
   });

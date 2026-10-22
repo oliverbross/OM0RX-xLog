@@ -101,6 +101,10 @@ class CQWWSSBHostTests(unittest.TestCase):
         view = self.read("projection")["projection"]
         fields = {field["id"]: field for field in view["fields"]}
         self.assertEqual((view["mode"], view["supportedModes"]), ("SSB", ["SSB"]))
+        self.assertEqual(view["columns"], [
+            "YYYY-MM-DD HH:MM:SS", "Call", "Freq", "Snt", "Rcv",
+            "M1", "ZN", "M2", "PFX", "PTS",
+        ])
         self.assertEqual((fields["sent"]["value"], fields["receive"]["value"]), ("59", "59"))
         self.assertEqual((fields["other_1"]["value"], fields["other_1"]["visible"]), ("15", False))
         self.assertEqual((fields["other_2"]["label"], view["nextField"]), ("CQ Zone", "other_2"))
@@ -133,6 +137,11 @@ class CQWWSSBHostTests(unittest.TestCase):
         })
         self.assertEqual(len(score["matrices"]["countries"]), 3)
         self.assertEqual(len(score["matrices"]["zones"]), 3)
+        rows = list(reversed(self.read("log")["rows"]))
+        self.assertEqual([(row["Call"], row["Band"], row["IsMultiplier1"], row["IsMultiplier2"]) for row in rows], [
+            ("K1ABC", 14, 1, 1), ("DL1ABC", 14, 1, 1),
+            ("K1ABC", 14, 0, 0), ("K1ABC", 7, 1, 1),
+        ])
 
     def test_single_band_score_filters_points_multipliers_and_statistics_but_exports_all_qsos(self):
         setup = self.read("setup_get")["setup"]
@@ -184,10 +193,10 @@ class CQWWSSBHostTests(unittest.TestCase):
         self.assertEqual(preview, {
             "sessionID": self.session, "workspaceGeneration": self.workspace, "revision": self.revision,
             "spots": [
-                {"spotID": "same-country", "points": 0, "reason": None},
-                {"spotID": "same-continent", "points": 1, "reason": None},
-                {"spotID": "different-continent", "points": 3, "reason": None},
-                {"spotID": "unresolved", "points": None, "reason": "unresolved_callsign"},
+                {"spotID": "same-country", "points": 0, "dupe": False, "multiplierCount": 2, "reason": None},
+                {"spotID": "same-continent", "points": 1, "dupe": False, "multiplierCount": 2, "reason": None},
+                {"spotID": "different-continent", "points": 3, "dupe": False, "multiplierCount": 2, "reason": None},
+                {"spotID": "unresolved", "points": None, "dupe": None, "multiplierCount": None, "reason": "unresolved_callsign"},
             ],
         })
         injected = self.read("spot_points_preview", workspaceGeneration=self.workspace,
@@ -196,7 +205,7 @@ class CQWWSSBHostTests(unittest.TestCase):
             {"spotID": "native-reference", "callsign": "XX1TEST", "frequencyHz": 7128000, "mode": "SSB"},
         ])
         self.assertEqual(injected["spots"], [
-            {"spotID": "native-reference", "points": 3, "reason": None},
+            {"spotID": "native-reference", "points": 3, "dupe": False, "multiplierCount": 2, "reason": None},
         ])
         self.assertIsNone(self.read("spot_points_preview", workspaceGeneration=self.workspace,
                                    expectedRevision=self.revision, spots=[
@@ -210,6 +219,23 @@ class CQWWSSBHostTests(unittest.TestCase):
         with self.assertRaisesRegex(HostError, "Contest changed"):
             self.read("spot_points_preview", workspaceGeneration=self.workspace,
                       expectedRevision=self.revision + 1, spots=[])
+
+    def test_spot_preview_reports_authoritative_dupes_and_needed_multipliers(self):
+        self.log("K1ABC", "5", frequency=7125000)
+        countries = {
+            "K2XYZ": {**deepcopy(fixtures.CTY["K1ABC"]), "cq": 4},
+            "K3XYZ": deepcopy(fixtures.CTY["K1ABC"]),
+        }
+        preview = self.read("spot_points_preview", workspaceGeneration=self.workspace,
+                            expectedRevision=self.revision, referenceID="test-cty-v1", countries=countries, spots=[
+            {"spotID": "dupe", "callsign": "K1ABC", "frequencyHz": 7125000, "mode": "SSB"},
+            {"spotID": "qso-only", "callsign": "K3XYZ", "frequencyHz": 7126000, "mode": "SSB"},
+            {"spotID": "single-mult", "callsign": "K2XYZ", "frequencyHz": 7127000, "mode": "SSB"},
+            {"spotID": "double-mult", "callsign": "OM1ABC", "frequencyHz": 7128000, "mode": "SSB"},
+        ])
+        self.assertEqual([(row["spotID"], row["dupe"], row["multiplierCount"]) for row in preview["spots"]], [
+            ("dupe", True, 0), ("qso-only", False, 0), ("single-mult", False, 1), ("double-mult", False, 2),
+        ])
 
     def test_unresolved_contacts_do_not_create_cq_ww_multipliers(self):
         self.log("XX1TEST", "10")
@@ -243,6 +269,9 @@ class CQWWSSBHostTests(unittest.TestCase):
     def test_same_band_duplicate_cannot_add_a_mistyped_zone_multiplier(self):
         first = self.log("K1ABC", "5", minute=1)
         duplicate = self.log("K1ABC", "4", minute=0)
+        rows = {row["ID"]: row for row in self.read("log")["rows"]}
+        self.assertEqual([(rows[qso]["IsMultiplier1"], rows[qso]["IsMultiplier2"])
+                          for qso in (first, duplicate)], [(1, 1), (0, 0)])
         score = self.read("score")
         self.assertEqual(score["score"], {
             "qsos": 2, "points": 3, "countries": 1, "zones": 1,
@@ -255,6 +284,9 @@ class CQWWSSBHostTests(unittest.TestCase):
         self.mutate("qso_correct", qsoID=duplicate,
                     fields={"callsign": "DL1ABC", "other_2": "14"}, reason="Correct duplicate")
         self.assertEqual(self.read("score")["score"]["total"], 16)
+        rows = {row["ID"]: row for row in self.read("log")["rows"]}
+        self.assertEqual([(rows[qso]["IsMultiplier1"], rows[qso]["IsMultiplier2"])
+                          for qso in (first, duplicate)], [(1, 1), (1, 1)])
         self.mutate("qso_correct", qsoID=duplicate,
                     fields={"callsign": "K1ABC", "other_2": "4"}, reason="Restore duplicate")
         self.assertEqual(self.read("score")["score"]["total"], 6)
@@ -268,10 +300,14 @@ class CQWWSSBHostTests(unittest.TestCase):
         self.assertEqual(promoted["matrices"]["zones"], [
             {"value": 4, "band": 14.0, "qsos": 1},
         ])
+        self.assertEqual((self.read("log")["rows"][0]["IsMultiplier1"],
+                          self.read("log")["rows"][0]["IsMultiplier2"]), (1, 1))
 
         self.host.close()
         self.host = Host(self.root)
         self.assertEqual(self.read("score")["score"]["total"], 6)
+        self.assertEqual((self.read("log")["rows"][0]["IsMultiplier1"],
+                          self.read("log")["rows"][0]["IsMultiplier2"]), (1, 1))
         export = self.read("export")["content"]
         self.assertIn("CLAIMED-SCORE: 6\r\n", export)
         self.assertEqual(sum(line.startswith("QSO:") for line in export.splitlines()), 1)
@@ -312,7 +348,7 @@ class CQWWSSBHostTests(unittest.TestCase):
             "F10": "cl?", "F11": "NR?", "F12": "tu",
         }
         first = None
-        for key, payload in expected.items():
+        for key, payload in ((key, payload) for key, payload in expected.items() if key != "F1"):
             result = self.mutate("function_key", key=key, fields={"callsign": "K1ABC"})
             if payload is None:
                 self.assertEqual(result["actions"], [])
@@ -320,9 +356,11 @@ class CQWWSSBHostTests(unittest.TestCase):
             self.assert_voice(result["actions"][0], key, payload, "S")
             first = first or result["actions"][0]
         self.assertEqual(first["sourceMacro"]["template"],
-                         "cq test {MYCALL} {MYCALL} test")
+                         "{CALL}")
         self.assertEqual(self.mutate("function_key", key="F4")["actions"], [])
-        self.mutate("run_state", run=True)
+        cq = self.mutate("function_key", key="F1", fields={"callsign": "K1ABC"})
+        self.assert_voice(cq["actions"][0], "F1", "cq test OM0RX OM0RX test", "R")
+        self.assertTrue(cq["projection"]["run"])
         expected.update(F4="tu OM0RX qrz", F6="15", F7="?", F8="rr", F10="cl?", F11="NR?",
                         F12="K1ABC rr tu")
         for key, payload in expected.items():
@@ -439,7 +477,8 @@ class CQWWSSBHostTests(unittest.TestCase):
     def test_ssb_voice_intents_do_not_change_scoring_or_export(self):
         before = (self.read("score")["score"], self.read("export")["content"])
         result = self.mutate("function_key", key="F1")
-        self.assert_voice(result["actions"][0], "F1", "cq test OM0RX OM0RX test", "S")
+        self.assert_voice(result["actions"][0], "F1", "cq test OM0RX OM0RX test", "R")
+        self.assertTrue(result["projection"]["run"])
         after = (self.read("score")["score"], self.read("export")["content"])
         self.assertEqual(after, before)
 
