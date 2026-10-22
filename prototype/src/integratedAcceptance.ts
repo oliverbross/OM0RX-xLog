@@ -67,6 +67,13 @@ async function fill(selector: string, value: string) {
   control.dispatchEvent(new Event(control instanceof HTMLSelectElement ? "change" : "input", { bubbles: true }));
   await frame();
 }
+async function waitForWorkerAcceptance(label: string, condition: () => Promise<boolean>, timeout = 20_000) {
+  const deadline = Date.now() + timeout;
+  while (!await condition()) {
+    if (Date.now() >= deadline) throw new Error(`Timed out: ${label}`);
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+}
 export async function integratedAcceptanceWorker(method: string, params: Json = {}): Promise<Json> {
   const response = await framedWorkerRequest<Json>(method, params);
   if (!response.ok) throw new Error(`Local acceptance request failed: ${method}`);
@@ -166,9 +173,14 @@ async function main(report: Json) {
   await fill('[aria-label="Desk Frequency MHz"]', "14.240000");
   await fill('[aria-label="Desk Mode"]', "SSB");
   await fill('[aria-label="Desk Comment"]', "Isolated native UI acceptance");
+  await waitForWorkerAcceptance("authoritative keyboard draft", async () => {
+    const qso = (await worker("logbook_operator_draft")).result.draft.qso;
+    return qso.call === "W1AW" && qso.frequencyHz === 14_240_000 && qso.mode === "SSB" && qso.comment === "Isolated native UI acceptance";
+  });
   await waitForAcceptance("keyboard save ready", () => [...document.querySelectorAll<HTMLButtonElement>(".desk-active-actions button")]
     .some(control => control.textContent?.includes("Log QSO") && !control.disabled));
   const call = element<HTMLInputElement>('[aria-label="Desk Callsign"]');
+  call.focus();
   call.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true, cancelable: true }));
   await waitForAcceptance("keyboard save and cleared draft", () => element<HTMLInputElement>('[aria-label="Desk Callsign"]').value === "" &&
     document.querySelector<HTMLElement>('.qso-logged-toast[role="status"]')?.textContent === "QSO logged");
@@ -365,9 +377,14 @@ async function prepareLargeLog(report: Json, check: (name: string, condition: bo
   await fill('[aria-label="Desk Callsign"]', "PERFTEST");
   await fill('[aria-label="Desk Frequency MHz"]', "14.240000");
   await fill('[aria-label="Desk Mode"]', "SSB");
+  await waitForWorkerAcceptance("authoritative large-workspace draft", async () => {
+    const qso = (await worker("logbook_operator_draft")).result.draft.qso;
+    return qso.call === "PERFTEST" && qso.frequencyHz === 14_240_000 && qso.mode === "SSB";
+  });
   await waitForAcceptance("large-workspace UI save ready", () => [...document.querySelectorAll<HTMLButtonElement>(".desk-active-actions button")]
     .some(control => control.textContent?.includes("Log QSO") && !control.disabled));
-  element('[aria-label="Desk Callsign"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true, cancelable: true }));
+  const call = element<HTMLInputElement>('[aria-label="Desk Callsign"]'); call.focus();
+  call.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true, cancelable: true }));
   await waitForAcceptance("large-workspace UI save", () => element<HTMLInputElement>('[aria-label="Desk Callsign"]').value === "" && document.body.textContent?.includes("PERFTEST saved") === true);
   metrics.total_records = (await worker("logbook_list", { limit: 1 })).result.total;
   check("large_log_records", metrics.total_records === LARGE_LOG_RECORDS + 2);
