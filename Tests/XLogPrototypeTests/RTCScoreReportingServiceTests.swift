@@ -176,6 +176,7 @@ struct RTCScoreReportingServiceTests {
 }
 
 private final class RTCScoreFixture: URLProtocol {
+    private var didRecordCancellation = false
     private static let lock = NSLock()
     private static var captured: URLRequest?
     private static var capturedBody = Data()
@@ -228,5 +229,11 @@ private final class RTCScoreFixture: URLProtocol {
         if !responseBody.isEmpty { client?.urlProtocol(self, didLoad: responseBody) }
         client?.urlProtocolDidFinishLoading(self)
     }
-    override func stopLoading() { Self.lock.withLock { Self.cancellations += 1 } }
+    override func stopLoading() {
+        Self.lock.withLock {
+            guard !didRecordCancellation else { return }
+            didRecordCancellation = true
+            Self.cancellations += 1
+        }
+    }
 }
