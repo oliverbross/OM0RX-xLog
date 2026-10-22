@@ -30,9 +30,9 @@ it("shows honest unavailable state then imports, queries, and selects only the a
   expect(calls).toContain("contest_scp_query"); expect(calls).toContain("contest_scp_select");
 });
 
-it("downloads and reports verified official metadata while preserving local import",async()=>{
-  const official={sourceID:"supercheckpartial-official",version:"MASTER.SCP",retrievedAtUTC:"2026-10-16T00:03:36.000Z",
-    sha256:"8a1d86a34f130dd4427c6fe62631f443e29608728b5aa14851e710cc26e9df96",byteCount:359667,recordCount:50004,
+it("downloads and reports verified official metadata with the native worker UTC spelling",async()=>{
+  const official={sourceID:"supercheckpartial-official",version:"MASTER.SCP",retrievedAtUTC:"2026-10-21T00:02:51Z",
+    sha256:"0655f71c2fcafb658c7dd52a87c757a023f6449811f06caaae8cfa6da7b31c33",byteCount:359670,recordCount:50005,
     duplicateCount:0,digestVerification:"matchedExpectedSHA256" as const};
   let current:SCPDataset|null=null;
   const request=(async(method:string)=>{
@@ -44,8 +44,8 @@ it("downloads and reports verified official metadata while preserving local impo
   }) as ContestRequest;
   render(<ContestAssistancePanel request={request} {...context} callsign="" onSelect={vi.fn()}/>);
   await screen.findByText(/No MASTER\.SCP dataset is active/);fireEvent.click(screen.getByRole("button",{name:"Download latest"}));
-  expect(await screen.findByText(/50,004 calls · official provider · 2026-10-16 UTC/)).toBeTruthy();
-  expect(screen.getByText(/SHA-256 8a1d86a34f13… · verified digest/)).toBeTruthy();
+  expect(await screen.findByText(/50,005 calls · official provider · 2026-10-21 UTC/)).toBeTruthy();
+  expect(screen.getByText(/SHA-256 0655f71c2fca… · verified digest/)).toBeTruthy();
   expect(screen.getByRole("status").textContent).toMatch(/downloaded and activated/i);
   expect(screen.getByRole("button",{name:"Replace local file"})).toBeTruthy();
 });

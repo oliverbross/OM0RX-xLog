@@ -23,7 +23,11 @@ const text = (value: unknown, maximum: number) => typeof value === "string" && v
 const uint = (value: unknown) => Number.isSafeInteger(value) && Number(value) >= 0;
 function object(value: unknown): Record<string, unknown> | null { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null; }
 function exact(value: Record<string, unknown>, keys: string[]) { return Object.keys(value).length === keys.length && keys.every(key => key in value); }
-function iso(value: unknown) { return typeof value === "string" && value.length <= 32 && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value; }
+function iso(value: unknown) {
+  if(typeof value!=="string"||value.length>32||!Number.isFinite(Date.parse(value)))return false;
+  const canonical=new Date(value).toISOString();
+  return canonical===value||canonical.replace(".000Z","Z")===value;
+}
 function validDataset(value: unknown): value is SCPDataset {
   const v = object(value); return !!v && exact(v, ["sourceID","version","retrievedAtUTC","sha256","byteCount","recordCount","duplicateCount","digestVerification"]) &&
     text(v.sourceID, 256) && text(v.version, 256) && (v.retrievedAtUTC === null || iso(v.retrievedAtUTC)) &&
