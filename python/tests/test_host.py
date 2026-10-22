@@ -390,6 +390,43 @@ class HostTests(unittest.TestCase):
         self.assertEqual((action["template"], action["sentExchange"], action["sentSerial"]),
                          ("{EXCHANGE}", "15", ""))
 
+    def test_macro_contest_actions_are_separated_from_output_and_owned(self):
+        setup = self.read("setup_get")["setup"]
+        setup["macros"] = [
+            {"mode": "S", "key": "F6", "label": "Reversed", "template": "{SANDP}{RUN}"},
+            {"mode": "S", "key": "F7", "label": "Repeated", "template": "{RUN}{SANDP}{RUN} cq {MYCALL}"},
+            {"mode": "R", "key": "F8", "label": "Log", "template": "{LOGIT}{WIPE}"},
+            {"mode": "R", "key": "F9", "label": "S&P", "template": "{RUN}{SANDP}"},
+        ]
+        self.mutate("setup_save", setup=setup)
+        reversed_actions = self.mutate("function_key", key="F6")
+        self.assertTrue(reversed_actions["projection"]["run"])
+        self.assertEqual(reversed_actions["actions"], [])
+        self.mutate("run_state", run=False)
+        repeated = self.mutate("function_key", key="F7")
+        self.assertTrue(repeated["projection"]["run"])
+        self.assertEqual(repeated["actions"][0]["template"], " cq {MYCALL}")
+        logged = self.mutate("function_key", key="F8", fields={"callsign": "K1ABC", "other_2": "5"})
+        self.assertEqual(logged["actions"], [])
+        self.assertEqual(self.read("log")["total"], 1)
+        values = {field["id"]: field["value"] for field in logged["projection"]["fields"]}
+        self.assertEqual((values["callsign"], values["sent"], values["receive"], values["other_2"]),
+                         ("", "599", "599", ""))
+        self.assertEqual(values["other_1"], "15")
+        sandp = self.mutate("function_key", key="F9")
+        self.assertFalse(sandp["projection"]["run"])
+        self.assertEqual(sandp["actions"], [])
+
+    def test_macro_setup_explicitly_rejects_external_output_owners(self):
+        original = self.read("setup_get")["setup"]
+        for token, message in (("{TX}", "radio PTT/voice-memory"), ("{VOICE1}", "radio PTT/voice-memory"),
+                               ("{SPOT}", "cluster spotting"), ("RI:FA;", "xLog owns radio control")):
+            setup = deepcopy(original)
+            setup["macros"] = [{"mode": "S", "key": "F6", "label": "Unsafe", "template": token}]
+            with self.subTest(token=token), self.assertRaisesRegex(RuntimeError, message):
+                self.mutate("setup_save", setup=setup)
+            self.assertEqual(self.read("setup_get")["setup"], original)
+
     def test_setup_rejects_invalid_contest_configuration_atomically(self):
         setup = self.read("setup_get")["setup"]
         for update in ({"station": {"Call": "XX1UNKNOWN"}}, {"settings": {"SentExchange": "41"}},

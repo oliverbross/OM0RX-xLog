@@ -46,8 +46,23 @@ def verify_source():
     _verified = True
 
 
+MACRO_TEXT_TOKENS = {"MYCALL", "CALL", "RST", "EXCHANGE", "SENTNR"}
+MACRO_ACTION_TOKENS = ("LOGIT", "RUN", "SANDP", "WIPE")
+EXTERNAL_MACRO_ACTION_TOKENS = {"MARK", "SPOT", "TX", "RX", "TX/RX"}
+MACRO_ACTION_PATTERN = re.compile(r"\{(" + "|".join(map(re.escape, MACRO_ACTION_TOKENS)) + r")\}")
+
+
+def split_macro_template(template):
+    """Separate renderable text from ordered, contest-owner macro actions."""
+    actions = []
+    def capture(match):
+        actions.append(match.group(1))
+        return ""
+    return MACRO_ACTION_PATTERN.sub(capture, template), tuple(actions)
+
+
 def adapt_cw_template(plugin_id, template):
-    """Adapt one pinned or persisted Not1MM template to xLog's output tokens."""
+    """Adapt and validate one pinned or persisted Not1MM macro template."""
     replacements = {"HISCALL": "CALL", "SNT": "RST", "EXCH": "EXCHANGE"}
     for upstream, native in replacements.items():
         template = template.replace("{" + upstream + "}", "{" + native + "}")
@@ -55,10 +70,17 @@ def adapt_cw_template(plugin_id, template):
         # CQ WW's configured zone is the number meant by MyNR. Persisted
         # macro-editor rows must receive the same migration as pinned defaults.
         template = template.replace("{SENTNR}", "{EXCHANGE}")
-    if re.findall(r"\{([^}]+)\}", template) and any(
-            token not in {"MYCALL", "CALL", "RST", "EXCHANGE", "SENTNR"}
-            for token in re.findall(r"\{([^}]+)\}", template)):
-        raise RuntimeError("Pinned Not1MM CW macro uses an unsupported token")
+    tokens = re.findall(r"\{([^}]+)\}", template)
+    external = next((token for token in tokens if token in EXTERNAL_MACRO_ACTION_TOKENS
+                     or re.fullmatch(r"VOICE(?:10|[1-9])", token)), None)
+    if external:
+        ownership = ("radio PTT/voice-memory" if external in {"TX", "RX", "TX/RX"}
+                     or external.startswith("VOICE") else "cluster spotting")
+        raise RuntimeError(f"Not1MM macro action {{{external}}} requires the unavailable {ownership} owner")
+    if any(token not in MACRO_TEXT_TOKENS | set(MACRO_ACTION_TOKENS) for token in tokens):
+        raise RuntimeError("Not1MM macro uses an unsupported token")
+    if "RI:" in template:
+        raise RuntimeError("Not1MM RI: radio command macros are unavailable because xLog owns radio control")
     return template
 
 

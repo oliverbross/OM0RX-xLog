@@ -32,7 +32,8 @@ from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, ARRL_VHF_PLUGINS, CENTRAL_E
                       SENT_FIELD_SERIAL_PLUGINS, SIMPLE_MULTIPLIER_PLUGINS, SSA_MT_PLUGINS, TEN_TEN_PLUGINS,
                       TYPE4_UTILITY_PLUGINS)
 from .statistics import calculate_statistics
-from .upstream import adapt_cw_template, load_plugin, load_cw_macros, pinned_band_definitions, verify_source
+from .upstream import (adapt_cw_template, load_plugin, load_cw_macros, pinned_band_definitions,
+                       split_macro_template, verify_source)
 
 PLUGIN_ID = "cq_ww_cw"
 SOURCE_REVISION = "7c8b499225a73f7f8f792246881bd7aefc05452f"
@@ -584,6 +585,7 @@ class Desk:
         macro = self.cw_macros[identity]
         if not macro["template"].strip():
             return
+        text_template, macro_actions = split_macro_template(macro["template"])
         mode = operating_mode(self.state)
         context = {"sessionID": self.state["sessionID"], "workspaceGeneration": workspace_generation(self.state),
                    "sourceRevision": SOURCE_REVISION, "draftID": self.state["draft"]["id"],
@@ -591,10 +593,14 @@ class Desk:
                    "sentExchange": str(self.contest_settings["SentExchange"]),
                    "sentSerial": (str(self.current_sn) if self.state["pluginID"] in SSA_MT_PLUGINS | SENT_FIELD_SERIAL_PLUGINS
                                   else self.other_1.text() if self.state["pluginID"] in SENTNR_FIELD_PLUGINS else "")}
+        rendered = self.process_macro(text_template)
+        self.execute_macro_actions(macro_actions)
+        if not text_template.strip():
+            return
         if mode == "SSB":
             if self.state["pluginID"] not in VOICE_INTENT_PLUGINS:
                 return
-            payload = text(self.process_macro(macro["template"]), VOICE_PAYLOAD_MAXIMUM)
+            payload = text(rendered, VOICE_PAYLOAD_MAXIMUM)
             source_macro = {"origin": self.macro_origins[identity],
                             "path": ("not1mm/data/cwmacros.txt"
                                      if self.macro_origins[identity] == "pinned_not1mm" else None),
@@ -611,12 +617,12 @@ class Desk:
                                  **context})
             return
         if mode in DIGITAL_OUTPUT_MODES:
-            self.record_fldigi_output(self.process_macro(macro["template"]))
+            self.record_fldigi_output(rendered)
             return
         if mode != "CW":
             return
         self.actions.append({"kind": "function_key", "key": button.name,
-                             "label": macro["label"], "template": macro["template"],
+                             "label": macro["label"], "template": text_template,
                              **context})
 
     def record_fldigi_output(self, value, nlbefore=True, rxafter=True):
@@ -649,6 +655,30 @@ class Desk:
         for token, value in values.items():
             template = template.replace("{" + token + "}", value)
         return template
+
+    def execute_macro_actions(self, actions):
+        """Route validated macro actions through the existing contest owner methods."""
+        for action in actions:
+            if action == "LOGIT":
+                self.save_contact()
+            elif action == "RUN":
+                self.set_running(True)
+            elif action == "SANDP":
+                self.set_running(False)
+            elif action == "WIPE":
+                self.clear_inputs()
+            else:  # split_macro_template only returns the finite tuple above.
+                raise HostError("invalid_request", "Unsupported contest macro action")
+
+    def clear_inputs(self):
+        """Apply Not1MM WIPE without changing reserved/read-only exchange fields."""
+        containers = (self.field0, self.field1, self.field2, self.field3, self.field4)
+        for name, container in zip(INPUTS, containers):
+            field = getattr(self, name)
+            if field.read_only or not container.visible:
+                continue
+            field.setText(default_report(operating_mode(self.state)) if name in {"sent", "receive"} else "")
+        self.current_widget = "callsign"
 
     def save_contact(self):
         self._commit(self)
