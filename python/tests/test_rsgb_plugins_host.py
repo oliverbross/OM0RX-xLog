@@ -1,6 +1,7 @@
 """Pinned RSGB 80M CC and Commonwealth BERU plugins through the Python host."""
 from copy import deepcopy
 from hashlib import sha256
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -168,6 +169,47 @@ class RSGBCommonwealthBERUHostTests(RSGBHostCase, unittest.TestCase):
         self.log("K1ABC", "001 HQ", 0)
         row = self.read("log")["rows"][0]
         self.assertEqual((row["NR"], row["Points"], row["IsMultiplier2"]), ("001 HQ", 25, 1))
+
+    def test_esm_commits_serial_and_hq_in_run_and_sandp_with_safe_reset_and_history(self):
+        cases = (
+            (True, "G3AAA", "101", ["F2", "F3"], ["F4"]),
+            (True, "VK3AAA", "102 HQ", ["F2", "F3"], ["F4"]),
+            (False, "ZL1AAA", "103", ["F5"], ["F3"]),
+            (False, "K1ABC", "104 hq", ["F5"], ["F3"]),
+        )
+        for index, (run, callsign, received, call_keys, exchange_keys) in enumerate(cases, 1):
+            self.mutate("run_state", run=run)
+            call = self.mutate("esm", field="callsign", fields={"callsign": callsign})
+            self.assertEqual([action["key"] for action in call["actions"]], call_keys)
+            committed = self.mutate("esm", field="other_2", fields={"other_2": received})
+            self.assertEqual([action["key"] for action in committed["actions"]], exchange_keys)
+            self.assertEqual(self.read("log")["total"], index)
+            projected = {field["id"]: field["value"] for field in committed["projection"]["fields"]}
+            self.assertEqual((projected["callsign"], projected["other_2"], projected["other_1"]),
+                             ("", "", f"{index + 1:03}"))
+
+        rows = {row["Call"]: row for row in self.read("log")["rows"]}
+        self.assertEqual((rows["G3AAA"]["NR"], rows["VK3AAA"]["NR"],
+                          rows["ZL1AAA"]["NR"], rows["K1ABC"]["NR"]),
+                         (101, "102 HQ", 103, "104 hq"))
+
+        g3_id = rows["G3AAA"]["ID"]
+        self.mutate("qso_correct", qsoID=g3_id, fields={"other_2": "201 HQ"},
+                    reason="Correct BERU HQ exchange")
+        corrected = next(row for row in self.read("log")["rows"] if row["ID"] == g3_id)
+        self.assertEqual(corrected["NR"], "201 HQ")
+        audit = self.host.database(self.session).exec_sql(
+            "SELECT before_identity_json,after_identity_json FROM xlog_qso_audit "
+            "WHERE qso_id=? AND kind='correct' ORDER BY sequence DESC LIMIT 1", (g3_id,))
+        before = json.loads(audit["before_identity_json"])["rawFields"]
+        after = json.loads(audit["after_identity_json"])["rawFields"]
+        self.assertEqual((before["other_2"], after["other_2"]), ("101", "201 HQ"))
+
+        self.mutate("run_state", run=True)
+        self.mutate("esm", field="callsign", fields={"callsign": "G3AAA"})
+        rejected = self.mutate("esm", field="other_2", fields={"other_2": "105 H"})
+        self.assertEqual([action["key"] for action in rejected["actions"]], ["F9"])
+        self.assertEqual(self.read("log")["total"], 4)
 
     def test_original_bonus_reallocation_delete_restart_and_export(self):
         first = self.log("G3AAA", "001", 0)

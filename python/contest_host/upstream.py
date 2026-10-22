@@ -188,6 +188,28 @@ def load_plugin(plugin_id="cq_ww_cw"):
                  "elif self.other_1.text().isnumeric() and self.other_2.text().isnumeric():\n"
                  "                self.make_button_green(self.esm_dict[\"EXCH\"])")
             ])
+        if plugin_id == "rsgb_commonwealth_beru":
+            # BERU permits HQ stations to send "SERIAL HQ", and the original
+            # contact setter preserves that complete exchange. Its ESM gates,
+            # however, only reach LOGIT for a purely numeric value. Extend the
+            # two original Run/S&P predicates while leaving button order,
+            # commit ownership and the host's authoritative validation intact.
+            replacements.extend([
+                (
+                    "elif self.other_2.text().isnumeric():\n"
+                    "                # If the operator corrected a busted callsign",
+                    "elif (self.other_2.text().isnumeric() or re.fullmatch(\n"
+                    "                r\"[0-9]+\\s+[Hh][Qq]\", self.other_2.text())):\n"
+                    "                # If the operator corrected a busted callsign",
+                ),
+                (
+                    "elif self.other_2.text().isnumeric():\n"
+                    "                self.make_button_green(self.esm_dict[\"EXCH\"])",
+                    "elif (self.other_2.text().isnumeric() or re.fullmatch(\n"
+                    "                r\"[0-9]+\\s+[Hh][Qq]\", self.other_2.text())):\n"
+                    "                self.make_button_green(self.esm_dict[\"EXCH\"])",
+                ),
+            ])
         if plugin_id == "jidx_cw":
             # The CW sibling targets older container-label and cty_lookup
             # shapes; the pinned phone sibling already uses both current APIs.

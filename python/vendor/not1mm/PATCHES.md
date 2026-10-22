@@ -46,6 +46,12 @@ EU HF Championship and IARU HF Championship are also registered as their
 original mixed-mode modules.
 `source-manifest.json` binds those registrations to unchanged pinned file hashes.
 
+RSGB Commonwealth BERU retains the unchanged pinned plugin and its original
+Run/S&P ESM button order. A two-anchor import overlay admits the plugin's own
+documented `SERIAL HQ` received form to the same LOGIT branches as an ordinary
+numeric serial. The host's existing positive-serial/optional-HQ validator remains
+the commit authority, so malformed suffixes continue to select AGN without logging.
+
 `contest_host/upstream.py` applies exact, single-occurrence source overlays at
 import time and fails if the pinned source differs:
 
