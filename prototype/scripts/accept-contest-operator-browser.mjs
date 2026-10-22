@@ -182,7 +182,10 @@ const cases = profiles.flatMap(profile => ["run", "search-and-pounce"].map(style
 }));
 
 async function exportCase(item, format) {
-  await waitEnabledButton("Export…"); await click("Export…"); await waitText("Prepare a submission file"); await select("Format", format); await fill("Location", "DX"); await fill("Name", "Oliver Acceptance");
+  await waitEnabledButton("Export…"); await click("Export…");
+  observations.push({ phase: "export-open", case: item.id, style: item.style, format,
+    state: await browser(["eval", `new Promise(resolve=>setTimeout(()=>{ const button=[...document.querySelectorAll('button')].find(x=>x.textContent.trim()==='Export…'); const dialog=document.querySelector('dialog[aria-label="Export contest log"]'); resolve(JSON.stringify({buttonDisabled:button?.disabled??null,dialogPresent:!!dialog,dialogOpen:dialog?.open??false,heading:dialog?.querySelector('h2')?.textContent??null})); },250))`]) });
+  await waitText("Prepare a submission file"); await select("Format", format); await fill("Location", "DX"); await fill("Name", "Oliver Acceptance");
   await click("Prepare export"); await waitText(format === "cabrillo" ? "Cabrillo submission preview" : "ADIF compatibility export");
   const assertionCount = exportAssertions.length; pendingExportExpectation = { item, format }; await click("Save…");
   const until = Date.now() + 10_000; while (exportAssertions.length === assertionCount && Date.now() <= until) await new Promise(resolveDelay => setTimeout(resolveDelay, 25));
