@@ -34,6 +34,7 @@ test('Mac packaging resolves Xcode products and retains the strict-signing resou
   assert.match(script, /cargo clean --manifest-path "\$root\/prototype\/src-tauri\/Cargo\.toml" -p xlog-prototype/);
   assert.match(script, /bash "\$root\/prototype\/scripts\/stage-contest-python-macos\.sh" "\$bundle"/);
   assert.match(script, /find "\$bundle\/Contents\/Frameworks\/Python\.framework" -type f -print0/);
+  assert.match(script, /\*\.a\|\*\.o\) continue ;;/);
   assert.match(script, /security find-identity -v -p codesigning/);
   assert.match(script, /Developer ID Application:/);
   assert.match(script, /com\.oliverbross\.xlog\.integration\.worker/);
@@ -54,6 +55,7 @@ test('isolated contest packaging stages and signs the complete Python lane', () 
   assert.match(helper, /"sourceChanges": run\("git", "-C", ROOT, "status", "--porcelain"\)\.splitlines\(\)/);
   assert.match(helper, /"final-component-signatures-before-outer-app-signature"/);
   assert.match(script, /find "\$bundle\/Contents\/Frameworks\/Python\.framework" -type f -print0/);
+  assert.match(script, /\*\.a\|\*\.o\) continue ;;/);
   assert.match(script, /security find-identity -v -p codesigning/);
   assert.match(script, /Developer ID Application:/);
   assert.match(script, /if \[ "\$signing_identity" = - \]; then/);

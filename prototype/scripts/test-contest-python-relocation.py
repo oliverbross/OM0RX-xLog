@@ -11,6 +11,21 @@ spec.loader.exec_module(relocation)
 
 
 class RelocationBoundaryTests(unittest.TestCase):
+    def test_fat_static_archives_are_not_runtime_machos(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            archive = root / "libitclstub.a"
+            archive.write_bytes(bytes.fromhex("cafebabe") + b"fat archive fixture")
+            object_file = root / "stub.o"
+            object_file.write_bytes(bytes.fromhex("feedfacf") + b"object fixture")
+            extension = root / "_sqlite3.so"
+            extension.write_bytes(bytes.fromhex("feedfacf") + b"bundle fixture")
+
+            self.assertFalse(relocation.is_macho(archive))
+            self.assertFalse(relocation.is_macho(object_file))
+            self.assertTrue(relocation.is_macho(extension))
+            self.assertEqual(relocation.machos(root), [extension])
+
     def test_packaging_provenance_is_allowlisted_and_exact(self):
         self.assertEqual(
             relocation.packaging_source_names("package-contesting-test-macos.sh"),

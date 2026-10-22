@@ -15,6 +15,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 MACHO = {bytes.fromhex(value) for value in ("feedface", "cefaedfe", "feedfacf", "cffaedfe", "cafebabe", "bebafeca", "cafebabf", "bfbafeca")}
+NON_RUNTIME_MACHO_SUFFIXES = {".a", ".o"}
 PACKAGING_SCRIPTS = {"package-macos.sh", "package-contesting-test-macos.sh"}
 
 
@@ -38,7 +39,11 @@ def packaging_source_names(packaging_script):
 
 
 def is_macho(path):
-    if path.is_symlink() or not path.is_file():
+    # Fat static archives use the same universal header as loadable Mach-O
+    # images, but vtool/install_name_tool/codesign cannot treat them as runtime
+    # components. They are build-time material copied with the framework, not
+    # part of the executable dependency closure.
+    if path.is_symlink() or not path.is_file() or path.suffix.lower() in NON_RUNTIME_MACHO_SUFFIXES:
         return False
     with path.open("rb") as stream:
         return stream.read(4) in MACHO

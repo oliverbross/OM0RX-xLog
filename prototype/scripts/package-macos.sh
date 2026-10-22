@@ -43,6 +43,9 @@ sign_component() {
   fi
 }
 while IFS= read -r -d '' component; do
+  case "$component" in
+    *.a|*.o) continue ;;
+  esac
   if file "$component" | grep -q 'Mach-O'; then
     if [ "$signing_identity" = - ]; then
       codesign --force --sign - --timestamp=none "$component"
