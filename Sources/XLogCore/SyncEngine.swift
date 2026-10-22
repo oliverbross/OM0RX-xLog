@@ -280,6 +280,9 @@ public actor SyncEngine {
         defer { database.endSyncReconciliation(run) }
         let snapshot = try await Self.readRemoteHistory(client: client)
         let remoteQSOs = snapshot.qsos
+        let remoteByID = remoteQSOs.reduce(into: [Int: QSO]()) { result, qso in
+            if let remoteID = qso.wavelogID { result[remoteID] = qso }
+        }
         let remoteIDs = snapshot.remoteIDs
         let protectedIDs = snapshot.heldRemoteIDs
         let protectedIdentities = snapshot.heldIdentities
@@ -358,10 +361,16 @@ public actor SyncEngine {
                     continue
                 }
                 if let remoteID = qso.wavelogID {
-                    try validateForNetwork(run)
-                    let remote = try await client.updateQSO(id: remoteID, fields: WavelogQSOUpdate(qso))
-                    guard remote.representsSupportedWrite(of: qso) else {
-                        throw WavelogClientError.writeVerificationFailed(id: remoteID)
+                    guard let previous = remoteByID[remoteID] else {
+                        throw WavelogClientError.invalidData("The linked Wavelog QSO was not present in the verified remote snapshot.")
+                    }
+                    let fields = WavelogQSOUpdate(qso, comparedTo: previous)
+                    if !fields.isEmpty {
+                        try validateForNetwork(run)
+                        let remote = try await client.updateQSO(id: remoteID, fields: fields)
+                        guard fields.isRepresented(by: remote) else {
+                            throw WavelogClientError.writeVerificationFailed(id: remoteID)
+                        }
                     }
                     try validateSyncRun()
                     try database.withSyncDatabaseLock(run) { try database.acknowledgeSynced(qso) }
@@ -374,7 +383,7 @@ public actor SyncEngine {
                     }
                     try validateForNetwork(run)
                     let remote = try await client.createQSO(create)
-                    guard remote.representsSupportedWrite(of: qso) else {
+                    guard WavelogQSOUpdate(create).isRepresented(by: remote) else {
                         throw WavelogClientError.writeVerificationFailed(id: remote.id)
                     }
                     try validateSyncRun()
@@ -659,22 +668,147 @@ extension WavelogQSOUpdate {
         potaReference = qso.potaReference.nilIfEmpty; wwffReference = qso.wwffReference.nilIfEmpty
         satelliteName = adif["SAT_NAME"]?.nilIfEmpty; satelliteMode = adif["SAT_MODE"]?.nilIfEmpty
     }
-}
 
-extension WavelogQSO {
-    func representsSupportedWrite(of qso: QSO) -> Bool {
-        let adif = qso.adifRecord
-        let expectedMode = (adif["SUBMODE"]?.nilIfEmpty ?? adif["MODE"] ?? qso.mode).uppercased()
-        let returnedMode = (submode?.nilIfEmpty ?? mode).uppercased()
-        guard call.uppercased() == qso.call.uppercased(), band.lowercased() == qso.band.lowercased(),
-              returnedMode == expectedMode else { return false }
-        if let expected = qso.frequencyHz, frequency.flatMap({ roundedHertz($0) }) != expected { return false }
-        if let expected = qso.receiveFrequencyHz, receiveFrequency.flatMap({ roundedHertz($0) }) != expected { return false }
-        if let expected = qso.receiveBand.nilIfEmpty, receiveBand?.lowercased() != expected.lowercased() { return false }
-        if let expected = adif["SAT_NAME"]?.nilIfEmpty, satelliteName?.uppercased() != expected.uppercased() { return false }
-        if let expected = adif["SAT_MODE"]?.nilIfEmpty, satelliteMode?.uppercased() != expected.uppercased() { return false }
+    init(_ create: WavelogQSOCreate) {
+        self.init()
+        call = create.call; band = create.band; mode = create.mode
+        qsoDate = create.qsoDate; timeOn = create.timeOn
+        frequency = create.frequency; receiveFrequency = create.receiveFrequency; receiveBand = create.receiveBand
+        rstSent = create.rstSent; rstReceived = create.rstReceived
+        gridSquare = create.gridSquare; name = create.name; comment = create.comment
+        notes = create.notes; qth = create.qth; state = create.state; county = create.county
+        iota = create.iota; qslVia = create.qslVia; power = create.power
+        cqZone = create.cqZone; ituZone = create.ituZone; propagationMode = create.propagationMode
+        satelliteName = create.satelliteName; satelliteMode = create.satelliteMode
+        sotaReference = create.sotaReference; potaReference = create.potaReference
+        wwffReference = create.wwffReference
+    }
+
+    init(_ qso: QSO, comparedTo previous: QSO) {
+        self.init()
+        let date = DateFormatter()
+        date.locale = Locale(identifier: "en_US_POSIX"); date.timeZone = TimeZone(secondsFromGMT: 0); date.dateFormat = "yyyy-MM-dd"
+        let time = DateFormatter()
+        time.locale = Locale(identifier: "en_US_POSIX"); time.timeZone = TimeZone(secondsFromGMT: 0); time.dateFormat = "HHmmss"
+        let adif = qso.adifRecord, priorADIF = previous.adifRecord
+        let effectiveMode = adif["SUBMODE"]?.nilIfEmpty ?? adif["MODE"] ?? qso.mode
+        let previousMode = priorADIF["SUBMODE"]?.nilIfEmpty ?? priorADIF["MODE"] ?? previous.mode
+
+        func assign(
+            _ desired: String,
+            _ prior: String,
+            field: Field,
+            keyPath: WritableKeyPath<WavelogQSOUpdate, String?>,
+            normalize: (String) -> String = { $0 }
+        ) {
+            guard normalize(desired) != normalize(prior) else { return }
+            if desired.isEmpty { clearedFields.insert(field) }
+            else { self[keyPath: keyPath] = desired }
+        }
+
+        assign(qso.call, previous.call, field: .call, keyPath: \.call) { $0.uppercased() }
+        assign(qso.band, previous.band, field: .band, keyPath: \.band) { $0.lowercased() }
+        assign(effectiveMode, previousMode, field: .mode, keyPath: \.mode) { $0.uppercased() }
+        if qso.start != previous.start {
+            qsoDate = date.string(from: qso.start)
+            timeOn = time.string(from: qso.start)
+        }
+        if qso.frequencyHz != previous.frequencyHz {
+            if let frequencyHz = qso.frequencyHz { frequency = frequencyHz }
+            else { clearedFields.insert(.frequency) }
+        }
+        if qso.receiveFrequencyHz != previous.receiveFrequencyHz {
+            if let receiveFrequencyHz = qso.receiveFrequencyHz { receiveFrequency = receiveFrequencyHz }
+            else { clearedFields.insert(.receiveFrequency) }
+        }
+        assign(qso.receiveBand, previous.receiveBand, field: .receiveBand, keyPath: \.receiveBand) { $0.lowercased() }
+        assign(qso.rstSent, previous.rstSent, field: .rstSent, keyPath: \.rstSent)
+        assign(qso.rstReceived, previous.rstReceived, field: .rstReceived, keyPath: \.rstReceived)
+        assign(qso.gridSquare, previous.gridSquare, field: .gridSquare, keyPath: \.gridSquare) { $0.uppercased() }
+        assign(qso.name, previous.name, field: .name, keyPath: \.name)
+        assign(qso.comment, previous.comment, field: .comment, keyPath: \.comment)
+        assign(qso.notes, previous.notes, field: .notes, keyPath: \.notes)
+        assign(qso.qth, previous.qth, field: .qth, keyPath: \.qth)
+        assign(qso.state, previous.state, field: .state, keyPath: \.state) { $0.uppercased() }
+        assign(qso.county, previous.county, field: .county, keyPath: \.county) { $0.uppercased() }
+        assign(qso.iota, previous.iota, field: .iota, keyPath: \.iota) { $0.uppercased() }
+        assign(qso.qslVia, previous.qslVia, field: .qslVia, keyPath: \.qslVia) { $0.uppercased() }
+        assign(qso.txPower, previous.txPower, field: .power, keyPath: \.power)
+        assign(qso.cqZone, previous.cqZone, field: .cqZone, keyPath: \.cqZone)
+        assign(qso.ituZone, previous.ituZone, field: .ituZone, keyPath: \.ituZone)
+        assign(qso.propagationMode, previous.propagationMode, field: .propagationMode, keyPath: \.propagationMode) { $0.uppercased() }
+        assign(qso.sotaReference, previous.sotaReference, field: .sotaReference, keyPath: \.sotaReference) { $0.uppercased() }
+        assign(qso.potaReference, previous.potaReference, field: .potaReference, keyPath: \.potaReference) { $0.uppercased() }
+        assign(qso.wwffReference, previous.wwffReference, field: .wwffReference, keyPath: \.wwffReference) { $0.uppercased() }
+        assign(adif["SAT_NAME"] ?? "", priorADIF["SAT_NAME"] ?? "", field: .satelliteName, keyPath: \.satelliteName) { $0.uppercased() }
+        assign(adif["SAT_MODE"] ?? "", priorADIF["SAT_MODE"] ?? "", field: .satelliteMode, keyPath: \.satelliteMode) { $0.uppercased() }
+    }
+
+    func isRepresented(by remote: WavelogQSO) -> Bool {
+        func exposed(_ field: Field) -> Bool { remote.presentFields.contains(field.rawValue) }
+        func text(
+            _ expected: String?,
+            _ returned: String?,
+            field: Field,
+            normalize: (String) -> String = { $0 }
+        ) -> Bool {
+            guard expected != nil || clearedFields.contains(field) else { return true }
+            guard exposed(field) else { return false }
+            if let expected { return returned.map(normalize) == normalize(expected) }
+            // Wavelog's text clears are submitted as an empty string. Some
+            // deployed response serializers expose the cleared value as null;
+            // container presence still proves that this is authoritative.
+            return returned == nil || returned == ""
+        }
+        func number(_ expected: Int64?, _ returned: String?, field: Field) -> Bool {
+            guard expected != nil || clearedFields.contains(field) else { return true }
+            guard exposed(field) else { return false }
+            if let expected { return returned.flatMap { roundedHertz($0) } == expected }
+            return returned == nil
+        }
+
+        if !text(call, remote.call, field: .call, normalize: { $0.uppercased() }) { return false }
+        if !text(band, remote.band, field: .band, normalize: { $0.lowercased() }) { return false }
+        if mode != nil || clearedFields.contains(.mode) {
+            let returnedMode = remote.submode?.nilIfEmpty ?? remote.mode
+            guard exposed(.mode), text(mode, returnedMode, field: .mode, normalize: { $0.uppercased() }) else { return false }
+        }
+        if qsoDate != nil || timeOn != nil {
+            guard exposed(.qsoDate), let qsoDate, let timeOn else { return false }
+            let digits = timeOn.filter(\.isNumber)
+            let padded = (digits + "000000").prefix(6)
+            let expected = "\(qsoDate) \(padded.prefix(2)):\(padded.dropFirst(2).prefix(2)):\(padded.suffix(2))"
+            guard remote.qsoDate == expected else { return false }
+        }
+        if !number(frequency, remote.frequency, field: .frequency) { return false }
+        if !number(receiveFrequency, remote.receiveFrequency, field: .receiveFrequency) { return false }
+        if !text(receiveBand, remote.receiveBand, field: .receiveBand, normalize: { $0.lowercased() }) { return false }
+        if !text(rstSent, remote.rstSent, field: .rstSent) { return false }
+        if !text(rstReceived, remote.rstReceived, field: .rstReceived) { return false }
+        if !text(gridSquare, remote.gridSquare, field: .gridSquare, normalize: { $0.uppercased() }) { return false }
+        if !text(name, remote.name, field: .name) { return false }
+        if !text(comment, remote.comment, field: .comment) { return false }
+        if !text(notes, remote.notes, field: .notes) { return false }
+        if !text(qth, remote.qth, field: .qth) { return false }
+        if !text(state, remote.state, field: .state, normalize: { $0.uppercased() }) { return false }
+        if !text(county, remote.county, field: .county, normalize: { $0.uppercased() }) { return false }
+        if !text(iota, remote.iota, field: .iota, normalize: { $0.uppercased() }) { return false }
+        if !text(qslVia, remote.qslVia, field: .qslVia, normalize: { $0.uppercased() }) { return false }
+        if !text(power, remote.power, field: .power, normalize: decimalText) { return false }
+        if !text(cqZone, remote.cqZone, field: .cqZone, normalize: decimalText) { return false }
+        if !text(ituZone, remote.ituZone, field: .ituZone, normalize: decimalText) { return false }
+        if !text(propagationMode, remote.propagationMode, field: .propagationMode, normalize: { $0.uppercased() }) { return false }
+        if !text(satelliteName, remote.satelliteName, field: .satelliteName, normalize: { $0.uppercased() }) { return false }
+        if !text(satelliteMode, remote.satelliteMode, field: .satelliteMode, normalize: { $0.uppercased() }) { return false }
+        if !text(sotaReference, remote.sotaReference, field: .sotaReference, normalize: { $0.uppercased() }) { return false }
+        if !text(potaReference, remote.potaReference, field: .potaReference, normalize: { $0.uppercased() }) { return false }
+        if !text(wwffReference, remote.wwffReference, field: .wwffReference, normalize: { $0.uppercased() }) { return false }
         return true
     }
+}
+
+private func decimalText(_ value: String) -> String {
+    Decimal(string: value).map { NSDecimalNumber(decimal: $0).stringValue } ?? value
 }
 
 private extension String {

@@ -92,8 +92,12 @@ public struct WavelogQSO: Codable, Equatable, Sendable {
     public let sotaReference: String?
     public let potaReference: String?
     public let wwffReference: String?
+    /// Distinguishes an authoritative JSON null from a field that an older
+    /// Wavelog response did not expose at all. Write verification must not
+    /// treat an absent property as proof that a clear succeeded.
+    var presentFields: Set<String> = []
 
-    enum CodingKeys: String, CodingKey {
+    enum CodingKeys: String, CodingKey, CaseIterable {
         case id, call, band, mode, submode, name, comment, notes, qth, state, iota
         case stationID = "station_id"
         case frequency = "freq"
@@ -148,6 +152,7 @@ public struct WavelogQSO: Codable, Equatable, Sendable {
         sotaReference = try container.decodeIfPresent(String.self, forKey: .sotaReference)
         potaReference = try container.decodeIfPresent(String.self, forKey: .potaReference)
         wwffReference = try container.decodeIfPresent(String.self, forKey: .wwffReference)
+        presentFields = Set(CodingKeys.allCases.filter(container.contains).map(\.rawValue))
     }
 }
 
@@ -293,7 +298,7 @@ public struct WavelogQSOCreate: Codable, Equatable, Sendable {
     }
 }
 
-public struct WavelogQSOUpdate: Codable, Equatable, Sendable {
+public struct WavelogQSOUpdate: Encodable, Equatable, Sendable {
     public var call: String?
     public var band: String?
     public var mode: String?
@@ -323,6 +328,31 @@ public struct WavelogQSOUpdate: Codable, Equatable, Sendable {
     public var potaReference: String?
     public var wwffReference: String?
 
+    enum Field: String, Hashable, Sendable {
+        case call, band, mode, name, comment, notes, qth, state, iota
+        case qsoDate = "qso_date"
+        case timeOn = "time_on"
+        case frequency = "freq"
+        case receiveFrequency = "freq_rx"
+        case receiveBand = "band_rx"
+        case rstSent = "rst_sent"
+        case rstReceived = "rst_rcvd"
+        case gridSquare = "gridsquare"
+        case county = "cnty"
+        case qslVia = "qsl_via"
+        case power = "tx_pwr"
+        case cqZone = "cqz"
+        case ituZone = "ituz"
+        case propagationMode = "prop_mode"
+        case satelliteName = "sat_name"
+        case satelliteMode = "sat_mode"
+        case sotaReference = "sota_ref"
+        case potaReference = "pota_ref"
+        case wwffReference = "wwff_ref"
+    }
+
+    var clearedFields: Set<Field> = []
+
     enum CodingKeys: String, CodingKey {
         case call, band, mode, name, comment, notes, qth, state, iota
         case qsoDate = "qso_date"
@@ -347,6 +377,56 @@ public struct WavelogQSOUpdate: Codable, Equatable, Sendable {
     }
 
     public init() {}
+
+    var isEmpty: Bool {
+        let values: [Any?] = [
+            call, band, mode, qsoDate, timeOn, frequency, receiveFrequency, receiveBand,
+            rstSent, rstReceived, gridSquare, name, comment, notes, qth, state, county,
+            iota, qslVia, power, cqZone, ituZone, propagationMode, satelliteName,
+            satelliteMode, sotaReference, potaReference, wwffReference,
+        ]
+        return values.allSatisfy { $0 == nil } && clearedFields.isEmpty
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        func string(_ value: String?, _ field: Field, _ key: CodingKeys) throws {
+            if let value { try container.encode(value, forKey: key) }
+            else if clearedFields.contains(field) { try container.encode("", forKey: key) }
+        }
+        func integer(_ value: Int64?, _ field: Field, _ key: CodingKeys) throws {
+            if let value { try container.encode(value, forKey: key) }
+            else if clearedFields.contains(field) { try container.encodeNil(forKey: key) }
+        }
+        try string(call, .call, .call)
+        try string(band, .band, .band)
+        try string(mode, .mode, .mode)
+        try string(qsoDate, .qsoDate, .qsoDate)
+        try string(timeOn, .timeOn, .timeOn)
+        try integer(frequency, .frequency, .frequency)
+        try integer(receiveFrequency, .receiveFrequency, .receiveFrequency)
+        try string(receiveBand, .receiveBand, .receiveBand)
+        try string(rstSent, .rstSent, .rstSent)
+        try string(rstReceived, .rstReceived, .rstReceived)
+        try string(gridSquare, .gridSquare, .gridSquare)
+        try string(name, .name, .name)
+        try string(comment, .comment, .comment)
+        try string(notes, .notes, .notes)
+        try string(qth, .qth, .qth)
+        try string(state, .state, .state)
+        try string(county, .county, .county)
+        try string(iota, .iota, .iota)
+        try string(qslVia, .qslVia, .qslVia)
+        try string(power, .power, .power)
+        try string(cqZone, .cqZone, .cqZone)
+        try string(ituZone, .ituZone, .ituZone)
+        try string(propagationMode, .propagationMode, .propagationMode)
+        try string(satelliteName, .satelliteName, .satelliteName)
+        try string(satelliteMode, .satelliteMode, .satelliteMode)
+        try string(sotaReference, .sotaReference, .sotaReference)
+        try string(potaReference, .potaReference, .potaReference)
+        try string(wwffReference, .wwffReference, .wwffReference)
+    }
 }
 
 private struct WavelogEnvelope<T: Codable & Sendable>: Codable, Sendable {
