@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useState, type MouseEvent } from "react";
 import "./RotorCompass.css";
 const valid = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 360;
 export const bearingDelta = (from: number, to: number) => ((to - from + 540) % 360 + 360) % 360 - 180;
@@ -7,19 +7,36 @@ export function bearingArc(from: number, to: number) {
   const start = point(from, 83), end = point(to, 83), delta = bearingDelta(from, to);
   return Math.abs(delta) < .5 ? "" : `M ${start.join(" ")} A 83 83 0 0 ${delta >= 0 ? 1 : 0} ${end.join(" ")}`;
 }
+export function bearingFromDialPoint(x: number, y: number, width: number, height: number) {
+  if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) return null;
+  const east = x - width / 2, north = height / 2 - y;
+  if (Math.hypot(east, north) < Math.min(width, height) * .08) return null;
+  return Math.round((((Math.atan2(east, north) * 180 / Math.PI) + 360) % 360) * 10) / 10;
+}
 type DialReadout = { call: string; distanceKm?: number; status?: string };
 type PathControls = { shortBearing?: number | null; longBearing?: number | null; busy?: boolean;
   onSelect: (path: "SP" | "LP") => void };
-function RotorCompass({ connected, azimuth, target, path, readout, pathControls }: { connected: boolean; azimuth?: number | null;
-  target?: number | null; path: "SP" | "LP"; readout?: DialReadout; pathControls?: PathControls }) {
+function RotorCompass({ connected, azimuth, target, path, readout, pathControls, onBearingSelect, bearingSelectionDisabled = false }: {
+  connected: boolean; azimuth?: number | null; target?: number | null; path: "SP" | "LP"; readout?: DialReadout;
+  pathControls?: PathControls; onBearingSelect?: (bearing: number) => void; bearingSelectionDisabled?: boolean;
+}) {
   const actual = connected && valid(azimuth) ? azimuth : null;
   const distance = typeof readout?.distanceKm === "number" && Number.isFinite(readout.distanceKm)
     ? `${Math.round(readout.distanceKm).toLocaleString()} km` : null;
   const [reading, setReading] = useState({ actual, angle: actual ?? 0 });
   const angle = actual === null ? reading.angle : reading.actual === null ? actual : reading.angle + bearingDelta(reading.angle, actual);
   useEffect(() => { setReading(previous => ({ actual, angle: actual === null ? previous.angle : previous.actual === null ? actual : previous.angle + bearingDelta(previous.angle, actual) })); }, [actual]);
-  const dial = <svg className={`rotor-dial${actual === null ? " is-offline" : ""}${readout ? " has-readout" : ""}`} viewBox="0 0 200 200" role="img"
+  const selectBearing = (event: MouseEvent<SVGSVGElement>) => {
+    if (!onBearingSelect || bearingSelectionDisabled) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const bearing = bearingFromDialPoint(event.clientX - bounds.left, event.clientY - bounds.top, bounds.width, bounds.height);
+    if (bearing !== null) onBearingSelect(bearing);
+  };
+  const dial = <svg className={`rotor-dial${actual === null ? " is-offline" : ""}${readout ? " has-readout" : ""}${onBearingSelect ? " is-bearing-selector" : ""}${bearingSelectionDisabled ? " is-selection-disabled" : ""}`}
+    viewBox="0 0 200 200" role="img" onClick={selectBearing}
     aria-label={actual !== null ? `Observed rotor bearing ${Math.round(actual)} degrees` : "Rotor bearing unavailable"}>
+    {onBearingSelect && <title>{bearingSelectionDisabled ? "Refresh the connected rotor before selecting a compass bearing." :
+      "Click a compass bearing to request one manual rotor turn."}</title>}
     {readout && <desc>{`Target callsign ${readout.call || "unavailable"}. ${path} target ${valid(target) ? `${Math.round(target)} degrees` : "unavailable"}.${distance ? ` ${path} distance ${distance}.` : ""} ${readout.status || "Rotor telemetry unavailable"}.`}</desc>}
     <circle className="rotor-dial-bezel" cx="100" cy="100" r="96" />
     <circle className="rotor-dial-face" cx="100" cy="100" r="89" />

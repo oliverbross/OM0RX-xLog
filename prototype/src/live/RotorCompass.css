@@ -1,4 +1,6 @@
 .rotor-dial { display:block; width:100%; max-width:160px; aspect-ratio:1; overflow:visible; }
+.rotor-dial.is-bearing-selector:not(.is-selection-disabled) { cursor:crosshair; }
+.rotor-dial.is-bearing-selector.is-selection-disabled { cursor:not-allowed; }
 .rotor-dial-bezel { fill:#071521; stroke:#28536c; stroke-width:1.5; }
 .rotor-dial-face { fill:#0b1c2c; stroke:#1c354b; stroke-width:1; }
 .rotor-tick { stroke:#56748a; stroke-width:1; }

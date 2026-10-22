@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import RotorCompass from "./RotorCompass";
 import { connectRotorTelemetry } from "./rotorTelemetry";
 import { rotorProjection, type RotorSnapshot } from "./rotorControl";
 import { useAutoRotor } from "./useAutoRotor";
 import { ManualRotorControl } from "./ManualRotorControl";
+import { manualRotorGotoSession } from "./manualRotorGoto";
 import { rotorCommandParams, validRotorSnapshot } from "./rotorControl";
 import { workerRequest } from "../worker";
 import { serviceErrorMessage } from "./startupReadRecovery";
@@ -17,6 +18,8 @@ export function DetachedRotorSurface() {
   const [snapshot, setSnapshot] = useState<RotorSnapshot | null>(null), [available, setAvailable] = useState(false);
   const [clock, setClock] = useState(Date.now());
   const automatic = useAutoRotor(), [autoError, setAutoError] = useState("");
+  const manualSession = manualRotorGotoSession(), manualState = useSyncExternalStore(manualSession.subscribe, manualSession.getSnapshot);
+  const [compassError, setCompassError] = useState("");
   const [arming, setArming] = useState(false);
   const latest = useRef({ snapshot, available }); latest.current = { snapshot, available };
   const active = useRef(true), armingRef = useRef(false);
@@ -63,6 +66,22 @@ export function DetachedRotorSurface() {
         reply.result.backend_available === false || reply.result.generation < captured.generation)
       throw new Error("Rotor Park acknowledgement could not be verified. Check the observed state before trying again.");
   };
+  const turnFromCompass = async (bearing: number) => {
+    const retained = latest.current, observed = rotorProjection(retained.snapshot);
+    const observedAge = typeof observed.observed_at === "number" ? Date.now() / 1000 - observed.observed_at : Infinity;
+    if (!contestContext || !retained.available || !retained.snapshot?.owner || !observed.connected ||
+        !Number.isFinite(observed.azimuth) || observed.azimuth < 0 || observed.azimuth > 360 ||
+        !Number.isFinite(observedAge) || observedAge < -1 || observedAge > 5) {
+      setCompassError("Refresh the connected rotor observation before selecting a compass bearing."); return;
+    }
+    setCompassError("");
+    try {
+      if (automatic.state?.armed) await changeAutomatic(false);
+      await manualSession.goto(retained.snapshot.owner, retained.snapshot.generation, bearing, `Compass ${Math.round(bearing)} deg`);
+    } catch (cause) {
+      setCompassError(serviceErrorMessage(cause) || "Compass rotor outcome is unknown. Check the retained receipt and observed bearing.");
+    }
+  };
   const target = contestTarget?.available && contestTarget.callsign ? {
     callsign: contestTarget.callsign, shortPathBearing: contestTarget.shortPathBearing, longPathBearing: contestTarget.longPathBearing,
   } : null;
@@ -74,7 +93,7 @@ export function DetachedRotorSurface() {
         onClick={() => { void changeAutomatic(false); }}>Off</button>
     </div>
     {(autoError || automatic.error) && <p className="live-error" role="alert">{autoError || automatic.error}</p>}</>;
-  const manualControls = <ManualRotorControl observation={{ available: current, snapshot }} target={target}
+  const manualControls = <ManualRotorControl observation={{ available: current, snapshot }} target={target} session={manualSession}
       onManual={() => automatic.state?.armed ? changeAutomatic(false) : undefined}
       onPark={parkCurrent} hideHeading contestLayout={!!contestContext} />;
   return <div className="app live detached-task-app detached-rotor-app"><main aria-label="Detached Rotor"><section
@@ -82,7 +101,10 @@ export function DetachedRotorSurface() {
     {contestContext && <div className="detached-rotor-details">{manualControls}</div>}
     <div className="detached-rotor-visual"><RotorCompass connected={current} azimuth={rotor.azimuth}
       target={contestContext ? target?.shortPathBearing : undefined} path="SP"
+      onBearingSelect={contestContext ? bearing => void turnFromCompass(bearing) : undefined}
+      bearingSelectionDisabled={!current || manualState.busy || !!manualState.pending}
       readout={contestContext ? { call: target?.callsign ?? "NO TARGET", status: current ? "Observed rotor bearing" : "Rotor telemetry unavailable" } : undefined} />
+    {compassError && <p className="live-error" role="alert">{compassError}</p>}
     {!contestContext && <div className="live-station-readback"><div><span role="status">{current ? "Observed bearing" : snapshot ? "Position unavailable or stale" : "No rotor observation available"}</span>
       <strong>{validBearing ? `${rotor.azimuth.toFixed(1)}°` : "Unavailable"}</strong></div></div>}</div>
     {contestContext ? <div className="detached-rotor-secondary">{automaticControls}</div> : <div className="detached-rotor-details">{automaticControls}{manualControls}</div>}

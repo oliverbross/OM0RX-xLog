@@ -195,6 +195,32 @@ it("shows the current contest target and routes LP through the same durable manu
   expect(native.invoke.mock.calls.some(([command])=>command==="rotor_goto")).toBe(false);
 });
 
+it("routes a contest compass click through durable manual admission and retains its acknowledgement", async () => {
+  const operatingContext="00000000-0000-4000-8000-000000000001", sessionID="00000000-0000-4000-8000-000000000002",
+    workspaceGeneration="00000000-0000-4000-8000-000000000003";
+  window.history.replaceState({}, "", `/?view=rotor&scope=contesting&operatingContext=${operatingContext}&sessionID=${sessionID}&workspaceGeneration=${workspaceGeneration}`);
+  const retained=observation();
+  native.invoke.mockImplementation(async(command,args)=>{
+    if(command==="rotor_telemetry_snapshot")return retained;
+    if(command==="contest_rotor_target")return{available:true,projectionRevision:8,callsign:"DL1AAA",shortPathBearing:123.4,longPathBearing:303.4};
+    if(command==="manual_rotor_request"&&args.params.action==="snapshot")return{
+      generation:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",revision:4,last_receipt:null,worker_generation:3,rotor:retained};
+    if(command==="manual_rotor_request"&&args.params.action==="manual_rotor_goto")return{
+      operation_id:args.params.operation_id,request:{action:"manual_rotor_goto"},status:"acknowledged"};
+    throw new Error(`Unexpected ${command}`);
+  });
+  render(<DetachedRotorSurface/>);
+  await act(async()=>{await vi.advanceTimersByTimeAsync(0);});
+  const dial=screen.getByRole("img");
+  expect(dial.classList.contains("is-selection-disabled")).toBe(false);
+  dial.getBoundingClientRect=()=>({left:0,top:0,width:200,height:200,right:200,bottom:200,x:0,y:0,toJSON:()=>({})});
+  await act(async()=>{fireEvent.click(dial,{clientX:200,clientY:100});await vi.advanceTimersByTimeAsync(0);});
+  const admitted=native.invoke.mock.calls.find(([command,args])=>command==="manual_rotor_request"&&args.params.action==="manual_rotor_goto");
+  expect(admitted?.[1].params).toMatchObject({rotor_owner:"native_dcu1",rotor_generation:7,bearing:90,label:"Compass 90 deg"});
+  expect(native.invoke.mock.calls.some(([command])=>command==="rotor_goto")).toBe(false);
+  expect(screen.getAllByRole("status").some(item=>item.textContent?.includes("Goto acknowledged"))).toBe(true);
+});
+
 it("offers Hamlib Park only and verifies the existing fenced worker acknowledgement", async () => {
   const retained = observation(1, "hamlib");
   native.invoke.mockImplementation(async (command, args) => {
