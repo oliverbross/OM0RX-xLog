@@ -289,21 +289,31 @@ public actor SyncEngine {
             linkedCursor = step.cursor
             linked.append(contentsOf: step.rows.filter { $0.wavelogID != nil && $0.deletedAt == nil }
                 .prefix(500 - linked.count))
-            try await betweenReconciliationSteps()
             if step.done { break }
         }
         for candidate in linked {
             try validateSyncRun()
             guard let remoteID = candidate.wavelogID else { continue }
+            let remote: QSO
             do {
                 try validateForNetwork(run)
                 let response = try await client.getQSO(id: remoteID)
-                guard let remote = QSO(wavelog: response) else {
+                guard let decoded = QSO(wavelog: response) else {
                     throw WavelogClientError.invalidData("The linked Wavelog QSO could not be decoded.")
                 }
-                guard let current = try database.preflightLinkedUpdate(remote: remote, localID: candidate.id, run: run) else {
-                    continue
-                }
+                remote = decoded
+            } catch {
+                // This bounded item read is an optimization, not the
+                // authoritative snapshot. A missing/unsupported/transient
+                // item response falls back to the complete reconciliation
+                // without consuming an upload attempt or adding backoff.
+                try validateForNetwork(run)
+                continue
+            }
+            guard let current = try database.preflightLinkedUpdate(remote: remote, localID: candidate.id, run: run) else {
+                continue
+            }
+            do {
                 let startChanged = current.start != remote.start
                 if current.end != nil && !startChanged {
                     // The item JSON does not expose TIME_OFF. Let the complete
@@ -329,7 +339,10 @@ public actor SyncEngine {
                 try database.withSyncDatabaseLock(run) { try database.acknowledgeSynced(current) }
                 report.pushed += 1
             } catch {
-                try validateSyncRun()
+                // A cancellation, workspace replacement, or database close
+                // after the provider response must fence the late
+                // acknowledgement instead of being converted into backoff.
+                try validateForNetwork(run)
                 try database.withSyncDatabaseLock(run) {
                     try database.recordSyncFailure(localID: candidate.id, message: error.localizedDescription)
                 }

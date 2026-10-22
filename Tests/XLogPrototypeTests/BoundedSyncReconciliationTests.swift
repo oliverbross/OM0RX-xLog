@@ -328,6 +328,17 @@ private final class BoundedHistoryProtocol: URLProtocol {
             XCTFail("Synthetic reconciliation attempted an unexpected transport write")
             client?.urlProtocol(self, didFailWithError: URLError(.unsupportedURL)); return
         }
+        if let path = request.url?.lastPathComponent, let id = Int(path) {
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil,
+                                           headerFields: ["Content-Type": "application/json"])!
+            let item: [String: Any] = [
+                "id": id, "station_id": 1, "call": "SYN\(id)", "band": "20m", "mode": "CW",
+                "freq": 14_025_000, "qso_date": "2023-11-14 22:13:20", "comment": "remote",
+            ]
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: ["data": item]))
+            client?.urlProtocolDidFinishLoading(self); return
+        }
         let adif = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?
             .contains { $0.name == "format" && $0.value == "adif" } == true
         let meta: [String: Any] = ["page": 1, "per_page": 1000, "count": 400, "total": 400,
