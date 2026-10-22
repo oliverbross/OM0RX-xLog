@@ -280,9 +280,9 @@ it("uses the original Edit Keys table and saves key changes", async () => {
   const initialRows=screen.getAllByLabelText(/^key \d+$/).length;
   open("Add");const addedKey=screen.getByLabelText(`key ${initialRows+1}`);expect(addedKey).toBeTruthy();
   fireEvent.click(addedKey);open("Remove");expect(screen.queryByLabelText(`key ${initialRows+1}`)).toBeNull();
-  fireEvent.change(screen.getByLabelText("key 1"), { target: { value: "Alt+R" } }); open("OK");
+  fireEvent.change(screen.getByLabelText("key 1"), { target: { value: "Alt+X" } }); open("OK");
   await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
-  expect(JSON.parse(String(p.onSave.mock.calls[0][0].preferences.keyBindings))[0]).toEqual(["*", "Alt+R", "TOGGLE_RUN"]);
+  expect(JSON.parse(String(p.onSave.mock.calls[0][0].preferences.keyBindings))[0]).toEqual(["*", "Alt+X", "TOGGLE_RUN"]);
 });
 it.each([100, 125, 150, 175, 200])("keeps all Edit Keys columns available at %i%% interface scale", scale => {
   document.documentElement.style.zoom = `${scale}%`;

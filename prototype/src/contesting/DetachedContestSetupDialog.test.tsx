@@ -52,7 +52,7 @@ it("routes Edit Macros to its independent setup dialog", async () => {
 it("routes Edit Keys to its independent setup dialog and saves only key bindings", async () => {
   await expect(loadWindowSurface("?view=contest-setup-keys")).resolves.toBe(DetachedContestSetupDialog);
   open("keys");
-  fireEvent.change(await screen.findByLabelText("key 1"), { target: { value: "Alt+R" } });
+  fireEvent.change(await screen.findByLabelText("key 1"), { target: { value: "Alt+X" } });
   native.invoke.mockImplementation(async (_command, { method, params }) => {
     if (method === "snapshot") return snapshot();
     if (method === "submit") return { requestID: params.requestID, status: "saved" };
@@ -61,7 +61,7 @@ it("routes Edit Keys to its independent setup dialog and saves only key bindings
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await waitFor(() => expect(native.invoke.mock.calls.some(([,args]) => args.method === "close")).toBe(true));
   const submit = native.invoke.mock.calls.find(([,args]) => args.method === "submit")?.[1].params;
-  expect(JSON.parse(String(submit.document.preferences.keyBindings))[0]).toEqual(["*", "Alt+R", "TOGGLE_RUN"]);
+  expect(JSON.parse(String(submit.document.preferences.keyBindings))[0]).toEqual(["*", "Alt+X", "TOGGLE_RUN"]);
   expect(submit.document.station).toEqual(snapshot().document.station);
 });
 it("opens isolated Station fields and Cancel closes without submitting", async () => {
