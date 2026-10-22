@@ -294,11 +294,15 @@ public actor LiveWorker {
         #if os(macOS)
         await references.startAutomaticChecks()
         #endif
-        guard operatingModule == .normalLogging else { return }
+        guard !terminalShutdown, !Task.isCancelled,
+              operatingModule == .normalLogging else { return }
         await startPowerCapture()
+        guard !terminalShutdown, !Task.isCancelled else { return }
         await services.startAutomaticSync()
+        guard !terminalShutdown, !Task.isCancelled else { return }
         await onlineLogs.startAutomaticDelivery()
         #if os(macOS)
+        guard !terminalShutdown, !Task.isCancelled else { return }
         if ownsProcessSessions {
             await LiveWSJTXBridge.shared.install { [weak self] in
                 Task { await self?.externalContactChanged() }

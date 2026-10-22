@@ -87,7 +87,10 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
     }
     let liveWorker = acceptance?.worker ?? LiveWorker.processWorker(
         operatingModule: operatingModule, runtimeProfile: runtimeProfile)
-    await liveWorker.startBackgroundServices()
+    // Protocol admission must not wait behind reference/provider startup. The
+    // worker remains responsive while those owners initialize, and EOF fences
+    // the task through the normal terminal-shutdown path below.
+    let backgroundServices = Task { await liveWorker.startBackgroundServices() }
     var lines = WorkerLineReader()
     #if os(Windows)
     // Prevent CRT text-mode CRLF translation from altering byte limits/framing.
@@ -142,7 +145,9 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
     // EOF is the graceful shutdown signal. Retire station ownership before
     // waiting on unrelated slow service/logbook work so RF releases are not
     // delayed behind a network lookup or database import.
+    backgroundServices.cancel()
     let retiredCleanly = acceptance == nil ? await liveWorker.shutdown() : true
+    await backgroundServices.value
     await group.waitForAll()
     if !retiredCleanly {
         FileHandle.standardError.write(Data("Background delivery retirement failed.\n".utf8))

@@ -10,7 +10,13 @@ assert.ok(binary, "Pass the built xlog-prototype-worker executable path.");
 
 function exercise(start, onLine, expectedCount, args = [], executable = binary) {
   return new Promise((resolve, reject) => {
-    const child = spawn(executable, args, { stdio: ["pipe", "pipe", "pipe"] });
+    // These are protocol/framing checks. Keep the real worker in the
+    // contesting module so unrelated normal-log background providers do not
+    // acquire shared application-support ownership during a disposable run.
+    const child = spawn(executable, args, {
+      stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env, XLOG_OPERATING_MODULE: "contesting" },
+    });
     let buffer = "";
     let stderr = "";
     const responses = [];
@@ -35,10 +41,11 @@ function exercise(start, onLine, expectedCount, args = [], executable = binary) 
         assert.ok(Buffer.byteLength(buffer) <= 1048576, "Unframed stdout exceeds its limit.");
       } catch (error) { child.kill(); clearTimeout(timer); reject(error); }
     });
-    child.on("close", code => {
+    child.on("close", (code, signal) => {
       clearTimeout(timer);
       try {
-        assert.equal(code, 0);
+        assert.equal(signal, null, `Worker terminated by ${signal}; stderr: ${stderr}`);
+        assert.equal(code, 0, stderr || "Worker exited unsuccessfully without diagnostics.");
         assert.equal(stderr, "");
         assert.equal(buffer, "");
         assert.equal(responses.length, expectedCount);
@@ -87,8 +94,8 @@ test("P2 core integration methods run through the real bounded worker process", 
   const byID = Object.fromEntries(responses.map(response => [response.id, response]));
   assert.equal(byID.contracts.result.passed, true);
   assert.equal(byID.contracts.result.station_io, false);
-  assert.equal(byID.cluster.result.spots[0].call_status, "New Callsign");
-  assert.equal(byID.cluster.result.spots[0].dxcc_status, "New DXCC");
+  assert.equal(byID.cluster.result.spots[0].call_status, "New Call");
+  assert.equal(byID.cluster.result.spots[0].dxcc_status, "ATNO");
 });
 
 test("concurrent worker requests have unique correlated replies under a burst", async () => {
