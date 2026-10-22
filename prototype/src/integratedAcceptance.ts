@@ -166,6 +166,8 @@ async function main(report: Json) {
   await fill('[aria-label="Desk Frequency MHz"]', "14.240000");
   await fill('[aria-label="Desk Mode"]', "SSB");
   await fill('[aria-label="Desk Comment"]', "Isolated native UI acceptance");
+  await waitForAcceptance("keyboard save ready", () => [...document.querySelectorAll<HTMLButtonElement>(".desk-active-actions button")]
+    .some(control => control.textContent?.includes("Log QSO") && !control.disabled));
   const call = element<HTMLInputElement>('[aria-label="Desk Callsign"]');
   call.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true, cancelable: true }));
   await waitForAcceptance("keyboard save and cleared draft", () => element<HTMLInputElement>('[aria-label="Desk Callsign"]').value === "" &&
@@ -363,6 +365,8 @@ async function prepareLargeLog(report: Json, check: (name: string, condition: bo
   await fill('[aria-label="Desk Callsign"]', "PERFTEST");
   await fill('[aria-label="Desk Frequency MHz"]', "14.240000");
   await fill('[aria-label="Desk Mode"]', "SSB");
+  await waitForAcceptance("large-workspace UI save ready", () => [...document.querySelectorAll<HTMLButtonElement>(".desk-active-actions button")]
+    .some(control => control.textContent?.includes("Log QSO") && !control.disabled));
   element('[aria-label="Desk Callsign"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true, cancelable: true }));
   await waitForAcceptance("large-workspace UI save", () => element<HTMLInputElement>('[aria-label="Desk Callsign"]').value === "" && document.body.textContent?.includes("PERFTEST saved") === true);
   metrics.total_records = (await worker("logbook_list", { limit: 1 })).result.total;
