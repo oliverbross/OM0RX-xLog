@@ -158,6 +158,7 @@ async function exerciseSCP(item, baselineFields) {
   const selectStart = frames.length;
   await browser(["eval", `(() => { const root=document.querySelector('.contest-scp-matches'); const button=[...root.querySelectorAll('button')].find(x=>x.textContent.includes('K1ABC')); if(!button) throw new Error('Missing SCP K1ABC candidate'); button.click(); })()`]);
   const selected = await waitForFrame(selectStart, frame => frame.request.method === "contest_draft_apply" && frame.response.ok && frame.response.result.draft.fields.callsign === "K1ABC", "SCP selection");
+  await browser(["eval", `new Promise((resolve,reject)=>{ const until=Date.now()+10000; const poll=()=>{ const input=document.querySelector(".contest-entry-fields input[aria-label='Contest callsign']"); if(input?.value==='K1ABC') return resolve(true); if(Date.now()>until) return reject(new Error('SCP selection did not reach the visible callsign field')); setTimeout(poll,25); }; poll(); })`]);
   const preservedKeys = ["sentReport", "receivedReport", "sentExchange", "receivedExchange", "frequencyHz", "band"];
   const assertPreserved = fields => { for (const key of preservedKeys) assert.deepEqual(fields[key], baselineFields[key], `SCP changed ${key}.`); };
   assertPreserved(selected.response.result.draft.fields);
