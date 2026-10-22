@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { completeContestSurfaceAction, contestSurfaceContextFromSearch, nextContestSurfaceAction, nextContestSurfaceEscape, onContestSurfaceWake,
+import { claimContestSurfaceOwner, closeContestSurfaceContext, completeContestSurfaceAction, contestSurfaceContextFromSearch, nextContestSurfaceAction, nextContestSurfaceEscape, onContestSurfaceWake,
   openContestContactEditorWindow, closeContestContactEditorWindow, publishContestSurface, readContestSurfaceSnapshot,
   postContestSpot, submitContestSurfaceAction } from "./contestSurfaceNative";
 
@@ -9,6 +9,7 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: native.listen }));
 
 const context = { operatingContext: "00000000-0000-4000-8000-000000000001",
   sessionID: "00000000-0000-4000-8000-000000000002", workspaceGeneration: "00000000-0000-4000-8000-000000000003" };
+const ownerEpoch = "00000000-0000-4000-8000-000000000009";
 const action = { ...context, scope: "contesting", panelID: "active-qso", projectionRevision: 4,
   requestID: "00000000-0000-4000-8000-000000000004", action: "entry_set_frequency_text",
   params: { draftID: "draft-1", expectedDraftRevision: 5, value: "14.025A" } } as const;
@@ -98,11 +99,26 @@ describe("contest native surface bridge", () => {
 
   it("validates a panel projection before publishing", async () => {
     native.invoke.mockResolvedValue(undefined);
-    const publication = { ...context, scope: "contesting", panelID: "active-qso", projectionRevision: 5, projection } as const;
+    const publication = { ...context, scope: "contesting", panelID: "active-qso", ownerEpoch, projectionRevision: 5, projection } as const;
     await publishContestSurface(publication);
     expect(native.invoke).toHaveBeenCalledWith("contest_surface_publish", publication);
     await expect(publishContestSurface({ ...publication, projection: { ...projection, unexpected: true } }))
       .rejects.toThrow("publication could not be verified");
+    expect(native.invoke).toHaveBeenCalledOnce();
+  });
+
+  it("claims the retained native publication cursor for an exact owner epoch", async () => {
+    native.invoke.mockResolvedValue({ownerEpoch,projectionRevision:27});
+    await expect(claimContestSurfaceOwner({...context,ownerEpoch})).resolves.toBe(27);
+    native.invoke.mockResolvedValue({ownerEpoch:"00000000-0000-4000-8000-000000000008",projectionRevision:27});
+    await expect(claimContestSurfaceOwner({...context,ownerEpoch})).rejects.toThrow("claim response could not be verified");
+  });
+
+  it("releases only the exact claimed owner epoch", async () => {
+    native.invoke.mockResolvedValue(undefined);
+    await closeContestSurfaceContext({...context,ownerEpoch});
+    expect(native.invoke).toHaveBeenCalledWith("contest_surface_context_close",{...context,ownerEpoch});
+    await expect(closeContestSurfaceContext({...context,ownerEpoch:"invalid"})).rejects.toThrow("owner context could not be verified");
     expect(native.invoke).toHaveBeenCalledOnce();
   });
 

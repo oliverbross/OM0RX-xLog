@@ -110,7 +110,7 @@
 .contest-surface-matrix .contest-surface-worked { color:var(--teal); background:color-mix(in srgb,var(--teal) 16%,transparent); font-weight:600; }
 .contest-surface-matrix tbody tr[aria-current="true"] > * { box-shadow:inset 0 0 0 1px var(--amber); }
 .contest-surface-matrix tbody tr[aria-current="true"] > th { color:var(--amber); }
-.contest-surface-logging-body { display:flex; min-width:0; min-height:0; gap:10px; }
+.contest-surface-logging-body { display:flex; flex:0 0 auto; min-width:0; min-height:0; gap:10px; }
 .contest-surface-entry > header { justify-content:center; gap:6px; font-size:12px; }
 .contest-surface-entry > header h1 { font-size:12px; }
 .contest-surface-entry > header > span { color:var(--teal); font-weight:650; }
@@ -128,24 +128,28 @@
 .contest-surface-sent-number { display:flex; flex-direction:column; gap:4px; min-width:0; color:var(--secondary); font-size:12px; }
 .contest-surface-sent-number output,.contest-surface-sent-number input { box-sizing:border-box; width:100%; padding:4px 8px; min-height:34px; border:1px solid var(--border); border-radius:5px; color:inherit; background:var(--control); font:21px ui-monospace,monospace; }
 .contest-surface-entry .contest-surface-main-fields > .contest-surface-intent:first-child input { color:var(--teal); }
-.contest-surface-run-strip { display:flex; align-items:center; min-width:0; min-height:32px; padding-inline:2px; flex-wrap:wrap; }
+.contest-surface-run-strip { display:flex; flex:0 0 auto; align-items:center; min-width:0; min-height:32px; padding-inline:2px; flex-wrap:nowrap; overflow:hidden; }
 .contest-surface-run-strip > * { flex:0 0 auto; }
 .contest-surface-run-strip > * + * { margin-inline-start:14px; }
 .contest-surface-run-strip label { flex-direction:row; align-items:center; gap:5px; font-size:12px; white-space:nowrap; }
 .contest-surface-run-strip [role="group"] { display:flex; align-items:center; gap:12px; }
-.contest-surface-run-strip input[type="radio"] { width:14px; min-width:14px; height:14px; min-height:14px; margin:0; padding:0; accent-color:var(--cyan); }
-.contest-surface-signal { display:flex; align-items:center; gap:6px; color:var(--secondary); font-size:14px; line-height:1; white-space:nowrap; }
-.contest-surface-signal span { display:grid; width:12px; height:12px; place-items:center; overflow:hidden; border:1px solid var(--border); border-radius:50%; }
+.contest-surface-run-strip input[type="radio"] { width:14px; min-width:14px; height:14px; min-height:14px; margin:0; padding:0; accent-color:var(--secondary); }
+.contest-surface-run-strip .contest-style-run:has(input:checked) { color:var(--teal); font-weight:700; }
+.contest-surface-run-strip .contest-style-run input:checked { accent-color:var(--teal); }
+.contest-surface-run-strip .contest-style-search-and-pounce:has(input:checked) { color:var(--error); font-weight:700; }
+.contest-surface-run-strip .contest-style-search-and-pounce input:checked { accent-color:var(--error); }
+.contest-surface-output-state { min-width:0; overflow:hidden; color:var(--secondary); font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
+.contest-surface-arm { min-height:26px; padding:2px 8px; }
 .contest-surface-speed { display:flex; align-items:center; gap:4px; }
 .contest-surface-speed output { min-width:32px; color:var(--text); text-align:center; font-variant-numeric:tabular-nums; }
 .contest-surface-speed button { min-width:32px; min-height:28px; padding:2px 8px; }
 .contest-surface-auto-cq { display:flex; align-items:center; gap:5px; min-width:110px; color:var(--amber); font-size:11px; white-space:nowrap; }
 .contest-surface-auto-cq progress { width:72px; height:6px; accent-color:var(--teal); }
-.contest-surface-entry .contest-surface-macros { grid-template-columns:repeat(6,minmax(0,1fr)); gap:4px; }
+.contest-surface-entry .contest-surface-macros { flex:0 0 auto; grid-template-columns:repeat(6,minmax(0,1fr)); gap:4px; }
 .contest-surface-entry .contest-surface-macros button { flex-direction:row; align-items:center; justify-content:center; min-height:28px; gap:3px; padding:4px; overflow:hidden; font:11px ui-monospace,monospace; }
 .contest-surface-entry .contest-surface-macros kbd { flex:none; color:var(--cyan); font:inherit; }
 .contest-surface-entry .contest-surface-macros span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.contest-surface-contact-footer { display:grid; grid-template-columns:3fr 2fr; align-items:end; gap:8px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background:var(--panel); font:12px ui-monospace,monospace; }
+.contest-surface-contact-footer { display:grid; flex:0 0 auto; grid-template-columns:3fr 2fr; align-items:end; gap:8px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background:var(--panel); font:12px ui-monospace,monospace; }
 .contest-surface-contact-footer > div { text-align:center; }
 .contest-surface-contact-footer > div > span { display:block; text-align:left; }
 .contest-surface-contact-footer > output { display:flex; justify-content:space-between; color:var(--amber); }
@@ -222,12 +226,8 @@
 .contest-surface-log-panes > section > h2 { flex:0 0 auto; padding:3px 5px 0; font:10px ui-monospace,monospace; font-weight:500; letter-spacing:.02em; }
 @container contest-detached (max-width:620px) {
   .contest-detached-surface > main { gap:6px; padding:6px; }
-  .contest-surface-entry > header { grid-template-columns:auto minmax(0,1fr); row-gap:2px; }
-  .contest-surface-entry > header > span { justify-self:end; }
-  .contest-surface-entry > header h1 { grid-column:1 / -1; justify-self:center; }
-  .contest-surface-entry .contest-surface-main-fields { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
-  .contest-surface-entry .contest-surface-main-fields > .contest-surface-intent:first-child { grid-column:span 2; }
-  .contest-surface-entry .contest-surface-macros { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .contest-surface-entry > header { grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); }
+  .contest-surface-entry .contest-surface-main-fields { gap:6px; }
 }
 @media (max-width:480px) { .contest-surface-radio output { font-size:22px; } }
 @media (max-width:320px) {

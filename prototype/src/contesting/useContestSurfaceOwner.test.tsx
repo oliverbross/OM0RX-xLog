@@ -24,6 +24,7 @@ it("exposes the current native projection publication as an opening barrier",asy
   let release!:()=>void,waitForPublication:(()=>Promise<void>)|undefined,completed=false;
   const pending=new Promise<void>(resolve=>{release=resolve;});
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_owner_claim")return {ownerEpoch:args.ownerEpoch,projectionRevision:0};
     if(command==="contest_surface_publish"&&args.panelID==="active-qso")await pending;
     if(command==="contest_surface_action_next"||command==="contest_surface_escape_next")return null;
   });
@@ -40,6 +41,7 @@ it("suppresses an expected stale publication rejection after a contest session h
   let rejectOld!:(cause:Error)=>void;
   const oldPublication=new Promise<void>((_resolve,reject)=>{rejectOld=reject;});
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_owner_claim")return {ownerEpoch:args.ownerEpoch,projectionRevision:0};
     if(command==="contest_surface_publish"&&args.sessionID===context.sessionID&&args.panelID==="active-qso")return oldPublication;
     if(command==="contest_surface_action_next"||command==="contest_surface_escape_next")return null;
   });
@@ -55,6 +57,7 @@ it("suppresses an expected stale publication rejection after a contest session h
 it("still reports a native publication rejection for the current contest context",async()=>{
   const report=vi.fn();
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_owner_claim")return {ownerEpoch:args.ownerEpoch,projectionRevision:0};
     if(command==="contest_surface_publish"&&args.panelID==="active-qso")
       throw new Error("That contest window belongs to an expired session context.");
     if(command==="contest_surface_action_next"||command==="contest_surface_escape_next")return null;
@@ -66,6 +69,7 @@ it("still reports a native publication rejection for the current contest context
 it("rejects unavailable and stale actions before the owner side effect, then applies one exact ready action",async()=>{
   const queue:ContestSurfaceActionEnvelope[]=[];const completed:Record<string,unknown>[]=[];
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_owner_claim")return {ownerEpoch:args.ownerEpoch,projectionRevision:0};
     if(command==="contest_surface_publish"||command==="contest_surface_context_close")return;
     if(command==="contest_surface_escape_next")return null;
     if(command==="contest_surface_action_next")return queue.shift()??null;
@@ -85,7 +89,8 @@ it("rejects unavailable and stale actions before the owner side effect, then app
 
 it("does not execute a dequeued action after its owner context closes",async()=>{
   let release!:(value:ContestSurfaceActionEnvelope)=>void;const pending=new Promise<ContestSurfaceActionEnvelope>(resolve=>{release=resolve;});
-  native.invoke.mockImplementation((command:string)=>command==="contest_surface_action_next"?pending:
+  native.invoke.mockImplementation((command:string,args:Record<string,unknown>)=>command==="contest_surface_owner_claim"
+    ?Promise.resolve({ownerEpoch:args.ownerEpoch,projectionRevision:0}):command==="contest_surface_action_next"?pending:
     command==="contest_surface_escape_next"?Promise.resolve(null):Promise.resolve());
   const handle=vi.fn(async()=>{}),view=render(<Harness projections={{...unavailable(),"active-qso":entry}} handle={handle}/>);
   await waitFor(()=>expect(native.wake).toBeTypeOf("function"));view.unmount();release(action(1));await act(async()=>{await Promise.resolve();});
@@ -96,6 +101,7 @@ it("does not execute a dequeued action after its owner context closes",async()=>
 it.each(["log", "cluster"] as const)("rejects stale %s candidate projection revisions before mutation",async kind=>{
   const queue:ContestSurfaceActionEnvelope[]=[],completed:Record<string,unknown>[]=[];
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_owner_claim")return {ownerEpoch:args.ownerEpoch,projectionRevision:0};
     if(command==="contest_surface_publish"||command==="contest_surface_context_close")return;
     if(command==="contest_surface_escape_next")return null;
     if(command==="contest_surface_action_next")return queue.shift()??null;
@@ -120,6 +126,7 @@ it.each(["log", "cluster"] as const)("rejects stale %s candidate projection revi
 it("rejects stale contest spot selection before the owner can tune or mutate",async()=>{
   const queue:ContestSurfaceActionEnvelope[]=[],completed:Record<string,unknown>[]=[];
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_owner_claim")return {ownerEpoch:args.ownerEpoch,projectionRevision:0};
     if(command==="contest_surface_publish"||command==="contest_surface_context_close")return;
     if(command==="contest_surface_escape_next")return null;
     if(command==="contest_surface_action_next")return queue.shift()??null;
@@ -144,6 +151,7 @@ it("rejects stale contest spot selection before the owner can tune or mutate",as
 it("rebases safe presentation edits across a sibling projection update but rejects a stale commit",async()=>{
   const queue:ContestSurfaceActionEnvelope[]=[],completed:Record<string,unknown>[]=[];
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_owner_claim")return {ownerEpoch:args.ownerEpoch,projectionRevision:0};
     if(command==="contest_surface_publish"||command==="contest_surface_context_close")return;
     if(command==="contest_surface_escape_next")return null;
     if(command==="contest_surface_action_next")return queue.shift()??null;
@@ -164,6 +172,7 @@ it("rebases safe presentation edits across a sibling projection update but rejec
 it("confirms a successful action by retrying the exact completion after its first reply is lost",async()=>{
   const queued=action(1),completed:Record<string,unknown>[]=[],report=vi.fn();let delivered=false;
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_owner_claim")return {ownerEpoch:args.ownerEpoch,projectionRevision:0};
     if(command==="contest_surface_publish"||command==="contest_surface_context_close")return;
     if(command==="contest_surface_escape_next")return null;
     if(command==="contest_surface_action_next"){if(delivered)return null;delivered=true;return queued;}
@@ -180,6 +189,7 @@ it("confirms a successful action by retrying the exact completion after its firs
 it("does not complete an action again when its native command returned a terminal completion",async()=>{
   const queued=action(1),completed:Record<string,unknown>[]=[];let delivered=false;
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_owner_claim")return {ownerEpoch:args.ownerEpoch,projectionRevision:0};
     if(command==="contest_surface_publish"||command==="contest_surface_context_close")return;
     if(command==="contest_surface_escape_next")return null;
     if(command==="contest_surface_action_next"){if(delivered)return null;delivered=true;return queued;}
@@ -196,6 +206,7 @@ it("does not complete an action again when its native command returned a termina
 it("leaves the native receipt uncertain when the admitted worker mutation outcome is unknown",async()=>{
   const queued=action(1),completed:Record<string,unknown>[]=[],report=vi.fn();let delivered=false;
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_owner_claim")return {ownerEpoch:args.ownerEpoch,projectionRevision:0};
     if(command==="contest_surface_publish"||command==="contest_surface_context_close")return;
     if(command==="contest_surface_escape_next")return null;
     if(command==="contest_surface_action_next"){if(delivered)return null;delivered=true;return queued;}
@@ -219,6 +230,7 @@ it("applies stale Escape through its dedicated drain while an ordinary mutation 
   const commitStarted=new Promise<void>(resolve=>{started=resolve;}),commitGate=new Promise<void>(resolve=>{releaseCommit=resolve;}),
     completed:Record<string,unknown>[]=[],handled:string[]=[];
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_owner_claim")return {ownerEpoch:args.ownerEpoch,projectionRevision:0};
     if(command==="contest_surface_publish"||command==="contest_surface_context_close")return;
     if(command==="contest_surface_action_next"){const value=ordinary;ordinary=null;return value;}
     if(command==="contest_surface_escape_next"){const value=priority;priority=null;return value;}

@@ -22,7 +22,6 @@ type Context = ContestSurfaceContext & { panelID: ContestSurfaceActionEnvelope["
 const message = (cause: unknown) => cause instanceof Error ? cause.message : String(cause);
 const fldigiContestModes = new Set(["RTTY", "RTTY-R", "LSB-D", "USB-D", "AM-D", "FM-D",
   "DIGI-U", "DIGI-L", "RTTYR", "PKTLSB", "PKTUSB"]);
-
 function useContestSurface(context: Context) {
   const [snapshot, setSnapshot] = useState<ContestSurfaceSnapshot | null>(null), [error, setError] = useState("");
   const mounted = useRef(true), ticket = useRef(0);
@@ -86,7 +85,9 @@ function Surface({ context }: { context: Context }) {
           const timer=window.setTimeout(()=>{receiptWaiters.current.delete(requestID);resolve(null);},20_000);
           receiptWaiters.current.set(requestID,{resolve,timer});
         });
-        if(!terminal)setActionError("The action outcome is still unresolved. Refresh before continuing.");
+        if(!terminal)setActionError("The action is still being reconciled.");
+        else if(terminal.status==="rejected")setActionError(terminal.message||"The contest action could not be applied.");
+        else setActionError("");
         return {applied:terminal?.status==="applied",projectionRevision:terminal?.status==="applied"?terminal.projectionRevision:null};
       }catch(cause){setActionError(message(cause));await refresh();return {applied:false,projectionRevision:null};}
       finally{pendingCount.current-=1;if(pendingCount.current===0)setSending(false);}
@@ -115,8 +116,6 @@ function Surface({ context }: { context: Context }) {
   return <main aria-label={`Contest ${context.panelID}`}>
     {error && <p className="contest-surface-error" role="alert">{error}</p>}
     {actionError && <p className="contest-surface-error" role="alert">{actionError}</p>}
-    {latest?.status === "uncertain" && <p className="contest-surface-warning" role="status">Action outcome is uncertain. Refresh before deciding what to do next.</p>}
-    {latest?.status === "rejected" && <p className="contest-surface-error" role="status">{latest.message || "The main contest controller rejected this action."}</p>}
     {projection.status === "unavailable" ? <section className="contest-surface-unavailable"><h1>Panel unavailable</h1><p>This shared contest panel is not connected yet.</p></section>
       : snapshot.panelID === "active-qso" ? <Entry projection={projection as Extract<typeof projection, { draft: unknown }>} disabled={projection.busy} sending={sending}
           context={context} projectionRevision={snapshot.projectionRevision} send={send} refresh={refresh} settle={()=>queueRef.current} reportConflict={setActionError}/>
@@ -264,7 +263,7 @@ function ContestSpots({panelID,projection,projectionRevision,send}:{panelID:"ban
 type IntentInputProps = { label:string;value:string;identity:string;projectionRevision:number;receipts:ContestSurfaceTerminalReceipt[];
   disabled:boolean;maximumUTF8Bytes:number;send:Send;action:(value:string)=>ContestSurfaceAction;operatorField?:ContestInputFieldID;inputRef?:Ref<HTMLInputElement> };
 function IntentInput({label,value:authoritative,identity,projectionRevision,receipts,disabled,maximumUTF8Bytes,send,action,operatorField,inputRef}:IntentInputProps){
-  const [value,setValue]=useState(authoritative),[unresolved,setUnresolved]=useState(false),desired=useRef(authoritative),
+  const [value,setValue]=useState(authoritative),[,setUnresolved]=useState(false),desired=useRef(authoritative),
     flight=useRef<null|{requestID:string;projectionRevision:number;value:string}>(null);
   const latest=useRef({projectionRevision,send,action});latest.current={projectionRevision,send,action};
   const pump=useCallback(()=>{if(flight.current||desired.current===authoritative)return;const requestID=crypto.randomUUID(),sentValue=desired.current;
@@ -281,11 +280,8 @@ function IntentInput({label,value:authoritative,identity,projectionRevision,rece
     if(receipt.status!=="applied"||projectionRevision<=pending.projectionRevision)return;
     flight.current=null;setUnresolved(false);if(desired.current===pending.value){desired.current=authoritative;setValue(authoritative);}else pump();
   },[authoritative,projectionRevision,receipts,pump]);
-  const discard=()=>{flight.current=null;desired.current=authoritative;setUnresolved(false);setValue(authoritative);};
-  const retry=()=>{flight.current=null;setUnresolved(false);queueMicrotask(pump);};
   return <div className="contest-surface-intent"><ContestTextField label={label} inputRef={inputRef} data-contest-operator-field={operatorField} value={value} disabled={disabled} onChange={event=>{const next=event.target.value;
-    if(new TextEncoder().encode(next).length>maximumUTF8Bytes)return;desired.current=next;setValue(next);pump();}}/>
-    {unresolved&&<div role="status"><span>This edit is not confirmed.</span><button type="button" onClick={retry}>Apply edit again</button><button type="button" onClick={discard}>Use shared value</button></div>}</div>;
+    if(new TextEncoder().encode(next).length>maximumUTF8Bytes)return;desired.current=next;setValue(next);pump();}}/></div>;
 }
 
 type EntryIntentKey = "callsign"|"sentReport"|"receivedReport"|"frequency"|`exchange:${string}`;
@@ -298,7 +294,7 @@ function useEntryIntents(projection:any,projectionRevision:number,send:Send){
     ...projection.draft.receivedFields.map((field:any)=>[`exchange:${field.id}`,field.value]),
   ]) as Record<EntryIntentKey,string>,[projection.draft.callsign,projection.draft.sentReport,projection.draft.receivedReport,
     projection.draft.frequencyText,projection.draft.receivedFields]);
-  const [values,setValues]=useState(authoritative),[unresolved,setUnresolved]=useState<Set<EntryIntentKey>>(new Set());
+  const [values,setValues]=useState(authoritative),[,setUnresolved]=useState<Set<EntryIntentKey>>(new Set());
   const identity=projection.draft.draftID,identityRef=useRef(identity),authoritativeRef=useRef(authoritative),valuesRef=useRef(values),
     dirty=useRef(new Map<EntryIntentKey,EntryIntent>()),inFlight=useRef(new Set<EntryIntentKey>()),running=useRef<Promise<EntryFlushResult>|null>(null),generation=useRef(0);
   authoritativeRef.current=authoritative;valuesRef.current=values;
@@ -319,23 +315,19 @@ function useEntryIntents(projection:any,projectionRevision:number,send:Send){
   const change=useCallback((key:EntryIntentKey,value:string,action:(value:string)=>ContestSurfaceAction)=>{
     valuesRef.current={...valuesRef.current,[key]:value};setValues(valuesRef.current);dirty.current.set(key,{value,action});
     queueMicrotask(()=>void flush());},[flush]);
-  const discard=useCallback((key:EntryIntentKey)=>{dirty.current.delete(key);valuesRef.current={...valuesRef.current,[key]:authoritativeRef.current[key]};
-    setValues(valuesRef.current);setUnresolved(previous=>{const next=new Set(previous);next.delete(key);return next;});},[]);
-  const retry=useCallback((key:EntryIntentKey)=>{setUnresolved(previous=>{const next=new Set(previous);next.delete(key);return next;});void flush();},[flush]);
   const capture=useCallback(()=>({...valuesRef.current}),[]);
   const matches=useCallback((draft:any,intended:Record<EntryIntentKey,string>)=>draft?.draftID===identityRef.current&&
     draft.callsign.trim().toUpperCase()===intended.callsign.trim().toUpperCase()&&draft.sentReport===intended.sentReport&&draft.receivedReport===intended.receivedReport&&
     draft.frequencyText===intended.frequency&&Array.isArray(draft.receivedFields)&&draft.receivedFields.length===projection.draft.receivedFields.length&&
     draft.receivedFields.every((field:any)=>intended[`exchange:${field.id}`]===field.value),[projection.draft.receivedFields.length]);
-  return {values,unresolved,change,flush,discard,retry,capture,matches};
+  return {values,change,flush,capture,matches};
 }
-function EntryIntentInput({label,accessibleLabel,intentKey,value,maximumUTF8Bytes,disabled,operatorField,inputRef,onFocus,onChange,unresolved,retry,discard}:{
+function EntryIntentInput({label,accessibleLabel,intentKey,value,maximumUTF8Bytes,disabled,operatorField,inputRef,onFocus,onChange}:{
   label:string;accessibleLabel?:string;intentKey:EntryIntentKey;value:string;maximumUTF8Bytes:number;disabled:boolean;operatorField?:ContestInputFieldID;
-  inputRef?:Ref<HTMLInputElement>;onFocus?:()=>void;onChange:(key:EntryIntentKey,value:string)=>void;unresolved:boolean;retry:()=>void;discard:()=>void}){
+  inputRef?:Ref<HTMLInputElement>;onFocus?:()=>void;onChange:(key:EntryIntentKey,value:string)=>void}){
   return <div className="contest-surface-intent"><ContestTextField label={label} aria-label={accessibleLabel} inputRef={inputRef} data-contest-field-id={operatorField} onFocus={onFocus}
     value={value} disabled={disabled} onChange={event=>{const next=event.target.value;if(new TextEncoder().encode(next).length<=maximumUTF8Bytes)
-      onChange(intentKey,next);}}/>{unresolved&&<div role="status"><span>This edit is not confirmed.</span>
-      <button type="button" onClick={retry}>Apply edit again</button><button type="button" onClick={discard}>Use shared value</button></div>}</div>;
+      onChange(intentKey,next);}}/></div>;
 }
 function Entry({ projection, disabled, sending, context, projectionRevision, send, refresh, settle, reportConflict }: { projection: any; disabled: boolean; sending:boolean;
   context:ContestSurfaceContext;
@@ -355,9 +347,9 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
     if(target?.isConnected&&target!==document.body)target.focus();
     else fieldRefs.current[(operator?.focusedField??"callsign") as ContestInputFieldID]?.focus();
   });};
-  const testSimulation=operator?.output==="test-simulation";
   const cwMode=projection.draft.mode==="CW";
   const phoneMode=projection.draft.mode==="SSB";
+  const testSimulation=operator?.output==="test-simulation";
   const fldigiMode=fldigiContestModes.has(projection.draft.mode);
   const displayedBands=projection.schemaVersion===2?projection.descriptor.bands:["160m","80m","40m","20m","15m","10m"];
   const reportFields=projection.schemaVersion===2&&Array.isArray(projection.descriptor.reportFields)
@@ -397,7 +389,7 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
       lastLocalProjectionRevision=flushed.lastAppliedProjectionRevision;focusProjectionRevision=await focusPending.current;await settle();}const current=await refresh();const currentProjection=current?.projection as any;
       if(!current||current.panelID!=="active-qso"||currentProjection?.status!=="ready"||currentProjection.draft?.draftID!==base.draftID)return;
       if(key!=="Escape"&&(!intents.matches(currentProjection.draft,intended)||
-          current.projectionRevision!==Math.max(projectionRevision,lastLocalProjectionRevision??0,focusProjectionRevision??0)||currentProjection.draft.band!==intentContext.band||
+          current.projectionRevision<Math.max(projectionRevision,lastLocalProjectionRevision??0,focusProjectionRevision??0)||currentProjection.draft.band!==intentContext.band||
           currentProjection.draft.mode!==intentContext.mode||currentProjection.draft.reservedSerial!==intentContext.reservedSerial||
           currentProjection.operator?.armed!==intentContext.armed||currentProjection.operator?.style!==intentContext.style)){
         reportConflict("The shared contest entry changed before this operator action. Review it and press the key again.");return;}
@@ -518,8 +510,7 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
     <div className="contest-surface-logging-controls">
     <div className="contest-surface-main-fields" style={{"--contest-entry-field-columns":entryFieldColumns} as CSSProperties}>
     <EntryIntentInput label="Callsign" intentKey="callsign" value={intents.values.callsign} maximumUTF8Bytes={32} disabled={entryBufferDisabled}
-      operatorField="callsign" inputRef={setFieldRef("callsign")} onFocus={()=>focusField("callsign")} onChange={(key,value)=>intents.change(key,value,actionFor(key))}
-      unresolved={intents.unresolved.has("callsign")} retry={()=>intents.retry("callsign")} discard={()=>intents.discard("callsign")}/>
+      operatorField="callsign" inputRef={setFieldRef("callsign")} onFocus={()=>focusField("callsign")} onChange={(key,value)=>intents.change(key,value,actionFor(key))}/>
     {(reportFields??(reportsVisible?[{id:"sent",label:"SNT",value:intents.values.sentReport,enabled:true,readOnly:false,maximumUTF8Bytes:160},
       {id:"receive",label:"RCV",value:intents.values.receivedReport,enabled:true,readOnly:false,maximumUTF8Bytes:160}]:[])).map((field:any)=>{
         const key=(field.id==="sent"?"sentReport":"receivedReport") as EntryIntentKey,
@@ -528,23 +519,25 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
           aria-label={field.label} data-contest-field-id={field.id} readOnly disabled={field.enabled===false} value={field.value}/></label>:<EntryIntentInput key={field.id}
           label={field.label} intentKey={key} value={intents.values[key]} maximumUTF8Bytes={field.maximumUTF8Bytes}
           disabled={entryBufferDisabled||field.enabled===false} operatorField={operatorField} inputRef={setFieldRef(operatorField)} onFocus={()=>focusField(operatorField)}
-          onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))} unresolved={intents.unresolved.has(key)}
-          retry={()=>intents.retry(key)} discard={()=>intents.discard(key)}/>;})}
+          onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))}/>;})}
     {projection.schemaVersion===2&&projection.descriptor.sentFields.length>0&&<label className="contest-surface-sent-number"><span title={projection.descriptor.sentFields[0]?.label||"SentNR"}>{projection.descriptor.sentFields[0]?.label||"SentNR"}</span><input
       aria-label="Sent exchange" readOnly disabled={projection.descriptor.sentFields.some((field:any)=>field.enabled===false)}
       value={projection.descriptor.sentFields.map((field:any)=>field.value).join(" ")}/></label>}
     {projection.draft.receivedFields.length ? projection.draft.receivedFields.map((field:any,index:number)=>{const key=`exchange:${field.id}` as EntryIntentKey,
       fieldID=contestInputFieldIDs.includes(field.id as ContestInputFieldID)?field.id as ContestInputFieldID:index===0?"other_2":undefined;return <EntryIntentInput key={field.id}
       label={field.label} accessibleLabel={`Received exchange ${index+1}`} intentKey={key} value={intents.values[key]} maximumUTF8Bytes={field.maximumUTF8Bytes} disabled={entryBufferDisabled||field.enabled===false}
-      operatorField={fieldID} inputRef={fieldID?setFieldRef(fieldID):undefined} onFocus={fieldID?()=>focusField(fieldID):undefined} onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))}
-      unresolved={intents.unresolved.has(key)} retry={()=>intents.retry(key)} discard={()=>intents.discard(key)}/>;}) : <div className="contest-surface-sent-number"><span>RcvNR</span><output>—</output></div>}
+      operatorField={fieldID} inputRef={fieldID?setFieldRef(fieldID):undefined} onFocus={fieldID?()=>focusField(fieldID):undefined} onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))}/>;}) : <div className="contest-surface-sent-number"><span>RcvNR</span><output>—</output></div>}
     </div>
-    <div className="contest-surface-run-strip"><span className="contest-surface-signal" aria-label="Transmit state unavailable"><span>●</span><span>●</span></span>
-      <div role="group" aria-label="Run and S&P">{([['run','Run'],['search-and-pounce','S&P']] as const).map(([value,label])=><label key={value}><input type="radio" name="contest-operating-style" checked={operator?.style===value} disabled={!operator||disabled||operator.pending!==null}
+    <div className="contest-surface-run-strip" role="region" aria-label={testSimulation?"Run and S&P test simulation":phoneMode?"Run and S&P phone controls":fldigiMode?"Run and S&P fldigi controls":cwMode&&operator?.output==="xlog-native"?"Run and S&P CW controls":"Run and S&P output controls"}>
+      <div role="group" aria-label="Run and S&P">{([['run','Run'],['search-and-pounce','S&P']] as const).map(([value,label])=><label className={`contest-style-${value}`} key={value}><input type="radio" name="contest-operating-style" checked={operator?.style===value} disabled={!operator||disabled||operator.pending!==null}
         onChange={()=>void send({action:"entry_operator_style",params:{...base,value}},projectionRevision)}/>{label}</label>)}</div>
       {projection.draft.mode==="CW"&&<div className="contest-surface-speed" role="group" aria-label="CW speed"><output aria-label={projection.manual?.cwSpeedWpm==null?"CW speed unavailable":"Current CW speed"}>{projection.manual?.cwSpeedWpm??"—"}</output>
         <button disabled={disabled||projection.manual?.cwSpeedWpm==null||projection.manual.cwSpeedWpm<=5} aria-label="Decrease CW speed" onClick={()=>{const speed=projection.manual?.cwSpeedWpm;if(speed!=null)void send({action:"entry_set_cw_speed",params:{...base,value:Math.max(5,speed+(projection.manual?.cwSpeedStepWpm??1)*-1)}},projectionRevision)}}>−</button>
         <button disabled={disabled||projection.manual?.cwSpeedWpm==null||projection.manual.cwSpeedWpm>=100} aria-label="Increase CW speed" onClick={()=>{const speed=projection.manual?.cwSpeedWpm;if(speed!=null)void send({action:"entry_set_cw_speed",params:{...base,value:Math.min(100,speed+(projection.manual?.cwSpeedStepWpm??1))}},projectionRevision)}}>+</button></div>}
+      {operator&&(cwMode||phoneMode)&&<button type="button" className="contest-surface-arm" aria-pressed={operator.armed}
+        disabled={disabled||!operator.outputAvailable||operator.pending!==null}
+        onClick={()=>void send({action:"entry_operator_arm",params:{...base,armed:!operator.armed}},projectionRevision)}>{operator.armed?"Disarm":phoneMode?testSimulation?"Arm phone simulation":"Arm recorded phone":operator.output==="xlog-native"?"Arm CW":"Arm simulation"}</button>}
+      {operator&&<span className="contest-surface-output-state" role="status">{testSimulation?"Test simulation":phoneMode?"xLog recorded phone":fldigiMode?"fldigi":cwMode&&operator.output==="xlog-native"?"xLog CW":"Contest output"} · {operator.outputAvailable?operator.status:"unavailable"}</span>}
       {operator?.autoCQ?.active&&<div className="contest-surface-auto-cq" role="status"><span>Auto CQ</span><progress aria-label="Auto CQ countdown" max={operator.autoCQ.delaySeconds*1000} value={Math.max(0,operator.autoCQ.delaySeconds*1000-(operator.autoCQ.remainingMs??0))}/></div>}</div>
       {projection.schemaVersion===2&&operator&&<><div className="contest-surface-macros" role="group" aria-label="Function key macros">{Array.from({length:12},(_,index)=>{const key=`F${index+1}`,item=operator.functionKeys.find((item:any)=>item.key===key),label=item?.macro??"Unassigned";return <button type="button" key={key}
         className={item?.highlighted?"contest-primary":undefined} disabled={disabled||!item||!operator.outputAvailable||operator.status==="uncertain"||phoneMode&&!operator.armed}
@@ -552,33 +545,6 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
         {!operator.outputAvailable&&<p role="status">{operator.outputUnavailableReason}</p>}</>}
     </div></div>
     <div className="contest-surface-contact-footer"><div aria-label="Contact heading, long path and distance">{projection.manual?.headingDegrees??"—"}° Hdg · LP {projection.manual?.longPathHeadingDegrees??"—"}° / distance {projection.manual?.distanceKm??"—"} km<br/><span aria-label="Country and zones">{projection.manual?.country??"—"} cq:{projection.manual?.cqZone??"—"} itu:{projection.manual?.ituZone??"—"}</span></div><output aria-label="QSOs, multipliers and score">{projection.manual?.qsos??"—"}/{projection.manual?.multipliers??"—"} <span>{projection.manual?.total??"—"}</span></output></div>
-    <details className="contest-surface-entry-options"><summary>Entry controls</summary>
-    {projection.schemaVersion===2&&<div className="contest-surface-row contest-surface-operating">
-      <label>Band<select value={projection.draft.band} disabled={disabled}
-        onChange={event=>void send({action:"entry_set_band",params:{...base,value:event.target.value}},projectionRevision,{safePresentation:true})}>{!projection.descriptor.bands.includes(projection.draft.band)&&<option hidden>{projection.draft.band}</option>}{projection.descriptor.bands.map((band:string)=><option key={band}>{band}</option>)}</select></label>
-      <label>Mode<select value={projection.draft.mode} disabled={disabled}
-        onChange={event=>void send({action:"entry_set_mode",params:{...base,value:event.target.value}},projectionRevision,{safePresentation:true})}>{projection.descriptor.modes.map((mode:string)=><option key={mode}>{mode}</option>)}</select></label>
-    </div>}
-    <EntryIntentInput label="Frequency Hz" intentKey="frequency" value={intents.values.frequency} maximumUTF8Bytes={11} disabled={entryBufferDisabled}
-      onChange={(key,value)=>intents.change(key,value,actionFor(key))} unresolved={intents.unresolved.has("frequency")}
-      retry={()=>intents.retry("frequency")} discard={()=>intents.discard("frequency")}/>
-      {projection.schemaVersion===2&&<>
-      {projection.descriptor.serial.requirement==="requiredForCommit"&&<p>Serial: {projection.descriptor.serial.reservedSerial??"not reserved"}</p>}
-      {operator&&<section aria-label={testSimulation?"Run and S&P test simulation":phoneMode?"Run and S&P phone controls":fldigiMode?"Run and S&P fldigi controls":cwMode&&operator.output==="xlog-native"?"Run and S&P CW controls":"Run and S&P output controls"}><div className="contest-surface-row">
-        {(cwMode||phoneMode)&&<button type="button" aria-pressed={operator.armed} disabled={disabled||!operator.outputAvailable||operator.pending!==null}
-          onClick={()=>void send({action:"entry_operator_arm",params:{...base,armed:!operator.armed}},projectionRevision)}>{operator.armed?"Disarm":phoneMode?testSimulation?"Arm phone simulation":"Arm recorded phone":operator.output==="xlog-native"?"Arm CW":"Arm simulation"}</button>}
-        {phoneMode&&<button type="button" disabled={!operator.outputAvailable||!operator.armed||operator.status==="uncertain"||operator.pending!==null}
-          onClick={()=>operatorKey("Enter",operator.focusedField)}>Enter / ESM</button>}
-        <button type="button" disabled={!operator.outputAvailable||!operator.armed||operator.status==="uncertain"} onClick={()=>operatorKey("Escape",operator.focusedField)}>Escape</button>
-        <span role="status">{testSimulation?"Test simulation":phoneMode?"xLog recorded phone":fldigiMode?"fldigi":cwMode&&operator.output==="xlog-native"?"xLog CW":"Contest output"} · {operator.outputAvailable?operator.status:"unavailable"}</span></div>
-        {operator.trace.length>0&&<details className="contest-surface-trace"><summary>Simulation output</summary><ol>{operator.trace.map((item:any)=><li key={item.operationID}><span>{item.mode} · {item.macro}</span> <strong>{item.text}</strong> <small>{item.status}</small></li>)}</ol></details>}
-      </section>}</>}
-      <footer>{projection.schemaVersion===2&&projection.descriptor.serial.requirement!=="none"&&!projection.descriptor.automaticSerial&&
-        <button disabled={disabled||sending} onClick={() => void send({action:"entry_reserve_serial",params:base},projectionRevision)}>Reserve serial</button>}
-        <button disabled={disabled||sending || projection.draft.validation.errors.length > 0 ||
-          projection.draft.dupe.state === "duplicate" && !(projection.schemaVersion===2&&projection.descriptor.allowDuplicateCommit)}
-          onClick={() => void send({action:"entry_commit",params:base},projectionRevision)}>Log QSO</button></footer>
-    </details>
     {projection.draft.frequencyError && <p role="alert">{projection.draft.frequencyError}</p>}
     {projection.draft.dupe.state === "duplicate" && <p role="status">Duplicate: {projection.draft.dupe.reason}</p>}
     {[...projection.draft.validation.errors,...projection.draft.validation.warnings].map((item:string) => <p key={item}>{item}</p>)}

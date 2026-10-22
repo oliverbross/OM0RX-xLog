@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { closeContestSurfaceContext, completeContestSurfaceAction, nextContestSurfaceAction, nextContestSurfaceEscape, onContestSurfaceWake,
+import { claimContestSurfaceOwner, closeContestSurfaceContext, completeContestSurfaceAction, nextContestSurfaceAction, nextContestSurfaceEscape, onContestSurfaceWake,
   publishContestSurface, type ContestSurfaceContext } from "./contestSurfaceNative";
 import { ContestMutationUncertain } from "./client";
 import { contestSurfacePanelIDs, validContestSurfaceUUID, type ContestSurfaceActionEnvelope,
@@ -21,7 +21,10 @@ const rebasablePresentationActions = new Set<ContestSurfaceActionEnvelope["actio
 /** Keeps the single mounted ContestWorkspace authoritative. Wake events carry no
  * state; every action and projection is reread through the typed native bridge. */
 export function useContestSurfaceOwner({ context, projections, handle, report }: Owner) {
-  const key = JSON.stringify(projections), keyRef = useRef(""), revisionRef = useRef(0);
+  const key = JSON.stringify(projections), keyRef = useRef(""), revisionRef = useRef(0), issuedRevisionRef = useRef(0), publishedRevisionRef = useRef(0);
+  const contextKey = context ? `${context.operatingContext}:${context.sessionID}:${context.workspaceGeneration}` : "";
+  const ownerRef = useRef<{ contextKey:string; ownerEpoch:string; claim:Promise<number>|null }>({contextKey:"",ownerEpoch:"",claim:null});
+  if(ownerRef.current.contextKey!==contextKey)ownerRef.current={contextKey,ownerEpoch:crypto.randomUUID(),claim:null};
   if (keyRef.current !== key) { keyRef.current = key; revisionRef.current += 1; }
   const contextRef = useRef(context), projectionsRef = useRef(projections), handleRef = useRef(handle);
   contextRef.current = context; projectionsRef.current = projections; handleRef.current = handle;
@@ -31,11 +34,17 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
   useEffect(() => {
     if (!context || !validContestSurfaceUUID(context.operatingContext) || !validContestSurfaceUUID(context.sessionID) ||
         !validContestSurfaceUUID(context.workspaceGeneration)) return;
-    const revision = revisionRef.current, snapshot = projections;
+    const snapshot = projections, owner = ownerRef.current;
     const publication = publishQueue.current.then(async () => {
       if (!sameContext(contextRef.current, context)) return;
+      owner.claim ??= claimContestSurfaceOwner({ ...context, ownerEpoch: owner.ownerEpoch });
+      const retainedRevision = await owner.claim;
+      if (!sameContext(contextRef.current, context) || ownerRef.current !== owner) return;
+      const revision = Math.max(revisionRef.current, retainedRevision + 1, issuedRevisionRef.current + 1);
+      revisionRef.current = revision; issuedRevisionRef.current = revision;
       await Promise.all(contestSurfacePanelIDs.map(panelID => publishContestSurface({ ...context, scope: "contesting", panelID,
-        projectionRevision: revision, projection: snapshot[panelID] })));
+        ownerEpoch: owner.ownerEpoch, projectionRevision: revision, projection: snapshot[panelID] })));
+      publishedRevisionRef.current = Math.max(publishedRevisionRef.current, revision);
     });
     currentPublication.current = publication;
     publishQueue.current = publication.catch(cause => {
@@ -51,6 +60,7 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
   useEffect(() => {
     if (!context || !validContestSurfaceUUID(context.operatingContext) || !validContestSurfaceUUID(context.sessionID) ||
         !validContestSurfaceUUID(context.workspaceGeneration)) return;
+    const ownerEpoch = ownerRef.current.ownerEpoch;
     let active = true, draining = false, dirty = false, stop: (() => void) | undefined;
     const drain = async () => {
       if (!active) return;
@@ -69,24 +79,28 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
             admitted = true;
             const disposition = await handleRef.current(action);
             if (disposition === "native-completed") continue;
+            if (rebasablePresentationActions.has(action.action)) {
+              await new Promise<void>(resolve => window.setTimeout(resolve, 0));
+              await currentPublication.current;
+            }
           } catch (cause) {
             // `next` has already marked the native receipt uncertain. Once a
             // mutation may have reached the worker, never rewrite that receipt
             // as rejected or replay the action from this owner.
             if (admitted && cause instanceof ContestMutationUncertain) { report(boundedMessage(cause)); continue; }
             await completeContestSurfaceAction({ ...context, requestID: action.requestID, outcome: "rejected",
-              message: boundedMessage(cause), projectionRevision: revisionRef.current }).catch(error => report(boundedMessage(error)));
+              message: boundedMessage(cause), projectionRevision: publishedRevisionRef.current }).catch(error => report(boundedMessage(error)));
             continue;
           }
           await completeContestSurfaceAction({ ...context, requestID: action.requestID, outcome: "applied",
-            projectionRevision: revisionRef.current }).catch(cause => report(boundedMessage(cause)));
+            projectionRevision: publishedRevisionRef.current }).catch(cause => report(boundedMessage(cause)));
         }
       } catch (cause) { if (active) report(boundedMessage(cause)); }
       finally { draining = false; if (active && dirty) { dirty = false; void drain(); } }
     };
     void onContestSurfaceWake(() => void drain()).then(value => { if (active) { stop = value; void drain(); } else value(); })
       .catch(cause => { if (active) report(boundedMessage(cause)); });
-    return () => { active = false; stop?.(); void closeContestSurfaceContext(context).catch(() => {}); };
+    return () => { active = false; stop?.(); void closeContestSurfaceContext({ ...context, ownerEpoch }).catch(() => {}); };
   }, [context?.operatingContext, context?.sessionID, context?.workspaceGeneration, report]);
 
   useEffect(() => {
@@ -110,11 +124,11 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
             await handleRef.current(action);
           } catch (cause) {
             await completeContestSurfaceAction({ ...context, requestID: action.requestID, outcome: "rejected",
-              message: boundedMessage(cause), projectionRevision: revisionRef.current }).catch(error => report(boundedMessage(error)));
+              message: boundedMessage(cause), projectionRevision: publishedRevisionRef.current }).catch(error => report(boundedMessage(error)));
             continue;
           }
           await completeContestSurfaceAction({ ...context, requestID: action.requestID, outcome: "applied",
-            projectionRevision: revisionRef.current }).catch(cause => report(boundedMessage(cause)));
+            projectionRevision: publishedRevisionRef.current }).catch(cause => report(boundedMessage(cause)));
         }
       } catch (cause) { if (active) report(boundedMessage(cause)); }
       finally { draining = false; if (active && dirty) { dirty = false; void drainEscape(); } }

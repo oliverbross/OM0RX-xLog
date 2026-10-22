@@ -14,7 +14,8 @@ export type ContestSurfaceSnapshot = ContestSurfaceContext & { scope: "contestin
 export type ContestSurfaceCompletion = ContestSurfaceContext & { requestID: string; outcome: "applied" | "rejected";
   message?: string; projectionRevision: number };
 export type ContestSurfacePublication = ContestSurfaceContext & { scope: "contesting"; panelID: ContestSurfacePanelID;
-  projectionRevision: number; projection: unknown };
+  ownerEpoch: string; projectionRevision: number; projection: unknown };
+export type ContestSurfaceOwnerClaim = ContestSurfaceContext & { ownerEpoch: string };
 export type ContestRotorTarget = { available: boolean; projectionRevision: number; callsign: string | null;
   shortPathBearing: number | null; longPathBearing: number | null };
 
@@ -111,11 +112,20 @@ export async function completeContestSurfaceAction(completion: ContestSurfaceCom
 }
 
 export async function publishContestSurface(publication: ContestSurfacePublication): Promise<void> {
-  if (!contextValid(publication) || publication.scope !== "contesting" ||
+  if (!contextValid(publication) || !validContestSurfaceUUID(publication.ownerEpoch) || publication.scope !== "contesting" ||
       !contestSurfacePanelIDs.includes(publication.panelID) || !uint(publication.projectionRevision) ||
       !validContestSurfaceProjection(publication.panelID, publication.projection))
     throw new Error("The contest surface publication could not be verified.");
   await invoke("contest_surface_publish", publication);
+}
+
+export async function claimContestSurfaceOwner(claim: ContestSurfaceOwnerClaim): Promise<number> {
+  if (!contextValid(claim) || !validContestSurfaceUUID(claim.ownerEpoch))
+    throw new Error("The contest surface owner claim could not be verified.");
+  const value = await invoke<unknown>("contest_surface_owner_claim", claim), result = record(value) ? value : undefined;
+  if (!result || !exact(result, ["ownerEpoch", "projectionRevision"]) || result.ownerEpoch !== claim.ownerEpoch || !uint(result.projectionRevision))
+    throw new Error("The contest surface owner claim response could not be verified.");
+  return result.projectionRevision as number;
 }
 
 export async function readContestSurfaceSnapshot(context: ContestSurfaceContext): Promise<ContestSurfaceSnapshot> {
@@ -140,8 +150,9 @@ export async function readContestRotorTarget(context: ContestSurfaceContext): Pr
   return target as ContestRotorTarget;
 }
 
-export async function closeContestSurfaceContext(context: ContestSurfaceContext): Promise<void> {
-  if (!contextValid(context)) throw new Error("The contest surface owner context could not be verified.");
+export async function closeContestSurfaceContext(context: ContestSurfaceContext & { ownerEpoch: string }): Promise<void> {
+  if (!contextValid(context) || !validContestSurfaceUUID(context.ownerEpoch))
+    throw new Error("The contest surface owner context could not be verified.");
   await invoke("contest_surface_context_close", context);
 }
 

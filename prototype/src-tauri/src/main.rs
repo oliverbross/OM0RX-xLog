@@ -2751,10 +2751,11 @@ fn validate_contest_window_open(label: &str, panel_id: &str) -> Result<(), Strin
 #[tauri::command]
 async fn contest_surface_context_close(window: tauri::WebviewWindow, app: tauri::AppHandle,
     group_chat: tauri::State<'_, contest_group_chat::GroupChat>,
-    operating_context: String, session_i_d: String, workspace_generation: String) -> Result<(), String> {
+    operating_context: String, session_i_d: String, workspace_generation: String, owner_epoch: String) -> Result<(), String> {
     if window.label() != "contest-setup" { return Err("Only the detached Contest Setup owner can close the contest window context.".into()); }
     let context = contest_window_context::resolve(&session_i_d, &workspace_generation)?;
     if context.operating_context != operating_context { return Err("That contest window belongs to an expired operating context.".into()); }
+    if !contest_surface::release_owner(&context, &owner_epoch)? { return Ok(()); }
     let result = tauri::async_runtime::spawn_blocking(move || workspace_window_runtime::contest_context_closed(&app, context))
         .await.map_err(|_| "Contest window context task failed".to_string())?;
     if result.is_ok() { group_chat.shutdown(); }
@@ -2772,6 +2773,14 @@ fn contest_surface_main_context(window: &tauri::WebviewWindow, operating_context
 fn validate_contest_surface_main_caller(label: &str) -> Result<(), String> {
     if label == "contest-setup" { Ok(()) }
     else { Err("Only the detached Contest Setup owner can own contest surface actions.".into()) }
+}
+
+#[tauri::command]
+fn contest_surface_owner_claim(window: tauri::WebviewWindow, operating_context: String,
+    session_i_d: String, workspace_generation: String, owner_epoch: String) -> Result<serde_json::Value, String> {
+    let context = contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
+    let projection_revision = contest_surface::claim_owner(&context, &owner_epoch)?;
+    Ok(serde_json::json!({"ownerEpoch": owner_epoch, "projectionRevision": projection_revision}))
 }
 
 #[tauri::command]
@@ -2816,10 +2825,10 @@ fn contest_surface_action_complete(window: tauri::WebviewWindow, app: tauri::App
 #[tauri::command]
 fn contest_surface_publish(window: tauri::WebviewWindow, app: tauri::AppHandle,
     operating_context: String, scope: String, session_i_d: String, workspace_generation: String,
-    panel_i_d: String, projection_revision: u64, projection: serde_json::Value) -> Result<(), String> {
+    owner_epoch: String, panel_i_d: String, projection_revision: u64, projection: serde_json::Value) -> Result<(), String> {
     if scope != "contesting" { return Err("The contest surface scope is invalid.".into()); }
     let context = contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
-    contest_surface::publish(&context, &panel_i_d, projection_revision, projection)?;
+    contest_surface::publish(&context, &owner_epoch, &panel_i_d, projection_revision, projection)?;
     let _ = app.emit("xlog:contest-surface", ());
     Ok(())
 }
@@ -3326,7 +3335,7 @@ fn main() {
             contest_group_network_snapshot, contest_group_network_publish, contest_group_network_acknowledgements,
             contest_group_authority_request, contest_group_replica_sync_page,
             contest_voice_prepare, contest_voice_ptt,
-            contest_surface_action, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_publish, contest_surface_snapshot, contest_rotor_target,
+            contest_surface_action, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_owner_claim, contest_surface_publish, contest_surface_snapshot, contest_rotor_target,
             workspace_mode_present, workspace_canvas_close_ack,
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, contest_history_manager_request, contest_qrz_details_lookup, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
             detached_cluster_ready, cluster_session_selection, contest_post_spot, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk, close_propagation_window, show_propagation_desk, close_station_identity_window, show_station_identity_desk, close_alerts_window, show_alerts_desk, close_antenna_window, show_antenna_desk,

@@ -232,15 +232,15 @@ it.each([
     expect(input).toBeTruthy();expect(input.readOnly).toBe(false);expect(input.disabled).toBe(false);}
 });
 
-it("retains manual Reserve serial for legacy detached entries",async()=>{
+it("keeps legacy serial state without exposing the removed developer entry panel",async()=>{
   const view={...projection,schemaVersion:2,draft:{...projection.draft,reservedSerial:3},
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[{id:"serial",label:"Serial",value:"003",required:true,maximumUTF8Bytes:32}],
       serial:{requirement:"requiredForCommit",allocatedFieldID:"serial",reservedSerial:3}},operator:null};
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>command==="contest_surface_snapshot"
     ? {...snapshot,projection:view}:{requestID:args.requestID,status:"queued"});
-  render(<DetachedContestSurface/>);fireEvent.click(await screen.findByRole("button",{name:"Reserve serial",hidden:true}));
-  await waitFor(()=>expect(native.invoke.mock.calls.find(([command])=>command==="contest_surface_action")?.[1]).toMatchObject({
-    panelID:"active-qso",action:"entry_reserve_serial",params:{draftID:"draft-1",expectedDraftRevision:5}}));
+  render(<DetachedContestSurface/>);expect(await screen.findByLabelText("Sent exchange")).toHaveProperty("value","003");
+  expect(screen.queryByText("Entry controls")).toBeNull();
+  expect(screen.queryByRole("button",{name:"Reserve serial",hidden:true})).toBeNull();
 });
 
 it("keeps Trans Tasman duplicates loggable and presents the original period explanation",async()=>{
@@ -255,7 +255,7 @@ it("keeps Trans Tasman duplicates loggable and presents the original period expl
   native.invoke.mockResolvedValue({...snapshot,projection:view});render(<DetachedContestSurface/>);
   expect(await screen.findByLabelText("Sent exchange")).toHaveProperty("value","001");
   expect(screen.getByText(`Duplicate: ${reason}`)).toBeTruthy();
-  expect((screen.getByRole("button",{name:"Log QSO",hidden:true}) as HTMLButtonElement).disabled).toBe(false);
+  expect(screen.queryByRole("button",{name:"Log QSO",hidden:true})).toBeNull();
   expect(screen.queryByRole("button",{name:"Reserve serial",hidden:true})).toBeNull();
   expect(screen.getByLabelText("Current band and mode").textContent).toBe("CW1608040");
 });
@@ -721,7 +721,7 @@ it.each([{ panelID: "awards", title: "DXCC", column: "DXCC" }, { panelID: "chase
     expect(native.invoke.mock.calls.every(([command]) => command === "contest_surface_snapshot")).toBe(true);
   });
 
-it("renders the owner projection and forwards raw edits with exact revision fencing",async()=>{
+it("renders the owner projection without the removed developer frequency editor",async()=>{
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
     if(command==="contest_surface_snapshot")return snapshot;
     if(command==="contest_surface_action")return {requestID:args.requestID,status:"applied",projectionRevision:6};
@@ -730,11 +730,9 @@ it("renders the owner projection and forwards raw edits with exact revision fenc
   render(<DetachedContestSurface/>);
   expect(await screen.findByRole("heading",{name:"ARRL DX"})).toBeTruthy();
   expect(screen.getByRole("alert").textContent).toContain("Frequency must contain digits only.");
-  fireEvent.change(screen.getByLabelText("Frequency Hz"),{target:{value:"14.025B"}});
-  await waitFor(()=>expect(native.invoke.mock.calls.some(([command])=>command==="contest_surface_action")).toBe(true));
-  const call=native.invoke.mock.calls.find(([command])=>command==="contest_surface_action")!;
-  expect(call[1]).toMatchObject({operatingContext,sessionID,workspaceGeneration,panelID:"active-qso",projectionRevision:6,
-    action:"entry_set_frequency_text",params:{draftID:"draft-1",expectedDraftRevision:5,value:"14.025B"}});
+  expect(screen.queryByLabelText("Frequency Hz")).toBeNull();
+  expect(screen.queryByText("Entry controls")).toBeNull();
+  expect(native.invoke.mock.calls.every(([command])=>command==="contest_surface_snapshot")).toBe(true);
 });
 
 it("renders Entry v2 sent and simulation state and forwards an exact style action",async()=>{
@@ -750,7 +748,7 @@ it("renders Entry v2 sent and simulation state and forwards an exact style actio
     if(command==="contest_surface_action")return {requestID:args.requestID,status:"queued"};
     throw new Error(command);
   });
-  render(<DetachedContestSurface/>);expect(await screen.findByText("CQ OM0RX")).toBeTruthy();
+  render(<DetachedContestSurface/>);expect(await screen.findByRole("button",{name:"F1 CQ"})).toBeTruthy();
   expect(screen.getByRole("region",{name:"Main Logging"})).toBeTruthy();
   expect(screen.getByLabelText("Current frequency").textContent).toBe("14,025.00 kHz");
   expect(screen.getByRole("group",{name:"Function key macros"}).querySelectorAll("button")).toHaveLength(12);
@@ -765,9 +763,8 @@ it("renders Entry v2 sent and simulation state and forwards an exact style actio
   expect(screen.getAllByRole("radio").map(input=>input.parentElement?.textContent)).toEqual(["Run","S&P"]);
   expect(screen.queryByLabelText("Operating style")).toBeNull();
   expect(document.querySelector(".contest-surface-entry > footer")).toBeNull();
-  const options=document.querySelector(".contest-surface-entry-options") as HTMLDetailsElement;
-  expect(options.open).toBe(false);
-  expect(options.querySelector("footer")?.textContent).toBe("Log QSO");
+  expect(document.querySelector(".contest-surface-entry-options")).toBeNull();
+  expect(screen.queryByText("Entry controls")).toBeNull();
   expect(screen.queryByRole("button",{name:"Reserve serial",hidden:true})).toBeNull();
     expect(screen.getByRole("group",{name:"Function key macros"}).textContent).toContain("F1: CQ");
   expect((screen.getByRole("button",{name:"F12 Unassigned"}) as HTMLButtonElement).disabled).toBe(true);
@@ -860,7 +857,7 @@ it.each([{armed:false,label:"Arm recorded phone",next:true},{armed:true,label:"D
   expect((screen.getByRole("button",{name:"F1 CQ"})as HTMLButtonElement).disabled).toBe(!armed);
   fireEvent.click(screen.getByRole("button",{name:label}));
   await waitFor(()=>expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&args.action==="entry_operator_arm"&&args.params.armed===next)).toBe(true));
-  if(armed){fireEvent.click(screen.getByRole("button",{name:"Escape"}));
+  if(armed){fireEvent.keyDown(screen.getByRole("region",{name:"Main Logging"}),{key:"Escape"});
     await waitFor(()=>expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&args.action==="entry_operator_key"&&args.params.key==="Escape")).toBe(true));}
 });
 
@@ -878,8 +875,8 @@ it("keeps uncertain production phone ownership visible while blocking every send
   render(<DetachedContestSurface/>);
   await screen.findByText(/xLog recorded phone · uncertain/i);
   expect((screen.getByRole("button",{name:"F1 CQ"})as HTMLButtonElement).disabled).toBe(true);
-  expect((screen.getByRole("button",{name:"Enter / ESM"})as HTMLButtonElement).disabled).toBe(true);
-  expect((screen.getByRole("button",{name:"Escape"})as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.queryByRole("button",{name:"Enter / ESM"})).toBeNull();
+  expect(screen.queryByRole("button",{name:"Escape"})).toBeNull();
   fireEvent.click(screen.getByRole("button",{name:"Disarm"}));
   await waitFor(()=>expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&
     args.action==="entry_operator_arm"&&args.params.armed===false)).toBe(true));
@@ -896,9 +893,9 @@ it("makes CQ WW SSB Contesting Test intent simulation unmistakable without CW co
   expect(await screen.findByText(/simulated SSB voice-keyer intent only · no audio playback, RF, PTT, radio, or network output/i)).toBeTruthy();
   expect(screen.getByRole("button",{name:"F1 CQ"})).toBeTruthy();
   expect(screen.getByRole("button",{name:"F12 His call TU"})).toBeTruthy();
-  expect(screen.getByRole("button",{name:"Enter / ESM"})).toBeTruthy();
+  expect(screen.queryByRole("button",{name:"Enter / ESM"})).toBeNull();
   expect(screen.queryByRole("group",{name:"CW speed"})).toBeNull();
-  expect(screen.getByRole("region",{name:"Run and S&P test simulation"}).textContent).toContain("Their call K1ABC confirmed");
+  expect(screen.getByRole("region",{name:"Run and S&P test simulation"}).textContent).toContain("Test simulation · armed");
 });
 
 it("makes the contesting-test nontransmitting CW simulator unmistakable",async()=>{
@@ -1289,33 +1286,32 @@ it("flushes true multi-keystroke callsign and exchange intent before detached En
   expect(actions.filter(item=>item.action==="entry_operator_key")).toHaveLength(1);
 });
 
-it("does not replay an action when its reply is lost",async()=>{
+it("does not replay a field action when its reply is lost",async()=>{
   let snapshots=0,actions=0;
   native.invoke.mockImplementation(async(command:string)=>{
     if(command==="contest_surface_snapshot"){snapshots+=1;return snapshot;}
     if(command==="contest_surface_action"){actions+=1;throw new Error("IPC reply lost");}
     throw new Error(`unexpected ${command}`);
   });
-  render(<DetachedContestSurface/>); await screen.findByRole("heading",{name:"ARRL DX"});
-  fireEvent.click(screen.getByText("Entry controls"));
-  fireEvent.click(screen.getByRole("button",{name:"Log QSO"}));
+  render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign");
+  fireEvent.change(callsign,{target:{value:"K1ABC"}});
   expect(await screen.findByText("IPC reply lost")).toBeTruthy();
   expect(actions).toBe(1); expect(snapshots).toBeGreaterThanOrEqual(2);
 });
 
-it("keeps a failed presentation edit explicit until the operator retries or discards it",async()=>{
+it("keeps a failed presentation edit local without leaking reconciliation controls",async()=>{
   let actions=0;native.invoke.mockImplementation(async(command:string)=>{
     if(command==="contest_surface_snapshot")return snapshot;
     if(command==="contest_surface_action"){actions+=1;throw new Error("pre-submit IPC failure");}
     throw new Error(command);
   });
   render(<DetachedContestSurface/>);const input=await screen.findByLabelText("Callsign");
-  fireEvent.change(input,{target:{value:"K1ABC"}});await screen.findByText("This edit is not confirmed.");
+  fireEvent.change(input,{target:{value:"K1ABC"}});await screen.findByText("pre-submit IPC failure");
   expect((input as HTMLInputElement).value).toBe("K1ABC");expect(actions).toBe(1);
   await act(async()=>{native.wake!();});expect(actions).toBe(1);
-  fireEvent.click(screen.getByRole("button",{name:"Apply edit again"}));await waitFor(()=>expect(actions).toBe(2));
-  fireEvent.click(screen.getByRole("button",{name:"Use shared value"}));
-  await waitFor(()=>expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("OM0RX"));
+  expect(screen.queryByText("This edit is not confirmed.")).toBeNull();
+  expect(screen.queryByRole("button",{name:"Apply edit again"})).toBeNull();
+  expect(screen.queryByRole("button",{name:"Use shared value"})).toBeNull();
 });
 
 it("coalesces synchronous rapid Entry typing into one full-value action",async()=>{
@@ -1381,7 +1377,7 @@ it("does not silently rebase a control action after another surface revision win
   expect(actions).toHaveLength(1);
 });
 
-it("rejects Enter after same-value sibling revision churn",async()=>{
+it("admits Enter after same-value sibling revision churn",async()=>{
   const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
     functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   let current:any={...snapshot,projection:{...projection,schemaVersion:2,
@@ -1393,8 +1389,9 @@ it("rejects Enter after same-value sibling revision churn",async()=>{
   render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign");
   current={...current,projectionRevision:7,projection:{...current.projection,draft:{...current.projection.draft,revision:6}}};
   fireEvent.keyDown(callsign,{key:"Enter"});
-  expect(await screen.findByText("The shared contest entry changed before this operator action. Review it and press the key again.")).toBeTruthy();
-  expect(actions).toHaveLength(0);
+  await waitFor(()=>expect(actions).toHaveLength(1));
+  expect(actions[0]).toMatchObject({projectionRevision:7,action:"entry_operator_key",
+    params:{draftID:"draft-1",expectedDraftRevision:6,key:"Enter",focusedField:"callsign"}});
 });
 
 it("accepts Enter when an already-running flush had partly completed before key capture",async()=>{
@@ -1474,6 +1471,7 @@ it("carries delayed multi-field typing through the real owner drain before one E
         draft.revision+=1;return {...previous,draft};});await new Promise(resolve=>window.setTimeout(resolve,0));
     }});return null;}
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_owner_claim")return {ownerEpoch:args.ownerEpoch,projectionRevision:bridgeRevision};
     if(command==="contest_surface_publish"){if(args.panelID==="active-qso"){bridgeProjection=structuredClone(args.projection);bridgeRevision=args.projectionRevision;}return;}
     if(command==="contest_surface_snapshot")return {operatingContext,scope:"contesting",sessionID,workspaceGeneration,panelID:"active-qso",
       projectionRevision:bridgeRevision,projection:structuredClone(bridgeProjection),receipts:structuredClone(receipts)};
@@ -1487,6 +1485,7 @@ it("carries delayed multi-field typing through the real owner drain before one E
     if(command==="contest_surface_context_close")return;throw new Error(command);
   });
   render(<><Owner/><DetachedContestSurface/></>);const callsign=await screen.findByLabelText("Callsign"),exchange=screen.getByLabelText("Power");
+  await waitFor(()=>expect(native.wakes.length).toBeGreaterThanOrEqual(2));
   fireEvent.change(callsign,{target:{value:" k"}});await firstStart;
   fireEvent.change(callsign,{target:{value:" k1"}});fireEvent.change(callsign,{target:{value:" k1abc "}});exchange.focus();
   fireEvent.change(exchange,{target:{value:"14"}});fireEvent.change(exchange,{target:{value:"15"}});fireEvent.keyDown(exchange,{key:"Enter"});

@@ -54,6 +54,7 @@ struct QueuedAction {
 #[derive(Default)]
 struct State {
     context: Option<ContestWindowContext>,
+    owner_epoch: Option<String>,
     panels: BTreeMap<String, PanelState>,
     actions: VecDeque<QueuedAction>,
     escape_actions: VecDeque<QueuedAction>,
@@ -97,6 +98,33 @@ pub fn invalidate_all() {
     if let Ok(mut state) = state().lock() {
         *state = State::default();
     }
+}
+
+pub fn claim_owner(context: &ContestWindowContext, owner_epoch: &str) -> Result<u64, String> {
+    canonical_uuid(owner_epoch, "contest surface owner epoch")?;
+    crate::contest_window_context::with_admitted(context, || {
+        let mut state = state()
+            .lock()
+            .map_err(|_| "Contest surface state unavailable")?;
+        require_context(&state, context)?;
+        state.owner_epoch = Some(owner_epoch.into());
+        Ok(state.panels.values().filter_map(|panel| panel.projection.as_ref().map(|(revision, _)| *revision)).max().unwrap_or(0))
+    })?
+}
+
+pub fn release_owner(context: &ContestWindowContext, owner_epoch: &str) -> Result<bool, String> {
+    canonical_uuid(owner_epoch, "contest surface owner epoch")?;
+    crate::contest_window_context::with_admitted(context, || {
+        let mut state = state()
+            .lock()
+            .map_err(|_| "Contest surface state unavailable")?;
+        require_context(&state, context)?;
+        if state.owner_epoch.as_deref() != Some(owner_epoch) {
+            return Ok(false);
+        }
+        state.owner_epoch = None;
+        Ok(true)
+    })?
 }
 
 pub fn submit(label: &str, envelope: Value, focused: bool) -> Result<Value, String> {
@@ -360,10 +388,12 @@ fn complete_after_admission(
 
 pub fn publish(
     context: &ContestWindowContext,
+    owner_epoch: &str,
     panel_id: &str,
     projection_revision: u64,
     projection: Value,
 ) -> Result<(), String> {
+    canonical_uuid(owner_epoch, "contest surface owner epoch")?;
     validate_panel(panel_id)?;
     if projection_revision > MAX_SAFE_INTEGER {
         return Err("The contest projection revision is invalid.".into());
@@ -374,6 +404,9 @@ pub fn publish(
             .lock()
             .map_err(|_| "Contest surface state unavailable")?;
         require_context(&state, context)?;
+        if state.owner_epoch.as_deref() != Some(owner_epoch) {
+            return Err("This contest surface owner has been replaced.".into());
+        }
         publish_after_admission(&mut state, panel_id, projection_revision, projection)
     })?
 }
