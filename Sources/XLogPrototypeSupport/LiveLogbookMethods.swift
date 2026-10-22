@@ -303,7 +303,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             #endif
             return try capture(RemoteBackupWorkspaceSnapshot(workspaceGeneration: workspaceGeneration,
                 destination: destination, database: readyDatabase(), settings: currentSettings(),
-                preferences: currentBackupPreferences(), referenceDataURL: reference))
+                preferences: currentBackupPreferences(), referenceDataURL: reference,
+                contestingDataURL: fileManager.fileExists(atPath: contestingDataURL.path) ? contestingDataURL : nil))
         }
     }
 

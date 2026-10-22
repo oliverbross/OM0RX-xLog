@@ -9,13 +9,16 @@ public struct RemoteBackupWorkspaceSnapshot: Sendable {
     public let settings: XLogSettings
     public let preferences: XLogBackupPreferences
     public let referenceDataURL: URL?
+    public let contestingDataURL: URL?
 
     public init(workspaceGeneration: UUID, destination: RemoteBackupDestination,
                 database: LogbookDatabase, settings: XLogSettings,
-                preferences: XLogBackupPreferences, referenceDataURL: URL? = nil) {
+                preferences: XLogBackupPreferences, referenceDataURL: URL? = nil,
+                contestingDataURL: URL? = nil) {
         self.workspaceGeneration = workspaceGeneration; self.destination = destination
         self.database = database; self.settings = settings; self.preferences = preferences
         self.referenceDataURL = referenceDataURL
+        self.contestingDataURL = contestingDataURL
     }
 }
 
@@ -62,7 +65,8 @@ public actor RemoteBackupLocalSnapshotSource: RemoteBackupSnapshotSource {
                 let manager = XLogBackupManager()
                 let package = root.appendingPathComponent("snapshot.xlogbackup", isDirectory: true)
                 try manager.create(database: snapshot.database, at: package, settings: snapshot.settings,
-                    preferences: snapshot.preferences, referenceDataURL: snapshot.referenceDataURL)
+                    preferences: snapshot.preferences, referenceDataURL: snapshot.referenceDataURL,
+                    contestingDataURL: snapshot.contestingDataURL)
                 try Task.checkCancellation()
                 let envelope = try manager.prepareEnvelope(at: package, validationStagingDirectory: root)
                 try Task.checkCancellation()

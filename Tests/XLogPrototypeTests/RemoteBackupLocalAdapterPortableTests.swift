@@ -10,6 +10,7 @@ import Testing
     private actor Workspace: RemoteBackupWorkspaceSnapshotSource {
         nonisolated let database: LogbookDatabase
         let destination: RemoteBackupDestination
+        let contestingDataURL: URL?
         var generation: UUID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
         var settings = XLogSettings.defaults
         var preferences = XLogBackupPreferences(deskBandMapBands: ["20m"], detachedBandMapBands: ["20m"],
@@ -18,15 +19,16 @@ import Testing
         var cancelAfter = false
         var captures = 0
 
-        init(database: LogbookDatabase, destination: RemoteBackupDestination) {
-            self.database = database; self.destination = destination
+        init(database: LogbookDatabase, destination: RemoteBackupDestination, contestingDataURL: URL? = nil) {
+            self.database = database; self.destination = destination; self.contestingDataURL = contestingDataURL
         }
 
         func withActiveSnapshot<T: Sendable>(workspaceGeneration: UUID, destination: RemoteBackupDestination,
             capture: @Sendable (RemoteBackupWorkspaceSnapshot) throws -> T) async throws -> T {
             captures += 1
             let result = try capture(RemoteBackupWorkspaceSnapshot(workspaceGeneration: generation,
-                destination: self.destination, database: database, settings: settings, preferences: preferences))
+                destination: self.destination, database: database, settings: settings, preferences: preferences,
+                contestingDataURL: contestingDataURL))
             if cancelAfter { withUnsafeCurrentTask { $0?.cancel() } }
             return result
         }
@@ -37,12 +39,15 @@ import Testing
         func cancelAfterCapture() { cancelAfter = true }
     }
 
-    private func fixture() throws -> (Workspace, RemoteBackupDestination, URL) {
+    private func fixture(includeContestingData: Bool = false) throws -> (Workspace, RemoteBackupDestination, URL) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-local-adapter-\(UUID().uuidString)")
         let database = try LogbookDatabase(url: root.appendingPathComponent("isolated.sqlite"))
         let destination = try RemoteBackupDestination(id: UUID(), revision: 1, provider: .dropbox,
             accountID: UUID(), location: .cloudFolder(id: "isolated-folder"), schedule: .every(hours: 1))
-        return (Workspace(database: database, destination: destination), destination, root)
+        let contestingDataURL = includeContestingData
+            ? root.appendingPathComponent("Contesting/Python", isDirectory: true) : nil
+        return (Workspace(database: database, destination: destination, contestingDataURL: contestingDataURL),
+            destination, root)
     }
 
     @Test func freshSealedSnapshotsFollowInjectedOwnerAndRemoveEveryStage() async throws {
@@ -65,6 +70,64 @@ import Testing
         let validated = try XLogBackupManager().validateRestoreEnvelope(second.data)
         #expect(validated.identity == second.identity)
         #expect(await workspace.captures == 2)
+    }
+
+    @Test func freshRemoteCaptureIncludesContestSQLiteAndExcludesTransientState() async throws {
+        let (workspace, destination, root) = try fixture(includeContestingData: true)
+        let contestRoot = root.appendingPathComponent("Contesting/Python/session-1", isDirectory: true)
+        try FileManager.default.createDirectory(at: contestRoot, withIntermediateDirectories: true)
+        let contest = try LogbookDatabase(url: contestRoot.appendingPathComponent("contest.sqlite"))
+        defer {
+            contest.close()
+            workspace.database.close()
+            try? FileManager.default.removeItem(at: root)
+        }
+        try workspace.database.save(QSO(call: "NORMAL", band: "20m", mode: "CW"))
+        try contest.save(QSO(call: "CONTEST", band: "40m", mode: "CW"))
+        let contestingRoot = contestRoot.deletingLastPathComponent()
+        try Data("transient-active-session".utf8).write(
+            to: contestingRoot.appendingPathComponent("active-session.json"))
+        try Data("{\"armed\":true}".utf8).write(
+            to: contestRoot.appendingPathComponent("armed-state.json"))
+
+        let staging = root.appendingPathComponent("staging")
+        let source = try RemoteBackupLocalSnapshotSource(workspace: workspace, stagingDirectory: staging)
+        let generation = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+        let envelope = try await source.capture(workspaceGeneration: generation, destination: destination)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: staging.path).isEmpty)
+        #expect(envelope.manifest.includesContestingData == true)
+        #expect(envelope.manifest.contestDatabaseCount == 1)
+
+        let manager = XLogBackupManager()
+        let decoded = try manager.validateRestoreEnvelope(envelope.data)
+        #expect(decoded.identity == envelope.identity)
+        let package = root.appendingPathComponent("remote-capture.xlogbackup", isDirectory: true)
+        _ = try manager.materializeRestoreEnvelope(envelope.data, expectedIdentity: envelope.identity, at: package)
+        let reopened = try manager.inspect(at: package)
+        #expect(reopened.manifest.includesContestingData == true)
+        #expect(reopened.manifest.contestDatabaseCount == 1)
+        #expect(!FileManager.default.fileExists(
+            atPath: package.appendingPathComponent("Contesting/Python/active-session.json").path))
+        #expect(!FileManager.default.fileExists(
+            atPath: package.appendingPathComponent("Contesting/Python/session-1/armed-state.json").path))
+
+        try workspace.database.save(QSO(call: "NORMAL-AFTER", band: "80m", mode: "SSB"))
+        try contest.save(QSO(call: "CONTEST-AFTER", band: "80m", mode: "SSB"))
+        let restoredNormalURL = root.appendingPathComponent("Restored/normal.sqlite")
+        _ = try manager.installDatabase(from: package, to: restoredNormalURL)
+        let restoredNormal = try LogbookDatabase(url: restoredNormalURL)
+        defer { restoredNormal.close() }
+        #expect(try restoredNormal.fetch().map(\.call) == ["NORMAL"])
+        let restoredContestRoot = root.appendingPathComponent("Restored/Python", isDirectory: true)
+        _ = try manager.installContestingData(from: package, to: restoredContestRoot)
+        let restoredContest = try LogbookDatabase(
+            url: restoredContestRoot.appendingPathComponent("session-1/contest.sqlite"))
+        defer { restoredContest.close() }
+        #expect(try restoredContest.fetch().map(\.call) == ["CONTEST"])
+        #expect(!FileManager.default.fileExists(
+            atPath: restoredContestRoot.appendingPathComponent("active-session.json").path))
+        #expect(!FileManager.default.fileExists(
+            atPath: restoredContestRoot.appendingPathComponent("session-1/armed-state.json").path))
     }
 
     @Test func staleOwnerAndEncodingFailureLeaveStagingEmpty() async throws {
