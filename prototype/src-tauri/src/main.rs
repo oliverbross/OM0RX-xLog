@@ -511,6 +511,7 @@ impl DraftWake {
 
 const COMPACT_WORKSPACE_MENU_ID: &str = "workspace_compact";
 const STANDARD_WORKSPACE_MENU_ID: &str = "workspace_standard";
+const MAIN_WORKSPACE_MENU_ID: &str = "workspace_main_window";
 const LOGBOOK_OPEN_WINDOW_MENU_ID: &str = "logbook_open_window";
 const LOGBOOK_IMPORT_ADIF_MENU_ID: &str = "logbook_import_adif";
 const LOGBOOK_EXPORT_ADIF_MENU_ID: &str = "logbook_export_adif";
@@ -602,6 +603,14 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         let windows = Submenu::with_id(app, WINDOW_SUBMENU_ID, "Window", true)?;
         menu.append(&windows)?; windows
     };
+    windows.append(&PredefinedMenuItem::separator(app)?)?;
+    windows.append(&MenuItem::with_id(
+        app,
+        MAIN_WORKSPACE_MENU_ID,
+        "Open xLog Main Window",
+        true,
+        None::<&str>,
+    )?)?;
     windows.append(&PredefinedMenuItem::separator(app)?)?;
     let modes = Submenu::with_id(app, "workspace_mode_menu", "Workspace Mode", true)?;
     modes.append(&CheckMenuItem::with_id(app, "workspace_mode_canvas", "Canvas", true, true, None::<&str>)?)?;
@@ -805,6 +814,14 @@ fn ensure_main_workspace(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow,
     let main = main_workspace(app)?;
     present_active_workspace(app)?;
     Ok(main)
+}
+
+fn show_main_workspace(app: &tauri::AppHandle) -> Result<(), String> {
+    let main = main_workspace(app)?;
+    main.unminimize().map_err(|error| error.to_string())?;
+    main.show()
+        .and_then(|_| main.set_focus())
+        .map_err(|error| error.to_string())
 }
 
 async fn navigate_workspace(app: tauri::AppHandle, screen: String) -> Result<(), String> {
@@ -3181,6 +3198,15 @@ fn main() {
             }
         })
         .on_menu_event(|app, event| {
+            if event.id().0 == MAIN_WORKSPACE_MENU_ID {
+                let app = app.clone();
+                tauri::async_runtime::spawn_blocking(move || {
+                    if let Err(error) = show_main_workspace(&app) {
+                        eprintln!("Could not open xLog main window: {error}");
+                    }
+                });
+                return;
+            }
             if event.id().0 == contest_log_transfer::MENU_ID {
                 let app = app.clone();
                 tauri::async_runtime::spawn_blocking(move || {
