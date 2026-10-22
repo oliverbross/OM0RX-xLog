@@ -657,7 +657,23 @@ private final class IdentityJoinAuditProtocol: URLProtocol {
            let path = request.url?.lastPathComponent, let id = Int(path) {
             let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: ["data": auditJSON(id: id, name: "First")]))
+            var updated = auditJSON(id: id, name: "First")
+            var body = request.httpBody
+            if body == nil, let stream = request.httpBodyStream {
+                stream.open(); defer { stream.close() }
+                var captured = Data(), buffer = [UInt8](repeating: 0, count: 4_096)
+                while stream.hasBytesAvailable {
+                    let count = stream.read(&buffer, maxLength: buffer.count)
+                    guard count > 0 else { break }
+                    captured.append(buffer, count: count)
+                }
+                body = captured
+            }
+            if let body,
+               let changed = try? JSONSerialization.jsonObject(with: body) as? [String: Any] {
+                updated.merge(changed) { _, changed in changed }
+            }
+            client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: ["data": updated]))
             client?.urlProtocolDidFinishLoading(self)
             return
         }

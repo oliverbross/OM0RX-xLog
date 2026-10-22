@@ -383,7 +383,7 @@ public actor SyncEngine {
                     }
                     try validateForNetwork(run)
                     let remote = try await client.createQSO(create)
-                    guard WavelogQSOUpdate(create).isRepresented(by: remote) else {
+                    guard remote.representsSupportedCreate(of: qso) else {
                         throw WavelogClientError.writeVerificationFailed(id: remote.id)
                     }
                     try validateSyncRun()
@@ -669,21 +669,6 @@ extension WavelogQSOUpdate {
         satelliteName = adif["SAT_NAME"]?.nilIfEmpty; satelliteMode = adif["SAT_MODE"]?.nilIfEmpty
     }
 
-    init(_ create: WavelogQSOCreate) {
-        self.init()
-        call = create.call; band = create.band; mode = create.mode
-        qsoDate = create.qsoDate; timeOn = create.timeOn
-        frequency = create.frequency; receiveFrequency = create.receiveFrequency; receiveBand = create.receiveBand
-        rstSent = create.rstSent; rstReceived = create.rstReceived
-        gridSquare = create.gridSquare; name = create.name; comment = create.comment
-        notes = create.notes; qth = create.qth; state = create.state; county = create.county
-        iota = create.iota; qslVia = create.qslVia; power = create.power
-        cqZone = create.cqZone; ituZone = create.ituZone; propagationMode = create.propagationMode
-        satelliteName = create.satelliteName; satelliteMode = create.satelliteMode
-        sotaReference = create.sotaReference; potaReference = create.potaReference
-        wwffReference = create.wwffReference
-    }
-
     init(_ qso: QSO, comparedTo previous: QSO) {
         self.init()
         let date = DateFormatter()
@@ -803,6 +788,25 @@ extension WavelogQSOUpdate {
         if !text(sotaReference, remote.sotaReference, field: .sotaReference, normalize: { $0.uppercased() }) { return false }
         if !text(potaReference, remote.potaReference, field: .potaReference, normalize: { $0.uppercased() }) { return false }
         if !text(wwffReference, remote.wwffReference, field: .wwffReference, normalize: { $0.uppercased() }) { return false }
+        return true
+    }
+}
+
+extension WavelogQSO {
+    /// Create responses have historically exposed only the remote identity and
+    /// core ADIF fields. PATCH acknowledgement is stricter because it can prove
+    /// every intentionally changed field from the fresh response.
+    func representsSupportedCreate(of qso: QSO) -> Bool {
+        let adif = qso.adifRecord
+        let expectedMode = (adif["SUBMODE"]?.nilIfEmpty ?? adif["MODE"] ?? qso.mode).uppercased()
+        let returnedMode = (submode?.nilIfEmpty ?? mode).uppercased()
+        guard call.uppercased() == qso.call.uppercased(), band.lowercased() == qso.band.lowercased(),
+              returnedMode == expectedMode else { return false }
+        if let expected = qso.frequencyHz, frequency.flatMap({ roundedHertz($0) }) != expected { return false }
+        if let expected = qso.receiveFrequencyHz, receiveFrequency.flatMap({ roundedHertz($0) }) != expected { return false }
+        if let expected = qso.receiveBand.nilIfEmpty, receiveBand?.lowercased() != expected.lowercased() { return false }
+        if let expected = adif["SAT_NAME"]?.nilIfEmpty, satelliteName?.uppercased() != expected.uppercased() { return false }
+        if let expected = adif["SAT_MODE"]?.nilIfEmpty, satelliteMode?.uppercased() != expected.uppercased() { return false }
         return true
     }
 }
