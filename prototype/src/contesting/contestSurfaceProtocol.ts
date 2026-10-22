@@ -1,7 +1,7 @@
 import { contestKeyBindingActions, contestKeyBindingContexts, normalizeContestKey, type ContestKeyBinding } from "./contestKeyBindings";
 
 export const contestSurfacePanelIDs = ["active-qso", "qrz-details", "band-maps", "callsign-intelligence", "monitor", "propagation",
-  "alerts", "awards", "chaser-dx", "rotor", "station-control", "logbook", "dx-cluster", "score-reporting"] as const;
+  "awards", "chaser-dx", "rotor", "station-control", "logbook", "dx-cluster", "score-reporting"] as const;
 export type ContestSurfacePanelID = typeof contestSurfacePanelIDs[number];
 export const contestInputFieldIDs = ["callsign", "sent", "receive", "other_1", "other_2"] as const;
 export type ContestInputFieldID = typeof contestInputFieldIDs[number];

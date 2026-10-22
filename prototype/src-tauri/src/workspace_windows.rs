@@ -84,7 +84,7 @@ pub const SUPPORTED_WINDOWS: [WindowSpec; 23] = [
     WindowSpec { id: "antenna", title: "OM0RX-xLog — Antenna Reference", width: 780.0, height: 600.0 },
 ];
 pub const CONTEST_LABEL_PREFIX: &str = "contest--";
-pub const CONTEST_WINDOWS: [WindowSpec; 17] = [
+pub const CONTEST_WINDOWS: [WindowSpec; 16] = [
     WindowSpec { id: "active-qso", title: "OM0RX-xLog Contest — Main Logging", width: 800.0, height: 440.0 },
     WindowSpec { id: "call-history", title: "OM0RX-xLog Contest — Call History", width: 840.0, height: 360.0 },
     WindowSpec { id: "qrz-details", title: "OM0RX-xLog Contest — Callsign Details", width: 520.0, height: 420.0 },
@@ -94,7 +94,6 @@ pub const CONTEST_WINDOWS: [WindowSpec; 17] = [
     WindowSpec { id: "monitor", title: "OM0RX-xLog Contest — Rates", width: 340.0, height: 300.0 },
     WindowSpec { id: "score-reporting", title: "OM0RX-xLog Contest — Score Reporting", width: 620.0, height: 540.0 },
     WindowSpec { id: "propagation", title: "OM0RX-xLog Contest — Stats", width: 520.0, height: 220.0 },
-    WindowSpec { id: "alerts", title: "OM0RX-xLog Contest — Alerts", width: 780.0, height: 600.0 },
     WindowSpec { id: "awards", title: "OM0RX-xLog Contest — DXCC", width: 920.0, height: 360.0 },
     WindowSpec { id: "chaser-dx", title: "OM0RX-xLog Contest — Zone", width: 760.0, height: 360.0 },
     WindowSpec { id: "rotor", title: "OM0RX-xLog Contest — Rotator", width: 540.0, height: 520.0 },
@@ -177,7 +176,6 @@ pub fn native_minimum(label: &str) -> (f64, f64) {
                 "logbook" => (760.0, 480.0),
                 "edit-contact" => (500.0, 480.0),
                 "propagation" => (400.0, 180.0),
-                "alerts" => (320.0, 220.0),
                 "band-maps" => (420.0, 520.0),
                 "dx-cluster" => (720.0, 300.0),
                 "rotor" => (420.0, 420.0),
@@ -331,6 +329,15 @@ fn checked(snapshot: &Value, scope: WorkspaceWindowScope) -> Result<(Intent, u64
             if !ROLES.contains(&role) || !roles.insert(role) { return Err(invalid()); }
             let placement = text(&panel["placement"])?;
             if !["canvas", "window", "hidden"].contains(&placement) || panel["z"].as_u64().is_none_or(|z| z > 10000) { return Err(invalid()); }
+            // Contest layouts written while Alerts was incorrectly admitted may
+            // still request its dead native route. Quarantine only that exact
+            // legacy window placement; every other unsupported panel remains an
+            // error below.
+            let placement = if scope == WorkspaceWindowScope::Contesting && role == "alerts" && placement == "window" {
+                "hidden"
+            } else {
+                placement
+            };
             let rect = &panel["rect"];
             let x = bounded(&rect["x"], 0.0, 16384.0)?;
             let y = bounded(&rect["y"], 0.0, 16384.0)?;
@@ -396,7 +403,7 @@ mod tests {
 
         let ids: BTreeSet<_> = CONTEST_WINDOWS.iter().map(|window| window.id).collect();
         assert_eq!(ids.len(), CONTEST_WINDOWS.len());
-        assert_eq!(ids, BTreeSet::from(["active-qso", "alerts", "awards", "band-maps", "call-history", "group-chat", "qrz-details", "callsign-intelligence",
+        assert_eq!(ids, BTreeSet::from(["active-qso", "awards", "band-maps", "call-history", "group-chat", "qrz-details", "callsign-intelligence",
             "chaser-dx", "dx-cluster", "edit-contact", "logbook", "monitor", "propagation", "rotor", "score-reporting", "station-control"]));
         let titles = CONTEST_WINDOWS.iter().map(|window| (window.id, window.title)).collect::<std::collections::HashMap<_, _>>();
         for (panel, title) in [
@@ -407,7 +414,6 @@ mod tests {
             ("monitor", "OM0RX-xLog Contest — Rates"),
             ("score-reporting", "OM0RX-xLog Contest — Score Reporting"),
             ("station-control", "OM0RX-xLog Contest — Remote VFO"),
-            ("alerts", "OM0RX-xLog Contest — Alerts"),
             ("group-chat", "OM0RX-xLog Contest — Group Chat"),
         ] { assert_eq!(titles.get(panel), Some(&title)); }
     }
@@ -485,6 +491,22 @@ mod tests {
         tagged_normal["scope"] = json!("contesting");
         assert!(WorkspaceWindowPlanner::default().plan(&tagged_normal, false).is_err());
     }
+    #[test]
+    fn contest_planner_quarantines_only_the_legacy_alerts_window_placement() {
+        let mut legacy = fixture(&["alerts", "logbook"]);
+        legacy["scope"] = json!("contesting");
+        let plan = WorkspaceWindowPlanner::for_scope(WorkspaceWindowScope::Contesting)
+            .plan(&legacy, false).unwrap();
+        assert_eq!(plan.show, ["contest--logbook"]);
+        assert!(plan.intent.placements.contains(&("contest--alerts".into(), "hidden".into())));
+
+        let mut unknown = legacy;
+        let unknown_panel = unknown["document"]["presets"][0]["panels"].as_array_mut().unwrap()
+            .iter_mut().find(|panel| panel["id"] == "alerts").unwrap();
+        unknown_panel["id"] = json!("not-a-panel");
+        assert!(WorkspaceWindowPlanner::for_scope(WorkspaceWindowScope::Contesting)
+            .plan(&unknown, false).is_err());
+    }
     fn apply(planner: &mut WorkspaceWindowPlanner, plan: &Plan) {
         for role in &plan.show { planner.acknowledge_show(role).unwrap(); }
         for role in &plan.hide { planner.acknowledge_hide(role).unwrap(); }
@@ -517,7 +539,7 @@ mod tests {
             ("edit-contact", (500.0, 480.0)),
             ("group-chat", (360.0, 240.0)),
             ("callsign-intelligence", (480.0, 500.0)), ("logbook", (760.0, 480.0)),
-            ("propagation", (400.0, 180.0)), ("alerts", (320.0, 220.0)),
+            ("propagation", (400.0, 180.0)),
             ("band-maps", (420.0, 520.0)), ("dx-cluster", (720.0, 300.0)),
             ("rotor", (420.0, 420.0)), ("monitor", (300.0, 240.0)),
             ("score-reporting", (480.0, 420.0)),

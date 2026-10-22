@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
 const FILE_NAME: &str = "contest-window-state.json";
-const VERSION: u8 = 2;
+const VERSION: u8 = 3;
 const DEFAULT_OPEN: [&str; 7] = [
     "active-qso",
     "band-maps",
@@ -39,8 +39,14 @@ fn default_document() -> Document {
 }
 
 fn checked(mut document: Document) -> Result<Document, String> {
-    if !matches!(document.version, 1 | VERSION)
-        || document.open.len() > crate::workspace_windows::CONTEST_WINDOWS.len()
+    if !matches!(document.version, 1 | 2 | VERSION) {
+        return Err("Saved contest window state is invalid.".into());
+    }
+    // Alerts was admitted by the v1/v2 registry without a contest menu route
+    // or renderer. Drop only that known legacy entry; unknown panels still
+    // fail closed so corrupt state is never silently broadened.
+    document.open.remove("alerts");
+    if document.open.len() > crate::workspace_windows::CONTEST_WINDOWS.len()
         || document.open.iter().any(|panel| {
             !crate::workspace_windows::supports_panel(
                 crate::workspace_windows::WorkspaceWindowScope::Contesting,
@@ -177,6 +183,19 @@ mod tests {
         let saved: Document = serde_json::from_slice(&std::fs::read(path(directory.path())).unwrap()).unwrap();
         assert_eq!(saved.version, VERSION);
         assert!(!saved.open.contains("band-maps"));
+    }
+
+    #[test]
+    fn quarantines_the_removed_legacy_alerts_surface_without_reopening_it() {
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::write(path(directory.path()), br#"{"version":2,"open":["alerts","rotor"]}"#).unwrap();
+        let restored = labels(directory.path()).unwrap();
+        assert!(restored.contains(&"contest--rotor".to_owned()));
+        assert!(!restored.contains(&"contest--alerts".to_owned()));
+        remember(directory.path(), "contest--rotor", true).unwrap();
+        let saved: Document = serde_json::from_slice(&std::fs::read(path(directory.path())).unwrap()).unwrap();
+        assert_eq!(saved.version, VERSION);
+        assert!(!saved.open.contains("alerts"));
     }
 
     #[test]

@@ -1,5 +1,8 @@
 import type { ComponentType } from "react";
 
+export const sharedContestWindowViews = ["active-qso", "band-maps", "callsign-intelligence", "monitor", "propagation",
+  "awards", "chaser-dx", "logbook", "edit-contact", "dx-cluster", "score-reporting"] as const;
+
 /** Keep contest-only route metadata out of every ordinary detached window. */
 export async function loadContestWindowSurface(query: URLSearchParams): Promise<ComponentType> {
   const view=query.get("view");
@@ -16,5 +19,7 @@ export async function loadContestWindowSurface(query: URLSearchParams): Promise<
   if(view==="group-chat")return(await import("./DetachedContestGroupChat")).DetachedContestGroupChat;
   if(view==="rotor")return(await import("../live/DetachedRotorSurface")).DetachedRotorSurface;
   if(view==="station-control")return(await import("../live/DetachedStationControlSurface")).DetachedStationControlSurface;
-  return(await import("./DetachedContestSurface")).DetachedContestSurface;
+  if(sharedContestWindowViews.includes(view as typeof sharedContestWindowViews[number]))
+    return(await import("./DetachedContestSurface")).DetachedContestSurface;
+  throw new Error(`Unknown contest window route: ${view ?? "missing"}`);
 }

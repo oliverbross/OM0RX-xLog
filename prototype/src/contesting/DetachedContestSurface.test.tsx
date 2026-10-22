@@ -816,20 +816,6 @@ it.each(["band-maps", "monitor", "dx-cluster"])(
     expect(native.invoke.mock.calls.every(([command]) => command === "contest_surface_snapshot")).toBe(true);
   });
 
-it.each(["alerts", "rotor", "station-control"])(
-  "keeps non-owner contest %s explicitly unavailable and passive", async panelID => {
-    window.history.replaceState({}, "", search.replace("view=active-qso", `view=${panelID}`));
-    native.invoke.mockImplementation(async (command:string) => {
-      if (command === "contest_surface_snapshot") return { ...snapshot, panelID, projection: { schemaVersion:1, status:"unavailable" } };
-      throw new Error(`unexpected ${command}`);
-    });
-    render(<DetachedContestSurface/>);
-    expect(await screen.findByRole("heading", { name:"Panel unavailable" })).toBeTruthy();
-    expect(screen.getByText("This shared contest panel is not connected yet.")).toBeTruthy();
-    expect(screen.queryByRole("button")).toBeNull();
-    expect(native.invoke.mock.calls.every(([command]) => command === "contest_surface_snapshot")).toBe(true);
-  });
-
 it.each([
   ["awards", "DXCC", "This contest does not score DXCC multipliers."],
   ["chaser-dx", "Zones", "This contest does not score CQ or ITU zone multipliers."],

@@ -173,6 +173,11 @@ mod tests {
         assert!(!contest_owner_can_retire(false, false, ["contest-setup-station"]));
         assert!(contest_owner_can_retire(false, false, ["rotor", "station-control"]));
         assert_eq!(windows, ["active-qso", "qrz-details", "call-history", "group-chat", "callsign-intelligence", "propagation", "monitor", "score-reporting", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"].into_iter().collect());
+        let registered = crate::workspace_windows::CONTEST_WINDOWS.iter().map(|window| window.id)
+            .collect::<std::collections::HashSet<_>>();
+        windows.insert("edit-contact");
+        assert_eq!(registered, windows,
+            "every admitted contest window must be a menu route or the editor-only child");
         assert_eq!(CONTEST_MENU_ITEMS.iter().copied().collect::<std::collections::HashMap<_, _>>(), std::collections::HashMap::from([
             ("contest-setup", "Contest Setup"), ("contest-window-call-history", "Call History"), ("contest-window-qrz-details", "Callsign Details"),
             ("contest-window-group-chat", "Group Chat"),
