@@ -82,8 +82,9 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
   const panelId = useId();
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [columnPreferences, setColumnPreferences] = useState(() => {
-    try { const raw = localStorage.getItem(preferenceStorageKey); return raw ? readWorkspacePreferences(raw) : defaultColumns(); }
-    catch { return defaultColumns(); }
+    const fallback = presentationOnly ? defaultWorkspacePreferences() : defaultColumns();
+    try { const raw = localStorage.getItem(preferenceStorageKey); return raw ? readWorkspacePreferences(raw) : fallback; }
+    catch { return fallback; }
   });
   const columnDrag = useRef<{ id: CompactColumn; x: number; width: number; scale: number } | null>(null);
   const visibleColumns = new Set(columnPreferences.columns);
@@ -262,7 +263,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
     {renderToolbarPanels()}
   </section>;
 
-  return <section className="live-cluster" aria-label="Live DX Cluster">
+  return <section className={`live-cluster${presentationOnly ? " is-contest-terminal" : ""}`} aria-label="Live DX Cluster">
     <header className="live-cluster-head">
       <div>{!taskOnly && <h2>DX Cluster</h2>}<p>{presentationOnly ? `${connected} live · ${live?.spots.length ?? 0} shown / ${live?.loadedSpots ?? 0} received` : `${connected} live · ${live?.spots.length ?? 0} shown / ${live?.loadedSpots ?? 0} received · ${live?.contactCount ?? 0} log contacts`}</p></div>
       {!presentationOnly && <div className="live-cluster-actions">
@@ -342,14 +343,14 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
     </tr></thead><tbody>{(live?.spots ?? []).map((spot, index) => <tr key={spot.id}
       tabIndex={0}
       className={`${(selectedSpotId ?? selectedSpot?.id) === spot.id ? "is-selected" : ""}${spot.marked ? " is-marked" : ""} ${index % 2 ? "is-odd" : "is-even"}`}
-      style={{ backgroundColor: (selectedSpotId ?? selectedSpot?.id) === spot.id ? undefined : clusterRowTint(spot.dxccStatus, configuration?.palette.status) }}
+      style={{ backgroundColor: presentationOnly || (selectedSpotId ?? selectedSpot?.id) === spot.id ? undefined : clusterRowTint(spot.dxccStatus, configuration?.palette.status) }}
       onClick={() => { setSelectedSpot(spot); onSelect(spot); }} onContextMenu={event => onSpotContextMenu?.(spot, event)}
       onKeyDown={event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();setSelectedSpot(spot);onSelect(spot);}
         else if(event.key==="ContextMenu"||event.shiftKey&&event.key==="F10")onSpotContextMenu?.(spot,event);}}
       aria-label={`${spot.callsign}${spot.marked?" marked":""} spot`}
       title={presentationOnly ? "Load this spot into the contest draft and tune the selected radio" : "Load this spot into the logger and tune through xCat"}>
       <td hidden={!visibleColumns.has("time")} className="mono live-cluster-age live-cluster-age-strip"
-        style={{ backgroundColor: spotAgeColor(spot.receivedAt, ageClock) }} title={`Received ${formatDate(spot.receivedAt)}`}>{formatSpotAge(spot.receivedAt, ageClock)}</td>
+        style={{ backgroundColor: presentationOnly ? undefined : spotAgeColor(spot.receivedAt, ageClock) }} title={`Received ${formatDate(spot.receivedAt)}`}>{formatSpotAge(spot.receivedAt, ageClock)}</td>
       <td hidden={!visibleColumns.has("score")}><span className={`live-cluster-score ${spot.score >= 80 ? "priority" : spot.score >= 55 ? "high" : spot.score >= 30 ? "medium" : "low"}`}>{spot.score}</span></td>
       <td hidden={!visibleColumns.has("band")}><span className="live-cluster-category" style={{ color: paletteColor(spot.band, configuration?.palette.band, clusterBandColors) }}>{spot.band}</span></td>
       <td hidden={!visibleColumns.has("frequency")} className="cyan mono">{(spot.frequencyKHz / 1000).toFixed(6)}</td>
@@ -366,8 +367,12 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
       <td hidden={!visibleColumns.has("workedBefore")} title={formatDate(spot.workedBefore)} className="live-cluster-worked-before">{spot.workedBefore == null ? "—" : `✓ ${formatDate(spot.workedBefore)}`}</td>
       <td hidden={!visibleColumns.has("comment")} title={spot.comment}>{spot.comment || "—"}</td>
     </tr>)}</tbody></table>
-      {!live?.spots.length && <p className="empty">{presentationOnly ? "No shared cluster spots are available." : connected ? "No live spots match the current filters." : configuration?.servers.some(server => server.enabled) ? "Your cluster is configured. Use Connect to resume live spots; the radio can remain offline." : "Configure a cluster, then connect to receive live spots."}</p>}
+      {!live?.spots.length && <p className="empty">{presentationOnly ? connected ? "No shared cluster spots are available." : "No shared spots. Connect from the xLog DX Cluster window to receive live spots." : connected ? "No live spots match the current filters." : configuration?.servers.some(server => server.enabled) ? "Your cluster is configured. Use Connect to resume live spots; the radio can remain offline." : "Configure a cluster, then connect to receive live spots."}</p>}
     </div>
+    {presentationOnly && <footer className={`live-cluster-terminal-status ${connected ? "is-connected" : "is-disconnected"}`} role="status" aria-label="Contest cluster connection">
+      <span>{connected ? `Connected · ${connected} cluster${connected === 1 ? "" : "s"}` : "Disconnected"}</span>
+      {!connected && <small>Connect in xLog DX Cluster</small>}
+    </footer>}
     {selectedSpot && <div className="live-cluster-inspector" aria-label="Selected spot details">
       <div><strong>{selectedSpot.callsign}</strong><span>{countryDisplay(selectedSpot.country)}</span></div>
       <div><small>Frequency</small><span>{(selectedSpot.frequencyKHz / 1000).toFixed(6)} MHz</span></div>

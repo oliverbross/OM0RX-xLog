@@ -207,6 +207,29 @@ describe("cluster toolbar panels", () => {
     expect(localStorage.getItem(fullClusterColumnsKey)).toBeNull();
   });
 
+  it("renders the contest-only cluster as a compact terminal with an honest connection boundary", () => {
+    const data = response();
+    data.snapshot.connectedClusters = 0;
+    data.snapshot.connections = [];
+    (data.snapshot.spots as any[]).push({ id: "contest-spot", receivedAt: 812_000_000,
+      clusterName: "ShackCQ", spotter: "K1ABC", frequencyKHz: 14025, frequencyText: "14.025", callsign: "DL1ABC", comment: "CQ TEST",
+      band: "20m", mode: "CW", country: "Germany", continent: "EU", cqZone: 14, callStatus: "New Call", dxccStatus: "New Band",
+      specialTags: [], score: 65, scoreReasons: [], aggregateCount: 1, aggregateSpotters: ["K1ABC"], source: "cluster", statusHex: "", bandHex: "", modeHex: "" });
+    const onSelect = vi.fn();
+    const { container } = render(<ClusterPanel passive presentationOnly taskOnly snapshot={data} onRequest={vi.fn()} onSelect={onSelect} />);
+    expect(container.querySelector(".live-cluster")?.classList.contains("is-contest-terminal")).toBe(true);
+    const status = screen.getByRole("status", { name: "Contest cluster connection" });
+    expect(status.textContent).toContain("Disconnected");
+    expect(status.textContent).toContain("Connect in xLog DX Cluster");
+    expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
+    expect(screen.getAllByRole("columnheader").map(header => header.textContent)).toEqual(["Score", "Band", "MHz", "Callsign", "Mode", "Comment"]);
+    const row = screen.getByLabelText("DL1ABC spot");
+    expect((row as HTMLElement).style.backgroundColor).toBe("");
+    expect((row.querySelector(".live-cluster-age-strip") as HTMLElement).style.backgroundColor).toBe("");
+    fireEvent.click(row);
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: "contest-spot" }));
+  });
+
   it("lets operators finish typing a width before bounding and saving it", () => {
     render(<ClusterPanel passive snapshot={response()} onRequest={vi.fn()} onSelect={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));

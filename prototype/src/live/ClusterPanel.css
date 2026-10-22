@@ -152,6 +152,31 @@
 .live-cluster-special { color: #b0d4ff; }
 .live-cluster-special-tag { display: inline-block; margin-right: 4px; padding: 2px 5px; border: 1px solid #4a6fa5; border-radius: 3px; background: #2a3f5f; font-size: 10px; font-weight: 700; }
 .live-cluster-worked-before { color: #10b981; }
+.live-cluster.is-contest-terminal {
+  border:1px solid var(--border);
+  background:#0d1217;
+  font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+}
+.live-cluster.is-contest-terminal .live-cluster-head { min-height:25px; padding:3px 7px; background:#171d22; }
+.live-cluster.is-contest-terminal .live-cluster-head p { margin:0; color:#b9c2c9; font-size:10px; font-variant-numeric:tabular-nums; }
+.live-cluster.is-contest-terminal .live-cluster-table { min-height:60px; background:#090d10; }
+.live-cluster.is-contest-terminal .live-cluster-table table { border-collapse:collapse; font:11px/1.15 ui-monospace,SFMono-Regular,Consolas,monospace; font-variant-numeric:tabular-nums; }
+.live-cluster.is-contest-terminal .live-cluster-table :is(th,td) { padding:3px 5px; border-bottom:1px solid #182027; }
+.live-cluster.is-contest-terminal .live-cluster-table th { color:#77838d; background:#11171c; font-size:9px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; }
+.live-cluster.is-contest-terminal .live-cluster-table tbody tr { height:22px; color:#c5ced5; background:transparent; }
+.live-cluster.is-contest-terminal .live-cluster-table tbody tr:is(.is-even,.is-odd) { background:transparent; }
+.live-cluster.is-contest-terminal .live-cluster-table tbody tr:hover { background:#17232d; box-shadow:inset 2px 0 #58b8e8; }
+.live-cluster.is-contest-terminal .live-cluster-table tbody tr.is-selected { background:#183247; box-shadow:inset 2px 0 var(--cyan); }
+.live-cluster.is-contest-terminal .live-cluster-category,
+.live-cluster.is-contest-terminal .live-cluster-score,
+.live-cluster.is-contest-terminal .live-cluster-special-tag { min-width:0; margin:0; padding:0; border:0; border-radius:0; background:transparent; font:inherit; }
+.live-cluster.is-contest-terminal .live-cluster-call { color:#dbe5ec; font-weight:700; }
+.live-cluster.is-contest-terminal .live-cluster-age { color:#93a0aa; font-weight:500; }
+.live-cluster.is-contest-terminal .live-cluster-age-strip { box-shadow:none; }
+.live-cluster-terminal-status { display:flex; flex:0 0 auto; align-items:center; justify-content:flex-end; gap:8px; min-height:23px; padding:2px 6px; border-top:1px solid #27313a; color:#9da8b0; background:#171d22; font:10px ui-monospace,SFMono-Regular,Consolas,monospace; }
+.live-cluster-terminal-status span::before { content:""; display:inline-block; width:6px; height:6px; margin-right:5px; border-radius:50%; background:currentColor; vertical-align:1px; }
+.live-cluster-terminal-status.is-connected { color:var(--teal); }
+.live-cluster-terminal-status.is-disconnected small { color:#c9a75b; font:inherit; }
 .live-cluster-inspector { display: flex; flex-wrap: wrap; gap: 12px 22px; padding: 10px 14px; background: var(--control); border-top: 1px solid var(--border); }
 .live-cluster-inspector > div { display: flex; flex-direction: column; gap: 3px; max-width: 280px; min-width: 100px; overflow-wrap: anywhere; }
 .live-cluster-inspector strong { color: var(--teal); font-size: 15px; }
