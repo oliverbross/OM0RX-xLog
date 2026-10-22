@@ -1512,9 +1512,14 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       return;
     }
     const next = await runMutation(async base => {
-      await stationTune(frequencyHz, base.mode);
+      const supportedModes=contestSurfaceModes(base.supportedModes??[],base.mode),spotMode=canonicalContestSurfaceMode(spot.mode);
+      const admittedMode=supportedModes.length===1?base.mode:
+        base.supportedModes?.find(mode=>canonicalContestSurfaceMode(mode)===spotMode)??
+        (spotMode&&supportedModes.includes(spotMode)?spotMode:null);
+      if(!admittedMode)throw new Error("That spot's mode is not supported by the active contest.");
+      await stationTune(frequencyHz, admittedMode);
       return mutate("contest_draft_apply", base, {
-        fields: { ...fieldsRef.current, callsign: String(spot.callsign ?? "").toUpperCase() }, frequencyHz,
+        fields: { ...fieldsRef.current, callsign: String(spot.callsign ?? "").toUpperCase() }, frequencyHz, mode:admittedMode,
       });
     }, false, false, false, throwFailures);
     if (!next) return;
@@ -1930,8 +1935,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       const query=(fieldsRef.current.callsign??"").trim().toUpperCase();
       const selected=spotCursorRef.current.context===spotSelectionContext?spotCursorRef.current.spotID:
         selectedSpotId==null?null:String(selectedSpotId);
-      return (query?visibleWorkflowSpots.find(spot=>spot.callsign===query)??visibleWorkflowSpots.find(spot=>spot.callsign.includes(query)):null)
-        ??(selected===null?null:visibleWorkflowSpots.find(spot=>spot.id===selected)??null);
+      const selectedSpot=selected===null?null:visibleWorkflowSpots.find(spot=>spot.id===selected)??null;
+      if(selectedSpot)return selectedSpot;
+      if(!query)return null;
+      const exact=visibleWorkflowSpots.filter(spot=>spot.callsign===query);
+      if(exact.length)return exact.length===1?exact[0]:null;
+      const partial=visibleWorkflowSpots.filter(spot=>spot.callsign.includes(query));
+      return partial.length===1?partial[0]:null;
     };
     const workflowBase=(current:SpotWorkflow)=>sameSpotWorkflowScope(current,spotWorkflowScope)?current:effectiveSpotWorkflow;
     switch (action.action) {

@@ -1862,10 +1862,13 @@ it("publishes imported plugin history to Check Partial and clears it with the ne
     .toEqual({source:null,rows:[]}));
 });
 
-it("applies a contest-window spot only to the active Not1MM draft and tunes exactly once",async()=>{
-  let current=projection();
+it.each([
+  {label:"mixed-mode",supportedModes:["CW","SSB"],expectedMode:"SSB"},
+  {label:"single-mode",supportedModes:["CW"],expectedMode:"CW"},
+])("applies a $label contest spot mode to the radio and authoritative Not1MM draft exactly once",async({supportedModes,expectedMode})=>{
+  let current={...projection(),supportedModes};
   const tune=vi.fn(async(_frequencyHz:number,_mode:string)=>({accepted:true,confirmed:true}));
-  const spot={id:"spot-1",callsign:"DL1ABC",frequencyKHz:14025,band:"20m",mode:"CW"};
+  const spot={id:"spot-1",callsign:"DL1ABC",frequencyKHz:14195,band:"20m",mode:"USB"};
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
     const support=workspaceSupport(method,params,current);if(support)return support;
     if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
@@ -1873,7 +1876,8 @@ it("applies a contest-window spot only to the active Not1MM draft and tunes exac
       method==="contest_create"?{projection:current}:method==="contest_log_page"?{rows:[],total:0}:
       method==="contest_score"?{score:current.score}:null;
     if(method==="contest_draft_apply"){
-      current={...projection(current.revision+1,params.fields as Record<string,string>),frequencyHz:Number(params.frequencyHz)};
+      current={...projection(current.revision+1,params.fields as Record<string,string>),supportedModes,
+        frequencyHz:Number(params.frequencyHz),mode:String(params.mode??current.mode)};
       result={projection:current,actions:[],messages:[]};
     }
     if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
@@ -1891,8 +1895,10 @@ it("applies a contest-window spot only to the active Not1MM draft and tunes exac
   await expect(surfaceOwner.current.handle({...envelope,params:{...envelope.params,expectedDraftRevision:current.revision-1}})).rejects.toThrow("entry changed");
   expect(tune).not.toHaveBeenCalled();
   await act(async()=>surfaceOwner.current.handle(envelope));
-  expect(tune).toHaveBeenCalledExactlyOnceWith(14_025_000,"CW");
-  expect(request.mock.calls.filter(([method])=>method==="contest_draft_apply")).toHaveLength(1);
+  expect(tune).toHaveBeenCalledExactlyOnceWith(14_195_000,expectedMode);
+  expect(request.mock.calls.filter(([method,params])=>method==="contest_draft_apply"&&params?.mode===expectedMode))
+    .toEqual([expect.arrayContaining(["contest_draft_apply",expect.objectContaining({frequencyHz:14_195_000,mode:expectedMode})])]);
+  expect(surfaceOwner.current.projections["active-qso"].draft.mode).toBe(expectedMode);
   expect(request.mock.calls.some(([method])=>method==="activate_spot")).toBe(false);
 });
 
@@ -1916,11 +1922,11 @@ it("steps the observed VFO only through the injected durable station owner",asyn
 });
 
 it("steps through distinct displayed spots from the last mouse selection and reconciles a changed list",async()=>{
-  let current=projection();
+  let current={...projection(),supportedModes:["CW","SSB"]};
   const tune=vi.fn(async(_frequencyHz:number,_mode:string)=>({accepted:true,confirmed:true}));
   const spots=[
     {id:"spot-1",callsign:"DL1AAA",frequencyKHz:14021,band:"20m",mode:"CW"},
-    {id:"spot-2",callsign:"DL2BBB",frequencyKHz:14022,band:"20m",mode:"CW"},
+    {id:"spot-2",callsign:"DL2BBB",frequencyKHz:14192,band:"20m",mode:"SSB"},
     {id:"spot-3",callsign:"DL3CCC",frequencyKHz:14023,band:"20m",mode:"CW"},
   ];
   const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
@@ -1931,6 +1937,7 @@ it("steps through distinct displayed spots from the last mouse selection and rec
       method==="contest_score"?{score:current.score}:null;
     if(method==="contest_draft_apply"){
       current={...current,revision:current.revision+1,frequencyHz:params.frequencyHz,
+        mode:params.mode??current.mode,
         fields:current.fields.map((field:any)=>({...field,value:params.fields[field.id]??field.value}))};
       result={projection:current,actions:[],messages:[]};
     }
@@ -1950,12 +1957,48 @@ it("steps through distinct displayed spots from the last mouse selection and rec
   await action("entry_step_spot",{direction:"next"});
   await action("spot_select",{spotID:"spot-1"});
   await action("entry_step_spot",{direction:"next"});
-  expect(tune.mock.calls.map(([frequency])=>frequency)).toEqual([14_022_000,14_023_000,14_021_000,14_022_000]);
+  expect(tune.mock.calls.map(([frequency])=>frequency)).toEqual([14_192_000,14_023_000,14_021_000,14_192_000]);
+  expect(tune.mock.calls.map(([,mode])=>mode)).toEqual(["SSB","CW","CW","SSB"]);
   expect(selected.mock.calls.map(([id])=>id)).toEqual(["spot-2","spot-3","spot-1","spot-2"]);
   view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} stationTune={tune}
     spots={[spots[2]] as any} selectedSpotId={null} onSelectedSpot={selected}/>);
   await action("entry_step_spot",{direction:"next"});
   expect(tune).toHaveBeenLastCalledWith(14_023_000,"CW");
+});
+
+it("tunes the selected spot ID when duplicate callsigns exist and rejects an ambiguous callsign fallback",async()=>{
+  let current={...projection(1,{callsign:"DL1ABC"}),supportedModes:["CW","SSB"]};
+  const tune=vi.fn(async(_frequencyHz:number,_mode:string)=>({accepted:true,confirmed:true}));
+  const spots=[
+    {id:"duplicate-cw",callsign:"DL1ABC",frequencyKHz:14025,band:"20m",mode:"CW"},
+    {id:"duplicate-ssb",callsign:"DL1ABC",frequencyKHz:14195,band:"20m",mode:"SSB"},
+  ];
+  const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    let result:any=method==="contest_catalog"?{plugins:[]}:method==="contest_sessions"?{sessions:[]}:
+      method==="contest_create"?{projection:current}:method==="contest_log_page"?{rows:[],total:0}:
+      method==="contest_score"?{score:current.score}:null;
+    if(method==="contest_draft_apply"){
+      current={...current,revision:current.revision+1,frequencyHz:params.frequencyHz,mode:params.mode??current.mode,
+        fields:current.fields.map((field:any)=>({...field,value:params.fields[field.id]??field.value}))};
+      result={projection:current,actions:[],messages:[]};
+    }
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  const view=render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} stationTune={tune}
+    spots={spots as any} selectedSpotId="duplicate-ssb"/>);
+  await createContestThroughSetup();
+  const tuneCurrent=async()=>{const entry=surfaceOwner.current.projections["active-qso"];
+    await surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,panelID:"active-qso",
+      projectionRevision:entry.draft.revision,requestID:crypto.randomUUID(),action:"entry_tune_spot",
+      params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision}});};
+  await act(tuneCurrent);
+  expect(tune).toHaveBeenCalledExactlyOnceWith(14_195_000,"SSB");
+  await act(async()=>view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} stationTune={tune}
+    spots={spots as any} selectedSpotId={null}/>));
+  await expect(tuneCurrent()).rejects.toThrow("No selected or matching shared spot");
+  expect(tune).toHaveBeenCalledTimes(1);
 });
 
 it.each(["band-maps","dx-cluster"])("returns tune and draft failures to the originating detached %s action",async panelID=>{
