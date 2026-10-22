@@ -42,7 +42,7 @@ it("creates an entityless JIDX maritime preview through the shared structured UI
   fireEvent.change(within(form).getByLabelText("Station prefecture or CQ Zone"), { target: { value: payload.station.exchangeFields.number } });
   fireEvent.click(within(form).getByRole("button", { name: "Create and open" }));
   await screen.findByText(/JIDX CW Preview · JIDX CW MM/);
-  expect(screen.getByLabelText("Operating style")).toBeTruthy();
+  expect(await screen.findByLabelText("Operating style")).toBeTruthy();
   expect(screen.getByText("Maritime mobile")).toBeTruthy();
   const sent = screen.getByLabelText("Sent exchange");
   expect(within(sent).getByText("Sent Prefecture or CQ Zone")).toBeTruthy();
