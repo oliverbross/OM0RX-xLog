@@ -248,6 +248,7 @@ private final class RTCScoreFixture: URLProtocol {
         let probe = Self.lock.withLock { () -> RTCScoreFixtureProbe? in
             guard !didRecordCancellation else { return nil }
             didRecordCancellation = true
+            guard let eventProbe, eventProbe === Self.probe else { return nil }
             Self.cancellations += 1
             return eventProbe
         }
