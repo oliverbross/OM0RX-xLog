@@ -314,7 +314,8 @@ it("retains an uncertain Save across remount and checks its receipt without crea
   fireEvent.click(screen.getByRole("button", { name: "Log QSO" }));
   fireEvent.click(screen.getByRole("button", { name: "Log QSO" }));
   await waitFor(() => expect(journal().pending?.action).toBe("save"));
-  await screen.findByText(/Draft acknowledgement unavailable/);
+  expect(screen.queryByText(/Lost acknowledgement|Receipt transport unavailable/)).toBeNull();
+  expect(screen.queryByRole("alert", { name: "QSO draft recovery" })).toBeNull();
   expect(f.contacts).toHaveLength(1); expect(api.blocked!()).toBe(true);
   const operation = journal().pending.operationID;
   receiptAvailable = true;

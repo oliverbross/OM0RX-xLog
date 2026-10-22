@@ -54,11 +54,11 @@ export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftL
     // after a same-ID canonical replacement (including native spot activation).
     if (previous.frequencyHz !== next.frequencyHz) setFrequencyText(text => text !== null &&
       (text === "" ? previous.frequencyHz == null : /^\d+(?:\.\d{0,6})?$/.test(text) && Number(text) > 0 &&
-        Math.round(Number(text) * 1e6) === previous.frequencyHz) ? null : text);
+        [previous.frequencyHz, next.frequencyHz].includes(Math.round(Number(text) * 1e6))) ? null : text);
     if (previous.start !== next.start) setTimeText(parts => {
       if (!parts?.date || !parts.time) return parts;
       const candidate = `${parts.date}T${parts.time.length === 5 ? parts.time + ":00" : parts.time}Z`;
-      return Number.isFinite(Date.parse(candidate)) && Date.parse(candidate) === Date.parse(String(previous.start ?? "")) ? null : parts;
+      return Number.isFinite(Date.parse(candidate)) && [previous.start, next.start].some(value => Date.parse(candidate) === Date.parse(String(value ?? ""))) ? null : parts;
     });
   }, [draft?.id, draft?.frequencyHz, draft?.start]);
   const pendingInput = frequencyText !== null && (frequencyText === "" ? draft?.frequencyHz != null :

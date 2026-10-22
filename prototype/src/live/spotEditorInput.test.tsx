@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import QSOEditor from "./QSOEditor";
 import { DeskQSO } from "./OperatorDesk";
 const draft = { id: "draft", call: "K1ABC", frequencyHz: 14025000, band: "20m", mode: "CW", start: "2026-10-14T00:00:00Z", extraFields: { TEST: "retained" } };
@@ -48,21 +48,22 @@ it("preserves Desk buffers and blocks view changes, Clear and queued keyboard Sa
   expect((screen.getByLabelText("Desk Frequency MHz") as HTMLInputElement).value).toBe("14..");
 });
 
-it("Desk replaces only acknowledged frequency/UTC buffers on same-ID canonical activation and retains unfinished text", () => {
+it("Desk replaces only acknowledged frequency/UTC buffers on same-ID canonical activation and retains unfinished text", async () => {
   const pending = vi.fn(), write = vi.fn();
-  const props = { draft, setDraft: write, save: vi.fn(), clear: vi.fn(), busy: false, lookup: null, previous: [], request: vi.fn(), refresh: 0,
+  const props = { draft, setDraft: write, save: vi.fn(), clear: vi.fn(), busy: false, lookup: null, previous: [], request: vi.fn(async () => ({})), refresh: 0,
     onEditor: vi.fn(), onReadRadio: vi.fn(), follow: false, setFollow: vi.fn(), rotor: null, autoRotor: false, setAutoRotor: vi.fn(), onManualRotor: vi.fn(), onLocalInputState: pending };
   const view = render(<DeskQSO {...props} />);
   fireEvent.change(screen.getByLabelText("Desk Frequency MHz"), { target: { value: "14.026" } });
+  fireEvent.change(screen.getByLabelText("Desk UTC date"), { target: { value: "2026-10-14" } });
   fireEvent.change(screen.getByLabelText("Desk UTC time"), { target: { value: "00:01:00" } });
   view.rerender(<DeskQSO {...props} draft={{ ...draft, frequencyHz: 14026000, start: "2026-10-14T00:01:00Z" }} />);
-  expect(pending).toHaveBeenLastCalledWith(false);
+  await waitFor(() => expect(pending).toHaveBeenLastCalledWith(false));
   const activated = { ...draft, frequencyHz: 14027000, start: "2026-10-14T00:02:00Z" };
   view.rerender(<DeskQSO {...props} draft={activated} draftLocked />);
   view.rerender(<DeskQSO {...props} draft={activated} />);
   expect((screen.getByLabelText("Desk Frequency MHz") as HTMLInputElement).value).toBe("14.027000");
   expect((screen.getByLabelText("Desk UTC time") as HTMLInputElement).value).toBe("00:02:00");
-  expect(pending).toHaveBeenLastCalledWith(false);
+  await waitFor(() => expect(pending).toHaveBeenLastCalledWith(false));
   fireEvent.change(screen.getByLabelText("Desk Frequency MHz"), { target: { value: "14.." } });
   fireEvent.change(screen.getByLabelText("Desk UTC time"), { target: { value: "" } });
   view.rerender(<DeskQSO {...props} draft={{ ...activated, frequencyHz: 14028000, start: "2026-10-14T00:03:00Z" }} />);

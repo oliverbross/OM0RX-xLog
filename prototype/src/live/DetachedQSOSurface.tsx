@@ -63,9 +63,16 @@ export function DetachedQSOSurface() {
     if (workingRef.current || closingRef.current || readingRadio.current) return;
     workingRef.current = true; setWorking(true); setError("");
     try { await action(); }
-    catch (cause) { report(cause instanceof Error ? cause.message : "QSO operation failed."); }
+    catch (cause) {
+      const current = session.getSnapshot();
+      // A journaled operation with an unknown acknowledgement is already being
+      // recovered by its exact operation ID. Keep that routine recovery silent;
+      // conflicts and terminal failures remain visible through the session.
+      if (!current.pending || current.conflict || current.workspaceChanged)
+        report(cause instanceof Error ? cause.message : "QSO operation failed.");
+    }
     finally { workingRef.current = false; if (mounted.current) setWorking(false); }
-  }, [report]);
+  }, [report, session]);
   const readRadio = async () => {
     if (readOperation.current) throw new Error("Check the existing Read radio activation before reading again. No read was retried.");
     const before = session.getSnapshot();

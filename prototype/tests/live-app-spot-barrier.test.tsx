@@ -268,7 +268,7 @@ it("discards a different callsign draft before activating the selected report", 
   expect(host.request.mock.calls.some(([method]) => method === "logbook_operator_draft_apply")).toBe(false);
 });
 
-it("checks a retained lost QSO receipt before selecting a spot without replaying the operation", async () => {
+it("retries a retained lost QSO with its exact operation before selecting a spot", async () => {
   const qso = { id: "draft", call: "", start: "2026-10-12T00:00:00Z", frequencyHz: 14074000, mode: "FT8", band: "20m" };
   const operationID = crypto.randomUUID();
   const mutation = { operationID, draftID: qso.id, expectedRevision: 0, generation: testWorkspaceGeneration,
@@ -289,8 +289,9 @@ it("checks a retained lost QSO receipt before selecting a spot without replaying
   await openEditor(false);
   fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
   await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
-  expect(receiptChecks).toBe(2);
-  expect(host.request.mock.calls.filter(([method]) => method === "logbook_operator_draft_apply")).toHaveLength(0);
+  expect(receiptChecks).toBeGreaterThanOrEqual(1);
+  expect(host.request.mock.calls.filter(([method, params]) => method === "logbook_operator_draft_apply" && params.operationID === operationID)).toHaveLength(1);
+  expect(host.request.mock.calls.filter(([method, params]) => method === "logbook_operator_draft_apply" && params.operationID !== operationID)).toHaveLength(0);
   expect(screen.queryByText("Resolve the current QSO operation before selecting another spot.")).toBeNull();
 });
 
@@ -314,7 +315,7 @@ it("uses only the latest of rapid successive spot clicks", async () => {
   expect(host.activate).toHaveBeenCalledWith({ id: "newer-report" });
 });
 
-it("retains the latest rapid click while a durable draft receipt is still arriving", async () => {
+it("retains the latest rapid click while an exact retained draft retry settles", async () => {
   const qso = { id: "draft", call: "", start: "2026-10-12T00:00:00Z", frequencyHz: 14074000, mode: "FT8", band: "20m" };
   const operationID = crypto.randomUUID();
   const mutation = { operationID, draftID: qso.id, expectedRevision: 0, generation: testWorkspaceGeneration,
@@ -337,7 +338,8 @@ it("retains the latest rapid click while a durable draft receipt is still arrivi
   fireEvent.click(screen.getByRole("button", { name: "Select newer report" }));
   await waitFor(() => expect(host.activate).toHaveBeenCalledOnce(), { timeout: 2_000 });
   expect(host.activate).toHaveBeenCalledWith({ id: "newer-report" });
-  expect(receiptChecks).toBeGreaterThanOrEqual(4);
+  expect(receiptChecks).toBeGreaterThanOrEqual(1);
+  expect(host.request.mock.calls.filter(([method, params]) => method === "logbook_operator_draft_apply" && params.operationID === operationID)).toHaveLength(1);
   expect(screen.queryByText(/current QSO operation|current QSO change needs attention/)).toBeNull();
 });
 

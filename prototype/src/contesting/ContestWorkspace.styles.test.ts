@@ -36,7 +36,7 @@ describe("ContestWorkspace responsive contract", () => {
   it("contains detached table and candidate overflow without an outer horizontal scrollbar", () => {
     expect(detachedCSS).toContain("overflow-x:hidden; overflow-y:auto");
     expect(detachedCSS).toContain(".contest-surface-row > * { flex:1 1 120px; min-width:0; }");
-    expect(detachedCSS).toContain(".contest-surface-logging-body { display:flex; min-width:0; min-height:0;");
+    expect(detachedCSS).toContain(".contest-surface-logging-body { display:flex; flex:0 0 auto; min-width:0; min-height:0;");
     expect(detachedCSS).toContain(".contest-surface-check-columns { display:grid; flex:1 1 0;");
     expect(detachedCSS).toContain("min-height:0; overflow-x:hidden; overflow-y:auto; border-right:1px solid var(--border)");
     expect(detachedCSS).toContain("flex-direction:column; flex-wrap:nowrap;");
