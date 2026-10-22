@@ -360,6 +360,64 @@ const projection = (revision = 1, values: Record<string, string> = {}) => ({
   ].map(([id, label, visible, value]) => ({ id, label, accessibleName: label, visible, value: values[id as string] ?? value, readOnly: false, enabled: true })),
 });
 
+it.each(["contest_log_page", "contest_score", "contest_rates"] as const)(
+  "recovers a first-call %s failure without blocking the other auxiliary panels", async failedMethod => {
+    const current = { ...projection(), score:{qsos:1,points:3,countries:1,zones:1,multipliers:2,total:6} };
+    const row = {ID:"qso-1",TS:"2026-10-22 01:02:03",Call:"DL1ABC",Freq:14025,SNT:"599",RCV:"599",ZN:14,
+      SentNr:1,WPXPrefix:"DL1",CountryPrefix:"DL",Points:3,Band:14,Mode:"CW"};
+    const attempts: Record<string, number> = {};
+    const laneResult = (method: string) => method === "contest_log_page"
+      ? {sessionID:current.sessionID,revision:current.revision,rows:[row],offset:0,limit:20,total:1}
+      : method === "contest_score" ? {sessionID:current.sessionID,revision:current.revision,score:current.score,
+          matrices:{countries:[{value:"Germany",band:14,qsos:1}],zones:[{value:"14",band:14,qsos:1}]},
+          statistics:{rows:[{band:"20m",qsos:1,calls:1,cw:1,phone:0,digital:0,wpx:1,points:3}],
+            total:{band:"TOTAL",qsos:1,calls:1,cw:1,phone:0,digital:0,wpx:1,points:3}}}
+      : {sessionID:current.sessionID,revision:current.revision,lastHourQsoPerHour:1,last10QsoPerHour:null,last100QsoPerHour:null,
+          sinceHourUTC:1,sinceHourQso:1,runQso:1,searchAndPounceQso:0,hourRunQso:1,hourSearchAndPounceQso:0};
+    const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+      const support = workspaceSupport(method, params, current); if (support && method !== "contest_rates") return support;
+      if (method === "contest_scp_status") return unavailableSCP();
+      if (method === "contest_history_status") return unavailableHistory();
+      if (["contest_log_page", "contest_score", "contest_rates"].includes(method)) {
+        attempts[method] = (attempts[method] ?? 0) + 1;
+        if (method === failedMethod && attempts[method] === 1) throw new Error(`${method} transient failure`);
+        return {id:crypto.randomUUID(),ok:true,result:laneResult(method)};
+      }
+      const result = method === "contest_catalog" ? {plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]} :
+        method === "contest_sessions" ? {sessions:[]} : method === "contest_create" ? {projection:current} : null;
+      if (!result) throw new Error(method);
+      return {id:crypto.randomUUID(),ok:true,result};
+    });
+    render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+    await createContestThroughSetup();
+    await waitFor(() => expect(Object.fromEntries(Object.entries(attempts).map(([lane,count]) => [lane,Math.min(count,1)]))).toEqual({
+      contest_log_page:1,contest_score:1,contest_rates:1,
+    }));
+    if (failedMethod === "contest_log_page") {
+      expect(surfaceOwner.current.projections.logbook.status).toBe("unavailable");
+      expect(surfaceOwner.current.projections.monitor.status).toBe("ready");
+      expect(surfaceOwner.current.projections.awards.status).toBe("ready");
+    } else if (failedMethod === "contest_score") {
+      expect(surfaceOwner.current.projections.logbook.status).toBe("ready");
+      expect(surfaceOwner.current.projections.logbook.page.rows).toHaveLength(1);
+      expect(surfaceOwner.current.projections.monitor.status).toBe("ready");
+      expect(surfaceOwner.current.projections.awards.status).toBe("unavailable");
+    } else {
+      expect(surfaceOwner.current.projections.logbook.status).toBe("ready");
+      expect(surfaceOwner.current.projections.logbook.page.rows).toHaveLength(1);
+      expect(surfaceOwner.current.projections.awards.status).toBe("ready");
+      expect(surfaceOwner.current.projections.monitor.status).toBe("unavailable");
+    }
+    await waitFor(() => expect(attempts[failedMethod]).toBeGreaterThanOrEqual(2), {timeout:3_000});
+    await waitFor(() => {
+      expect(surfaceOwner.current.projections.logbook.status).toBe("ready");
+      expect(surfaceOwner.current.projections.logbook.page.rows).toHaveLength(1);
+      expect(surfaceOwner.current.projections.monitor.status).toBe("ready");
+      expect(surfaceOwner.current.projections.awards.status).toBe("ready");
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+  });
+
 it("projects the final seven plugin contracts into the compact contest setup form", async () => {
   const rttyModes = ["RTTY", "RTTY-R", "LSB-D", "USB-D", "AM-D", "FM-D", "DIGI-U", "DIGI-L", "RTTYR", "PKTLSB", "PKTUSB"];
   const vhfAndUp = ["6m", "4m", "2m", "1.25m", "70cm", "33cm", "23cm", "13cm", "9cm", "6cm", "3cm", "1.25cm", "6mm", "4mm", "2.5mm", "2mm", "1mm", "submm"];
@@ -2047,7 +2105,7 @@ it("restores the saved manual frequency when reopening a session without CAT", a
   expect(request.mock.calls.some(([method]) => method === "contest_draft_apply")).toBe(false);
 });
 
-it("clears prior-session log rows when a newly opened session cannot refresh its log",async()=>{
+it("hides prior-session log rows while independently refreshing a newly opened session",async()=>{
   const first={...projection(),sessionID:"11111111-1111-4111-8111-111111111111",pluginName:"CQ WW CW",
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","PTS"]};
   const second={...projection(2),sessionID:"22222222-2222-4222-8222-222222222222",draftID:"44444444-4444-4444-8444-444444444444",
@@ -2084,9 +2142,8 @@ it("clears prior-session log rows when a newly opened session cannot refresh its
   await userEvent.click(screen.getByRole("button",{name:"OK"}));
   expect((await screen.findByRole("alert")).textContent).toContain("Second contest log is temporarily unavailable.");
   expect(surfaceOwner.current.context.sessionID).toBe(second.sessionID);
-  expect(surfaceOwner.current.projections.logbook).toMatchObject({pluginColumns:second.columns,pluginRows:[],pluginPartialRows:[],
-    page:{offset:0,total:0,rows:[]}});
-  expect(surfaceOwner.current.projections.propagation).toEqual({schemaVersion:1,status:"unavailable"});
+  expect(surfaceOwner.current.projections.logbook).toEqual({schemaVersion:1,status:"unavailable"});
+  expect(surfaceOwner.current.projections.propagation.schemaVersion).toBe(3);
 });
 
 it("defers a native contest window command until the saved session is fully restored", async () => {

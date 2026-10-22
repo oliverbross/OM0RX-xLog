@@ -115,6 +115,7 @@ type ContestBandDefinition = { id: string; lowHz: number; highHz: number; value:
 type ContestSurfaceMode = "CW" | "SSB" | "RTTY" | "AM" | "FM";
 type PythonContestExportFormat = "cabrillo" | "adif" | "edi";
 type StatisticsState = { sessionID: string; revision: number; rows: ContestStatisticsRow[]; total: ContestStatisticsRow };
+type AuxiliaryLane = "log" | "score" | "rates";
 type Projection = {
   sessionID: string; engine: "not1mm-python"; pluginID: string; pluginName?: string; reservedSerial?: number | null; allocatedSerialFieldID?: string | null; sourceRevision: string; referenceID: string;
   workspaceGeneration: string; revision: number; draftID: string; fields: Field[]; frequencyHz: number; mode: string; band: number;
@@ -539,12 +540,14 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const [rows, setRows] = useState<Data[]>([]), [score, setScore] = useState<Score | null>(null), [matrices, setMatrices] = useState<Data>({});
   const [statistics, setStatistics] = useState<StatisticsState | null | undefined>(null);
   const [rates, setRates] = useState<Data | null>(null);
+  const [auxiliaryReads, setAuxiliaryReads] = useState<Partial<Record<AuxiliaryLane, string>>>({});
   const [partial, setPartial] = useState<{sessionID:string;revision:number;query:string;rows:Data[]} | null>(null);
   const [manager, setManager] = useState(true), [busy, setBusy] = useState(false), busyRef = useRef(false);
   const [startupPending, setStartupPending] = useState(true);
   const [catalogReady, setCatalogReady] = useState(false), [catalogLoadError, setCatalogLoadError] = useState("");
   const [catalogLoadAttempt, setCatalogLoadAttempt] = useState(0);
   const [retiring, setRetiring] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
+  const auxiliaryErrorRef = useRef("");
   const [create, setCreate] = useState({ name: "CQ WW CW", cqZone: "15" });
   const [setup, setSetup] = useState<ContestSetupDocument>(() => restoredSetup(stationCall));
   const [rtcStatus,setRTCStatus]=useState<RTCStatus|null>(null),[rtcCredentialSaved,setRTCCredentialSaved]=useState(false);
@@ -719,6 +722,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     if (projectionRef.current?.sessionID !== next.sessionID) {
       setRows([]); setLogOffset(0); setLogTotal(0); setPartial(null); setScore(null); setStatistics(null);
       setMatrices({}); setRates(null); setEditing(null);
+      setAuxiliaryReads({});
     }
     acceptProjection(next);
   };
@@ -745,23 +749,57 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     setStatistics({ sessionID, revision, rows: candidate.rows, total: candidate.total });
     return true;
   };
-  const refresh = async (sessionID: string, next?: Projection, offset = 0) => {
+  const refresh = async (sessionID: string, next?: Projection, offset = 0,
+      lanes: readonly AuxiliaryLane[] = ["log", "score", "rates"]) => {
     const expected = next ?? projectionRef.current;
     if (!expected || expected.sessionID !== sessionID) return;
     const revision = expected.revision;
-    const [log, scoreResult, rateResult] = await Promise.all([
-      result<Data>("contest_log_page", { sessionID, expectedRevision: revision,
-        offset, limit: logPageSize }),
-      result<Data>("contest_score", { sessionID, expectedRevision: revision }),
-      result<Data>("contest_rates", { sessionID, expectedRevision: revision }),
-    ]);
+    const operations = lanes.map(lane => lane === "log"
+      ? result<Data>("contest_log_page", { sessionID, expectedRevision: revision, offset, limit: logPageSize })
+      : lane === "score" ? result<Data>("contest_score", { sessionID, expectedRevision: revision })
+      : result<Data>("contest_rates", { sessionID, expectedRevision: revision }));
+    const settled = await Promise.allSettled(operations);
     const current = projectionRef.current;
     if (current?.sessionID !== sessionID || current.revision !== revision) return;
-    setRows(Array.isArray(log.rows) ? log.rows : []); setLogOffset(Number(log.offset ?? offset)); setLogTotal(Number(log.total ?? 0));
-    setScore(scoreResult.score as Score); setMatrices(scoreResult.matrices ?? {});
-    admitStatistics(scoreResult, sessionID, revision);
-    admitRates(rateResult, sessionID, revision);
+    const admitted: AuxiliaryLane[] = [];
+    settled.forEach((outcome, index) => {
+      if (outcome.status !== "fulfilled") return;
+      const lane = lanes[index], value = outcome.value;
+      if (lane === "log") {
+        setRows(Array.isArray(value.rows) ? value.rows : []); setLogOffset(Number(value.offset ?? offset)); setLogTotal(Number(value.total ?? 0));
+        admitted.push(lane);
+      } else if (lane === "score") {
+        setScore(value.score as Score); setMatrices(value.matrices ?? {});
+        admitStatistics(value, sessionID, revision); admitted.push(lane);
+      } else if (admitRates(value, sessionID, revision)) admitted.push(lane);
+    });
+    if (admitted.length) {
+      const key = `${sessionID}:${revision}`;
+      setAuxiliaryReads(previous => {
+        const updated = { ...previous };
+        for (const lane of admitted) updated[lane] = key;
+        return updated;
+      });
+    }
+    const failure = settled.find((outcome): outcome is PromiseRejectedResult => outcome.status === "rejected");
+    if (failure) {
+      const message = errorMessage(failure.reason);
+      auxiliaryErrorRef.current = message; setError(message);
+    } else if (auxiliaryErrorRef.current) {
+      const recovered = auxiliaryErrorRef.current; auxiliaryErrorRef.current = "";
+      setError(currentError => currentError === recovered ? "" : currentError);
+    }
   };
+  useEffect(() => {
+    if (!projection) return;
+    const key = `${projection.sessionID}:${projection.revision}`;
+    const missing = (["log", "score", "rates"] as const).filter(lane => auxiliaryReads[lane] !== key);
+    if (!missing.length) return;
+    const timer = window.setTimeout(() => {
+      void refresh(projection.sessionID, projection, logOffset, missing);
+    }, 1_000);
+    return () => window.clearTimeout(timer);
+  }, [projection?.sessionID, projection?.revision, auxiliaryReads.log, auxiliaryReads.score, auxiliaryReads.rates, logOffset, request]);
   useEffect(() => {
     const sessionID = projection?.sessionID;
     if (!sessionID) return;
@@ -1567,6 +1605,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const unavailable = Object.fromEntries(contestSurfacePanelIDs.map(panelID => [panelID, unavailableProjection])) as
       Record<ContestSurfacePanelID, ContestSurfaceProjection>;
     if (!projection || !detachedAvailable) return unavailable;
+    const auxiliaryKey = `${projection.sessionID}:${projection.revision}`;
+    const logRead = auxiliaryReads.log === auxiliaryKey;
+    const scoreRead = auxiliaryReads.score === auxiliaryKey;
+    const ratesRead = auxiliaryReads.rates === auxiliaryKey;
     const currentFields = fields;
     const frequencyHz = operationFrequencyHz;
     const reservedSerial = projection.reservedSerial ?? null;
@@ -1658,7 +1700,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const partialRows = partial?.sessionID===projection.sessionID && partial.revision===projection.revision && partial.query===partialQuery
       ? partial.rows : [];
     const pluginColumns = not1mmLogColumns(projection.columns);
-    unavailable.logbook = {
+    if (logRead) unavailable.logbook = {
       schemaVersion: 1, status: "ready", sessionRevision: projection.revision,
       canExportCabrillo: projection.exportFormats?.includes("cabrillo")??true,
       canExportAdif: projection.exportFormats?.includes("adif")??true,
@@ -1730,7 +1772,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     else if (statistics === undefined) unavailable.propagation = {
       schemaVersion: 1, status: "ready", score: scoreView, busy: busy || retiring,
     };
-    if (rates) unavailable.monitor = { schemaVersion: 1, status: "ready",
+    if (ratesRead && rates) unavailable.monitor = { schemaVersion: 1, status: "ready",
       lastHourQsoPerHour: rates.lastHourQsoPerHour ?? null, last10QsoPerHour: rates.last10QsoPerHour ?? null,
       last100QsoPerHour: rates.last100QsoPerHour ?? null, sinceHourUTC: Number(rates.sinceHourUTC),
       sinceHourQso: Number(rates.sinceHourQso), runQso: Number(rates.runQso),
@@ -1752,11 +1794,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       ], busy: busy || retiring };
     // An empty worker matrix is a valid tracker with no worked multipliers yet.
     // Missing matrices remain unavailable for plugins that do not expose them.
-    if (projection.matrixTrackers?.includes("countries") && Array.isArray(matrices.countries)) {
+    if (scoreRead && projection.matrixTrackers?.includes("countries") && Array.isArray(matrices.countries)) {
       unavailable.awards = multiplierMatrix("DXCC", "dxcc", matrices.countries, busy || retiring,
         { dxcc: callContext?.country ?? null, cqZone: callContext?.cqZone ?? null, ituZone: callContext?.ituZone ?? null }, null);
     }
-    if (projection.matrixTrackers?.includes("zones") && Array.isArray(matrices.zones)) {
+    if (scoreRead && projection.matrixTrackers?.includes("zones") && Array.isArray(matrices.zones)) {
       const zoneLabel = receivedZone?.label.toUpperCase() ?? "";
       const zoneSystem = zoneLabel.includes("ITU") || zoneLabel.includes("IARU") ? "itu" as const : "cq" as const;
       unavailable["chaser-dx"] = multiplierMatrix(zoneSystem === "itu" ? "ITU Zones" : "CQ Zones", "zone", matrices.zones, busy || retiring,
@@ -1770,7 +1812,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     phoneSimulationPending, phoneReleaseUncertain, phoneSimulationTrace, rates, matrices, statistics, partial, partialQuery, historyCandidate, spots, cluster, configuredBands,
     bandDefinitions, bandLabels, digitalSnapshot,rtcStatus,rtcCredentialSaved,
     setup.settings.SentExchange, setup.preferences.keyBindings, autoCQDeadlineMs, autoCQNowMs, autoCQDelaySeconds, selectedRadioFrequencyHz,
-    sharedSpots,visibleWorkflowSpots,effectiveSpotWorkflow.markedOnly,selectedSpotId,configuredClient,authorityClientReady,authorityDupe]);
+    sharedSpots,visibleWorkflowSpots,effectiveSpotWorkflow.markedOnly,selectedSpotId,configuredClient,authorityClientReady,authorityDupe,
+    auxiliaryReads.log,auxiliaryReads.score,auxiliaryReads.rates]);
 
   const surfaceContext = detachedAvailable && projection ? {
     operatingContext, sessionID: projection.sessionID, workspaceGeneration: projection.workspaceGeneration,
