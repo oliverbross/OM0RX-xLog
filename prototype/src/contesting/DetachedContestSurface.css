@@ -175,8 +175,28 @@
 .contest-surface-log-scroll th { position:sticky; top:0; color:var(--secondary); background:var(--panel); font:11px ui-monospace,monospace; }
 .contest-surface-log-scroll td { font:11px ui-monospace,monospace; padding:3px; }
 .contest-surface-log-scroll button { min-height:20px; padding:0; background:transparent; border:0; font:inherit; }
+.contest-detached-surface > main:has(> :is(.contest-surface-entry,.contest-surface-check,.contest-surface-statistics,.contest-surface-rates,.contest-surface-log)) { overflow:hidden; }
+.contest-surface-entry { gap:6px; overflow:hidden; }
+.contest-surface-entry > header { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); min-height:30px; padding-block:4px; flex-wrap:nowrap; }
+.contest-surface-entry > header .contest-surface-radio { justify-self:start; }
+.contest-surface-entry > header > span { justify-self:center; }
+.contest-surface-entry > header h1 { min-width:0; justify-self:end; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.contest-surface-check { gap:6px; overflow:hidden; }
+.contest-surface-check-columns h2 { flex:0 0 auto; background:var(--panel); }
+.contest-surface-statistics-v3 { height:100%; }
+.contest-surface-rates { align-self:flex-start; gap:5px; overflow:hidden; }
+.contest-surface-rates h1 { text-align:center; }
+.contest-surface-rates dl > div,.contest-surface-rates tr { display:grid; grid-template-columns:minmax(0,1fr) 96px; align-items:baseline; column-gap:12px; }
+.contest-surface-rates dt,.contest-surface-rates th { text-align:right; }
+.contest-surface-rates dd,.contest-surface-rates td { width:auto; min-width:0; }
+.contest-surface-log { gap:6px; overflow:hidden; }
+.contest-surface-log-panes { overflow:hidden; }
+.contest-surface-log-panes > section > h2 { flex:0 0 auto; padding-inline:3px; }
 @container contest-detached (max-width:620px) {
   .contest-detached-surface > main { gap:6px; padding:6px; }
+  .contest-surface-entry > header { grid-template-columns:auto minmax(0,1fr); row-gap:2px; }
+  .contest-surface-entry > header > span { justify-self:end; }
+  .contest-surface-entry > header h1 { grid-column:1 / -1; justify-self:center; }
   .contest-surface-entry .contest-surface-main-fields { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
   .contest-surface-entry .contest-surface-main-fields > .contest-surface-intent:first-child { grid-column:span 2; }
   .contest-surface-entry .contest-surface-macros { grid-template-columns:repeat(3,minmax(0,1fr)); }

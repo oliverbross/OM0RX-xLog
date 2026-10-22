@@ -44,6 +44,22 @@ describe("ContestWorkspace responsive contract", () => {
     expect(detachedCSS).toContain(".contest-surface-log-scroll { flex:1; min-width:0; max-width:100%; min-height:100px; overflow:auto;");
   });
 
+  it("keeps the original contest windows compact with only list and table regions scrolling", () => {
+    expect(detachedCSS).toContain("> main:has(> :is(.contest-surface-entry,.contest-surface-check,.contest-surface-statistics,.contest-surface-rates,.contest-surface-log)) { overflow:hidden; }");
+    expect(detachedCSS).toContain(".contest-surface-check-columns > div { display:flex; flex-direction:column; min-width:0; min-height:0; overflow-x:hidden; overflow-y:auto;");
+    expect(detachedCSS).toContain(".contest-surface-statistics-scroll { flex:1; width:100%; min-width:0; min-height:0; overflow:auto;");
+    expect(detachedCSS).toContain(".contest-surface-log-panes { overflow:hidden; }");
+    expect(detachedCSS).toContain(".contest-surface-log-scroll { flex:1; min-width:0; max-width:100%; min-height:100px; overflow:auto;");
+  });
+
+  it("aligns the Main Logging title bar and Rates values without changing the operator strips", () => {
+    expect(detachedCSS).toContain("grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)");
+    expect(detachedCSS).toContain(".contest-surface-entry > header h1 { min-width:0; justify-self:end; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }");
+    expect(detachedCSS).toContain(".contest-surface-rates dl > div,.contest-surface-rates tr { display:grid; grid-template-columns:minmax(0,1fr) 96px;");
+    expect(detachedCSS).toContain(".contest-surface-run-strip > * + * { margin-inline-start:14px; }");
+    expect(detachedCSS).toContain(".contest-surface-band-ladder { display:flex; flex:0 0 42px;");
+  });
+
   it("uses one compact label-width token for detached Contest Setup fields", () => {
     expect(setupCSS).toContain("--contest-setup-label-width:100px");
     expect(setupCSS).toContain("flex:0 0 var(--contest-setup-label-width)");
