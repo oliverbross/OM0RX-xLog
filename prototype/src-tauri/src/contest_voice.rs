@@ -31,6 +31,35 @@ const PTT_CONFIRM_POLL: Duration = Duration::from_millis(100);
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProfileRequest { profile_path: String }
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProfileSlotRequest { profile_path: String, slot: String }
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProfileWriteRequest { profile_path: String, slot: String, wav_base64: String, overwrite: bool }
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileSlot {
+    slot: String, present: bool, duration_ms: Option<u64>, decoded_bytes: Option<usize>,
+    sha256: Option<String>, error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileManifest { slots: Vec<ProfileSlot> }
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfilePreview {
+    slot: String, wav_base64: String, duration_ms: u64, decoded_bytes: usize, sha256: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PrepareRequest {
     schema_version: u8,
     session_id: String,
@@ -428,6 +457,79 @@ fn admitted_wav_path(profile: &Path, name: &str) -> Result<PathBuf, String> {
         ));
     }
     Ok(canonical)
+}
+
+fn profile_slot(value: &str) -> Result<String, String> {
+    let normalized = value.to_ascii_lowercase();
+    if matches!(normalized.as_str(), "f1" | "f2" | "f3" | "f4" | "f5" | "f6" |
+        "f7" | "f8" | "f9" | "f10" | "f11" | "f12") {
+        Ok(normalized)
+    } else {
+        Err("Voice recording slots are limited to F1 through F12.".into())
+    }
+}
+
+fn profile_slot_value(profile: &Path, slot: &str) -> Result<ProfilePreview, String> {
+    let path = admitted_wav_path(profile, slot)?;
+    let bytes = fs::read(&path).map_err(|_| format!("Voice WAV {slot}.wav could not be read."))?;
+    if bytes.len() > MAX_WAV_BYTES { return Err(format!("Voice WAV {slot}.wav exceeds the 8 MiB safety limit.")); }
+    let duration_ms = pcm_wav_duration_ms(&bytes)?;
+    if duration_ms > MAX_SEGMENT_DURATION_MS { return Err(format!("Voice WAV {slot}.wav exceeds the 60 second safety limit.")); }
+    Ok(ProfilePreview { slot: slot.into(), wav_base64: STANDARD.encode(&bytes), duration_ms,
+        decoded_bytes: bytes.len(), sha256: format!("{:x}", Sha256::digest(&bytes)) })
+}
+
+pub fn profile_manifest(request: ProfileRequest) -> Result<ProfileManifest, String> {
+    let profile = canonical_profile(&request.profile_path)?;
+    let slots = (1..=12).map(|index| {
+        let slot = format!("f{index}");
+        if !profile.join(format!("{slot}.wav")).exists() {
+            return ProfileSlot { slot, present: false, duration_ms: None, decoded_bytes: None, sha256: None, error: None };
+        }
+        match profile_slot_value(&profile, &slot) {
+            Ok(value) => ProfileSlot { slot, present: true, duration_ms: Some(value.duration_ms),
+                decoded_bytes: Some(value.decoded_bytes), sha256: Some(value.sha256), error: None },
+            Err(error) => ProfileSlot { slot, present: true, duration_ms: None, decoded_bytes: None, sha256: None, error: Some(error) },
+        }
+    }).collect();
+    Ok(ProfileManifest { slots })
+}
+
+pub fn profile_preview(request: ProfileSlotRequest) -> Result<ProfilePreview, String> {
+    let profile = canonical_profile(&request.profile_path)?;
+    let slot = profile_slot(&request.slot)?;
+    profile_slot_value(&profile, &slot)
+}
+
+pub fn profile_write(request: ProfileWriteRequest) -> Result<ProfilePreview, String> {
+    let profile = canonical_profile(&request.profile_path)?;
+    let slot = profile_slot(&request.slot)?;
+    if request.wav_base64.len() > MAX_BATCH_BASE64_BYTES { return Err("Recorded voice WAV exceeds its encoded safety limit.".into()); }
+    let bytes = STANDARD.decode(request.wav_base64.as_bytes())
+        .map_err(|_| "Recorded voice WAV data is invalid.".to_string())?;
+    if bytes.is_empty() || bytes.len() > MAX_WAV_BYTES { return Err("Recorded voice WAV must be between 1 byte and 8 MiB.".into()); }
+    let duration_ms = pcm_wav_duration_ms(&bytes)?;
+    if duration_ms > MAX_SEGMENT_DURATION_MS { return Err("Recorded voice WAV exceeds the 60 second safety limit.".into()); }
+    let path = profile.join(format!("{slot}.wav"));
+    if path.exists() && !request.overwrite {
+        return Err(format!("Voice slot {} already exists; explicitly confirm replacement.", slot.to_ascii_uppercase()));
+    }
+    if path.symlink_metadata().is_ok_and(|metadata| metadata.file_type().is_symlink()) {
+        return Err("A voice slot cannot replace a symbolic link.".into());
+    }
+    let mut temporary = tempfile::NamedTempFile::new_in(&profile)
+        .map_err(|_| "Recorded voice WAV temporary file could not be created.".to_string())?;
+    use std::io::Write as _;
+    temporary.write_all(&bytes).map_err(|_| "Recorded voice WAV could not be written.".to_string())?;
+    temporary.as_file().sync_all().map_err(|_| "Recorded voice WAV could not be synchronized.".to_string())?;
+    if request.overwrite {
+        temporary.persist(&path).map_err(|_| "Recorded voice WAV could not replace the selected slot.".to_string())?;
+    } else {
+        temporary.persist_noclobber(&path).map_err(|_| "Voice slot appeared while recording; no file was replaced.".to_string())?;
+    }
+    fs::File::open(&profile).and_then(|directory| directory.sync_all())
+        .map_err(|_| "Voice profile folder could not be synchronized.".to_string())?;
+    profile_slot_value(&profile, &slot)
 }
 
 fn wav_names(payload: &str) -> Result<Vec<String>, String> {
@@ -1021,5 +1123,41 @@ mod tests {
         assert!(validate_invoker("main", true, false, false).is_err());
         assert!(validate_invoker("main", false, true, false).is_err());
         assert!(validate_invoker("main", false, false, false).is_ok());
+    }
+
+    #[test]
+    fn managed_profile_writes_inspects_and_previews_only_bounded_slots() {
+        let profile = tempfile::tempdir().unwrap();
+        let path = profile.path().to_string_lossy().into_owned();
+        let encoded = STANDARD.encode(wav(250));
+        let saved = profile_write(ProfileWriteRequest { profile_path: path.clone(), slot: "F12".into(),
+            wav_base64: encoded.clone(), overwrite: false }).unwrap();
+        assert_eq!(saved.slot, "f12");
+        assert_eq!(saved.duration_ms, 250);
+        let manifest = profile_manifest(ProfileRequest { profile_path: path.clone() }).unwrap();
+        assert_eq!(manifest.slots.len(), 12);
+        assert!(manifest.slots[11].present);
+        assert_eq!(profile_preview(ProfileSlotRequest { profile_path: path.clone(), slot: "f12".into() }).unwrap().sha256,
+            saved.sha256);
+        assert!(profile_write(ProfileWriteRequest { profile_path: path.clone(), slot: "f12".into(),
+            wav_base64: encoded.clone(), overwrite: false }).unwrap_err().contains("confirm replacement"));
+        assert!(profile_write(ProfileWriteRequest { profile_path: path.clone(), slot: "cq".into(),
+            wav_base64: encoded, overwrite: true }).unwrap_err().contains("F1 through F12"));
+        profile_write(ProfileWriteRequest { profile_path: path, slot: "f12".into(),
+            wav_base64: STANDARD.encode(wav(100)), overwrite: true }).unwrap();
+        assert_eq!(fs::metadata(profile.path().join("f12.wav")).unwrap().len(), wav(100).len() as u64);
+    }
+
+    #[test]
+    fn managed_profile_rejects_malformed_audio_and_symbolic_link_slots() {
+        let profile = tempfile::tempdir().unwrap();
+        let path = profile.path().to_string_lossy().into_owned();
+        assert!(profile_write(ProfileWriteRequest { profile_path: path.clone(), slot: "f1".into(),
+            wav_base64: STANDARD.encode(b"not wave"), overwrite: false }).unwrap_err().contains("RIFF/WAVE"));
+        #[cfg(unix)] {
+            std::os::unix::fs::symlink(profile.path().join("elsewhere.wav"), profile.path().join("f1.wav")).unwrap();
+            assert!(profile_write(ProfileWriteRequest { profile_path: path, slot: "f1".into(),
+                wav_base64: STANDARD.encode(wav(100)), overwrite: true }).unwrap_err().contains("symbolic link"));
+        }
     }
 }

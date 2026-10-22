@@ -23,7 +23,7 @@
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
     "targets": "all",
     "externalBin": ["binaries/xlog-prototype-worker", "binaries/rigctld", "binaries/rotctld"],
-    "macOS": { "minimumSystemVersion": "14.0" },
+    "macOS": { "minimumSystemVersion": "14.0", "infoPlist": "Info.plist" },
     "shortDescription": "Logging, cluster and station services",
     "category": "Utility"
   }

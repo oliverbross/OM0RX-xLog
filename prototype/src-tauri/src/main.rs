@@ -2788,6 +2788,75 @@ fn contest_voice_prepare(window: tauri::WebviewWindow, state: tauri::State<'_, a
     contest_voice::prepare_batch(params, &context.session_id, &context.workspace_generation)
 }
 
+fn validate_contest_voice_profile_caller(label: &str, isolated: bool, exiting: bool) -> Result<(), String> {
+    if isolated || exiting || !matches!(label, "main" | "contest-setup" | "contest-setup-configuration") {
+        return Err("Contest voice profiles are available only from active production contest setup.".into());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn contest_voice_profile_manifest(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>,
+    params: contest_voice::ProfileRequest) -> Result<contest_voice::ProfileManifest, String> {
+    validate_contest_voice_profile_caller(window.label(), runtime_profile::isolated(state.path.is_some()),
+        APP_EXITING.load(Ordering::Acquire))?;
+    contest_voice::profile_manifest(params)
+}
+
+#[tauri::command]
+fn contest_voice_profile_preview(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>,
+    params: contest_voice::ProfileSlotRequest) -> Result<contest_voice::ProfilePreview, String> {
+    validate_contest_voice_profile_caller(window.label(), runtime_profile::isolated(state.path.is_some()),
+        APP_EXITING.load(Ordering::Acquire))?;
+    contest_voice::profile_preview(params)
+}
+
+#[tauri::command]
+fn contest_voice_profile_write(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>,
+    params: contest_voice::ProfileWriteRequest) -> Result<contest_voice::ProfilePreview, String> {
+    validate_contest_voice_profile_caller(window.label(), runtime_profile::isolated(state.path.is_some()),
+        APP_EXITING.load(Ordering::Acquire))?;
+    contest_voice::profile_write(params)
+}
+
+#[tauri::command]
+async fn contest_voice_profile_pick(window: tauri::WebviewWindow,
+    state: tauri::State<'_, acceptance::Acceptance>) -> Result<Option<String>, String> {
+    validate_contest_voice_profile_caller(window.label(), runtime_profile::isolated(state.path.is_some()),
+        APP_EXITING.load(Ordering::Acquire))?;
+    pick_contest_voice_profile_native(window).await
+}
+
+#[cfg(target_os = "macos")]
+async fn pick_contest_voice_profile_native(window: tauri::WebviewWindow) -> Result<Option<String>, String> {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
+    use objc2_foundation::NSString;
+    let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+    window.run_on_main_thread(move || {
+        let selected = MainThreadMarker::new().and_then(|main| {
+            let panel = NSOpenPanel::openPanel(main);
+            panel.setCanChooseFiles(false); panel.setCanChooseDirectories(true);
+            panel.setAllowsMultipleSelection(false); panel.setCanCreateDirectories(true);
+            panel.setMessage(Some(&NSString::from_str("Choose or create a contest voice WAV profile folder")));
+            if panel.runModal() == NSModalResponseOK {
+                panel.URL().and_then(|url| url.path()).map(|path| path.to_string())
+            } else { None }
+        });
+        let _ = sender.send(selected);
+    }).map_err(|_| "Voice profile chooser is unavailable.".to_string())?;
+    tauri::async_runtime::spawn_blocking(move || receiver.recv().map_err(|_| "Voice profile chooser closed unexpectedly.".to_string()))
+        .await.map_err(|_| "Voice profile chooser failed.".to_string())?
+}
+
+#[cfg(not(target_os = "macos"))]
+async fn pick_contest_voice_profile_native(_window: tauri::WebviewWindow) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(|| rfd::FileDialog::new()
+        .set_title("Choose or create a contest voice WAV profile folder")
+        .set_can_create_directories(true).pick_folder().map(|path| path.to_string_lossy().into_owned()))
+        .await.map_err(|_| "Voice profile chooser failed.".to_string())
+}
+
 #[tauri::command]
 async fn contest_voice_ptt(app: tauri::AppHandle, window: tauri::WebviewWindow,
     state: tauri::State<'_, acceptance::Acceptance>, params: contest_voice::PTTRequest) -> Result<serde_json::Value, String> {
@@ -3403,7 +3472,8 @@ fn main() {
             contest_group_chat_configure, contest_group_chat_snapshot, contest_group_chat_send,
             contest_group_network_snapshot, contest_group_network_publish, contest_group_network_acknowledgements,
             contest_group_authority_request, contest_group_replica_sync_page,
-            contest_voice_prepare, contest_voice_ptt,
+            contest_voice_prepare, contest_voice_ptt, contest_voice_profile_manifest, contest_voice_profile_preview,
+            contest_voice_profile_write, contest_voice_profile_pick,
             contest_surface_action, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_owner_claim, contest_surface_publish, contest_surface_snapshot, contest_rotor_target,
             workspace_mode_present, workspace_canvas_close_ack,
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, contest_history_manager_request, contest_qrz_details_lookup, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
