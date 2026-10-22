@@ -25,7 +25,7 @@ describe("ContestWorkspace responsive contract", () => {
   it("keeps detached contest controls dense and reflows them at scaled narrow widths", () => {
     expect(detachedCSS).toContain(".contest-detached-surface,.contest-detached-surface * { box-sizing:border-box; }");
     expect(detachedCSS).toContain("grid-template-columns:var(--contest-entry-field-columns)");
-    expect(detachedCSS).toContain("grid-template-columns:repeat(3,minmax(0,1fr))");
+    expect(detachedCSS).toContain("grid-template-columns:repeat(4,minmax(0,1fr))");
     expect(detachedCSS).toContain("grid-template-columns:repeat(2,minmax(0,1fr))");
     expect(detachedCSS).toContain(".contest-field-label");
     expect(detachedCSS).toContain(".contest-detached-surface button { font:inherit; white-space:nowrap; }");
@@ -41,15 +41,15 @@ describe("ContestWorkspace responsive contract", () => {
     expect(detachedCSS).toContain("min-height:0; overflow-x:hidden; overflow-y:auto; border-right:1px solid var(--border)");
     expect(detachedCSS).toContain("flex-direction:column; flex-wrap:nowrap;");
     expect(detachedCSS).toContain(".contest-surface-check-columns button { width:100%; min-width:0; overflow:hidden; text-overflow:ellipsis;");
-    expect(detachedCSS).toContain(".contest-surface-log-scroll { flex:1; min-width:0; max-width:100%; min-height:0; overflow:auto;");
+    expect(detachedCSS).toContain(".contest-surface-log-scroll { flex:1; min-width:0; max-width:100%; min-height:0; overflow:hidden;");
   });
 
-  it("keeps the original contest windows compact with only list and table regions scrolling", () => {
+  it("keeps the original contest windows compact while log rows fit and page without scrolling", () => {
     expect(detachedCSS).toContain("> main:has(> :is(.contest-surface-entry,.contest-surface-check,.contest-surface-statistics,.contest-surface-rates,.contest-surface-log)) { overflow:hidden; }");
     expect(detachedCSS).toContain(".contest-surface-check-columns > div { display:flex; flex-direction:column; min-width:0; min-height:0; overflow-x:hidden; overflow-y:auto;");
     expect(detachedCSS).toContain(".contest-surface-statistics-scroll { flex:1; width:100%; min-width:0; min-height:0; overflow:auto;");
     expect(detachedCSS).toContain(".contest-surface-log-panes { overflow:hidden; }");
-    expect(detachedCSS).toContain(".contest-surface-log-scroll { flex:1; min-width:0; max-width:100%; min-height:0; overflow:auto;");
+    expect(detachedCSS).toContain(".contest-surface-log-scroll { flex:1; min-width:0; max-width:100%; min-height:0; overflow:hidden;");
     expect(detachedCSS).toContain("grid-template-rows:minmax(112px,2fr) minmax(76px,1fr)");
     expect(detachedCSS).toContain(".contest-surface-log-tools { position:relative;");
   });

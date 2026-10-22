@@ -7,9 +7,9 @@
     "dev": "vite --host 127.0.0.1 --port 1420 --strictPort",
     "build": "tsc --noEmit && vite build && node scripts/check-window-bundles.mjs",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "npm run test:node && vitest run --maxWorkers=4",
+    "test": "npm run test:node && vitest run --maxWorkers=1",
     "test:node": "node --test scripts/contesting-worker-acceptance-qso.node-test.mjs",
-    "test:vitest": "vitest run --maxWorkers=4",
+    "test:vitest": "vitest run --maxWorkers=1",
     "tauri": "tauri"
   },
   "dependencies": {

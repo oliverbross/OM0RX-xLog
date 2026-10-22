@@ -287,7 +287,7 @@ jobs:
   contest-native-tests:
     name: Contest native tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:

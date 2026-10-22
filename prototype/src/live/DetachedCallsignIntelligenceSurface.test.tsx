@@ -83,10 +83,19 @@ it("fences late history after a workspace change even when callsign and DXCC mat
 });
 
 it("hides prior identity when the draft becomes unavailable and retries without writes", async () => {
-  const request = reader(); render(<CallsignIntelligenceSurface request={request} />); await screen.findByText("Example operator");
-  request.mockRejectedValueOnce(new Error("Shared draft temporarily unavailable"));
+  const request = reader(), original = request.getMockImplementation()!;
+  render(<CallsignIntelligenceSurface request={request} />); await screen.findByText("Example operator");
+  let rejectDraft = true;
+  request.mockImplementation((method, params) => {
+    if (method === "logbook_operator_draft" && rejectDraft) {
+      rejectDraft = false;
+      return Promise.reject(new Error("Shared draft temporarily unavailable"));
+    }
+    return original(method, params);
+  });
   await act(async () => { await wakeDraft().catch(() => {}); });
-  expect(screen.queryByText("Example operator")).toBeNull(); expect(screen.getByRole("alert").textContent).toContain("temporarily unavailable");
+  await waitFor(() => expect(screen.queryByText("Example operator")).toBeNull());
+  expect(screen.getByRole("alert").textContent).toContain("temporarily unavailable");
   fireEvent.click(screen.getByRole("button", { name: "Retry intelligence" })); await screen.findByText("Example operator");
 });
 
