@@ -6,6 +6,7 @@
 .contest-detached-surface > main > .live-cluster > .live-cluster-table { flex:1 1 0; min-height:60px; max-height:none; border-block:1px solid var(--border); }
 .contest-spots { display:flex; flex:1 1 0; flex-direction:column; min-width:0; min-height:0; gap:6px; }
 .contest-spots > :is(.band-maps,.live-cluster) { flex:1 1 0; min-height:0; }
+.contest-spots > .band-maps-contest { align-self:stretch; width:100%; max-width:none; }
 .contest-detached-surface > main:has(> .contest-spots) { overflow:hidden; }
 .contest-spots > .live-cluster { overflow:hidden; }
 .contest-spots > .live-cluster > :not(.live-cluster-table) { flex-shrink:0; }
@@ -177,7 +178,7 @@
 .contest-surface-statistics-v3 tbody th { color:var(--text); text-align:left; font-weight:500; }
 .contest-surface-statistics-v3 tbody td { color:var(--text); }
 .contest-surface-statistics-v3 .contest-surface-statistics-total :is(th,td) { border-top:1px solid var(--teal); border-bottom:0; color:var(--teal); font-weight:700; }
-.contest-surface-rates { width:100%; max-width:340px; font-family:ui-monospace,monospace; }
+.contest-surface-rates { width:100%; font-family:ui-monospace,monospace; }
 .contest-surface-rates .contest-surface-rate-scope { text-align:center; font-size:12px; color:var(--secondary); }
 .contest-surface-rates dl { display:flex; flex-direction:column; gap:2px; margin:0; }
 .contest-surface-rates dl > div { display:flex; justify-content:flex-end; gap:12px; border:0; padding:0; border-radius:0; }
@@ -216,7 +217,7 @@
 .contest-surface-check { gap:6px; overflow:hidden; }
 .contest-surface-check-columns h2 { flex:0 0 auto; background:var(--panel); }
 .contest-surface-statistics-v3 { height:100%; }
-.contest-surface-rates { align-self:flex-start; gap:5px; overflow:hidden; }
+.contest-surface-rates { gap:5px; overflow:hidden; }
 .contest-surface-rates h1 { text-align:center; }
 .contest-surface-rates dl > div,.contest-surface-rates tr { display:grid; grid-template-columns:minmax(0,1fr) 96px; align-items:baseline; column-gap:12px; }
 .contest-surface-rates dt,.contest-surface-rates th { text-align:right; }

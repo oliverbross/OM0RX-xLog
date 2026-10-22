@@ -629,6 +629,14 @@ it("gives the nested contest Cluster table all remaining window height without p
   expect(css).toContain(".contest-spots > .live-cluster > .live-cluster-table { flex:1 1 0; min-height:60px; max-height:none; overflow:auto;");
 });
 
+it("lets Band Map and Rates fill a resized contest window without changing their compact defaults",()=>{
+  const css=readFileSync(`${process.cwd()}/src/contesting/DetachedContestSurface.css`,"utf8");
+  expect(css).toContain(".contest-spots > .band-maps-contest { align-self:stretch; width:100%; max-width:none; }");
+  expect(css).toContain(".contest-surface-rates { width:100%; font-family:");
+  expect(css).not.toContain(".contest-surface-rates { width:100%; max-width:340px;");
+  expect(css).not.toContain(".contest-surface-rates { align-self:flex-start;");
+});
+
 it.each(["band-maps", "monitor", "alerts", "rotor", "station-control", "dx-cluster"])(
   "keeps disconnected contest %s explicitly unavailable and passive", async panelID => {
     window.history.replaceState({}, "", search.replace("view=active-qso", `view=${panelID}`));
