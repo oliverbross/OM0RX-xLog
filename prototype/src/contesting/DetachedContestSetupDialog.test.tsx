@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { readFileSync } from "node:fs";
 import { configurationDialogContentHeight, DetachedContestSetupDialog, fittedConfigurationDialogHeight, isManagedConfigurationDialogHeight } from "./DetachedContestSetupDialog";
 import { newContestSetup, contestSetupTabs, type ContestSetupDocument } from "./ContestSetupPanel";
+import { readContestKeyBindings } from "./contestKeyBindings";
 import { mergeSetupDialog, useContestSetupDialogs } from "./contestSetupDialogs";
 import { loadWindowSurface } from "../windowSurface";
 const native = vi.hoisted(() => ({ invoke: vi.fn(), setSize: vi.fn(), innerSize: vi.fn(), scaleFactor: vi.fn(async () => 2),
@@ -61,7 +62,7 @@ it("routes Edit Keys to its independent setup dialog and saves only key bindings
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await waitFor(() => expect(native.invoke.mock.calls.some(([,args]) => args.method === "close")).toBe(true));
   const submit = native.invoke.mock.calls.find(([,args]) => args.method === "submit")?.[1].params;
-  expect(JSON.parse(String(submit.document.preferences.keyBindings))[0]).toEqual(["*", "Alt+X", "TOGGLE_RUN"]);
+  expect(readContestKeyBindings(submit.document.preferences.keyBindings)[0]).toEqual({ context: "*", key: "Alt+X", action: "TOGGLE_RUN" });
   expect(submit.document.station).toEqual(snapshot().document.station);
 });
 it("opens isolated Station fields and Cancel closes without submitting", async () => {

@@ -1412,7 +1412,7 @@ it("routes Not1MM callsign mode and kHz commands on Space without advancing norm
   fireEvent.change(callsign,{target:{value:"USB"}});fireEvent.keyDown(callsign,{key:" "});
   await waitFor(()=>expect(actions.at(-1)).toMatchObject({action:"entry_set_mode",params:{value:"USB",callsignCommand:true}}));
   expect(actions.slice(-2).map(action=>action.action)).toEqual(["entry_set_text","entry_set_mode"]);
-  expect(document.activeElement).toBe(callsign);expect((callsign as HTMLInputElement).value).toBe("");
+  expect(document.activeElement).toBe(callsign);await waitFor(()=>expect((callsign as HTMLInputElement).value).toBe(""));
 
   fireEvent.change(callsign,{target:{value:"7025.5"}});fireEvent.keyDown(callsign,{key:" "});
   await waitFor(()=>expect(actions.at(-1)).toMatchObject({action:"entry_set_frequency_text",params:{value:"7025500",callsignCommand:true}}));

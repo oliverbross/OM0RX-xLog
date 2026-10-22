@@ -2,6 +2,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ContestSetupPanel, contestSetupTabs, loadContestAudioOutputs, newContestSetup, restoredESMPreferences, type ContestSetupDocument, type ContestSetupSession } from "./ContestSetupPanel";
+import { readContestKeyBindings } from "./contestKeyBindings";
 afterEach(() => { cleanup(); vi.useRealTimers(); document.documentElement.style.removeProperty("zoom"); });
 function props() {
   return { value: newContestSetup("OM0RX"), sessions: [{ sessionID: "session", name: "October CQ WW", pluginID: "cq_ww_cw", revision: 1, workspaceGeneration: "generation", startUTC: "2026-10-24 00:00:00" }],
@@ -318,7 +319,7 @@ it("uses the original Edit Keys table and saves key changes", async () => {
   fireEvent.click(addedKey);open("Remove");expect(screen.queryByLabelText(`key ${initialRows+1}`)).toBeNull();
   fireEvent.change(screen.getByLabelText("key 1"), { target: { value: "Alt+X" } }); open("OK");
   await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
-  expect(JSON.parse(String(p.onSave.mock.calls[0][0].preferences.keyBindings))[0]).toEqual(["*", "Alt+X", "TOGGLE_RUN"]);
+  expect(readContestKeyBindings(p.onSave.mock.calls[0][0].preferences.keyBindings)[0]).toEqual({ context: "*", key: "Alt+X", action: "TOGGLE_RUN" });
 });
 it.each([100, 125, 150, 175, 200])("keeps all Edit Keys columns available at %i%% interface scale", scale => {
   document.documentElement.style.zoom = `${scale}%`;
