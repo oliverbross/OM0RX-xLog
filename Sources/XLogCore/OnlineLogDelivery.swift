@@ -93,6 +93,11 @@ public struct OnlineLogDeliverySummary: Equatable, Sendable {
     public let latestSafeErrorCode: String?
 }
 
+public struct OnlineLogAttentionItem: Equatable, Sendable {
+    public let contact: LogbookContactSnapshot
+    public let receipt: OnlineLogDeliveryReceipt
+}
+
 /// A read-only operator projection. Upload receipts, retained confirmation
 /// fields and sponsor credit are separate evidence; none implies the others.
 public struct OnlineLogFollowUp: Equatable, Sendable {
@@ -383,7 +388,7 @@ public struct ClubLogDeliveryCoordinator: Sendable {
 
 /// `URLComponents` follows generic URL query rules and leaves `+` literal.
 /// HTML form decoding treats that byte as a space, so encode from UTF-8 bytes.
-private func onlineLogFormBody(_ fields: [(String, String)]) -> Data {
+func onlineLogFormBody(_ fields: [(String, String)]) -> Data {
     Data(fields.map { "\(onlineLogFormComponent($0.0))=\(onlineLogFormComponent($0.1))" }
         .joined(separator: "&").utf8)
 }

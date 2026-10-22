@@ -59,6 +59,40 @@ private final class SyncURLProtocol: URLProtocol {
     override func stopLoading() {}
 }
 
+private final class WavelogWriteURLProtocol: URLProtocol {
+    private static let lock = NSLock()
+    private static var capturedBody: Data?
+    static func reset() { lock.withLock { capturedBody = nil } }
+    static func body() -> Data? { lock.withLock { capturedBody } }
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        var body = request.httpBody
+        if body == nil, let stream = request.httpBodyStream {
+            stream.open()
+            defer { stream.close() }
+            var captured = Data()
+            var buffer = [UInt8](repeating: 0, count: 4_096)
+            while stream.hasBytesAvailable {
+                let count = stream.read(&buffer, maxLength: buffer.count)
+                guard count > 0 else { break }
+                captured.append(buffer, count: count)
+            }
+            body = captured
+        }
+        Self.lock.withLock { Self.capturedBody = body }
+        let responseBody = """
+        {"data":{"id":42,"station_id":1,"call":"K1ABC","band":"20m","mode":"MFSK","submode":"FT4","freq":14080000,"freq_rx":14082000,"band_rx":"20m","qso_date":"2026-10-22 12:00:00","prop_mode":"SAT","sat_name":"QO-100","sat_mode":"U/V"}}
+        """.data(using: .utf8)!
+        let response = HTTPURLResponse(url: request.url!, statusCode: 201, httpVersion: nil,
+                                       headerFields: ["Content-Type": "application/json"])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: responseBody)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
 private final class PagedSyncURLProtocol: URLProtocol {
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -205,10 +239,58 @@ struct LogbookTests {
         #expect(BandPlan.frequencyHz(from: "14.074000") == 14_074_000)
         #expect(BandPlan.band(for: 14_074_000) == "20m")
         #expect(BandPlan.frequencyHz(from: "7074") == 7_074_000)
+        #expect(BandPlan.band(for: 70_200_000) == "4m")
+        #expect(BandPlan.band(for: 1_296_100_000) == "23cm")
+        #expect(BandPlan.band(for: 2_300_100_000) == "13cm")
+        for invalid in ["inf", "-inf", "nan", "1e309", "-1"] {
+            #expect(BandPlan.frequencyHz(from: invalid) == nil)
+        }
         let darwin = MaidenheadLocator.coordinate("PH57")
         #expect(darwin != nil)
         #expect((darwin?.latitude ?? 0) < 0)
         #expect((darwin?.longitude ?? 0) > 100)
+    }
+
+    @Test("Wavelog write projections represent submode, split and satellite fields")
+    func wavelogSupportedWriteProjection() throws {
+        let record = ADIFRecord(fields: [
+            "CALL": "K1ABC", "QSO_DATE": "20261022", "TIME_ON": "120000", "BAND": "20m",
+            "MODE": "MFSK", "SUBMODE": "FT4", "FREQ": "14.080000", "FREQ_RX": "14.082000",
+            "BAND_RX": "20m", "PROP_MODE": "SAT", "SAT_NAME": "QO-100", "SAT_MODE": "U/V",
+        ])
+        let qso = try #require(QSO(adif: record))
+        let create = try #require(WavelogQSOCreate(adif: record))
+        #expect(create.mode == "FT4")
+        #expect(create.receiveFrequency == 14_082_000 && create.receiveBand == "20m")
+        #expect(create.satelliteName == "QO-100" && create.satelliteMode == "U/V")
+        let update = WavelogQSOUpdate(qso)
+        #expect(update.mode == "FT4" && update.receiveFrequency == 14_082_000)
+        #expect(update.receiveBand == "20m" && update.satelliteName == "QO-100" && update.satelliteMode == "U/V")
+        let json = "{\"id\":42,\"station_id\":1,\"call\":\"K1ABC\",\"band\":\"20m\",\"mode\":\"MFSK\",\"submode\":\"FT4\",\"freq\":14080000,\"freq_rx\":14082000,\"band_rx\":\"20m\",\"qso_date\":\"2026-10-22 12:00:00\",\"prop_mode\":\"SAT\",\"sat_name\":\"QO-100\",\"sat_mode\":\"U/V\"}"
+        let remote = try JSONDecoder().decode(WavelogQSO.self, from: Data(json.utf8))
+        #expect(remote.representsSupportedWrite(of: qso))
+        let omitted = json.replacingOccurrences(of: ",\"freq_rx\":14082000", with: "")
+        #expect(try !JSONDecoder().decode(WavelogQSO.self, from: Data(omitted.utf8)).representsSupportedWrite(of: qso))
+    }
+
+    @Test("Wavelog create uses the documented JSON keys through fake HTTP")
+    func wavelogSupportedWriteHTTP() async throws {
+        WavelogWriteURLProtocol.reset()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [WavelogWriteURLProtocol.self]
+        let client = WavelogClient(configuration: try WavelogConfiguration(
+            baseURL: URL(string: "https://example.invalid")!, token: "wl2_test", stationID: 1),
+            session: URLSession(configuration: configuration))
+        var create = WavelogQSOCreate(call: "K1ABC", band: "20m", mode: "FT4", qsoDate: "2026-10-22", timeOn: "120000")
+        create.frequency = 14_080_000; create.receiveFrequency = 14_082_000; create.receiveBand = "20m"
+        create.propagationMode = "SAT"; create.satelliteName = "QO-100"; create.satelliteMode = "U/V"
+        _ = try await client.createQSO(create)
+        let body = try #require(WavelogWriteURLProtocol.body())
+        let object = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        #expect(object["mode"] as? String == "FT4")
+        #expect(object["freq_rx"] as? Int == 14_082_000 && object["band_rx"] as? String == "20m")
+        #expect(object["sat_name"] as? String == "QO-100" && object["sat_mode"] as? String == "U/V")
+        #expect(object["submode"] == nil)
     }
 
     @Test("Wavelog configuration accepts a full API v2 URL")
@@ -402,6 +484,30 @@ struct LogbookTests {
         #expect(try database.fetch().first?.extraFields["APP_TEST"] == "locally edited")
     }
 
+    @Test("Satellite ADIF changes are covered by the sync baseline")
+    func satelliteFieldsParticipateInSyncBaseline() throws {
+        for (field, changed) in [("SAT_NAME", "AO-100"), ("SAT_MODE", "V/U")] {
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let database = try LogbookDatabase(url: directory.appendingPathComponent("test.sqlite"))
+            var submitted = QSO(wavelogID: 42, call: "K1ABC", band: "20m", mode: "MFSK",
+                                extraFields: ["SAT_NAME": "QO-100", "SAT_MODE": "U/V"])
+            try database.save(submitted)
+            try database.acknowledgeSynced(submitted)
+            submitted.comment = "local edit"
+            try database.save(submitted)
+
+            var remote = submitted
+            remote.comment = ""
+            remote.extraFields[field] = changed
+            remote.isDirty = false
+            #expect(try database.mergeRemote(remote))
+            let conflict = try #require(database.conflicts().first)
+            #expect(conflict.remoteQSO.adifRecord[field] == changed)
+            database.close()
+        }
+    }
+
     @Test("Sync preflights Wavelog and does not push a two-sided edit")
     func syncEnginePreflightConflict() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -533,6 +639,38 @@ struct LogbookTests {
         #expect(restoredQSO.call == "VK8NSB")
         #expect(restoredQSO.band == "80m")
         #expect(try restored.fetch().count == 1)
+    }
+
+    @Test("Backup snapshots and restores separate contest SQLite stores without WAL dependence")
+    func contestSQLiteBackupAndRestore() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let normal = try LogbookDatabase(url: root.appendingPathComponent("normal.sqlite"))
+        try normal.save(QSO(call: "NORMAL", band: "20m", mode: "CW"))
+        let contestRoot = root.appendingPathComponent("Contesting/Python/session-1", isDirectory: true)
+        try FileManager.default.createDirectory(at: contestRoot, withIntermediateDirectories: true)
+        let contestURL = contestRoot.appendingPathComponent("contest.sqlite")
+        let contest = try LogbookDatabase(url: contestURL)
+        try contest.save(QSO(call: "CONTEST", band: "40m", mode: "CW"))
+        try Data("transient-active-session".utf8).write(to: contestRoot.deletingLastPathComponent().appendingPathComponent("active-session.json"))
+        let package = root.appendingPathComponent("complete.xlogbackup")
+        let manager = XLogBackupManager()
+        let created = try manager.create(database: normal, at: package, settings: .defaults,
+            preferences: XLogBackupPreferences(deskBandMapBands: [], detachedBandMapBands: [],
+                deskBandMapFollowsRadio: false, detachedBandMapLayout: "Adaptive grid", bandMapFontScale: 1,
+                intelligenceBands: [], clusterSpotOpensFullEditor: false),
+            contestingDataURL: root.appendingPathComponent("Contesting/Python"))
+        #expect(created.manifest.includesContestingData == true)
+        #expect(created.manifest.contestDatabaseCount == 1)
+        #expect(!FileManager.default.fileExists(atPath: package.appendingPathComponent("Contesting/Python/active-session.json").path))
+        try contest.save(QSO(call: "AFTER", band: "80m", mode: "SSB"))
+        contest.close()
+        let restoredRoot = root.appendingPathComponent("Restored/Python", isDirectory: true)
+        #expect(try manager.installContestingData(from: package, to: restoredRoot) == nil)
+        let restored = try LogbookDatabase(url: restoredRoot.appendingPathComponent("session-1/contest.sqlite"))
+        #expect(try restored.fetch().map(\.call) == ["CONTEST"])
+        restored.close(); normal.close()
     }
 
     @Test("Backup inspection rejects a changed database")

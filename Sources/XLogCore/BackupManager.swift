@@ -102,7 +102,7 @@ public struct XLogBackupPreferences: Codable, Equatable, Sendable {
 }
 
 public struct XLogBackupManifest: Codable, Equatable, Sendable {
-    public static let currentFormatVersion = 2
+    public static let currentFormatVersion = 3
 
     public var formatVersion: Int
     public var createdAt: Date
@@ -114,6 +114,8 @@ public struct XLogBackupManifest: Codable, Equatable, Sendable {
     public var includesSettings: Bool
     public var includesPreferences: Bool
     public var includesReferenceData: Bool
+    public var includesContestingData: Bool?
+    public var contestDatabaseCount: Int?
 }
 
 public struct XLogBackupPreview: Equatable, Sendable {
@@ -157,7 +159,8 @@ public final class XLogBackupManager: @unchecked Sendable {
         at packageURL: URL,
         settings: XLogSettings,
         preferences: XLogBackupPreferences,
-        referenceDataURL: URL? = nil
+        referenceDataURL: URL? = nil,
+        contestingDataURL: URL? = nil
     ) throws -> XLogBackupPreview {
         guard !fileManager.fileExists(atPath: packageURL.path) else {
             throw XLogBackupError.destinationExists
@@ -172,6 +175,7 @@ public final class XLogBackupManager: @unchecked Sendable {
 
         let databaseURL = temporary.appendingPathComponent("OM0RX-xLog.sqlite")
         try database.backup(to: databaseURL)
+        try removeSQLiteSidecars(for: databaseURL)
         let inspection = try inspectDatabase(at: databaseURL)
         let attributes = try fileManager.attributesOfItem(atPath: databaseURL.path)
         let bytes = (attributes[.size] as? NSNumber)?.int64Value ?? 0
@@ -180,6 +184,39 @@ public final class XLogBackupManager: @unchecked Sendable {
         if let referenceDataURL, fileManager.fileExists(atPath: referenceDataURL.path) {
             try fileManager.copyItem(at: referenceDataURL, to: referenceDestination)
             includesReferenceData = true
+        }
+        var contestDatabaseCount = 0
+        if let contestingDataURL, fileManager.fileExists(atPath: contestingDataURL.path) {
+            let destinationRoot = temporary.appendingPathComponent("Contesting/Python", isDirectory: true)
+            let resolvedRoot = contestingDataURL.resolvingSymlinksInPath().standardizedFileURL
+            let rootComponents = resolvedRoot.pathComponents
+            let keys: [URLResourceKey] = [.isRegularFileKey, .isSymbolicLinkKey]
+            guard let enumerator = fileManager.enumerator(at: contestingDataURL, includingPropertiesForKeys: keys,
+                                                          options: [.skipsHiddenFiles]) else {
+                throw XLogBackupError.invalidPackage("contest data could not be inspected")
+            }
+            for case let source as URL in enumerator where source.pathExtension.lowercased() == "sqlite" {
+                let values = try source.resourceValues(forKeys: Set(keys))
+                guard values.isRegularFile == true, values.isSymbolicLink != true else {
+                    throw XLogBackupError.invalidPackage("contest database path is unsafe")
+                }
+                let resolvedSource = source.resolvingSymlinksInPath().standardizedFileURL
+                let sourceComponents = resolvedSource.pathComponents
+                guard sourceComponents.starts(with: rootComponents) else {
+                    throw XLogBackupError.invalidPackage("contest database path is unsafe")
+                }
+                let relativeComponents = sourceComponents.dropFirst(rootComponents.count)
+                guard !relativeComponents.isEmpty,
+                      relativeComponents.allSatisfy({ $0 != "." && $0 != ".." }) else {
+                    throw XLogBackupError.invalidPackage("contest database path is unsafe")
+                }
+                let relative = relativeComponents.joined(separator: "/")
+                let destination = destinationRoot.appendingPathComponent(relative)
+                try fileManager.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true,
+                                                attributes: LocalFilePermissions.directoryAttributes)
+                try snapshotSQLite(from: source, to: destination)
+                contestDatabaseCount += 1
+            }
         }
         try encoder.encode(settings).write(
             to: temporary.appendingPathComponent("settings.json"),
@@ -199,7 +236,9 @@ public final class XLogBackupManager: @unchecked Sendable {
             databaseSHA256: try sha256(of: databaseURL),
             includesSettings: true,
             includesPreferences: true,
-            includesReferenceData: includesReferenceData
+            includesReferenceData: includesReferenceData,
+            includesContestingData: contestingDataURL.map { fileManager.fileExists(atPath: $0.path) } ?? false,
+            contestDatabaseCount: contestDatabaseCount
         )
         try encoder.encode(manifest).write(
             to: temporary.appendingPathComponent("manifest.json"),
@@ -225,7 +264,7 @@ public final class XLogBackupManager: @unchecked Sendable {
             throw XLogBackupError.invalidPackage("manifest.json is missing")
         }
         let manifest = try decoder.decode(XLogBackupManifest.self, from: manifestData)
-        guard [1, XLogBackupManifest.currentFormatVersion].contains(manifest.formatVersion) else {
+        guard (1...XLogBackupManifest.currentFormatVersion).contains(manifest.formatVersion) else {
             throw XLogBackupError.invalidPackage("unsupported format version \(manifest.formatVersion)")
         }
         if manifest.formatVersion >= 2 || fileManager.fileExists(atPath: packageURL.appendingPathComponent(BackupPackageSeal.filename).path) {
@@ -242,6 +281,14 @@ public final class XLogBackupManager: @unchecked Sendable {
               inspection.pendingSyncCount == manifest.pendingSyncCount else {
             throw XLogBackupError.invalidPackage("database counts do not match the manifest")
         }
+        let contestFiles = try contestDatabaseURLs(
+            in: packageURL.appendingPathComponent("Contesting/Python", isDirectory: true)
+        )
+        guard (manifest.includesContestingData == true || contestFiles.isEmpty),
+              manifest.contestDatabaseCount ?? 0 == contestFiles.count else {
+            throw XLogBackupError.invalidPackage("contest database count does not match the manifest")
+        }
+        for url in contestFiles { try inspectSQLite(at: url) }
 
         let settings = try decodeIfPresent(XLogSettings.self, at: packageURL.appendingPathComponent("settings.json"))
         let preferences = try decodeIfPresent(XLogBackupPreferences.self, at: packageURL.appendingPathComponent("preferences.json"))
@@ -317,6 +364,32 @@ public final class XLogBackupManager: @unchecked Sendable {
     public func referenceDataURL(in packageURL: URL) -> URL? {
         let url = packageURL.appendingPathComponent("Reference Data", isDirectory: true)
         return fileManager.fileExists(atPath: url.path) ? url : nil
+    }
+
+    @discardableResult
+    public func installContestingData(from packageURL: URL, to liveURL: URL) throws -> URL? {
+        let preview = try inspect(at: packageURL)
+        guard preview.manifest.includesContestingData == true else { return nil }
+        let (_, files) = try BackupPackageSeal.verifiedFiles(packageURL, fileManager: fileManager)
+        let contestFiles = Dictionary(uniqueKeysWithValues: files.compactMap { path, data in
+            path.hasPrefix("Contesting/Python/") ? (String(path.dropFirst("Contesting/Python/".count)), data) : nil
+        })
+        let parent = liveURL.deletingLastPathComponent()
+        try fileManager.createDirectory(at: parent, withIntermediateDirectories: true)
+        let staging = parent.appendingPathComponent(".contest-restore-\(UUID().uuidString)", isDirectory: true)
+        defer { try? fileManager.removeItem(at: staging) }
+        try BackupPackageSeal.materialize(contestFiles, at: staging, fileManager: fileManager)
+        for url in try contestDatabaseURLs(in: staging) { try inspectSQLite(at: url) }
+        let rollback = parent.appendingPathComponent("Python-before-restore-\(UUID().uuidString)", isDirectory: true)
+        var preserved: URL?
+        do {
+            if fileManager.fileExists(atPath: liveURL.path) { try fileManager.moveItem(at: liveURL, to: rollback); preserved = rollback }
+            try fileManager.moveItem(at: staging, to: liveURL)
+            return preserved
+        } catch {
+            if !fileManager.fileExists(atPath: liveURL.path), let preserved { try? fileManager.moveItem(at: preserved, to: liveURL) }
+            throw XLogBackupError.restoreFailed("Contesting/Python: \(error.localizedDescription)")
+        }
     }
 
     /// Validate every reference-data byte before a restore replaces the live
@@ -465,6 +538,79 @@ public final class XLogBackupManager: @unchecked Sendable {
             hasher.update(data: data)
         }
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func contestDatabaseURLs(in contestRoot: URL) throws -> [URL] {
+        guard fileManager.fileExists(atPath: contestRoot.path) else { return [] }
+        guard let enumerator = fileManager.enumerator(at: contestRoot, includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey],
+                                                      options: [.skipsHiddenFiles]) else { return [] }
+        return try enumerator.compactMap { candidate -> URL? in
+            guard let url = candidate as? URL, url.pathExtension.lowercased() == "sqlite" else { return nil }
+            let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+            guard values.isRegularFile == true, values.isSymbolicLink != true else {
+                throw XLogBackupError.invalidPackage("contest database path is unsafe")
+            }
+            return url
+        }
+    }
+
+    private func snapshotSQLite(from source: URL, to destination: URL) throws {
+        do {
+            var input: OpaquePointer?, output: OpaquePointer?
+            guard sqlite3_open_v2(source.path, &input, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
+                  let input else {
+                let message = input.map { String(cString: sqlite3_errmsg($0)) } ?? "unknown error"
+                sqlite3_close(input)
+                throw XLogBackupError.integrityFailed("could not open contest database: \(message)")
+            }
+            defer { sqlite3_close(input) }
+            guard sqlite3_open_v2(destination.path, &output, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
+                  let output else {
+                let message = output.map { String(cString: sqlite3_errmsg($0)) } ?? "unknown error"
+                sqlite3_close(output)
+                throw XLogBackupError.integrityFailed("could not stage contest database: \(message)")
+            }
+            defer { sqlite3_close(output) }
+            guard let backup = sqlite3_backup_init(output, "main", input, "main") else {
+                throw XLogBackupError.integrityFailed("could not initialize contest snapshot: \(String(cString: sqlite3_errmsg(output)))")
+            }
+            let result = sqlite3_backup_step(backup, -1)
+            let finish = sqlite3_backup_finish(backup)
+            guard result == SQLITE_DONE, finish == SQLITE_OK else {
+                throw XLogBackupError.integrityFailed("could not finish contest snapshot: \(String(cString: sqlite3_errmsg(output)))")
+            }
+            guard sqlite3_exec(output, "PRAGMA journal_mode=DELETE;", nil, nil, nil) == SQLITE_OK else {
+                throw XLogBackupError.integrityFailed("could not seal contest snapshot: \(String(cString: sqlite3_errmsg(output)))")
+            }
+        }
+        try removeSQLiteSidecars(for: destination)
+        try inspectSQLite(at: destination)
+    }
+
+    private func removeSQLiteSidecars(for databaseURL: URL) throws {
+        for suffix in ["-wal", "-shm"] {
+            let sidecar = URL(fileURLWithPath: databaseURL.path + suffix)
+            if fileManager.fileExists(atPath: sidecar.path) {
+                try fileManager.removeItem(at: sidecar)
+            }
+        }
+    }
+
+    private func inspectSQLite(at url: URL) throws {
+        var handle: OpaquePointer?
+        guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let handle else {
+            sqlite3_close(handle); throw XLogBackupError.integrityFailed("could not open contest database")
+        }
+        defer { sqlite3_close(handle) }
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(handle, "PRAGMA integrity_check;", -1, &statement, nil) == SQLITE_OK else {
+            throw XLogBackupError.integrityFailed(String(cString: sqlite3_errmsg(handle)))
+        }
+        defer { sqlite3_finalize(statement) }
+        guard sqlite3_step(statement) == SQLITE_ROW,
+              sqlite3_column_text(statement, 0).map({ String(cString: $0) }) == "ok" else {
+            throw XLogBackupError.integrityFailed("contest integrity_check did not return ok")
+        }
     }
 
     private func inspectDatabase(at url: URL) throws -> DatabaseInspection {

@@ -22,10 +22,10 @@ on:
         options: [both, linux, windows]
         default: both
   push:
-    branches: [codex/unified-xlog-prototype-p1, codex/unified-xlog-integration-p2]
-    paths: ['prototype/**', '!prototype/**/*.md', 'Sources/**', 'Tests/**', 'Package.swift', '.github/workflows/prototype.yml']
+    branches: [main, codex/unified-xlog-prototype-p1, codex/unified-xlog-integration-p2]
+    paths: ['prototype/**', '!prototype/**/*.md', 'python/**', 'Sources/**', 'Tests/**', 'Package.swift', '.github/workflows/prototype.yml']
   pull_request:
-    paths: ['prototype/**', '!prototype/**/*.md', 'Sources/**', 'Tests/**', 'Package.swift', '.github/workflows/prototype.yml']
+    paths: ['prototype/**', '!prototype/**/*.md', 'python/**', 'Sources/**', 'Tests/**', 'Package.swift', '.github/workflows/prototype.yml']
 
 permissions:
   contents: read

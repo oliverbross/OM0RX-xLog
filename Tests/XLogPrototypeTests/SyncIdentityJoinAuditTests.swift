@@ -646,7 +646,10 @@ private final class IdentityJoinAuditProtocol: URLProtocol {
         if request.httpMethod == "POST", request.url?.host == "synthetic.invalid" {
             let response = HTTPURLResponse(url: request.url!, statusCode: 201, httpVersion: nil, headerFields: nil)!
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: ["data": auditJSON(id: 14, name: "Outgoing")]))
+            var created = auditJSON(id: 14, name: "Outgoing")
+            created["call"] = "OUTGOING"
+            created["band"] = "40m"
+            client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: ["data": created]))
             client?.urlProtocolDidFinishLoading(self)
             return
         }

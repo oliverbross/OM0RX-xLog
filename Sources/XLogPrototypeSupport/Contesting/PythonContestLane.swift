@@ -186,6 +186,20 @@ actor PythonContestLane {
         stopProcess()
     }
 
+    /// Retire every in-memory/output owner before backup restore replaces the
+    /// contest stores. Unlike terminal shutdown, a later explicit contest open
+    /// may start a fresh child against the restored databases.
+    func prepareForRestore() async {
+        await assistanceLane?.shutdown()
+        assistanceLane = nil
+        callHistoryLane = nil
+        failPending(.uncertain("contest_host_stopped", "The contest host stopped before its reply was confirmed."))
+        stopProcess()
+        activeSessionID = nil
+        activeWorkspaceGeneration = nil
+        activeProjection = nil
+    }
+
     func handleAssistance(method: String, params: [String: Any]) async throws -> [String: Any] {
         guard !terminalShutdown else {
             throw ContestLaneError.confirmed("worker_stopping", "The contest host is shutting down.")

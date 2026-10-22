@@ -5,6 +5,7 @@ import XCatIntegrationCore
 /// Worker-owned TCI adapter. Receive tuning and TRX filter adjustments require
 /// generation-bound admission and authoritative telemetry readback.
 actor LiveTCISession {
+    private static let receiveFrequencyRange = 100_000...1_000_000_000
     struct Configuration: Sendable {
         let endpoint: URL
         let address: TCIReceiverAddress
@@ -130,7 +131,7 @@ actor LiveTCISession {
                   let payload = params["spot"] as? [String: Any],
                   Set(payload.keys) == ["frequency_hz", "callsign", "mode", "source", "spotter",
                                         "comment", "timestamp", "lifetime_seconds", "priority", "color_hex"],
-                  let frequency = Self.integer(payload["frequency_hz"]), (100_000...60_000_000).contains(frequency),
+                  let frequency = Self.integer(payload["frequency_hz"]), Self.receiveFrequencyRange.contains(frequency),
                   let timestamp = Self.integer(payload["timestamp"]),
                   timestamp >= Int(Date().timeIntervalSince1970) - 86_400,
                   timestamp <= Int(Date().timeIntervalSince1970) + 300,
@@ -142,14 +143,12 @@ actor LiveTCISession {
                   let spotter = Self.spotText(payload["spotter"], maximum: 32, required: false),
                   let comment = Self.spotText(payload["comment"], maximum: 96, required: false),
                   let color = payload["color_hex"] as? String,
-                  color.range(of: #"^#[0-9A-Fa-f]{6}$"#, options: .regularExpression) != nil,
-                  let spot = try? FlexSpot(frequencyHz: Int64(frequency), callsign: callsign, mode: mode,
-                                           source: source, spotter: spotter, comment: comment,
-                                           timestamp: Int64(timestamp), lifetimeSeconds: lifetime,
-                                           priority: priority, colorHex: color) else { throw invalid() }
+                  color.range(of: #"^#[0-9A-Fa-f]{6}$"#, options: .regularExpression) != nil else { throw invalid() }
             let transportGeneration = (await active.currentObservation()).generation
             do {
-                try await active.addSpot(spot, expectedGeneration: transportGeneration)
+                try await active.addSpot(frequencyHz: Int64(frequency), callsign: callsign, mode: mode,
+                                         source: source, spotter: spotter, comment: comment, colorHex: color,
+                                         expectedGeneration: transportGeneration)
                 guard !terminal, connectionID == id, session === active else { throw cancelled() }
                 return ["accepted": true, "confirmed": false, "state": snapshot()]
             } catch let failure as TCITuneSessionError { throw Self.tuneFailure(failure) }
@@ -257,7 +256,7 @@ actor LiveTCISession {
     }
     private static func tuneTarget(_ params: [String: Any]) throws -> (Int64, String) {
         guard let frequency = integer(params["frequency_hz"]),
-              (100_000...1_000_000_000).contains(frequency),
+              receiveFrequencyRange.contains(frequency),
               let rawMode = params["mode"] as? String,
               !rawMode.isEmpty, rawMode.utf8.count <= 16,
               rawMode.utf8.allSatisfy({ (48...57).contains($0) || (65...90).contains($0) }) else {

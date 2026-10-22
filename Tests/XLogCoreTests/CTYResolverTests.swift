@@ -43,6 +43,25 @@ struct CTYResolverTests {
         #expect(!csv.contains("{"))
     }
 
+    @Test("Portable operating prefixes take precedence without losing exact or ordinary suffix rules")
+    func portableOperatingPrefixPrecedence() throws {
+        let csv = """
+        OM,Slovakia,504,EU,15,28,48.00,-17.00,-1.0,OM;
+        EA8,Canary Islands,29,AF,33,36,28.00,15.00,-1.0,EA8;
+        XX,Exact Expedition,999,AF,33,36,28.00,15.00,-1.0,=OM0RX/EA8;
+        """
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".csv")
+        defer { try? FileManager.default.removeItem(at: file) }
+        try csv.write(to: file, atomically: true, encoding: .utf8)
+        let resolver = try CTYResolver(csvURL: file)
+        #expect(resolver.resolve("EA8/OM0ABC")?.adif == 29)
+        #expect(resolver.resolve("OM0ABC/EA8")?.adif == 29)
+        #expect(resolver.resolve("OM0ABC/P")?.adif == 504)
+        #expect(resolver.resolve("OM0ABC/MM")?.adif == 504)
+        #expect(resolver.resolve("OM0ABC/4")?.adif == 504)
+        #expect(resolver.resolve("OM0RX/EA8")?.adif == 999)
+    }
+
     @Test("XML PJ rules honor validity dates and exact-call exceptions")
     func datedPJRulesAndExceptions() throws {
         // Deliberately include Bangladesh: its presence must not override PJ rules.

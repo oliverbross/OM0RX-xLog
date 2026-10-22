@@ -28,7 +28,7 @@ describe("native workspace status schema", () => {
   it("matches the exact native supported-window registry rather than all workspace roles", () => {
     const source = readFileSync("src-tauri/src/workspace_windows.rs", "utf8");
     const registry = source.slice(source.indexOf("pub const SUPPORTED_WINDOWS:"), source.indexOf("\n];") + 3);
-    const roles = [...registry.matchAll(/WindowSpec \{ id: "([^"]+)"/g)].map(match => match[1]);
+    const roles = [...registry.matchAll(/WindowSpec\s*\{\s*id:\s*"([^"]+)"/g)].map(match => match[1]);
     expect(roles).toEqual(allNativeRoles);
     expect([...nativeWorkspaceWindowIDs]).toEqual(roles);
     expect(() => readWorkspaceWindowsStatus({ ...idle(), supported: [...workspacePanelIDs] })).toThrow("could not be verified");

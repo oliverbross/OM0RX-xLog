@@ -328,15 +328,20 @@ public extension WavelogQSOCreate {
         guard
             let call = record["CALL"]?.nonEmpty,
             let band = record["BAND"]?.nonEmpty,
-            let mode = record["MODE"]?.nonEmpty,
+            let mode = (record["SUBMODE"] ?? record["MODE"])?.nonEmpty,
             let rawDate = record["QSO_DATE"], rawDate.count == 8,
             let time = record["TIME_ON"]?.nonEmpty
         else { return nil }
         let date = "\(rawDate.prefix(4))-\(rawDate.dropFirst(4).prefix(2))-\(rawDate.suffix(2))"
         self.init(call: call, band: band.lowercased(), mode: mode, qsoDate: date, timeOn: time)
-        if let mhz = record["FREQ"].flatMap(Double.init) {
-            frequency = Int64((mhz * 1_000_000).rounded())
+        func hertz(_ value: String?) -> Int64? {
+            guard let value, let mhz = Double(value), mhz.isFinite else { return nil }
+            let scaled = mhz * 1_000_000
+            return scaled.isFinite ? Int64(exactly: scaled.rounded()) : nil
         }
+        frequency = hertz(record["FREQ"])
+        receiveFrequency = hertz(record["FREQ_RX"])
+        receiveBand = record["BAND_RX"]?.nonEmpty
         rstSent = record["RST_SENT"]
         rstReceived = record["RST_RCVD"]
         gridSquare = record["GRIDSQUARE"]
@@ -352,6 +357,8 @@ public extension WavelogQSOCreate {
         cqZone = record["CQZ"]
         ituZone = record["ITUZ"]
         propagationMode = record["PROP_MODE"]
+        satelliteName = record["SAT_NAME"]
+        satelliteMode = record["SAT_MODE"]
         sotaReference = record["SOTA_REF"]
         potaReference = record["POTA_REF"]
         wwffReference = record["WWFF_REF"]

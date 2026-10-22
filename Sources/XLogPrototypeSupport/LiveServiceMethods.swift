@@ -107,6 +107,20 @@ actor LiveServiceMethods {
             }
             _ = try logbook.openedDatabase().configureOnlineLogEnrollment(service: service, enabled: enabled.boolValue)
             return try onlineLogStatus(service: service)
+        case "online_log_reconcile":
+            guard Set(params.keys) == ["service", "contact_id", "contact_revision", "generation", "action", "confirm_remote_state"],
+                  let idText = params["contact_id"] as? String, let id = UUID(uuidString: idText),
+                  let revision = params["contact_revision"] as? NSNumber, revision.int64Value >= 0,
+                  let generation = params["generation"] as? String,
+                  let currentGeneration = try logbook.syncOwnerContext()["generation"] as? String,
+                  generation == currentGeneration,
+                  params["action"] as? String == "confirm_delivered",
+                  let confirmation = params["confirm_remote_state"] as? NSNumber,
+                  isJSONBoolean(confirmation), confirmation.boolValue else { throw invalid() }
+            let service = try onlineLogService(params)
+            _ = try logbook.openedDatabase().confirmUncertainOnlineLogDelivery(
+                service: service, contactID: id, contactRevision: revision.int64Value)
+            return try onlineLogStatus(service: service)
         case "secret_save":
             guard Set(params.keys) == ["account", "value"], let name = params["account"] as? String,
                   let account = WorkspaceCredentialStore.Account(rawValue: name), let value = params["value"] as? String,
@@ -631,7 +645,25 @@ actor LiveServiceMethods {
         WorkspaceCredentialStore(service: try logbook.currentKeychainService())
     }
     private func onlineLogStatus(service: OnlineLogService) throws -> [String: Any] {
-        let summary = try logbook.openedDatabase().onlineLogDeliverySummary(service: service)
+        let database = try logbook.openedDatabase()
+        let summary = try database.onlineLogDeliverySummary(service: service)
+        let formatter = ISO8601DateFormatter()
+        let attention: [[String: Any]] = try database.onlineLogAttention(service: service).map { item in
+            let qso = item.contact.qso
+            return [
+                "contact_id": qso.id.uuidString,
+                "contact_revision": item.receipt.contactRevision,
+                "current_revision": item.contact.revision == item.receipt.contactRevision,
+                "call": qso.call, "started_at": formatter.string(from: qso.start),
+                "band": qso.band, "mode": qso.submode.isEmpty ? qso.mode : qso.submode,
+                "state": item.receipt.state.rawValue,
+                "last_attempt_at": formatter.string(from: item.receipt.lastAttemptAt),
+                "safe_error_code": item.receipt.safeErrorCode as Any? ?? NSNull(),
+                "review_method": "logbook_follow_up",
+                "available_actions": item.contact.revision == item.receipt.contactRevision && item.receipt.state == .uncertain
+                    ? ["inspect", "confirm_delivered"] : ["inspect"],
+            ]
+        }
         return [
             "service": summary.enrollment.service.rawValue,
             "enabled": summary.enrollment.enabled,
@@ -643,6 +675,8 @@ actor LiveServiceMethods {
             "latest_state": summary.latestState?.rawValue as Any? ?? NSNull(),
             "latest_attempt_at": summary.latestAttemptAt.map { ISO8601DateFormatter().string(from: $0) } as Any? ?? NSNull(),
             "latest_error_code": summary.latestSafeErrorCode as Any? ?? NSNull(),
+            "attention": attention,
+            "generation": try logbook.syncOwnerContext()["generation"] as Any? ?? NSNull(),
         ]
     }
     private func onlineLogService(_ params: [String: Any]) throws -> OnlineLogService {

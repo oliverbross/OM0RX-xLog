@@ -79,6 +79,23 @@ struct LiveClusterHistoryTests {
         #expect(history["last_dxcc_qso"] is NSNull)
     }
 
+    @Test("Contact history publishes effective CTY overrides without replacing stored DXCC")
+    func effectiveCountryOverride() throws {
+        let csv = "ZZ,Fixture,999,EU,5,8,48.00,-17.00,-1.0,ZZ(3)[7];\n"
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".csv")
+        defer { try? FileManager.default.removeItem(at: file) }
+        try csv.write(to: file, atomically: true, encoding: .utf8)
+        let resolver = try CTYResolver(csvURL: file)
+        let historical = QSO(call: "ZZ1OLD", start: Date(timeIntervalSince1970: 1),
+                             band: "20m", mode: "CW", dxcc: 123)
+        let result = LocalContactHistory.project(contacts: [historical], call: "ZZ1ABC",
+                                                 adif: 999, resolver: resolver)
+        #expect(result["country"] as? String == "FIXTURE")
+        #expect(result["cq_zone"] as? Int == 3)
+        #expect(result["dxcc_contact_count"] as? Int == 0)
+        #expect(historical.dxcc == 123)
+    }
+
     @Test("Portable operating suffixes share previous-QSO history without rewriting stored calls")
     func portableCallHistory() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

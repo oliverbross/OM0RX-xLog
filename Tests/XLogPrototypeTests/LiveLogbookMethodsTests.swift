@@ -248,6 +248,9 @@ struct LiveLogbookMethodsTests {
         try native.save(QSO(call: "K1NAT", band: "20m", mode: "CW"))
         let service = LiveLogbookMethods(supportDirectory: root)
         _ = try service.handle(method: "workspace_create", params: ["mode": "copy_native"])
+        let contestURL = root.appendingPathComponent("Contesting/Python/session-1/contest.sqlite")
+        let contest = try LogbookDatabase(url: contestURL)
+        try contest.save(QSO(call: "CONTEST", band: "40m", mode: "CW"))
         let created = try service.handle(method: "backup_create", params: ["name": "before-change"])
         let name = try #require(created["name"] as? String)
         #expect(name == "before-change.xlogbackup")
@@ -255,6 +258,10 @@ struct LiveLogbookMethodsTests {
         #expect((listed["backups"] as? [[String: String]])?.contains(where: { $0["name"] == name }) == true)
         let inspected = try service.handle(method: "backup_inspect", params: ["name": name])
         #expect((inspected["manifest"] as? [String: Any])?["qsoCount"] as? Int == 1)
+        let package = root.appendingPathComponent("OM0RX-xLog-Integrated Preview/Backups/\(name)")
+        let packagedPaths = try FileManager.default.subpathsOfDirectory(atPath: package.path)
+        #expect(packagedPaths.contains("Contesting/Python/session-1/contest.sqlite"))
+        #expect(!packagedPaths.contains { $0.hasSuffix("-wal") || $0.hasSuffix("-shm") })
 
         var currentPreferences = try #require(service.handle(method: "workspace_preferences_load", params: [:])["preferences"] as? [String: Any])
         currentPreferences["deskBandMapBands"] = ["40m"]
@@ -263,6 +270,8 @@ struct LiveLogbookMethodsTests {
         var draft = try #require(service.handle(method: "logbook_draft", params: [:])["qso"] as? [String: Any])
         draft["call"] = "K2NEW"
         _ = try service.handle(method: "logbook_save", params: ["qso": draft])
+        try contest.save(QSO(call: "AFTER", band: "80m", mode: "SSB"))
+        contest.close()
         #expect(try service.handle(method: "logbook_list", params: [:])["total"] as? Int == 2)
         #expect(throws: WorkerFailure.self) {
             try service.handle(method: "backup_restore", params: ["name": name, "confirm_restore": false])
@@ -279,9 +288,15 @@ struct LiveLogbookMethodsTests {
         #expect((try service.handle(method: "workspace_preferences_load", params: [:])["preferences"] as? [String: Any])?["deskBandMapBands"] as? [String] == ["40m"])
         let recoveryName = try #require(restored["recovery_backup"] as? String)
         let recovery = root.appendingPathComponent("OM0RX-xLog-Integrated Preview/Recovery/" + recoveryName)
-        #expect(try XLogBackupManager().inspect(at: recovery).manifest.qsoCount == 2)
+        let recoveryManifest = try XLogBackupManager().inspect(at: recovery).manifest
+        #expect(recoveryManifest.qsoCount == 2)
+        #expect(recoveryManifest.contestDatabaseCount == 1)
         #expect(try native.fetch().count == 1)
         #expect(try service.handle(method: "logbook_list", params: [:])["total"] as? Int == 1)
+        let restoredContest = try LogbookDatabase(url: contestURL)
+        let restoredContestCalls = try restoredContest.fetch().map(\.call)
+        #expect(restoredContestCalls == ["CONTEST"])
+        restoredContest.close()
         #expect(throws: WorkerFailure.self) {
             try service.handle(method: "backup_inspect", params: ["name": "../" + name])
         }

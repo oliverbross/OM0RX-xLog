@@ -232,7 +232,7 @@ public struct CountryInfo: Codable, Equatable, Hashable, Sendable {
 }
 
 public enum BandPlan {
-    public static let bands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"]
+    public static let bands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "4m", "2m", "70cm", "23cm", "13cm"]
     public static let modes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "JTTY", "PSK", "DIGI", "AM", "FM"]
 
     public static func band(for frequencyHz: Int64) -> String {
@@ -248,17 +248,20 @@ public enum BandPlan {
         case 24_890_000..<24_990_000: return "12m"
         case 28_000_000..<29_700_000: return "10m"
         case 50_000_000..<54_000_000: return "6m"
+        case 70_000_000..<70_500_000: return "4m"
         case 144_000_000..<148_000_000: return "2m"
         case 420_000_000..<450_000_000: return "70cm"
+        case 1_240_000_000..<1_300_000_000: return "23cm"
+        case 2_300_000_000..<2_450_000_000: return "13cm"
         default: return ""
         }
     }
 
     public static func frequencyHz(from text: String) -> Int64? {
         let clean = text.replacingOccurrences(of: ",", with: ".").trimmingCharacters(in: .whitespaces)
-        guard let value = Double(clean), value > 0 else { return nil }
-        if value < 1_000 { return Int64((value * 1_000_000).rounded()) }
-        if value < 1_000_000 { return Int64((value * 1_000).rounded()) }
-        return Int64(value.rounded())
+        guard let value = Double(clean), value.isFinite, value > 0 else { return nil }
+        let scaled = value < 1_000 ? value * 1_000_000 : value < 1_000_000 ? value * 1_000 : value
+        guard scaled.isFinite else { return nil }
+        return Int64(exactly: scaled.rounded())
     }
 }

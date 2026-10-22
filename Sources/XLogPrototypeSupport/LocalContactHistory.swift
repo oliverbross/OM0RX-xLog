@@ -19,7 +19,7 @@ enum LocalContactHistory {
     static func project(rows: [ContactHistoryRow], call: String, adif: Int?,
                         resolver: CTYResolver? = nil) -> [String: Any] {
         let normalizedCall = call.uppercased()
-        let entity = resolver?.resolve(normalizedCall)
+        let entity = resolver?.resolveCountryEndpoint(normalizedCall)
         var previous: [[String: Any]] = []
         var previousCount = 0
         var previousConfirmedCount = 0
@@ -34,7 +34,9 @@ enum LocalContactHistory {
         for qso in rows {
                 if qso.deletedAt != nil { continue }
                 let mode = SpotLogic.normalizedMode(qso.submode.isEmpty ? qso.mode : qso.submode)
-                let qsoAdif: Int? = adif == nil ? nil : (qso.dxcc ?? resolver?.resolve(qso.call, at: qso.start)?.adif)
+                // Stored operator/historical DXCC remains authoritative. Only
+                // absent values use the effective, date-specific CTY endpoint.
+                let qsoAdif: Int? = adif == nil ? nil : (qso.dxcc ?? resolver?.resolveCountryEndpoint(qso.call, at: qso.start)?.adif)
                 let confirmed = ClusterContact(callsign: qso.call, band: qso.band, mode: mode,
                                                paperQSL: qso.qslReceived, lotwQSL: qso.lotwReceived).isConfirmed
                 if NormalLogCallsignIdentity.matches(qso.call, normalizedCall) {

@@ -124,7 +124,7 @@ final class LiveTCISessionTests: XCTestCase {
         await socket.enqueue(.text(Self.discovery + "trx:0,false;ready;"))
         let ready = try await wait(session) { $0["available"] as? Bool == true }
         XCTAssertTrue(((ready["capabilities"] as? [String: Any])?["supported_commands"] as? [String] ?? []).contains("station_add_spot"))
-        let spot: [String: Any] = ["frequency_hz": 14_025_000, "callsign": "OM0RX", "mode": "CW",
+        let spot: [String: Any] = ["frequency_hz": 144_300_000, "callsign": "OM0RX", "mode": "CW",
                                    "source": "xLog xCluster", "spotter": "DL1ABC", "comment": "CQ, DX",
                                    "timestamp": Int(Date().timeIntervalSince1970), "lifetime_seconds": 900,
                                    "priority": 3, "color_hex": "#00FF00"]
@@ -132,7 +132,14 @@ final class LiveTCISessionTests: XCTestCase {
         XCTAssertEqual(result["accepted"] as? Bool, true)
         XCTAssertEqual(result["confirmed"] as? Bool, false)
         let sent = await socket.sentTexts()
-        XCTAssertEqual(sent, ["SPOT:OM0RX,CW,14025000,4278255360,xLog xCluster DL1ABC CQ  DX;"])
+        XCTAssertEqual(sent, ["SPOT:OM0RX,CW,144300000,4278255360,xLog xCluster DL1ABC CQ  DX;"])
+        var outside = spot; outside["frequency_hz"] = 1_000_000_001
+        do {
+            _ = try await session.handle("station_add_spot", params: ["provider": "direct_tci", "spot": outside])
+            XCTFail("Out-of-capability TCI spot admitted")
+        } catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "invalid_params") }
+        let sentAfterRejectedSpot = await socket.sentTexts()
+        XCTAssertEqual(sentAfterRejectedSpot.count, 1)
         await session.terminate()
     }
 

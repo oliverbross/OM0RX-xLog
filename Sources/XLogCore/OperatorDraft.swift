@@ -113,21 +113,25 @@ public enum OperatorDraftRadioFollow {
         }
         var result = previous
         result.frequencyHz = frequencyHz
-        let band = BandPlan.band(for: frequencyHz)
-        if !band.isEmpty { result.band = band }
+        result.band = BandPlan.band(for: frequencyHz)
         result.receiveFrequencyHz = receiveFrequencyHz
         result.receiveBand = receiveFrequencyHz.map(BandPlan.band(for:)) ?? ""
         // Keep parity with prototype/src/live/draftRadio.ts: a data carrier is
         // not evidence of FT8 rather than another chosen digital contact mode.
         let digital = ["FT8", "FT4", "FT2", "JTTY", "PSK", "PSK31", "PSK63", "JT65", "JT9", "MFSK", "OLIVIA", "DATA", "DIGI"]
+        let preservesDigitalSelection: Bool
         switch radioMode {
         case "PKTUSB", "PKTLSB", "DIGU", "DIGL", "DATA", "DIGI":
+            preservesDigitalSelection = true
             let current = previous.mode.uppercased()
             result.mode = digital.contains(current) ? current : "DIGI"
-        case "USB", "LSB": result.mode = "SSB"
-        case "CWR": result.mode = "CW"
-        case "RTTYR": result.mode = "RTTY"
-        default: result.mode = radioMode
+        case "USB", "LSB": preservesDigitalSelection = false; result.mode = "SSB"
+        case "CWR": preservesDigitalSelection = false; result.mode = "CW"
+        case "RTTYR": preservesDigitalSelection = false; result.mode = "RTTY"
+        default: preservesDigitalSelection = false; result.mode = radioMode
+        }
+        if !preservesDigitalSelection && result.mode.uppercased() != previous.mode.uppercased() {
+            result.submode = ""
         }
         result.applyDefaultSignalReportsForMode()
         return result

@@ -503,7 +503,7 @@ it("blocks backup replacement while a contact edit is retained", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));
   fireEvent.click(await screen.findByRole("tab", { name: "Backups" }));
   fireEvent.click(await screen.findByText("Fixture.xlogbackup"));
-  fireEvent.click(await screen.findByRole("checkbox", { name: /I understand this replaces/ }));
+  fireEvent.click(await screen.findByRole("checkbox", { name: /understand this replaces/ }));
   fireEvent.click(screen.getByRole("button", { name: "Restore integrated copy" }));
   expect(await screen.findByText("Finish or clear the logged contact edit before restoring a backup.")).toBeTruthy();
   expect(calls.request.mock.calls.some(([method]) => method === "backup_restore")).toBe(false);
@@ -552,7 +552,7 @@ it("blocks backup replacement during an unresolved table operation", async () =>
   render(<LiveApp />); await screen.findByLabelText("Callsign");
   fireEvent.click(screen.getByRole("button", { name: "Settings" })); fireEvent.click(await screen.findByRole("tab", { name: "Backups" }));
   fireEvent.click(await screen.findByText("Fixture.xlogbackup"));
-  fireEvent.click(await screen.findByRole("checkbox", { name: /I understand this replaces/ }));
+  fireEvent.click(await screen.findByRole("checkbox", { name: /understand this replaces/ }));
   fireEvent.click(screen.getByRole("button", { name: "Restore integrated copy" }));
   expect(await screen.findByText("Resolve the pending logbook Delete/Undo before restoring a backup.")).toBeTruthy();
   expect(calls.request.mock.calls.some(([method]) => method === "backup_restore")).toBe(false);

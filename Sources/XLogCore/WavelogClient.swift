@@ -300,6 +300,7 @@ public struct WavelogQSOUpdate: Codable, Equatable, Sendable {
     public var qsoDate: String?
     public var timeOn: String?
     public var frequency: Int64?
+    public var receiveFrequency: Int64?
     public var receiveBand: String?
     public var rstSent: String?
     public var rstReceived: String?
@@ -327,6 +328,7 @@ public struct WavelogQSOUpdate: Codable, Equatable, Sendable {
         case qsoDate = "qso_date"
         case timeOn = "time_on"
         case frequency = "freq"
+        case receiveFrequency = "freq_rx"
         case receiveBand = "band_rx"
         case rstSent = "rst_sent"
         case rstReceived = "rst_rcvd"

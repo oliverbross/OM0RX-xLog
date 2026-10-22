@@ -590,6 +590,75 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// Bounded, read-only review rows for terminal outcomes that require an
+    /// operator decision. This never recreates a candidate or provider request.
+    public func onlineLogAttention(service: OnlineLogService, limit: Int = 20) throws -> [OnlineLogAttentionItem] {
+        guard (1...100).contains(limit) else { throw OnlineLogDeliveryError.invalidPlan }
+        return try withDatabaseLock {
+            var keys: [(UUID, Int64)] = []
+            try withStatement("""
+                SELECT local_id,contact_revision FROM xlog_online_log_deliveries
+                WHERE service=? AND state IN ('rejected','uncertain')
+                ORDER BY last_attempt_at DESC,local_id ASC LIMIT ?;
+                """) { statement in
+                bind(service.rawValue, to: 1, in: statement)
+                sqlite3_bind_int(statement, 2, Int32(limit))
+                var step = sqlite3_step(statement)
+                while step == SQLITE_ROW {
+                    guard let text = sqlite3_column_text(statement, 0),
+                          let id = UUID(uuidString: String(cString: text)) else {
+                        throw LogbookDatabaseError.corruptRecord
+                    }
+                    keys.append((id, sqlite3_column_int64(statement, 1)))
+                    step = sqlite3_step(statement)
+                }
+                guard step == SQLITE_DONE else { throw error() }
+            }
+            return try keys.compactMap { id, revision in
+                guard let contact = try contactSnapshot(localID: id),
+                      let receipt = try onlineLogDeliveryReceipt(service: service, contactID: id,
+                                                                 contactRevision: revision) else { return nil }
+                return OnlineLogAttentionItem(contact: contact, receipt: receipt)
+            }
+        }
+    }
+
+    /// Operator reconciliation after checking the exact current QSO at the
+    /// provider. It never dispatches traffic or recreates an upload candidate.
+    public func confirmUncertainOnlineLogDelivery(service: OnlineLogService, contactID: UUID,
+                                                   contactRevision: Int64) throws -> OnlineLogDeliveryReceipt {
+        try withDatabaseLock {
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                guard let contact = try contactSnapshot(localID: contactID),
+                      contact.revision == contactRevision,
+                      let existing = try onlineLogDeliveryReceipt(service: service, contactID: contactID,
+                                                                  contactRevision: contactRevision),
+                      existing.state == .uncertain else {
+                    throw OnlineLogDeliveryError.operationMismatch
+                }
+                try withStatement("""
+                    UPDATE xlog_online_log_deliveries
+                    SET state='delivered',next_attempt_at=NULL,remote_id=NULL,last_error_code=NULL
+                    WHERE service=? AND local_id=? AND contact_revision=? AND state='uncertain';
+                    """) { statement in
+                    bind(service.rawValue, to: 1, in: statement)
+                    bind(contactID.uuidString, to: 2, in: statement)
+                    sqlite3_bind_int64(statement, 3, contactRevision)
+                    try stepDone(statement)
+                }
+                guard sqlite3_changes(handle) == 1,
+                      let receipt = try onlineLogDeliveryReceipt(service: service, contactID: contactID,
+                                                                 contactRevision: contactRevision),
+                      receipt.state == .delivered else {
+                    throw OnlineLogDeliveryError.operationMismatch
+                }
+                try execute("COMMIT;")
+                return receipt
+            } catch { try? execute("ROLLBACK;"); throw error }
+        }
+    }
+
     /// One joined SELECT pairs the contact with its revision atomically, including
     /// pre-migration rows (revision zero) without rewriting/scanning the logbook.
     public func contactSnapshot(localID: UUID) throws -> LogbookContactSnapshot? {
@@ -3689,6 +3758,8 @@ private struct SyncedQSOState: Codable, Equatable {
     let stationProfileID: Int?
     let txPower: String
     let propagationMode: String
+    let satelliteName: String?
+    let satelliteMode: String?
     let qslVia: String
 
     init(_ value: QSO) {
@@ -3719,6 +3790,13 @@ private struct SyncedQSOState: Codable, Equatable {
         stationProfileID = value.stationProfileID
         txPower = value.txPower
         propagationMode = value.propagationMode
+        let adif = value.adifRecord
+        func canonicalSatelliteField(_ key: String) -> String? {
+            let normalized = adif[key]?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() ?? ""
+            return normalized.isEmpty ? nil : normalized
+        }
+        satelliteName = canonicalSatelliteField("SAT_NAME")
+        satelliteMode = canonicalSatelliteField("SAT_MODE")
         qslVia = value.qslVia
     }
 

@@ -16,4 +16,14 @@ describe("mode signal report defaults", () => {
     expect(applyModeSignalReportDefaults({ mode: "SSB", rstSent: "58", rstReceived: "57" }, "CW"))
       .toMatchObject({ mode: "CW", rstSent: "58", rstReceived: "57" });
   });
+
+  it("clears an incompatible historical submode on an explicit parent-mode change", () => {
+    expect(applyModeSignalReportDefaults({ mode: "MFSK", submode: "FT4", rstSent: "-10", rstReceived: "-12" }, "SSB"))
+      .toMatchObject({ mode: "SSB", submode: "", rstSent: "-10", rstReceived: "-12" });
+  });
+
+  it("retains an intentionally selected submode when the parent mode is unchanged", () => {
+    expect(applyModeSignalReportDefaults({ mode: "MFSK", submode: "FT4" }, "MFSK"))
+      .toMatchObject({ mode: "MFSK", submode: "FT4" });
+  });
 });

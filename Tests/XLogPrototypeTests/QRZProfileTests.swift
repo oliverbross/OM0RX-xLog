@@ -276,6 +276,25 @@ struct QRZProfileTests {
         #expect(lookup.url?.absoluteString.contains(password) == false)
     }
 
+    @Test("QRZ authentication form round-trips reserved and non-ASCII credential characters")
+    func authenticationFormEncoding() throws {
+        let username = "fixture user+é"
+        let password = "fake+ pass&=%é"
+        let request = QRZClient.authenticationRequest(username: username, password: password)
+        let body = String(decoding: try #require(request.httpBody), as: UTF8.self)
+        func decoded(_ name: String) -> String? {
+            body.split(separator: "&").compactMap { field -> (String, String)? in
+                let pair = field.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+                guard pair.count == 2 else { return nil }
+                return (String(pair[0]), String(pair[1]).replacingOccurrences(of: "+", with: " ").removingPercentEncoding ?? "")
+            }.first { $0.0 == name }?.1
+        }
+        #expect(decoded("username") == username)
+        #expect(decoded("password") == password)
+        #expect(body.contains("fake%2B+pass%26%3D%25%C3%A9"))
+        #expect(request.url?.absoluteString.contains(password) == false)
+    }
+
     @Test("Portable and prefixed calls resolve through the licensed QRZ callsign")
     func normalizesPortableCallsigns() async throws {
         #expect(QRZClient.providerCallsign(for: "om0rx/p") == "OM0RX")

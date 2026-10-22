@@ -234,6 +234,34 @@ describe("grouped service settings", () => {
       service: "club_log", enabled: true, confirm_new_contacts_only: true,
     });
   });
+  it("shows safe per-contact upload review without offering retry-all", async () => {
+    const review = { ...qrzUploadOff, generation: "fixture-generation", provider_issue_code: "credential_unavailable", states: { ...qrzUploadOff.states, uncertain: 1 }, latest_state: "uncertain",
+      latest_error_code: "transport_unknown", attention: [{ contact_id: "fixture-contact", contact_revision: 4,
+        current_revision: true, call: "VK8REVIEW", started_at: "2026-10-22T01:02:03Z", band: "15m", mode: "FT4",
+        state: "uncertain", last_attempt_at: "2026-10-22T01:03:00Z", safe_error_code: "transport_unknown",
+        review_method: "logbook_follow_up", available_actions: ["inspect", "confirm_delivered"] }] };
+    const reconciled = { ...review, states: { ...review.states, uncertain: 0, delivered: 1 }, attention: [] };
+    const request = vi.fn(async (method: string, params?: Record<string, unknown>) => method === "secret_status"
+      ? { "qrz-logbook-key": true } : method === "online_log_status" && params?.service === "qrz" ? review
+      : method === "online_log_reconcile" ? reconciled : qrzUploadOff);
+    render(<SettingsHarness values={values} request={request} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Online logs" }));
+    const panel = await screen.findByLabelText("QRZ contacts requiring review");
+    expect(screen.getByText("Provider setup needs attention: credential unavailable.")).toBeTruthy();
+    expect(within(panel).getByText("VK8REVIEW")).toBeTruthy();
+    expect(within(panel).getByText(/will not retry or change it automatically/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /retry all/i })).toBeNull();
+    fireEvent.click(within(panel).getByRole("button", { name: "Mark VK8REVIEW verified delivered" }));
+    const confirm = within(panel).getByRole("group", { name: "Confirm VK8REVIEW reconciliation" });
+    const action = within(confirm).getByRole("button", { name: "Confirm delivered" }) as HTMLButtonElement;
+    expect(action.disabled).toBe(true);
+    fireEvent.click(within(confirm).getByRole("checkbox", { name: "I verified this contact at QRZ" }));
+    fireEvent.click(action);
+    await screen.findByText("QRZ outcome for VK8REVIEW reconciled as delivered.");
+    expect(request).toHaveBeenCalledWith("online_log_reconcile", { service: "qrz", contact_id: "fixture-contact",
+      contact_revision: 4, generation: "fixture-generation", action: "confirm_delivered", confirm_remote_state: true });
+    expect(request.mock.calls.filter(([method]) => method === "online_log_status")).toHaveLength(2);
+  });
   it("saves a credential separately, clears its input and never sends it with settings", async () => {
     const request = vi.fn(async () => ({ saved: true }));
     const saved = vi.fn(async () => {});

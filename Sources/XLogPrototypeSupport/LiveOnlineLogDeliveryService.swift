@@ -18,6 +18,11 @@ actor LiveOnlineLogDeliveryService {
         let credential: @Sendable () throws -> Credential?
         let delivery: @Sendable (LogbookDatabase, UUID, Credential, Date) async throws -> OnlineLogDeliveryReceipt
     }
+    struct TestingProvider: Sendable {
+        let service: OnlineLogService
+        let credential: @Sendable () throws -> String?
+        let delivery: @Sendable (LogbookDatabase, UUID, String, Date) async throws -> OnlineLogDeliveryReceipt
+    }
 
     private let logbook: LiveLogbookMethods
     private let providers: [Provider]
@@ -27,6 +32,7 @@ actor LiveOnlineLogDeliveryService {
     private var automaticTask: Task<Void, Never>?
     private var deliveryTask: Task<Void, Never>?
     private var recoveredGeneration: String?
+    private var providerIssueCodes: [OnlineLogService: String] = [:]
     private var workspaceTransitions = 0
     private var stopped = false
     private var backgroundOwnershipStarted = false
@@ -90,6 +96,26 @@ actor LiveOnlineLogDeliveryService {
         })]
     }
 
+    init(logbook: LiveLogbookMethods,
+         externalIOAllowed: @escaping @Sendable () -> Bool = { true },
+         backgroundOwnershipAllowed: @escaping @Sendable () -> Bool = { true },
+         retirementRecovery: (@Sendable () throws -> Void)? = nil,
+         testingProviders: [TestingProvider]) {
+        self.logbook = logbook
+        self.externalIOAllowed = externalIOAllowed
+        self.backgroundOwnershipAllowed = backgroundOwnershipAllowed
+        self.retirementRecovery = retirementRecovery ?? { try Self.recoverInterrupted(logbook: logbook) }
+        providers = testingProviders.map { provider in
+            Provider(service: provider.service, credential: {
+                guard let value = try provider.credential() else { return nil }
+                return .qrz(value)
+            }, delivery: { database, contactID, credential, now in
+                guard case .qrz(let value) = credential else { throw OnlineLogDeliveryError.invalidPlan }
+                return try await provider.delivery(database, contactID, value, now)
+            })
+        }
+    }
+
     func startAutomaticDelivery() {
         guard backgroundOwnershipAllowed(), externalIOAllowed(), automaticTask == nil, !stopped else { return }
         backgroundOwnershipStarted = true
@@ -124,24 +150,45 @@ actor LiveOnlineLogDeliveryService {
                 recoveredGeneration = generation
             }
             for provider in providers {
-                let status = try database.onlineLogEnrollmentStatus(service: provider.service)
-                guard status.enabled else { continue }
-                let candidates = try database.onlineLogCandidateIDs(service: provider.service, limit: 16)
-                guard !candidates.isEmpty else { continue }
-                // Invalid or unavailable credentials must never consume a candidate.
-                guard let credential = try provider.credential() else { continue }
-                for contactID in candidates {
-                    guard !stopped, workspaceTransitions == 0, !Task.isCancelled else { return }
-                    // A prior delivery may have disabled the provider and
-                    // deleted the remaining queue. Never dispatch a cached ID
-                    // after that revocation.
-                    guard try database.onlineLogEnrollmentStatus(service: provider.service).enabled else { break }
-                    guard try database.isOnlineLogCandidate(service: provider.service, contactID: contactID) else { continue }
-                    do { _ = try await provider.delivery(database, contactID, credential, now) }
-                    catch OnlineLogDeliveryError.notDue { continue }
-                    catch OnlineLogDeliveryError.staleContact { continue }
-                    catch OnlineLogDeliveryError.deliveryUncertain { continue }
-                    catch { continue }
+                do {
+                    let status = try database.onlineLogEnrollmentStatus(service: provider.service)
+                    guard status.enabled else {
+                        providerIssueCodes[provider.service] = nil
+                        continue
+                    }
+                    let candidates = try database.onlineLogCandidateIDs(service: provider.service, limit: 16)
+                    guard !candidates.isEmpty else { continue }
+                    // Invalid, unavailable or throwing credentials must never
+                    // consume this provider's candidates or starve another.
+                    let credential: Credential
+                    do {
+                        guard let loaded = try provider.credential() else {
+                            providerIssueCodes[provider.service] = "credential_unavailable"
+                            continue
+                        }
+                        credential = loaded
+                        providerIssueCodes[provider.service] = nil
+                    } catch {
+                        providerIssueCodes[provider.service] = "credential_unavailable"
+                        continue
+                    }
+                    for contactID in candidates {
+                        guard !stopped, workspaceTransitions == 0, !Task.isCancelled else { return }
+                        // A prior delivery may have disabled the provider and
+                        // deleted the remaining queue. Never dispatch a cached ID
+                        // after that revocation.
+                        guard try database.onlineLogEnrollmentStatus(service: provider.service).enabled else { break }
+                        guard try database.isOnlineLogCandidate(service: provider.service, contactID: contactID) else { continue }
+                        do { _ = try await provider.delivery(database, contactID, credential, now) }
+                        catch OnlineLogDeliveryError.notDue { continue }
+                        catch OnlineLogDeliveryError.staleContact { continue }
+                        catch OnlineLogDeliveryError.deliveryUncertain { continue }
+                        catch { continue }
+                    }
+                } catch {
+                    // Provider setup and vault errors are isolated and never
+                    // surfaced verbatim because they may contain secret data.
+                    continue
                 }
             }
         } catch {
@@ -189,6 +236,11 @@ actor LiveOnlineLogDeliveryService {
 
     func hasScheduledWorkForTesting() -> Bool {
         automaticTask != nil || deliveryTask != nil
+    }
+
+    /// Safe status fields only. Provider and vault error text is never retained.
+    func providerStatusFields(service: OnlineLogService) -> [String: Any] {
+        ["provider_issue_code": providerIssueCodes[service] as Any? ?? NSNull()]
     }
 
     private func finishDeliveryTask() { deliveryTask = nil }

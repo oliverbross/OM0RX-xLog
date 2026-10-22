@@ -14,6 +14,8 @@ type Preview = {
     pendingSyncCount: number;
     databaseBytes: number;
     includesReferenceData: boolean;
+    includesContestingData?: boolean;
+    contestDatabaseCount?: number;
   };
   includes_settings: boolean;
   includes_preferences: boolean;
@@ -36,9 +38,10 @@ export function safeReferenceVersion(value: unknown): string {
   return trimmed.length > 0 && trimmed.length <= 80 && /^[\x20-\x7e]+$/.test(trimmed) ? trimmed : "Not reported";
 }
 
-export function DataManagementPanel({ onRequest, onChanged, section, visible = true, sourceSettings = {}, pickBackup = () => invoke<string | null>("pick_backup_package") }: {
+export function DataManagementPanel({ onRequest, onChanged, workspaceGeneration = "", section, visible = true, sourceSettings = {}, pickBackup = () => invoke<string | null>("pick_backup_package") }: {
   onRequest: Request;
   onChanged: () => void;
+  workspaceGeneration?: string;
   pickBackup?: () => Promise<string | null>;
   section?: "references" | "backups";
   visible?: boolean;
@@ -48,7 +51,7 @@ export function DataManagementPanel({ onRequest, onChanged, section, visible = t
   const [selected, setSelected] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [reference, setReference] = useState<ReferenceStatus | null>(null);
-  const [confirmRestore, setConfirmRestore] = useState(false);
+  const [confirmedRestoreName, setConfirmedRestoreName] = useState<string | null>(null);
   const [restoreSettings, setRestoreSettings] = useState(true);
   const [restorePreferences, setRestorePreferences] = useState(false);
   const [restoreReference, setRestoreReference] = useState(true);
@@ -57,15 +60,17 @@ export function DataManagementPanel({ onRequest, onChanged, section, visible = t
   const [message, setMessage] = useState("");
   const [referenceError, setReferenceError] = useState("");
   const mounted = useRef(false);
-  const statusFlight = useRef<{ request: Request; promise: Promise<any> } | null>(null);
+  const inspectionGeneration = useRef(0);
+  const statusFlight = useRef<{ request: Request; workspaceGeneration: string; promise: Promise<any> } | null>(null);
   const fetchReferenceStatus = useCallback(() => {
-    if (statusFlight.current?.request === onRequest) return statusFlight.current.promise;
+    if (statusFlight.current?.request === onRequest && statusFlight.current.workspaceGeneration === workspaceGeneration)
+      return statusFlight.current.promise;
     const promise = Promise.resolve().then(() => onRequest("reference_status")).finally(() => {
       if (statusFlight.current?.promise === promise) statusFlight.current = null;
     });
-    statusFlight.current = { request: onRequest, promise };
+    statusFlight.current = { request: onRequest, workspaceGeneration, promise };
     return promise;
-  }, [onRequest]);
+  }, [onRequest, workspaceGeneration]);
 
   async function reload() {
     const [listing, status] = await Promise.allSettled([
@@ -80,6 +85,7 @@ export function DataManagementPanel({ onRequest, onChanged, section, visible = t
 
   useEffect(() => {
     let disposed = false;
+    setSelected(""); setPreview(null); setConfirmedRestoreName(null);
     mounted.current = true;
     void Promise.allSettled([onRequest("backup_list"), fetchReferenceStatus()])
       .then(([listing, status]) => {
@@ -89,8 +95,8 @@ export function DataManagementPanel({ onRequest, onChanged, section, visible = t
         if (status.status === "fulfilled") { setReference(status.value); setReferenceError(""); }
         else setReferenceError("Reference status is unavailable. Its freshness cannot be assessed.");
       });
-    return () => { disposed = true; mounted.current = false; };
-  }, [onRequest, fetchReferenceStatus]);
+    return () => { disposed = true; mounted.current = false; inspectionGeneration.current += 1; };
+  }, [onRequest, fetchReferenceStatus, workspaceGeneration]);
 
   useEffect(() => {
     if (!visible || section === "backups") return;
@@ -115,9 +121,17 @@ export function DataManagementPanel({ onRequest, onChanged, section, visible = t
   }
 
   async function inspect(name: string) {
-    setSelected(name); setConfirmRestore(false); setRestorePreferences(false); setError("");
-    try { setPreview(await onRequest("backup_inspect", { name })); }
-    catch (cause) { setPreview(null); setError(cause instanceof Error ? cause.message : String(cause)); }
+    const generation = inspectionGeneration.current + 1;
+    inspectionGeneration.current = generation;
+    setSelected(name); setPreview(null); setConfirmedRestoreName(null); setRestorePreferences(false); setError("");
+    try {
+      const inspected = await onRequest("backup_inspect", { name });
+      if (!mounted.current || inspectionGeneration.current !== generation || inspected?.name !== name) return;
+      setPreview(inspected);
+    } catch (cause) {
+      if (!mounted.current || inspectionGeneration.current !== generation) return;
+      setPreview(null); setError(cause instanceof Error ? cause.message : String(cause));
+    }
   }
 
   const state = reference?.state ?? {};
@@ -148,7 +162,7 @@ export function DataManagementPanel({ onRequest, onChanged, section, visible = t
           await reload(); await inspect(created.name);
           setMessage(`Verified backup created: ${created.manifest.qsoCount.toLocaleString()} QSOs.`);
         })}><Archive size={14} /> Create backup</button></div>
-      <p>Each backup contains a consistent SQLite snapshot and non-secret settings. Credentials stay in Keychain.</p>
+      <p>Included in new local backups: the normal logbook SQLite snapshot, non-secret settings and workspace preferences, reference cache when shown, and SQLite-safe Contesting/Python database snapshots when present. Excluded: Keychain credentials, live radio/output ownership and transient contest activation state.</p>
       <button type="button" disabled={busy} onClick={() => void act(async () => {
         const sourcePath = await pickBackup();
         if (!sourcePath) return;
@@ -165,17 +179,19 @@ export function DataManagementPanel({ onRequest, onChanged, section, visible = t
         <strong><CheckCircle2 size={14} /> Verified · {preview.manifest.qsoCount.toLocaleString()} QSOs</strong>
         <span>Created {date(preview.manifest.createdAt)} · {preview.manifest.pendingSyncCount.toLocaleString()} pending sync · {(preview.manifest.databaseBytes / 1024 / 1024).toFixed(1)} MB</span>
         <span>{preview.manifest.includesReferenceData ? "Reference cache included" : "No reference cache"} · {preview.includes_settings ? "Settings included" : "No settings"}</span>
+        <span>{preview.manifest.includesContestingData ? `${preview.manifest.contestDatabaseCount ?? 0} contest database snapshot${preview.manifest.contestDatabaseCount === 1 ? "" : "s"} included` : "Contesting/Python databases not included in this backup"} · Credentials and live output ownership excluded</span>
         <label><input type="checkbox" checked={restoreSettings} onChange={(event) => setRestoreSettings(event.target.checked)} /> Restore settings</label>
         <label><input type="checkbox" checked={restorePreferences} onChange={(event) => setRestorePreferences(event.target.checked)} disabled={!preview.includes_preferences} /> Restore workspace preferences (band maps and intelligence)</label>
         <label><input type="checkbox" checked={restoreReference} onChange={(event) => setRestoreReference(event.target.checked)} disabled={!preview.manifest.includesReferenceData} /> Restore reference cache</label>
-        <label className="live-data-confirm"><input type="checkbox" checked={confirmRestore} onChange={(event) => setConfirmRestore(event.target.checked)} /> I understand this replaces the integrated working copy and creates a recovery backup first.</label>
-        <button type="button" disabled={busy || !confirmRestore} onClick={() => void act(async () => {
+        <label className="live-data-confirm"><input type="checkbox" checked={confirmedRestoreName === preview.name} onChange={(event) => setConfirmedRestoreName(event.target.checked ? preview.name : null)} /> I reviewed this exact backup and understand this replaces the integrated working copy and creates a recovery backup first.</label>
+        <button type="button" disabled={busy || preview.name !== selected || confirmedRestoreName !== preview.name} onClick={() => void act(async () => {
+          if (preview.name !== selected || confirmedRestoreName !== preview.name) throw new Error("Inspect and confirm the selected backup again before restoring.");
           const restored = await onRequest("backup_restore", {
             name: preview.name, confirm_restore: true,
             restore_settings: restoreSettings, restore_preferences: restorePreferences,
             restore_reference_data: restoreReference,
           });
-          setConfirmRestore(false);
+          setConfirmedRestoreName(null);
           setMessage(`Restored ${restored.qso_count.toLocaleString()} QSOs. Recovery backup: ${restored.recovery_backup}.`);
           onChanged();
         })}>Restore integrated copy</button>

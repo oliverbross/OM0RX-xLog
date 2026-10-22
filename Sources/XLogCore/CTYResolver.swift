@@ -96,12 +96,22 @@ public final class CTYResolver: @unchecked Sendable {
     private func matchingRule(_ rawCallsign: String, at date: Date, rules: [Rule],
                               token: KeyPath<Rule, String>) -> Rule? {
         let call = rawCallsign.uppercased().filter { $0.isLetter || $0.isNumber || $0 == "/" }
-        var candidates = [call]
-        candidates.append(contentsOf: call.split(separator: "/").map(String.init).filter { !ignoredSuffixes.contains($0) }.sorted { $0.count > $1.count })
+        // A dated/exact expedition exception for the complete portable call is
+        // authoritative. Prefix rules for the home callsign are not: for
+        // EA8/OM0RX and OM0RX/EA8 the shorter slash component is the explicit
+        // operating prefix and must be considered before OM.
+        if let exact = rules.first(where: { rule in
+            rule.exact && call == rule[keyPath: token] && Self.isActive(rule, at: date)
+        }) { return exact }
+        let components = call.split(separator: "/").map(String.init).filter {
+            !ignoredSuffixes.contains($0) && $0.contains(where: { $0.isLetter })
+        }
+        let candidates = components.sorted {
+            $0.count == $1.count ? $0 < $1 : $0.count < $1.count
+        } + [call]
         for candidate in candidates {
             for rule in rules {
-                if let start = rule.start, date < start { continue }
-                if let end = rule.end, date > end { continue }
+                guard Self.isActive(rule, at: date) else { continue }
                 let ruleToken = rule[keyPath: token]
                 if rule.exact ? candidate == ruleToken : candidate.hasPrefix(ruleToken) {
                     if ruleToken == "KG4", candidate.range(of: #"^KG4[A-Z]{3}$"#, options: .regularExpression) != nil,
@@ -111,6 +121,12 @@ public final class CTYResolver: @unchecked Sendable {
             }
         }
         return nil
+    }
+
+    private static func isActive(_ rule: Rule, at date: Date) -> Bool {
+        if let start = rule.start, date < start { return false }
+        if let end = rule.end, date > end { return false }
+        return true
     }
 
     /// Reproduces only the removed PJ shortcut for a local impact preview.
@@ -144,7 +160,16 @@ public final class CTYResolver: @unchecked Sendable {
         rules.sorted { lhs, rhs in
             let lhsToken = lhs[keyPath: token]
             let rhsToken = rhs[keyPath: token]
-            return lhsToken.count == rhsToken.count ? (lhs.exact && !rhs.exact) : lhsToken.count > rhsToken.count
+            if lhsToken.count != rhsToken.count { return lhsToken.count > rhsToken.count }
+            if lhs.exact != rhs.exact { return lhs.exact }
+            // CTY rows commonly repeat the primary prefix in their token list.
+            // After stripping annotations both rules can have the same token;
+            // keep the annotated endpoint authoritative instead of relying on
+            // the standard library sort's unspecified ordering for equal keys.
+            let lhsOverrides = lhs.endpointCountry != lhs.country
+            let rhsOverrides = rhs.endpointCountry != rhs.country
+            if lhsOverrides != rhsOverrides { return lhsOverrides }
+            return false
         }
     }
 

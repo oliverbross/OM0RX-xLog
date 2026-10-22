@@ -359,7 +359,10 @@ public actor SyncEngine {
                 }
                 if let remoteID = qso.wavelogID {
                     try validateForNetwork(run)
-                    _ = try await client.updateQSO(id: remoteID, fields: WavelogQSOUpdate(qso))
+                    let remote = try await client.updateQSO(id: remoteID, fields: WavelogQSOUpdate(qso))
+                    guard remote.representsSupportedWrite(of: qso) else {
+                        throw WavelogClientError.writeVerificationFailed(id: remoteID)
+                    }
                     try validateSyncRun()
                     try database.withSyncDatabaseLock(run) { try database.acknowledgeSynced(qso) }
                 } else {
@@ -371,6 +374,9 @@ public actor SyncEngine {
                     }
                     try validateForNetwork(run)
                     let remote = try await client.createQSO(create)
+                    guard remote.representsSupportedWrite(of: qso) else {
+                        throw WavelogClientError.writeVerificationFailed(id: remote.id)
+                    }
                     try validateSyncRun()
                     try database.withSyncDatabaseLock(run) { try database.acknowledgeSynced(qso, wavelogID: remote.id) }
                 }
@@ -633,15 +639,17 @@ private extension QSO {
     }
 }
 
-private extension WavelogQSOUpdate {
+extension WavelogQSOUpdate {
     init(_ qso: QSO) {
         self.init()
         let date = DateFormatter()
         date.locale = Locale(identifier: "en_US_POSIX"); date.timeZone = TimeZone(secondsFromGMT: 0); date.dateFormat = "yyyy-MM-dd"
         let time = DateFormatter()
         time.locale = Locale(identifier: "en_US_POSIX"); time.timeZone = TimeZone(secondsFromGMT: 0); time.dateFormat = "HHmmss"
-        call = qso.call; band = qso.band; mode = qso.mode; qsoDate = date.string(from: qso.start); timeOn = time.string(from: qso.start)
-        frequency = qso.frequencyHz; receiveBand = qso.receiveBand.nilIfEmpty
+        let adif = qso.adifRecord
+        call = qso.call; band = qso.band; mode = adif["SUBMODE"]?.nilIfEmpty ?? adif["MODE"] ?? qso.mode
+        qsoDate = date.string(from: qso.start); timeOn = time.string(from: qso.start)
+        frequency = qso.frequencyHz; receiveFrequency = qso.receiveFrequencyHz; receiveBand = qso.receiveBand.nilIfEmpty
         rstSent = qso.rstSent.nilIfEmpty; rstReceived = qso.rstReceived.nilIfEmpty
         gridSquare = qso.gridSquare.nilIfEmpty; name = qso.name.nilIfEmpty; comment = qso.comment.nilIfEmpty
         notes = qso.notes.nilIfEmpty; qth = qso.qth.nilIfEmpty; state = qso.state.nilIfEmpty
@@ -649,6 +657,23 @@ private extension WavelogQSOUpdate {
         power = qso.txPower.nilIfEmpty; cqZone = qso.cqZone.nilIfEmpty; ituZone = qso.ituZone.nilIfEmpty
         propagationMode = qso.propagationMode.nilIfEmpty; sotaReference = qso.sotaReference.nilIfEmpty
         potaReference = qso.potaReference.nilIfEmpty; wwffReference = qso.wwffReference.nilIfEmpty
+        satelliteName = adif["SAT_NAME"]?.nilIfEmpty; satelliteMode = adif["SAT_MODE"]?.nilIfEmpty
+    }
+}
+
+extension WavelogQSO {
+    func representsSupportedWrite(of qso: QSO) -> Bool {
+        let adif = qso.adifRecord
+        let expectedMode = (adif["SUBMODE"]?.nilIfEmpty ?? adif["MODE"] ?? qso.mode).uppercased()
+        let returnedMode = (submode?.nilIfEmpty ?? mode).uppercased()
+        guard call.uppercased() == qso.call.uppercased(), band.lowercased() == qso.band.lowercased(),
+              returnedMode == expectedMode else { return false }
+        if let expected = qso.frequencyHz, frequency.flatMap({ roundedHertz($0) }) != expected { return false }
+        if let expected = qso.receiveFrequencyHz, receiveFrequency.flatMap({ roundedHertz($0) }) != expected { return false }
+        if let expected = qso.receiveBand.nilIfEmpty, receiveBand?.lowercased() != expected.lowercased() { return false }
+        if let expected = adif["SAT_NAME"]?.nilIfEmpty, satelliteName?.uppercased() != expected.uppercased() { return false }
+        if let expected = adif["SAT_MODE"]?.nilIfEmpty, satelliteMode?.uppercased() != expected.uppercased() { return false }
+        return true
     }
 }
 

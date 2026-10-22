@@ -1,5 +1,4 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
-import DataManagementPanel from "./DataManagementPanel";
 import DisplaySettings from "./DisplaySettings";
 import { EquipmentSettings } from "./StationEquipment";
 import CWSettings from "./CWSettings";
@@ -15,10 +14,11 @@ const QRZLookupTest = lazy(() => import("./QRZLookupTest"));
 const RadioSpotSettings = lazy(() => import("./RadioSpotSettings"));
 const SpotBridgePanel = lazy(() => import("./SpotBridgePanel"));
 const WSJTXPanel = lazy(() => import("./WSJTXPanel"));
+const DataManagementPanel = lazy(() => import("./DataManagementPanel"));
 export type ServiceSettingsProps = { values: Data; savedValues?: Data; request: Request; onChanged: (value: Data) => void; onSave: (value: Data) => Promise<void>;
   saving?: boolean; pending?: boolean; conflict?: boolean; workspaceChanged?: boolean; dirty?: boolean; sessionError?: string;
   onReconcile?: () => Promise<void>; onRetry?: () => Promise<void>; onUseSaved?: () => void;
-  dataRequest?: Request; onDataChanged?: () => void; radioSettings?: ReactNode; rotorSettings?: ReactNode; clusterSettings?: ReactNode; workspaceSettings?: ReactNode; syncSettings?: ReactNode;
+  dataRequest?: Request; dataWorkspaceGeneration?: string; onDataChanged?: () => void; radioSettings?: ReactNode; rotorSettings?: ReactNode; clusterSettings?: ReactNode; workspaceSettings?: ReactNode; syncSettings?: ReactNode;
   onExternalContact?: () => void;
   availableTabs?: readonly Tab[]; requestedTab?: Tab; requestedTabRevision?: number; cwContext?: CWContext; cwState?: CWState;
   refreshCW?: () => Promise<void>; cwProvider?: string };
@@ -82,7 +82,12 @@ function Credential({ account, label, request, leadingField, visible = false, sh
 }
 
 type OnlineLogStatus = { enabled: boolean; enabled_at?: string | null; pending_new_contacts: number;
-  states: Record<string, number>; latest_state?: string | null; latest_attempt_at?: string | null; latest_error_code?: string | null };
+  states: Record<string, number>; latest_state?: string | null; latest_attempt_at?: string | null; latest_error_code?: string | null;
+  provider_issue_code?: string | null;
+  generation?: string | null;
+  attention?: Array<{ contact_id: string; contact_revision: number; current_revision: boolean; call: string; started_at: string;
+    band: string; mode: string; state: "rejected" | "uncertain"; last_attempt_at: string; safe_error_code?: string | null;
+    review_method: "logbook_follow_up"; available_actions: Array<"inspect" | "confirm_delivered"> }> };
 
 function OnlineLogUploadControl({ request, visible, refreshRevision, service, provider }: { request: Request; visible: boolean; refreshRevision: number; service: "qrz" | "club_log"; provider: "QRZ" | "Club Log" }) {
   const [status, setStatus] = useState<OnlineLogStatus | null>(null);
@@ -91,6 +96,8 @@ function OnlineLogUploadControl({ request, visible, refreshRevision, service, pr
   const saveToast = useSettingsSaveToast();
   const [confirming, setConfirming] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [reconcileKey, setReconcileKey] = useState("");
+  const [reconcileConfirmed, setReconcileConfirmed] = useState(false);
   const [reloadRevision, setReloadRevision] = useState(0);
   useEffect(() => {
     if (!visible) return;
@@ -114,6 +121,19 @@ function OnlineLogUploadControl({ request, visible, refreshRevision, service, pr
   const states = status?.states ?? {};
   const attention = (states.rejected ?? 0) + (states.uncertain ?? 0);
   const helpID = `${service}-upload-help`;
+  const reconcile = async (item: NonNullable<OnlineLogStatus["attention"]>[number]) => {
+    if (busy || !status?.generation || !reconcileConfirmed) return;
+    setBusy(true); setMessage("");
+    try {
+      const next = await request("online_log_reconcile", { service, contact_id: item.contact_id,
+        contact_revision: item.contact_revision, generation: status.generation,
+        action: "confirm_delivered", confirm_remote_state: true });
+      setStatus(next as OnlineLogStatus); setReconcileKey(""); setReconcileConfirmed(false);
+      saveToast.show(`${provider} outcome for ${item.call} reconciled as delivered.`);
+    } catch {
+      setMessage(`Could not reconcile ${item.call}. Refresh and review the current contact again.`);
+    } finally { setBusy(false); }
+  };
   return <div className="service-online-log" aria-label={`${provider} upload`}>
     <label className="service-enable"><input type="checkbox" aria-describedby={helpID} checked={status?.enabled === true}
       disabled={busy || !status} onChange={event => event.target.checked ? setConfirming(true) : void configure(false)} />Upload new contacts to {provider}</label>
@@ -127,13 +147,34 @@ function OnlineLogUploadControl({ request, visible, refreshRevision, service, pr
     </div>}
     {status && <p role="status">Upload is {status.enabled ? "ON" : "OFF"}. {status.pending_new_contacts ?? 0} new contacts pending; {states.delivered ?? 0} delivered; {states.deferred ?? 0} deferred; {attention} require review.</p>}
     {status?.latest_state && <p>Latest outcome: {status.latest_state.replace(/_/g, " ")}{status.latest_error_code ? ` (${status.latest_error_code.replace(/_/g, " ")})` : ""}.</p>}
+    {status?.provider_issue_code && <p role="status">Provider setup needs attention: {status.provider_issue_code.replace(/_/g, " ")}.</p>}
+    {(status?.attention?.length ?? 0) > 0 && <div className="service-settings-recovery" aria-label={`${provider} contacts requiring review`}>
+      <p><strong>Contacts requiring review</strong></p>
+      <p>These are historical outcomes. Verify each contact on {provider}; the app will not retry or change it automatically.</p>
+      <ul>{status?.attention?.map(item => <li key={`${item.contact_id}:${item.contact_revision}`}>
+        <strong>{item.call}</strong> · {item.started_at} · {item.band} {item.mode} · {item.state.replace(/_/g, " ")}
+        {item.safe_error_code ? ` (${item.safe_error_code.replace(/_/g, " ")})` : ""}
+        {!item.current_revision && " · contact edited since this attempt"}
+        {item.available_actions.includes("confirm_delivered") && <>
+          <button type="button" disabled={busy} onClick={() => { setReconcileKey(item.contact_id); setReconcileConfirmed(false); }}>
+            Mark {item.call} verified delivered
+          </button>
+          {reconcileKey === item.contact_id && <div role="group" aria-label={`Confirm ${item.call} reconciliation`}>
+            <p>Only continue after verifying this exact contact exists in {provider}. This records the outcome locally and sends no upload.</p>
+            <label><input type="checkbox" checked={reconcileConfirmed} onChange={event => setReconcileConfirmed(event.target.checked)} />I verified this contact at {provider}</label>
+            <button type="button" disabled={busy || !reconcileConfirmed} onClick={() => void reconcile(item)}>Confirm delivered</button>
+            <button type="button" disabled={busy} onClick={() => { setReconcileKey(""); setReconcileConfirmed(false); }}>Cancel</button>
+          </div>}
+        </>}
+      </li>)}</ul>
+    </div>}
     <button type="button" disabled={busy} onClick={() => { setStatus(null); setMessage(""); setReloadRevision(value => value + 1); }}>Refresh upload status</button>
     {message && <p role="status">{message}</p>}{saveToast.toast}
   </div>;
 }
 
 export default function ServiceSettings({ values, savedValues, request, onChanged, onSave, saving = false, pending = false,
-  conflict = false, workspaceChanged = false, dirty = false, sessionError = "", onReconcile, onRetry, onUseSaved, dataRequest, onDataChanged,
+  conflict = false, workspaceChanged = false, dirty = false, sessionError = "", onReconcile, onRetry, onUseSaved, dataRequest, dataWorkspaceGeneration, onDataChanged,
   radioSettings, rotorSettings, clusterSettings, workspaceSettings, syncSettings, onExternalContact, availableTabs, requestedTab, requestedTabRevision, cwContext, cwState, refreshCW, cwProvider }: ServiceSettingsProps) {
   const visibleTabs = useMemo(() => availableTabs?.filter((value, index, values) => tabs.includes(value) && values.indexOf(value) === index) ?? tabs, [availableTabs]);
   const initialTab = requestedTab && visibleTabs.includes(requestedTab) ? requestedTab : visibleTabs[0] ?? "Station";
@@ -254,7 +295,7 @@ export default function ServiceSettings({ values, savedValues, request, onChange
       </section>
       <div className="live-actions" hidden={!showFormSave}><button type="submit" className="primary">{saving ? "Saving settings…" : "Save settings"}</button></div>
     </fieldset></form>
-    {(visibleTabs.includes("Reference data") || visibleTabs.includes("Backups")) && <div hidden={tab !== "Reference data" && tab !== "Backups"}>{dataRequest ? <DataManagementPanel onRequest={dataRequest} onChanged={onDataChanged ?? (() => {})} visible={tab === "Reference data" || tab === "Backups"} section={tab === "Backups" ? "backups" : "references"} sourceSettings={savedValues ?? form} /> : <p>Reference and backup tools are unavailable in this view.</p>}</div>}
+    {(visibleTabs.includes("Reference data") || visibleTabs.includes("Backups")) && <div hidden={tab !== "Reference data" && tab !== "Backups"}>{dataRequest ? <Suspense fallback={<p>Loading data tools…</p>}><DataManagementPanel onRequest={dataRequest} onChanged={onDataChanged ?? (() => {})} workspaceGeneration={dataWorkspaceGeneration} visible={tab === "Reference data" || tab === "Backups"} section={tab === "Backups" ? "backups" : "references"} sourceSettings={savedValues ?? form} /></Suspense> : <p>Reference and backup tools are unavailable in this view.</p>}</div>}
     <p className="service-security-note" hidden={!showAccountHelp && tab !== "Online logs" && tab !== "Display"}>Credentials stay in the integrated app’s separate macOS Keychain service. Existing application credentials are not changed. Never paste credentials into a support chat.</p>
     {saveToast.toast}
     </div></div>

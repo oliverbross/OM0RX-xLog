@@ -540,6 +540,7 @@ public actor LiveWorker {
                     }
                 }
                 if ["workspace_create", "backup_restore"].contains(method) { try await remoteBackup.stop() }
+                if method == "backup_restore" { await pythonContestLane?.prepareForRestore() }
                 if method == "settings_save" { await remoteBackupPresentation.retireConfiguration() }
                 let changingWorkspace = runtimeProfile.externalIOAllowed && !localAcceptance
                     && ["workspace_create", "backup_restore"].contains(method)
@@ -627,7 +628,18 @@ public actor LiveWorker {
                     && params["account"] as? String == "ftp-backup-password"
                 if changesFTPBackupCredential { await remoteBackupPresentation.retireConfiguration() }
                 if fencesOnlineDelivery { await onlineLogs.suspendForOwnershipChange() }
-                do { result = try await services.handle(method: method, params: params) }
+                do {
+                    var serviceResult = try await services.handle(method: method, params: params)
+                    if method == "online_log_status" {
+                        let service = (params["service"] as? String).flatMap {
+                            OnlineLogService(rawValue: $0)
+                        } ?? .qrz
+                        serviceResult.merge(await onlineLogs.providerStatusFields(service: service)) {
+                            _, safeStatus in safeStatus
+                        }
+                    }
+                    result = serviceResult
+                }
                 catch {
                     if fencesOnlineDelivery { await onlineLogs.finishOwnershipChange() }
                     throw error
@@ -773,7 +785,7 @@ public actor LiveWorker {
             "qrz-logbook-key", "clublog-api-key", "clublog-email",
             "clublog-application-password", "clublog-callsign",
         ]
-        return method == "online_log_configure" ||
+        return method == "online_log_configure" || method == "online_log_reconcile" ||
             (method == "secret_save" && (params["account"] as? String).map(credentialAccounts.contains) == true)
     }
 

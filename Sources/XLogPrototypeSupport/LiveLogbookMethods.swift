@@ -110,6 +110,10 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         supportDirectory.appendingPathComponent("OM0RX-xLog-Integrated Preview", isDirectory: true)
     }
 
+    private var contestingDataURL: URL {
+        supportDirectory.appendingPathComponent("Contesting/Python", isDirectory: true)
+    }
+
     var workspaceDirectoryURL: URL { workspaceURL }
 
     func referenceDirectoryURL() throws -> URL {
@@ -1388,7 +1392,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 let preview = try XLogBackupManager().create(
                     database: db, at: package, settings: try currentSettings(),
                     preferences: try currentBackupPreferences(),
-                    referenceDataURL: fileManager.fileExists(atPath: reference.path) ? reference : nil
+                    referenceDataURL: fileManager.fileExists(atPath: reference.path) ? reference : nil,
+                    contestingDataURL: fileManager.fileExists(atPath: contestingDataURL.path) ? contestingDataURL : nil
                 )
                 return ["name": package.lastPathComponent, "manifest": try json(preview.manifest)]
             case "backup_list":
@@ -1490,7 +1495,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 _ = try manager.create(database: db, at: rollback,
                                        settings: try currentSettings(),
                                        preferences: try currentBackupPreferences(),
-                                       referenceDataURL: fileManager.fileExists(atPath: reference.path) ? reference : nil)
+                                       referenceDataURL: fileManager.fileExists(atPath: reference.path) ? reference : nil,
+                                       contestingDataURL: fileManager.fileExists(atPath: contestingDataURL.path) ? contestingDataURL : nil)
                 // Invalidate old clients durably before any database replacement.
                 // This sidecar is outside the backup payload and survives restart.
                 _ = try editGeneration(rotate: true)
@@ -1499,6 +1505,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 ctyResolverCache = nil
                 do {
                     _ = try manager.installDatabase(from: package, to: workspaceURL.appendingPathComponent("OM0RX-xLog.sqlite"))
+                    _ = try manager.installContestingData(from: package, to: contestingDataURL)
                     if restoreReference, preview.manifest.includesReferenceData {
                         _ = try manager.installReferenceData(from: package, to: reference)
                     }

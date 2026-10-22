@@ -7,9 +7,50 @@ const manifest = { createdAt: "2026-10-12T10:00:00Z", qsoCount: 42, pendingSyncC
   databaseBytes: 1_048_576, includesReferenceData: true };
 const listing = { backups: [] };
 const reference = { running: false, status: "Current", cty_source: "bundled", state: {} };
+const deferred = <T,>() => { let resolve!: (value: T) => void; let reject!: (error: Error) => void;
+  return { promise: new Promise<T>((yes, no) => { resolve = yes; reject = no; }), resolve, reject }; };
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe("verified external backup workflow", () => {
+  it("keeps restore bound to the latest inspected backup when an older reply arrives late", async () => {
+    const a = deferred<any>(), b = deferred<any>();
+    const request = vi.fn((method: string, params?: Record<string, unknown>) => {
+      if (method === "backup_list") return Promise.resolve({ backups: [{ name: "A.xlogbackup" }, { name: "B.xlogbackup" }] });
+      if (method === "reference_status") return Promise.resolve(reference);
+      if (method === "backup_inspect") return params?.name === "A.xlogbackup" ? a.promise : b.promise;
+      if (method === "backup_restore") return Promise.resolve({ qso_count: 42, recovery_backup: "before.xlogbackup" });
+      return Promise.reject(new Error(`Unexpected ${method}`));
+    });
+    render(<DataManagementPanel section="backups" onRequest={request} onChanged={vi.fn()} />);
+    fireEvent.click(await screen.findByText("A.xlogbackup"));
+    fireEvent.click(screen.getByText("B.xlogbackup"));
+    await act(async () => b.resolve({ name: "B.xlogbackup", manifest, includes_settings: true, includes_preferences: true }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: /I reviewed this exact backup/ }));
+    await act(async () => a.resolve({ name: "A.xlogbackup", manifest: { ...manifest, qsoCount: 1 }, includes_settings: true, includes_preferences: true }));
+    expect(screen.getByText(/Verified · 42 QSOs/)).toBeTruthy();
+    expect(screen.queryByText(/Verified · 1 QSOs/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Restore integrated copy" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("backup_restore", expect.objectContaining({ name: "B.xlogbackup" })));
+  }, 15_000);
+
+  it("invalidates a late inspection when the workspace generation changes", async () => {
+    const inspection = deferred<any>();
+    const request = vi.fn((method: string) => {
+      if (method === "backup_list") return Promise.resolve({ backups: [{ name: "Shared.xlogbackup" }] });
+      if (method === "reference_status") return Promise.resolve(reference);
+      if (method === "backup_inspect") return inspection.promise;
+      if (method === "backup_restore") return Promise.reject(new Error("stale restore must not run"));
+      return Promise.reject(new Error(`Unexpected ${method}`));
+    });
+    const view = render(<DataManagementPanel section="backups" workspaceGeneration="workspace-a" onRequest={request} onChanged={vi.fn()} />);
+    fireEvent.click(await screen.findByText("Shared.xlogbackup"));
+    view.rerender(<DataManagementPanel section="backups" workspaceGeneration="workspace-b" onRequest={request} onChanged={vi.fn()} />);
+    await act(async () => inspection.resolve({ name: "Shared.xlogbackup", manifest, includes_settings: true, includes_preferences: true }));
+    expect(screen.queryByText(/Verified · 42 QSOs/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Restore integrated copy" })).toBeNull();
+    expect(request.mock.calls.some(([method]) => method === "backup_restore")).toBe(false);
+  });
+
   it("uses a native picker, imports a verified copy, then requires separate restore confirmation", async () => {
     const pickBackup = vi.fn(async () => "/chosen/Native.xlogbackup");
     const changed = vi.fn();
@@ -31,7 +72,7 @@ describe("verified external backup workflow", () => {
     await screen.findByText(/Verified · 42 QSOs/);
     expect(screen.getByRole("checkbox", { name: /Restore workspace preferences/ }).hasAttribute("checked")).toBe(false);
     fireEvent.click(screen.getByRole("checkbox", { name: /Restore workspace preferences/ }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /I understand this replaces/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /understand this replaces/ }));
     fireEvent.click(screen.getByRole("button", { name: "Restore integrated copy" }));
     await waitFor(() => expect(request).toHaveBeenCalledWith("backup_restore", {
       name: "Imported-safe.xlogbackup", confirm_restore: true,
@@ -46,6 +87,12 @@ describe("verified external backup workflow", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Import xLog backup…" }));
     await waitFor(() => expect(request).toHaveBeenCalledWith("reference_status"));
     expect(request.mock.calls.some(([method]) => method === "backup_import" || method === "backup_restore")).toBe(false);
+  });
+
+  it("states normal-log backup inclusions and contest/output exclusions", async () => {
+    render(<DataManagementPanel section="backups" onRequest={vi.fn(async (method: string) => method === "backup_list" ? listing : reference)} onChanged={vi.fn()} />);
+    expect(await screen.findByText(/Included in new local backups: the normal logbook SQLite snapshot/)).toBeTruthy();
+    expect(screen.getByText(/Excluded: Keychain credentials, live radio\/output ownership and transient contest activation state/)).toBeTruthy();
   });
 });
 

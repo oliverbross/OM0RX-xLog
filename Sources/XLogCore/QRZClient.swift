@@ -216,15 +216,13 @@ public actor QRZClient {
     }
 
     static func authenticationRequest(username: String, password: String) -> URLRequest {
-        var body = URLComponents()
-        body.queryItems = [
-            URLQueryItem(name: "username", value: username),
-            URLQueryItem(name: "password", value: password),
-            URLQueryItem(name: "agent", value: "OM0RX-xLog-0.4"),
-        ]
         var request = URLRequest(url: URL(string: "https://xmldata.qrz.com/xml/current/")!)
         request.httpMethod = "POST"
-        request.httpBody = body.percentEncodedQuery?.data(using: .utf8)
+        request.httpBody = onlineLogFormBody([
+            ("username", username),
+            ("password", password),
+            ("agent", "OM0RX-xLog-0.4"),
+        ])
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = requestTimeout
         return request

@@ -413,7 +413,26 @@ public actor TCIReadOnlyWebSocketSession {
 
     /// Sends one bounded TCI SPOT frame. Transport completion is an acceptance
     /// receipt only; TCI provides no authoritative display readback.
-    public func addSpot(_ spot: FlexSpot, expectedGeneration: UInt64) async throws {
+    public func addSpot(
+        frequencyHz: Int64,
+        callsign: String,
+        mode: String,
+        source: String,
+        spotter: String,
+        comment: String,
+        colorHex: String,
+        expectedGeneration: UInt64
+    ) async throws {
+        let validText: (String, Int, Bool) -> Bool = { text, maximum, required in
+            (!required || !text.isEmpty) && text.utf8.count <= maximum &&
+                !text.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
+        }
+        guard validText(callsign, 32, true), validText(mode, 16, true),
+              validText(source, 32, true), validText(spotter, 32, false),
+              validText(comment, 96, false), colorHex.utf8.count == 7,
+              colorHex.first == "#", let rgb = UInt32(colorHex.dropFirst(), radix: 16) else {
+            throw TCITuneSessionError.invalidTarget
+        }
         guard !commandInFlight else { throw TCITuneSessionError.commandInFlight }
         guard expectedGeneration == generation,
               observationValue.generation == generation,
@@ -435,16 +454,15 @@ public actor TCIReadOnlyWebSocketSession {
                                             frequencyRange: lower...upper,
                                             supportedModulations: Set(snapshot.supportedModulations), limits: limits)
         } catch { throw TCITuneSessionError.notReady }
-        guard let rgb = UInt32(spot.colorHex.dropFirst(), radix: 16) else { throw TCITuneSessionError.invalidTarget }
-        let rawText = [spot.source, spot.spotter, spot.comment].filter { !$0.isEmpty }.joined(separator: " ")
+        let rawText = [source, spotter, comment].filter { !$0.isEmpty }.joined(separator: " ")
         let safeText = String(rawText.unicodeScalars.map { scalar -> Character in
             let value = scalar.value
             return value >= 32 && value <= 126 && ![58, 44, 59].contains(value) ? Character(String(scalar)) : " "
         }.prefix(96))
         let frame: String
         do {
-            frame = try encoder.encode(.spot(callsign: spot.callsign, mode: spot.mode,
-                                             frequencyHz: spot.frequencyHz,
+            frame = try encoder.encode(.spot(callsign: callsign, mode: mode,
+                                             frequencyHz: frequencyHz,
                                              colorARGB: 0xFF00_0000 | rgb, text: safeText))
         } catch { throw TCITuneSessionError.invalidTarget }
         let activeGeneration = generation

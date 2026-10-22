@@ -41,6 +41,8 @@ private actor OnlineLogDeliveryGate {
     }
 }
 
+private enum OnlineLogFixtureError: Error { case credentialUnavailable }
+
 @Suite("Native online-log delivery owner", .serialized)
 struct LiveOnlineLogDeliveryServiceTests {
     private func fixture() throws -> (LiveLogbookMethods, LogbookDatabase, URL) {
@@ -114,6 +116,50 @@ struct LiveOnlineLogDeliveryServiceTests {
         await service.terminate()
     }
 
+    @Test func throwingProviderCredentialDoesNotStarveIndependentProvider() async throws {
+        let (logbook, database, root) = try fixture()
+        defer { database.close(); try? FileManager.default.removeItem(at: root) }
+        _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: true)
+        _ = try database.configureOnlineLogEnrollment(service: .clubLog, enabled: true)
+        let qso = QSO(call: "EA8TEST", start: Date(timeIntervalSince1970: 1_700_000_950),
+                      band: "20m", mode: "CW", myCall: "OM0RX")
+        try database.saveNewContactForOnlineLogs(qso)
+        let qrz = OnlineLogProbe(), club = OnlineLogProbe()
+        let service = LiveOnlineLogDeliveryService(logbook: logbook, testingProviders: [
+            .init(service: .qrz, credential: {
+                _ = qrz.readCredential(nil)
+                throw OnlineLogFixtureError.credentialUnavailable
+            }, delivery: { _, _, _, _ in
+                qrz.delivered(); throw OnlineLogDeliveryError.invalidPlan
+            }),
+            .init(service: .clubLog, credential: { club.readCredential("fixture-club") },
+                  delivery: { database, contactID, _, now in
+                club.delivered()
+                let plan = try database.prepareOnlineLogDelivery(service: .clubLog, contactID: contactID)
+                let attempt = UUID()
+                guard try database.claimOnlineLogDelivery(plan, attemptID: attempt, at: now).shouldDispatch else {
+                    throw OnlineLogDeliveryError.operationMismatch
+                }
+                return try database.resolveOnlineLogDelivery(plan, attemptID: attempt,
+                    resolution: .delivered(remoteID: nil), at: now)
+            }),
+        ])
+
+        await service.runDue(now: Date(timeIntervalSince1970: 1_000))
+        #expect(qrz.credentialReads == 1)
+        #expect(qrz.deliveries == 0)
+        #expect(club.credentialReads == 1)
+        #expect(club.deliveries == 1)
+        let qrzStatus = await service.providerStatusFields(service: .qrz)
+        #expect(qrzStatus["provider_issue_code"] as? String == "credential_unavailable")
+        #expect(qrzStatus.values.contains { String(describing: $0).contains("credentialUnavailable") } == false)
+        let clubStatus = await service.providerStatusFields(service: .clubLog)
+        #expect(clubStatus["provider_issue_code"] is NSNull)
+        #expect(try database.onlineLogCandidateIDs(service: .qrz) == [qso.id])
+        #expect(try database.onlineLogCandidateIDs(service: .clubLog).isEmpty)
+        await service.terminate()
+    }
+
     @Test func startupRecoveryRetiresInterruptedCandidateBeforeCredentialAccess() async throws {
         let (logbook, database, root) = try fixture()
         defer { database.close(); try? FileManager.default.removeItem(at: root) }
@@ -160,6 +206,57 @@ struct LiveOnlineLogDeliveryServiceTests {
         ])
         #expect(disabled["enabled"] as? Bool == false)
         #expect(disabled["pending_new_contacts"] as? Int == 0)
+        await services.terminate()
+    }
+
+    @Test func serviceStatusIncludesBoundedSafePerContactAttentionRows() async throws {
+        let (logbook, database, root) = try fixture()
+        defer { database.close(); try? FileManager.default.removeItem(at: root) }
+        _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: true)
+        let qso = QSO(call: "VK8REVIEW", start: Date(timeIntervalSince1970: 1_700_001_150),
+                      band: "15m", mode: "MFSK", submode: "FT4", comment: "must-not-project",
+                      myCall: "OM0RX")
+        try database.saveNewContactForOnlineLogs(qso)
+        let plan = try database.prepareOnlineLogDelivery(service: .qrz, contactID: qso.id)
+        let attempt = UUID(), attempted = Date(timeIntervalSince1970: 1_700_001_200)
+        _ = try database.claimOnlineLogDelivery(plan, attemptID: attempt, at: attempted)
+        _ = try database.resolveOnlineLogDelivery(plan, attemptID: attempt,
+            resolution: .uncertain(code: "transport_unknown"), at: attempted)
+        let services = LiveServiceMethods(logbook: logbook)
+
+        let status = try await services.handle(method: "online_log_status", params: ["service": "qrz"])
+        let rows = try #require(status["attention"] as? [[String: Any]])
+        #expect(rows.count == 1)
+        #expect(rows[0]["contact_id"] as? String == qso.id.uuidString)
+        #expect(rows[0]["call"] as? String == "VK8REVIEW")
+        #expect(rows[0]["band"] as? String == "15m")
+        #expect(rows[0]["mode"] as? String == "FT4")
+        #expect(rows[0]["state"] as? String == "uncertain")
+        #expect(rows[0]["safe_error_code"] as? String == "transport_unknown")
+        #expect(rows[0]["available_actions"] as? [String] == ["inspect", "confirm_delivered"])
+        let text = String(decoding: try JSONSerialization.data(withJSONObject: status), as: UTF8.self)
+        #expect(!text.contains("must-not-project"))
+        #expect(!text.contains(attempt.uuidString))
+        #expect(!text.contains(plan.payloadSHA256))
+        #expect(try database.onlineLogDeliveryReceipt(service: .qrz, contactID: qso.id,
+            contactRevision: plan.contact.revision)?.state == .uncertain)
+        let generation = try #require(status["generation"] as? String)
+        let reconciled = try await services.handle(method: "online_log_reconcile", params: [
+            "service": "qrz", "contact_id": qso.id.uuidString,
+            "contact_revision": NSNumber(value: plan.contact.revision), "generation": generation,
+            "action": "confirm_delivered", "confirm_remote_state": NSNumber(value: true),
+        ])
+        #expect((reconciled["attention"] as? [[String: Any]])?.isEmpty == true)
+        #expect(try database.onlineLogDeliveryReceipt(service: .qrz, contactID: qso.id,
+            contactRevision: plan.contact.revision)?.state == .delivered)
+        #expect(try database.onlineLogCandidateIDs(service: .qrz).isEmpty)
+        await #expect(throws: Error.self) {
+            _ = try await services.handle(method: "online_log_reconcile", params: [
+                "service": "qrz", "contact_id": qso.id.uuidString,
+                "contact_revision": NSNumber(value: plan.contact.revision), "generation": generation,
+                "action": "confirm_delivered", "confirm_remote_state": NSNumber(value: true),
+            ])
+        }
         await services.terminate()
     }
 

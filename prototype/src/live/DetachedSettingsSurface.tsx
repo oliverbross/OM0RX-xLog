@@ -81,6 +81,7 @@ export function DetachedSettingsSurface() {
       </Suspense>}
       workspaceSettings={<WorkspaceSettings {...layout}
         available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "chaser-dx", "spot-history"]} />}
-      dataRequest={requestDetachedSettings} onDataChanged={() => { reload(); void layout.session.refresh(); }} />}
+      dataRequest={requestDetachedSettings} dataWorkspaceGeneration={state.snapshot?.generation ?? state.base?.generation}
+      onDataChanged={() => { reload(); void layout.session.refresh(); }} />}
   </main></div>;
 }

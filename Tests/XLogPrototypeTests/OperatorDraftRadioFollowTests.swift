@@ -32,6 +32,7 @@ struct OperatorDraftRadioFollowTests {
         let result = try OperatorDraftRadioFollow.applying(to: before, frequencyHz: 7_150_000, observedMode: "lsb", enabled: true)
         var expected = before
         expected.frequencyHz = 7_150_000; expected.band = "40m"; expected.mode = "SSB"
+        expected.submode = ""
         expected.receiveFrequencyHz = nil; expected.receiveBand = ""
         #expect(result == expected)
     }
@@ -98,14 +99,23 @@ struct OperatorDraftRadioFollowTests {
         }
     }
 
-    @Test("Existing BandPlan boundaries are reused; unsupported frequencies retain the prior band")
+    @Test("Canonical BandPlan covers VHF/UHF examples; unsupported frequencies clear an unrelated prior band")
     func bands() throws {
-        for frequency: Int64 in [1, 1_800_000, 7_000_000, 7_299_999, 7_300_000, 14_000_000, 14_349_999, 14_350_000, 450_000_000, 1_000_000_000_000] {
+        for frequency: Int64 in [1, 1_800_000, 7_000_000, 7_299_999, 7_300_000, 14_000_000, 14_349_999, 14_350_000, 70_200_000, 1_296_100_000, 2_300_100_000, 1_000_000_000_000] {
             let before = fixture(), band = BandPlan.band(for: frequency)
             let result = try OperatorDraftRadioFollow.applying(to: before, frequencyHz: frequency, observedMode: "CW", enabled: true)
             #expect(result.frequencyHz == frequency)
-            #expect(result.band == (band.isEmpty ? before.band : band))
+            #expect(result.band == band)
         }
+    }
+
+    @Test("Mode changes clear incompatible submodes while data carriers retain the selected digital identity")
+    func submodeReconciliation() throws {
+        var before = fixture(); before.mode = "MFSK"; before.submode = "FT4"
+        let voice = try OperatorDraftRadioFollow.applying(to: before, frequencyHz: 14_250_000, observedMode: "USB", enabled: true)
+        #expect(voice.mode == "SSB" && voice.submode.isEmpty)
+        let data = try OperatorDraftRadioFollow.applying(to: before, frequencyHz: 14_080_000, observedMode: "DIGU", enabled: true)
+        #expect(data.mode == "MFSK" && data.submode == "FT4")
     }
 
     @Test("Invalid frequency or mode is rejected without changing the input")
