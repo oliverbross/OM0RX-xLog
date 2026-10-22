@@ -503,9 +503,7 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
 function Check({ projection, disabled, projectionRevision, receipts, send }: { projection: any; disabled: boolean;
   projectionRevision:number;receipts:ContestSurfaceTerminalReceipt[];send: Send }) {
   const base={draftID:projection.draftID,expectedDraftRevision:projection.draftRevision};
-  return <section className="contest-surface-check"><h1>Check Partial</h1><IntentInput label="Callsign query" value={projection.inputCallsign}
-    identity={`${projection.draftID}/query`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled}
-    maximumUTF8Bytes={32} send={send} action={inputCallsign=>({action:"assistance_query",params:{...base,inputCallsign}})}/>
+  return <section className="contest-surface-check"><h1>Check Partial</h1>
     <div className="contest-surface-check-columns"><div><h2>Log</h2>{projection.loggedCandidates ? <ContestCandidates className="contest-surface-results" disabled={disabled} strongLabel={false}
       candidates={projection.loggedCandidates.map((item:any)=>({id:item.candidateID,label:item.callsign}))}
       onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"log",candidateID}},projectionRevision)}/> : projection.loggedCalls?.map((call:string)=><p key={call}>{call}</p>)}{!projection.loggedCandidates&&!projection.loggedCalls&&<p aria-label="Matching logged calls unavailable">—</p>}</div><div><h2>Master</h2><ContestCandidates className="contest-surface-results" disabled={disabled} strongLabel={false}
@@ -513,10 +511,15 @@ function Check({ projection, disabled, projectionRevision, receipts, send }: { p
       onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"scp",candidateID}},projectionRevision)}/></div><div><h2>Telnet</h2>{projection.clusterCandidates ? <ContestCandidates className="contest-surface-results" disabled={disabled} strongLabel={false}
       candidates={projection.clusterCandidates.map((item:any)=>({id:item.candidateID,label:item.callsign}))}
       onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"cluster",candidateID}},projectionRevision)}/> : projection.clusterCalls?.map((call:string)=><p key={call}>{call}</p>)}{!projection.clusterCandidates&&!projection.clusterCalls&&<p aria-label="Matching cluster calls unavailable">—</p>}</div></div>
-    <details><summary>Call history</summary><ContestCandidates disabled={disabled}
-      candidates={projection.history.rows.map((row:any)=>({id:row.candidateID,label:row.callsign,className:"contest-surface-history",
-        detail:row.fields.map((field:any)=>`${field.label}: ${field.value}`).join(" · ")}))}
-      onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"history",candidateID}},projectionRevision)}/></details></section>;
+    <details className="contest-surface-check-tools"><summary>Query &amp; call history</summary><div>
+      <IntentInput label="Callsign query" value={projection.inputCallsign}
+        identity={`${projection.draftID}/query`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled}
+        maximumUTF8Bytes={32} send={send} action={inputCallsign=>({action:"assistance_query",params:{...base,inputCallsign}})}/>
+      <section aria-label="Call history"><ContestCandidates disabled={disabled}
+        candidates={projection.history.rows.map((row:any)=>({id:row.candidateID,label:row.callsign,className:"contest-surface-history",
+          detail:row.fields.map((field:any)=>`${field.label}: ${field.value}`).join(" · ")}))}
+        onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"history",candidateID}},projectionRevision)}/></section>
+    </div></details></section>;
 }
 function Statistics({ projection }: { projection: ContestStatisticsSurfaceProjection }) {
   if (projection.schemaVersion === 1)
@@ -552,7 +555,7 @@ function Matrix({ projection }: { projection: ContestMatrixSurfaceProjection }) 
     ? String(zoneSystem === "cq" ? rich.current.cqZone ?? "" : rich.current.ituZone ?? "") : null;
   const selectedKey = selectedLabel?.trim().toLocaleUpperCase() ?? "";
   useEffect(() => { if (selectedKey) rows.current.get(selectedKey)?.scrollIntoView?.({ block: "center", inline: "nearest" }); }, [selectedKey, projection.rows]);
-  return <section aria-label={`Contest ${projection.title}`} aria-busy={projection.busy} className="contest-surface-matrix"><header><h1>{projection.title}</h1>
+  return <section aria-label={`Contest ${projection.title}`} aria-busy={projection.busy} className="contest-surface-matrix"><header className="contest-surface-matrix-toolbar"><h1>{projection.title}</h1>
     {rich?.tracker === "zone" && <fieldset className="contest-surface-zone-system"><legend>Zone system</legend>
       {(["cq", "itu"] as const).map(value => <label key={value}><input type="radio" name="contest-zone-system" value={value}
         checked={zoneSystem === value} onChange={() => setZoneSystem(value)}/>{value.toUpperCase()}</label>)}</fieldset>}
@@ -597,26 +600,28 @@ function ContactEditor({projection,disabled,sending,projectionRevision,receipts,
   const details=editing.details??{};
   const entryFields=Array.isArray(editing.entryFields)?editing.entryFields:null;
   const entryLabels=new Set((entryFields??[]).map((field:any)=>String(field.label??"").trim().toLowerCase()));
-  const renderedEntryFields=entryFields?entryFields.map((field:any)=>field.readOnly
-    ?<ReadOnlyContactField key={field.id} label={field.label} value={field.value}/>
-    :<IntentInput key={field.id} label={field.label} value={field.value} identity={`${editing.qsoID}/field/${field.id}`} projectionRevision={projectionRevision}
+  const renderEntryField=(field:any)=><div key={field.id} className={`contest-surface-editor-field${String(field.label??"").trim().toLowerCase()==="comment"?" contest-surface-editor-wide":""}`}>{field.readOnly
+    ?<ReadOnlyContactField label={field.label} value={field.value}/>
+    :<IntentInput label={field.label} value={field.value} identity={`${editing.qsoID}/field/${field.id}`} projectionRevision={projectionRevision}
       receipts={receipts} disabled={disabled||field.enabled===false} maximumUTF8Bytes={field.maximumUTF8Bytes} send={send}
       action={value=>field.id==="sent"||field.id==="receive"?{action:"log_edit_set_text",params:{qsoID:editing.qsoID,
-        field:field.id==="sent"?"sentReport":"receivedReport",value}}:{action:"log_edit_set_exchange",params:{qsoID:editing.qsoID,fieldID:field.id,value}}}/>)
-    :<>{editing.reportsVisible!==false&&<><IntentInput label="RST Sent" value={editing.sentReport} identity={`${editing.qsoID}/sentReport`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={160} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"sentReport",value}})}/>
-      <IntentInput label="RST Rcv" value={editing.receivedReport} identity={`${editing.qsoID}/receivedReport`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={160} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"receivedReport",value}})}/></>}
-      {editing.receivedFields.map((field:any)=><IntentInput key={field.id} label={field.label} value={field.value} identity={`${editing.qsoID}/exchange/${field.id}`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={field.maximumUTF8Bytes} send={send} action={value=>({action:"log_edit_set_exchange",params:{qsoID:editing.qsoID,fieldID:field.id,value}})}/>)}</>;
+        field:field.id==="sent"?"sentReport":"receivedReport",value}}:{action:"log_edit_set_exchange",params:{qsoID:editing.qsoID,fieldID:field.id,value}}}/>}</div>;
+  const topEntryFields=entryFields?.filter((field:any)=>["sent","receive"].includes(field.id)||["name","qth","comment"].includes(String(field.label??"").trim().toLowerCase()))??[];
+  const lowerEntryFields=entryFields?.filter((field:any)=>!topEntryFields.includes(field))??[];
   return <section className="contest-surface-contact-editor"><header><h1>Edit Contact</h1><span>{editing.callsign}</span></header>
-    <div className="contest-surface-editor"><IntentInput label="Callsign" value={editing.callsign} identity={`${editing.qsoID}/callsign`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={32} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"callsign",value}})}/>
+    <div className="contest-surface-editor"><div className="contest-surface-editor-primary"><IntentInput label="Callsign" value={editing.callsign} identity={`${editing.qsoID}/callsign`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={32} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"callsign",value}})}/>
     <IntentInput label="TimeStamp (UTC)" value={editing.workedAt??""} identity={`${editing.qsoID}/timestamp`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={32} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"timestamp",value}})}/>
     <ReadOnlyContactField label="RX" value={details.rxFrequency??""}/>
     <IntentInput label="Tx Freq (Hz)" value={editing.editFrequencyText} identity={`${editing.qsoID}/frequency`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={11} send={send} action={value=>({action:"log_edit_set_frequency_text",params:{qsoID:editing.qsoID,value}})}/>
     <ReadOnlyContactField label="Mode" value={editing.mode}/><ReadOnlyContactField label="Contest" value={details.contest??""}/>
-    {renderedEntryFields}
+    {entryFields?topEntryFields.map(renderEntryField):editing.reportsVisible!==false&&<><IntentInput label="RST Sent" value={editing.sentReport} identity={`${editing.qsoID}/sentReport`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={160} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"sentReport",value}})}/>
+      <IntentInput label="RST Rcv" value={editing.receivedReport} identity={`${editing.qsoID}/receivedReport`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={160} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"receivedReport",value}})}/></>}
     <ReadOnlyContactField label="Country" value={details.country??""}/><ReadOnlyContactField label="Station Call" value={details.stationCall??""}/>
     {!entryLabels.has("name")&&<IntentInput label="Name" value={editing.name??details.name??""} identity={`${editing.qsoID}/name`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={20} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"name",value}})}/>}
     {!entryLabels.has("qth")&&<IntentInput label="QTH" value={editing.qth??details.qth??""} identity={`${editing.qsoID}/qth`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={25} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"qth",value}})}/>}
-    {!entryLabels.has("comment")&&<IntentInput label="Comment" value={editing.comment??details.comment??""} identity={`${editing.qsoID}/comment`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={60} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"comment",value}})}/>}
+    {!entryLabels.has("comment")&&<div className="contest-surface-editor-wide"><IntentInput label="Comment" value={editing.comment??details.comment??""} identity={`${editing.qsoID}/comment`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={60} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"comment",value}})}/></div>}
+    </div><div className="contest-surface-editor-secondary">
+    {entryFields?lowerEntryFields.map(renderEntryField):editing.receivedFields.map((field:any)=><IntentInput key={field.id} label={field.label} value={field.value} identity={`${editing.qsoID}/exchange/${field.id}`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={field.maximumUTF8Bytes} send={send} action={value=>({action:"log_edit_set_exchange",params:{qsoID:editing.qsoID,fieldID:field.id,value}})}/>)}
     <ReadOnlyContactField label="Nr" value={details.receivedNumber??""}/><ReadOnlyContactField label="Nr Sent" value={details.sentNumber??""}/>
     <ReadOnlyContactField label="Points" value={details.points??""}/><ReadOnlyContactField label="Power" value={details.power??""}/>
     <ReadOnlyContactField label="Zone" value={details.zone??""}/><ReadOnlyContactField label="Section" value={details.section??""}/>
@@ -628,7 +633,7 @@ function ContactEditor({projection,disabled,sending,projectionRevision,receipts,
     <ReadOnlyContactField label="Grid" value={details.grid??""}/>
     <IntentInput label="Op" value={editing.operator??""} identity={`${editing.qsoID}/operator`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={32} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"operator",value}})}/>
     <ReadOnlyContactField label="Misc" value={details.misc??""}/><ReadOnlyContactField label="Rover QTH" value={details.roverQTH??""}/>
-    <IntentInput label="Correction note" value={editing.correctionReason} identity={`${editing.qsoID}/correctionReason`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={1024} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"correctionReason",value}})}/>
+    </div><div className="contest-surface-editor-note"><IntentInput label="Correction note" value={editing.correctionReason} identity={`${editing.qsoID}/correctionReason`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={1024} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"correctionReason",value}})}/></div>
     </div>{editing.frequencyError&&<p role="alert">{editing.frequencyError}</p>}
     {editing.confirmDelete&&<div className="contest-surface-delete"><IntentInput label="Deletion reason" value={editing.deletionReason} identity={`${editing.qsoID}/deletionReason`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={1024} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"deletionReason",value}})}/>
       <button disabled={disabled||sending||!editing.deletionReason.trim()} onClick={()=>void finish({action:"log_edit_delete",params:{qsoID:editing.qsoID,expectedSessionRevision:projection.sessionRevision}})}>Delete contact</button></div>}
@@ -640,15 +645,15 @@ function ContactEditor({projection,disabled,sending,projectionRevision,receipts,
 function Log({projection,disabled,sending,projectionRevision,send,openEditor}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;send:Send;openEditor:(qsoID:string)=>Promise<void>}) {
   const partialRows=projection.partialRows??[], pluginPartialRows=projection.pluginPartialRows??[];
   return <section className="contest-surface-log"><header><h1>Log Display</h1>
-  <div className="contest-surface-log-actions">{projection.canExportCabrillo&&<button disabled={disabled||sending} onClick={()=>void send({action:"log_export_cabrillo",params:{}},projectionRevision)}>Export Cabrillo…</button>}
+  <details className="contest-surface-log-tools"><summary>Log tools</summary><div className="contest-surface-log-actions">{projection.canExportCabrillo&&<button disabled={disabled||sending} onClick={()=>void send({action:"log_export_cabrillo",params:{}},projectionRevision)}>Export Cabrillo…</button>}
   <button disabled={disabled||sending||projection.canExportAdif!==true} onClick={()=>void send({action:"log_export_adif",params:{}},projectionRevision)}>Export ADIF…</button>
   {projection.canExportEdi===true&&<button disabled={disabled||sending} onClick={()=>void send({action:"log_export_edi",params:{}},projectionRevision)}>Export EDI…</button>}
-  <button disabled={disabled||sending} onClick={()=>void send({action:"log_recalculate",params:{expectedSessionRevision:projection.sessionRevision}},projectionRevision)}>Recalculate</button></div></header>
+  <button disabled={disabled||sending} onClick={()=>void send({action:"log_recalculate",params:{expectedSessionRevision:projection.sessionRevision}},projectionRevision)}>Recalculate</button></div></details></header>
   <div className="contest-surface-log-panes">{projection.exchangeLayout==="plugin" ? <>
-    <section><h2>Chronological log</h2><PluginLogTable columns={projection.pluginColumns} rows={projection.pluginRows} disabled={disabled} label="Contest log" onEdit={qsoID=>void openEditor(qsoID)}/></section>
-    <section><h2>Callsign partial matches</h2><PluginLogTable columns={projection.pluginColumns} rows={pluginPartialRows} disabled={disabled} label="Callsign partial matches" onEdit={qsoID=>void openEditor(qsoID)}/></section></>
-    : <><section><h2>Chronological log</h2><ManualLogTable rows={projection.manualRows??projection.page.rows} disabled={disabled} label="Contest log" onEdit={qsoID=>void openEditor(qsoID)}/></section>
-      <section><h2>Callsign partial matches</h2><ManualLogTable rows={partialRows} disabled={disabled} label="Callsign partial matches" onEdit={qsoID=>void openEditor(qsoID)}/></section></>}</div>
+    <section className="contest-surface-log-pane-primary"><h2>Chronological log</h2><PluginLogTable columns={projection.pluginColumns} rows={projection.pluginRows} disabled={disabled} label="Contest log" onEdit={qsoID=>void openEditor(qsoID)}/></section>
+    <section className="contest-surface-log-pane-secondary"><h2>Callsign partial matches</h2><PluginLogTable columns={projection.pluginColumns} rows={pluginPartialRows} disabled={disabled} label="Callsign partial matches" onEdit={qsoID=>void openEditor(qsoID)}/></section></>
+    : <><section className="contest-surface-log-pane-primary"><h2>Chronological log</h2><ManualLogTable rows={projection.manualRows??projection.page.rows} disabled={disabled} label="Contest log" onEdit={qsoID=>void openEditor(qsoID)}/></section>
+      <section className="contest-surface-log-pane-secondary"><h2>Callsign partial matches</h2><ManualLogTable rows={partialRows} disabled={disabled} label="Callsign partial matches" onEdit={qsoID=>void openEditor(qsoID)}/></section></>}</div>
   <footer><button disabled={disabled||projection.page.offset===0} onClick={()=>void send({action:"log_page",params:{offset:Math.max(0,projection.page.offset-projection.page.limit)}},projectionRevision)}>Previous</button>
     <span>{projection.page.total?`${projection.page.offset+1}–${projection.page.offset+projection.page.rows.length} of ${projection.page.total}`:"No contacts"}</span>
     <button disabled={disabled||projection.page.offset+projection.page.rows.length>=projection.page.total} onClick={()=>void send({action:"log_page",params:{offset:projection.page.offset+projection.page.limit}},projectionRevision)}>Next</button></footer></section>; }

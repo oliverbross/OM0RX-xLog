@@ -41,7 +41,7 @@ describe("ContestWorkspace responsive contract", () => {
     expect(detachedCSS).toContain("min-height:0; overflow-x:hidden; overflow-y:auto; border-right:1px solid var(--border)");
     expect(detachedCSS).toContain("flex-direction:column; flex-wrap:nowrap;");
     expect(detachedCSS).toContain(".contest-surface-check-columns button { width:100%; min-width:0; overflow:hidden; text-overflow:ellipsis;");
-    expect(detachedCSS).toContain(".contest-surface-log-scroll { flex:1; min-width:0; max-width:100%; min-height:100px; overflow:auto;");
+    expect(detachedCSS).toContain(".contest-surface-log-scroll { flex:1; min-width:0; max-width:100%; min-height:0; overflow:auto;");
   });
 
   it("keeps the original contest windows compact with only list and table regions scrolling", () => {
@@ -49,7 +49,9 @@ describe("ContestWorkspace responsive contract", () => {
     expect(detachedCSS).toContain(".contest-surface-check-columns > div { display:flex; flex-direction:column; min-width:0; min-height:0; overflow-x:hidden; overflow-y:auto;");
     expect(detachedCSS).toContain(".contest-surface-statistics-scroll { flex:1; width:100%; min-width:0; min-height:0; overflow:auto;");
     expect(detachedCSS).toContain(".contest-surface-log-panes { overflow:hidden; }");
-    expect(detachedCSS).toContain(".contest-surface-log-scroll { flex:1; min-width:0; max-width:100%; min-height:100px; overflow:auto;");
+    expect(detachedCSS).toContain(".contest-surface-log-scroll { flex:1; min-width:0; max-width:100%; min-height:0; overflow:auto;");
+    expect(detachedCSS).toContain("grid-template-rows:minmax(112px,2fr) minmax(76px,1fr)");
+    expect(detachedCSS).toContain(".contest-surface-log-tools { position:relative;");
   });
 
   it("aligns the Main Logging title bar and Rates values without changing the operator strips", () => {

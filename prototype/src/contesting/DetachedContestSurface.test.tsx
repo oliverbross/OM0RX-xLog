@@ -187,9 +187,10 @@ it("allows the compact Statistics table to fit the supported 400px window minimu
 
 it("contains matrix overflow inside its scroll region", () => {
   const css = readFileSync(`${process.cwd()}/src/contesting/DetachedContestSurface.css`, "utf8");
-  expect(css).toContain(".contest-surface-matrix { overflow:hidden; }");
-  expect(css).toContain(".contest-surface-matrix-scroll { flex:1; width:100%; min-width:0;");
-  expect(css).toContain(".contest-surface-matrix-scroll table { width:max-content; min-width:100%; }");
+  expect(css).toContain(".contest-surface-matrix { align-items:flex-start; overflow:hidden;");
+  expect(css).toContain(".contest-surface-matrix-scroll { flex:0 1 auto; width:auto; max-width:100%; min-width:0;");
+  expect(css).toContain(".contest-surface-matrix-scroll table { width:max-content; min-width:0;");
+  expect(css).toContain(".contest-surface-matrix :is(th,td) { min-width:34px; padding:3px 6px !important;");
 });
 
 it("renders ICWC original name/serial input while omitting hidden report fields", async()=>{
@@ -400,6 +401,19 @@ it("lays out Edit Contact actions as a wrapping right-aligned native-style row",
   expect(css).toMatch(/contest-surface-editor-actions[^}]*display:flex[^}]*justify-content:flex-end[^}]*flex-wrap:wrap[^}]*gap:8px/);
 });
 
+it("groups Edit Contact into paired primary rows, a wide comment and dense lower details",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=edit-contact"));
+  const editing={qsoID:"logged-qso",workedAt:"2026-10-20 12:00:00",operator:"OM0RX",callsign:"K1ABC",reportsVisible:true,
+    name:"",qth:"",comment:"",band:"20m",mode:"CW",sentReport:"599",receivedReport:"579",receivedFields:[],frequencyHz:14025000,
+    editFrequencyText:"14025000",frequencyError:"",correctionReason:"Operator correction",confirmDelete:false,deletionReason:""};
+  native.invoke.mockResolvedValue({...snapshot,panelID:"logbook",projection:{schemaVersion:1,status:"ready",sessionRevision:7,canExportCabrillo:true,
+    page:{offset:0,limit:20,total:1,rows:[]},manualRows:[],partialRows:[],editing,busy:false}});
+  render(<DetachedContestSurface/>);await screen.findByRole("heading",{name:"Edit Contact"});
+  expect(document.querySelector(".contest-surface-editor-primary")?.contains(screen.getByLabelText("Callsign"))).toBe(true);
+  expect(screen.getByLabelText("Comment").closest(".contest-surface-editor-wide")).toBeTruthy();
+  expect(document.querySelector(".contest-surface-editor-secondary")?.contains(screen.getByLabelText("Op"))).toBe(true);
+});
+
 it("renders authoritative raw DXLOG values in the log and full-log partial table",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
   const row={qsoID:"outside-current-page",TS:"2026-10-19 01:02:03",Call:"DL1ABC",Freq:"14025.125",SNT:"579",RCV:"589",M1:"✓",ZN:"14",M2:"",prefix:"DL1",Points:"3"};
@@ -452,6 +466,7 @@ it.each([
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>command==="contest_surface_snapshot"?
     {...snapshot,panelID:"logbook",projection:view}:{requestID:args.requestID,status:"queued"});
   render(<DetachedContestSurface/>);
+  fireEvent.click(await screen.findByText("Log tools"));
   fireEvent.click(await screen.findByRole("button",{name:button}));
   await waitFor(()=>expect(native.invoke.mock.calls.find(([command])=>command==="contest_surface_action")?.[1]).toMatchObject({
     panelID:"logbook",projectionRevision:6,action,params,
@@ -976,6 +991,9 @@ it("retains the manual Check Partial Log, Master and Telnet columns with explici
   expect(screen.getByLabelText("Matching logged calls unavailable").textContent).toBe("—");
   expect(screen.getByLabelText("Matching cluster calls unavailable").textContent).toBe("—");
   expect(screen.getByRole("button",{name:"OM0RX"})).toBeTruthy();
+  const tools=screen.getByText("Query & call history").closest("details");
+  expect(tools?.hasAttribute("open")).toBe(false);
+  expect(tools?.contains(screen.getByLabelText("Callsign query"))).toBe(true);
 });
 
 it("retains the original log headings and an empty partial pane when the log is empty",async()=>{
