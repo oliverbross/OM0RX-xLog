@@ -19,7 +19,7 @@ export type LiveClusterSpot = {
   band: string; mode: string; country: string; adif?: number | null;
   continent: string; cqZone?: number | null; ituZone?: number | null;
   callStatus: string; dxccStatus: string; workedBefore?: number | null;
-  specialTags: string[]; score: number; scoreReasons: string[];
+  specialTags: string[]; score: number; contestPoints?: number | null; scoreReasons: string[];
   aggregateCount: number; aggregateSpotters: string[]; source: string;
   statusHex: string; bandHex: string; modeHex: string;
   marked?: boolean;
@@ -352,7 +352,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
           onPointerUp={() => { columnDrag.current = null; }} onPointerCancel={() => { columnDrag.current = null; }} onLostPointerCapture={() => { columnDrag.current = null; }}
           onKeyDown={event => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; event.preventDefault(); resizeColumn(id, event.key === "Home" ? 48 : event.key === "End" ? 480 : columnPreferences.widths[id] + (event.key === "ArrowRight" ? 10 : -10)); }} />
       </th>)}
-    </tr></thead><tbody>{visibleSpots.map((spot, index) => <tr key={spot.id}
+    </tr></thead><tbody>{visibleSpots.map((spot, index) => { const displayedScore=presentationOnly?spot.contestPoints:spot.score; return <tr key={spot.id}
       tabIndex={0}
       className={`${(selectedSpotId ?? selectedSpot?.id) === spot.id ? "is-selected" : ""}${spot.marked ? " is-marked" : ""} ${index % 2 ? "is-odd" : "is-even"}`}
       style={{ backgroundColor: presentationOnly || (selectedSpotId ?? selectedSpot?.id) === spot.id ? undefined : clusterRowTint(spot.dxccStatus, configuration?.palette.status) }}
@@ -363,7 +363,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
       title={presentationOnly ? "Load this spot into the contest draft and tune the selected radio" : "Load this spot into the logger and tune through xCat"}>
       <td hidden={!visibleColumns.has("time")} className="mono live-cluster-age live-cluster-age-strip"
         style={{ backgroundColor: presentationOnly ? undefined : spotAgeColor(spot.receivedAt, ageClock) }} title={`Received ${formatDate(spot.receivedAt)}`}>{formatSpotAge(spot.receivedAt, ageClock)}</td>
-      <td hidden={!visibleColumns.has("score")}><span className={`live-cluster-score ${spot.score >= 80 ? "priority" : spot.score >= 55 ? "high" : spot.score >= 30 ? "medium" : "low"}`}>{spot.score}</span></td>
+      <td hidden={!visibleColumns.has("score")}><span className={`live-cluster-score ${(displayedScore??0) >= 80 ? "priority" : (displayedScore??0) >= 55 ? "high" : (displayedScore??0) >= 30 ? "medium" : "low"}`}>{displayedScore??"—"}</span></td>
       <td hidden={!visibleColumns.has("band")}><span className="live-cluster-category" style={{ color: paletteColor(spot.band, configuration?.palette.band, clusterBandColors) }}>{spot.band}</span></td>
       <td hidden={!visibleColumns.has("frequency")} className="cyan mono">{(spot.frequencyKHz / 1000).toFixed(6)}</td>
       <td hidden={!visibleColumns.has("callsign")}>{presentationOnly ? <span className="live-cluster-call">{spot.marked && <span className="live-cluster-mark" aria-label="Marked">★ </span>}{spot.callsign}</span>
@@ -378,7 +378,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
         : "—"}</td>
       <td hidden={!visibleColumns.has("workedBefore")} title={formatDate(spot.workedBefore)} className="live-cluster-worked-before">{spot.workedBefore == null ? "—" : `✓ ${formatDate(spot.workedBefore)}`}</td>
       <td hidden={!visibleColumns.has("comment")} title={spot.comment}>{spot.comment || "—"}</td>
-    </tr>)}</tbody></table>
+    </tr>;})}</tbody></table>
       {!live?.spots.length && <p className="empty">{presentationOnly ? connected ? "No shared cluster spots are available." : "No shared spots. Use Connect above to receive live spots." : connected ? "No live spots match the current filters." : configuration?.servers.some(server => server.enabled) ? "Your cluster is configured. Use Connect to resume live spots; the radio can remain offline." : "Configure a cluster, then connect to receive live spots."}</p>}
     </div>
     {presentationOnly && <footer className={`live-cluster-terminal-status ${connected ? "is-connected" : "is-disconnected"}`}>

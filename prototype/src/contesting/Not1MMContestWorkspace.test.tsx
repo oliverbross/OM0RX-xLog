@@ -518,6 +518,22 @@ it("projects only fenced host contest points without replacing cluster opportuni
     workspaceGeneration:current.workspaceGeneration,expectedRevision:current.revision}));
 });
 
+it("projects only modes supported by a single-mode contest into Cluster and Band Map",async()=>{
+  const current={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",supportedModes:["SSB"] as const};
+  const request=operationalRequest(()=>current,id=>id==="ssb"?3:1),shared=[
+    {id:"ssb",callsign:"DL1ABC",frequencyKHz:14215,band:"20m",mode:"USB",score:42},
+    {id:"cw",callsign:"K1ABC",frequencyKHz:14025,band:"20m",mode:"CW",score:80},
+  ];
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={shared as any}/>);
+  await createContestThroughSetup();
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots)
+    .toEqual([expect.objectContaining({id:"ssb",mode:"SSB",contestPoints:3})]));
+  expect(surfaceOwner.current.projections["dx-cluster"].spots)
+    .toEqual([expect.objectContaining({id:"ssb",mode:"SSB",contestPoints:3})]);
+  const preview=request.mock.calls.find(([method])=>method==="contest_spot_points_preview");
+  expect(preview?.[1]).toMatchObject({spots:[expect.objectContaining({spotID:"ssb",mode:"SSB"})]});
+});
+
 it("routes the visible SPOT_DX action through the owned native contest spot adapter", async () => {
   const current=projection(1,{callsign:"dl1abc"}),request=operationalRequest(()=>current),contestSpot=vi.fn(async()=>({accepted:true}));
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} contestSpot={contestSpot}/>);
@@ -1887,7 +1903,7 @@ it.each([
 ])("applies a $label contest spot mode to the radio and authoritative Not1MM draft exactly once",async({supportedModes,expectedMode})=>{
   let current={...projection(),supportedModes};
   const tune=vi.fn(async(_frequencyHz:number,_mode:string)=>({accepted:true,confirmed:true}));
-  const spot={id:"spot-1",callsign:"DL1ABC",frequencyKHz:14195,band:"20m",mode:"USB"};
+  const spot={id:"spot-1",callsign:"DL1ABC",frequencyKHz:14195,band:"20m",mode:supportedModes.length===1?"CW":"USB"};
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
     const support=workspaceSupport(method,params,current);if(support)return support;
     if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();

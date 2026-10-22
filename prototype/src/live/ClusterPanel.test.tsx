@@ -244,7 +244,7 @@ describe("cluster toolbar panels", () => {
     (data.snapshot.spots as any[]).push({ id: "contest-spot", receivedAt: 812_000_000,
       clusterName: "ShackCQ", spotter: "K1ABC", frequencyKHz: 14025, frequencyText: "14.025", callsign: "DL1ABC", comment: "CQ TEST",
       band: "20m", mode: "CW", country: "Germany", continent: "EU", cqZone: 14, callStatus: "New Call", dxccStatus: "New Band",
-      specialTags: [], score: 65, scoreReasons: [], aggregateCount: 1, aggregateSpotters: ["K1ABC"], source: "cluster", statusHex: "", bandHex: "", modeHex: "" });
+      specialTags: [], score: 65, contestPoints:3, scoreReasons: [], aggregateCount: 1, aggregateSpotters: ["K1ABC"], source: "cluster", statusHex: "", bandHex: "", modeHex: "" });
     const onSelect = vi.fn();
     const { container } = render(<ClusterPanel passive presentationOnly taskOnly snapshot={data} onRequest={vi.fn()} onSelect={onSelect} />);
     expect(container.querySelector(".live-cluster")?.classList.contains("is-contest-terminal")).toBe(true);
@@ -256,6 +256,8 @@ describe("cluster toolbar panels", () => {
     const row = screen.getByLabelText("DL1ABC spot");
     expect((row as HTMLElement).style.backgroundColor).toBe("");
     expect((row.querySelector(".live-cluster-age-strip") as HTMLElement).style.backgroundColor).toBe("");
+    expect(row.querySelector(".live-cluster-score")?.textContent).toBe("3");
+    expect(row.textContent).not.toContain("65");
     fireEvent.click(row);
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: "contest-spot" }));
   });

@@ -713,7 +713,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     ?compactContestSpotWorkflow(spotWorkflow,authoritativeSpotIDs):emptySpotWorkflow(spotWorkflowScope),
     [spotWorkflow,spotWorkflowScope,authoritativeSpotIDs]);
   const allWorkflowSpots=useMemo(()=>projectContestSpotWorkflow(sharedSpots,effectiveSpotWorkflow,false),[sharedSpots,effectiveSpotWorkflow]);
-  const visibleWorkflowSpots=useMemo(()=>projectContestSpotWorkflow(sharedSpots,effectiveSpotWorkflow),[sharedSpots,effectiveSpotWorkflow]);
+  const visibleWorkflowSpots=useMemo(()=>{
+    const projected=projectContestSpotWorkflow(sharedSpots,effectiveSpotWorkflow);
+    if(!projection)return projected;
+    const supported=new Set(contestSurfaceModes(projection.supportedModes??[],projection.mode));
+    return projected.filter(spot=>{const mode=canonicalContestSurfaceMode(spot.mode);return mode!==null&&supported.has(mode);});
+  },[sharedSpots,effectiveSpotWorkflow,projection?.supportedModes,projection?.mode,projection?.sessionID]);
   const spotSelectionContext = `${operatingContext}/${workspaceGeneration}/${projection?.sessionID ?? "no-session"}`;
   const spotIDSignature = visibleWorkflowSpots.map(spot=>spot.id).join("\u001f");
   useEffect(() => {
@@ -1844,6 +1849,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       draftID:projection.draftID,draftRevision:projection.revision,radioFrequencyHz:radioFrequencyHz??null,
       connectedClusters,loadedSpots,selectedSpotID,configuredClusters,connections,
       markedOnly:effectiveSpotWorkflow.markedOnly,spots:visibleWorkflowSpots.map(spot=>({...spot,
+        mode:canonicalContestSurfaceMode(spot.mode)??spot.mode,
         contestPoints:spotPointPreview.scope===spotPointScope?(spotPointPreview.points.get(spot.id)??null):null})),busy:busy||retiring};
     unavailable["station-control"] = { schemaVersion: 1, status: "ready",
       radioFrequencyHz: selectedRadioFrequencyHz, contestFrequencyHz: frequencyHz,
