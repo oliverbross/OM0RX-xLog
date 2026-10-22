@@ -435,7 +435,7 @@ fn validate_auto_rotor_set(label: &str, isolated: bool, exiting: bool) -> Result
     } else { Ok(()) }
 }
 fn validate_rotor_stop(label: &str, isolated: bool, exiting: bool) -> Result<(), String> {
-    if exiting || isolated || !matches!(label, "main" | "monitor" | "rotor" | "station-control") {
+    if exiting || isolated || !matches!(label, "main" | "monitor" | "rotor" | "station-control" | "contest--active-qso") {
         Err("Rotor Stop is unavailable in this window.".into())
     } else { Ok(()) }
 }
@@ -4021,7 +4021,7 @@ mod workspace_layout_tests {
     fn rotor_stop_is_available_only_to_exact_live_control_surfaces() {
         for label in crate::workspace_windows::SUPPORTED_WINDOWS.iter().map(|window| window.id)
             .chain(["main", "rotor", "monitor", "station-status", "station-control", "unknown", "", "MAIN", "Monitor"]) {
-            assert_eq!(validate_rotor_stop(label, false, false).is_ok(), matches!(label, "main" | "monitor" | "rotor" | "station-control"), "{label}");
+            assert_eq!(validate_rotor_stop(label, false, false).is_ok(), matches!(label, "main" | "monitor" | "rotor" | "station-control" | "contest--active-qso"), "{label}");
             for (isolated, exiting) in [(true, false), (false, true), (true, true)] {
                 assert!(validate_rotor_stop(label, isolated, exiting).is_err(), "{label} isolated={isolated} exiting={exiting}");
             }

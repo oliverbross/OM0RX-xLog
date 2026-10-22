@@ -10,7 +10,7 @@ pub fn validate(label: &str, isolated: bool) -> Result<(), String> {
 }
 pub fn read(label: &str, isolated: bool, live: impl FnOnce() -> Result<Value, String>, synthetic: impl FnOnce() -> Result<Value, String>) -> Result<Value, String> {
     // Read permission is separate from the monitor-only action permission.
-    if !matches!(label, "monitor" | "station-control" | "contest--station-control" | "contest--band-maps") { return Err("Station observations are unavailable in this window.".into()); }
+    if !matches!(label, "monitor" | "station-control" | "contest--station-control" | "contest--band-maps" | "contest--active-qso") { return Err("Station observations are unavailable in this window.".into()); }
     if isolated { synthetic() } else { live() }
 }
 
@@ -110,10 +110,12 @@ mod tests {
         assert_eq!(read("station-control", false, || Ok(json!({"retained":true})), || panic!("synthetic")).unwrap(), json!({"retained":true}));
         assert_eq!(read("contest--station-control", false, || Ok(json!({"retained":true})), || panic!("synthetic")).unwrap(), json!({"retained":true}));
         assert_eq!(read("contest--band-maps", false, || Ok(json!({"retained":true})), || panic!("synthetic")).unwrap(), json!({"retained":true}));
+        assert_eq!(read("contest--active-qso", false, || Ok(json!({"retained":true})), || panic!("synthetic")).unwrap(), json!({"retained":true}));
         assert_eq!(read("station-control", true, || panic!("production owner reached"), || Ok(json!({"synthetic":true}))).unwrap(), json!({"synthetic":true}));
         assert!(validate("station-control", false).is_err());
         assert!(validate("station-control", true).is_err());
         assert!(validate("contest--band-maps", false).is_err());
+        assert!(validate("contest--active-qso", false).is_err());
         assert!(read("unknown", false, || panic!("live"), || panic!("synthetic")).is_err());
     }
     #[test]
