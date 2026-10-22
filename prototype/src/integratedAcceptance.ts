@@ -185,7 +185,8 @@ async function main(report: Json) {
   // its native webview. The Ctrl/Cmd+Enter handler stays covered by the focused
   // component test; packaged acceptance drives the same rendered form submit.
   report.details.keyboardLogActivation = "rendered-submit-control";
-  await click("Log QSO", ".desk-active-actions button");
+  const logControl = button("Log QSO", ".desk-active-actions button");
+  logControl.form?.requestSubmit(logControl); await frame();
   await waitForAcceptance("rendered save and cleared draft", () => element<HTMLInputElement>('[aria-label="Desk Callsign"]').value === "" &&
     document.querySelector<HTMLElement>('.qso-logged-toast[role="status"]')?.textContent === "QSO logged");
   check("keyboard_log", validSavedContact((await worker("logbook_list")).result));
