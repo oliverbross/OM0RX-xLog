@@ -40,6 +40,14 @@ it("ticks a new QSO in UTC, preserves a manual time, and leaves an existing cont
     expect((screen.getByLabelText("Desk UTC time") as HTMLInputElement).value).toBe("22:47:12");
   }finally{cleanup();vi.useRealTimers();}
 });
+it("submits an automatically timed QSO at native whole-second precision", () => {
+  vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-23T00:00:00.592Z"));
+  try {
+    const save = vi.fn(); render(<Harness save={save} />);
+    fireEvent.click(screen.getByRole("button", { name: "Log QSO" }));
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ start: "2026-10-23T00:00:00.000Z" }));
+  } finally { cleanup(); vi.useRealTimers(); }
+});
 it("puts an advisory duplicate date below the reference fields without blocking logging", async () => {
   const save = vi.fn();
   const request = vi.fn(async (method: string) => method === "logbook_duplicate"
