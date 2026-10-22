@@ -93,6 +93,7 @@
 .band-maps-contest .band-map-panel-tools { min-height: 31px; background: #0b1728; }
 .band-maps-contest .band-map-tool-buttons button { min-width: 27px; color: #92a7bf; font: 600 14px/1 ui-monospace, SFMono-Regular, monospace; }
 .band-maps-contest .band-map-chart { min-height: 160px; }
+.band-maps-contest .band-map-spot strong { overflow: visible; text-overflow: clip; }
 .band-maps-contest .band-map-panel-foot { min-height: 24px; }
 .band-maps-contest .band-maps-quick-controls { flex-wrap: wrap; gap: 4px 8px; min-height: 32px; overflow: visible; }
 .band-maps-contest .band-maps-quick-controls output { flex: 1 1 100%; color: #35c8f5; white-space: nowrap; }

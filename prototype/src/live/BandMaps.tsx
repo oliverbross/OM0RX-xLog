@@ -171,6 +171,18 @@ export function bandMapSpotColor(spot: BandMapSpot): string {
   if (hex(spot.statusHex)) return spot.statusHex;
   return paletteColor(opportunityStatus(spot), undefined, clusterStatusColors);
 }
+export function contestBandMapSpotWorked(spot:BandMapSpot):boolean{
+  const status=opportunityStatus(spot).toLowerCase();
+  return (finite(spot.workedBefore)??0)>0||spot.contestPoints===0||status.includes("worked")||status.includes("confirmed");
+}
+export function contestBandMapSpotColor(spot:BandMapSpot):string{
+  if(contestBandMapSpotWorked(spot))return "#8b98a5";
+  const points=finite(spot.contestPoints);return points===1?"#4da3ff":points===3?"#ff5b5b":points!==null?"#f4b942":bandMapSpotColor(spot);
+}
+function contestPointDescription(spot:BandMapSpot):string{
+  const points=finite(spot.contestPoints);if(points===null)return "Contest points unavailable";
+  return `${points} contest point${points===1?"":"s"} · ${points===0?"worked or zero-point":points===1?"blue":points===3?"red":"other-point"}`;
+}
 function bandColor(band: string, spots: BandMapSpot[]): string {
   const configured = spots.find((spot) => spot.band === band && hex(spot.bandHex))?.bandHex;
   return hex(configured) ? configured : clusterBandColors[band] ?? clusterBandColors.Unknown;
@@ -195,11 +207,11 @@ function normalizeSpots(spots: BandMapSpot[], band: string, view: ViewRange): Ba
     && text(spot.callsign).trim().length > 0);
 }
 
-export function bandMapLaneGeometry(width: number, fontScale = 1) {
+export function bandMapLaneGeometry(width: number, fontScale = 1, minimumLaneWidth = 112 * fontScale) {
   // A grouped kHz label (14,023.7) and its tick must fit at every scale.
   const desiredAxis = Math.max(70, Math.ceil(8 * 9 * fontScale * 0.64 + 18));
   const axis = Math.min(desiredAxis, Math.max(54, width - 48));
-  const laneCount = Math.max(1, Math.min(6, Math.floor((Math.max(180, width) - axis - 12) / (112 * fontScale))));
+  const laneCount = Math.max(1, Math.min(6, Math.floor((Math.max(180, width) - axis - 12) / Math.max(1,minimumLaneWidth))));
   return { axis, laneCount, laneWidth: (width - axis - 8) / laneCount };
 }
 
@@ -208,18 +220,19 @@ export function bandMapOverflowHeight(fontScale = 1): number {
   return Math.ceil(12 * fontScale * 0.8 * 1.3) + 16;
 }
 
-export function bandMapSpotWidth(spots: BandMapSpot[], laneWidth: number, fontScale = 1): number {
+export function bandMapSpotWidth(spots: BandMapSpot[], laneWidth: number, fontScale = 1, contestPresentation = false): number {
   // Monospace glyphs are normally 0.6em wide; 0.64em leaves room for font
   // fallback/rounding without measuring text during live cluster updates.
   // The status uses 0.86 of the callsign font; padding, border and gap add 15px.
   const contentWidth = Math.max(0, ...spots.map(spot =>
-    (text(spot.callsign).length + opportunityCode(spot).length * 0.86) * 10 * fontScale * 0.64));
+    (text(spot.callsign).length + (contestPresentation?0:opportunityCode(spot).length * 0.86)) * 10 * fontScale * 0.64));
   return Math.min(Math.ceil(contentWidth + 15), Math.max(0, laneWidth - 5));
 }
 
 // Fixed-size lanes guarantee non-overlapping labels even when many spots share one frequency.
-export function placeSpots(spots: BandMapSpot[], view: ViewRange, width: number, height: number, fontScale = 1): { placed: PlacedSpot[]; hidden: number } {
-  const { laneCount } = bandMapLaneGeometry(width, fontScale);
+export function placeSpots(spots: BandMapSpot[], view: ViewRange, width: number, height: number, fontScale = 1,
+    minimumLaneWidth?:number): { placed: PlacedSpot[]; hidden: number } {
+  const { laneCount } = bandMapLaneGeometry(width, fontScale, minimumLaneWidth);
   const slotHeight = Math.max(25, 23 * fontScale);
   const slotsIn = (available: number) => Math.max(0, Math.floor(Math.min(available, Math.max(100, available - 8)) / slotHeight));
   // A notice needs its own space only when the full chart cannot fit the spots.
@@ -310,9 +323,10 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
     return () => chart.removeEventListener("wheel", wheel);
   }, [full, onManualView]);
   const visible = useMemo(() => normalizeSpots(spots, band, view), [spots, band, view]);
-  const { placed, hidden } = useMemo(() => placeSpots(visible, view, width, chartHeight, fontScale), [visible, view, width, chartHeight, fontScale]);
-  const { axis, laneWidth } = bandMapLaneGeometry(width, fontScale);
-  const spotWidth = bandMapSpotWidth(visible, laneWidth, fontScale);
+  const contestSpotWidth=contestPresentation?bandMapSpotWidth(visible,Number.POSITIVE_INFINITY,fontScale,true):undefined;
+  const { placed, hidden } = useMemo(() => placeSpots(visible, view, width, chartHeight, fontScale,contestSpotWidth), [visible, view, width, chartHeight, fontScale,contestSpotWidth]);
+  const { axis, laneWidth } = bandMapLaneGeometry(width, fontScale,contestSpotWidth);
+  const spotWidth = bandMapSpotWidth(visible, laneWidth, fontScale,contestPresentation);
   // Allocation captions can use the chart's right gutter only if a complete
   // PHONE label fits clear of the last lane; the legend/select cover tight maps.
   const allocationCaptionsFit = !placed.length || 8 + (laneWidth - spotWidth) / 2 >= Math.ceil(5 * 12 * 0.67 * fontScale * 0.64 + 12);
@@ -378,15 +392,15 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
         return <div key={frequency} className="band-map-gridline" data-edge={index === 0 ? "upper" : index === ticks.length - 1 ? "lower" : undefined} style={{ top: `${fraction * 100}%` }} aria-hidden="true"><span>{formatBandMapFrequency(frequency)}</span></div>;
       })}
       {placed.map(({ spot, lane, top, anchorTop, key }) => {
-        const color = bandMapSpotColor(spot);
-        const code = opportunityCode(spot);
-        const tooltip = `${text(spot.callsign)} · ${(spot.frequencyKHz / 1000).toFixed(6)} MHz · ${text(spot.mode)} · ${text(spot.callStatus)} · ${text(spot.dxccStatus)}${spot.country ? ` · ${countryDisplay(spot.country)}` : ""}${spot.comment ? ` · ${text(spot.comment)}` : ""}`;
+        const color = contestPresentation?contestBandMapSpotColor(spot):bandMapSpotColor(spot);
+        const code = contestPresentation?"":opportunityCode(spot);
+        const tooltip = `${text(spot.callsign)} · ${(spot.frequencyKHz / 1000).toFixed(6)} MHz · ${text(spot.mode)} · ${text(spot.callStatus)} · ${text(spot.dxccStatus)}${contestPresentation?` · ${contestPointDescription(spot)}`:""}${spot.country ? ` · ${countryDisplay(spot.country)}` : ""}${spot.comment ? ` · ${text(spot.comment)}` : ""}`;
         const centre = axis + laneWidth * (lane + 0.5);
         return <Fragment key={key}><span className="band-map-spot-anchor" aria-hidden="true" style={{ top: anchorTop, left: axis - 4, width: Math.max(8, centre - axis + 4), color }} />
           <button type="button" className={`band-map-spot${spot.marked ? " is-marked" : ""}${selectedSpotId === String(spot.id) ? " is-selected" : ""}`}
             style={{ top, left: centre, width: spotWidth, color }} title={tooltip} aria-label={`${tooltip}${spot.marked ? " · Marked" : ""}`}
             aria-current={selectedSpotId === String(spot.id) ? "true" : undefined} onClick={() => onSelect(spot)}
-            onContextMenu={event => onSpotContextMenu?.(spot, event)}><strong>{text(spot.callsign)}</strong>{spot.marked && <span aria-label="Marked">★</span>}<b>{code}</b></button></Fragment>;
+             onContextMenu={event => onSpotContextMenu?.(spot, event)}><strong>{text(spot.callsign)}</strong>{spot.marked && <span aria-label="Marked">★</span>}{code&&<b>{code}</b>}</button></Fragment>;
       })}
       {hidden > 0 && <span className="band-map-overflow" role="status" aria-label={`${hidden} more spots; zoom in to separate labels`} title={`${hidden} more spots; zoom in to separate labels`}>{hidden} more · zoom in</span>}
     </div>
@@ -420,6 +434,7 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
     } catch { return "full"; }
   });
   const [spotAgeMinutes, setSpotAgeMinutes] = useState(() => storedNumber(controlKey("ageMinutes"), BAND_MAP_AGES, 30));
+  const [showWorked,setShowWorked]=useState(()=>storedFlag(compact,"showWorked",false,storageNamespace));
   const [ageClock, setAgeClock] = useState(() => Date.now());
   const bands = activeFocusedBand ? [activeFocusedBand] : preferences?.bands ?? localBands;
   const follow = activeFocusedBand ? false : preferences?.followRadio ?? localFollow;
@@ -492,13 +507,16 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
   useEffect(() => { if (!preferences) store(compact, "modes", modes, storageNamespace); }, [modes, compact, preferences, storageNamespace]);
   useEffect(() => { if (resolution !== "custom") storeAt(controlKey("resolution"), String(resolution)); }, [resolution, compact, activeFocusedBand]);
   useEffect(() => { storeAt(controlKey("ageMinutes"), String(spotAgeMinutes)); }, [spotAgeMinutes, compact, activeFocusedBand]);
+  useEffect(()=>{if(contestPresentation)store(compact,"showWorked",showWorked,storageNamespace);},[compact,contestPresentation,showWorked,storageNamespace]);
   useEffect(() => { const timer = window.setInterval(() => setAgeClock(Date.now()), 30_000); return () => window.clearInterval(timer); }, []);
   const recentUnique = useMemo(() => deduplicateBandMapSpots(filterRecentBandMapSpots(spots, spotAgeMinutes, ageClock)), [spots, spotAgeMinutes, ageClock]);
-  const filtered = useMemo(() => compact ? recentUnique : recentUnique.filter((spot) => {
+  const contestVisible=useMemo(()=>contestPresentation&&!showWorked?recentUnique.filter(spot=>!contestBandMapSpotWorked(spot)):recentUnique,
+    [contestPresentation,recentUnique,showWorked]);
+  const filtered = useMemo(() => compact ? contestVisible : contestVisible.filter((spot) => {
     const needle = query.trim().toLowerCase();
     return (!needle || [spot.callsign, spot.country, spot.comment, spot.source].some((part) => text(part).toLowerCase().includes(needle)))
       && matchesStatus(spot, status) && modes.includes(modeGroup(text(spot.mode)));
-  }), [recentUnique, compact, query, status, modes]);
+  }), [contestVisible, compact, query, status, modes]);
   const add = (band: string) => {
     if (!(band in BAND_RANGES)) return;
     const next = bands.includes(band) ? bands : [...bands, band];
@@ -543,6 +561,7 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
       {activeFocusedBand && <label>Band<select aria-label="Band" value={activeFocusedBand} onChange={event => onFocusedBandChange ? onFocusedBandChange(event.target.value) : setContestBand(event.target.value)}>{BAND_ORDER.map(band => <option key={band}>{band}</option>)}</select></label>}
       <label>Resolution<select aria-label="Band map resolution" value={resolution} onChange={event => setResolution(event.target.value === "full" ? "full" : Number(event.target.value) as BandMapResolution)}><option value="full">Full band</option>{resolution === "custom" && <option value="custom">Custom</option>}{BAND_MAP_RESOLUTIONS.map(value => <option key={value} value={value}>{value} px/kHz</option>)}</select></label>
       <label>{contestPresentation ? "Clear older" : "Spot age"}<select aria-label="Spot age" value={spotAgeMinutes} onChange={event => setSpotAgeMinutes(Number(event.target.value) as typeof BAND_MAP_AGES[number])}>{BAND_MAP_AGES.map(value => <option key={value} value={value}>{value} min</option>)}</select></label>
+      {contestPresentation&&<label><input type="checkbox" checked={showWorked} onChange={event=>setShowWorked(event.target.checked)}/>Show worked</label>}
     </footer>
   </section>;
 }

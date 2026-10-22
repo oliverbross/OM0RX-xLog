@@ -7,7 +7,7 @@ const base = { operatingContext: "00000000-0000-4000-8000-000000000001", scope: 
 const draft = { draftID: "draft-1", expectedDraftRevision: 5 };
 const spot = {id:"spot-1",receivedAt:1,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,frequencyKHz:14025,
   frequencyText:"14025.0",callsign:"DL1ABC",comment:"CQ",band:"20m",mode:"CW",country:"Germany",adif:230,continent:"EU",
-  cqZone:14,ituZone:28,callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,scoreReasons:[],
+  cqZone:14,ituZone:28,callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,contestPoints:null,scoreReasons:[],
   aggregateCount:1,aggregateSpotters:["K1ABC"],source:"DX Cluster",statusHex:"",bandHex:"",modeHex:"",marked:false};
 
 it.each(["band-maps","dx-cluster"] as const)("validates fenced %s spot selection and bounded projections",panelID=>{
@@ -20,6 +20,9 @@ it.each(["band-maps","dx-cluster"] as const)("validates fenced %s spot selection
     connections:[{serverID:"server-1",serverName:"ShackCQ",phase:"connected",error:null}],
     markedOnly:false,spots:[spot],busy:false};
   expect(validContestSurfaceProjection(panelID,projection)).toBe(true);
+  expect(validContestSurfaceProjection(panelID,{...projection,spots:[{...spot,contestPoints:3}]})).toBe(true);
+  expect(validContestSurfaceProjection(panelID,{...projection,spots:[{...spot,contestPoints:-1}]})).toBe(false);
+  expect(validContestSurfaceProjection(panelID,{...projection,spots:[{...spot,contestPoints:Number.NaN}]})).toBe(false);
   expect(validContestSurfaceProjection(panelID,{...projection,spots:[spot,{...spot}]})).toBe(false);
   expect(validContestSurfaceProjection(panelID,{...projection,connections:[{...projection.connections[0],phase:"x".repeat(33)}]})).toBe(false);
 });

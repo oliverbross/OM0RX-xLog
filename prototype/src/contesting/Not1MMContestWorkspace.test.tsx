@@ -219,7 +219,7 @@ it("routes Digital logging saves, starts, and stops through the real host servic
 it("persists exact confirm, mark, marked-only and delete spot lifecycle semantics",()=>{
   const base={receivedAt:1,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,frequencyText:"14025.0",comment:"CQ",
     band:"20m",mode:"CW",country:"Germany",adif:230,continent:"EU",cqZone:14,ituZone:28,callStatus:"New",dxccStatus:"New",
-    workedBefore:null,specialTags:[],score:80,scoreReasons:[],aggregateCount:1,aggregateSpotters:["K1ABC"],source:"DX Cluster",
+    workedBefore:null,specialTags:[],score:80,contestPoints:null,scoreReasons:[],aggregateCount:1,aggregateSpotters:["K1ABC"],source:"DX Cluster",
     statusHex:"",bandHex:"",modeHex:"",marked:false};
   const spots=[{...base,id:"one",callsign:"DL1ABC",frequencyKHz:14025},{...base,id:"collision",callsign:"DL2ABC",frequencyKHz:14025.1},
     {...base,id:"other",callsign:"DL3ABC",frequencyKHz:14025.2}];
@@ -242,7 +242,7 @@ it("namespaces, expires, compacts and quota-retries bounded persisted spot overl
   expect(contestSpotWorkflowStorageKey(scopeA)).not.toBe(contestSpotWorkflowStorageKey(scopeB));
   const base={receivedAt:1,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,frequencyKHz:14025,frequencyText:"14025",
     callsign:"DL1ABC",comment:"CQ",band:"20m",mode:"CW",country:"Germany",adif:230,continent:"EU",cqZone:14,ituZone:28,
-    callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,scoreReasons:[],aggregateCount:1,
+    callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,contestPoints:null,scoreReasons:[],aggregateCount:1,
     aggregateSpotters:["K1ABC"],source:"DX Cluster",statusHex:"",bandHex:"",modeHex:"",marked:true};
   const now=contestSpotWorkflowTTLms+10_000,entries=Object.fromEntries(Array.from({length:contestSpotWorkflowMaxEntries+25},(_,index)=>{
     const id=`spot-${index}`;return[id,{spot:{...base,id,callsign:`D${index}`},deleted:false,updatedAt:now-index}];
@@ -271,7 +271,7 @@ it("never resurrects dropped confirmed or unmarked authority while retaining a m
   const scope={operatingContext:"radio:one",sessionID:"session-1",workspaceGeneration:"generation-1"},now=1_000;
   const spot={id:"one",receivedAt:1,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,frequencyKHz:14025,frequencyText:"14025",
     callsign:"DL1ABC",comment:"CQ",band:"20m",mode:"CW",country:"Germany",adif:230,continent:"EU",cqZone:14,ituZone:28,
-    callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,scoreReasons:[],aggregateCount:1,
+    callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,contestPoints:null,scoreReasons:[],aggregateCount:1,
     aggregateSpotters:["K1ABC"],source:"DX Cluster",statusHex:"",bandHex:"",modeHex:"",marked:false};
   const confirmed=updateContestSpotWorkflow(decodeContestSpotWorkflow(null,scope,now),[spot],spot.id,"confirm",false,2,now);
   expect(projectContestSpotWorkflow([],confirmed,false)).toEqual([]);
@@ -493,13 +493,29 @@ it("projects WIA-like wide-band and aliased modes through the canonical detached
   expect(validContestSurfaceProjection("active-qso",entry)).toBe(true);
 });
 
-const operationalRequest=(current:()=>ReturnType<typeof projection>)=>vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+const operationalRequest=(current:()=>ReturnType<typeof projection>,point:(spotID:string)=>number|null=()=>null)=>vi.fn(async(method:string,params:Record<string,unknown>={})=>{
   const active=current(),support=workspaceSupport(method,params,active);if(support)return support;
   if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+  if(method==="contest_spot_points_preview")return{id:crypto.randomUUID(),ok:true,result:{sessionID:active.sessionID,
+    workspaceGeneration:active.workspaceGeneration,revision:active.revision,spots:(params.spots as {spotID:string}[]).map(spot=>({
+      spotID:spot.spotID,points:point(spot.spotID),reason:point(spot.spotID)===null?"scoring_unavailable":null}))}};
   const result=method==="contest_catalog"?{plugins:[]}:method==="contest_sessions"?{sessions:[]}:
     method==="contest_create"?{projection:active}:method==="contest_log_page"?{rows:[],total:0}:
     method==="contest_score"?{score:active.score}:null;
   if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+});
+
+it("projects only fenced host contest points without replacing cluster opportunity scores",async()=>{
+  const current=projection(),request=operationalRequest(()=>current,id=>id==="one"?1:3),shared=[
+    {id:"one",callsign:"DL1ABC",frequencyKHz:14025,band:"20m",mode:"CW",score:42},
+    {id:"three",callsign:"K1ABC",frequencyKHz:14026,band:"20m",mode:"CW",score:80},
+  ];
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={shared as any}/>);
+  await createContestThroughSetup();await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots)
+    .toEqual(expect.arrayContaining([expect.objectContaining({id:"one",score:42,contestPoints:1}),
+      expect.objectContaining({id:"three",score:80,contestPoints:3})])));
+  expect(request).toHaveBeenCalledWith("contest_spot_points_preview",expect.objectContaining({sessionID:current.sessionID,
+    workspaceGeneration:current.workspaceGeneration,expectedRevision:current.revision}));
 });
 
 it("routes the visible SPOT_DX action through the owned native contest spot adapter", async () => {

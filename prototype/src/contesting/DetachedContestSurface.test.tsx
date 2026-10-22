@@ -30,7 +30,7 @@ const projection={schemaVersion:1,status:"ready",session:{name:"ARRL DX",ruleNam
 const snapshot={operatingContext,scope:"contesting",sessionID,workspaceGeneration,panelID:"active-qso",projectionRevision:6,projection,receipts:[]};
 const sharedSpot={id:"spot-1",receivedAt:Math.floor(Date.now()/1000)-978_307_200,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,
   frequencyKHz:14025,frequencyText:"14025.0",callsign:"DL1ABC",comment:"CQ",band:"20m",mode:"CW",country:"Germany",adif:230,
-  continent:"EU",cqZone:14,ituZone:28,callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,
+  continent:"EU",cqZone:14,ituZone:28,callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,contestPoints:null,
   scoreReasons:[],aggregateCount:1,aggregateSpotters:["K1ABC"],source:"DX Cluster",statusHex:"",bandHex:"",modeHex:"",marked:false};
 const tabMaps={tabNext:{callsign:"sent",sent:"receive",receive:"other_1",other_1:"other_2",other_2:"callsign"},
   tabPrevious:{callsign:"other_2",sent:"callsign",receive:"sent",other_1:"receive",other_2:"other_1"}} as const;

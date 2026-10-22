@@ -141,7 +141,7 @@ export type ContestSurfaceSpot = { id: string; receivedAt: number; clusterName: 
   spotterContinent: string | null; frequencyKHz: number; frequencyText: string; callsign: string; comment: string;
   band: string; mode: string; country: string; adif: number | null; continent: string; cqZone: number | null;
   ituZone: number | null; callStatus: string; dxccStatus: string; workedBefore: number | null; specialTags: string[];
-  score: number; scoreReasons: string[]; aggregateCount: number; aggregateSpotters: string[]; source: string;
+  score: number; contestPoints: number | null; scoreReasons: string[]; aggregateCount: number; aggregateSpotters: string[]; source: string;
   statusHex: string; bandHex: string; modeHex: string; marked: boolean };
 export type ContestSpotSurfaceProjection = { schemaVersion: 2; status: "ready"; draftID: string; draftRevision: number;
   radioFrequencyHz: number | null; connectedClusters: number; loadedSpots: number; selectedSpotID: string | null;
@@ -445,9 +445,10 @@ function validSpotProjection(value: Record<string, unknown>) {
   return value.spots.every(item => {
     if (!record(item) || !exact(item, ["id", "receivedAt", "clusterName", "spotter", "spotterContinent", "frequencyKHz",
         "frequencyText", "callsign", "comment", "band", "mode", "country", "adif", "continent", "cqZone", "ituZone",
-        "callStatus", "dxccStatus", "workedBefore", "specialTags", "score", "scoreReasons", "aggregateCount",
+        "callStatus", "dxccStatus", "workedBefore", "specialTags", "score", "contestPoints", "scoreReasons", "aggregateCount",
         "aggregateSpotters", "source", "statusHex", "bandHex", "modeHex", "marked"]) || !text(item.id, 128) || ids.has(item.id as string) ||
         !["receivedAt", "frequencyKHz", "score"].every(key => typeof item[key] === "number" && Number.isFinite(item[key]) && (item[key] as number) >= 0) ||
+        item.contestPoints !== null && (typeof item.contestPoints !== "number" || !Number.isFinite(item.contestPoints) || item.contestPoints < 0) ||
         !uint(item.aggregateCount) || !["clusterName", "spotter", "frequencyText", "comment", "country", "continent", "callStatus",
           "dxccStatus", "source", "statusHex", "bandHex", "modeHex"].every(key => text(item[key], 512, true)) ||
         !text(item.callsign, 32) || !text(item.band, 16) || !text(item.mode, 16) ||

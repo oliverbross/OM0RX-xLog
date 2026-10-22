@@ -968,7 +968,7 @@ fn validate_spot_projection(value: &Map<String, Value>) -> Result<(), String> {
     for item in array(&value["spots"], 2_000, "contest spots")? {
         let spot = object(item, "contest spot")?;
         exact(spot, &["id", "receivedAt", "clusterName", "spotter", "spotterContinent", "frequencyKHz", "frequencyText", "callsign", "comment",
-            "band", "mode", "country", "adif", "continent", "cqZone", "ituZone", "callStatus", "dxccStatus", "workedBefore", "specialTags", "score",
+            "band", "mode", "country", "adif", "continent", "cqZone", "ituZone", "callStatus", "dxccStatus", "workedBefore", "specialTags", "score", "contestPoints",
             "scoreReasons", "aggregateCount", "aggregateSpotters", "source", "statusHex", "bandHex", "modeHex", "marked"], "contest spot")?;
         let id = text_value(&spot["id"], 128, false, "spot ID")?;
         if !ids.insert(id) { return Err("Contest spot IDs must be unique.".into()); }
@@ -976,6 +976,7 @@ fn validate_spot_projection(value: &Map<String, Value>) -> Result<(), String> {
             nullable_nonnegative_number(&spot[key], "spot number")?;
             if spot[key].is_null() { return Err("Contest spot numbers cannot be null.".into()); }
         }
+        nullable_nonnegative_number(&spot["contestPoints"], "contest QSO points")?;
         uint_value(&spot["aggregateCount"], MAX_SAFE_INTEGER, "aggregate spot count")?;
         for key in ["clusterName", "spotter", "frequencyText", "comment", "country", "continent", "callStatus", "dxccStatus", "source", "statusHex", "bandHex", "modeHex"] {
             text_value(&spot[key], 512, true, "spot text")?;
@@ -3709,7 +3710,7 @@ mod tests {
         let spot = json!({"id":"spot-1","receivedAt":1,"clusterName":"SK6AW","spotter":"K1ABC","spotterContinent":null,
             "frequencyKHz":14025.0,"frequencyText":"14025.0","callsign":"DL1ABC","comment":"CQ","band":"20m","mode":"CW",
             "country":"Germany","adif":230,"continent":"EU","cqZone":14,"ituZone":28,"callStatus":"New","dxccStatus":"New",
-            "workedBefore":null,"specialTags":[],"score":80,"scoreReasons":[],"aggregateCount":1,"aggregateSpotters":["K1ABC"],
+            "workedBefore":null,"specialTags":[],"score":80,"contestPoints":null,"scoreReasons":[],"aggregateCount":1,"aggregateSpotters":["K1ABC"],
             "source":"DX Cluster","statusHex":"","bandHex":"","modeHex":"","marked":false});
         let projection = json!({"schemaVersion":2,"status":"ready","draftID":"draft","draftRevision":2,
             "radioFrequencyHz":14025000,"connectedClusters":1,"loadedSpots":1,"selectedSpotID":"spot-1",
@@ -3717,6 +3718,10 @@ mod tests {
             "connections":[{"serverID":"server-1","serverName":"ShackCQ","phase":"connected","error":null}],"markedOnly":false,
             "spots":[spot.clone()],"busy":false});
         for panel in ["band-maps", "dx-cluster"] { assert!(validate_projection(panel, &projection).is_ok()); }
+        let mut known_points = projection.clone(); known_points["spots"][0]["contestPoints"] = json!(3);
+        assert!(validate_projection("band-maps", &known_points).is_ok());
+        let mut invalid_points = projection.clone(); invalid_points["spots"][0]["contestPoints"] = json!(-1);
+        assert!(validate_projection("band-maps", &invalid_points).is_err());
         let mut duplicate = projection.clone(); duplicate["spots"] = json!([spot.clone(), spot]);
         assert!(validate_projection("band-maps", &duplicate).is_err());
         let mut state = State { context: Some(context()), ..State::default() };
