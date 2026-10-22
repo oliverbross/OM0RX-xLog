@@ -9,7 +9,7 @@ import Testing
 struct RTCScoreReportingServiceTests {
     @Test("HTTPS post uses Basic auth and original XML through intercepted transport")
     func interceptedPost() async throws {
-        RTCScoreFixture.reset(status: 204)
+        RTCScoreFixture.reset(status: 200, responseBody: Data(#"{"status":200,"status_message":"OK-Full"}"#.utf8))
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [RTCScoreFixture.self]
         let sessionID = UUID().uuidString.lowercased(), workspace = UUID().uuidString.lowercased()
@@ -22,10 +22,10 @@ struct RTCScoreReportingServiceTests {
             service: "hamscore", endpoint: URL(string: "https://hamscore.com/postxml/")!,
             username: "OM0RX", intervalMinutes: 2, enabled: false))
         let status = try await service.sendNow()
-        #expect(status["last_outcome"] as? String == "Accepted by the score server (HTTP 204).")
+        #expect(status["last_outcome"] as? String == "Accepted by the score server (HTTP 200): OK-Full.")
         let request = try #require(RTCScoreFixture.request())
         #expect(request.httpMethod == "POST")
-        #expect(request.value(forHTTPHeaderField: "Content-Type") == "text/xml")
+        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/xml")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Basic " + Data("OM0RX:fixture-password".utf8).base64EncodedString())
         #expect(String(data: RTCScoreFixture.body(), encoding: .utf8)?.contains("<score>42</score>") == true)
         await service.terminate()
@@ -33,7 +33,7 @@ struct RTCScoreReportingServiceTests {
 
     @Test("Manual submission keeps the configured automatic schedule visible")
     func manualPostPreservesSchedule() async throws {
-        RTCScoreFixture.reset(status: 204)
+        RTCScoreFixture.reset(status: 200, responseBody: Data(#"{"status":200,"status_message":"OK-Full"}"#.utf8))
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [RTCScoreFixture.self]
         let service = RTCScoreReportingService(sessionConfiguration: configuration,
@@ -91,9 +91,47 @@ struct RTCScoreReportingServiceTests {
         await service.terminate()
     }
 
+    @Test("HTTP success with provider rejection is not reported as accepted")
+    func providerRejection() async throws {
+        RTCScoreFixture.reset(status: 200,
+            responseBody: Data(#"{"status":405,"status_message":"Error! Empty call\nretry"}"#.utf8))
+        let service = makeService()
+        try await configure(service)
+        do {
+            _ = try await service.sendNow()
+            Issue.record("Provider rejection should fail")
+        } catch let error as WorkerFailure {
+            #expect(error.code == "rtc_application_rejected")
+            #expect(error.message == "Error! Empty call retry")
+        }
+        #expect(await service.status()["last_outcome"] as? String == "Score server rejected the report: Error! Empty call retry")
+        await service.terminate()
+    }
+
+    @Test("Malformed and oversized responses fail closed")
+    func invalidResponses() async throws {
+        for body in [Data("not-json".utf8), Data(repeating: 65, count: 16_385)] {
+            RTCScoreFixture.reset(status: 200, responseBody: body)
+            let service = makeService()
+            try await configure(service)
+            await #expect(throws: Error.self) { try await service.sendNow() }
+            await service.terminate()
+        }
+    }
+
+    @Test("Redirects are rejected without following the new location")
+    func redirectRejected() async throws {
+        RTCScoreFixture.reset(status: 302, responseBody: Data(), redirect: true)
+        let service = makeService()
+        try await configure(service)
+        await #expect(throws: Error.self) { try await service.sendNow() }
+        #expect(RTCScoreFixture.requestCount() == 1)
+        await service.terminate()
+    }
+
     @Test("Termination cancels a manual post without applying a result")
     func terminationCancelsManualPost() async throws {
-        RTCScoreFixture.reset(status: 204, suspended: true)
+        RTCScoreFixture.reset(status: 200, responseBody: Data(), suspended: true)
         let urlConfiguration = URLSessionConfiguration.ephemeral
         urlConfiguration.protocolClasses = [RTCScoreFixture.self]
         let service = RTCScoreReportingService(sessionConfiguration: urlConfiguration,
@@ -121,6 +159,20 @@ struct RTCScoreReportingServiceTests {
         }
         #expect(RTCScoreFixture.cancellationCount() == 1)
     }
+
+
+    private func makeService() -> RTCScoreReportingService {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [RTCScoreFixture.self]
+        return RTCScoreReportingService(sessionConfiguration: configuration,
+            credential: { "secret" }, payload: { _,_ in "<dynamicresults/>" })
+    }
+
+    private func configure(_ service: RTCScoreReportingService) async throws {
+        _ = try await service.configure(.init(sessionID: UUID().uuidString, workspaceGeneration: UUID().uuidString,
+            service: "hamscore", endpoint: URL(string: "https://hamscore.com/postxml/")!,
+            username: "OM0RX", intervalMinutes: 2, enabled: false))
+    }
 }
 
 private final class RTCScoreFixture: URLProtocol {
@@ -129,12 +181,15 @@ private final class RTCScoreFixture: URLProtocol {
     private static var capturedBody = Data()
     private static var requests = 0
     private static var responseStatus = 204
+    private static var responseBody = Data()
+    private static var redirect = false
     private static var suspended = false
     private static var cancellations = 0
-    static func reset(status: Int, suspended: Bool = false) {
+    static func reset(status: Int, responseBody: Data = Data(), suspended: Bool = false, redirect: Bool = false) {
         lock.withLock {
             captured = nil; capturedBody = Data(); requests = 0; responseStatus = status
-            self.suspended = suspended; cancellations = 0
+            self.responseBody = responseBody; self.suspended = suspended
+            self.redirect = redirect; cancellations = 0
         }
     }
     static func request() -> URLRequest? { lock.withLock { captured } }
@@ -155,16 +210,22 @@ private final class RTCScoreFixture: URLProtocol {
                 body.append(buffer, count: count)
             }
         }
-        let (status, suspended) = Self.lock.withLock {
+        let (status, responseBody, suspended, redirect) = Self.lock.withLock {
             Self.captured = request
             Self.capturedBody = body
             Self.requests += 1
-            return (Self.responseStatus, Self.suspended)
+            return (Self.responseStatus, Self.responseBody, Self.suspended, Self.redirect)
         }
         if suspended { return }
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: "HTTP/1.1",
-            headerFields: ["Content-Type":"text/plain", "Content-Length":"0"])!
+            headerFields: ["Content-Type":"application/json"])!
+        if redirect {
+            let redirected = URLRequest(url: URL(string: "https://example.invalid/rejected")!)
+            client?.urlProtocol(self, wasRedirectedTo: redirected, redirectResponse: response)
+            return
+        }
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        if !responseBody.isEmpty { client?.urlProtocol(self, didLoad: responseBody) }
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() { Self.lock.withLock { Self.cancellations += 1 } }

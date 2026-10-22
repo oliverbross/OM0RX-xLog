@@ -3,6 +3,7 @@ from copy import deepcopy
 from datetime import datetime, UTC
 import base64
 import hashlib
+from html import escape as xml_escape
 import ipaddress
 import json
 import logging
@@ -14,6 +15,7 @@ import socket
 import sqlite3
 from tempfile import TemporaryDirectory
 import uuid
+from xml.etree import ElementTree
 
 from .store import CALLHISTORY_COLUMNS, Store, canonical
 from .rates import calculate_rates
@@ -162,6 +164,29 @@ class HostError(Exception):
 def require(condition, message, code="invalid_request"):
     if not condition:
         raise HostError(code, message)
+
+
+def validate_rtc_xml(payload):
+    require(isinstance(payload, str) and 1 <= len(payload.encode("utf-8")) <= 65_536,
+            "RTC score XML is invalid", "rtc_payload_invalid")
+    try:
+        root = ElementTree.fromstring(payload)
+    except ElementTree.ParseError as error:
+        raise HostError("rtc_payload_invalid", "RTC score XML is not well formed") from error
+    require(root.tag == "dynamicresults", "RTC score XML has an invalid root", "rtc_payload_invalid")
+    for field in ("contest", "call", "score", "timestamp"):
+        value = root.findtext(field)
+        require(isinstance(value, str) and bool(value.strip()),
+                f"RTC score XML is missing {field}", "rtc_payload_invalid")
+    require(root.find("breakdown") is not None,
+            "RTC score XML is missing breakdown", "rtc_payload_invalid")
+    return payload
+
+
+def rtc_safe_values(values):
+    """Escape operator-controlled strings before the pinned XML formatter sees them."""
+    return {key: xml_escape(value, quote=True) if isinstance(value, str) else value
+            for key, value in values.items()}
 
 
 def validate_central_europe_sent_exchange(plugin_id, station_prefix, exchange):
@@ -1327,9 +1352,9 @@ class Host:
             desk = Desk(store, state, self.commit)
             generator = getattr(desk.contest, "online_score_xml", None)
             require(callable(generator), "This contest does not provide RTC score XML", "rtc_unsupported")
-            payload = generator(desk)
-            require(isinstance(payload, str) and 1 <= len(payload.encode("utf-8")) <= 65_536,
-                    "RTC score XML is invalid", "rtc_payload_invalid")
+            desk.station = rtc_safe_values(desk.station)
+            desk.contest_settings = rtc_safe_values(desk.contest_settings)
+            payload = validate_rtc_xml(generator(desk))
             return {"sessionID": session_id, "workspaceGeneration": workspace_generation(state),
                     "revision": state["revision"], "xml": payload}
         desk = Desk(store, state, self.commit)

@@ -30,6 +30,16 @@ import "./ContestWorkspace.css";
 type Data = Record<string, any>;
 type RTCStatus={configured:boolean;enabled:boolean;service:string|null;username:string;interval_minutes:number;posting:boolean;
   consecutive_failures:number;last_outcome:string;last_attempt:string|null;next_attempt:string|null};
+export function rtcReportState(status:RTCStatus|null):"disabled"|"scheduled"|"posting"|"sent"|"failed"|"paused" {
+  if(status?.posting)return "posting";
+  if(status?.consecutive_failures===3&&!status.enabled)return "paused";
+  if(status?.last_attempt&&status.consecutive_failures>0)return "failed";
+  if(status?.last_attempt&&status.consecutive_failures===0)return "sent";
+  return status?.enabled?"scheduled":"disabled";
+}
+export function rtcConfigurationRequired(currentKey:string,nextKey:string,status:RTCStatus|null):boolean {
+  return currentKey!==nextKey||status?.configured===false;
+}
 type ClientAction="commit"|"correct"|"delete";
 type PendingClientMutation={schemaVersion:1;localSessionID:string;localWorkspaceGeneration:string;authoritySessionID:string;
   authorityWorkspaceGeneration:string;draftID:string;action:ClientAction;baseRevision:number;requestID:string;qsoID:string;
@@ -597,7 +607,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const url=service==="contestonlinescore"?"https://contestonlinescore.com/post/":"https://hamscore.com/postxml/";
     const username=String(setup.preferences.rtcUsername??"").trim(),intervalMinutes=Math.max(1,Math.min(60,Number(setup.preferences.rtcIntervalMinutes)||2));
     const enabled=setup.preferences.rtcEnabled===true,key=[projection.sessionID,projection.workspaceGeneration,service,username,intervalMinutes,enabled].join("|");
-    if(rtcConfigurationRef.current===key)return;rtcConfigurationRef.current=key;let current=true;
+    if(!rtcConfigurationRequired(rtcConfigurationRef.current,key,rtcStatus))return;
+    rtcConfigurationRef.current=key;let current=true;
     void Promise.allSettled([request("secret_status"),request("contest_rtc_configure",{sessionID:projection.sessionID,
       workspaceGeneration:projection.workspaceGeneration,service,url,username,intervalMinutes,enabled})]).then(results=>{
       if(!current)return;const secret=results[0],configured=results[1];
@@ -607,7 +618,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         consecutive_failures:0,last_outcome:enabled?"Reporting could not start. Save credentials and enable it again.":"Score reporting is disabled.",last_attempt:null,next_attempt:null});
     });return()=>{current=false;};
   },[projection?.sessionID,projection?.workspaceGeneration,setupOnly,contestingTest,setup.preferences.rtcURL,
-    setup.preferences.rtcUsername,setup.preferences.rtcIntervalMinutes,setup.preferences.rtcEnabled,request]);
+    setup.preferences.rtcUsername,setup.preferences.rtcIntervalMinutes,setup.preferences.rtcEnabled,rtcStatus?.configured,request]);
   useEffect(()=>{
     if(!projection||setupOnly||contestingTest)return;
     let current=true;
@@ -1702,8 +1713,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       hourSearchAndPounceQso: Number(rates.hourSearchAndPounceQso), busy: busy || retiring };
     const rtcService=setup.preferences.rtcURL==="https://contestonlinescore.com/post/"?"contestonlinescore":"hamscore";
     const rtcOutcome=rtcStatus?.last_outcome??"Score reporting is disabled.";
-    const reportState=rtcStatus?.posting?"posting":rtcStatus?.enabled?"scheduled":rtcStatus?.consecutive_failures===3?"paused":
-      rtcStatus?.last_attempt&&rtcStatus.consecutive_failures===0?"sent":rtcStatus?.consecutive_failures?"failed":"disabled";
+    const reportState=rtcReportState(rtcStatus);
     unavailable["score-reporting"] = { schemaVersion: 1, status: "ready", score: scoreView,
       intervalMinutes: rtcStatus?.interval_minutes??Math.max(1,Math.min(60,Number(setup.preferences.rtcIntervalMinutes)||2)),
       reportingEnabled: rtcStatus?.enabled===true, availability: contestingTest?"unavailable":"available",

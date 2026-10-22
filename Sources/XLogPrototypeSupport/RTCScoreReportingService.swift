@@ -13,16 +13,21 @@ struct RTCScoreConfiguration: Sendable, Equatable {
     let enabled: Bool
 }
 
+private struct RTCScoreHTTPResponse: Sendable {
+    let status: Int
+    let body: Data
+}
+
 private final class RTCScoreHTTPTransport: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     static let maximumResponseBytes = 16_384
     private let configuration: URLSessionConfiguration
     private let request: URLRequest
     private let lock = NSLock()
-    private var continuation: CheckedContinuation<Int, Error>?
+    private var continuation: CheckedContinuation<RTCScoreHTTPResponse, Error>?
     private var session: URLSession?
     private var task: URLSessionDataTask?
     private var responseStatus: Int?
-    private var responseBytes = 0
+    private var responseBody = Data()
     private var finished = false
 
     init(configuration: URLSessionConfiguration, request: URLRequest) {
@@ -30,14 +35,14 @@ private final class RTCScoreHTTPTransport: NSObject, URLSessionDataDelegate, @un
         self.request = request
     }
 
-    static func post(configuration: URLSessionConfiguration, request: URLRequest) async throws -> Int {
+    static func post(configuration: URLSessionConfiguration, request: URLRequest) async throws -> RTCScoreHTTPResponse {
         let transfer = RTCScoreHTTPTransport(configuration: configuration, request: request)
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { transfer.start($0) }
         } onCancel: { transfer.finish(.failure(CancellationError())) }
     }
 
-    private func start(_ continuation: CheckedContinuation<Int, Error>) {
+    private func start(_ continuation: CheckedContinuation<RTCScoreHTTPResponse, Error>) {
         lock.lock()
         self.continuation = continuation
         configuration.httpCookieAcceptPolicy = .never
@@ -72,16 +77,16 @@ private final class RTCScoreHTTPTransport: NSObject, URLSessionDataDelegate, @un
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         let overflow = lock.withLock {
-            responseBytes += data.count
-            return responseBytes > Self.maximumResponseBytes
+            responseBody.append(data)
+            return responseBody.count > Self.maximumResponseBytes
         }
         if overflow { finish(.failure(WorkerFailure("rtc_response_too_large", "The score server response exceeded the safety limit."))) }
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         if let error { finish(.failure(error)); return }
-        let status = lock.withLock { responseStatus }
-        if let status { finish(.success(status)) }
+        let response = lock.withLock { responseStatus.map { RTCScoreHTTPResponse(status: $0, body: responseBody) } }
+        if let response { finish(.success(response)) }
         else { finish(.failure(WorkerFailure("rtc_response_invalid", "The score server response was invalid."))) }
     }
 
@@ -92,7 +97,7 @@ private final class RTCScoreHTTPTransport: NSObject, URLSessionDataDelegate, @un
         finish(.failure(WorkerFailure("rtc_redirect_rejected", "Score server redirects are not accepted.")))
     }
 
-    private func finish(_ result: Result<Int, Error>) {
+    private func finish(_ result: Result<RTCScoreHTTPResponse, Error>) {
         lock.lock()
         guard !finished else { lock.unlock(); return }
         finished = true
@@ -112,7 +117,7 @@ actor RTCScoreReportingService {
     private let payload: PayloadLoader
     private var configuration: RTCScoreConfiguration?
     private var timer: Task<Void, Never>?
-    private var transfer: Task<Int, Error>?
+    private var transfer: Task<RTCScoreHTTPResponse, Error>?
     private var posting = false
     private var consecutiveFailures = 0
     private var lastOutcome = "Not sent yet."
@@ -202,7 +207,7 @@ actor RTCScoreReportingService {
             var request = URLRequest(url: configuration.endpoint)
             request.httpMethod = "POST"
             request.httpBody = Data(xml.utf8)
-            request.setValue("text/xml", forHTTPHeaderField: "Content-Type")
+            request.setValue("application/xml", forHTTPHeaderField: "Content-Type")
             let auth = Data("\(configuration.username):\(password)".utf8).base64EncodedString()
             request.setValue("Basic \(auth)", forHTTPHeaderField: "Authorization")
             let transfer = Task {
@@ -210,7 +215,7 @@ actor RTCScoreReportingService {
             }
             self.transfer = transfer
             defer { transfer.cancel(); self.transfer = nil }
-            let status = try await withTaskCancellationHandler {
+            let response = try await withTaskCancellationHandler {
                 try await transfer.value
             } onCancel: {
                 transfer.cancel()
@@ -218,13 +223,18 @@ actor RTCScoreReportingService {
             guard !stopped, self.configuration == configuration else {
                 throw WorkerFailure("rtc_context_changed", "Score reporting changed before the post completed; its result was not applied.")
             }
+            let providerMessage = try Self.acceptedProviderMessage(response.body)
             consecutiveFailures = 0
-            lastOutcome = "Accepted by the score server (HTTP \(status))."
+            lastOutcome = "Accepted by the score server (HTTP \(response.status)): \(providerMessage)."
             return self.status()
         } catch {
             if !stopped {
                 consecutiveFailures = min(3, consecutiveFailures + 1)
-                lastOutcome = "Score report failed; no success was confirmed."
+                if let failure = error as? WorkerFailure, failure.code == "rtc_application_rejected" {
+                    lastOutcome = "Score server rejected the report: \(failure.message)"
+                } else {
+                    lastOutcome = "Score report failed; no success was confirmed."
+                }
             }
             throw error
         }
@@ -239,5 +249,31 @@ actor RTCScoreReportingService {
             value.username.utf8.count <= 128 && (!value.enabled || !value.username.isEmpty) &&
             !value.username.contains(":") &&
             !value.username.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
+    }
+
+    private static func acceptedProviderMessage(_ body: Data) throws -> String {
+        guard !body.isEmpty,
+              let object = try? JSONSerialization.jsonObject(with: body),
+              let response = object as? [String: Any],
+              let status = response["status"] as? NSNumber,
+              let rawMessage = response["status_message"] as? String else {
+            throw WorkerFailure("rtc_response_invalid", "The score server response did not match the pinned RTC contract.")
+        }
+        let message = sanitizedProviderMessage(rawMessage)
+        guard status.intValue == 200, status.doubleValue == 200 else {
+            let detail = message.isEmpty ? "The provider rejected the score report." : message
+            throw WorkerFailure("rtc_application_rejected", detail)
+        }
+        guard !message.isEmpty else {
+            throw WorkerFailure("rtc_response_invalid", "The score server response did not include a valid status message.")
+        }
+        return message
+    }
+
+    private static func sanitizedProviderMessage(_ value: String) -> String {
+        let visible = value.unicodeScalars.map { scalar in
+            CharacterSet.controlCharacters.contains(scalar) ? " " : String(scalar)
+        }.joined()
+        return String(visible.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ").prefix(256))
     }
 }

@@ -12,10 +12,12 @@ import sys
 from tempfile import TemporaryDirectory
 import unittest
 import uuid
+from xml.etree import ElementTree
 
 from contest_host.__main__ import MAX_REQUEST, run
 from contest_host.host import Host, HostError, Field
 from contest_host.rates import calculate_rates, timestamp
+from contest_host.upstream import load_plugin
 from unittest.mock import patch
 
 
@@ -569,6 +571,25 @@ class HostTests(unittest.TestCase):
         with self.assertRaises(HostError) as stale:
             self.read("rtc_payload", workspaceGeneration=uid())
         self.assertEqual(stale.exception.code, "stale_generation")
+
+    def test_rtc_payload_escapes_dynamic_text_and_remains_well_formed(self):
+        setup = self.read("setup_get")["setup"]
+        setup["station"] = {**setup["station"], "Club": "A&B <Contesters>"}
+        self.mutate("setup_save", setup=setup)
+        payload = self.read("rtc_payload", workspaceGeneration=self.workspace)["xml"]
+        root = ElementTree.fromstring(payload)
+        self.assertEqual(root.tag, "dynamicresults")
+        self.assertEqual(root.findtext("club"), "A&B <Contesters>")
+        self.assertIn("A&amp;B &lt;Contesters&gt;", payload)
+
+    def test_rtc_payload_rejects_malformed_or_incomplete_plugin_xml(self):
+        plugin = load_plugin("cq_ww_cw")
+        for payload in ("<dynamicresults><call>OM0RX</dynamicresults>",
+                        "<dynamicresults><contest>CQ-WW-CW</contest></dynamicresults>"):
+            with self.subTest(payload=payload), patch.object(plugin, "online_score_xml", return_value=payload):
+                with self.assertRaises(HostError) as error:
+                    self.read("rtc_payload", workspaceGeneration=self.workspace)
+                self.assertEqual(error.exception.code, "rtc_payload_invalid")
 
     def test_manual_recalculation_repairs_derived_points_without_changing_draft(self):
         qso = self.log()

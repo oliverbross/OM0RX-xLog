@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import userEvent from "@testing-library/user-event";
 import { compactContestSpotWorkflow, contestSpotWorkflowMaxBytes, contestSpotWorkflowMaxEntries, contestSpotWorkflowStorageKey,
   contestSpotWorkflowTTLms, decodeContestSpotWorkflow, encodeContestSpotWorkflow, Not1MMContestWorkspace, persistContestSpotWorkflow,
-  projectContestSpotWorkflow, updateContestSpotWorkflow, authoritativeChangeRevision, storedPendingClientMutation } from "./Not1MMContestWorkspace";
+  projectContestSpotWorkflow, updateContestSpotWorkflow, authoritativeChangeRevision, rtcConfigurationRequired, rtcReportState, storedPendingClientMutation } from "./Not1MMContestWorkspace";
 import { ContestScoreSummary } from "./ContestPresentation";
 import { ContestMutationUncertain } from "./client";
 import { contestSurfacePanelIDs, validContestSurfaceProjection } from "./contestSurfaceProtocol";
@@ -33,6 +33,18 @@ vi.mock("./contestGroupChat", () => ({ configureContestGroupChat: groupChat.conf
   publishContestGroupContact: groupChat.publish, takeContestGroupUnverifiedAcknowledgements: groupChat.acknowledgements }));
 vi.mock("../live/BandMaps", () => ({ default: () => <div>Shared bandmap</div> }));
 vi.mock("../live/ClusterPanel", () => ({ default: () => <div>Shared cluster</div> }));
+
+it("reports RTC success and failure before the next scheduled attempt",()=>{
+  const status={configured:true,enabled:true,service:"hamscore",username:"OM0RX",interval_minutes:2,posting:false,
+    consecutive_failures:0,last_outcome:"accepted",last_attempt:"2026-10-22T00:00:00Z",next_attempt:"2026-10-22T00:02:00Z"};
+  expect(rtcReportState(status)).toBe("sent");
+  expect(rtcReportState({...status,consecutive_failures:1,last_outcome:"failed"})).toBe("failed");
+  expect(rtcReportState({...status,enabled:false,consecutive_failures:3,last_outcome:"paused"})).toBe("paused");
+  expect(rtcReportState({...status,posting:true})).toBe("posting");
+  expect(rtcReportState({...status,last_attempt:null})).toBe("scheduled");
+  expect(rtcConfigurationRequired("same","same",status)).toBe(false);
+  expect(rtcConfigurationRequired("same","same",{...status,configured:false})).toBe(true);
+});
 vi.mock("../live/useSharedCW", () => ({ useSharedCW: () => ({
   controller: { refresh: vi.fn(async () => {}), arm: vi.fn(async () => {}), stop: nativeCW.stop, send: vi.fn(async () => {}), executeContest: nativeCW.execute },
   state: { pending: false, armed: false, message: "CW disarmed", error: "" },
