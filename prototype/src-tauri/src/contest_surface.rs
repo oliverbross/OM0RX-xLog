@@ -1266,6 +1266,8 @@ fn validate_entry_operator(value: &Value) -> Result<(), String> {
     let operator = object(value, "entry operator")?;
     let mut fields = vec![
         "output",
+        "outputAvailable",
+        "outputUnavailableReason",
         "armed",
         "style",
         "status",
@@ -1290,6 +1292,18 @@ fn validate_entry_operator(value: &Value) -> Result<(), String> {
         &["simulation-only", "xlog-native", "test-simulation"],
         "operator output",
     )?;
+    boolean(&operator["outputAvailable"], "operator output availability")?;
+    nullable_text(
+        &operator["outputUnavailableReason"],
+        512,
+        "operator output unavailable reason",
+    )?;
+    let output_available = operator["outputAvailable"]
+        .as_bool()
+        .ok_or_else(|| "The operator output availability is invalid.".to_string())?;
+    if output_available == !operator["outputUnavailableReason"].is_null() {
+        return Err("The operator output availability is inconsistent.".into());
+    }
     boolean(&operator["armed"], "operator armed state")?;
     enum_value(
         &operator["style"],
@@ -1320,7 +1334,11 @@ fn validate_entry_operator(value: &Value) -> Result<(), String> {
     let mut keys = BTreeSet::new();
     for mapping in array(&operator["functionKeys"], 12, "operator function keys")? {
         let mapping = object(mapping, "operator function key")?;
-        exact(mapping, &["key", "macro"], "operator function key")?;
+        exact(
+            mapping,
+            &["key", "macro", "highlighted"],
+            "operator function key",
+        )?;
         let key = enum_value(
             &mapping["key"],
             &[
@@ -1332,6 +1350,7 @@ fn validate_entry_operator(value: &Value) -> Result<(), String> {
             return Err("The operator function keys are not unique.".into());
         }
         text_value(&mapping["macro"], 160, true, "operator macro label")?;
+        boolean(&mapping["highlighted"], "operator function key highlight")?;
     }
     let readiness = object(&operator["readiness"], "operator readiness")?;
     exact(
@@ -3909,11 +3928,12 @@ mod tests {
                 "keyBindings":[{"context":"*","key":"Ctrl+R","action":"TOGGLE_RUN"}],
                 "sentFields":[{"id":"zone","label":"CQ zone","value":"15","required":true,"maximumUTF8Bytes":2}],
                 "serial":{"requirement":"none","allocatedFieldID":null,"reservedSerial":null}},
-            "operator":{"output":"simulation-only","armed":true,"style":"run","status":"armed","pending":null,
+            "operator":{"output":"simulation-only","outputAvailable":true,"outputUnavailableReason":null,
+                "armed":true,"style":"run","status":"armed","pending":null,
                 "focusedField":"other_2",
                 "tabNext":{"callsign":"sent","sent":"receive","receive":"other_1","other_1":"other_2","other_2":"callsign"},
                 "tabPrevious":{"callsign":"other_2","sent":"callsign","receive":"sent","other_1":"receive","other_2":"other_1"},
-                "functionKeys":[{"key":"F1","macro":"CQ"},{"key":"F2","macro":"EXCH"}],
+                "functionKeys":[{"key":"F1","macro":"CQ","highlighted":true},{"key":"F2","macro":"EXCH","highlighted":false}],
                 "readiness":{"canSendCQ":true,"canSendCall":true,"canSendDuplicate":true,
                     "canReserveCall":true,"canReserveCommit":true,"canCommit":true},
                 "trace":[{"operationID":"simulation-1","mode":"CW","macro":"CQ","text":"CQ TEST","status":"confirmed"}]},
