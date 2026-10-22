@@ -173,8 +173,11 @@
 .live-cluster.is-contest-terminal .live-cluster-call { color:#dbe5ec; font-weight:700; }
 .live-cluster.is-contest-terminal .live-cluster-age { color:#93a0aa; font-weight:500; }
 .live-cluster.is-contest-terminal .live-cluster-age-strip { box-shadow:none; }
-.live-cluster-terminal-status { display:flex; flex:0 0 auto; align-items:center; justify-content:flex-end; gap:8px; min-height:23px; padding:2px 6px; border-top:1px solid #27313a; color:#9da8b0; background:#171d22; font:10px ui-monospace,SFMono-Regular,Consolas,monospace; }
-.live-cluster-terminal-status span::before { content:""; display:inline-block; width:6px; height:6px; margin-right:5px; border-radius:50%; background:currentColor; vertical-align:1px; }
+.live-cluster-terminal-status { display:flex; flex:0 0 auto; align-items:center; justify-content:space-between; gap:8px; min-height:29px; padding:2px 6px; border-top:1px solid #27313a; color:#9da8b0; background:#171d22; font:10px ui-monospace,SFMono-Regular,Consolas,monospace; }
+.live-cluster-terminal-status>span::before { content:""; display:inline-block; width:6px; height:6px; margin-right:5px; border-radius:50%; background:currentColor; vertical-align:1px; }
+.live-cluster-terminal-status nav { display:flex; align-items:center; gap:6px; color:#b9c2c9; }
+.live-cluster-terminal-status button { min-height:23px; padding:2px 7px; font:inherit; }
+.live-cluster-terminal-status output { min-width:72px; text-align:center; font-variant-numeric:tabular-nums; }
 .live-cluster-terminal-status.is-connected { color:var(--teal); }
 .live-cluster-terminal-status.is-disconnected small { color:#c9a75b; font:inherit; }
 .live-cluster-inspector { display: flex; flex-wrap: wrap; gap: 12px 22px; padding: 10px 14px; background: var(--control); border-top: 1px solid var(--border); }

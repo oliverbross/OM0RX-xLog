@@ -675,7 +675,7 @@ it("gives the nested contest Cluster table all remaining window height without p
   const css=readFileSync(`${process.cwd()}/src/contesting/DetachedContestSurface.css`,"utf8");
   expect(css).toContain(".contest-detached-surface > main:has(> .contest-spots) { overflow:hidden; }");
   expect(css).toContain(".contest-spots > .live-cluster > :not(.live-cluster-table) { flex-shrink:0; }");
-  expect(css).toContain(".contest-spots > .live-cluster > .live-cluster-table { flex:1 1 0; min-height:60px; max-height:none; overflow:auto;");
+  expect(css).toContain(".contest-spots > .live-cluster > .live-cluster-table { flex:1 1 0; min-height:60px; max-height:none; overflow:hidden;");
 });
 
 it("lets Band Map and Rates fill a resized contest window without changing their compact defaults",()=>{

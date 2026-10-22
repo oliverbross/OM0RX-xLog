@@ -6,6 +6,7 @@ import { formatSpotAge, spotAgeColor, useSpotAgeClock } from "./spotAge";
 import { countryDisplay } from "./countryDisplay";
 import { clusterFilterChoices, defaultClusterFilter, normalizeClusterFilter, type ClusterFilter } from "./clusterFilters";
 import SpecialFilterOptions from "./SpecialFilterOptions";
+import { useLogbookCapacity } from "./logbookCapacity";
 import "./ClusterPanel.css";
 
 export { clusterFilterChoices, defaultClusterFilter, type ClusterFilter } from "./clusterFilters";
@@ -124,6 +125,14 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
   const [selectedSpot, setSelectedSpot] = useState<LiveClusterSpot | null>(null);
   const [, setForwarding] = useState<Forwarding | null>(null);
   const [snapshotTruncated, setSnapshotTruncated] = useState(false);
+  const tableArea = useRef<HTMLDivElement>(null);
+  const [spotPage, setSpotPage] = useState(0);
+  const pageSize = useLogbookCapacity(tableArea, presentationOnly ? live?.spots.length ?? 0 : 0);
+  const spotCount = live?.spots.length ?? 0;
+  const pageCount = Math.max(1, Math.ceil(spotCount / pageSize));
+  const currentSpotPage = presentationOnly ? Math.min(spotPage, pageCount - 1) : 0;
+  const firstSpotIndex = currentSpotPage * pageSize;
+  const visibleSpots = presentationOnly ? (live?.spots ?? []).slice(firstSpotIndex, firstSpotIndex + pageSize) : live?.spots ?? [];
 
   useEffect(() => {
     const next = snapshot as Response | null;
@@ -148,6 +157,9 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
     if (next?.snapshot_truncated != null) setSnapshotTruncated(next.snapshot_truncated);
   }, [snapshot]);
   useEffect(() => { requestRef.current = onRequest; }, [onRequest]);
+  useEffect(() => {
+    if (spotPage !== currentSpotPage) setSpotPage(currentSpotPage);
+  }, [currentSpotPage, spotPage]);
   useEffect(() => {
     if (selectedSpotId === undefined) return;
     setSelectedSpot(live?.spots.find(spot => spot.id === selectedSpotId) ?? null);
@@ -331,7 +343,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
       </div>)}</div>
       <div className="live-cluster-column-actions"><span>Drag column edges or use arrow keys. Widths scale to fit the window.</span><button type="button" onClick={() => setColumnPreferences(defaultColumns())}>Reset columns</button><button type="button" onClick={() => setColumnsOpen(false)}>Done</button></div>
     </section>}
-    <div className="table-scroll live-cluster-table"><table aria-label="Live cluster spots" style={presentationOnly ? { minWidth: totalColumnWidth } : undefined}><colgroup>{columnPreferences.columns.map(id => <col key={id} style={{ width: `${columnPreferences.widths[id] / totalColumnWidth * 100}%` }} />)}</colgroup><thead><tr>
+    <div ref={tableArea} className="table-scroll live-cluster-table"><table aria-label="Live cluster spots"><colgroup>{columnPreferences.columns.map(id => <col key={id} style={{ width: `${columnPreferences.widths[id] / totalColumnWidth * 100}%` }} />)}</colgroup><thead><tr>
       {compactClusterColumns.filter(([id]) => visibleColumns.has(id)).map(([id, label]) => <th key={id} aria-label={id === "callStatus" || id === "dxccStatus" ? label : undefined}
         className={id === "callStatus" || id === "dxccStatus" ? "live-cluster-status-column" : undefined}><span title={label}>{compactClusterHeader(id)}</span>
         <span className="live-cluster-column-resizer" role="separator" tabIndex={0} aria-orientation="vertical" aria-label={`Resize ${label} column`} aria-valuemin={48} aria-valuemax={480} aria-valuenow={columnPreferences.widths[id]}
@@ -340,7 +352,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
           onPointerUp={() => { columnDrag.current = null; }} onPointerCancel={() => { columnDrag.current = null; }} onLostPointerCapture={() => { columnDrag.current = null; }}
           onKeyDown={event => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; event.preventDefault(); resizeColumn(id, event.key === "Home" ? 48 : event.key === "End" ? 480 : columnPreferences.widths[id] + (event.key === "ArrowRight" ? 10 : -10)); }} />
       </th>)}
-    </tr></thead><tbody>{(live?.spots ?? []).map((spot, index) => <tr key={spot.id}
+    </tr></thead><tbody>{visibleSpots.map((spot, index) => <tr key={spot.id}
       tabIndex={0}
       className={`${(selectedSpotId ?? selectedSpot?.id) === spot.id ? "is-selected" : ""}${spot.marked ? " is-marked" : ""} ${index % 2 ? "is-odd" : "is-even"}`}
       style={{ backgroundColor: presentationOnly || (selectedSpotId ?? selectedSpot?.id) === spot.id ? undefined : clusterRowTint(spot.dxccStatus, configuration?.palette.status) }}
@@ -369,8 +381,11 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
     </tr>)}</tbody></table>
       {!live?.spots.length && <p className="empty">{presentationOnly ? connected ? "No shared cluster spots are available." : "No shared spots. Use Connect above to receive live spots." : connected ? "No live spots match the current filters." : configuration?.servers.some(server => server.enabled) ? "Your cluster is configured. Use Connect to resume live spots; the radio can remain offline." : "Configure a cluster, then connect to receive live spots."}</p>}
     </div>
-    {presentationOnly && <footer className={`live-cluster-terminal-status ${connected ? "is-connected" : "is-disconnected"}`} role="status" aria-label="Contest cluster connection">
-      <span>{connected ? `Connected · ${connected} cluster${connected === 1 ? "" : "s"}` : "Disconnected"}</span>
+    {presentationOnly && <footer className={`live-cluster-terminal-status ${connected ? "is-connected" : "is-disconnected"}`}>
+      <span role="status" aria-label="Contest cluster connection">{connected ? `Connected · ${connected} cluster${connected === 1 ? "" : "s"}` : "Disconnected"}</span>
+      <nav aria-label="Cluster pages"><button type="button" disabled={currentSpotPage === 0} onClick={() => setSpotPage(currentSpotPage - 1)}>Previous</button>
+        <output aria-label="Cluster page">{spotCount ? `${firstSpotIndex + 1}–${Math.min(firstSpotIndex + pageSize, spotCount)} of ${spotCount}` : "0 spots"}</output>
+        <button type="button" disabled={currentSpotPage + 1 >= pageCount} onClick={() => setSpotPage(currentSpotPage + 1)}>Next</button></nav>
     </footer>}
     {selectedSpot && <div className="live-cluster-inspector" aria-label="Selected spot details">
       <div><strong>{selectedSpot.callsign}</strong><span>{countryDisplay(selectedSpot.country)}</span></div>

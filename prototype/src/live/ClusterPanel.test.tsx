@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ClusterPanel, fullClusterColumnsKey } from "./ClusterPanel";
 
-afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 const palette = ["bands", "modes", "continents", "spotterContinents", "callStatuses", "dxccStatuses", "specials", "sources", "worked", "sort"];
 const response = () => ({ snapshot: { connectedClusters: 1, loadedSpots: 0, contactCount: 42, contactRevision: 1, logbookDataLoaded: true, countryDataLoaded: true,
   connections: [{ serverID: "server", serverName: "ShackCQ", phase: "connected", error: null }], spots: [], console: [] },
@@ -194,17 +194,47 @@ describe("cluster toolbar panels", () => {
     expect(table.style.minWidth).toBe("");
   });
 
-  it("preserves contest presentation column widths for horizontal scrolling", () => {
+  it("scales contest presentation columns into the window without horizontal scrolling", () => {
     const preferenceStorageKey = "xlog.test.contest-cluster-columns";
     localStorage.setItem(preferenceStorageKey, JSON.stringify({ version: 1, columns: ["callsign", "comment"], widths: { callsign: 200, comment: 300, country: 480 } }));
     render(<ClusterPanel passive presentationOnly preferenceStorageKey={preferenceStorageKey} snapshot={response()} onRequest={vi.fn()} onSelect={vi.fn()} />);
     const table = screen.getByRole("table", { name: "Live cluster spots" });
     expect(table.parentElement?.classList.contains("table-scroll")).toBe(true);
-    expect(table.style.minWidth).toBe("500px");
+    expect(table.style.minWidth).toBe("");
     expect(Array.from(table.querySelectorAll("col")).map(column => column.style.width)).toEqual(["40%", "60%"]);
     fireEvent.keyDown(screen.getByRole("separator", { name: "Resize Callsign column" }), { key: "ArrowRight" });
-    expect(table.style.minWidth).toBe("510px");
+    expect(table.style.minWidth).toBe("");
     expect(localStorage.getItem(fullClusterColumnsKey)).toBeNull();
+  });
+
+  it("paginates the contest cluster to the rows that fit its table area", async () => {
+    let resize: (() => void) | undefined;
+    vi.stubGlobal("ResizeObserver", class { constructor(callback: () => void) { resize = callback; } observe() {} disconnect() {} });
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains("live-cluster-table") ? 120 : 0;
+    });
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const height = this.tagName === "THEAD" ? 20 : this.tagName === "TR" ? 22 : 120;
+      return { height } as DOMRect;
+    });
+    const data = response();
+    data.snapshot.loadedSpots = 7;
+    data.snapshot.spots = Array.from({ length: 7 }, (_, index) => ({ id: `contest-${index}`, receivedAt: 812_000_000 - index,
+      clusterName: "ShackCQ", spotter: "K1ABC", frequencyKHz: 14025 + index, frequencyText: "14.025", callsign: `DL1A${index}`,
+      comment: "CQ TEST", band: "20m", mode: "CW", country: "Germany", continent: "EU", cqZone: 14,
+      callStatus: "New Call", dxccStatus: "New Band", specialTags: [], score: 65, scoreReasons: [], aggregateCount: 1,
+      aggregateSpotters: ["K1ABC"], source: "cluster", statusHex: "", bandHex: "", modeHex: "" })) as any;
+    render(<ClusterPanel passive presentationOnly taskOnly snapshot={data} onRequest={vi.fn()} onSelect={vi.fn()} />);
+    resize?.();
+    await waitFor(() => expect(screen.getByLabelText("Cluster page").textContent).toBe("1–4 of 7"));
+    expect(screen.getAllByLabelText(/ spot$/)).toHaveLength(4);
+    expect(screen.queryByText("DL1A4")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByLabelText("Cluster page").textContent).toBe("5–7 of 7");
+    expect(screen.getAllByLabelText(/ spot$/)).toHaveLength(3);
+    expect(screen.queryByText("DL1A0")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+    expect(screen.getByLabelText("Cluster page").textContent).toBe("1–4 of 7");
   });
 
   it("renders the contest-only cluster as a compact terminal with an honest connection boundary", () => {
