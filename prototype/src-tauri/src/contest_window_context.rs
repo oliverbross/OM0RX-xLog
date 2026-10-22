@@ -49,6 +49,12 @@ pub fn active() -> Result<ContestWindowContext, String> {
     Ok(context)
 }
 
+/// Presentation uses admission as the conservative lifetime boundary. A
+/// contest close clears it only after every contest child has retired.
+pub fn is_admitted() -> bool {
+    authority().lock().unwrap_or_else(std::sync::PoisonError::into_inner).active.is_some()
+}
+
 pub fn invalidate() {
     if let Ok(mut authority) = authority().lock() { authority.invalidate(); }
 }

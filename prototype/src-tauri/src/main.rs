@@ -780,14 +780,16 @@ fn recover_singleton<T>(creation: &Mutex<()>, existing: impl FnOnce() -> Option<
 
 // Blocking task only: creating a Windows WebView on the IPC/menu loop can
 // deadlock its native message pump. This never reruns application setup.
-fn ensure_main_workspace(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow, String> {
+fn main_workspace(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow, String> {
     if APP_EXITING.load(Ordering::Acquire) { return Err("Application is shutting down".into()); }
     let main = recover_singleton(&MAIN_CREATION, || app.get_webview_window("main"), || {
         if APP_EXITING.load(Ordering::Acquire) { return Err("Application is shutting down".into()); }
         let config = app.config().app.windows.iter().find(|window| window.label == "main")
             .ok_or("Main workspace configuration unavailable")?;
         let mut builder = tauri::WebviewWindowBuilder::from_config(app, config)
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| error.to_string())?
+            .visible(false)
+            .focused(false);
         if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? {
             builder = builder.data_directory(directory);
         }
@@ -796,9 +798,12 @@ fn ensure_main_workspace(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow,
         Ok(main)
     })?;
     if APP_EXITING.load(Ordering::Acquire) { return Err("Application is shutting down".into()); }
-    main.unminimize().map_err(|error| error.to_string())?;
-    main.show().map_err(|error| error.to_string())?;
-    main.set_focus().map_err(|error| error.to_string())?;
+    Ok(main)
+}
+
+fn ensure_main_workspace(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow, String> {
+    let main = main_workspace(app)?;
+    present_active_workspace(app)?;
     Ok(main)
 }
 
@@ -1018,18 +1023,51 @@ fn contest_desk_focus_label(labels: &[String]) -> Option<String> {
         .cloned()
 }
 
+#[derive(Debug, Eq, PartialEq)]
+enum NativeForeground {
+    Contest(String),
+    ContestSetup,
+    Main,
+}
+
+fn native_foreground(labels: &[String], contest_admitted: bool) -> NativeForeground {
+    if let Some(label) = contest_desk_focus_label(labels) {
+        return NativeForeground::Contest(label);
+    }
+    if contest_admitted && labels.iter().any(|label| label == CONTEST_SETUP_WINDOW) {
+        return NativeForeground::ContestSetup;
+    }
+    NativeForeground::Main
+}
+
 fn present_active_workspace(app: &tauri::AppHandle) -> Result<(), String> {
     let labels = app.webview_windows().into_keys().collect::<Vec<_>>();
-    if let Some(label) = contest_desk_focus_label(&labels) {
-        if let Some(main) = app.get_webview_window("main") {
-            main.hide().map_err(|error| error.to_string())?;
+    let foreground = native_foreground(&labels, contest_window_context::is_admitted());
+    match foreground {
+        NativeForeground::Contest(label) => {
+            if let Some(main) = app.get_webview_window("main") {
+                main.hide().map_err(|error| error.to_string())?;
+            }
+            let contest = app.get_webview_window(&label).ok_or("The active contest window is unavailable.")?;
+            contest.unminimize().map_err(|error| error.to_string())?;
+            contest.show().and_then(|_| contest.set_focus()).map_err(|error| error.to_string())
         }
-        let contest = app.get_webview_window(&label).ok_or("The active contest window is unavailable.")?;
-        contest.unminimize().map_err(|error| error.to_string())?;
-        contest.show().and_then(|_| contest.set_focus()).map_err(|error| error.to_string())?;
-        return Ok(());
+        NativeForeground::ContestSetup => {
+            if let Some(main) = app.get_webview_window("main") {
+                main.hide().map_err(|error| error.to_string())?;
+            }
+            let setup = app.get_webview_window(CONTEST_SETUP_WINDOW)
+                .ok_or("The active contest setup window is unavailable.")?;
+            setup.set_skip_taskbar(false).map_err(|error| error.to_string())?;
+            setup.unminimize().map_err(|error| error.to_string())?;
+            setup.show().and_then(|_| setup.set_focus()).map_err(|error| error.to_string())
+        }
+        NativeForeground::Main => {
+            let main = main_workspace(app)?;
+            main.unminimize().map_err(|error| error.to_string())?;
+            main.show().and_then(|_| main.set_focus()).map_err(|error| error.to_string())
+        }
     }
-    ensure_main_workspace(app).map(|_| ())
 }
 
 fn enters_contest_desk(label: &str, method: &str) -> bool {
@@ -1120,7 +1158,7 @@ async fn workspace_mode_present(window: tauri::WebviewWindow, app: tauri::AppHan
                 wait_for_workspace_windows(&app, &generation, revision)?;
                 main.hide().map_err(|error| error.to_string())?;
             }
-            else { main.show().map_err(|error| error.to_string())?; }
+            else { present_active_workspace(&app)?; }
         }
         update_workspace_mode_checks(&app, windows)?;
         *presented_windows = windows;
@@ -1171,7 +1209,7 @@ fn present_canvas_windows(app: &tauri::AppHandle, generation: &str, revision: u6
         cw.reserve_idle_close(&["main", "cw"])?;
         reserved = true;
         // Show Canvas only after every renderer veto and native guard passed.
-        if let Some(main) = app.get_webview_window("main") { main.show().map_err(|error| error.to_string())?; }
+        present_active_workspace(app)?;
         Ok(())
     }, |window| {
         validate_editor_transition("main")?;
@@ -1215,10 +1253,9 @@ fn apply_workspace_layout(app: &tauri::AppHandle, layout: WorkspaceLayout) -> Re
         }
         main.set_size(layout.logical_size())?;
         main.center()?;
-        main.show()?;
-        main.set_focus()?;
         Ok(())
-    })().map_err(|error| error.to_string())
+    })().map_err(|error| error.to_string())?;
+    present_active_workspace(app)
 }
 
 #[tauri::command]
@@ -2902,11 +2939,7 @@ async fn dock_detached_window(window: tauri::WebviewWindow, app: tauri::AppHandl
     // The revisioned route survives a main view that has not subscribed yet.
     navigate_workspace(app.clone(), screen.into()).await?;
     window.close().map_err(|error| error.to_string())?;
-    if let Some(main) = app.get_webview_window("main") {
-        main.show().map_err(|error| error.to_string())?;
-        main.set_focus().map_err(|error| error.to_string())?;
-    }
-    Ok(())
+    present_active_workspace(&app)
 }
 
 fn local_history_reader(label: &str, method: &str) -> bool {
@@ -3388,7 +3421,7 @@ fn main() {
 
 #[cfg(test)]
 mod workspace_layout_tests {
-    use super::{WorkspaceLayout, DraftWake, HostActiveContest, contest_desk_focus_label, contest_desk_is_open, contest_desk_window, contest_setup_route, enters_contest_desk, host_active_contest, normal_workspace_window, recover_presentation_hint, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
+    use super::{WorkspaceLayout, DraftWake, HostActiveContest, NativeForeground, contest_desk_focus_label, contest_desk_is_open, contest_desk_window, contest_setup_route, enters_contest_desk, host_active_contest, native_foreground, normal_workspace_window, recover_presentation_hint, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
     use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, is_raw_owned_station_lifecycle, station_session_changes_state, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_snapshot, validate_follow_set, validate_follow_settlement, validate_rotor_stop, contest_history_manager_worker_params, contest_history_preview_worker_params, AutomaticRotorCommands};
     use serde_json::json;
 
@@ -3464,6 +3497,21 @@ mod workspace_layout_tests {
         let without_main_logging = vec!["main".into(), "contest--monitor".into()];
         assert_eq!(contest_desk_focus_label(&without_main_logging).as_deref(), Some("contest--monitor"));
         assert_eq!(contest_desk_focus_label(&["main".into(), "contest--edit-contact".into()]), None);
+    }
+
+    #[test]
+    fn native_foreground_never_selects_main_while_a_contest_is_admitted() {
+        assert_eq!(native_foreground(&[
+            "main".into(), "contest-setup".into(), "contest--monitor".into(),
+            "contest--active-qso".into(),
+        ], true), NativeForeground::Contest("contest--active-qso".into()));
+        assert_eq!(native_foreground(&[
+            "main".into(), "contest-setup".into(), "contest--monitor".into(),
+        ], true), NativeForeground::Contest("contest--monitor".into()));
+        assert_eq!(native_foreground(&["main".into(), "contest-setup".into()], true),
+            NativeForeground::ContestSetup);
+        assert_eq!(native_foreground(&["main".into(), "contest-setup".into()], false),
+            NativeForeground::Main);
     }
 
     #[test]

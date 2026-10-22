@@ -176,7 +176,7 @@ impl Owner {
         // Never leave the operator with no usable surface if an asynchronous
         // Separate Windows reconciliation fails after the main window hid.
         if self.outcome.lock().is_ok_and(|outcomes| outcomes.get(&scope).is_some_and(|(_, outcome)| outcome["state"] == "error")) {
-            if let Some(main) = self.app.get_webview_window("main") { let _ = main.show(); }
+            let _ = crate::present_active_workspace(&self.app);
         }
         // The payload is a wake only. Consumers read the native snapshot.
         let _ = self.app.emit("xlog:workspace-windows", ());
@@ -225,6 +225,7 @@ impl Owner {
                         if let Ok(mut queue) = self.queue.lock() { queue.reject_contest_work(); }
                         crate::contest_surface::register_context(&reset.context);
                         close_contest_windows(&self.app)?;
+                        crate::present_active_workspace(&self.app)?;
                         engines.insert(WorkspaceWindowScope::Contesting, Engine::for_contest(&reset.context));
                         self.publish(WorkspaceWindowScope::Contesting, Some(reset.context.clone()), contest_idle(&reset.context));
                         Ok(())
@@ -241,6 +242,10 @@ impl Owner {
                             crate::contest_surface::invalidate_context(&close.context);
                             engines.remove(&WorkspaceWindowScope::Contesting);
                             if let Ok(mut outcomes) = self.outcome.lock() { outcomes.remove(&WorkspaceWindowScope::Contesting); }
+                            if let Err(error) = crate::present_active_workspace(&self.app) {
+                                let _ = close.reply.send(Err(error));
+                                continue;
+                            }
                         }
                     }
                     let _ = close.reply.send(result);
@@ -518,9 +523,6 @@ pub fn contest_context_closed(app: &AppHandle,
 }
 
 fn close_contest_windows(app: &AppHandle) -> Result<(), String> {
-    // Context retirement must never leave a hidden Separate Windows desk with
-    // every usable surface gone, including when one child refuses to close.
-    if let Some(main) = app.get_webview_window("main") { main.show().map_err(|error| error.to_string())?; }
     let labels = contest_window_labels();
     for label in &labels {
         if let Some(window) = app.get_webview_window(label) {
@@ -537,7 +539,7 @@ fn close_contest_windows(app: &AppHandle) -> Result<(), String> {
     let deadline = Instant::now() + CONTEST_RETIRE_TIMEOUT;
     while labels.iter().any(|label| app.get_webview_window(label).is_some()) {
         if Instant::now() >= deadline {
-            return Err("A previous contest window did not close; the main contest workspace was restored. Retry the layout after closing that window.".into());
+            return Err("A previous contest window did not close; the contest context remains active. Retry the layout after closing that window.".into());
         }
         std::thread::sleep(Duration::from_millis(10));
     }
