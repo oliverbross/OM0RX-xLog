@@ -4,8 +4,11 @@ import XLogCore
 
 /// Optional online enrichment must not erase a useful offline CTY result.
 enum CallsignEnrichment {
-    static func resolve(base: [String: Any], fetch: () async throws -> [String: Any]) async -> [String: Any] {
+    static func resolve(base: [String: Any], provider: CallsignLookupProvider = .qrz,
+                        fetch: () async throws -> [String: Any]) async -> [String: Any] {
         var result = base
+        let providerName = provider.displayName
+        result["lookup_provider"] = providerName
         do {
             let online = try await fetch()
             let requested = (base["call"] as? String ?? "").uppercased()
@@ -29,24 +32,28 @@ enum CallsignEnrichment {
             if providerEntityMatches,
                let lat = online["latitude"] as? Double, let lon = online["longitude"] as? Double,
                lat.isFinite, lon.isFinite, (-90...90).contains(lat), (-180...180).contains(lon) {
-                result["latitude"] = lat; result["longitude"] = lon; location = "QRZ coordinates"
+                result["latitude"] = lat; result["longitude"] = lon; location = "\(providerName) coordinates"
             } else if providerEntityMatches,
                       let grid = online["gridSquare"] as? String, let point = MaidenheadLocator.coordinate(grid) {
-                result["latitude"] = point.latitude; result["longitude"] = point.longitude; location = "QRZ grid centre"
+                result["latitude"] = point.latitude; result["longitude"] = point.longitude; location = "\(providerName) grid centre"
             }
             if !providerEntityMatches {
-                result["lookup_warning"] = "QRZ profile is for home callsign \(providerCall); operating-entity location retained."
+                result["lookup_warning"] = "\(providerName) profile is for home callsign \(providerCall); operating-entity location retained."
             }
             result["location_source"] = location
-            result["source"] = location == "Unavailable" ? "QRZ · location unavailable" : location.hasPrefix("CTY") ? "QRZ · CTY approximate location" : "QRZ"
-            result["qrz_status"] = "matched"
+            result["source"] = location == "Unavailable" ? "\(providerName) · location unavailable" : location.hasPrefix("CTY") ? "\(providerName) · CTY approximate location" : providerName
+            result["lookup_status"] = "matched"
+            if provider == .qrz { result["qrz_status"] = "matched" }
         } catch {
             // Provider errors can contain URLs/session keys. Never echo them.
-            result["qrz_status"] = "unavailable"
+            result["lookup_status"] = "unavailable"
+            if provider == .qrz { result["qrz_status"] = "unavailable" }
             if let error = error as? QRZClientError {
                 result["lookup_warning"] = "\(error.localizedDescription) Offline CTY result retained."
+            } else if let error = error as? HamQTHClientError {
+                result["lookup_warning"] = "\(error.localizedDescription) Offline CTY result retained."
             } else {
-                result["lookup_warning"] = "QRZ lookup is unavailable. Offline CTY result retained."
+                result["lookup_warning"] = "\(providerName) lookup is unavailable. Offline CTY result retained."
             }
         }
         return result

@@ -131,7 +131,7 @@ public actor QRZClient {
         )
     }
 
-    private static func publicHTTPSURL(_ raw: String?) -> String? {
+    fileprivate static func publicHTTPSURL(_ raw: String?) -> String? {
         guard let raw, (1...2_048).contains(raw.utf8.count),
               let components = URLComponents(string: raw),
               components.scheme?.lowercased() == "https",
@@ -229,20 +229,248 @@ public actor QRZClient {
     }
 }
 
+public enum HamQTHClientError: Error, LocalizedError {
+    case invalidConfiguration
+    case rejected(String)
+    case missingSession
+    case timedOut
+    case networkUnavailable
+    case cancelled
+    case transportFailed
+
+    public var errorDescription: String? {
+        switch self {
+        case .invalidConfiguration: return "HamQTH username and password are required."
+        case let .rejected(message): return "HamQTH lookup failed: \(message)"
+        case .missingSession: return "HamQTH did not return a session key."
+        case .timedOut: return "HamQTH request timed out. Check the connection and try again."
+        case .networkUnavailable: return "HamQTH is unreachable. Check the network connection and try again."
+        case .cancelled: return "HamQTH request was cancelled."
+        case .transportFailed: return "HamQTH transport failed. Try again later."
+        }
+    }
+}
+
+final class HamQTHRedirectBlocker: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    func urlSession(_ session: URLSession, task: URLSessionTask,
+                    willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest,
+                    completionHandler: @escaping (URLRequest?) -> Void) {
+        completionHandler(nil)
+    }
+}
+
+/// HamQTH XML callsign enrichment. Credentials remain owned by SecretStore;
+/// this actor only retains the provider's short-lived session identifier.
+public actor HamQTHClient {
+    // Match the pinned Not1MM behavior: authentication is bounded to two
+    // seconds and callsign queries to one second.
+    private static let authenticationTimeout: TimeInterval = 2
+    private static let lookupTimeout: TimeInterval = 1
+    private let username: String
+    private let password: String
+    private let session: URLSession
+    private var sessionID: String?
+    private var authenticationTask: Task<String, Error>?
+
+    public init(username: String, password: String, session: URLSession? = nil) {
+        self.username = username
+        self.password = password
+        self.session = session ?? Self.productionSession()
+    }
+
+    public func lookup(_ call: String) async throws -> CallsignProfile {
+        let requestedCall = call.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let lookupCall = QRZClient.providerCallsign(for: requestedCall)
+        for attempt in 0..<2 {
+            if sessionID == nil { try await authenticate() }
+            guard let sessionID else { throw HamQTHClientError.missingSession }
+            let data = try await request(Self.lookupRequest(sessionID: sessionID, call: lookupCall))
+            let document = XMLFieldParser.parseDocument(data)
+            if let message = document.fields["error"], !message.isEmpty {
+                if message.localizedCaseInsensitiveContains("session does not exist") ||
+                    message.localizedCaseInsensitiveContains("expired") {
+                    self.sessionID = nil
+                    if attempt == 0 { continue }
+                    throw HamQTHClientError.missingSession
+                }
+                throw HamQTHClientError.rejected(
+                    message.localizedCaseInsensitiveContains("not found") ? "callsign not found" : "provider rejected the request"
+                )
+            }
+            guard document.valid, document.elements.contains("HamQTH"), document.elements.contains("search") else {
+                throw HamQTHClientError.rejected("invalid provider response")
+            }
+            var profile = try Self.profile(document: document.fields, call: lookupCall)
+            profile.call = requestedCall
+            return profile
+        }
+        throw HamQTHClientError.missingSession
+    }
+
+    static func profile(from data: Data, call: String) throws -> CallsignProfile {
+        let document = XMLFieldParser.parseDocument(data)
+        if document.fields["error"] != nil { throw HamQTHClientError.rejected("provider rejected the callsign lookup") }
+        guard document.valid, document.elements.contains("HamQTH"), document.elements.contains("search") else {
+            throw HamQTHClientError.rejected("invalid provider response")
+        }
+        return try profile(document: document.fields, call: call)
+    }
+
+    private static func profile(document: [String: String], call: String) throws -> CallsignProfile {
+        guard let providerCall = document["callsign"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !providerCall.isEmpty,
+              QRZClient.providerCallsign(for: providerCall) == QRZClient.providerCallsign(for: call) else {
+            throw HamQTHClientError.rejected("HamQTH returned an invalid callsign")
+        }
+        return CallsignProfile(
+            call: providerCall.uppercased(),
+            name: document["adr_name"] ?? "",
+            gridSquare: document["grid"] ?? "",
+            country: document["country"] ?? "",
+            dxcc: document["adif"].flatMap(Int.init),
+            cqZone: document["cq"] ?? "",
+            ituZone: document["itu"] ?? "",
+            state: document["us_state"] ?? document["state"] ?? "",
+            county: document["us_county"] ?? document["county"] ?? "",
+            qth: document["qth"] ?? document["adr_city"] ?? "",
+            email: document["email"] ?? "",
+            nickname: document["nick"] ?? "",
+            websiteURL: QRZClient.publicHTTPSURL(document["web"]) ?? "",
+            imageURL: "",
+            qslManager: document["qsl_via"] ?? "",
+            iota: document["iota"] ?? "",
+            licenseClass: document["licence"] ?? "",
+            latitude: document["latitude"].flatMap(Double.init),
+            longitude: document["longitude"].flatMap(Double.init)
+        )
+    }
+
+    static func secureConfiguration() -> URLSessionConfiguration {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.urlCache = nil
+        configuration.urlCredentialStorage = nil
+        configuration.httpCookieStorage = nil
+        configuration.httpShouldSetCookies = false
+        configuration.httpCookieAcceptPolicy = .never
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        configuration.httpMaximumConnectionsPerHost = 1
+        #if canImport(Darwin)
+        configuration.waitsForConnectivity = false
+        configuration.tlsMinimumSupportedProtocolVersion = .TLSv12
+        #endif
+        return configuration
+    }
+
+    private static func productionSession() -> URLSession {
+        URLSession(configuration: secureConfiguration(), delegate: HamQTHRedirectBlocker(), delegateQueue: nil)
+    }
+
+    private func authenticate() async throws {
+        guard !username.isEmpty, !password.isEmpty else { throw HamQTHClientError.invalidConfiguration }
+        if let authenticationTask {
+            sessionID = try await authenticationTask.value
+            return
+        }
+        let username = username, password = password, session = session
+        let task = Task<String, Error> {
+            let request = Self.authenticationRequest(username: username, password: password)
+            let data: Data, response: URLResponse
+            do { (data, response) = try await session.data(for: request) }
+            catch { throw Self.safeTransportError(error) }
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+                throw HamQTHClientError.rejected("HTTP request rejected")
+            }
+            let document = XMLFieldParser.parseDocument(data)
+            guard document.valid, document.elements.contains("HamQTH"), document.elements.contains("session") else {
+                throw HamQTHClientError.rejected("invalid provider response")
+            }
+            if document.fields["error"] != nil { throw HamQTHClientError.rejected("HamQTH rejected authentication") }
+            guard let id = document.fields["session_id"], !id.isEmpty else { throw HamQTHClientError.missingSession }
+            return id
+        }
+        authenticationTask = task
+        do {
+            sessionID = try await task.value
+            authenticationTask = nil
+        } catch {
+            authenticationTask = nil
+            throw error
+        }
+    }
+
+    private func request(_ request: URLRequest) async throws -> Data {
+        let data: Data, response: URLResponse
+        do { (data, response) = try await session.data(for: request) }
+        catch { throw Self.safeTransportError(error) }
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            throw HamQTHClientError.rejected("HTTP request rejected")
+        }
+        return data
+    }
+
+    static func authenticationRequest(username: String, password: String) -> URLRequest {
+        var components = URLComponents(string: "https://www.hamqth.com/xml.php")!
+        components.queryItems = [URLQueryItem(name: "u", value: username), URLQueryItem(name: "p", value: password)]
+        var request = URLRequest(url: components.url!)
+        request.timeoutInterval = authenticationTimeout
+        return request
+    }
+
+    static func lookupRequest(sessionID: String, call: String) -> URLRequest {
+        var components = URLComponents(string: "https://www.hamqth.com/xml.php")!
+        components.queryItems = [
+            URLQueryItem(name: "id", value: sessionID),
+            URLQueryItem(name: "callsign", value: call.uppercased()),
+            URLQueryItem(name: "prg", value: "OM0RX-xLog"),
+        ]
+        var request = URLRequest(url: components.url!)
+        request.timeoutInterval = lookupTimeout
+        return request
+    }
+
+    private static func safeTransportError(_ error: Error) -> HamQTHClientError {
+        // Never retain URLSession errors: authentication URLs contain the
+        // username/password and lookup URLs contain the session identifier.
+        let value = error as NSError
+        guard value.domain == NSURLErrorDomain else { return .transportFailed }
+        switch value.code {
+        case URLError.timedOut.rawValue: return .timedOut
+        case URLError.notConnectedToInternet.rawValue, URLError.networkConnectionLost.rawValue,
+             URLError.cannotConnectToHost.rawValue, URLError.cannotFindHost.rawValue,
+             URLError.dnsLookupFailed.rawValue: return .networkUnavailable
+        case URLError.cancelled.rawValue: return .cancelled
+        default: return .transportFailed
+        }
+    }
+}
+
+private struct XMLFieldDocument {
+    let fields: [String: String]
+    let elements: Set<String>
+    let valid: Bool
+}
+
 private final class XMLFieldParser: NSObject, XMLParserDelegate {
     private var current = ""
     private var buffer = ""
     private(set) var fields: [String: String] = [:]
+    private(set) var elements: Set<String> = []
 
     static func parse(_ data: Data) -> [String: String] {
+        parseDocument(data).fields
+    }
+
+    static func parseDocument(_ data: Data) -> XMLFieldDocument {
         let delegate = XMLFieldParser()
         let parser = XMLParser(data: data)
         parser.delegate = delegate
-        parser.parse()
-        return delegate.fields
+        let valid = parser.parse()
+        return XMLFieldDocument(fields: delegate.fields, elements: delegate.elements, valid: valid)
     }
 
     func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
+        elements.insert(elementName)
         current = elementName
         buffer = ""
     }

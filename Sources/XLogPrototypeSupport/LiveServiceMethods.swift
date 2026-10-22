@@ -30,6 +30,9 @@ actor LiveServiceMethods {
     private var qrzClient: QRZClient?
     private var qrzCredentialDigest: Data?
     private var qrzClientUsername: String?
+    private var hamqthClient: HamQTHClient?
+    private var hamqthCredentialDigest: Data?
+    private var hamqthClientUsername: String?
     #endif
 
     init(logbook: LiveLogbookMethods = .shared, operation: SyncOperation? = nil) { self.logbook = logbook; self.operation = operation }
@@ -144,6 +147,7 @@ actor LiveServiceMethods {
             }
             #if os(macOS)
             if account == .qrzPassword { qrzClient = nil; qrzCredentialDigest = nil; qrzClientUsername = nil }
+            if account == .hamqthPassword { hamqthClient = nil; hamqthCredentialDigest = nil; hamqthClientUsername = nil }
             #endif
             return ["saved": !value.isEmpty]
         case "secret_status":
@@ -151,6 +155,7 @@ actor LiveServiceMethods {
             guard params.isEmpty else { throw invalid() }
             var values: [String: Any] = [:]
             for account in [WorkspaceCredentialStore.Account.wavelogToken, .qrzPassword,
+                            .hamqthPassword,
                             .qrzLogbookKey, .clubLogAPIKey, .clubLogEmail,
                             .clubLogApplicationPassword, .clubLogCallsign, .ftpBackupPassword,
                             .rtcScorePassword] {
@@ -167,53 +172,79 @@ actor LiveServiceMethods {
             guard case .ready(let settings) = availability else {
                 if case .busy = availability {
                     profile["lookup_warning"] = "Workspace settings are busy. Offline CTY result retained."
+                    profile["lookup_status"] = "settings_busy"
                     profile["qrz_status"] = "settings_busy"
                 } else {
                     profile["lookup_warning"] = "Workspace settings are unavailable. Offline CTY result retained."
+                    profile["lookup_status"] = "workspace_unavailable"
                     profile["qrz_status"] = "workspace_unavailable"
                 }
                 return profile
             }
             if settings.qrzEnabled {
-                var client: QRZClient?
-                do {
-                    // Always re-establish the workspace credential identity.
-                    // cachedQRZClient still reuses the QRZ session when its
-                    // workspace, username and password digest are unchanged.
-                    let password = try workspaceSecrets().load(.qrzPassword)
-                    if let password, !password.isEmpty {
-                        client = try cachedQRZClient(username: settings.qrzUsername, password: password)
-                    } else {
+                let provider = settings.callsignLookupProvider
+                profile["lookup_provider"] = provider.displayName
+                switch provider {
+                case .qrz:
+                    var client: QRZClient?
+                    do {
+                        // Always re-establish the workspace credential identity.
+                        // The cache still reuses the provider session when its
+                        // workspace, username and password digest are unchanged.
+                        let password = try workspaceSecrets().load(.qrzPassword)
+                        if let password, !password.isEmpty {
+                            client = try cachedQRZClient(username: settings.qrzUsername, password: password)
+                        } else {
+                            qrzClient = nil; qrzCredentialDigest = nil; qrzClientUsername = nil
+                            profile["lookup_status"] = "credential_required"
+                            profile["qrz_status"] = "credential_required"
+                            profile["lookup_warning"] = "Save a QRZ username and password to enable online lookup. Offline CTY result retained."
+                        }
+                    } catch {
                         qrzClient = nil; qrzCredentialDigest = nil; qrzClientUsername = nil
+                        profile["lookup_status"] = "credential_required"
                         profile["qrz_status"] = "credential_required"
-                        profile["lookup_warning"] = "Save a QRZ username and password to enable online lookup. Offline CTY result retained."
+                        profile["lookup_warning"] = "QRZ password needs operator authorization. Save it again in Settings. Offline CTY result retained."
                     }
-                } catch {
-                    qrzClient = nil; qrzCredentialDigest = nil; qrzClientUsername = nil
-                    profile["qrz_status"] = "credential_required"
-                    profile["lookup_warning"] = "QRZ password needs operator authorization. Save it again in Settings. Offline CTY result retained."
-                }
-                if let client {
-                    profile = await CallsignEnrichment.resolve(base: profile) {
-                        let result = try await client.lookup(call)
-                        return ["call": result.call, "name": result.name, "gridSquare": result.gridSquare, "country": result.country,
-                        "dxcc": result.dxcc as Any? ?? NSNull(), "cqZone": result.cqZone, "ituZone": result.ituZone,
-                        "state": result.state, "county": result.county, "qth": result.qth, "email": result.email,
-                        "nickname": result.nickname, "websiteURL": result.websiteURL,
-                        "imageURL": result.imageURL, "qslManager": result.qslManager,
-                        "iota": result.iota, "licenseClass": result.licenseClass,
-                        "latitude": result.latitude as Any? ?? NSNull(), "longitude": result.longitude as Any? ?? NSNull()]
+                    if let client {
+                        profile = await CallsignEnrichment.resolve(base: profile, provider: provider) {
+                            Self.publicProfile(try await client.lookup(call))
+                        }
+                    }
+                case .hamQTH:
+                    var client: HamQTHClient?
+                    do {
+                        let password = try workspaceSecrets().load(.hamqthPassword)
+                        if let password, !password.isEmpty {
+                            client = try cachedHamQTHClient(username: settings.hamqthUsername, password: password)
+                        } else {
+                            hamqthClient = nil; hamqthCredentialDigest = nil; hamqthClientUsername = nil
+                            profile["lookup_status"] = "credential_required"
+                            profile["lookup_warning"] = "Save a HamQTH username and password to enable online lookup. Offline CTY result retained."
+                        }
+                    } catch {
+                        hamqthClient = nil; hamqthCredentialDigest = nil; hamqthClientUsername = nil
+                        profile["lookup_status"] = "credential_required"
+                        profile["lookup_warning"] = "HamQTH password needs operator authorization. Save it again in Settings. Offline CTY result retained."
+                    }
+                    if let client {
+                        profile = await CallsignEnrichment.resolve(base: profile, provider: provider) {
+                            Self.publicProfile(try await client.lookup(call))
+                        }
                     }
                 }
             } else {
                 qrzClient = nil
                 qrzCredentialDigest = nil
                 qrzClientUsername = nil
+                hamqthClient = nil
+                hamqthCredentialDigest = nil
+                hamqthClientUsername = nil
             }
             LocalCallsignProfile.addGeometry(to: &profile, grid: settings.gridSquare)
             return profile
             #else
-            throw WorkerFailure("platform_pending", "QRZ enrichment is not yet available on this platform.")
+            throw WorkerFailure("platform_pending", "Online callsign enrichment is not yet available on this platform.")
             #endif
         default: throw WorkerFailure("method_not_allowed", "Unknown service operation.")
         }
@@ -711,6 +742,26 @@ actor LiveServiceMethods {
         qrzCredentialDigest = identity
         qrzClientUsername = username
         return client
+    }
+
+    private func cachedHamQTHClient(username: String, password: String) throws -> HamQTHClient {
+        let workspaceID = try logbook.currentKeychainService()
+        let identity = Data(SHA256.hash(data: Data("\(workspaceID)\0\(username)\0\(password)".utf8)))
+        if let hamqthClient, hamqthCredentialDigest == identity { return hamqthClient }
+        let client = HamQTHClient(username: username, password: password)
+        hamqthClient = client
+        hamqthCredentialDigest = identity
+        hamqthClientUsername = username
+        return client
+    }
+
+    private static func publicProfile(_ result: CallsignProfile) -> [String: Any] {
+        ["call": result.call, "name": result.name, "gridSquare": result.gridSquare, "country": result.country,
+         "dxcc": result.dxcc as Any? ?? NSNull(), "cqZone": result.cqZone, "ituZone": result.ituZone,
+         "state": result.state, "county": result.county, "qth": result.qth, "email": result.email,
+         "nickname": result.nickname, "websiteURL": result.websiteURL, "imageURL": result.imageURL,
+         "qslManager": result.qslManager, "iota": result.iota, "licenseClass": result.licenseClass,
+         "latitude": result.latitude as Any? ?? NSNull(), "longitude": result.longitude as Any? ?? NSNull()]
     }
     #endif
     private func isJSONBoolean(_ number: NSNumber) -> Bool {

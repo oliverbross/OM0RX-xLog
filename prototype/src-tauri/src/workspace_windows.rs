@@ -87,7 +87,7 @@ pub const CONTEST_LABEL_PREFIX: &str = "contest--";
 pub const CONTEST_WINDOWS: [WindowSpec; 17] = [
     WindowSpec { id: "active-qso", title: "OM0RX-xLog Contest — Main Logging", width: 800.0, height: 440.0 },
     WindowSpec { id: "call-history", title: "OM0RX-xLog Contest — Call History", width: 840.0, height: 360.0 },
-    WindowSpec { id: "qrz-details", title: "OM0RX-xLog Contest — QRZ Details", width: 520.0, height: 420.0 },
+    WindowSpec { id: "qrz-details", title: "OM0RX-xLog Contest — Callsign Details", width: 520.0, height: 420.0 },
     WindowSpec { id: "group-chat", title: "OM0RX-xLog Contest — Group Chat", width: 620.0, height: 420.0 },
     WindowSpec { id: "band-maps", title: "OM0RX-xLog Contest — Band Map", width: 520.0, height: 700.0 },
     WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog Contest — Check Partial", width: 660.0, height: 620.0 },

@@ -24,7 +24,7 @@ export type ServiceSettingsProps = { values: Data; savedValues?: Data; request: 
   refreshCW?: () => Promise<void>; cwProvider?: string };
 const tabs = ["Station", "Radio", "Logbook", "Wavelog", "Sync", "Integrations", "Radio spots", "Cluster", "QRZ", "Online logs", "Reference data", "Rotator", "CW", "Display", "Workspace", "Backups"] as const;
 type Tab = typeof tabs[number];
-const tabLabels: Partial<Record<Tab, string>> = { Station: "General", Integrations: "WSJT-X" };
+const tabLabels: Partial<Record<Tab, string>> = { Station: "General", Integrations: "WSJT-X", QRZ: "Callsign lookup" };
 const settingsGroups: { label: string; tabs: readonly Tab[] }[] = [
   { label: "Station", tabs: ["Station", "Radio", "Rotator", "CW"] },
   { label: "Logbook", tabs: ["Logbook", "Wavelog", "Sync"] },
@@ -184,6 +184,12 @@ export default function ServiceSettings({ values, savedValues, request, onChange
   const showAccountHelp = ["Station", "Wavelog", "QRZ", "Reference data", "Rotator", "Backups"].includes(tab);
   const showFormSave = ["Station", "Logbook", "Wavelog", "QRZ", "Reference data", "CW"].includes(tab);
   const form = values;
+  const lookupProvider = form.qrzEnabled === true ? String(form.callsignLookupProvider ?? "qrz") : "disabled";
+  const savedForm = savedValues ?? form;
+  const savedLookupProvider = savedForm.qrzEnabled === true ? String(savedForm.callsignLookupProvider ?? "qrz") : "disabled";
+  const lookupConfigurationApplied = lookupProvider === savedLookupProvider &&
+    (lookupProvider !== "qrz" || String(form.qrzUsername ?? "") === String(savedForm.qrzUsername ?? "")) &&
+    (lookupProvider !== "hamqth" || String(form.hamqthUsername ?? "") === String(savedForm.hamqthUsername ?? ""));
   const ftpBackup = { protocol: "disabled", endpoint: "", directory: "/OM0RX-xLog", username: "", plainFTPConfirmed: false,
     ...(form.ftpBackup ?? {}) };
   const saveToast = useSettingsSaveToast();
@@ -261,7 +267,19 @@ export default function ServiceSettings({ values, savedValues, request, onChange
         <p>Save settings to apply. Switching modes keeps contacts, pending changes and saved credentials. Switching back to Wavelog leaves synchronization off until you explicitly synchronize or enable it in Sync. Wait for any running synchronization to finish before changing modes.</p>
       </section>
       <section hidden={tab !== "Wavelog"}><h2>Wavelog synchronization</h2><p>The URL and station ID identify the online logbook; the API v2 token authorizes access. Configure synchronization in Sync.</p><div className="service-fields">{field("wavelogURL", "Wavelog URL", "url")}{field("wavelogStationID", "Wavelog station ID", "number")}</div><Credential account="wavelog-token" label="Wavelog API v2 token" request={request} visible={tab === "Wavelog"} showSavedStatus /></section>
-      <section hidden={tab !== "QRZ"}><h2>QRZ callsign lookup</h2><p>Use your QRZ username and password for XML callsign lookup.</p><label className="service-enable"><input type="checkbox" checked={form.qrzEnabled === true} onChange={event => update({ qrzEnabled: event.target.checked })} />Use QRZ XML lookup</label><Credential account="qrz-password" label="QRZ password" request={request} leadingField={field("qrzUsername", "QRZ username")} /><Suspense fallback={<p role="status">Loading QRZ test…</p>}><QRZLookupTest request={request} defaultCall={String(form.operatorCall || form.qrzUsername || "")} /></Suspense></section>
+      <section hidden={tab !== "QRZ"}><h2>Callsign lookup</h2><p>Select the online callsign service used by normal logging and the contest details window. Offline CTY data remains available when online lookup is disabled or unavailable.</p>
+        <label>Lookup provider<select aria-label="Lookup provider" value={lookupProvider} onChange={event => update(event.target.value === "disabled"
+          ? { qrzEnabled: false } : { qrzEnabled: true, callsignLookupProvider: event.target.value })}>
+          <option value="disabled">Offline CTY only</option><option value="qrz">QRZ XML</option><option value="hamqth">HamQTH</option>
+        </select></label>
+        {lookupProvider === "qrz" && <Credential account="qrz-password" label="QRZ password" request={request} leadingField={field("qrzUsername", "QRZ username")}
+          visible={tab === "QRZ"} showSavedStatus allowRemove savedStatus="QRZ password saved securely." missingStatus="No saved QRZ password." />}
+        {lookupProvider === "hamqth" && <Credential account="hamqth-password" label="HamQTH password" request={request} leadingField={field("hamqthUsername", "HamQTH username")}
+          visible={tab === "QRZ"} showSavedStatus allowRemove savedStatus="HamQTH password saved securely." missingStatus="No saved HamQTH password." />}
+        {lookupProvider !== "disabled" && <Suspense fallback={<p role="status">Loading callsign lookup test…</p>}><QRZLookupTest request={request}
+          provider={lookupProvider === "hamqth" ? "HamQTH" : "QRZ"} applied={lookupConfigurationApplied}
+          defaultCall={String(form.operatorCall || (lookupProvider === "hamqth" ? form.hamqthUsername : form.qrzUsername) || "")} /></Suspense>}
+      </section>
       <section hidden={tab !== "Online logs"}><h2>QRZ Logbook upload</h2><p>The Logbook API key is separate from your XML lookup password. Saving it securely does not enable uploads. Removing it also disables uploads and cancels pending unsent contacts.</p><Credential account="qrz-logbook-key" label="QRZ Logbook API key" request={request} visible={tab === "Online logs"} showSavedStatus allowRemove savedStatus="Saved securely. Use the enrollment control below." missingStatus="No saved QRZ Logbook API key." onChanged={() => setOnlineLogRevision(value => value + 1)} /><OnlineLogUploadControl request={request} visible={tab === "Online logs"} refreshRevision={onlineLogRevision} service="qrz" provider="QRZ" />
         <h2>Club Log real-time upload</h2><p>Use your Club Log account email, an Application Password and the callsign owned by that account. The Club Log API key is shared with the CTY download in Reference data. Saving credentials never enables uploads.</p>
         <Credential account="clublog-email" label="Club Log account email" inputType="text" request={request} visible={tab === "Online logs"} showSavedStatus allowRemove savedStatus="Saved securely." missingStatus="No saved Club Log account email." onChanged={() => setOnlineLogRevision(value => value + 1)} />

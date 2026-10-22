@@ -38,7 +38,7 @@ pub const CONTEST_MENU_ITEMS: [(&str, &str); 24] = [
     ("contest-dialog-keys", "Edit Keys…"),
     ("contest-dialog-rover", "Rover…"),
     ("contest-window-call-history", "Call History"),
-    ("contest-window-qrz-details", "QRZ Details"),
+    ("contest-window-qrz-details", "Callsign Details"),
     ("contest-window-group-chat", "Group Chat"),
     ("contest-window-active-qso", "Main Logging"),
     ("contest-window-propagation", "Stats"),
@@ -177,7 +177,7 @@ mod tests {
         assert!(contest_owner_can_retire(false, false, ["rotor", "station-control"]));
         assert_eq!(windows, ["active-qso", "qrz-details", "call-history", "group-chat", "callsign-intelligence", "propagation", "monitor", "score-reporting", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"].into_iter().collect());
         assert_eq!(CONTEST_MENU_ITEMS.iter().copied().collect::<std::collections::HashMap<_, _>>(), std::collections::HashMap::from([
-            ("contest-setup", "Contest Setup"), ("contest-window-call-history", "Call History"), ("contest-window-qrz-details", "QRZ Details"),
+            ("contest-setup", "Contest Setup"), ("contest-window-call-history", "Call History"), ("contest-window-qrz-details", "Callsign Details"),
             ("contest-window-group-chat", "Group Chat"),
             ("contest-dialog-operator", "Operator…"),
             ("contest-dialog-station", "Station Settings…"), ("contest-dialog-configuration", "Configuration Settings…"),

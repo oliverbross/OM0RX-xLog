@@ -125,10 +125,10 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
         onChange={event => update(section, key, type === "number" ? event.target.value === "" ? "" : Number(event.target.value) : event.target.value)}/> }</label>;
   };
   const check = (section: "preferences" | "network", key: string, label: string) => <label key={key} className="contest-setup-check"><input type="checkbox" checked={draft[section][key] === true} onChange={event => update(section, key, event.target.checked)}/><span>{label}</span></label>;
-  const shared = (service: ContestSetupServiceTab) => servicePanels?.[service] ?? (onOpenSettings ? <button type="button" onClick={() => void run(async () => { await onOpenSettings(service); }, "")}>Open xLog {service} settings</button> : null);
-  const managed = (service: ContestSetupServiceTab, description: string) => <div className="contest-manual-stack">
-    <p role="status">Managed by xLog {service} settings. {description}</p>
-    {shared(service) ?? <p>Open these settings in the main xLog application.</p>}
+  const shared = (service: ContestSetupServiceTab, label: string = service) => servicePanels?.[service] ?? (onOpenSettings ? <button type="button" onClick={() => void run(async () => { await onOpenSettings(service); }, "")}>Open xLog {label} settings</button> : null);
+  const managed = (service: ContestSetupServiceTab, description: string, label: string = service) => <div className="contest-manual-stack">
+    <p role="status">Managed by xLog {label} settings. {description}</p>
+    {shared(service, label) ?? <p>Open these settings in the main xLog application.</p>}
     <p>Save here applies contest preferences only. Existing contest service fields are retained without applying them.</p>
   </div>;
   async function run(operation: () => Promise<void>, success: string) {
@@ -239,8 +239,8 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
   else if (view === "Configuration Settings") {
     switch (tab) {
       case "Lookup": content = <div className="contest-manual-stack">
-        {check("preferences", "showQRZDetails", "Show QRZ details")}
-        {managed("QRZ", "Configure QRZ XML lookup and save its credentials securely there.")}
+        {check("preferences", "showQRZDetails", "Show callsign details")}
+        {managed("QRZ", "Choose QRZ or HamQTH and save its credentials securely there.", "Callsign lookup")}
       </div>; break;
       case "Sound": {
         const saved = String(draft.preferences.soundDevice ?? "");

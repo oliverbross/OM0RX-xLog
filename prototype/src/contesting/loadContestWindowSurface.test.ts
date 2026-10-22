@@ -7,12 +7,12 @@ import { ContestLogTransferWindow } from "./ContestLogTransferWindow";
 import { DetachedRotorSurface } from "../live/DetachedRotorSurface";
 import { DetachedStationControlSurface } from "../live/DetachedStationControlSurface";
 
-it("routes QRZ Details to its dedicated contest renderer", async () => {
+it("routes Callsign Details to its dedicated contest renderer", async () => {
   await expect(loadContestWindowSurface(new URLSearchParams("view=qrz-details&scope=contesting")))
     .resolves.toBe(DetachedContestQRZDetailsSurface);
 });
 
-it("selects QRZ Details through the application window route", async () => {
+it("selects Callsign Details through the application window route", async () => {
   await expect(loadWindowSurface("?view=qrz-details&scope=contesting"))
     .resolves.toBe(DetachedContestQRZDetailsSurface);
 });

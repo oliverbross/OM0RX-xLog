@@ -2141,7 +2141,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       }
       if (route === "contest-window-qrz-details" && setup.preferences.showQRZDetails !== true) {
         setManager(true);
-        setError("Enable Show QRZ details in Contest Configuration → Lookup before opening this window.");
+        setError("Enable Show callsign details in Contest Configuration → Lookup before opening this window.");
         return true;
       }
       const panelID = route.startsWith("contest-window-") ? route.slice("contest-window-".length) as ContestSurfacePanelID : null;

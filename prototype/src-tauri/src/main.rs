@@ -686,7 +686,7 @@ fn append_online_menu(app: &tauri::AppHandle, menu: &Menu<tauri::Wry>) -> tauri:
         "Wavelog Account…", true, None::<&str>)?)?;
     online.append(&PredefinedMenuItem::separator(app)?)?;
     online.append(&MenuItem::with_id(app, ONLINE_QRZ_SETTINGS_MENU_ID,
-        "QRZ Callsign Lookup…", true, None::<&str>)?)?;
+        "Callsign Lookup…", true, None::<&str>)?)?;
     online.append(&MenuItem::with_id(app, ONLINE_LOG_UPLOADS_MENU_ID,
         "QRZ and Club Log Uploads…", true, None::<&str>)?)?;
     online.append(&PredefinedMenuItem::separator(app)?)?;
@@ -1440,21 +1440,21 @@ fn contest_qrz_details_context(window: &tauri::WebviewWindow, operating_context:
     validate_contest_qrz_details_caller(window.label())?;
     let context = contest_window_context::resolve(session_id, workspace_generation)?;
     if context.operating_context != operating_context {
-        return Err("That QRZ Details window belongs to an expired operating context.".into());
+        return Err("That Callsign Details window belongs to an expired operating context.".into());
     }
     Ok(context)
 }
 
 fn validate_contest_qrz_details_caller(label: &str) -> Result<(), String> {
     (label == CONTEST_QRZ_DETAILS_WINDOW).then_some(())
-        .ok_or_else(|| "QRZ Details lookup is unavailable in this window.".into())
+        .ok_or_else(|| "Callsign Details lookup is unavailable in this window.".into())
 }
 
 fn contest_qrz_callsign(call: &str) -> Result<String, String> {
     let normalized = call.trim().to_ascii_uppercase();
     if !(3..=32).contains(&normalized.len()) ||
         !normalized.bytes().all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit() || matches!(byte, b'/' | b'-')) {
-        return Err("Enter a valid callsign before requesting QRZ details.".into());
+        return Err("Enter a valid callsign before requesting callsign details.".into());
     }
     Ok(normalized)
 }
@@ -1462,9 +1462,9 @@ fn contest_qrz_callsign(call: &str) -> Result<String, String> {
 fn require_current_contest_qrz_call(context: &contest_window_context::ContestWindowContext, call: &str) -> Result<(), String> {
     let snapshot = contest_surface::snapshot(CONTEST_QRZ_DETAILS_WINDOW, context)?;
     let current = snapshot["projection"]["draft"]["callsign"].as_str()
-        .ok_or("The current contest callsign is unavailable for QRZ Details.")?;
+        .ok_or("The current contest callsign is unavailable for Callsign Details.")?;
     if contest_qrz_callsign(current)? != call {
-        return Err("The contest callsign changed before QRZ Details lookup completed.".into());
+        return Err("The contest callsign changed before the callsign lookup completed.".into());
     }
     Ok(())
 }
@@ -1476,7 +1476,7 @@ async fn contest_qrz_details_lookup(window: tauri::WebviewWindow, operating_cont
     let call = contest_qrz_callsign(&call)?;
     require_current_contest_qrz_call(&context, &call)?;
     if APP_EXITING.load(Ordering::Acquire) {
-        return Err("QRZ Details is unavailable while the application is closing.".into());
+        return Err("Callsign Details is unavailable while the application is closing.".into());
     }
     let generation = worker::existing_generation()?;
     let request_id = uuid::Uuid::new_v4().to_string();
@@ -1485,19 +1485,19 @@ async fn contest_qrz_details_lookup(window: tauri::WebviewWindow, operating_cont
         contest_window_context::admit(&context)?;
         let response = worker::request_existing_generation(request, generation)?;
         if worker::generation() != generation || APP_EXITING.load(Ordering::Acquire) {
-            return Err("QRZ Details changed while the lookup was running.".into());
+            return Err("Callsign Details changed while the lookup was running.".into());
         }
         contest_window_context::admit(&context)?;
         require_current_contest_qrz_call(&context, &call)?;
         if response["id"].as_str() != Some(request_id.as_str()) {
-            return Err("The QRZ Details response did not match its request.".into());
+            return Err("The Callsign Details response did not match its request.".into());
         }
         if response["ok"] != true {
-            return Err(response["error"]["message"].as_str().unwrap_or("QRZ lookup failed.").into());
+            return Err(response["error"]["message"].as_str().unwrap_or("Callsign lookup failed.").into());
         }
         response.get("result").filter(|value| value.is_object()).cloned()
-            .ok_or_else(|| "The QRZ Details response could not be verified.".into())
-    }).await.map_err(|_| "QRZ Details worker task failed.".to_string())?
+            .ok_or_else(|| "The Callsign Details response could not be verified.".into())
+    }).await.map_err(|_| "Callsign Details worker task failed.".to_string())?
 }
 
 #[cfg(target_os = "macos")]

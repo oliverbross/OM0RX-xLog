@@ -15,11 +15,11 @@ const validCall = /^[A-Z0-9/-]{3,32}$/;
 const sameSize = (left: Sized, right: Sized) => Math.abs(left.width - right.width) < 0.5 && Math.abs(left.height - right.height) < 0.5;
 const text = (value: unknown) => typeof value === "string" && value.trim() ? value.trim() : null;
 const number = (value: unknown) => typeof value === "number" && Number.isFinite(value) ? String(value) : null;
-const errorMessage = (cause: unknown) => cause instanceof Error ? cause.message : "QRZ details could not be loaded.";
+const errorMessage = (cause: unknown) => cause instanceof Error ? cause.message : "Callsign details could not be loaded.";
 
 export async function lookupContestQRZDetails(context: ContestSurfaceContext, call: string): Promise<Profile> {
   const value = await invoke("contest_qrz_details_lookup", { ...context, call });
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("The QRZ Details response could not be verified.");
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("The callsign details response could not be verified.");
   return value as Profile;
 }
 
@@ -74,7 +74,7 @@ export function ContestQRZDetailsSurface({ search = window.location.search,
     const snapshot = await readContestSurfaceSnapshot(context);
     if (snapshot.panelID !== "qrz-details" || snapshot.projection.status !== "ready" || snapshot.projection.schemaVersion !== 2 ||
         !("draft" in snapshot.projection))
-      throw new Error("The contest draft is not available for QRZ Details.");
+      throw new Error("The contest draft is not available for callsign details.");
     if (snapshot.projectionRevision >= revision.current) {
       revision.current = snapshot.projectionRevision;
       setProjection(snapshot.projection);
@@ -96,7 +96,7 @@ export function ContestQRZDetailsSurface({ search = window.location.search,
     setLoading(true);
     const timer = window.setTimeout(() => void lookup(context, call).then(value => {
       if (active && text(value.call)?.toUpperCase() === call) setProfile({ call, value });
-      else if (active) setError("QRZ returned details for a different callsign.");
+      else if (active) setError("The lookup service returned details for a different callsign.");
     }).catch(cause => { if (active) setError(errorMessage(cause)); })
       .finally(() => { if (active) setLoading(false); }), 250);
     return () => { active = false; window.clearTimeout(timer); };
@@ -112,16 +112,16 @@ export function ContestQRZDetailsSurface({ search = window.location.search,
     ["Website", text(value.websiteURL)],
   ].filter((field): field is [string, string] => field[1] !== null) : [];
 
-  return <main className="contest-qrz-details" aria-label="Contest QRZ Details">
-    <header><div><p>CONTEST LOOKUP</p><h1>{call || "QRZ Details"}</h1></div>{value && <span>{text(value.source) ?? "xLog lookup"}</span>}</header>
+  return <main className="contest-qrz-details" aria-label="Contest Callsign Details">
+    <header><div><p>CONTEST LOOKUP</p><h1>{call || "Callsign Details"}</h1></div>{value && <span>{text(value.source) ?? "xLog lookup"}</span>}</header>
     {!projection && !error && <p role="status">Loading the current contest callsign…</p>}
     {projection && !validCall.test(call) && <p role="status">Enter a complete callsign in the contest logging window.</p>}
     {loading && <p role="status">Looking up {call}…</p>}
     {error && <p className="contest-qrz-error" role="alert">{error}</p>}
-    {value && <section aria-label={`${call} QRZ profile`}>
+    {value && <section aria-label={`${call} callsign profile`}>
       <div className="contest-qrz-identity"><strong>{text(value.name) ?? call}</strong><span>{text(value.country) ?? "Country unavailable"}</span></div>
       {fields.length ? <dl>{fields.map(([label, detail]) => <div key={label}><dt>{label}</dt><dd>{detail}</dd></div>)}</dl>
-        : <p role="status">No additional QRZ profile fields were returned.</p>}
+        : <p role="status">No additional callsign profile fields were returned.</p>}
       {text(value.lookup_warning) && <p className="contest-qrz-warning" role="status">{text(value.lookup_warning)}</p>}
     </section>}
   </main>;

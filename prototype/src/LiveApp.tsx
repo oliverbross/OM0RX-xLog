@@ -356,8 +356,8 @@ function MainLiveApp() {
   useEffect(() => connectWorkspaceNavigation(title => {
     if (isContestMenuRoute(title)) return false;
     if (title.startsWith("Workspace Mode: ")) return modeAction.current(title);
-    const onlineTab = ({ "Wavelog Settings": "Wavelog", "QRZ Settings": "QRZ", "Online Log Settings": "Online logs",
-      "Reference Data Settings": "Reference data", "Station Settings": "Station", "CW Settings": "CW", "Cluster Settings": "Cluster", "Integrations Settings": "Integrations" } as const)[title as "Wavelog Settings" | "QRZ Settings" | "Online Log Settings" | "Reference Data Settings" | "Station Settings" | "CW Settings" | "Cluster Settings" | "Integrations Settings"];
+    const onlineTab = ({ "Wavelog Settings": "Wavelog", "QRZ Settings": "QRZ", "Callsign Lookup Settings": "QRZ", "Online Log Settings": "Online logs",
+      "Reference Data Settings": "Reference data", "Station Settings": "Station", "CW Settings": "CW", "Cluster Settings": "Cluster", "Integrations Settings": "Integrations" } as const)[title as "Wavelog Settings" | "QRZ Settings" | "Callsign Lookup Settings" | "Online Log Settings" | "Reference Data Settings" | "Station Settings" | "CW Settings" | "Cluster Settings" | "Integrations Settings"];
     return title === "Sync" ? showSyncSettings() : onlineTab ? showOnlineSettings(onlineTab) : setView(title);
   }, setError, undefined, retry => {
     const draft = draftSession.subscribe(retry), contact = contactSession.subscribe(retry), layout = deskLayout.session.subscribe(retry);

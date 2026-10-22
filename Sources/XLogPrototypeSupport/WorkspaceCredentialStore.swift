@@ -8,6 +8,7 @@ struct WorkspaceCredentialStore {
     enum Account: String {
         case wavelogToken = "wavelog-token"
         case qrzPassword = "qrz-password"
+        case hamqthPassword = "hamqth-password"
         case qrzLogbookKey = "qrz-logbook-key"
         case clubLogAPIKey = "clublog-api-key"
         case clubLogEmail = "clublog-email"

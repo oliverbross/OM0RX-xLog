@@ -16,9 +16,3 @@ body { margin: 0; overflow-x: hidden; }
 .contest-qrz-error, .contest-qrz-warning { padding: 9px 11px; border-radius: 6px; overflow-wrap: anywhere; }
 .contest-qrz-error { color: #ffd0d0; background: #512525; }
 .contest-qrz-warning { color: #ffe8b4; background: #4b3b1e; }
-@media (prefers-color-scheme: light) {
-  .contest-qrz-details { color: #17202c; background: #f5f7fa; }
-  .contest-qrz-identity, .contest-qrz-details dl > div { background: #fff; }
-  .contest-qrz-details dl, .contest-qrz-identity { border-color: #cbd4df; }
-  .contest-qrz-details dl { background: #cbd4df; }
-}

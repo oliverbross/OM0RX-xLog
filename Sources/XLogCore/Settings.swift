@@ -11,6 +11,18 @@ public enum FTPBackupProtocol: String, Codable, Equatable, Sendable {
     case ftps
 }
 
+public enum CallsignLookupProvider: String, Codable, Equatable, Sendable {
+    case qrz
+    case hamQTH = "hamqth"
+
+    public var displayName: String {
+        switch self {
+        case .qrz: return "QRZ"
+        case .hamQTH: return "HamQTH"
+        }
+    }
+}
+
 /// Non-secret FTP-family backup configuration. The password is stored under a
 /// separate workspace Keychain account and is never encoded with Settings.
 public struct FTPBackupSettings: Codable, Equatable, Sendable {
@@ -52,6 +64,8 @@ public struct XLogSettings: Codable, Equatable, Sendable {
     public var syncIntervalMinutes: Int
     public var qrzUsername: String
     public var qrzEnabled: Bool
+    public var callsignLookupProvider: CallsignLookupProvider = .qrz
+    public var hamqthUsername: String = ""
     public var xcatHost: String
     public var xcatRigCtlPort: Int
     public var clubLogCTYURL: String
@@ -74,6 +88,8 @@ public struct XLogSettings: Codable, Equatable, Sendable {
         syncIntervalMinutes: 5,
         qrzUsername: "",
         qrzEnabled: false,
+        callsignLookupProvider: .qrz,
+        hamqthUsername: "",
         xcatHost: "127.0.0.1",
         xcatRigCtlPort: 14532,
         clubLogCTYURL: "https://cdn.clublog.org/cty.php",
@@ -117,6 +133,7 @@ public struct IntegrationSettingsSnapshot: Codable, Equatable, Sendable {
             (settings.gridSquare, 32), (settings.stationLocation, 512),
             (settings.defaultPower, 32), (settings.defaultRadio, 256),
             (settings.wavelogURL, 2_048), (settings.qrzUsername, 256),
+            (settings.hamqthUsername, 256),
             (settings.xcatHost, 512), (settings.clubLogCTYURL, 2_048),
             (settings.lotwActivityURL, 2_048), (settings.stationEquipment.name, 256),
             (settings.ftpBackup.endpoint, 2_048), (settings.ftpBackup.directory, 4_096),
@@ -332,7 +349,8 @@ extension XLogSettings {
     private enum CodingKeys: String, CodingKey {
         case operatorCall, stationCall, gridSquare, stationLocation, defaultPower, defaultRadio, automaticTransmitPower, clearAfterQSY
         case wavelogURL, wavelogStationID, logbookMode, automaticSync, syncIntervalMinutes
-        case qrzUsername, qrzEnabled, xcatHost, xcatRigCtlPort, clubLogCTYURL, lotwActivityURL
+        case qrzUsername, qrzEnabled, callsignLookupProvider, hamqthUsername
+        case xcatHost, xcatRigCtlPort, clubLogCTYURL, lotwActivityURL
         case stationEquipment, cwProfile, ftpBackup
     }
 
@@ -355,6 +373,8 @@ extension XLogSettings {
         syncIntervalMinutes = try values.decode(Int.self, forKey: .syncIntervalMinutes)
         qrzUsername = try values.decode(String.self, forKey: .qrzUsername)
         qrzEnabled = try values.decode(Bool.self, forKey: .qrzEnabled)
+        callsignLookupProvider = try values.decodeIfPresent(CallsignLookupProvider.self, forKey: .callsignLookupProvider) ?? .qrz
+        hamqthUsername = try values.decodeIfPresent(String.self, forKey: .hamqthUsername) ?? ""
         xcatHost = try values.decode(String.self, forKey: .xcatHost)
         xcatRigCtlPort = try values.decode(Int.self, forKey: .xcatRigCtlPort)
         clubLogCTYURL = try values.decode(String.self, forKey: .clubLogCTYURL)

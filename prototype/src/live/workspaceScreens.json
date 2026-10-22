@@ -14,7 +14,7 @@
   {"id":"radio2-settings","title":"Radio 2 Settings","group":"Station","shortcut":null,"hidden":true},
   {"id":"sync","title":"Sync","group":"Logbook","shortcut":null,"hidden":true},
   {"id":"wavelog-settings","title":"Wavelog Settings","group":"Station","shortcut":null,"hidden":true},
-  {"id":"qrz-settings","title":"QRZ Settings","group":"Station","shortcut":null,"hidden":true},
+  {"id":"qrz-settings","title":"Callsign Lookup Settings","group":"Station","shortcut":null,"hidden":true},
   {"id":"online-log-settings","title":"Online Log Settings","group":"Station","shortcut":null,"hidden":true},
   {"id":"reference-data-settings","title":"Reference Data Settings","group":"Station","shortcut":null,"hidden":true},
   {"id":"station-settings","title":"Station Settings","group":"Station","shortcut":null,"hidden":true},

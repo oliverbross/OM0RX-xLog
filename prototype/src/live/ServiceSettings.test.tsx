@@ -126,7 +126,7 @@ describe("grouped service settings", () => {
     expect(screen.getByRole("tabpanel", { name: "General" })).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: "Wavelog" }));
     expect((screen.getByRole("textbox", { name: "Wavelog URL" }) as HTMLInputElement).value).toBe(values.wavelogURL);
-    fireEvent.click(screen.getByRole("tab", { name: "QRZ" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Callsign lookup" }));
     expect((screen.getByRole("textbox", { name: "QRZ username" }) as HTMLInputElement).value).toBe("operator");
     fireEvent.click(screen.getByRole("tab", { name: "Online logs" }));
     expect(screen.getByText(/Saving it securely does not enable uploads/)).toBeTruthy();
@@ -140,7 +140,7 @@ describe("grouped service settings", () => {
     const request = vi.fn(async (method: string, params?: Record<string, unknown>) => method === "lookup_call"
       ? { call: params?.call, country: "SLOVAK REPUBLIC", dxcc: 504, qrz_status: "matched" } : {});
     render(<SettingsHarness values={values} request={request} />);
-    fireEvent.click(screen.getByRole("tab", { name: "QRZ" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Callsign lookup" }));
     expect(request).not.toHaveBeenCalledWith("lookup_call", expect.anything());
     fireEvent.change(screen.getByLabelText("QRZ test callsign"), { target: { value: "om0aao" } });
     fireEvent.click(screen.getByRole("button", { name: "Test QRZ lookup" }));
@@ -152,11 +152,38 @@ describe("grouped service settings", () => {
     const request = vi.fn(async (method: string, params?: Record<string, unknown>) => method === "lookup_call"
       ? { call: params?.call, country: "SLOVAK REPUBLIC", dxcc: 504, qrz_status: "unavailable", lookup_warning: warning } : {});
     render(<SettingsHarness values={values} request={request} />);
-    fireEvent.click(screen.getByRole("tab", { name: "QRZ" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Callsign lookup" }));
     fireEvent.change(screen.getByLabelText("QRZ test callsign"), { target: { value: "OM0AAO" } });
     fireEvent.click(screen.getByRole("button", { name: "Test QRZ lookup" }));
     await screen.findByText(warning);
     expect(screen.queryByText(/Operation failed/)).toBeNull();
+  });
+  it("requires a provider change to be saved before testing the persisted shared lookup route", async () => {
+    const request = vi.fn(async () => ({}));
+    render(<SettingsHarness values={{ ...values, hamqthUsername: "ham-operator" }} savedValues={values} request={request} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Callsign lookup" }));
+    fireEvent.change(screen.getByLabelText("Lookup provider"), { target: { value: "hamqth" } });
+    expect((screen.getByRole("button", { name: "Test HamQTH lookup" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText("Save settings to apply HamQTH before testing.")).toBeTruthy();
+    expect(request).not.toHaveBeenCalledWith("lookup_call", expect.anything());
+  });
+  it("uses the saved HamQTH provider without overwriting retained QRZ settings", async () => {
+    const request = vi.fn(async (method: string, params?: Record<string, unknown>) => method === "lookup_call"
+      ? { call: params?.call, country: "SLOVAK REPUBLIC", lookup_status: "matched", lookup_provider: "HamQTH", source: "HamQTH XML" }
+      : method === "secret_status" ? { "hamqth-password": true } : {});
+    const save = vi.fn(async () => {});
+    const providerValues = { ...values, callsignLookupProvider: "hamqth", hamqthUsername: "ham-operator" };
+    render(<SettingsHarness values={providerValues} savedValues={providerValues} request={request} onSave={save} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Callsign lookup" }));
+    expect((screen.getByLabelText("HamQTH username") as HTMLInputElement).value).toBe("ham-operator");
+    expect(screen.queryByLabelText("QRZ username")).toBeNull();
+    fireEvent.change(screen.getByLabelText("HamQTH test callsign"), { target: { value: "OM0AAO" } });
+    fireEvent.click(screen.getByRole("button", { name: "Test HamQTH lookup" }));
+    await screen.findByText("HamQTH matched OM0AAO · SLOVAK REPUBLIC.");
+    fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({
+      callsignLookupProvider: "hamqth", hamqthUsername: "ham-operator", qrzUsername: "operator", qrzEnabled: true,
+    })));
   });
   it("saves the separate QRZ Logbook key without enabling or saving upload settings", async () => {
     const request = vi.fn(async (method: string) => method === "secret_status"
@@ -286,17 +313,17 @@ describe("grouped service settings", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Wavelog" }));
     fireEvent.change(screen.getByLabelText("Wavelog URL"), { target: { value: "https://new.example.invalid/" } });
     fireEvent.change(screen.getByLabelText("Wavelog API v2 token"), { target: { value: "typed-test-token" } });
-    fireEvent.click(screen.getByRole("tab", { name: "QRZ" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Callsign lookup" }));
     fireEvent.change(screen.getByLabelText("QRZ password"), { target: { value: "typed-test-password" } });
     fireEvent.click(screen.getByRole("tab", { name: "Backups" }));
     fireEvent.click(screen.getByRole("tab", { name: "Wavelog" }));
     expect((screen.getByLabelText("Wavelog URL") as HTMLInputElement).value).toBe("https://new.example.invalid/");
     expect((screen.getByLabelText("Wavelog API v2 token") as HTMLInputElement).value).toBe("typed-test-token");
-    fireEvent.click(screen.getByRole("tab", { name: "QRZ" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Callsign lookup" }));
     expect((screen.getByLabelText("QRZ password") as HTMLInputElement).value).toBe("typed-test-password");
     fireEvent.click(screen.getByRole("tab", { name: "General" }));
     expect((screen.getByLabelText("Station call") as HTMLInputElement).value).toBe("M7KOD");
-    expect(request).toHaveBeenCalledTimes(2);
+    expect(request).toHaveBeenCalledTimes(3);
     expect(request).toHaveBeenCalledWith("secret_status");
     expect(request.mock.calls.filter(([method]) => method === "online_log_status")).toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
@@ -405,7 +432,7 @@ describe("grouped service settings", () => {
 
   it("groups QRZ and Club Log fields with their secure Save button", () => {
     render(<SettingsHarness values={values} request={vi.fn(async () => ({}))} />);
-    fireEvent.click(screen.getByRole("tab", { name: "QRZ" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Callsign lookup" }));
     const qrzRow = screen.getByLabelText("QRZ username").closest(".service-account-row");
     expect(qrzRow?.contains(screen.getByLabelText("QRZ password"))).toBe(true);
     expect(qrzRow?.contains(screen.getByRole("button", { name: "Save QRZ password" }))).toBe(true);

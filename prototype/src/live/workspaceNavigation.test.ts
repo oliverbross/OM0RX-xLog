@@ -15,7 +15,7 @@ it("has every existing destination and no unknown navigation or CW function-key 
   expect(workspaceMenuScreens.some(screen => screen.id === "settings")).toBe(true);
   expect(workspaceMenuScreens.some(screen => screen.id === "station-control")).toBe(false);
   expect(workspaceMenuScreens.some(screen => screen.id === "radio1-settings" || screen.id === "radio2-settings")).toBe(false);
-  expect(workspaceScreens.map(s => s.title)).toEqual(["Operator Desk", "Log QSO", "Logbook", "DX Cluster", "Spot History", "World Map", "Band Maps", "Chaser & DX", "HF Prop live", "Awards", "Station Control", "Radio 1 Settings", "Radio 2 Settings", "Sync", "Wavelog Settings", "QRZ Settings", "Online Log Settings", "Reference Data Settings", "Station Settings", "CW Settings", "Cluster Settings", "Integrations Settings", "Settings"]);
+  expect(workspaceScreens.map(s => s.title)).toEqual(["Operator Desk", "Log QSO", "Logbook", "DX Cluster", "Spot History", "World Map", "Band Maps", "Chaser & DX", "HF Prop live", "Awards", "Station Control", "Radio 1 Settings", "Radio 2 Settings", "Sync", "Wavelog Settings", "Callsign Lookup Settings", "Online Log Settings", "Reference Data Settings", "Station Settings", "CW Settings", "Cluster Settings", "Integrations Settings", "Settings"]);
   expect(workspaceScreens.some(screen => screen.id === "contesting")).toBe(false);
   for (const s of workspaceScreens) {
     expect(validWorkspaceNavigation({ revision: 1, screen: s.id })).toBe(true);

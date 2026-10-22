@@ -86,4 +86,25 @@ struct IntegrationSettingsTests {
             try database.integrationSettings(seed: invalid)
         }
     }
+
+    @Test("Legacy settings default to QRZ while provider usernames remain independent")
+    func callsignLookupProviderMigration() throws {
+        let encoded = try JSONEncoder().encode(XLogSettings.defaults)
+        var object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        object.removeValue(forKey: "callsignLookupProvider")
+        object.removeValue(forKey: "hamqthUsername")
+        let legacy = try JSONDecoder().decode(
+            XLogSettings.self, from: JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]))
+        #expect(legacy.callsignLookupProvider == .qrz)
+        #expect(legacy.hamqthUsername.isEmpty)
+
+        var selected = legacy
+        selected.qrzUsername = "qrz-operator"
+        selected.hamqthUsername = "hamqth-operator"
+        selected.callsignLookupProvider = .hamQTH
+        let roundTrip = try JSONDecoder().decode(XLogSettings.self, from: JSONEncoder().encode(selected))
+        #expect(roundTrip.callsignLookupProvider.rawValue == "hamqth")
+        #expect(roundTrip.qrzUsername == "qrz-operator")
+        #expect(roundTrip.hamqthUsername == "hamqth-operator")
+    }
 }

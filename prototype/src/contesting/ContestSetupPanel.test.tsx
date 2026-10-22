@@ -324,7 +324,8 @@ it("routes every shared service and reports native opening errors without saving
   await waitFor(() => expect(screen.getByLabelText("City").closest("fieldset")?.disabled).toBe(false));
   open("Cancel"); open("Configuration Settings");
   for (const [tab, service] of [["Lookup", "QRZ"], ["CAT", "Radio"], ["CW", "CW"], ["Cluster", "Cluster"], ["Rotator", "Rotator"]]) {
-    fireEvent.click(screen.getByRole("tab", { name: tab })); open(`Open xLog ${service} settings`);
+    const label = tab === "Lookup" ? "Callsign lookup" : service;
+    fireEvent.click(screen.getByRole("tab", { name: tab })); open(`Open xLog ${label} settings`);
     await waitFor(() => expect(p.onOpenSettings).toHaveBeenCalledWith(service));
     await waitFor(() => expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false));
   }
@@ -337,10 +338,11 @@ it("routes every shared service and reports native opening errors without saving
 it("hands shared services to xLog without duplicate editable settings and keeps Sound independent", () => {
   const p = props(); render(<ContestSetupPanel {...p} initialTab="Lookup"/>);
   for (const [tab, service] of [["Lookup", "QRZ"], ["CAT", "Radio"], ["CW", "CW"], ["Rotator", "Rotator"], ["Cluster", "Cluster"]]) {
+    const label = tab === "Lookup" ? "Callsign lookup" : service;
     fireEvent.click(screen.getByRole("tab", { name: tab }));
-    expect(screen.getByRole("status").textContent).toContain(`Managed by xLog ${service} settings`);
-    expect(screen.getByRole("button", { name: `Open xLog ${service} settings` })).toBeTruthy();
-    if (tab === "Lookup") expect(screen.getByRole("checkbox", { name: "Show QRZ details" })).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toContain(`Managed by xLog ${label} settings`);
+    expect(screen.getByRole("button", { name: `Open xLog ${label} settings` })).toBeTruthy();
+    if (tab === "Lookup") expect(screen.getByRole("checkbox", { name: "Show callsign details" })).toBeTruthy();
     else if (tab !== "CW") expect(screen.getByRole("tabpanel").querySelector("input,select,textarea")).toBeNull();
   }
   fireEvent.click(screen.getByRole("tab", { name: "Sound" }));
@@ -352,7 +354,7 @@ it("hands shared services to xLog without duplicate editable settings and keeps 
 
 it("persists the optional Contest QRZ details preference through the existing setup save", async () => {
   const p = props(); render(<ContestSetupPanel {...p} initialTab="Lookup"/>);
-  fireEvent.click(screen.getByRole("checkbox", { name: "Show QRZ details" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Show callsign details" }));
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await waitFor(() => expect(p.onSave).toHaveBeenCalledTimes(1));
   expect(p.onSave.mock.calls[0][0].preferences.showQRZDetails).toBe(true);

@@ -91,6 +91,7 @@ public struct SecretStore: Sendable {
     public enum Account: String, Sendable {
         case wavelogToken = "wavelog-token"
         case qrzPassword = "qrz-password"
+        case hamqthPassword = "hamqth-password"
         case qrzLogbookKey = "qrz-logbook-key"
         case clubLogAPIKey = "clublog-api-key"
         case clubLogEmail = "clublog-email"

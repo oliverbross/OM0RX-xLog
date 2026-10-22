@@ -113,6 +113,33 @@ struct QRZProfileTests {
         await worker.shutdown()
     }
 
+    @Test("Shared lookup routes HamQTH through its separate workspace credential owner")
+    func hamQTHWorkspaceRoutingWithoutCredentialsKeepsCTY() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        var settings = try #require(logbook.handle(method: "settings_load", params: [:])["settings"] as? [String: Any])
+        settings["qrzEnabled"] = true
+        settings["callsignLookupProvider"] = "hamqth"
+        settings["hamqthUsername"] = "fixture-hamqth-user"
+        _ = try logbook.saveSettingsForTest(settings)
+
+        let worker = LiveWorker(logbook: logbook)
+        let request = try JSONSerialization.data(withJSONObject: [
+            "id": "hamqth-missing-credential", "method": "lookup_call", "params": ["call": "OM0AAO"],
+        ])
+        let response = try #require(JSONSerialization.jsonObject(with: await worker.response(to: request)) as? [String: Any])
+        let profile = try #require(response["result"] as? [String: Any])
+        #expect(profile["country"] as? String == "SLOVAK REPUBLIC")
+        #expect(profile["dxcc"] as? Int == 504)
+        #expect(profile["source"] as? String == "CTY approximate")
+        #expect(profile["lookup_status"] as? String == "credential_required")
+        #expect(profile["qrz_status"] == nil)
+        #expect((profile["lookup_warning"] as? String)?.contains("HamQTH") == true)
+        await worker.shutdown()
+    }
+
     @Test("Passive VK8NSB lookup waits through more than 750 ms of logbook contention")
     func lookupSettlesDuringLogbookContention() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -311,6 +338,111 @@ struct QRZProfileTests {
         #expect(profile.country == "SLOVAK REPUBLIC")
         #expect(QRZFixtureURLProtocol.lastLookupCallsign() == "OM0AAO")
     }
+
+    @Test("HamQTH fields project through provider-neutral enrichment")
+    func projectsHamQTHProfile() async throws {
+        let data = Data("""
+        <HamQTH><search><callsign>OM0AAO</callsign><adr_name>Oliver Operator</adr_name>
+        <nick>Oli</nick><grid>JN88TQ</grid><country>Slovak Republic</country><adif>504</adif>
+        <cq>15</cq><itu>28</itu><qth>Bratislava</qth><latitude>48.1</latitude><longitude>17.1</longitude>
+        <web>https://example.org/om0aao</web></search></HamQTH>
+        """.utf8)
+        let profile = try HamQTHClient.profile(from: data, call: "OM0AAO")
+        #expect(profile.name == "Oliver Operator")
+        #expect(profile.nickname == "Oli")
+        #expect(profile.gridSquare == "JN88TQ")
+        #expect(profile.dxcc == 504)
+        let result = await CallsignEnrichment.resolve(
+            base: ["call": "OM0AAO", "country": "SLOVAK REPUBLIC", "dxcc": 504,
+                   "source": "CTY approximate"], provider: .hamQTH
+        ) {
+            ["call": profile.call, "name": profile.name, "nickname": profile.nickname,
+             "gridSquare": profile.gridSquare, "country": profile.country,
+             "dxcc": profile.dxcc as Any, "latitude": profile.latitude as Any,
+             "longitude": profile.longitude as Any]
+        }
+        #expect(result["lookup_status"] as? String == "matched")
+        #expect(result["qrz_status"] == nil)
+        #expect(result["source"] as? String == "HamQTH")
+        #expect(result["location_source"] as? String == "HamQTH coordinates")
+    }
+
+    @Test("HamQTH session is reused and an expired session causes one re-login")
+    func hamQTHSessionReuseAndRefresh() async throws {
+        HamQTHFixtureURLProtocol.reset(expireFirstLookup: true)
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [HamQTHFixtureURLProtocol.self]
+        let client = HamQTHClient(username: "fixture", password: "fixture",
+                                  session: URLSession(configuration: configuration))
+        #expect(try await client.lookup("OM0AAO/P").gridSquare == "JN88TQ")
+        #expect(try await client.lookup("OM0AAO").dxcc == 504)
+        #expect(HamQTHFixtureURLProtocol.counts() == [2, 3])
+        #expect(HamQTHFixtureURLProtocol.lastLookupCallsign() == "OM0AAO")
+    }
+
+    @Test("HamQTH transport errors and request deadlines are safe")
+    func hamQTHTransportAndDeadlines() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [HamQTHFixtureURLProtocol.self]
+        HamQTHFixtureURLProtocol.reset(failLogin: true)
+        let username = "fixture-user-private", password = "fixture-password-private"
+        let client = HamQTHClient(username: username, password: password,
+                                  session: URLSession(configuration: configuration))
+        do {
+            _ = try await client.lookup("OM0AAO")
+            Issue.record("Fixture transport failure was not surfaced")
+        } catch {
+            guard case HamQTHClientError.timedOut = error else {
+                Issue.record("Expected a sanitized HamQTH timeout category")
+                return
+            }
+            let description = [String(describing: error), String(reflecting: error),
+                               error.localizedDescription, (error as NSError).description].joined(separator: " ")
+            for secret in [username, password, "www.hamqth.com/xml.php", "?u="] {
+                #expect(!description.contains(secret))
+            }
+        }
+        let login = HamQTHClient.authenticationRequest(username: username, password: password)
+        let lookup = HamQTHClient.lookupRequest(sessionID: "fixture-session", call: "om0aao")
+        #expect(login.timeoutInterval == 2)
+        #expect(lookup.timeoutInterval == 1)
+        #expect(lookup.url?.query?.contains("callsign=OM0AAO") == true)
+        #expect(lookup.url?.query?.contains("prg=OM0RX-xLog") == true)
+
+        let policy = HamQTHClient.secureConfiguration()
+        #expect(policy.urlCache == nil)
+        #expect(policy.urlCredentialStorage == nil)
+        #expect(policy.httpCookieStorage == nil)
+        #expect(!policy.httpShouldSetCookies)
+        #expect(policy.httpCookieAcceptPolicy == .never)
+        #expect(policy.requestCachePolicy == .reloadIgnoringLocalCacheData)
+
+        let redirectSession = URLSession(configuration: .ephemeral)
+        let redirectTask = redirectSession.dataTask(with: URL(string: "https://www.hamqth.com/xml.php")!)
+        let redirectResponse = HTTPURLResponse(url: redirectTask.originalRequest!.url!, statusCode: 302,
+                                               httpVersion: "HTTP/1.1", headerFields: ["Location": "https://example.invalid/"])!
+        var followed: URLRequest? = URLRequest(url: URL(string: "https://example.invalid/")!)
+        HamQTHRedirectBlocker().urlSession(redirectSession, task: redirectTask,
+            willPerformHTTPRedirection: redirectResponse, newRequest: followed!) { followed = $0 }
+        #expect(followed == nil)
+        redirectTask.cancel()
+        redirectSession.invalidateAndCancel()
+    }
+
+    @Test("HamQTH rejects empty, malformed and non-provider HTTP bodies")
+    func hamQTHRejectsInvalidDocuments() {
+        let invalid = ["", "<HamQTH><search>", "<html><callsign>OM0AAO</callsign></html>"]
+        for body in invalid {
+            do {
+                _ = try HamQTHClient.profile(from: Data(body.utf8), call: "OM0AAO")
+                Issue.record("Invalid HamQTH document was accepted: \(body)")
+            } catch is HamQTHClientError {
+                // Expected: no invalid HTTP 200 body may become an online match.
+            } catch {
+                Issue.record("Unexpected invalid-document error category: \(error)")
+            }
+        }
+    }
 }
 
 private final class QRZFixtureURLProtocol: URLProtocol {
@@ -359,6 +491,60 @@ private final class QRZFixtureURLProtocol: URLProtocol {
                 return ("<QRZDatabase><Session><Error>Session Timeout</Error></Session></QRZDatabase>", false)
             }
             return ("<QRZDatabase><Callsign><call>OM0AAO</call><land>SLOVAK REPUBLIC</land><dxcc>504</dxcc></Callsign><Session><Key>session-\(Self.loginCount)</Key></Session></QRZDatabase>", false)
+        }
+        if failure {
+            let url = request.url!
+            client?.urlProtocol(self, didFailWithError: NSError(domain: NSURLErrorDomain,
+                code: URLError.timedOut.rawValue,
+                userInfo: [NSURLErrorFailingURLErrorKey: url,
+                           NSLocalizedDescriptionKey: "Timed out at \(url.absoluteString)"]))
+            return
+        }
+        let response = HTTPURLResponse(url: request.url!, statusCode: 200,
+                                       httpVersion: "HTTP/1.1", headerFields: nil)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(body.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}
+
+private final class HamQTHFixtureURLProtocol: URLProtocol {
+    private static let lock = NSLock()
+    private static var loginCount = 0
+    private static var lookupCount = 0
+    private static var expireFirstLookup = false
+    private static var failLogin = false
+    private static var lastCallsign: String?
+
+    static func reset(expireFirstLookup: Bool = false, failLogin: Bool = false) {
+        lock.withLock {
+            loginCount = 0; lookupCount = 0; lastCallsign = nil
+            self.expireFirstLookup = expireFirstLookup; self.failLogin = failLogin
+        }
+    }
+
+    static func counts() -> [Int] { lock.withLock { [loginCount, lookupCount] } }
+    static func lastLookupCallsign() -> String? { lock.withLock { lastCallsign } }
+
+    override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "www.hamqth.com" }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let login = query.contains(where: { $0.name == "u" })
+        let (body, failure): (String, Bool) = Self.lock.withLock {
+            if login {
+                Self.loginCount += 1
+                return ("<HamQTH><session><session_id>session-\(Self.loginCount)</session_id></session></HamQTH>", Self.failLogin)
+            }
+            Self.lookupCount += 1
+            Self.lastCallsign = query.first(where: { $0.name == "callsign" })?.value
+            if Self.expireFirstLookup && Self.lookupCount == 1 {
+                return ("<HamQTH><session><error>Session does not exist or expired</error></session></HamQTH>", false)
+            }
+            return ("<HamQTH><search><callsign>OM0AAO</callsign><grid>JN88TQ</grid><country>Slovak Republic</country><adif>504</adif></search></HamQTH>", false)
         }
         if failure {
             let url = request.url!
