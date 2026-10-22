@@ -556,7 +556,7 @@ function Matrix({ projection }: { projection: ContestMatrixSurfaceProjection }) 
   const selectedKey = selectedLabel?.trim().toLocaleUpperCase() ?? "";
   useEffect(() => { if (selectedKey) rows.current.get(selectedKey)?.scrollIntoView?.({ block: "center", inline: "nearest" }); }, [selectedKey, projection.rows]);
   return <section aria-label={`Contest ${projection.title}`} aria-busy={projection.busy} className="contest-surface-matrix"><header className="contest-surface-matrix-toolbar"><h1>{projection.title}</h1>
-    {rich?.tracker === "zone" && <fieldset className="contest-surface-zone-system"><legend>Zone system</legend>
+    {rich?.tracker === "zone" && <fieldset className="contest-surface-zone-system"><legend>Scroll to</legend>
       {(["cq", "itu"] as const).map(value => <label key={value}><input type="radio" name="contest-zone-system" value={value}
         checked={zoneSystem === value} onChange={() => setZoneSystem(value)}/>{value.toUpperCase()}</label>)}</fieldset>}
     <span>{projection.total.toLocaleString()} worked</span></header>

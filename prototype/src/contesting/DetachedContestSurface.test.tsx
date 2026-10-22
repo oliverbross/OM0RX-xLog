@@ -611,6 +611,7 @@ it("highlights and scrolls to the current zone while preserving the original CQ/
     throw new Error(command);
   });
   render(<DetachedContestSurface/>);
+  expect(await screen.findByRole("group", { name:"Scroll to" })).toBeTruthy();
   const cq = await screen.findByRole("radio", { name:"CQ" });
   expect((cq as HTMLInputElement).checked).toBe(true);
   expect(screen.getByRole("rowheader", { name:"14" }).closest("tr")?.getAttribute("aria-current")).toBe("true");
