@@ -240,6 +240,12 @@ const manualFrequency = (value: string, supportedBands: readonly string[], bandD
   const mhz = Number(value.trim());
   return Number.isFinite(mhz) ? contestFrequency(mhz * 1_000_000, supportedBands, bandDefinitions) : null;
 };
+const clearedContestFields = (projection: Projection, mode: string) => {
+  const defaultReport = ["SSB", "AM", "FM"].includes(canonicalContestSurfaceMode(mode) ?? "") ? "59" : "599";
+  return Object.fromEntries(projection.fields.map(field => [field.id,
+    field.id === "callsign" ? "" : field.readOnly ? field.value
+      : field.id === "sent" || field.id === "receive" ? defaultReport : ""]));
+};
 
 function restoredSetup(stationCall: string): ContestSetupDocument {
   const defaults = newContestSetup(stationCall);
@@ -593,6 +599,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const [spotWorkflow,setSpotWorkflow]=useState<SpotWorkflow>(()=>emptySpotWorkflow());
   const editVersionRef = useRef(0);
   const observedFrequencyRef = useRef<{ sessionID: string; frequencyHz: number | null }>({ sessionID: "", frequencyHz: null });
+  const pendingRadioTuneRef = useRef<{ sessionID: string; sourceHz: number; targetHz: number } | null>(null);
   const flushDraftRef = useRef<() => Promise<Projection | null>>(async () => projectionRef.current);
   const cw = useSharedCW(projection?.sessionID ?? "not1mm-no-session", retiring, setupOnly);
   projectionRef.current = projection; fieldsRef.current = fields;groupNetworkRef.current=groupNetwork;editingRef.current=editing;
@@ -1268,6 +1275,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       return;
     }
     if (busyRef.current || retiring) return;
+    const pendingTune = pendingRadioTuneRef.current;
+    if (pendingTune?.sessionID === projection.sessionID) {
+      if (observedFrequencyHz === pendingTune.targetHz) pendingRadioTuneRef.current = null;
+      else if (observedFrequencyHz === pendingTune.sourceHz) return;
+      else pendingRadioTuneRef.current = null;
+    }
     const freshObservedChange = previous.sessionID === projection.sessionID && previous.frequencyHz !== null &&
       previous.frequencyHz !== observedFrequencyHz;
     observedFrequencyRef.current = { sessionID: projection.sessionID, frequencyHz: observedFrequencyHz };
@@ -1835,11 +1848,19 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
           throw new Error("This contest entry field is not editable here.");
         await persistFields(action.params.fieldID, action.params.value.toUpperCase()); return;
       case "entry_set_frequency_text": {
-        if (observedFrequencyHz !== null) throw new Error("Frequency follows the selected xLog radio and cannot be edited here.");
         const frequencyHz = /^\d+$/.test(action.params.value) ? contestFrequency(Number(action.params.value), activeSupportedBands, bandDefinitions) : null;
         if (frequencyHz === null) throw new Error("Enter a frequency in Hz on a band supported by this contest.");
-        setManualFrequencyMHz((frequencyHz / 1_000_000).toFixed(6));
-        await runMutation(base => mutate("contest_draft_apply", base, { fields: fieldsRef.current, frequencyHz }), false, false, false, true);
+        if (observedFrequencyHz !== null && !action.params.callsignCommand)
+          throw new Error("Frequency follows the selected xLog radio and cannot be edited here.");
+        const nextFields = action.params.callsignCommand ? clearedContestFields(active, active.mode) : fieldsRef.current;
+        const next = await runMutation(async base => {
+          if (observedFrequencyHz !== null) {
+            await stationTune(frequencyHz, base.mode);
+            pendingRadioTuneRef.current = { sessionID: base.sessionID, sourceHz: observedFrequencyHz, targetHz: frequencyHz };
+          }
+          return mutate("contest_draft_apply", base, { fields: nextFields, frequencyHz });
+        }, false, false, false, true);
+        if (next) setManualFrequencyMHz((frequencyHz / 1_000_000).toFixed(6));
         return;
       }
       case "entry_set_band":
@@ -1847,22 +1868,26 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
           throw new Error("Band follows the admitted contest frequency.");
         return;
       case "entry_set_mode":
-        { const nextMode = action.params.value as NonNullable<Projection["supportedModes"]>[number];
-        if (!active.supportedModes?.includes(nextMode)) throw new Error("This contest does not support that operating mode.");
-        if (nextMode !== active.mode) {
+        { const requestedMode = action.params.value, callsignCommand = action.params.callsignCommand === true;
+        const nextMode = callsignCommand
+          ? active.supportedModes?.find(mode => canonicalContestSurfaceMode(mode) === canonicalContestSurfaceMode(requestedMode))
+          : active.supportedModes?.find(mode => mode === requestedMode);
+        if (!nextMode) throw new Error("This contest does not support that operating mode.");
+        if (nextMode !== active.mode || callsignCommand) {
+          const frequencyHz = operationFrequencyHz ?? active.frequencyHz;
           const previousDefault = active.mode === "SSB" ? "59" : "599";
-          const modeFields = Object.fromEntries(Object.entries(fieldsRef.current).filter(([fieldID, value]) =>
-            !((fieldID === "sent" || fieldID === "receive") && value === previousDefault)));
-          await runMutation(base => mutate("contest_draft_apply", base, { fields: modeFields,
-            frequencyHz: operationFrequencyHz ?? base.frequencyHz, mode: nextMode }), false, false, false, true);
+          const modeFields = callsignCommand ? clearedContestFields(active, nextMode) :
+            Object.fromEntries(Object.entries(fieldsRef.current).filter(([fieldID, value]) =>
+              !((fieldID === "sent" || fieldID === "receive") && value === previousDefault)));
+          await runMutation(async base => {
+            if (callsignCommand && observedFrequencyHz !== null) await stationTune(frequencyHz, requestedMode);
+            return mutate("contest_draft_apply", base, { fields: modeFields, frequencyHz, mode: nextMode });
+          }, false, false, false, true);
         }
         return; }
       case "entry_reserve_serial": throw new Error("Serial numbers are allocated automatically by the contest host.");
       case "entry_clear": {
-        const defaultReport = active.mode === "SSB" ? "59" : "599";
-        const cleared = Object.fromEntries(active.fields.map(field => [field.id,
-          field.id === "callsign" ? "" : field.id === "sent" || field.id === "receive" ? defaultReport
-            : field.readOnly ? field.value : ""]));
+        const cleared = clearedContestFields(active, active.mode);
         fieldsRef.current = cleared; setFields(cleared); editVersionRef.current += 1;
         await runMutation(base => mutate("contest_draft_apply", base, { fields: cleared,
           frequencyHz: operationFrequencyHz ?? base.frequencyHz }), false, true, true, true);

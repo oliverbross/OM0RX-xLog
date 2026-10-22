@@ -6,6 +6,7 @@ import { useAutoRotor } from "./useAutoRotor";
 import { ManualRotorControl } from "./ManualRotorControl";
 import { rotorCommandParams, validRotorSnapshot } from "./rotorControl";
 import { workerRequest } from "../worker";
+import { serviceErrorMessage } from "./startupReadRecovery";
 import { contestSurfaceContextFromSearch, onContestSurfaceWake, readContestRotorTarget,
   type ContestRotorTarget, type ContestSurfaceContext } from "../contesting/contestSurfaceNative";
 import "./DetachedTaskSurface.css";
@@ -53,7 +54,7 @@ export function DetachedRotorSurface() {
     if (enabled) { armingRef.current = true; setArming(true); }
     setAutoError("");
     try { await automatic.set(enabled, enabled ? retained.snapshot : undefined); }
-    catch (cause) { if (active.current) setAutoError(cause instanceof Error ? cause.message : "Automatic rotor control failed."); }
+    catch (cause) { if (active.current) setAutoError(serviceErrorMessage(cause) || "Automatic rotor control failed. Check the rotor connection and try again."); }
     finally { if (enabled) { armingRef.current = false; if (active.current) setArming(false); } }
   };
   const parkCurrent = async (captured: RotorSnapshot) => {

@@ -252,6 +252,27 @@ function MainLiveApp() {
   const [draftSession] = useState(() => new OperatorDraftSession(requestOperatorDraft,
     journal => localStorage.setItem(draftJournalKey, JSON.stringify(journal)), readDraftJournal(storedDraftValue(draftJournalKey)), undefined, nativeSpotEditor()));
   const sharedDraft = useSyncExternalStore(draftSession.subscribe, draftSession.getSnapshot);
+  const recoverPendingDraft = useCallback(async (operationID: string) => {
+    try {
+      await retryStartupRead(async () => {
+        try { await draftSession.refresh(); }
+        catch (cause) {
+          const state = draftSession.getSnapshot();
+          if (state.pending?.operationID === operationID && !state.workspaceChanged && !state.conflict)
+            throw new Error("Station service is busy; try again.");
+          throw cause;
+        }
+        const state = draftSession.getSnapshot();
+        if (state.pending?.operationID === operationID && !state.workspaceChanged && !state.conflict)
+          throw new Error("Station service is busy; try again.");
+        if (state.workspaceChanged || state.conflict)
+          throw new Error(state.error || "The QSO draft changed while its saved operation was being recovered.");
+      });
+    } catch (cause) {
+      draftSession.showPendingRecovery();
+      throw cause;
+    }
+  }, [draftSession]);
   const [contactSession] = useState(() => new LogbookContactSession(requestLogbookContact,
     journal => journal ? localStorage.setItem(contactJournalKey, JSON.stringify(journal)) : localStorage.removeItem(contactJournalKey),
     readContactJournal(storedDraftValue(contactJournalKey)), undefined, nativeSpotEditor()));
@@ -355,6 +376,7 @@ function MainLiveApp() {
   const [browserFollow, setBrowserFollow] = useState(true);
   const follow = nativeSpotEditor() ? nativeFollow.state?.enabled === true : browserFollow;
   const latestFollow = useRef(follow); latestFollow.current = follow;
+  const seededRadioDraft = useRef<string | null>(null);
   const changeFollow = useCallback(async (value: boolean) => {
     latestFollow.current = value;
     if (nativeSpotEditor()) {
@@ -499,6 +521,18 @@ function MainLiveApp() {
   const [viewProvider, setViewProvider] = useState(provider.current);
   const [stationSection, setStationSection] = useState("Control and connections");
   const pendingTune = useRef(false);
+  useEffect(()=>{
+    const snapshot=draftSession.getSnapshot(),candidate=snapshot.draft;
+    if(!candidate||normalizedCall(candidate.call)||draftSession.dirty||editing.current||seededRadioDraft.current===candidate.id||
+        !station?.radio?.connected||!station.radio.observed||!draftSession.canAcceptBackgroundUpdate())return;
+    setDraft(current=>{
+      if(!current||current.id!==candidate.id)return current;
+      seededRadioDraft.current=current.id;
+      const band=station.station?.band||bandForRadio(station.radio.frequency_hz)||current.band;
+      const followed=followedLogMode(station.radio.mode,current.mode||"",current.submode||"");
+      return{...current,frequencyHz:station.radio.frequency_hz,band,...followed};
+    });
+  },[station,sharedDraft.draft?.id,sharedDraft.draft?.call,sharedDraft.base?.revision,draftSession,setDraft]);
   const providerTransition = useRef(false);
   const providerGeneration = useRef(-1);
   const providerReadyRef = useRef(!nativeStationSelection());
@@ -882,9 +916,16 @@ function MainLiveApp() {
   }, [request, workspace?.workspace_exists]);
   useEffect(() => {
     if (!workspace?.workspace_exists || sharedDraft.activationFrozen || sharedDraft.workspaceChanged || sharedDraft.locked || sharedDraft.pending || sharedDraft.conflict || !draftSession.dirty) return;
-    const timer = setTimeout(() => { void draftSession.flush().catch(cause => setError(cause instanceof Error ? cause.message : "Draft could not be saved.")); }, 350);
+    const timer = setTimeout(() => { void draftSession.flush().catch(cause => {
+      const pending = draftSession.getSnapshot().pending;
+      if (pending) {
+        void recoverPendingDraft(pending.operationID).catch(() => {});
+        return;
+      }
+      setError(cause instanceof Error ? cause.message : "Draft could not be saved.");
+    }); }, 350);
     return () => clearTimeout(timer);
-  }, [workspace?.workspace_exists, sharedDraft, draftSession]);
+  }, [workspace?.workspace_exists, sharedDraft, draftSession, recoverPendingDraft]);
   useEffect(() => {
     if (!workspace?.workspace_exists) return;
     return connectOperatorDraftChanges(() => draftSession.refresh(), draftUpdateHealth.failed, draftUpdateHealth.recovered, draftUpdateHealth.subscribed);
@@ -902,7 +943,8 @@ function MainLiveApp() {
   }, [contactEdit.base?.qso.id]);
   useEffect(() => {
     if (sharedDraft.workspaceChanged || sharedDraft.conflict || sharedDraft.error && (sharedDraft.pending?.action === "save" || sharedDraft.pending?.action === "clear")) {
-      setFollowImmediate(false); disarmAutoRotor(); selection.current++; pendingTune.current = false;
+      setFollowImmediate(false); selection.current++; pendingTune.current = false;
+      if (sharedDraft.workspaceChanged || sharedDraft.conflict) disarmAutoRotor();
     }
   }, [sharedDraft.workspaceChanged, sharedDraft.conflict, sharedDraft.pending?.operationID, sharedDraft.error, disarmAutoRotor]);
   useEffect(() => {
@@ -912,7 +954,8 @@ function MainLiveApp() {
       if (disposed || state.source !== provider.current) return;
       setStation(state);
       if (state.radio?.connected && state.radio?.observed) setMessage(current => clearConnectedHandoverMessage(current, true));
-      if (!nativeStationSelection() && draftSession.canAcceptBackgroundUpdate() && latestFollow.current && !pendingTune.current && !editing.current && state.radio?.observed && state.radio?.connected) {
+      if (draftSession.canAcceptBackgroundUpdate() && !pendingTune.current && !editing.current && state.radio?.observed && state.radio?.connected &&
+          !nativeStationSelection()&&latestFollow.current) {
         setDraft(d => {
           if (!d) return d;
           const band = state.station?.band || bandForRadio(state.radio.frequency_hz) || d.band;
@@ -1042,9 +1085,29 @@ function MainLiveApp() {
     else await draftSession.commit("clear");
     setSelected(null);
   };
-  const save = () => run(async () => {
+  const save = (submitted?:Data) => run(async () => {
     if (!draft) return;
-    const saved = contactSession.getSnapshot().draft ? await contactSession.save() : await draftSession.commit("save");
+    if(submitted){if(contactSession.getSnapshot().draft)contactSession.edit(submitted as DraftQSO);else draftSession.edit(submitted as DraftQSO);}
+    let saved;
+    if (contactSession.getSnapshot().draft) saved = await contactSession.save();
+    else try { saved = await draftSession.commit("save"); }
+    catch (cause) {
+      const pending = draftSession.getSnapshot().pending;
+      if (!pending) throw cause;
+      try { await recoverPendingDraft(pending.operationID); }
+      catch { return; }
+      if (pending.action === "save") saved = draftSession.getSnapshot().base?.qso;
+      else if (pending.action === "replace") {
+        try { saved = await draftSession.commit("save"); }
+        catch (retryCause) {
+          const savePending = draftSession.getSnapshot().pending;
+          if (!savePending) throw retryCause;
+          try { await recoverPendingDraft(savePending.operationID); }
+          catch { return; }
+          saved = savePending.action === "save" ? draftSession.getSnapshot().base?.qso : null;
+        }
+      }
+    }
     if (saved) loggedFeedback.show();
     setSelected(null); setRefresh(n => n + 1);
   });
@@ -1376,7 +1439,7 @@ function MainLiveApp() {
         onReconcile={async () => { try { await settingsSession.reconcile(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Settings receipt could not be checked."); } }}
         onRetry={async () => { try { await settingsSession.retry(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Settings save could not be retried."); } }}
         onUseSaved={() => { try { settingsSession.useSaved(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Saved Settings could not be restored."); } }}
-        requestedTab={settingsTabRequest.tab} requestedTabRevision={settingsTabRequest.revision} radioSettings={<RadioSettings requestedRadioId={radioSettingsRequest.radioId} requestedRadioRevision={radioSettingsRequest.revision} onRefreshLocalState={refreshLocalRadioState} />} syncSettings={settings.logbookMode === "local" ? <p>Integrated-only mode. Wavelog synchronization is disabled. Choose Integrated logbook + Wavelog synchronization in Settings → Logbook to enable it.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />} onExternalContact={() => setRefresh(n => n + 1)} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} configurationSession={rotorConfigurationSession} automaticRotorArmed={autoRotor} automaticRotorAvailable={!!nativeAutoRotor.state && !nativeAutoRotor.error && !!rotorState?.owner && Number.isSafeInteger(rotorState.generation)} automaticRotorError={nativeAutoRotor.error} onAutomaticRotorChange={setAutomaticRotor} />} clusterSettings={<ClusterPanel settingsOnly snapshot={null} onRequest={request} onSelect={() => {}} />} workspaceSettings={<WorkspaceSettings {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} requiredRotor={deskKind === "rotor" && !!rotorState?.owner} available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "chaser-dx", "spot-history", ...(deskKind === "none" ? [] : [deskKind] as ("rotor" | "antenna")[])]} />} dataRequest={dataManagementRequest} dataWorkspaceGeneration={settingsState.snapshot?.generation ?? settingsState.base?.generation} onDataChanged={() => { setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
+        requestedTab={settingsTabRequest.tab} requestedTabRevision={settingsTabRequest.revision} radioSettings={<RadioSettings requestedRadioId={radioSettingsRequest.radioId} requestedRadioRevision={radioSettingsRequest.revision} onRefreshLocalState={refreshLocalRadioState} />} syncSettings={settings.logbookMode === "local" ? <p>Integrated-only mode. Wavelog synchronization is disabled. Choose Integrated logbook + Wavelog synchronization in Settings → Logbook to enable it.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />} onExternalContact={() => setRefresh(n => n + 1)} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} configurationSession={rotorConfigurationSession} automaticRotorArmed={autoRotor} automaticRotorAvailable={!!nativeAutoRotor.state && !nativeAutoRotor.error && rotorProjection(rotorState).connected === true} automaticRotorError={nativeAutoRotor.error} onAutomaticRotorChange={setAutomaticRotor} />} clusterSettings={<ClusterPanel settingsOnly snapshot={null} onRequest={request} onSelect={() => {}} />} workspaceSettings={<WorkspaceSettings {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} requiredRotor={deskKind === "rotor" && !!rotorState?.owner} available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "chaser-dx", "spot-history", ...(deskKind === "none" ? [] : [deskKind] as ("rotor" | "antenna")[])]} />} dataRequest={dataManagementRequest} dataWorkspaceGeneration={settingsState.snapshot?.generation ?? settingsState.base?.generation} onDataChanged={() => { setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
       </>}
       </>
       </WorkspaceModeSurface>

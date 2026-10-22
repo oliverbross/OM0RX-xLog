@@ -11,6 +11,7 @@ import { manualRotorGotoSession, type ManualRotorGotoSession } from "./manualRot
 import { RadioReleaseStatus } from "./RadioReleaseStatus";
 import { CarrierTuneStatus } from "./CarrierTuneStatus";
 import { AmplifierTransitionStatus } from "./AmplifierTransitionStatus";
+import { serviceErrorMessage } from "./startupReadRecovery";
 import "./DetachedMonitorSurface.css";
 
 type Connection = { refresh: () => void; dispose: () => void };
@@ -69,7 +70,7 @@ export function MonitorSurface({ connectCore = connectMonitorContext, connectMap
     if (enabled) { armingRef.current = true; setArming(true); }
     setAutoError("");
     try { await automatic.set(enabled, enabled ? rotor : undefined); }
-    catch (cause) { if (active.current) setAutoError(cause instanceof Error ? cause.message : "Automatic rotor control failed. Refresh its native status before trying again."); }
+    catch (cause) { if (active.current) setAutoError(serviceErrorMessage(cause) || "Automatic rotor control failed. Refresh its native status before trying again."); }
     finally { if (enabled) { armingRef.current = false; if (active.current) setArming(false); } }
   };
   const station = monitorStation(context, clock);

@@ -15,8 +15,9 @@ export type ContestSurfaceAction =
   | { action: "spot_set_marked_only"; params: DraftRevision & { markedOnly: boolean } }
   | { action: "entry_set_text"; params: DraftRevision & { field: "callsign" | "sentReport" | "receivedReport"; value: string } }
   | { action: "entry_set_exchange"; params: DraftRevision & { fieldID: string; value: string } }
-  | { action: "entry_set_frequency_text"; params: DraftRevision & { value: string } }
-  | { action: "entry_set_band" | "entry_set_mode"; params: DraftRevision & { value: string } }
+  | { action: "entry_set_frequency_text"; params: DraftRevision & { value: string; callsignCommand?: true } }
+  | { action: "entry_set_band"; params: DraftRevision & { value: string } }
+  | { action: "entry_set_mode"; params: DraftRevision & { value: string; callsignCommand?: true } }
   | { action: "entry_reserve_serial" | "entry_commit" | "entry_clear"; params: DraftRevision }
   | { action: "entry_spot" | "entry_mark_spot" | "entry_tune_spot"; params: DraftRevision }
   | { action: "entry_step_spot"; params: DraftRevision & { direction: "previous" | "next" } }
@@ -495,8 +496,11 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "entry_set_text") return draft(params, ["field", "value"]) &&
     oneOf(params.field, ["callsign", "sentReport", "receivedReport"]) && text(params.value, 160, true);
   if (action === "entry_set_exchange") return draft(params, ["fieldID", "value"]) && text(params.fieldID, 64) && text(params.value, 1024, true);
-  if (action === "entry_set_frequency_text") return draft(params, ["value"]) && text(params.value, 11, true);
-  if (action === "entry_set_band" || action === "entry_set_mode") return draft(params, ["value"]) && text(params.value, 16);
+  if (action === "entry_set_frequency_text") return draft(params, ["value"], ["callsignCommand"]) && text(params.value, 11, true) &&
+    (params.callsignCommand === undefined || params.callsignCommand === true);
+  if (action === "entry_set_band") return draft(params, ["value"]) && text(params.value, 16);
+  if (action === "entry_set_mode") return draft(params, ["value"], ["callsignCommand"]) && text(params.value, 16) &&
+    (params.callsignCommand === undefined || params.callsignCommand === true);
   if (action === "entry_reserve_serial" || action === "entry_commit" || action === "entry_clear") return draft(params, []);
   if (action === "entry_spot" || action === "entry_mark_spot" || action === "entry_tune_spot") return draft(params, []);
   if (action === "entry_step_spot") return draft(params, ["direction"]) && oneOf(params.direction, ["previous", "next"]);

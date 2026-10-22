@@ -57,13 +57,48 @@ it("does not report a fenced in-flight response or changed-workspace skip as rec
   const calls = f.request.mock.calls.length;
   expect(await session.refresh()).toBe(false); expect(f.request).toHaveBeenCalledTimes(calls);
 });
-it("does not report receipt-only pending reconciliation as a verified draft read", async () => {
+it("silently retries a pending autosave with the same identity during refresh", async () => {
   const f = fixture(), session = f.make(); await session.load(); type(session, "K1ABC");
-  f.request.mockRejectedValueOnce(new Error("IPC lost"));
+  const backend = f.request.getMockImplementation()!;
+  let failed = false;
+  f.request.mockImplementation(async (method, params) => {
+    if (method === "logbook_operator_draft_apply" && params?.action === "replace" && !failed) {
+      failed = true;
+      throw new Error("Prototype worker is busy; try again");
+    }
+    return backend(method, params);
+  });
+  await expect(session.flush()).rejects.toThrow("busy");
+  const original = copy(session.getSnapshot().pending);
+  expect(original?.action).toBe("replace");
+  expect(session.getSnapshot().error).toBe("");
+  expect(await session.refresh()).toBe(true);
+  expect(session.getSnapshot().pending).toBeNull();
+  expect(session.getSnapshot().error).toBe("");
+  const replaces = f.request.mock.calls.filter(([method, params]) => method === "logbook_operator_draft_apply" && params.action === "replace");
+  expect(replaces).toHaveLength(2);
+  expect(replaces[0][1].operationID).toBe(replaces[1][1].operationID);
+  expect(f.current.qso.call).toBe("K1ABC");
+});
+it("silently retries a pending QSO save with the same identity during refresh", async () => {
+  const f = fixture(), session = f.make(); await session.load(); type(session, "K1ABC"); await session.flush();
+  const backend = f.request.getMockImplementation()!;
+  let failed = false;
+  f.request.mockImplementation(async (method, params) => {
+    if (method === "logbook_operator_draft_apply" && params?.action === "save" && !failed) { failed = true; throw new Error("IPC lost"); }
+    if (method === "logbook_operator_draft_receipt") return { receipt: null };
+    return backend(method, params);
+  });
   await expect(session.commit("save")).rejects.toThrow("IPC lost");
-  expect(session.getSnapshot().pending).toBeTruthy();
-  expect(await session.refresh()).toBe(false);
-  expect(session.getSnapshot().pending).toBeTruthy();
+  const original = copy(session.getSnapshot().pending);
+  expect(session.getSnapshot().error).toBe("");
+  expect(await session.refresh()).toBe(true);
+  expect(session.getSnapshot().pending).toBeNull();
+  const saves = f.request.mock.calls.filter(([method, params]) => method === "logbook_operator_draft_apply" && params.action === "save");
+  expect(saves).toHaveLength(2);
+  expect(saves[0][1].operationID).toBe(original?.operationID);
+  expect(saves[1][1].operationID).toBe(original?.operationID);
+  expect(f.contacts).toHaveLength(1);
 });
 
 it("ignores an older overlapping reload after a newer wake response", async () => {

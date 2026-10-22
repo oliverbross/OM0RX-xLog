@@ -7,9 +7,9 @@ import type { RotorSnapshot } from "./rotorControl";
 const initial = { id: "native-qso-id", call: "W7AIT", start: "2026-10-11T22:47:12Z", frequencyHz: 18160000, band: "17m", mode: "SSB", rstSent: "59", rstReceived: "59", name: "C OLHEISER, II", comment: "CQ", gridSquare: "CM97LQ", country: "United States of America", county: "Stanislaus", sig: "", extraFields: { APP_CUSTOM: "Keep me" }, customField: { unchanged: true } };
 const lookup = { call: "W7AIT", name: "C OLHEISER, II", country: "United States of America", dxcc: 291, gridSquare: "CM97LQ", continent: "NA", cqZone: "5", ituZone: "6", source: "CTY approximate", latitude: 37, longitude: -121, bearing: 73, long_path_bearing: 253, distance_km: 12500 };
 const rotor: RotorSnapshot = { owner: "native_dcu1", generation: 4, state: "active", backend_available: true, backend: { connected: true, azimuth: 53, name: "Antenna", status: "Ready" } };
-function Harness({ request = vi.fn(async method => method === "logbook_matrix" ? { cells: [] } : { history: { call: "W7AIT", adif: 291, previous_count: 0, previous: [], dxcc_contact_count: 9109, matrix: [{ band: "17m", mode: "SSB", worked: true, confirmed: true }] } }), info = lookup, rotorState = rotor, save = vi.fn(), clear = vi.fn(), onEditor = vi.fn(), onReadRadio = vi.fn(async () => {}), onManualRotor = vi.fn(), switchDraft = false, initialDraft = initial, intelligenceBands }: any) {
+function Harness({ request = vi.fn(async method => method === "logbook_matrix" ? { cells: [] } : { history: { call: "W7AIT", adif: 291, previous_count: 0, previous: [], dxcc_contact_count: 9109, matrix: [{ band: "17m", mode: "SSB", worked: true, confirmed: true }] } }), info = lookup, rotorState = rotor, save = vi.fn(), clear = vi.fn(), onEditor = vi.fn(), onReadRadio = vi.fn(async () => {}), onManualRotor = vi.fn(), switchDraft = false, initialDraft = initial, intelligenceBands, isEditing = false }: any) {
   const [draft, setDraft] = useState<Record<string, any> | null>(initialDraft), [follow, setFollow] = useState(true), [autoRotor, setAutoRotor] = useState(false);
-  return <><OperatorDesk draft={draft} setDraft={setDraft} save={save} clear={clear} busy={false} lookup={info} previous={[]} request={request} refresh={0} onEditor={onEditor} onReadRadio={onReadRadio} follow={follow} setFollow={setFollow} rotor={rotorState} autoRotor={autoRotor} setAutoRotor={setAutoRotor} onManualRotor={onManualRotor} intelligenceBands={intelligenceBands} />{switchDraft && <button onClick={() => setDraft({ ...initial, id: "new-draft", frequencyHz: 7025000, band: "40m" })}>Switch draft</button>}<output data-testid="draft">{JSON.stringify(draft)}</output></>;
+  return <><OperatorDesk draft={draft} setDraft={setDraft} save={save} clear={clear} busy={false} lookup={info} previous={[]} request={request} refresh={0} onEditor={onEditor} onReadRadio={onReadRadio} follow={follow} setFollow={setFollow} rotor={rotorState} autoRotor={autoRotor} setAutoRotor={setAutoRotor} onManualRotor={onManualRotor} intelligenceBands={intelligenceBands} isEditing={isEditing} />{switchDraft && <button onClick={() => setDraft({ ...initial, id: "new-draft", frequencyHz: 7025000, band: "40m" })}>Switch draft</button>}<output data-testid="draft">{JSON.stringify(draft)}</output></>;
 }
 const draft = () => JSON.parse(screen.getByTestId("draft").textContent || "{}");
 afterEach(cleanup);
@@ -17,11 +17,28 @@ it("shows all native top-strip fields and actions together with the three panels
   render(<Harness />);
   for (const name of ["Active QSO", "Callsign & DXCC intelligence", "Rotor"]) expect(screen.getByRole("heading", { name })).toBeTruthy();
   for (const name of ["Callsign", "Frequency MHz", "Band", "Mode", "RST S", "RST R", "Name", "Comment", "Grid", "Country", "County", "POTA", "SOTA", "IOTA", "WWFF", "Castle"]) expect(screen.getByLabelText(`Desk ${name}`)).toBeTruthy();
-  expect((screen.getByLabelText("Desk UTC date") as HTMLInputElement).value).toBe("2026-10-11");
-  expect((screen.getByLabelText("Desk UTC time") as HTMLInputElement).value).toBe("22:47:12");
+  expect((screen.getByLabelText("Desk UTC date") as HTMLInputElement).value).toBe(new Date().toISOString().slice(0,10));
+  expect((screen.getByLabelText("Desk UTC time") as HTMLInputElement).value).toMatch(/^\d{2}:\d{2}:\d{2}$/);
   expect((screen.getByLabelText("Desk Frequency MHz") as HTMLInputElement).value).toBe("18.160000");
   for (const name of ["Full editor", "Read radio", "Clear QSO", "Log QSO"]) expect(screen.getByRole("button", { name })).toBeTruthy();
   await waitFor(() => expect(screen.getByLabelText("DXCC 17m: Confirmed")).toBeTruthy());
+});
+it("ticks a new QSO in UTC, preserves a manual time, and leaves an existing contact historical",async()=>{
+  vi.useFakeTimers();vi.setSystemTime(new Date("2026-10-22T23:59:58Z"));
+  try{
+    render(<Harness initialDraft={{...initial,start:"2026-10-11T22:47:12Z"}}/>);
+    expect((screen.getByLabelText("Desk UTC date") as HTMLInputElement).value).toBe("2026-10-22");
+    expect((screen.getByLabelText("Desk UTC time") as HTMLInputElement).value).toBe("23:59:58");
+    await act(async()=>vi.advanceTimersByTimeAsync(3_000));
+    expect((screen.getByLabelText("Desk UTC date") as HTMLInputElement).value).toBe("2026-10-23");
+    expect((screen.getByLabelText("Desk UTC time") as HTMLInputElement).value).toBe("00:00:01");
+    fireEvent.change(screen.getByLabelText("Desk UTC time"),{target:{value:"10:15:30"}});
+    await act(async()=>vi.advanceTimersByTimeAsync(2_000));
+    expect((screen.getByLabelText("Desk UTC time") as HTMLInputElement).value).toBe("10:15:30");
+    cleanup();render(<Harness isEditing initialDraft={{...initial,start:"2026-10-11T22:47:12Z"}}/>);
+    expect((screen.getByLabelText("Desk UTC date") as HTMLInputElement).value).toBe("2026-10-11");
+    expect((screen.getByLabelText("Desk UTC time") as HTMLInputElement).value).toBe("22:47:12");
+  }finally{cleanup();vi.useRealTimers();}
 });
 it("puts an advisory duplicate date below the reference fields without blocking logging", async () => {
   const save = vi.fn();
@@ -76,7 +93,7 @@ it("keeps native QSO identity and unknown metadata while editing references and 
   expect(draft()).toMatchObject({ ...initial, frequencyHz: 7025000, band: "40m", sig: "COTA", sigInfo: "COTA OM-0001", potaReference: "SK-0001" });
   expect(screen.queryByLabelText("Follow radio")).toBeNull();
   fireEvent.change(screen.getByLabelText("Desk UTC time"), { target: { value: "23:15:30" } });
-  expect(draft().start).toBe("2026-10-11T23:15:30Z");
+  expect(draft().start).toBe(`${new Date().toISOString().slice(0,10)}T23:15:30Z`);
 });
 it("does not save invalid manual MHz or incomplete UTC and leaves readback failures intact", async () => {
   const save = vi.fn(), onReadRadio = vi.fn(async () => { throw new Error("Radio offline"); });

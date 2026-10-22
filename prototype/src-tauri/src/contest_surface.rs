@@ -1054,6 +1054,7 @@ fn validate_manual_context(value: &Value) -> Result<(), String> {
         &[
             "operator",
             "cwSpeedWpm",
+            "cwSpeedStepWpm",
             "country",
             "cqZone",
             "ituZone",
@@ -1068,6 +1069,10 @@ fn validate_manual_context(value: &Value) -> Result<(), String> {
     )?;
     text_value(&manual["operator"], 32, true, "manual operator")?;
     nullable_text(&manual["country"], 160, "manual country")?;
+    let cw_speed_step = uint_value(&manual["cwSpeedStepWpm"], 10, "manual CW speed step")?;
+    if cw_speed_step == 0 {
+        return Err("The manual CW speed step must be between 1 and 10 WPM.".into());
+    }
     for key in [
         "cwSpeedWpm",
         "cqZone",
@@ -3070,12 +3075,17 @@ mod tests {
         let entry = entry_v2();
         assert!(validate_projection("active-qso", &entry).is_ok());
         let mut native = entry.clone();
-        native["manual"] = json!({"operator":"OM0RX","cwSpeedWpm":20,"country":null,"cqZone":null,"ituZone":null,
+        native["manual"] = json!({"operator":"OM0RX","cwSpeedWpm":20,"cwSpeedStepWpm":1,"country":null,"cqZone":null,"ituZone":null,
             "headingDegrees":null,"longPathHeadingDegrees":null,"distanceKm":null,"qsos":0,"multipliers":0,"total":0});
         native["operator"]["output"] = json!("xlog-native");
         native["operator"]["functionKeys"][0]["macro"] = json!("Run CQ");
         native["operator"]["autoCQ"] = json!({"active":false,"delaySeconds":15,"remainingMs":null});
         assert!(validate_projection("active-qso", &native).is_ok());
+        let mut bad_speed_step = native.clone();
+        bad_speed_step["manual"]["cwSpeedStepWpm"] = json!(0);
+        assert!(validate_projection("active-qso", &bad_speed_step).is_err());
+        bad_speed_step["manual"]["cwSpeedStepWpm"] = json!(11);
+        assert!(validate_projection("active-qso", &bad_speed_step).is_err());
         let mut bad_auto_cq = native.clone();
         bad_auto_cq["operator"]["autoCQ"]["delaySeconds"] = json!(0);
         assert!(validate_projection("active-qso", &bad_auto_cq).is_err());
@@ -3915,7 +3925,7 @@ mod tests {
         assert!(rotor_target("rotor", &context()).is_err());
         assert!(rotor_target("contest--band-maps", &context()).is_err());
         let mut entry = entry_v2();
-        entry["manual"] = json!({"operator":"OM0RX","cwSpeedWpm":27,"country":"Germany","cqZone":14,"ituZone":28,
+        entry["manual"] = json!({"operator":"OM0RX","cwSpeedWpm":27,"cwSpeedStepWpm":1,"country":"Germany","cqZone":14,"ituZone":28,
             "headingDegrees":123.4,"longPathHeadingDegrees":303.4,"distanceKm":9000,"qsos":1,"multipliers":1,"total":1});
         assert_eq!(rotor_target_projection(8, &entry), json!({"available":true,"projectionRevision":8,"callsign":"DL1AAA",
             "shortPathBearing":123.4,"longPathBearing":303.4}));

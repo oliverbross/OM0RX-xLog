@@ -302,8 +302,14 @@ impl RotorCoordinator {
     }
     pub(crate) fn with_automatic_owner<T>(&self, owner: &str, generation: u64, action: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
         let state = self.state.try_lock().map_err(|_| "Rotor is busy; observe it before arming automatic turns.")?;
-        if state.owner.map(Owner::name) != Some(owner) || state.generation != generation || !automatic_observation(&state) {
-            return Err("Observe the current connected rotor before arming automatic turns.".into());
+        if state.owner.map(Owner::name) != Some(owner) || state.generation != generation {
+            return Err("Rotor connection changed. Wait for the current rotor status, then enable Auto rotor again.".into());
+        }
+        if state.phase != Some(Phase::Active) {
+            return Err("Rotor connection needs attention. Stop or disconnect it, then reconnect before enabling Auto rotor.".into());
+        }
+        if !automatic_observation(&state) {
+            return Err("No fresh rotor bearing is available. Wait for a current bearing or reconnect before enabling Auto rotor.".into());
         }
         action()
     }
@@ -873,6 +879,35 @@ mod tests {
             json!({"owner":"hamlib"})
         )
         .is_ok());
+    }
+
+    #[test]
+    fn automatic_arm_reports_connection_and_observation_recovery_without_dispatching_motion() {
+        let coordinator = RotorCoordinator::new();
+        let connected = call(&coordinator, "connect", "rotor_connect",
+            json!({"owner":"native_dcu1","host":"fixture.invalid","port":4001})).unwrap();
+        let connection_generation = connected["result"]["generation"].as_u64().unwrap();
+        let stale: Result<(), String> = coordinator.with_automatic_owner("native_dcu1", connection_generation,
+            || panic!("stale owner admitted"));
+        assert_eq!(stale.unwrap_err(),
+            "No fresh rotor bearing is available. Wait for a current bearing or reconnect before enabling Auto rotor.");
+
+        let uncertain = RotorCoordinator::new();
+        assert!(uncertain.handle(envelope("lost", "rotor_connect", json!({"owner":"native_dcu1"})),
+            |_| Err("lost reply".into())).is_err());
+        let uncertain_generation = uncertain.state.lock().unwrap().generation;
+        let result: Result<(), String> = uncertain.with_automatic_owner("native_dcu1", uncertain_generation,
+            || panic!("uncertain owner admitted"));
+        assert_eq!(result.unwrap_err(),
+            "Rotor connection needs attention. Stop or disconnect it, then reconnect before enabling Auto rotor.");
+
+        observe(&coordinator, "observed", Owner::NativeDcu1);
+        let changed: Result<(), String> = coordinator.with_automatic_owner("native_dcu1", connection_generation + 1,
+            || panic!("old generation admitted"));
+        assert_eq!(changed.unwrap_err(),
+            "Rotor connection changed. Wait for the current rotor status, then enable Auto rotor again.");
+        let admitted = coordinator.with_automatic_owner("native_dcu1", connection_generation, || Ok("armed only"));
+        assert_eq!(admitted.unwrap(), "armed only");
     }
 
     #[test]

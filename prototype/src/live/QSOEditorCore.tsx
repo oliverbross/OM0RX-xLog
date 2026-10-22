@@ -13,6 +13,7 @@ import { applyModeSignalReportDefaults } from "./signalReportDefaults";
 import { useQSOFieldPreferences } from "./useQSOFieldPreferences";
 import type { QSOCanvasPanel } from "./QSOEditorCanvas";
 import { useDuplicateContact } from "./useDuplicateContact";
+import { useCurrentUTC } from "./useCurrentUTC";
 
 type Data = Record<string, any>;
 export function safeProfileURL(value: unknown): string | null {
@@ -28,7 +29,7 @@ export function safeProfileURL(value: unknown): string | null {
 }
 export type QSOEditorProps = {
   draft: Data | null; setDraft: (value: SetStateAction<Data | null>) => void;
-  save: () => void | Promise<unknown>; clear: () => void; busy: boolean; draftLocked?: boolean;
+  save: (draft?:Data) => void | Promise<unknown>; clear: () => void; busy: boolean; draftLocked?: boolean;
   lookup: Data | null; previous: Data[]; follow: boolean; setFollow: (value: boolean) => void;
   request?: (method: string, params?: Data) => Promise<any>;
   onReadRadio?: () => void | Promise<void>;
@@ -119,6 +120,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
   const [frequencyDraft, setFrequencyDraft] = useState<string | null>(null);
   const [receiveDraft, setReceiveDraft] = useState<string | null>(null);
   const [timeDrafts, setTimeDrafts] = useState<Record<string, { date: string; time: string }>>({});
+  const [automaticStart, setAutomaticStart] = useState(!isEditing);
   const [numericDrafts, setNumericDrafts] = useState<Record<string, string>>({});
   const [newADIFName, setNewADIFName] = useState("");
   const [showErrors, setShowErrors] = useState(false);
@@ -155,7 +157,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
       return { ...current, [key]: value, extraFields };
     });
   };
-  useEffect(() => { setFrequencyDraft(null); setReceiveDraft(null); setTimeDrafts({}); setNumericDrafts({}); setNewADIFName(""); setShowErrors(false); }, [draft?.id, resetInputEpoch]);
+  useEffect(() => { setFrequencyDraft(null); setReceiveDraft(null); setTimeDrafts({}); setAutomaticStart(!isEditing); setNumericDrafts({}); setNewADIFName(""); setShowErrors(false); }, [draft?.id, resetInputEpoch, isEditing]);
   useEffect(() => { if (follow) setFrequencyDraft(null); }, [follow]);
   const canonicalBuffers = useRef<Record<string, any> | null>(null);
   useLayoutEffect(() => {
@@ -195,7 +197,9 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
   }, [draft?.id, draft?.frequencyHz, draft?.receiveFrequencyHz, draft?.start, draft?.end, draft?.dxcc]);
   const currentFrequency = frequencyDraft ?? frequencyText(draft?.frequencyHz);
   const currentReceive = receiveDraft ?? frequencyText(draft?.receiveFrequencyHz);
-  const currentTime = (key: "start" | "end") => timeDrafts[key] ?? { date: datePart(draft?.[key]), time: timePart(draft?.[key]) };
+  const currentUTC = useCurrentUTC(automaticStart, `${String(draft?.id)}:${String(resetInputEpoch ?? "")}`);
+  const currentTime = (key: "start" | "end") => timeDrafts[key] ?? { date:datePart(key === "start" && automaticStart ? currentUTC : draft?.[key]),
+    time:timePart(key === "start" && automaticStart ? currentUTC : draft?.[key]) };
   // Text buffers can contain unfinished input that has not entered the shared
   // draft. Native close/dock must not mistake it for an acknowledged draft.
   const bufferedFrequency = (text: string | null, value: unknown) => text !== null &&
@@ -267,7 +271,8 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
     if (numericDrafts.dxcc !== undefined && numericDrafts.dxcc !== "" && (!/^\d+$/.test(numericDrafts.dxcc) || Number(numericDrafts.dxcc) < 1)) errors.push("DXCC must be a positive number.");
   }
   const canSave = !!draft && !busy && errors.length === 0;
-  const submit = (event?: FormEvent) => { event?.preventDefault(); if (!acceptsInput()) return; if (!canSave) { setShowErrors(true); return; } setShowErrors(false); void save(); };
+  const submit = (event?: FormEvent) => { event?.preventDefault(); if (!acceptsInput()) return; if (!canSave) { setShowErrors(true); return; }
+    setShowErrors(false);void save(automaticStart&&draft?{...draft,start:new Date().toISOString()}:draft??undefined); };
   const keyDown = (event: KeyboardEvent<HTMLElement>) => {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); submit(); }
     if (event.key === "Escape") { event.preventDefault(); window.setTimeout(() => callRef.current?.focus(), 0); }
@@ -293,6 +298,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
   };
   const changeTime = (key: "start" | "end", part: "date" | "time", value: string) => {
     if (!acceptsInput()) return;
+    if(key === "start")setAutomaticStart(false);
     onLocalInputState?.(true);
     const next = { ...currentTime(key), [part]: value };
     setTimeDrafts((current) => ({ ...current, [key]: next }));

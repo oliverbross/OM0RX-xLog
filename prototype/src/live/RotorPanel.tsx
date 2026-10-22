@@ -6,6 +6,7 @@ import { autoRotorBands, RotorConfigurationSession, rotorConfigurationDirty, typ
 import { ManualRotorStatus } from "./ManualRotorControl";
 import { manualRotorGotoSession, type ManualRotorGotoSession } from "./manualRotorGoto";
 import { useSettingsSaveToast } from "./SettingsSaveToast";
+import { serviceErrorMessage } from "./startupReadRecovery";
 import "./RotorPanel.css";
 
 type Data = Record<string, any>;
@@ -113,7 +114,7 @@ export default function RotorPanel({ snapshot, request, onManual = () => {}, con
     if (!onAutomaticRotorChange || automaticBusy || enabled && !automaticRotorAvailable) return;
     setAutomaticBusy(true); setAutomaticError("");
     try { await onAutomaticRotorChange(enabled); }
-    catch (cause) { setAutomaticError(cause instanceof Error ? cause.message : "Automatic rotor control failed."); }
+    catch (cause) { setAutomaticError(serviceErrorMessage(cause) || "Automatic rotor control failed. Check the rotor connection and try again."); }
     finally { setAutomaticBusy(false); }
   };
   const blocked = busy || configurationState.saving || !!configurationState.pending || !!configurationState.conflict || configurationState.workspaceChanged;
@@ -136,9 +137,15 @@ export default function RotorPanel({ snapshot, request, onManual = () => {}, con
         checked={automaticRotorArmed} disabled={automaticBusy || !onAutomaticRotorChange || !automaticRotorArmed && !automaticRotorAvailable}
         onChange={event => { void changeAutomaticRotor(event.target.checked); }} /> Auto rotor</label>
       <p id="rotor-auto-live-help" className="live-station-helper">{onAutomaticRotorChange
-        ? automaticRotorAvailable || automaticRotorArmed
+        ? automaticRotorArmed && !automaticRotorAvailable
+          ? "Auto rotor remains armed but is blocked until the selected rotor has a fresh connected bearing."
+          : automaticRotorAvailable
           ? "Controls automatic turns now. A connected rotor, resolved target and allowed band are still required."
-          : "Auto rotor can be armed after the current rotor owner is observed."
+          : snapshot?.state === "uncertain"
+            ? "The rotor connection needs attention. Stop or disconnect it, then reconnect before enabling Auto rotor."
+            : snapshot?.owner
+              ? "Wait for a fresh connected rotor bearing before enabling Auto rotor."
+              : "Connect the selected rotor before enabling Auto rotor."
         : "Live Auto rotor control is available from the Operator Desk or Rotor window."}</p>
       <label className="rotor-auto-start"><input type="checkbox" checked={configuration.auto_rotor_at_startup}
         onChange={event => edit({ ...configuration, auto_rotor_at_startup: event.target.checked })} /> Enable Auto Rotor at app start</label>

@@ -11,10 +11,11 @@ import { deskEquipmentKind, equipmentProfile } from "./equipmentPreferences";
 import QSOHeader, { ReferenceEvidenceStatus, type ReferenceEvidence } from "./QSOHeader";
 import { useDuplicateContact } from "./useDuplicateContact";
 import { applyModeSignalReportDefaults } from "./signalReportDefaults";
+import { useCurrentUTC } from "./useCurrentUTC";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<any>;
-type Props = { draft: Data | null; setDraft: (value: SetStateAction<Data | null>) => void; save: () => void; clear: () => void; busy: boolean; draftLocked?: boolean; referenceEvidence?: ReferenceEvidence | null;
+type Props = { draft: Data | null; setDraft: (value: SetStateAction<Data | null>) => void; save: (draft?:Data) => void; clear: () => void; busy: boolean; draftLocked?: boolean; referenceEvidence?: ReferenceEvidence | null;
   lookup: Data | null; previous: Data[]; request: Request; refresh: number; onEditor: () => void; onReadRadio: () => Promise<void>;
   follow: boolean; setFollow: (value: boolean) => void; rotor: RotorSnapshot | null; rotorConfigured?: boolean; autoRotor: boolean; setAutoRotor: (value: boolean) => void; onManualRotor: () => void; isEditing?: boolean; intelligenceBands?: string[]; equipment?: unknown; cwControls?: ReactNode;
   canAcceptLocalInput?: () => boolean; onLocalInputState?: (pending: boolean) => void; resetInputEpoch?: number };
@@ -39,9 +40,10 @@ export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftL
   const duplicateDate = useDuplicateContact(draft, isEditing, request, refresh);
   const [frequencyText, setFrequencyText] = useState<string | null>(null);
   const [timeText, setTimeText] = useState<{ date: string; time: string } | null>(null);
+  const [automaticStart, setAutomaticStart] = useState(!isEditing);
   const [reading, setReading] = useState(false), [error, setError] = useState("");
   const draftIdentity = useRef(draft?.id); draftIdentity.current = draft?.id;
-  useEffect(() => { setFrequencyText(null); setTimeText(null); setError(""); }, [draft?.id, resetInputEpoch]);
+  useEffect(() => { setFrequencyText(null); setTimeText(null); setAutomaticStart(!isEditing); setError(""); }, [draft?.id, resetInputEpoch, isEditing]);
   useEffect(() => { if (follow) setFrequencyText(null); }, [follow]);
   const canonicalBuffers = useRef<{ id: unknown; frequencyHz: unknown; start: unknown } | null>(null);
   useLayoutEffect(() => {
@@ -65,6 +67,7 @@ export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftL
       Date.parse(`${timeText.date}T${timeText.time.length === 5 ? timeText.time + ":00" : timeText.time}Z`) !== Date.parse(draft?.start ?? ""));
   useLayoutEffect(() => { onLocalInputState?.(pendingInput); });
   useLayoutEffect(() => () => onLocalInputState?.(false), [onLocalInputState]);
+  const currentUTC = useCurrentUTC(automaticStart, `${String(draft?.id)}:${String(resetInputEpoch ?? "")}`);
   if (!draft) return <section className="desk-panel desk-active"><h2><Radio size={15} /> Active QSO</h2><p>Opening logbook…</p></section>;
   const update = (key: string, value: unknown) => {
     if (!acceptsInput()) return;
@@ -75,9 +78,10 @@ export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftL
   };
   const textField = (key: string, title: string, className = "") => <label className={className}><span>{title}</span><input aria-label={`Desk ${title}`} value={draft[key] ?? ""} maxLength={key === "call" ? 32 : undefined} onChange={event => update(key, ["call", "gridSquare"].includes(key) ? event.target.value.toUpperCase() : event.target.value)} autoComplete="off" spellCheck={false} /></label>;
   const selectField = (key: string, title: string, options: string[]) => <label><span>{title}</span><select aria-label={`Desk ${title}`} value={draft[key] ?? ""} onChange={event => update(key, event.target.value)}><option value="">—</option>{draft[key] && !options.includes(draft[key]) && <option>{draft[key]}</option>}{options.map(value => <option key={value}>{value}</option>)}</select></label>;
-  const start = utc(draft.start), date = timeText?.date ?? start.slice(0, 10), time = timeText?.time ?? start.slice(11, 19);
+  const start = automaticStart ? currentUTC : utc(draft.start), date = timeText?.date ?? start.slice(0, 10), time = timeText?.time ?? start.slice(11, 19);
   const changeTime = (key: "date" | "time", value: string) => {
     if (!acceptsInput()) return;
+    setAutomaticStart(false);
     onLocalInputState?.(true);
     const next = { date, time, [key]: value }; setTimeText(next);
     const candidate = `${next.date}T${next.time.length === 5 ? next.time + ":00" : next.time}Z`;
@@ -90,8 +94,9 @@ export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftL
   const frequencyBand = mhz && validFrequency ? bandForRadio(Math.round(Number(mhz) * 1e6)) : null;
   const canSave = !busy && !reading && /^[A-Z0-9/-]{3,32}$/.test(normalizedCall(draft.call)) && validFrequency && validTime && !!draft.band && !!draft.mode && (!frequencyBand || frequencyBand === draft.band);
   const read = async () => { if (!acceptsInput() || !onReadRadio) return; const identity = draft.id; setReading(true); setError(""); try { await onReadRadio(); if (acceptsInput() && draftIdentity.current === identity) setFrequencyText(null); } catch (cause) { if (draftIdentity.current === identity) setError(cause instanceof Error ? cause.message : "Radio readback unavailable."); } finally { setReading(false); } };
-  return <section className="desk-panel desk-active" aria-label="Active QSO"><QSOHeader title="Active QSO" /><form inert={draftLocked} aria-busy={draftLocked} onSubmit={event => { event.preventDefault(); if (acceptsInput() && canSave) save(); }} onKeyDown={event => {
-    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); if (acceptsInput() && canSave) save(); }
+  const saveCurrent = () => save(automaticStart ? { ...draft,start:new Date().toISOString() } : draft);
+  return <section className="desk-panel desk-active" aria-label="Active QSO"><QSOHeader title="Active QSO" /><form inert={draftLocked} aria-busy={draftLocked} onSubmit={event => { event.preventDefault(); if (acceptsInput() && canSave) saveCurrent(); }} onKeyDown={event => {
+    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); if (acceptsInput() && canSave) saveCurrent(); }
     if (event.key === "Escape") { event.preventDefault(); event.currentTarget.querySelector<HTMLInputElement>('[aria-label="Desk Callsign"]')?.focus(); }
   }}>
     <div className="desk-active-primary">{textField("call", "Callsign", "desk-call")}

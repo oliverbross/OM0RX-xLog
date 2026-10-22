@@ -537,6 +537,21 @@ it("controls the existing native Auto rotor owner from Settings", async () => {
   await waitFor(() => expect(bridge.native).toHaveBeenCalledWith("auto_rotor_set", { armed: false }));
 });
 
+it("does not offer Auto rotor for an uncertain retained connection and shows the reconnect path", async () => {
+  const base = bridge.request.getMockImplementation()!;
+  bridge.request.mockImplementation(async (method: string, params: any = {}) => method === "rotor_snapshot"
+    ? { result: { owner: "native_dcu1", generation: 4, state: "uncertain", backend_available: false, backend: null } }
+    : base(method, params));
+  render(<LiveApp />);
+  await waitForDesk();
+  await openRotorSettings();
+  const toggle = await screen.findByRole("checkbox", { name: "Auto rotor" }) as HTMLInputElement;
+  expect(toggle.disabled).toBe(true);
+  expect(screen.getByText("The rotor connection needs attention. Stop or disconnect it, then reconnect before enabling Auto rotor.")).toBeTruthy();
+  fireEvent.click(toggle);
+  expect(bridge.native.mock.calls.some(([command]) => command === "auto_rotor_set")).toBe(false);
+});
+
 it("stops the fresh same-owner generation while native activation is in flight and never rearms from its reply", async () => {
   render(<LiveApp />);
   await waitForDesk();

@@ -110,6 +110,15 @@ describe("contest native surface action v1", () => {
   });
 
   it.each([
+    { action:"entry_set_frequency_text", params:{...draft,value:"7025500",callsignCommand:true} },
+    { action:"entry_set_mode", params:{...draft,value:"USB",callsignCommand:true} },
+  ])("admits the explicit callsign-command discriminator for $action", action => {
+    const envelope={...base,panelID:"active-qso",...action};
+    expect(()=>validateContestSurfaceActionEnvelope(envelope)).not.toThrow();
+    expect(()=>validateContestSurfaceActionEnvelope({...envelope,params:{...action.params,callsignCommand:false}})).toThrow();
+  });
+
+  it.each([
     { ...base, ...valid[0], workspaceGeneration: 3 },
     { ...base, ...valid[0], workspaceGeneration: "00000000-0000-4000-8000-00000000000A" },
     { ...base, ...valid[0], projectionRevision: true },

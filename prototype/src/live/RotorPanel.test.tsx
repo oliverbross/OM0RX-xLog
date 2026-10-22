@@ -58,6 +58,26 @@ describe("independent rotor panel", () => {
     expect((screen.getByRole("checkbox", { name: "Enable Auto Rotor at app start" }) as HTMLInputElement).checked).toBe(true);
     expect(screen.getByRole("checkbox", { name: "40m" })).toBeTruthy();
   });
+  it("keeps Auto rotor off for an uncertain connection and explains the recovery path", async () => {
+    const configuration = await configuredSession(), changeAutomatic = vi.fn(async () => {});
+    render(<RotorPanel snapshot={{ ...initial, state: "uncertain", backend_available: false }} request={vi.fn()}
+      configurationSession={configuration.session} automaticRotorArmed={false} automaticRotorAvailable={false}
+      onAutomaticRotorChange={changeAutomatic} />);
+    const toggle = screen.getByRole("checkbox", { name: "Auto rotor" }) as HTMLInputElement;
+    expect(toggle.disabled).toBe(true);
+    expect(screen.getByText("The rotor connection needs attention. Stop or disconnect it, then reconnect before enabling Auto rotor.")).toBeTruthy();
+    fireEvent.click(toggle);
+    expect(changeAutomatic).not.toHaveBeenCalled();
+  });
+  it("shows the native actionable failure when a manual Auto rotor arm is rejected", async () => {
+    const configuration = await configuredSession();
+    const changeAutomatic = vi.fn(async () => { throw "No fresh rotor bearing is available. Wait for a current bearing or reconnect before enabling Auto rotor."; });
+    render(<RotorPanel snapshot={initial} request={vi.fn()} configurationSession={configuration.session}
+      automaticRotorArmed={false} automaticRotorAvailable onAutomaticRotorChange={changeAutomatic} />);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Auto rotor" }));
+    expect(await screen.findByRole("alert")).toHaveProperty("textContent",
+      "No fresh rotor bearing is available. Wait for a current bearing or reconnect before enabling Auto rotor.");
+  });
   it("confirms a revision-zero DCU-1 settings save with a native UUID receipt and no hardware call", async () => {
     const configuration = await configuredSession(), request = vi.fn();
     render(<RotorPanel snapshot={null} request={request} configurationOnly configurationSession={configuration.session} />);

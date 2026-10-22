@@ -50,6 +50,23 @@ it("keeps Separate Windows hidden through radio-follow draft edits and their aut
   expect(screen.queryByRole("alert", { name: "QSO draft recovery" })).toBeNull();
 });
 
+it("recovers a busy background draft autosave without showing operator alerts", async () => {
+  const backend = api.request.getMockImplementation()!;
+  let replaceAttempts = 0;
+  api.request.mockImplementation((method, params) => {
+    if (method === "logbook_operator_draft_apply" && params?.action === "replace" && ++replaceAttempts === 1)
+      return Promise.reject(new Error("Prototype worker is busy; try again"));
+    return backend(method, params);
+  });
+  await act(async () => { render(<LiveApp />); });
+  radioFrequency = 14_026_000;
+  await act(async () => { await vi.advanceTimersByTimeAsync(1_100); });
+  expect(replaceAttempts).toBe(2);
+  expect(screen.queryByText("Prototype worker is busy; try again")).toBeNull();
+  expect(screen.queryByText(/No receipt is available yet/)).toBeNull();
+  expect(screen.queryByRole("alert", { name: "QSO draft recovery" })).toBeNull();
+});
+
 it("keeps the workspace pending while a cold-start worker admission failure recovers", async () => {
   const backend = api.request.getMockImplementation()!;
   let statusAttempts = 0;

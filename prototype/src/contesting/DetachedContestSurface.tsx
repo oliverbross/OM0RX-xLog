@@ -11,7 +11,7 @@ import { contestInputFieldIDs, type ContestInputFieldID, type ContestSurfaceActi
 import { ContestTextField, ContestCandidates, ContestScoreSummary } from "./ContestPresentation";
 import { contestKeyChord, functionKeyForContestAction, resolveContestKeyBinding,
   type ContestKeyBindingAction, type ContestKeyBindingContext } from "./contestKeyBindings";
-import BandMaps from "../live/BandMaps";
+import BandMaps, { BAND_MAP_AGES, filterRecentBandMapSpots } from "../live/BandMaps";
 import ClusterPanel from "../live/ClusterPanel";
 import { requestViaSession } from "../live/DetachedClusterBridge";
 import { connectMonitorContext, observedReceiveBandwidthHz, type MonitorContext } from "../live/monitorContext";
@@ -22,6 +22,14 @@ type Context = ContestSurfaceContext & { panelID: ContestSurfaceActionEnvelope["
 const message = (cause: unknown) => cause instanceof Error ? cause.message : String(cause);
 const fldigiContestModes = new Set(["RTTY", "RTTY-R", "LSB-D", "USB-D", "AM-D", "FM-D",
   "DIGI-U", "DIGI-L", "RTTYR", "PKTLSB", "PKTUSB"]);
+const not1mmCallsignModes = new Set(["CW", "RTTY", "SSB", "FM", "AM", "LSB", "USB"]);
+const not1mmCallsignCommand = (value:string):{kind:"mode";value:string}|{kind:"frequency";value:string}|null => {
+  const token=value.trim().toUpperCase();
+  if(not1mmCallsignModes.has(token))return{kind:"mode",value:token};
+  if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:E[+-]?\d+)?$/.test(token))return null;
+  const frequencyHz=Math.round(Number(token)*1_000);
+  return Number.isSafeInteger(frequencyHz)&&frequencyHz>0?{kind:"frequency",value:String(frequencyHz)}:null;
+};
 function useContestSurface(context: Context) {
   const [snapshot, setSnapshot] = useState<ContestSurfaceSnapshot | null>(null), [error, setError] = useState("");
   const mounted = useRef(true), ticket = useRef(0);
@@ -191,8 +199,15 @@ function ContestSpots({panelID,projection,projectionRevision,send}:{panelID:"ban
   const [stationContext,setStationContext]=useState<MonitorContext|null>(null);
   const [clusterPending,setClusterPending]=useState<null|{method:"cluster_connect"|"cluster_disconnect";signature:string}>(null),
     [clusterError,setClusterError]=useState(""),[clusterMessage,setClusterMessage]=useState("");
+  const clusterAgeKey="xlog.integration.contest.cluster-age-minutes.v1";
+  const [clusterAgeMinutes,setClusterAgeMinutes]=useState<typeof BAND_MAP_AGES[number]>(()=>{
+    try { const stored=Number(localStorage.getItem(clusterAgeKey));return BAND_MAP_AGES.includes(stored as typeof BAND_MAP_AGES[number])
+      ? stored as typeof BAND_MAP_AGES[number]:30; } catch { return 30; }
+  }),[spotAgeClock,setSpotAgeClock]=useState(Date.now());
   useEffect(()=>{if(panelID!=="band-maps")return;const connection=connectMonitorContext(setStationContext,()=>setStationContext(null));
     return()=>connection.dispose();},[panelID]);
+  useEffect(()=>{if(panelID!=="dx-cluster")return;try{localStorage.setItem(clusterAgeKey,String(clusterAgeMinutes));}catch{/* Keep the window usable without storage. */}
+    const timer=window.setInterval(()=>setSpotAgeClock(Date.now()),30_000);return()=>window.clearInterval(timer);},[clusterAgeMinutes,panelID]);
   const receiveBandwidth=panelID==="band-maps"?observedReceiveBandwidthHz(stationContext):null;
   const clusterSignature=JSON.stringify(projection.connections.map(connection=>[
     connection.serverID,connection.phase,connection.error??null]));
@@ -223,8 +238,8 @@ function ContestSpots({panelID,projection,projectionRevision,send}:{panelID:"ban
     clamp();window.addEventListener("resize",clamp);return()=>window.removeEventListener("resize",clamp);},[menu?.spotID,menu?.requestedX,menu?.requestedY]);
   useEffect(()=>{if(menu&&!target)closeMenu();},[menu,target]);
   const workflow=<><div className="contest-spot-toolbar"><label><input type="checkbox" checked={projection.markedOnly}
-    onChange={event=>act({action:"spot_set_marked_only",params:{draftID:projection.draftID,expectedDraftRevision:projection.draftRevision,
-      markedOnly:event.currentTarget.checked}})}/>Marked only</label><span>{selected?`Selected ${selected.callsign}`:"No selected spot"}</span></div>
+    onChange={event=>void send({action:"spot_set_marked_only",params:{draftID:projection.draftID,expectedDraftRevision:projection.draftRevision,
+      markedOnly:event.currentTarget.checked}},projectionRevision,{safePresentation:true})}/>Marked only</label><span>{selected?`Selected ${selected.callsign}`:"No selected spot"}</span></div>
     {menu&&target&&<div ref={menuRef} className="contest-spot-menu" role="menu" aria-label={`Spot actions for ${target.callsign}`}
       style={{left:menu.x,top:menu.y}} onKeyDown={event=>{if(event.key==="Escape"){event.preventDefault();closeMenu();return;}
         if(!["ArrowDown","ArrowUp","Home","End"].includes(event.key))return;event.preventDefault();
@@ -244,8 +259,9 @@ function ContestSpots({panelID,projection,projectionRevision,send}:{panelID:"ban
     radioFrequencyHz={projection.radioFrequencyHz??undefined} storageNamespace="contest" selectedSpotId={projection.selectedSpotID}
     onSpotContextMenu={contextMenu} onSelect={spot=>select(String(spot.id))}
     selectionHint="Select a spot to load the active Not1MM draft and tune the selected xLog radio once. Right-click for spot actions."/></section>;
+  const visibleClusterSpots=filterRecentBandMapSpots(projection.spots,clusterAgeMinutes,spotAgeClock);
   const clusterSnapshot={snapshot:{connectedClusters:projection.connectedClusters,loadedSpots:projection.loadedSpots,contactCount:0,contactRevision:0,
-    logbookDataLoaded:false,countryDataLoaded:false,connections:projection.connections,spots:projection.spots,console:[]}};
+    logbookDataLoaded:false,countryDataLoaded:false,connections:projection.connections,spots:visibleClusterSpots,console:[]}};
   const activeConnections=projection.connections.filter(connection=>!["disconnected","failed"].includes(connection.phase.toLowerCase()));
   const clusterAction=async(method:"cluster_connect"|"cluster_disconnect")=>{if(clusterPending)return;
     setClusterPending({method,signature:clusterSignature});setClusterError("");
@@ -256,7 +272,9 @@ function ContestSpots({panelID,projection,projectionRevision,send}:{panelID:"ban
     <div role="status" aria-label="Contest cluster connections">{projection.connections.length?projection.connections.map(connection=>{const phase=connection.phase.toLowerCase();return <span key={connection.serverID}
       className={phase==="connected"?"live-cluster-connected":"live-cluster-disconnected"}>{connection.serverName} · {phase.charAt(0).toUpperCase()+phase.slice(1)}{connection.error&&<small> · {connection.error}</small>}</span>;}):
       projection.configuredClusters.filter(server=>server.enabled).map(server=><span className="live-cluster-disconnected" key={server.serverID}>{server.serverName} · Disconnected</span>)}</div>
-    <div><button type="button" disabled={projection.busy||clusterPending!==null||!projection.configuredClusters.some(server=>server.enabled)} onClick={()=>void clusterAction("cluster_connect")}>Connect</button>
+    <div><label>Clear older<select aria-label="Cluster spot age" value={clusterAgeMinutes}
+      onChange={event=>setClusterAgeMinutes(Number(event.currentTarget.value) as typeof BAND_MAP_AGES[number])}>{BAND_MAP_AGES.map(value=><option key={value} value={value}>{value} min</option>)}</select></label>
+      <button type="button" disabled={projection.busy||clusterPending!==null||!projection.configuredClusters.some(server=>server.enabled)} onClick={()=>void clusterAction("cluster_connect")}>Connect</button>
       <button type="button" disabled={projection.busy||clusterPending!==null||activeConnections.length===0} onClick={()=>void clusterAction("cluster_disconnect")}>Disconnect</button></div>
     {clusterError&&<p role="alert">{clusterError}</p>}{clusterMessage&&<p role="status">{clusterMessage}</p>}
   </div><ClusterPanel passive presentationOnly taskOnly snapshot={clusterSnapshot}
@@ -468,6 +486,16 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
       const result=await send({action:"entry_send_cw_text",params:{draftID:base.draftID,expectedDraftRevision:currentProjection.draft.revision,value}},current.projectionRevision);
       if(result.applied){setCWInput("");closeCWInput();}
     })();};
+  const runCallsignCommand=(command:NonNullable<ReturnType<typeof not1mmCallsignCommand>>)=>{const intended=intents.capture();
+    void(async()=>{const flushed=await intents.flush();if(!flushed.ok)return;const focusProjectionRevision=await focusPending.current;await settle();
+      const current=await refresh(),currentProjection=current?.projection as any;
+      if(!current||current.panelID!=="active-qso"||currentProjection?.status!=="ready"||currentProjection.draft?.draftID!==base.draftID)return;
+      if(!intents.matches(currentProjection.draft,intended)||current.projectionRevision<Math.max(projectionRevision,
+          flushed.lastAppliedProjectionRevision??0,focusProjectionRevision??0)){
+        reportConflict("The shared contest entry changed before this frequency or mode command. Review it and press Space again.");return;}
+      const params={draftID:base.draftID,expectedDraftRevision:currentProjection.draft.revision,value:command.value,callsignCommand:true as const};
+      await send({action:command.kind==="frequency"?"entry_set_frequency_text":"entry_set_mode",params},current.projectionRevision);
+    })();};
   const onKeyDown=(event:ReactKeyboardEvent<HTMLElement>)=>{const target=event.target instanceof HTMLElement?event.target:null;
     if(event.defaultPrevented||event.repeat||event.nativeEvent.isComposing)return;
     const dataField=target?.dataset.contestFieldId,focusedField=contestInputFieldIDs.includes(dataField as ContestInputFieldID)
@@ -480,6 +508,9 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
       event.preventDefault();event.stopPropagation();intents.change("callsign","",actionFor("callsign"));
       void import("./contestSetupDialogs").then(({openContestSetupDialog})=>openContestSetupDialog("operator"))
         .catch(cause=>reportConflict(message(cause)));return;}
+    if(!event.shiftKey&&event.key===" "&&focusedField==="callsign"){
+      const command=not1mmCallsignCommand(intents.values.callsign);
+      if(command){event.preventDefault();event.stopPropagation();runCallsignCommand(command);return;}}
     if(event.key==="Tab"&&focusedField){const next=nextFocusable(focusedField,event.shiftKey?"tabPrevious":"tabNext");
       if(next){event.preventDefault();event.stopPropagation();fieldRefs.current[next]?.focus();}return;}
     const advanceOnSpace=focusedField&&(projection.descriptor?.advanceOnSpace?.includes(focusedField)??focusedField==="callsign");

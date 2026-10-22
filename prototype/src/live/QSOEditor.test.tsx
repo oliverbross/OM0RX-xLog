@@ -26,6 +26,23 @@ beforeEach(() => localStorage.clear());
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe("QSOEditor", () => {
+  it("renders and advances current UTC for a new QSO but preserves manually entered and historical UTC",async()=>{
+    vi.useFakeTimers();vi.setSystemTime(new Date("2026-10-22T23:59:58Z"));
+    try{
+      render(<Harness/>);
+      expect((screen.getByLabelText("Start UTC date") as HTMLInputElement).value).toBe("2026-10-22");
+      expect((screen.getByLabelText("Start UTC time") as HTMLInputElement).value).toBe("23:59:58");
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect((screen.getByLabelText("Start UTC date") as HTMLInputElement).value).toBe("2026-10-23");
+      fireEvent.change(screen.getByLabelText("Start UTC time"),{target:{value:"10:15:30"}});
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect((screen.getByLabelText("Start UTC time") as HTMLInputElement).value).toBe("10:15:30");
+      cleanup();render(<Harness isEditing/>);
+      expect((screen.getByLabelText("Start UTC date") as HTMLInputElement).value).toBe("2026-10-12");
+      expect((screen.getByLabelText("Start UTC time") as HTMLInputElement).value).toBe("10:20:30");
+    }finally{cleanup();vi.useRealTimers();}
+  });
+
   it("places active contact, details, intelligence, previous QSOs and matrices on the configurable canvas", () => {
     const { container } = render(<Harness />);
     const details = container.querySelector(".qso-details")!, matrices = container.querySelector(".qso-matrices")!;

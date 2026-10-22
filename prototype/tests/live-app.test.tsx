@@ -343,7 +343,23 @@ it("logs through the shared draft receipt without exposing the retired Follow ra
   expect(screen.queryByText(/saved to the integrated logbook/)).toBeNull();
 });
 
-it("recovers a lost Save acknowledgement without a second Save and leaves non-QSO navigation usable", async () => {
+it("populates a clean blank draft from observed radio state and preserves a later manual frequency",async()=>{
+  exists=true;const backend=calls.request.getMockImplementation()!;
+  calls.request.mockImplementation((method,params)=>method==="station_snapshot"
+    ? Promise.resolve({ok:true,result:{source:"xcat_loopback",available:true,radio:{connected:true,observed:true,frequency_hz:7_025_000,mode:"USB"},station:{band:"40m"}}})
+    : backend(method,params));
+  render(<LiveApp/>);
+  await screen.findByLabelText("Frequency MHz");
+  await waitFor(()=>expect((screen.getByLabelText("Frequency MHz") as HTMLInputElement).value).toBe("7.025000"));
+  expect((screen.getByLabelText("Band") as HTMLSelectElement).value).toBe("40m");
+  expect((screen.getByLabelText("Mode") as HTMLSelectElement).value).toBe("SSB");
+  fireEvent.change(screen.getByLabelText("Frequency MHz"),{target:{value:"14.025000"}});
+  await new Promise(resolve=>setTimeout(resolve,1_100));
+  expect((screen.getByLabelText("Frequency MHz") as HTMLInputElement).value).toBe("14.025000");
+  expect((screen.getByLabelText("Band") as HTMLSelectElement).value).toBe("20m");
+});
+
+it("silently recovers a lost Save acknowledgement without a second Save", async () => {
   exists = true;
   const backend = calls.request.getMockImplementation()!; let receiptAvailable = false;
   calls.request.mockImplementation(async (method, params) => {
@@ -353,22 +369,19 @@ it("recovers a lost Save acknowledgement without a second Save and leaves non-QS
     return result;
   });
   render(<LiveApp />);
-  fireEvent.change(await screen.findByLabelText("Callsign"), { target: { value: "K1ABC" } });
-  fireEvent.submit(screen.getByLabelText("Callsign").closest("form")!);
-  const recovery = await screen.findByRole("alert", { name: "QSO draft recovery" });
-  expect(recovery.textContent).toContain("retained");
+  const callsign = await screen.findByLabelText("Callsign");
   vi.useFakeTimers();
   try {
-    act(() => vi.advanceTimersByTime(1500));
-    expect(screen.getByRole("alert", { name: "QSO draft recovery" })).toBe(recovery);
-    expect(screen.queryByText("QSO logged")).toBeNull();
+    fireEvent.change(callsign, { target: { value: "K1ABC" } });
+    fireEvent.submit(callsign.closest("form")!);
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.queryByRole("alert", { name: "QSO draft recovery" })).toBeNull();
+    expect(screen.queryByText("Acknowledgement lost")).toBeNull();
+    receiptAvailable = true;
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("");
+    expect(screen.getAllByText("QSO logged")).toHaveLength(1);
   } finally { vi.useRealTimers(); }
-  expect(screen.getByLabelText("Callsign").closest("form")?.hasAttribute("inert")).toBe(true);
-  expect(screen.getByRole("button", { name: "Settings" }).hasAttribute("disabled")).toBe(false);
-  receiptAvailable = true;
-  fireEvent.click(screen.getByRole("button", { name: "Check saved operation" }));
-  await waitFor(() => expect(screen.queryByRole("alert", { name: "QSO draft recovery" })).toBeNull());
-  expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("");
   expect(calls.request.mock.calls.filter(([method, params]) => method === "logbook_operator_draft_apply" && params.action === "save")).toHaveLength(1);
 });
 

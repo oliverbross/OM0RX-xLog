@@ -128,6 +128,11 @@ export class OperatorDraftSession {
   private lifecycle = 0;
   private readSequence = 0;
   private localInputPending = false;
+
+  showPendingRecovery() {
+    if (!this.state.pending || this.state.workspaceChanged || this.state.conflict) return;
+    this.update({ error: "The last QSO operation is still being verified. Check the saved operation or retry the same operation." }, false);
+  }
   setLocalInputPending = (pending: boolean) => { this.localInputPending = pending; };
   constructor(private request: Request, private writeJournal: (journal: DraftJournal) => void,
     journal: DraftJournal | null = null, private uuid: () => string = () => crypto.randomUUID(), registrationRequired = false) {
@@ -224,7 +229,15 @@ export class OperatorDraftSession {
     if (this.state.workspaceChanged) return false;
     if (this.work || this.action || this.state.locked && !this.state.pending) return false;
     const lifecycle = this.lifecycle;
-    if (this.state.pending) { await this.reconcile(); return false; }
+    if (this.state.pending) {
+      await this.reconcile();
+      // Every retry reuses the exact journaled operation identity. The worker's
+      // durable receipt makes this safe even when a Save committed before its
+      // acknowledgement was lost: retry resolves that operation, it never
+      // creates a second contact.
+      if (this.state.pending && !this.state.workspaceChanged) await this.retry();
+      return !this.state.pending;
+    }
     const sequence = ++this.readSequence;
     let result;
     try { result = await this.request("logbook_operator_draft"); }
@@ -350,7 +363,7 @@ export class OperatorDraftSession {
         } catch { /* An unverified receipt leaves the original operation pending. */ }
       }
       if (lifecycle === this.lifecycle && this.state.pending && !this.state.workspaceChanged)
-        this.update({ locked: mutation.action !== "replace", error: "Draft acknowledgement unavailable. Your text and operation ID are retained; check the saved operation before retrying." });
+        this.update({ locked: mutation.action !== "replace", error: "" });
       throw cause;
     }
   }
@@ -403,7 +416,7 @@ export class OperatorDraftSession {
       this.acceptReceipt(receipt, keepTyping || this.state.powerIntentID !== this.state.pendingPowerIntentID ? -1 : version, this.state.pendingPowerIntentID);
       // A receipt is historical. Fetch current state before enabling another action.
       await this.refresh();
-    } else this.update({ error: "No receipt is available yet. Retry uses the same operation ID and cannot create a duplicate QSO." });
+    } else this.update({ error: "" });
   }
   async retry() {
     this.spotFence.assertWritable();
@@ -418,8 +431,9 @@ export class OperatorDraftSession {
       if (keepTyping) this.update({ draft: this.mergePower(local!, this.state.base!, this.state.powerIntent) });
       return saved;
     }).finally(() => { this.action = null; this.update({ locked: !this.state.workspaceChanged && !!this.state.pending && this.state.pending.action !== "replace" }, false); });
-    await this.action;
+    const saved = await this.action;
     await this.refresh();
+    return saved;
   }
   async useShared() {
     this.spotFence.assertWritable();

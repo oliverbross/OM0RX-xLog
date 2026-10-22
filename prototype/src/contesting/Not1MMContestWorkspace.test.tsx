@@ -2190,6 +2190,43 @@ it("acknowledges a native contest window command with Setup after startup finds 
   expect(surfaceWindow.open).not.toHaveBeenCalled();
 });
 
+it("owns detached Not1MM frequency and mode commands through confirmed station tune and Python draft apply",async()=>{
+  let current:any={...projection(4,{callsign:"USB",other_2:"14"}),supportedModes:["CW","SSB","RTTY","AM","FM"]};
+  current.fields=current.fields.map((field:any)=>field.id==="sent"?{...field,label:"Sent serial",value:"001",readOnly:true}:
+    field.id==="other_1"?{...field,label:"Configured sent exchange",value:"NT",readOnly:true}:field);
+  const tune=vi.fn(async()=>({accepted:true,confirmed:true}));
+  const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    let result:any=method==="contest_catalog"?{plugins:[]}:method==="contest_sessions"?{sessions:[]}:
+      method==="contest_create"?{projection:current}:method==="contest_log_page"?{rows:[],total:0}:
+      method==="contest_score"?{score:current.score}:method==="contest_check_partial"?{query:params.query,rows:[],total:0}:null;
+    if(method==="contest_draft_apply"){
+      const values=params.fields??Object.fromEntries(current.fields.map((field:any)=>[field.id,field.value]));
+      current={...current,revision:current.revision+1,frequencyHz:Number(params.frequencyHz),mode:params.mode??current.mode,
+        fields:current.fields.map((field:any)=>({...field,value:values[field.id]??field.value}))};
+      result={projection:current,actions:[],messages:[]};
+    }
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} stationTune={tune}/>);
+  await createContestThroughSetup();await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));
+  let entry=surfaceOwner.current.projections["active-qso"],envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,
+    workspaceGeneration,panelID:"active-qso",projectionRevision:entry.draft.revision,requestID:crypto.randomUUID()} as const;
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_set_mode",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,value:"USB",callsignCommand:true}}));
+  expect(tune).toHaveBeenLastCalledWith(14_025_000,"USB");
+  expect(request.mock.calls.filter(([method])=>method==="contest_draft_apply").at(-1)?.[1])
+    .toMatchObject({frequencyHz:14_025_000,mode:"SSB",fields:{callsign:"",sent:"001",receive:"59",other_1:"NT",other_2:""}});
+  entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"entry_set_frequency_text",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,value:"7025500",callsignCommand:true}}));
+  expect(tune).toHaveBeenLastCalledWith(7_025_500,"SSB");
+  expect(request.mock.calls.filter(([method])=>method==="contest_draft_apply").at(-1)?.[1])
+    .toMatchObject({frequencyHz:7_025_500,fields:{callsign:"",sent:"001",receive:"59",other_1:"NT",other_2:""}});
+  expect(surfaceOwner.current.projections["active-qso"].draft).toMatchObject({callsign:"",mode:"SSB"});
+});
+
 it("creates a Python CQ WW session and logs through the actual-host wire", async () => {
   let current = projection(), logged: Record<string, unknown> | null = null;
   const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {

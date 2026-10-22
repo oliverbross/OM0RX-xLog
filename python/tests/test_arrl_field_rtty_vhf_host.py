@@ -115,6 +115,17 @@ class ARRLFamilyAdmissionTests(ARRLOriginalPluginCase):
 
 
 class ARRLFieldDayHostTests(ARRLOriginalPluginCase):
+    def test_manual_callsign_command_route_applies_frequency_mode_and_clears_entry(self):
+        self.create("arrl_field_day", "1D ORG", 14025000, "CW")
+        changed = self.mutate("draft_apply", frequencyHz=7025500, mode="SSB",
+                              fields={"callsign": "", "sent": "59", "receive": "59",
+                                      "other_2": ""})["projection"]
+        fields = {field["id"]: field["value"] for field in changed["fields"]}
+        self.assertEqual((changed["frequencyHz"], changed["mode"], changed["band"]),
+                         (7025500, "SSB", 7))
+        self.assertEqual((fields["callsign"], fields["sent"], fields["receive"]),
+                         ("", "59", "59"))
+
     def test_exchange_scoring_correction_restart_and_exports(self):
         self.create("arrl_field_day", "1D ORG", 14025000, "CW")
         first = uid()

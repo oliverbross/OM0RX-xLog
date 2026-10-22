@@ -35,7 +35,7 @@ const sharedSpot={id:"spot-1",receivedAt:Math.floor(Date.now()/1000)-978_307_200
 const tabMaps={tabNext:{callsign:"sent",sent:"receive",receive:"other_1",other_1:"other_2",other_2:"callsign"},
   tabPrevious:{callsign:"other_2",sent:"callsign",receive:"sent",other_1:"receive",other_2:"other_1"}} as const;
 
-beforeEach(()=>{vi.resetAllMocks();native.wake=null;native.wakes=[];native.listen.mockImplementation(async(_name,callback)=>{native.wakes.push(callback);
+beforeEach(()=>{vi.resetAllMocks();localStorage.removeItem("xlog.integration.contest.cluster-age-minutes.v1");native.wake=null;native.wakes=[];native.listen.mockImplementation(async(_name,callback)=>{native.wakes.push(callback);
   native.wake=()=>native.wakes.forEach(wake=>wake());return()=>{native.wakes=native.wakes.filter(wake=>wake!==callback);};});window.history.replaceState({},"",search);});
 afterEach(()=>{cleanup();window.history.replaceState({},"","/");});
 
@@ -75,6 +75,32 @@ it.each(["band-maps","dx-cluster"] as const)("offers accessible Not1MM spot life
   fireEvent.click(screen.getByLabelText("Marked only"));
   await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="spot_set_marked_only")?.[1])
     .toMatchObject({panelID,action:"spot_set_marked_only",params:{markedOnly:true}}));
+});
+
+it("can untick Marked only from an empty Cluster after its shared projection advances",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=dx-cluster"));
+  let current:any={...snapshot,panelID:"dx-cluster",projectionRevision:6,projection:{schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,
+    radioFrequencyHz:14_025_000,connectedClusters:1,loadedSpots:1,selectedSpotID:null,
+    configuredClusters:[{serverID:"server-1",serverName:"ShackCQ",enabled:true}],
+    connections:[{serverID:"server-1",serverName:"ShackCQ",phase:"connected",error:null}],markedOnly:true,spots:[],busy:false}};
+  native.invoke.mockImplementation(async(command,args)=>{
+    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_action"){
+      expect(args).toMatchObject({panelID:"dx-cluster",projectionRevision:7,action:"spot_set_marked_only",
+        params:{draftID:"draft-1",expectedDraftRevision:6,markedOnly:false}});
+      current={...current,projectionRevision:8,projection:{...current.projection,markedOnly:false}};
+      return{requestID:args.requestID,status:"applied",projectionRevision:8};
+    }
+    throw new Error(`unexpected ${command}`);
+  });
+  render(<DetachedContestSurface/>);
+  const markedOnly=await screen.findByLabelText("Marked only");
+  expect(markedOnly).toHaveProperty("checked",true);
+  current={...current,projectionRevision:7,projection:{...current.projection,draftRevision:6}};
+  fireEvent.click(markedOnly);
+  await waitFor(()=>expect(native.invoke.mock.calls.some(([command])=>command==="contest_surface_action")).toBe(true));
+  await waitFor(()=>expect(markedOnly).toHaveProperty("checked",false));
+  expect(screen.queryByText("The shared contest panel changed before this action could be applied.")).toBeNull();
 });
 
 it("shows fresh observed receive-filter bandwidth only on the contest Band Map",async()=>{
@@ -620,6 +646,29 @@ it("shows a shared-owner Cluster failure without retrying it",async()=>{
   render(<DetachedContestSurface/>);fireEvent.click(await screen.findByRole("button",{name:"Connect"}));
   expect(await screen.findByRole("alert")).toHaveProperty("textContent","Cluster connection failed.");
   expect(native.invoke.mock.calls.filter(([command])=>command==="worker_request")).toHaveLength(1);
+});
+
+it("matches the Not1MM Cluster age control without deleting shared spots",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=dx-cluster"));
+  const appleNow=Math.floor(Date.now()/1000)-978_307_200;
+  const oldSpot={...sharedSpot,id:"spot-old",callsign:"VK8OLD",receivedAt:appleNow-40*60};
+  const markedOldSpot={...sharedSpot,id:"spot-marked",callsign:"VK8MARK",receivedAt:appleNow-90*60,marked:true};
+  const view={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14_025_000,
+    connectedClusters:1,loadedSpots:3,selectedSpotID:null,
+    configuredClusters:[{serverID:"server-1",serverName:"ShackCQ",enabled:true}],
+    connections:[{serverID:"server-1",serverName:"ShackCQ",phase:"connected",error:null}],
+    markedOnly:false,spots:[sharedSpot,oldSpot,markedOldSpot],busy:false};
+  native.invoke.mockImplementation(async command=>command==="contest_surface_snapshot"?{...snapshot,panelID:"dx-cluster",projection:view}:
+    Promise.reject(new Error(`unexpected ${command}`)));
+  render(<DetachedContestSurface/>);
+  expect(await screen.findByText("1 live · 2 shown / 3 received")).toBeTruthy();
+  expect(screen.queryByText("VK8OLD")).toBeNull();
+  expect(screen.getByText("VK8MARK")).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Cluster spot age"),{target:{value:"60"}});
+  expect(await screen.findByText("1 live · 3 shown / 3 received")).toBeTruthy();
+  expect(screen.getByText("VK8OLD")).toBeTruthy();
+  expect(localStorage.getItem("xlog.integration.contest.cluster-age-minutes.v1")).toBe("60");
+  expect(native.invoke.mock.calls.some(([command])=>command==="worker_request"||command==="contest_surface_action")).toBe(false);
 });
 
 it("gives the nested contest Cluster table all remaining window height without page scrolling",()=>{
@@ -1239,6 +1288,40 @@ it("opens Operator for exact OPON Space while ordinary callsigns keep space adva
   callsign.focus();fireEvent.change(callsign,{target:{value:"OPON"}});fireEvent.keyDown(callsign,{key:" "});
   await waitFor(()=>expect(native.invoke).toHaveBeenCalledWith("contest_setup_dialog_open",{kind:"operator"}));
   expect(document.activeElement).toBe(callsign);
+});
+
+it("routes Not1MM callsign mode and kHz commands on Space without advancing normal command focus",async()=>{
+  const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+    functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  let current:any={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,callsign:"",frequencyHz:14_025_000,frequencyText:"14025000",frequencyError:""},
+    descriptor:{bands:["160m","80m","40m","20m","15m","10m"],modes:["CW","SSB"],advanceOnSpace:["callsign"],sentFields:[],
+      serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+  const actions:Record<string,any>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_action"){
+      actions.push(args);const draft={...current.projection.draft,revision:current.projection.draft.revision+1};
+      if(args.action==="entry_set_text"&&args.params.field==="callsign")draft.callsign=args.params.value;
+      if(args.action==="entry_set_mode")Object.assign(draft,{callsign:"",mode:args.params.value==="USB"?"SSB":args.params.value,sentReport:"59",receivedReport:"59"});
+      if(args.action==="entry_set_frequency_text")Object.assign(draft,{callsign:"",frequencyHz:Number(args.params.value),frequencyText:args.params.value});
+      current={...current,projectionRevision:current.projectionRevision+1,projection:{...current.projection,draft}};
+      return{requestID:args.requestID,status:"applied"};
+    }
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign"),sent=screen.getByLabelText("SNT");
+
+  fireEvent.change(callsign,{target:{value:"USB"}});fireEvent.keyDown(callsign,{key:" "});
+  await waitFor(()=>expect(actions.at(-1)).toMatchObject({action:"entry_set_mode",params:{value:"USB",callsignCommand:true}}));
+  expect(actions.slice(-2).map(action=>action.action)).toEqual(["entry_set_text","entry_set_mode"]);
+  expect(document.activeElement).toBe(callsign);expect((callsign as HTMLInputElement).value).toBe("");
+
+  fireEvent.change(callsign,{target:{value:"7025.5"}});fireEvent.keyDown(callsign,{key:" "});
+  await waitFor(()=>expect(actions.at(-1)).toMatchObject({action:"entry_set_frequency_text",params:{value:"7025500",callsignCommand:true}}));
+  expect(document.activeElement).toBe(callsign);
+
+  fireEvent.change(callsign,{target:{value:"K1ABC"}});fireEvent.keyDown(callsign,{key:" "});
+  expect(document.activeElement).toBe(sent);
 });
 
 it("restores authoritative callsign focus when a logged QSO creates a new draft",async()=>{
