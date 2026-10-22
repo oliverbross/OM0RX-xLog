@@ -267,6 +267,7 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
           {field("preferences", "voiceProfilePath", "Voice WAV profile folder")}
           <p role="status">{audioOutputs === null ? "Finding audio outputs…" : audioOutputError ? `Audio output discovery failed: ${audioOutputError}` : audioOutputs.length ? "Choose the sound output device for the voice keyer." : "No named audio outputs were reported. The system default remains available."}</p>
           <p>Use a Not1MM-compatible recorded profile: lowercase character files such as <code>c.wav</code>, <code>q.wav</code>, <code>space.wav</code>, and optional whole-message files such as <code>cq.wav</code> for a <code>[cq]</code> macro.</p>
+          <p>Prepare recordings outside xLog as PCM WAV files. For whole-key messages, add <code>f1.wav</code> through <code>f12.wav</code> without replacing recordings you intend to keep, then set each phone macro template to its bracketed name, for example <code>[f1]</code>. xLog does not record or overwrite profile files. Explicitly select the Sound Output that feeds the radio; use System default only when that is intentional.</p>
         </div>;
         break;
       }

@@ -272,6 +272,9 @@ it("uses the Not1MM Sound tab to choose and durably save the voice-keyer output"
     const output = await screen.findByLabelText("Sound Output") as HTMLSelectElement;
     const profile = screen.getByLabelText("Voice WAV profile folder") as HTMLInputElement;
     await waitFor(() => expect(Array.from(output.options).map(option => option.textContent)).toEqual(["System default", "Radio line out", "Operator headphones"]));
+    expect(screen.getByText(/Prepare recordings outside xLog as PCM WAV files/i).textContent).toContain("f1.wav through f12.wav");
+    expect(screen.getByText(/Prepare recordings outside xLog as PCM WAV files/i).textContent).toContain("[f1]");
+    expect(screen.getByText(/Prepare recordings outside xLog as PCM WAV files/i).textContent).toContain("Explicitly select the Sound Output");
     fireEvent.change(output, { target: { value: "headphones" } }); fireEvent.change(profile, { target: { value: "/Users/operator/voice" } }); open("Save");
     await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
     expect(p.onSave.mock.calls[0][0].preferences.soundDevice).toBe("headphones");
