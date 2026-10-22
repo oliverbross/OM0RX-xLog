@@ -181,8 +181,14 @@ it("shows the current contest target and routes LP through the same durable manu
   });
   render(<DetachedRotorSurface />);
   await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-  expect(screen.getByLabelText("Contest rotor target").textContent).toContain("DL1AAA");
-  expect(screen.getByLabelText("Contest rotor target").textContent).toContain("SP 123.4° · LP 303.4°");
+  expect(screen.getByRole("img").textContent).toContain("DL1AAA");
+  expect(screen.getByRole("img").textContent).toContain("SP 123° TARGET");
+  expect(screen.getByRole("button", { name:"Move rotor to contest target" })).toBeTruthy();
+  expect(screen.getByRole("button", { name:"Turn rotor N 0 degrees" })).toBeTruthy();
+  expect(screen.getByRole("button", { name:"Turn rotor S 180 degrees" })).toBeTruthy();
+  expect(screen.getByRole("button", { name:"Turn rotor W 270 degrees" })).toBeTruthy();
+  expect(screen.getByRole("button", { name:"Turn rotor E 90 degrees" })).toBeTruthy();
+  fireEvent.click(screen.getByText("Manual bearing & long path"));
   await act(async () => { fireEvent.click(screen.getByRole("button", { name:"Move LP" })); });
   const admitted=native.invoke.mock.calls.find(([command,args])=>command==="manual_rotor_request"&&args.params.action==="manual_rotor_goto");
   expect(admitted?.[1].params).toMatchObject({rotor_owner:"native_dcu1",rotor_generation:7,bearing:303.4,label:"DL1AAA LP"});

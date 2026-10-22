@@ -44,7 +44,8 @@ export function StationControlSurface({ connect = connectMonitorContext, configu
         <small>{providers[provider]}</small>
       </div>}
     </section>
-    {configurationNode}
+    {configurationNode && <details className="contest-remote-vfo-controls"><summary><span>Station controls</span>
+      <small>{provider ? providers[provider] : "Provider and manual tuning"}</small></summary>{configurationNode}</details>}
   </main></div>;
   return <div className="app live detached-station-control-app"><main aria-label="Detached Station Control">
     {configurationNode}

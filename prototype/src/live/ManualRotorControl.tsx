@@ -17,10 +17,10 @@ export function ManualRotorStatus({ session = manualRotorGotoSession(), onResolv
 }
 
 type RotorObservation = { available: boolean; snapshot: RotorSnapshot | null };
-export function ManualRotorControl({ context, observation, session = manualRotorGotoSession(), target, onManual, onPark, hideHeading = false }: {
+export function ManualRotorControl({ context, observation, session = manualRotorGotoSession(), target, onManual, onPark, hideHeading = false, contestLayout = false }: {
   context?: MonitorContext | null; observation?: RotorObservation; session?: ManualRotorGotoSession;
   target?: { callsign: string; shortPathBearing: number | null; longPathBearing: number | null } | null;
-  onManual?: () => void | Promise<void>; onPark?: (snapshot: RotorSnapshot) => Promise<void>; hideHeading?: boolean;
+  onManual?: () => void | Promise<void>; onPark?: (snapshot: RotorSnapshot) => Promise<void>; hideHeading?: boolean; contestLayout?: boolean;
 }) {
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot), [bearing, setBearing] = useState("");
   const [feedback, setFeedback] = useState<{ message: string; error: boolean; gotoOperation?: string } | null>(null);
@@ -63,16 +63,32 @@ export function ManualRotorControl({ context, observation, session = manualRotor
       stoppingRef.current = false; setStopping(false);
     }
   };
-  return <section className="live-station-card" aria-label="Manual rotor Goto">{!hideHeading && <h3>Manual rotor Goto</h3>}
-    <form className="live-station-inline" onSubmit={event => void turn(event)}><label>Bearing °<input aria-label="Manual rotor bearing degrees" type="number" min="0" max="360" value={bearing} onChange={event => setBearing(event.target.value)} /></label>
+  const stopButton = <button type="button" aria-label="Stop rotor" disabled={!rotor?.owner || stopping} onClick={() => void stop()}>{stopping ? "Stopping…" : "Stop"}</button>;
+  const parkButton = <button type="button" aria-label="Park rotor" disabled={rotor?.owner !== "hamlib" || !onPark || !connected || parking}
+    title={rotor?.owner === "hamlib" ? "Park the connected rotor." : "Park is available for Hamlib rotors."}
+    onClick={() => void park()}>{parking ? "Parking…" : "Park"}</button>;
+  return <section className={`live-station-card${contestLayout ? " contest-rotor-command-deck" : ""}`} aria-label="Manual rotor Goto">{!hideHeading && <h3>Manual rotor Goto</h3>}
+    {contestLayout ? <><div className="contest-rotor-primary-actions" aria-label="Rotor commands">
+      {stopButton}<button type="button" aria-label="Move rotor to contest target" disabled={state.busy || !!state.pending || !connected || target?.shortPathBearing == null}
+        onClick={() => target?.shortPathBearing != null && void move(target.shortPathBearing, `${target.callsign} SP`)}>Move</button>{parkButton}
+    </div><div className="contest-rotor-cardinals" aria-label="Cardinal bearings">
+      {([['N', 0], ['S', 180], ['W', 270], ['E', 90]] as const).map(([label, degrees]) => <button type="button" key={label}
+        aria-label={`Turn rotor ${label} ${degrees} degrees`} disabled={state.busy || !!state.pending || !connected}
+        onClick={() => void move(degrees, `${label} cardinal`)}>{label}</button>)}
+    </div><details className="contest-rotor-manual"><summary>Manual bearing &amp; long path</summary>
+      <form className="live-station-inline" onSubmit={event => void turn(event)}><label>Bearing °<input aria-label="Manual rotor bearing degrees" type="number" min="0" max="360" value={bearing} onChange={event => setBearing(event.target.value)} /></label>
+        <button disabled={state.busy || !!state.pending || !connected || !bearing.trim()}>Turn to bearing</button>
+        {target?.longPathBearing != null && <button type="button" disabled={state.busy || !!state.pending || !connected}
+          onClick={() => void move(target.longPathBearing!, `${target.callsign} LP`)}>Move LP</button>}
+      </form></details></> : <form className="live-station-inline" onSubmit={event => void turn(event)}><label>Bearing °<input aria-label="Manual rotor bearing degrees" type="number" min="0" max="360" value={bearing} onChange={event => setBearing(event.target.value)} /></label>
       <button disabled={state.busy || !!state.pending || !connected || !bearing.trim()}>Turn rotor</button>
       {target?.shortPathBearing != null && <button type="button" disabled={state.busy || !!state.pending || !connected}
         onClick={() => void move(target.shortPathBearing!, `${target.callsign} SP`)}>Move SP</button>}
       {target?.longPathBearing != null && <button type="button" disabled={state.busy || !!state.pending || !connected}
         onClick={() => void move(target.longPathBearing!, `${target.callsign} LP`)}>Move LP</button>}
-      <button type="button" aria-label="Stop rotor" disabled={!rotor?.owner || stopping} onClick={() => void stop()}>{stopping ? "Stopping…" : "Stop"}</button>
+      {stopButton}
       {rotor?.owner === "hamlib" && onPark && <button type="button" aria-label="Park rotor" disabled={!connected || parking}
-        onClick={() => void park()}>{parking ? "Parking…" : "Park"}</button>}</form>
+        onClick={() => void park()}>{parking ? "Parking…" : "Park"}</button>}</form>}
     {feedback && <p className={feedback.error ? "live-station-error" : undefined} role={feedback.error ? "alert" : "status"}>{feedback.message}</p>}
     <ManualRotorStatus session={session} onResolved={operation => setFeedback(current => current?.gotoOperation === operation ? null : current)} />
   </section>;

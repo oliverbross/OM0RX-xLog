@@ -62,24 +62,28 @@ export function DetachedRotorSurface() {
         reply.result.backend_available === false || reply.result.generation < captured.generation)
       throw new Error("Rotor Park acknowledgement could not be verified. Check the observed state before trying again.");
   };
-  return <div className="app live detached-task-app detached-rotor-app"><main aria-label="Detached Rotor"><section className="detached-rotor-observation" aria-label="Rotor state">
-    <div className="detached-rotor-visual"><RotorCompass connected={current} azimuth={rotor.azimuth} path="SP" />
-    <div className="live-station-readback"><div><span role="status">{current ? "Observed bearing" : snapshot ? "Position unavailable or stale" : "No rotor observation available"}</span>
-      <strong>{validBearing ? `${rotor.azimuth.toFixed(1)}°` : "Unavailable"}</strong></div></div></div>
-    <div className="detached-rotor-details">{contestTarget?.available && <div className="live-station-readback" aria-label="Contest rotor target"><div>
-      <span>{contestTarget.callsign}</span><strong>SP {contestTarget.shortPathBearing == null ? "—" : `${contestTarget.shortPathBearing.toFixed(1)}°`} · LP {contestTarget.longPathBearing == null ? "—" : `${contestTarget.longPathBearing.toFixed(1)}°`}</strong>
-    </div></div>}<div className="live-actions detached-rotor-actions">
+  const target = contestTarget?.available && contestTarget.callsign ? {
+    callsign: contestTarget.callsign, shortPathBearing: contestTarget.shortPathBearing, longPathBearing: contestTarget.longPathBearing,
+  } : null;
+  const automaticControls = <><div className="live-actions detached-rotor-actions">
       <label title="Follow the resolved callsign using the native rotor. Selected spots wait for confirmed radio tuning. Stop or reconnect disables automatic turns.">
         <input type="checkbox" aria-label="Auto rotor" checked={armed} disabled={!armed && (!canArm || arming)}
           onChange={event => { void changeAutomatic(event.target.checked); }} />{automatic.state ? "Auto rotor" : "Auto rotor unavailable"}</label>
       <button type="button" aria-label="Turn automatic rotor off" title="Disarm future automatic turns."
         onClick={() => { void changeAutomatic(false); }}>Off</button>
     </div>
-    {(autoError || automatic.error) && <p className="live-error" role="alert">{autoError || automatic.error}</p>}
-    <ManualRotorControl observation={{ available: current, snapshot }} target={contestTarget?.available && contestTarget.callsign ? {
-      callsign: contestTarget.callsign, shortPathBearing: contestTarget.shortPathBearing, longPathBearing: contestTarget.longPathBearing,
-    } : null}
+    {(autoError || automatic.error) && <p className="live-error" role="alert">{autoError || automatic.error}</p>}</>;
+  const manualControls = <ManualRotorControl observation={{ available: current, snapshot }} target={target}
       onManual={() => automatic.state?.armed ? changeAutomatic(false) : undefined}
-      onPark={parkCurrent} hideHeading /></div>
+      onPark={parkCurrent} hideHeading contestLayout={!!contestContext} />;
+  return <div className="app live detached-task-app detached-rotor-app"><main aria-label="Detached Rotor"><section
+    className={`detached-rotor-observation${contestContext ? " is-contest-rotor" : ""}`} aria-label="Rotor state">
+    {contestContext && <div className="detached-rotor-details">{manualControls}</div>}
+    <div className="detached-rotor-visual"><RotorCompass connected={current} azimuth={rotor.azimuth}
+      target={contestContext ? target?.shortPathBearing : undefined} path="SP"
+      readout={contestContext ? { call: target?.callsign ?? "NO TARGET", status: current ? "Observed rotor bearing" : "Rotor telemetry unavailable" } : undefined} />
+    {!contestContext && <div className="live-station-readback"><div><span role="status">{current ? "Observed bearing" : snapshot ? "Position unavailable or stale" : "No rotor observation available"}</span>
+      <strong>{validBearing ? `${rotor.azimuth.toFixed(1)}°` : "Unavailable"}</strong></div></div>}</div>
+    {contestContext ? <div className="detached-rotor-secondary">{automaticControls}</div> : <div className="detached-rotor-details">{automaticControls}{manualControls}</div>}
   </section></main></div>;
 }

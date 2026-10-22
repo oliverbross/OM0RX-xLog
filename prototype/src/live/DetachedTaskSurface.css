@@ -24,9 +24,26 @@
 .detached-rotor-details .live-error { margin: 0; }
 .detached-rotor-app .live-station-readback { padding: 0; border: 0; background: none; text-align: center; }
 .detached-rotor-app .live-station-readback > div { align-items: center; }
+.detached-rotor-observation.is-contest-rotor { grid-template-columns: minmax(0, 1fr); align-content: start; justify-items: stretch; gap: 10px; width: min(100%, 420px); }
+.is-contest-rotor .detached-rotor-details { order: 1; align-items: stretch; gap: 8px; }
+.is-contest-rotor .detached-rotor-visual { order: 2; }
+.is-contest-rotor .detached-rotor-secondary { order: 3; display: grid; justify-items: center; gap: 6px; min-width: 0; }
+.is-contest-rotor .rotor-dial { width: min(100%, 280px, max(170px, calc(100dvh - 230px))); }
+.contest-rotor-command-deck { display: grid; gap: 8px; width: 100%; margin: 0; padding: 0; border: 0; background: none; }
+.contest-rotor-primary-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.contest-rotor-primary-actions button { min-height: 38px; font-weight: 700; }
+.contest-rotor-primary-actions button:first-child { border-color: color-mix(in srgb, var(--coral, #ff6b5e) 58%, var(--border)); }
+.contest-rotor-cardinals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.contest-rotor-cardinals button { min-height: 32px; padding-inline: 6px; }
+.contest-rotor-manual { border-top: 1px solid var(--border); padding-top: 6px; }
+.contest-rotor-manual summary { color: var(--secondary); cursor: pointer; font-size: 11px; }
+.contest-rotor-manual .live-station-inline { margin-top: 8px; }
+.contest-rotor-manual label { flex: 1 1 120px; }
+.contest-rotor-manual input { width: 100%; }
 @container detached-rotor (max-width: 480px) {
   .detached-rotor-observation { grid-template-columns: minmax(0, 1fr); align-content: start; justify-items: center; gap: 12px; }
   .detached-rotor-details { align-items: center; }
   .detached-rotor-actions { justify-content: center; }
+  .is-contest-rotor .detached-rotor-details { align-items: stretch; width: 100%; }
 }
 @media (max-width: 480px) { .detached-task-app > main { padding: 12px; } }

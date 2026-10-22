@@ -146,6 +146,9 @@ it("contest Remote VFO reuses observations and manual tune without connection or
   expect(screen.getByText("Observed live")).toBeTruthy();
   expect(screen.getByLabelText("Shared manual simplex tune")).toBeTruthy();
   expect(screen.getByLabelText("Remote VFO controls")).toBeTruthy();
+  const disclosure = screen.getByText("Station controls").closest("details");
+  expect(disclosure?.hasAttribute("open")).toBe(false);
+  expect(disclosure?.textContent).toContain("Remote Station Agent");
   expect(screen.queryByLabelText("Radio connections")).toBeNull();
   expect(screen.queryByLabelText(/Rotor/i)).toBeNull();
   expect(screen.queryByText("Transmit frequency")).toBeNull();

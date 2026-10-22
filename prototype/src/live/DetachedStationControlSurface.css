@@ -22,17 +22,21 @@
 .detached-station-control-app dd { margin: 0; overflow-wrap: anywhere; }
 .detached-station-control-app .live-station-error { margin: 8px 0; }
 .detached-station-control-app .live-station-card { margin-top: 20px; padding: 0; border: 0; background: none; }
-.contest-remote-vfo-app > main { grid-template-rows: auto auto; overflow: hidden; gap: 12px; padding: 12px; }
+.contest-remote-vfo-app > main { grid-template-rows: auto minmax(0, 1fr); overflow: hidden; gap: 8px; padding: 10px; }
 .contest-remote-vfo { display: grid; gap: 8px; min-width: 0; }
 .contest-remote-vfo header { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .contest-remote-vfo header h2 { margin: 0; color: var(--secondary); text-transform: uppercase; letter-spacing: .1em; font-size: 10px; }
 .contest-remote-vfo-status { color: var(--secondary); font-size: 10px; white-space: nowrap; }
 .contest-remote-vfo-status.is-live { color: var(--teal); }
-.contest-remote-vfo-readback { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: baseline; gap: 4px 12px; min-width: 0; padding: 14px 16px; border: 1px solid #24516a; border-radius: 7px; background: linear-gradient(125deg, #0d2635, #0b1728 70%); }
+.contest-remote-vfo-readback { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: baseline; gap: 3px 10px; min-width: 0; padding: 12px 14px; border: 1px solid #24516a; border-radius: 7px; background: var(--panel); }
 .contest-remote-vfo-readback > span { color: var(--secondary); font-size: 9px; font-weight: 700; letter-spacing: .12em; }
 .contest-remote-vfo-readback strong { min-width: 0; color: var(--cyan); font: 600 clamp(25px, 7vw, 48px)/1 ui-monospace, SFMono-Regular, Consolas, monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .contest-remote-vfo-readback b { color: var(--amber); font-size: 13px; }
 .contest-remote-vfo-readback small { grid-column: 2 / -1; color: var(--secondary); font-size: 9px; }
+.contest-remote-vfo-controls { min-width: 0; min-height: 0; overflow: auto; border-top: 1px solid var(--border); }
+.contest-remote-vfo-controls > summary { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 7px 2px; color: var(--secondary); cursor: pointer; font-size: 11px; font-weight: 700; }
+.contest-remote-vfo-controls > summary small { min-width: 0; overflow: hidden; font-size: 9px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.contest-remote-vfo-controls[open] > summary { color: var(--text); }
 .contest-remote-vfo-app .detached-station-setup { align-self: start; }
 .contest-remote-vfo-app .detached-station-setup > section { display: grid; grid-template-columns: minmax(0, 1fr) minmax(82px, auto) auto; align-items: end; gap: 6px 8px; }
 .contest-remote-vfo-app .detached-station-setup h3 { grid-column: 1 / -1; margin: 0; }
