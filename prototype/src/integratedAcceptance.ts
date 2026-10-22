@@ -169,6 +169,8 @@ async function main(report: Json) {
   const parsed = await worker("parse_adif", { text: "<CALL:4>W1AW<QSO_DATE:8>20260101<TIME_ON:6>120000<BAND:3>20m<MODE:3>SSB<FREQ:5>14.24<COMMENT:17>Synthetic fixture<APP_XLOG_TEST:7>fixture<EOR>" });
   check("worker_parse_adif", validWorkerResult("parse_adif", parsed));
 
+  await navigate("Operator Desk");
+  await waitForAcceptance("operator desk after settings", () => !!document.querySelector('[aria-label="Desk Callsign"]'));
   await fill('[aria-label="Desk Callsign"]', "W1AW");
   await fill('[aria-label="Desk Frequency MHz"]', "14.240000");
   await fill('[aria-label="Desk Mode"]', "SSB");
