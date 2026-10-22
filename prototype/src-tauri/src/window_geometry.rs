@@ -258,11 +258,14 @@ mod tests {
         assert_eq!(effective_minimum("logbook", &display("external", 0, 2.0), (4.0, 30.0)), (640.0, 480.0));
         assert_eq!(effective_minimum("log-qso", &display("external", 0, 2.0), (4.0, 30.0)), (640.0, 480.0));
         assert_eq!(effective_minimum("propagation", &display("external", 0, 2.0), (4.0, 30.0)), (480.0, 190.0));
-        assert_eq!(effective_minimum("contest--active-qso", &small, (4.0, 30.0)), (560.0, 360.0));
-        assert_eq!(effective_minimum("contest--callsign-intelligence", &small, (4.0, 30.0)), (480.0, 420.0));
+        assert_eq!(effective_minimum("contest--active-qso", &small, (4.0, 30.0)), (680.0, 400.0));
+        assert_eq!(effective_minimum("contest--callsign-intelligence", &small, (4.0, 30.0)), (480.0, 470.0));
+        assert_eq!(effective_minimum("contest--band-maps", &small, (4.0, 30.0)), (420.0, 470.0));
+        assert_eq!(effective_minimum("contest--dx-cluster", &small, (4.0, 30.0)), (720.0, 300.0));
+        assert_eq!(effective_minimum("contest--propagation", &small, (4.0, 30.0)), (400.0, 180.0));
         assert_eq!(effective_minimum("contest--monitor", &small, (4.0, 30.0)), (300.0, 240.0));
-        assert_eq!(effective_minimum("contest--station-control", &small, (4.0, 30.0)), (420.0, 300.0));
-        assert_eq!(effective_minimum("contest--rotor", &small, (4.0, 30.0)), (420.0, 360.0));
+        assert_eq!(effective_minimum("contest--station-control", &small, (4.0, 30.0)), (440.0, 220.0));
+        assert_eq!(effective_minimum("contest--rotor", &small, (4.0, 30.0)), (420.0, 420.0));
     }
     #[test]
     fn wayland_size_changes_preserve_preferred_display_origin_and_dpi() {
