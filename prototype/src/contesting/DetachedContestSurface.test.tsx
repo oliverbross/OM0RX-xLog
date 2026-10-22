@@ -578,8 +578,8 @@ it.each(["band-maps","dx-cluster"] as const)("selects shared spots from the cont
   if(panelID==="dx-cluster"){
     expect(screen.getByText("1 live · 1 shown / 25 received")).toBeTruthy();
     expect(screen.queryByLabelText("Spot filters")).toBeNull();
-    expect(screen.getByRole("button",{name:"Connect"})).toBeTruthy();
-    expect(screen.getByRole("button",{name:"Disconnect"})).toBeTruthy();
+    expect(screen.getByRole("button",{name:"Connect"})).toHaveProperty("disabled",true);
+    expect(screen.getByRole("button",{name:"Disconnect"})).toHaveProperty("disabled",false);
     expect(screen.getByLabelText("Contest cluster connections").textContent).toContain("ShackCQ · Connected");
     expect(screen.queryByRole("button",{name:/^(Refresh|Console|Settings)$/})).toBeNull();
   }
@@ -609,9 +609,10 @@ it.each([
     connectedClusters:phase==="connected"?1:0,loadedSpots:1,selectedSpotID:null,
     configuredClusters:[{serverID:"server-1",serverName:"ShackCQ",enabled:true}],
     connections:[{serverID:"server-1",serverName:"ShackCQ",phase,error:null}],markedOnly:false,spots:[sharedSpot],busy:false};
+  let finishWorker!:()=>void;
   native.invoke.mockImplementation(async(command,args)=>{
     if(command==="contest_surface_snapshot")return {...snapshot,panelID:"dx-cluster",projection:view};
-    if(command==="worker_request")return {id:args.request.id,ok:true,result:{snapshot:{spots:[]}}};
+    if(command==="worker_request")return new Promise(resolve=>{finishWorker=()=>resolve({id:args.request.id,ok:true,result:{snapshot:{spots:[]}}});});
     throw new Error(`unexpected ${command}`);
   });
   const rendered=render(<DetachedContestSurface/>);
@@ -624,13 +625,34 @@ it.each([
   const reconciled={...view,connections:[{...view.connections[0],phase:method==="cluster_connect"?"connected":"disconnected"}]};
   native.invoke.mockImplementation(async(command,args)=>{
     if(command==="contest_surface_snapshot")return {...snapshot,panelID:"dx-cluster",projection:reconciled};
-    if(command==="worker_request")return {id:args.request.id,ok:true,result:{snapshot:{spots:[]}}};
+    if(command==="worker_request")return new Promise(resolve=>{finishWorker=()=>resolve({id:args.request.id,ok:true,result:{snapshot:{spots:[]}}});});
     throw new Error(`unexpected ${command}`);
   });
   rendered.rerender(<DetachedContestSurface/>);
   native.wake?.();
+  finishWorker();
   await waitFor(()=>expect(screen.getByText(method==="cluster_connect"?"Cluster connected.":"Cluster disconnected.")).toBeTruthy());
   expect(native.invoke.mock.calls.some(([command])=>command==="contest_surface_action")).toBe(false);
+});
+
+it("settles a successful Cluster request when the shared connection snapshot is unchanged",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=dx-cluster"));
+  const view={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:null,
+    connectedClusters:0,loadedSpots:0,selectedSpotID:null,
+    configuredClusters:[{serverID:"server-1",serverName:"ShackCQ",enabled:true}],
+    connections:[{serverID:"server-1",serverName:"ShackCQ",phase:"disconnected",error:null}],markedOnly:false,spots:[],busy:false};
+  native.invoke.mockImplementation(async(command,args)=>{
+    if(command==="contest_surface_snapshot")return {...snapshot,panelID:"dx-cluster",projection:view};
+    if(command==="worker_request")return {id:args.request.id,ok:true,result:{snapshot:{spots:[]}}};
+    throw new Error(`unexpected ${command}`);
+  });
+  render(<DetachedContestSurface/>);
+  const connect=await screen.findByRole("button",{name:"Connect"});
+  expect(screen.getByRole("button",{name:"Disconnect"})).toHaveProperty("disabled",true);
+  fireEvent.click(connect);
+  await waitFor(()=>expect(screen.getByText("Cluster connected.")).toBeTruthy());
+  expect(connect).toHaveProperty("disabled",false);
+  expect(native.invoke.mock.calls.filter(([command])=>command==="worker_request")).toHaveLength(1);
 });
 
 it("shows a shared-owner Cluster failure without retrying it",async()=>{

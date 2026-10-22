@@ -197,8 +197,9 @@ type Send = (action: ContestSurfaceAction, projectionRevision:number,
 function ContestSpots({panelID,projection,projectionRevision,send}:{panelID:"band-maps"|"dx-cluster";projection:ContestSpotSurfaceProjection;
     projectionRevision:number;send:Send}) {
   const [stationContext,setStationContext]=useState<MonitorContext|null>(null);
-  const [clusterPending,setClusterPending]=useState<null|{method:"cluster_connect"|"cluster_disconnect";signature:string}>(null),
+  const [clusterPending,setClusterPending]=useState<null|{requestID:number;method:"cluster_connect"|"cluster_disconnect";signature:string}>(null),
     [clusterError,setClusterError]=useState(""),[clusterMessage,setClusterMessage]=useState("");
+  const clusterRequestID=useRef(0),clusterSignatureRef=useRef("");
   const clusterAgeKey="xlog.integration.contest.cluster-age-minutes.v1";
   const [clusterAgeMinutes,setClusterAgeMinutes]=useState<typeof BAND_MAP_AGES[number]>(()=>{
     try { const stored=Number(localStorage.getItem(clusterAgeKey));return BAND_MAP_AGES.includes(stored as typeof BAND_MAP_AGES[number])
@@ -211,8 +212,10 @@ function ContestSpots({panelID,projection,projectionRevision,send}:{panelID:"ban
   const receiveBandwidth=panelID==="band-maps"?observedReceiveBandwidthHz(stationContext):null;
   const clusterSignature=JSON.stringify(projection.connections.map(connection=>[
     connection.serverID,connection.phase,connection.error??null]));
+  clusterSignatureRef.current=clusterSignature;
   useEffect(()=>{if(!clusterPending||clusterPending.signature===clusterSignature)return;
     const failures=projection.connections.filter(connection=>connection.phase.toLowerCase()==="failed"&&connection.error);
+    clusterRequestID.current+=1;
     setClusterPending(null);
     if(failures.length){setClusterError(failures.map(connection=>`${connection.serverName}: ${connection.error}`).join(" · "));setClusterMessage("");return;}
     setClusterError("");setClusterMessage(clusterPending.method==="cluster_connect"?"Cluster connected.":"Cluster disconnected.");
@@ -263,18 +266,26 @@ function ContestSpots({panelID,projection,projectionRevision,send}:{panelID:"ban
   const clusterSnapshot={snapshot:{connectedClusters:projection.connectedClusters,loadedSpots:projection.loadedSpots,contactCount:0,contactRevision:0,
     logbookDataLoaded:false,countryDataLoaded:false,connections:projection.connections,spots:visibleClusterSpots,console:[]}};
   const activeConnections=projection.connections.filter(connection=>!["disconnected","failed"].includes(connection.phase.toLowerCase()));
+  const enabledClusters=projection.configuredClusters.filter(server=>server.enabled),connectedServerIDs=new Set(projection.connections
+    .filter(connection=>connection.phase.toLowerCase()==="connected").map(connection=>connection.serverID));
+  const connectSatisfied=enabledClusters.length>0&&enabledClusters.every(server=>connectedServerIDs.has(server.serverID));
   const clusterAction=async(method:"cluster_connect"|"cluster_disconnect")=>{if(clusterPending)return;
-    setClusterPending({method,signature:clusterSignature});setClusterError("");
+    const requestID=++clusterRequestID.current,signature=clusterSignature;
+    setClusterPending({requestID,method,signature});setClusterError("");
     setClusterMessage(method==="cluster_connect"?"Connecting to configured clusters…":"Disconnecting configured clusters…");
-    try{await requestViaSession(method);}
-    catch(cause){setClusterPending(null);setClusterMessage("");setClusterError(message(cause));}};
+    try{await requestViaSession(method);
+      if(clusterRequestID.current!==requestID||clusterSignatureRef.current!==signature)return;
+      clusterRequestID.current+=1;setClusterPending(null);setClusterError("");
+      setClusterMessage(method==="cluster_connect"?"Cluster connected.":"Cluster disconnected.");}
+    catch(cause){if(clusterRequestID.current!==requestID)return;clusterRequestID.current+=1;
+      setClusterPending(null);setClusterMessage("");setClusterError(message(cause));}};
   return <section className="contest-spots" aria-label="Contest Cluster">{workflow}<div className="contest-cluster-controls">
     <div role="status" aria-label="Contest cluster connections">{projection.connections.length?projection.connections.map(connection=>{const phase=connection.phase.toLowerCase();return <span key={connection.serverID}
       className={phase==="connected"?"live-cluster-connected":"live-cluster-disconnected"}>{connection.serverName} · {phase.charAt(0).toUpperCase()+phase.slice(1)}{connection.error&&<small> · {connection.error}</small>}</span>;}):
       projection.configuredClusters.filter(server=>server.enabled).map(server=><span className="live-cluster-disconnected" key={server.serverID}>{server.serverName} · Disconnected</span>)}</div>
     <div><label>Clear older<select aria-label="Cluster spot age" value={clusterAgeMinutes}
       onChange={event=>setClusterAgeMinutes(Number(event.currentTarget.value) as typeof BAND_MAP_AGES[number])}>{BAND_MAP_AGES.map(value=><option key={value} value={value}>{value} min</option>)}</select></label>
-      <button type="button" disabled={projection.busy||clusterPending!==null||!projection.configuredClusters.some(server=>server.enabled)} onClick={()=>void clusterAction("cluster_connect")}>Connect</button>
+      <button type="button" disabled={projection.busy||clusterPending!==null||enabledClusters.length===0||connectSatisfied} onClick={()=>void clusterAction("cluster_connect")}>Connect</button>
       <button type="button" disabled={projection.busy||clusterPending!==null||activeConnections.length===0} onClick={()=>void clusterAction("cluster_disconnect")}>Disconnect</button></div>
     {clusterError&&<p role="alert">{clusterError}</p>}{clusterMessage&&<p role="status">{clusterMessage}</p>}
   </div><ClusterPanel passive presentationOnly taskOnly snapshot={clusterSnapshot}
