@@ -1,4 +1,4 @@
-# Not1MM operator acceptance — updated 22 October 2026
+# Not1MM operator acceptance — updated 23 October 2026
 
 This checkpoint records demonstrated desktop behavior for the original executable
 Not1MM Python/SQLite host inside xLog. It is not a claim that the complete Not1MM
@@ -8,6 +8,70 @@ port or a public macOS release is finished.
 > later section in this file is retained as historical evidence for its named
 > candidate only. In particular, earlier 46/94, 64/94 and HF-only limitations
 > do not describe the current source or the installed 1.3.0 milestone.
+
+## 1.3.0 CQ WW SSB readiness candidate — exact installed source
+
+- The installed application is version/build `1.3.0` from clean canonical
+  `main` source `bdea06f1621e55a4185d6801be91f1d2c8978575`; the embedded
+  Python-runtime receipt records that exact commit and an empty
+  `sourceChanges` array. The built and installed main executable hashes match
+  at `84fefb6a9bc2459ed016a2ff6b9ad64f85c3ee0da3fd83ac2248f4a2a34935d9`;
+  worker hashes match at
+  `5d721cd77a0490219c273c69ced6195c9f20e56d452e1b40ec9623d45f877d80`.
+  Developer ID deep/strict verification passes. This local acceptance candidate
+  is not notarized; Gatekeeper correctly identifies it as an unnotarized
+  Developer ID build, so it is not yet a public release artifact.
+- The CQ WW SSB entry contract is RS plus CQ zone: the installed Main Logging
+  window shows SSB, sent `59`, received `59`, and the editable received CQ Zone
+  field while OM0RX's station CQ zone `15` remains the sent exchange. Its
+  six-band ladder is 160/80/40/20/15/10. Run/S&P controls and F1-F12 phone
+  macros remain permanently visible. Ordinary Escape handling is now scoped to
+  stopping contest keyer/Auto-CQ output and no longer depends on rotor
+  availability; a true process restart showed no stale rotor/action banner.
+- The exact-source isolated family rehearsal passed with 24 synthetic contacts
+  across CQ WW CW/SSB and CQ WPX CW/SSB. CQ WW SSB logged six contacts on 20 m
+  and 40 m with 14 points, 12 country/zone-by-band multipliers and claimed score
+  168; CQ WW CW also scored 168, and both WPX cases scored 63. The run performed
+  16 Cabrillo/ADIF export assertions, 104 nontransmitting simulated output
+  intents, 484 framed host requests, a valid seven-call SCP import, host restart,
+  bounded response/shutdown probes and protected-database metadata comparison.
+  The protected database metadata was unchanged. Evidence is
+  `/tmp/xlog-cqww-bdea06f1-final4/evidence/outer-runner.json` (SHA-256
+  `83c1b6198355938f6e4b30cf14f4d489049f198b974e360c357503368b2de327`)
+  and `acceptance.json` (SHA-256
+  `815c23c4224d173a5f1a5ad19ee471bf5b97d6dd58dbf45ab46b2ef5311a8d6b`).
+- Through the exact installed bundle, the saved CQ WW SSB session restored the
+  separate Main Logging, Band Map, Stats, Log Display, Check Partial, Rates and
+  Cluster desk, plus the menu-opened original auxiliary windows. Check Partial
+  reported active `MASTER.SCP` and returned OM0AAO-family matches. Cluster was
+  connected, filled its window without a row scrollbar, exposed bottom paging,
+  showed full calls and numeric contest points, and its Marked-only checkbox was
+  verified checked and then unchecked. Band Map showed full calls, red
+  three-point needed spots and Show worked off by default. Log Display, Stats,
+  Rates and Score Reporting all loaded from the same zero-contact real session;
+  the synthetic run above, not production data, exercised populated logbook and
+  scoring behavior. Callsign Details resolved the saved QRZ-backed OM0AAO
+  details. No real QSO was created, edited or deleted.
+- Configuration Settings now exposes the installed voice workflow: explicit
+  sound output and microphone selection, managed profile folder, and bounded
+  F1-F12 Record/Preview/Run/S&P mappings. Source validation covers mono PCM WAV
+  size, RIFF/chunk/frame integrity and replacement confirmation. This installed
+  pass inspected the controls only; it did not grant microphone permission,
+  play audio, claim PTT, key the Flex radio, move the rotor or transmit RF.
+- Exact-source GitHub CI run `39838421283` passed. The Mac-first prototype and
+  package workflow `39838421102` also completed successfully, but its Linux and
+  Windows runtime jobs were skipped and are not counted as portability proof.
+  Dedicated Contest portability workflow `39842754627` then passed all seven
+  jobs at exact source `bdea06f1621e55a4185d6801be91f1d2c8978575`, including
+  contest definition generation plus native and broad contest tests on macOS,
+  Ubuntu and Windows.
+
+Remaining external acceptance is deliberately short: record and preview the
+operator's actual voice macros through the intended Flex/DAX audio path, then
+verify PTT/RF only under the existing station authorization; exercise
+simultaneous two-Mac multi-operator logging/serial/chat behavior; and make one
+credentialed RTC scoreboard post. Those external steps are not implied by the
+94-plugin registry or by this nontransmitting rehearsal.
 
 ## 1.3.0 finishing candidate — transfer semantics, staged replicas and RTC submission
 
