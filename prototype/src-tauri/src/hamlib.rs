@@ -433,6 +433,25 @@ pub(crate) fn saved_radio_configuration(value: &Value) -> Result<Value, String> 
     Ok(value.clone())
 }
 
+fn radio_connection_identity(params: &Value) -> Result<String, String> {
+    let keys: &[&str] = match params["mode"].as_str() {
+        Some("managed") => &["mode", "model", "path", "baud", "serial"],
+        Some("external") => &["mode", "host", "port"],
+        _ => return Err("Choose managed or external Hamlib mode.".into()),
+    };
+    let mut configuration = serde_json::Map::new();
+    for key in keys {
+        if let Some(value) = params.get(*key) {
+            configuration.insert((*key).into(), value.clone());
+        }
+    }
+    if params["mode"] == "external" && !configuration.contains_key("host") {
+        configuration.insert("host".into(), Value::String("127.0.0.1".into()));
+    }
+    serde_json::to_string(&saved_radio_configuration(&Value::Object(configuration))?)
+        .map_err(|_| "Hamlib radio identity is invalid".into())
+}
+
 fn start_external(device: Device, params: &Value, generation: u64) -> Result<Session, String> {
     let address = loopback_address(params)?;
     let (reader, writer) = connect_stream(address)?;
@@ -1448,15 +1467,14 @@ fn dispatch(method: &str, params: &Value) -> Result<Value, String> {
                 return Err("Device already has a Hamlib session; disconnect it first".into());
             }
             validate_connection_config(params)?;
+            let identity = if device == Device::Radio {
+                Some(radio_connection_identity(params)?)
+            } else { None };
             let mut claimed_tx = false;
             if device == Device::Radio && params["tx_enabled"] == true {
                 crate::radio_slots::claim_tx(radio_id.unwrap())?;
                 claimed_tx = true;
             }
-            let identity = if device == Device::Radio {
-                Some(serde_json::to_string(&saved_radio_configuration(params)?)
-                    .map_err(|_| "Hamlib radio identity is invalid")?)
-            } else { None };
             if let Some(identity) = identity.as_ref() {
                 let index = crate::radio_slots::index(radio_id.unwrap())?;
                 let identities = RADIO_IDENTITIES.get_or_init(|| Mutex::new([None, None])).lock()
