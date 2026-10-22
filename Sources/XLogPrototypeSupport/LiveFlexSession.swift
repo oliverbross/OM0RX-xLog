@@ -54,6 +54,7 @@ actor LiveFlexSession {
     private var guiPTTLatestRevision: UInt64 = 0
     private var guiPTTDesired: Bool?
     private var guiPTTOnPending = 0
+    private var guiPTTReleaseOverlappedPendingOn = false
     private var ownsCW = false
     private var ownsTune = false
 
@@ -186,6 +187,7 @@ actor LiveFlexSession {
         connectionGeneration &+= 1
         self.radio = nil
         guiPTT=StationGUIPTT();guiPTTAfterRevision=nil;guiPTTDesired=nil;guiPTTLatestRevision=0
+        guiPTTReleaseOverlappedPendingOn=false
         configuration = nil
         observed = nil
         observedAt = nil
@@ -481,8 +483,21 @@ actor LiveFlexSession {
         let radio:any FlexSessionRadio;let epoch:UInt64
         if on{(radio,epoch)=try beginControl(needsTransmit:true)}
         else{guard !transitioning,!releaseInProgress,let current=self.radio,transportState == .ready else{throw unavailable()};radio=current;epoch=operationEpoch;releaseInProgress=true}
+        let interruptedOn = !on && guiPTTOnPending > 0
+        if interruptedOn { guiPTTReleaseOverlappedPendingOn = true }
         if on{guiPTTOnPending+=1}
-        defer{if on{activeControl=false;guiPTTOnPending-=1;guiPTT.retireAcquisition();if guiPTTDesired == false{guiPTTAfterRevision=max(guiPTTAfterRevision ?? 0,guiPTTLatestRevision)}}else{releaseInProgress=false}}
+        defer{
+            if on{
+                activeControl=false;guiPTTOnPending-=1;guiPTT.retireAcquisition()
+                if guiPTTDesired == false{guiPTTAfterRevision=max(guiPTTAfterRevision ?? 0,guiPTTLatestRevision)}
+            }else{
+                if interruptedOn{
+                    guiPTTAfterRevision=max(guiPTTAfterRevision ?? 0,guiPTTLatestRevision)
+                    guiPTTReleaseOverlappedPendingOn=false
+                }
+                releaseInProgress=false
+            }
+        }
         let before=await radio.transmitObservation();guiPTTLatestRevision=max(guiPTTLatestRevision,before?.revision ?? 0);try requireEpoch(epoch)
         if on{guard let before,before.isConnected,!before.isTransmitting else{throw unavailable()}}
         let owned=guiPTT.ownerID==id
@@ -490,7 +505,12 @@ actor LiveFlexSession {
         if on{ownsPTT=true}
         do{if on||owned{try await radio.setTransmit(on)}}catch{throw rejectedControl()}
         try requireEpoch(epoch);guiPTT.acknowledged(on:on)
-        if on||owned{try await waitForTransmitObservation(radio,after:before?.revision ?? 0,epoch:epoch,on:on);if on||guiPTTOnPending==0{guiPTT.confirm(on:on);if !on{ownsPTT=false}}}
+        if on||owned{
+            try await waitForTransmitObservation(radio,after:before?.revision ?? 0,epoch:epoch,on:on)
+            if !interruptedOn && (on||guiPTTOnPending==0) {
+                guiPTT.confirm(on:on);if !on{ownsPTT=false}
+            }
+        }
         // CW and Tune obligations are intentionally untouched by GUI PTT off.
         return ["accepted":true,"confirmed":guiPTT.confirmed,"control":"ptt","enabled":on,"owner_id":id,"state":snapshot()]
     }
@@ -616,7 +636,8 @@ actor LiveFlexSession {
         observedAt = Date()
         observedTransmit = sample?.isTransmitting
         observedPower = power?.isConnected == true ? power?.level : nil
-        if let sample,let after=guiPTTAfterRevision,let desired=guiPTTDesired,sample.revision>after,sample.isConnected,!guiPTT.pending {
+        if let sample,let after=guiPTTAfterRevision,let desired=guiPTTDesired,sample.revision>after,sample.isConnected,
+           !guiPTT.pending,!guiPTTReleaseOverlappedPendingOn {
             if sample.isTransmitting==desired && (desired || guiPTTOnPending==0){guiPTT.confirm(on:desired);if !desired{ownsPTT=false}}else{guiPTT.invalidateProof()}
         }
     }

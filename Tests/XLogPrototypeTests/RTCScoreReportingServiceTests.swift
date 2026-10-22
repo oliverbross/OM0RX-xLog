@@ -131,7 +131,7 @@ struct RTCScoreReportingServiceTests {
 
     @Test("Termination cancels a manual post without applying a result")
     func terminationCancelsManualPost() async throws {
-        RTCScoreFixture.reset(status: 200, responseBody: Data(), suspended: true)
+        let probe = RTCScoreFixture.reset(status: 200, responseBody: Data(), suspended: true)
         let urlConfiguration = URLSessionConfiguration.ephemeral
         urlConfiguration.protocolClasses = [RTCScoreFixture.self]
         let service = RTCScoreReportingService(sessionConfiguration: urlConfiguration,
@@ -141,10 +141,7 @@ struct RTCScoreReportingServiceTests {
             username: "OM0RX", intervalMinutes: 2, enabled: false))
         let before = await service.status()
         let submission = Task { try await service.sendNow() }
-        for _ in 0..<10_000 {
-            if RTCScoreFixture.requestCount() != 0 { break }
-            await Task.yield()
-        }
+        #expect(await signaled(probe.started))
         #expect(RTCScoreFixture.requestCount() == 1)
 
         await service.terminate()
@@ -153,11 +150,16 @@ struct RTCScoreReportingServiceTests {
         #expect(after["posting"] as? Bool == false)
         #expect(after["consecutive_failures"] as? Int == before["consecutive_failures"] as? Int)
         #expect(after["last_outcome"] as? String == before["last_outcome"] as? String)
-        for _ in 0..<10_000 {
-            if RTCScoreFixture.cancellationCount() == 1 { break }
-            await Task.yield()
-        }
+        #expect(await signaled(probe.cancelled))
         #expect(RTCScoreFixture.cancellationCount() == 1)
+    }
+
+    private func signaled(_ semaphore: DispatchSemaphore) async -> Bool {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                continuation.resume(returning: semaphore.wait(timeout: .now() + 2) == .success)
+            }
+        }
     }
 
 
@@ -175,8 +177,14 @@ struct RTCScoreReportingServiceTests {
     }
 }
 
+private final class RTCScoreFixtureProbe: @unchecked Sendable {
+    let started = DispatchSemaphore(value: 0)
+    let cancelled = DispatchSemaphore(value: 0)
+}
+
 private final class RTCScoreFixture: URLProtocol {
     private var didRecordCancellation = false
+    private var eventProbe: RTCScoreFixtureProbe?
     private static let lock = NSLock()
     private static var captured: URLRequest?
     private static var capturedBody = Data()
@@ -186,12 +194,17 @@ private final class RTCScoreFixture: URLProtocol {
     private static var redirect = false
     private static var suspended = false
     private static var cancellations = 0
-    static func reset(status: Int, responseBody: Data = Data(), suspended: Bool = false, redirect: Bool = false) {
+    private static var probe = RTCScoreFixtureProbe()
+    @discardableResult
+    static func reset(status: Int, responseBody: Data = Data(), suspended: Bool = false,
+                      redirect: Bool = false) -> RTCScoreFixtureProbe {
+        let newProbe = RTCScoreFixtureProbe()
         lock.withLock {
             captured = nil; capturedBody = Data(); requests = 0; responseStatus = status
             self.responseBody = responseBody; self.suspended = suspended
-            self.redirect = redirect; cancellations = 0
+            self.redirect = redirect; cancellations = 0; probe = newProbe
         }
+        return newProbe
     }
     static func request() -> URLRequest? { lock.withLock { captured } }
     static func body() -> Data { lock.withLock { capturedBody } }
@@ -211,12 +224,14 @@ private final class RTCScoreFixture: URLProtocol {
                 body.append(buffer, count: count)
             }
         }
-        let (status, responseBody, suspended, redirect) = Self.lock.withLock {
+        let (status, responseBody, suspended, redirect, probe) = Self.lock.withLock {
             Self.captured = request
             Self.capturedBody = body
             Self.requests += 1
-            return (Self.responseStatus, Self.responseBody, Self.suspended, Self.redirect)
+            eventProbe = Self.probe
+            return (Self.responseStatus, Self.responseBody, Self.suspended, Self.redirect, Self.probe)
         }
+        probe.started.signal()
         if suspended { return }
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: "HTTP/1.1",
             headerFields: ["Content-Type":"application/json"])!
@@ -230,10 +245,12 @@ private final class RTCScoreFixture: URLProtocol {
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() {
-        Self.lock.withLock {
-            guard !didRecordCancellation else { return }
+        let probe = Self.lock.withLock { () -> RTCScoreFixtureProbe? in
+            guard !didRecordCancellation else { return nil }
             didRecordCancellation = true
             Self.cancellations += 1
+            return eventProbe
         }
+        probe?.cancelled.signal()
     }
 }
