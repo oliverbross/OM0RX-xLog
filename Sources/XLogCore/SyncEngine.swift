@@ -278,6 +278,64 @@ public actor SyncEngine {
         try validateSyncRun()
         let run = try database.beginSyncReconciliation()
         defer { database.endSyncReconciliation(run) }
+        var report = SyncReport()
+        let initialUpperRowID = try database.syncUpperRowID(run: run)
+        var linkedCursor: Int64 = 0
+        var linked: [QSO] = []
+        let due = Date()
+        while linked.count < 500 {
+            try validateSyncRun()
+            let step = try database.pendingSyncStep(after: linkedCursor, through: initialUpperRowID, due: due, run: run)
+            linkedCursor = step.cursor
+            linked.append(contentsOf: step.rows.filter { $0.wavelogID != nil && $0.deletedAt == nil }
+                .prefix(500 - linked.count))
+            try await betweenReconciliationSteps()
+            if step.done { break }
+        }
+        for candidate in linked {
+            try validateSyncRun()
+            guard let remoteID = candidate.wavelogID else { continue }
+            do {
+                try validateForNetwork(run)
+                let response = try await client.getQSO(id: remoteID)
+                guard let remote = QSO(wavelog: response) else {
+                    throw WavelogClientError.invalidData("The linked Wavelog QSO could not be decoded.")
+                }
+                guard let current = try database.preflightLinkedUpdate(remote: remote, localID: candidate.id, run: run) else {
+                    continue
+                }
+                let startChanged = current.start != remote.start
+                if current.end != nil && !startChanged {
+                    // The item JSON does not expose TIME_OFF. Let the complete
+                    // JSON/ADIF join decide whether an end-bearing QSO needs a
+                    // patch rather than silently treating an unknown end as nil.
+                    continue
+                }
+                var comparison = remote
+                // A missing end in the item representation is unknown, not a
+                // provider-side clear. Only the start delta can authorize a
+                // timing patch on this bounded path.
+                comparison.end = current.end
+                try validateWavelogTimingUpdate(current, comparedTo: comparison)
+                let fields = WavelogQSOUpdate(current, comparedTo: comparison)
+                if !fields.isEmpty {
+                    try validateForNetwork(run)
+                    let updated = try await client.updateQSO(id: remoteID, fields: fields)
+                    guard fields.isRepresented(by: updated) else {
+                        throw WavelogClientError.writeVerificationFailed(id: remoteID)
+                    }
+                }
+                try validateSyncRun()
+                try database.withSyncDatabaseLock(run) { try database.acknowledgeSynced(current) }
+                report.pushed += 1
+            } catch {
+                try validateSyncRun()
+                try database.withSyncDatabaseLock(run) {
+                    try database.recordSyncFailure(localID: candidate.id, message: error.localizedDescription)
+                }
+                report.failed += 1
+            }
+        }
         let snapshot = try await Self.readRemoteHistory(client: client)
         let remoteQSOs = snapshot.qsos
         let remoteByID = remoteQSOs.reduce(into: [Int: QSO]()) { result, qso in
@@ -286,7 +344,6 @@ public actor SyncEngine {
         let remoteIDs = snapshot.remoteIDs
         let protectedIDs = snapshot.heldRemoteIDs
         let protectedIdentities = snapshot.heldIdentities
-        var report = SyncReport()
         report.held = snapshot.heldRemoteIDs.count
         report.heldGroups = snapshot.heldIdentities.sorted().map { identity in
             SyncHeldContactGroup(
@@ -324,7 +381,6 @@ public actor SyncEngine {
         var pending: [QSO] = []
         var pendingCursor: Int64 = 0
         var seen = Set<UUID>()
-        let due = Date()
         while true {
             try validateSyncRun()
             let step = try database.pendingSyncStep(after: pendingCursor, through: upperRowID, due: due, run: run)
@@ -364,6 +420,7 @@ public actor SyncEngine {
                     guard let previous = remoteByID[remoteID] else {
                         throw WavelogClientError.invalidData("The linked Wavelog QSO was not present in the verified remote snapshot.")
                     }
+                    try validateWavelogTimingUpdate(qso, comparedTo: previous)
                     let fields = WavelogQSOUpdate(qso, comparedTo: previous)
                     if !fields.isEmpty {
                         try validateForNetwork(run)
@@ -423,9 +480,7 @@ private func joinedDocumentedADIFOrder(
     for (row, remote) in zip(rows, remotes) {
         guard let sparse = QSO(wavelog: remote),
               historyIdentity(row) == historyIdentity(sparse) else { return nil }
-        var value = row
-        value.wavelogID = remote.id
-        joined.append(value)
+        joined.append(row.attachingWavelogIdentity(remote))
     }
     return joined
 }
@@ -436,9 +491,7 @@ private func joinedADIF(_ rows: [QSO], with remotes: [WavelogQSO]) throws -> [QS
     }
     try validateJoinFields(rows, remotes)
     if rows.count == 1 {
-        var row = rows[0]
-        row.wavelogID = remotes[0].id
-        return [row]
+        return [rows[0].attachingWavelogIdentity(remotes[0])]
     }
     var pending = rows
     var candidates = remotes
@@ -454,9 +507,7 @@ private func joinedADIF(_ rows: [QSO], with remotes: [WavelogQSO]) throws -> [QS
                 throw WavelogClientError.invalidData(duplicateMismatchSummary(pending, candidates))
             }
             joined += zip(pending, candidates.sorted { $0.id < $1.id }).map { original, remote in
-                var row = original
-                row.wavelogID = remote.id
-                return row
+                original.attachingWavelogIdentity(remote)
             }
             break
         }
@@ -464,9 +515,9 @@ private func joinedADIF(_ rows: [QSO], with remotes: [WavelogQSO]) throws -> [QS
         for index in pending.indices {
             let matches = candidates.indices.filter { compatibleADIF(pending[index], with: candidates[$0]) }
             guard matches.count == 1 else { continue }
-            var row = pending.remove(at: index)
-            row.wavelogID = candidates.remove(at: matches[0]).id
-            joined.append(row)
+            let row = pending.remove(at: index)
+            let remote = candidates.remove(at: matches[0])
+            joined.append(row.attachingWavelogIdentity(remote))
             resolved = true
             break
         }
@@ -478,6 +529,18 @@ private func joinedADIF(_ rows: [QSO], with remotes: [WavelogQSO]) throws -> [QS
         }
     }
     return joined
+}
+
+private extension QSO {
+    func attachingWavelogIdentity(_ remote: WavelogQSO) -> QSO {
+        var value = self
+        value.wavelogID = remote.id
+        // Station identity is exposed only by the JSON representation. Retain
+        // it when enriching that row with ADIF so baseline comparisons do not
+        // manufacture a provider-side station change.
+        value.stationProfileID = remote.stationID
+        return value
+    }
 }
 
 private func validateJoinFields(_ rows: [QSO], _ remotes: [WavelogQSO]) throws {
@@ -599,6 +662,19 @@ private func roundedHertz(_ text: String, multiplier: Double = 1) -> Int64? {
     return Int64(exactly: scaled.rounded())
 }
 
+private func validateWavelogTimingUpdate(_ qso: QSO, comparedTo previous: QSO) throws {
+    guard (qso.start != previous.start || qso.end != previous.end), let explicitEnd = qso.end else { return }
+    var utc = Calendar(identifier: .gregorian)
+    utc.timeZone = TimeZone(secondsFromGMT: 0)!
+    guard utc.isDate(qso.start, inSameDayAs: explicitEnd) else {
+        // API v2 accepts TIME_OFF but not QSO_DATE_OFF. Failing closed avoids
+        // moving a cross-midnight end onto the start date at the provider.
+        throw WavelogClientError.invalidData(
+            "Wavelog API v2 cannot safely represent an explicit QSO end on a different UTC date."
+        )
+    }
+}
+
 private func isLiteralReceiveZero(_ text: String) -> Bool {
     guard Double(text) == 0 else { return false }
     // Floating-point parsing can underflow a nonzero value such as 1e-400 to
@@ -614,6 +690,10 @@ private extension QSO {
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         guard let date = formatter.date(from: value.qsoDate) else { return nil }
+        let extraFields = [
+            "SAT_NAME": value.satelliteName,
+            "SAT_MODE": value.satelliteMode,
+        ].compactMapValues { $0 }
         self.init(
             wavelogID: value.id,
             call: value.call,
@@ -643,6 +723,7 @@ private extension QSO {
             txPower: value.power ?? "",
             propagationMode: value.propagationMode ?? "",
             qslVia: value.qslVia ?? "",
+            extraFields: extraFields,
             isDirty: false
         )
     }
@@ -694,9 +775,20 @@ extension WavelogQSOUpdate {
         assign(qso.call, previous.call, field: .call, keyPath: \.call) { $0.uppercased() }
         assign(qso.band, previous.band, field: .band, keyPath: \.band) { $0.lowercased() }
         assign(effectiveMode, previousMode, field: .mode, keyPath: \.mode) { $0.uppercased() }
-        if qso.start != previous.start {
+        let startChanged = qso.start != previous.start
+        let endChanged = qso.end != previous.end
+        if startChanged || endChanged {
             qsoDate = date.string(from: qso.start)
             timeOn = time.string(from: qso.start)
+            if let explicitEnd = qso.end {
+                timeOff = time.string(from: explicitEnd)
+            } else if startChanged, let providerEnd = previous.end,
+                      date.string(from: providerEnd) == qsoDate {
+                // Wavelog couples qso_date/time_on and otherwise resets its
+                // stored TIME_OFF to the new start. Preserve a same-day
+                // provider end when xLog has no explicit local end.
+                timeOff = time.string(from: providerEnd)
+            }
         }
         if qso.frequencyHz != previous.frequencyHz {
             if let frequencyHz = qso.frequencyHz { frequency = frequencyHz }

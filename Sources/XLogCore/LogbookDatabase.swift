@@ -3223,6 +3223,21 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// A linked update already has a provider identity, so it can be
+    /// preflighted by the bounded item endpoint before the global history
+    /// scan. The stored baseline still provides the same two-sided-edit fence.
+    func preflightLinkedUpdate(remote: QSO, localID: UUID, run: SyncDatabaseRun) throws -> QSO? {
+        try withSyncDatabaseLock(run) {
+            guard let current = try lookup(localID: localID), current.isDirty,
+                  current.deletedAt == nil, current.wavelogID == remote.wavelogID else { return nil }
+            if try remoteMatchesBaseline(remote, localID: localID) { return current }
+            // A direct JSON item does not carry the ADIF-only enrichment used
+            // in conflict review. Defer mismatch recording to the complete
+            // history join; this bounded path must only authorize safe writes.
+            return nil
+        }
+    }
+
     func withDatabaseLock<T>(_ body: () throws -> T) rethrows -> T {
         syncAdmission.beginForeground()
         defer { syncAdmission.endForeground() }

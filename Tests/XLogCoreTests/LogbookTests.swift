@@ -46,11 +46,20 @@ private final class SyncURLProtocol: URLProtocol {
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         Self.lock.withLock { Self.recordedMethods.append(request.httpMethod ?? "") }
-        let body = isADIFRequest(request) ? adifResponse(
+        let body: Data
+        if request.url?.path.hasSuffix("/api/v2/qso/42") == true {
+            body = """
+            {"data":{"id":42,"call":"OM0RX","band":"20m","mode":"CW","qso_date":"2023-11-14 22:13:20","comment":"remote"}}
+            """.data(using: .utf8)!
+        } else if isADIFRequest(request) {
+            body = adifResponse(
             id: 42, call: "OM0RX", page: 1, perPage: 1000, total: 1, totalPages: 1, hasMore: false, comment: "remote"
-        ) : """
-        {"data":[{"id":42,"station_id":1,"call":"OM0RX","band":"20m","mode":"CW","qso_date":"2023-11-14 22:13:20","comment":"remote"}],"meta":{"page":1,"per_page":1000,"count":1,"total":1,"total_pages":1,"has_more":false}}
-        """.data(using: .utf8)!
+            )
+        } else {
+            body = """
+            {"data":[{"id":42,"station_id":1,"call":"OM0RX","band":"20m","mode":"CW","qso_date":"2023-11-14 22:13:20","comment":"remote"}],"meta":{"page":1,"per_page":1000,"count":1,"total":1,"total_pages":1,"has_more":false}}
+            """.data(using: .utf8)!
+        }
         let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: body)
@@ -95,16 +104,30 @@ private final class WavelogWriteURLProtocol: URLProtocol {
 
 private final class WavelogPatchURLProtocol: URLProtocol {
     private static let lock = NSLock()
-    private static var adoptPatch = true
-    private static var capturedPatch: Data?
+    private static var adoptPatchByHost: [String: Bool] = [:]
+    private static var capturedPatchByHost: [String: Data] = [:]
+    private static var recordedRequestsByHost: [String: [String]] = [:]
 
-    static func reset(adopting: Bool) {
-        lock.withLock { adoptPatch = adopting; capturedPatch = nil }
+    static func reset(adopting: Bool, host: String = "patch-fixture.invalid") {
+        lock.withLock {
+            adoptPatchByHost[host] = adopting
+            capturedPatchByHost.removeValue(forKey: host)
+            recordedRequestsByHost[host] = []
+        }
     }
-    static func patchBody() -> Data? { lock.withLock { capturedPatch } }
+    static func patchBody(host: String = "patch-fixture.invalid") -> Data? {
+        lock.withLock { capturedPatchByHost[host] }
+    }
+    static func requests(host: String = "patch-fixture.invalid") -> [String] {
+        lock.withLock { recordedRequestsByHost[host, default: []] }
+    }
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
+        let host = request.url?.host ?? ""
+        Self.lock.withLock {
+            Self.recordedRequestsByHost[host, default: []].append("\(request.httpMethod ?? "") \(request.url?.path ?? "")")
+        }
         let body: Data
         if request.httpMethod == "PATCH" {
             var requestBody = request.httpBody
@@ -118,13 +141,24 @@ private final class WavelogPatchURLProtocol: URLProtocol {
                 }
                 requestBody = captured
             }
-            Self.lock.withLock { Self.capturedPatch = requestBody }
-            let adopted = Self.lock.withLock { Self.adoptPatch }
+            Self.lock.withLock {
+                if let requestBody { Self.capturedPatchByHost[host] = requestBody }
+            }
+            let adopted = Self.lock.withLock { Self.adoptPatchByHost[host] ?? true }
+            let requested = requestBody.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+            let date = requested?["qso_date"] as? String ?? "2023-11-14"
+            let compactTime = requested?["time_on"] as? String ?? "221320"
+            let digits = compactTime.filter(\.isNumber) + "000000"
+            let time = "\(digits.prefix(2)):\(digits.dropFirst(2).prefix(2)):\(digits.dropFirst(4).prefix(2))"
             let mutable = adopted
                 ? "\"freq_rx\":null,\"band_rx\":\"\",\"comment\":\"\",\"sat_name\":\"\",\"sat_mode\":\"\""
                 : "\"freq_rx\":14082000,\"band_rx\":\"20m\",\"comment\":\"portable\",\"sat_name\":\"QO-100\",\"sat_mode\":\"U/V\""
             body = """
-            {"data":{"id":42,"station_id":1,"call":"K1ABC","band":"20m","mode":"MFSK","submode":"FT4","freq":14080000,\(mutable),"qso_date":"2023-11-14 22:13:20","prop_mode":"SAT"}}
+            {"data":{"id":42,"station_id":1,"call":"K1ABC","band":"20m","mode":"MFSK","submode":"FT4","freq":14080000,\(mutable),"qso_date":"\(date) \(time)","prop_mode":"SAT"}}
+            """.data(using: .utf8)!
+        } else if request.url?.path.hasSuffix("/api/v2/qso/42") == true {
+            body = """
+            {"data":{"id":42,"station_id":1,"call":"K1ABC","band":"20m","mode":"MFSK","submode":"FT4","freq":14080000,"freq_rx":14082000,"band_rx":"20m","qso_date":"2023-11-14 22:13:20","comment":"portable","prop_mode":"SAT","sat_name":"QO-100","sat_mode":"U/V"}}
             """.data(using: .utf8)!
         } else if isADIFRequest(request) {
             let record = ADIFRecord(fields: [
@@ -368,6 +402,22 @@ struct LogbookTests {
         changed.comment = "new comment"
         let populatedPatch = WavelogQSOUpdate(changed, comparedTo: previous)
         #expect(!populatedPatch.isRepresented(by: try JSONDecoder().decode(WavelogQSO.self, from: Data(retainedJSON.utf8))))
+
+        var retimed = previous
+        retimed.start = try #require(Calendar(identifier: .gregorian).date(byAdding: .minute, value: -30, to: previous.start))
+        let timingPatch = WavelogQSOUpdate(retimed, comparedTo: previous)
+        let timingObject = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(timingPatch)) as? [String: Any])
+        #expect(timingObject["qso_date"] as? String == "2026-10-22")
+        #expect(timingObject["time_on"] as? String == "113000")
+        #expect(timingObject["time_off"] as? String == "120500")
+
+        var clearedEnd = previous
+        clearedEnd.end = nil
+        let clearTiming = try #require(JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(WavelogQSOUpdate(clearedEnd, comparedTo: previous))) as? [String: Any])
+        #expect(clearTiming["qso_date"] as? String == "2026-10-22")
+        #expect(clearTiming["time_on"] as? String == "120000")
+        #expect(clearTiming["time_off"] == nil)
     }
 
     @Test("Wavelog create uses the documented JSON keys through fake HTTP")
@@ -625,7 +675,7 @@ struct LogbookTests {
 
         #expect(report.conflicts == 1)
         #expect(report.pushed == 0)
-        #expect(SyncURLProtocol.methods().count == 3)
+        #expect(SyncURLProtocol.methods().count == 4)
         #expect(SyncURLProtocol.methods().allSatisfy { $0 == "GET" })
         #expect(try database.fetch().first?.comment == "local")
         #expect(try database.fetch().first?.isDirty == true)
@@ -650,6 +700,7 @@ struct LogbookTests {
                 "SAT_NAME": "QO-100", "SAT_MODE": "U/V",
             ])
             var local = try #require(QSO(adif: baselineRecord, wavelogID: 42))
+            local.stationProfileID = 1
             try database.save(local, markDirty: false)
             let originalEnd = local.end
             local.receiveFrequencyHz = nil
@@ -668,6 +719,7 @@ struct LogbookTests {
                 baseURL: URL(string: "https://patch-fixture.invalid")!, token: "wl2_test", stationID: 1)
             let report = try await SyncEngine(database: database, configuration: settings, session: session).synchronize()
 
+            #expect(WavelogPatchURLProtocol.requests().contains("PATCH /api/v2/qso/42"))
             let body = try #require(WavelogPatchURLProtocol.patchBody())
             let object = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
             #expect(object["comment"] as? String == "")
@@ -683,6 +735,47 @@ struct LogbookTests {
             let lastError = try database.outboxEntries().first?.lastError
             #expect(adopted ? lastError == nil : lastError?.contains("reconciliation baseline was not advanced") == true)
         }
+    }
+
+    @Test("Sync date correction preserves explicit TIME_OFF and acknowledges the linked QSO")
+    func syncDateCorrectionRoundTrip() async throws {
+        let host = "date-patch-fixture.invalid"
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let database = try LogbookDatabase(url: directory.appendingPathComponent("test.sqlite"))
+        let baselineRecord = ADIFRecord(fields: [
+            "CALL": "K1ABC", "QSO_DATE": "20231114", "TIME_ON": "221320",
+            "QSO_DATE_OFF": "20231114", "TIME_OFF": "221820", "BAND": "20m",
+            "MODE": "MFSK", "SUBMODE": "FT4", "FREQ": "14.080000", "FREQ_RX": "14.082000",
+            "BAND_RX": "20m", "COMMENT": "portable", "PROP_MODE": "SAT",
+            "SAT_NAME": "QO-100", "SAT_MODE": "U/V",
+        ])
+        var local = try #require(QSO(adif: baselineRecord, wavelogID: 42))
+        local.stationProfileID = 1
+        try database.save(local, markDirty: false)
+        local.start = try #require(Calendar(identifier: .gregorian).date(byAdding: .minute, value: -30, to: local.start))
+        try database.save(local)
+
+        WavelogPatchURLProtocol.reset(adopting: true, host: host)
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [WavelogPatchURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel(); database.close() }
+        let settings = try WavelogConfiguration(
+            baseURL: URL(string: "https://\(host)")!, token: "wl2_test", stationID: 1)
+        let report = try await SyncEngine(database: database, configuration: settings, session: session).synchronize()
+
+        let body = try #require(WavelogPatchURLProtocol.patchBody(host: host))
+        let object = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        #expect(object["qso_date"] as? String == "2023-11-14")
+        #expect(object["time_on"] as? String == "214320")
+        #expect(object["time_off"] as? String == "221820")
+        #expect(Array(WavelogPatchURLProtocol.requests(host: host).prefix(2)) == [
+            "GET /api/v2/qso/42", "PATCH /api/v2/qso/42",
+        ])
+        #expect(report.pushed == 1 && report.failed == 0 && report.conflicts == 0)
+        #expect(try database.lookup(localID: local.id)?.isDirty == false)
+        #expect(try database.outboxEntries().isEmpty)
     }
 
     @Test("Sync completes every remote page before deletion reconciliation")

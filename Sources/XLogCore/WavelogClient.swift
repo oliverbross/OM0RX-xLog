@@ -304,6 +304,7 @@ public struct WavelogQSOUpdate: Encodable, Equatable, Sendable {
     public var mode: String?
     public var qsoDate: String?
     public var timeOn: String?
+    public var timeOff: String?
     public var frequency: Int64?
     public var receiveFrequency: Int64?
     public var receiveBand: String?
@@ -332,6 +333,7 @@ public struct WavelogQSOUpdate: Encodable, Equatable, Sendable {
         case call, band, mode, name, comment, notes, qth, state, iota
         case qsoDate = "qso_date"
         case timeOn = "time_on"
+        case timeOff = "time_off"
         case frequency = "freq"
         case receiveFrequency = "freq_rx"
         case receiveBand = "band_rx"
@@ -357,6 +359,7 @@ public struct WavelogQSOUpdate: Encodable, Equatable, Sendable {
         case call, band, mode, name, comment, notes, qth, state, iota
         case qsoDate = "qso_date"
         case timeOn = "time_on"
+        case timeOff = "time_off"
         case frequency = "freq"
         case receiveFrequency = "freq_rx"
         case receiveBand = "band_rx"
@@ -380,7 +383,7 @@ public struct WavelogQSOUpdate: Encodable, Equatable, Sendable {
 
     var isEmpty: Bool {
         let values: [Any?] = [
-            call, band, mode, qsoDate, timeOn, frequency, receiveFrequency, receiveBand,
+            call, band, mode, qsoDate, timeOn, timeOff, frequency, receiveFrequency, receiveBand,
             rstSent, rstReceived, gridSquare, name, comment, notes, qth, state, county,
             iota, qslVia, power, cqZone, ituZone, propagationMode, satelliteName,
             satelliteMode, sotaReference, potaReference, wwffReference,
@@ -403,6 +406,7 @@ public struct WavelogQSOUpdate: Encodable, Equatable, Sendable {
         try string(mode, .mode, .mode)
         try string(qsoDate, .qsoDate, .qsoDate)
         try string(timeOn, .timeOn, .timeOn)
+        try container.encodeIfPresent(timeOff, forKey: .timeOff)
         try integer(frequency, .frequency, .frequency)
         try integer(receiveFrequency, .receiveFrequency, .receiveFrequency)
         try string(receiveBand, .receiveBand, .receiveBand)
