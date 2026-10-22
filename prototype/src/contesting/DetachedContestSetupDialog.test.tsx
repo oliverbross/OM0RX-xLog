@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { configurationDialogContentHeight, DetachedContestSetupDialog, fittedConfigurationDialogHeight, isManagedConfigurationDialogHeight } from "./DetachedContestSetupDialog";
-import { newContestSetup, contestSetupTabs } from "./ContestSetupPanel";
+import { newContestSetup, contestSetupTabs, type ContestSetupDocument } from "./ContestSetupPanel";
 import { mergeSetupDialog, useContestSetupDialogs } from "./contestSetupDialogs";
 import { loadWindowSurface } from "../windowSurface";
 const native = vi.hoisted(() => ({ invoke: vi.fn(), setSize: vi.fn(), innerSize: vi.fn(), scaleFactor: vi.fn(async () => 2),
@@ -299,7 +299,7 @@ it("merges only each dialog's fields into the owner's latest setup", () => {
   expect(keys.network).toEqual(current.network);
 });
 it("uses one owner save for a repeated native request after a lost completion", async () => {
-  const source = snapshot(), save = vi.fn(async () => {}), report = vi.fn();
+  const source = snapshot(), save = vi.fn(async (_document: ContestSetupDocument) => {}), report = vi.fn();
   const pending = { ...source, requestID: "save-1", kind: "station" };
   let completions = 0;
   native.invoke.mockImplementation(async (_command, { method }) => {
@@ -363,7 +363,8 @@ it("rejects a dialog save when owner context changes while the request is being 
   expect(save).not.toHaveBeenCalled();
 });
 it("accepts a station save across unrelated setup and auxiliary projection churn", async () => {
-  const source = snapshot(), save = vi.fn(async () => {}), report = vi.fn();
+  let saved: ContestSetupDocument | undefined;
+  const source = snapshot(), save = vi.fn(async (document: ContestSetupDocument) => { saved = document; }), report = vi.fn();
   const pending = { ...source, requestID:"station-save", kind:"station" as const,
     baseDocument:source.document,baseAuxiliary:source.auxiliary,
     document:{...source.document,station:{...source.document.station,City:"Darwin"}} };
@@ -375,7 +376,7 @@ it("accepts a station save across unrelated setup and auxiliary projection churn
   view.rerender(<Owner auxiliary={{...source.auxiliary,diagnostics:{...source.auxiliary.diagnostics,version:"new-projection"}}}/>);
   await act(async()=>deliver(pending));
   await waitFor(()=>expect(save).toHaveBeenCalledOnce());
-  expect(save.mock.calls[0][0].station.City).toBe("Darwin");
+  expect(saved?.station.City).toBe("Darwin");
 });
 it("rejects a station save after the same station section changes", async () => {
   const source=snapshot(),save=vi.fn(async()=>{}),report=vi.fn();let deliver!:(value:unknown)=>void;

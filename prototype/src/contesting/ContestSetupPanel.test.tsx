@@ -84,7 +84,7 @@ it("matches station row order, saves upstream field names, and preserves unknown
 it("sources CQ WW CW and SSB sent zones from the canonical station CQ Zone", async () => {
   for (const pluginID of ["cq_ww_cw", "cq_ww_ssb"]) {
     const p = props(); p.value.pluginID = pluginID; p.value.station.CQZone = "14"; p.value.settings.SentExchange = "5";
-    if (pluginID === "cq_ww_ssb") p.catalog.push({ id: pluginID, name: "CQ WW SSB", modes: ["SSB"], sentExchangeHint: "CQ Zone No." });
+    if (pluginID === "cq_ww_ssb") p.catalog.push({ id: pluginID, name: "CQ WW SSB", modes: ["SSB"], sentExchangeHint: "CQ Zone No.", overlayChoices: ["N/A"] });
     const view = render(<ContestSetupPanel {...p}/>); open("New Contest");
     expect(screen.queryByLabelText("Sent Exchange")).toBeNull();
     expect(screen.queryByLabelText("CQ Zone No.")).toBeNull();
@@ -96,7 +96,7 @@ it("sources CQ WW CW and SSB sent zones from the canonical station CQ Zone", asy
   }
 });
 it("keeps CQ WW RTTY's editable composite exchange independent", () => {
-  const p = props(); p.value.pluginID = "cq_ww_rtty"; p.catalog.push({ id:"cq_ww_rtty", name:"CQ WW RTTY", modes:["RTTY"], sentExchangeHint:"CQ Zone + (state/VE area)" });
+  const p = props(); p.value.pluginID = "cq_ww_rtty"; p.catalog.push({ id:"cq_ww_rtty", name:"CQ WW RTTY", modes:["RTTY"], sentExchangeHint:"CQ Zone + (state/VE area)", overlayChoices:["N/A"] });
   render(<ContestSetupPanel {...p}/>); open("New Contest");
   expect(screen.getByLabelText("CQ Zone + (state/VE area)")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Edit Station CQ Zone" })).toBeNull();
