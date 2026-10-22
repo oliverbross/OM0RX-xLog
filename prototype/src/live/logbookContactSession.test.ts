@@ -2,6 +2,7 @@ import { expect, it, vi } from "vitest";
 import { LogbookContactSession, readContactJournal, type ContactJournal } from "./logbookContactSession";
 import { DraftRequestRejected } from "./operatorDraftSession";
 import { contactEditFixture } from "../../tests/contact-edit-fixture";
+import { testWorkspaceGeneration } from "../../tests/operator-draft-fixture";
 function fixture() {
   const backend = contactEditFixture({ id: "contact", call: "K1ABC", band: "20m", mode: "CW" });
   const request = vi.fn(async (method: string, params: any = {}) => backend.request(method, params));
@@ -55,6 +56,27 @@ it("retains conflicting text until the operator explicitly loads the latest cont
   await expect(second.save()).rejects.toThrow("Resolve");
   await second.useCurrent(); expect(second.getSnapshot().draft?.comment).toBe("First");
   expect(f.backend.updates).toBe(1);
+});
+it("rebases a timestamp correction over an unrelated remote change", async () => {
+  const f = fixture(), session = f.make(); await session.open("contact");
+  const correctedStart = "2026-10-22T09:43:00Z";
+  session.edit({ ...session.getSnapshot().draft!, start: correctedStart });
+  f.backend.request("logbook_contact_apply", { generation: testWorkspaceGeneration, operationID: "remote-comment",
+    contactID: "contact", expectedRevision: 1, action: "update", qso: { ...f.backend.contact.qso, comment: "Synced elsewhere" } });
+  await session.refresh();
+  expect(session.getSnapshot()).toMatchObject({ conflict: false, base: { revision: 2 },
+    draft: { start: correctedStart, comment: "Synced elsewhere" } });
+  await session.save();
+  expect(f.backend.contact).toMatchObject({ revision: 3, qso: { start: correctedStart, comment: "Synced elsewhere" } });
+});
+it("still conflicts when local and remote edits overlap", async () => {
+  const f = fixture(), session = f.make(); await session.open("contact");
+  session.edit({ ...session.getSnapshot().draft!, start: "2026-10-22T09:43:00Z" });
+  f.backend.request("logbook_contact_apply", { generation: testWorkspaceGeneration, operationID: "remote-time",
+    contactID: "contact", expectedRevision: 1, action: "update", qso: { ...f.backend.contact.qso, start: "2026-10-22T09:44:00Z" } });
+  await session.refresh();
+  expect(session.getSnapshot()).toMatchObject({ conflict: true, draft: { start: "2026-10-22T09:43:00Z" },
+    current: { qso: { start: "2026-10-22T09:44:00Z" } } });
 });
 it("keeps local text if the contact was removed, without resurrecting it", async () => {
   const f = fixture(), session = f.make(); await session.open("contact"); edit(session, "Local");

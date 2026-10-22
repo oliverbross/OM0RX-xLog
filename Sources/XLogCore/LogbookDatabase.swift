@@ -1800,7 +1800,6 @@ public final class LogbookDatabase: @unchecked Sendable {
                               current.qso.call.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                               !replacement.call.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         replacement.start = now
-                        automaticStart = false
                     }
                     try replacement.validateOperatorDraft(forSave: false)
                     if var currentPower = power {
@@ -1830,7 +1829,10 @@ public final class LogbookDatabase: @unchecked Sendable {
                     updated = nextDraft
                     automaticStart = true
                     if mutation.action == .save {
-                        let resolved = power?.applying(to: current.qso, includeProvenance: true) ?? current.qso
+                        var resolved = power?.applying(to: current.qso, includeProvenance: true) ?? current.qso
+                        if automaticStart, now.timeIntervalSince(resolved.start) >= 12 * 60 * 60 {
+                            resolved.start = now
+                        }
                         try resolved.validateOperatorDraft(forSave: true)
                         guard try lookup(localID: current.qso.id) == nil else { throw OperatorDraftError.existingContact }
                         try save(resolved, markDirty: true, onlineLogCandidate: true)

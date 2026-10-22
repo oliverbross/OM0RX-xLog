@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import LiveApp from "../src/LiveApp";
 import { operatorDraftFixture, testPreferenceSnapshot, testWorkspaceGeneration, testWorkspacePreferences } from "./operator-draft-fixture";
+import { contactEditFixture } from "./contact-edit-fixture";
 import { defaultRotorConfiguration } from "../src/live/rotorConfigurationSession";
 
 const bridge = vi.hoisted(() => ({ request: vi.fn(), native: vi.fn(), tune: null as null | ((value: any) => void), rejectActivation: null as null | ((cause: Error) => void), rotorGeneration: 4,
@@ -45,6 +46,10 @@ vi.mock("../src/live/useAutoRotor", async () => {
     } };
   } };
 });
+vi.mock("../src/live/useFollowRadio", () => ({ useFollowRadio: () => ({
+  state: { enabled: false, epoch: 0, error: "", settlementPending: false, operation: null },
+  error: "", refresh: async () => {}, set: async () => ({ enabled: false, epoch: 0, error: "", settlementPending: false, operation: null }),
+}) }));
 vi.mock("../src/live/useSpotActivation", async () => {
   const { useEffect, useRef, useState } = await import("react");
   const { SpotActivationClient } = await import("../src/live/spotActivationClient");
@@ -61,6 +66,7 @@ vi.mock("../src/live/stationTelemetry", () => ({ connectStationTelemetry: bridge
 vi.mock("../src/live/stationSelection", () => ({ nativeStationSelection: () => bridge.nativeSelection, connectStationSelection: bridge.selection, applyStationSelection: bridge.applySelection }));
 vi.mock("../src/worker", async original => ({ ...await original<typeof import("../src/worker")>(), workerRequest: bridge.request }));
 vi.mock("../src/live/operatorDraftTransport", () => ({ requestOperatorDraft: async (method: string, params: any = {}) => (await bridge.request(method, params)).result }));
+vi.mock("../src/live/logbookContactTransport", () => ({ requestLogbookContact: async (method: string, params: any = {}) => (await bridge.request(method, params)).result }));
 vi.mock("../src/Map", () => ({ default: () => <div>Map</div> }));
 vi.mock("../src/live/Conditions", () => ({ default: () => <div>Conditions</div> }));
 vi.mock("../src/live/BandMaps", async original => ({ ...await original<typeof import("../src/live/BandMaps")>(),
@@ -127,6 +133,8 @@ beforeEach(() => {
   bridge.nativeSelection = false; bridge.selection.mockReset(); bridge.selection.mockReturnValue(null); bridge.applySelection.mockReset();
   bridge.stationTelemetry.mockReset(); bridge.stationTelemetry.mockReturnValue(null); bridge.selectTelemetry.mockReset(); bridge.selectTelemetry.mockResolvedValue(undefined);
   const sharedDraft = operatorDraftFixture({ id: "draft", call: "", start: "2026-10-12T00:00:00Z", frequencyHz: 14074000, mode: "FT8", band: "20m" });
+  const loggedContact = { id: "logged-contact", call: "7P8GE", start: "2026-10-21T12:27:17Z", frequencyHz: 28030000, mode: "CW", band: "10m" };
+  const contactBackend = contactEditFixture(loggedContact);
   bridge.native.mockImplementation(async (command: string, params: any = {}) => {
     if (command === "auto_rotor_set") {
       const state = { ...bridge.autoState, armed: params.armed, epoch: bridge.autoState.epoch + 1, generation: bridge.rotorGeneration };
@@ -154,6 +162,7 @@ beforeEach(() => {
   bridge.request.mockImplementation(async (method: string, params: any = {}) => {
     const shared = sharedDraft(method, params);
     if (shared) return { result: shared };
+    if (method.startsWith("logbook_contact")) return { result: contactBackend.request(method, params) };
     if (method === "rotor_stop") {
       bridge.rotorGeneration++; bridge.intentId = null;
       bridge.autoChanged?.({ ...bridge.autoState, armed: false, epoch: bridge.autoState.epoch + 1 });
@@ -173,6 +182,7 @@ beforeEach(() => {
       })()
       : method === "workspace_rotor_configuration_receipt" ? { receipt: null }
       : method === "logbook_stats" ? { stats: { qso_count: 1 } }
+      : method === "logbook_list" ? { qsos: [loggedContact], total: 1, offset: 0, limit: 20 }
       : method === "logbook_draft" ? { qso: { id: "draft", call: "", start: "2026-10-12T00:00:00Z", frequencyHz: 14074000, mode: "FT8", band: "20m" } }
       : method === "station_snapshot" ? { source: params.provider, generated_at: Date.now() / 1000, radio: { connected: true, observed: true, frequency_hz: 14074000, mode: "DIGU" } }
       : ["rotor_snapshot", "rotor_stop", "rotor_goto"].includes(method) ? { owner: "native_dcu1", generation: bridge.rotorGeneration, intent_id: bridge.intentId, state: "active", backend_available: true, backend: { connected: true, name: "Antenna", azimuth: 53 } }
@@ -199,6 +209,21 @@ it("follows native radio telemetry without polling but Read radio still uses exp
   expect((screen.getByLabelText("Desk Frequency MHz") as HTMLInputElement).value).toBe("14.074000");
   expect(bridge.request.mock.calls.filter(([method]) => method === "station_tune")).toHaveLength(0);
   view.unmount(); expect(stop).toHaveBeenCalledOnce();
+});
+
+it("opens a logged contact without disarming automatic rotor", async () => {
+  bridge.nativeStop = true;
+  render(<LiveApp />);
+  await waitForDesk();
+  await armAutoRotor();
+  const commandsBeforeEdit = bridge.native.mock.calls.filter(([command]) => command === "auto_rotor_set").length;
+  fireEvent.click(screen.getByRole("button", { name: "Logbook" }));
+  await screen.findByText("7P8GE");
+  await waitFor(() => expect(screen.getByRole("region", { name: "Logbook contacts, scroll for more columns" }).getAttribute("aria-busy")).toBe("false"));
+  fireEvent.click(screen.getByText("7P8GE"));
+  await waitFor(() => expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("7P8GE"));
+  expect(bridge.native.mock.calls.filter(([command]) => command === "auto_rotor_set")).toHaveLength(commandsBeforeEdit);
+  expect(bridge.autoState.armed).toBe(true);
 });
 
 it("uses native rotor telemetry without a renderer poller and keeps Auto Rotor out of the desk", async () => {

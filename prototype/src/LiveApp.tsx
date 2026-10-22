@@ -914,8 +914,8 @@ function MainLiveApp() {
     return () => { active = false; clearInterval(timer); };
   }, [workspace?.workspace_exists, contactEdit.base?.qso.id, contactSession]);
   useEffect(() => {
-    if (contactEdit.base) { setFollowImmediate(false); disarmAutoRotor(); selection.current++; pendingTune.current = false; }
-  }, [contactEdit.base?.qso.id, disarmAutoRotor]);
+    if (contactEdit.base) { setFollowImmediate(false); selection.current++; pendingTune.current = false; }
+  }, [contactEdit.base?.qso.id]);
   useEffect(() => {
     if (sharedDraft.workspaceChanged || sharedDraft.conflict || sharedDraft.error && (sharedDraft.pending?.action === "save" || sharedDraft.pending?.action === "clear")) {
       setFollowImmediate(false); disarmAutoRotor(); selection.current++; pendingTune.current = false;
@@ -1078,7 +1078,7 @@ function MainLiveApp() {
         throw new Error("The shared editor changed while opening a logged contact. Your text is retained.");
       await contactSession.open(qso.id);
       editorTransition.current = false;
-      disarmAutoRotor(); setView("Log QSO");
+      setView("Log QSO");
     } finally { editorTransition.current = false; }
   });
   const drainLatestSpot = () => {

@@ -9,6 +9,21 @@ export type ContactEditState = { base: DraftSnapshot | null; draft: DraftQSO | n
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
 const clone = <T>(value: T): T => structuredClone(value);
 const empty = (): ContactEditState => ({ base: null, draft: null, pending: null, conflict: false, current: null, error: "", locked: false, workspaceChanged: false, activationFrozen: false });
+export function rebaseNonOverlappingContact(base: DraftQSO, draft: DraftQSO, current: DraftQSO): DraftQSO | null {
+  const keys = new Set([...Object.keys(base), ...Object.keys(draft), ...Object.keys(current)]);
+  const merged: Record<string, unknown> = clone(current);
+  for (const key of keys) {
+    const before = (base as Record<string, unknown>)[key], local = (draft as Record<string, unknown>)[key];
+    const remote = (current as Record<string, unknown>)[key];
+    const localChanged = !sameDraftValue(local, before), remoteChanged = !sameDraftValue(remote, before);
+    if (localChanged && remoteChanged && !sameDraftValue(local, remote)) return null;
+    if (localChanged) {
+      if (Object.prototype.hasOwnProperty.call(draft, key)) merged[key] = clone(local);
+      else delete merged[key];
+    }
+  }
+  return merged as DraftQSO;
+}
 export function readContactJournal(raw: string | null): ContactJournal | null {
   try {
     if (!raw || raw.length > 100_000) return null;
@@ -107,6 +122,13 @@ export class LogbookContactSession {
       if (!sameGeneration(response.generation, base.generation)) { this.changedWorkspace(); return; }
       const current = this.checked(response?.contact, base.qso.id);
       if (sameDraftValue(current, base) || this.state.conflict && sameDraftValue(current, this.state.current)) return;
+      if (current && !current.qso.deletedAt && this.state.draft) {
+        const rebased = rebaseNonOverlappingContact(base.qso, this.state.draft, current.qso);
+        if (rebased) {
+          this.update({ base: clone(current), draft: rebased, conflict: false, current: null, error: "" });
+          return;
+        }
+      }
       this.update({ conflict: true, current: clone(current), error: "This logged contact changed elsewhere. Your unsaved text is retained." });
     })().finally(() => { this.reading = null; });
     return this.reading;

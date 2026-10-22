@@ -81,10 +81,13 @@ struct OperatorDraftTests {
         let liveReceipt = try db.applyOperatorDraft(mutation(automatic, .replace, qso: live),
                                                     nextDraft: blank(), now: selectedAt)
         #expect(liveReceipt.draft.qso.start == selectedAt)
-        #expect(!liveReceipt.draft.automaticStart)
+        #expect(liveReceipt.draft.automaticStart)
 
-        let fresh = QSO(call: "", start: selectedAt, band: "20m", mode: "CW", updatedAt: selectedAt)
-        let cleared = try db.applyOperatorDraft(mutation(liveReceipt.draft, .clear), nextDraft: fresh).draft
+        let loggedAt = selectedAt.addingTimeInterval(13 * 60 * 60)
+        let saved = try db.applyOperatorDraft(mutation(liveReceipt.draft, .save), nextDraft: blank(), now: loggedAt)
+        #expect(saved.savedQSO?.start == loggedAt)
+
+        let cleared = saved.draft
         var historical = cleared.qso; historical.start = old
         let dated = try db.applyOperatorDraft(mutation(cleared, .replace, qso: historical), nextDraft: blank()).draft
         #expect(!dated.automaticStart)

@@ -601,6 +601,7 @@ it.each([false, true])("retains conflicting logged-contact text and offers only 
   } else {
     fireEvent.click(within(recovery).getByRole("button", { name: "Load latest contact" }));
     await waitFor(() => expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("LATEST"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Update QSO" }).hasAttribute("disabled")).toBe(false));
   }
   expect(contactBackend.updates).toBe(removed ? 0 : 1);
 });
