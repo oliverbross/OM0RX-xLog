@@ -40,6 +40,7 @@ class Store(DataBase):
     def __init__(self, path):
         self.atomic = False
         self.plugin_id = None
+        self.score_band = None
         super().__init__(str(path), VENDOR / "not1mm/data", 1)
         self.conn.executescript("""
             CREATE UNIQUE INDEX IF NOT EXISTS xlog_dxlog_identity ON DXLOG(ID);
@@ -171,23 +172,41 @@ class Store(DataBase):
 
     def fetch_zn_band_count(self):
         if self.plugin_id in CQ_WW_PLUGINS:
+            band_clause = " and q.Band = ?" if self.score_band is not None else ""
             return self.exec_sql(
                 "select count(DISTINCT(q.ZN || ':' || q.Band)) as zb_count "
                 "from DXLOG as q where q.ContestNR = ? and "
-                f"{self.cq_ww_multiplier_filter()};",
-                (self.current_contest,),
+                f"{self.cq_ww_multiplier_filter()}{band_clause};",
+                (self.current_contest, *(() if self.score_band is None else (self.score_band,))),
             )
         return super().fetch_zn_band_count()
 
     def fetch_country_band_count(self):
         if self.plugin_id in CQ_WW_PLUGINS:
+            band_clause = " and q.Band = ?" if self.score_band is not None else ""
             return self.exec_sql(
                 "select count(DISTINCT(q.CountryPrefix || ':' || q.Band)) as cb_count "
                 "from DXLOG as q where q.ContestNR = ? and "
-                f"{self.cq_ww_multiplier_filter()};",
-                (self.current_contest,),
+                f"{self.cq_ww_multiplier_filter()}{band_clause};",
+                (self.current_contest, *(() if self.score_band is None else (self.score_band,))),
             )
         return super().fetch_country_band_count()
+
+    def fetch_points(self):
+        if self.score_band is not None:
+            return self.exec_sql(
+                "SELECT sum(Points) AS Points FROM DXLOG WHERE ContestNR=? AND Band=?",
+                (self.current_contest, self.score_band),
+            )
+        return super().fetch_points()
+
+    def fetch_qso_count(self):
+        if self.score_band is not None:
+            return self.exec_sql(
+                "SELECT count(*) AS qsos FROM DXLOG WHERE ContestNR=? AND Band=?",
+                (self.current_contest, self.score_band),
+            )
+        return super().fetch_qso_count()
 
     def fetch_state_band_count(self):
         return int(self.exec_sql(

@@ -211,7 +211,7 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
     {row(field("station", "LicenseClass", "License"), field("station", "Latitude", "Latitude"), field("station", "Longitude", "Longitude"))}
     {row(field("station", "STXeq", "Station TX/RX"), field("station", "SPowe", "Power"))}
     {row(field("station", "SAnte", "Antenna"), field("station", "SAntH1", "Ant. Height"), field("station", "SAntH2", "a.s.l."))}
-    {row(field("station", "ARRLSection", "ARRL Section"))}
+    {row(field("station", "ARRLSection", "Cabrillo location (ARRL section or DX)"))}
     {row(field("station", "RoverQTH", "Rover QTH"))}
     {row(field("station", "Club", "Club"))}
     {row(field("station", "Email", "Email address"))}
@@ -227,6 +227,7 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
         const band = currentBand === "ALL" || bands.some(item => item.toUpperCase() === currentBand) ? currentBand : "ALL";
         return { ...current, pluginID: event.target.value,
           settings: { ...current.settings, SentExchange: "", ModeCategory: mode, BandCategory: band,
+            AssistedCategory: event.target.value === "cq_ww_ssb" ? "ASSISTED" : current.settings.AssistedCategory,
             OverlayCategory: plugin?.overlayChoices?.[0] ?? "N/A" },
           preferences: bands.length ? { ...current.preferences, bands: [...bands] } : current.preferences };
       }); }}>{catalog.map(plugin => <option key={plugin.id} value={plugin.id}>{plugin.name}</option>)}</select></label>

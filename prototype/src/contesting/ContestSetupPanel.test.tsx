@@ -71,7 +71,7 @@ it("matches station row order, saves upstream field names, and preserves unknown
   const p = props(); p.value.station.UniqueStationField = "keep"; p.value.preferences.futureSetting = true;
   render(<ContestSetupPanel {...p}/>); open("Station Settings");
   const labels = Array.from(document.querySelectorAll(".contest-station-form label>span")).map(item => item.textContent);
-  expect(labels).toEqual(["Call", "Name", "Address", "Address", "City", "State", "Zip", "Country", "Grid Square", "CQ Zone", "ITU Zone", "License", "Latitude", "Longitude", "Station TX/RX", "Power", "Antenna", "Ant. Height", "a.s.l.", "ARRL Section", "Rover QTH", "Club", "Email address"]);
+  expect(labels).toEqual(["Call", "Name", "Address", "Address", "City", "State", "Zip", "Country", "Grid Square", "CQ Zone", "ITU Zone", "License", "Latitude", "Longitude", "Station TX/RX", "Power", "Antenna", "Ant. Height", "a.s.l.", "Cabrillo location (ARRL section or DX)", "Rover QTH", "Club", "Email address"]);
   expect(screen.getByText("Station TX/RX", { selector: ".contest-setup-field>span" }).getAttribute("title")).toBe("Station TX/RX");
   fireEvent.change(screen.getByLabelText("License"), { target: { value: "Extra" } });
   fireEvent.change(screen.getByLabelText("Station TX/RX"), { target: { value: "FLEX-8400" } });
@@ -94,6 +94,19 @@ it("sources CQ WW CW and SSB sent zones from the canonical station CQ Zone", asy
     expect(p.onCreate.mock.calls[0][0].settings.SentExchange).toBe("14");
     view.unmount();
   }
+});
+it("defaults a newly selected CQ WW SSB contest to assisted while preserving an explicit choice", async () => {
+  const p = props(); p.catalog.push({ id: "cq_ww_ssb", name: "CQ WW SSB", modes: ["SSB"],
+    sentExchangeHint: "CQ Zone No.", overlayChoices: ["N/A"] });
+  render(<ContestSetupPanel {...p}/>); open("New Contest");
+  fireEvent.change(screen.getByLabelText("Log Type"), { target: { value: "cq_ww_ssb" } });
+  expect(screen.getByLabelText("Assisted")).toHaveProperty("value", "ASSISTED");
+  fireEvent.change(screen.getByLabelText("Assisted"), { target: { value: "NON-ASSISTED" } });
+  expect(screen.getByLabelText("Assisted")).toHaveProperty("value", "NON-ASSISTED");
+  open("OK");
+  await waitFor(() => expect(p.onCreate).toHaveBeenCalledWith(expect.objectContaining({
+    pluginID: "cq_ww_ssb", settings: expect.objectContaining({ AssistedCategory: "NON-ASSISTED" }),
+  })));
 });
 it("keeps CQ WW RTTY's editable composite exchange independent", () => {
   const p = props(); p.value.pluginID = "cq_ww_rtty"; p.catalog.push({ id:"cq_ww_rtty", name:"CQ WW RTTY", modes:["RTTY"], sentExchangeHint:"CQ Zone + (state/VE area)", overlayChoices:["N/A"] });

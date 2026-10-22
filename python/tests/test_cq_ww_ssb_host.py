@@ -134,6 +134,71 @@ class CQWWSSBHostTests(unittest.TestCase):
         self.assertEqual(len(score["matrices"]["countries"]), 3)
         self.assertEqual(len(score["matrices"]["zones"]), 3)
 
+    def test_single_band_score_filters_points_multipliers_and_statistics_but_exports_all_qsos(self):
+        setup = self.read("setup_get")["setup"]
+        setup["settings"].update(BandCategory="40M", AssistedCategory="ASSISTED",
+                                 TransmitterCategory="ONE")
+        self.mutate("setup_save", setup=setup)
+        on_band = self.log(frequency=7125000)
+        off_band = self.log("DL1ABC", "14", minute=1, frequency=14250000)
+
+        scored = self.read("score")
+        self.assertEqual(scored["score"], {
+            "qsos": 1, "points": 3, "countries": 1, "zones": 1,
+            "multipliers": 2, "total": 6,
+        })
+        self.assertEqual(scored["matrices"], {
+            "countries": [{"value": "K", "band": 7.0, "qsos": 1}],
+            "zones": [{"value": 5, "band": 7.0, "qsos": 1}],
+        })
+        self.assertEqual(scored["statistics"]["total"]["qsos"], 1)
+
+        self.mutate("qso_correct", qsoID=off_band, frequencyHz=7126000,
+                    fields={"callsign": "DL1ABC", "other_2": "14"}, reason="Move to 40m")
+        self.assertEqual(self.read("score")["score"]["total"], 16)
+        self.mutate("qso_correct", qsoID=off_band, frequencyHz=14250000,
+                    fields={"callsign": "DL1ABC", "other_2": "14"}, reason="Restore 20m")
+
+        self.host.close()
+        self.host = Host(self.root)
+        self.assertEqual(self.read("score")["score"]["total"], 6)
+        export = self.read("export")["content"]
+        self.assertIn("CATEGORY-BAND: 40M\r\n", export)
+        self.assertIn("CATEGORY-OPERATOR: SINGLE-OP\r\n", export)
+        self.assertIn("CATEGORY-ASSISTED: ASSISTED\r\n", export)
+        self.assertIn("CATEGORY-POWER: LOW\r\n", export)
+        self.assertIn("CATEGORY-MODE: SSB\r\n", export)
+        self.assertIn("CATEGORY-TRANSMITTER: ONE\r\n", export)
+        self.assertIn("CLAIMED-SCORE: 6\r\n", export)
+        self.assertEqual(sum(line.startswith("QSO:") for line in export.splitlines()), 2)
+
+    def test_spot_points_preview_is_scoped_read_only_and_uses_original_cq_ww_points(self):
+        before = self.read("projection")["projection"]
+        preview = self.read("spot_points_preview", workspaceGeneration=self.workspace,
+                            expectedRevision=self.revision, spots=[
+            {"spotID": "same-country", "callsign": "OM1ABC", "frequencyHz": 7125000, "mode": "SSB"},
+            {"spotID": "same-continent", "callsign": "DL1ABC", "frequencyHz": 7126000, "mode": "SSB"},
+            {"spotID": "different-continent", "callsign": "K1ABC", "frequencyHz": 7127000, "mode": "SSB"},
+            {"spotID": "unresolved", "callsign": "XX1TEST", "frequencyHz": 7128000, "mode": "SSB"},
+        ])
+        self.assertEqual(preview, {
+            "sessionID": self.session, "workspaceGeneration": self.workspace, "revision": self.revision,
+            "spots": [
+                {"spotID": "same-country", "points": 0, "reason": None},
+                {"spotID": "same-continent", "points": 1, "reason": None},
+                {"spotID": "different-continent", "points": 3, "reason": None},
+                {"spotID": "unresolved", "points": None, "reason": "unresolved_callsign"},
+            ],
+        })
+        after = self.read("projection")["projection"]
+        self.assertEqual((after["revision"], after["draftID"], after["fields"]),
+                         (before["revision"], before["draftID"], before["fields"]))
+        with self.assertRaisesRegex(HostError, "workspace changed"):
+            self.read("spot_points_preview", workspaceGeneration=uid(), expectedRevision=self.revision, spots=[])
+        with self.assertRaisesRegex(HostError, "Contest changed"):
+            self.read("spot_points_preview", workspaceGeneration=self.workspace,
+                      expectedRevision=self.revision + 1, spots=[])
+
     def test_unresolved_contacts_do_not_create_cq_ww_multipliers(self):
         self.log("XX1TEST", "10")
         unresolved = self.read("score")

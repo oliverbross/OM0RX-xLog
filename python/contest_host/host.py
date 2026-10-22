@@ -44,6 +44,7 @@ CONTACT_METADATA_FIELDS = {"Name": 20, "QTH": 25, "Comment": 60}
 FIELDS = INPUTS + ("snt_label", "rcv_label", "other_label", "exch_label", "history_info")
 BAND_DEFINITIONS = pinned_band_definitions()
 BAND_LABELS = {definition["value"]: definition["id"] for definition in BAND_DEFINITIONS}
+SINGLE_BAND_SCORE_VALUES = {label.upper(): value for value, label in BAND_LABELS.items()}
 CQWS_EXCHANGES = frozenset({
     "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
     "PA", "PB", "PR", "PE", "PI", "RJ", "RS", "RO", "RN", "RR", "SC", "SP", "SE",
@@ -539,6 +540,9 @@ class Desk:
     def __init__(self, store, state, commit):
         self.database, self.state, self._commit = store, state, commit
         self.database.plugin_id = state["pluginID"]
+        self.database.score_band = (SINGLE_BAND_SCORE_VALUES.get(
+            str(state["settings"].get("BandCategory", "ALL")).upper())
+            if state["pluginID"] == "cq_ww_ssb" else None)
         self.contest = load_plugin(state["pluginID"])
         self.cw_macros = load_cw_macros(state["pluginID"])
         self.macro_origins = {identity: "pinned_not1mm" for identity in self.cw_macros}
@@ -1338,6 +1342,68 @@ class Host:
                         "limit": limit, "total": total, "rows": rows}
             finally:
                 store.conn.rollback()
+        if method == "spot_points_preview":
+            require(set(params) == {"sessionID", "workspaceGeneration", "expectedRevision", "spots"},
+                    "Unexpected spot points preview fields")
+            require(params["workspaceGeneration"] == workspace_generation(state),
+                    "Spot points workspace changed", "stale_context")
+            expected = params["expectedRevision"]
+            require(type(expected) is int and expected == state["revision"],
+                    "Contest changed before spot points preview", "stale_revision")
+            candidates = params["spots"]
+            require(isinstance(candidates, list) and len(candidates) <= 256,
+                    "Spot points preview must contain at most 256 spots")
+            store.conn.execute("BEGIN")
+            try:
+                current = store.state(session_id)
+                self.verify_engine(current)
+                require(current["revision"] == expected, "Contest changed before spot points preview", "stale_revision")
+                results = []
+                for candidate in candidates:
+                    require(isinstance(candidate, dict)
+                            and set(candidate) == {"spotID", "callsign", "frequencyHz", "mode"},
+                            "Invalid spot points preview item")
+                    spot_id = text(candidate["spotID"], 128)
+                    callsign = text(candidate["callsign"], 32).strip().upper()
+                    frequency = candidate["frequencyHz"]
+                    mode = text(candidate["mode"], 16).strip().upper()
+                    require(bool(spot_id) and re.fullmatch(r"[A-Z0-9/]{3,32}", callsign) is not None
+                            and type(frequency) is int and 100_000 <= frequency <= 100_000_000_000
+                            and mode in PLUGIN_REGISTRY[current["pluginID"]].modes,
+                            "Invalid spot points preview item")
+                    preview = deepcopy(current)
+                    preview["operatingMode"] = mode
+                    preview["draft"]["frequencyHz"] = frequency
+                    desk = Desk(store, preview, self.commit)
+                    if desk.cty_lookup(callsign) is None:
+                        results.append({"spotID": spot_id, "points": None, "reason": "unresolved_callsign"})
+                        continue
+                    try:
+                        desk.contest_band(frequency)
+                    except HostError:
+                        results.append({"spotID": spot_id, "points": None, "reason": "unsupported_band"})
+                        continue
+                    desk.clear_inputs()
+                    desk.callsign.setText(callsign)
+                    try:
+                        self.prefill(desk)
+                        fields = desk.values()
+                        self.validate_exchange(desk, fields)
+                    except (HostError, ValueError, TypeError, AttributeError):
+                        results.append({"spotID": spot_id, "points": None, "reason": "exchange_required"})
+                        continue
+                    try:
+                        contact = desk.contact_for(fields, str(uuid.uuid4()), now(), frequency)
+                        points = contact.get("Points")
+                        require(type(points) in {int, float} and math.isfinite(points) and points >= 0,
+                                "Plugin returned invalid spot points")
+                        results.append({"spotID": spot_id, "points": points, "reason": None})
+                    except (HostError, ValueError, TypeError, AttributeError, ArithmeticError):
+                        results.append({"spotID": spot_id, "points": None, "reason": "scoring_unavailable"})
+                return {"sessionID": session_id, "workspaceGeneration": workspace_generation(current),
+                        "revision": current["revision"], "spots": results}
+            finally:
+                store.conn.rollback()
         if method == "score":
             # Score, matrices and statistics must describe one revision and one
             # complete current-contest DXLOG snapshot.
@@ -1349,9 +1415,11 @@ class Host:
                 require(expected is None or type(expected) is int and expected == state["revision"],
                         "Contest changed before score read", "stale_revision")
                 desk = Desk(store, state, self.commit)
+                score_band = desk.database.score_band
                 rows = store.exec_sql_mult(
-                    "SELECT Band,Call,Mode,WPXPrefix,Points FROM DXLOG WHERE ContestNR=?",
-                    (store.current_contest,),
+                    "SELECT Band,Call,Mode,WPXPrefix,Points FROM DXLOG WHERE ContestNR=?"
+                    + (" AND Band=?" if score_band is not None else ""),
+                    (store.current_contest, *(() if score_band is None else (score_band,))),
                 )
                 return {"sessionID": session_id, "revision": state["revision"],
                         "score": desk.score(), "matrices": self.matrices(store),
@@ -3670,11 +3738,12 @@ class Host:
 
     @staticmethod
     def matrices(store):
-        params = (store.current_contest,)
+        band_clause = " AND q.Band=?" if store.score_band is not None else ""
+        params = (store.current_contest, *(() if store.score_band is None else (store.score_band,)))
         if store.plugin_id in CQ_WW_PLUGINS:
             eligible = store.cq_ww_multiplier_filter()
-            result = {"countries": store.exec_sql_mult(f"SELECT q.CountryPrefix AS value,q.Band AS band,count(*) AS qsos FROM DXLOG AS q WHERE q.ContestNR=? AND {eligible} GROUP BY q.CountryPrefix,q.Band ORDER BY q.CountryPrefix,q.Band", params),
-                      "zones": store.exec_sql_mult(f"SELECT q.ZN AS value,q.Band AS band,count(*) AS qsos FROM DXLOG AS q WHERE q.ContestNR=? AND {eligible} GROUP BY q.ZN,q.Band ORDER BY q.ZN,q.Band", params)}
+            result = {"countries": store.exec_sql_mult(f"SELECT q.CountryPrefix AS value,q.Band AS band,count(*) AS qsos FROM DXLOG AS q WHERE q.ContestNR=? AND {eligible}{band_clause} GROUP BY q.CountryPrefix,q.Band ORDER BY q.CountryPrefix,q.Band", params),
+                      "zones": store.exec_sql_mult(f"SELECT q.ZN AS value,q.Band AS band,count(*) AS qsos FROM DXLOG AS q WHERE q.ContestNR=? AND {eligible}{band_clause} GROUP BY q.ZN,q.Band ORDER BY q.ZN,q.Band", params)}
             if store.plugin_id == "cq_ww_rtty":
                 result["states"] = store.exec_sql_mult(
                     "SELECT q.Exchange1 AS value,q.Band AS band,count(*) AS qsos FROM DXLOG AS q "
