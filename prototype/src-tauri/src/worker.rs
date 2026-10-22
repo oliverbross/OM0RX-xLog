@@ -220,6 +220,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "contest_log_transfer_commit",
         "contest_log_transfer_status",
         "contest_score",
+        "contest_spot_points_preview",
         "contest_rates",
         "contest_check_partial",
         "contest_setup_get",
@@ -1079,7 +1080,7 @@ fn request_is_non_retiring_read(request: &Value) -> bool {
         "lookup_call" | "logbook_previous" | "logbook_duplicate" |
         "logbook_matrix" | "cluster_history" | "cluster_snapshot" |
         "wsjtx_snapshot" | "fldigi_snapshot" | "reference_resolve" | "contest_qso_get" | "contest_log_transfer_status" |
-        "contest_export_prepare" | "contest_export_read" | "contest_export_release" |
+        "contest_export_prepare" | "contest_export_read" | "contest_export_release" | "contest_spot_points_preview" |
         "contest_scp_status" | "contest_scp_query" | "contest_scp_cancel" | "contest_scp_select" |
         "contest_history_status" | "contest_history_preview_page" | "contest_history_preview_cancel" |
         "contest_history_query" | "contest_history_query_cancel" | "contest_history_select"
@@ -2047,6 +2048,7 @@ mod tests {
             "logbook_matrix", "cluster_history", "cluster_snapshot",
             "wsjtx_snapshot", "reference_resolve", "contest_export_prepare",
             "contest_export_read", "contest_export_release",
+            "contest_spot_points_preview",
             "contest_scp_status", "contest_scp_query", "contest_scp_cancel", "contest_scp_select",
             "contest_history_status", "contest_history_preview_page", "contest_history_preview_cancel",
             "contest_history_query", "contest_history_query_cancel", "contest_history_select",

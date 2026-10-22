@@ -63,7 +63,7 @@ pub fn worker_module(request: &Value) -> Option<OperatingModule> {
     if method.starts_with("contest_") {
         return (!matches!(method, "contest_catalog" | "contest_sessions" | "contest_open" | "contest_draft_get" | "contest_qso_get" |
             "contest_setup_get" | "contest_rates" | "contest_check_partial" |
-            "contest_operation_receipt" | "contest_log_page" | "contest_log_transfer_status" | "contest_score" | "contest_statistics" | "contest_export_prepare" | "contest_export_read" |
+            "contest_operation_receipt" | "contest_log_page" | "contest_log_transfer_status" | "contest_score" | "contest_spot_points_preview" | "contest_statistics" | "contest_export_prepare" | "contest_export_read" |
             "contest_export_release" | "contest_scp_status" | "contest_scp_query" | "contest_scp_cancel" | "contest_scp_select" |
             "contest_history_status" | "contest_history_preview_page" | "contest_history_preview_cancel" | "contest_history_query" |
             "contest_history_query_cancel" | "contest_history_select")).then_some(OperatingModule::Contesting);
@@ -117,7 +117,7 @@ mod tests {
     fn classification_keeps_reads_shared_and_mutations_scoped() {
         let request = |method: &str| json!({"method":method,"params":{}});
         assert_eq!(worker_module(&request("contest_qso_commit")), Some(OperatingModule::Contesting));
-        for method in ["contest_qso_get", "contest_setup_get", "contest_rates", "contest_check_partial", "contest_statistics", "contest_log_transfer_status"] {
+        for method in ["contest_qso_get", "contest_setup_get", "contest_rates", "contest_check_partial", "contest_spot_points_preview", "contest_statistics", "contest_log_transfer_status"] {
             assert_eq!(worker_module(&request(method)), None);
         }
         for method in ["contest_log_transfer_prepare", "contest_log_transfer_commit"] {
