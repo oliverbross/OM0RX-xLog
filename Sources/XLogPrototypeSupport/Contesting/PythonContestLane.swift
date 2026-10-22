@@ -46,6 +46,8 @@ actor PythonContestLane {
     private var input: FileHandle?
     private var output: FileHandle?
     private var errorOutput: FileHandle?
+    private var outputReader: Task<Void, Never>?
+    private var outputContinuation: AsyncStream<Data>.Continuation?
     private var outputBuffer = Data()
     private var pending: Pending?
     private var tail: Task<Void, Never>?
@@ -398,9 +400,25 @@ actor PythonContestLane {
         child.standardInput = standardInput
         child.standardOutput = standardOutput
         child.standardError = standardError
-        standardOutput.fileHandleForReading.readabilityHandler = { [weak self] handle in
+        // FileHandle can split a large JSONL response across callbacks. Feed
+        // those callbacks into one reader task so actor hops cannot reorder
+        // chunks under a busy integrated test or application process.
+        var streamContinuation: AsyncStream<Data>.Continuation?
+        let outputStream = AsyncStream<Data> { streamContinuation = $0 }
+        guard let streamContinuation else {
+            throw ContestLaneError.confirmed("contest_host_unavailable", "The bundled contest host output could not be observed.")
+        }
+        outputContinuation = streamContinuation
+        outputReader = Task { [weak self] in
+            for await data in outputStream {
+                guard let self else { return }
+                await self.consume(data)
+            }
+        }
+        standardOutput.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
-            Task { await self?.consume(data) }
+            streamContinuation.yield(data)
+            if data.isEmpty { streamContinuation.finish() }
         }
         // Drain and discard diagnostics. They can contain contact data and must
         // never cross the renderer or normal application log boundary.
@@ -414,6 +432,10 @@ actor PythonContestLane {
         catch {
             standardOutput.fileHandleForReading.readabilityHandler = nil
             standardError.fileHandleForReading.readabilityHandler = nil
+            outputContinuation?.finish()
+            outputReader?.cancel()
+            outputContinuation = nil
+            outputReader = nil
             throw ContestLaneError.confirmed("contest_host_unavailable", "The bundled contest host could not start.")
         }
         process = child
@@ -480,6 +502,8 @@ actor PythonContestLane {
     private func stopProcess(terminate: Bool = true) {
         output?.readabilityHandler = nil
         errorOutput?.readabilityHandler = nil
+        outputContinuation?.finish()
+        outputReader?.cancel()
         try? input?.close()
         try? output?.close()
         try? errorOutput?.close()
@@ -488,6 +512,8 @@ actor PythonContestLane {
         input = nil
         output = nil
         errorOutput = nil
+        outputContinuation = nil
+        outputReader = nil
         outputBuffer.removeAll(keepingCapacity: true)
     }
 }
