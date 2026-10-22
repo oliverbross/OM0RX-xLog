@@ -223,26 +223,19 @@ mod tests {
         let capability: serde_json::Value =
             serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
         let windows = capability["windows"].as_array().unwrap();
-        for label in [
-            "contest-setup",
-            "contest--call-history",
-            "contest--qrz-details",
-            "contest--group-chat",
-            "contest--active-qso",
-            "contest--propagation",
-            "contest--logbook",
-            "contest--edit-contact",
-            "contest--callsign-intelligence",
-            "contest--monitor",
-            "contest--score-reporting",
-            "contest--awards",
-            "contest--chaser-dx",
-            "contest--band-maps",
-            "contest--dx-cluster",
-            "contest--station-control",
-        ] {
+        let mut labels = std::collections::BTreeSet::from([
+            "contest-setup".to_owned(),
+            crate::contest_log_transfer::WINDOW.to_owned(),
+            "contest--edit-contact".to_owned(),
+        ]);
+        for (route, _) in CONTEST_MENU_ITEMS {
+            if let Some(panel) = route.strip_prefix("contest-window-") {
+                labels.insert(format!("contest--{panel}"));
+            }
+        }
+        for label in labels {
             assert!(
-                windows.iter().any(|candidate| candidate == label),
+                windows.iter().any(|candidate| candidate == &label),
                 "Missing Tauri capability for {label}"
             );
         }
