@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { useState } from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import CWSettings from "./CWSettings";
 import ServiceSettings from "./ServiceSettings";
@@ -43,7 +43,7 @@ describe("CW preferences and preview never transmit", () => {
     render(<Editor />);
     fireEvent.click(screen.getByRole("tab", { name: "CW" }));
     fireEvent.change(screen.getByLabelText("CW shortcut"), { target: { value: "F1" } });
-    fireEvent.click(screen.getByRole("tab", { name: /^Call/ }));
+    fireEvent.click(within(screen.getByRole("tablist", { name: "CW messages" })).getByRole("tab", { name: /^Call/ }));
     fireEvent.change(screen.getByLabelText("CW shortcut"), { target: { value: "F1" } });
     fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
     await screen.findByText(/Shortcut F1 is already assigned/);

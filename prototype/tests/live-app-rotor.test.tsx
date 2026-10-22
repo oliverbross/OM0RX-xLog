@@ -316,8 +316,8 @@ it("never turns from a late lookup after an unconfirmed spot tune", async () => 
   fireEvent.click(screen.getByRole("button", { name: "DX Cluster" }));
   fireEvent.click(await screen.findByRole("button", { name: "Select test spot" }));
   await waitFor(() => expect(bridge.tune).not.toBeNull());
-  await act(async () => bridge.tune?.({ accepted: true, confirmed: false }));
   await waitFor(() => expect(lookupReply).toBeDefined());
+  await act(async () => bridge.tune?.({ accepted: true, confirmed: false }));
   await act(async () => lookupReply?.({ call: "K1ABC", bearing: 90 }));
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
   expect(bridge.request.mock.calls.some(([method]) => method === "rotor_goto")).toBe(false);
