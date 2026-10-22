@@ -2014,35 +2014,29 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn passive_read_timeout_keeps_generation_and_routes_late_reply() {
-        for method in [
-            "station_snapshot", "station_rotor_snapshot", "rotor_snapshot",
-            "lookup_call", "logbook_previous", "logbook_duplicate",
-            "logbook_matrix", "cluster_history", "cluster_snapshot",
-            "wsjtx_snapshot", "reference_resolve", "contest_qso_get",
-            "contest_export_prepare", "contest_export_read", "contest_export_release",
-        ] {
-            let script = format!(
-                "IFS= read -r stale; sleep 0.1; printf '%s\\n' '{{\"id\":\"stale\",\"ok\":true,\"result\":{{}}}}'; IFS= read -r health; printf '%s\\n' '{{\"id\":\"health\",\"ok\":true,\"result\":{{}}}}'; cat >/dev/null"
-            );
-            let session = scripted_session(&script);
-            let result = request_in_session(
-                &session,
-                json!({"id":"stale","method":method,"params":{}}),
-                Duration::from_millis(20),
-            );
-            assert!(result.unwrap_err().contains("not responding"), "{method}");
-            assert!(session.alive.load(Ordering::Acquire), "{method} retired the worker");
-            assert!(!session.pending.lock().unwrap().contains_key("stale"));
+        // The policy table below covers every admitted passive method. Exercise
+        // the shared timeout/routing mechanism once with a deliberately wide
+        // timing gap so a loaded CI runner cannot turn the late reply into an
+        // incidental success.
+        let script = "IFS= read -r stale; sleep 0.25; printf '%s\\n' '{\"id\":\"stale\",\"ok\":true,\"result\":{}}'; IFS= read -r health; printf '%s\\n' '{\"id\":\"health\",\"ok\":true,\"result\":{}}'; cat >/dev/null";
+        let session = scripted_session(script);
+        let result = request_in_session(
+            &session,
+            json!({"id":"stale","method":"station_snapshot","params":{}}),
+            Duration::from_millis(50),
+        );
+        assert!(result.unwrap_err().contains("not responding"));
+        assert!(session.alive.load(Ordering::Acquire), "passive timeout retired the worker");
+        assert!(!session.pending.lock().unwrap().contains_key("stale"));
 
-            let response = request_in_session(
-                &session,
-                json!({"id":"health","method":"health","params":{}}),
-                Duration::from_secs(1),
-            ).unwrap();
-            assert_eq!(response["id"], "health");
-            assert!(session.alive.load(Ordering::Acquire));
-            session.retire("test complete");
-        }
+        let response = request_in_session(
+            &session,
+            json!({"id":"health","method":"health","params":{}}),
+            Duration::from_secs(1),
+        ).unwrap();
+        assert_eq!(response["id"], "health");
+        assert!(session.alive.load(Ordering::Acquire));
+        session.retire("test complete");
     }
 
     #[test]
