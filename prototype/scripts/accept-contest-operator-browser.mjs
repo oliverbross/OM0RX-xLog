@@ -297,9 +297,9 @@ try {
   await fill("Correction note", "Synthetic WPX acceptance correction"); const wpxCorrectionStart = frames.length; await click("Save correction"); await waitText("Saved K1ABC");
   const wpxCorrection = await waitForFrame(wpxCorrectionStart, frame => frame.request.method === "contest_qso_correct" && frame.response.ok, "WPX correction receipt");
   assert.equal(wpxCorrection.response.result.currentTarget.receivedExchange, "126"); assert.equal(wpxCorrection.response.result.currentTarget.normalizedReceivedExchange, "126");
-  await expectText("[aria-label='Score and multipliers']", /Claimed score\s*22.*QSOs\s*3.*Points\s*11.*Multipliers\s*2/s);
+  await waitForSelectorText("[aria-label='Score and multipliers']", /Claimed score\s*22.*QSOs\s*3.*Points\s*11.*Multipliers\s*2/s);
   await click("Edit DL1ABC"); await waitText("Update the contact"); await click("Delete contact"); await fill("Deletion note", "Synthetic WPX acceptance deletion"); await click("Confirm deletion"); await waitText("Deleted DL1ABC");
-  await expectText("[aria-label='Score and multipliers']", /Claimed score\s*9.*QSOs\s*2.*Points\s*9.*Multipliers\s*1/s);
+  await waitForSelectorText("[aria-label='Score and multipliers']", /Claimed score\s*9.*QSOs\s*2.*Points\s*9.*Multipliers\s*1/s);
   await expectDraftDupe(wpxRepair, { call: "DL1ABC", rx: "124", frequency: 7_025_000, band: "40m" }, "clear", 4);
   await expectDraftDupe(wpxRepair, { call: "K1ABC", rx: "125", frequency: 7_025_000, band: "40m" }, "duplicate", 4);
   await fill("Contest callsign", "N0XYZ"); await fill("Received report", "599"); await fill("Received exchange", "127"); await fill("Frequency Hz", "21025000"); await select("Band", "15m");
