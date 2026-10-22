@@ -389,6 +389,17 @@ actor PythonContestLane {
             result["countries"] = [call.uppercased(): country]
             result["referenceID"] = reference.version
         }
+        if method == "contest_spot_points_preview", result["countries"] == nil,
+           let spots = result["spots"] as? [[String: Any]] {
+            var countries: [String: [String: Any]] = [:]
+            for spot in spots {
+                guard let rawCallsign = spot["callsign"] as? String else { continue }
+                let callsign = rawCallsign.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                if let country = countryWire(callsign) { countries[callsign] = country }
+            }
+            result["countries"] = countries
+            result["referenceID"] = reference.version
+        }
         return result
     }
 

@@ -190,6 +190,18 @@ class CQWWSSBHostTests(unittest.TestCase):
                 {"spotID": "unresolved", "points": None, "reason": "unresolved_callsign"},
             ],
         })
+        injected = self.read("spot_points_preview", workspaceGeneration=self.workspace,
+                             expectedRevision=self.revision, referenceID="test-cty-v1",
+                             countries={"XX1TEST": deepcopy(fixtures.CTY["K1ABC"])}, spots=[
+            {"spotID": "native-reference", "callsign": "XX1TEST", "frequencyHz": 7128000, "mode": "SSB"},
+        ])
+        self.assertEqual(injected["spots"], [
+            {"spotID": "native-reference", "points": 3, "reason": None},
+        ])
+        self.assertIsNone(self.read("spot_points_preview", workspaceGeneration=self.workspace,
+                                   expectedRevision=self.revision, spots=[
+            {"spotID": "still-unresolved", "callsign": "XX1TEST", "frequencyHz": 7128000, "mode": "SSB"},
+        ])["spots"][0]["points"])
         after = self.read("projection")["projection"]
         self.assertEqual((after["revision"], after["draftID"], after["fields"]),
                          (before["revision"], before["draftID"], before["fields"]))

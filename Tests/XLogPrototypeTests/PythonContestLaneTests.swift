@@ -347,6 +347,15 @@ for line in sys.stdin:
         XCTAssertEqual(projection["pluginID"] as? String, "cq_ww_cw")
         XCTAssertEqual(projection["workspaceGeneration"] as? String, workspaceGeneration)
         XCTAssertEqual(projection["referenceID"] as? String, try ContestReferenceData.bundled().version)
+        let preview = try await lane.handle(method: "contest_spot_points_preview", params: [
+            "sessionID": sessionID, "workspaceGeneration": workspaceGeneration,
+            "expectedRevision": 1, "spots": [[
+                "spotID": "native-preview", "callsign": "K1ABC",
+                "frequencyHz": 14_025_000, "mode": "CW",
+            ]],
+        ])
+        let previewRows = try XCTUnwrap(preview["spots"] as? [[String: Any]])
+        XCTAssertEqual((try XCTUnwrap(previewRows.first)["points"] as? NSNumber)?.intValue, 3)
         let cw = try await lane.handle(method: "contest_cw_context", params: [:])
         XCTAssertEqual(cw["sessionID"] as? String, sessionID)
         XCTAssertEqual(cw["stationCall"] as? String, "OM0RX")

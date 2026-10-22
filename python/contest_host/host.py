@@ -1343,7 +1343,8 @@ class Host:
             finally:
                 store.conn.rollback()
         if method == "spot_points_preview":
-            require(set(params) == {"sessionID", "workspaceGeneration", "expectedRevision", "spots"},
+            base_fields = {"sessionID", "workspaceGeneration", "expectedRevision", "spots"}
+            require(set(params) in (base_fields, base_fields | {"countries", "referenceID"}),
                     "Unexpected spot points preview fields")
             require(params["workspaceGeneration"] == workspace_generation(state),
                     "Spot points workspace changed", "stale_context")
@@ -1353,6 +1354,15 @@ class Host:
             candidates = params["spots"]
             require(isinstance(candidates, list) and len(candidates) <= 256,
                     "Spot points preview must contain at most 256 spots")
+            additions = {}
+            if "countries" in params:
+                require(params["referenceID"] == state["reference"]["id"],
+                        "The contest CTY reference differs from this session", "reference_mismatch")
+                additions = self.countries(deepcopy(params["countries"]))
+                for call, country in additions.items():
+                    current = state["reference"]["countries"].get(call)
+                    require(current is None or current == country,
+                            "Pinned country resolution changed", "reference_conflict")
             store.conn.execute("BEGIN")
             try:
                 current = store.state(session_id)
@@ -1372,6 +1382,7 @@ class Host:
                             and mode in PLUGIN_REGISTRY[current["pluginID"]].modes,
                             "Invalid spot points preview item")
                     preview = deepcopy(current)
+                    preview["reference"]["countries"].update(additions)
                     preview["operatingMode"] = mode
                     preview["draft"]["frequencyHz"] = frequency
                     desk = Desk(store, preview, self.commit)
