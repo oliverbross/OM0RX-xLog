@@ -20,6 +20,8 @@ npx tauri build --bundles app
 # development hosts still fall back to ad-hoc signing; notarization remains a
 # separate acceptance step, never inferred from a valid code signature.
 bundle="$root/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app"
+test "$(plutil -extract NSMicrophoneUsageDescription raw "$bundle/Contents/Info.plist")" = \
+  "OM0RX-xLog records operator-selected contest voice messages for local F1–F12 phone macros."
 bash "$root/prototype/scripts/stage-contest-python-macos.sh" "$bundle"
 binary_dir="$(XLOG_PORTABLE_ONLY=1 swift build --build-system xcode --package-path "$root" --scratch-path "$root/.build/prototype-worker" -c release --show-bin-path)"
 rm -rf "$bundle/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle" "$bundle/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle"

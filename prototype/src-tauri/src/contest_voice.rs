@@ -9,6 +9,7 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::{HashMap, HashSet},
     fs,
+    io::Read,
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -459,6 +460,25 @@ fn admitted_wav_path(profile: &Path, name: &str) -> Result<PathBuf, String> {
     Ok(canonical)
 }
 
+fn read_bounded_wav(path: &Path, name: &str) -> Result<Vec<u8>, String> {
+    let decoded_bytes = usize::try_from(path.metadata()
+        .map_err(|_| format!("Voice WAV {name}.wav metadata is unavailable."))?.len())
+        .map_err(|_| format!("Voice WAV {name}.wav size is invalid."))?;
+    if decoded_bytes > MAX_WAV_BYTES {
+        return Err(format!("Voice WAV {name}.wav exceeds the 8 MiB safety limit."));
+    }
+    let mut bytes = Vec::with_capacity(decoded_bytes);
+    fs::File::open(path)
+        .map_err(|_| format!("Voice WAV {name}.wav could not be read."))?
+        .take((MAX_WAV_BYTES + 1) as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|_| format!("Voice WAV {name}.wav could not be read."))?;
+    if bytes.len() != decoded_bytes {
+        return Err(format!("Voice WAV {name}.wav changed while it was being read."));
+    }
+    Ok(bytes)
+}
+
 fn profile_slot(value: &str) -> Result<String, String> {
     let normalized = value.to_ascii_lowercase();
     if matches!(normalized.as_str(), "f1" | "f2" | "f3" | "f4" | "f5" | "f6" |
@@ -471,8 +491,7 @@ fn profile_slot(value: &str) -> Result<String, String> {
 
 fn profile_slot_value(profile: &Path, slot: &str) -> Result<ProfilePreview, String> {
     let path = admitted_wav_path(profile, slot)?;
-    let bytes = fs::read(&path).map_err(|_| format!("Voice WAV {slot}.wav could not be read."))?;
-    if bytes.len() > MAX_WAV_BYTES { return Err(format!("Voice WAV {slot}.wav exceeds the 8 MiB safety limit.")); }
+    let bytes = read_bounded_wav(&path, slot)?;
     let duration_ms = pcm_wav_duration_ms(&bytes)?;
     if duration_ms > MAX_SEGMENT_DURATION_MS { return Err(format!("Voice WAV {slot}.wav exceeds the 60 second safety limit.")); }
     Ok(ProfilePreview { slot: slot.into(), wav_base64: STANDARD.encode(&bytes), duration_ms,
@@ -806,9 +825,13 @@ fn pcm_wav_duration_ms(bytes: &[u8]) -> Result<u64, String> {
     if bytes.len() < 12 || &bytes[..4] != b"RIFF" || &bytes[8..12] != b"WAVE" {
         return Err("Voice profile files must be RIFF/WAVE audio.".into());
     }
+    let riff_size = u32::from_le_bytes(bytes[4..8].try_into().unwrap()) as usize;
+    if riff_size.checked_add(8) != Some(bytes.len()) {
+        return Err("Voice WAV RIFF extent does not match the file size.".into());
+    }
     let mut offset = 12_usize;
-    let mut format: Option<(u16, u16, u32, u32, u16)> = None;
-    let mut data_bytes: Option<u32> = None;
+    let mut format: Option<(u16, u16, u32, u32, u16, u16)> = None;
+    let mut data_bytes: Option<usize> = None;
     while offset.checked_add(8).is_some_and(|end| end <= bytes.len()) {
         let id = &bytes[offset..offset + 4];
         let size = u32::from_le_bytes(bytes[offset + 4..offset + 8].try_into().unwrap()) as usize;
@@ -818,6 +841,9 @@ fn pcm_wav_duration_ms(bytes: &[u8]) -> Result<u64, String> {
             return Err("Voice WAV contains a truncated chunk.".into());
         }
         if id == b"fmt " {
+            if format.is_some() {
+                return Err("Voice WAV contains duplicate format chunks.".into());
+            }
             if size < 16 {
                 return Err("Voice WAV has an invalid format chunk.".into());
             }
@@ -826,31 +852,45 @@ fn pcm_wav_duration_ms(bytes: &[u8]) -> Result<u64, String> {
                 u16::from_le_bytes(bytes[start + 2..start + 4].try_into().unwrap()),
                 u32::from_le_bytes(bytes[start + 4..start + 8].try_into().unwrap()),
                 u32::from_le_bytes(bytes[start + 8..start + 12].try_into().unwrap()),
+                u16::from_le_bytes(bytes[start + 12..start + 14].try_into().unwrap()),
                 u16::from_le_bytes(bytes[start + 14..start + 16].try_into().unwrap()),
             ));
         } else if id == b"data" {
-            data_bytes = Some(size as u32);
+            if data_bytes.is_some() {
+                return Err("Voice WAV contains duplicate audio data chunks.".into());
+            }
+            data_bytes = Some(size);
         }
-        offset = end + (size & 1);
+        offset = end.checked_add(size & 1).ok_or("Invalid WAV chunk padding")?;
+        if offset > bytes.len() {
+            return Err("Voice WAV contains truncated chunk padding.".into());
+        }
     }
-    let (encoding, channels, sample_rate, byte_rate, bits) =
+    if offset != bytes.len() {
+        return Err("Voice WAV contains an incomplete chunk header.".into());
+    }
+    let (encoding, channels, sample_rate, byte_rate, block_align, bits) =
         format.ok_or("Voice WAV is missing its format chunk.")?;
     let data_bytes = data_bytes
         .filter(|value| *value > 0)
         .ok_or("Voice WAV has no audio data.")?;
-    let expected_rate = u64::from(sample_rate) * u64::from(channels) * u64::from(bits) / 8;
+    let expected_align = u32::from(channels) * u32::from(bits) / 8;
+    let expected_rate = u64::from(sample_rate) * u64::from(expected_align);
     if encoding != 1
         || !(1..=2).contains(&channels)
         || !(8_000..=192_000).contains(&sample_rate)
         || !matches!(bits, 8 | 16 | 24 | 32)
-        || byte_rate == 0
+        || u32::from(block_align) != expected_align
         || u64::from(byte_rate) != expected_rate
     {
         return Err(
-            "Voice WAV must be mono/stereo PCM at 8–192 kHz with a valid byte rate.".into(),
+            "Voice WAV must be frame-aligned mono/stereo PCM at 8–192 kHz with valid byte and block rates.".into(),
         );
     }
-    Ok((u64::from(data_bytes) * 1_000).div_ceil(u64::from(byte_rate)))
+    if data_bytes % usize::from(block_align) != 0 {
+        return Err("Voice WAV audio data does not contain complete PCM frames.".into());
+    }
+    Ok(((data_bytes as u64) * 1_000).div_ceil(u64::from(byte_rate)))
 }
 
 #[cfg(test)]
@@ -1159,5 +1199,51 @@ mod tests {
             assert!(profile_write(ProfileWriteRequest { profile_path: path, slot: "f1".into(),
                 wav_base64: STANDARD.encode(wav(100)), overwrite: true }).unwrap_err().contains("symbolic link"));
         }
+    }
+
+    #[test]
+    fn managed_profile_rejects_oversized_slot_before_reading_it() {
+        let profile = tempfile::tempdir().unwrap();
+        fs::File::create(profile.path().join("f1.wav")).unwrap()
+            .set_len((MAX_WAV_BYTES + 1) as u64).unwrap();
+        let path = profile.path().to_string_lossy().into_owned();
+        assert!(profile_preview(ProfileSlotRequest { profile_path: path.clone(), slot: "f1".into() })
+            .unwrap_err().contains("8 MiB"));
+        let manifest = profile_manifest(ProfileRequest { profile_path: path }).unwrap();
+        assert!(manifest.slots[0].error.as_deref().is_some_and(|error| error.contains("8 MiB")));
+    }
+
+    #[test]
+    fn managed_profile_rejects_inconsistent_pcm_headers() {
+        let profile = tempfile::tempdir().unwrap();
+        let path = profile.path().to_string_lossy().into_owned();
+        let write = |bytes: Vec<u8>| profile_write(ProfileWriteRequest { profile_path: path.clone(),
+            slot: "f1".into(), wav_base64: STANDARD.encode(bytes), overwrite: true }).unwrap_err();
+
+        let mut wrong_extent = wav(100);
+        wrong_extent[4..8].copy_from_slice(&0_u32.to_le_bytes());
+        assert!(write(wrong_extent).contains("RIFF extent"));
+
+        let mut wrong_alignment = wav(100);
+        wrong_alignment[32..34].copy_from_slice(&1_u16.to_le_bytes());
+        assert!(write(wrong_alignment).contains("frame-aligned"));
+
+        let mut partial_frame = wav(100);
+        let data_size = u32::from_le_bytes(partial_frame[40..44].try_into().unwrap()) - 1;
+        partial_frame[40..44].copy_from_slice(&data_size.to_le_bytes());
+        assert!(write(partial_frame).contains("complete PCM frames"));
+
+        let mut duplicate_format = wav(100);
+        duplicate_format.extend_from_slice(&wav(1)[12..36]);
+        let riff_size = (duplicate_format.len() - 8) as u32;
+        duplicate_format[4..8].copy_from_slice(&riff_size.to_le_bytes());
+        assert!(write(duplicate_format).contains("duplicate format"));
+
+        let mut duplicate_data = wav(100);
+        duplicate_data.extend_from_slice(b"data");
+        duplicate_data.extend_from_slice(&0_u32.to_le_bytes());
+        let riff_size = (duplicate_data.len() - 8) as u32;
+        duplicate_data[4..8].copy_from_slice(&riff_size.to_le_bytes());
+        assert!(write(duplicate_data).contains("duplicate audio data"));
     }
 }

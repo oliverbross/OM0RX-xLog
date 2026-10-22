@@ -22,6 +22,8 @@ bash "$root/prototype/scripts/stage-contest-python-macos.sh" "$bundle" "package-
 test -d "$bundle"
 test "$(plutil -extract CFBundleIdentifier raw "$bundle/Contents/Info.plist")" = "com.oliverbross.xlog.contesting-test"
 test "$(plutil -extract CFBundleDisplayName raw "$bundle/Contents/Info.plist")" = "OM0RX-xLog Contesting Test"
+test "$(plutil -extract NSMicrophoneUsageDescription raw "$bundle/Contents/Info.plist")" = \
+  "OM0RX-xLog records operator-selected contest voice messages for local F1–F12 phone macros."
 if plutil -extract CFBundleURLTypes xml1 -o - "$bundle/Contents/Info.plist" | grep -q '<string>om0rx-xlog</string>'; then
   printf 'Production URL scheme leaked into Contesting Test bundle.\n' >&2
   exit 1
