@@ -88,4 +88,19 @@
 .band-map-settings summary::-webkit-details-marker { display: none; }
 .band-map-settings summary:hover { background: #27405c; }
 .band-map-settings .band-maps-mode-options { left: auto; right: 0; }
+.band-maps-contest { container: band-map-contest / inline-size; flex: 1 1 0; align-self: center; width: min(100%, 440px); max-width: 440px; min-height: 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: #07111f; }
+.band-maps-contest .band-map-panel-head { height: 31px; background: #101f34; }
+.band-maps-contest .band-map-panel-tools { min-height: 31px; background: #0b1728; }
+.band-maps-contest .band-map-tool-buttons button { min-width: 27px; color: #92a7bf; font: 600 14px/1 ui-monospace, SFMono-Regular, monospace; }
+.band-maps-contest .band-map-chart { min-height: 160px; }
+.band-maps-contest .band-map-panel-foot { min-height: 24px; }
+.band-maps-contest .band-maps-quick-controls { flex-wrap: wrap; gap: 4px 8px; min-height: 32px; overflow: visible; }
+.band-maps-contest .band-maps-quick-controls output { flex: 1 1 100%; color: #35c8f5; white-space: nowrap; }
+.band-maps-contest .band-maps-quick-controls label { flex: 1 1 112px; min-width: 0; }
+.band-maps-contest .band-maps-quick-controls select { min-width: 0; width: 100%; }
+@container band-map-contest (max-width: 340px) {
+  .band-maps-contest .band-map-panel-tools select { max-width: 112px; }
+  .band-maps-contest .band-map-legend { gap: 4px; }
+  .band-maps-contest .band-maps-quick-controls label { flex-basis: 96px; }
+}
 @media (max-width: 700px) { .band-maps-head-controls { justify-content: flex-start; } .band-maps-intelligence { align-items: stretch; } .band-maps-selected { width: 100%; flex-basis: 100%; } }

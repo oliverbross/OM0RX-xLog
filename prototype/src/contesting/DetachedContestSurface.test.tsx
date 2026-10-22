@@ -520,7 +520,13 @@ it.each(["band-maps","dx-cluster"] as const)("selects shared spots from the cont
   expect(native.invoke.mock.calls.some(([command])=>command==="activate_spot")).toBe(false);
   expect(localStorage.getItem("xlog.integration.bandMaps.workspace.bands")).toBe("normal-band-map-sentinel");
   expect(localStorage.getItem("xlog.integration.full-cluster-columns.v1")).toBe("normal-cluster-sentinel");
-  if(panelID==="band-maps")expect(document.querySelector(".band-maps-compact")).not.toBeNull();
+  if(panelID==="band-maps"){
+    expect(document.querySelector(".band-maps-compact.band-maps-contest")).not.toBeNull();
+    expect(screen.getByRole("region",{name:"20m band map"})).toBeTruthy();
+    expect(screen.queryByLabelText("Add band map")).toBeNull();
+    expect(screen.getByRole("button",{name:"Zoom 20m in"}).textContent).toBe("+");
+    expect(screen.getByLabelText("Spot age")).toBeTruthy();
+  }
   await waitFor(()=>expect(localStorage.getItem(panelID==="band-maps"
     ? "xlog.integration.bandMaps.contest.bands":"xlog.integration.contest.cluster-columns.v1")).not.toBeNull());
 });

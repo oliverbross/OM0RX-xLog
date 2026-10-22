@@ -226,7 +226,7 @@ function ContestSpots({panelID,projection,projectionRevision,send}:{panelID:"ban
         expectedDraftRevision:projection.draftRevision,spotID:target.id}})}>Delete</button>
       <button type="button" role="menuitem" onClick={closeMenu}>Cancel</button>
     </div>}</>;
-  if(panelID==="band-maps")return <section className="contest-spots" aria-label="Contest Band Map">{workflow}<BandMaps compact spots={projection.spots}
+  if(panelID==="band-maps")return <section className="contest-spots" aria-label="Contest Band Map">{workflow}<BandMaps compact contestPresentation spots={projection.spots}
     observedReceiveBandwidthHz={receiveBandwidth}
     radioFrequencyHz={projection.radioFrequencyHz??undefined} storageNamespace="contest" selectedSpotId={projection.selectedSpotID}
     onSpotContextMenu={contextMenu} onSelect={spot=>select(String(spot.id))}
