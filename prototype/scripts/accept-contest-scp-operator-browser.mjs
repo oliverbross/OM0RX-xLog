@@ -64,7 +64,7 @@ async function exportFormat(format){await click("Export…");await waitText("Pre
 let primaryFailure=null;
 try{
   await browser(["open",url]);await waitText("Contest Workspace");
-  await createSession("SCP WPX acceptance","cq-wpx-cw");await waitText("No local MASTER.SCP file imported.");
+await createSession("SCP WPX acceptance","cq-wpx-cw");await waitText("No local MASTER.SCP corpus is active.");
   await click("Import local file");await waitText("acceptance-valid.scp");
   const importFrame=lifecycle.find(item=>item.request.method==="__acceptance_scp_import");assert.equal(importFrame.response.result.dataset.sha256,corpusDigest);assert.deepEqual({records:importFrame.response.result.dataset.recordCount,duplicates:importFrame.response.result.dataset.duplicateCount},{records:uniqueCorpus,duplicates:1});
   const shortStart=frames.length;await fill("Contest callsign","K");await new Promise(resolve=>setTimeout(resolve,250));assert.equal(frames.slice(shortStart).some(item=>item.request.method==="contest_scp_query"),false);
