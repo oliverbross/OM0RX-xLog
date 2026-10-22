@@ -97,7 +97,6 @@ async function browser(args, record = true) {
 const waitText = text => browser(["wait", "--text", text]);
 const fill = (label, value) => browser(["find", "label", label, "fill", value]);
 const select = (label, value) => browser(["eval", `(() => { const direct=[...document.querySelectorAll('select')].find(x=>x.getAttribute('aria-label')===${JSON.stringify(label)}); const owner=[...document.querySelectorAll('label')].find(x=>x.firstChild?.textContent?.trim()===${JSON.stringify(label)}); const select=direct ?? owner?.querySelector('select'); if(!select) throw new Error('Missing select'); select.value=${JSON.stringify(value)}; select.dispatchEvent(new Event('change',{bubbles:true})); })()`]);
-const setOperatingStyle = value => browser(["eval", `(() => { const group=document.querySelector('[role="group"][aria-label="Run and S&P"]'); const label=${JSON.stringify(value)}==='search-and-pounce'?'S&P':'Run'; const input=[...(group?.querySelectorAll('input[type="radio"]')??[])].find(item=>item.closest('label')?.textContent?.trim()===label); if(!input) throw new Error('Missing operating style'); input.click(); })()`]);
 const click = name => browser(["find", "role", "button", "click", "--name", name]);
 const waitEnabledButton = name => browser(["eval", `new Promise((resolve,reject)=>{ const until=Date.now()+10000; const poll=()=>{ const button=[...document.querySelectorAll('button')].find(x=>x.textContent.trim()===${JSON.stringify(name)}); if(button && !button.disabled) return resolve(true); if(Date.now()>until) return reject(new Error('Button did not become enabled: '+${JSON.stringify(name)})); setTimeout(poll,50); }; poll(); })`]);
 const pressIn = async (label, key) => { await browser(["eval", `(() => { const direct=[...document.querySelectorAll('input,select,textarea')].find(x=>x.getAttribute('aria-label')===${JSON.stringify(label)}); const owner=[...document.querySelectorAll('label')].find(x=>x.textContent.startsWith(${JSON.stringify(label)})); const field=direct ?? owner?.querySelector('input,select,textarea'); if(!field) throw new Error('Missing field'); field.focus(); })()`]); await browser(["press", key]); };
@@ -191,8 +190,8 @@ async function exportCase(item, format) {
 }
 
 async function createCase(item) {
-  await fill("Session name", item.name); await select("Contest", item.id); await fill("Station callsign", "OM0RX"); await fill("Operator callsign", "OM0RX"); await fill("CQ zone", "15"); await fill("DXCC entity", "Slovak Republic"); await click("Create and open"); await waitText(item.name);
-  await setOperatingStyle(item.style);
+  await fill("Session name", item.name); await select("Contest", item.id); await fill("Station callsign", "OM0RX"); await fill("Operator callsign", "OM0RX"); await fill("CQ zone", "15"); await fill("DXCC entity", "Slovak Republic"); await click("Create and open"); await waitText("Plain Log"); await waitText(item.name);
+  await select("Operating style", item.style);
   if (item.style === "run") { await fill("Frequency Hz", String(item.contacts[0].frequency)); await select("Band", "20m"); await waitEnabledButton("Arm simulation"); await click("Arm simulation"); await waitText("Armed for simulated output"); await pressIn("Contest callsign", "Enter"); await waitText("CQ"); }
   for (const [index, contact] of item.contacts.entries()) {
     await fill("Contest callsign", contact.call); await fill("Received report", item.reports); await fill("Frequency Hz", String(contact.frequency)); await select("Band", contact.band);
