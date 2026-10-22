@@ -10,6 +10,7 @@ from pathlib import Path
 import plistlib
 import re
 import shutil
+import ssl
 import subprocess
 import tempfile
 
@@ -17,6 +18,10 @@ ROOT = Path(__file__).resolve().parents[2]
 MACHO = {bytes.fromhex(value) for value in ("feedface", "cefaedfe", "feedfacf", "cffaedfe", "cafebabe", "bebafeca", "cafebabf", "bfbafeca")}
 NON_RUNTIME_MACHO_SUFFIXES = {".a", ".o"}
 PACKAGING_SCRIPTS = {"package-macos.sh", "package-contesting-test-macos.sh"}
+CA_BUNDLE_RELATIVE = Path("Versions/3.12/etc/openssl/cert.pem")
+SYSTEM_CA_BUNDLE = Path("/etc/ssl/cert.pem")
+MIN_CA_BUNDLE_BYTES = 1_024
+MAX_CA_BUNDLE_BYTES = 5 * 1_024 * 1_024
 
 
 def run(*args, **kwargs):
@@ -51,6 +56,72 @@ def is_macho(path):
 
 def machos(root):
     return sorted(path for path in root.rglob("*") if is_macho(path))
+
+
+def ca_bundle_details(path, framework=None):
+    try:
+        resolved = path.resolve(strict=True)
+    except (FileNotFoundError, RuntimeError) as error:
+        raise RuntimeError(f"CA bundle is missing: {path}") from error
+    require(path.is_file() and not path.is_symlink(), f"CA bundle must be a regular file: {path}")
+    if framework is not None:
+        require(resolved.is_relative_to(framework.resolve()), f"CA bundle escapes framework: {path}")
+    size = path.stat().st_size
+    require(MIN_CA_BUNDLE_BYTES <= size <= MAX_CA_BUNDLE_BYTES, f"CA bundle size is invalid: {path}")
+    try:
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.load_verify_locations(cafile=str(path))
+    except (OSError, ssl.SSLError) as error:
+        raise RuntimeError(f"CA bundle is invalid: {path}") from error
+    certificate_count = context.cert_store_stats().get("x509_ca", 0)
+    require(certificate_count > 0, f"CA bundle has no certificate authorities: {path}")
+    return {"sha256": digest(path), "bytes": size, "certificateCount": certificate_count}
+
+
+def source_ca_bundle(source_runtime, source_python):
+    configured = json.loads(run(source_python, "-I", "-B", "-c",
+        "import json,ssl; print(json.dumps(ssl.get_default_verify_paths()._asdict()))"))
+    candidates = [source_runtime / "etc/openssl/cert.pem"]
+    for key in ("cafile", "openssl_cafile"):
+        value = configured.get(key)
+        if isinstance(value, str) and value:
+            candidates.append(Path(value))
+    candidates.append(SYSTEM_CA_BUNDLE)
+    failures = []
+    for candidate in dict.fromkeys(candidates):
+        try:
+            resolved = candidate.resolve(strict=True)
+            require(resolved.is_file(), f"CA source is not a file: {candidate}")
+            ca_bundle_details(resolved)
+            return resolved
+        except (OSError, RuntimeError) as error:
+            failures.append(str(error))
+    raise RuntimeError("No valid CA bundle is available for the embedded Python runtime: " + "; ".join(failures))
+
+
+def internalize_ca_bundle(framework, source):
+    source = source.resolve(strict=True)
+    source_details = ca_bundle_details(source)
+    destination = framework / CA_BUNDLE_RELATIVE
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    require(destination.parent.resolve().is_relative_to(framework.resolve()), "CA bundle destination escapes framework")
+    if destination.is_symlink() or destination.exists():
+        destination.unlink()
+    shutil.copy2(source, destination, follow_symlinks=True)
+    destination.chmod(0o644)
+    bundled = ca_bundle_details(destination, framework)
+    require(bundled["sha256"] == source_details["sha256"], "Bundled CA digest does not match its source")
+    return {"bundledPath": str(CA_BUNDLE_RELATIVE), "source": str(source),
+            "sourceSHA256": source_details["sha256"], **bundled}
+
+
+def validate_ca_bundle(framework, expected=None):
+    details = ca_bundle_details(framework / CA_BUNDLE_RELATIVE, framework)
+    current = {"bundledPath": str(CA_BUNDLE_RELATIVE), **details}
+    if expected is not None:
+        for key in ("bundledPath", "sha256", "bytes", "certificateCount"):
+            require(expected.get(key) == current[key], f"Bundled CA provenance changed: {key}")
+    return current
 
 
 def dependencies(path):
@@ -175,9 +246,11 @@ def self_test(framework, host_root):
         shutil.copytree(framework, relocated, symlinks=True)
         shutil.copytree(host_root, host, symlinks=True)
         executable = relocated / "Versions/3.12/bin/python3.12"
-        env = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C.UTF-8", "DYLD_PRINT_LIBRARIES": "1"}
+        certificate = relocated / CA_BUNDLE_RELATIVE
+        env = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C.UTF-8", "DYLD_PRINT_LIBRARIES": "1",
+               "SSL_CERT_FILE": str(certificate)}
         program = "\n".join([
-            "import sqlite3, ssl, lzma, decimal, json, sys, pathlib",
+            "import sqlite3, ssl, lzma, decimal, hashlib, json, os, sys, pathlib",
             "db=sqlite3.connect(':memory:')",
             "db.execute('create table proof(value integer)')",
             "db.execute('insert into proof values(42)'); db.commit()",
@@ -185,7 +258,13 @@ def self_test(framework, host_root):
             "assert lzma.decompress(lzma.compress(b'xlog'))==b'xlog'",
             "assert decimal.Decimal('0.1')+decimal.Decimal('0.2')==decimal.Decimal('0.3')",
             "assert pathlib.Path(sys.base_prefix).resolve()==pathlib.Path(sys.executable).resolve().parents[1]",
-            "print(json.dumps({'python':sys.version.split()[0], 'sqlite':sqlite3.sqlite_version, 'ssl':ssl.OPENSSL_VERSION, 'decimal':decimal.__libmpdec_version__}))",
+            "certificate=pathlib.Path(os.environ['SSL_CERT_FILE'])",
+            "assert certificate.resolve()==pathlib.Path(sys.base_prefix).resolve()/'etc/openssl/cert.pem'",
+            "assert ssl.get_default_verify_paths().cafile==str(certificate)",
+            "context=ssl.create_default_context()",
+            "assert context.verify_mode==ssl.CERT_REQUIRED and context.check_hostname",
+            "assert context.cert_store_stats()['x509_ca']>0",
+            "print(json.dumps({'python':sys.version.split()[0], 'sqlite':sqlite3.sqlite_version, 'ssl':ssl.OPENSSL_VERSION, 'decimal':decimal.__libmpdec_version__, 'caSHA256':hashlib.sha256(certificate.read_bytes()).hexdigest(), 'caCount':context.cert_store_stats()['x509_ca']}))",
         ])
         checked = subprocess.run([str(executable), "-I", "-B", "-c", program], env=env, capture_output=True, text=True, check=True)
         require(not re.search(r"/(?:opt/(?:local|homebrew)|usr/local)/", checked.stderr), "Relocated Python loaded a package-manager library")
@@ -220,7 +299,9 @@ def main():
         data = json.loads(manifest.read_text())
         require(set(data.get("packagingSources", {})) == set(packaging_sources),
                 "Packaging provenance does not match the finalizing script")
+        require(isinstance(data.get("caBundle"), dict), "Bundled CA provenance is missing")
         data["packagedMachO"] = validate(framework, target)
+        validate_ca_bundle(framework, data.get("caBundle"))
         data["hashPhase"] = "final-component-signatures-before-outer-app-signature"
     else:
         require(args.source_framework is not None, "Source framework required")
@@ -236,6 +317,7 @@ def main():
                 shutil.rmtree(destination)
         runtime = framework / "Versions/3.12"
         shutil.copytree(source_runtime, runtime, symlinks=True, ignore=shutil.ignore_patterns("site-packages", "__pycache__", "*.pyc"))
+        ca_bundle = internalize_ca_bundle(framework, source_ca_bundle(source_runtime, source_python))
         (framework / "Versions/Current").symlink_to("3.12")
         (framework / "Python").symlink_to("Versions/Current/Python")
         (framework / "Resources").symlink_to("Versions/Current/Resources")
@@ -246,7 +328,8 @@ def main():
                 "sourceExecutableSHA256": digest(source_python), "sourceFrameworkSHA256": digest(source_runtime / "Python"),
                 "minimumSystemVersion": target, "sourceCommit": run("git", "-C", ROOT, "rev-parse", "HEAD").strip(),
                 "sourceChanges": run("git", "-C", ROOT, "status", "--porcelain").splitlines(),
-                "createdUTC": datetime.now(UTC).isoformat(), "dependencies": closure, "packagedMachO": validate(framework, target),
+                "createdUTC": datetime.now(UTC).isoformat(), "dependencies": closure, "caBundle": ca_bundle,
+                "packagedMachO": validate(framework, target),
                 "acceptance": self_test(framework, host_root), "hashPhase": "staged-ad-hoc-signatures"}
         data["packagingSources"] = {name: digest(ROOT / "prototype/scripts" / name) for name in packaging_sources}
     manifest.parent.mkdir(parents=True, exist_ok=True)

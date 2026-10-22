@@ -19,6 +19,7 @@ else
 fi
 source_python="$source_framework/Versions/3.12/bin/python3.12"
 [[ -x "$source_python" ]] || { printf 'Python 3.12 framework is unavailable.\n' >&2; exit 2; }
+"$source_python" -I -B "$repo_root/prototype/scripts/test-contest-python-relocation.py" -q
 "$source_python" -I -B "$repo_root/prototype/scripts/relocate-contest-python.py" \
   --bundle "$bundle" --source-framework "$source_framework" \
   --packaging-script "$packaging_script"

@@ -12,6 +12,15 @@ struct PythonContestHostConfiguration: Sendable, Equatable {
     let executableURL: URL
     let launcherURL: URL
     let dataRootURL: URL
+    let sslCertificateFileURL: URL?
+
+    init(executableURL: URL, launcherURL: URL, dataRootURL: URL,
+         sslCertificateFileURL: URL? = nil) {
+        self.executableURL = executableURL
+        self.launcherURL = launcherURL
+        self.dataRootURL = dataRootURL
+        self.sslCertificateFileURL = sslCertificateFileURL
+    }
 
     static func bundled(applicationSupport: URL, bundle: Bundle = .main,
                         fileManager: FileManager = .default) throws -> Self {
@@ -21,12 +30,19 @@ struct PythonContestHostConfiguration: Sendable, Equatable {
         let executable = bundle.bundleURL.appendingPathComponent(
             "Contents/Frameworks/Python.framework/Versions/3.12/bin/python3.12")
         let launcher = resources.appendingPathComponent("Not1MM/python/contest_host/launcher.py")
+        let certificate = bundle.bundleURL.appendingPathComponent(
+            "Contents/Frameworks/Python.framework/Versions/3.12/etc/openssl/cert.pem")
         let dataRoot = applicationSupport.appendingPathComponent("Contesting/Python", isDirectory: true)
+        let certificateValues = try? certificate.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
         guard fileManager.isExecutableFile(atPath: executable.path),
-              fileManager.isReadableFile(atPath: launcher.path) else {
+              fileManager.isReadableFile(atPath: launcher.path),
+              fileManager.isReadableFile(atPath: certificate.path),
+              certificateValues?.isRegularFile == true,
+              certificateValues?.isSymbolicLink == false else {
             throw ContestLaneError.confirmed("contest_host_unavailable", "The bundled contest runtime is incomplete.")
         }
-        return Self(executableURL: executable, launcherURL: launcher, dataRootURL: dataRoot)
+        return Self(executableURL: executable, launcherURL: launcher, dataRootURL: dataRoot,
+                    sslCertificateFileURL: certificate)
     }
 }
 
@@ -66,7 +82,8 @@ actor PythonContestLane {
         self.n1mmUDPAllowed = n1mmUDPAllowed
         guard configuration.dataRootURL.isFileURL,
               configuration.launcherURL.isFileURL,
-              configuration.executableURL.isFileURL else {
+              configuration.executableURL.isFileURL,
+              configuration.sslCertificateFileURL?.isFileURL != false else {
             throw ContestLaneError.confirmed("contest_host_invalid", "The contest host paths are invalid.")
         }
     }
@@ -396,7 +413,8 @@ actor PythonContestLane {
         child.executableURL = configuration.executableURL
         child.arguments = ["-I", "-B", configuration.launcherURL.path,
                            "--data-root", configuration.dataRootURL.path]
-        child.environment = Self.childEnvironment(n1mmUDPAllowed: n1mmUDPAllowed)
+        child.environment = Self.childEnvironment(n1mmUDPAllowed: n1mmUDPAllowed,
+                                                  sslCertificateFileURL: configuration.sslCertificateFileURL)
         child.standardInput = standardInput
         child.standardOutput = standardOutput
         child.standardError = standardError
@@ -445,11 +463,12 @@ actor PythonContestLane {
         outputBuffer.removeAll(keepingCapacity: true)
     }
 
-    static func childEnvironment(n1mmUDPAllowed: Bool) -> [String: String] {
+    static func childEnvironment(n1mmUDPAllowed: Bool, sslCertificateFileURL: URL? = nil) -> [String: String] {
         var environment = [
             "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8",
             "PYTHONNOUSERSITE": "1", "PYTHONDONTWRITEBYTECODE": "1",
         ]
+        if let sslCertificateFileURL { environment["SSL_CERT_FILE"] = sslCertificateFileURL.path }
         if n1mmUDPAllowed { environment["XLOG_CONTEST_N1MM_UDP_ALLOWED"] = "1" }
         return environment
     }

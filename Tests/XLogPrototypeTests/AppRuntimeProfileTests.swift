@@ -41,6 +41,21 @@ final class AppRuntimeProfileTests: XCTestCase {
         XCTAssertEqual(Set(contestingTest.keys).subtracting(production.keys), [])
     }
 
+    func testContestHostEnvironmentUsesOnlyExplicitBundledCertificate() {
+        let certificate = URL(fileURLWithPath:
+            "/Applications/OM0RX-xLog.app/Contents/Frameworks/Python.framework/Versions/3.12/etc/openssl/cert.pem")
+        let bound = PythonContestLane.childEnvironment(
+            n1mmUDPAllowed: false, sslCertificateFileURL: certificate)
+        let unbound = PythonContestLane.childEnvironment(n1mmUDPAllowed: false)
+
+        XCTAssertEqual(bound["SSL_CERT_FILE"], certificate.path)
+        XCTAssertNil(unbound["SSL_CERT_FILE"])
+        XCTAssertNil(bound["SSL_CERT_DIR"])
+        XCTAssertNil(bound["REQUESTS_CA_BUNDLE"])
+        XCTAssertNil(bound["PATH"])
+        XCTAssertEqual(Set(bound.keys).subtracting(unbound.keys), ["SSL_CERT_FILE"])
+    }
+
     func testContestingBundleRequiresExplicitBoundProfile() throws {
         let (root, executable) = try bundledExecutable(identifier: AppRuntimeProfile.contestingBundleIdentifier)
         defer { try? FileManager.default.removeItem(at: root) }
