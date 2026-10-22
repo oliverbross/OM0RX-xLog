@@ -44,6 +44,18 @@ test('Mac packaging resolves Xcode products and retains the strict-signing resou
   assert.match(script, /--finalize-provenance/);
 });
 
+test('Mac installation verifies the staged and installed resource/signature layout before launch', () => {
+  const script = source('install-macos.sh');
+  assert.match(script, /OM0RXXLogPrototype_XLogCore\.bundle/);
+  assert.match(script, /OM0RXXLogPrototype_XContestCore\.bundle/);
+  assert.match(script, /codesign --verify --deep --strict "\$bundle"/);
+  assert.match(script, /codesign --verify --strict "\$bundle\/Contents\/MacOS\/xlog-prototype-worker"/);
+  assert.match(script, /source_worker_hash=/);
+  assert.match(script, /installed_worker_hash=/);
+  assert.match(script, /installation stopped before replacement/);
+  assert.match(script, /the previous application was restored/);
+});
+
 test('isolated contest packaging stages and signs the complete Python lane', () => {
   const script = source('package-contesting-test-macos.sh');
   assert.match(script, /stage-contest-python-macos\.sh" "\$bundle" "package-contesting-test-macos\.sh"/);

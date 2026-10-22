@@ -60,7 +60,7 @@ it("keeps the workspace pending while a cold-start worker admission failure reco
   expect(screen.queryByRole("button", { name: "Retry connection" })).toBeNull();
   expect(api.request.mock.calls.some(([method]) => method === "workspace_create")).toBe(false);
   expect(statusAttempts).toBe(1);
-  await act(async () => { await vi.advanceTimersByTimeAsync(75); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(100); });
   expect(statusAttempts).toBe(2);
   expect(screen.getByRole("main", { name: "Separate Windows" })).toBeTruthy();
   expect(screen.queryByRole("heading", { name: "Logbook connection unavailable" })).toBeNull();
@@ -75,7 +75,7 @@ it("retries bundled-worker saturation during cold-start workspace reads", async 
   render(<LiveApp />);
   expect(screen.getByRole("heading", { name: "Opening your integrated logbook" })).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Retry connection" })).toBeNull();
-  await act(async () => { await vi.advanceTimersByTimeAsync(75); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(100); });
   expect(preferenceAttempts).toBe(2);
   expect(screen.getByRole("main", { name: "Separate Windows" })).toBeTruthy();
   expect(screen.queryByRole("heading", { name: "Logbook connection unavailable" })).toBeNull();
@@ -88,8 +88,8 @@ it("keeps bundled-worker startup retries bounded when saturation persists", asyn
   api.request.mockImplementation((method, params) => method === "workspace_status"
     ? (++statusAttempts, Promise.reject(new Error("Station service is busy; try again."))) : backend(method, params));
   render(<LiveApp />);
-  await act(async () => { await vi.advanceTimersByTimeAsync(600); });
-  expect(statusAttempts).toBe(4);
+  await act(async () => { await vi.advanceTimersByTimeAsync(7_850); });
+  expect(statusAttempts).toBe(7);
   expect(screen.getByRole("heading", { name: "Logbook connection unavailable" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Retry connection" })).toBeTruthy();
   expect(api.request.mock.calls.some(([method]) => method === "workspace_create")).toBe(false);

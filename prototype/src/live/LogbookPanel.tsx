@@ -12,6 +12,7 @@ import { CTYCorrectionPreview } from "./CTYCorrectionPreview";
 import { OnlineLogFollowUpPanel } from "./OnlineLogFollowUp";
 import { clusterBandColors, clusterModeColors, paletteColor } from "./clusterPalette";
 import { countryDisplay } from "./countryDisplay";
+import { retryStartupRead, startupReadFailureMessage } from "./startupReadRecovery";
 
 const LogbookContactReview = lazy(() => import("./LogbookContactReview").then(module => ({ default: module.LogbookContactReview })));
 
@@ -202,11 +203,10 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
 
   useEffect(() => {
     let cancelled = false;
-    let retryTimer: ReturnType<typeof setTimeout> | undefined;
     setExportSelection([]);
     setLoading(true);
     setError("");
-    const load = (retry = false) => readPage(offset, search)
+    const load = () => retryStartupRead(() => readPage(offset, search), () => !cancelled)
       .then((response) => {
         if (!cancelled) {
           if (offset > 0 && offset >= response.total) setOffset(Math.max(0, Math.floor((response.total - 1) / pageSize) * pageSize));
@@ -218,14 +218,13 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
       })
       .catch((cause) => {
         if (cancelled) return;
-        // Read-only startup contention may settle after the first request.
-        // Retry once, and retire the timer with this exact page/query effect.
-        if (!retry) retryTimer = setTimeout(() => { retryTimer = undefined; void load(true); }, 500);
-        else { setPage(null); setError(errorMessage(cause)); }
+        // Keep the last good page during a refresh. Initial load contention is
+        // retried silently; only a sustained terminal failure gets feedback.
+        if (!page) setError(startupReadFailureMessage(cause, "The logbook"));
       })
-      .finally(() => { if (!cancelled && retryTimer === undefined) setLoading(false); });
+      .finally(() => { if (!cancelled) setLoading(false); });
     void load();
-    return () => { cancelled = true; clearTimeout(retryTimer); };
+    return () => { cancelled = true; };
   }, [onRequest, search, offset, refreshKey, pageSize, readRetry]);
 
   async function reload(pageOffset = offset) {

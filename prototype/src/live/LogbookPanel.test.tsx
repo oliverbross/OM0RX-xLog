@@ -23,9 +23,9 @@ afterEach(() => { cleanup(); vi.useRealTimers(); });
 describe("logbook read recovery", () => {
   it("automatically recovers a compact startup read without showing an empty logbook", async () => {
     vi.useFakeTimers();
-    let initial = true;
+    let attempts = 0;
     const request = vi.fn(async () => {
-      if (initial) { initial = false; throw new Error("Operation failed"); }
+      if (++attempts < 4) throw new Error("Operation failed");
       return { ...page(), total: 68_316 };
     });
     render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={vi.fn()} refreshKey={0} columnContext="desk" />);
@@ -33,7 +33,10 @@ describe("logbook read recovery", () => {
     expect(request).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("0 contacts")).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
-    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(849); });
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText("Logbook unavailable")).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
     expect(screen.getByText("OM0RX")).toBeTruthy();
     expect(screen.getByText(/of 68,316/)).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
@@ -47,13 +50,14 @@ describe("logbook read recovery", () => {
       return page();
     });
     render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={vi.fn()} refreshKey={0} columnContext="desk" />);
-    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
-    expect(request).toHaveBeenCalledTimes(2);
-    expect(screen.getByRole("alert").textContent).toContain("Operation failed");
+    await act(async () => { await vi.advanceTimersByTimeAsync(7_850); });
+    expect(request).toHaveBeenCalledTimes(7);
+    expect(screen.getByRole("alert").textContent).toContain("did not finish loading");
+    expect(screen.getByRole("alert").textContent).not.toContain("Operation failed");
     expect(screen.getByText("Logbook unavailable")).toBeTruthy();
     expect(screen.queryByText("0 contacts")).toBeNull();
     await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
-    expect(request).toHaveBeenCalledTimes(2);
+    expect(request).toHaveBeenCalledTimes(7);
     failing = false;
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Retry logbook" })); });
     expect(screen.getByText("OM0RX")).toBeTruthy();
@@ -68,6 +72,26 @@ describe("logbook read recovery", () => {
     view.unmount();
     await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
     expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the last good page when a passive refresh exhausts startup recovery", async () => {
+    vi.useFakeTimers();
+    let failing = false;
+    const request = vi.fn(async () => {
+      if (failing) throw new Error("Operation failed");
+      return page();
+    });
+    const mutations = new LogbookMutationSession(request, () => {});
+    const view = render(<LogbookPanel mutations={mutations} onRequest={request} onEdit={vi.fn()} refreshKey={0} columnContext="desk" />);
+    await act(async () => {});
+    expect(screen.getByText("OM0RX")).toBeTruthy();
+    failing = true;
+    view.rerender(<LogbookPanel mutations={mutations} onRequest={request} onEdit={vi.fn()} refreshKey={1} columnContext="desk" />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(7_850); });
+    expect(request).toHaveBeenCalledTimes(8);
+    expect(screen.getByText("OM0RX")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText("Logbook unavailable")).toBeNull();
   });
 
   it("retires the previous retry when a refreshed read succeeds", async () => {
