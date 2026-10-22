@@ -22,6 +22,7 @@ export type SetupView = "Station Settings" | "New Contest" | "Choose a Contest" 
 const setupViews: SetupView[] = ["Station Settings", "New Contest", "Choose a Contest", "Edit Current Contest", "Configuration Settings", "Digital Setup", "Edit Macros", "Edit Keys"];
 const cqWWVHFModeCategories = ["CW", "SSB", "FM", "DIGITAL", "SSB+CW", "SSB+CW+DIGITAL"];
 const digitalModeAliases = new Set(["RTTY", "RTTY-R", "LSB-D", "USB-D", "AM-D", "FM-D", "DIGI-U", "DIGI-L", "RTTYR", "PKTLSB", "PKTUSB"]);
+const cqWWStationZonePlugins = new Set(["cq_ww_cw", "cq_ww_ssb"]);
 function setupModeChoices(plugin?: { id: string; modes?: string[] }): string[] {
   if (plugin?.id === "cq_ww_vhf") return cqWWVHFModeCategories;
   const modes = plugin?.modes ?? [];
@@ -149,6 +150,13 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
     event.preventDefault();
     void run(async () => {
       const document = structuredClone(draft);
+      const stationCQZone = String(document.station.CQZone ?? "").trim();
+      if (view === "Station Settings" || cqWWStationZonePlugins.has(document.pluginID)) {
+        if (!/^\d+$/.test(stationCQZone) || Number(stationCQZone) < 1 || Number(stationCQZone) > 40)
+          throw new Error("Station CQ Zone must be a whole number from 1 to 40.");
+        document.station.CQZone = stationCQZone;
+      }
+      if (cqWWStationZonePlugins.has(document.pluginID)) document.settings.SentExchange = stationCQZone;
       const autoCQDelay = Number(document.preferences.autoCQDelay ?? 15);
       if (!Number.isFinite(autoCQDelay) || autoCQDelay < 1 || autoCQDelay > 3600)
         throw new Error("Auto CQ Delay must be between 1 and 3600 seconds.");
@@ -189,6 +197,7 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
   const supportedBandChoices = selectedPlugin?.supportedBands?.length ? selectedPlugin.supportedBands
     : ["160m", "80m", "40m", "20m", "15m", "10m", "6m", "2m", "1.25m", "70cm", "33cm", "23cm"];
   const modeChoices = setupModeChoices(selectedPlugin);
+  const usesCanonicalStationCQZone = cqWWStationZonePlugins.has(draft.pluginID);
   const overlayChoices = selectedPlugin?.overlayChoices?.length ? selectedPlugin.overlayChoices : ["N/A", "CLASSIC", "ROOKIE", "TB-WIRES", "YOUTH"];
   let content: ReactNode = null;
   if (view === "Station Settings") content = <div className="contest-station-form">
@@ -231,7 +240,10 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
     {choice("settings", "StationCategory", "Station", ["FIXED", "MOBILE", "PORTABLE", "ROVER", "EXPEDITION", "HQ", "SCHOOL"])}
     {choice("settings", "AssistedCategory", "Assisted", ["ASSISTED", "NON-ASSISTED"])}
     {choice("settings", "TransmitterCategory", "Transmitter", ["ONE", "TWO", "LIMITED", "UNLIMITED", "SWL"])}
-    <div className="contest-exchange-row">{field("settings", "SentExchange", selectedPlugin?.sentExchangeHint ?? (["icwc_mst", "cwo"].includes(draft.pluginID) ? "Name" : "Sent Exchange"))}<span>Exclude RST</span></div>
+    {usesCanonicalStationCQZone ? <div className="contest-exchange-row contest-manual-stack" role="status">
+      <span>Sent CQ Zone: <strong>{String(draft.station.CQZone ?? "") || "Not configured"}</strong> · sourced from Station Settings.</span>
+      <button type="button" onClick={() => onOpenDialog ? void onOpenDialog("station") : open("Station Settings")}>Edit Station CQ Zone</button>
+    </div> : <div className="contest-exchange-row">{field("settings", "SentExchange", selectedPlugin?.sentExchangeHint ?? (["icwc_mst", "cwo"].includes(draft.pluginID) ? "Name" : "Sent Exchange"))}<span>Exclude RST</span></div>}
     <label><span>Operators</span><input value={draft.operator} onChange={event => setDraft(current => ({ ...current, operator: event.target.value.toUpperCase() }))}/></label>
     {textArea("settings", "Soapbox", "Soapbox")}
   </div>;

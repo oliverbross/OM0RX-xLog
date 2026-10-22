@@ -81,6 +81,26 @@ it("matches station row order, saves upstream field names, and preserves unknown
   expect(p.onSave.mock.calls[0][0]).toMatchObject({ station: { LicenseClass: "Extra", STXeq: "FLEX-8400", City: "Bratislava", UniqueStationField: "keep" }, preferences: { futureSetting: true } });
   expect(p.value.station.City).toBe("");
 });
+it("sources CQ WW CW and SSB sent zones from the canonical station CQ Zone", async () => {
+  for (const pluginID of ["cq_ww_cw", "cq_ww_ssb"]) {
+    const p = props(); p.value.pluginID = pluginID; p.value.station.CQZone = "14"; p.value.settings.SentExchange = "5";
+    if (pluginID === "cq_ww_ssb") p.catalog.push({ id: pluginID, name: "CQ WW SSB", modes: ["SSB"], sentExchangeHint: "CQ Zone No." });
+    const view = render(<ContestSetupPanel {...p}/>); open("New Contest");
+    expect(screen.queryByLabelText("Sent Exchange")).toBeNull();
+    expect(screen.queryByLabelText("CQ Zone No.")).toBeNull();
+    expect(screen.getByRole("status").textContent).toContain("Sent CQ Zone: 14");
+    expect(screen.getByRole("button", { name: "Edit Station CQ Zone" })).toBeTruthy();
+    open("OK"); await waitFor(() => expect(p.onCreate).toHaveBeenCalledOnce());
+    expect(p.onCreate.mock.calls[0][0].settings.SentExchange).toBe("14");
+    view.unmount();
+  }
+});
+it("keeps CQ WW RTTY's editable composite exchange independent", () => {
+  const p = props(); p.value.pluginID = "cq_ww_rtty"; p.catalog.push({ id:"cq_ww_rtty", name:"CQ WW RTTY", modes:["RTTY"], sentExchangeHint:"CQ Zone + (state/VE area)" });
+  render(<ContestSetupPanel {...p}/>); open("New Contest");
+  expect(screen.getByLabelText("CQ Zone + (state/VE area)")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Edit Station CQ Zone" })).toBeNull();
+});
 it("cancels isolated edits and restores the source when a dialog reopens", () => {
   const p = props(); render(<ContestSetupPanel {...p}/>); open("Station Settings");
   fireEvent.change(screen.getByLabelText("City"), { target: { value: "Unsaved" } }); open("Cancel"); open("Station Settings");
@@ -90,12 +110,12 @@ it("cancels isolated edits and restores the source when a dialog reopens", () =>
 it("uses separate new and edit forms in original order, including UTC start and station category", async () => {
   const p = props(); p.value.settings.SentExchange = "ACCEPTANCE TEST"; render(<ContestSetupPanel {...p}/>); open("New Contest");
   expect(screen.getByRole("region", { name: "Contest Setup" }).getAttribute("data-setup-view")).toBe("New Contest");
-  expect(Array.from(document.querySelectorAll(".contest-parameters label>span")).map(item => item.textContent)).toEqual(["Log Type", "Start UTC", "Operator", "Band", "Power", "Mode", "Overlay", "Station", "Assisted", "Transmitter", "Sent Exchange", "Operators", "Soapbox"]);
-  expect((screen.getByLabelText("Sent Exchange") as HTMLInputElement).value).toBe("");
+  expect(Array.from(document.querySelectorAll(".contest-parameters label>span")).map(item => item.textContent)).toEqual(["Log Type", "Start UTC", "Operator", "Band", "Power", "Mode", "Overlay", "Station", "Assisted", "Transmitter", "Operators", "Soapbox"]);
+  expect(screen.getByRole("status").textContent).toContain("Sent CQ Zone: 15");
   fireEvent.change(screen.getByLabelText("Start UTC"), { target: { value: "2026-10-24T00:00:00" } });
   fireEvent.change(screen.getByLabelText("Station"), { target: { value: "PORTABLE" } });
   open("OK");
-  await waitFor(() => expect(p.onCreate).toHaveBeenCalledWith(expect.objectContaining({ name: "CQ WW CW", settings: expect.objectContaining({ StartDate: "2026-10-24 00:00:00", StationCategory: "PORTABLE" }) })));
+  await waitFor(() => expect(p.onCreate).toHaveBeenCalledWith(expect.objectContaining({ name: "CQ WW CW", settings: expect.objectContaining({ StartDate: "2026-10-24 00:00:00", StationCategory: "PORTABLE", SentExchange: "15" }) })));
   open("Edit Current Contest"); expect((screen.getByLabelText("Log Type") as HTMLSelectElement).disabled).toBe(true);
 });
 it("populates a new contest with the actual current UTC start instead of a visual-only date placeholder", () => {

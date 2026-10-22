@@ -166,6 +166,20 @@ def require(condition, message, code="invalid_request"):
         raise HostError(code, message)
 
 
+CQ_WW_STATION_ZONE_PLUGINS = {"cq_ww_cw", "cq_ww_ssb"}
+
+
+def apply_canonical_cq_ww_station_zone(plugin_id, station, settings):
+    """CQ WW CW/SSB always send the station identity's canonical CQ zone."""
+    if plugin_id not in CQ_WW_STATION_ZONE_PLUGINS:
+        return
+    zone = str(station.get("CQZone", "")).strip()
+    require(zone.isdigit() and 1 <= int(zone) <= 40,
+            "Station CQ zone must be 1 to 40")
+    station["CQZone"] = zone
+    settings["SentExchange"] = zone
+
+
 def validate_rtc_xml(payload):
     require(isinstance(payload, str) and 1 <= len(payload.encode("utf-8")) <= 65_536,
             "RTC score XML is invalid", "rtc_payload_invalid")
@@ -2043,6 +2057,8 @@ class Host:
                 require(bool(setup["name"].strip()), "Contest name is required")
                 operator = text(setup["operator"], 32)
                 require(bool(operator.strip()), "Operator is required")
+                apply_canonical_cq_ww_station_zone(
+                    state["pluginID"], setup["station"], setup["settings"])
                 zone = str(setup["settings"].get("SentExchange", ""))
                 if state["pluginID"] == "cq_ww_vhf":
                     zone = normalize_cq_vhf_grid(zone)
@@ -2614,6 +2630,7 @@ class Host:
         require(call in countries, "Resolve the station country before creating this contest", "station_country_unresolved")
         settings = deepcopy(params.get("settings", {}))
         require(isinstance(settings, dict), "Settings must be an object")
+        apply_canonical_cq_ww_station_zone(plugin_id, station, settings)
         if plugin_id == "wia_remembrance":
             local_offset = datetime.now().astimezone().utcoffset()
             settings.setdefault("ContestUTCOffsetMinutes",

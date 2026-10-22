@@ -362,6 +362,39 @@ it("rejects a dialog save when owner context changes while the request is being 
   }));
   expect(save).not.toHaveBeenCalled();
 });
+it("accepts a station save across unrelated setup and auxiliary projection churn", async () => {
+  const source = snapshot(), save = vi.fn(async () => {}), report = vi.fn();
+  const pending = { ...source, requestID:"station-save", kind:"station" as const,
+    baseDocument:source.document,baseAuxiliary:source.auxiliary,
+    document:{...source.document,station:{...source.document.station,City:"Darwin"}} };
+  let deliver!: (value: unknown) => void;
+  native.invoke.mockImplementation(async (_command, { method }) => method === "next" ? new Promise(resolve => { deliver = resolve; }) : source);
+  function Owner({ auxiliary }: { auxiliary: typeof source.auxiliary }) { useContestSetupDialogs({ enabled:true, context:source.context,
+    document:{...source.document,settings:{...source.document.settings,Soapbox:"background"}}, auxiliary, save, saveRover:vi.fn(), report }); return null; }
+  const view=render(<Owner auxiliary={source.auxiliary}/>); await waitFor(() => expect(deliver).toBeTypeOf("function"));
+  view.rerender(<Owner auxiliary={{...source.auxiliary,diagnostics:{...source.auxiliary.diagnostics,version:"new-projection"}}}/>);
+  await act(async()=>deliver(pending));
+  await waitFor(()=>expect(save).toHaveBeenCalledOnce());
+  expect(save.mock.calls[0][0].station.City).toBe("Darwin");
+});
+it("rejects a station save after the same station section changes", async () => {
+  const source=snapshot(),save=vi.fn(async()=>{}),report=vi.fn();let deliver!:(value:unknown)=>void;
+  native.invoke.mockImplementation(async(_command,{method})=>method==="next"?new Promise(resolve=>{deliver=resolve;}):source);
+  function Owner({ city }:{city:string}) { useContestSetupDialogs({enabled:true,context:source.context,
+    document:{...source.document,station:{...source.document.station,City:city}},auxiliary:source.auxiliary,save,saveRover:vi.fn(),report});return null;}
+  const view=render(<Owner city=""/>);await waitFor(()=>expect(deliver).toBeTypeOf("function"));view.rerender(<Owner city="Bratislava"/>);
+  await act(async()=>deliver({...source,requestID:"station-conflict",kind:"station"}));
+  await waitFor(()=>expect(native.invoke).toHaveBeenCalledWith("contest_setup_dialog_request",{method:"complete",
+    params:expect.objectContaining({requestID:"station-conflict",ok:false,message:expect.stringContaining("Setup changed")})}));
+  expect(save).not.toHaveBeenCalled();
+});
+it("preserves an exact raw string save failure in the dialog receipt", async () => {
+  const source=snapshot(),save=vi.fn(async()=>{throw "Exact host refusal";}),report=vi.fn();let delivered=false;
+  native.invoke.mockImplementation(async(_command,{method})=>{if(method==="next"&&!delivered){delivered=true;return {...source,requestID:"raw-failure",kind:"station"};}return method==="next"?null:source;});
+  function Owner(){useContestSetupDialogs({enabled:true,context:source.context,document:source.document,auxiliary:source.auxiliary,save,saveRover:vi.fn(),report});return null;}
+  render(<Owner/>);await waitFor(()=>expect(native.invoke).toHaveBeenCalledWith("contest_setup_dialog_request",{method:"complete",
+    params:expect.objectContaining({requestID:"raw-failure",ok:false,message:"Exact host refusal"})}));
+});
 it("uses compact content-fit bounds while keeping dense configuration tabs fully visible", () => {
   const styles = readFileSync("src/contesting/DetachedContestSetupDialog.css", "utf8");
   expect(fittedConfigurationDialogHeight(180, 900)).toBe(320);

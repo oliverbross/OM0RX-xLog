@@ -45,6 +45,17 @@ fn auxiliary(value: &Value) -> bool {
         && value["effectiveMacros"].as_array().is_none_or(|_| value["effectiveMacros"].to_string().len() <= 32_768)
         && value["diagnostics"].is_object() && value["diagnostics"].to_string().len() <= 4_096
 }
+fn owned_state<'a>(kind: &str, document: &'a Value, auxiliary: &'a Value) -> Value {
+    match kind {
+        "operator" => document["operator"].clone(),
+        "station" => document["station"].clone(),
+        "macros" => document["macros"].clone(),
+        "keys" => document["preferences"]["keyBindings"].clone(),
+        "rover" => auxiliary["roverLocation"].clone(),
+        "digital" => auxiliary["digital"].clone(),
+        _ => json!({"preferences":document["preferences"],"network":document["network"]}),
+    }
+}
 fn digital(value: &Value) -> bool {
     let configuration = &value["configuration"];
     let address = configuration["address"].as_str().unwrap_or("");
@@ -78,7 +89,15 @@ impl State {
                 let unchanged = self.snapshot.as_ref().is_some_and(|s| s["epoch"] == params["epoch"] && s["context"] == params["context"] && s["document"] == params["document"] && s["auxiliary"] == params["auxiliary"]);
                 if !unchanged {
                     let revision = self.snapshot.as_ref().and_then(|s| s["revision"].as_u64()).unwrap_or(0) + 1;
-                    if let Some(pending) = self.pending.take() { self.settle(pending, false, "Setup changed. Reopen the dialog before saving."); }
+                    if self.pending.as_ref().is_some_and(|pending| {
+                        let kind = pending["kind"].as_str().unwrap_or("");
+                        pending["context"] != params["context"] ||
+                            owned_state(kind, &pending["baseDocument"], &pending["baseAuxiliary"])
+                                != owned_state(kind, &params["document"], &params["auxiliary"])
+                    }) {
+                        let pending = self.pending.take().unwrap();
+                        self.settle(pending, false, "Setup changed. Reopen the dialog before saving.");
+                    }
                     self.snapshot = Some(json!({"epoch":params["epoch"],"context":params["context"],"revision":revision,"document":params["document"],"auxiliary":params["auxiliary"]}));
                 }
                 Ok(self.snapshot.clone().unwrap())
@@ -118,7 +137,8 @@ impl State {
                 let valid_payload = if dialog == "rover" {
                     params["roverLocation"].as_str().is_some_and(|s| !s.trim().is_empty() && s.len() <= 10)
                 } else if dialog == "digital" { digital(&params["digital"]) } else { document(&params["document"]) };
-                if !text(&params["requestID"]) || !valid_payload { return Err("Invalid setup save request.".into()); }
+                if !text(&params["requestID"]) || !valid_payload || !document(&params["baseDocument"])
+                    || !auxiliary(&params["baseAuxiliary"]) { return Err("Invalid setup save request.".into()); }
                 let mut request = params; request["kind"] = json!(dialog);
                 if let Some((_, original, receipt)) = self.receipts.iter().find(|(_,p,_)| p["requestID"] == request["requestID"]) {
                     return if *original == request { Ok(receipt.clone()) } else { Err("Setup request ID was reused.".into()) };
@@ -126,8 +146,14 @@ impl State {
                 if let Some(pending) = &self.pending {
                     return if *pending == request { Ok(json!({"requestID":request["requestID"],"status":"pending"})) } else { Err("Another setup save is pending. Try again after it finishes.".into()) };
                 }
+                if self.receipts.iter().any(|(saved_kind, original, _)| saved_kind == dialog
+                    && original["epoch"] == request["epoch"] && original["revision"] == request["revision"]) {
+                    return Err("This setup draft was already consumed. Reopen the dialog before saving again.".into());
+                }
                 let snapshot = self.snapshot.as_ref().ok_or("Contest Setup is unavailable.")?;
-                if snapshot["epoch"] != request["epoch"] || snapshot["revision"] != request["revision"] || snapshot["context"] != request["context"] {
+                if snapshot["epoch"] != request["epoch"] || snapshot["context"] != request["context"] ||
+                    owned_state(dialog, &request["baseDocument"], &request["baseAuxiliary"])
+                        != owned_state(dialog, &snapshot["document"], &snapshot["auxiliary"]) {
                     return Err("Setup changed. Reopen the dialog before saving.".into());
                 }
                 let result = json!({"requestID":request["requestID"],"status":"pending"}); self.pending = Some(request); Ok(result)
@@ -154,7 +180,8 @@ mod tests {
     fn doc() -> Value { json!({"station":{},"settings":{},"preferences":{},"network":{},"macros":[]}) }
     fn auxiliary() -> Value { json!({"roverLocation":"","diagnostics":{"engine":"Not1MM Python"}}) }
     fn publish(s: &mut State) -> Value { s.request("contest-setup", "publish", json!({"epoch":"owner-1","context":"workspace-1","document":doc(),"auxiliary":auxiliary()})).unwrap() }
-    fn submission(snapshot: &Value) -> Value { let mut p = snapshot.clone(); p["requestID"] = json!("save-1"); p }
+    fn submission(snapshot: &Value) -> Value { let mut p = snapshot.clone(); p["requestID"] = json!("save-1");
+        p["baseDocument"] = snapshot["document"].clone(); p["baseAuxiliary"] = snapshot["auxiliary"].clone(); p }
     #[test]
     fn admits_only_owner_and_dialog_operations() {
         let mut s = State::default(); let snapshot = publish(&mut s);
@@ -191,15 +218,15 @@ mod tests {
     #[test]
     fn digital_requests_are_bounded_and_owned() {
         let mut s = State::default(); let snapshot = publish(&mut s);
-        let mut request = snapshot.clone(); request["requestID"] = json!("digital-1");
+        let mut request = submission(&snapshot); request["requestID"] = json!("digital-1");
         request["digital"] = json!({"configuration":{"enabled":false,"address":"224.0.0.1","port":2237,
             "destination":"active_contest"},"fldigi_configuration":{"receive_enabled":true,"transmit_enabled":false},"action":"start"});
         assert_eq!(s.request("contest-setup-digital","submit",request.clone()).unwrap()["status"],"pending");
         assert!(s.request("contest-setup-digital","submit",request).is_ok());
-        let mut invalid = snapshot; invalid["requestID"] = json!("digital-2");
+        let mut invalid = submission(&snapshot); invalid["requestID"] = json!("digital-2");
         invalid["digital"] = json!({"configuration":{"enabled":false,"address":"","port":0},"action":"connect"});
         assert!(s.request("contest-setup-digital","submit",invalid).is_err());
-        let mut invalid_destination = publish(&mut s); invalid_destination["requestID"] = json!("digital-3");
+        let next = publish(&mut s); let mut invalid_destination = submission(&next); invalid_destination["requestID"] = json!("digital-3");
         invalid_destination["digital"] = json!({"configuration":{"enabled":false,"address":"127.0.0.1","port":2237,
             "destination":"another_contest"},"action":"start"});
         assert!(s.request("contest-setup-digital","submit",invalid_destination).is_err());
@@ -215,6 +242,22 @@ mod tests {
         let mut fresh_id = p; fresh_id["requestID"] = json!("save-2");
         assert!(s.request("contest-setup-station","submit",fresh_id).is_err());
         assert!(s.request("contest-setup","next",json!({"epoch":"old-owner"})).is_err());
+    }
+    #[test]
+    fn station_save_ignores_unrelated_owner_projection_churn_but_rejects_station_conflicts() {
+        let mut s = State::default(); let snapshot = publish(&mut s); let mut request = submission(&snapshot);
+        request["document"]["station"]["City"] = json!("Darwin");
+        let mut unrelated = snapshot.clone(); unrelated["document"]["settings"]["Soapbox"] = json!("background");
+        unrelated["auxiliary"]["diagnostics"]["version"] = json!("next");
+        s.request("contest-setup", "publish", unrelated).unwrap();
+        assert_eq!(s.request("contest-setup-station", "submit", request.clone()).unwrap()["status"], "pending");
+        let mut more_churn = s.snapshot.clone().unwrap(); more_churn["auxiliary"]["diagnostics"]["version"] = json!("newest");
+        s.request("contest-setup", "publish", more_churn).unwrap();
+        assert!(s.pending.is_some());
+        let mut station_change = s.snapshot.clone().unwrap(); station_change["document"]["station"]["City"] = json!("Bratislava");
+        s.request("contest-setup", "publish", station_change).unwrap();
+        assert!(s.pending.is_none());
+        assert_eq!(s.request("contest-setup-station", "receipt", request).unwrap()["status"], "rejected");
     }
     #[test]
     fn exposes_compact_distinct_windows() {

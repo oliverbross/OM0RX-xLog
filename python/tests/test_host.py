@@ -44,7 +44,7 @@ class HostTests(unittest.TestCase):
         self.revision = 0
         self.create = {"sessionID": self.session, "workspaceGeneration": self.workspace,
                        "operationID": uid(), "expectedRevision": 0,
-                       "pluginID": "cq_ww_cw", "station": {"Call": "OM0RX", "GridSquare": "JN88"},
+                       "pluginID": "cq_ww_cw", "station": {"Call": "OM0RX", "GridSquare": "JN88", "CQZone": "15"},
                        "frequencyHz": 14025000,
                        "settings": {"SentExchange": "15", "OperatorCategory": "SINGLE-OP", "BandCategory": "ALL", "PowerCategory": "LOW"},
                        "reference": {"id": "test-cty-v1", "countries": deepcopy(CTY)}}
@@ -88,13 +88,23 @@ class HostTests(unittest.TestCase):
         with self.assertRaises(AttributeError):
             Field("callsign").silentlyIgnoreMissingQtMethod()
 
-    def test_new_session_requires_explicit_sent_exchange(self):
+    def test_new_session_requires_canonical_station_cq_zone(self):
         params = deepcopy(self.create)
         params["sessionID"] = uid()
         params["workspaceGeneration"] = uid()
-        params["settings"].pop("SentExchange")
-        with self.assertRaisesRegex(HostError, "Sent CQ zone must be 1 to 40"):
+        params["station"].pop("CQZone")
+        with self.assertRaisesRegex(HostError, "Station CQ zone must be 1 to 40"):
             self.host.new_state(params["sessionID"], params)
+
+    def test_new_session_uses_station_cq_zone_instead_of_duplicate_exchange(self):
+        params = deepcopy(self.create)
+        params["sessionID"] = uid()
+        params["workspaceGeneration"] = uid()
+        params["station"]["CQZone"] = "14"
+        params["settings"]["SentExchange"] = "5"
+        state = self.host.new_state(params["sessionID"], params)
+        self.assertEqual(state["station"]["CQZone"], "14")
+        self.assertEqual(state["settings"]["SentExchange"], "14")
 
     def test_catalog_exposes_supported_bands_before_projection(self):
         response = self.call("contest_catalog", {})
@@ -333,18 +343,20 @@ class HostTests(unittest.TestCase):
         qso = self.log()
         before = self.host.database(self.session).exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso,))
         setup = self.read("setup_get")["setup"]
-        setup.update(name="Operator contest", operator="OM0RX/P", station={**setup["station"], "Call": "OM1ABC", "Name": "Contest operator"},
-                     settings={**setup["settings"], "SentExchange": "16", "PowerCategory": "HIGH"},
+        setup.update(name="Operator contest", operator="OM0RX/P", station={**setup["station"], "Call": "OM1ABC", "Name": "Contest operator", "CQZone": "16"},
+                     settings={**setup["settings"], "SentExchange": "5", "PowerCategory": "HIGH"},
                      macros=[{"mode": "R", "key": "F1", "label": "My CQ", "template": "cq test {MYCALL}"},
                              {"mode": "S", "key": "F1", "label": "My S&P", "template": "de {MYCALL}"}])
         params = {"sessionID": self.session, "operationID": uid(), "expectedRevision": self.revision, "setup": setup}
         saved = self.call("setup_save", params)
+        expected_setup = deepcopy(setup)
+        expected_setup["settings"]["SentExchange"] = "16"
         self.assertEqual(saved["projection"]["functionKeys"][0]["label"], "My S&P")
         self.assertEqual(next(field["value"] for field in saved["projection"]["fields"] if field["id"] == "other_1"), "16")
         self.assertEqual(self.call("sessions", {})["sessions"][0]["name"], "Operator contest")
         self.host.close()
         self.host = Host(self.root)
-        self.assertEqual(self.read("setup_get")["setup"], setup)
+        self.assertEqual(self.read("setup_get")["setup"], expected_setup)
         action = self.mutate("function_key", key="F1")["actions"][0]
         self.assertEqual((action["label"], action["template"], action["stationCall"], action["sentExchange"]),
                          ("My S&P", "de {MYCALL}", "OM1ABC", "16"))
@@ -353,7 +365,7 @@ class HostTests(unittest.TestCase):
         self.assertEqual((action["label"], action["template"]), ("My CQ", "cq test {MYCALL}"))
         self.assertEqual(self.mutate("function_key", key="F3")["actions"][0]["template"], "{RST} {EXCHANGE}")
         self.assertTrue(self.call("setup_save", params)["replayed"])
-        self.assertEqual(self.read("setup_get")["setup"], setup)
+        self.assertEqual(self.read("setup_get")["setup"], expected_setup)
         new_qso = self.log("DL1ABC", "14", 1)
         rows = {row["ID"]: row for row in self.read("log")["rows"]}
         self.assertEqual(
@@ -431,7 +443,7 @@ class HostTests(unittest.TestCase):
 
     def test_setup_rejects_invalid_contest_configuration_atomically(self):
         setup = self.read("setup_get")["setup"]
-        for update in ({"station": {"Call": "XX1UNKNOWN"}}, {"settings": {"SentExchange": "41"}},
+        for update in ({"station": {"Call": "XX1UNKNOWN"}}, {"station": {**setup["station"], "CQZone": "41"}},
                        {"settings": {"SentExchange": "15", "ModeCategory": "SSB"}},
                        {"operator": ""}, {"name": ""}):
             with self.subTest(update=update), self.assertRaises(HostError):

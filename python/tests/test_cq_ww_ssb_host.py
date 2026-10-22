@@ -27,7 +27,7 @@ class CQWWSSBHostTests(unittest.TestCase):
             "operationID": uid(),
             "expectedRevision": 0,
             "pluginID": "cq_ww_ssb",
-            "station": {"Call": "OM0RX", "GridSquare": "JN88"},
+            "station": {"Call": "OM0RX", "GridSquare": "JN88", "CQZone": "15"},
             "frequencyHz": 14250000,
             "settings": {
                 "SentExchange": "15",
@@ -108,10 +108,11 @@ class CQWWSSBHostTests(unittest.TestCase):
             with self.subTest(zone=zone), self.assertRaisesRegex(HostError, "CQ zone must be 1 to 40"):
                 self.mutate("qso_commit", fields={"callsign": "K1ABC", "other_2": zone})
         setup = self.read("setup_get")["setup"]
-        setup["settings"]["SentExchange"] = "41"
-        with self.assertRaisesRegex(HostError, "Sent CQ zone must be 1 to 40"):
+        setup["station"]["CQZone"] = "41"
+        with self.assertRaisesRegex(HostError, "Station CQ zone must be 1 to 40"):
             self.mutate("setup_save", setup=setup)
-        setup["settings"].update(SentExchange="15", ModeCategory="CW")
+        setup["station"]["CQZone"] = "15"
+        setup["settings"].update(SentExchange="41", ModeCategory="CW")
         with self.assertRaisesRegex(HostError, "requires SSB"):
             self.mutate("setup_save", setup=setup)
 
