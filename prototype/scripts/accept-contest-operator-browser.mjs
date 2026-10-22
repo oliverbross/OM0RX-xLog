@@ -103,6 +103,7 @@ const waitEnabledButton = name => browser(["eval", `new Promise((resolve,reject)
 const pressIn = async (label, key) => { await browser(["eval", `(() => { const direct=[...document.querySelectorAll('input,select,textarea')].find(x=>x.getAttribute('aria-label')===${JSON.stringify(label)}); const owner=[...document.querySelectorAll('label')].find(x=>x.textContent.startsWith(${JSON.stringify(label)})); const field=direct ?? owner?.querySelector('input,select,textarea'); if(!field) throw new Error('Missing field'); field.focus(); })()`]); await browser(["press", key]); };
 const text = selector => browser(["get", "text", selector]);
 const expectText = async (selector, expected) => assert.match(await text(selector), expected instanceof RegExp ? expected : new RegExp(expected));
+const waitForSelectorText = (selector, pattern) => browser(["eval", `new Promise((resolve,reject)=>{ const until=Date.now()+10000; const poll=()=>{ const value=document.querySelector(${JSON.stringify(selector)})?.textContent??''; if(new RegExp(${JSON.stringify(pattern.source)},${JSON.stringify(pattern.flags)}).test(value)) return resolve(value); if(Date.now()>until) return reject(new Error('Text did not settle for '+${JSON.stringify(selector)})); setTimeout(poll,50); }; poll(); })`]);
 async function waitForFrame(after, predicate, description) {
   const until = Date.now() + 10_000;
   while (Date.now() <= until) {
@@ -284,9 +285,9 @@ try {
   await fill("Correction note", "Synthetic WW acceptance correction"); const wwCorrectionStart = frames.length; await click("Save correction"); await waitText("Saved K1ABC");
   const wwCorrection = await waitForFrame(wwCorrectionStart, frame => frame.request.method === "contest_qso_correct" && frame.response.ok, "WW correction receipt");
   assert.equal(wwCorrection.response.result.currentTarget.receivedExchange, "04"); assert.equal(wwCorrection.response.result.currentTarget.normalizedReceivedExchange, "04");
-  await expectText("[aria-label='Score and multipliers']", /Claimed score\s*42.*QSOs\s*3.*Points\s*7.*Multipliers\s*6/s);
+  await waitForSelectorText("[aria-label='Score and multipliers']", /Claimed score\s*42.*QSOs\s*3.*Points\s*7.*Multipliers\s*6/s);
   await click("Edit DL1ABC"); await waitText("Update the contact"); await click("Delete contact"); await fill("Deletion note", "Synthetic acceptance deletion"); await click("Confirm deletion"); await waitText("Deleted DL1ABC"); await expectText("[aria-label='Contest log']", /2 contacts/);
-  await expectText("[aria-label='Score and multipliers']", /Claimed score\s*24.*QSOs\s*2.*Points\s*6.*Multipliers\s*4/s);
+  await waitForSelectorText("[aria-label='Score and multipliers']", /Claimed score\s*24.*QSOs\s*2.*Points\s*6.*Multipliers\s*4/s);
   await expectDraftDupe(wwRepair, { call: "DL1ABC", rx: "14", frequency: 7_025_000, band: "40m" }, "clear", null);
   await expectDraftDupe(wwRepair, { call: "K1ABC", rx: "05", frequency: 7_025_000, band: "40m" }, "duplicate", null);
   await browser(["screenshot", join(evidenceRoot, "restart-ww-correction-deletion.png")]); await click("Contest Manager"); await waitText("Contest sessions");
