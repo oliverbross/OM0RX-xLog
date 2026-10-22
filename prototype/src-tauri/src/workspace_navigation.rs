@@ -91,14 +91,11 @@ pub fn contest_window_panel(panel_id: &str) -> Option<&'static str> {
         .find(|panel| *panel == panel_id)
 }
 
-/// The Rotator keeps the shared xLog service window. Remote VFO has a
-/// contest-specific presentation and lifetime while reusing the same station
-/// observation and tune services underneath.
+/// Contest windows keep contest context and lifetime while reusing the existing
+/// xLog station services underneath.
 pub fn contest_shared_window(panel_id: &str) -> Option<&'static str> {
-    match panel_id {
-        "rotor" => Some("rotor"),
-        _ => None,
-    }
+    let _ = panel_id;
+    None
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]

@@ -629,7 +629,7 @@ it("gives the nested contest Cluster table all remaining window height without p
   expect(css).toContain(".contest-spots > .live-cluster > .live-cluster-table { flex:1 1 0; min-height:60px; max-height:none; overflow:auto;");
 });
 
-it.each(["band-maps", "monitor", "alerts", "awards", "chaser-dx", "rotor", "station-control", "dx-cluster"])(
+it.each(["band-maps", "monitor", "alerts", "rotor", "station-control", "dx-cluster"])(
   "keeps disconnected contest %s explicitly unavailable and passive", async panelID => {
     window.history.replaceState({}, "", search.replace("view=active-qso", `view=${panelID}`));
     native.invoke.mockImplementation(async (command:string) => {
@@ -642,6 +642,21 @@ it.each(["band-maps", "monitor", "alerts", "awards", "chaser-dx", "rotor", "stat
     expect(screen.queryByRole("button")).toBeNull();
     expect(native.invoke.mock.calls.every(([command]) => command === "contest_surface_snapshot")).toBe(true);
   });
+
+it.each([
+  ["awards", "DXCC", "This contest does not score DXCC multipliers."],
+  ["chaser-dx", "Zones", "This contest does not score CQ or ITU zone multipliers."],
+])("explains why the contest %s window has no scoring data",async(panelID,heading,message)=>{
+  window.history.replaceState({},"",search.replace("view=active-qso",`view=${panelID}`));
+  native.invoke.mockImplementation(async(command:string)=>{
+    if(command==="contest_surface_snapshot")return{...snapshot,panelID,projection:{schemaVersion:1,status:"unavailable"}};
+    throw new Error(`unexpected ${command}`);
+  });
+  render(<DetachedContestSurface/>);
+  expect(await screen.findByRole("heading",{name:heading})).toBeTruthy();
+  expect(screen.getByText(message)).toBeTruthy();
+  expect(screen.queryByRole("button")).toBeNull();
+});
 
 it("renders exact owner Rates independently of the current log page and refreshes on wake", async () => {
   window.history.replaceState({}, "", search.replace("view=active-qso", "view=monitor"));

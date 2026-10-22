@@ -2133,8 +2133,7 @@ it("defers a native contest window command until the saved session is fully rest
   await waitFor(() => expect(groupChat.configure).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}),
     expect.objectContaining({enabled:false,multicastGroup:"239.1.1.1",multicastPort:2239,interface:"0.0.0.0"})));
   await expect(route!("contest-window-qrz-details")).resolves.toBe(true);
-  expect(surfaceWindow.open).not.toHaveBeenCalledWith(expect.anything(), "qrz-details");
-  expect((await screen.findByRole("alert")).textContent).toContain("Enable Show callsign details");
+  expect(surfaceWindow.open).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}),"qrz-details");
 });
 
 it("does not open Main Logging until its ready projection is published", async () => {

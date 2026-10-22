@@ -2169,11 +2169,6 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         await openContestGroupChatWindow(surfaceContext);
         return true;
       }
-      if (route === "contest-window-qrz-details" && setup.preferences.showQRZDetails !== true) {
-        setManager(true);
-        setError("Enable Show callsign details in Contest Configuration → Lookup before opening this window.");
-        return true;
-      }
       const panelID = route.startsWith("contest-window-") ? route.slice("contest-window-".length) as ContestSurfacePanelID : null;
       if (!panelID || !contestSurfacePanelIDs.includes(panelID)) return false;
       if (startupPending) return false;
@@ -2191,7 +2186,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     registerMenuRoute(handle);
     return () => registerMenuRoute(null);
   }, [registerMenuRoute, detachedAvailable, surfaceContext?.operatingContext, surfaceContext?.sessionID,
-    surfaceContext?.workspaceGeneration, startupPending, setup.preferences.showQRZDetails]);
+    surfaceContext?.workspaceGeneration, startupPending]);
 
   const applyAssistanceCallsign = (callsign: string, selection: SCPSelectionScope) => {
     const active = projectionRef.current;

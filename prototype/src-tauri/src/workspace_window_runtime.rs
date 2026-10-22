@@ -1051,8 +1051,7 @@ mod tests {
     }
     #[test]
     fn independent_band_windows_keep_instance_labels_and_survive_preset_reconciliation() {
-        let mut engine = Engine::default();
-        let mut host = FakeHost::new(vec![layout(1, &[])]);
+        let host = FakeHost::new(vec![layout(1, &[])]);
         engine.open(&mut host, "band-map-20m").unwrap();
         engine.open(&mut host, "band-map-40m").unwrap();
         assert_eq!(host.operations, ["show:band-map-20m:true", "show:band-map-40m:true"]);
@@ -1461,20 +1460,11 @@ mod tests {
             Some("12345678-1234-1234-1234-123456789abc")).is_err());
     }
     #[test]
-    fn contest_menu_scopes_remote_vfo_and_reuses_only_the_rotor_window() {
+    fn contest_menu_scopes_rotator_and_remote_vfo_to_the_active_contest() {
         let mut engine = Engine::default();
         let mut host = FakeHost::new(vec![layout(1, &[])]);
-        for panel in ["rotor"] {
-            let label = contest_open_label(panel).unwrap();
-            assert_eq!(label, panel);
-            assert!(supports(&label));
-            engine.open(&mut host, &label).unwrap();
-            engine.open(&mut host, &label).unwrap();
-            assert_eq!(&host.operations[host.operations.len() - 2..],
-                [format!("show:{panel}:true"), format!("show:{panel}:true")]);
-        }
         assert_eq!(host.layouts.len(), 1);
-        for panel in ["active-qso", "callsign-intelligence", "propagation", "monitor", "awards", "chaser-dx", "logbook", "band-maps", "dx-cluster", "station-control"] {
+        for panel in ["active-qso", "callsign-intelligence", "propagation", "monitor", "awards", "chaser-dx", "logbook", "band-maps", "dx-cluster", "rotor", "station-control"] {
             assert_eq!(contest_open_label(panel).unwrap(), format!("contest--{panel}"));
             assert!(crate::workspace_navigation::contest_shared_window(panel).is_none());
         }
