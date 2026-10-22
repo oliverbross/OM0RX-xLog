@@ -1497,7 +1497,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     }, report: setError });
 
   const keyDown = (event: KeyboardEvent<HTMLFormElement>) => {
-    if (event.key === "Escape") { event.preventDefault(); void stopAutoCQ(true,true).catch(cause=>setError(errorMessage(cause))); return; }
+    if (event.key === "Escape") { event.preventDefault(); void stopAutoCQ(true).catch(cause=>setError(errorMessage(cause))); return; }
     if (!projection || busy || retiring) return;
     const target = event.target as HTMLInputElement;
     if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key === " " &&
@@ -1931,7 +1931,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         action.workspaceGeneration !== active.workspaceGeneration || action.operatingContext !== operatingContext)
       throw new Error("This detached panel no longer belongs to the active contest session.");
     if (action.action === "entry_operator_key" && action.params.key === "Escape") {
-      await stopAutoCQ(true,true); return;
+      await stopAutoCQ(true); return;
     }
     if (busyRef.current || retiring) throw new Error("The contest owner is busy.");
     if (action.action.startsWith("entry_") || action.action.startsWith("assistance_") || action.action.startsWith("spot_")) {

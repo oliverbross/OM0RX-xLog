@@ -1780,19 +1780,18 @@ it("records only a confirmed CQ at the observed VFO and returns through the owne
   expect(tune).toHaveBeenCalledExactlyOnceWith(14_025_000,"CW");
 });
 
-it("makes detached Escape independently stop contest output and the acknowledged rotor path",async()=>{
+it("keeps detached Escape scoped to contest output and independent from rotor availability",async()=>{
   const current=projection(),request=operationalRequest(()=>current),rotorStop=vi.fn(async()=>({generation:8}));
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} rotorStop={rotorStop}/>);
   await createContestThroughSetup();const entry=surfaceOwner.current.projections["active-qso"],envelope={operatingContext,scope:"contesting",
     sessionID:current.sessionID,workspaceGeneration,panelID:"active-qso",projectionRevision:1,requestID:crypto.randomUUID()} as const;
   await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Escape",focusedField:"callsign"}}));
-  expect(nativeCW.stop).toHaveBeenCalledTimes(1);expect(rotorStop).toHaveBeenCalledTimes(1);
+  expect(nativeCW.stop).toHaveBeenCalledTimes(1);expect(rotorStop).not.toHaveBeenCalled();
   rotorStop.mockRejectedValueOnce(new Error("Rotor stop acknowledgement lost"));
-  await act(async()=>{await expect(surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"entry_operator_key",
-    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Escape",focusedField:"callsign"}}))
-    .rejects.toThrow("Escape stop remains uncertain");});
-  expect(nativeCW.stop).toHaveBeenCalledTimes(2);expect(rotorStop).toHaveBeenCalledTimes(2);
+  await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Escape",focusedField:"callsign"}}));
+  expect(nativeCW.stop).toHaveBeenCalledTimes(2);expect(rotorStop).not.toHaveBeenCalled();
 });
 
 it("projects only configured bands into detached Main Logging", async () => {
