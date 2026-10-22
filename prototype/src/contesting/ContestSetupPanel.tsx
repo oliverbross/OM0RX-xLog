@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { contestKeyBindingActions, contestKeyBindingContexts, contestKeyBindingDescriptions, defaultContestKeyBindings,
   encodeContestKeyBindings, readContestKeyBindings, validateContestKeyBindings, type ContestKeyBinding } from "./contestKeyBindings";
+import { ContestVoiceRecorder, inspectContestVoiceProfile, pickContestVoiceProfile, previewContestVoiceSlot, saveContestVoiceSlot,
+  type ContestVoiceProfileSlot } from "./contestVoiceProfile";
 import "./ContestSetupPanel.css";
 
 export type ContestSetupMacro = { mode: "R" | "S"; key: string; label: string; template: string };
@@ -17,6 +19,7 @@ export type ContestSetupServiceTab = "Station" | "QRZ" | "Radio" | "CW" | "Clust
 export const contestSetupTabs = ["Lookup", "Sound", "CAT", "CW", "Rotator", "Cluster", "Group", "N1MM", "Bands", "Options"] as const;
 export type ContestSetupTab = typeof contestSetupTabs[number];
 export type ContestAudioOutput = { deviceID: string; label: string };
+export type ContestAudioInput = { deviceID: string; label: string };
 export type ContestSetupCatalogEntry = { id: string; name: string; modes?: string[]; supportedBands?: string[]; sentExchangeHint?: string; overlayChoices?: string[] };
 export type SetupView = "Station Settings" | "New Contest" | "Choose a Contest" | "Edit Current Contest" | "Configuration Settings" | "Digital Setup" | "Edit Macros" | "Edit Keys";
 const setupViews: SetupView[] = ["Station Settings", "New Contest", "Choose a Contest", "Edit Current Contest", "Configuration Settings", "Digital Setup", "Edit Macros", "Edit Keys"];
@@ -75,6 +78,14 @@ export async function loadContestAudioOutputs(enumerateDevices?: () => Promise<M
     .map((device, index) => ({ deviceID: device.deviceId, label: device.label || `Audio output ${index + 1}` }));
 }
 
+export async function loadContestAudioInputs(enumerateDevices?: () => Promise<MediaDeviceInfo[]>): Promise<ContestAudioInput[]> {
+  const enumerate = enumerateDevices ?? (typeof navigator === "undefined" ? undefined : navigator.mediaDevices?.enumerateDevices?.bind(navigator.mediaDevices));
+  if (!enumerate) return [];
+  const inputs = await enumerate(), seen = new Set<string>();
+  return inputs.filter(device => device.kind === "audioinput" && !seen.has(device.deviceId) && seen.add(device.deviceId))
+    .map((device, index) => ({ deviceID: device.deviceId, label: device.label || `Microphone ${index + 1}` }));
+}
+
 function setupDraft(value: ContestSetupDocument): ContestSetupDocument {
   const defaults = newContestSetup(String(value.station.Call ?? ""));
   const result = structuredClone({ ...defaults, ...value, station: { ...defaults.station, ...value.station }, settings: { ...defaults.settings, ...value.settings }, preferences: { ...defaults.preferences, ...restoredESMPreferences(value.preferences) }, network: { ...defaults.network, ...value.network } });
@@ -100,7 +111,10 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
   const [selectedSession, setSelectedSession] = useState(activeSessionID ?? "");
   const [selectedBinding, setSelectedBinding] = useState(0);
   const [audioOutputs, setAudioOutputs] = useState<ContestAudioOutput[] | null>(null);
+  const [audioInputs, setAudioInputs] = useState<ContestAudioInput[] | null>(null), [audioInput, setAudioInput] = useState("");
   const [audioOutputError, setAudioOutputError] = useState("");
+  const [voiceSlots, setVoiceSlots] = useState<ContestVoiceProfileSlot[]>([]), [recordingSlot, setRecordingSlot] = useState("");
+  const [replaceSlot, setReplaceSlot] = useState(""), recorderRef = useRef<ContestVoiceRecorder | null>(null), recordingSlotRef = useRef("");
   const [pending, setPending] = useState(false), pendingRef = useRef(false);
   const id = useId();
   useEffect(() => { setDraft(setupDraft(value)); }, [value]);
@@ -110,10 +124,25 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
   useEffect(() => {
     if (view !== "Configuration Settings" || tab !== "Sound" || audioOutputs !== null) return;
     let current = true;
-    void loadContestAudioOutputs().then(outputs => { if (current) setAudioOutputs(outputs); })
-      .catch(cause => { if (current) { setAudioOutputs([]); setAudioOutputError(cause instanceof Error ? cause.message : "Audio outputs could not be listed."); } });
+    void Promise.all([loadContestAudioOutputs(), loadContestAudioInputs()]).then(([outputs, inputs]) => {
+      if (current) { setAudioOutputs(outputs); setAudioInputs(inputs); }
+    })
+      .catch(cause => { if (current) { setAudioOutputs([]); setAudioInputs([]); setAudioOutputError(cause instanceof Error ? cause.message : "Audio devices could not be listed."); } });
     return () => { current = false; };
   }, [view, tab, audioOutputs]);
+  useEffect(() => {
+    const profilePath = String(draft.preferences.voiceProfilePath ?? "").trim();
+    if (view !== "Configuration Settings" || tab !== "Sound" || !profilePath || !("__TAURI_INTERNALS__" in window)) return;
+    let current = true;
+    void inspectContestVoiceProfile(profilePath).then(manifest => { if (current) setVoiceSlots(manifest.slots); })
+      .catch(() => { if (current) setVoiceSlots([]); });
+    return () => { current = false; };
+  }, [view, tab, draft.preferences.voiceProfilePath]);
+  useEffect(() => () => recorderRef.current?.cancel(), []);
+  useEffect(() => {
+    if (view === "Configuration Settings" && tab === "Sound") return;
+    recorderRef.current?.cancel(); recorderRef.current = null; recordingSlotRef.current = ""; setRecordingSlot(""); setReplaceSlot("");
+  }, [view, tab]);
   useEffect(() => { onViewChange?.(view); }, [view, onViewChange]);
   const disabled = busy || pending;
   const selectConfigurationTab = (next: ContestSetupTab) => { setTab(next); onContentChange?.(); };
@@ -139,7 +168,43 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
     catch (cause) { setMessage(cause instanceof Error ? cause.message : "Setup could not be saved."); }
     finally { pendingRef.current = false; setPending(false); }
   }
-  function close() { setDraft(setupDraft(value)); setMessage(""); setView(null); }
+  const refreshVoiceProfile = async (profilePath = String(draft.preferences.voiceProfilePath ?? "")) => {
+    if (!profilePath.trim()) { setVoiceSlots([]); return; }
+    const manifest = await inspectContestVoiceProfile(profilePath); setVoiceSlots(manifest.slots);
+  };
+  const chooseVoiceProfile = () => void run(async () => {
+    const selected = await pickContestVoiceProfile(); if (!selected) return;
+    update("preferences", "voiceProfilePath", selected); await refreshVoiceProfile(selected);
+  }, "Voice profile ready.");
+  const stopVoiceRecording = async (slot: string, overwrite: boolean) => {
+    const recorder = recorderRef.current; if (!recorder || recordingSlotRef.current !== slot) return;
+    pendingRef.current = true; setPending(true); setMessage("");
+    try { const wav = await recorder.stop(); recorderRef.current = null;
+      await saveContestVoiceSlot(String(draft.preferences.voiceProfilePath ?? ""), slot, wav, overwrite);
+      setReplaceSlot(""); await refreshVoiceProfile(); setMessage(`${slot.toUpperCase()} recording saved.`);
+    } catch (cause) { recorder.cancel(); recorderRef.current = null;
+      setMessage(cause instanceof Error ? cause.message : "Voice recording could not be saved.");
+    } finally { recordingSlotRef.current = ""; setRecordingSlot(""); pendingRef.current = false; setPending(false); }
+  };
+  const startVoiceRecording = async (slot: string) => {
+    if (recordingSlot || pendingRef.current) return;
+    const profilePath = String(draft.preferences.voiceProfilePath ?? "");
+    if (!profilePath.trim()) { setMessage("Choose a voice WAV profile folder before recording."); return; }
+    const exists = voiceSlots.find(item => item.slot === slot)?.present === true;
+    if (exists && replaceSlot !== slot) { setReplaceSlot(slot); setMessage(`Click Replace ${slot.toUpperCase()} to confirm overwriting that recording.`); return; }
+    const overwrite = exists; const recorder = new ContestVoiceRecorder(); recorderRef.current = recorder; setMessage("");
+    try { const limitMs = await recorder.start(audioInput); recordingSlotRef.current = slot; setRecordingSlot(slot);
+      window.setTimeout(() => { if (recorderRef.current === recorder) void stopVoiceRecording(slot, overwrite); }, limitMs);
+    } catch (cause) { recorder.cancel(); recorderRef.current = null; setMessage(cause instanceof Error ? cause.message : "Microphone recording could not start."); }
+  };
+  const mapVoiceSlot = (mode: "R" | "S", slot: string) => {
+    const source = draft.macros.find(item => item.mode === mode && item.key.toLowerCase() === slot) ??
+      effectiveMacros?.find(item => item.mode === mode && item.key.toLowerCase() === slot);
+    const replacement: ContestSetupMacro = { mode, key: slot.toUpperCase(), label: source?.label || slot.toUpperCase(), template: `[${slot}]` };
+    setDraft(current => ({ ...current, macros: [...current.macros.filter(item => !(item.mode === mode && item.key.toLowerCase() === slot)), replacement] }));
+    setMessage(`${slot.toUpperCase()} ${mode === "R" ? "Run" : "S&P"} macro will use [${slot}] after Save.`);
+  };
+  function close() { recorderRef.current?.cancel(); recorderRef.current = null; recordingSlotRef.current = ""; setRecordingSlot(""); setReplaceSlot(""); setDraft(setupDraft(value)); setMessage(""); setView(null); }
   function open(next: SetupView) {
     const source = setupDraft(value);
     setDraft(next === "New Contest" ? { ...source,
@@ -264,10 +329,28 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
             {!savedAvailable && <option value={saved}>Saved device (unavailable)</option>}
             {(audioOutputs ?? []).map(output => <option key={output.deviceID} value={output.deviceID}>{output.label}</option>)}
           </select></label>
-          {field("preferences", "voiceProfilePath", "Voice WAV profile folder")}
+          <label><span>Recording Input</span><select value={audioInput} onChange={event => setAudioInput(event.target.value)}>
+            <option value="">System default microphone</option>
+            {(audioInputs ?? []).map(input => <option key={input.deviceID} value={input.deviceID}>{input.label}</option>)}
+          </select></label>
+          <div className="contest-voice-profile-path">{field("preferences", "voiceProfilePath", "Voice WAV profile folder")}
+            <button type="button" onClick={chooseVoiceProfile}>Choose folder…</button>
+            <button type="button" disabled={!String(draft.preferences.voiceProfilePath ?? "").trim()} onClick={() => void run(() => refreshVoiceProfile(), "Voice profile checked.")}>Check profile</button></div>
           <p role="status">{audioOutputs === null ? "Finding audio outputs…" : audioOutputError ? `Audio output discovery failed: ${audioOutputError}` : audioOutputs.length ? "Choose the sound output device for the voice keyer." : "No named audio outputs were reported. The system default remains available."}</p>
           <p>Use a Not1MM-compatible recorded profile: lowercase character files such as <code>c.wav</code>, <code>q.wav</code>, <code>space.wav</code>, and optional whole-message files such as <code>cq.wav</code> for a <code>[cq]</code> macro.</p>
-          <p>Prepare recordings outside xLog as PCM WAV files. For whole-key messages, add <code>f1.wav</code> through <code>f12.wav</code> without replacing recordings you intend to keep, then set each phone macro template to its bracketed name, for example <code>[f1]</code>. xLog does not record or overwrite profile files. Explicitly select the Sound Output that feeds the radio; use System default only when that is intentional.</p>
+          <p>Record F1–F12 here as bounded mono PCM WAV. Preview never claims contest output and never keys PTT. Replacing a slot requires a second explicit click. Map each recording to Run and/or S&amp;P, then Save. Explicitly select the Sound Output that feeds the radio; use System default only when intentional.</p>
+          <div className="contest-voice-slots" role="group" aria-label="Recorded phone slots">{Array.from({length:12},(_,index)=>{
+            const slot=`f${index+1}`,record=voiceSlots.find(item=>item.slot===slot),present=record?.present===true;
+            return <div key={slot} className="contest-voice-slot"><strong>{slot.toUpperCase()}</strong>
+              <span>{record?.error ? "Invalid WAV" : present ? `${((record?.durationMs ?? 0)/1000).toFixed(1)} s` : "Not recorded"}</span>
+              <button type="button" onClick={() => recordingSlot===slot ? void stopVoiceRecording(slot,present) : void startVoiceRecording(slot)}>
+                {recordingSlot===slot ? `Stop ${slot.toUpperCase()}` : present&&replaceSlot===slot ? `Replace ${slot.toUpperCase()}` : `Record ${slot.toUpperCase()}`}</button>
+              <button type="button" aria-label={`Preview ${slot.toUpperCase()}`} disabled={!present||Boolean(record?.error)||Boolean(recordingSlot)} onClick={() => void run(() => previewContestVoiceSlot(
+                String(draft.preferences.voiceProfilePath ?? ""),slot,saved), `${slot.toUpperCase()} preview completed without PTT.`)}>Preview</button>
+              <button type="button" aria-label={`Use ${slot.toUpperCase()} for Run`} disabled={!present||Boolean(record?.error)} onClick={() => mapVoiceSlot("R",slot)}>Use for Run</button>
+              <button type="button" aria-label={`Use ${slot.toUpperCase()} for S&P`} disabled={!present||Boolean(record?.error)} onClick={() => mapVoiceSlot("S",slot)}>Use for S&amp;P</button>
+            </div>;
+          })}</div>
         </div>;
         break;
       }
@@ -328,7 +411,7 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
     }}>{name}</button>)}</div> :
       <form onSubmit={submit}>{configuration && <nav role="tablist" aria-label="Configuration settings sections" style={{ "--contest-setup-tab-count": contestSetupTabs.length } as CSSProperties}>{contestSetupTabs.map((name, index) => <button key={name} id={id + "-tab-" + index} type="button" role="tab" aria-selected={tab === name} aria-controls={id + "-panel"} tabIndex={tab === name ? 0 : -1} onClick={() => selectConfigurationTab(name)} onKeyDown={event => { const next = event.key === "ArrowRight" ? (index + 1) % contestSetupTabs.length : event.key === "ArrowLeft" ? (index + contestSetupTabs.length - 1) % contestSetupTabs.length : event.key === "Home" ? 0 : event.key === "End" ? contestSetupTabs.length - 1 : null; if (next !== null) { event.preventDefault(); selectConfigurationTab(contestSetupTabs[next]); document.getElementById(id + "-tab-" + next)?.focus(); } }}>{name}</button>)}</nav>}
         <fieldset disabled={disabled}><div id={id + "-panel"} role={configuration ? "tabpanel" : undefined} aria-labelledby={configuration ? id + "-tab-" + contestSetupTabs.indexOf(tab) : undefined} className="contest-manual-content">{content}</div></fieldset>
-        <footer><button type="button" disabled={disabled} onClick={() => { if (detachedDialog) void onCancel?.(); else close(); }}>Cancel</button><button type="submit" className="contest-primary" disabled={disabled || (view === "Choose a Contest" && !selectedSession) || (!activeSessionID && ["Edit Current Contest", "Edit Macros", "Edit Keys"].includes(view ?? ""))}>{pending ? "Saving…" : detachedDialog || configuration ? "Save" : "OK"}</button></footer>
+        <footer><button type="button" disabled={disabled} onClick={() => { recorderRef.current?.cancel(); recorderRef.current = null; recordingSlotRef.current = ""; setRecordingSlot(""); setReplaceSlot(""); if (detachedDialog) void onCancel?.(); else close(); }}>Cancel</button><button type="submit" className="contest-primary" disabled={disabled || Boolean(recordingSlot) || (view === "Choose a Contest" && !selectedSession) || (!activeSessionID && ["Edit Current Contest", "Edit Macros", "Edit Keys"].includes(view ?? ""))}>{pending ? "Saving…" : detachedDialog || configuration ? "Save" : "OK"}</button></footer>
       </form>}
     {(error || message) && <p role={error ? "alert" : "status"}>{error || message}</p>}
   </section>;

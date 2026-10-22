@@ -54,4 +54,11 @@
 .contest-binding-table th:nth-child(3) { width:25%; }
 .contest-binding-table :is(th,td,output) { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .contest-binding-table output { display:block; }
+.contest-voice-profile-path { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:8px; align-items:end; }
+.contest-voice-profile-path>label { min-width:0; }
+.contest-voice-slots { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
+.contest-voice-slot { display:grid; grid-template-columns:36px minmax(64px,1fr) repeat(4,auto); gap:5px; align-items:center; padding:6px; border:1px solid var(--border,#304b68); border-radius:6px; }
+.contest-voice-slot>span { color:var(--secondary,#a6b6ca); }
+.contest-voice-slot button { padding:4px 7px; }
 @media(max-width:620px) { .contest-manual-row,.contest-n1mm-identity-row { grid-template-columns:1fr; }.contest-station-form .contest-manual-row>label { grid-column:1!important; }.contest-options-columns { grid-template-columns:1fr; } }
+@media(max-width:760px) { .contest-voice-slots { grid-template-columns:1fr; }.contest-voice-slot { grid-template-columns:36px minmax(64px,1fr) repeat(2,auto); }.contest-voice-profile-path { grid-template-columns:1fr 1fr; }.contest-voice-profile-path>label { grid-column:1/-1; } }

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { ContestSetupPanel, contestSetupTabs, loadContestAudioOutputs, newContestSetup, restoredESMPreferences, type ContestSetupDocument, type ContestSetupSession } from "./ContestSetupPanel";
+import { ContestSetupPanel, contestSetupTabs, loadContestAudioInputs, loadContestAudioOutputs, newContestSetup, restoredESMPreferences, type ContestSetupDocument, type ContestSetupSession } from "./ContestSetupPanel";
 import { readContestKeyBindings } from "./contestKeyBindings";
 afterEach(() => { cleanup(); vi.useRealTimers(); document.documentElement.style.removeProperty("zoom"); });
 function props() {
@@ -273,9 +273,13 @@ it("uses the Not1MM Sound tab to choose and durably save the voice-keyer output"
     const output = await screen.findByLabelText("Sound Output") as HTMLSelectElement;
     const profile = screen.getByLabelText("Voice WAV profile folder") as HTMLInputElement;
     await waitFor(() => expect(Array.from(output.options).map(option => option.textContent)).toEqual(["System default", "Radio line out", "Operator headphones"]));
-    expect(screen.getByText(/Prepare recordings outside xLog as PCM WAV files/i).textContent).toContain("f1.wav through f12.wav");
-    expect(screen.getByText(/Prepare recordings outside xLog as PCM WAV files/i).textContent).toContain("[f1]");
-    expect(screen.getByText(/Prepare recordings outside xLog as PCM WAV files/i).textContent).toContain("Explicitly select the Sound Output");
+    const guidance = screen.getByText(/Record F1–F12 here as bounded mono PCM WAV/i);
+    expect(guidance.textContent).toContain("Preview never claims contest output and never keys PTT");
+    expect(guidance.textContent).toContain("Replacing a slot requires a second explicit click");
+    expect(guidance.textContent).toContain("Explicitly select the Sound Output");
+    expect(screen.getByRole("group", { name: "Recorded phone slots" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Record F1" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Record F12" })).toBeTruthy();
     fireEvent.change(output, { target: { value: "headphones" } }); fireEvent.change(profile, { target: { value: "/Users/operator/voice" } }); open("Save");
     await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
     expect(p.onSave.mock.calls[0][0].preferences.soundDevice).toBe("headphones");
@@ -288,9 +292,12 @@ it("filters contest audio discovery to uniquely identified output devices", asyn
   const enumerate = vi.fn(async () => [
     { kind: "audiooutput", deviceId: "radio", label: "" },
     { kind: "audiooutput", deviceId: "radio", label: "Duplicate" },
+    { kind: "audioinput", deviceId: "mic", label: "" },
+    { kind: "audioinput", deviceId: "mic", label: "Duplicate" },
     { kind: "videoinput", deviceId: "camera", label: "Camera" },
   ] as MediaDeviceInfo[]);
   await expect(loadContestAudioOutputs(enumerate)).resolves.toEqual([{ deviceID: "radio", label: "Audio output 1" }]);
+  await expect(loadContestAudioInputs(enumerate)).resolves.toEqual([{ deviceID: "mic", label: "Microphone 1" }]);
 });
 it("retains draft edits on failed save and prevents concurrent submissions", async () => {
   const p = props(); let reject!: (cause: Error) => void;
