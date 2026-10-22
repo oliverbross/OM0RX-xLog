@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { operatingModuleStatus } from "../operatingModule";
@@ -24,6 +24,19 @@ const request = async (method: string, params: Record<string, unknown> = {}) =>
   (await workerRequest(method, params)).result as Data;
 
 type LoadStationSession = (radioId: RadioID) => Promise<StationSession>;
+export type HostActiveContestStartup = { sessionID: string; workspaceGeneration: string };
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+export function hostActiveContestStartup(query: URLSearchParams): HostActiveContestStartup | null {
+  const startup = query.getAll("startup");
+  if (startup.length === 0) return null;
+  if (startup.length !== 1 || startup[0] !== "host-active") throw new Error("The native active contest startup context is invalid.");
+  const sessions = query.getAll("hostActiveSessionID"), generations = query.getAll("hostActiveWorkspaceGeneration");
+  if (sessions.length !== 1 || generations.length !== 1 || !uuid.test(sessions[0]) || !uuid.test(generations[0])) {
+    throw new Error("The native active contest startup context is invalid.");
+  }
+  return { sessionID: sessions[0], workspaceGeneration: generations[0] };
+}
 
 export function contestSetupWindowSize(view: SetupView | null): { width: number; height: number } {
   if (view === "New Contest" || view === "Edit Current Contest") return { width: 560, height: 640 };
@@ -70,6 +83,7 @@ export async function loadContestStationSnapshot(load: LoadStationSession = load
 }
 
 export function DetachedContestSetupSurface() {
+  const strictHostActive = useMemo(() => hostActiveContestStartup(new URLSearchParams(window.location.search)), []);
   const [context, setContext] = useState<{ operatingContext: string; workspaceGeneration: string; stationCall: string; contestingTest: boolean } | null>(null);
   const [station, setStation] = useState<Data | null>(null), [cluster, setCluster] = useState<Data | null>(null);
   const [error, setError] = useState("");
@@ -174,7 +188,7 @@ export function DetachedContestSetupSurface() {
     serviceRequest={request} stationTune={tuneContestSpot} stationStep={stepContestVFO} contestSpot={postContestSpot} operatingContext={context.operatingContext} workspaceGeneration={context.workspaceGeneration}
     stationCall={context.stationCall} contestingTest={context.contestingTest} radioFrequencyHz={station?.radio?.frequency_hz}
     spots={Array.isArray(cluster?.snapshot?.spots) ? cluster.snapshot.spots : []} cluster={cluster}
-    registerMenuRoute={registerMenuRoute} onSetupViewChange={resizeForSetupView}/>;
+    strictHostActive={strictHostActive} registerMenuRoute={registerMenuRoute} onSetupViewChange={resizeForSetupView}/>;
 }
 
 export default DetachedContestSetupSurface;

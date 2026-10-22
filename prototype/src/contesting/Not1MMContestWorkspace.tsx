@@ -162,6 +162,7 @@ type Props = {
   onSetupViewChange?: (view: SetupView | null) => void;
   registerTransition?: (controller: ContestTransitionController | null) => void;
   registerMenuRoute?: (handler: ((route: string) => boolean | Promise<boolean>) | null) => void;
+  strictHostActive?: { sessionID: string; workspaceGeneration: string } | null;
   setupOnly?: boolean;
 };
 
@@ -511,7 +512,7 @@ function boundedFldigiSnapshot(value: unknown): NonNullable<ContestDigitalSnapsh
 }
 
 export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, stationStep, contestSpot, operatingContext, workspaceGeneration, stationCall, radioFrequencyHz, spots, cluster,
-  selectedSpotId, onSelectedSpot, onSetupViewChange, registerTransition, registerMenuRoute, setupOnly = false, contestingTest = false }: Props) {
+  selectedSpotId, onSelectedSpot, onSetupViewChange, registerTransition, registerMenuRoute, strictHostActive = null, setupOnly = false, contestingTest = false }: Props) {
   const [catalog, setCatalog] = useState<Data[]>([]), [sessions, setSessions] = useState<Session[]>([]);
   const [bandDefinitions, setBandDefinitions] = useState<ContestBandDefinition[]>(fallbackBandDefinitions);
   const bandLabels = useMemo<Record<string, string>>(() => Object.fromEntries(
@@ -790,7 +791,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const timer = window.setInterval(() => { void poll(); }, 1_000);
     return () => { cancelled = true; window.clearInterval(timer); };
   }, [projection?.sessionID, projection?.workspaceGeneration, logOffset, request]);
-  const openSession = async (session: Session) => {
+  const openSession = async (session: Pick<Session, "sessionID" | "workspaceGeneration">) => {
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setError("");
     try {
@@ -806,6 +807,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         current.workspaceGeneration === opened.projection.workspaceGeneration && current.revision > opened.projection.revision
         ? current : opened.projection;
       acceptSessionProjection(admitted); phoneSimulationRecoveryRef.current = null;
+      setSessions(existing => existing.some(item => item.sessionID === admitted.sessionID) ? existing : [...existing, {
+        sessionID: admitted.sessionID, workspaceGeneration: admitted.workspaceGeneration,
+        name: admitted.pluginName ?? admitted.pluginID, pluginID: admitted.pluginID,
+        sourceRevision: admitted.sourceRevision, revision: admitted.revision,
+      }]);
       rememberSetup(setupResult.setup); await refresh(session.sessionID, admitted);
       localStorage.setItem(activeSessionKey, session.sessionID); if (!setupOnly) setManager(false); setEditing(null);
       await cw.controller.refresh();
@@ -818,6 +824,22 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     setStartupPending(true); setCatalogReady(false); setCatalogLoadError("");
     void (async () => {
       try {
+        if (strictHostActive) {
+          const catalog = result<Data>("contest_catalog");
+          await openSession(strictHostActive);
+          try {
+            const available = await catalog;
+            if (!active) return;
+            const hostBands = validBandDefinitions(available.bandDefinitions);
+            setCatalog(Array.isArray(available.plugins) ? available.plugins : []);
+            setBandDefinitions(hostBands.length ? hostBands : fallbackBandDefinitions);
+            setCatalogReady(true);
+          } catch (cause) {
+            if (active) setCatalogLoadError(cause instanceof ContestServerError && cause.code === "contest_host_protocol"
+              ? "Contest types could not be loaded. Station services may still be starting." : errorMessage(cause));
+          }
+          return;
+        }
         const [available, list] = await Promise.all([
           result<Data>("contest_catalog"), result<{ sessions: Session[]; activeSessionID?: string | null }>("contest_sessions"),
         ]);
@@ -841,7 +863,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       }
     })();
     return () => { active = false; };
-  }, [catalogLoadAttempt]);
+  }, [catalogLoadAttempt, strictHostActive?.sessionID, strictHostActive?.workspaceGeneration]);
 
   useEffect(() => {
     if (!registerTransition) return;

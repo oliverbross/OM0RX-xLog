@@ -2791,3 +2791,50 @@ it("prefers the Python host active contest when renderer storage is stale and mu
   });
   expect(screen.queryByRole("alert")).toBeNull();
 });
+
+it("strict native cold start opens only the supplied host-active contest without consulting renderer authority", async () => {
+  const current = projection();
+  localStorage.setItem("xlog.contesting.not1mm.active-session.v1", "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+  const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+    const support = workspaceSupport(method, params, current); if (support) return support;
+    if (method === "contest_scp_status") return unavailableSCP();
+    if (method === "contest_history_status") return unavailableHistory();
+    const result = method === "contest_catalog" ? {plugins:[{id:current.pluginID,name:"CQ WW CW"}]}
+      : method === "contest_open" ? {projection:current}
+      : method === "contest_log_page" ? {rows:[],offset:0,limit:20,total:0}
+      : method === "contest_score" ? {sessionID:current.sessionID,revision:current.revision,score:current.score,matrices:{countries:[],zones:[]}}
+      : null;
+    if (!result) throw new Error(`Unexpected ${method}`);
+    return {id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}
+    strictHostActive={{sessionID:current.sessionID,workspaceGeneration:current.workspaceGeneration}}/>);
+  await waitFor(() => expect(request.mock.calls.some(([method]) => method === "contest_open")).toBe(true));
+  expect(request.mock.calls.some(([method]) => method === "contest_sessions")).toBe(false);
+  expect(request.mock.calls.filter(([method]) => method === "contest_open")).toHaveLength(1);
+  expect(request.mock.calls.find(([method]) => method === "contest_open")?.[1]).toEqual({
+    sessionID:current.sessionID,workspaceGeneration:current.workspaceGeneration,
+  });
+  expect(localStorage.getItem("xlog.contesting.not1mm.active-session.v1")).toBe(current.sessionID);
+});
+
+it("strict native cold start resumes the supplied contest even when the catalog is unavailable", async () => {
+  const current = projection();
+  const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+    const support = workspaceSupport(method, params, current); if (support) return support;
+    if (method === "contest_catalog") throw new Error("catalog unavailable");
+    if (method === "contest_scp_status") return unavailableSCP();
+    if (method === "contest_history_status") return unavailableHistory();
+    const result = method === "contest_open" ? {projection:current}
+      : method === "contest_log_page" ? {rows:[],offset:0,limit:20,total:0}
+      : method === "contest_score" ? {sessionID:current.sessionID,revision:current.revision,score:current.score,matrices:{countries:[],zones:[]}}
+      : null;
+    if (!result) throw new Error(`Unexpected ${method}`);
+    return {id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}
+    strictHostActive={{sessionID:current.sessionID,workspaceGeneration:current.workspaceGeneration}}/>);
+  await waitFor(() => expect(localStorage.getItem("xlog.contesting.not1mm.active-session.v1")).toBe(current.sessionID));
+  expect(request.mock.calls.filter(([method]) => method === "contest_open")).toHaveLength(1);
+  expect(request.mock.calls.some(([method]) => method === "contest_sessions")).toBe(false);
+});

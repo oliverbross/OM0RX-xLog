@@ -840,11 +840,57 @@ async fn navigate_workspace(app: tauri::AppHandle, screen: String) -> Result<(),
     }).await.map_err(|_| "Main workspace task failed".to_string())?
 }
 
-fn ensure_contest_setup_window(app: &tauri::AppHandle, foreground: bool) -> Result<(), String> {
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct HostActiveContest {
+    session_id: String,
+    workspace_generation: String,
+}
+
+fn host_active_contest(response: &serde_json::Value, request_id: &str) -> Result<Option<HostActiveContest>, String> {
+    if response["id"] != request_id || response["ok"] != true {
+        return Err("The startup contest session query was not confirmed.".into());
+    }
+    let result = response["result"].as_object().ok_or("The startup contest session reply is malformed.")?;
+    let sessions = result.get("sessions").and_then(serde_json::Value::as_array)
+        .ok_or("The startup contest session list is malformed.")?;
+    let active_id = match result.get("activeSessionID") {
+        None | Some(serde_json::Value::Null) => return Ok(None),
+        Some(serde_json::Value::String(value)) => value.as_str(),
+        Some(_) => return Err("The active startup contest identity is malformed.".into()),
+    };
+    uuid::Uuid::parse_str(active_id).map_err(|_| "The active startup contest identity is invalid.")?;
+    let matches = sessions.iter().filter(|session| session["sessionID"].as_str() == Some(active_id)).collect::<Vec<_>>();
+    if matches.len() != 1 { return Err("The active startup contest is not uniquely present in the host session list.".into()); }
+    let generation = matches[0]["workspaceGeneration"].as_str()
+        .ok_or("The active startup contest workspace identity is missing.")?;
+    uuid::Uuid::parse_str(generation).map_err(|_| "The active startup contest workspace identity is invalid.")?;
+    Ok(Some(HostActiveContest { session_id: active_id.into(), workspace_generation: generation.into() }))
+}
+
+fn query_host_active_contest() -> Result<Option<HostActiveContest>, String> {
+    let request_id = uuid::Uuid::new_v4().to_string();
+    let response = worker::request(serde_json::json!({"id":request_id,"method":"contest_sessions","params":{}}))?;
+    host_active_contest(&response, &request_id)
+}
+
+fn contest_setup_route(acceptance: bool, host_active: Option<&HostActiveContest>) -> String {
+    let mut route = "index.html?view=contest-setup".to_string();
+    if let Some(active) = host_active {
+        route.push_str("&startup=host-active&hostActiveSessionID=");
+        route.push_str(&active.session_id);
+        route.push_str("&hostActiveWorkspaceGeneration=");
+        route.push_str(&active.workspace_generation);
+    }
+    if acceptance { route.push_str("&acceptance=local"); }
+    route
+}
+
+fn ensure_contest_setup_window_for(app: &tauri::AppHandle, foreground: bool,
+    host_active: Option<&HostActiveContest>) -> Result<(), String> {
     let window = recover_singleton(&MAIN_CREATION, || app.get_webview_window("contest-setup"), || {
-        let suffix = if app.state::<acceptance::Acceptance>().path.is_some() { "&acceptance=local" } else { "" };
+        let acceptance = app.state::<acceptance::Acceptance>().path.is_some();
         let mut builder = tauri::WebviewWindowBuilder::new(app, "contest-setup",
-            tauri::WebviewUrl::App(format!("index.html?view=contest-setup{suffix}").into()))
+            tauri::WebviewUrl::App(contest_setup_route(acceptance, host_active).into()))
             .title("OM0RX-xLog Contest — Setup")
             .inner_size(600.0, 360.0)
             .min_inner_size(520.0, 320.0)
@@ -869,6 +915,10 @@ fn ensure_contest_setup_window(app: &tauri::AppHandle, foreground: bool) -> Resu
         window.set_focus().map_err(|error| error.to_string())?;
     }
     Ok(())
+}
+
+fn ensure_contest_setup_window(app: &tauri::AppHandle, foreground: bool) -> Result<(), String> {
+    ensure_contest_setup_window_for(app, foreground, None)
 }
 
 fn ensure_contest_log_transfer_window(app: &tauri::AppHandle) -> Result<(), String> {
@@ -3242,6 +3292,18 @@ fn main() {
                 if let Some(main) = app.get_webview_window("main") { detached_geometry::install(&main); }
                 workspace_window_runtime::refresh(app.handle(), false).map_err(std::io::Error::other)?;
             }
+            if app.state::<acceptance::Acceptance>().path.is_none() && !runtime_profile::CONTESTING_TEST {
+                let startup_app = app.handle().clone();
+                tauri::async_runtime::spawn_blocking(move || match query_host_active_contest() {
+                    Ok(Some(active)) => {
+                        if let Err(error) = ensure_contest_setup_window_for(&startup_app, false, Some(&active)) {
+                            eprintln!("Active contest startup unavailable: {error}");
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(error) => eprintln!("Active contest startup query unavailable: {error}"),
+                });
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![operating_module_status, worker_request, cw_session_request, contest_cw_speed_request, station_session_request, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
@@ -3312,7 +3374,7 @@ fn main() {
 
 #[cfg(test)]
 mod workspace_layout_tests {
-    use super::{WorkspaceLayout, DraftWake, contest_desk_focus_label, contest_desk_is_open, contest_desk_window, enters_contest_desk, normal_workspace_window, recover_presentation_hint, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
+    use super::{WorkspaceLayout, DraftWake, HostActiveContest, contest_desk_focus_label, contest_desk_is_open, contest_desk_window, contest_setup_route, enters_contest_desk, host_active_contest, normal_workspace_window, recover_presentation_hint, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
     use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, is_raw_owned_station_lifecycle, station_session_changes_state, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_snapshot, validate_follow_set, validate_follow_settlement, validate_rotor_stop, contest_history_manager_worker_params, contest_history_preview_worker_params, AutomaticRotorCommands};
     use serde_json::json;
 
@@ -3353,6 +3415,32 @@ mod workspace_layout_tests {
         for method in ["contest_sessions", "contest_setup_save", "contest_close", ""] {
             assert!(!enters_contest_desk("contest-setup", method));
         }
+    }
+
+    #[test]
+    fn cold_start_mounts_the_hidden_owner_only_for_one_host_active_session() {
+        let request_id = "10000000-0000-4000-8000-000000000001";
+        let active = "20000000-0000-4000-8000-000000000002";
+        let generation = "30000000-0000-4000-8000-000000000003";
+        let response = json!({"id":request_id,"ok":true,"result":{"activeSessionID":active,"sessions":[
+            {"sessionID":active,"workspaceGeneration":generation},
+            {"sessionID":"40000000-0000-4000-8000-000000000004","workspaceGeneration":generation}
+        ]}});
+        let startup = host_active_contest(&response, request_id).unwrap().unwrap();
+        assert_eq!(startup, HostActiveContest { session_id: active.into(), workspace_generation: generation.into() });
+        assert_eq!(contest_setup_route(false, Some(&startup)), format!(
+            "index.html?view=contest-setup&startup=host-active&hostActiveSessionID={active}&hostActiveWorkspaceGeneration={generation}"));
+    }
+
+    #[test]
+    fn cold_start_keeps_normal_logging_when_the_host_has_no_active_contest() {
+        let request_id = "10000000-0000-4000-8000-000000000001";
+        let response = json!({"id":request_id,"ok":true,"result":{"activeSessionID":null,"sessions":[]}});
+        assert_eq!(host_active_contest(&response, request_id).unwrap(), None);
+        assert!(host_active_contest(&json!({"id":request_id,"ok":true,"result":{
+            "activeSessionID":"20000000-0000-4000-8000-000000000002","sessions":[]
+        }}), request_id).is_err());
+        assert_eq!(contest_setup_route(false, None), "index.html?view=contest-setup");
     }
 
     #[test]

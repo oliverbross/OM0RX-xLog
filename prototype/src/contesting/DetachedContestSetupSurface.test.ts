@@ -2,7 +2,7 @@
 import React from "react";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { contestSetupWindowSize, fittedContestSetupWindowSize, isManagedContestSetupWindowSize, loadContestStationSnapshot } from "./DetachedContestSetupSurface";
+import { contestSetupWindowSize, fittedContestSetupWindowSize, hostActiveContestStartup, isManagedContestSetupWindowSize, loadContestStationSnapshot } from "./DetachedContestSetupSurface";
 import type { RadioID, StationSession } from "../live/stationSession";
 import contestSetupOwnerCapability from "../../src-tauri/capabilities/contest-setup-owner.json";
 
@@ -21,7 +21,7 @@ vi.mock("../live/stationSession", async importOriginal => {
 });
 vi.mock("../live/workspaceNavigation", () => ({ connectWorkspaceNavigation: () => () => {}, isContestMenuRoute: () => false }));
 vi.mock("./Not1MMContestWorkspace", () => ({ Not1MMContestWorkspace: mocks.workspace }));
-vi.mock("./contestSpotTune", () => ({ tuneContestSpot: vi.fn() }));
+vi.mock("./contestSpotTune", () => ({ tuneContestSpot: vi.fn(), stepContestVFO: vi.fn() }));
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
@@ -43,6 +43,15 @@ const session = (radioId: RadioID, activeRadio: RadioID, frequencyHz?: number): 
 });
 
 describe("Contest Setup station projection", () => {
+  it("accepts only one exact native host-active startup context", () => {
+    const sessionID = "20000000-0000-4000-8000-000000000002";
+    const workspaceGeneration = "30000000-0000-4000-8000-000000000003";
+    expect(hostActiveContestStartup(new URLSearchParams({startup:"host-active",hostActiveSessionID:sessionID,hostActiveWorkspaceGeneration:workspaceGeneration})))
+      .toEqual({sessionID, workspaceGeneration});
+    expect(hostActiveContestStartup(new URLSearchParams())).toBeNull();
+    expect(() => hostActiveContestStartup(new URLSearchParams("startup=host-active&hostActiveSessionID=bad&hostActiveWorkspaceGeneration=bad")))
+      .toThrow("native active contest startup context is invalid");
+  });
   it("uses compact PDF-shaped sizes for setup workflows", () => {
     expect(contestSetupWindowSize(null)).toEqual({ width: 600, height: 360 });
     expect(contestSetupWindowSize("New Contest")).toEqual({ width: 560, height: 640 });
