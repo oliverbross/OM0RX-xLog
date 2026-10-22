@@ -434,6 +434,7 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
     for(let index=0;index<contestInputFieldIDs.length;index+=1){candidate=operator?.[direction]?.[candidate];if(!candidate)return null;
       const element=fieldRefs.current[candidate];if(element&&!element.disabled&&!element.readOnly)return candidate;if(candidate===from)return null;}return null;};
   const operatorKey=(key:string,focusedField:ContestInputFieldID|null,shifted=false)=>{if(!operator||operator.status==="uncertain"||!/^F(?:[1-9]|1[0-2])$|^Enter$|^Escape$/.test(key)||shifted&&key!=="F1")return false;
+    if(phoneMode&&!operator.outputAvailable&&/^F(?:[1-9]|1[0-2])$/.test(key))return true;
     const intended=intents.capture(),intentContext={band:projection.draft.band,mode:projection.draft.mode,reservedSerial:projection.draft.reservedSerial,
       armed:operator.armed,style:operator.style};
     void (async()=>{let lastLocalProjectionRevision:number|null=null,focusProjectionRevision:number|null=null;if(key!=="Escape"){const flushed=await intents.flush();if(!flushed.ok)return;

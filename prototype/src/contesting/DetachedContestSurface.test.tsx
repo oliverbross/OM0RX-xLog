@@ -1018,6 +1018,10 @@ it("keeps original SSB macros visible but disabled with Voice WAV guidance when 
   expect(screen.getByRole("button",{name:"F1 CQ"}).className).toContain("contest-primary");
   expect((screen.getByRole("button",{name:"Arm recorded phone"})as HTMLButtonElement).disabled).toBe(true);
   expect(screen.getByText(/Voice WAV profile folder is saved in Contest Setup/i)).toBeTruthy();
+  fireEvent.keyDown(screen.getByRole("region",{name:"Main Logging"}),{key:"F1"});
+  expect(native.invoke.mock.calls.some(([command])=>command==="contest_surface_action")).toBe(false);
+  expect(screen.queryByText(/Phone contest voice output is unavailable in production/i)).toBeNull();
+  expect(screen.getByText(/Voice WAV profile folder is saved in Contest Setup/i)).toBeTruthy();
 });
 
 it.each([{available:false},{available:true}])("keeps original RTTY macros visible with truthful fldigi availability ($available)",async({available})=>{
