@@ -92,7 +92,7 @@ export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftL
   const candidate = `${date}T${time.length === 5 ? time + ":00" : time}Z`;
   const validTime = !!date && !!time && Number.isFinite(Date.parse(candidate)) && utc(candidate).slice(0, 10) === date;
   const frequencyBand = mhz && validFrequency ? bandForRadio(Math.round(Number(mhz) * 1e6)) : null;
-  const canSave = !busy && !reading && /^[A-Z0-9/-]{3,32}$/.test(normalizedCall(draft.call)) && validFrequency && validTime && !!draft.band && !!draft.mode && (!frequencyBand || frequencyBand === draft.band);
+  const canSave = !busy && !reading && !pendingInput && acceptsInput() && /^[A-Z0-9/-]{3,32}$/.test(normalizedCall(draft.call)) && validFrequency && validTime && !!draft.band && !!draft.mode && (!frequencyBand || frequencyBand === draft.band);
   const read = async () => { if (!acceptsInput() || !onReadRadio) return; const identity = draft.id; setReading(true); setError(""); try { await onReadRadio(); if (acceptsInput() && draftIdentity.current === identity) setFrequencyText(null); } catch (cause) { if (draftIdentity.current === identity) setError(cause instanceof Error ? cause.message : "Radio readback unavailable."); } finally { setReading(false); } };
   const saveCurrent = () => save(automaticStart ? { ...draft,start:new Date().toISOString() } : draft);
   return <section className="desk-panel desk-active" aria-label="Active QSO"><QSOHeader title="Active QSO" /><form inert={draftLocked} aria-busy={draftLocked} onSubmit={event => { event.preventDefault(); if (acceptsInput() && canSave) saveCurrent(); }} onKeyDown={event => {

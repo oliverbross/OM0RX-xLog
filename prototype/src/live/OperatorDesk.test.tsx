@@ -7,9 +7,9 @@ import type { RotorSnapshot } from "./rotorControl";
 const initial = { id: "native-qso-id", call: "W7AIT", start: "2026-10-11T22:47:12Z", frequencyHz: 18160000, band: "17m", mode: "SSB", rstSent: "59", rstReceived: "59", name: "C OLHEISER, II", comment: "CQ", gridSquare: "CM97LQ", country: "United States of America", county: "Stanislaus", sig: "", extraFields: { APP_CUSTOM: "Keep me" }, customField: { unchanged: true } };
 const lookup = { call: "W7AIT", name: "C OLHEISER, II", country: "United States of America", dxcc: 291, gridSquare: "CM97LQ", continent: "NA", cqZone: "5", ituZone: "6", source: "CTY approximate", latitude: 37, longitude: -121, bearing: 73, long_path_bearing: 253, distance_km: 12500 };
 const rotor: RotorSnapshot = { owner: "native_dcu1", generation: 4, state: "active", backend_available: true, backend: { connected: true, azimuth: 53, name: "Antenna", status: "Ready" } };
-function Harness({ request = vi.fn(async method => method === "logbook_matrix" ? { cells: [] } : { history: { call: "W7AIT", adif: 291, previous_count: 0, previous: [], dxcc_contact_count: 9109, matrix: [{ band: "17m", mode: "SSB", worked: true, confirmed: true }] } }), info = lookup, rotorState = rotor, save = vi.fn(), clear = vi.fn(), onEditor = vi.fn(), onReadRadio = vi.fn(async () => {}), onManualRotor = vi.fn(), switchDraft = false, initialDraft = initial, intelligenceBands, isEditing = false }: any) {
+function Harness({ request = vi.fn(async method => method === "logbook_matrix" ? { cells: [] } : { history: { call: "W7AIT", adif: 291, previous_count: 0, previous: [], dxcc_contact_count: 9109, matrix: [{ band: "17m", mode: "SSB", worked: true, confirmed: true }] } }), info = lookup, rotorState = rotor, save = vi.fn(), clear = vi.fn(), onEditor = vi.fn(), onReadRadio = vi.fn(async () => {}), onManualRotor = vi.fn(), switchDraft = false, initialDraft = initial, intelligenceBands, isEditing = false, canAcceptLocalInput }: any) {
   const [draft, setDraft] = useState<Record<string, any> | null>(initialDraft), [follow, setFollow] = useState(true), [autoRotor, setAutoRotor] = useState(false);
-  return <><OperatorDesk draft={draft} setDraft={setDraft} save={save} clear={clear} busy={false} lookup={info} previous={[]} request={request} refresh={0} onEditor={onEditor} onReadRadio={onReadRadio} follow={follow} setFollow={setFollow} rotor={rotorState} autoRotor={autoRotor} setAutoRotor={setAutoRotor} onManualRotor={onManualRotor} intelligenceBands={intelligenceBands} isEditing={isEditing} />{switchDraft && <button onClick={() => setDraft({ ...initial, id: "new-draft", frequencyHz: 7025000, band: "40m" })}>Switch draft</button>}<output data-testid="draft">{JSON.stringify(draft)}</output></>;
+  return <><OperatorDesk draft={draft} setDraft={setDraft} save={save} clear={clear} busy={false} lookup={info} previous={[]} request={request} refresh={0} onEditor={onEditor} onReadRadio={onReadRadio} follow={follow} setFollow={setFollow} rotor={rotorState} autoRotor={autoRotor} setAutoRotor={setAutoRotor} onManualRotor={onManualRotor} intelligenceBands={intelligenceBands} isEditing={isEditing} canAcceptLocalInput={canAcceptLocalInput} />{switchDraft && <button onClick={() => setDraft({ ...initial, id: "new-draft", frequencyHz: 7025000, band: "40m" })}>Switch draft</button>}<output data-testid="draft">{JSON.stringify(draft)}</output></>;
 }
 const draft = () => JSON.parse(screen.getByTestId("draft").textContent || "{}");
 afterEach(cleanup);
@@ -105,6 +105,14 @@ it("does not save invalid manual MHz or incomplete UTC and leaves readback failu
   await screen.findByText("Radio offline");
   expect((screen.getByLabelText("Desk Frequency MHz") as HTMLInputElement).value).toBe("invalid");
   fireEvent.change(screen.getByLabelText("Desk UTC date"), { target: { value: "" } });
+  fireEvent.keyDown(screen.getByLabelText("Desk Callsign"), { key: "Enter", ctrlKey: true });
+  expect(save).not.toHaveBeenCalled();
+});
+it("keeps Log QSO disabled while the shared draft cannot accept local input", () => {
+  const save = vi.fn();
+  render(<Harness save={save} canAcceptLocalInput={() => false} />);
+  const log = screen.getByRole("button", { name: "Log QSO" }) as HTMLButtonElement;
+  expect(log.disabled).toBe(true);
   fireEvent.keyDown(screen.getByLabelText("Desk Callsign"), { key: "Enter", ctrlKey: true });
   expect(save).not.toHaveBeenCalled();
 });
