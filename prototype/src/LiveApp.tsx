@@ -74,7 +74,7 @@ import WorkspaceSettings from "./live/WorkspaceSettings";
 import WorkspaceGate from "./live/WorkspaceGate";
 import SpotBridgePanel from "./live/SpotBridgePanel";
 import WSJTXPanel from "./live/WSJTXPanel";
-import { logMode } from "./live/draftRadio";
+import { followedLogMode } from "./live/draftRadio";
 import { changedCallDraft, enrichedDraft, normalizedCall, sameNormalLogCall } from "./live/draftEnrichment";
 import { settingsLoadingLookup } from "./live/callsignIntelligenceContext";
 import { OperatorDraftSession, readDraftJournal, type DraftQSO } from "./live/operatorDraftSession";
@@ -750,9 +750,13 @@ function MainLiveApp() {
     if (!state?.radio?.observed || !state.radio.connected)
       throw new Error("Radio frequency and mode are not currently observed.");
     setFollowImmediate(false);
-    setDraft(current => current && current.id === identity ? { ...current, frequencyHz: state.radio.frequency_hz,
-      band: state.station?.band || bandForRadio(state.radio.frequency_hz) || current.band,
-      mode: logMode(state.radio.mode, current.mode || "") } : current);
+    setDraft(current => {
+      if (!current || current.id !== identity) return current;
+      const followed = followedLogMode(state.radio.mode, current.mode || "", current.submode || "");
+      return { ...current, frequencyHz: state.radio.frequency_hz,
+        band: state.station?.band || bandForRadio(state.radio.frequency_hz) || current.band,
+        ...followed };
+    });
     setMessage("Observed radio frequency and mode copied into the QSO draft.");
   }, [request, acceptsInput, changeFollow, draftSession, contactSession, spotEditor.reconcile, reconcileRetainedRadioRead]);
   useEffect(() => {
@@ -928,9 +932,10 @@ function MainLiveApp() {
         setDraft(d => {
           if (!d) return d;
           const band = state.station?.band || bandForRadio(state.radio.frequency_hz) || d.band;
-          const mode = logMode(state.radio.mode, d.mode || "");
-          return d.frequencyHz === state.radio.frequency_hz && d.band === band && d.mode === mode
-            ? d : { ...d, frequencyHz: state.radio.frequency_hz, band, mode };
+          const followed = followedLogMode(state.radio.mode, d.mode || "", d.submode || "");
+          return d.frequencyHz === state.radio.frequency_hz && d.band === band
+              && d.mode === followed.mode && d.submode === followed.submode
+            ? d : { ...d, frequencyHz: state.radio.frequency_hz, band, ...followed };
         });
       }
     };

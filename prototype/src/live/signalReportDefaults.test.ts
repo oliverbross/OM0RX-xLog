@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyModeSignalReportDefaults } from "./signalReportDefaults";
+import { followedLogMode } from "./draftRadio";
 
 describe("mode signal report defaults", () => {
   it("switches conventional voice reports to CW defaults", () => {
@@ -25,5 +26,16 @@ describe("mode signal report defaults", () => {
   it("retains an intentionally selected submode when the parent mode is unchanged", () => {
     expect(applyModeSignalReportDefaults({ mode: "MFSK", submode: "FT4" }, "MFSK"))
       .toMatchObject({ mode: "MFSK", submode: "FT4" });
+  });
+});
+
+describe("radio follow mode compatibility", () => {
+  it.each([
+    ["RTTY", "", "DIGU", "RTTY", ""],
+    ["SSB", "USB", "DIGU", "DIGI", ""],
+    ["MFSK", "FT4", "DIGU", "MFSK", "FT4"],
+    ["MFSK", "FT4", "USB", "SSB", ""],
+  ])("projects %s/%s followed by %s to %s/%s", (mode, submode, observed, expectedMode, expectedSubmode) => {
+    expect(followedLogMode(observed, mode, submode)).toEqual({ mode: expectedMode, submode: expectedSubmode });
   });
 });

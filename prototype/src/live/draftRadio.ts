@@ -1,13 +1,23 @@
 // Logging modes describe the contact, while CAT modes describe demodulation.
 // Preserve a chosen digital contact mode when the radio reports its data carrier.
-export function logMode(observed: string, current: string): string {
+export type FollowedLogMode = { mode: string; submode: string };
+
+export function followedLogMode(observed: string, current: string, currentSubmode = ""): FollowedLogMode {
   const radio = observed.toUpperCase();
-  const digital = ["FT8", "FT4", "FT2", "JTTY", "PSK", "PSK31", "PSK63", "JT65", "JT9", "MFSK", "OLIVIA", "DATA", "DIGI"];
+  const selected = current.toUpperCase();
+  const digital = ["FT8", "FT4", "FT2", "JTTY", "PSK", "PSK31", "PSK63", "JT65", "JT9", "MFSK", "OLIVIA", "RTTY", "DATA", "DIGI"];
   if (["PKTUSB", "PKTLSB", "DIGU", "DIGL", "DATA", "DIGI"].includes(radio)) {
-    return digital.includes(current.toUpperCase()) ? current.toUpperCase() : "DIGI";
+    return digital.includes(selected)
+      ? { mode: selected, submode: currentSubmode }
+      : { mode: "DIGI", submode: "" };
   }
-  if (["USB", "LSB"].includes(radio)) return "SSB";
-  if (radio === "CWR") return "CW";
-  if (radio === "RTTYR") return "RTTY";
-  return radio;
+  const mode = radio === "USB" || radio === "LSB" ? "SSB"
+    : radio === "CWR" ? "CW"
+    : radio === "RTTYR" ? "RTTY"
+    : radio;
+  return { mode, submode: mode === selected ? currentSubmode : "" };
+}
+
+export function logMode(observed: string, current: string): string {
+  return followedLogMode(observed, current).mode;
 }

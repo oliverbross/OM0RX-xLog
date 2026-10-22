@@ -82,7 +82,7 @@ struct OperatorDraftRadioFollowTests {
     @Test("Every data carrier preserves every chosen digital logging mode")
     func digitalModes() throws {
         let carriers = ["PKTUSB", "PKTLSB", "DIGU", "DIGL", "DATA", "DIGI"]
-        let digital = ["FT8", "FT4", "FT2", "JTTY", "PSK", "PSK31", "PSK63", "JT65", "JT9", "MFSK", "OLIVIA", "DATA", "DIGI"]
+        let digital = ["FT8", "FT4", "FT2", "JTTY", "PSK", "PSK31", "PSK63", "JT65", "JT9", "MFSK", "OLIVIA", "RTTY", "DATA", "DIGI"]
         for carrier in carriers {
             for mode in digital {
                 var before = fixture(); before.mode = mode.lowercased()
@@ -91,10 +91,12 @@ struct OperatorDraftRadioFollowTests {
                 #expect(result.mode == mode)
                 #expect(result.submode == before.submode)
             }
-            for mode in ["SSB", "CW", "RTTY", "", "FT8 "] {
+            for mode in ["SSB", "CW", "", "FT8 "] {
                 var before = fixture(); before.mode = mode
-                #expect(try OperatorDraftRadioFollow.applying(to: before, frequencyHz: 14_074_000,
-                                                              observedMode: carrier, enabled: true).mode == "DIGI")
+                let result = try OperatorDraftRadioFollow.applying(to: before, frequencyHz: 14_074_000,
+                                                                   observedMode: carrier, enabled: true)
+                #expect(result.mode == "DIGI")
+                #expect(result.submode.isEmpty)
             }
         }
     }
@@ -116,6 +118,14 @@ struct OperatorDraftRadioFollowTests {
         #expect(voice.mode == "SSB" && voice.submode.isEmpty)
         let data = try OperatorDraftRadioFollow.applying(to: before, frequencyHz: 14_080_000, observedMode: "DIGU", enabled: true)
         #expect(data.mode == "MFSK" && data.submode == "FT4")
+
+        var rtty = fixture(); rtty.mode = "RTTY"; rtty.submode = ""
+        let rttyData = try OperatorDraftRadioFollow.applying(to: rtty, frequencyHz: 14_080_000, observedMode: "DIGU", enabled: true)
+        #expect(rttyData.mode == "RTTY" && rttyData.submode.isEmpty)
+
+        var ssb = fixture(); ssb.mode = "SSB"; ssb.submode = "USB"
+        let genericData = try OperatorDraftRadioFollow.applying(to: ssb, frequencyHz: 14_080_000, observedMode: "DIGU", enabled: true)
+        #expect(genericData.mode == "DIGI" && genericData.submode.isEmpty)
     }
 
     @Test("Invalid frequency or mode is rejected without changing the input")
