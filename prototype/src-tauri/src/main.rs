@@ -68,6 +68,7 @@ use std::time::{Duration, Instant};
 static MAIN_CREATION: Mutex<()> = Mutex::new(());
 static WORKSPACE_PRESENTATION: Mutex<bool> = Mutex::new(false);
 static APP_EXITING: AtomicBool = AtomicBool::new(false);
+static MAIN_WORKSPACE_REOPENED: AtomicBool = AtomicBool::new(false);
 static SCP_IMPORT_ACTIVE: AtomicBool = AtomicBool::new(false);
 static HISTORY_PREVIEW_ACTIVE: AtomicBool = AtomicBool::new(false);
 const OPERATOR_DRAFT_CHANGED: &str = "xlog:operator-draft-changed";
@@ -817,11 +818,12 @@ fn ensure_main_workspace(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow,
 }
 
 fn show_main_workspace(app: &tauri::AppHandle) -> Result<(), String> {
-    let main = main_workspace(app)?;
-    main.unminimize().map_err(|error| error.to_string())?;
-    main.show()
-        .and_then(|_| main.set_focus())
-        .map_err(|error| error.to_string())
+    MAIN_WORKSPACE_REOPENED.store(true, Ordering::Release);
+    if let Err(error) = present_active_workspace(app) {
+        MAIN_WORKSPACE_REOPENED.store(false, Ordering::Release);
+        return Err(error);
+    }
+    Ok(())
 }
 
 async fn navigate_workspace(app: tauri::AppHandle, screen: String) -> Result<(), String> {
@@ -1047,7 +1049,10 @@ enum NativeForeground {
     Main,
 }
 
-fn native_foreground(labels: &[String], contest_admitted: bool) -> NativeForeground {
+fn native_foreground(labels: &[String], contest_admitted: bool, main_reopened: bool) -> NativeForeground {
+    if main_reopened && labels.iter().any(|label| label == "main") {
+        return NativeForeground::Main;
+    }
     if let Some(label) = contest_desk_focus_label(labels) {
         return NativeForeground::Contest(label);
     }
@@ -1059,7 +1064,8 @@ fn native_foreground(labels: &[String], contest_admitted: bool) -> NativeForegro
 
 fn present_active_workspace(app: &tauri::AppHandle) -> Result<(), String> {
     let labels = app.webview_windows().into_keys().collect::<Vec<_>>();
-    let foreground = native_foreground(&labels, contest_window_context::is_admitted());
+    let foreground = native_foreground(&labels, contest_window_context::is_admitted(),
+        MAIN_WORKSPACE_REOPENED.load(Ordering::Acquire));
     match foreground {
         NativeForeground::Contest(label) => {
             if let Some(main) = app.get_webview_window("main") {
@@ -1108,6 +1114,7 @@ fn present_contest_desk(app: &tauri::AppHandle,
                 return Err("The contest desk did not open a usable window; the xLog main window remains available.".into());
             }
             let windows = app.webview_windows();
+            MAIN_WORKSPACE_REOPENED.store(false, Ordering::Release);
             for window in windows.values().filter(|window| normal_workspace_window(window.label())) {
                 if window.label() == "main" { validate_editor_transition(window.label())?; }
                 window.hide().map_err(|error| error.to_string())?;
@@ -1173,6 +1180,7 @@ async fn workspace_mode_present(window: tauri::WebviewWindow, app: tauri::AppHan
             if windows && hide_main {
                 workspace_mode_ready()?;
                 wait_for_workspace_windows(&app, &generation, revision)?;
+                MAIN_WORKSPACE_REOPENED.store(false, Ordering::Release);
                 main.hide().map_err(|error| error.to_string())?;
             }
             else { present_active_workspace(&app)?; }
@@ -3055,6 +3063,7 @@ async fn close_main_window(window: tauri::WebviewWindow) -> Result<(), String> {
     let app = window.app_handle().clone();
     let labels = app.webview_windows().into_keys().collect::<Vec<_>>();
     if contest_desk_is_open(labels.iter().map(String::as_str)) {
+        MAIN_WORKSPACE_REOPENED.store(false, Ordering::Release);
         window.hide().map_err(|error| error.to_string())?;
         return present_active_workspace(&app);
     }
@@ -3132,6 +3141,7 @@ fn main() {
                         // Keep the normal controller available for Dock reopen and
                         // return it to the background instead of terminating Tauri.
                         api.prevent_close();
+                        MAIN_WORKSPACE_REOPENED.store(false, Ordering::Release);
                         if let Err(error) = window.hide() { eprintln!("Could not hide the normal xLog workspace: {error}"); }
                     } else if contest_voice::needs_shutdown_barrier() {
                         api.prevent_close();
@@ -3526,18 +3536,21 @@ mod workspace_layout_tests {
     }
 
     #[test]
-    fn native_foreground_never_selects_main_while_a_contest_is_admitted() {
+    fn native_foreground_prefers_contest_until_the_operator_reopens_main() {
         assert_eq!(native_foreground(&[
             "main".into(), "contest-setup".into(), "contest--monitor".into(),
             "contest--active-qso".into(),
-        ], true), NativeForeground::Contest("contest--active-qso".into()));
+        ], true, false), NativeForeground::Contest("contest--active-qso".into()));
         assert_eq!(native_foreground(&[
             "main".into(), "contest-setup".into(), "contest--monitor".into(),
-        ], true), NativeForeground::Contest("contest--monitor".into()));
-        assert_eq!(native_foreground(&["main".into(), "contest-setup".into()], true),
+        ], true, false), NativeForeground::Contest("contest--monitor".into()));
+        assert_eq!(native_foreground(&["main".into(), "contest-setup".into()], true, false),
             NativeForeground::ContestSetup);
-        assert_eq!(native_foreground(&["main".into(), "contest-setup".into()], false),
+        assert_eq!(native_foreground(&["main".into(), "contest-setup".into()], false, false),
             NativeForeground::Main);
+        assert_eq!(native_foreground(&[
+            "main".into(), "contest--active-qso".into(), "contest--dx-cluster".into(),
+        ], true, true), NativeForeground::Main);
     }
 
     #[test]
