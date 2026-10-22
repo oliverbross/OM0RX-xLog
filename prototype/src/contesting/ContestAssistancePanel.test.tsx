@@ -30,6 +30,28 @@ it("shows honest unavailable state then imports, queries, and selects only the a
   expect(calls).toContain("contest_scp_query"); expect(calls).toContain("contest_scp_select");
 });
 
+it("keeps the shared Check Partial surface mounted while a query advances",async()=>{
+  const publications:(ContestSCPPanelSurface|null)[]=[];
+  let finishQuery:(()=>void)|undefined;
+  const request=(async(method:string,params:Record<string,unknown>={})=>{
+    if(method==="contest_scp_status")return{id:"status",ok:true,result:{dataset,unavailableReason:null}};
+    if(method==="contest_scp_query")return new Promise<ContestWorkerResponse<any>>(resolve=>{finishQuery=()=>resolve({id:"query",ok:true,result:{
+      sessionID:context.sessionID,workspaceGeneration:context.workspaceGeneration,requestID:String(params.requestID),normalizedQuery:"K1",
+      matches:[{matchID:`${dataset.sha256}:0`,callsign:"K1ABC",score:100,isPrefixMatch:true}],dataset,evaluatedRecordCount:2,isPartial:false}});});
+    if(method==="contest_scp_cancel")return{id:"cancel",ok:true,result:{cancelled:true}};
+    throw new Error(method);
+  }) as ContestRequest;
+  const view=render(<ContestAssistancePanel request={request} {...context} callsign="K1" onSelect={vi.fn()}
+    onSurfaceChange={value=>publications.push(value)}/>);
+  await waitFor(()=>expect(finishQuery).toBeTypeOf("function"));
+  expect(publications).not.toContain(null);
+  finishQuery!();
+  await waitFor(()=>expect(publications.at(-1)?.candidates.map(item=>item.callsign)).toEqual(["K1ABC"]));
+  expect(publications).not.toContain(null);
+  view.unmount();
+  expect(publications.at(-1)).toBeNull();
+});
+
 it("downloads and reports verified official metadata with the native worker UTC spelling",async()=>{
   const official={sourceID:"supercheckpartial-official",version:"MASTER.SCP",retrievedAtUTC:"2026-10-21T00:02:51Z",
     sha256:"0655f71c2fcafb658c7dd52a87c757a023f6449811f06caaae8cfa6da7b31c33",byteCount:359670,recordCount:50005,

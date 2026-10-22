@@ -102,12 +102,13 @@ export function ContestAssistancePanel({request,ownerLeaseID,sessionID,workspace
   }
   const busy=importing||querying||selecting;
   const availability:SCPAvailability=recoveryRequired?"status_unavailable":dataset?"ready":unavailable??"not_imported";
+  useEffect(()=>()=>onSurfaceChange?.(null),[onSurfaceChange]);
   useEffect(()=>{if(!onSurfaceChange)return;const current:ContestSCPPanelSurface={source:dataset?.version??null,
     candidates:result?.matches.map(match=>({candidateID:match.matchID,callsign:match.callsign}))??[],availability,
     notice:notice||null,error:error||null,busy,downloadLatest:download,refresh:recover,
     selectCandidate:async candidateID=>{const match=result?.matches.find(item=>item.matchID===candidateID);
       if(!match)throw new Error("The SCP candidate no longer matches the current query.");await select(match);}};
-    onSurfaceChange(current);return()=>onSurfaceChange(null);},[onSurfaceChange,dataset?.version,result,availability,notice,error,busy]);
+    onSurfaceChange(current);},[onSurfaceChange,dataset?.version,result,availability,notice,error,busy]);
   const official=dataset?.sourceID==="supercheckpartial-official", date=dataset?.retrievedAtUTC?.slice(0,10), digest=dataset?.sha256.slice(0,12);
   return <section className="contest-scp" aria-label="Super Check Partial"><header><strong>Super Check Partial</strong><button type="button" disabled={disabled||importing||selecting||recoveryRequired} onClick={()=>void download()}>Download latest</button><button type="button" disabled={disabled||importing||selecting} onClick={()=>void (recoveryRequired?recover():choose())}>{recoveryRequired?"Check local status":dataset?"Replace local file":"Import local file"}</button></header>
     {!dataset?<p>{recoveryRequired?"Local SCP status must be checked before another import or download.":unavailable==="invalid_cache"?"The saved local SCP index is invalid. Download the latest official file or import a local source file.":"No MASTER.SCP dataset is active. Download the latest official file or import a local file."}</p>:<><small>{dataset.version} · {dataset.recordCount.toLocaleString()} calls · {official?"official provider":"local import"}{date?` · ${date} UTC`:""} · SHA-256 {digest}… · {dataset.digestVerification==="matchedExpectedSHA256"?"verified digest":"computed digest"}</small>{busy&&<p>Checking…</p>}<ContestCandidates className="contest-scp-matches" disabled={disabled||selecting||importing} candidates={result?.matches.map(match=>({id:match.matchID,label:match.callsign,detail:Math.round(match.score)}))??[]} onSelect={candidateID=>{const match=result?.matches.find(item=>item.matchID===candidateID);if(match)void select(match);}}/>{result?.isPartial&&<small>Results cover the bounded catalog prefix.</small>}</>}{notice&&<p role="status">{notice}</p>}{error&&<p role="alert">{error}</p>}

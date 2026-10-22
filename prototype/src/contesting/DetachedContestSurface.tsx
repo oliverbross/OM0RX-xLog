@@ -42,7 +42,9 @@ function useContestSurface(context: Context) {
     catch (cause) { if (mounted.current && current === ticket.current) setError(message(cause)); return null; }
   }, [context]);
   useEffect(() => { mounted.current = true; void refresh(); let stop: undefined | (() => void);
-    void onContestSurfaceWake(() => void refresh()).then(value => { if (mounted.current) { stop = value; void refresh(); } else value(); })
+    void onContestSurfaceWake(changedPanelID => {
+      if (changedPanelID === null || changedPanelID === context.panelID) void refresh();
+    }).then(value => { if (mounted.current) { stop = value; void refresh(); } else value(); })
       .catch(cause => { if (mounted.current) setError(message(cause)); });
     const visible = () => { if (document.visibilityState === "visible") void refresh(); };
     window.addEventListener("focus", refresh); document.addEventListener("visibilitychange", visible);

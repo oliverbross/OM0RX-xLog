@@ -84,7 +84,9 @@ export function ContestQRZDetailsSurface({ search = window.location.search,
     let active = true, stop: (() => void) | undefined;
     const update = () => void refresh().catch(cause => { if (active) setError(errorMessage(cause)); });
     update();
-    void onContestSurfaceWake(update).then(unlisten => { if (active) stop = unlisten; else unlisten(); })
+    void onContestSurfaceWake(changedPanelID => {
+      if (changedPanelID === null || changedPanelID === "qrz-details") update();
+    }).then(unlisten => { if (active) stop = unlisten; else unlisten(); })
       .catch(cause => { if (active) setError(errorMessage(cause)); });
     return () => { active = false; stop?.(); };
   }, [refresh]);

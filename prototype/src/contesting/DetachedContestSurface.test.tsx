@@ -9,7 +9,8 @@ import { contestSurfacePanelIDs, type ContestEntrySurfaceProjection, type Contes
   type ContestSurfaceProjection, validContestSurfaceProjection } from "./contestSurfaceProtocol";
 import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
 
-const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), wake: null as null|(()=>void),wakes:[] as (()=>void)[],
+const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), wake: null as null|(()=>void), emit:null as null|((payload:unknown)=>void),
+  wakes:[] as ((event:{payload:unknown})=>void)[],
   closeRequested:null as null|((event:{preventDefault:()=>void})=>Promise<void>) }));
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (command: string, args: Record<string, any>) =>
@@ -35,8 +36,9 @@ const sharedSpot={id:"spot-1",receivedAt:Math.floor(Date.now()/1000)-978_307_200
 const tabMaps={tabNext:{callsign:"sent",sent:"receive",receive:"other_1",other_1:"other_2",other_2:"callsign"},
   tabPrevious:{callsign:"other_2",sent:"callsign",receive:"sent",other_1:"receive",other_2:"other_1"}} as const;
 
-beforeEach(()=>{vi.resetAllMocks();localStorage.removeItem("xlog.integration.contest.cluster-age-minutes.v1");native.wake=null;native.wakes=[];native.listen.mockImplementation(async(_name,callback)=>{native.wakes.push(callback);
-  native.wake=()=>native.wakes.forEach(wake=>wake());return()=>{native.wakes=native.wakes.filter(wake=>wake!==callback);};});window.history.replaceState({},"",search);});
+beforeEach(()=>{vi.resetAllMocks();localStorage.removeItem("xlog.integration.contest.cluster-age-minutes.v1");native.wake=null;native.emit=null;native.wakes=[];native.listen.mockImplementation(async(_name,callback)=>{native.wakes.push(callback);
+  native.wake=()=>native.wakes.forEach(wake=>wake({payload:null}));native.emit=payload=>native.wakes.forEach(wake=>wake({payload}));
+  return()=>{native.wakes=native.wakes.filter(wake=>wake!==callback);};});window.history.replaceState({},"",search);});
 afterEach(()=>{cleanup();window.history.replaceState({},"","/");});
 
 it("rereads a restored Main Logging window after the replacement context listener is installed",async()=>{
@@ -55,6 +57,22 @@ it("rereads a restored Main Logging window after the replacement context listene
   expect(await screen.findByLabelText("Callsign")).toHaveProperty("value","OM0RX");
   expect(screen.queryByText("Loading shared contest panel…")).toBeNull();
   expect(native.invoke.mock.calls.filter(([command])=>command==="contest_surface_snapshot")).toHaveLength(2);
+});
+
+it("ignores publication wakes for other detached contest panels",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=callsign-intelligence"));
+  const check={schemaVersion:1,status:"ready",draftID:"draft-1",draftRevision:5,inputCallsign:"OM0A",
+    loggedCandidates:[],clusterCandidates:[],scp:{source:"MASTER.SCP",candidates:[]},history:{source:null,rows:[]},busy:false};
+  native.invoke.mockImplementation(async(command:string)=>command==="contest_surface_snapshot"
+    ?{...snapshot,panelID:"callsign-intelligence",projection:check}:Promise.reject(new Error(command)));
+  render(<DetachedContestSurface/>);
+  expect(await screen.findByDisplayValue("OM0A")).toBeTruthy();
+  const reads=()=>native.invoke.mock.calls.filter(([command])=>command==="contest_surface_snapshot").length;
+  const initial=reads();
+  await act(async()=>{native.emit!("active-qso");await Promise.resolve();});
+  expect(reads()).toBe(initial);
+  await act(async()=>{native.emit!("callsign-intelligence");});
+  await waitFor(()=>expect(reads()).toBe(initial+1));
 });
 
 it("recovers a restored Main Logging window when its ready publication was missed",async()=>{

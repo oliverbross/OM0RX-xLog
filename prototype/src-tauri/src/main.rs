@@ -2960,7 +2960,7 @@ fn contest_surface_publish(window: tauri::WebviewWindow, app: tauri::AppHandle,
     if scope != "contesting" { return Err("The contest surface scope is invalid.".into()); }
     let context = contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
     contest_surface::publish(&context, &owner_epoch, &panel_i_d, projection_revision, projection)?;
-    let _ = app.emit("xlog:contest-surface", ());
+    let _ = app.emit("xlog:contest-surface", panel_i_d);
     Ok(())
 }
 

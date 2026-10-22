@@ -136,12 +136,14 @@ describe("contest native surface bridge", () => {
     await expect(readContestSurfaceSnapshot(context)).rejects.toThrow("snapshot could not be verified");
   });
 
-  it("treats the event as a payload-free wake", async () => {
+  it("identifies panel publications while retaining payload-free action wakes", async () => {
     const refresh = vi.fn(); let listener!: (event: unknown) => void; const stop = vi.fn();
     native.listen.mockImplementation(async (_event, callback) => { listener = callback; return stop; });
     expect(await onContestSurfaceWake(refresh)).toBe(stop);
     expect(native.listen).toHaveBeenCalledWith("xlog:contest-surface", expect.any(Function));
+    listener({ payload: "callsign-intelligence" });
+    listener({ payload: null });
     listener({ payload: { action: "entry_commit", forged: true } });
-    expect(refresh).toHaveBeenCalledOnce();
+    expect(refresh.mock.calls).toEqual([["callsign-intelligence"], [null], [null]]);
   });
 });

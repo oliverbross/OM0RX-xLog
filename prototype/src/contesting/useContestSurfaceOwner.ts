@@ -22,11 +22,16 @@ const rebasablePresentationActions = new Set<ContestSurfaceActionEnvelope["actio
 /** Keeps the single mounted ContestWorkspace authoritative. Wake events carry no
  * state; every action and projection is reread through the typed native bridge. */
 export function useContestSurfaceOwner({ context, projections, handle, report }: Owner) {
-  const key = JSON.stringify(projections), keyRef = useRef(""), revisionRef = useRef(0), issuedRevisionRef = useRef(0), publishedRevisionRef = useRef(0);
+  const key = JSON.stringify(projections), revisionRef = useRef(0), issuedRevisionRef = useRef(0), publishedRevisionRef = useRef(0);
   const contextKey = context ? `${context.operatingContext}:${context.sessionID}:${context.workspaceGeneration}` : "";
   const ownerRef = useRef<{ contextKey:string; ownerEpoch:string; claim:Promise<number>|null }>({contextKey:"",ownerEpoch:"",claim:null});
   if(ownerRef.current.contextKey!==contextKey)ownerRef.current={contextKey,ownerEpoch:crypto.randomUUID(),claim:null};
-  if (keyRef.current !== key) { keyRef.current = key; revisionRef.current += 1; }
+  const projectionKeys = Object.fromEntries(contestSurfacePanelIDs.map(panelID => [panelID, JSON.stringify(projections[panelID])])) as Record<ContestSurfacePanelID,string>;
+  const panelStateRef = useRef<{ contextKey:string; publishedKeys:Partial<Record<ContestSurfacePanelID,string>>;
+    publishedRevisions:Partial<Record<ContestSurfacePanelID,number>> }>({contextKey:"",publishedKeys:{},publishedRevisions:{}});
+  if (panelStateRef.current.contextKey !== contextKey)
+    panelStateRef.current = { contextKey, publishedKeys:{}, publishedRevisions:{} };
+  const currentProjectionKeysRef = useRef(projectionKeys); currentProjectionKeysRef.current = projectionKeys;
   const contextRef = useRef(context), projectionsRef = useRef(projections), handleRef = useRef(handle);
   contextRef.current = context; projectionsRef.current = projections; handleRef.current = handle;
   const publishQueue = useRef(Promise.resolve());
@@ -36,15 +41,23 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
     if (!context || !validContestSurfaceUUID(context.operatingContext) || !validContestSurfaceUUID(context.sessionID) ||
         !validContestSurfaceUUID(context.workspaceGeneration)) return;
     const snapshot = projections, owner = ownerRef.current;
+    const snapshotKeys = projectionKeys;
     const publication = publishQueue.current.then(async () => {
       if (!sameContext(contextRef.current, context)) return;
+      const panels = contestSurfacePanelIDs.filter(panelID => panelStateRef.current.publishedKeys[panelID] !== snapshotKeys[panelID]);
+      if (panels.length === 0) return;
       owner.claim ??= claimContestSurfaceOwner({ ...context, ownerEpoch: owner.ownerEpoch });
       const retainedRevision = await owner.claim;
       if (!sameContext(contextRef.current, context) || ownerRef.current !== owner) return;
-      const revision = Math.max(revisionRef.current, retainedRevision + 1, issuedRevisionRef.current + 1);
+      const revision = Math.max(revisionRef.current + 1, retainedRevision + 1, issuedRevisionRef.current + 1);
       revisionRef.current = revision; issuedRevisionRef.current = revision;
-      await Promise.all(contestSurfacePanelIDs.map(panelID => publishContestSurface({ ...context, scope: "contesting", panelID,
+      await Promise.all(panels.map(panelID => publishContestSurface({ ...context, scope: "contesting", panelID,
         ownerEpoch: owner.ownerEpoch, projectionRevision: revision, projection: snapshot[panelID] })));
+      if (!sameContext(contextRef.current, context) || ownerRef.current !== owner) return;
+      for (const panelID of panels) {
+        panelStateRef.current.publishedKeys[panelID] = snapshotKeys[panelID];
+        panelStateRef.current.publishedRevisions[panelID] = revision;
+      }
       publishedRevisionRef.current = Math.max(publishedRevisionRef.current, revision);
     });
     currentPublication.current = publication;
@@ -69,11 +82,15 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
       draining = true;
       try {
         for (let count = 0; active && count < 64; count += 1) {
+          await currentPublication.current;
+          if (!active) break;
           const action = await nextContestSurfaceAction(context);
           if (!active || action === null) break;
           let admitted = false;
           try {
-            if (action.projectionRevision !== revisionRef.current && !rebasablePresentationActions.has(action.action))
+            const panelState = panelStateRef.current, panelRevision = panelState.publishedRevisions[action.panelID] ?? 0;
+            const panelChanged = currentProjectionKeysRef.current[action.panelID] !== panelState.publishedKeys[action.panelID];
+            if ((action.projectionRevision !== panelRevision || panelChanged) && !rebasablePresentationActions.has(action.action))
               throw new Error("The contest panel changed before this action reached the owner.");
             if (projectionsRef.current[action.panelID].status !== "ready")
               throw new Error("The requested contest panel is not available.");
@@ -90,11 +107,13 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
             // as rejected or replay the action from this owner.
             if (admitted && cause instanceof ContestMutationUncertain) { report(boundedMessage(cause)); continue; }
             await completeContestSurfaceAction({ ...context, requestID: action.requestID, outcome: "rejected",
-              message: boundedMessage(cause), projectionRevision: publishedRevisionRef.current }).catch(error => report(boundedMessage(error)));
+              message: boundedMessage(cause), projectionRevision: panelStateRef.current.publishedRevisions[action.panelID] ?? action.projectionRevision })
+              .catch(error => report(boundedMessage(error)));
             continue;
           }
           await completeContestSurfaceAction({ ...context, requestID: action.requestID, outcome: "applied",
-            projectionRevision: publishedRevisionRef.current }).catch(cause => report(boundedMessage(cause)));
+            projectionRevision: panelStateRef.current.publishedRevisions[action.panelID] ?? action.projectionRevision })
+            .catch(cause => report(boundedMessage(cause)));
         }
       } catch (cause) { if (active) report(boundedMessage(cause)); }
       finally { draining = false; if (active && dirty) { dirty = false; void drain(); } }
@@ -114,6 +133,8 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
       draining = true;
       try {
         for (let count = 0; active && count < 16; count += 1) {
+          await currentPublication.current;
+          if (!active) break;
           const action = await nextContestSurfaceEscape(context);
           if (!active || action === null) break;
           try {

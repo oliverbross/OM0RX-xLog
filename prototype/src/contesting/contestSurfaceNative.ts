@@ -196,6 +196,11 @@ export async function postContestSpot(callsign: string, frequencyHz: number): Pr
   await invoke("contest_post_spot", { callsign: call, frequencyHz });
 }
 
-export async function onContestSurfaceWake(refresh: () => void): Promise<UnlistenFn> {
-  return listen(contestSurfaceEvent, () => refresh());
+export async function onContestSurfaceWake(refresh: (panelID: ContestSurfacePanelID | null) => void): Promise<UnlistenFn> {
+  return listen<unknown>(contestSurfaceEvent, event => {
+    const payload = event && typeof event === "object" && "payload" in event
+      ? (event as { payload?: unknown }).payload : null;
+    refresh(typeof payload === "string" && contestSurfacePanelIDs.includes(payload as ContestSurfacePanelID)
+      ? payload as ContestSurfacePanelID : null);
+  });
 }

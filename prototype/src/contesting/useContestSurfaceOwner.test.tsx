@@ -36,6 +36,21 @@ it("exposes the current native projection publication as an opening barrier",asy
   release();await barrier;expect(completed).toBe(true);
 });
 
+it("publishes only the detached panel whose projection changed",async()=>{
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_owner_claim")return {ownerEpoch:args.ownerEpoch,projectionRevision:0};
+    if(command==="contest_surface_action_next"||command==="contest_surface_escape_next")return null;
+  });
+  const check={schemaVersion:1 as const,status:"ready" as const,draftID:"draft-1",draftRevision:5,inputCallsign:"K1",
+    loggedCandidates:[],clusterCandidates:[],scp:{source:"MASTER.SCP",candidates:[]},history:{source:null,rows:[]},busy:false};
+  const projections={...unavailable(),"active-qso":entry,"callsign-intelligence":check};
+  const view=render(<Harness projections={projections} handle={vi.fn(async()=>{})}/>);
+  await waitFor(()=>expect(native.invoke.mock.calls.filter(([name])=>name==="contest_surface_publish")).toHaveLength(contestSurfacePanelIDs.length));
+  view.rerender(<Harness projections={{...projections,"active-qso":{...entry,dirty:true}}} handle={vi.fn(async()=>{})}/>);
+  await waitFor(()=>expect(native.invoke.mock.calls.filter(([name,args])=>name==="contest_surface_publish"&&args.panelID==="active-qso")).toHaveLength(2));
+  expect(native.invoke.mock.calls.filter(([name,args])=>name==="contest_surface_publish"&&args.panelID==="callsign-intelligence")).toHaveLength(1);
+});
+
 it("suppresses an expected stale publication rejection after a contest session handoff",async()=>{
   const nextContext={...context,sessionID:"00000000-0000-4000-8000-000000000004"},report=vi.fn();
   let rejectOld!:(cause:Error)=>void;
@@ -82,7 +97,7 @@ it("rejects unavailable and stale actions before the owner side effect, then app
   await waitFor(()=>expect(completed).toHaveLength(1));expect(completed[0]).toMatchObject({outcome:"rejected",message:"The requested contest panel is not available."});
   expect(handle).not.toHaveBeenCalled();
   projections["active-qso"]=entry;view.rerender(<Harness projections={{...projections}} handle={handle}/>);
-  await waitFor(()=>expect(native.invoke.mock.calls.filter(([name])=>name==="contest_surface_publish").length).toBeGreaterThanOrEqual(24));
+  await waitFor(()=>expect(native.invoke.mock.calls.filter(([name,args])=>name==="contest_surface_publish"&&args.panelID==="active-qso")).toHaveLength(2));
   queue.push(action(2));await act(async()=>{native.wake!();});
   await waitFor(()=>expect(handle).toHaveBeenCalledOnce());expect(completed.at(-1)).toMatchObject({outcome:"applied",projectionRevision:2});
 });
