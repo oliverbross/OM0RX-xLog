@@ -691,9 +691,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const spotPointScope=projection?`${projection.sessionID}/${projection.workspaceGeneration}/${projection.revision}`:"";
   useEffect(()=>{
     if(!projection||!sharedSpots.length){setSpotPointPreview({scope:spotPointScope,points:new Map()});return;}
-    const supported=new Set(contestSurfaceModes(projection.supportedModes??[],projection.mode)),candidates=sharedSpots.flatMap(spot=>{
+    const supported=new Set(contestSurfaceModes(projection.supportedModes??[],projection.mode));
+    const supportedBands=new Set(activeSupportedBands.map(band=>band.trim().toLowerCase()));
+    const candidates=sharedSpots.flatMap(spot=>{
       const mode=canonicalContestSurfaceMode(spot.mode),frequencyHz=Math.round(spot.frequencyKHz*1_000);
-      return mode&&supported.has(mode)&&Number.isSafeInteger(frequencyHz)?[{spotID:spot.id,callsign:spot.callsign,frequencyHz,mode}]:[];
+      return mode&&supported.has(mode)&&supportedBands.has(spot.band.trim().toLowerCase())&&Number.isSafeInteger(frequencyHz)
+        ?[{spotID:spot.id,callsign:spot.callsign,frequencyHz,mode}]:[];
     });
     let current=true;(async()=>{const points=new Map<string,number|null>();
       for(let offset=0;offset<candidates.length;offset+=256){
@@ -705,7 +708,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       }
       if(current)setSpotPointPreview({scope:spotPointScope,points});
     })().catch(()=>{if(current)setSpotPointPreview({scope:spotPointScope,points:new Map()});});return()=>{current=false;};
-  },[projection?.sessionID,projection?.workspaceGeneration,projection?.revision,projection?.supportedModes,projection?.mode,request,sharedSpots,spotPointScope]);
+  },[projection?.sessionID,projection?.workspaceGeneration,projection?.revision,projection?.supportedModes,projection?.mode,
+    activeSupportedBands,request,sharedSpots,spotPointScope]);
   const spotWorkflowScope=useMemo<SpotWorkflowScope>(()=>({operatingContext,workspaceGeneration,
     sessionID:projection?.sessionID??""}),[operatingContext,workspaceGeneration,projection?.sessionID]);
   const authoritativeSpotIDs=useMemo(()=>new Set(sharedSpots.map(spot=>spot.id)),[sharedSpots]);
@@ -717,8 +721,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const projected=projectContestSpotWorkflow(sharedSpots,effectiveSpotWorkflow);
     if(!projection)return projected;
     const supported=new Set(contestSurfaceModes(projection.supportedModes??[],projection.mode));
-    return projected.filter(spot=>{const mode=canonicalContestSurfaceMode(spot.mode);return mode!==null&&supported.has(mode);});
-  },[sharedSpots,effectiveSpotWorkflow,projection?.supportedModes,projection?.mode,projection?.sessionID]);
+    const supportedBands=new Set(activeSupportedBands.map(band=>band.trim().toLowerCase()));
+    return projected.filter(spot=>{const mode=canonicalContestSurfaceMode(spot.mode);
+      return mode!==null&&supported.has(mode)&&supportedBands.has(spot.band.trim().toLowerCase());});
+  },[sharedSpots,effectiveSpotWorkflow,projection?.supportedModes,projection?.mode,projection?.sessionID,activeSupportedBands]);
   const spotSelectionContext = `${operatingContext}/${workspaceGeneration}/${projection?.sessionID ?? "no-session"}`;
   const spotIDSignature = visibleWorkflowSpots.map(spot=>spot.id).join("\u001f");
   useEffect(() => {

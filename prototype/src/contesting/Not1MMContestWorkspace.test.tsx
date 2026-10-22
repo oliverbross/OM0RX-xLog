@@ -518,11 +518,13 @@ it("projects only fenced host contest points without replacing cluster opportuni
     workspaceGeneration:current.workspaceGeneration,expectedRevision:current.revision}));
 });
 
-it("projects only modes supported by a single-mode contest into Cluster and Band Map",async()=>{
-  const current={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",supportedModes:["SSB"] as const};
+it("projects only modes and bands supported by a single-mode contest into Cluster and Band Map",async()=>{
+  const current={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",supportedModes:["SSB"] as const,
+    supportedBands:["160m","80m","40m","20m","15m","10m"]};
   const request=operationalRequest(()=>current,id=>id==="ssb"?3:1),shared=[
     {id:"ssb",callsign:"DL1ABC",frequencyKHz:14215,band:"20m",mode:"USB",score:42},
     {id:"cw",callsign:"K1ABC",frequencyKHz:14025,band:"20m",mode:"CW",score:80},
+    {id:"warc",callsign:"W1AW",frequencyKHz:24950,band:"12m",mode:"USB",score:90},
   ];
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={shared as any}/>);
   await createContestThroughSetup();
@@ -532,6 +534,8 @@ it("projects only modes supported by a single-mode contest into Cluster and Band
     .toEqual([expect.objectContaining({id:"ssb",mode:"SSB",contestPoints:3})]);
   const preview=request.mock.calls.find(([method])=>method==="contest_spot_points_preview");
   expect(preview?.[1]).toMatchObject({spots:[expect.objectContaining({spotID:"ssb",mode:"SSB"})]});
+  expect((preview?.[1] as {spots:{spotID:string}[]}).spots).not.toEqual(expect.arrayContaining([
+    expect.objectContaining({spotID:"cw"}),expect.objectContaining({spotID:"warc"})]));
 });
 
 it("routes the visible SPOT_DX action through the owned native contest spot adapter", async () => {
