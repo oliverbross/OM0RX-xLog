@@ -136,6 +136,21 @@ class CQWWRTTYHostTests(unittest.TestCase):
         self.assertTrue(all(action["kind"] == "fldigi" for action in run_exchange["actions"]))
         self.assertEqual(self.read("log")["total"], 2)
 
+    def test_rtty_macro_expands_caret_m_only_as_fldigi_newline(self):
+        setup = self.read("setup_get")["setup"]
+        setup["macros"] = [{"mode": "S", "key": "F6", "label": "Two lines",
+                            "template": "{OTHER1}|{OTHER2}^M{CALL}"}]
+        saved = self.mutate("setup_save", setup=setup)
+        effective = next(item for item in saved["effectiveMacros"]
+                         if item["mode"] == "S" and item["key"] == "F6")
+        self.assertEqual(effective["template"], "{OTHER1}|{OTHER2}^M{CALL}")
+        action = self.mutate("function_key", key="F6",
+                             fields={"callsign": "K1ABC", "other_1": "A#B",
+                                     "other_2": "A^MB"})["actions"][0]
+        self.assertEqual((action["kind"], action["signal"], action["payload"]),
+                         ("fldigi", "digital", "A#B|A^MB\nK1ABC"))
+        self.assertEqual(action["payloadUTF8Bytes"], len("A#B|A^MB\nK1ABC".encode("utf-8")))
+
     def test_points_country_zone_state_multipliers_and_band_dupes(self):
         self.log()
         self.log("DL1ABC", "14", "DX", 1)

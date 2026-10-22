@@ -46,7 +46,8 @@ def verify_source():
     _verified = True
 
 
-MACRO_TEXT_TOKENS = {"MYCALL", "CALL", "RST", "EXCHANGE", "SENTNR"}
+MACRO_TEXT_TOKENS = {"MYCALL", "CALL", "RST", "EXCHANGE", "SENTNR",
+                     "PREVNR", "OTHER1", "OTHER2"}
 MACRO_ACTION_TOKENS = ("LOGIT", "RUN", "SANDP", "WIPE")
 EXTERNAL_MACRO_ACTION_TOKENS = {"MARK", "SPOT", "TX", "RX", "TX/RX"}
 MACRO_ACTION_PATTERN = re.compile(r"\{(" + "|".join(map(re.escape, MACRO_ACTION_TOKENS)) + r")\}")
@@ -70,12 +71,17 @@ def adapt_cw_template(plugin_id, template):
         # CQ WW's configured zone is the number meant by MyNR. Persisted
         # macro-editor rows must receive the same migration as pinned defaults.
         template = template.replace("{SENTNR}", "{EXCHANGE}")
+    # Not1MM's VOICEn tokens normally address radio voice memories. xLog does
+    # not expose that hardware owner: map them to the managed f1.wav-f10.wav
+    # profile slots already consumed, in order, by the native WAV parser.
+    template = re.sub(r"\{VOICE(10|[1-9])\}", lambda match: f"[f{match.group(1)}]", template)
+    if "^M" in template and plugin_id not in RTTY_PLUGINS:
+        raise RuntimeError("Not1MM ^M newline is available only through the original RTTY/fldigi output owner")
     tokens = re.findall(r"\{([^}]+)\}", template)
-    external = next((token for token in tokens if token in EXTERNAL_MACRO_ACTION_TOKENS
-                     or re.fullmatch(r"VOICE(?:10|[1-9])", token)), None)
+    external = next((token for token in tokens if token in EXTERNAL_MACRO_ACTION_TOKENS), None)
     if external:
-        ownership = ("radio PTT/voice-memory" if external in {"TX", "RX", "TX/RX"}
-                     or external.startswith("VOICE") else "cluster spotting")
+        ownership = ({"MARK": "band-map marking", "SPOT": "cluster spotting"}.get(
+            external, "radio PTT"))
         raise RuntimeError(f"Not1MM macro action {{{external}}} requires the unavailable {ownership} owner")
     if any(token not in MACRO_TEXT_TOKENS | set(MACRO_ACTION_TOKENS) for token in tokens):
         raise RuntimeError("Not1MM macro uses an unsupported token")

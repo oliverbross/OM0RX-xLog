@@ -6,7 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from contest_host.host import Host, HostError
+from contest_host.host import Desk, Host, HostError
 from contest_host.upstream import VENDOR, load_plugin
 import test_host as fixtures
 
@@ -390,6 +390,51 @@ class CQWWSSBHostTests(unittest.TestCase):
                                        "fields": {"callsign": "K" * 32}})
         self.assertEqual(self.read("projection")["projection"]["revision"], revision)
         self.assertFalse(self.read("receipt", operationID=operation)["found"])
+
+    def test_voice_memory_tokens_use_ordered_xlog_wav_slots_and_reject_voice11_atomically(self):
+        original = self.read("setup_get")["setup"]
+        setup = deepcopy(original)
+        setup["macros"] = [{"mode": "S", "key": "F6", "label": "xLog WAV slots",
+                            "template": "{VOICE1} cq {VOICE10}"}]
+        saved = self.mutate("setup_save", setup=setup)
+        effective = next(item for item in saved["effectiveMacros"]
+                         if item["mode"] == "S" and item["key"] == "F6")
+        self.assertEqual(effective["template"], "[f1] cq [f10]")
+        action = self.mutate("function_key", key="F6")["actions"][0]
+        self.assertEqual((action["payload"], action["sourceMacro"]["template"]),
+                         ("[f1] cq [f10]", "[f1] cq [f10]"))
+        self.assertNotIn("radio", action)
+        self.assertNotIn("voiceMemory", action)
+
+        before_invalid = self.read("setup_get")["setup"]
+        invalid = deepcopy(before_invalid)
+        invalid["macros"] = [{"mode": "S", "key": "F6", "label": "Unsupported",
+                              "template": "{VOICE11}"}]
+        with self.assertRaisesRegex(RuntimeError, "unsupported token"):
+            self.mutate("setup_save", setup=invalid)
+        self.assertEqual(self.read("setup_get")["setup"], before_invalid)
+
+    def test_non_rtty_newline_macro_is_rejected_atomically(self):
+        original = self.read("setup_get")["setup"]
+        invalid = deepcopy(original)
+        invalid["macros"] = [{"mode": "S", "key": "F6", "label": "Wrong owner",
+                              "template": "cq^M{CALL}"}]
+        with self.assertRaisesRegex(RuntimeError, "only through the original RTTY/fldigi output owner"):
+            self.mutate("setup_save", setup=invalid)
+        self.assertEqual(self.read("setup_get")["setup"], original)
+
+    def test_ssb_other_fields_remain_opaque_macro_values(self):
+        setup = self.read("setup_get")["setup"]
+        setup["macros"] = [{"mode": "S", "key": "F6", "label": "Opaque fields",
+                            "template": "{OTHER1}|{OTHER2}"}]
+        self.mutate("setup_save", setup=setup)
+        store = self.host.database(self.session)
+        desk = Desk(store, store.state(self.session), self.host.commit)
+        desk.other_1.setText("A#B")
+        desk.other_2.setText("A^MB")
+        desk.process_function_key(desk.F6)
+        action = desk.actions[0]
+        self.assertEqual(action["payload"], "A#B|A^MB")
 
     def test_ssb_voice_intents_do_not_change_scoring_or_export(self):
         before = (self.read("score")["score"], self.read("export")["content"])

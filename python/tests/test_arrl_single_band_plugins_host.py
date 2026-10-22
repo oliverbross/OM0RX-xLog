@@ -91,6 +91,18 @@ class ARRL10MHostTests(ARRLHostCase):
     frequency = 28025000
     sent_exchange = "#"
 
+    def test_voice_alias_is_fenced_from_mixed_contest_cw_output(self):
+        setup = self.read("setup_get")["setup"]
+        setup["macros"] = [{"mode": "S", "key": "F6", "label": "Managed voice",
+                            "template": "{VOICE1}{RUN}"}]
+        saved = self.mutate("setup_save", setup=setup)
+        effective = next(item for item in saved["effectiveMacros"]
+                         if item["mode"] == "S" and item["key"] == "F6")
+        self.assertEqual(effective["template"], "[f1]{RUN}")
+        with self.assertRaisesRegex(HostError, "managed WAV slots only in SSB voice output"):
+            self.mutate("function_key", key="F6")
+        self.assertFalse(self.read("projection")["projection"]["run"])
+
     def test_catalog_projection_conditional_serial_validation_and_esm(self):
         self.assert_source()
         catalog = self.host.dispatch({"id": uid(), "method": "catalog", "params": {}})["plugins"]

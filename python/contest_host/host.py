@@ -256,6 +256,14 @@ def text(value, maximum=256):
     return value
 
 
+def digital_text(value, maximum=256):
+    """Bound fldigi output while admitting only its documented newline control."""
+    require(isinstance(value, str) and len(value.encode("utf-8")) <= maximum, "Text exceeds field bound")
+    require(not any(ord(character) < 32 and character != "\n" for character in value),
+            "Digital output contains an unsupported control character")
+    return value
+
+
 def requires_serial(state):
     plugin_id = state["pluginID"]
     return (plugin_id in SERIAL_PLUGINS
@@ -630,6 +638,9 @@ class Desk:
             return
         text_template, macro_actions = split_macro_template(macro["template"])
         mode = operating_mode(self.state)
+        if re.search(r"\[f(?:10|[1-9])\]", text_template, re.IGNORECASE):
+            require(mode == "SSB",
+                    "Not1MM VOICEn compatibility uses xLog managed WAV slots only in SSB voice output")
         context = {"sessionID": self.state["sessionID"], "workspaceGeneration": workspace_generation(self.state),
                    "sourceRevision": SOURCE_REVISION, "draftID": self.state["draft"]["id"],
                    "fields": self.values(), "stationCall": self.station["Call"],
@@ -671,7 +682,7 @@ class Desk:
     def record_fldigi_output(self, value, nlbefore=True, rxafter=True):
         require(self.state["pluginID"] in RTTY_PLUGINS, "This contest has no original fldigi transmit path")
         require(type(nlbefore) is bool and type(rxafter) is bool, "Invalid fldigi transmit options")
-        payload = text(value, VOICE_PAYLOAD_MAXIMUM)
+        payload = digital_text(value, VOICE_PAYLOAD_MAXIMUM)
         payload_bytes = payload.encode("utf-8")
         self.actions.append({"kind": "fldigi", "signal": "digital", "mode": operating_mode(self.state),
                              "payload": payload, "payloadUTF8Bytes": len(payload_bytes),
@@ -694,10 +705,41 @@ class Desk:
                        str(self.contest_settings["SentExchange"])
                        if self.state["pluginID"] in CONFIGURED_SENTNR_PLUGINS
                        else self.other_1.text()),
+            "OTHER1": self.other_1.text(),
+            "OTHER2": self.other_2.text(),
         }
-        for token, value in values.items():
-            template = template.replace("{" + token + "}", value)
-        return template
+        if "{PREVNR}" in template:
+            previous = self.database.exec_sql(
+                "SELECT SentNr FROM DXLOG WHERE ContestNR=? ORDER BY TS DESC,rowid DESC LIMIT 1",
+                (self.database.current_contest,),
+            )
+            values["PREVNR"] = str(previous.get("SentNr") or "") if previous else ""
+
+        serial = None
+        def reserved_serial():
+            nonlocal serial
+            require(type(self.current_sn) is int and self.current_sn > 0,
+                    "Not1MM # macro requires an already-reserved current serial")
+            serial = serial or str(self.current_sn)
+            return serial
+
+        def expand(match):
+            syntax = match.group(0)
+            if syntax == "#":
+                return reserved_serial()
+            if syntax == "^M":
+                require(self.state["pluginID"] in RTTY_PLUGINS,
+                        "Not1MM ^M newline requires the original RTTY/fldigi output owner")
+                return "\n"
+            token = syntax[1:-1]
+            value = values[token]
+            # Original Not1MM expands EXCH before # so a configured serial
+            # placeholder remains meaningful. Other substituted values are
+            # opaque and must never be reinterpreted as template syntax.
+            return value.replace("#", reserved_serial()) if token == "EXCHANGE" and "#" in value else value
+
+        syntax = r"\{(?:" + "|".join(map(re.escape, values)) + r")\}|#|\^M"
+        return re.sub(syntax, expand, template)
 
     def execute_macro_actions(self, actions):
         """Route validated macro actions through the existing contest owner methods."""

@@ -433,7 +433,8 @@ class HostTests(unittest.TestCase):
 
     def test_macro_setup_explicitly_rejects_external_output_owners(self):
         original = self.read("setup_get")["setup"]
-        for token, message in (("{TX}", "radio PTT/voice-memory"), ("{VOICE1}", "radio PTT/voice-memory"),
+        for token, message in (("{TX}", "radio PTT"), ("{RX}", "radio PTT"),
+                               ("{TX/RX}", "radio PTT"), ("{MARK}", "band-map marking"),
                                ("{SPOT}", "cluster spotting"), ("RI:FA;", "xLog owns radio control")):
             setup = deepcopy(original)
             setup["macros"] = [{"mode": "S", "key": "F6", "label": "Unsafe", "template": token}]

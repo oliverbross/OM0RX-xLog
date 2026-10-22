@@ -170,6 +170,43 @@ class CQWPXSSBHostTests(unittest.TestCase):
         ledger = self.host.database(self.session).exec_sql_mult("SELECT serial FROM xlog_serial ORDER BY serial")
         self.assertEqual([row["serial"] for row in ledger], [1, 2, 3])
 
+    def test_not1mm_field_previous_and_reserved_serial_substitutions_are_stable(self):
+        self.log(minute=2)
+        self.log("DL1ABC", "101", minute=1)
+        latest_same_second = self.log("OM1ABC", "102", minute=2)
+        self.assertEqual(self.fields()["other_1"]["value"], "004")
+
+        setup = self.read("setup_get")["setup"]
+        setup["macros"] = [{"mode": "S", "key": "F6", "label": "Compatibility",
+                            "template": "{PREVNR} {OTHER1} {OTHER2} #"}]
+        self.mutate("setup_save", setup=setup)
+        before_ledger = self.host.database(self.session).exec_sql_mult(
+            "SELECT draft_id,serial,qso_id FROM xlog_serial ORDER BY serial")
+        first_render = self.mutate("function_key", key="F6", fields={"other_2": "999"})["actions"][0]
+        second_render = self.mutate("function_key", key="F6")["actions"][0]
+        self.assertEqual((first_render["payload"], second_render["payload"]),
+                         ("3 004 999 4", "3 004 999 4"))
+        self.assertEqual(self.host.database(self.session).exec_sql_mult(
+            "SELECT draft_id,serial,qso_id FROM xlog_serial ORDER BY serial"), before_ledger)
+
+        configured = self.read("setup_get")["setup"]
+        configured["settings"]["SentExchange"] = "#"
+        configured["macros"] = [{"mode": "S", "key": "F6", "label": "Configured serial",
+                                 "template": "{EXCHANGE}|#|{OTHER2}"}]
+        self.mutate("setup_save", setup=configured)
+        configured_action = self.mutate("function_key", key="F6")["actions"][0]
+        self.assertEqual(configured_action["payload"], "4|4|999")
+        self.assertEqual(self.host.database(self.session).exec_sql_mult(
+            "SELECT draft_id,serial,qso_id FROM xlog_serial ORDER BY serial"), before_ledger)
+
+        self.mutate("qso_delete", qsoID=latest_same_second, reason="Exercise active stable ordering")
+        configured["settings"]["SentExchange"] = ""
+        configured["macros"][0].update(label="Compatibility",
+                                        template="{PREVNR} {OTHER1} {OTHER2} #")
+        self.mutate("setup_save", setup=configured)
+        after_delete = self.mutate("function_key", key="F6")["actions"][0]
+        self.assertEqual(after_delete["payload"], "1 004 999 4")
+
     def test_points_prefix_multiplier_per_band_and_dupes(self):
         self.log()
         self.log(minute=1)
