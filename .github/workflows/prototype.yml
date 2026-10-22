@@ -50,6 +50,11 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: prototype/package-lock.json
+      - name: Install packageable Python runtime
+        if: runner.os == 'macOS'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.4'
       - name: Restore native dependency/build cache
         uses: actions/cache/restore@v4
         with:
@@ -170,6 +175,8 @@ jobs:
         run: node prototype/scripts/distribution-metadata.mjs
       - name: Package macOS application
         if: runner.os == 'macOS'
+        env:
+          XLOG_PYTHON_FRAMEWORK: /Library/Frameworks/Python.framework
         run: |
           bash prototype/scripts/package-macos.sh
           ditto -c -k --sequesterRsrc --keepParent "prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app" prototype/OM0RX-xLog-macOS.zip
