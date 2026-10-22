@@ -182,7 +182,7 @@ const cases = profiles.flatMap(profile => ["run", "search-and-pounce"].map(style
 }));
 
 async function exportCase(item, format) {
-  await click("Export…"); await waitText("Prepare a submission file"); await select("Format", format); await fill("Location", "DX"); await fill("Name", "Oliver Acceptance");
+  await waitEnabledButton("Export…"); await click("Export…"); await waitText("Prepare a submission file"); await select("Format", format); await fill("Location", "DX"); await fill("Name", "Oliver Acceptance");
   await click("Prepare export"); await waitText(format === "cabrillo" ? "Cabrillo submission preview" : "ADIF compatibility export");
   const assertionCount = exportAssertions.length; pendingExportExpectation = { item, format }; await click("Save…");
   const until = Date.now() + 10_000; while (exportAssertions.length === assertionCount && Date.now() <= until) await new Promise(resolveDelay => setTimeout(resolveDelay, 25));
