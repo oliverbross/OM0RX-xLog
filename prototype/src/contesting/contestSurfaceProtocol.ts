@@ -136,6 +136,8 @@ export type ContestSurfaceSpot = { id: string; receivedAt: number; clusterName: 
   statusHex: string; bandHex: string; modeHex: string; marked: boolean };
 export type ContestSpotSurfaceProjection = { schemaVersion: 2; status: "ready"; draftID: string; draftRevision: number;
   radioFrequencyHz: number | null; connectedClusters: number; loadedSpots: number; selectedSpotID: string | null;
+  configuredClusters: { serverID: string; serverName: string; enabled: boolean }[];
+  connections: { serverID: string; serverName: string; phase: string; error: string | null }[];
   markedOnly: boolean; spots: ContestSurfaceSpot[]; busy: boolean };
 export type ContestRemoteVFOSurfaceProjection = { schemaVersion: 1; status: "ready";
   radioFrequencyHz: number | null; contestFrequencyHz: number | null; band: string; mode: string; busy: boolean };
@@ -412,10 +414,15 @@ function validMatrixProjection(value: Record<string, unknown>) {
 }
 function validSpotProjection(value: Record<string, unknown>) {
   if (!exact(value, ["schemaVersion", "status", "draftID", "draftRevision", "radioFrequencyHz", "connectedClusters", "loadedSpots",
-      "selectedSpotID", "markedOnly", "spots", "busy"]) ||
+      "selectedSpotID", "configuredClusters", "connections", "markedOnly", "spots", "busy"]) ||
       !text(value.draftID, 160) || !uint(value.draftRevision) || !optionalFrequency(value.radioFrequencyHz) ||
       !uint(value.connectedClusters) || !uint(value.loadedSpots) || !Array.isArray(value.spots) || value.spots.length > 2_000 ||
       value.selectedSpotID !== null && !text(value.selectedSpotID, 128) || typeof value.markedOnly !== "boolean" || typeof value.busy !== "boolean") return false;
+  if (!Array.isArray(value.configuredClusters) || value.configuredClusters.length > 32 || !value.configuredClusters.every(item => record(item) &&
+      exact(item, ["serverID", "serverName", "enabled"]) && text(item.serverID, 128) && text(item.serverName, 160) && typeof item.enabled === "boolean") ||
+      !Array.isArray(value.connections) || value.connections.length > 32 || !value.connections.every(item => record(item) &&
+      exact(item, ["serverID", "serverName", "phase", "error"]) && text(item.serverID, 128) && text(item.serverName, 160) && text(item.phase, 32) &&
+      (item.error === null || text(item.error, 512, true)))) return false;
   const ids = new Set<string>();
   return value.spots.every(item => {
     if (!record(item) || !exact(item, ["id", "receivedAt", "clusterName", "spotter", "spotterContinent", "frequencyKHz",

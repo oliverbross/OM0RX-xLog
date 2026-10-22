@@ -220,7 +220,7 @@ describe("cluster toolbar panels", () => {
     expect(container.querySelector(".live-cluster")?.classList.contains("is-contest-terminal")).toBe(true);
     const status = screen.getByRole("status", { name: "Contest cluster connection" });
     expect(status.textContent).toContain("Disconnected");
-    expect(status.textContent).toContain("Connect in xLog DX Cluster");
+    expect(status.textContent).not.toContain("Connect in xLog DX Cluster");
     expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
     expect(screen.getAllByRole("columnheader").map(header => header.textContent)).toEqual(["Score", "Band", "MHz", "Callsign", "Mode", "Comment"]);
     const row = screen.getByLabelText("DL1ABC spot");

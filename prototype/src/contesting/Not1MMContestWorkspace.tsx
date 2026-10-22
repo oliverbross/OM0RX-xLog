@@ -440,7 +440,8 @@ export function decodeContestSpotWorkflow(raw:string|null,scope:SpotWorkflowScop
       spots.push(entry.spot);
     }
     const projection={schemaVersion:2,status:"ready",draftID:"persistence-check",draftRevision:0,radioFrequencyHz:null,
-      connectedClusters:0,loadedSpots:spots.length,selectedSpotID:null,markedOnly:value.markedOnly,spots,busy:false};
+      connectedClusters:0,loadedSpots:spots.length,selectedSpotID:null,configuredClusters:[],connections:[],
+      markedOnly:value.markedOnly,spots,busy:false};
     return validContestSurfaceProjection("band-maps",projection)?compactContestSpotWorkflow(value,undefined,nowMs):emptySpotWorkflow(scope);
   }catch{return emptySpotWorkflow(scope);}
 }
@@ -1689,12 +1690,22 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       ? Number(clusterSnapshot?.connectedClusters):0;
     const loadedSpots=Number.isSafeInteger(clusterSnapshot?.loadedSpots)&&Number(clusterSnapshot?.loadedSpots)>=0
       ? Number(clusterSnapshot?.loadedSpots):sharedSpots.length;
+    const configuredClusters=(Array.isArray(cluster?.configuration?.servers)?cluster.configuration.servers:[]).flatMap((server:Data)=>
+      typeof server.id==="string"&&server.id.trim()&&new TextEncoder().encode(server.id).length<=128&&typeof server.name==="string"&&server.name.trim()&&new TextEncoder().encode(server.name).length<=160&&typeof server.enabled==="boolean"
+        ? [{serverID:server.id,serverName:server.name,enabled:server.enabled}]:[]).slice(0,32);
+    const connections=(Array.isArray(clusterSnapshot?.connections)?clusterSnapshot.connections:[]).flatMap((connection:Data)=>
+      typeof connection.serverID==="string"&&connection.serverID.trim()&&new TextEncoder().encode(connection.serverID).length<=128&&
+      typeof connection.serverName==="string"&&connection.serverName.trim()&&new TextEncoder().encode(connection.serverName).length<=160&&
+      typeof connection.phase==="string"&&connection.phase.trim()&&new TextEncoder().encode(connection.phase).length<=32&&
+      (connection.error==null||typeof connection.error==="string"&&new TextEncoder().encode(connection.error).length<=512)
+        ? [{serverID:connection.serverID,serverName:connection.serverName,phase:connection.phase,error:connection.error??null}]:[]).slice(0,32);
     const selectedCandidate=spotCursorRef.current.context===spotSelectionContext?spotCursorRef.current.spotID:
       selectedSpotId==null?null:String(selectedSpotId);
     const selectedSpotID=selectedCandidate!==null&&visibleWorkflowSpots.some(spot=>spot.id===selectedCandidate)?selectedCandidate:null;
     for(const panelID of ["band-maps","dx-cluster"] as const) unavailable[panelID]={schemaVersion:2,status:"ready",
       draftID:projection.draftID,draftRevision:projection.revision,radioFrequencyHz:radioFrequencyHz??null,
-      connectedClusters,loadedSpots,selectedSpotID,markedOnly:effectiveSpotWorkflow.markedOnly,spots:visibleWorkflowSpots,busy:busy||retiring};
+      connectedClusters,loadedSpots,selectedSpotID,configuredClusters,connections,
+      markedOnly:effectiveSpotWorkflow.markedOnly,spots:visibleWorkflowSpots,busy:busy||retiring};
     unavailable["station-control"] = { schemaVersion: 1, status: "ready",
       radioFrequencyHz: selectedRadioFrequencyHz, contestFrequencyHz: frequencyHz,
       band: bandLabels[String(projection.band)] ?? String(projection.band), mode: projection.mode, busy: busy || retiring };

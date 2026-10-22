@@ -367,11 +367,10 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
       <td hidden={!visibleColumns.has("workedBefore")} title={formatDate(spot.workedBefore)} className="live-cluster-worked-before">{spot.workedBefore == null ? "—" : `✓ ${formatDate(spot.workedBefore)}`}</td>
       <td hidden={!visibleColumns.has("comment")} title={spot.comment}>{spot.comment || "—"}</td>
     </tr>)}</tbody></table>
-      {!live?.spots.length && <p className="empty">{presentationOnly ? connected ? "No shared cluster spots are available." : "No shared spots. Connect from the xLog DX Cluster window to receive live spots." : connected ? "No live spots match the current filters." : configuration?.servers.some(server => server.enabled) ? "Your cluster is configured. Use Connect to resume live spots; the radio can remain offline." : "Configure a cluster, then connect to receive live spots."}</p>}
+      {!live?.spots.length && <p className="empty">{presentationOnly ? connected ? "No shared cluster spots are available." : "No shared spots. Use Connect above to receive live spots." : connected ? "No live spots match the current filters." : configuration?.servers.some(server => server.enabled) ? "Your cluster is configured. Use Connect to resume live spots; the radio can remain offline." : "Configure a cluster, then connect to receive live spots."}</p>}
     </div>
     {presentationOnly && <footer className={`live-cluster-terminal-status ${connected ? "is-connected" : "is-disconnected"}`} role="status" aria-label="Contest cluster connection">
       <span>{connected ? `Connected · ${connected} cluster${connected === 1 ? "" : "s"}` : "Disconnected"}</span>
-      {!connected && <small>Connect in xLog DX Cluster</small>}
     </footer>}
     {selectedSpot && <div className="live-cluster-inspector" aria-label="Selected spot details">
       <div><strong>{selectedSpot.callsign}</strong><span>{countryDisplay(selectedSpot.country)}</span></div>

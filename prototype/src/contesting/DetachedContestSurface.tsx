@@ -13,6 +13,7 @@ import { contestKeyChord, functionKeyForContestAction, resolveContestKeyBinding,
   type ContestKeyBindingAction, type ContestKeyBindingContext } from "./contestKeyBindings";
 import BandMaps from "../live/BandMaps";
 import ClusterPanel from "../live/ClusterPanel";
+import { requestViaSession } from "../live/DetachedClusterBridge";
 import { connectMonitorContext, observedReceiveBandwidthHz, type MonitorContext } from "../live/monitorContext";
 import "./DetachedContestSurface.css";
 import { ContestQRZDetailsSurface } from "./DetachedContestQRZDetailsSurface";
@@ -186,9 +187,19 @@ type Send = (action: ContestSurfaceAction, projectionRevision:number,
 function ContestSpots({panelID,projection,projectionRevision,send}:{panelID:"band-maps"|"dx-cluster";projection:ContestSpotSurfaceProjection;
     projectionRevision:number;send:Send}) {
   const [stationContext,setStationContext]=useState<MonitorContext|null>(null);
+  const [clusterPending,setClusterPending]=useState<null|{method:"cluster_connect"|"cluster_disconnect";signature:string}>(null),
+    [clusterError,setClusterError]=useState(""),[clusterMessage,setClusterMessage]=useState("");
   useEffect(()=>{if(panelID!=="band-maps")return;const connection=connectMonitorContext(setStationContext,()=>setStationContext(null));
     return()=>connection.dispose();},[panelID]);
   const receiveBandwidth=panelID==="band-maps"?observedReceiveBandwidthHz(stationContext):null;
+  const clusterSignature=JSON.stringify(projection.connections.map(connection=>[
+    connection.serverID,connection.phase,connection.error??null]));
+  useEffect(()=>{if(!clusterPending||clusterPending.signature===clusterSignature)return;
+    const failures=projection.connections.filter(connection=>connection.phase.toLowerCase()==="failed"&&connection.error);
+    setClusterPending(null);
+    if(failures.length){setClusterError(failures.map(connection=>`${connection.serverName}: ${connection.error}`).join(" · "));setClusterMessage("");return;}
+    setClusterError("");setClusterMessage(clusterPending.method==="cluster_connect"?"Cluster connected.":"Cluster disconnected.");
+  },[clusterPending,clusterSignature,projection.connections]);
   const [menu,setMenu]=useState<null|{spotID:string;x:number;y:number;requestedX:number;requestedY:number;origin:HTMLElement}>(null);
   const menuRef=useRef<HTMLDivElement|null>(null);
   const selected=projection.selectedSpotID===null?null:projection.spots.find(spot=>spot.id===projection.selectedSpotID)??null;
@@ -232,8 +243,21 @@ function ContestSpots({panelID,projection,projectionRevision,send}:{panelID:"ban
     onSpotContextMenu={contextMenu} onSelect={spot=>select(String(spot.id))}
     selectionHint="Select a spot to load the active Not1MM draft and tune the selected xLog radio once. Right-click for spot actions."/></section>;
   const clusterSnapshot={snapshot:{connectedClusters:projection.connectedClusters,loadedSpots:projection.loadedSpots,contactCount:0,contactRevision:0,
-    logbookDataLoaded:false,countryDataLoaded:false,connections:[],spots:projection.spots,console:[]}};
-  return <section className="contest-spots" aria-label="Contest Cluster">{workflow}<ClusterPanel passive presentationOnly taskOnly snapshot={clusterSnapshot}
+    logbookDataLoaded:false,countryDataLoaded:false,connections:projection.connections,spots:projection.spots,console:[]}};
+  const activeConnections=projection.connections.filter(connection=>!["disconnected","failed"].includes(connection.phase.toLowerCase()));
+  const clusterAction=async(method:"cluster_connect"|"cluster_disconnect")=>{if(clusterPending)return;
+    setClusterPending({method,signature:clusterSignature});setClusterError("");
+    setClusterMessage(method==="cluster_connect"?"Connecting to configured clusters…":"Disconnecting configured clusters…");
+    try{await requestViaSession(method);}
+    catch(cause){setClusterPending(null);setClusterMessage("");setClusterError(message(cause));}};
+  return <section className="contest-spots" aria-label="Contest Cluster">{workflow}<div className="contest-cluster-controls">
+    <div role="status" aria-label="Contest cluster connections">{projection.connections.length?projection.connections.map(connection=>{const phase=connection.phase.toLowerCase();return <span key={connection.serverID}
+      className={phase==="connected"?"live-cluster-connected":"live-cluster-disconnected"}>{connection.serverName} · {phase.charAt(0).toUpperCase()+phase.slice(1)}{connection.error&&<small> · {connection.error}</small>}</span>;}):
+      projection.configuredClusters.filter(server=>server.enabled).map(server=><span className="live-cluster-disconnected" key={server.serverID}>{server.serverName} · Disconnected</span>)}</div>
+    <div><button type="button" disabled={projection.busy||clusterPending!==null||!projection.configuredClusters.some(server=>server.enabled)} onClick={()=>void clusterAction("cluster_connect")}>Connect</button>
+      <button type="button" disabled={projection.busy||clusterPending!==null||activeConnections.length===0} onClick={()=>void clusterAction("cluster_disconnect")}>Disconnect</button></div>
+    {clusterError&&<p role="alert">{clusterError}</p>}{clusterMessage&&<p role="status">{clusterMessage}</p>}
+  </div><ClusterPanel passive presentationOnly taskOnly snapshot={clusterSnapshot}
     preferenceStorageKey="xlog.integration.contest.cluster-columns.v1" onRequest={async()=>null}
     selectedSpotId={projection.selectedSpotID} onSpotContextMenu={contextMenu} onSelect={spot=>select(spot.id)}/></section>;
 }

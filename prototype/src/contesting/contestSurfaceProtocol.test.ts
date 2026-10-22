@@ -15,9 +15,13 @@ it.each(["band-maps","dx-cluster"] as const)("validates fenced %s spot selection
   expect(()=>validateContestSurfaceActionEnvelope(action)).not.toThrow();
   expect(()=>validateContestSurfaceActionEnvelope({...action,params:{...action.params,spotID:"x".repeat(129)}})).toThrow();
   const projection={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14_025_000,
-    connectedClusters:1,loadedSpots:1,selectedSpotID:"spot-1",markedOnly:false,spots:[spot],busy:false};
+    connectedClusters:1,loadedSpots:1,selectedSpotID:"spot-1",
+    configuredClusters:[{serverID:"server-1",serverName:"ShackCQ",enabled:true}],
+    connections:[{serverID:"server-1",serverName:"ShackCQ",phase:"connected",error:null}],
+    markedOnly:false,spots:[spot],busy:false};
   expect(validContestSurfaceProjection(panelID,projection)).toBe(true);
   expect(validContestSurfaceProjection(panelID,{...projection,spots:[spot,{...spot}]})).toBe(false);
+  expect(validContestSurfaceProjection(panelID,{...projection,connections:[{...projection.connections[0],phase:"x".repeat(33)}]})).toBe(false);
 });
 it("validates the read-only Remote VFO projection exactly", () => {
   const projection = { schemaVersion: 1, status: "ready", radioFrequencyHz: 14_025_000,

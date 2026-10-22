@@ -1752,10 +1752,13 @@ it("applies a contest-window spot only to the active Not1MM draft and tunes exac
     if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
   });
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} stationTune={tune} spots={[spot]}
-    cluster={{snapshot:{connectedClusters:1,loadedSpots:25}}}/>);
+    cluster={{configuration:{servers:[{id:"server-1",name:"ShackCQ",enabled:true}]},snapshot:{connectedClusters:1,loadedSpots:25,
+      connections:[{serverID:"server-1",serverName:"ShackCQ",phase:"connected",error:null}]}}}/>);
   await createContestThroughSetup();
   await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots).toHaveLength(1));
-  expect(surfaceOwner.current.projections["dx-cluster"]).toMatchObject({connectedClusters:1,loadedSpots:25});
+  expect(surfaceOwner.current.projections["dx-cluster"]).toMatchObject({connectedClusters:1,loadedSpots:25,
+    configuredClusters:[{serverID:"server-1",serverName:"ShackCQ",enabled:true}],
+    connections:[{serverID:"server-1",serverName:"ShackCQ",phase:"connected",error:null}]});
   const envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,panelID:"band-maps",
     projectionRevision:1,requestID:crypto.randomUUID(),action:"spot_select",params:{draftID:current.draftID,expectedDraftRevision:current.revision,spotID:"spot-1"}};
   await expect(surfaceOwner.current.handle({...envelope,params:{...envelope.params,expectedDraftRevision:current.revision-1}})).rejects.toThrow("entry changed");

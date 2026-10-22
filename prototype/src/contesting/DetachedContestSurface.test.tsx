@@ -60,7 +60,8 @@ it("rereads a restored Main Logging window after the replacement context listene
 it.each(["band-maps","dx-cluster"] as const)("offers accessible Not1MM spot lifecycle actions in the contest %s window",async panelID=>{
   window.history.replaceState({},"",search.replace("view=active-qso",`view=${panelID}`));
   const view={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14_025_000,
-    connectedClusters:1,loadedSpots:1,selectedSpotID:"spot-1",markedOnly:false,spots:[{...sharedSpot,marked:true}],busy:false};
+    connectedClusters:1,loadedSpots:1,selectedSpotID:"spot-1",configuredClusters:[],connections:[],
+    markedOnly:false,spots:[{...sharedSpot,marked:true}],busy:false};
   native.invoke.mockImplementation(async(command,args)=>command==="contest_surface_snapshot"?{...snapshot,panelID,projection:view}:
     command==="contest_surface_action"?{requestID:args.requestID,status:"applied",projectionRevision:7}:Promise.reject(new Error(`unexpected ${command}`)));
   render(<DetachedContestSurface/>);
@@ -79,7 +80,7 @@ it.each(["band-maps","dx-cluster"] as const)("offers accessible Not1MM spot life
 it("shows fresh observed receive-filter bandwidth only on the contest Band Map",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=band-maps"));
   const view={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14_025_000,
-    connectedClusters:1,loadedSpots:1,selectedSpotID:null,markedOnly:false,spots:[sharedSpot],busy:false};
+    connectedClusters:1,loadedSpots:1,selectedSpotID:null,configuredClusters:[],connections:[],markedOnly:false,spots:[sharedSpot],busy:false};
   const selectionID="00000000-0000-4000-8000-000000000004",now=Date.now();
   native.invoke.mockImplementation(async command=>command==="contest_surface_snapshot"?{...snapshot,panelID:"band-maps",projection:view}:
     command==="monitor_context_snapshot"?{epoch:"00000000-0000-4000-8000-000000000005",revision:1,
@@ -95,7 +96,8 @@ it("shows fresh observed receive-filter bandwidth only on the contest Band Map",
 it("opens Cluster spot actions from the keyboard, clamps them after resize, and restores row focus",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=dx-cluster"));
   const view={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14_025_000,
-    connectedClusters:1,loadedSpots:1,selectedSpotID:null,markedOnly:false,spots:[{...sharedSpot,marked:false}],busy:false};
+    connectedClusters:1,loadedSpots:1,selectedSpotID:null,configuredClusters:[],connections:[],
+    markedOnly:false,spots:[{...sharedSpot,marked:false}],busy:false};
   native.invoke.mockImplementation(async(command,args)=>command==="contest_surface_snapshot"?{...snapshot,panelID:"dx-cluster",projection:view}:
     command==="contest_surface_action"?{requestID:args.requestID,status:"applied",projectionRevision:7}:Promise.reject(new Error(`unexpected ${command}`)));
   Object.defineProperty(window,"innerWidth",{configurable:true,value:320});Object.defineProperty(window,"innerHeight",{configurable:true,value:240});
@@ -519,7 +521,10 @@ it.each(["band-maps","dx-cluster"] as const)("selects shared spots from the cont
   localStorage.setItem("xlog.integration.bandMaps.workspace.bands","normal-band-map-sentinel");
   localStorage.setItem("xlog.integration.full-cluster-columns.v1","normal-cluster-sentinel");
   const view={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14_025_000,
-    connectedClusters:1,loadedSpots:25,selectedSpotID:null,markedOnly:false,spots:[sharedSpot],busy:false};
+    connectedClusters:1,loadedSpots:25,selectedSpotID:null,
+    configuredClusters:[{serverID:"server-1",serverName:"ShackCQ",enabled:true}],
+    connections:panelID==="dx-cluster"?[{serverID:"server-1",serverName:"ShackCQ",phase:"connected",error:null}]:[],
+    markedOnly:false,spots:[sharedSpot],busy:false};
   native.invoke.mockImplementation(async(command,args)=>command==="contest_surface_snapshot"?{...snapshot,panelID,projection:view}:
     command==="contest_surface_action"?{requestID:args.requestID,status:"queued"}:Promise.reject(new Error(`unexpected ${command}`)));
   render(<DetachedContestSurface/>);
@@ -527,7 +532,10 @@ it.each(["band-maps","dx-cluster"] as const)("selects shared spots from the cont
   if(panelID==="dx-cluster"){
     expect(screen.getByText("1 live · 1 shown / 25 received")).toBeTruthy();
     expect(screen.queryByLabelText("Spot filters")).toBeNull();
-    expect(screen.queryByRole("button",{name:/^(Connect|Disconnect|Refresh|Console|Settings)$/})).toBeNull();
+    expect(screen.getByRole("button",{name:"Connect"})).toBeTruthy();
+    expect(screen.getByRole("button",{name:"Disconnect"})).toBeTruthy();
+    expect(screen.getByLabelText("Contest cluster connections").textContent).toContain("ShackCQ · Connected");
+    expect(screen.queryByRole("button",{name:/^(Refresh|Console|Settings)$/})).toBeNull();
   }
   fireEvent.click(panelID==="dx-cluster" ? callsign.closest("tr")! : callsign.closest("button")!);
   await waitFor(()=>expect(native.invoke.mock.calls.find(([command])=>command==="contest_surface_action")?.[1]).toMatchObject({
@@ -544,6 +552,61 @@ it.each(["band-maps","dx-cluster"] as const)("selects shared spots from the cont
   }
   await waitFor(()=>expect(localStorage.getItem(panelID==="band-maps"
     ? "xlog.integration.bandMaps.contest.bands":"xlog.integration.contest.cluster-columns.v1")).not.toBeNull());
+});
+
+it.each([
+  {phase:"disconnected",label:"Connect",method:"cluster_connect"},
+  {phase:"connected",label:"Disconnect",method:"cluster_disconnect"},
+] as const)("routes contest Cluster $label through the existing shared owner",async({phase,label,method})=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=dx-cluster"));
+  const view={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14_025_000,
+    connectedClusters:phase==="connected"?1:0,loadedSpots:1,selectedSpotID:null,
+    configuredClusters:[{serverID:"server-1",serverName:"ShackCQ",enabled:true}],
+    connections:[{serverID:"server-1",serverName:"ShackCQ",phase,error:null}],markedOnly:false,spots:[sharedSpot],busy:false};
+  native.invoke.mockImplementation(async(command,args)=>{
+    if(command==="contest_surface_snapshot")return {...snapshot,panelID:"dx-cluster",projection:view};
+    if(command==="worker_request")return {id:args.request.id,ok:true,result:{snapshot:{spots:[]}}};
+    throw new Error(`unexpected ${command}`);
+  });
+  const rendered=render(<DetachedContestSurface/>);
+  const actionButton=await screen.findByRole("button",{name:label});
+  fireEvent.click(actionButton);fireEvent.click(actionButton);
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command])=>command==="worker_request")?.[1].request)
+    .toMatchObject({method,params:{}}));
+  expect(native.invoke.mock.calls.filter(([command])=>command==="worker_request")).toHaveLength(1);
+  expect(actionButton).toHaveProperty("disabled",true);
+  const reconciled={...view,connections:[{...view.connections[0],phase:method==="cluster_connect"?"connected":"disconnected"}]};
+  native.invoke.mockImplementation(async(command,args)=>{
+    if(command==="contest_surface_snapshot")return {...snapshot,panelID:"dx-cluster",projection:reconciled};
+    if(command==="worker_request")return {id:args.request.id,ok:true,result:{snapshot:{spots:[]}}};
+    throw new Error(`unexpected ${command}`);
+  });
+  rendered.rerender(<DetachedContestSurface/>);
+  native.wake?.();
+  await waitFor(()=>expect(screen.getByText(method==="cluster_connect"?"Cluster connected.":"Cluster disconnected.")).toBeTruthy());
+  expect(native.invoke.mock.calls.some(([command])=>command==="contest_surface_action")).toBe(false);
+});
+
+it("shows a shared-owner Cluster failure without retrying it",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=dx-cluster"));
+  const view={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:null,
+    connectedClusters:0,loadedSpots:0,selectedSpotID:null,
+    configuredClusters:[{serverID:"server-1",serverName:"ShackCQ",enabled:true}],connections:[],markedOnly:false,spots:[],busy:false};
+  native.invoke.mockImplementation(async(command,args)=>{
+    if(command==="contest_surface_snapshot")return {...snapshot,panelID:"dx-cluster",projection:view};
+    if(command==="worker_request")return {id:args.request.id,ok:false,error:{message:"Cluster connection failed."}};
+    throw new Error(`unexpected ${command}`);
+  });
+  render(<DetachedContestSurface/>);fireEvent.click(await screen.findByRole("button",{name:"Connect"}));
+  expect(await screen.findByRole("alert")).toHaveProperty("textContent","Cluster connection failed.");
+  expect(native.invoke.mock.calls.filter(([command])=>command==="worker_request")).toHaveLength(1);
+});
+
+it("gives the nested contest Cluster table all remaining window height without page scrolling",()=>{
+  const css=readFileSync(`${process.cwd()}/src/contesting/DetachedContestSurface.css`,"utf8");
+  expect(css).toContain(".contest-detached-surface > main:has(> .contest-spots) { overflow:hidden; }");
+  expect(css).toContain(".contest-spots > .live-cluster > :not(.live-cluster-table) { flex-shrink:0; }");
+  expect(css).toContain(".contest-spots > .live-cluster > .live-cluster-table { flex:1 1 0; min-height:60px; max-height:none; overflow:auto;");
 });
 
 it.each(["band-maps", "monitor", "alerts", "awards", "chaser-dx", "rotor", "station-control", "dx-cluster"])(

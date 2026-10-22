@@ -29,7 +29,9 @@ pub fn handles(method: &str) -> bool {
 }
 
 pub fn validate(label: &str, request: &Value) -> Result<(), String> {
-    let label = crate::workspace_windows::surface_role(label);
+    let contest = crate::workspace_windows::WorkspaceWindowIdentity::parse_native_label(label).ok()
+        .filter(|identity| identity.scope == crate::workspace_windows::WorkspaceWindowScope::Contesting);
+    let label = contest.map_or_else(|| crate::workspace_windows::surface_role(label), |identity| identity.panel_id);
     crate::worker::validate_request(request)?;
     let method = request["method"].as_str().unwrap_or("");
     if !handles(method)
@@ -39,6 +41,9 @@ pub fn validate(label: &str, request: &Value) -> Result<(), String> {
         )
     {
         return Err("This window cannot access the cluster session.".into());
+    }
+    if contest.is_some() && (label != "dx-cluster" || !matches!(method, "cluster_snapshot" | "cluster_connect" | "cluster_disconnect")) {
+        return Err("The contest Cluster window may only read, connect, or disconnect the shared cluster session.".into());
     }
     if label == "settings" && !matches!(method, "cluster_snapshot" | "cluster_radio_spots_configure") {
         return Err("This cluster action is unavailable in Settings.".into());
@@ -526,6 +531,13 @@ mod tests {
             assert!(validate(label, &request("cluster_snapshot")).is_ok());
             assert!(validate(label, &request("cluster_connect")).is_err());
         }
+        for method in ["cluster_snapshot", "cluster_connect", "cluster_disconnect"] {
+            assert!(validate("contest--dx-cluster", &request(method)).is_ok());
+        }
+        for method in ["cluster_filter", "cluster_command", "cluster_configure", "cluster_password_set"] {
+            assert!(validate("contest--dx-cluster", &request(method)).is_err());
+        }
+        assert!(validate("contest--band-maps", &request("cluster_connect")).is_err());
         assert!(validate("dx-cluster", &request("station_tune")).is_err());
         assert!(validate("main", &request("cluster_resume")).is_err());
         for label in ["main", "monitor", "world-map", "band-maps", "dx-cluster", "logbook"] {
@@ -552,6 +564,24 @@ mod tests {
             );
         }
         assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn contest_connection_actions_and_renderers_reuse_one_serialized_owner() {
+        let methods = Arc::new(Mutex::new(Vec::new()));
+        let recorded = methods.clone();
+        let owner = ClusterSession::new(
+            Arc::new(move |request| {
+                recorded.lock().unwrap().push(request["method"].as_str().unwrap().to_string());
+                Ok(reply(&request, "shared"))
+            }),
+            Arc::new(|_| {}),
+        );
+        assert_eq!(owner.request(request("cluster_connect")).unwrap()["result"]["query"], "shared");
+        for _ in 0..20 {
+            assert_eq!(owner.request(request("cluster_snapshot")).unwrap()["result"]["query"], "shared");
+        }
+        assert_eq!(*methods.lock().unwrap(), vec!["cluster_connect"]);
     }
 
     #[test]

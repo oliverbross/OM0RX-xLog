@@ -902,13 +902,28 @@ fn validate_remote_vfo_projection(value: &Map<String, Value>) -> Result<(), Stri
 }
 
 fn validate_spot_projection(value: &Map<String, Value>) -> Result<(), String> {
-    exact(value, &["schemaVersion", "status", "draftID", "draftRevision", "radioFrequencyHz", "connectedClusters", "loadedSpots", "selectedSpotID", "markedOnly", "spots", "busy"], "spot projection")?;
+    exact(value, &["schemaVersion", "status", "draftID", "draftRevision", "radioFrequencyHz", "connectedClusters", "loadedSpots", "selectedSpotID", "configuredClusters", "connections", "markedOnly", "spots", "busy"], "spot projection")?;
     text_value(&value["draftID"], 160, false, "spot draft ID")?;
     uint_value(&value["draftRevision"], MAX_SAFE_INTEGER, "spot draft revision")?;
     nullable_uint(&value["radioFrequencyHz"], 100_000_000_000, "spot radio frequency")?;
     uint_value(&value["connectedClusters"], MAX_SAFE_INTEGER, "connected cluster count")?;
     uint_value(&value["loadedSpots"], MAX_SAFE_INTEGER, "loaded spot count")?;
     nullable_text(&value["selectedSpotID"], 128, "selected spot ID")?;
+    for item in array(&value["configuredClusters"], 32, "configured clusters")? {
+        let server = object(item, "configured cluster")?;
+        exact(server, &["serverID", "serverName", "enabled"], "configured cluster")?;
+        text_value(&server["serverID"], 128, false, "configured cluster ID")?;
+        text_value(&server["serverName"], 160, false, "configured cluster name")?;
+        boolean(&server["enabled"], "configured cluster enabled state")?;
+    }
+    for item in array(&value["connections"], 32, "cluster connections")? {
+        let connection = object(item, "cluster connection")?;
+        exact(connection, &["serverID", "serverName", "phase", "error"], "cluster connection")?;
+        text_value(&connection["serverID"], 128, false, "cluster connection ID")?;
+        text_value(&connection["serverName"], 160, false, "cluster connection name")?;
+        text_value(&connection["phase"], 32, false, "cluster connection phase")?;
+        nullable_text(&connection["error"], 512, "cluster connection error")?;
+    }
     boolean(&value["markedOnly"], "marked-only filter")?;
     boolean(&value["busy"], "spot projection busy state")?;
     let mut ids = BTreeSet::new();
@@ -3561,7 +3576,9 @@ mod tests {
             "workedBefore":null,"specialTags":[],"score":80,"scoreReasons":[],"aggregateCount":1,"aggregateSpotters":["K1ABC"],
             "source":"DX Cluster","statusHex":"","bandHex":"","modeHex":"","marked":false});
         let projection = json!({"schemaVersion":2,"status":"ready","draftID":"draft","draftRevision":2,
-            "radioFrequencyHz":14025000,"connectedClusters":1,"loadedSpots":1,"selectedSpotID":"spot-1","markedOnly":false,
+            "radioFrequencyHz":14025000,"connectedClusters":1,"loadedSpots":1,"selectedSpotID":"spot-1",
+            "configuredClusters":[{"serverID":"server-1","serverName":"ShackCQ","enabled":true}],
+            "connections":[{"serverID":"server-1","serverName":"ShackCQ","phase":"connected","error":null}],"markedOnly":false,
             "spots":[spot.clone()],"busy":false});
         for panel in ["band-maps", "dx-cluster"] { assert!(validate_projection(panel, &projection).is_ok()); }
         let mut duplicate = projection.clone(); duplicate["spots"] = json!([spot.clone(), spot]);

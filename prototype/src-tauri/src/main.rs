@@ -2075,9 +2075,9 @@ fn contest_setup_digital_worker_module(label: &str, method: &str) -> Option<oper
 async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, request: serde_json::Value) -> Result<serde_json::Value, String> {
     // Only typed integration operations cross this boundary; never shell commands.
     let mut request = request;
-    validate_worker_request_caller(window.label())?;
     let method_value = request.get("method").and_then(|m| m.as_str()).unwrap_or("").to_owned();
     let method = method_value.as_str();
+    validate_worker_request_caller(window.label(), method)?;
     let contest_window_ticket = if enters_contest_desk(window.label(), method) {
         Some(contest_window_context::begin(&request)?)
     } else { None };
@@ -2283,8 +2283,13 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     result
 }
 
-fn validate_worker_request_caller(label: &str) -> Result<(), String> {
+fn validate_worker_request_caller(label: &str, method: &str) -> Result<(), String> {
     if label.starts_with(workspace_windows::CONTEST_LABEL_PREFIX) {
+        let cluster_control = workspace_windows::WorkspaceWindowIdentity::parse_native_label(label).ok()
+            .is_some_and(|identity| identity.scope == workspace_windows::WorkspaceWindowScope::Contesting
+                && identity.panel_id == "dx-cluster"
+                && matches!(method, "cluster_snapshot" | "cluster_connect" | "cluster_disconnect"));
+        if cluster_control { return Ok(()); }
         return Err("Contest native windows use the contest surface action owner.".into());
     }
     Ok(())
@@ -3583,13 +3588,20 @@ mod workspace_layout_tests {
 
     #[test]
     fn contest_native_children_cannot_bypass_the_surface_action_owner() {
-        assert!(super::validate_worker_request_caller("main").is_ok());
-        assert!(super::validate_worker_request_caller("contest-setup").is_ok());
-        assert!(super::validate_worker_request_caller("logbook").is_ok());
+        assert!(super::validate_worker_request_caller("main", "health").is_ok());
+        assert!(super::validate_worker_request_caller("contest-setup", "health").is_ok());
+        assert!(super::validate_worker_request_caller("logbook", "health").is_ok());
         for label in ["contest--active-qso", "contest--logbook", "contest--unknown"] {
-            assert!(super::validate_worker_request_caller(label).is_err());
+            assert!(super::validate_worker_request_caller(label, "cluster_snapshot").is_err());
             assert!(super::validate_contest_surface_main_caller(label).is_err());
         }
+        for method in ["cluster_snapshot", "cluster_connect", "cluster_disconnect"] {
+            assert!(super::validate_worker_request_caller("contest--dx-cluster", method).is_ok());
+        }
+        for method in ["cluster_command", "cluster_configure", "settings_save", "station_tune"] {
+            assert!(super::validate_worker_request_caller("contest--dx-cluster", method).is_err());
+        }
+        assert!(super::validate_worker_request_caller("contest--band-maps", "cluster_connect").is_err());
         assert!(super::validate_contest_surface_main_caller("main").is_err());
         assert!(super::validate_contest_surface_main_caller("contest-setup").is_ok());
     }
