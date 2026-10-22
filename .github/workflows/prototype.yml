@@ -50,11 +50,6 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: prototype/package-lock.json
-      - name: Install packageable Python runtime
-        if: runner.os == 'macOS'
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12.4'
       - name: Restore native dependency/build cache
         uses: actions/cache/restore@v4
         with:
@@ -173,6 +168,11 @@ jobs:
         run: npx tauri build --no-bundle
       - name: Collect resolved dependency inventory and notices
         run: node prototype/scripts/distribution-metadata.mjs
+      - name: Install packageable Python runtime
+        if: runner.os == 'macOS'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.4'
       - name: Package macOS application
         if: runner.os == 'macOS'
         env:
