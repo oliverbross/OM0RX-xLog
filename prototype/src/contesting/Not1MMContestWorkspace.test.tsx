@@ -1068,6 +1068,24 @@ it.each([
   { pluginID:"iaru_hf", pluginName:"IARU HF",
     score:{qsos:3,points:7,countries:0,zones:2,headquarters:1,multipliers:3,total:21},
     labels:["1 headquarters","2 zones"] },
+  { pluginID:"nac_vhf", pluginName:"NAC VHF",
+    score:{qsos:3,points:72,countries:0,zones:0,gridSquares:2,multipliers:2,total:144},
+    labels:["2 grid squares"] },
+  { pluginID:"cq_ww_rtty", pluginName:"CQ WW RTTY",
+    score:{qsos:3,points:7,countries:2,zones:1,states:1,multipliers:4,total:28},
+    labels:["2 countries","1 zones","1 states/provinces"] },
+  { pluginID:"arrl_dx_ssb", pluginName:"ARRL DX SSB",
+    score:{qsos:3,points:9,countries:2,zones:0,states:1,multipliers:3,total:27},
+    labels:["2 countries","1 states/provinces"] },
+  { pluginID:"cqws", pluginName:"CQWS",
+    score:{qsos:3,points:7,countries:2,zones:0,exchangeBandMultipliers:3,multipliers:5,total:35},
+    labels:["2 countries","3 Brazilian units by band"] },
+  { pluginID:"rda_contest", pluginName:"RDA Contest",
+    score:{qsos:3,points:7,countries:2,zones:0,rdaDistricts:3,multipliers:5,total:35},
+    labels:["2 countries","3 RDA districts"] },
+  { pluginID:"rdxc", pluginName:"RDXC",
+    score:{qsos:3,points:7,countries:2,zones:0,oblasts:3,multipliers:5,total:35},
+    labels:["2 countries","3 oblasts"] },
 ])("renders $pluginName host multiplier semantics without country fallbacks", async ({pluginID,pluginName,score,labels}) => {
   const current={...projection(4),pluginID,pluginName,matrixTrackers:[],score};
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
@@ -1085,6 +1103,7 @@ it.each([
   await userEvent.click(screen.getByRole("button",{name:"OK"}));
   await waitFor(()=>expect(surfaceOwner.current.projections.propagation.score.multiplierDisplayLabels).toEqual(labels));
   const projected=surfaceOwner.current.projections.propagation.score;
+  expect(surfaceOwner.current.projections["score-reporting"].score.multiplierDisplayLabels).toEqual(labels);
   const summary=within(render(<ContestScoreSummary score={projected}/>).container);
   for(const label of labels)expect(summary.getByText(label)).toBeTruthy();
   expect(summary.queryByText("0 countries")).toBeNull();

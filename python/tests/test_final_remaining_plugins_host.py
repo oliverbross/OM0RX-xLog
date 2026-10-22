@@ -396,7 +396,8 @@ class FinalRemainingPluginTests(unittest.TestCase):
                                           fields={"callsign": call, "other_2": exchange})
             rows = {row["Call"]: row for row in self.read(host, session, "log")["rows"]}
             self.assertEqual(rows["K1ABC"]["Points"] - rows["DL1ABC"]["Points"], 500)
-            self.assertEqual(self.read(host, session, "score")["score"]["multipliers"], 1)
+            score = self.read(host, session, "score")["score"]
+            self.assertEqual((score["gridSquares"], score["multipliers"]), (1, 1))
         finally:
             host.close()
 

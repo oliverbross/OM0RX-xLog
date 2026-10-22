@@ -110,7 +110,7 @@ export function authoritativeChangeRevision(row:Record<string,unknown>):number{
 type ContestFunctionKey = "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F7" | "F8" | "F9" | "F10" | "F11" | "F12";
 type Request = (method: string, params?: Record<string, unknown>) => Promise<unknown>;
 type Field = { id: string; label: string; accessibleName: string; value: string; visible: boolean; readOnly: boolean; enabled: boolean };
-type Score = { qsos: number; points: number; countries: number; zones: number; multipliers?: number; uniqueCalls?: number; prefixes?: number; sections?: number; headquarters?: number; total: number };
+type Score = { qsos: number; points: number; countries: number; zones: number; multipliers?: number; uniqueCalls?: number; prefixes?: number; sections?: number; headquarters?: number; gridSquares?: number; states?: number; exchangeBandMultipliers?: number; rdaDistricts?: number; oblasts?: number; total: number };
 type ContestBandDefinition = { id: string; lowHz: number; highHz: number; value: number };
 type ContestSurfaceMode = "CW" | "SSB" | "RTTY" | "AM" | "FM";
 type PythonContestExportFormat = "cabrillo" | "adif" | "edi";
@@ -291,6 +291,12 @@ function scoreSummary(score: Score | null, pluginID?: string) {
   if (!score) return null;
   const multiplierLabels = score.uniqueCalls !== undefined ? [`${score.uniqueCalls} unique calls`]
     : score.prefixes !== undefined ? [`${score.prefixes} prefixes`] : score.sections !== undefined ? [`${score.sections} sections`]
+    : pluginID === "nac_vhf" ? [`${score.gridSquares ?? 0} grid squares`]
+    : pluginID === "cq_ww_rtty" ? [`${score.countries} countries`, `${score.zones} zones`, `${score.states ?? 0} states/provinces`]
+    : pluginID === "arrl_dx_cw" || pluginID === "arrl_dx_ssb" ? [`${score.countries} countries`, `${score.states ?? 0} states/provinces`]
+    : pluginID === "cqws" ? [`${score.countries} countries`, `${score.exchangeBandMultipliers ?? 0} Brazilian units by band`]
+    : pluginID === "rda_contest" ? [`${score.countries} countries`, `${score.rdaDistricts ?? 0} RDA districts`]
+    : pluginID === "rdxc" ? [`${score.countries} countries`, `${score.oblasts ?? 0} oblasts`]
     : pluginID === "euhfc" ? [`${score.multipliers ?? 0} license years`]
     : pluginID === "iaru_hf" ? [`${score.headquarters ?? 0} headquarters`, `${score.zones} zones`]
     : [`${score.countries} countries`, `${score.zones} zones`];

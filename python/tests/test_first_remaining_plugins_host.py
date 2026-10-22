@@ -202,7 +202,9 @@ class FirstRemainingPluginTests(unittest.TestCase):
                     host, session, revision, "qso_commit", qsoID=uid(),
                     timestamp=f"2026-10-21 10:01:0{index}",
                     fields={"callsign": f"K1AB{index}", "other_2": exchange})
-            self.assertEqual(self.read(host, session, "score")["score"]["points"], 7)
+            score = self.read(host, session, "score")["score"]
+            self.assertEqual(score["points"], 7)
+            self.assertEqual(score["multipliers"], score["countries"] + score["exchangeBandMultipliers"])
         finally:
             host.close()
 
