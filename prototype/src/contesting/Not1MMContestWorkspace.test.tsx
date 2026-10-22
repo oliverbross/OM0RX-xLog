@@ -1687,6 +1687,59 @@ it("runs detached Shift-F1 Auto CQ immediately in Run and cancels it on callsign
   expect(surfaceOwner.current.projections["active-qso"]).toMatchObject({operator:{armed:false,autoCQ:{active:false}}});
 });
 
+it("records only a confirmed CQ at the observed VFO and returns through the owned tune route",async()=>{
+  let current=projection(),radioFrequencyHz=14_025_000;
+  const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    let result:any;
+    if(method==="contest_catalog")result={plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]};
+    else if(method==="contest_sessions")result={sessions:[]};
+    else if(method==="contest_create")result={projection:current};
+    else if(method==="contest_log_page")result={rows:[],total:0};
+    else if(method==="contest_score")result={score:current.score};
+    else if(method==="contest_draft_apply"){
+      current={...current,revision:current.revision+1,frequencyHz:params.frequencyHz};result={projection:current,actions:[],messages:[]};
+    }else throw new Error(method);
+    return{id:crypto.randomUUID(),ok:true,result};
+  });
+  nativeCW.execute.mockImplementation(async params=>{
+    current={...current,revision:current.revision+1};
+    return{contestResult:{operationID:params.operationID,projection:current,actions:[]}};
+  });
+  const tune=vi.fn(async()=>({accepted:true,confirmed:true}));
+  const view=render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}
+    radioFrequencyHz={radioFrequencyHz} stationTune={tune}/>);
+  await createContestThroughSetup();let entry=surfaceOwner.current.projections["active-qso"];
+  const envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"active-qso",projectionRevision:1,requestID:crypto.randomUUID()} as const;
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F1",focusedField:"callsign"}}));
+  radioFrequencyHz=7_025_000;
+  view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}
+    radioFrequencyHz={radioFrequencyHz} stationTune={tune}/>);
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].draft.frequencyHz).toBe(7_025_000));
+  entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"entry_return_cq_frequency",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision}}));
+  expect(tune).toHaveBeenCalledExactlyOnceWith(14_025_000,"CW");
+});
+
+it("makes detached Escape independently stop contest output and the acknowledged rotor path",async()=>{
+  const current=projection(),request=operationalRequest(()=>current),rotorStop=vi.fn(async()=>({generation:8}));
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} rotorStop={rotorStop}/>);
+  await createContestThroughSetup();const entry=surfaceOwner.current.projections["active-qso"],envelope={operatingContext,scope:"contesting",
+    sessionID:current.sessionID,workspaceGeneration,panelID:"active-qso",projectionRevision:1,requestID:crypto.randomUUID()} as const;
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Escape",focusedField:"callsign"}}));
+  expect(nativeCW.stop).toHaveBeenCalledTimes(1);expect(rotorStop).toHaveBeenCalledTimes(1);
+  rotorStop.mockRejectedValueOnce(new Error("Rotor stop acknowledgement lost"));
+  await act(async()=>{await expect(surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Escape",focusedField:"callsign"}}))
+    .rejects.toThrow("Escape stop remains uncertain");});
+  expect(nativeCW.stop).toHaveBeenCalledTimes(2);expect(rotorStop).toHaveBeenCalledTimes(2);
+});
+
 it("projects only configured bands into detached Main Logging", async () => {
   const current = projection();
   const saved = newContestSetup("OM0RX");
@@ -2132,7 +2185,7 @@ it("hides prior-session log rows while independently refreshing a newly opened s
     throw new Error(method);
   });
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
-  await waitFor(()=>expect(surfaceOwner.current.projections.logbook.pluginRows).toEqual([
+  await waitFor(()=>expect(surfaceOwner.current.projections.logbook.pluginRows).toMatchObject([
     {qsoID:"old-qso",values:[oldRow.TS,oldRow.Call,"14025","599","599","1","14","3"]},
   ]));
   expect(surfaceOwner.current.projections.propagation.schemaVersion).toBe(3);
@@ -2709,7 +2762,7 @@ it.each([
   { label:"callsign-only", callsign:"DL1XYZ", metadata:undefined },
   { label:"metadata", callsign:undefined, metadata:{Name:"Alice",QTH:"Darwin",Comment:"Checked against paper log"} },
 ])("preserves original raw plugin fields on a $label contact correction", async ({callsign,metadata}) => {
-  let current:any=projection(), corrected:Record<string,any>|null=null;
+  let current:any={...projection(),columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","ZN","PTS"]}, corrected:Record<string,any>|null=null;
   const raw_fields={callsign:"DL1ABC",sent:"579",receive:"589",other_1:"ORIGINAL-SENT",other_2:"ORIGINAL-RCVD",
     Name:"Original name",QTH:"Original QTH",Comment:"Original comment",plugin_owned:"retain exactly"};
   const row={ID:"qso-raw",TS:"2026-10-19 08:00:00",Call:"DL1ABC",Freq:14025,Band:14,Mode:"CW",
@@ -2730,6 +2783,10 @@ it.each([
   });
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);await createContestThroughSetup();
   const log=surfaceOwner.current.projections.logbook;
+  const callIndex=log.pluginColumns.indexOf("Call"),pointsIndex=log.pluginColumns.indexOf("PTS"),zoneIndex=log.pluginColumns.indexOf("ZN");
+  expect(log.pluginRows[0].inlineEdits[callIndex]).toMatchObject({kind:"text",field:"callsign",value:"DL1ABC"});
+  expect(log.pluginRows[0].inlineEdits[zoneIndex]).toBeNull();
+  expect(log.pluginRows[0].inlineEdits[pointsIndex]).toBeNull();
   const envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,panelID:"logbook",
     projectionRevision:log.sessionRevision,requestID:crypto.randomUUID()} as const;
   await act(async()=>surfaceOwner.current.handle({...envelope,action:"log_edit_begin",params:{qsoID:"qso-raw"}}));

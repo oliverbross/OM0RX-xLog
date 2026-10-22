@@ -11,7 +11,7 @@ import { nativeContestExportSave, type ContestExportSavePrepared } from "./conte
 import { not1mmHistoryCandidate } from "./contestCallHistory";
 import type { ContestRequest } from "./types";
 import { contestInputFieldIDs, contestSurfacePanelIDs, type ContestInputFieldID, type ContestSurfaceActionEnvelope, type ContestSurfacePanelID,
-  type ContestSurfaceProjection, type ContestManualRow, type ContestManualContext, type ContestPluginLogRow,
+  type ContestSurfaceProjection, type ContestLogInlineEdit, type ContestManualRow, type ContestManualContext, type ContestPluginLogRow,
   type ContestStatisticsRow, type ContestSurfaceSpot, validContestSurfaceProjection } from "./contestSurfaceProtocol";
 import type { ContestTransitionController } from "./ContestWorkspace";
 import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
@@ -160,6 +160,7 @@ type Props = {
   serviceRequest: Request;
   stationTune: (frequencyHz: number, mode: string) => Promise<unknown>;
   stationStep?: (direction: "up" | "down") => Promise<unknown>;
+  rotorStop?: () => Promise<unknown>;
   contestSpot: (callsign: string, frequencyHz: number) => Promise<unknown>;
   operatingContext: string;
   workspaceGeneration: string;
@@ -375,12 +376,41 @@ function not1mmLogColumns(value: unknown): string[] {
   return columns.every(column => column.trim() && column === column.trim() && new TextEncoder().encode(column).length <= 64) &&
     new Set(columns).size === columns.length && columns.filter(column => column === "Call").length === 1 ? columns : [];
 }
-function not1mmLogRows(rows: Data[], columns: string[]): ContestPluginLogRow[] {
-  return rows.map(row => ({ qsoID: String(row.ID ?? ""), values: columns.map(column => {
-    const value = row[pluginColumnFields[column] ?? column];
-    if (column === "M1" || column === "M2") return value && value !== "0" ? "✓" : "";
-    return String(value ?? "");
-  }) }));
+function not1mmLogRows(rows: Data[], columns: string[], fields: Field[], pluginID?: string): ContestPluginLogRow[] {
+  const editableFields = new Map(fields.filter(field => field.visible && field.enabled && !field.readOnly).map(field => [field.id, field]));
+  return rows.map(row => {
+    const raw = row.raw_fields && typeof row.raw_fields === "object" && !Array.isArray(row.raw_fields)
+      ? row.raw_fields as Record<string, unknown> : {};
+    const exchange = correctionExchangeValues(row, pluginID);
+    const editableValue = (fieldID: "other_1" | "other_2") => String(raw[fieldID] ?? exchange[fieldID]);
+    const values = columns.map(column => {
+      const value = row[pluginColumnFields[column] ?? column];
+      if (column === "M1" || column === "M2") return value && value !== "0" ? "✓" : "";
+      return String(value ?? "");
+    });
+    const inlineEdits = columns.map((column, index): ContestLogInlineEdit | null => {
+      if (column === "YYYY-MM-DD HH:MM:SS" || column === "TS")
+        return { kind:"text", field:"timestamp", value:String(row.TS ?? ""), maximumUTF8Bytes:32 };
+      if (column === "Call" && editableFields.has("callsign"))
+        return { kind:"text", field:"callsign", value:String(raw.callsign ?? row.Call ?? ""), maximumUTF8Bytes:32 };
+      if (column === "Freq") {
+        const frequencyHz = Number(row.Freq ?? 0) * 1_000;
+        return Number.isSafeInteger(frequencyHz) && frequencyHz > 0
+          ? { kind:"frequency", value:String(frequencyHz), maximumUTF8Bytes:11 } : null;
+      }
+      if ((column === "Snt" || column === "SNT") && editableFields.has("sent"))
+        return { kind:"text", field:"sentReport", value:String(raw.sent ?? row.SNT ?? ""), maximumUTF8Bytes:160 };
+      if ((column === "Rcv" || column === "RCV") && editableFields.has("receive"))
+        return { kind:"text", field:"receivedReport", value:String(raw.receive ?? row.RCV ?? ""), maximumUTF8Bytes:160 };
+      for (const fieldID of ["other_1", "other_2"] as const) {
+        const field = editableFields.get(fieldID), value = editableValue(fieldID);
+        if (field && values[index] === value) return { kind:"exchange", fieldID, value,
+          maximumUTF8Bytes:fieldID === "other_1" ? 32 : 128 };
+      }
+      return null;
+    });
+    return { qsoID:String(row.ID ?? ""), values, inlineEdits };
+  });
 }
 
 function partialCandidates(kind: "log" | "cluster", calls: unknown[], query: string) {
@@ -529,7 +559,7 @@ function boundedFldigiSnapshot(value: unknown): NonNullable<ContestDigitalSnapsh
     udp_endpoint: source.udp_endpoint, xmlrpc_endpoint: source.xmlrpc_endpoint };
 }
 
-export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, stationStep, contestSpot, operatingContext, workspaceGeneration, stationCall, radioFrequencyHz, spots, cluster,
+export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, stationStep, rotorStop, contestSpot, operatingContext, workspaceGeneration, stationCall, radioFrequencyHz, spots, cluster,
   selectedSpotId, onSelectedSpot, onSetupViewChange, registerTransition, registerMenuRoute, strictHostActive = null, setupOnly = false, contestingTest = false }: Props) {
   const [catalog, setCatalog] = useState<Data[]>([]), [sessions, setSessions] = useState<Session[]>([]);
   const [bandDefinitions, setBandDefinitions] = useState<ContestBandDefinition[]>(fallbackBandDefinitions);
@@ -602,6 +632,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const [spotWorkflow,setSpotWorkflow]=useState<SpotWorkflow>(()=>emptySpotWorkflow());
   const editVersionRef = useRef(0);
   const observedFrequencyRef = useRef<{ sessionID: string; frequencyHz: number | null }>({ sessionID: "", frequencyHz: null });
+  const observedFrequencyHzRef=useRef<number|null>(null),lastCQFrequencyRef=useRef<{
+    sessionID:string;workspaceGeneration:string;frequencyHz:number;mode:string}|null>(null);
   const pendingRadioTuneRef = useRef<{ sessionID: string; sourceHz: number; targetHz: number } | null>(null);
   const flushDraftRef = useRef<() => Promise<Projection | null>>(async () => projectionRef.current);
   const cw = useSharedCW(projection?.sessionID ?? "not1mm-no-session", retiring, setupOnly);
@@ -609,6 +641,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const selectedRadioFrequencyHz = typeof radioFrequencyHz === "number" && Number.isSafeInteger(radioFrequencyHz) &&
     radioFrequencyHz >= 0 ? radioFrequencyHz : null;
   const observedFrequencyHz = contestFrequency(selectedRadioFrequencyHz, activeSupportedBands, bandDefinitions);
+  observedFrequencyHzRef.current=observedFrequencyHz;
   const fallbackFrequencyHz = manualFrequency(manualFrequencyMHz, activeSupportedBands, bandDefinitions);
   const operationFrequencyHz = observedFrequencyHz ?? fallbackFrequencyHz;
 
@@ -1168,6 +1201,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   };
   const hostAction = async (method: string, extra: Record<string, unknown> = {}, throwFailures = false,
       contestSurfaceRequestID?: string) => {
+    const source=projectionRef.current,cqObservation=method==="contest_function_key"&&extra.key==="F1"&&source&&observedFrequencyHzRef.current!==null
+      ? {sessionID:source.sessionID,workspaceGeneration:source.workspaceGeneration,frequencyHz:observedFrequencyHzRef.current,mode:source.mode}:null;
     if (configuredClient && (method === "contest_esm" || method === "contest_function_key")) {
       const failure=new Error("Client ESM and function keys are disabled until the master can authorize their logging action.");
       setError(failure.message); if(throwFailures)throw failure; return null;
@@ -1226,6 +1261,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         const current = projectionRef.current;
         if (current?.sessionID === confirmed.sessionID && current.revision === confirmed.revision) setError(errorMessage(cause));
       });
+      if(confirmed&&cqObservation&&confirmed.sessionID===cqObservation.sessionID)lastCQFrequencyRef.current=cqObservation;
       return confirmed;
     }
     finally { if (phoneController && phoneSimulationControllerRef.current === phoneController) {
@@ -1259,10 +1295,14 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     if (autoCQTimerRef.current !== null) window.clearTimeout(autoCQTimerRef.current);
     autoCQTimerRef.current = null; setAutoCQDeadlineMs(null);
   };
-  const stopAutoCQ = async (stopOutput = true) => {
+  const stopAutoCQ = async (stopOutput = true, stopRotor = false) => {
     clearAutoCQ();
     if (!stopOutput) return;
-    if (phoneOutputAvailable) await stopPhoneOutput(); else await cw.controller.stop();
+    const stopped=await Promise.allSettled([phoneOutputAvailable?stopPhoneOutput():cw.controller.stop(),
+      ...(!contestingTest&&stopRotor&&rotorStop?[rotorStop()]:[])]);
+    const failures=stopped.flatMap((result,index)=>result.status==="rejected"?
+      [`${index===0?"contest output":"rotor"}: ${errorMessage(result.reason)}`]:[]);
+    if(failures.length){const failure=new Error(`Escape stop remains uncertain — ${failures.join(" · ")}`);setError(failure.message);throw failure;}
   };
   const scheduleAutoCQ = () => {
     if (!autoCQActiveRef.current) return;
@@ -1410,7 +1450,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     }, report: setError });
 
   const keyDown = (event: KeyboardEvent<HTMLFormElement>) => {
-    if (event.key === "Escape") { event.preventDefault(); void stopAutoCQ(); return; }
+    if (event.key === "Escape") { event.preventDefault(); void stopAutoCQ(true,true).catch(cause=>setError(errorMessage(cause))); return; }
     if (!projection || busy || retiring) return;
     const target = event.target as HTMLInputElement;
     if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key === " " &&
@@ -1707,7 +1747,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       canExportEdi: projection.exportFormats?.includes("edi")??false,
       page: { offset: logOffset, limit: logPageSize, total: logTotal, rows: logRows(rows, projection.pluginID, bandLabels) },
       ...(pluginColumns.length ? { exchangeLayout: "plugin" as const, pluginColumns,
-        pluginRows:not1mmLogRows(rows,pluginColumns), pluginPartialRows:not1mmLogRows(partialRows,pluginColumns) }
+        pluginRows:not1mmLogRows(rows,pluginColumns,projection.fields,projection.pluginID),
+        pluginPartialRows:not1mmLogRows(partialRows,pluginColumns,projection.fields,projection.pluginID) }
         : { manualRows:manualRows(rows), partialRows:manualRows(partialRows) }),
       editing: editing ? {
         qsoID: String(editing.ID ?? ""), workedAt: editTimestamp, operator: editOperator, callsign: editCall,
@@ -1836,7 +1877,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         action.workspaceGeneration !== active.workspaceGeneration || action.operatingContext !== operatingContext)
       throw new Error("This detached panel no longer belongs to the active contest session.");
     if (action.action === "entry_operator_key" && action.params.key === "Escape") {
-      await stopAutoCQ(); return;
+      await stopAutoCQ(true,true); return;
     }
     if (busyRef.current || retiring) throw new Error("The contest owner is busy.");
     if (action.action.startsWith("entry_") || action.action.startsWith("assistance_") || action.action.startsWith("spot_")) {
@@ -1977,6 +2018,16 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         if(!stationStep)throw new Error("The selected xLog radio cannot step the VFO.");
         await stationStep(action.params.direction);
         setNotice(`VFO ${action.params.direction === "up" ? "increased" : "decreased"} after authoritative radio readback.`);return;
+      case "entry_return_cq_frequency": {
+        if(contestingTest)throw new Error("Return to CQ frequency is disabled in Contesting Test.");
+        const target=lastCQFrequencyRef.current,currentFrequency=observedFrequencyHzRef.current;
+        if(!target||target.sessionID!==active.sessionID||target.workspaceGeneration!==active.workspaceGeneration)
+          throw new Error("No confirmed CQ frequency is available for this contest session.");
+        if(currentFrequency===null)throw new Error("Refresh a current observed xLog radio frequency before returning to the CQ frequency.");
+        if(currentFrequency!==target.frequencyHz){await stationTune(target.frequencyHz,target.mode);
+          pendingRadioTuneRef.current={sessionID:active.sessionID,sourceHz:currentFrequency,targetHz:target.frequencyHz};}
+        setNotice(`Returned to the last confirmed CQ frequency ${(target.frequencyHz/1_000_000).toFixed(6)} MHz.`);return;
+      }
       case "entry_commit":
         await commitEntry();return;
       case "entry_operator_arm":

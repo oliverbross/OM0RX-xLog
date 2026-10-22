@@ -2,7 +2,8 @@
 import React from "react";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { contestSetupWindowSize, fittedContestSetupWindowSize, hostActiveContestStartup, isManagedContestSetupWindowSize, loadContestStationSnapshot } from "./DetachedContestSetupSurface";
+import { contestSetupWindowSize, fittedContestSetupWindowSize, hostActiveContestStartup, isManagedContestSetupWindowSize, loadContestStationSnapshot,
+  stopObservedContestRotor } from "./DetachedContestSetupSurface";
 import type { RadioID, StationSession } from "../live/stationSession";
 import contestSetupOwnerCapability from "../../src-tauri/capabilities/contest-setup-owner.json";
 
@@ -92,6 +93,18 @@ describe("Contest Setup station projection", () => {
       ? session("radio1", "radio2") : session("radio2", "radio1", 7_025_000));
     await expect(loadContestStationSnapshot(changing)).rejects.toThrow("active radio changed");
     await expect(loadContestStationSnapshot(async radioId => session(radioId, radioId))).resolves.toEqual({});
+  });
+
+  it("stops only an authoritatively observed rotor through the acknowledged native path",async()=>{
+    const context={epoch:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",revision:4,selection:null,
+      radio:{available:false,snapshot:null},rotor:{available:true,revision:3,received_at_ms:Date.now(),
+        snapshot:{owner:"native_dcu1",generation:7,state:"active"}}};
+    const stop=vi.fn(async()=>({owner:"native_dcu1",generation:8,state:"active"}));
+    await expect(stopObservedContestRotor(async()=>context,stop)).resolves.toMatchObject({generation:8});
+    expect(stop).toHaveBeenCalledExactlyOnceWith(context);
+    await expect(stopObservedContestRotor(async()=>({...context,rotor:{available:false,snapshot:null}}),stop)).resolves.toBeNull();
+    expect(stop).toHaveBeenCalledTimes(1);
+    await expect(stopObservedContestRotor(async()=>({rotor:{available:true}}),stop)).rejects.toThrow("could not be verified");
   });
 
   it("routes the digital setup snapshot through the native Contest Setup owner", async () => {

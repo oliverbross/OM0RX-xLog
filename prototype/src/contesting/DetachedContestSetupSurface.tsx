@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LogicalSize } from "@tauri-apps/api/dpi";
+import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { operatingModuleStatus } from "../operatingModule";
 import { workerRequest, framedWorkerRequest } from "../worker";
 import { connectWorkspaceNavigation, isContestMenuRoute } from "../live/workspaceNavigation";
 import { loadStationSession, type RadioID, type StationSession } from "../live/stationSession";
+import { monitorRotorAction, validMonitorContext, type MonitorContext } from "../live/monitorContext";
 import { Not1MMContestWorkspace } from "./Not1MMContestWorkspace";
 import type { SetupView } from "./ContestSetupPanel";
 import { stepContestVFO, tuneContestSpot } from "./contestSpotTune";
@@ -80,6 +82,14 @@ export async function loadContestStationSnapshot(load: LoadStationSession = load
     throw new Error("The active radio changed. Refresh Contest Setup before using station data.");
   }
   return current.radio?.snapshot && typeof current.radio.snapshot === "object" ? current.radio.snapshot : {};
+}
+
+export async function stopObservedContestRotor(read:()=>Promise<unknown>=()=>invoke("monitor_context_snapshot"),
+    stop:(context:MonitorContext)=>Promise<unknown>=context=>monitorRotorAction(context,"rotor_stop")){
+  const observed=await read();
+  if(!validMonitorContext(observed))throw new Error("The rotor observation could not be verified; confirm that it stopped before continuing.");
+  if(!observed.rotor.available||!observed.rotor.snapshot?.owner)return null;
+  return stop(observed);
 }
 
 export function DetachedContestSetupSurface() {
@@ -185,7 +195,7 @@ export function DetachedContestSetupSurface() {
     {error ? <p className="contest-alert is-error" role="alert">{error}</p> : <p role="status">Loading contest setup…</p>}
   </main>;
   return <Not1MMContestWorkspace setupOnly request={(method, params = {}) => framedWorkerRequest(method, params)}
-    serviceRequest={request} stationTune={tuneContestSpot} stationStep={stepContestVFO} contestSpot={postContestSpot} operatingContext={context.operatingContext} workspaceGeneration={context.workspaceGeneration}
+    serviceRequest={request} stationTune={tuneContestSpot} stationStep={stepContestVFO} rotorStop={context.contestingTest?undefined:stopObservedContestRotor} contestSpot={postContestSpot} operatingContext={context.operatingContext} workspaceGeneration={context.workspaceGeneration}
     stationCall={context.stationCall} contestingTest={context.contestingTest} radioFrequencyHz={station?.radio?.frequency_hz}
     spots={Array.isArray(cluster?.snapshot?.spots) ? cluster.snapshot.spots : []} cluster={cluster}
     strictHostActive={strictHostActive} registerMenuRoute={registerMenuRoute} onSetupViewChange={resizeForSetupView}/>;

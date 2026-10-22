@@ -28,6 +28,8 @@ describe("contest key bindings", () => {
       {context:"*",key:"Alt+L",action:"WIN_LOG"},{context:"*",key:"Alt+R",action:"WIN_RATE"},
       {context:"*",key:"Alt+S",action:"WIN_STATS"},{context:"*",key:"Alt+V",action:"WIN_VFO"},
       {context:"*",key:"Alt+.",action:"VFO_UP"},{context:"*",key:"Alt+,",action:"VFO_DOWN"},
+  {context:"*",key:"Ctrl+Shift+K",action:"TOGGLE_CW_INPUT"},
+  {context:"*",key:"Ctrl+Q",action:"RETURN_CQ_FREQUENCY"},
     ]));
   });
 

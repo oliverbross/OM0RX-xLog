@@ -22,6 +22,7 @@ export type ContestSurfaceAction =
   | { action: "entry_spot" | "entry_mark_spot" | "entry_tune_spot"; params: DraftRevision }
   | { action: "entry_step_spot"; params: DraftRevision & { direction: "previous" | "next" } }
   | { action: "entry_step_vfo"; params: DraftRevision & { direction: "up" | "down" } }
+  | { action: "entry_return_cq_frequency"; params: DraftRevision }
   | { action: "entry_operator_arm"; params: DraftRevision & { armed: boolean } }
   | { action: "entry_operator_style"; params: DraftRevision & { value: "run" | "search-and-pounce" } }
   | { action: "entry_set_cw_speed"; params: DraftRevision & { value: number } }
@@ -65,7 +66,11 @@ export type ContestLogEditDetails = { rxFrequency: string; contest: string; coun
   name: string; qth: string; comment: string; receivedNumber: string; sentNumber: string; points: string; power: string;
   zone: string; section: string; check: string; precedence: string; multiplier1: string; multiplier2: string; multiplier3: string;
   wpx: string; exchange: string; run: string; radio: string; grid: string; misc: string; roverQTH: string };
-export type ContestPluginLogRow = { qsoID: string; values: string[] };
+export type ContestLogInlineEdit =
+  | { kind: "text"; field: "callsign" | "sentReport" | "receivedReport" | "timestamp"; value: string; maximumUTF8Bytes: number }
+  | { kind: "exchange"; fieldID: string; value: string; maximumUTF8Bytes: number }
+  | { kind: "frequency"; value: string; maximumUTF8Bytes: number };
+export type ContestPluginLogRow = { qsoID: string; values: string[]; inlineEdits?: (ContestLogInlineEdit | null)[] };
 export type ContestManualContext = { operator: string; cwSpeedWpm: number | null; cwSpeedStepWpm: number; country: string | null; cqZone: number | null; ituZone: number | null;
   headingDegrees: number | null; longPathHeadingDegrees: number | null; distanceKm: number | null; qsos: number; multipliers: number; total: number };
 export type ContestEntrySurfaceProjection = { schemaVersion: 1; status: "ready";
@@ -181,9 +186,15 @@ const manualRowsValid = (value: unknown) => Array.isArray(value) && value.length
 const pluginColumnsValid = (value: unknown): value is string[] => Array.isArray(value) && value.length > 0 && value.length <= 32 &&
   value.every(column => text(column, 64) && column === column.trim()) && new Set(value).size === value.length &&
   value.filter(column => column === "Call").length === 1;
+const inlineEditValid = (value: unknown) => value === null || record(value) &&
+  optionalKeys(value, ["kind", "value", "maximumUTF8Bytes"], value.kind === "text" ? ["field"] : value.kind === "exchange" ? ["fieldID"] : []) &&
+  oneOf(value.kind, ["text", "exchange", "frequency"]) && uint(value.maximumUTF8Bytes, 1024) && (value.maximumUTF8Bytes as number) > 0 &&
+  text(value.value, value.maximumUTF8Bytes as number, true) && (value.kind !== "text" || oneOf(value.field, ["callsign", "sentReport", "receivedReport", "timestamp"])) &&
+  (value.kind !== "exchange" || text(value.fieldID, 64));
 const pluginRowsValid = (value: unknown, columns: number, maximum: number) => Array.isArray(value) && value.length <= maximum &&
-  value.every(row => record(row) && exact(row, ["qsoID", "values"]) && text(row.qsoID, 160) &&
-    Array.isArray(row.values) && row.values.length === columns && row.values.every(item => text(item, 512, true)));
+  value.every(row => record(row) && optionalKeys(row, ["qsoID", "values"], ["inlineEdits"]) && text(row.qsoID, 160) &&
+    Array.isArray(row.values) && row.values.length === columns && row.values.every(item => text(item, 512, true)) &&
+    (!("inlineEdits" in row) || Array.isArray(row.inlineEdits) && row.inlineEdits.length === columns && row.inlineEdits.every(inlineEditValid)));
 const manualContextValid = (value: unknown) => record(value) && exact(value, ["operator", "cwSpeedWpm", "cwSpeedStepWpm", "country", "cqZone", "ituZone", "headingDegrees", "longPathHeadingDegrees", "distanceKm", "qsos", "multipliers", "total"]) &&
   text(value.operator, 32, true) && (value.country === null || text(value.country, 160, true)) &&
   typeof value.cwSpeedStepWpm === "number" && Number.isInteger(value.cwSpeedStepWpm) && value.cwSpeedStepWpm >= 1 && value.cwSpeedStepWpm <= 10 &&
@@ -505,6 +516,7 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "entry_spot" || action === "entry_mark_spot" || action === "entry_tune_spot") return draft(params, []);
   if (action === "entry_step_spot") return draft(params, ["direction"]) && oneOf(params.direction, ["previous", "next"]);
   if (action === "entry_step_vfo") return draft(params, ["direction"]) && oneOf(params.direction, ["up", "down"]);
+  if (action === "entry_return_cq_frequency") return draft(params, []);
   if (action === "entry_operator_arm") return draft(params, ["armed"]) && typeof params.armed === "boolean";
   if (action === "entry_operator_style") return draft(params, ["value"]) && oneOf(params.value, ["run", "search-and-pounce"]);
   if (action === "entry_set_cw_speed") return draft(params, ["value"]) && uint(params.value, 100) && (params.value as number) >= 5;

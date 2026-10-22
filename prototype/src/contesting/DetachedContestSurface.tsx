@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent,
-  type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type Ref } from "react";
+  type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode, type Ref } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { contestSurfaceContextFromSearch, onContestSurfaceWake, readContestSurfaceSnapshot, submitContestSurfaceAction,
   openContestContactEditorWindow, closeContestContactEditorWindow, toggleContestSurfaceWindow,
   type ContestSurfaceContext, type ContestSurfaceSnapshot, type ContestSurfaceTerminalReceipt } from "./contestSurfaceNative";
-import { contestInputFieldIDs, type ContestInputFieldID, type ContestSurfaceAction, type ContestSurfaceActionEnvelope,
+import { contestInputFieldIDs, type ContestInputFieldID, type ContestLogInlineEdit, type ContestSurfaceAction, type ContestSurfaceActionEnvelope,
   type ContestRatesSurfaceProjection, type ContestMatrixSurfaceProjection, type ContestSpotSurfaceProjection,
   type ContestStatisticsSurfaceProjection, type ContestScoreReportingSurfaceProjection } from "./contestSurfaceProtocol";
 import { ContestTextField, ContestCandidates, ContestScoreSummary } from "./ContestPresentation";
@@ -479,6 +479,7 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
       else if(action==="CLEAR_INPUTS")await send({action:"entry_clear",params},current.projectionRevision);
       else if(action==="PREV_SPOT"||action==="NEXT_SPOT")await send({action:"entry_step_spot",params:{...params,direction:action==="PREV_SPOT"?"previous":"next"}},current.projectionRevision);
       else if(action==="VFO_UP"||action==="VFO_DOWN")await send({action:"entry_step_vfo",params:{...params,direction:action==="VFO_UP"?"up":"down"}},current.projectionRevision);
+      else if(action==="RETURN_CQ_FREQUENCY")await send({action:"entry_return_cq_frequency",params},current.projectionRevision);
       else if(action==="SPOT_DX")await send({action:"entry_spot",params},current.projectionRevision);
       else if(action==="MARK_SPOT")await send({action:"entry_mark_spot",params},current.projectionRevision);
       else if(action==="TUNE_SPOT")await send({action:"entry_tune_spot",params},current.projectionRevision);
@@ -688,14 +689,20 @@ function ManualLogTable({rows,disabled,onEdit,label}:{rows:any[];disabled:boolea
     <td>{row.Freq??"—"}</td><td>{row.SNT??"—"}</td><td>{row.RCV??"—"}</td>
     <td>{row.M1??""}</td><td>{row.ZN??"—"}</td><td>{row.M2??""}</td><td>{row.prefix??"—"}</td><td>{row.Points??row.points}</td></tr>)}</tbody></table></div>;
 }
-function PluginLogTable({columns,rows,disabled,onEdit,label}:{columns:string[];rows:{qsoID:string;values:string[]}[];
-  disabled:boolean;onEdit:(qsoID:string)=>void;label:string}) {
+type InlineLogCell = { qsoID:string; columnIndex:number; source:string; edit:ContestLogInlineEdit; value:string;
+  projectionRevision:number; expectedSessionRevision:number };
+function PluginLogTable({columns,rows,disabled,onEdit,onInlineEdit,inline,inlineInput,label}:{columns:string[];
+  rows:{qsoID:string;values:string[];inlineEdits?:(ContestLogInlineEdit|null)[]}[];disabled:boolean;onEdit:(qsoID:string)=>void;
+  onInlineEdit:(qsoID:string,columnIndex:number,edit:ContestLogInlineEdit)=>void;inline:InlineLogCell|null;inlineInput:ReactNode;label:string}) {
   const callIndex=columns.indexOf("Call");
   return <div className="contest-surface-log-scroll"><table aria-label={label}><thead><tr>{columns.map((column,index)=><th key={`${column}-${index}`} scope="col">{column}</th>)}</tr></thead>
     <tbody>{rows.length===0?<tr className="contest-surface-empty-row"><td colSpan={columns.length}>{label === "Callsign partial matches" ? "No partial matches" : "No contacts"}</td></tr>
-      :rows.map(row=><tr key={row.qsoID} onDoubleClick={event=>{if(!disabled&&!(event.target as Element).closest("button"))onEdit(row.qsoID);}}
-        onContextMenu={event=>{event.preventDefault();if(!disabled)onEdit(row.qsoID);}}>{row.values.map((value,index)=><td key={`${columns[index]}-${index}`}>{index===callIndex
-      ? <button disabled={disabled} onDoubleClick={event=>event.stopPropagation()} onClick={()=>onEdit(row.qsoID)}>{value}</button>:value}</td>)}</tr>)}</tbody></table></div>;
+      :rows.map(row=><tr key={row.qsoID} onContextMenu={event=>{event.preventDefault();if(!disabled)onEdit(row.qsoID);}}>
+        {row.values.map((value,index)=>{const edit=row.inlineEdits?.[index]??null,
+          isEditing=inline?.qsoID===row.qsoID&&inline.columnIndex===index&&inline.source===label;
+          return <td key={`${columns[index]}-${index}`} className={edit?"contest-surface-inline-editable":undefined}
+            onDoubleClick={event=>{event.preventDefault();event.stopPropagation();if(!disabled&&edit)onInlineEdit(row.qsoID,index,edit);}}>
+            {isEditing?inlineInput:index===callIndex&&!edit?<button disabled={disabled} onClick={()=>onEdit(row.qsoID)}>{value}</button>:value}</td>;})}</tr>)}</tbody></table></div>;
 }
 function ReadOnlyContactField({label,value,wide=false}:{label:string;value:string;wide?:boolean}) {
   return <div className={`contest-surface-readonly${wide?" contest-surface-editor-wide":""}`}><span>{label}</span><output>{value}</output></div>;
@@ -752,15 +759,41 @@ function ContactEditor({projection,disabled,sending,projectionRevision,receipts,
   </section>;
 }
 function Log({projection,disabled,sending,projectionRevision,send,openEditor}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;send:Send;openEditor:(qsoID:string)=>Promise<void>}) {
-  const partialRows=projection.partialRows??[], pluginPartialRows=projection.pluginPartialRows??[];
+  const partialRows=projection.partialRows??[], pluginPartialRows=projection.pluginPartialRows??[], [inline,setInline]=useState<InlineLogCell|null>(null);
+  const beginInline=async(qsoID:string,columnIndex:number,edit:ContestLogInlineEdit,source:string)=>{
+    const result=await send({action:"log_edit_begin",params:{qsoID}},projectionRevision);
+    if(result.applied&&result.projectionRevision!==null)setInline({qsoID,columnIndex,source,edit,value:edit.value,
+      projectionRevision:result.projectionRevision,expectedSessionRevision:projection.sessionRevision});
+  };
+  const cancelInline=async()=>{if(!inline)return;const current=inline;setInline(null);
+    await send({action:"log_edit_cancel",params:{qsoID:current.qsoID}},current.projectionRevision,{safePresentation:true});};
+  const commitInline=async()=>{if(!inline)return;const current=inline;
+    const setter:ContestSurfaceAction=current.edit.kind==="text"
+      ? {action:"log_edit_set_text",params:{qsoID:current.qsoID,field:current.edit.field,value:current.value}}
+      : current.edit.kind==="exchange"
+        ? {action:"log_edit_set_exchange",params:{qsoID:current.qsoID,fieldID:current.edit.fieldID,value:current.value}}
+        : {action:"log_edit_set_frequency_text",params:{qsoID:current.qsoID,value:current.value}};
+    if(current.value===current.edit.value){await cancelInline();return;}
+    const changed=await send(setter,current.projectionRevision,{safePresentation:true});
+    if(!changed.applied||changed.projectionRevision===null)return;
+    const saved=await send({action:"log_edit_save",params:{qsoID:current.qsoID,expectedSessionRevision:current.expectedSessionRevision}},
+      changed.projectionRevision,{safePresentation:true});
+    if(saved.applied)setInline(null);
+  };
+  const inlineInput=inline?<input aria-label={`Edit ${projection.pluginColumns?.[inline.columnIndex]??"log cell"}`} autoFocus
+    disabled={disabled||sending} value={inline.value} onChange={event=>{const value=event.target.value;
+      if(new TextEncoder().encode(value).length<=inline.edit.maximumUTF8Bytes)setInline(current=>current?{...current,value}:current);}}
+    onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();void commitInline();}else if(event.key==="Escape"){event.preventDefault();void cancelInline();}}}/>:null;
   return <section className="contest-surface-log"><header><h1>Log Display</h1>
   <details className="contest-surface-log-tools"><summary>Log tools</summary><div className="contest-surface-log-actions">{projection.canExportCabrillo&&<button disabled={disabled||sending} onClick={()=>void send({action:"log_export_cabrillo",params:{}},projectionRevision)}>Export Cabrillo…</button>}
   <button disabled={disabled||sending||projection.canExportAdif!==true} onClick={()=>void send({action:"log_export_adif",params:{}},projectionRevision)}>Export ADIF…</button>
   {projection.canExportEdi===true&&<button disabled={disabled||sending} onClick={()=>void send({action:"log_export_edi",params:{}},projectionRevision)}>Export EDI…</button>}
   <button disabled={disabled||sending} onClick={()=>void send({action:"log_recalculate",params:{expectedSessionRevision:projection.sessionRevision}},projectionRevision)}>Recalculate</button></div></details></header>
   <div className="contest-surface-log-panes">{projection.exchangeLayout==="plugin" ? <>
-    <section className="contest-surface-log-pane-primary"><h2>Chronological log</h2><PluginLogTable columns={projection.pluginColumns} rows={projection.pluginRows} disabled={disabled} label="Contest log" onEdit={qsoID=>void openEditor(qsoID)}/></section>
-    <section className="contest-surface-log-pane-secondary"><h2>Callsign partial matches</h2><PluginLogTable columns={projection.pluginColumns} rows={pluginPartialRows} disabled={disabled} label="Callsign partial matches" onEdit={qsoID=>void openEditor(qsoID)}/></section></>
+    <section className="contest-surface-log-pane-primary"><h2>Chronological log</h2><PluginLogTable columns={projection.pluginColumns} rows={projection.pluginRows} disabled={disabled} label="Contest log" inline={inline} inlineInput={inlineInput}
+      onInlineEdit={(qsoID,columnIndex,edit)=>void beginInline(qsoID,columnIndex,edit,"Contest log")} onEdit={qsoID=>{setInline(null);void openEditor(qsoID);}}/></section>
+    <section className="contest-surface-log-pane-secondary"><h2>Callsign partial matches</h2><PluginLogTable columns={projection.pluginColumns} rows={pluginPartialRows} disabled={disabled} label="Callsign partial matches" inline={inline} inlineInput={inlineInput}
+      onInlineEdit={(qsoID,columnIndex,edit)=>void beginInline(qsoID,columnIndex,edit,"Callsign partial matches")} onEdit={qsoID=>{setInline(null);void openEditor(qsoID);}}/></section></>
     : <><section className="contest-surface-log-pane-primary"><h2>Chronological log</h2><ManualLogTable rows={projection.manualRows??projection.page.rows} disabled={disabled} label="Contest log" onEdit={qsoID=>void openEditor(qsoID)}/></section>
       <section className="contest-surface-log-pane-secondary"><h2>Callsign partial matches</h2><ManualLogTable rows={partialRows} disabled={disabled} label="Callsign partial matches" onEdit={qsoID=>void openEditor(qsoID)}/></section></>}</div>
   <footer><button disabled={disabled||projection.page.offset===0} onClick={()=>void send({action:"log_page",params:{offset:Math.max(0,projection.page.offset-projection.page.limit)}},projectionRevision)}>Previous</button>

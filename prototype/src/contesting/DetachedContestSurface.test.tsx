@@ -338,6 +338,68 @@ it.each(["doubleClick","contextMenu"] as const)("opens Edit Contact on log-row %
   await waitFor(()=>expect(native.invoke).toHaveBeenCalledWith("contest_contact_editor_open",{operatingContext,sessionID,workspaceGeneration}));
 });
 
+it("edits an explicitly writable plugin cell inline through begin, set, and revision-fenced save",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
+  const pageRow={qsoID:"logged-qso",workedAt:"2026-10-20T12:00:00.000Z",callsign:"K1ABC",band:"20m",mode:"CW",
+    sentExchange:"599",receivedExchange:"14",points:2,multiplierLabels:[]};
+  const columns=["Call","ZN","PTS"],pluginRow={qsoID:pageRow.qsoID,values:["K1ABC","14","2"],inlineEdits:[
+    {kind:"text",field:"callsign",value:"K1ABC",maximumUTF8Bytes:32},
+    {kind:"exchange",fieldID:"other_2",value:"14",maximumUTF8Bytes:128},null]};
+  let current:any={schemaVersion:1,status:"ready",sessionRevision:7,canExportCabrillo:true,exchangeLayout:"plugin",
+    pluginColumns:columns,pluginRows:[pluginRow],pluginPartialRows:[],page:{offset:0,limit:20,total:1,rows:[pageRow]},editing:null,busy:false};
+  const editing={qsoID:"logged-qso",workedAt:"2026-10-20 12:00:00",operator:"OM0RX",callsign:"K1ABC",band:"20m",mode:"CW",
+    sentReport:"599",receivedReport:"599",receivedFields:[],frequencyHz:14025000,editFrequencyText:"14025000",frequencyError:"",
+    correctionReason:"Operator correction",confirmDelete:false,deletionReason:"Operator deletion"};
+  const actions:Record<string,any>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return {...snapshot,panelID:"logbook",projection:current};
+    if(command==="contest_surface_action"){
+      actions.push(args);
+      if(args.action==="log_edit_begin")current={...current,editing};
+      if(args.action==="log_edit_save")current={...current,editing:null};
+      return {requestID:args.requestID,status:"applied"};
+    }
+    if(command==="contest_contact_editor_open")return;
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);
+  const call=(await screen.findByText("K1ABC")).closest("td")!;fireEvent.doubleClick(call);
+  const input=await screen.findByLabelText("Edit Call");fireEvent.change(input,{target:{value:"K1XYZ"}});
+  fireEvent.keyDown(input,{key:"Enter"});
+  await waitFor(()=>expect(actions.map(action=>action.action)).toEqual(["log_edit_begin","log_edit_set_text","log_edit_save"]));
+  expect(actions[1]).toMatchObject({params:{qsoID:"logged-qso",field:"callsign",value:"K1XYZ"}});
+  expect(actions[2]).toMatchObject({params:{qsoID:"logged-qso",expectedSessionRevision:7}});
+  expect(native.invoke).not.toHaveBeenCalledWith("contest_contact_editor_open",expect.anything());
+  const zone=screen.getByText("14").closest("td")!;fireEvent.doubleClick(zone);
+  const zoneInput=await screen.findByLabelText("Edit ZN");fireEvent.change(zoneInput,{target:{value:"15"}});
+  fireEvent.keyDown(zoneInput,{key:"Enter"});
+  await waitFor(()=>expect(actions.map(action=>action.action)).toEqual([
+    "log_edit_begin","log_edit_set_text","log_edit_save","log_edit_begin","log_edit_set_exchange","log_edit_save"]));
+  expect(actions[4]).toMatchObject({params:{qsoID:"logged-qso",fieldID:"other_2",value:"15"}});
+});
+
+it("keeps computed plugin cells read-only and opens the full editor from the context menu",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
+  const pageRow={qsoID:"logged-qso",workedAt:"2026-10-20T12:00:00.000Z",callsign:"K1ABC",band:"20m",mode:"CW",
+    sentExchange:"599",receivedExchange:"14",points:2,multiplierLabels:[]};
+  const view={schemaVersion:1,status:"ready",sessionRevision:7,canExportCabrillo:true,exchangeLayout:"plugin",
+    pluginColumns:["Call","PTS"],pluginRows:[{qsoID:pageRow.qsoID,values:["K1ABC","2"],inlineEdits:[
+      {kind:"text",field:"callsign",value:"K1ABC",maximumUTF8Bytes:32},null]}],pluginPartialRows:[],
+    page:{offset:0,limit:20,total:1,rows:[pageRow]},editing:null,busy:false};
+  const actions:Record<string,any>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return {...snapshot,panelID:"logbook",projection:view};
+    if(command==="contest_surface_action"){actions.push(args);return {requestID:args.requestID,status:"applied"};}
+    if(command==="contest_contact_editor_open")return;
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const points=(await screen.findByText("2")).closest("td")!;
+  fireEvent.doubleClick(points);expect(actions).toHaveLength(0);
+  fireEvent.contextMenu(points);
+  await waitFor(()=>expect(actions[0]).toMatchObject({action:"log_edit_begin",params:{qsoID:"logged-qso"}}));
+  expect(native.invoke).toHaveBeenCalledWith("contest_contact_editor_open",{operatingContext,sessionID,workspaceGeneration});
+});
+
 it("renders the original contact fields in the dedicated editor and closes after Save",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=edit-contact"));
   const editing={qsoID:"logged-qso",workedAt:"2026-10-20 12:00:00",operator:"OM0RX",callsign:"K1ABC",reportsVisible:true,
@@ -1221,6 +1283,20 @@ it.each([["≥","Period","VFO_UP","up"],["≤","Comma","VFO_DOWN","down"]] as co
   fireEvent.keyDown(region,{key,code,altKey:true});
   await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="entry_step_vfo")?.[1])
     .toMatchObject({action:"entry_step_vfo",params:{direction}}));
+});
+
+it("routes the default Ctrl+Q return-to-CQ binding through one fenced owner action",async()=>{
+  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14025000,frequencyError:""},
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null},
+      keyBindings:[{context:"*",key:"Ctrl+Q",action:"RETURN_CQ_FREQUENCY"}]},
+    operator:{output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>command==="contest_surface_snapshot"?view:
+    command==="contest_surface_action"?{requestID:args.requestID,status:"applied",projectionRevision:7}:Promise.reject(new Error(command)));
+  render(<DetachedContestSurface/>);const region=await screen.findByRole("region",{name:"Main Logging"});
+  fireEvent.keyDown(region,{key:"q",ctrlKey:true});
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="entry_return_cq_frequency")?.[1])
+    .toMatchObject({action:"entry_return_cq_frequency",params:{draftID:"draft-1",expectedDraftRevision:5}}));
 });
 
 it("retains the manual Check Partial Log, Master and Telnet columns with explicit missing sources",async()=>{

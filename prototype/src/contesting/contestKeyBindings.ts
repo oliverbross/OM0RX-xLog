@@ -8,7 +8,7 @@ export type ContestFunctionKeyAction = typeof contestFunctionKeyActions[number];
 export const contestKeyBindingActions = ["TOGGLE_RUN", "SET_RUN", "SET_S_AND_P", "LOG_NOW", "CLEAR_INPUTS",
   "PREV_SPOT", "NEXT_SPOT", "SPOT_DX", "MARK_SPOT", "TUNE_SPOT", "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN",
   "TOGGLE_CW_INPUT", "RST_INCR", "RST_DECR", "EXCH_INCR", "EXCH_DECR",
-  "WIN_BAND", "WIN_CHECK", "WIN_LOG", "WIN_RATE", "WIN_STATS", "WIN_VFO", "VFO_UP", "VFO_DOWN",
+  "WIN_BAND", "WIN_CHECK", "WIN_LOG", "WIN_RATE", "WIN_STATS", "WIN_VFO", "VFO_UP", "VFO_DOWN", "RETURN_CQ_FREQUENCY",
   ...contestFunctionKeyActions] as const;
 export type ContestKeyBindingAction = typeof contestKeyBindingActions[number];
 
@@ -47,6 +47,7 @@ export const contestKeyBindingDescriptions: Record<ContestKeyBindingAction, stri
   WIN_VFO: "Toggle the VFO window",
   VFO_UP: "Increase VFO frequency by the mode step",
   VFO_DOWN: "Decrease VFO frequency by the mode step",
+  RETURN_CQ_FREQUENCY: "Return to the last confirmed CQ frequency",
   SEND_F1: "Send the F1 function macro",
   SEND_F2: "Send the F2 function macro",
   SEND_F3: "Send the F3 function macro",
@@ -64,7 +65,7 @@ export const contestKeyBindingDescriptions: Record<ContestKeyBindingAction, stri
 // This is the finite subset of the pinned Not1MM defaults whose behavior is
 // currently owned by the Main Logging window. Descriptions are derived rather
 // than persisted, matching Not1MM's key-to-action preference representation.
-const previousDefaultContestKeyBindings: ContestKeyBinding[] = [
+const previousCoreDefaultContestKeyBindings: ContestKeyBinding[] = [
   { context: "*", key: "Ctrl+R", action: "TOGGLE_RUN" },
   { context: "*", key: "Ctrl+L", action: "LOG_NOW" },
   { context: "*", key: "Ctrl+=", action: "LOG_NOW" },
@@ -78,7 +79,7 @@ const previousDefaultContestKeyBindings: ContestKeyBinding[] = [
   { context: "*", key: "Ctrl+W", action: "CLEAR_INPUTS" },
 ];
 export const defaultContestKeyBindings: ContestKeyBinding[] = [
-  ...previousDefaultContestKeyBindings,
+  ...previousCoreDefaultContestKeyBindings,
   { context: "*", key: "Alt+B", action: "WIN_BAND" },
   { context: "*", key: "Alt+C", action: "WIN_CHECK" },
   { context: "*", key: "Alt+L", action: "WIN_LOG" },
@@ -87,6 +88,8 @@ export const defaultContestKeyBindings: ContestKeyBinding[] = [
   { context: "*", key: "Alt+V", action: "WIN_VFO" },
   { context: "*", key: "Alt+.", action: "VFO_UP" },
   { context: "*", key: "Alt+,", action: "VFO_DOWN" },
+  { context: "*", key: "Ctrl+Shift+K", action: "TOGGLE_CW_INPUT" },
+  { context: "*", key: "Ctrl+Q", action: "RETURN_CQ_FREQUENCY" },
 ];
 
 export function functionKeyForContestAction(action: ContestKeyBindingAction): `F${number}` | null {
@@ -171,7 +174,8 @@ export function readContestKeyBindings(value: unknown): ContestKeyBinding[] {
     return item.context===row.context&&item.action===row.action&&
       (legacyTune&&row.action==="TUNE_SPOT"?row.key==="Ctrl+T"&&item.key==="Ctrl+G":item.key===row.key);
   });
-  const previousDefaults = exactDefaults(previousDefaultContestKeyBindings, false) || exactDefaults(previousDefaultContestKeyBindings, true);
+  const previousDefaults = exactDefaults(previousCoreDefaultContestKeyBindings, false) || exactDefaults(previousCoreDefaultContestKeyBindings, true) ||
+    exactDefaults(defaultContestKeyBindings.slice(0, -2), false) || exactDefaults(defaultContestKeyBindings.slice(0, -2), true);
   const legacyDefaults = exactDefaults(defaultContestKeyBindings, true);
   const migrated = previousDefaults ? structuredClone(defaultContestKeyBindings) : legacyDefaults
     ? rows.map(row => row.action === "TUNE_SPOT" && row.key === "Ctrl+T" ? { ...row, key: "Ctrl+G" } : row) : rows;
@@ -206,7 +210,14 @@ export function validateContestKeyBindings(value: unknown): ContestKeyBinding[] 
 }
 
 export function encodeContestKeyBindings(bindings: readonly ContestKeyBinding[]): string {
-  return JSON.stringify(bindings.map(item => [item.context, item.key, item.action]));
+  const rows = bindings.map(item => [item.context, item.key, item.action]);
+  const encodedRows = JSON.stringify(rows);
+  if (new TextEncoder().encode(encodedRows).length <= 512) return encodedRows;
+  const identities = bindings.map(item => `${item.context}:${item.key}`);
+  if (new Set(identities).size !== identities.length) return encodedRows;
+  return JSON.stringify(Object.fromEntries(bindings.map(item => [
+    item.context === "*" ? item.key : `${item.context}:${item.key}`, item.action,
+  ])));
 }
 
 export function contestKeyChord(event: Pick<KeyboardEvent, "key" | "ctrlKey" | "altKey" | "shiftKey" | "metaKey"> & { code?: string }): string | null {

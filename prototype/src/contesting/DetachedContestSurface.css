@@ -209,6 +209,8 @@
 .contest-surface-empty-row td { color:var(--secondary); text-align:center !important; }
 .contest-surface-log-scroll th { position:sticky; top:0; color:var(--secondary); background:var(--panel); font:11px ui-monospace,monospace; }
 .contest-surface-log-scroll td { font:11px ui-monospace,monospace; padding:3px; }
+.contest-surface-log-scroll td.contest-surface-inline-editable { cursor:text; }
+.contest-surface-log-scroll td > input { min-height:20px; padding:1px 3px; font:inherit; }
 .contest-surface-log-scroll button { min-height:20px; padding:0; background:transparent; border:0; font:inherit; }
 .contest-detached-surface > main:has(> :is(.contest-surface-entry,.contest-surface-check,.contest-surface-statistics,.contest-surface-rates,.contest-surface-log)) { overflow:hidden; }
 .contest-surface-entry { gap:6px; overflow:hidden; }

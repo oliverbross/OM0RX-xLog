@@ -76,6 +76,7 @@ const valid = [
   { panelID: "dx-cluster", action: "spot_set_marked_only", params: { ...draft, markedOnly:true } },
   { panelID: "active-qso", action: "entry_step_spot", params: { ...draft, direction: "previous" } },
   { panelID: "active-qso", action: "entry_step_vfo", params: { ...draft, direction: "up" } },
+  { panelID: "active-qso", action: "entry_return_cq_frequency", params: draft },
   { panelID: "active-qso", action: "entry_operator_arm", params: { ...draft, armed: true } },
   { panelID: "active-qso", action: "entry_operator_style", params: { ...draft, value: "search-and-pounce" } },
   { panelID: "active-qso", action: "entry_set_cw_speed", params: { ...draft, value: 27 } },

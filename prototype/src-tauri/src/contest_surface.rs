@@ -712,10 +712,14 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
             text_value(&params["value"], 16, false, "entry selection")?;
         }
         "entry_reserve_serial" | "entry_commit" | "entry_clear" | "entry_spot" | "entry_mark_spot"
-        | "entry_tune_spot" => draft(params, &[])?,
+        | "entry_tune_spot" | "entry_return_cq_frequency" => draft(params, &[])?,
         "entry_step_spot" => {
             draft(params, &["direction"])?;
             enum_value(&params["direction"], &["previous", "next"], "spot direction")?;
+        }
+        "entry_step_vfo" => {
+            draft(params, &["direction"])?;
+            enum_value(&params["direction"], &["up", "down"], "VFO direction")?;
         }
         "entry_focus" => {
             draft(params, &["fieldID"])?;
@@ -1209,6 +1213,8 @@ fn validate_entry_descriptor(value: &Value) -> Result<BTreeSet<String>, String> 
         enum_value(&binding["action"], &["TOGGLE_RUN", "SET_RUN", "SET_S_AND_P", "LOG_NOW", "CLEAR_INPUTS",
             "PREV_SPOT", "NEXT_SPOT", "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN",
             "TOGGLE_CW_INPUT", "RST_INCR", "RST_DECR", "EXCH_INCR", "EXCH_DECR",
+            "SPOT_DX", "MARK_SPOT", "TUNE_SPOT", "WIN_BAND", "WIN_CHECK", "WIN_LOG", "WIN_RATE", "WIN_STATS", "WIN_VFO",
+            "VFO_UP", "VFO_DOWN", "RETURN_CQ_FREQUENCY",
             "SEND_F1", "SEND_F2", "SEND_F3", "SEND_F4", "SEND_F5", "SEND_F6", "SEND_F7", "SEND_F8", "SEND_F9",
             "SEND_F10", "SEND_F11", "SEND_F12"],
             "entry key action")?;
@@ -2345,7 +2351,9 @@ fn validate_plugin_rows(value: &Value, columns: usize, maximum: usize) -> Result
     let mut ids = Vec::with_capacity(rows.len());
     for row in rows {
         let row = object(row, "plugin log row")?;
-        exact(row, &["qsoID", "values"], "plugin log row")?;
+        let mut required = row.clone();
+        let inline_edits = required.remove("inlineEdits");
+        exact(&required, &["qsoID", "values"], "plugin log row")?;
         ids.push(text_value(&row["qsoID"], 160, false, "plugin log QSO ID")?.to_string());
         let values = array(&row["values"], columns, "plugin log values")?;
         if values.len() != columns {
@@ -2353,6 +2361,37 @@ fn validate_plugin_rows(value: &Value, columns: usize, maximum: usize) -> Result
         }
         for value in values {
             text_value(value, 512, true, "plugin log value")?;
+        }
+        if let Some(inline_edits) = inline_edits {
+            let inline_edits = array(&inline_edits, columns, "plugin log inline edits")?;
+            if inline_edits.len() != columns {
+                return Err("The plugin log inline edits do not match its columns.".into());
+            }
+            for edit in inline_edits {
+                if edit.is_null() {
+                    continue;
+                }
+                let edit = object(edit, "plugin log inline edit")?;
+                let kind = edit.get("kind").and_then(Value::as_str).unwrap_or("");
+                let keys: &[&str] = match kind {
+                    "text" => &["kind", "field", "value", "maximumUTF8Bytes"],
+                    "exchange" => &["kind", "fieldID", "value", "maximumUTF8Bytes"],
+                    "frequency" => &["kind", "value", "maximumUTF8Bytes"],
+                    _ => return Err("The plugin log inline edit kind is invalid.".into()),
+                };
+                exact(edit, keys, "plugin log inline edit")?;
+                let maximum = uint_value(&edit["maximumUTF8Bytes"], 1024, "plugin log inline edit maximum")?;
+                if maximum == 0 {
+                    return Err("The plugin log inline edit maximum is invalid.".into());
+                }
+                text_value(&edit["value"], maximum as usize, true, "plugin log inline edit value")?;
+                if kind == "text" {
+                    enum_value(&edit["field"], &["callsign", "sentReport", "receivedReport", "timestamp"],
+                        "plugin log inline text field")?;
+                } else if kind == "exchange" {
+                    text_value(&edit["fieldID"], 64, false, "plugin log inline exchange field")?;
+                }
+            }
         }
     }
     Ok(ids)
@@ -2763,6 +2802,12 @@ mod tests {
         }
         assert!(validate_action_envelope(&action("entry_step_spot", "active-qso",
             json!({"draftID":"draft","expectedDraftRevision":2,"direction":"up"}))).is_err());
+        for direction in ["up", "down"] {
+            assert!(validate_action_envelope(&action("entry_step_vfo", "active-qso",
+                json!({"draftID":"draft","expectedDraftRevision":2,"direction":direction}))).is_ok());
+        }
+        assert!(validate_action_envelope(&action("entry_return_cq_frequency", "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2}))).is_ok());
         for speed in [json!(5), json!(26), json!(100)] {
             assert!(validate_action_envelope(&action("entry_set_cw_speed", "active-qso",
                 json!({"draftID":"draft","expectedDraftRevision":2,"value":speed}))).is_ok());
@@ -2900,7 +2945,11 @@ mod tests {
                 "callsign":"DL1AAA","band":"20m","mode":"CW","sentExchange":"599 15","receivedExchange":"599 14",
                 "points":3,"multiplierLabels":["Germany"]}]},
             "pluginColumns":["TS","Call","Freq","SNT","RCV","ZN","SentNr","prefix","Points"],
-            "pluginRows":[{"qsoID":"qso","values":["2026-10-18 00:00:00","DL1AAA","14025.0","599","599","14","15","DL","3"]}],
+            "pluginRows":[{"qsoID":"qso","values":["2026-10-18 00:00:00","DL1AAA","14025.0","599","599","14","15","DL","3"],
+                "inlineEdits":[{"kind":"text","field":"timestamp","value":"2026-10-18 00:00:00","maximumUTF8Bytes":32},
+                    {"kind":"text","field":"callsign","value":"DL1AAA","maximumUTF8Bytes":32},
+                    {"kind":"frequency","value":"14025000","maximumUTF8Bytes":11},null,null,
+                    {"kind":"exchange","fieldID":"other_2","value":"14","maximumUTF8Bytes":128},null,null,null]}],
             "pluginPartialRows":[],
             "editing":{"qsoID":"qso","workedAt":"2026-10-18 00:00:00","operator":"OM0RX","callsign":"DL1AAA","reportsVisible":false,
                 "band":"20m","mode":"CW","sentReport":"599","receivedReport":"599","receivedFields":[],
@@ -2918,6 +2967,9 @@ mod tests {
                 "maximumUTF8Bytes":32,"enabled":true,"readOnly":false}
         ]);
         assert!(validate_projection("logbook", &not1mm_logbook).is_ok());
+        let mut malformed_inline_edit = not1mm_logbook.clone();
+        malformed_inline_edit["pluginRows"][0]["inlineEdits"][5]["fieldID"] = json!("");
+        assert!(validate_projection("logbook", &malformed_inline_edit).is_err());
         let mut malformed_details = not1mm_logbook.clone();
         malformed_details["editing"]["details"]["points"] = json!(3);
         assert!(validate_projection("logbook", &malformed_details).is_err());
@@ -3160,7 +3212,8 @@ mod tests {
         ]);
         assert!(validate_projection("active-qso", &duplicate_binding).is_err());
         for action in ["TOGGLE_RUN", "SET_RUN", "SET_S_AND_P", "LOG_NOW", "CLEAR_INPUTS", "PREV_SPOT", "NEXT_SPOT",
-            "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN", "TOGGLE_CW_INPUT", "RST_INCR", "RST_DECR", "EXCH_INCR", "EXCH_DECR", "SEND_F1", "SEND_F2",
+            "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN", "TOGGLE_CW_INPUT", "RST_INCR", "RST_DECR", "EXCH_INCR", "EXCH_DECR",
+            "SPOT_DX", "MARK_SPOT", "TUNE_SPOT", "WIN_BAND", "WIN_CHECK", "WIN_LOG", "WIN_RATE", "WIN_STATS", "WIN_VFO", "VFO_UP", "VFO_DOWN", "RETURN_CQ_FREQUENCY", "SEND_F1", "SEND_F2",
             "SEND_F3", "SEND_F4", "SEND_F5", "SEND_F6", "SEND_F7", "SEND_F8", "SEND_F9", "SEND_F10", "SEND_F11", "SEND_F12"] {
             let mut supported_binding = entry.clone();
             supported_binding["descriptor"]["keyBindings"][0]["action"] = json!(action);
