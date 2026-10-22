@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type SetStateAction, type
 import { Radio, Navigation, CircleX, CircleCheck } from "lucide-react";
 import { DeskIntelligence } from "./CallsignIntelligence";
 export { DeskIntelligence } from "./CallsignIntelligence";
-import { bandForRadio } from "./BandMaps";
+import { bandForRadio } from "./band";
 import { rotorCommandParams, rotorProjection, type RotorSnapshot } from "./rotorControl";
 import "./OperatorDesk.css";
 import RotorCompass from "./RotorCompass";
