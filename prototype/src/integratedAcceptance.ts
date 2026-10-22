@@ -187,6 +187,14 @@ async function main(report: Json) {
   report.details.keyboardLogActivation = "rendered-submit-control";
   const logControl = button("Log QSO", ".desk-active-actions button");
   logControl.form?.requestSubmit(logControl); await frame();
+  await new Promise(resolve => setTimeout(resolve, 500));
+  report.details.renderedSubmit = {
+    call: document.querySelector<HTMLInputElement>('[aria-label="Desk Callsign"]')?.value ?? null,
+    toast: document.querySelector<HTMLElement>('.qso-logged-toast[role="status"]')?.textContent ?? null,
+    alert: document.querySelector<HTMLElement>('.live-error[role="alert"]')?.textContent ?? null,
+    draft: (await worker("logbook_operator_draft")).result.draft.qso,
+    logbook: (await worker("logbook_list", { limit: 2 })).result,
+  };
   await waitForAcceptance("rendered save and cleared draft", () => element<HTMLInputElement>('[aria-label="Desk Callsign"]').value === "" &&
     document.querySelector<HTMLElement>('.qso-logged-toast[role="status"]')?.textContent === "QSO logged");
   check("keyboard_log", validSavedContact((await worker("logbook_list")).result));
