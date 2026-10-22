@@ -18,11 +18,11 @@ pub fn kind(label: &str) -> Option<&'static str> {
 pub fn spec(kind: &str) -> Option<(&'static str, &'static str, f64, f64)> {
     match kind {
         "operator" => Some(("contest-setup-operator", "Operator", 420.0, 190.0)),
-        "station" => Some(("contest-setup-station", "Station Settings", 760.0, 660.0)),
+        "station" => Some(("contest-setup-station", "Station Settings", 760.0, 600.0)),
         "configuration" => Some(("contest-setup-configuration", "Configuration Settings", 820.0, 320.0)),
-        "digital" => Some(("contest-setup-digital", "Digital Logging Setup", 720.0, 560.0)),
-        "macros" => Some(("contest-setup-macros", "Edit Macros", 820.0, 620.0)),
-        "keys" => Some(("contest-setup-keys", "Edit Keys", 880.0, 700.0)),
+        "digital" => Some(("contest-setup-digital", "Digital Logging Setup", 760.0, 680.0)),
+        "macros" => Some(("contest-setup-macros", "Edit Macros", 820.0, 560.0)),
+        "keys" => Some(("contest-setup-keys", "Edit Keys", 820.0, 560.0)),
         "rover" => Some(("contest-setup-rover", "Rover", 382.0, 110.0)),
         "about" => Some(("contest-setup-about", "About Not1MM", 420.0, 500.0)),
         _ => None,
@@ -219,11 +219,11 @@ mod tests {
     #[test]
     fn exposes_compact_distinct_windows() {
         assert_eq!(spec("operator"),Some(("contest-setup-operator","Operator",420.0,190.0)));
-        assert_eq!(spec("station"),Some(("contest-setup-station","Station Settings",760.0,660.0)));
+        assert_eq!(spec("station"),Some(("contest-setup-station","Station Settings",760.0,600.0)));
         assert_eq!(spec("configuration"),Some(("contest-setup-configuration","Configuration Settings",820.0,320.0)));
-        assert_eq!(spec("digital"),Some(("contest-setup-digital","Digital Logging Setup",720.0,560.0)));
-        assert_eq!(spec("macros"),Some(("contest-setup-macros","Edit Macros",820.0,620.0)));
-        assert_eq!(spec("keys"),Some(("contest-setup-keys","Edit Keys",880.0,700.0)));
+        assert_eq!(spec("digital"),Some(("contest-setup-digital","Digital Logging Setup",760.0,680.0)));
+        assert_eq!(spec("macros"),Some(("contest-setup-macros","Edit Macros",820.0,560.0)));
+        assert_eq!(spec("keys"),Some(("contest-setup-keys","Edit Keys",820.0,560.0)));
         assert_eq!(spec("rover"),Some(("contest-setup-rover","Rover",382.0,110.0)));
         assert_eq!(spec("about"),Some(("contest-setup-about","About Not1MM",420.0,500.0)));
         assert_eq!(crate::workspace_windows::native_minimum("contest-setup-operator"),(360.0,170.0));

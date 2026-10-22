@@ -117,7 +117,11 @@ pub fn scoped_spec(identity: WorkspaceWindowIdentity<'_>) -> Option<&'static Win
 }
 pub fn contest_default_size_migrations(label: &str) -> Option<(&'static [(f64, f64)], (f64, f64))> {
     if label == "contest-setup" { return Some((&[(980.0, 760.0), (920.0, 720.0), (600.0, 820.0), (600.0, 740.0)], (600.0, 360.0))); }
+    if label == "contest-setup-station" { return Some((&[(760.0, 660.0)], (760.0, 600.0))); }
     if label == "contest-setup-configuration" { return Some((&[(820.0, 620.0), (820.0, 520.0)], (820.0, 320.0))); }
+    if label == "contest-setup-digital" { return Some((&[(720.0, 560.0)], (760.0, 680.0))); }
+    if label == "contest-setup-macros" { return Some((&[(820.0, 620.0)], (820.0, 560.0))); }
+    if label == "contest-setup-keys" { return Some((&[(880.0, 700.0)], (820.0, 560.0))); }
     let identity = WorkspaceWindowIdentity::parse_native_label(label).ok()?;
     if identity.scope != WorkspaceWindowScope::Contesting { return None; }
     let old: &'static [(f64, f64)] = match identity.panel_id {
@@ -535,7 +539,11 @@ mod tests {
     #[test]
     fn contest_default_size_migrations_are_exact_and_do_not_touch_shared_tools() {
         assert_eq!(contest_default_size_migrations("contest-setup"), Some((&[(980.0, 760.0), (920.0, 720.0), (600.0, 820.0), (600.0, 740.0)][..], (600.0, 360.0))));
+        assert_eq!(contest_default_size_migrations("contest-setup-station"), Some((&[(760.0, 660.0)][..], (760.0, 600.0))));
         assert_eq!(contest_default_size_migrations("contest-setup-configuration"), Some((&[(820.0, 620.0), (820.0, 520.0)][..], (820.0, 320.0))));
+        assert_eq!(contest_default_size_migrations("contest-setup-digital"), Some((&[(720.0, 560.0)][..], (760.0, 680.0))));
+        assert_eq!(contest_default_size_migrations("contest-setup-macros"), Some((&[(820.0, 620.0)][..], (820.0, 560.0))));
+        assert_eq!(contest_default_size_migrations("contest-setup-keys"), Some((&[(880.0, 700.0)][..], (820.0, 560.0))));
         assert_eq!(contest_default_size_migrations("contest--active-qso"), Some((&[(800.0, 620.0)][..], (800.0, 480.0))));
         assert_eq!(contest_default_size_migrations("contest--call-history"), Some((&[(900.0, 720.0), (840.0, 640.0)][..], (840.0, 360.0))));
         assert_eq!(contest_default_size_migrations("contest--band-maps"), Some((&[(380.0, 760.0), (520.0, 700.0)][..], (520.0, 500.0))));
@@ -557,8 +565,8 @@ mod tests {
         use crate::window_geometry::{Bounds, Display, Position, SavedWindow, migrate_logical_size};
         let display = Display { name: Some("External".into()), scale: 2.0,
             work: Bounds { x: -3840, y: 28, width: 3840, height: 2104 } };
-        for panel in ["logbook", "dx-cluster", "awards", "chaser-dx", "band-maps", "call-history", "station-control"] {
-            let label = format!("contest--{panel}");
+        for label in ["contest--logbook", "contest--dx-cluster", "contest--awards", "contest--chaser-dx", "contest--band-maps",
+            "contest--call-history", "contest--station-control", "contest-setup-station", "contest-setup-digital", "contest-setup-macros", "contest-setup-keys"] {
             let (old_sizes, target) = contest_default_size_migrations(&label).unwrap();
             let migrate = |saved: SavedWindow| old_sizes.iter().fold(saved, |saved, from|
                 migrate_logical_size(saved, *from, target));
@@ -578,7 +586,9 @@ mod tests {
                     bounds: Bounds { x: 100, y: 80, width: width as u32, height: height as u32 } } };
                 assert_eq!(migrate(legacy.clone()), legacy, "{label}");
             }
-            assert_eq!(contest_default_size_migrations(panel), None, "normal {panel}");
+            if let Some(panel) = label.strip_prefix("contest--") {
+                assert_eq!(contest_default_size_migrations(panel), None, "normal {panel}");
+            }
         }
     }
     #[test]

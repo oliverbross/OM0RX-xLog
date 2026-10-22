@@ -213,7 +213,7 @@ mod tests {
         let kind = contest_setup_dialog_kind(route).unwrap();
         let (label, title, width, height) = crate::contest_setup_dialogs::spec(kind).unwrap();
         assert_eq!((route, kind, label, title, width, height),
-            ("contest-dialog-keys", "keys", "contest-setup-keys", "Edit Keys", 880.0, 700.0));
+            ("contest-dialog-keys", "keys", "contest-setup-keys", "Edit Keys", 820.0, 560.0));
         assert!(contest_owner_dependent_window(label));
         let capability: serde_json::Value = serde_json::from_str(
             include_str!("../capabilities/contest-setup-dialogs.json")).unwrap();
