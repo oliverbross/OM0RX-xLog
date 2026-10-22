@@ -43,7 +43,7 @@ it("creates the packaged SST archive preview through the shared structured works
   fireEvent.click(within(form).getByRole("button", { name: "Create and open" }));
 
   expect(await screen.findByText(/K1USN SST Operator Archive Preview · SST Worker Acceptance/)).toBeTruthy();
-  expect(screen.getByLabelText("Operating style")).toBeTruthy();
+  expect(await screen.findByLabelText("Operating style")).toBeTruthy();
   expect(screen.queryByLabelText("Sent report")).toBeNull();
   expect(screen.getByLabelText("Sent exchange").textContent).toContain("DAVE");
   expect(screen.getByLabelText("Sent exchange").textContent).toContain("MA");
