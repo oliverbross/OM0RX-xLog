@@ -115,6 +115,10 @@ struct RTCScoreReportingServiceTests {
         #expect(after["posting"] as? Bool == false)
         #expect(after["consecutive_failures"] as? Int == before["consecutive_failures"] as? Int)
         #expect(after["last_outcome"] as? String == before["last_outcome"] as? String)
+        for _ in 0..<10_000 {
+            if RTCScoreFixture.cancellationCount() == 1 { break }
+            await Task.yield()
+        }
         #expect(RTCScoreFixture.cancellationCount() == 1)
     }
 }
