@@ -286,7 +286,7 @@ try {
   const wwCorrection = await waitForFrame(wwCorrectionStart, frame => frame.request.method === "contest_qso_correct" && frame.response.ok, "WW correction receipt");
   assert.equal(wwCorrection.response.result.currentTarget.receivedExchange, "04"); assert.equal(wwCorrection.response.result.currentTarget.normalizedReceivedExchange, "04");
   await waitForSelectorText("[aria-label='Score and multipliers']", /Claimed score\s*42.*QSOs\s*3.*Points\s*7.*Multipliers\s*6/s);
-  await click("Edit DL1ABC"); await waitText("Update the contact"); await click("Delete contact"); await fill("Deletion note", "Synthetic acceptance deletion"); await click("Confirm deletion"); await waitText("Deleted DL1ABC"); await expectText("[aria-label='Contest log']", /2 contacts/);
+  await click("Edit DL1ABC"); await waitText("Update the contact"); await click("Delete contact"); await fill("Deletion note", "Synthetic acceptance deletion"); await click("Confirm deletion"); await waitText("Deleted DL1ABC"); await waitForSelectorText("[aria-label='Contest log']", /2 contacts/);
   await waitForSelectorText("[aria-label='Score and multipliers']", /Claimed score\s*24.*QSOs\s*2.*Points\s*6.*Multipliers\s*4/s);
   await expectDraftDupe(wwRepair, { call: "DL1ABC", rx: "14", frequency: 7_025_000, band: "40m" }, "clear", null);
   await expectDraftDupe(wwRepair, { call: "K1ABC", rx: "05", frequency: 7_025_000, band: "40m" }, "duplicate", null);
