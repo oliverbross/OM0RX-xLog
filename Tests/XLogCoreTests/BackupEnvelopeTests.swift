@@ -31,7 +31,7 @@ import Testing
             let envelope = try manager.prepareEnvelope(at: package)
             #expect(try manager.prepareEnvelope(at: package).data == envelope.data)
             #expect(try manager.validateRestoreEnvelope(envelope.data).identity == envelope.identity)
-            #expect(envelope.manifest.formatVersion == 2)
+            #expect(envelope.manifest.formatVersion == XLogBackupManifest.currentFormatVersion)
             #expect(envelope.settings == XLogSettings.defaults)
             let destination = try RemoteBackupDestination(id: UUID(), revision: 1, provider: .dropbox,
                 accountID: UUID(), location: .cloudFolder(id: "folder"))
