@@ -15,6 +15,7 @@ const sameContext = (current: ContestSurfaceContext | null, expected: ContestSur
   current.workspaceGeneration === expected.workspaceGeneration;
 const rebasablePresentationActions = new Set<ContestSurfaceActionEnvelope["action"]>([
   "entry_set_text", "entry_set_exchange", "entry_set_frequency_text", "entry_set_band", "entry_set_mode", "assistance_query",
+  "assistance_download", "assistance_refresh",
   "log_edit_set_text", "log_edit_set_exchange", "log_edit_set_frequency_text", "log_edit_set_band", "log_edit_confirm_delete",
 ]);
 

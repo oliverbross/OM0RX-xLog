@@ -771,6 +771,7 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
             draft(params, &["inputCallsign"])?;
             text_value(&params["inputCallsign"], 32, true, "assistance callsign")?;
         }
+        "assistance_download" | "assistance_refresh" => draft(params, &[])?,
         "assistance_select" => {
             draft(params, &["kind", "candidateID"])?;
             enum_value(
@@ -1459,7 +1460,16 @@ fn validate_assistance_projection(value: &Map<String, Value>) -> Result<(), Stri
     text_value(&value["inputCallsign"], 32, true, "input callsign")?;
     boolean(&value["busy"], "assistance busy")?;
     let scp = object(&value["scp"], "SCP projection")?;
-    exact(scp, &["source", "candidates"], "SCP projection")?;
+    let mut required_scp = scp.clone();
+    if let Some(availability) = required_scp.remove("availability") {
+        enum_value(&availability, &["ready", "not_imported", "invalid_cache", "replacing", "stopped", "status_unavailable"], "SCP availability")?;
+    }
+    for key in ["notice", "error"] {
+        if let Some(message) = required_scp.remove(key) {
+            nullable_text(&message, 512, "SCP status message")?;
+        }
+    }
+    exact(&required_scp, &["source", "candidates"], "SCP projection")?;
     nullable_text(&scp["source"], 160, "SCP source")?;
     let candidates = array(&scp["candidates"], 200, "SCP candidates")?;
     for candidate in candidates {
@@ -3199,10 +3209,21 @@ mod tests {
     #[test]
     fn assistance_projection_requires_owner_resolvable_candidate_ids() {
         let projection = json!({"schemaVersion":1,"status":"ready","draftID":"draft","draftRevision":2,
-            "inputCallsign":"K1","scp":{"source":"master.scp","candidates":[{"candidateID":"scp:K1ABC","callsign":"K1ABC"}]},
+            "inputCallsign":"K1","scp":{"source":"master.scp","candidates":[{"candidateID":"scp:K1ABC","callsign":"K1ABC"}],
+                "availability":"ready","notice":"Official MASTER.SCP is current.","error":null},
             "history":{"source":null,"rows":[{"candidateID":"history:qso-1","callsign":"K1ABC",
                 "fields":[{"id":"state","label":"State","value":"MA"}]}]},"busy":false});
         assert!(validate_projection("callsign-intelligence", &projection).is_ok());
+        for action_name in ["assistance_download", "assistance_refresh"] {
+            let params = json!({"draftID":"draft","expectedDraftRevision":2});
+            assert!(validate_action_params(action_name, params.as_object().unwrap()).is_ok());
+        }
+        let mut invalid_status = projection.clone();
+        invalid_status["scp"]["availability"] = json!("unknown");
+        assert!(validate_projection("callsign-intelligence", &invalid_status).is_err());
+        let mut excessive_error = projection.clone();
+        excessive_error["scp"]["error"] = json!("x".repeat(513));
+        assert!(validate_projection("callsign-intelligence", &excessive_error).is_err());
         let mut missing_id = projection;
         missing_id["scp"]["candidates"][0]
             .as_object_mut()

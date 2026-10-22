@@ -495,6 +495,26 @@ it("uses supplied full-log and cluster calls in their manual Check Partial colum
   expect(screen.getByRole("heading",{name:"Telnet"}).parentElement?.textContent).toBe("TelnetDL1XYZ");
 });
 
+it("routes missing-corpus download, refresh, and retry through the contest owner",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=callsign-intelligence"));
+  const view={schemaVersion:1,status:"ready",draftID:"draft-1",draftRevision:5,inputCallsign:"DL1",
+    scp:{source:null,candidates:[],availability:"invalid_cache",notice:null,error:"The previous download failed."},
+    history:{source:null,rows:[]},busy:false};
+  expect(validContestSurfaceProjection("callsign-intelligence",view)).toBe(true);
+  native.invoke.mockImplementation(async(command,args)=>command==="contest_surface_snapshot"?
+    {...snapshot,panelID:"callsign-intelligence",projection:view}:{requestID:args.requestID,status:"applied",projectionRevision:7});
+  render(<DetachedContestSurface/>);
+  expect(await screen.findByText(/saved local MASTER\.SCP index is invalid/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button",{name:"Download latest"}));
+  fireEvent.click(screen.getByRole("button",{name:"Refresh"}));
+  fireEvent.click(screen.getByRole("button",{name:"Retry"}));
+  await waitFor(()=>expect(native.invoke.mock.calls.filter(([command])=>command==="contest_surface_action").map(([,args])=>args.action))
+    .toEqual(["assistance_download","assistance_refresh","assistance_download"]));
+  for(const [,args] of native.invoke.mock.calls.filter(([command])=>command==="contest_surface_action"))
+    expect(args).toMatchObject({panelID:"callsign-intelligence",projectionRevision:6,
+      params:{draftID:"draft-1",expectedDraftRevision:5}});
+});
+
 it.each(["log", "scp", "cluster", "history"])("selects the %s Check Partial candidate with exact owner revisions",async kind=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=callsign-intelligence"));
   const candidate={candidateID:`${kind}:DL1ABC`,callsign:"DL1ABC"};

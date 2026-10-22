@@ -508,7 +508,8 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
         trace: operatorSurface.trace.map(item => ({ ...item })) } : null };
     liveSurfaceProjections["callsign-intelligence"] = { schemaVersion: 1, status: "ready", draftID: draft.draftID,
       draftRevision: draft.revision, inputCallsign: draft.fields.callsign,
-      scp: { source: scpSurface?.source ?? null, candidates: scpSurface?.candidates ?? [] },
+      scp: { source: scpSurface?.source ?? null, candidates: scpSurface?.candidates ?? [],
+        availability: scpSurface?.availability ?? "not_imported", notice: scpSurface?.notice ?? null, error: scpSurface?.error ?? null },
       history: { source: historySurface?.source ?? null, rows: historySurface?.rows ?? [] },
       busy: !!scpSurface?.busy || !!historySurface?.busy };
     liveSurfaceProjections.propagation = { schemaVersion: 1, status: "ready", score: score ? {
@@ -565,6 +566,12 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
           action.params.focusedField ? "exchange" : null); return;
       }
       case "assistance_query": changeField("callsign", action.params.inputCallsign.toUpperCase()); return;
+      case "assistance_download":
+        if (!scpSurface) throw new Error("Super Check Partial is unavailable.");
+        await scpSurface.downloadLatest(); return;
+      case "assistance_refresh":
+        if (!scpSurface) throw new Error("Super Check Partial is unavailable.");
+        await scpSurface.refresh(); return;
       case "assistance_select": {
         const surface = action.params.kind === "scp" ? scpSurface : action.params.kind === "history" ? historySurface : null;
         if (!surface) throw new Error("The callsign candidate set is unavailable.");

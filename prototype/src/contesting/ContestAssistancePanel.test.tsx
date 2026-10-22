@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { ContestAssistancePanel } from "./ContestAssistancePanel";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { ContestAssistancePanel, type ContestSCPPanelSurface } from "./ContestAssistancePanel";
 import { scpQuery, scpSelect, validateSCPImportResponse } from "./contestAssistance";
 import type { SCPDataset } from "./contestAssistance";
 import type { ContestRequest, ContestWorkerResponse } from "./types";
@@ -63,6 +63,58 @@ it("shows retryable provider failure and retains the active dataset",async()=>{
   expect((await screen.findByRole("alert")).textContent).toMatch(/try Download Latest again/);
   expect(screen.getByText(/tiny\.scp/)).toBeTruthy();
   expect((screen.getByRole("button",{name:"Download latest"}) as HTMLButtonElement).disabled).toBe(false);
+});
+
+it("retains the prior corpus when a failed download cannot refresh status, then recovers on retry",async()=>{
+  let statusAvailable=true, statusCalls=0, surface:ContestSCPPanelSurface|null=null;
+  const request=(async(method:string)=>{
+    if(method==="contest_scp_status"){
+      statusCalls+=1;if(!statusAvailable)throw new Error("status unavailable");
+      return {id:"status",ok:true,result:{dataset,unavailableReason:null}};
+    }
+    if(method==="contest_scp_download")return {id:"download",ok:false,error:{code:"scp_download_failed",
+      message:"The provider is unavailable.",outcome:"confirmed"}};
+    if(method==="contest_scp_cancel")return {id:"cancel",ok:true,result:{cancelled:true}};
+    throw new Error(method);
+  }) as ContestRequest;
+  render(<ContestAssistancePanel request={request} {...context} callsign="" onSelect={vi.fn()}
+    onSurfaceChange={value=>{surface=value;}}/>);
+  await waitFor(()=>expect(surface?.source).toBe("tiny.scp"));
+  statusAvailable=false;
+  await act(async()=>{await surface!.downloadLatest();});
+  await waitFor(()=>expect(surface?.availability).toBe("status_unavailable"));
+  expect((surface as ContestSCPPanelSurface|null)?.source).toBe("tiny.scp");
+  expect((surface as ContestSCPPanelSurface|null)?.error).toMatch(/Existing data was retained/);
+  statusAvailable=true;
+  await act(async()=>{await surface!.refresh();});
+  await waitFor(()=>expect(surface?.availability).toBe("ready"));
+  expect(statusCalls).toBeGreaterThanOrEqual(3);
+});
+
+it("recovers a missing cache through the shared download path, reruns the query, and survives restart",async()=>{
+  const official={...dataset,sourceID:"supercheckpartial-official",version:"MASTER.SCP",sha256:"b".repeat(64)};
+  let current:SCPDataset|null=null, surface:ContestSCPPanelSurface|null=null, queries=0;
+  const request=(async(method:string,params:Record<string,unknown>={})=>{
+    if(method==="contest_scp_status")return {id:"status",ok:true,result:{dataset:current,unavailableReason:current?null:"invalid_cache"}};
+    if(method==="contest_scp_download"){current=official;return {id:"download",ok:true,result:{dataset:official,updated:true}};}
+    if(method==="contest_scp_query"){queries+=1;return {id:"query",ok:true,result:{sessionID:context.sessionID,
+      workspaceGeneration:context.workspaceGeneration,requestID:params.requestID,normalizedQuery:"K1",
+      matches:[{matchID:`${official.sha256}:0`,callsign:"K1ABC",score:100,isPrefixMatch:true}],dataset:official,
+      evaluatedRecordCount:official.recordCount,isPartial:false}};}
+    if(method==="contest_scp_cancel")return {id:"cancel",ok:true,result:{cancelled:true}};
+    throw new Error(method);
+  }) as ContestRequest;
+  const props={request,...context,callsign:"K1",onSelect:vi.fn(),onSurfaceChange:(value:ContestSCPPanelSurface|null)=>{surface=value;}};
+  const view=render(<ContestAssistancePanel {...props}/>);
+  await waitFor(()=>expect(surface?.availability).toBe("invalid_cache"));
+  await act(async()=>{await surface!.downloadLatest();});
+  await waitFor(()=>expect(surface?.availability).toBe("ready"));
+  await waitFor(()=>expect(surface?.candidates.map(item=>item.callsign)).toEqual(["K1ABC"]));
+  const beforeRestart=queries;
+  view.unmount();
+  render(<ContestAssistancePanel {...props}/>);
+  await waitFor(()=>expect(queries).toBeGreaterThan(beforeRestart));
+  expect((surface as ContestSCPPanelSurface|null)?.source).toBe("MASTER.SCP");
 });
 
 it("cancels stale query context on callsign change and never selects implicitly", async()=>{

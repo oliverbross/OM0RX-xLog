@@ -84,6 +84,8 @@ const valid = [
   { panelID: "active-qso", action: "entry_operator_key", params: { ...draft, key: "F12", focusedField: null } },
   { panelID: "active-qso", action: "entry_operator_key", params: { ...draft, key: "F1", focusedField: "callsign", shifted: true } },
   { panelID: "callsign-intelligence", action: "assistance_query", params: { ...draft, inputCallsign: "OM0" } },
+  { panelID: "callsign-intelligence", action: "assistance_download", params: draft },
+  { panelID: "callsign-intelligence", action: "assistance_refresh", params: draft },
   { panelID: "callsign-intelligence", action: "assistance_select", params: { ...draft, kind: "history", candidateID: "history-1" } },
   { panelID: "logbook", action: "log_page", params: { offset: 20 } },
   { panelID: "logbook", action: "log_export_cabrillo", params: {} },
@@ -157,7 +159,8 @@ const entryProjectionV2 = { ...entryProjection, schemaVersion: 2,
       canReserveCommit: true, canCommit: false },
     trace: [{ operationID: "simulation-1", mode: "CW", macro: "CQ", text: "CQ OM0RX", status: "confirmed" }] } } as const;
 const checkProjection = { schemaVersion: 1, status: "ready", draftID: "draft-1", draftRevision: 5, inputCallsign: "OM0",
-  scp: { source: "master.scp", candidates: [{ candidateID: "scp:OM0RX", callsign: "OM0RX" }] },
+  scp: { source: "master.scp", candidates: [{ candidateID: "scp:OM0RX", callsign: "OM0RX" }],
+    availability: "ready", notice: "Official MASTER.SCP is current.", error: null },
   history: { source: "session", rows: [{ candidateID: "history:qso-1", callsign: "OM0RX",
     fields: [{ id: "section", label: "Section", value: "DX" }] }] }, busy: false } as const;
 const statisticsProjection = { schemaVersion: 1, status: "ready", score: { qsos: 6, points: 21, multipliers: 8, claimedScore: 168,

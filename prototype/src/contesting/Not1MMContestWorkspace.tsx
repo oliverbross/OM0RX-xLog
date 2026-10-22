@@ -1680,7 +1680,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       loggedCalls:loggedCandidates.map(candidate => candidate.callsign),
       clusterCalls:clusterCandidates.map(candidate => candidate.callsign),
       loggedCandidates, clusterCandidates,
-      scp: { source: scpSurface?.source ?? null, candidates: scpSurface?.candidates ?? [] },
+      scp: { source: scpSurface?.source ?? null, candidates: scpSurface?.candidates ?? [],
+        availability: scpSurface?.availability ?? "not_imported", notice: scpSurface?.notice ?? null, error: scpSurface?.error ?? null },
       history: { source: historyCandidate ? "Imported Call History" : null,
         rows: historyCandidate ? [historyCandidate] : [] },
       busy: !!scpSurface?.busy,
@@ -1963,6 +1964,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         if (action.params.shifted) { await startAutoCQ(action.requestID); return; }
         await hostAction("contest_function_key", { key: action.params.key }, true, action.requestID); return;
       case "assistance_query": await persistFields("callsign", action.params.inputCallsign.toUpperCase()); return;
+      case "assistance_download":
+        if (!scpSurface) throw new Error("Super Check Partial is unavailable.");
+        await scpSurface.downloadLatest(); return;
+      case "assistance_refresh":
+        if (!scpSurface) throw new Error("Super Check Partial is unavailable.");
+        await scpSurface.refresh(); return;
       case "assistance_select":
         if (action.params.kind === "log" || action.params.kind === "cluster") {
           const candidates = action.params.kind === "log" ? loggedCandidates : clusterCandidates;

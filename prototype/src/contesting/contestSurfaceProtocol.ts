@@ -29,6 +29,7 @@ export type ContestSurfaceAction =
   | { action: "entry_operator_key"; params: DraftRevision & { key: "F1" | "F2" | "F3" | "F4" | "F5" | "F6" |
       "F7" | "F8" | "F9" | "F10" | "F11" | "F12" | "Enter" | "Escape"; focusedField: ContestInputFieldID | null; shifted?: boolean } }
   | { action: "assistance_query"; params: DraftRevision & { inputCallsign: string } }
+  | { action: "assistance_download" | "assistance_refresh"; params: DraftRevision }
   | { action: "assistance_select"; params: DraftRevision & { kind: "scp" | "history" | "log" | "cluster"; candidateID: string } }
   | { action: "log_export_cabrillo" | "log_export_adif" | "log_export_edi"; params: Record<string, never> }
   | { action: "log_recalculate"; params: { expectedSessionRevision: Revision } }
@@ -97,7 +98,9 @@ export type ContestCallCandidate = { candidateID: string; callsign: string };
 export type ContestCheckSurfaceProjection = { schemaVersion: 1; status: "ready"; draftID: string; draftRevision: number;
   loggedCalls?: string[]; clusterCalls?: string[];
   loggedCandidates?: ContestCallCandidate[]; clusterCandidates?: ContestCallCandidate[];
-  inputCallsign: string; scp: { source: string | null; candidates: { candidateID: string; callsign: string }[] };
+  inputCallsign: string; scp: { source: string | null; candidates: { candidateID: string; callsign: string }[];
+    availability?: "ready" | "not_imported" | "invalid_cache" | "replacing" | "stopped" | "status_unavailable";
+    notice?: string | null; error?: string | null };
   history: { source: string | null; rows: { candidateID: string; callsign: string;
     fields: { id: string; label: string; value: string }[] }[] }; busy: boolean };
 export type ContestStatisticsScore = null | {
@@ -296,7 +299,10 @@ function validCheckProjection(value: Record<string, unknown>) {
     ["loggedCandidates", "clusterCandidates"].every(key => !(key in value) || validCallCandidates(value[key])) &&
     ["loggedCalls", "clusterCalls"].every(key => !(key in value) || texts(value[key], 500, 32)) &&
     text(value.draftID, 160) && uint(value.draftRevision) && text(value.inputCallsign, 32, true) && !!scp &&
-    exact(scp, ["source", "candidates"]) && (scp.source === null || text(scp.source, 160)) && Array.isArray(scp.candidates) &&
+    optionalKeys(scp, ["source", "candidates"], ["availability", "notice", "error"]) && (scp.source === null || text(scp.source, 160)) &&
+    (scp.availability === undefined || oneOf(scp.availability, ["ready", "not_imported", "invalid_cache", "replacing", "stopped", "status_unavailable"])) &&
+    (scp.notice === undefined || scp.notice === null || text(scp.notice, 512, true)) &&
+    (scp.error === undefined || scp.error === null || text(scp.error, 512, true)) && Array.isArray(scp.candidates) &&
     scp.candidates.length <= 64 && scp.candidates.every(item => { const candidate = record(item) ? item : undefined; return !!candidate &&
       exact(candidate, ["candidateID", "callsign"]) && text(candidate.candidateID, 160) && text(candidate.callsign, 32); }) &&
     !!history && exact(history, ["source", "rows"]) && (history.source === null || text(history.source, 160)) && Array.isArray(history.rows) &&
@@ -505,6 +511,7 @@ function validParams(action: string, params: Record<string, unknown>) {
     (params.focusedField === null || oneOf(params.focusedField, contestInputFieldIDs)) &&
     (params.shifted === undefined || typeof params.shifted === "boolean" && params.key === "F1");
   if (action === "assistance_query") return draft(params, ["inputCallsign"]) && text(params.inputCallsign, 32, true);
+  if (action === "assistance_download" || action === "assistance_refresh") return draft(params, []);
   if (action === "assistance_select") return draft(params, ["kind", "candidateID"]) &&
     oneOf(params.kind, ["scp", "history", "log", "cluster"]) && text(params.candidateID, 160);
   if (action === "log_export_cabrillo" || action === "log_export_adif" || action === "log_export_edi") return exact(params, []);

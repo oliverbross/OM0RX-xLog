@@ -553,7 +553,21 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
 function Check({ projection, disabled, projectionRevision, receipts, send }: { projection: any; disabled: boolean;
   projectionRevision:number;receipts:ContestSurfaceTerminalReceipt[];send: Send }) {
   const base={draftID:projection.draftID,expectedDraftRevision:projection.draftRevision};
+  const availability=projection.scp.availability??(projection.scp.source?"ready":"not_imported");
+  const unavailableMessage=availability==="invalid_cache"?"The saved local MASTER.SCP index is invalid. Download the latest official file or refresh after repairing it.":
+    availability==="replacing"?"MASTER.SCP is currently being replaced. Refresh to check its status.":
+    availability==="stopped"?"Super Check Partial is stopped. Refresh after the contest service restarts.":
+    availability==="status_unavailable"?"Local SCP status is unavailable. Any previously active corpus is retained.":
+    "No local MASTER.SCP corpus is active.";
+  const assistance=(action:"assistance_download"|"assistance_refresh")=>void send({action,params:base},projectionRevision);
   return <section className="contest-surface-check"><h1>Check Partial</h1>
+    <div className="contest-surface-check-recovery" role="region" aria-label="Super Check Partial corpus">
+      <div><strong>{projection.scp.source??"MASTER.SCP unavailable"}</strong>{availability!=="ready"&&<p>{unavailableMessage}</p>}</div>
+      <div><button type="button" disabled={disabled} onClick={()=>assistance("assistance_download")}>Download latest</button>
+        <button type="button" disabled={disabled} onClick={()=>assistance("assistance_refresh")}>Refresh</button>
+        {projection.scp.error&&<button type="button" disabled={disabled} onClick={()=>assistance(availability==="status_unavailable"?"assistance_refresh":"assistance_download")}>Retry</button>}</div>
+      {projection.scp.notice&&<p role="status">{projection.scp.notice}</p>}{projection.scp.error&&<p role="alert">{projection.scp.error}</p>}
+    </div>
     <div className="contest-surface-check-columns"><div><h2>Log</h2>{projection.loggedCandidates ? <ContestCandidates className="contest-surface-results" disabled={disabled} strongLabel={false}
       candidates={projection.loggedCandidates.map((item:any)=>({id:item.candidateID,label:item.callsign}))}
       onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"log",candidateID}},projectionRevision)}/> : projection.loggedCalls?.map((call:string)=><p key={call}>{call}</p>)}{!projection.loggedCandidates&&!projection.loggedCalls&&<p aria-label="Matching logged calls unavailable">—</p>}</div><div><h2>Master</h2><ContestCandidates className="contest-surface-results" disabled={disabled} strongLabel={false}
