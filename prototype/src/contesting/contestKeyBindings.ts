@@ -7,6 +7,7 @@ export type ContestFunctionKeyAction = typeof contestFunctionKeyActions[number];
 
 export const contestKeyBindingActions = ["TOGGLE_RUN", "SET_RUN", "SET_S_AND_P", "LOG_NOW", "CLEAR_INPUTS",
   "PREV_SPOT", "NEXT_SPOT", "SPOT_DX", "MARK_SPOT", "TUNE_SPOT", "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN",
+  "TOGGLE_CW_INPUT", "RST_INCR", "RST_DECR", "EXCH_INCR", "EXCH_DECR",
   "WIN_BAND", "WIN_CHECK", "WIN_LOG", "WIN_RATE", "WIN_STATS", "WIN_VFO", "VFO_UP", "VFO_DOWN",
   ...contestFunctionKeyActions] as const;
 export type ContestKeyBindingAction = typeof contestKeyBindingActions[number];
@@ -33,6 +34,11 @@ export const contestKeyBindingDescriptions: Record<ContestKeyBindingAction, stri
   FOCUS_PREVIOUS: "Move focus to the previous contest field",
   CW_SPEED_UP: "Increase CW sending speed",
   CW_SPEED_DOWN: "Decrease CW sending speed",
+  TOGGLE_CW_INPUT: "Toggle the free-form CW input",
+  RST_INCR: "Increase the focused RST",
+  RST_DECR: "Decrease the focused RST",
+  EXCH_INCR: "Increase the focused numeric exchange",
+  EXCH_DECR: "Decrease the focused numeric exchange",
   WIN_BAND: "Toggle the Band Map window",
   WIN_CHECK: "Toggle the Check Partial window",
   WIN_LOG: "Toggle the QSO Log window",

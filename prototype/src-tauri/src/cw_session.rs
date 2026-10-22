@@ -208,6 +208,27 @@ impl Session {
         };
         let outcome = (|| {
             if self.backend.canonical()? != canonical { return Err("Contest context changed before ESM admission.".into()); }
+            if params["operation"] == "text" {
+                let raw = params["text"].as_str().ok_or("Contest CW input is unavailable")?;
+                let text = raw.split_ascii_whitespace().collect::<Vec<_>>().join(" ").to_ascii_uppercase();
+                let limit = target["limit"].as_u64().unwrap_or(80) as usize;
+                if text.is_empty() || text.len() > limit || !text.is_ascii() || text.chars().any(char::is_control) {
+                    return Err(format!("Contest CW input must be 1 to {limit} printable ASCII characters."));
+                }
+                let observed = self.backend.inspect(&canonical, false)?;
+                if !same_target(&target, &observed) || self.backend.canonical()? != canonical {
+                    return Err("Contest session, settings or radio changed before CW input output.".into());
+                }
+                let intent = { let mut state = self.lock()?; self.current(&state, epoch, client)?;
+                    if state.armed_until <= (self.clock)() { return Err("CW arming expired before contest output.".into()); }
+                    state.intent = state.intent.max(observed["last_intent"].as_u64().unwrap_or(0)).checked_add(1).ok_or("CW intent exhausted")?;
+                    state.owner = target.clone(); Self::change(&mut state); state.intent };
+                self.backend.output(&target, "send", Some(&text), intent)?;
+                let mut state = self.lock()?; self.current(&state, epoch, client)?;
+                state.contest_result = json!({"accepted":true,"operationID":params["operationID"]});
+                state.canonical = canonical.clone();
+                return Ok(());
+            }
             let result = self.backend.contest_operation(&canonical, params)?;
             { let mut state = self.lock()?; state.contest_result = result.clone(); }
             let after = self.backend.canonical()?;
@@ -519,6 +540,16 @@ mod tests {
         assert_eq!(reply["canonical"]["context"]["CALL"], ""); assert_eq!(reply["armed"], true);
         assert!(backend.writes.lock().unwrap().iter().any(|(action,text,_)| action=="send" && text.as_deref()==Some("K1ABC 5NN 15")));
         assert_eq!(backend.claims.lock().unwrap().len(), 1);
+    }
+    #[test]
+    fn contest_text_uses_the_armed_contest_lease_without_a_host_macro_mutation() {
+        let (session, backend, mut client) = contest_ready();
+        let reply = contest_call(&mut client, &session, json!({"operation":"text","text":"cq test de om0rx"}));
+        assert_eq!(reply["contestResult"]["accepted"], true);
+        assert_eq!(reply["armed"], true);
+        assert!(backend.writes.lock().unwrap().iter().any(|(action,text,_)|
+            action == "send" && text.as_deref() == Some("CQ TEST DE OM0RX")));
+        assert!(backend.claims.lock().unwrap().is_empty());
     }
     #[test]
     fn contest_cw_formatting_matches_original_not1mm_without_changing_raw_values() {

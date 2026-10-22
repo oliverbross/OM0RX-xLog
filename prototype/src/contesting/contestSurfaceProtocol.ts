@@ -24,6 +24,7 @@ export type ContestSurfaceAction =
   | { action: "entry_operator_arm"; params: DraftRevision & { armed: boolean } }
   | { action: "entry_operator_style"; params: DraftRevision & { value: "run" | "search-and-pounce" } }
   | { action: "entry_set_cw_speed"; params: DraftRevision & { value: number } }
+  | { action: "entry_send_cw_text"; params: DraftRevision & { value: string } }
   | { action: "entry_focus"; params: DraftRevision & { fieldID: ContestInputFieldID } }
   | { action: "entry_operator_key"; params: DraftRevision & { key: "F1" | "F2" | "F3" | "F4" | "F5" | "F6" |
       "F7" | "F8" | "F9" | "F10" | "F11" | "F12" | "Enter" | "Escape"; focusedField: ContestInputFieldID | null; shifted?: boolean } }
@@ -490,6 +491,7 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "entry_operator_arm") return draft(params, ["armed"]) && typeof params.armed === "boolean";
   if (action === "entry_operator_style") return draft(params, ["value"]) && oneOf(params.value, ["run", "search-and-pounce"]);
   if (action === "entry_set_cw_speed") return draft(params, ["value"]) && uint(params.value, 100) && (params.value as number) >= 5;
+  if (action === "entry_send_cw_text") return draft(params, ["value"]) && text(params.value, 80) && /^[\x20-\x7e]+$/.test(String(params.value));
   if (action === "entry_focus") return draft(params, ["fieldID"]) && oneOf(params.fieldID, contestInputFieldIDs);
   if (action === "entry_operator_key") return draft(params, ["key", "focusedField"], ["shifted"]) &&
     typeof params.key === "string" && /^(?:F(?:[1-9]|1[0-2])|Enter|Escape)$/.test(params.key) &&

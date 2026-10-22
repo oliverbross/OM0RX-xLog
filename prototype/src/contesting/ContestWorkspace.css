@@ -157,6 +157,12 @@
   .contest-qso-readonly>div:nth-child(3n) { border-right:0; }
   .contest-qso-readonly>div:nth-child(n+4) { border-top:1px solid #304b68; }
 }
+
+.contest-surface-cw-input { position:fixed; z-index:40; inset:auto 16px 16px 16px; max-width:720px; margin:auto; display:grid;
+  grid-template-columns:minmax(0,1fr) auto auto; gap:8px; align-items:end; padding:12px; border:1px solid var(--border,#304b68);
+  border-radius:8px; background:var(--panel,#0d1b2b); box-shadow:0 12px 36px #0009; }
+.contest-surface-cw-input label { display:grid; gap:4px; min-width:0; }
+.contest-surface-cw-input input { width:100%; min-width:0; }
 @container contest-workspace (max-width:560px) {
   .contest-workspace { padding:8px; }
   .contest-header,.contest-entry>header,.contest-log>header { align-items:flex-start; flex-direction:column; }

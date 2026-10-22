@@ -13,6 +13,7 @@ describe("contest key bindings", () => {
   it("offers only implemented operator actions and maps each function macro exactly", () => {
     expect(contestKeyBindingActions).toEqual(expect.arrayContaining([
       "SET_RUN", "SET_S_AND_P", "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN",
+      "TOGGLE_CW_INPUT", "RST_INCR", "RST_DECR", "EXCH_INCR", "EXCH_DECR",
       "SPOT_DX", "MARK_SPOT", "TUNE_SPOT",
     ]));
     expect(contestFunctionKeyActions.map(functionKeyForContestAction)).toEqual(
@@ -38,7 +39,8 @@ describe("contest key bindings", () => {
     expect(readContestKeyBindings(JSON.stringify([
       { context: "*", key: "Ctrl+W", action: "WIPE", description: "old" },
       { context: "*", key: "Ctrl+Shift+K", action: "TOGGLE_CW_INPUT", description: "not yet owned" },
-    ]))).toEqual([{ context: "*", key: "Ctrl+W", action: "CLEAR_INPUTS" }]);
+    ]))).toEqual([{ context: "*", key: "Ctrl+W", action: "CLEAR_INPUTS" },
+      { context: "*", key: "Ctrl+Shift+K", action: "TOGGLE_CW_INPUT" }]);
     const legacyDefaults=defaultContestKeyBindings.map(row=>row.action==="TUNE_SPOT"?{...row,key:"Ctrl+T"}:row);
     expect(readContestKeyBindings(encodeContestKeyBindings(legacyDefaults))).toEqual(defaultContestKeyBindings);
     expect(readContestKeyBindings(encodeContestKeyBindings([{context:"*",key:"Ctrl+T",action:"TUNE_SPOT"}]))).toEqual([

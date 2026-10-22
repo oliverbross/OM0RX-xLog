@@ -215,6 +215,7 @@ fn submit_checked(
 fn requires_focus_admission(envelope: &Value) -> bool {
     envelope["action"] == "entry_operator_arm" && envelope["params"]["armed"] == true
         || envelope["action"] == "entry_operator_key" && envelope["params"]["key"] != "Escape"
+        || envelope["action"] == "entry_send_cw_text"
 }
 
 pub fn consume_focus_admission(context: &ContestWindowContext, request_id: &str, action: &str) -> Result<bool, String> {
@@ -230,7 +231,8 @@ fn consume_focus_admission_in(state: &mut State, request_id: &str, action: &str)
     let admitted = state.panels.get("active-qso").and_then(|panel| panel.receipts.iter()
         .find(|(candidate, _)| candidate == request_id)).is_some_and(|(_, receipt)| {
             receipt.status == "uncertain" && requires_focus_admission(&receipt.envelope)
-                && matches!((action, receipt.envelope["action"].as_str()), ("arm", Some("entry_operator_arm")) | ("contest", Some("entry_operator_key")))
+                && matches!((action, receipt.envelope["action"].as_str()), ("arm", Some("entry_operator_arm"))
+                    | ("contest", Some("entry_operator_key" | "entry_send_cw_text")))
         });
     admitted && state.focused_actions.remove(request_id)
 }
@@ -725,6 +727,13 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
             let speed = uint_value(&params["value"], 100, "CW speed")?;
             if speed < 5 { return Err("CW speed must be between 5 and 100 WPM.".into()); }
         }
+        "entry_send_cw_text" => {
+            draft(params, &["value"])?;
+            let value = text_value(&params["value"], 80, false, "CW input")?;
+            if !value.is_ascii() || value.chars().any(char::is_control) {
+                return Err("CW input must use printable ASCII characters.".into());
+            }
+        }
         "assistance_query" => {
             draft(params, &["inputCallsign"])?;
             text_value(&params["inputCallsign"], 32, true, "assistance callsign")?;
@@ -1145,6 +1154,7 @@ fn validate_entry_descriptor(value: &Value) -> Result<BTreeSet<String>, String> 
         }
         enum_value(&binding["action"], &["TOGGLE_RUN", "SET_RUN", "SET_S_AND_P", "LOG_NOW", "CLEAR_INPUTS",
             "PREV_SPOT", "NEXT_SPOT", "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN",
+            "TOGGLE_CW_INPUT", "RST_INCR", "RST_DECR", "EXCH_INCR", "EXCH_DECR",
             "SEND_F1", "SEND_F2", "SEND_F3", "SEND_F4", "SEND_F5", "SEND_F6", "SEND_F7", "SEND_F8", "SEND_F9",
             "SEND_F10", "SEND_F11", "SEND_F12"],
             "entry key action")?;
@@ -2679,6 +2689,12 @@ mod tests {
             assert!(validate_action_envelope(&action("entry_set_cw_speed", "active-qso",
                 json!({"draftID":"draft","expectedDraftRevision":2,"value":speed}))).is_err());
         }
+        assert!(validate_action_envelope(&action("entry_send_cw_text", "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2,"value":"CQ TEST DE OM0RX"}))).is_ok());
+        for value in [json!(""), json!("CQ\nTEST"), json!("é"), json!("X".repeat(81))] {
+            assert!(validate_action_envelope(&action("entry_send_cw_text", "active-qso",
+                json!({"draftID":"draft","expectedDraftRevision":2,"value":value}))).is_err());
+        }
         assert!(validate_action_envelope(&action(
             "entry_operator_arm",
             "active-qso",
@@ -3057,7 +3073,7 @@ mod tests {
         ]);
         assert!(validate_projection("active-qso", &duplicate_binding).is_err());
         for action in ["TOGGLE_RUN", "SET_RUN", "SET_S_AND_P", "LOG_NOW", "CLEAR_INPUTS", "PREV_SPOT", "NEXT_SPOT",
-            "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN", "SEND_F1", "SEND_F2",
+            "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN", "TOGGLE_CW_INPUT", "RST_INCR", "RST_DECR", "EXCH_INCR", "EXCH_DECR", "SEND_F1", "SEND_F2",
             "SEND_F3", "SEND_F4", "SEND_F5", "SEND_F6", "SEND_F7", "SEND_F8", "SEND_F9", "SEND_F10", "SEND_F11", "SEND_F12"] {
             let mut supported_binding = entry.clone();
             supported_binding["descriptor"]["keyBindings"][0]["action"] = json!(action);
@@ -3462,6 +3478,17 @@ mod tests {
         state.focused_actions.insert(REQUEST.into());
         revoke_focus_admissions_in(&mut state);
         assert!(!consume_focus_admission_in(&mut state, REQUEST, "contest"));
+
+        let mut text_state = State { context: Some(context()), ..State::default() };
+        publish_after_admission(&mut text_state, "active-qso", 7, json!({"status":"ready"})).unwrap();
+        let text_envelope = action("entry_send_cw_text", "active-qso", json!({
+            "draftID":"draft","expectedDraftRevision":2,"value":"CQ TEST"
+        }));
+        let checked = validate_action_envelope(&text_envelope).unwrap();
+        submit_after_admission_focused(&mut text_state, "active-qso", &checked, text_envelope, true).unwrap();
+        assert!(take_next(&mut text_state).unwrap().is_some());
+        assert!(consume_focus_admission_in(&mut text_state, REQUEST, "contest"));
+        assert!(!consume_focus_admission_in(&mut text_state, REQUEST, "contest"));
     }
 
     #[test]

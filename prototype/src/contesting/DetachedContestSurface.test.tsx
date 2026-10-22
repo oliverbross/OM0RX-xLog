@@ -945,6 +945,73 @@ it("executes a field-context Not1MM key binding",async()=>{
     .toMatchObject({action:"entry_step_spot",params:{direction:"next"}}));
 });
 
+it("opens its bounded CW composer and routes text through the fenced active-QSO action",async()=>{
+  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14025000,frequencyError:""},
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null},
+      keyBindings:[{context:"Report",key:"Ctrl+K",action:"TOGGLE_CW_INPUT"}]},
+    operator:{output:"test-simulation",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_snapshot")return view;
+    if(command==="contest_surface_action")return {requestID:args.requestID,status:"applied"};
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);await screen.findByRole("region",{name:"Main Logging"});
+  const launchField=screen.getByLabelText("RCV");launchField.focus();fireEvent.keyDown(launchField,{key:"k",ctrlKey:true});
+  let input=await screen.findByLabelText("Send CW text");expect(document.activeElement).toBe(input);
+  fireEvent.keyDown(input,{key:"k",ctrlKey:true});await waitFor(()=>expect(screen.queryByLabelText("Send CW text")).toBeNull());
+  expect(document.activeElement).toBe(launchField);fireEvent.keyDown(launchField,{key:"k",ctrlKey:true});input=await screen.findByLabelText("Send CW text");
+  fireEvent.change(input,{target:{value:"CQ TEST DE OM0RX"}});
+  expect(fireEvent.keyDown(input,{key:" "})).toBe(true);expect(fireEvent.keyDown(input,{key:"Enter"})).toBe(true);
+  expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&args.action==="entry_operator_key")).toBe(false);
+  fireEvent.keyDown(input,{key:"Escape"});await waitFor(()=>expect(screen.queryByLabelText("Send CW text")).toBeNull());expect(document.activeElement).toBe(launchField);
+  fireEvent.keyDown(launchField,{key:"k",ctrlKey:true});input=await screen.findByLabelText("Send CW text");
+  fireEvent.change(input,{target:{value:"CQ TEST DE OM0RX"}});fireEvent.submit(input.closest("form")!);
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="entry_send_cw_text")?.[1])
+    .toMatchObject({panelID:"active-qso",action:"entry_send_cw_text",params:{draftID:"draft-1",expectedDraftRevision:5,value:"CQ TEST DE OM0RX"}}));
+  await waitFor(()=>expect(document.activeElement).toBe(launchField));
+});
+
+it("steps long numeric exchanges without losing precision",async()=>{
+  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,
+    receivedFields:[{id:"serial",label:"Serial",value:"9007199254740992",required:true,maximumUTF8Bytes:32}],frequencyHz:14025000,frequencyError:""},
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],reportFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null},
+      keyBindings:[{context:"Exchange",key:"Ctrl+E",action:"EXCH_INCR"}]},
+    operator:{output:"test-simulation",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_snapshot")return view;
+    if(command==="contest_surface_action")return {requestID:args.requestID,status:"applied",projectionRevision:7};
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const input=await screen.findByLabelText("Received exchange 1");input.focus();
+  fireEvent.keyDown(input,{key:"e",ctrlKey:true});
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="entry_set_exchange")?.[1])
+    .toMatchObject({action:"entry_set_exchange",params:{fieldID:"serial",value:"9007199254740993"}}));
+});
+
+it.each([
+  ["r","RST_INCR","RCV","entry_set_text",{field:"receivedReport",value:"600"}],
+  ["r","RST_DECR","RCV","entry_set_text",{field:"receivedReport",value:"598"}],
+  ["e","EXCH_INCR","Received exchange 1","entry_set_exchange",{fieldID:"zone",value:"015"}],
+  ["e","EXCH_DECR","Received exchange 1","entry_set_exchange",{fieldID:"zone",value:"013"}],
+] as const)("dispatches %s-bound %s against the focused plugin field identity",async(key,bindingAction,label,wireAction,expected)=>{
+  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,receivedFields:[{id:"zone",label:"Zone",value:"014",required:true,maximumUTF8Bytes:3}],frequencyHz:14025000,frequencyError:""},
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],reportFields:[{id:"sent",label:"SNT",value:"599",required:true,maximumUTF8Bytes:3,enabled:true,readOnly:false},
+      {id:"receive",label:"RCV",value:"599",required:true,maximumUTF8Bytes:3,enabled:true,readOnly:false}],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null},
+      keyBindings:[{context:bindingAction.startsWith("RST")?"Report":"Exchange",key:`Ctrl+${key.toUpperCase()}`,action:bindingAction}]},
+    operator:{output:"test-simulation",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_snapshot")return view;
+    if(command==="contest_surface_action")return {requestID:args.requestID,status:"applied",projectionRevision:7};
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const input=await screen.findByLabelText(label);input.focus();fireEvent.keyDown(input,{key,ctrlKey:true});
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action===wireAction)?.[1])
+    .toMatchObject({action:wireAction,params:expected}));
+});
+
 it.each([["s","entry_spot"],["m","entry_mark_spot"],["g","entry_tune_spot"]] as const)(
   "routes Ctrl-%s through the bounded %s Edit Keys action",async(key,action)=>{
   const bindingAction={entry_spot:"SPOT_DX",entry_mark_spot:"MARK_SPOT",entry_tune_spot:"TUNE_SPOT"}[action];

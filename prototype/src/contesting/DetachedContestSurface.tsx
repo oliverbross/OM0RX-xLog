@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent,
-  type MouseEvent as ReactMouseEvent, type Ref } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type Ref } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { contestSurfaceContextFromSearch, onContestSurfaceWake, readContestSurfaceSnapshot, submitContestSurfaceAction,
@@ -319,9 +319,18 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
   settle:()=>Promise<void>;reportConflict:(message:string)=>void }) {
   const base = { draftID: projection.draft.draftID, expectedDraftRevision: projection.draft.revision };
   const fieldRefs=useRef<Partial<Record<ContestInputFieldID,HTMLInputElement|null>>>({});
+  const cwInputRef=useRef<HTMLInputElement|null>(null);
+  const cwReturnFocus=useRef<HTMLElement|null>(null);
+  const cwInputBindingContext=useRef<ContestKeyBindingContext>("*");
+  const [cwInputOpen,setCWInputOpen]=useState(false),[cwInput,setCWInput]=useState("");
   const focusPending=useRef<Promise<number|null>>(Promise.resolve(null)),desiredFocus=useRef<ContestInputFieldID|null>(null),
     focusDraft=useRef(base.draftID);
   const operator=projection.schemaVersion===2?projection.operator:null;
+  const closeCWInput=()=>{setCWInputOpen(false);queueMicrotask(()=>{
+    const target=cwReturnFocus.current;
+    if(target?.isConnected&&target!==document.body)target.focus();
+    else fieldRefs.current[(operator?.focusedField??"callsign") as ContestInputFieldID]?.focus();
+  });};
   const testSimulation=operator?.output==="test-simulation";
   const cwMode=projection.draft.mode==="CW";
   const phoneMode=projection.draft.mode==="SSB";
@@ -379,6 +388,31 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
       const target=action==="FOCUS_CALLSIGN"?"callsign":focusedField?nextFocusable(focusedField,action==="FOCUS_NEXT"?"tabNext":"tabPrevious"):null;
       if(target)fieldRefs.current[target]?.focus();return;
     }
+    if(action==="TOGGLE_CW_INPUT"){
+      if(!cwMode){reportConflict("Free-form CW input is available only in CW mode.");return;}
+      if(cwInputOpen){closeCWInput();return;}
+      cwInputBindingContext.current=bindingContext(focusedField);
+      cwReturnFocus.current=document.activeElement instanceof HTMLElement&&document.activeElement!==document.body?document.activeElement:null;
+      setCWInputOpen(true);queueMicrotask(()=>cwInputRef.current?.focus());return;
+    }
+    if(action==="RST_INCR"||action==="RST_DECR"||action==="EXCH_INCR"||action==="EXCH_DECR"){
+      let key:EntryIntentKey|null=null,maximum=160,editable=true;
+      if(action.startsWith("RST_")&&(focusedField==="sent"||focusedField==="receive")){
+        key=focusedField==="sent"?"sentReport":"receivedReport";
+        const descriptor=reportFields?.find((field:any)=>field.id===focusedField);
+        editable=!descriptor||descriptor.enabled!==false&&!descriptor.readOnly;maximum=descriptor?.maximumUTF8Bytes??160;
+      }else if(action.startsWith("EXCH_")&&(focusedField==="other_1"||focusedField==="other_2")){
+        const field=projection.draft.receivedFields.find((item:any)=>item.id===focusedField)
+          ??(focusedField==="other_2"&&projection.draft.receivedFields.length===1?projection.draft.receivedFields[0]:null);
+        if(field){key=`exchange:${field.id}`;editable=field.enabled!==false;maximum=field.maximumUTF8Bytes;}
+      }
+      const value=key?intents.capture()[key]:"";
+      if(!key||!editable||!/^\d+$/.test(value)){reportConflict("Focus an editable numeric RST or exchange field for this key action.");return;}
+      const current=BigInt(value),nextNumber=action.endsWith("INCR")?current+1n:current>0n?current-1n:0n;
+      const next=nextNumber.toString().padStart(value.length,"0");
+      if(new TextEncoder().encode(next).length>maximum){reportConflict("The adjusted value exceeds this contest field's limit.");return;}
+      intents.change(key,next,actionFor(key));return;
+    }
     const windowPanel=({WIN_BAND:"band-maps",WIN_CHECK:"callsign-intelligence",WIN_LOG:"logbook",
       WIN_RATE:"monitor",WIN_STATS:"propagation",WIN_VFO:"station-control"} as const)[action as
         "WIN_BAND"|"WIN_CHECK"|"WIN_LOG"|"WIN_RATE"|"WIN_STATS"|"WIN_VFO"];
@@ -405,6 +439,16 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
         const value=action==="CW_SPEED_UP"?Math.min(100,speed+step):Math.max(5,speed-step);
         if(value!==speed)await send({action:"entry_set_cw_speed",params:{...params,value}},current.projectionRevision);}
     })();};
+  const sendCWInput=(event:FormEvent)=>{event.preventDefault();const value=cwInput.trim();if(!value)return;
+    const intended=intents.capture();void(async()=>{const flushed=await intents.flush();if(!flushed.ok)return;
+      const focusProjectionRevision=await focusPending.current;await settle();const current=await refresh(),currentProjection=current?.projection as any;
+      if(!current||current.panelID!=="active-qso"||currentProjection?.status!=="ready"||currentProjection.draft?.draftID!==base.draftID)return;
+      if(!intents.matches(currentProjection.draft,intended)||current.projectionRevision!==Math.max(projectionRevision,
+          flushed.lastAppliedProjectionRevision??0,focusProjectionRevision??0)){
+        reportConflict("The shared contest entry changed before this CW input. Review it and send again.");return;}
+      const result=await send({action:"entry_send_cw_text",params:{draftID:base.draftID,expectedDraftRevision:currentProjection.draft.revision,value}},current.projectionRevision);
+      if(result.applied){setCWInput("");closeCWInput();}
+    })();};
   const onKeyDown=(event:ReactKeyboardEvent<HTMLElement>)=>{const target=event.target instanceof HTMLElement?event.target:null;
     if(event.defaultPrevented||event.repeat||event.nativeEvent.isComposing)return;
     const dataField=target?.dataset.contestFieldId,focusedField=contestInputFieldIDs.includes(dataField as ContestInputFieldID)
@@ -424,9 +468,25 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
       if(next){event.preventDefault();event.stopPropagation();fieldRefs.current[next]?.focus();}return;}
     if(event.shiftKey&&event.key!=="F1")return;
     if(operatorKey(event.key,focusedField,event.shiftKey)){event.preventDefault();event.stopPropagation();}};
+  const onCWInputKeyDown=(event:ReactKeyboardEvent<HTMLFormElement>)=>{
+    if(!event.defaultPrevented&&!event.repeat&&!event.nativeEvent.isComposing){
+      const chord=contestKeyChord(event);
+      const bound=projection.descriptor?.keyBindings&&chord
+        ?resolveContestKeyBinding(projection.descriptor.keyBindings,cwInputBindingContext.current,chord):null;
+      if(bound==="TOGGLE_CW_INPUT"){event.preventDefault();event.stopPropagation();closeCWInput();return;}
+      if(event.key==="Escape"){event.preventDefault();event.stopPropagation();closeCWInput();return;}
+    }
+    event.stopPropagation();};
   return <section className="contest-surface-entry" aria-label="Main Logging" onKeyDown={onKeyDown}><header>
     <div className="contest-surface-radio"><output aria-label="Current frequency">{projection.draft.frequencyHz == null ? "—" : (projection.draft.frequencyHz / 1_000).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<small> kHz</small></output>
       <strong>{projection.draft.mode}</strong></div><span aria-label={projection.manual?.operator?"Current operator":"Current operator unavailable"}>OP {projection.manual?.operator||"—"}</span><h1>{projection.session.name}</h1></header>
+    {cwInputOpen&&<form className="contest-surface-cw-input" role="dialog" aria-label="Free-form CW input" onSubmit={sendCWInput}
+      onKeyDown={onCWInputKeyDown}>
+      <label>Send CW text<input ref={cwInputRef} value={cwInput} maxLength={80} disabled={disabled||sending||!operator?.outputAvailable||operator.status==="uncertain"}
+        onChange={event=>{const next=event.target.value;if(new TextEncoder().encode(next).length<=80&&/^[\x20-\x7e]*$/.test(next))setCWInput(next);}}/></label>
+      <button type="submit" disabled={!cwInput.trim()||disabled||sending||!operator?.outputAvailable||operator.status==="uncertain"||!operator.armed}>Send</button>
+      <button type="button" onClick={closeCWInput}>Close</button>
+    </form>}
     {testSimulation&&<p role="status" className="contest-alert">{projection.draft.mode === "SSB"
       ? "CONTESTING TEST · simulated SSB voice-keyer intent only · no audio playback, RF, PTT, radio, or network output"
       : "CONTESTING TEST · simulated CW only · no RF, audio, PTT, radio, or network output"}</p>}

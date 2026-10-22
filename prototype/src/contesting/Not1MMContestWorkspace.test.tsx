@@ -2295,6 +2295,31 @@ it("sends one native ESM operation with buffered fields and accepts its confirme
   expect(request.mock.calls.some(([method])=>method === "contest_esm")).toBe(false);
 });
 
+it("authorizes detached free-form CW through the native contest lease and never calls a raw output service",async()=>{
+  const current=projection();
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();
+    if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]}:
+      method==="contest_sessions"?{sessions:[]}:
+      method==="contest_create"?{sessionID:current.sessionID,projection:current}:
+      method==="contest_log_page"?{rows:[],total:0}:
+      method==="contest_score"?{score:current.score,matrices:{countries:[],zones:[]}}:null;
+    if(result===null)throw new Error(`Unexpected renderer request ${method}`);
+    return{id:crypto.randomUUID(),ok:true,result};
+  });
+  nativeCW.execute.mockImplementation(async params=>({contestResult:{accepted:true,operationID:params.operationID}}));
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);await createContestThroughSetup();
+  const entry=surfaceOwner.current.projections["active-qso"],requestID=crypto.randomUUID();
+  await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"active-qso",projectionRevision:1,requestID,action:"entry_send_cw_text",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,value:"CQ TEST DE OM0RX"}}));
+  expect(nativeCW.execute).toHaveBeenCalledWith(expect.objectContaining({operation:"text",sessionID:current.sessionID,draftID:current.draftID,
+    expectedContestRevision:current.revision,frequencyHz:14025000,text:"CQ TEST DE OM0RX",contestSurfaceRequestID:requestID}));
+  expect(request.mock.calls.some(([method])=>method.includes("cw")||method.includes("radio_control"))).toBe(false);
+});
+
 it("pages past QSO 100 and sends the complete correction contract", async () => {
   let current = projection(), corrected: Record<string, unknown> | null = null;
   const row = { ID:"qso-001", TS:"2026-10-19 08:00:00", Call:"DL1ABC", Freq:14025, Band:14,

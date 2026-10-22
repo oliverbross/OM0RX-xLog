@@ -1927,6 +1927,18 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         const saved = await mutate("contest_setup_save", active, { setup: document }) as MutationResult & { setup: ContestSetupDocument };
         acceptProjection(saved.projection); setSetup(saved.setup); return;
       }
+      case "entry_send_cw_text": {
+        if (configuredClient) throw new Error("Client CW input is disabled until the master can authorize its output.");
+        if (active.mode !== "CW") throw new Error("Free-form CW input is available only in CW mode.");
+        if (operationFrequencyHz === null) throw new Error("Connect the selected radio or enter a supported contest frequency before sending CW.");
+        const operationID=crypto.randomUUID();
+        const native=await cw.controller.executeContest({operation:"text",operationID,sessionID:active.sessionID,
+          expectedContestRevision:active.revision,draftID:active.draftID,fields:fieldsRef.current,
+          frequencyHz:operationFrequencyHz,text:action.params.value,contestSurfaceRequestID:action.requestID});
+        if(native?.contestResult?.accepted!==true||native.contestResult.operationID!==operationID)
+          throw new Error(native?.error||"Contest CW text was not confirmed. Use Stop before deciding whether to retry.");
+        return;
+      }
       case "entry_focus":
         if (!active.fields.some(field => field.id === action.params.fieldID && field.visible && field.enabled))
           throw new Error("This contest field is not available for focus.");
