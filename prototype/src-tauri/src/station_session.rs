@@ -639,6 +639,9 @@ impl Session {
             } else if action == "manual_tune" {
                 crate::manual_tune::params(params)?;
                 for key in ["provider", "control_revision", "connection_generation", "worker_generation", "frequency_hz", "mode"] { descriptor[key] = params[key].clone(); }
+                for key in ["expected_source_frequency_hz", "expected_source_mode"] {
+                    if params.get(key).is_some() { descriptor[key] = params[key].clone(); }
+                }
             } else if action == "manual_rotor_goto" {
                 crate::manual_rotor::params(params)?;
                 for key in ["rotor_owner", "rotor_generation", "rotor_revision", "worker_generation", "bearing", "label"] { descriptor[key] = params[key].clone(); }

@@ -20,6 +20,7 @@ export type ContestSurfaceAction =
   | { action: "entry_reserve_serial" | "entry_commit" | "entry_clear"; params: DraftRevision }
   | { action: "entry_spot" | "entry_mark_spot" | "entry_tune_spot"; params: DraftRevision }
   | { action: "entry_step_spot"; params: DraftRevision & { direction: "previous" | "next" } }
+  | { action: "entry_step_vfo"; params: DraftRevision & { direction: "up" | "down" } }
   | { action: "entry_operator_arm"; params: DraftRevision & { armed: boolean } }
   | { action: "entry_operator_style"; params: DraftRevision & { value: "run" | "search-and-pounce" } }
   | { action: "entry_set_cw_speed"; params: DraftRevision & { value: number } }
@@ -485,6 +486,7 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "entry_reserve_serial" || action === "entry_commit" || action === "entry_clear") return draft(params, []);
   if (action === "entry_spot" || action === "entry_mark_spot" || action === "entry_tune_spot") return draft(params, []);
   if (action === "entry_step_spot") return draft(params, ["direction"]) && oneOf(params.direction, ["previous", "next"]);
+  if (action === "entry_step_vfo") return draft(params, ["direction"]) && oneOf(params.direction, ["up", "down"]);
   if (action === "entry_operator_arm") return draft(params, ["armed"]) && typeof params.armed === "boolean";
   if (action === "entry_operator_style") return draft(params, ["value"]) && oneOf(params.value, ["run", "search-and-pounce"]);
   if (action === "entry_set_cw_speed") return draft(params, ["value"]) && uint(params.value, 100) && (params.value as number) >= 5;

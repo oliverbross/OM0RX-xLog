@@ -19,10 +19,14 @@ describe("contest key bindings", () => {
       Array.from({ length: 12 }, (_, index) => `F${index + 1}`),
     );
     expect(functionKeyForContestAction("LOG_NOW")).toBeNull();
-    expect(contestKeyBindingActions).not.toEqual(expect.arrayContaining(["VFO_UP", "ROTATE"]));
+    expect(contestKeyBindingActions).not.toEqual(expect.arrayContaining(["ROTATE"]));
     expect(defaultContestKeyBindings).toEqual(expect.arrayContaining([
       {context:"*",key:"Ctrl+S",action:"SPOT_DX"},{context:"*",key:"Ctrl+M",action:"MARK_SPOT"},
       {context:"*",key:"Ctrl+G",action:"TUNE_SPOT"},
+      {context:"*",key:"Alt+B",action:"WIN_BAND"},{context:"*",key:"Alt+C",action:"WIN_CHECK"},
+      {context:"*",key:"Alt+L",action:"WIN_LOG"},{context:"*",key:"Alt+R",action:"WIN_RATE"},
+      {context:"*",key:"Alt+S",action:"WIN_STATS"},{context:"*",key:"Alt+V",action:"WIN_VFO"},
+      {context:"*",key:"Alt+.",action:"VFO_UP"},{context:"*",key:"Alt+,",action:"VFO_DOWN"},
     ]));
   });
 
@@ -42,6 +46,9 @@ describe("contest key bindings", () => {
     ]);
     const customizedDefaults=legacyDefaults.map(row=>row.action==="TUNE_SPOT"?{...row,key:"Alt+G"}:row);
     expect(readContestKeyBindings(encodeContestKeyBindings(customizedDefaults))).toEqual(customizedDefaults);
+    const duplicateDefaults=[...defaultContestKeyBindings];duplicateDefaults[1]=duplicateDefaults[0];
+    expect(readContestKeyBindings(encodeContestKeyBindings(duplicateDefaults))).toEqual(duplicateDefaults);
+    expect(readContestKeyBindings(encodeContestKeyBindings(defaultContestKeyBindings.slice(0, 11)))).toEqual(defaultContestKeyBindings);
   });
 
   it("reads Not1MM's key-to-action map and keeps context precedence", () => {
@@ -66,5 +73,8 @@ describe("contest key bindings", () => {
     expect(normalizeContestKey("shift+control+r")).toBe("Ctrl+Shift+R");
     expect(contestKeyChord({ key: "ArrowUp", ctrlKey: false, altKey: false, shiftKey: false, metaKey: false })).toBe("Up");
     expect(contestKeyChord({ key: "=", ctrlKey: true, altKey: false, shiftKey: false, metaKey: false })).toBe("Ctrl+=");
+    expect(contestKeyChord({ key: "∫", code: "KeyB", ctrlKey: false, altKey: true, shiftKey: false, metaKey: false })).toBe("Alt+B");
+    expect(contestKeyChord({ key: "≥", code: "Period", ctrlKey: false, altKey: true, shiftKey: false, metaKey: false })).toBe("Alt+.");
+    expect(contestKeyChord({ key: "≤", code: "Comma", ctrlKey: false, altKey: true, shiftKey: false, metaKey: false })).toBe("Alt+,");
   });
 });

@@ -31,6 +31,14 @@ it("binds one explicit tune to native epochs and journals before dispatch withou
   const before=structuredClone(f.state); await f.session.tune("direct_flex_lan",14074000,"FT8");
   expect(f.pending).toBeNull(); expect(f.request).toHaveBeenCalledOnce(); expect(f.state).toEqual(before);
 });
+it("carries an exact observed source fence for relative VFO steps",async()=>{
+  const f=fixture();f.request.mockImplementation(async params=>{
+    expect(params).toMatchObject({frequency_hz:14025020,mode:"CW",expected_source_frequency_hz:14025000,expected_source_mode:"CW"});
+    return {operation_id:params.operation_id as string,status:"confirmed",request:{action:"manual_tune"}};
+  });
+  await f.session.tune("direct_flex_lan",14025020,"CW",undefined,{frequencyHz:14025000,mode:"CW"});
+  expect(f.request).toHaveBeenCalledOnce();
+});
 it("two surfaces sharing the renderer session cannot dispatch duplicate concurrent tunes", async () => {
   const f=fixture(); let finish!: (r:StationReceipt)=>void;
   f.request.mockImplementation(() => new Promise(resolve=>{finish=resolve;}));

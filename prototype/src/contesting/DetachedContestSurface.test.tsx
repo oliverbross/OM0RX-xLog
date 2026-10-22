@@ -849,6 +849,23 @@ it("executes saved finite Not1MM key bindings and stops using the replaced chord
     .toMatchObject({action:"entry_operator_style",params:{value:"search-and-pounce"}}));
 });
 
+it.each([
+  ["∫","KeyB","WIN_BAND","band-maps"], ["ç","KeyC","WIN_CHECK","callsign-intelligence"],
+  ["¬","KeyL","WIN_LOG","logbook"], ["®","KeyR","WIN_RATE","monitor"],
+  ["ß","KeyS","WIN_STATS","propagation"], ["√","KeyV","WIN_VFO","station-control"],
+] as const)("routes macOS Option physical %s to the native %s window toggle",async(key,code,action,panelID)=>{
+  const view={...snapshot,projection:{...projection,schemaVersion:2,
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null},
+      keyBindings:[{context:"*",key:`Alt+${code.slice(-1)}`,action}]},
+    operator:{output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
+  native.invoke.mockImplementation(async(command:string)=>{if(command==="contest_surface_snapshot")return view;if(command==="contest_window_toggle")return null;throw new Error(command);});
+  render(<DetachedContestSurface/>);const region=await screen.findByRole("region",{name:"Main Logging"});
+  fireEvent.keyDown(region,{key,code,altKey:true});
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command])=>command==="contest_window_toggle")?.[1]).toMatchObject({panelID}));
+  expect(native.invoke.mock.calls.some(([command])=>command==="contest_surface_action")).toBe(false);
+});
+
 it("executes saved function-macro and explicit S&P bindings through the existing operator router",async()=>{
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14025000,frequencyError:""},
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[{id:"power",label:"Power",value:"100",required:true,maximumUTF8Bytes:4}],
@@ -923,6 +940,24 @@ it.each([["s","entry_spot"],["m","entry_mark_spot"],["g","entry_tune_spot"]] as 
   fireEvent.keyDown(region,{key,ctrlKey:true});
   await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action===action)?.[1])
     .toMatchObject({action,params:{draftID:"draft-1",expectedDraftRevision:5}}));
+});
+
+it.each([["≥","Period","VFO_UP","up"],["≤","Comma","VFO_DOWN","down"]] as const)(
+  "routes macOS Option %s through the fenced %s action",async(key,code,bindingAction,direction)=>{
+  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14025000,frequencyError:""},
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null},
+      keyBindings:[{context:"*",key:`Alt+${code==="Period"?".":","}`,action:bindingAction}]},
+    operator:{output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_snapshot")return view;
+    if(command==="contest_surface_action")return {requestID:args.requestID,status:"applied",projectionRevision:7};
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const region=await screen.findByRole("region",{name:"Main Logging"});
+  fireEvent.keyDown(region,{key,code,altKey:true});
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="entry_step_vfo")?.[1])
+    .toMatchObject({action:"entry_step_vfo",params:{direction}}));
 });
 
 it("retains the manual Check Partial Log, Master and Telnet columns with explicit missing sources",async()=>{

@@ -25,6 +25,14 @@ pub fn params(value: &Value) -> Result<Value, String> {
         .filter(|m| !m.is_empty() && m.len() <= 16 && m.bytes().all(|b| b.is_ascii_alphanumeric()))
         .ok_or("Choose a supported simplex mode.")?
         .to_uppercase();
+    let source_frequency = value.get("expected_source_frequency_hz");
+    let source_mode = value.get("expected_source_mode");
+    if source_frequency.is_some() != source_mode.is_some() || source_frequency.is_some_and(|value| {
+        value.as_u64().is_none_or(|hz| !(100_000..=1_000_000_000).contains(&hz)) ||
+        source_mode.and_then(Value::as_str).is_none_or(|mode| mode.is_empty() || mode.len() > 16 || !mode.bytes().all(|byte| byte.is_ascii_alphanumeric()))
+    }) {
+        return Err("VFO stepping requires one exact observed source frequency and mode.".into());
+    }
     if provider == "hamlib" {
         let mode = radio_mode(&mode, hz);
         Ok(
@@ -90,6 +98,19 @@ pub fn admission(projection: &Value, descriptor: &Value, now: u64) -> Result<(),
     };
     if !fresh {
         return Err("Manual tune requires a fresh observed receive state.".into());
+    }
+    if let Some(expected_hz) = descriptor.get("expected_source_frequency_hz").and_then(Value::as_u64) {
+        let expected_mode = descriptor["expected_source_mode"].as_str().unwrap_or("").to_uppercase();
+        let (observed_hz, observed_mode) = if provider == "hamlib" {
+            (snapshot["fields"]["frequency"]["Frequency"].as_str().and_then(|value| value.parse::<u64>().ok()),
+             snapshot["fields"]["mode"]["Mode"].as_str().map(str::to_uppercase))
+        } else {
+            (snapshot["radio"]["receive_frequency_hz"].as_u64().or_else(|| snapshot["radio"]["frequency_hz"].as_u64()),
+             snapshot["radio"]["mode"].as_str().map(str::to_uppercase))
+        };
+        if observed_hz != Some(expected_hz) || observed_mode.as_deref() != Some(expected_mode.as_str()) {
+            return Err("The observed VFO changed before the relative step; press the shortcut again.".into());
+        }
     }
     Ok(())
 }
@@ -250,6 +271,23 @@ mod tests {
         changed = projection;
         changed["selection_id"] = json!("replaced");
         assert!(admission(&changed, &target, now).is_err());
+    }
+    #[test]
+    fn relative_step_requires_the_exact_fresh_source_vfo() {
+        let now = 1800000000000u64;
+        let mut target = descriptor("direct_flex_lan");
+        target["expected_source_frequency_hz"] = json!(14025000);
+        target["expected_source_mode"] = json!("CW");
+        target["frequency_hz"] = json!(14025020);
+        target["mode"] = json!("CW");
+        let projection = json!({"available":true,"provider":"direct_flex_lan","selection_id":"selection","selection_generation":2,"received_at_ms":now,
+            "snapshot":{"source":"direct_flex_lan","generation":7,"generated_at":now/1000,"radio":{"connected":true,"observed":true,"transmitting":false,
+                "observed_at":now/1000,"frequency_hz":14025000,"mode":"CW"},"station":{"radio_stale":false},"capabilities":{"supported_commands":["station_tune"]}}});
+        assert!(admission(&projection,&target,now).is_ok());
+        let mut changed=projection.clone();changed["snapshot"]["radio"]["frequency_hz"]=json!(14025010);
+        assert!(admission(&changed,&target,now).is_err());
+        changed=projection;changed["snapshot"]["radio"]["mode"]=json!("USB");
+        assert!(admission(&changed,&target,now).is_err());
     }
     #[test]
     fn acknowledgement_or_wrong_target_cannot_confirm_a_manual_tune() {

@@ -60,6 +60,11 @@ struct PendingOpen {
     contest_context: Option<crate::contest_window_context::ContestWindowContext>,
     reply: mpsc::Sender<Result<(), String>>,
 }
+struct PendingContestToggle {
+    label: String,
+    context: crate::contest_window_context::ContestWindowContext,
+    reply: mpsc::Sender<Result<(), String>>,
+}
 struct PendingCanvas { generation: String, revision: u64, layout: Value, reply: mpsc::Sender<Result<(), String>> }
 struct PendingContestReset {
     context: crate::contest_window_context::ContestWindowContext,
@@ -82,6 +87,7 @@ struct Queue {
     contest_resets: VecDeque<PendingContestReset>,
     contest_closes: VecDeque<PendingContestClose>,
     opens: VecDeque<PendingOpen>,
+    contest_toggles: VecDeque<PendingContestToggle>,
     refresh: BTreeMap<WorkspaceWindowScope, PendingRefresh>,
     issued_attempt: u64,
     destroyed: BTreeMap<String, u64>,
@@ -99,6 +105,7 @@ enum Work {
     ContestReset(PendingContestReset),
     ContestClose(PendingContestClose),
     Open(PendingOpen),
+    ContestToggle(PendingContestToggle),
     Refresh(PendingRefresh),
     Destroyed(String, u64),
 }
@@ -112,11 +119,15 @@ impl Queue {
             } else { retained.push_back(open); }
         }
         self.opens = retained;
+        for toggle in self.contest_toggles.drain(..) {
+            let _ = toggle.reply.send(Err("The contest window context changed before this window toggled.".into()));
+        }
     }
     fn next(&mut self) -> Option<Work> {
         if let Some(reset) = self.contest_resets.pop_front() { return Some(Work::ContestReset(reset)); }
         if let Some(close) = self.contest_closes.pop_front() { return Some(Work::ContestClose(close)); }
         if let Some(canvas) = self.canvas.pop_front() { return Some(Work::Canvas(canvas)); }
+        if let Some(toggle) = self.contest_toggles.pop_front() { return Some(Work::ContestToggle(toggle)); }
         if let Some((label, token)) = self.destroyed.pop_first() {
             return Some(Work::Destroyed(label, token));
         }
@@ -181,6 +192,7 @@ impl Owner {
                     && queue.canvas.is_empty()
                     && queue.contest_resets.is_empty()
                     && queue.contest_closes.is_empty()
+                    && queue.contest_toggles.is_empty()
                     && queue.refresh.is_empty()
                     && queue.destroyed.is_empty()
                     && !STOPPED.load(Ordering::Acquire)
@@ -194,6 +206,7 @@ impl Owner {
                     for canvas in queue.canvas.drain(..) { let _ = canvas.reply.send(Err("The native workspace window owner has stopped.".into())); }
                     for reset in queue.contest_resets.drain(..) { let _ = reset.reply.send(Err("The native workspace window owner has stopped.".into())); }
                     for close in queue.contest_closes.drain(..) { let _ = close.reply.send(Err("The native workspace window owner has stopped.".into())); }
+                    for toggle in queue.contest_toggles.drain(..) { let _ = toggle.reply.send(Err("The native workspace window owner has stopped.".into())); }
                     for open in queue.opens.drain(..) {
                         let _ = open
                             .reply
@@ -265,6 +278,35 @@ impl Owner {
                     });
                     let _ = open.reply.send(result);
                 }
+                Some(Work::ContestToggle(toggle)) => {
+                    let result = crate::contest_window_context::admit(&toggle.context).and_then(|_| {
+                        let engine = engines.get_mut(&WorkspaceWindowScope::Contesting)
+                            .filter(|engine| engine.contest_context.as_ref() == Some(&toggle.context))
+                            .ok_or("That native window request belongs to an expired contest context.")?;
+                        if let Some(window) = self.app.get_webview_window(&toggle.label) {
+                            if window.is_visible().map_err(|error| error.to_string())? {
+                                window.close().map_err(|error| error.to_string())?;
+                                let deadline = Instant::now() + CONTEST_RETIRE_TIMEOUT;
+                                while self.app.get_webview_window(&toggle.label).is_some() {
+                                    if Instant::now() >= deadline { return Err("The contest window did not close; try the shortcut again.".into()); }
+                                    std::thread::sleep(Duration::from_millis(10));
+                                }
+                                crate::contest_window_state::remember(&contest_window_state_directory(&self.app)?, &toggle.label, false)
+                            } else {
+                                let mut host = NativeHost { app: self.app.clone(), scope: WorkspaceWindowScope::Contesting,
+                                    contest_context: Some(toggle.context.clone()) };
+                                engine.open(&mut host, &toggle.label)?;
+                                crate::contest_window_state::remember(&contest_window_state_directory(&self.app)?, &toggle.label, true)
+                            }
+                        } else {
+                            let mut host = NativeHost { app: self.app.clone(), scope: WorkspaceWindowScope::Contesting,
+                                contest_context: Some(toggle.context.clone()) };
+                            engine.open(&mut host, &toggle.label)?;
+                            crate::contest_window_state::remember(&contest_window_state_directory(&self.app)?, &toggle.label, true)
+                        }
+                    });
+                    let _ = toggle.reply.send(result);
+                }
                 Some(Work::Refresh(refresh)) => {
                     let Ok(engine) = admitted_engine_for(&mut engines, refresh.scope, refresh.contest_context.as_ref()) else {
                         continue;
@@ -314,6 +356,7 @@ impl Owner {
         for canvas in queue.canvas.drain(..) { let _ = canvas.reply.send(Err("The native workspace window owner failed.".into())); }
         for reset in queue.contest_resets.drain(..) { let _ = reset.reply.send(Err("The native workspace window owner failed.".into())); }
         for close in queue.contest_closes.drain(..) { let _ = close.reply.send(Err("The native workspace window owner failed.".into())); }
+        for toggle in queue.contest_toggles.drain(..) { let _ = toggle.reply.send(Err("The native workspace window owner failed.".into())); }
         queue.refresh.clear();
         queue.destroyed.clear();
         drop(queue);
@@ -372,6 +415,26 @@ pub fn contest_open(app: &AppHandle, context: crate::contest_window_context::Con
     crate::contest_window_context::admit(&context)?;
     let label = contest_open_label(panel)?;
     scoped_open(app, WorkspaceWindowScope::Contesting, Some(context), label)
+}
+/// Toggle one contest-owned native lifetime through the same serialized owner
+/// as menu opens and layout reconciliation.
+pub fn contest_toggle(app: &AppHandle, context: crate::contest_window_context::ContestWindowContext,
+    panel_id: &str) -> Result<(), String> {
+    crate::contest_window_context::admit(&context)?;
+    let label = contest_open_label(panel_id)?;
+    if !label.starts_with(crate::workspace_windows::CONTEST_LABEL_PREFIX) {
+        return Err("Only contest-owned windows can be toggled.".into());
+    }
+    let owner = owner(app)?;
+    let (reply, received) = mpsc::channel();
+    {
+        let mut queue = owner.queue.lock().map_err(|_| "Native workspace window queue unavailable")?;
+        active()?;
+        if queue.contest_toggles.len() >= MAX_OPENS { return Err("Native workspace windows are busy; try again.".into()); }
+        queue.contest_toggles.push_back(PendingContestToggle { label, context, reply });
+    }
+    owner.wake.notify_one();
+    received.recv().map_err(|_| "Native workspace window owner unavailable".to_owned())?
 }
 fn contest_open_label(panel: &str) -> Result<String, String> {
     let panel = crate::workspace_navigation::contest_window_panel(panel).ok_or("That contest window is not available.")?;

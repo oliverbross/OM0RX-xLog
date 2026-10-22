@@ -7,6 +7,7 @@ export type ContestFunctionKeyAction = typeof contestFunctionKeyActions[number];
 
 export const contestKeyBindingActions = ["TOGGLE_RUN", "SET_RUN", "SET_S_AND_P", "LOG_NOW", "CLEAR_INPUTS",
   "PREV_SPOT", "NEXT_SPOT", "SPOT_DX", "MARK_SPOT", "TUNE_SPOT", "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN",
+  "WIN_BAND", "WIN_CHECK", "WIN_LOG", "WIN_RATE", "WIN_STATS", "WIN_VFO", "VFO_UP", "VFO_DOWN",
   ...contestFunctionKeyActions] as const;
 export type ContestKeyBindingAction = typeof contestKeyBindingActions[number];
 
@@ -32,6 +33,14 @@ export const contestKeyBindingDescriptions: Record<ContestKeyBindingAction, stri
   FOCUS_PREVIOUS: "Move focus to the previous contest field",
   CW_SPEED_UP: "Increase CW sending speed",
   CW_SPEED_DOWN: "Decrease CW sending speed",
+  WIN_BAND: "Toggle the Band Map window",
+  WIN_CHECK: "Toggle the Check Partial window",
+  WIN_LOG: "Toggle the QSO Log window",
+  WIN_RATE: "Toggle the Rate window",
+  WIN_STATS: "Toggle the Statistics window",
+  WIN_VFO: "Toggle the VFO window",
+  VFO_UP: "Increase VFO frequency by the mode step",
+  VFO_DOWN: "Decrease VFO frequency by the mode step",
   SEND_F1: "Send the F1 function macro",
   SEND_F2: "Send the F2 function macro",
   SEND_F3: "Send the F3 function macro",
@@ -49,7 +58,7 @@ export const contestKeyBindingDescriptions: Record<ContestKeyBindingAction, stri
 // This is the finite subset of the pinned Not1MM defaults whose behavior is
 // currently owned by the Main Logging window. Descriptions are derived rather
 // than persisted, matching Not1MM's key-to-action preference representation.
-export const defaultContestKeyBindings: ContestKeyBinding[] = [
+const previousDefaultContestKeyBindings: ContestKeyBinding[] = [
   { context: "*", key: "Ctrl+R", action: "TOGGLE_RUN" },
   { context: "*", key: "Ctrl+L", action: "LOG_NOW" },
   { context: "*", key: "Ctrl+=", action: "LOG_NOW" },
@@ -61,6 +70,17 @@ export const defaultContestKeyBindings: ContestKeyBinding[] = [
   { context: "*", key: "PgUp", action: "CW_SPEED_UP" },
   { context: "*", key: "PgDown", action: "CW_SPEED_DOWN" },
   { context: "*", key: "Ctrl+W", action: "CLEAR_INPUTS" },
+];
+export const defaultContestKeyBindings: ContestKeyBinding[] = [
+  ...previousDefaultContestKeyBindings,
+  { context: "*", key: "Alt+B", action: "WIN_BAND" },
+  { context: "*", key: "Alt+C", action: "WIN_CHECK" },
+  { context: "*", key: "Alt+L", action: "WIN_LOG" },
+  { context: "*", key: "Alt+R", action: "WIN_RATE" },
+  { context: "*", key: "Alt+S", action: "WIN_STATS" },
+  { context: "*", key: "Alt+V", action: "WIN_VFO" },
+  { context: "*", key: "Alt+.", action: "VFO_UP" },
+  { context: "*", key: "Alt+,", action: "VFO_DOWN" },
 ];
 
 export function functionKeyForContestAction(action: ContestKeyBindingAction): `F${number}` | null {
@@ -140,11 +160,15 @@ function decodedRows(value: unknown): ContestKeyBinding[] | null {
 export function readContestKeyBindings(value: unknown): ContestKeyBinding[] {
   const rows = decodedRows(value);
   if (!rows) return structuredClone(defaultContestKeyBindings);
-  const legacyDefaults = rows.length === defaultContestKeyBindings.length && rows.every(row =>
-    defaultContestKeyBindings.some(item => item.context === row.context && item.action === row.action &&
-      (row.action === "TUNE_SPOT" ? row.key === "Ctrl+T" && item.key === "Ctrl+G" : item.key === row.key)));
-  const migrated = legacyDefaults ? rows.map(row => row.action === "TUNE_SPOT" && row.key === "Ctrl+T"
-    ? { ...row, key: "Ctrl+G" } : row) : rows;
+  const exactDefaults = (defaults: readonly ContestKeyBinding[], legacyTune: boolean) => rows.length === defaults.length && rows.every((row,index) => {
+    const item=defaults[index];
+    return item.context===row.context&&item.action===row.action&&
+      (legacyTune&&row.action==="TUNE_SPOT"?row.key==="Ctrl+T"&&item.key==="Ctrl+G":item.key===row.key);
+  });
+  const previousDefaults = exactDefaults(previousDefaultContestKeyBindings, false) || exactDefaults(previousDefaultContestKeyBindings, true);
+  const legacyDefaults = exactDefaults(defaultContestKeyBindings, true);
+  const migrated = previousDefaults ? structuredClone(defaultContestKeyBindings) : legacyDefaults
+    ? rows.map(row => row.action === "TUNE_SPOT" && row.key === "Ctrl+T" ? { ...row, key: "Ctrl+G" } : row) : rows;
   const supported = migrated.flatMap(row => {
     const action = (row.action as string) === "WIPE" ? "CLEAR_INPUTS" : row.action;
     return contextSet.has(row.context) && actionSet.has(action)
@@ -179,8 +203,13 @@ export function encodeContestKeyBindings(bindings: readonly ContestKeyBinding[])
   return JSON.stringify(bindings.map(item => [item.context, item.key, item.action]));
 }
 
-export function contestKeyChord(event: Pick<KeyboardEvent, "key" | "ctrlKey" | "altKey" | "shiftKey" | "metaKey">): string | null {
-  const base = baseKey(event.key);
+export function contestKeyChord(event: Pick<KeyboardEvent, "key" | "ctrlKey" | "altKey" | "shiftKey" | "metaKey"> & { code?: string }): string | null {
+  // macOS Option produces glyphs (for example Option-B is ∫ and Option-. is ≥).
+  // Use the physical code only for Alt chords so editable Not1MM shortcuts
+  // remain stable without changing ordinary text-entry semantics.
+  const physical = event.altKey && event.code ? /^Key[A-Z]$/.test(event.code) ? event.code.slice(3)
+    : event.code === "Comma" ? "," : event.code === "Period" ? "." : null : null;
+  const base = baseKey(physical ?? event.key);
   if (!base) return null;
   return [...modifierOrder.filter(item => item === "Ctrl" ? event.ctrlKey : item === "Alt" ? event.altKey
     : item === "Shift" ? event.shiftKey : event.metaKey), base].join("+");

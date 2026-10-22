@@ -2495,6 +2495,25 @@ async fn contest_window_open(window: tauri::WebviewWindow, app: tauri::AppHandle
         .await.map_err(|_| "Contest window task failed".to_string())?
 }
 
+const CONTEST_SHORTCUT_TOGGLE_PANELS: [&str; 6] = [
+    "band-maps", "callsign-intelligence", "logbook", "monitor", "propagation", "station-control",
+];
+fn validate_contest_window_toggle(label: &str, panel_id: &str) -> Result<(), String> {
+    if label != "contest--active-qso" { return Err("Only Main Logging can toggle contest windows.".into()); }
+    if !CONTEST_SHORTCUT_TOGGLE_PANELS.contains(&panel_id) { return Err("That contest window cannot be toggled by shortcut.".into()); }
+    Ok(())
+}
+
+#[tauri::command]
+async fn contest_window_toggle(window: tauri::WebviewWindow, app: tauri::AppHandle,
+    operating_context: String, session_i_d: String, workspace_generation: String, panel_i_d: String) -> Result<(), String> {
+    validate_contest_window_toggle(window.label(), &panel_i_d)?;
+    let context = contest_window_context::resolve(&session_i_d, &workspace_generation)?;
+    if context.operating_context != operating_context { return Err("That contest window toggle belongs to an expired contest.".into()); }
+    tauri::async_runtime::spawn_blocking(move || workspace_window_runtime::contest_toggle(&app, context, &panel_i_d))
+        .await.map_err(|_| "Contest window toggle task failed".to_string())?
+}
+
 #[tauri::command]
 async fn contest_contact_editor_open(window: tauri::WebviewWindow, app: tauri::AppHandle,
     operating_context: String, session_i_d: String, workspace_generation: String) -> Result<(), String> {
@@ -3232,7 +3251,7 @@ fn main() {
             operator_draft_read_radio_recover,
             operator_draft_follow_snapshot, operator_draft_follow_set, operator_draft_follow_settled,
             auto_rotor_snapshot, auto_rotor_set,
-            workspace_windows_status, workspace_windows_reconcile, contest_window_open, contest_contact_editor_open, contest_contact_editor_close, contest_surface_context_close, contest_setup_service_open,
+            workspace_windows_status, workspace_windows_reconcile, contest_window_open, contest_window_toggle, contest_contact_editor_open, contest_contact_editor_close, contest_surface_context_close, contest_setup_service_open,
             contest_log_transfer::contest_log_transfer_context, contest_log_transfer::contest_log_transfer_request,
             contest_log_transfer::contest_legacy_choose_preview, contest_log_transfer::contest_legacy_import,
             contest_setup_dialog_open, contest_setup_dialog_request,
@@ -3485,6 +3504,18 @@ mod workspace_layout_tests {
         }
         assert!(super::validate_contest_surface_main_caller("main").is_err());
         assert!(super::validate_contest_surface_main_caller("contest-setup").is_ok());
+    }
+
+    #[test]
+    fn only_main_logging_can_toggle_the_six_manual_contest_windows() {
+        for panel in super::CONTEST_SHORTCUT_TOGGLE_PANELS {
+            assert!(super::validate_contest_window_toggle("contest--active-qso", panel).is_ok());
+            assert!(super::validate_contest_window_toggle("contest--logbook", panel).is_err());
+            assert!(super::validate_contest_window_toggle("contest-setup", panel).is_err());
+        }
+        for panel in ["active-qso", "rotor", "dx-cluster", "qrz-details", ""] {
+            assert!(super::validate_contest_window_toggle("contest--active-qso", panel).is_err());
+        }
     }
 
     #[test]

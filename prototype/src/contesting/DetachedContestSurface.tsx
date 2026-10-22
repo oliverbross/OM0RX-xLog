@@ -3,7 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { contestSurfaceContextFromSearch, onContestSurfaceWake, readContestSurfaceSnapshot, submitContestSurfaceAction,
-  openContestContactEditorWindow, closeContestContactEditorWindow,
+  openContestContactEditorWindow, closeContestContactEditorWindow, toggleContestSurfaceWindow,
   type ContestSurfaceContext, type ContestSurfaceSnapshot, type ContestSurfaceTerminalReceipt } from "./contestSurfaceNative";
 import { contestInputFieldIDs, type ContestInputFieldID, type ContestSurfaceAction, type ContestSurfaceActionEnvelope,
   type ContestRatesSurfaceProjection, type ContestMatrixSurfaceProjection, type ContestSpotSurfaceProjection,
@@ -118,7 +118,7 @@ function Surface({ context }: { context: Context }) {
     {latest?.status === "rejected" && <p className="contest-surface-error" role="status">{latest.message || "The main contest controller rejected this action."}</p>}
     {projection.status === "unavailable" ? <section className="contest-surface-unavailable"><h1>Panel unavailable</h1><p>This shared contest panel is not connected yet.</p></section>
       : snapshot.panelID === "active-qso" ? <Entry projection={projection as Extract<typeof projection, { draft: unknown }>} disabled={projection.busy} sending={sending}
-          projectionRevision={snapshot.projectionRevision} send={send} refresh={refresh} settle={()=>queueRef.current} reportConflict={setActionError}/>
+          context={context} projectionRevision={snapshot.projectionRevision} send={send} refresh={refresh} settle={()=>queueRef.current} reportConflict={setActionError}/>
       : snapshot.panelID === "callsign-intelligence" ? <Check projection={projection as Extract<typeof projection, { scp: unknown }>} disabled={projection.busy}
           projectionRevision={snapshot.projectionRevision} receipts={snapshot.receipts} send={send}/>
       : snapshot.panelID === "propagation" ? <Statistics projection={projection as ContestStatisticsSurfaceProjection}/>
@@ -313,7 +313,8 @@ function EntryIntentInput({label,accessibleLabel,intentKey,value,maximumUTF8Byte
       onChange(intentKey,next);}}/>{unresolved&&<div role="status"><span>This edit is not confirmed.</span>
       <button type="button" onClick={retry}>Apply edit again</button><button type="button" onClick={discard}>Use shared value</button></div>}</div>;
 }
-function Entry({ projection, disabled, sending, projectionRevision, send, refresh, settle, reportConflict }: { projection: any; disabled: boolean; sending:boolean;
+function Entry({ projection, disabled, sending, context, projectionRevision, send, refresh, settle, reportConflict }: { projection: any; disabled: boolean; sending:boolean;
+  context:ContestSurfaceContext;
   projectionRevision:number;send:Send;refresh:()=>Promise<ContestSurfaceSnapshot|null>;
   settle:()=>Promise<void>;reportConflict:(message:string)=>void }) {
   const base = { draftID: projection.draft.draftID, expectedDraftRevision: projection.draft.revision };
@@ -378,6 +379,10 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
       const target=action==="FOCUS_CALLSIGN"?"callsign":focusedField?nextFocusable(focusedField,action==="FOCUS_NEXT"?"tabNext":"tabPrevious"):null;
       if(target)fieldRefs.current[target]?.focus();return;
     }
+    const windowPanel=({WIN_BAND:"band-maps",WIN_CHECK:"callsign-intelligence",WIN_LOG:"logbook",
+      WIN_RATE:"monitor",WIN_STATS:"propagation",WIN_VFO:"station-control"} as const)[action as
+        "WIN_BAND"|"WIN_CHECK"|"WIN_LOG"|"WIN_RATE"|"WIN_STATS"|"WIN_VFO"];
+    if(windowPanel){void toggleContestSurfaceWindow(context,windowPanel).catch(cause=>reportConflict(message(cause)));return;}
     const intended=intents.capture();
     void (async()=>{const flushed=await intents.flush();if(!flushed.ok)return;const focusProjectionRevision=await focusPending.current;await settle();
       const current=await refresh(),currentProjection=current?.projection as any;
@@ -391,6 +396,7 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
       else if(action==="LOG_NOW")await send({action:"entry_commit",params},current.projectionRevision);
       else if(action==="CLEAR_INPUTS")await send({action:"entry_clear",params},current.projectionRevision);
       else if(action==="PREV_SPOT"||action==="NEXT_SPOT")await send({action:"entry_step_spot",params:{...params,direction:action==="PREV_SPOT"?"previous":"next"}},current.projectionRevision);
+      else if(action==="VFO_UP"||action==="VFO_DOWN")await send({action:"entry_step_vfo",params:{...params,direction:action==="VFO_UP"?"up":"down"}},current.projectionRevision);
       else if(action==="SPOT_DX")await send({action:"entry_spot",params},current.projectionRevision);
       else if(action==="MARK_SPOT")await send({action:"entry_mark_spot",params},current.projectionRevision);
       else if(action==="TUNE_SPOT")await send({action:"entry_tune_spot",params},current.projectionRevision);

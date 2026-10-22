@@ -4,6 +4,7 @@ import type { MonitorContext } from "./monitorContext";
 
 type State = { pending: string | null; busy: boolean; message: string; reviewable: boolean };
 type Transport = { snapshot: () => Promise<StationSession>; request: (params: Record<string, unknown>) => Promise<StationReceipt | null> };
+export type ManualTuneSource = { frequencyHz: number; mode: string };
 const native = (radioId: RadioID): Transport => ({ snapshot: () => loadStationSession(radioId), request: params => stationSessionRequest(radioId, params) });
 const storage = (radioId: RadioID) => { const key = `xlog.station-session.${radioId}.manual-tune.pending`; return {
   read: () => { try { return sessionStorage.getItem(key); } catch { return "unverified"; } },
@@ -20,9 +21,11 @@ export class ManualTuneSession {
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   private update(change: Partial<State>) { this.state = { ...this.state, ...change }; this.listeners.forEach(listener => listener()); }
-  async tune(provider: StationProvider, frequencyHz: number, mode: string, context?: MonitorContext | null) {
+  async tune(provider: StationProvider, frequencyHz: number, mode: string, context?: MonitorContext | null, source?: ManualTuneSource) {
     if (this.state.busy || this.state.pending) throw new Error("Check the existing manual tune receipt before another tune. No tune was repeated.");
-    if (!Number.isSafeInteger(frequencyHz) || frequencyHz < 100_000 || frequencyHz > 1_000_000_000 || !/^[A-Z0-9]{1,16}$/.test(mode)) throw new Error("Enter a valid simplex frequency and mode.");
+    if (!Number.isSafeInteger(frequencyHz) || frequencyHz < 100_000 || frequencyHz > 1_000_000_000 || !/^[A-Z0-9]{1,16}$/.test(mode) || source &&
+        (!Number.isSafeInteger(source.frequencyHz) || source.frequencyHz < 100_000 || source.frequencyHz > 1_000_000_000 || !/^[A-Z0-9]{1,16}$/.test(source.mode)))
+      throw new Error("Enter a valid simplex frequency and mode.");
     this.update({ busy: true, message: "" });
     try {
       const base = await this.transport.snapshot();
@@ -40,7 +43,8 @@ export class ManualTuneSession {
       this.journal.write(operation); this.update({ pending: operation });
       const receipt = await this.transport.request({ action: "manual_tune", operation_id: operation, generation: base.generation, revision: base.revision,
         provider, selection_generation: selection.generation, selection_id: selection.selection_id, control_revision: selection.control_revision,
-        connection_generation: radio.snapshot.generation, worker_generation: provider === "hamlib" ? 0 : base.worker_generation, frequency_hz: frequencyHz, mode });
+        connection_generation: radio.snapshot.generation, worker_generation: provider === "hamlib" ? 0 : base.worker_generation, frequency_hz: frequencyHz, mode,
+        ...(source ? { expected_source_frequency_hz: source.frequencyHz, expected_source_mode: source.mode } : {}) });
       if (!receipt || receipt.operation_id !== operation || receipt.request.action !== "manual_tune") throw new Error("Manual tune receipt could not be verified. Check its retained operation.");
       if (receipt.status !== "confirmed") { this.update({reviewable:receipt.status==="unknown"}); throw new Error("Manual tune outcome is unknown. Check its receipt; no tune will be replayed."); }
       this.journal.write(null); this.update({ pending: null, reviewable:false, message: "Simplex tune confirmed by authoritative radio readback." });

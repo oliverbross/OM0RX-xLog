@@ -148,6 +148,7 @@ type Props = {
   request: Request;
   serviceRequest: Request;
   stationTune: (frequencyHz: number, mode: string) => Promise<unknown>;
+  stationStep?: (direction: "up" | "down") => Promise<unknown>;
   contestSpot: (callsign: string, frequencyHz: number) => Promise<unknown>;
   operatingContext: string;
   workspaceGeneration: string;
@@ -509,7 +510,7 @@ function boundedFldigiSnapshot(value: unknown): NonNullable<ContestDigitalSnapsh
     udp_endpoint: source.udp_endpoint, xmlrpc_endpoint: source.xmlrpc_endpoint };
 }
 
-export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, contestSpot, operatingContext, workspaceGeneration, stationCall, radioFrequencyHz, spots, cluster,
+export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, stationStep, contestSpot, operatingContext, workspaceGeneration, stationCall, radioFrequencyHz, spots, cluster,
   selectedSpotId, onSelectedSpot, onSetupViewChange, registerTransition, registerMenuRoute, setupOnly = false, contestingTest = false }: Props) {
   const [catalog, setCatalog] = useState<Data[]>([]), [sessions, setSessions] = useState<Session[]>([]);
   const [bandDefinitions, setBandDefinitions] = useState<ContestBandDefinition[]>(fallbackBandDefinitions);
@@ -1859,6 +1860,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
           : current <= 0 ? visibleWorkflowSpots.length - 1 : current - 1;
         await chooseSpot(visibleWorkflowSpots[nextIndex], true); return;
       }
+      case "entry_step_vfo":
+        if(contestingTest)throw new Error("VFO stepping is disabled in Contesting Test.");
+        if(!stationStep)throw new Error("The selected xLog radio cannot step the VFO.");
+        await stationStep(action.params.direction);
+        setNotice(`VFO ${action.params.direction === "up" ? "increased" : "decreased"} after authoritative radio readback.`);return;
       case "entry_commit":
         await commitEntry();return;
       case "entry_operator_arm":

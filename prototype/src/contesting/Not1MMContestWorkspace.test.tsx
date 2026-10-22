@@ -1754,6 +1754,25 @@ it("applies a contest-window spot only to the active Not1MM draft and tunes exac
   expect(request.mock.calls.some(([method])=>method==="activate_spot")).toBe(false);
 });
 
+it("steps the observed VFO only through the injected durable station owner",async()=>{
+  let current=projection();const step=vi.fn(async()=>({accepted:true,confirmed:true}));
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{plugins:[]}:method==="contest_sessions"?{sessions:[]}:
+      method==="contest_create"?{projection:current}:method==="contest_log_page"?{rows:[],total:0}:
+      method==="contest_score"?{score:current.score}:null;
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} stationStep={step}/>);
+  await createContestThroughSetup();const entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"active-qso",projectionRevision:entry.draft.revision,requestID:crypto.randomUUID(),action:"entry_step_vfo",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,direction:"up"}}));
+  expect(step).toHaveBeenCalledExactlyOnceWith("up");
+  expect(request.mock.calls.some(([method])=>method==="contest_draft_apply")).toBe(false);
+});
+
 it("steps through distinct displayed spots from the last mouse selection and reconciles a changed list",async()=>{
   let current=projection();
   const tune=vi.fn(async(_frequencyHz:number,_mode:string)=>({accepted:true,confirmed:true}));

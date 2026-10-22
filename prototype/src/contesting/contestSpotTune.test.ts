@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { createContestSpotTuner } from "./contestSpotTune";
+import { createContestSpotTuner, createContestVFOStepper } from "./contestSpotTune";
 
 const station = (active = "radio1", provider: string | null = "direct_flex_lan") => ({
   radio_id:"radio1", active_radio:active, tx_owner:null, generation:"setup", revision:3, base_url:"", last_receipt:null,
@@ -16,6 +16,23 @@ it("tunes the current active radio through the durable manual-tune session", asy
   expect(load).toHaveBeenCalledWith("radio1");
   expect(session).toHaveBeenCalledWith("radio1");
   expect(tune).toHaveBeenCalledWith("direct_flex_lan",14_025_000,"CW");
+});
+
+it.each([
+  ["CW",14_025_000,"up",14_025_020], ["CWR",14_025_000,"down",14_024_980],
+  ["USB",14_250_000,"up",14_250_100], ["LSB",7_100_000,"down",7_099_900],
+] as const)("steps observed %s without changing mode and carries the source fence",async(mode,frequency,direction,target)=>{
+  const tune=vi.fn(async()=>({accepted:true,confirmed:true})),session=vi.fn(()=>({getSnapshot:()=>({pending:null}),check:vi.fn(),tune} as any));
+  const load=vi.fn(async()=>({...station(),radio:{...station().radio,snapshot:{generation:13,radio:{frequency_hz:frequency,mode}}}}));
+  await createContestVFOStepper({load,session})(direction);
+  expect(tune).toHaveBeenCalledWith("direct_flex_lan",target,mode,undefined,{frequencyHz:frequency,mode});
+});
+
+it("rejects unsupported or unobserved VFO modes before durable dispatch",async()=>{
+  const tune=vi.fn(),session=vi.fn(()=>({getSnapshot:()=>({pending:null}),check:vi.fn(),tune} as any));
+  const load=vi.fn(async()=>({...station(),radio:{...station().radio,snapshot:{generation:13,radio:{frequency_hz:14_074_000,mode:"FT8"}}}}));
+  await expect(createContestVFOStepper({load,session})("up")).rejects.toThrow(/only for an observed CW or SSB/);
+  expect(tune).not.toHaveBeenCalled();
 });
 
 it("resolves radio two and refuses stale or unresolved station state", async () => {

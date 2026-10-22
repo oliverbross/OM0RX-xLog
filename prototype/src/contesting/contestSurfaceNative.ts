@@ -152,6 +152,13 @@ export async function openContestSurfaceWindow(context: ContestSurfaceContext, p
   await invoke("contest_window_open", { ...context, panelID });
 }
 
+export async function toggleContestSurfaceWindow(context: ContestSurfaceContext, panelID: ContestSurfacePanelID): Promise<void> {
+  if (!contextValid(context) || !["band-maps", "callsign-intelligence", "logbook", "monitor", "propagation", "station-control"].includes(panelID))
+    throw new Error("The contest window toggle request could not be verified.");
+  if (!isTauri()) throw new Error("Contest windows require the native application.");
+  await invoke("contest_window_toggle", { ...context, panelID });
+}
+
 export async function openContestCallHistoryWindow(context: ContestSurfaceContext): Promise<void> {
   if (!contextValid(context)) throw new Error("The Call History window request could not be verified.");
   if (!isTauri()) throw new Error("Call History requires the native application.");
