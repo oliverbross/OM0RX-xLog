@@ -12,6 +12,7 @@ const MAX_REQUEST: usize = 32_768;
 const MAX_RESPONSE: u64 = 1_048_576;
 static IN_FLIGHT: AtomicUsize = AtomicUsize::new(0);
 static TRANSITION_BLOCKING_IN_FLIGHT: AtomicUsize = AtomicUsize::new(0);
+const MODULE_TRANSITION_SEALED: usize = 1 << (usize::BITS - 1);
 const MAX_IN_FLIGHT: usize = 16;
 const MAX_ABANDONED: usize = MAX_IN_FLIGHT;
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(45);
@@ -174,6 +175,33 @@ impl Drop for RequestSlot {
             TRANSITION_BLOCKING_IN_FLIGHT.fetch_sub(1, Ordering::AcqRel);
         }
     }
+}
+
+fn admit_transition_blocker(gate: &AtomicUsize) -> bool {
+    gate.fetch_update(Ordering::AcqRel, Ordering::Acquire, |state| {
+        if state & MODULE_TRANSITION_SEALED != 0 {
+            None
+        } else {
+            state
+                .checked_add(1)
+                .filter(|next| next & MODULE_TRANSITION_SEALED == 0)
+        }
+    })
+    .is_ok()
+}
+
+fn release_transition_blocker(gate: &AtomicUsize) {
+    gate.fetch_sub(1, Ordering::AcqRel);
+}
+
+fn seal_transition_gate(gate: &AtomicUsize) -> bool {
+    gate.compare_exchange(
+        0,
+        MODULE_TRANSITION_SEALED,
+        Ordering::AcqRel,
+        Ordering::Acquire,
+    )
+    .is_ok()
 }
 
 pub fn validate_request(request: &Value) -> Result<(), String> {
@@ -717,8 +745,13 @@ static LOCAL_ACCEPTANCE: OnceLock<bool> = OnceLock::new();
 static CONTESTING_TEST: OnceLock<bool> = OnceLock::new();
 pub fn local_acceptance() -> bool { *LOCAL_ACCEPTANCE.get().unwrap_or(&false) }
 pub fn generation() -> u64 { SESSION_GENERATION.load(Ordering::Acquire) }
-pub fn transition_blocking_requests_in_flight() -> usize {
-    TRANSITION_BLOCKING_IN_FLIGHT.load(Ordering::Acquire)
+pub fn seal_module_transition_admission() -> Result<(), String> {
+    seal_transition_gate(&TRANSITION_BLOCKING_IN_FLIGHT)
+        .then_some(())
+        .ok_or(
+            "Wait for the current station or logbook operation to finish before changing module."
+                .into(),
+        )
 }
 
 /// Called once by native main before creating any webviews. A renderer cannot
@@ -1000,13 +1033,20 @@ pub(crate) fn require_retired_generation(old: u64, current: u64) -> Result<(), S
 fn request_using(request: Value, session: impl FnOnce() -> Result<Arc<Session>, String>) -> Result<Value, String> {
     validate_request(&request)?;
     let blocks_module_transition = request_blocks_module_transition(&request);
-    IN_FLIGHT
-        .fetch_update(Ordering::AcqRel, Ordering::Acquire, |count| {
-            (count < MAX_IN_FLIGHT).then_some(count + 1)
-        })
-        .map_err(|_| "Prototype worker is busy; try again")?;
-    if blocks_module_transition {
-        TRANSITION_BLOCKING_IN_FLIGHT.fetch_add(1, Ordering::AcqRel);
+    if blocks_module_transition && !admit_transition_blocker(&TRANSITION_BLOCKING_IN_FLIGHT) {
+        return Err(
+            "The operating module is changing. No new station or logbook operation was started."
+                .into(),
+        );
+    }
+    let admitted = IN_FLIGHT.fetch_update(Ordering::AcqRel, Ordering::Acquire, |count| {
+        (count < MAX_IN_FLIGHT).then_some(count + 1)
+    });
+    if admitted.is_err() {
+        if blocks_module_transition {
+            release_transition_blocker(&TRANSITION_BLOCKING_IN_FLIGHT);
+        }
+        return Err("Prototype worker is busy; try again".into());
     }
     let _slot = RequestSlot { blocks_module_transition };
     let session = session()?;
@@ -1252,6 +1292,59 @@ mod tests {
             validate_request(&request).unwrap();
             assert!(request_blocks_module_transition(&request),
                 "mutation unexpectedly bypasses transition barrier: {method}");
+        }
+    }
+
+    #[test]
+    fn module_transition_gate_excludes_blocker_admission_after_sealing() {
+        let gate = AtomicUsize::new(0);
+        assert!(admit_transition_blocker(&gate));
+        assert!(!seal_transition_gate(&gate));
+        release_transition_blocker(&gate);
+        assert!(seal_transition_gate(&gate));
+        assert!(!admit_transition_blocker(&gate));
+    }
+
+    #[test]
+    fn module_transition_gate_linearizes_concurrent_seal_and_admission() {
+        for _ in 0..64 {
+            let gate = AtomicUsize::new(0);
+            let start = std::sync::Barrier::new(3);
+            let finish = std::sync::Barrier::new(3);
+            let (results, received) = mpsc::channel();
+            std::thread::scope(|scope| {
+                scope.spawn(|| {
+                    start.wait();
+                    let admitted = admit_transition_blocker(&gate);
+                    results.send(("admit", admitted)).unwrap();
+                    finish.wait();
+                    if admitted {
+                        release_transition_blocker(&gate);
+                    }
+                });
+                scope.spawn(|| {
+                    start.wait();
+                    let sealed = seal_transition_gate(&gate);
+                    results.send(("seal", sealed)).unwrap();
+                    finish.wait();
+                });
+                start.wait();
+                let first = received.recv().unwrap();
+                let second = received.recv().unwrap();
+                let admitted = [first, second]
+                    .into_iter()
+                    .find_map(|(name, result)| (name == "admit").then_some(result))
+                    .unwrap();
+                let sealed = [first, second]
+                    .into_iter()
+                    .find_map(|(name, result)| (name == "seal").then_some(result))
+                    .unwrap();
+                assert_ne!(
+                    admitted, sealed,
+                    "admission and sealing must have one winner"
+                );
+                finish.wait();
+            });
         }
     }
 
