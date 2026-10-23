@@ -994,7 +994,7 @@ fn validate_projection(panel_id: &str, value: &Value) -> Result<(), String> {
             validate_matrix_projection(projection)
         }
         "logbook" if schema_version == 1 => validate_logbook_projection(projection),
-        "band-maps" | "dx-cluster" if schema_version == 2 => validate_spot_projection(projection),
+        "band-maps" | "world-map" | "dx-cluster" if schema_version == 2 => validate_spot_projection(projection),
         "station-control" if schema_version == 1 => validate_remote_vfo_projection(projection),
         "active-qso" | "qrz-details" | "callsign-intelligence" | "propagation" | "monitor"
         | "score-reporting" | "messages" | "awards" | "chaser-dx" | "logbook" => {
@@ -3992,7 +3992,9 @@ mod tests {
             "configuredClusters":[{"serverID":"server-1","serverName":"ShackCQ","enabled":true}],
             "connections":[{"serverID":"server-1","serverName":"ShackCQ","phase":"connected","error":null}],"markedOnly":false,
             "spots":[spot.clone()],"busy":false});
-        for panel in ["band-maps", "dx-cluster"] { assert!(validate_projection(panel, &projection).is_ok()); }
+        for panel in ["band-maps", "world-map", "dx-cluster"] { assert!(validate_projection(panel, &projection).is_ok()); }
+        assert!(validate_action_envelope(&action("spot_select", "world-map",
+            json!({"draftID":"draft","expectedDraftRevision":2,"spotID":"spot-1"}))).is_err());
         let mut band_segments = projection.clone();
         band_segments["contestSessionID"] = json!("session-1");
         band_segments["supportedBands"] = json!(["40m"]);

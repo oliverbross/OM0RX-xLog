@@ -28,7 +28,7 @@ pub fn mode_route(id: &str) -> Option<&'static str> {
 
 // Menu destinations are retained main-renderer intents. The main contest
 // controller supplies the current session when opening its existing windows.
-pub const CONTEST_MENU_ITEMS: [(&str, &str); 25] = [
+pub const CONTEST_MENU_ITEMS: [(&str, &str); 26] = [
     ("contest-setup", "Contest Setup"),
     ("contest-dialog-operator", "Operator…"),
     ("contest-dialog-station", "Station Settings…"),
@@ -44,6 +44,7 @@ pub const CONTEST_MENU_ITEMS: [(&str, &str); 25] = [
     ("contest-window-propagation", "Stats"),
     ("contest-window-logbook", "Logbook"),
     ("contest-window-band-maps", "Band Map"),
+    ("contest-window-world-map", "Spots Map"),
     ("contest-window-dx-cluster", "Cluster"),
     ("contest-window-callsign-intelligence", "Check Partial"),
     ("contest-window-monitor", "Rates"),
@@ -173,7 +174,7 @@ mod tests {
         // dependency and fences the old lifetime's delayed retirement task.
         assert!(!contest_owner_can_retire(false, false, ["contest-setup-station"]));
         assert!(contest_owner_can_retire(false, false, ["rotor", "station-control"]));
-        assert_eq!(windows, ["active-qso", "qrz-details", "call-history", "group-chat", "callsign-intelligence", "propagation", "monitor", "score-reporting", "messages", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"].into_iter().collect());
+        assert_eq!(windows, ["active-qso", "qrz-details", "call-history", "group-chat", "callsign-intelligence", "propagation", "monitor", "score-reporting", "messages", "logbook", "band-maps", "world-map", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"].into_iter().collect());
         let registered = crate::workspace_windows::CONTEST_WINDOWS.iter().map(|window| window.id)
             .collect::<std::collections::HashSet<_>>();
         windows.insert("edit-contact");
@@ -189,7 +190,7 @@ mod tests {
             ("contest-dialog-keys", "Edit Keys…"),
             ("contest-dialog-rover", "Rover…"), ("contest-dialog-about", "About Not1MM"),
             ("contest-window-active-qso", "Main Logging"), ("contest-window-propagation", "Stats"),
-            ("contest-window-logbook", "Logbook"), ("contest-window-band-maps", "Band Map"),
+            ("contest-window-logbook", "Logbook"), ("contest-window-band-maps", "Band Map"), ("contest-window-world-map", "Spots Map"),
             ("contest-window-dx-cluster", "Cluster"), ("contest-window-callsign-intelligence", "Check Partial"),
             ("contest-window-monitor", "Rates"),
             ("contest-window-score-reporting", "Score Reporting"),

@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 
-export const sharedContestWindowViews = ["active-qso", "band-maps", "callsign-intelligence", "monitor", "propagation",
+export const sharedContestWindowViews = ["active-qso", "band-maps", "world-map", "callsign-intelligence", "monitor", "propagation",
   "awards", "chaser-dx", "logbook", "edit-contact", "dx-cluster", "score-reporting", "messages"] as const;
 
 /** Keep contest-only route metadata out of every ordinary detached window. */

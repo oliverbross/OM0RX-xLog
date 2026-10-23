@@ -84,12 +84,13 @@ pub const SUPPORTED_WINDOWS: [WindowSpec; 23] = [
     WindowSpec { id: "antenna", title: "OM0RX-xLog — Antenna Reference", width: 780.0, height: 600.0 },
 ];
 pub const CONTEST_LABEL_PREFIX: &str = "contest--";
-pub const CONTEST_WINDOWS: [WindowSpec; 17] = [
+pub const CONTEST_WINDOWS: [WindowSpec; 18] = [
     WindowSpec { id: "active-qso", title: "OM0RX-xLog Contest — Main Logging", width: 800.0, height: 360.0 },
     WindowSpec { id: "call-history", title: "OM0RX-xLog Contest — Call History", width: 840.0, height: 360.0 },
     WindowSpec { id: "qrz-details", title: "OM0RX-xLog Contest — Callsign Details", width: 520.0, height: 420.0 },
     WindowSpec { id: "group-chat", title: "OM0RX-xLog Contest — Group Chat", width: 620.0, height: 420.0 },
     WindowSpec { id: "band-maps", title: "OM0RX-xLog Contest — Band Map", width: 520.0, height: 700.0 },
+    WindowSpec { id: "world-map", title: "OM0RX-xLog Contest — Spots Map", width: 980.0, height: 640.0 },
     WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog Contest — Check Partial", width: 800.0, height: 360.0 },
     WindowSpec { id: "monitor", title: "OM0RX-xLog Contest — Rates", width: 340.0, height: 300.0 },
     WindowSpec { id: "score-reporting", title: "OM0RX-xLog Contest — Score Reporting", width: 620.0, height: 540.0 },
@@ -129,6 +130,7 @@ pub fn contest_default_size_migrations(label: &str) -> Option<(&'static [(f64, f
         "call-history" => &[(900.0, 720.0), (840.0, 640.0)],
         "group-chat" => &[],
         "band-maps" => &[(380.0, 760.0), (520.0, 500.0)],
+        "world-map" => &[],
         "callsign-intelligence" => &[(700.0, 620.0), (660.0, 500.0), (660.0, 620.0)],
         "monitor" => &[(780.0, 600.0)],
         "score-reporting" => &[],
@@ -179,6 +181,7 @@ pub fn native_minimum(label: &str) -> (f64, f64) {
                 "edit-contact" => (500.0, 480.0),
                 "propagation" => (300.0, 180.0),
                 "band-maps" => (340.0, 400.0),
+                "world-map" => (620.0, 400.0),
                 "dx-cluster" => (620.0, 260.0),
                 "rotor" => (420.0, 420.0),
                 "monitor" => (280.0, 200.0),
@@ -406,10 +409,11 @@ mod tests {
 
         let ids: BTreeSet<_> = CONTEST_WINDOWS.iter().map(|window| window.id).collect();
         assert_eq!(ids.len(), CONTEST_WINDOWS.len());
-        assert_eq!(ids, BTreeSet::from(["active-qso", "awards", "band-maps", "call-history", "group-chat", "qrz-details", "callsign-intelligence",
+        assert_eq!(ids, BTreeSet::from(["active-qso", "awards", "band-maps", "world-map", "call-history", "group-chat", "qrz-details", "callsign-intelligence",
             "chaser-dx", "dx-cluster", "edit-contact", "logbook", "messages", "monitor", "propagation", "rotor", "score-reporting", "station-control"]));
         let titles = CONTEST_WINDOWS.iter().map(|window| (window.id, window.title)).collect::<std::collections::HashMap<_, _>>();
         for (panel, title) in [
+            ("world-map", "OM0RX-xLog Contest — Spots Map"),
             ("callsign-intelligence", "OM0RX-xLog Contest — Check Partial"),
             ("propagation", "OM0RX-xLog Contest — Stats"),
             ("logbook", "OM0RX-xLog Contest — Log Display"),
@@ -475,12 +479,12 @@ mod tests {
         assert_eq!(plan.show, ["contest--active-qso", "contest--band-maps", "contest--logbook"]);
         assert!(plan.hide.is_empty());
 
-        let mut unsupported = fixture(&["world-map"]);
+        let mut unsupported = fixture(&["settings"]);
         unsupported["scope"] = json!("contesting");
         unsupported["document"]["activePresetID"] = json!("contest-windows");
         unsupported["document"]["presets"][0]["id"] = json!("contest-windows");
         let error = WorkspaceWindowPlanner::for_scope(WorkspaceWindowScope::Contesting).plan(&unsupported, false).unwrap_err();
-        assert!(error.contains("world-map"));
+        assert!(error.contains("settings"));
 
         let mut normal = WorkspaceWindowPlanner::default();
         assert!(normal.acknowledge_show("contest--logbook").is_err());
@@ -543,6 +547,7 @@ mod tests {
             ("edit-contact", (500.0, 480.0)),
             ("group-chat", (360.0, 240.0)),
             ("callsign-intelligence", (440.0, 200.0)), ("logbook", (620.0, 300.0)),
+            ("world-map", (620.0, 400.0)),
             ("propagation", (300.0, 180.0)),
             ("band-maps", (340.0, 400.0)), ("dx-cluster", (620.0, 260.0)),
             ("rotor", (420.0, 420.0)), ("monitor", (280.0, 200.0)),
@@ -574,6 +579,7 @@ mod tests {
         assert_eq!(contest_default_size_migrations("contest--active-qso"), Some((&[(800.0, 620.0), (800.0, 480.0), (800.0, 440.0)][..], (800.0, 360.0))));
         assert_eq!(contest_default_size_migrations("contest--call-history"), Some((&[(900.0, 720.0), (840.0, 640.0)][..], (840.0, 360.0))));
         assert_eq!(contest_default_size_migrations("contest--band-maps"), Some((&[(380.0, 760.0), (520.0, 500.0)][..], (520.0, 700.0))));
+        assert_eq!(contest_default_size_migrations("contest--world-map"), Some((&[][..], (980.0, 640.0))));
         assert_eq!(contest_default_size_migrations("contest--callsign-intelligence"), Some((&[(700.0, 620.0), (660.0, 500.0), (660.0, 620.0)][..], (800.0, 360.0))));
         assert_eq!(contest_default_size_migrations("contest--monitor"), Some((&[(780.0, 600.0)][..], (340.0, 300.0))));
         assert_eq!(contest_default_size_migrations("contest--propagation"), Some((&[(800.0, 480.0), (520.0, 380.0), (520.0, 140.0)][..], (520.0, 220.0))));

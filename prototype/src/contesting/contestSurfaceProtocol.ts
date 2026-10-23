@@ -1,6 +1,6 @@
 import { contestKeyBindingActions, contestKeyBindingContexts, normalizeContestKey, type ContestKeyBinding } from "./contestKeyBindings";
 
-export const contestSurfacePanelIDs = ["active-qso", "qrz-details", "band-maps", "callsign-intelligence", "monitor", "propagation",
+export const contestSurfacePanelIDs = ["active-qso", "qrz-details", "band-maps", "world-map", "callsign-intelligence", "monitor", "propagation",
   "awards", "chaser-dx", "rotor", "station-control", "logbook", "dx-cluster", "score-reporting", "messages"] as const;
 export type ContestSurfacePanelID = typeof contestSurfacePanelIDs[number];
 export const contestInputFieldIDs = ["callsign", "sent", "receive", "other_1", "other_2"] as const;
@@ -542,7 +542,7 @@ export function validContestSurfaceProjection(panelID: ContestSurfacePanelID, va
   if ((panelID === "active-qso" || panelID === "qrz-details") && projection.schemaVersion === 2 && projection.status === "ready") return validEntryProjectionV2(projection);
   if (panelID === "propagation" && projection.schemaVersion === 3 && projection.status === "ready") return validStatisticsProjectionV3(projection);
   if ((panelID === "awards" || panelID === "chaser-dx") && projection.schemaVersion === 4 && projection.status === "ready") return validMatrixProjection(projection);
-  if ((panelID === "band-maps" || panelID === "dx-cluster") && projection.schemaVersion === 2 && projection.status === "ready") return validSpotProjection(projection);
+  if ((panelID === "band-maps" || panelID === "world-map" || panelID === "dx-cluster") && projection.schemaVersion === 2 && projection.status === "ready") return validSpotProjection(projection);
   if (projection.schemaVersion !== 1) return false;
   if (projection.status === "unavailable") return exact(projection, ["schemaVersion", "status"]);
   if (projection.status !== "ready") return false;

@@ -1526,7 +1526,7 @@ mod tests {
     fn contest_menu_scopes_rotator_and_remote_vfo_to_the_active_contest() {
         let host = FakeHost::new(vec![layout(1, &[])]);
         assert_eq!(host.layouts.len(), 1);
-        for panel in ["active-qso", "callsign-intelligence", "propagation", "monitor", "awards", "chaser-dx", "logbook", "band-maps", "dx-cluster", "rotor", "station-control"] {
+        for panel in ["active-qso", "callsign-intelligence", "propagation", "monitor", "awards", "chaser-dx", "logbook", "band-maps", "world-map", "dx-cluster", "rotor", "station-control"] {
             assert_eq!(contest_open_label(panel).unwrap(), format!("contest--{panel}"));
             assert!(crate::workspace_navigation::contest_shared_window(panel).is_none());
         }

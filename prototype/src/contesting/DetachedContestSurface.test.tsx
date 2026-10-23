@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { Profiler, useMemo, useState } from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { DetachedContestSurface } from "./DetachedContestSurface";
+import { contestMapSpots, DetachedContestSurface } from "./DetachedContestSurface";
 import { loadWindowSurface } from "../windowSurface";
 import { contestSurfacePanelIDs, type ContestEntrySurfaceProjection, type ContestSurfaceActionEnvelope,
   type ContestSurfaceProjection, validContestSurfaceProjection } from "./contestSurfaceProtocol";
@@ -41,6 +41,24 @@ beforeEach(()=>{vi.resetAllMocks();localStorage.clear();native.wake=null;native.
   native.wake=()=>native.wakes.forEach(wake=>wake({payload:null}));native.emit=payload=>native.wakes.forEach(wake=>wake({payload}));
   return()=>{native.wakes=native.wakes.filter(wake=>wake!==callback);};});window.history.replaceState({},"",search);});
 afterEach(()=>{cleanup();window.history.replaceState({},"","/");});
+
+it("maps only contest-projected located spots with CQ WW multiplier colors",()=>{
+  const located={...sharedSpot,latitude:51,longitude:13};
+  const projected=[
+    {...sharedSpot,id:"double",contestDupe:false,contestMultiplierCount:2,contestCountryMultiplier:true,contestZoneMultiplier:true},
+    {...sharedSpot,id:"single",contestDupe:false,contestMultiplierCount:1,contestCountryMultiplier:true,contestZoneMultiplier:false},
+    {...sharedSpot,id:"qso",contestDupe:false,contestMultiplierCount:0,contestCountryMultiplier:false,contestZoneMultiplier:false},
+    {...sharedSpot,id:"dupe",contestDupe:true,contestMultiplierCount:0,contestCountryMultiplier:false,contestZoneMultiplier:false},
+  ];
+  const shared=projected.map((spot,index)=>({...located,id:spot.id,callsign:`DL${index}ABC`,latitude:51+index,longitude:13+index}));
+  shared.push({...located,id:"not-in-contest",callsign:"K1ABC"});
+  expect(contestMapSpots(projected,shared)).toEqual([
+    expect.objectContaining({id:"double",callStatus:"Double multiplier",statusHex:"#00e51b"}),
+    expect.objectContaining({id:"single",callStatus:"Single multiplier",statusHex:"#ff5267"}),
+    expect.objectContaining({id:"qso",callStatus:"Valid QSO",statusHex:"#3da5f4"}),
+    expect.objectContaining({id:"dupe",callStatus:"Dupe / non-workable",statusHex:"#aeb5b7",state:"worked"}),
+  ]);
+});
 
 it("rereads a restored Main Logging window after the replacement context listener is installed",async()=>{
   const unavailable={...snapshot,projectionRevision:0,projection:{schemaVersion:1,status:"unavailable"}};

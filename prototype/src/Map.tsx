@@ -18,6 +18,7 @@ type OverlayMode = "Spots" | "DXCC" | "Both";
 type MapAppearance = "Hybrid" | "Satellite" | "Standard";
 type MapPreset = "Simple" | "Detailed" | "DX";
 type DXCCStatus = "needed" | "worked" | "confirmed";
+type SpotColorMode = "band" | "status";
 type MapCamera = { center: Coordinate; zoom: number; bearing: number; pitch: number; routeKey: string | null;
   fitToDataKey?: string; selected: string | null; homeKey: string | null };
 type StoredMapState = { overlayMode?: OverlayMode; appearance?: MapAppearance; preset?: MapPreset; showSun?: boolean;
@@ -53,6 +54,16 @@ function homeStateKey(home: MapPoint | null | undefined) {
 
 function savedGridPreference() {
   try { return window.localStorage.getItem(gridPreferenceKey) === "true"; } catch { return false; }
+}
+
+function spotStatusColor(spot: MapSpot, palette: { status?: Record<string, string> } | null | undefined) {
+  return typeof spot.statusHex === "string" && /^#[0-9a-fA-F]{6}$/.test(spot.statusHex)
+    ? spot.statusHex : paletteColor(spot.callStatus ?? "Unknown", palette?.status, clusterStatusColors);
+}
+
+function spotMarkerColor(spot: MapSpot, palette: { status?: Record<string, string>; band?: Record<string, string> } | null | undefined,
+    mode: SpotColorMode) {
+  return mode === "status" ? spotStatusColor(spot, palette) : paletteColor(spot.band, palette?.band, clusterBandColors);
 }
 
 function lineFeatures(lines: Coordinate[][]) {
@@ -178,6 +189,8 @@ export default function WorldMap({
   locationLabel = "CTY approximate spot locations",
   fitToDataKey,
   persistenceKey,
+  spotColorMode = "band",
+  spotLegend,
 }: {
   selected: string | null;
   onSpot?: (spot: MapSpot) => void;
@@ -194,6 +207,8 @@ export default function WorldMap({
   locationLabel?: string;
   fitToDataKey?: string;
   persistenceKey?: string;
+  spotColorMode?: SpotColorMode;
+  spotLegend?: { label: string; color: string }[];
 }) {
   const [restoredState] = useState(() => storedMapState(persistenceKey));
   const mappedSpots = useMemo(() => normalizeMapSpots(data), [data]);
@@ -277,12 +292,14 @@ export default function WorldMap({
   const statusFilterRef = useRef(statusFilter);
   const dxccRef = useRef(dxccStatuses);
   const paletteRef = useRef(palette);
+  const spotColorModeRef = useRef(spotColorMode);
   const showGridRef = useRef(showGrid);
   appearanceRef.current = appearance;
   overlayRef.current = overlayMode;
   statusFilterRef.current = statusFilter;
   dxccRef.current = dxccStatuses;
   paletteRef.current = palette;
+  spotColorModeRef.current = spotColorMode;
   showGridRef.current = showGrid;
   spotsRef.current = mappedSpots;
   homeRef.current = home;
@@ -315,7 +332,7 @@ export default function WorldMap({
       content.setAttribute("role", "tooltip");
       const heading = document.createElement("strong");
       heading.textContent = spot.call;
-      heading.style.color = paletteColor(spot.callStatus ?? "Unknown", paletteRef.current?.status, clusterStatusColors);
+      heading.style.color = spotStatusColor(spot, paletteRef.current);
       content.append(heading);
       for (const [index, text] of mapSpotDetails(spot).entries()) {
         const line = document.createElement("span");
@@ -380,7 +397,7 @@ export default function WorldMap({
           occupied.push({ x: position.x, y: position.y });
           displayLabel(`spot-${call}`, coordinate, "map-spot-label", call,
             `${call} · ${spot.band} · ${spot.mode} · ${spot.callStatus ?? spot.state}`,
-            paletteColor(spot.callStatus ?? "Unknown", paletteRef.current?.status, clusterStatusColors));
+            spotStatusColor(spot, paletteRef.current));
         }
       }
       // Callsigns take priority over approximate country labels at regional zoom.
@@ -559,7 +576,8 @@ export default function WorldMap({
                 type: "FeatureCollection",
                 features: spotsRef.current.map((s) => ({
                   type: "Feature",
-                  id: `spot-${s.call}`, properties: { id: s.id, state: s.state, bandColor: paletteColor(s.band, paletteRef.current?.band, clusterBandColors) },
+                  id: `spot-${s.call}`, properties: { id: s.id, state: s.state,
+                    spotColor: spotMarkerColor(s, paletteRef.current, spotColorModeRef.current) },
                   geometry: { type: "Point", coordinates: [s.lon, s.lat] },
                 })),
               },
@@ -603,7 +621,7 @@ export default function WorldMap({
               source: "spots",
               paint: {
                 "circle-radius": 5,
-                "circle-color": ["get", "bandColor"],
+                "circle-color": ["get", "spotColor"],
                 "circle-stroke-color": "#07111f",
                 "circle-stroke-width": 1.5,
               },
@@ -1028,14 +1046,14 @@ export default function WorldMap({
       const source = map.getSource("spots") as maplibregl.GeoJSONSource | undefined;
       source?.setData({ type: "FeatureCollection", features: mappedSpots.map(s => ({
         type: "Feature", id: `spot-${s.call}`, properties: { id: s.id, state: s.state,
-          bandColor: paletteColor(s.band, palette?.band, clusterBandColors) },
+          spotColor: spotMarkerColor(s, palette, spotColorMode) },
         geometry: { type: "Point", coordinates: [s.lon, s.lat] },
       })) });
       redrawRef.current();
     };
     if (map.isStyleLoaded()) update(); else map.once("load", update);
     return () => { map.off("load", update); };
-  }, [mappedSpots, palette]);
+  }, [mappedSpots, palette, spotColorMode]);
   const routeSummary = home && target ? bearingAndDistance([home.lon, home.lat], [target.lon, target.lat]) : null;
   const activeBands = [...new Set(mappedSpots.map(spot => spot.band))].slice(0, 9);
   const changePreset = (next: MapPreset) => {
@@ -1085,7 +1103,8 @@ export default function WorldMap({
           : !home && !fixture ? <span>Set your station grid to draw accurate DX paths.</span> : null}
         <span>{fixture ? "Offline geography · fixture spots" : locationLabel}</span>
         <div className="map-legend-items">
-          {overlayMode !== "DXCC" && activeBands.map(band => <span key={band}><i style={{ backgroundColor: paletteColor(band, palette?.band, clusterBandColors) }} />{band}</span>)}
+          {overlayMode !== "DXCC" && (spotLegend?.length ? spotLegend.map(item => <span key={item.label}><i style={{ backgroundColor: item.color }} />{item.label}</span>)
+            : activeBands.map(band => <span key={band}><i style={{ backgroundColor: paletteColor(band, palette?.band, clusterBandColors) }} />{band}</span>))}
           {overlayMode !== "Spots" && (["needed", "worked", "confirmed"] as DXCCStatus[]).map(status =>
             <button key={status} type="button" aria-pressed={statusFilter.includes(status)} onClick={() => setStatusFilter(current =>
               current.includes(status) ? current.filter(item => item !== status) : [...current, status])}>

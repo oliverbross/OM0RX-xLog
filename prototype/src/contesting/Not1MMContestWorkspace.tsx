@@ -1998,7 +1998,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const selectedCandidate=spotCursorRef.current.context===spotSelectionContext?spotCursorRef.current.spotID:
       selectedSpotId==null?null:String(selectedSpotId);
     const selectedSpotID=selectedCandidate!==null&&visibleWorkflowSpots.some(spot=>spot.id===selectedCandidate)?selectedCandidate:null;
-    for(const panelID of ["band-maps","dx-cluster"] as const) unavailable[panelID]={schemaVersion:2,status:"ready",
+    for(const panelID of ["band-maps","world-map","dx-cluster"] as const) unavailable[panelID]={schemaVersion:2,status:"ready",
       draftID:projection.draftID,draftRevision:projection.revision,radioFrequencyHz:radioFrequencyHz??null,
       connectedClusters,loadedSpots,selectedSpotID,configuredClusters,connections,
       contestSessionID:projection.sessionID,supportedBands:configuredBands,allowedModeGroups,

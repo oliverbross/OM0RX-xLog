@@ -12,9 +12,11 @@ import { contestInputFieldIDs, type ContestInputFieldID, type ContestLogInlineEd
 import { ContestTextField, ContestCandidates, ContestScoreSummary } from "./ContestPresentation";
 import { contestKeyChord, functionKeyForContestAction, resolveContestKeyBinding,
   type ContestKeyBindingAction, type ContestKeyBindingContext } from "./contestKeyBindings";
-import BandMaps, { BAND_MAP_AGES, filterRecentBandMapSpots } from "../live/BandMaps";
+import BandMaps, { BAND_MAP_AGES, contestBandMapSpotColor, filterRecentBandMapSpots } from "../live/BandMaps";
 import { decodeContestBandPlan } from "./contestBandPlan";
 import ClusterPanel from "../live/ClusterPanel";
+import WorldMap from "../Map";
+import { connectMapContext, mapSpots } from "../live/mapContext";
 import { requestViaSession } from "../live/DetachedClusterBridge";
 import { connectMonitorContext, observedReceiveBandwidthHz, type MonitorContext } from "../live/monitorContext";
 import "./DetachedContestSurface.css";
@@ -31,7 +33,7 @@ const boundedDiagnostic = (value: string) => {
   return bounded||"Contest operation failed.";
 };
 const retryableUnavailablePanels = new Set<Context["panelID"]>([
-  "active-qso", "band-maps", "callsign-intelligence", "monitor", "propagation", "logbook", "dx-cluster", "score-reporting", "messages",
+  "active-qso", "band-maps", "world-map", "callsign-intelligence", "monitor", "propagation", "logbook", "dx-cluster", "score-reporting", "messages",
 ]);
 const fldigiContestModes = new Set(["RTTY", "RTTY-R", "LSB-D", "USB-D", "AM-D", "FM-D",
   "DIGI-U", "DIGI-L", "RTTYR", "PKTLSB", "PKTUSB"]);
@@ -216,6 +218,8 @@ function Surface({ context }: { context: Context }) {
                 await openContestContactEditorWindow(context); }
                catch(cause){reportDiagnostic("error",message(cause));}
             }}/>
+      : snapshot.panelID === "world-map" ? <ContestSpotsMap
+          projection={projection as Extract<typeof projection, { spots: unknown }>}/>
       : snapshot.panelID === "band-maps" || snapshot.panelID === "dx-cluster" ? <ContestSpots panelID={snapshot.panelID}
           context={context} projection={projection as Extract<typeof projection, { spots: unknown }>}
           projectionRevision={snapshot.projectionRevision} send={send}/>
@@ -272,6 +276,32 @@ function ScoreReporting({ projection, projectionRevision, send }: { projection: 
 type SendResult={applied:boolean;projectionRevision:number|null;message:string|null};
 type Send = (action: ContestSurfaceAction, projectionRevision:number,
   options?:{requestID?:string;safePresentation?:boolean;bypassQueue?:boolean}) => Promise<SendResult>;
+const contestSpotLegend=[
+  {label:"Double multiplier",color:"#00e51b"},{label:"Single multiplier",color:"#ff5267"},
+  {label:"Valid QSO",color:"#3da5f4"},{label:"Dupe / non-workable",color:"#aeb5b7"},
+];
+export function contestMapSpots(contestSpots:ContestSpotSurfaceProjection["spots"],sharedSpots:Record<string,any>[]) {
+  const contestByID=new Map(contestSpots.map(spot=>[spot.id,spot]));
+  return mapSpots(sharedSpots).flatMap(spot=>{
+    const contest=contestByID.get(spot.id);if(!contest)return [];
+    const multiplierCount=contest.contestCountryMultiplier!==null&&contest.contestZoneMultiplier!==null
+      ? Number(contest.contestCountryMultiplier)+Number(contest.contestZoneMultiplier):contest.contestMultiplierCount;
+    const callStatus=contest.contestDupe===true?"Dupe / non-workable":multiplierCount!==null&&multiplierCount>1?"Double multiplier":
+      multiplierCount===1?"Single multiplier":multiplierCount===0&&contest.contestDupe===false?"Valid QSO":"Scoring pending";
+    return [{...spot,callStatus,statusHex:contestBandMapSpotColor(contest),state:contest.contestDupe===true?"worked" as const:"needed" as const,
+      note:contest.comment,receivedAt:contest.receivedAt}];
+  });
+}
+function ContestSpotsMap({projection}:{projection:ContestSpotSurfaceProjection}) {
+  const [sharedSpots,setSharedSpots]=useState<Record<string,any>[]>([]);
+  useEffect(()=>{const connection=connectMapContext(value=>setSharedSpots(value.cluster.response?.snapshot?.spots??[]),()=>{});
+    return()=>connection.dispose();},[]);
+  const spots=useMemo(()=>contestMapSpots(projection.spots,sharedSpots),[projection.spots,sharedSpots]);
+  return <section className="contest-spots contest-spots-map" aria-label="Contest Spots Map"><WorldMap
+    selected={projection.selectedSpotID} data={spots} frequencyHz={projection.radioFrequencyHz??undefined}
+    spotColorMode="status" spotLegend={contestSpotLegend} persistenceKey={`contest-spots-${projection.contestSessionID??projection.draftID}`}
+    locationLabel="Configured contest band and mode reports · inspect only"/></section>;
+}
 function ContestSpots({panelID,context,projection,projectionRevision,send}:{panelID:"band-maps"|"dx-cluster";context:ContestSurfaceContext;
     projection:ContestSpotSurfaceProjection;projectionRevision:number;send:Send}) {
   const [stationContext,setStationContext]=useState<MonitorContext|null>(null);

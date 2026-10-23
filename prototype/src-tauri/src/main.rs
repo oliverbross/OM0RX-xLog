@@ -3937,7 +3937,7 @@ mod workspace_layout_tests {
 
     #[test]
     fn contest_desk_children_keep_a_usable_native_lifetime_after_main_retires() {
-        for label in ["contest--active-qso", "contest--band-maps", "contest--propagation",
+        for label in ["contest--active-qso", "contest--band-maps", "contest--world-map", "contest--propagation",
             "contest--logbook", "contest--callsign-intelligence", "contest--monitor", "contest--dx-cluster"] {
             assert!(contest_desk_window(label), "rejected desk child {label}");
         }
@@ -4064,7 +4064,7 @@ mod workspace_layout_tests {
 
     #[test]
     fn contest_window_open_is_setup_owner_only_and_bounded_to_connected_tools() {
-        for panel in ["active-qso", "call-history", "qrz-details", "group-chat", "callsign-intelligence", "propagation", "monitor", "score-reporting", "messages", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"] {
+        for panel in ["active-qso", "call-history", "qrz-details", "group-chat", "callsign-intelligence", "propagation", "monitor", "score-reporting", "messages", "logbook", "band-maps", "world-map", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"] {
             assert!(super::validate_contest_window_open("contest-setup", panel).is_ok());
             for label in ["main", "contest--active-qso", "contest--logbook", "logbook", "settings", ""] {
                 assert!(super::validate_contest_window_open(label, panel).is_err());

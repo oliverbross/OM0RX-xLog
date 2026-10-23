@@ -36,6 +36,13 @@ it.each(["band-maps","dx-cluster"] as const)("validates fenced %s spot selection
   expect(validContestSurfaceProjection(panelID,{...projection,spots:[spot,{...spot}]})).toBe(false);
   expect(validContestSurfaceProjection(panelID,{...projection,connections:[{...projection.connections[0],phase:"x".repeat(33)}]})).toBe(false);
 });
+it("validates the contest Spots Map projection while keeping it read-only",()=>{
+  const projection={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:7_125_000,
+    connectedClusters:1,loadedSpots:1,selectedSpotID:null,configuredClusters:[],connections:[],contestSessionID:base.sessionID,
+    supportedBands:["40m"],allowedModeGroups:["phone"],markedOnly:false,spots:[{...spot,band:"40m",mode:"SSB",frequencyKHz:7125}],busy:false};
+  expect(validContestSurfaceProjection("world-map",projection)).toBe(true);
+  expect(()=>validateContestSurfaceActionEnvelope({...base,panelID:"world-map",action:"spot_select",params:{...draft,spotID:spot.id}})).toThrow();
+});
 it("validates the read-only Remote VFO projection exactly", () => {
   const projection = { schemaVersion: 1, status: "ready", radioFrequencyHz: 14_025_000,
     contestFrequencyHz: 14_025_000, band: "20m", mode: "CW", busy: false };

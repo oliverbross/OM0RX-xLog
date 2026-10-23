@@ -603,6 +603,7 @@ it("preserves authoritative CQ WW SSB dupe and country-zone multiplier classific
       contestDupe:value.dupe,contestMultiplierCount:value.multiplierCount,contestCountryMultiplier:value.countryMultiplier,
       contestZoneMultiplier:value.zoneMultiplier,contestPoints:id==="dupe"?0:3})))));
   expect(surfaceOwner.current.projections["dx-cluster"].spots).toEqual(surfaceOwner.current.projections["band-maps"].spots);
+  expect(surfaceOwner.current.projections["world-map"].spots).toEqual(surfaceOwner.current.projections["band-maps"].spots);
 });
 
 it("reclassifies a newly logged CQ WW spot as grey and republishes its radio replacement",async()=>{
@@ -673,6 +674,8 @@ it("projects only the configured mode and bands into Cluster and Band Map even w
   expect(surfaceOwner.current.projections["band-maps"]).toMatchObject({contestSessionID:current.sessionID,
     supportedBands:["20m"],allowedModeGroups:["phone"]});
   expect(surfaceOwner.current.projections["dx-cluster"].spots)
+    .toEqual([expect.objectContaining({id:"ssb",mode:"SSB",contestPoints:3})]);
+  expect(surfaceOwner.current.projections["world-map"].spots)
     .toEqual([expect.objectContaining({id:"ssb",mode:"SSB",contestPoints:3})]);
   const preview=request.mock.calls.find(([method])=>method==="contest_spot_points_preview");
   expect(preview?.[1]).toMatchObject({spots:[expect.objectContaining({spotID:"ssb",mode:"SSB"})]});
