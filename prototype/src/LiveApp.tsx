@@ -100,6 +100,8 @@ import { TCIObservation } from "./live/TCIObservation";
 import { loadStationSession, type RadioID } from "./live/stationSession";
 import { providerAllowsCWDesk } from "./live/cwVisibility";
 import { clearConnectedHandoverMessage, rotorCommandParams, rotorProjection, validRotorSnapshot, type RotorSnapshot } from "./live/rotorControl";
+import { prepareOperatingModuleTransition } from "./operatingModulePreparation";
+import { normalModuleTransitionController } from "./live/normalModuleTransition";
 import "./live/live.css";
 import appLogo from "./assets/xlog-logo-mark.png";
 
@@ -503,6 +505,9 @@ function MainLiveApp() {
       current.activationFrozen || contact.activationFrozen || current.locked || contact.locked || !!current.pending || !!contact.pending ||
       !!current.conflict || contact.conflict || current.workspaceChanged || contact.workspaceChanged;
   }, [draftSession, contactSession, logbookMutations]);
+  useEffect(() => prepareOperatingModuleTransition(() => normalModuleTransitionController(
+    normalTransitionBlocked, frozen => { moduleTransitioning.current = frozen; },
+  )), [normalTransitionBlocked]);
   useEffect(() => protectOperatorDraftClose(normalTransitionBlocked,
   () => setError("Finish the draft fields and resolve unsaved or pending QSO changes before closing the Desk."), setError,
   closing => { mainClosing.current = closing; }, "close_main_window"), [normalTransitionBlocked]);

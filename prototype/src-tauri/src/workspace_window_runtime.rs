@@ -220,7 +220,7 @@ impl Owner {
             };
             match work {
                 Some(Work::ContestReset(reset)) => {
-                    let result = crate::contest_window_context::admit(&reset.context).and_then(|_| {
+                    let result = with_scope_admitted(WorkspaceWindowScope::Contesting, Some(&reset.context), || {
                         if contest_engine_matches(&engines, &reset.context) { return Ok(()); }
                         if let Ok(mut queue) = self.queue.lock() { queue.reject_contest_work(); }
                         crate::contest_surface::register_context(&reset.context);
@@ -233,21 +233,17 @@ impl Owner {
                     let _ = reset.reply.send(result);
                 }
                 Some(Work::ContestClose(close)) => {
-                    let result = crate::contest_window_context::admit(&close.context).and_then(|_| {
+                    let result = with_scope_admitted(WorkspaceWindowScope::Contesting, Some(&close.context), || {
                         if let Ok(mut queue) = self.queue.lock() { queue.reject_contest_work(); }
-                        close_contest_windows(&self.app)
-                    });
-                    if result.is_ok() {
+                        close_contest_windows(&self.app)?;
                         if crate::contest_window_context::invalidate_if(&close.context) {
                             crate::contest_surface::invalidate_context(&close.context);
                             engines.remove(&WorkspaceWindowScope::Contesting);
                             if let Ok(mut outcomes) = self.outcome.lock() { outcomes.remove(&WorkspaceWindowScope::Contesting); }
-                            if let Err(error) = crate::present_active_workspace(&self.app) {
-                                let _ = close.reply.send(Err(error));
-                                continue;
-                            }
+                            crate::present_active_workspace(&self.app)?;
                         }
-                    }
+                        Ok(())
+                    });
                     let _ = close.reply.send(result);
                 }
                 Some(Work::Canvas(canvas)) => {
@@ -260,31 +256,32 @@ impl Owner {
                     let _ = canvas.reply.send(result);
                 }
                 Some(Work::Open(open)) => {
-                    let Ok(engine) = admitted_engine_for(&mut engines, open.scope, open.contest_context.as_ref()) else {
-                        let _ = open.reply.send(Err("That native window request belongs to an expired contest context.".into()));
-                        continue;
-                    };
-                    // Retain contest admission through the serialized queue,
-                    // then present the existing shared service lifetime.
-                    if open.scope == WorkspaceWindowScope::Contesting
-                        && crate::workspace_navigation::contest_shared_window(&open.label).is_some() {
-                        let engine = engines.get_mut(&WorkspaceWindowScope::NormalLogging).expect("normal engine");
-                        let mut host = SharedContestHost { app: self.app.clone(), context: open.contest_context.expect("admitted contest context") };
-                        let result = engine.open(&mut host, &open.label);
-                        let _ = open.reply.send(result);
-                        continue;
-                    }
-                    let remember = open.scope == WorkspaceWindowScope::Contesting
-                        && open.label.starts_with(crate::workspace_windows::CONTEST_LABEL_PREFIX);
-                    let mut host = NativeHost { app: self.app.clone(), scope: open.scope, contest_context: open.contest_context };
-                    let result = engine.open(&mut host, &open.label).and_then(|_| {
-                        if remember { crate::contest_window_state::remember(&contest_window_state_directory(&self.app)?, &open.label, true)?; }
+                    let result = with_scope_admitted(open.scope, open.contest_context.as_ref(), || {
+                        // Retain contest admission through the complete serialized
+                        // open, persistence and outcome mutation.
+                        if open.scope == WorkspaceWindowScope::Contesting
+                            && crate::workspace_navigation::contest_shared_window(&open.label).is_some() {
+                            let engine = engines.get_mut(&WorkspaceWindowScope::NormalLogging).expect("normal engine");
+                            let mut host = SharedContestHost { app: self.app.clone(),
+                                context: open.contest_context.clone().expect("admitted contest context") };
+                            return engine.open(&mut host, &open.label);
+                        }
+                        let engine = engine_for(&mut engines, open.scope, open.contest_context.as_ref());
+                        let remember = open.scope == WorkspaceWindowScope::Contesting
+                            && open.label.starts_with(crate::workspace_windows::CONTEST_LABEL_PREFIX);
+                        let mut host = NativeHost { app: self.app.clone(), scope: open.scope,
+                            contest_context: open.contest_context.clone() };
+                        engine.open(&mut host, &open.label)?;
+                        if remember {
+                            crate::contest_window_state::remember(
+                                &contest_window_state_directory(&self.app)?, &open.label, true)?;
+                        }
                         Ok(())
                     });
                     let _ = open.reply.send(result);
                 }
                 Some(Work::ContestToggle(toggle)) => {
-                    let result = crate::contest_window_context::admit(&toggle.context).and_then(|_| {
+                    let result = with_scope_admitted(WorkspaceWindowScope::Contesting, Some(&toggle.context), || {
                         let engine = engines.get_mut(&WorkspaceWindowScope::Contesting)
                             .filter(|engine| engine.contest_context.as_ref() == Some(&toggle.context))
                             .ok_or("That native window request belongs to an expired contest context.")?;
@@ -313,18 +310,22 @@ impl Owner {
                     let _ = toggle.reply.send(result);
                 }
                 Some(Work::Refresh(refresh)) => {
-                    let Ok(engine) = admitted_engine_for(&mut engines, refresh.scope, refresh.contest_context.as_ref()) else {
-                        continue;
-                    };
-                    let mut host = NativeHost { app: self.app.clone(), scope: refresh.scope, contest_context: refresh.contest_context.clone() };
-                    engine.begin(refresh.attempt);
-                    self.publish(refresh.scope, refresh.contest_context.clone(), engine.outcome.clone());
-                    let restored = if refresh.scope == WorkspaceWindowScope::Contesting {
-                        contest_window_state_directory(&self.app).and_then(|directory| crate::contest_window_state::labels(&directory))
-                            .and_then(|labels| engine.restore_manual(&mut host, &labels))
-                    } else { Ok(()) };
-                    let _ = restored.and_then(|_| engine.reconcile(&mut host, refresh.force)).or_else(|error| engine.fail(error));
-                    self.publish(refresh.scope, refresh.contest_context, engine.outcome.clone());
+                    let _ = with_scope_admitted(refresh.scope, refresh.contest_context.as_ref(), || {
+                        let engine = engine_for(&mut engines, refresh.scope, refresh.contest_context.as_ref());
+                        let mut host = NativeHost { app: self.app.clone(), scope: refresh.scope,
+                            contest_context: refresh.contest_context.clone() };
+                        engine.begin(refresh.attempt);
+                        self.publish(refresh.scope, refresh.contest_context.clone(), engine.outcome.clone());
+                        let restored = if refresh.scope == WorkspaceWindowScope::Contesting {
+                            contest_window_state_directory(&self.app)
+                                .and_then(|directory| crate::contest_window_state::labels(&directory))
+                                .and_then(|labels| engine.restore_manual(&mut host, &labels))
+                        } else { Ok(()) };
+                        let _ = restored.and_then(|_| engine.reconcile(&mut host, refresh.force))
+                            .or_else(|error| engine.fail(error));
+                        self.publish(refresh.scope, refresh.contest_context.clone(), engine.outcome.clone());
+                        Ok(())
+                    });
                 }
                 Some(Work::Destroyed(label, token)) => {
                     // A replacement can be created before an old callback is handled.
@@ -913,17 +914,41 @@ fn contest_engine_matches(engines: &BTreeMap<WorkspaceWindowScope, Engine>,
         .is_some_and(|engine| engine.contest_context.as_ref() == Some(context))
 }
 
-fn admitted_engine_for<'a>(engines: &'a mut BTreeMap<WorkspaceWindowScope, Engine>, scope: WorkspaceWindowScope,
-    context: Option<&crate::contest_window_context::ContestWindowContext>)
-    -> Result<&'a mut Engine, String> {
+fn with_scope_admitted<T>(scope: WorkspaceWindowScope,
+    context: Option<&crate::contest_window_context::ContestWindowContext>,
+    action: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
+    let module_owner = crate::operating_module::owner()?;
     match (scope, context) {
-        (WorkspaceWindowScope::NormalLogging, None) => engine_for_after_admission(engines, scope, None, Ok(())),
-        (WorkspaceWindowScope::Contesting, Some(context)) => crate::contest_window_context::with_admitted(context,
-            || engine_for_after_admission(engines, scope, Some(context), Ok(())))?,
+        (WorkspaceWindowScope::NormalLogging, None) => {
+            let module = module_owner.snapshot()?;
+            let operating_context = module["context"].as_str()
+                .ok_or("Normal Logging operating context is unavailable.")?;
+            let _admission = module_owner.admit(
+                crate::operating_module::OperatingModule::NormalLogging,
+                Some(operating_context),
+            )?;
+            action()
+        }
+        (WorkspaceWindowScope::Contesting, Some(context)) => with_contest_work_admission(
+            module_owner, context, || {
+                crate::contest_window_context::admit(context)?;
+                action()
+            }),
         _ => Err("Native workspace scope context is invalid.".into()),
     }
 }
 
+fn with_contest_work_admission<T>(module_owner: &crate::operating_module::Owner,
+    context: &crate::contest_window_context::ContestWindowContext,
+    action: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
+    let _admission = module_owner.admit(
+        crate::operating_module::OperatingModule::Contesting,
+        Some(&context.operating_context),
+    )?;
+    action()
+}
+
+#[cfg(test)]
 fn engine_for_after_admission<'a>(engines: &'a mut BTreeMap<WorkspaceWindowScope, Engine>, scope: WorkspaceWindowScope,
     context: Option<&crate::contest_window_context::ContestWindowContext>, admission: Result<(), String>)
     -> Result<&'a mut Engine, String> {
@@ -1308,6 +1333,43 @@ mod tests {
         assert_eq!(retained.outcome["attempt"], 42);
         assert_eq!(retained.outcome["state"], "applied");
         assert_eq!(outcomes.get(&WorkspaceWindowScope::Contesting).unwrap().1, current_outcome);
+    }
+    #[test]
+    fn queued_contest_open_toggle_and_refresh_hold_transition_barriers_until_complete() {
+        for work in ["open", "toggle", "refresh"] {
+            let module_owner: &'static crate::operating_module::Owner = Box::leak(Box::new(
+                crate::operating_module::Owner::memory(
+                    crate::operating_module::OperatingModule::Contesting,
+                ),
+            ));
+            let operating_context = module_owner.snapshot().unwrap()["context"]
+                .as_str().unwrap().to_owned();
+            let context = crate::contest_window_context::ContestWindowContext {
+                operating_context: operating_context.clone(),
+                session_id: format!("20000000-0000-4000-8000-00000000000{}",
+                    match work { "open" => 1, "toggle" => 2, _ => 3 }),
+                workspace_generation: "12345678-1234-1234-1234-123456789abc".into(),
+            };
+            let entered = Arc::new(std::sync::Barrier::new(2));
+            let release = Arc::new(std::sync::Barrier::new(2));
+            let operation = std::thread::spawn({
+                let entered = entered.clone();
+                let release = release.clone();
+                move || with_contest_work_admission(module_owner, &context, || {
+                    entered.wait();
+                    release.wait();
+                    Ok(())
+                })
+            });
+
+            entered.wait();
+            assert!(module_owner.begin("normal_logging", &operating_context).is_err(),
+                "queued contest {work} released its admission before completing");
+            release.wait();
+            assert!(operation.join().unwrap().is_ok());
+            assert!(module_owner.begin("normal_logging", &operating_context).is_ok(),
+                "completed contest {work} did not release its admission");
+        }
     }
     #[test]
     fn in_flight_and_later_coalesced_refreshes_have_distinct_tickets() {

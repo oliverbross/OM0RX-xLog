@@ -3,11 +3,13 @@ import { LogicalSize } from "@tauri-apps/api/dpi";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { operatingModuleStatus } from "../operatingModule";
+import { prepareOperatingModuleTransition } from "../operatingModulePreparation";
 import { workerRequest, framedWorkerRequest } from "../worker";
 import { connectWorkspaceNavigation, isContestMenuRoute } from "../live/workspaceNavigation";
 import { loadStationSession, type RadioID, type StationSession } from "../live/stationSession";
 import { monitorRotorAction, validMonitorContext, type MonitorContext } from "../live/monitorContext";
 import { Not1MMContestWorkspace } from "./Not1MMContestWorkspace";
+import type { ContestTransitionController } from "./ContestWorkspace";
 import type { SetupView } from "./ContestSetupPanel";
 import { stepContestVFO, tuneContestSpot } from "./contestSpotTune";
 import { postContestSpot } from "./contestSurfaceNative";
@@ -98,11 +100,15 @@ export function DetachedContestSetupSurface() {
   const [station, setStation] = useState<Data | null>(null), [cluster, setCluster] = useState<Data | null>(null);
   const [error, setError] = useState("");
   const menuHandler = useRef<MenuHandler | null>(null), readiness = useRef(new Set<() => void>());
+  const transitionController = useRef<ContestTransitionController | null>(null);
   const resizeFrame = useRef(0);
   const autoFitSize = useRef<WindowSize | null>(null), operatorSized = useRef(false);
   const registerMenuRoute = useCallback((handler: MenuHandler | null) => {
     menuHandler.current = handler;
     if (handler) for (const retry of readiness.current) retry();
+  }, []);
+  const registerTransition = useCallback((controller: ContestTransitionController | null) => {
+    transitionController.current = controller;
   }, []);
   const contestRequest = useCallback((method: string, params: Data = {}) => framedWorkerRequest(method, params), []);
   const resizeForSetupView = useCallback((view: SetupView | null) => {
@@ -190,6 +196,7 @@ export function DetachedContestSetupSurface() {
     readiness.current.add(retry);
     return () => { readiness.current.delete(retry); };
   }), []);
+  useEffect(() => prepareOperatingModuleTransition(() => transitionController.current), []);
 
   if (!context) return <main className="contest-workspace" aria-label="Contest Setup">
     <header className="contest-header"><div><h1>Contest Setup</h1><p>Detached contest session owner</p></div></header>
@@ -199,7 +206,8 @@ export function DetachedContestSetupSurface() {
     serviceRequest={request} stationTune={tuneContestSpot} stationStep={stepContestVFO} rotorStop={context.contestingTest?undefined:stopObservedContestRotor} contestSpot={postContestSpot} operatingContext={context.operatingContext} workspaceGeneration={context.workspaceGeneration}
     stationCall={context.stationCall} contestingTest={context.contestingTest} radioFrequencyHz={station?.radio?.frequency_hz}
     spots={Array.isArray(cluster?.snapshot?.spots) ? cluster.snapshot.spots : []} cluster={cluster}
-    strictHostActive={strictHostActive} registerMenuRoute={registerMenuRoute} onSetupViewChange={resizeForSetupView}/>;
+    strictHostActive={strictHostActive} registerTransition={registerTransition}
+    registerMenuRoute={registerMenuRoute} onSetupViewChange={resizeForSetupView}/>;
 }
 
 export default DetachedContestSetupSurface;

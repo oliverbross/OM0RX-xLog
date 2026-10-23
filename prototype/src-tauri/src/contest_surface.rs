@@ -108,6 +108,24 @@ pub fn invalidate_all() {
     }
 }
 
+/// Refuse an operating-module restart while a contest action could still be
+/// applied or require operator reconciliation. Completed receipts may remain
+/// visible; only queued/uncertain work and one-shot focus admissions block.
+pub fn retirement_ready() -> Result<(), String> {
+    let state = state().lock().map_err(|_| "Contest surface state unavailable")?;
+    retirement_ready_in(&state)
+}
+
+fn retirement_ready_in(state: &State) -> Result<(), String> {
+    let unresolved_receipt = state.panels.values().any(|panel| panel.receipts.iter()
+        .any(|(_, receipt)| matches!(receipt.status, "queued" | "uncertain")));
+    if !state.actions.is_empty() || !state.escape_actions.is_empty() ||
+        !state.focused_actions.is_empty() || unresolved_receipt {
+        return Err("Resolve the pending contest action before changing operating module.".into());
+    }
+    Ok(())
+}
+
 pub fn claim_owner(context: &ContestWindowContext, owner_epoch: &str) -> Result<u64, String> {
     canonical_uuid(owner_epoch, "contest surface owner epoch")?;
     crate::contest_window_context::with_admitted(context, || {
@@ -4227,5 +4245,21 @@ mod tests {
         let messages = merged["messages"].as_array().unwrap();
         assert_eq!(messages.len(), MAX_DIAGNOSTICS);
         assert_eq!(messages.iter().filter(|item| item["text"] == "Diagnostic 39").count(), 1);
+    }
+
+    #[test]
+    fn operating_module_retirement_blocks_only_unresolved_contest_work() {
+        let mut state = State::default();
+        assert!(retirement_ready_in(&state).is_ok());
+        state.actions.push_back(QueuedAction { panel_id:"active-qso".into(), request_id:REQUEST.into(), envelope:json!({}) });
+        assert!(retirement_ready_in(&state).is_err());
+        state.actions.clear();
+        state.panels.insert("active-qso".into(), PanelState { projection:None,
+            receipts:VecDeque::from([(REQUEST.into(), retained_receipt(&json!({"action":"entry_commit"}), "queued", None, 1))]) });
+        assert!(retirement_ready_in(&state).is_err());
+        state.panels.get_mut("active-qso").unwrap().receipts[0].1.status = "applied";
+        assert!(retirement_ready_in(&state).is_ok());
+        state.focused_actions.insert(REQUEST.into());
+        assert!(retirement_ready_in(&state).is_err());
     }
 }

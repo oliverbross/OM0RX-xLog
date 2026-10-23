@@ -25,10 +25,25 @@ pub fn admit(context: &ContestWindowContext) -> Result<(), String> {
     authority().lock().map_err(|_| "Contest window context unavailable")?.admit(&module, context)
 }
 pub fn with_admitted<T>(context: &ContestWindowContext, action: impl FnOnce() -> T) -> Result<T, String> {
-    let module = crate::operating_module::owner()?.snapshot()?;
-    let authority = authority().lock().map_err(|_| "Contest window context unavailable")?;
-    authority.admit(&module, context)?;
-    Ok(action())
+    let module_owner = crate::operating_module::owner()?;
+    with_contesting_admission(module_owner, context, || {
+        let module = module_owner.snapshot()?;
+        let authority = authority().lock().map_err(|_| "Contest window context unavailable")?;
+        authority.admit(&module, context)?;
+        Ok(action())
+    })
+}
+
+fn with_contesting_admission<T>(
+    module_owner: &crate::operating_module::Owner,
+    context: &ContestWindowContext,
+    action: impl FnOnce() -> Result<T, String>,
+) -> Result<T, String> {
+    let _admission = module_owner.admit(
+        crate::operating_module::OperatingModule::Contesting,
+        Some(&context.operating_context),
+    )?;
+    action()
 }
 
 pub fn resolve(session_id: &str, workspace_generation: &str) -> Result<ContestWindowContext, String> {
@@ -194,8 +209,8 @@ impl ContestWindowContextAuthority {
 }
 
 fn active_contest_context(module: &Value) -> Result<&str, String> {
-    if module["transitioning"] != false {
-        return Err("The application operation context is changing.".into());
+    if module["selected"] != "contesting" || module["transitioning"] != false {
+        return Err("Contesting is not the active operating module.".into());
     }
     canonical_uuid(&module["context"], "operating context")
 }
@@ -223,7 +238,7 @@ mod tests {
     const DRAFT: &str = "40000000-0000-4000-8000-000000000001";
 
     fn module(context: &str) -> Value {
-        json!({"selected":"normal_logging","context":context,"transitioning":false})
+        json!({"selected":"contesting","context":context,"transitioning":false})
     }
     fn request(method: &str, operating: &str, session: &str) -> Value {
         json!({"method":method,"operatingContext":operating,
@@ -288,9 +303,60 @@ mod tests {
     }
 
     #[test]
+    fn contest_surface_mutation_admission_blocks_switch_after_context_validation() {
+        let module_owner: &'static crate::operating_module::Owner = Box::leak(Box::new(
+            crate::operating_module::Owner::memory(
+                crate::operating_module::OperatingModule::Contesting,
+            ),
+        ));
+        let operating_context = module_owner.snapshot().unwrap()["context"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let module = module_owner.snapshot().unwrap();
+        let admitted_context = context(&operating_context, SESSION_A);
+        let mut window_authority = ContestWindowContextAuthority::default();
+        let ticket = window_authority
+            .begin(
+                &module,
+                &request("contest_open", &operating_context, SESSION_A),
+            )
+            .unwrap();
+        window_authority
+            .complete(ticket, &module, &response(SESSION_A))
+            .unwrap();
+        let validated = std::sync::Arc::new(std::sync::Barrier::new(2));
+        let release = std::sync::Arc::new(std::sync::Barrier::new(2));
+        let mutation = std::thread::spawn({
+            let validated = validated.clone();
+            let release = release.clone();
+            move || {
+                with_contesting_admission(module_owner, &admitted_context, || {
+                    let current = module_owner.snapshot()?;
+                    window_authority.admit(&current, &admitted_context)?;
+                    validated.wait();
+                    release.wait();
+                    Ok(())
+                })
+            }
+        });
+
+        validated.wait();
+        assert!(module_owner
+            .begin("normal_logging", &operating_context)
+            .is_err());
+        release.wait();
+        assert!(mutation.join().unwrap().is_ok());
+        assert!(module_owner
+            .begin("normal_logging", &operating_context)
+            .is_ok());
+    }
+
+    #[test]
     fn malformed_mismatched_and_inactive_inputs_fail_closed() {
         let mut authority = ContestWindowContextAuthority::default();
         for bad in [
+            json!({"selected":"normal_logging","context":OPERATING_A,"transitioning":false}),
             json!({"selected":"normal_logging","context":OPERATING_A,"transitioning":true}),
             json!({"selected":"contesting","context":OPERATING_A,"transitioning":true}),
         ] {
