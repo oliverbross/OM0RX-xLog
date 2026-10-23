@@ -150,16 +150,30 @@ export function bandMapSpotColor(spot: BandMapSpot): string {
 export function contestBandMapSpotWorked(spot:BandMapSpot):boolean{
   return spot.contestDupe===true;
 }
+export function contestNeededMultiplierCount(spot:BandMapSpot):number|null{
+  if(typeof spot.contestCountryMultiplier==="boolean"&&typeof spot.contestZoneMultiplier==="boolean")
+    return Number(spot.contestCountryMultiplier)+Number(spot.contestZoneMultiplier);
+  return finite(spot.contestMultiplierCount);
+}
+export function contestBandMapMultiplierLabel(spot:BandMapSpot):string{
+  if(spot.contestCountryMultiplier===true&&spot.contestZoneMultiplier===true)return "C+Z";
+  if(spot.contestCountryMultiplier===true&&spot.contestZoneMultiplier===false)return "C";
+  if(spot.contestCountryMultiplier===false&&spot.contestZoneMultiplier===true)return "Z";
+  if(spot.contestCountryMultiplier===false&&spot.contestZoneMultiplier===false)return "—";
+  const count=finite(spot.contestMultiplierCount);return count===null?"?":count===0?"—":String(count);
+}
 export function contestBandMapSpotColor(spot:BandMapSpot):string{
   if(contestBandMapSpotWorked(spot))return "#8b98a5";
-  const multipliers=finite(spot.contestMultiplierCount);
+  const multipliers=contestNeededMultiplierCount(spot);
   return multipliers===0?"#4da3ff":multipliers===1?"#ff5b5b":multipliers!==null&&multipliers>=2?"#28c76f":bandMapSpotColor(spot);
 }
 function contestPointDescription(spot:BandMapSpot):string{
   const points=finite(spot.contestPoints);if(points===null)return "Contest points unavailable";
   if(spot.contestDupe===true)return `${points} contest point${points===1?"":"s"} · duplicate · grey`;
-  const multipliers=finite(spot.contestMultiplierCount);
-  return `${points} contest point${points===1?"":"s"} · ${multipliers??"unknown"} needed multiplier${multipliers===1?"":"s"} · ${multipliers===0?"blue":multipliers===1?"red":multipliers!==null&&multipliers>=2?"green":"unclassified"}`;
+  const multipliers=contestNeededMultiplierCount(spot),country=spot.contestCountryMultiplier,zone=spot.contestZoneMultiplier;
+  const needed=country===true&&zone===true?"country and CQ zone multipliers":country===true?"country multiplier":zone===true?"CQ zone multiplier":
+    country===false&&zone===false?"no needed multiplier":`${multipliers??"unknown"} needed multiplier${multipliers===1?"":"s"}`;
+  return `${points} contest point${points===1?"":"s"} · ${needed} · ${multipliers===0?"blue":multipliers===1?"red":multipliers!==null&&multipliers>=2?"green":"unclassified"}`;
 }
 function bandColor(band: string, spots: BandMapSpot[]): string {
   const configured = spots.find((spot) => spot.band === band && hex(spot.bandHex))?.bandHex;

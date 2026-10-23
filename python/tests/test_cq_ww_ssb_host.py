@@ -143,6 +143,18 @@ class CQWWSSBHostTests(unittest.TestCase):
             ("K1ABC", 14, 0, 0), ("K1ABC", 7, 1, 1),
         ])
 
+    def test_cq_ww_multiplier_slots_are_zone_then_country_for_asymmetric_contacts(self):
+        first = self.log("OM1ABC", "15")
+        zone_only = self.log("OM0RX", "14", minute=1)
+        statistics = self.read("score")["statistics"]["rows"][0]
+        self.assertEqual((statistics["countries"], statistics["zones"]), (1, 2))
+        country_only = self.log("DL1ABC", "14", minute=2)
+        rows = {row["ID"]: row for row in self.read("log")["rows"]}
+        self.assertEqual([(rows[qso]["IsMultiplier1"], rows[qso]["IsMultiplier2"])
+                          for qso in (first, zone_only, country_only)], [
+            (1, 1), (1, 0), (0, 1),
+        ])
+
     def test_single_band_score_filters_points_multipliers_and_statistics_but_exports_all_qsos(self):
         setup = self.read("setup_get")["setup"]
         setup["settings"].update(BandCategory="40M", AssistedCategory="ASSISTED",
@@ -193,10 +205,14 @@ class CQWWSSBHostTests(unittest.TestCase):
         self.assertEqual(preview, {
             "sessionID": self.session, "workspaceGeneration": self.workspace, "revision": self.revision,
             "spots": [
-                {"spotID": "same-country", "points": 0, "dupe": False, "multiplierCount": 2, "reason": None},
-                {"spotID": "same-continent", "points": 1, "dupe": False, "multiplierCount": 2, "reason": None},
-                {"spotID": "different-continent", "points": 3, "dupe": False, "multiplierCount": 2, "reason": None},
-                {"spotID": "unresolved", "points": None, "dupe": None, "multiplierCount": None, "reason": "unresolved_callsign"},
+                {"spotID": "same-country", "points": 0, "dupe": False, "multiplierCount": 2,
+                 "countryMultiplier": True, "zoneMultiplier": True, "reason": None},
+                {"spotID": "same-continent", "points": 1, "dupe": False, "multiplierCount": 2,
+                 "countryMultiplier": True, "zoneMultiplier": True, "reason": None},
+                {"spotID": "different-continent", "points": 3, "dupe": False, "multiplierCount": 2,
+                 "countryMultiplier": True, "zoneMultiplier": True, "reason": None},
+                {"spotID": "unresolved", "points": None, "dupe": None, "multiplierCount": None,
+                 "countryMultiplier": None, "zoneMultiplier": None, "reason": "unresolved_callsign"},
             ],
         })
         injected = self.read("spot_points_preview", workspaceGeneration=self.workspace,
@@ -205,7 +221,8 @@ class CQWWSSBHostTests(unittest.TestCase):
             {"spotID": "native-reference", "callsign": "XX1TEST", "frequencyHz": 7128000, "mode": "SSB"},
         ])
         self.assertEqual(injected["spots"], [
-            {"spotID": "native-reference", "points": 3, "dupe": False, "multiplierCount": 2, "reason": None},
+            {"spotID": "native-reference", "points": 3, "dupe": False, "multiplierCount": 2,
+             "countryMultiplier": True, "zoneMultiplier": True, "reason": None},
         ])
         self.assertIsNone(self.read("spot_points_preview", workspaceGeneration=self.workspace,
                                    expectedRevision=self.revision, spots=[
@@ -233,8 +250,10 @@ class CQWWSSBHostTests(unittest.TestCase):
             {"spotID": "single-mult", "callsign": "K2XYZ", "frequencyHz": 7127000, "mode": "SSB"},
             {"spotID": "double-mult", "callsign": "OM1ABC", "frequencyHz": 7128000, "mode": "SSB"},
         ])
-        self.assertEqual([(row["spotID"], row["dupe"], row["multiplierCount"]) for row in preview["spots"]], [
-            ("dupe", True, 0), ("qso-only", False, 0), ("single-mult", False, 1), ("double-mult", False, 2),
+        self.assertEqual([(row["spotID"], row["dupe"], row["multiplierCount"],
+                           row["countryMultiplier"], row["zoneMultiplier"]) for row in preview["spots"]], [
+            ("dupe", True, 0, False, False), ("qso-only", False, 0, False, False),
+            ("single-mult", False, 1, False, True), ("double-mult", False, 2, True, True),
         ])
 
     def test_unresolved_contacts_do_not_create_cq_ww_multipliers(self):

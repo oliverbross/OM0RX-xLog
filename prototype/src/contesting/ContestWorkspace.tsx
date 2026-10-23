@@ -527,6 +527,14 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
         mode: editing.qso.mode, sentReport: editing.qso.sentReport, receivedReport: editing.qso.receivedReport,
         receivedFields: editingSurfaceFields, frequencyHz: editing.qso.frequencyHz, editFrequencyText,
         frequencyError: editorFrequencyError, correctionReason, confirmDelete, deletionReason } : null, busy };
+    liveSurfaceProjections.messages = { schemaVersion: 1, status: "ready", messages: [
+      ...(error ? [{ kind:"error" as const, text:error }] : []),
+      ...(notice ? [{ kind:"notice" as const, text:notice }] : []),
+      ...(operatingFrequencyError ? [{ kind:"error" as const, text:operatingFrequencyError }] : []),
+      ...(draft.dupe.state === "duplicate" ? [{ kind:"notice" as const, text:`Duplicate: ${draft.dupe.reason}` }] : []),
+      ...draft.validation.errors.map(text => ({ kind:"error" as const, text })),
+      ...draft.validation.warnings.map(text => ({ kind:"notice" as const, text })),
+    ], busy };
   }
   const surfaceContext = active && operatingContext ? { operatingContext, sessionID: active.sessionID,
     workspaceGeneration: active.workspaceGeneration } : null;

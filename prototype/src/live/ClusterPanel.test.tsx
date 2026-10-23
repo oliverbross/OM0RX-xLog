@@ -262,6 +262,48 @@ describe("cluster toolbar panels", () => {
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: "contest-spot" }));
   });
 
+  it("uses CQ WW points and multiplier colours, hides dupes by default, and never shows generic CS or DS", () => {
+    const data=response(),base={receivedAt:812_000_000,clusterName:"ShackCQ",spotter:"K1ABC",frequencyKHz:14_025,
+      frequencyText:"14.025",comment:"CQ WW",band:"20m",mode:"SSB",country:"Germany",continent:"EU",cqZone:14,
+      callStatus:"New Call",dxccStatus:"New Band",workedBefore:null,specialTags:[],score:80,scoreReasons:[],aggregateCount:1,
+      aggregateSpotters:["K1ABC"],source:"cluster",statusHex:"",bandHex:"",modeHex:""};
+    data.snapshot.loadedSpots=4;
+    data.snapshot.spots=[
+      {...base,id:"blue",callsign:"LONG/CALLSIGN1",contestPoints:1,contestDupe:false,contestMultiplierCount:0,
+        contestCountryMultiplier:false,contestZoneMultiplier:false},
+      {...base,id:"red",callsign:"VK1ABC",contestPoints:3,contestDupe:false,contestMultiplierCount:1,
+        contestCountryMultiplier:true,contestZoneMultiplier:false},
+      {...base,id:"green",callsign:"JA1ABC",contestPoints:3,contestDupe:false,contestMultiplierCount:2,
+        contestCountryMultiplier:true,contestZoneMultiplier:true},
+      {...base,id:"grey",callsign:"K1ABC",contestPoints:0,contestDupe:true,contestMultiplierCount:0,
+        contestCountryMultiplier:false,contestZoneMultiplier:false},
+    ] as any;
+    render(<ClusterPanel passive presentationOnly contestPresentation taskOnly preferenceStorageKey="xlog.test.cqww-cluster"
+      snapshot={data} onRequest={vi.fn()} onSelect={vi.fn()}/>);
+    expect(screen.getAllByRole("columnheader").map(header=>header.textContent)).toEqual([
+      "For","Pts","Band","MHz","Callsign","Mode","Country","CQ","Spotter","Mults","Comment",
+    ]);
+    expect(screen.getByLabelText("CQ WW opportunity totals").textContent).toBe("QSO 1 · Mults 2 · Country 2 · Zone 1");
+    expect(screen.getByLabelText("CQ WW opportunities by band").textContent).toContain("20m 1 Q / 2 M");
+    expect(screen.queryByText("CS")).toBeNull();expect(screen.queryByText("DS")).toBeNull();
+    expect(screen.getByText("LONG/CALLSIGN1").textContent).toBe("LONG/CALLSIGN1");
+    expect(screen.getByLabelText("LONG/CALLSIGN1 spot").textContent).toContain("1");
+    expect((screen.getByText("LONG/CALLSIGN1") as HTMLElement).style.color).toBe("rgb(77, 163, 255)");
+    expect((screen.getByText("VK1ABC") as HTMLElement).style.color).toBe("rgb(255, 91, 91)");
+    expect((screen.getByText("JA1ABC") as HTMLElement).style.color).toBe("rgb(40, 199, 111)");
+    expect(screen.getByTitle("Needed country multiplier").textContent).toBe("C");
+    expect(screen.getByTitle("Needed country and CQ zone multipliers").textContent).toBe("C+Z");
+    expect(screen.queryByLabelText("K1ABC spot")).toBeNull();
+    fireEvent.change(screen.getByLabelText("CQ WW opportunities"),{target:{value:"mults"}});
+    expect(screen.queryByLabelText("LONG/CALLSIGN1 spot")).toBeNull();
+    expect(screen.getByLabelText("VK1ABC spot")).toBeTruthy();
+    expect((screen.getByRole("checkbox",{name:"Show worked"}) as HTMLInputElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("CQ WW opportunities"),{target:{value:"all"}});
+    fireEvent.click(screen.getByRole("checkbox",{name:"Show worked"}));
+    expect((screen.getByLabelText("K1ABC spot").querySelector(".live-cluster-call") as HTMLElement).style.color).toBe("rgb(139, 152, 165)");
+    expect(localStorage.getItem("xlog.test.cqww-cluster.showWorked")).toBe("true");
+  });
+
   it("lets operators finish typing a width before bounding and saving it", () => {
     render(<ClusterPanel passive snapshot={response()} onRequest={vi.fn()} onSelect={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));

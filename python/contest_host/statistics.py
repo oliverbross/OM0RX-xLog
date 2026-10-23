@@ -23,7 +23,7 @@ def _integer(value):
         return 0
 
 
-def calculate_statistics(rows):
+def calculate_statistics(rows, country_multiplier="IsMultiplier1", zone_multiplier="IsMultiplier2"):
     """Return Statistics-v3 rows; unknown modes remain visible in QSO/call totals."""
     grouped = {}
     total_calls = set()
@@ -53,8 +53,8 @@ def calculate_statistics(rows):
         prefix = row.get("WPXPrefix")
         if prefix is not None:
             values["wpx"].add(prefix)
-        values["countries"] += 1 if _integer(row.get("IsMultiplier1")) else 0
-        values["zones"] += 1 if _integer(row.get("IsMultiplier2")) else 0
+        values["countries"] += 1 if _integer(row.get(country_multiplier)) else 0
+        values["zones"] += 1 if _integer(row.get(zone_multiplier)) else 0
         values["points"] += _integer(row.get("Points"))
 
     ordered = sorted(grouped, reverse=True)

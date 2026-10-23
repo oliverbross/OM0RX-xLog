@@ -7,6 +7,7 @@ import { countryDisplay } from "./countryDisplay";
 import { clusterFilterChoices, defaultClusterFilter, normalizeClusterFilter, type ClusterFilter } from "./clusterFilters";
 import SpecialFilterOptions from "./SpecialFilterOptions";
 import { useLogbookCapacity } from "./logbookCapacity";
+import { contestBandMapMultiplierLabel, contestBandMapSpotColor, contestBandMapSpotWorked, contestNeededMultiplierCount } from "./BandMaps";
 import "./ClusterPanel.css";
 
 export { clusterFilterChoices, defaultClusterFilter, type ClusterFilter } from "./clusterFilters";
@@ -19,7 +20,9 @@ export type LiveClusterSpot = {
   band: string; mode: string; country: string; adif?: number | null;
   continent: string; cqZone?: number | null; ituZone?: number | null;
   callStatus: string; dxccStatus: string; workedBefore?: number | null;
-  specialTags: string[]; score: number; contestPoints?: number | null; scoreReasons: string[];
+  specialTags: string[]; score: number; contestPoints?: number | null; contestDupe?: boolean | null;
+  contestMultiplierCount?: number | null; contestCountryMultiplier?: boolean | null; contestZoneMultiplier?: boolean | null;
+  scoreReasons: string[];
   aggregateCount: number; aggregateSpotters: string[]; source: string;
   statusHex: string; bandHex: string; modeHex: string;
   marked?: boolean;
@@ -50,7 +53,7 @@ type History = { call: string; previous_count: number; previous: HistoryRow[]; a
   country: string; cq_zone?: number | null; grid: string; dxcc_contact_count: number;
   matrix: { band: string; mode: string; worked: boolean; confirmed: boolean }[] };
 type Props = { snapshot: unknown; onRequest: Request; onSelect: (spot: LiveClusterSpot) => void;
-  passive?: boolean; presentationOnly?: boolean; onUndock?: () => void; onDock?: () => void; passwordControlsEnabled?: boolean; selectedSpotId?: string | null; taskOnly?: boolean;
+  passive?: boolean; presentationOnly?: boolean; contestPresentation?: boolean; onUndock?: () => void; onDock?: () => void; passwordControlsEnabled?: boolean; selectedSpotId?: string | null; taskOnly?: boolean;
   settingsOnly?: boolean; preferenceStorageKey?: string; onSpotContextMenu?: (spot: LiveClusterSpot,
     event: ReactMouseEvent<HTMLElement>|ReactKeyboardEvent<HTMLElement>) => void };
 
@@ -76,7 +79,7 @@ function ColumnWidthInput({ label, width, disabled, onCommit }: { label: string;
     value={draft} onChange={event => setDraft(event.currentTarget.value)} onBlur={commit}
     onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }} />;
 }
-export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, presentationOnly = false, onUndock, onDock, passwordControlsEnabled = true, selectedSpotId, taskOnly = false, settingsOnly = false,
+export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, presentationOnly = false, contestPresentation = false, onUndock, onDock, passwordControlsEnabled = true, selectedSpotId, taskOnly = false, settingsOnly = false,
   preferenceStorageKey = fullClusterColumnsKey, onSpotContextMenu }: Props) {
   const saveToast = useSettingsSaveToast();
   const ageClock = useSpotAgeClock();
@@ -123,16 +126,38 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
   const [history, setHistory] = useState<History | null>(null);
   const [historySpot, setHistorySpot] = useState<LiveClusterSpot | null>(null);
   const [selectedSpot, setSelectedSpot] = useState<LiveClusterSpot | null>(null);
+  const showWorkedStorageKey = `${preferenceStorageKey}.showWorked`;
+  const [showWorked, setShowWorked] = useState(() => {
+    if (!contestPresentation) return true;
+    try { return localStorage.getItem(showWorkedStorageKey) === "true"; } catch { return false; }
+  });
+  const [contestOpportunities,setContestOpportunities]=useState<"all"|"mults">("all");
   const [, setForwarding] = useState<Forwarding | null>(null);
   const [snapshotTruncated, setSnapshotTruncated] = useState(false);
   const tableArea = useRef<HTMLDivElement>(null);
   const [spotPage, setSpotPage] = useState(0);
-  const pageSize = useLogbookCapacity(tableArea, presentationOnly ? live?.spots.length ?? 0 : 0);
-  const spotCount = live?.spots.length ?? 0;
+  const contestNeededSpots=(live?.spots??[]).filter(spot=>!contestBandMapSpotWorked(spot));
+  const contestSummary=contestNeededSpots.reduce((summary,spot)=>{
+    const multiplierCount=contestNeededMultiplierCount(spot);
+    if(multiplierCount===0)summary.qsos+=1;
+    if(multiplierCount!==null&&multiplierCount>0)summary.mults+=1;
+    if(spot.contestCountryMultiplier===true)summary.countries+=1;
+    if(spot.contestZoneMultiplier===true)summary.zones+=1;
+    const band=summary.bands.get(spot.band)??{qsos:0,mults:0};
+    if(multiplierCount===0)band.qsos+=1;
+    if(multiplierCount!==null&&multiplierCount>0)band.mults+=1;
+    summary.bands.set(spot.band,band);return summary;
+  },{qsos:0,mults:0,countries:0,zones:0,bands:new Map<string,{qsos:number;mults:number}>()});
+  const presentedSpots = contestPresentation
+    ? contestOpportunities==="mults"?contestNeededSpots.filter(spot=>(contestNeededMultiplierCount(spot)??0)>0)
+      : showWorked?live?.spots??[]:contestNeededSpots
+    : live?.spots ?? [];
+  const pageSize = useLogbookCapacity(tableArea, presentationOnly ? presentedSpots.length : 0);
+  const spotCount = presentedSpots.length;
   const pageCount = Math.max(1, Math.ceil(spotCount / pageSize));
   const currentSpotPage = presentationOnly ? Math.min(spotPage, pageCount - 1) : 0;
   const firstSpotIndex = currentSpotPage * pageSize;
-  const visibleSpots = presentationOnly ? (live?.spots ?? []).slice(firstSpotIndex, firstSpotIndex + pageSize) : live?.spots ?? [];
+  const visibleSpots = presentationOnly ? presentedSpots.slice(firstSpotIndex, firstSpotIndex + pageSize) : presentedSpots;
 
   useEffect(() => {
     const next = snapshot as Response | null;
@@ -157,6 +182,10 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
     if (next?.snapshot_truncated != null) setSnapshotTruncated(next.snapshot_truncated);
   }, [snapshot]);
   useEffect(() => { requestRef.current = onRequest; }, [onRequest]);
+  useEffect(() => {
+    if (!contestPresentation) return;
+    try { localStorage.setItem(showWorkedStorageKey, String(showWorked)); } catch { /* Keep usable in memory if storage is unavailable. */ }
+  }, [contestPresentation, showWorked, showWorkedStorageKey]);
   useEffect(() => {
     if (spotPage !== currentSpotPage) setSpotPage(currentSpotPage);
   }, [currentSpotPage, spotPage]);
@@ -275,9 +304,15 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
     {renderToolbarPanels()}
   </section>;
 
-  return <section className={`live-cluster${presentationOnly ? " is-contest-terminal" : ""}`} aria-label="Live DX Cluster">
+  return <section className={`live-cluster${presentationOnly ? " is-contest-terminal" : ""}${contestPresentation ? " is-cqww-contest" : ""}`} aria-label="Live DX Cluster">
     <header className="live-cluster-head">
-      <div>{!taskOnly && <h2>DX Cluster</h2>}<p>{presentationOnly ? `${connected} live · ${live?.spots.length ?? 0} shown / ${live?.loadedSpots ?? 0} received` : `${connected} live · ${live?.spots.length ?? 0} shown / ${live?.loadedSpots ?? 0} received · ${live?.contactCount ?? 0} log contacts`}</p></div>
+      <div>{!taskOnly && <h2>DX Cluster</h2>}<p>{contestPresentation
+        ? <span aria-label="CQ WW opportunity totals">QSO {contestSummary.qsos} · Mults {contestSummary.mults} · Country {contestSummary.countries} · Zone {contestSummary.zones}</span>
+        : presentationOnly ? `${connected} live · ${spotCount} shown / ${live?.loadedSpots ?? 0} received` : `${connected} live · ${live?.spots.length ?? 0} shown / ${live?.loadedSpots ?? 0} received · ${live?.contactCount ?? 0} log contacts`}</p></div>
+      {contestPresentation && <div className="live-cluster-contest-controls"><label>Show <select aria-label="CQ WW opportunities" value={contestOpportunities}
+        onChange={event=>setContestOpportunities(event.currentTarget.value as "all"|"mults")}><option value="all">Qs + Mults</option><option value="mults">Mults only</option></select></label>
+        <label className="live-cluster-show-worked"><input type="checkbox" checked={showWorked} disabled={contestOpportunities==="mults"}
+          onChange={event => setShowWorked(event.currentTarget.checked)} /> Show worked</label></div>}
       {!presentationOnly && <div className="live-cluster-actions">
         <div className="live-cluster-connection-summary" role="status" aria-label="Cluster connections">{allConnections.length ? allConnections.map(connection => {
           const phase = connection.phase.toLowerCase(), label = phase.charAt(0).toUpperCase() + phase.slice(1);
@@ -292,6 +327,9 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
         {onDock && <button type="button" onClick={onDock}>Dock back</button>}
       </div>}
     </header>
+    {contestPresentation&&contestSummary.bands.size>0&&<div className="live-cluster-contest-band-summary" aria-label="CQ WW opportunities by band">
+      {[...contestSummary.bands].sort(([left],[right])=>Number.parseInt(right)-Number.parseInt(left)).map(([band,total])=><span key={band}><strong>{band}</strong> {total.qsos} Q / {total.mults} M</span>)}
+    </div>}
     {!presentationOnly && !live?.logbookDataLoaded && <p className="live-cluster-note">No integrated logbook is open; worked and confirmed status remains Unknown.</p>}
     {!presentationOnly && !live?.countryDataLoaded && <p className="live-cluster-note">Country reference data is unavailable; DXCC status stays Unknown.</p>}
     {!presentationOnly && snapshotTruncated && <p className="live-cluster-note">The live snapshot exceeded the worker limit; older console lines or spots are hidden. Narrow filters to view more.</p>}
@@ -343,7 +381,29 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
       </div>)}</div>
       <div className="live-cluster-column-actions"><span>Drag column edges or use arrow keys. Widths scale to fit the window.</span><button type="button" onClick={() => setColumnPreferences(defaultColumns())}>Reset columns</button><button type="button" onClick={() => setColumnsOpen(false)}>Done</button></div>
     </section>}
-    <div ref={tableArea} className="table-scroll live-cluster-table"><table aria-label="Live cluster spots"><colgroup>{columnPreferences.columns.map(id => <col key={id} style={{ width: `${columnPreferences.widths[id] / totalColumnWidth * 100}%` }} />)}</colgroup><thead><tr>
+    <div ref={tableArea} className="table-scroll live-cluster-table">{contestPresentation ? <table className="live-cluster-contest-table" aria-label="CQ WW contest cluster spots"><colgroup>
+      <col className="contest-col-age"/><col className="contest-col-points"/><col className="contest-col-band"/><col className="contest-col-frequency"/>
+      <col className="contest-col-call"/><col className="contest-col-mode"/><col className="contest-col-country"/><col className="contest-col-zone"/>
+      <col className="contest-col-spotter"/><col className="contest-col-mults"/><col className="contest-col-comment"/>
+    </colgroup><thead><tr><th>For</th><th>Pts</th><th>Band</th><th>MHz</th><th>Callsign</th><th>Mode</th><th>Country</th><th>CQ</th><th>Spotter</th><th>Mults</th><th>Comment</th></tr></thead>
+    <tbody>{visibleSpots.map((spot,index)=><tr key={spot.id} tabIndex={0}
+      className={`${(selectedSpotId ?? selectedSpot?.id) === spot.id ? "is-selected" : ""}${spot.marked ? " is-marked" : ""} ${index % 2 ? "is-odd" : "is-even"}`}
+      onClick={()=>{setSelectedSpot(spot);onSelect(spot);}} onContextMenu={event=>onSpotContextMenu?.(spot,event)}
+      onKeyDown={event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();setSelectedSpot(spot);onSelect(spot);}
+        else if(event.key==="ContextMenu"||event.shiftKey&&event.key==="F10")onSpotContextMenu?.(spot,event);}}
+      aria-label={`${spot.callsign}${spot.marked?" marked":""} spot`} title="Load this spot into the contest draft and tune the selected radio">
+      <td className="mono live-cluster-age" title={`Received ${formatDate(spot.receivedAt)}`}>{formatSpotAge(spot.receivedAt,ageClock)}</td>
+      <td><span className="live-cluster-score">{spot.contestPoints??"—"}</span></td>
+      <td>{spot.band}</td><td className="cyan mono">{(spot.frequencyKHz/1000).toFixed(6)}</td>
+      <td><span className="live-cluster-call" style={{color:contestBandMapSpotColor(spot)}}>{spot.marked&&<span className="live-cluster-mark" aria-label="Marked">★ </span>}{spot.callsign}</span></td>
+      <td>{spot.mode}</td><td title={countryDisplay(spot.country)}>{countryDisplay(spot.country)}</td><td>{spot.cqZone??"—"}</td>
+      <td title={`${isRbnSource(spot.source)?"RBN":"DX Cluster"} · ${spot.clusterName}`}>{spot.aggregateCount>1?`${spot.spotter} +${spot.aggregateCount-1}`:spot.spotter}</td>
+      <td title={spot.contestCountryMultiplier===true&&spot.contestZoneMultiplier===true?"Needed country and CQ zone multipliers":
+        spot.contestCountryMultiplier===true?"Needed country multiplier":spot.contestZoneMultiplier===true?"Needed CQ zone multiplier":
+        spot.contestCountryMultiplier===false&&spot.contestZoneMultiplier===false?"No needed multiplier":"Multiplier classification unavailable"}>
+        {contestBandMapMultiplierLabel(spot)}</td>
+      <td title={spot.comment}>{spot.comment||"—"}</td>
+    </tr>)}</tbody></table> : <table aria-label="Live cluster spots"><colgroup>{columnPreferences.columns.map(id => <col key={id} style={{ width: `${columnPreferences.widths[id] / totalColumnWidth * 100}%` }} />)}</colgroup><thead><tr>
       {compactClusterColumns.filter(([id]) => visibleColumns.has(id)).map(([id, label]) => <th key={id} aria-label={id === "callStatus" || id === "dxccStatus" ? label : undefined}
         className={id === "callStatus" || id === "dxccStatus" ? "live-cluster-status-column" : undefined}><span title={label}>{compactClusterHeader(id)}</span>
         <span className="live-cluster-column-resizer" role="separator" tabIndex={0} aria-orientation="vertical" aria-label={`Resize ${label} column`} aria-valuemin={48} aria-valuemax={480} aria-valuenow={columnPreferences.widths[id]}
@@ -378,8 +438,8 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
         : "—"}</td>
       <td hidden={!visibleColumns.has("workedBefore")} title={formatDate(spot.workedBefore)} className="live-cluster-worked-before">{spot.workedBefore == null ? "—" : `✓ ${formatDate(spot.workedBefore)}`}</td>
       <td hidden={!visibleColumns.has("comment")} title={spot.comment}>{spot.comment || "—"}</td>
-    </tr>;})}</tbody></table>
-      {!live?.spots.length && <p className="empty">{presentationOnly ? connected ? "No shared cluster spots are available." : "No shared spots. Use Connect above to receive live spots." : connected ? "No live spots match the current filters." : configuration?.servers.some(server => server.enabled) ? "Your cluster is configured. Use Connect to resume live spots; the radio can remain offline." : "Configure a cluster, then connect to receive live spots."}</p>}
+    </tr>;})}</tbody></table>}
+      {!spotCount && <p className="empty">{contestPresentation && (live?.spots.length??0)>0 ? "No needed CQ WW spots. Enable Show worked to include duplicates." : presentationOnly ? connected ? "No shared cluster spots are available." : "No shared spots. Use Connect above to receive live spots." : connected ? "No live spots match the current filters." : configuration?.servers.some(server => server.enabled) ? "Your cluster is configured. Use Connect to resume live spots; the radio can remain offline." : "Configure a cluster, then connect to receive live spots."}</p>}
     </div>
     {presentationOnly && <footer className={`live-cluster-terminal-status ${connected ? "is-connected" : "is-disconnected"}`}>
       <span role="status" aria-label="Contest cluster connection">{connected ? `Connected · ${connected} cluster${connected === 1 ? "" : "s"}` : "Disconnected"}</span>

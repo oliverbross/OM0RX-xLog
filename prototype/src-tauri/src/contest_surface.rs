@@ -15,6 +15,7 @@ const MAX_REQUEST_IDS_PER_CONTEXT: usize = 250_000;
 const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 const MAX_ACTION_BYTES: usize = 16 * 1024;
 const MAX_PROJECTION_BYTES: usize = 32 * 1024 * 1024;
+const MAX_DIAGNOSTICS: usize = 32;
 
 #[derive(Clone)]
 struct Receipt {
@@ -51,6 +52,12 @@ struct QueuedAction {
     envelope: Value,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct Diagnostic {
+    kind: String,
+    text: String,
+}
+
 #[derive(Default)]
 struct State {
     context: Option<ContestWindowContext>,
@@ -60,6 +67,7 @@ struct State {
     escape_actions: VecDeque<QueuedAction>,
     seen_request_ids: BTreeSet<String>,
     focused_actions: BTreeSet<String>,
+    diagnostics: VecDeque<Diagnostic>,
 }
 
 fn state() -> &'static Mutex<State> {
@@ -139,6 +147,33 @@ pub fn submit(label: &str, envelope: Value, focused: bool) -> Result<Value, Stri
             .map_err(|_| "Contest surface state unavailable")?;
         submit_after_admission_focused(&mut state, &panel_id, &checked, envelope, focused)
     })?
+}
+
+pub fn report_diagnostic(label: &str, context: &ContestWindowContext, kind: &str, text: &str) -> Result<bool, String> {
+    contest_panel(label)?;
+    crate::contest_window_context::with_admitted(context, || {
+        let mut state = state().lock().map_err(|_| "Contest surface state unavailable")?;
+        require_context(&state, context)?;
+        report_diagnostic_in(&mut state, kind, text)
+    })?
+}
+
+fn report_diagnostic_in(state: &mut State, kind: &str, text: &str) -> Result<bool, String> {
+    if !matches!(kind, "error" | "notice") {
+        return Err("The contest diagnostic kind is invalid.".into());
+    }
+    let text = text.trim();
+    if text.is_empty() || text.len() > 512 {
+        return Err("The contest diagnostic message is invalid.".into());
+    }
+    if state.diagnostics.iter().any(|item| item.kind == kind && item.text == text) {
+        return Ok(false);
+    }
+    if state.diagnostics.len() >= MAX_DIAGNOSTICS {
+        state.diagnostics.pop_front();
+    }
+    state.diagnostics.push_back(Diagnostic { kind: kind.into(), text: text.into() });
+    Ok(true)
 }
 
 #[cfg(test)]
@@ -448,10 +483,13 @@ pub fn snapshot(label: &str, context: &ContestWindowContext) -> Result<Value, St
             .map_err(|_| "Contest surface state unavailable")?;
         require_context(&state, context)?;
         let panel = state.panels.get(&panel_id);
-        let (projection_revision, projection) = panel
+        let (projection_revision, mut projection) = panel
             .and_then(|panel| panel.projection.as_ref())
             .map(|(revision, projection)| (*revision, projection.clone()))
             .unwrap_or((0, json!({"schemaVersion":1,"status":"unavailable"})));
+        if panel_id == "messages" && !state.diagnostics.is_empty() {
+            projection = merge_diagnostics(projection, &state.diagnostics);
+        }
         let receipts = panel
             .map(|panel| {
                 panel
@@ -467,6 +505,21 @@ pub fn snapshot(label: &str, context: &ContestWindowContext) -> Result<Value, St
             "projection":projection,"receipts":receipts}),
         )
     })?
+}
+
+fn merge_diagnostics(projection: Value, diagnostics: &VecDeque<Diagnostic>) -> Value {
+    let mut messages = projection.get("messages").and_then(Value::as_array).cloned().unwrap_or_default();
+    for diagnostic in diagnostics {
+        let value = json!({"kind":diagnostic.kind,"text":diagnostic.text});
+        if !messages.contains(&value) {
+            messages.push(value);
+        }
+    }
+    if messages.len() > MAX_DIAGNOSTICS {
+        messages.drain(0..messages.len() - MAX_DIAGNOSTICS);
+    }
+    json!({"schemaVersion":1,"status":"ready","messages":messages,
+        "busy":projection.get("busy").and_then(Value::as_bool).unwrap_or(false)})
 }
 
 pub fn rotor_target(label: &str, context: &ContestWindowContext) -> Result<Value, String> {
@@ -918,6 +971,7 @@ fn validate_projection(panel_id: &str, value: &Value) -> Result<(), String> {
         "propagation" if schema_version == 3 => validate_statistics_projection_v3(projection),
         "monitor" if schema_version == 1 => validate_rate_projection(projection),
         "score-reporting" if schema_version == 1 => validate_score_reporting_projection(projection),
+        "messages" if schema_version == 1 => validate_messages_projection(projection),
         "awards" | "chaser-dx" if schema_version == 1 || schema_version == 4 => {
             validate_matrix_projection(projection)
         }
@@ -925,7 +979,7 @@ fn validate_projection(panel_id: &str, value: &Value) -> Result<(), String> {
         "band-maps" | "dx-cluster" if schema_version == 2 => validate_spot_projection(projection),
         "station-control" if schema_version == 1 => validate_remote_vfo_projection(projection),
         "active-qso" | "qrz-details" | "callsign-intelligence" | "propagation" | "monitor"
-        | "score-reporting" | "awards" | "chaser-dx" | "logbook" => {
+        | "score-reporting" | "messages" | "awards" | "chaser-dx" | "logbook" => {
             Err("The contest surface projection schema is invalid.".into())
         }
         _ => Err("That contest surface has no ready projection schema.".into()),
@@ -939,6 +993,18 @@ fn validate_remote_vfo_projection(value: &Map<String, Value>) -> Result<(), Stri
     text_value(&value["band"], 16, false, "Remote VFO band")?;
     text_value(&value["mode"], 16, false, "Remote VFO mode")?;
     boolean(&value["busy"], "Remote VFO busy state")
+}
+
+fn validate_messages_projection(value: &Map<String, Value>) -> Result<(), String> {
+    exact(value, &["schemaVersion", "status", "messages", "busy"], "Messages projection")?;
+    for message in array(&value["messages"], 32, "contest messages")? {
+        let item = object(message, "contest message")?;
+        exact(item, &["kind", "text"], "contest message")?;
+        enum_value(&item["kind"], &["error", "notice"], "contest message kind")?;
+        text_value(&item["text"], 512, false, "contest message text")?;
+    }
+    boolean(&value["busy"], "Messages busy state")?;
+    Ok(())
 }
 
 fn validate_spot_projection(value: &Map<String, Value>) -> Result<(), String> {
@@ -971,6 +1037,7 @@ fn validate_spot_projection(value: &Map<String, Value>) -> Result<(), String> {
         let spot = object(item, "contest spot")?;
         exact(spot, &["id", "receivedAt", "clusterName", "spotter", "spotterContinent", "frequencyKHz", "frequencyText", "callsign", "comment",
             "band", "mode", "country", "adif", "continent", "cqZone", "ituZone", "callStatus", "dxccStatus", "workedBefore", "specialTags", "score", "contestPoints", "contestDupe", "contestMultiplierCount",
+            "contestCountryMultiplier", "contestZoneMultiplier",
             "scoreReasons", "aggregateCount", "aggregateSpotters", "source", "statusHex", "bandHex", "modeHex", "marked"], "contest spot")?;
         let id = text_value(&spot["id"], 128, false, "spot ID")?;
         if !ids.insert(id) { return Err("Contest spot IDs must be unique.".into()); }
@@ -981,6 +1048,8 @@ fn validate_spot_projection(value: &Map<String, Value>) -> Result<(), String> {
         nullable_nonnegative_number(&spot["contestPoints"], "contest QSO points")?;
         if !spot["contestDupe"].is_null() { boolean(&spot["contestDupe"], "contest duplicate state")?; }
         nullable_uint(&spot["contestMultiplierCount"], MAX_SAFE_INTEGER, "contest needed multiplier count")?;
+        if !spot["contestCountryMultiplier"].is_null() { boolean(&spot["contestCountryMultiplier"], "contest country multiplier state")?; }
+        if !spot["contestZoneMultiplier"].is_null() { boolean(&spot["contestZoneMultiplier"], "contest CQ zone multiplier state")?; }
         uint_value(&spot["aggregateCount"], MAX_SAFE_INTEGER, "aggregate spot count")?;
         for key in ["clusterName", "spotter", "frequencyText", "comment", "country", "continent", "callStatus", "dxccStatus", "source", "statusHex", "bandHex", "modeHex"] {
             text_value(&spot[key], 512, true, "spot text")?;
@@ -3071,6 +3140,13 @@ mod tests {
         let mut wrong_schema = score_reporting;
         wrong_schema["schemaVersion"] = json!(2);
         assert!(validate_projection("score-reporting", &wrong_schema).is_err());
+        let messages = json!({"schemaVersion":1,"status":"ready","busy":false,"messages":[
+            {"kind":"error","text":"Contest action failed."},{"kind":"notice","text":"Score recalculated."}
+        ]});
+        assert!(validate_projection("messages", &messages).is_ok());
+        let mut malformed_message = messages;
+        malformed_message["messages"][0]["kind"] = json!("warning");
+        assert!(validate_projection("messages", &malformed_message).is_err());
         let native_rates = json!({"schemaVersion":1,"status":"ready","lastHourQsoPerHour":null,
             "last10QsoPerHour":120.5,"last100QsoPerHour":null,"sinceHourUTC":19,"sinceHourQso":2,
             "runQso":2,"searchAndPounceQso":1,"hourRunQso":1,"hourSearchAndPounceQso":0,"busy":false});
@@ -3767,7 +3843,8 @@ mod tests {
         let spot = json!({"id":"spot-1","receivedAt":1,"clusterName":"SK6AW","spotter":"K1ABC","spotterContinent":null,
             "frequencyKHz":14025.0,"frequencyText":"14025.0","callsign":"DL1ABC","comment":"CQ","band":"20m","mode":"CW",
             "country":"Germany","adif":230,"continent":"EU","cqZone":14,"ituZone":28,"callStatus":"New","dxccStatus":"New",
-            "workedBefore":null,"specialTags":[],"score":80,"contestPoints":null,"contestDupe":null,"contestMultiplierCount":null,"scoreReasons":[],"aggregateCount":1,"aggregateSpotters":["K1ABC"],
+            "workedBefore":null,"specialTags":[],"score":80,"contestPoints":null,"contestDupe":null,"contestMultiplierCount":null,
+            "contestCountryMultiplier":null,"contestZoneMultiplier":null,"scoreReasons":[],"aggregateCount":1,"aggregateSpotters":["K1ABC"],
             "source":"DX Cluster","statusHex":"","bandHex":"","modeHex":"","marked":false});
         let projection = json!({"schemaVersion":2,"status":"ready","draftID":"draft","draftRevision":2,
             "radioFrequencyHz":14025000,"connectedClusters":1,"loadedSpots":1,"selectedSpotID":"spot-1",
@@ -3779,6 +3856,9 @@ mod tests {
         assert!(validate_projection("band-maps", &known_points).is_ok());
         let mut invalid_points = projection.clone(); invalid_points["spots"][0]["contestPoints"] = json!(-1);
         assert!(validate_projection("band-maps", &invalid_points).is_err());
+        let mut exact_multipliers = projection.clone(); exact_multipliers["spots"][0]["contestCountryMultiplier"] = json!(true);
+        exact_multipliers["spots"][0]["contestZoneMultiplier"] = json!(false);
+        assert!(validate_projection("band-maps", &exact_multipliers).is_ok());
         let mut duplicate = projection.clone(); duplicate["spots"] = json!([spot.clone(), spot]);
         assert!(validate_projection("band-maps", &duplicate).is_err());
         let mut state = State { context: Some(context()), ..State::default() };
@@ -4068,5 +4148,27 @@ mod tests {
         assert_eq!(rotor_target_projection(9, &entry)["available"], false);
         assert_eq!(rotor_target_projection(10, &json!({"schemaVersion":1,"status":"unavailable"})),
             json!({"available":false,"projectionRevision":10,"callsign":null,"shortPathBearing":null,"longPathBearing":null}));
+    }
+
+    #[test]
+    fn contest_diagnostics_are_deduplicated_bounded_and_merged_only_into_messages() {
+        let mut state = State::default();
+        assert!(report_diagnostic_in(&mut state, "error", "Cluster connection failed.").unwrap());
+        assert!(!report_diagnostic_in(&mut state, "error", "Cluster connection failed.").unwrap());
+        for index in 0..40 {
+            report_diagnostic_in(&mut state, "notice", &format!("Diagnostic {index}")).unwrap();
+        }
+        assert_eq!(state.diagnostics.len(), MAX_DIAGNOSTICS);
+        assert_eq!(state.diagnostics.front().unwrap().text, "Diagnostic 8");
+        assert!(report_diagnostic_in(&mut state, "warning", "invalid").is_err());
+        assert!(report_diagnostic_in(&mut state, "error", &"x".repeat(513)).is_err());
+
+        let base = json!({"schemaVersion":1,"status":"ready","messages":[
+            {"kind":"notice","text":"Diagnostic 39"}],"busy":true});
+        let merged = merge_diagnostics(base, &state.diagnostics);
+        assert_eq!(merged["busy"], true);
+        let messages = merged["messages"].as_array().unwrap();
+        assert_eq!(messages.len(), MAX_DIAGNOSTICS);
+        assert_eq!(messages.iter().filter(|item| item["text"] == "Diagnostic 39").count(), 1);
     }
 }

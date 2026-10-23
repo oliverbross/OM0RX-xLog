@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { claimContestSurfaceOwner, closeContestSurfaceContext, completeContestSurfaceAction, contestSurfaceContextFromSearch, nextContestSurfaceAction, nextContestSurfaceEscape, onContestSurfaceWake,
   openContestContactEditorWindow, closeContestContactEditorWindow, publishContestSurface, readContestSurfaceSnapshot,
-  postContestSpot, submitContestSurfaceAction } from "./contestSurfaceNative";
+  postContestSpot, reportContestSurfaceDiagnostic, submitContestSurfaceAction } from "./contestSurfaceNative";
 
 const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), tauri: true }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke, isTauri: () => native.tauri }));
@@ -45,6 +45,16 @@ describe("contest native surface bridge", () => {
     await postContestSpot(" om0rx ", 14_025_500);
     expect(native.invoke).toHaveBeenCalledWith("contest_post_spot", { callsign: "OM0RX", frequencyHz: 14_025_500 });
     await expect(postContestSpot("OM0RX\nshow/password", 14_025_500)).rejects.toThrow("valid callsign");
+    expect(native.invoke).toHaveBeenCalledOnce();
+  });
+
+  it("reports only bounded diagnostics through the shared native contest channel", async () => {
+    native.invoke.mockResolvedValue(undefined);
+    await reportContestSurfaceDiagnostic(context,"error","  Cluster connection failed.  ");
+    expect(native.invoke).toHaveBeenCalledWith("contest_surface_diagnostic_report",{
+      sessionID:context.sessionID,workspaceGeneration:context.workspaceGeneration,kind:"error",message:"Cluster connection failed.",
+    });
+    await expect(reportContestSurfaceDiagnostic(context,"notice","x".repeat(513))).rejects.toThrow("could not be verified");
     expect(native.invoke).toHaveBeenCalledOnce();
   });
 

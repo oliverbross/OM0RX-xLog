@@ -1,7 +1,7 @@
 import { contestKeyBindingActions, contestKeyBindingContexts, normalizeContestKey, type ContestKeyBinding } from "./contestKeyBindings";
 
 export const contestSurfacePanelIDs = ["active-qso", "qrz-details", "band-maps", "callsign-intelligence", "monitor", "propagation",
-  "awards", "chaser-dx", "rotor", "station-control", "logbook", "dx-cluster", "score-reporting"] as const;
+  "awards", "chaser-dx", "rotor", "station-control", "logbook", "dx-cluster", "score-reporting", "messages"] as const;
 export type ContestSurfacePanelID = typeof contestSurfacePanelIDs[number];
 export const contestInputFieldIDs = ["callsign", "sent", "receive", "other_1", "other_2"] as const;
 export type ContestInputFieldID = typeof contestInputFieldIDs[number];
@@ -144,6 +144,7 @@ export type ContestSurfaceSpot = { id: string; receivedAt: number; clusterName: 
   band: string; mode: string; country: string; adif: number | null; continent: string; cqZone: number | null;
   ituZone: number | null; callStatus: string; dxccStatus: string; workedBefore: number | null; specialTags: string[];
   score: number; contestPoints: number | null; contestDupe: boolean | null; contestMultiplierCount: number | null;
+  contestCountryMultiplier: boolean | null; contestZoneMultiplier: boolean | null;
   scoreReasons: string[]; aggregateCount: number; aggregateSpotters: string[]; source: string;
   statusHex: string; bandHex: string; modeHex: string; marked: boolean };
 export type ContestSpotSurfaceProjection = { schemaVersion: 2; status: "ready"; draftID: string; draftRevision: number;
@@ -163,9 +164,12 @@ export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; s
   editing: null | { reportsVisible?: boolean; details?: ContestLogEditDetails; qsoID: string; workedAt: string; operator: string; callsign: string; name?: string; qth?: string; comment?: string; band: string; mode: string; sentReport: string; receivedReport: string;
     entryFields?: ContestSurfaceReceivedField[]; receivedFields: ContestSurfaceReceivedField[]; frequencyHz: number | null; editFrequencyText: string; frequencyError: string;
     correctionReason: string; confirmDelete: boolean; deletionReason: string }; busy: boolean };
+export type ContestMessagesSurfaceProjection = { schemaVersion: 1; status: "ready";
+  messages: { kind: "error" | "notice"; text: string }[]; busy: boolean };
 export type ContestSurfaceProjection = ContestSurfaceUnavailableProjection | ContestEntrySurfaceProjection | ContestEntrySurfaceProjectionV2 |
   ContestCheckSurfaceProjection | ContestStatisticsSurfaceProjection | ContestRatesSurfaceProjection | ContestMatrixSurfaceProjection |
-  ContestLogSurfaceProjection | ContestSpotSurfaceProjection | ContestRemoteVFOSurfaceProjection | ContestScoreReportingSurfaceProjection;
+  ContestLogSurfaceProjection | ContestSpotSurfaceProjection | ContestRemoteVFOSurfaceProjection | ContestScoreReportingSurfaceProjection |
+  ContestMessagesSurfaceProjection;
 
 export const validContestSurfaceUUID = (value: unknown): value is string => typeof value === "string" &&
   /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(value);
@@ -468,12 +472,15 @@ function validSpotProjection(value: Record<string, unknown>) {
   return value.spots.every(item => {
     if (!record(item) || !exact(item, ["id", "receivedAt", "clusterName", "spotter", "spotterContinent", "frequencyKHz",
         "frequencyText", "callsign", "comment", "band", "mode", "country", "adif", "continent", "cqZone", "ituZone",
-        "callStatus", "dxccStatus", "workedBefore", "specialTags", "score", "contestPoints", "contestDupe", "contestMultiplierCount", "scoreReasons", "aggregateCount",
+        "callStatus", "dxccStatus", "workedBefore", "specialTags", "score", "contestPoints", "contestDupe", "contestMultiplierCount",
+        "contestCountryMultiplier", "contestZoneMultiplier", "scoreReasons", "aggregateCount",
         "aggregateSpotters", "source", "statusHex", "bandHex", "modeHex", "marked"]) || !text(item.id, 128) || ids.has(item.id as string) ||
         !["receivedAt", "frequencyKHz", "score"].every(key => typeof item[key] === "number" && Number.isFinite(item[key]) && (item[key] as number) >= 0) ||
         item.contestPoints !== null && (typeof item.contestPoints !== "number" || !Number.isFinite(item.contestPoints) || item.contestPoints < 0) ||
         item.contestDupe !== null && typeof item.contestDupe !== "boolean" ||
         item.contestMultiplierCount !== null && !uint(item.contestMultiplierCount) ||
+        item.contestCountryMultiplier !== null && typeof item.contestCountryMultiplier !== "boolean" ||
+        item.contestZoneMultiplier !== null && typeof item.contestZoneMultiplier !== "boolean" ||
         !uint(item.aggregateCount) || !["clusterName", "spotter", "frequencyText", "comment", "country", "continent", "callStatus",
           "dxccStatus", "source", "statusHex", "bandHex", "modeHex"].every(key => text(item[key], 512, true)) ||
         !text(item.callsign, 32) || !text(item.band, 16) || !text(item.mode, 16) ||
@@ -503,6 +510,11 @@ function validScoreReportingProjection(value: Record<string, unknown>) {
       text(service.name, 80) && text(service.url, 256) && oneOf(service.transportSecurity, ["https", "legacy-http"])) &&
     typeof value.busy === "boolean";
 }
+function validMessagesProjection(value: Record<string, unknown>) {
+  return exact(value, ["schemaVersion", "status", "messages", "busy"]) && Array.isArray(value.messages) && value.messages.length <= 32 &&
+    value.messages.every(item => record(item) && exact(item, ["kind", "text"]) && oneOf(item.kind, ["error", "notice"]) && text(item.text, 512)) &&
+    typeof value.busy === "boolean";
+}
 
 export function validContestSurfaceProjection(panelID: ContestSurfacePanelID, value: unknown): value is ContestSurfaceProjection {
   const projection = record(value) ? value : undefined;
@@ -522,6 +534,7 @@ export function validContestSurfaceProjection(panelID: ContestSurfacePanelID, va
   if (panelID === "logbook") return validLogProjection(projection);
   if (panelID === "station-control") return validRemoteVFOProjection(projection);
   if (panelID === "score-reporting") return validScoreReportingProjection(projection);
+  if (panelID === "messages") return validMessagesProjection(projection);
   return false;
 }
 

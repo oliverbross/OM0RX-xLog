@@ -84,7 +84,7 @@ pub const SUPPORTED_WINDOWS: [WindowSpec; 23] = [
     WindowSpec { id: "antenna", title: "OM0RX-xLog — Antenna Reference", width: 780.0, height: 600.0 },
 ];
 pub const CONTEST_LABEL_PREFIX: &str = "contest--";
-pub const CONTEST_WINDOWS: [WindowSpec; 16] = [
+pub const CONTEST_WINDOWS: [WindowSpec; 17] = [
     WindowSpec { id: "active-qso", title: "OM0RX-xLog Contest — Main Logging", width: 800.0, height: 440.0 },
     WindowSpec { id: "call-history", title: "OM0RX-xLog Contest — Call History", width: 840.0, height: 360.0 },
     WindowSpec { id: "qrz-details", title: "OM0RX-xLog Contest — Callsign Details", width: 520.0, height: 420.0 },
@@ -93,6 +93,7 @@ pub const CONTEST_WINDOWS: [WindowSpec; 16] = [
     WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog Contest — Check Partial", width: 660.0, height: 620.0 },
     WindowSpec { id: "monitor", title: "OM0RX-xLog Contest — Rates", width: 340.0, height: 300.0 },
     WindowSpec { id: "score-reporting", title: "OM0RX-xLog Contest — Score Reporting", width: 620.0, height: 540.0 },
+    WindowSpec { id: "messages", title: "OM0RX-xLog Contest — Messages", width: 620.0, height: 320.0 },
     WindowSpec { id: "propagation", title: "OM0RX-xLog Contest — Stats", width: 520.0, height: 220.0 },
     WindowSpec { id: "awards", title: "OM0RX-xLog Contest — DXCC", width: 920.0, height: 360.0 },
     WindowSpec { id: "chaser-dx", title: "OM0RX-xLog Contest — Zone", width: 760.0, height: 360.0 },
@@ -131,6 +132,7 @@ pub fn contest_default_size_migrations(label: &str) -> Option<(&'static [(f64, f
         "callsign-intelligence" => &[(700.0, 620.0), (660.0, 500.0)],
         "monitor" => &[(780.0, 600.0)],
         "score-reporting" => &[],
+        "messages" => &[],
         "propagation" => &[(800.0, 480.0), (520.0, 380.0), (520.0, 140.0)],
         "rotor" => &[(700.0, 600.0), (620.0, 420.0)],
         "station-control" => &[(900.0, 700.0), (900.0, 680.0), (680.0, 420.0)],
@@ -181,6 +183,7 @@ pub fn native_minimum(label: &str) -> (f64, f64) {
                 "rotor" => (420.0, 420.0),
                 "monitor" => (300.0, 240.0),
                 "score-reporting" => (480.0, 420.0),
+                "messages" => (420.0, 220.0),
                 "station-control" => (440.0, 220.0),
                 "awards" => (560.0, 280.0),
                 "chaser-dx" => (520.0, 280.0),
@@ -404,7 +407,7 @@ mod tests {
         let ids: BTreeSet<_> = CONTEST_WINDOWS.iter().map(|window| window.id).collect();
         assert_eq!(ids.len(), CONTEST_WINDOWS.len());
         assert_eq!(ids, BTreeSet::from(["active-qso", "awards", "band-maps", "call-history", "group-chat", "qrz-details", "callsign-intelligence",
-            "chaser-dx", "dx-cluster", "edit-contact", "logbook", "monitor", "propagation", "rotor", "score-reporting", "station-control"]));
+            "chaser-dx", "dx-cluster", "edit-contact", "logbook", "messages", "monitor", "propagation", "rotor", "score-reporting", "station-control"]));
         let titles = CONTEST_WINDOWS.iter().map(|window| (window.id, window.title)).collect::<std::collections::HashMap<_, _>>();
         for (panel, title) in [
             ("callsign-intelligence", "OM0RX-xLog Contest — Check Partial"),
@@ -413,6 +416,7 @@ mod tests {
             ("edit-contact", "OM0RX-xLog Contest — Edit Contact"),
             ("monitor", "OM0RX-xLog Contest — Rates"),
             ("score-reporting", "OM0RX-xLog Contest — Score Reporting"),
+            ("messages", "OM0RX-xLog Contest — Messages"),
             ("station-control", "OM0RX-xLog Contest — Remote VFO"),
             ("group-chat", "OM0RX-xLog Contest — Group Chat"),
         ] { assert_eq!(titles.get(panel), Some(&title)); }
@@ -543,6 +547,7 @@ mod tests {
             ("band-maps", (420.0, 520.0)), ("dx-cluster", (720.0, 300.0)),
             ("rotor", (420.0, 420.0)), ("monitor", (300.0, 240.0)),
             ("score-reporting", (480.0, 420.0)),
+            ("messages", (420.0, 220.0)),
             ("station-control", (440.0, 220.0)), ("awards", (560.0, 280.0)),
             ("chaser-dx", (520.0, 280.0)),
         ];

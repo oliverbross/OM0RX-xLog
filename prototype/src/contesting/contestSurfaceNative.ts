@@ -76,6 +76,16 @@ export async function submitContestSurfaceAction(action: ContestSurfaceActionEnv
   return actionReceipt(await invoke("contest_surface_action", { envelope: action }));
 }
 
+export async function reportContestSurfaceDiagnostic(context: ContestSurfaceContext,
+    kind: "error" | "notice", message: string): Promise<void> {
+  const normalized = message.trim();
+  if (!contextValid(context) || !["error", "notice"].includes(kind) || !normalized || bytes(normalized) > 512)
+    throw new Error("The contest surface diagnostic could not be verified.");
+  if (!isTauri()) throw new Error("Contest diagnostics require the native application.");
+  await invoke("contest_surface_diagnostic_report", { sessionID: context.sessionID,
+    workspaceGeneration: context.workspaceGeneration, kind, message: normalized });
+}
+
 export async function nextContestSurfaceAction(context: ContestSurfaceContext): Promise<ContestSurfaceActionEnvelope | null> {
   if (!contextValid(context)) throw new Error("The contest surface owner context could not be verified.");
   const value = await invoke("contest_surface_action_next", context);

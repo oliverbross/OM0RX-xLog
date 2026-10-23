@@ -263,4 +263,9 @@
 .contest-score-reporting-services li { display:grid; grid-template-columns:minmax(170px,.8fr) 1fr; gap:4px 12px; padding:10px 12px; border-bottom:1px solid #243448; }
 .contest-score-reporting-services code { overflow-wrap:anywhere; color:#8ed7ff; }
 .contest-score-reporting-services em { grid-column:2; color:#ffba73; font-size:.75rem; }
+.contest-surface-messages { min-height:100%; box-sizing:border-box; padding:16px; color:var(--text-primary,#e8edf5); background:var(--surface-deep,#081320); }
+.contest-surface-messages h1 { margin:0 0 12px; font-size:1rem; }
+.contest-surface-messages ol { display:grid; gap:8px; margin:0; padding:0; list-style:none; }
+.contest-surface-messages li { padding:10px 12px; border:1px solid #2a3b50; border-radius:6px; background:#111d2a; }
+.contest-surface-messages li.is-error { border-color:#8b4141; color:#ffb7b0; }
 @media(max-width:540px){.contest-score-reporting-summary{grid-template-columns:1fr 1fr}.contest-score-reporting fieldset{grid-template-columns:1fr}.contest-score-reporting-services li{grid-template-columns:1fr}.contest-score-reporting-services em{grid-column:1}}

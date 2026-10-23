@@ -8,7 +8,7 @@ const draft = { draftID: "draft-1", expectedDraftRevision: 5 };
 const spot = {id:"spot-1",receivedAt:1,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,frequencyKHz:14025,
   frequencyText:"14025.0",callsign:"DL1ABC",comment:"CQ",band:"20m",mode:"CW",country:"Germany",adif:230,continent:"EU",
   cqZone:14,ituZone:28,callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,contestPoints:null,
-  contestDupe:null,contestMultiplierCount:null,scoreReasons:[],
+  contestDupe:null,contestMultiplierCount:null,contestCountryMultiplier:null,contestZoneMultiplier:null,scoreReasons:[],
   aggregateCount:1,aggregateSpotters:["K1ABC"],source:"DX Cluster",statusHex:"",bandHex:"",modeHex:"",marked:false};
 
 it.each(["band-maps","dx-cluster"] as const)("validates fenced %s spot selection and bounded projections",panelID=>{
@@ -24,8 +24,10 @@ it.each(["band-maps","dx-cluster"] as const)("validates fenced %s spot selection
   expect(validContestSurfaceProjection(panelID,{...projection,spots:[{...spot,contestPoints:3}]})).toBe(true);
   expect(validContestSurfaceProjection(panelID,{...projection,spots:[{...spot,contestPoints:-1}]})).toBe(false);
   expect(validContestSurfaceProjection(panelID,{...projection,spots:[{...spot,contestPoints:Number.NaN}]})).toBe(false);
-  expect(validContestSurfaceProjection(panelID,{...projection,spots:[{...spot,contestDupe:true,contestMultiplierCount:2}]})).toBe(true);
+  expect(validContestSurfaceProjection(panelID,{...projection,spots:[{...spot,contestDupe:true,contestMultiplierCount:2,
+    contestCountryMultiplier:true,contestZoneMultiplier:true}]})).toBe(true);
   expect(validContestSurfaceProjection(panelID,{...projection,spots:[{...spot,contestMultiplierCount:-1}]})).toBe(false);
+  expect(validContestSurfaceProjection(panelID,{...projection,spots:[{...spot,contestCountryMultiplier:"yes"}]})).toBe(false);
   expect(validContestSurfaceProjection(panelID,{...projection,spots:[spot,{...spot}]})).toBe(false);
   expect(validContestSurfaceProjection(panelID,{...projection,connections:[{...projection.connections[0],phase:"x".repeat(33)}]})).toBe(false);
 });
@@ -211,6 +213,8 @@ describe("contest native surface projection v1", () => {
     expect(validContestSurfaceProjection("propagation", statisticsProjectionV3)).toBe(true);
     expect(validContestSurfaceProjection("logbook", logProjection)).toBe(true);
     expect(validContestSurfaceProjection("monitor", ratesProjection)).toBe(true);
+    expect(validContestSurfaceProjection("messages", {schemaVersion:1,status:"ready",busy:false,
+      messages:[{kind:"error",text:"Contest action failed."},{kind:"notice",text:"Score recalculated."}]})).toBe(true);
     expect(validContestSurfaceProjection("awards", matrixProjection)).toBe(true);
     expect(validContestSurfaceProjection("chaser-dx", { ...matrixProjection, title: "Zone" })).toBe(true);
     expect(validContestSurfaceProjection("chaser-dx", matrixProjectionV2)).toBe(true);

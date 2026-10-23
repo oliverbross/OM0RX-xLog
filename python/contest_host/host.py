@@ -1439,13 +1439,15 @@ class Host:
                     desk = Desk(store, preview, self.commit)
                     if desk.cty_lookup(callsign) is None:
                         results.append({"spotID": spot_id, "points": None, "dupe": None,
-                                        "multiplierCount": None, "reason": "unresolved_callsign"})
+                                        "multiplierCount": None, "countryMultiplier": None,
+                                        "zoneMultiplier": None, "reason": "unresolved_callsign"})
                         continue
                     try:
                         desk.contest_band(frequency)
                     except HostError:
                         results.append({"spotID": spot_id, "points": None, "dupe": None,
-                                        "multiplierCount": None, "reason": "unsupported_band"})
+                                        "multiplierCount": None, "countryMultiplier": None,
+                                        "zoneMultiplier": None, "reason": "unsupported_band"})
                         continue
                     desk.clear_inputs()
                     desk.callsign.setText(callsign)
@@ -1455,27 +1457,34 @@ class Host:
                         self.validate_exchange(desk, fields)
                     except (HostError, ValueError, TypeError, AttributeError):
                         results.append({"spotID": spot_id, "points": None, "dupe": None,
-                                        "multiplierCount": None, "reason": "exchange_required"})
+                                        "multiplierCount": None, "countryMultiplier": None,
+                                        "zoneMultiplier": None, "reason": "exchange_required"})
                         continue
                     try:
                         contact = desk.contact_for(fields, str(uuid.uuid4()), now(), frequency)
                         points = contact.get("Points")
                         require(type(points) in {int, float} and math.isfinite(points) and points >= 0,
                                 "Plugin returned invalid spot points")
-                        before = desk.score()["multipliers"]
+                        before_score = desk.score()
                         desk.database.conn.execute("SAVEPOINT spot_preview")
                         try:
                             contact["ContestNR"] = store.current_contest
                             desk.database.exec_sql_insert("DXLOG", contact, commit=False)
-                            multiplier_count = max(0, desk.score()["multipliers"] - before)
+                            after_score = desk.score()
+                            multiplier_count = max(0, after_score["multipliers"] - before_score["multipliers"])
                         finally:
                             desk.database.conn.execute("ROLLBACK TO spot_preview")
                             desk.database.conn.execute("RELEASE spot_preview")
+                        cq_ww_ssb = current["pluginID"] == "cq_ww_ssb"
                         results.append({"spotID": spot_id, "points": points, "dupe": bool(desk.contact_is_dupe),
-                                        "multiplierCount": multiplier_count, "reason": None})
+                                        "multiplierCount": multiplier_count,
+                                        "countryMultiplier": after_score["countries"] > before_score["countries"] if cq_ww_ssb else None,
+                                        "zoneMultiplier": after_score["zones"] > before_score["zones"] if cq_ww_ssb else None,
+                                        "reason": None})
                     except (HostError, ValueError, TypeError, AttributeError, ArithmeticError):
                         results.append({"spotID": spot_id, "points": None, "dupe": None,
-                                        "multiplierCount": None, "reason": "scoring_unavailable"})
+                                        "multiplierCount": None, "countryMultiplier": None,
+                                        "zoneMultiplier": None, "reason": "scoring_unavailable"})
                 return {"sessionID": session_id, "workspaceGeneration": workspace_generation(current),
                         "revision": current["revision"], "spots": results}
             finally:
@@ -1499,7 +1508,8 @@ class Host:
                 )
                 return {"sessionID": session_id, "revision": state["revision"],
                         "score": desk.score(), "matrices": self.matrices(store),
-                        "statistics": calculate_statistics(rows)}
+                        "statistics": calculate_statistics(rows, *("IsMultiplier2", "IsMultiplier1")
+                                                           if state["pluginID"] == "cq_ww_ssb" else ())}
             finally:
                 store.conn.rollback()
         if method == "rtc_payload":
@@ -3521,8 +3531,9 @@ class Host:
                 "SELECT count(*) AS n FROM DXLOG WHERE ContestNR=? AND Band=? AND ZN=? AND CountryPrefix<>''",
                 (desk.database.current_contest, contact.get("Band"), zone),
             )["n"]
-            contact["IsMultiplier1"] = int(eligible and country_count == 0)
-            contact["IsMultiplier2"] = int(eligible and bool(zone) and zone_count == 0)
+            # Not1MM's CQ WW log contract is M1=zone and M2=country.
+            contact["IsMultiplier1"] = int(eligible and bool(zone) and zone_count == 0)
+            contact["IsMultiplier2"] = int(eligible and country_count == 0)
         try:
             desk.database.log_contact(contact)
         except sqlite3.IntegrityError as error:
@@ -3804,8 +3815,8 @@ class Host:
                 zone = str(row.get("ZN", "")).strip()
                 country_key, zone_key = (band, country), (band, zone)
                 duplicate = row["ID"] in duplicate_ids
-                row["IsMultiplier1"] = int(not duplicate and bool(country) and country_key not in countries)
-                row["IsMultiplier2"] = int(not duplicate and bool(country) and bool(zone) and zone_key not in zones)
+                row["IsMultiplier1"] = int(not duplicate and bool(country) and bool(zone) and zone_key not in zones)
+                row["IsMultiplier2"] = int(not duplicate and bool(country) and country_key not in countries)
                 desk.database.change_contact(row)
                 if not duplicate and country:
                     countries.add(country_key)

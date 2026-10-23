@@ -2,12 +2,12 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
   type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode, type Ref } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { contestSurfaceContextFromSearch, onContestSurfaceWake, readContestSurfaceSnapshot, submitContestSurfaceAction,
+import { contestSurfaceContextFromSearch, onContestSurfaceWake, readContestSurfaceSnapshot, reportContestSurfaceDiagnostic, submitContestSurfaceAction,
   openContestContactEditorWindow, closeContestContactEditorWindow, toggleContestSurfaceWindow,
   type ContestSurfaceContext, type ContestSurfaceSnapshot, type ContestSurfaceTerminalReceipt } from "./contestSurfaceNative";
 import { contestInputFieldIDs, type ContestInputFieldID, type ContestLogInlineEdit, type ContestSurfaceAction, type ContestSurfaceActionEnvelope,
   type ContestRatesSurfaceProjection, type ContestMatrixSurfaceProjection, type ContestSpotSurfaceProjection,
-  type ContestStatisticsSurfaceProjection, type ContestScoreReportingSurfaceProjection } from "./contestSurfaceProtocol";
+  type ContestStatisticsSurfaceProjection, type ContestScoreReportingSurfaceProjection, type ContestMessagesSurfaceProjection } from "./contestSurfaceProtocol";
 import { ContestTextField, ContestCandidates, ContestScoreSummary } from "./ContestPresentation";
 import { contestKeyChord, functionKeyForContestAction, resolveContestKeyBinding,
   type ContestKeyBindingAction, type ContestKeyBindingContext } from "./contestKeyBindings";
@@ -20,8 +20,16 @@ import { ContestQRZDetailsSurface } from "./DetachedContestQRZDetailsSurface";
 
 type Context = ContestSurfaceContext & { panelID: ContestSurfaceActionEnvelope["panelID"] };
 const message = (cause: unknown) => cause instanceof Error ? cause.message : String(cause);
+const boundedDiagnostic = (value: string) => {
+  let bounded="";
+  for(const character of value.trim()){
+    if(new TextEncoder().encode(bounded+character).length>512)break;
+    bounded+=character;
+  }
+  return bounded||"Contest operation failed.";
+};
 const retryableUnavailablePanels = new Set<Context["panelID"]>([
-  "active-qso", "band-maps", "callsign-intelligence", "monitor", "propagation", "logbook", "dx-cluster", "score-reporting",
+  "active-qso", "band-maps", "callsign-intelligence", "monitor", "propagation", "logbook", "dx-cluster", "score-reporting", "messages",
 ]);
 const fldigiContestModes = new Set(["RTTY", "RTTY-R", "LSB-D", "USB-D", "AM-D", "FM-D",
   "DIGI-U", "DIGI-L", "RTTYR", "PKTLSB", "PKTUSB"]);
@@ -35,11 +43,16 @@ const not1mmCallsignCommand = (value:string):{kind:"mode";value:string}|{kind:"f
 };
 function useContestSurface(context: Context) {
   const [snapshot, setSnapshot] = useState<ContestSurfaceSnapshot | null>(null), [error, setError] = useState("");
-  const mounted = useRef(true), ticket = useRef(0);
+  const mounted = useRef(true), ticket = useRef(0), snapshotRef = useRef<ContestSurfaceSnapshot | null>(null), errorRef = useRef("");
   const refresh = useCallback(async () => {
     const current = ++ticket.current;
-    try { const value = await readContestSurfaceSnapshot(context); if (mounted.current && current === ticket.current) { setSnapshot(value); setError(""); } return value; }
-    catch (cause) { if (mounted.current && current === ticket.current) setError(message(cause)); return null; }
+    try { const value = await readContestSurfaceSnapshot(context); if (mounted.current && current === ticket.current) {
+      if (!sameContestSurfaceSnapshot(snapshotRef.current, value)) { snapshotRef.current = value; setSnapshot(value); }
+      if (errorRef.current) { errorRef.current = ""; setError(""); }
+    } return value; }
+    catch (cause) { if (mounted.current && current === ticket.current) {
+      const next = message(cause); if (errorRef.current !== next) { errorRef.current = next; setError(next); }
+    } return null; }
   }, [context]);
   useEffect(() => { mounted.current = true; void refresh(); let stop: undefined | (() => void);
     void onContestSurfaceWake(changedPanelID => {
@@ -68,12 +81,28 @@ function useContestSurface(context: Context) {
   return { snapshot, error, refresh };
 }
 
+function sameContestSurfaceSnapshot(current: ContestSurfaceSnapshot | null, next: ContestSurfaceSnapshot) {
+  // Generic native wakes reach every contest window. A projection revision is
+  // immutable, while action receipts may advance without publishing a revision.
+  return current !== null && current.operatingContext === next.operatingContext && current.scope === next.scope &&
+    current.sessionID === next.sessionID && current.workspaceGeneration === next.workspaceGeneration &&
+    current.panelID === next.panelID && current.projectionRevision === next.projectionRevision &&
+    current.receipts.length === next.receipts.length && current.receipts.every((receipt, index) => {
+      const candidate = next.receipts[index];
+      return receipt.requestID === candidate.requestID && receipt.status === candidate.status &&
+        receipt.message === candidate.message && receipt.projectionRevision === candidate.projectionRevision;
+    });
+}
+
 function Surface({ context }: { context: Context }) {
-  const { snapshot, error, refresh } = useContestSurface(context), [sending, setSending] = useState(false),
-    [actionError, setActionError] = useState("");
+  const { snapshot, error, refresh } = useContestSurface(context), [sending, setSending] = useState(false);
   const snapshotRef=useRef(snapshot),queueRef=useRef<Promise<void>>(Promise.resolve()),pendingCount=useRef(0);
   const receiptWaiters=useRef(new Map<string,{resolve:(receipt:ContestSurfaceTerminalReceipt|null)=>void;timer:number}>());
   snapshotRef.current=snapshot;
+  const reportDiagnostic=useCallback((kind:"error"|"notice",text:string)=>{
+    if(context.panelID!=="messages")void reportContestSurfaceDiagnostic(context,kind,boundedDiagnostic(text)).catch(()=>{});
+  },[context]);
+  useEffect(()=>{if(error)reportDiagnostic("error",error);},[error,reportDiagnostic]);
   useEffect(()=>{for(const receipt of snapshot?.receipts??[]){if(receipt.status!=="applied"&&receipt.status!=="rejected")continue;
     const waiter=receiptWaiters.current.get(receipt.requestID);if(!waiter)continue;
     window.clearTimeout(waiter.timer);receiptWaiters.current.delete(receipt.requestID);waiter.resolve(receipt);}},[snapshot]);
@@ -83,7 +112,7 @@ function Surface({ context }: { context: Context }) {
       options:{requestID?:string;safePresentation?:boolean;bypassQueue?:boolean}={}) => {
     const requestID=options.requestID??crypto.randomUUID();
     const execute=async()=>{
-      pendingCount.current+=1;setSending(true);setActionError("");
+      pendingCount.current+=1;setSending(true);
       try {
         let currentAction=action,projectionRevision=requestedProjectionRevision;
         if(options.safePresentation){const current=await refresh();
@@ -100,8 +129,8 @@ function Surface({ context }: { context: Context }) {
           const params=action.params as Record<string,unknown>,escape=action.action==="entry_operator_key"&&params.key==="Escape";
           if(escape){const draft=(current.projection as any).draft;if(draft?.draftID!==params.draftID||
               !Number.isSafeInteger(params.expectedDraftRevision)||params.expectedDraftRevision as number>draft.revision||
-              requestedProjectionRevision>current.projectionRevision){setActionError("The shared contest entry no longer owns this Escape action.");return {applied:false,projectionRevision:null};}}
-          else if(current.projectionRevision!==requestedProjectionRevision){setActionError("The shared contest panel changed before this action could be applied.");return {applied:false,projectionRevision:null};}}
+              requestedProjectionRevision>current.projectionRevision){reportDiagnostic("error","The shared contest entry no longer owns this Escape action.");return {applied:false,projectionRevision:null};}}
+          else if(current.projectionRevision!==requestedProjectionRevision){reportDiagnostic("error","The shared contest panel changed before this action could be applied.");return {applied:false,projectionRevision:null};}}
         const immediate=await submitContestSurfaceAction({...context,scope:"contesting",projectionRevision,
           requestID,...currentAction} as ContestSurfaceActionEnvelope);
         if(immediate.status==="applied"){const current=await refresh();return {applied:true,projectionRevision:current?.projectionRevision??projectionRevision};}
@@ -112,17 +141,16 @@ function Surface({ context }: { context: Context }) {
           const timer=window.setTimeout(()=>{receiptWaiters.current.delete(requestID);resolve(null);},20_000);
           receiptWaiters.current.set(requestID,{resolve,timer});
         });
-        if(!terminal)setActionError("The action is still being reconciled.");
-        else if(terminal.status==="rejected")setActionError(terminal.message||"The contest action could not be applied.");
-        else setActionError("");
+        if(!terminal)reportDiagnostic("error","The action is still being reconciled.");
+        else if(terminal.status==="rejected")reportDiagnostic("error",terminal.message||"The contest action could not be applied.");
         return {applied:terminal?.status==="applied",projectionRevision:terminal?.status==="applied"?terminal.projectionRevision:null};
-      }catch(cause){setActionError(message(cause));await refresh();return {applied:false,projectionRevision:null};}
+      }catch(cause){reportDiagnostic("error",message(cause));await refresh();return {applied:false,projectionRevision:null};}
       finally{pendingCount.current-=1;if(pendingCount.current===0)setSending(false);}
     };
     if(options.bypassQueue)return execute();
     const operation=queueRef.current.then(execute);
     queueRef.current=operation.then(()=>{},()=>{});return operation;
-  },[context,refresh]);
+  },[context,refresh,reportDiagnostic]);
   const editorOnly = new URLSearchParams(window.location.search).get("view") === "edit-contact", closingEditor=useRef(false);
   useEffect(()=>{if(!editorOnly||!isTauri())return;let active=true,unlisten:(()=>void)|undefined;
     void getCurrentWindow().onCloseRequested(async event=>{
@@ -138,11 +166,9 @@ function Surface({ context }: { context: Context }) {
     }).then(dispose=>{if(active)unlisten=dispose;else dispose();}).catch(()=>{});
     return()=>{active=false;unlisten?.();};
   },[editorOnly,refresh,send]);
-  if (!snapshot) return <main aria-label="Contest panel"><p role="status">Loading shared contest panel…</p>{error && <p role="alert">{error}</p>}</main>;
+  if (!snapshot) return <main aria-label="Contest panel"><p role="status">Loading shared contest panel…</p>{context.panelID==="messages"&&error&&<p role="alert">{error}</p>}</main>;
   const projection = snapshot.projection;
   return <main aria-label={`Contest ${context.panelID}`}>
-    {error && <p className="contest-surface-error" role="alert">{error}</p>}
-    {actionError && <p className="contest-surface-error" role="alert">{actionError}</p>}
     {projection.status === "unavailable" ? retryableUnavailablePanels.has(context.panelID)
       ? <p role="status">Loading shared contest panel…</p>
       : context.panelID === "awards" || context.panelID === "chaser-dx"
@@ -150,13 +176,15 @@ function Surface({ context }: { context: Context }) {
           <p>{context.panelID === "awards" ? "This contest does not score DXCC multipliers." : "This contest does not score CQ or ITU zone multipliers."}</p></section>
       : (() => { throw new Error(`No shared contest renderer owns ${context.panelID}.`); })()
       : snapshot.panelID === "active-qso" ? <Entry projection={projection as Extract<typeof projection, { draft: unknown }>} disabled={projection.busy} sending={sending}
-          context={context} projectionRevision={snapshot.projectionRevision} send={send} refresh={refresh} settle={()=>queueRef.current} reportConflict={setActionError}/>
+          context={context} projectionRevision={snapshot.projectionRevision} send={send} refresh={refresh} settle={()=>queueRef.current}
+          reportConflict={text=>reportDiagnostic("error",text)}/>
       : snapshot.panelID === "callsign-intelligence" ? <Check projection={projection as Extract<typeof projection, { scp: unknown }>} disabled={projection.busy}
           projectionRevision={snapshot.projectionRevision} receipts={snapshot.receipts} send={send}/>
       : snapshot.panelID === "propagation" ? <Statistics projection={projection as ContestStatisticsSurfaceProjection}/>
       : snapshot.panelID === "monitor" ? <Rates projection={projection as ContestRatesSurfaceProjection}/>
       : snapshot.panelID === "score-reporting" ? <ScoreReporting projection={projection as ContestScoreReportingSurfaceProjection}
           projectionRevision={snapshot.projectionRevision} send={send}/>
+      : snapshot.panelID === "messages" ? <Messages projection={projection as ContestMessagesSurfaceProjection}/>
       : snapshot.panelID === "awards" || snapshot.panelID === "chaser-dx" ? <Matrix projection={projection as ContestMatrixSurfaceProjection}/>
       : snapshot.panelID === "logbook" ? editorOnly
         ? <ContactEditor projection={projection as Extract<typeof projection, { page: unknown }>} disabled={projection.busy} sending={sending}
@@ -165,12 +193,21 @@ function Surface({ context }: { context: Context }) {
             projectionRevision={snapshot.projectionRevision} send={send} openEditor={async qsoID=>{
               try { const result=await send({action:"log_edit_begin",params:{qsoID}},snapshot.projectionRevision);
                 if(result.applied)await openContestContactEditorWindow(context); }
-              catch(cause){setActionError(message(cause));}
+               catch(cause){reportDiagnostic("error",message(cause));}
             }}/>
       : snapshot.panelID === "band-maps" || snapshot.panelID === "dx-cluster" ? <ContestSpots panelID={snapshot.panelID}
-          projection={projection as Extract<typeof projection, { spots: unknown }>} projectionRevision={snapshot.projectionRevision} send={send}/>
+          context={context} projection={projection as Extract<typeof projection, { spots: unknown }>}
+          projectionRevision={snapshot.projectionRevision} send={send}/>
       : null}
   </main>;
+}
+
+function Messages({projection}:{projection:ContestMessagesSurfaceProjection}) {
+  const messages=projection.messages;
+  return <section className="contest-surface-messages" aria-label="Contest Messages"><h1>Messages</h1>
+    {messages.length===0?<p>No contest messages.</p>:<ol>{messages.map((item,index)=><li key={`${item.kind}:${index}:${item.text}`}
+      role={item.kind==="error"?"alert":"status"} className={item.kind==="error"?"is-error":undefined}>{item.text}</li>)}</ol>}
+  </section>;
 }
 
 function ScoreReporting({ projection, projectionRevision, send }: { projection: ContestScoreReportingSurfaceProjection;
@@ -205,7 +242,6 @@ function ScoreReporting({ projection, projectionRevision, send }: { projection: 
       <button type="button" disabled={pending||!projection.credentialSaved} onClick={()=>void sendNow()}>Send score now</button>
     </fieldset>
     <p id="rtc-reporting-status" className="contest-score-reporting-boundary" role="status"><strong>{projection.reportState.replace(/^[a-z]/,c=>c.toUpperCase())}.</strong> {projection.lastOutcome} {projection.reason}</p>
-    {error&&<p className="contest-surface-error" role="alert">{error}</p>}
     <ul className="contest-score-reporting-services">{projection.services.map(service => <li key={service.id}>
       <span>{service.name}</span><code>{service.url}</code>{service.transportSecurity === "legacy-http" && <em>Legacy HTTP endpoint — not eligible for credentials.</em>}
     </li>)}</ul>
@@ -215,11 +251,10 @@ function ScoreReporting({ projection, projectionRevision, send }: { projection: 
 type SendResult={applied:boolean;projectionRevision:number|null};
 type Send = (action: ContestSurfaceAction, projectionRevision:number,
   options?:{requestID?:string;safePresentation?:boolean;bypassQueue?:boolean}) => Promise<SendResult>;
-function ContestSpots({panelID,projection,projectionRevision,send}:{panelID:"band-maps"|"dx-cluster";projection:ContestSpotSurfaceProjection;
-    projectionRevision:number;send:Send}) {
+function ContestSpots({panelID,context,projection,projectionRevision,send}:{panelID:"band-maps"|"dx-cluster";context:ContestSurfaceContext;
+    projection:ContestSpotSurfaceProjection;projectionRevision:number;send:Send}) {
   const [stationContext,setStationContext]=useState<MonitorContext|null>(null);
-  const [clusterPending,setClusterPending]=useState<null|{requestID:number;method:"cluster_connect"|"cluster_disconnect";signature:string}>(null),
-    [clusterError,setClusterError]=useState(""),[clusterMessage,setClusterMessage]=useState("");
+  const [clusterPending,setClusterPending]=useState<null|{requestID:number;method:"cluster_connect"|"cluster_disconnect";signature:string}>(null);
   const clusterRequestID=useRef(0),clusterSignatureRef=useRef("");
   const clusterAgeKey="xlog.integration.contest.cluster-age-minutes.v1";
   const [clusterAgeMinutes,setClusterAgeMinutes]=useState<typeof BAND_MAP_AGES[number]>(()=>{
@@ -238,9 +273,10 @@ function ContestSpots({panelID,projection,projectionRevision,send}:{panelID:"ban
     const failures=projection.connections.filter(connection=>connection.phase.toLowerCase()==="failed"&&connection.error);
     clusterRequestID.current+=1;
     setClusterPending(null);
-    if(failures.length){setClusterError(failures.map(connection=>`${connection.serverName}: ${connection.error}`).join(" · "));setClusterMessage("");return;}
-    setClusterError("");setClusterMessage(clusterPending.method==="cluster_connect"?"Cluster connected.":"Cluster disconnected.");
-  },[clusterPending,clusterSignature,projection.connections]);
+    if(failures.length){for(const connection of failures)void reportContestSurfaceDiagnostic(context,"error",
+      boundedDiagnostic(`${connection.serverName}: ${connection.error}`)).catch(()=>{});return;}
+    void reportContestSurfaceDiagnostic(context,"notice",clusterPending.method==="cluster_connect"?"Cluster connected.":"Cluster disconnected.").catch(()=>{});
+  },[clusterPending,clusterSignature,projection.connections,context]);
   const [menu,setMenu]=useState<null|{spotID:string;x:number;y:number;requestedX:number;requestedY:number;origin:HTMLElement}>(null);
   const menuRef=useRef<HTMLDivElement|null>(null);
   const selected=projection.selectedSpotID===null?null:projection.spots.find(spot=>spot.id===projection.selectedSpotID)??null;
@@ -292,24 +328,22 @@ function ContestSpots({panelID,projection,projectionRevision,send}:{panelID:"ban
   const connectSatisfied=enabledClusters.length>0&&enabledClusters.every(server=>connectedServerIDs.has(server.serverID));
   const clusterAction=async(method:"cluster_connect"|"cluster_disconnect")=>{if(clusterPending)return;
     const requestID=++clusterRequestID.current,signature=clusterSignature;
-    setClusterPending({requestID,method,signature});setClusterError("");
-    setClusterMessage(method==="cluster_connect"?"Connecting to configured clusters…":"Disconnecting configured clusters…");
+    setClusterPending({requestID,method,signature});
     try{await requestViaSession(method);
       if(clusterRequestID.current!==requestID||clusterSignatureRef.current!==signature)return;
-      clusterRequestID.current+=1;setClusterPending(null);setClusterError("");
-      setClusterMessage(method==="cluster_connect"?"Cluster connected.":"Cluster disconnected.");}
+      clusterRequestID.current+=1;setClusterPending(null);
+      void reportContestSurfaceDiagnostic(context,"notice",method==="cluster_connect"?"Cluster connected.":"Cluster disconnected.").catch(()=>{});}
     catch(cause){if(clusterRequestID.current!==requestID)return;clusterRequestID.current+=1;
-      setClusterPending(null);setClusterMessage("");setClusterError(message(cause));}};
+      setClusterPending(null);void reportContestSurfaceDiagnostic(context,"error",boundedDiagnostic(message(cause))).catch(()=>{});}};
   return <section className="contest-spots" aria-label="Contest Cluster">{workflow}<div className="contest-cluster-controls">
     <div role="status" aria-label="Contest cluster connections">{projection.connections.length?projection.connections.map(connection=>{const phase=connection.phase.toLowerCase();return <span key={connection.serverID}
-      className={phase==="connected"?"live-cluster-connected":"live-cluster-disconnected"}>{connection.serverName} · {phase.charAt(0).toUpperCase()+phase.slice(1)}{connection.error&&<small> · {connection.error}</small>}</span>;}):
+      className={phase==="connected"?"live-cluster-connected":"live-cluster-disconnected"}>{connection.serverName} · {phase.charAt(0).toUpperCase()+phase.slice(1)}</span>;}):
       projection.configuredClusters.filter(server=>server.enabled).map(server=><span className="live-cluster-disconnected" key={server.serverID}>{server.serverName} · Disconnected</span>)}</div>
     <div><label>Clear older<select aria-label="Cluster spot age" value={clusterAgeMinutes}
       onChange={event=>setClusterAgeMinutes(Number(event.currentTarget.value) as typeof BAND_MAP_AGES[number])}>{BAND_MAP_AGES.map(value=><option key={value} value={value}>{value} min</option>)}</select></label>
       <button type="button" disabled={projection.busy||clusterPending!==null||enabledClusters.length===0||connectSatisfied} onClick={()=>void clusterAction("cluster_connect")}>Connect</button>
       <button type="button" disabled={projection.busy||clusterPending!==null||activeConnections.length===0} onClick={()=>void clusterAction("cluster_disconnect")}>Disconnect</button></div>
-    {clusterError&&<p role="alert">{clusterError}</p>}{clusterMessage&&<p role="status">{clusterMessage}</p>}
-  </div><ClusterPanel passive presentationOnly taskOnly snapshot={clusterSnapshot}
+  </div><ClusterPanel passive presentationOnly contestPresentation taskOnly snapshot={clusterSnapshot}
     preferenceStorageKey="xlog.integration.contest.cluster-columns.v1" onRequest={async()=>null}
     selectedSpotId={projection.selectedSpotID} onSpotContextMenu={contextMenu} onSelect={spot=>select(spot.id)}/></section>;
 }
@@ -602,20 +636,17 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
       {projection.draft.mode==="CW"&&<div className="contest-surface-speed" role="group" aria-label="CW speed"><output aria-label={projection.manual?.cwSpeedWpm==null?"CW speed unavailable":"Current CW speed"}>{projection.manual?.cwSpeedWpm??"—"}</output>
         <button disabled={disabled||projection.manual?.cwSpeedWpm==null||projection.manual.cwSpeedWpm<=5} aria-label="Decrease CW speed" onClick={()=>{const speed=projection.manual?.cwSpeedWpm;if(speed!=null)void send({action:"entry_set_cw_speed",params:{...base,value:Math.max(5,speed+(projection.manual?.cwSpeedStepWpm??1)*-1)}},projectionRevision)}}>−</button>
         <button disabled={disabled||projection.manual?.cwSpeedWpm==null||projection.manual.cwSpeedWpm>=100} aria-label="Increase CW speed" onClick={()=>{const speed=projection.manual?.cwSpeedWpm;if(speed!=null)void send({action:"entry_set_cw_speed",params:{...base,value:Math.min(100,speed+(projection.manual?.cwSpeedStepWpm??1))}},projectionRevision)}}>+</button></div>}
-      {operator&&(cwMode||phoneMode)&&<button type="button" className="contest-surface-arm" aria-pressed={operator.armed}
+      {operator&&(cwMode||phoneMode&&operator.outputAvailable)&&<button type="button" className="contest-surface-arm" aria-pressed={operator.armed}
         disabled={disabled||!operator.outputAvailable||operator.pending!==null}
         onClick={()=>void send({action:"entry_operator_arm",params:{...base,armed:!operator.armed}},projectionRevision)}>{operator.armed?"Disarm":phoneMode?testSimulation?"Arm phone simulation":"Arm recorded phone":operator.output==="xlog-native"?"Arm CW":"Arm simulation"}</button>}
-      {operator&&<span className="contest-surface-output-state" role="status">{testSimulation?"Test simulation":phoneMode?"xLog recorded phone":fldigiMode?"fldigi":cwMode&&operator.output==="xlog-native"?"xLog CW":"Contest output"} · {operator.outputAvailable?operator.status:"unavailable"}</span>}
+      {operator&&(!phoneMode||operator.outputAvailable)&&<span className="contest-surface-output-state" role="status">{testSimulation?"Test simulation":phoneMode?"xLog recorded phone":fldigiMode?"fldigi":cwMode&&operator.output==="xlog-native"?"xLog CW":"Contest output"} · {operator.outputAvailable?operator.status:"unavailable"}</span>}
       {operator?.autoCQ?.active&&<div className="contest-surface-auto-cq" role="status"><span>Auto CQ</span><progress aria-label="Auto CQ countdown" max={operator.autoCQ.delaySeconds*1000} value={Math.max(0,operator.autoCQ.delaySeconds*1000-(operator.autoCQ.remainingMs??0))}/></div>}</div>
-      {projection.schemaVersion===2&&operator&&<><div className="contest-surface-macros" role="group" aria-label="Function key macros">{Array.from({length:12},(_,index)=>{const key=`F${index+1}`,item=operator.functionKeys.find((item:any)=>item.key===key),label=item?.macro??"Unassigned";return <button type="button" key={key}
+      {projection.schemaVersion===2&&operator&&(!phoneMode||operator.outputAvailable)&&<><div className="contest-surface-macros" role="group" aria-label="Function key macros">{Array.from({length:12},(_,index)=>{const key=`F${index+1}`,item=operator.functionKeys.find((item:any)=>item.key===key),label=item?.macro??"Unassigned";return <button type="button" key={key}
         className={item?.highlighted?"contest-primary":undefined} disabled={disabled||!item||!operator.outputAvailable||operator.status==="uncertain"||phoneMode&&!operator.armed}
         aria-label={`${key} ${label}`} onClick={()=>operatorKey(key,operator.focusedField)}><kbd>{key}:</kbd> <span>{label}</span></button>;})}</div>
         {!operator.outputAvailable&&<p role="status">{operator.outputUnavailableReason}</p>}</>}
     </div></div>
     <div className="contest-surface-contact-footer"><div aria-label="Contact heading, long path and distance">{projection.manual?.headingDegrees??"—"}° Hdg · LP {projection.manual?.longPathHeadingDegrees??"—"}° / distance {projection.manual?.distanceKm??"—"} km<br/><span aria-label="Country and zones">{projection.manual?.country??"—"} cq:{projection.manual?.cqZone??"—"} itu:{projection.manual?.ituZone??"—"}</span></div><output aria-label="QSOs, multipliers and score">{projection.manual?.qsos??"—"}/{projection.manual?.multipliers??"—"} <span>{projection.manual?.total??"—"}</span></output></div>
-    {projection.draft.frequencyError && <p role="alert">{projection.draft.frequencyError}</p>}
-    {projection.draft.dupe.state === "duplicate" && <p role="status">Duplicate: {projection.draft.dupe.reason}</p>}
-    {[...projection.draft.validation.errors,...projection.draft.validation.warnings].map((item:string) => <p key={item}>{item}</p>)}
     </section>;
 }
 function Check({ projection, disabled, projectionRevision, receipts, send }: { projection: any; disabled: boolean;
@@ -649,7 +680,6 @@ function Check({ projection, disabled, projectionRevision, receipts, send }: { p
       <div><button type="button" disabled={disabled} onClick={()=>assistance("assistance_download")}>Download latest</button>
         <button type="button" disabled={disabled} onClick={()=>assistance("assistance_refresh")}>Refresh</button>
         {projection.scp.error&&<button type="button" disabled={disabled} onClick={()=>assistance(availability==="status_unavailable"?"assistance_refresh":"assistance_download")}>Retry</button>}</div>
-      {projection.scp.notice&&<p role="status">{projection.scp.notice}</p>}{projection.scp.error&&<p role="alert">{projection.scp.error}</p>}
     </div>
     <div className="contest-surface-check-columns">
       <div><h2>Log</h2>{projection.loggedCandidates?candidates("log",projection.loggedCandidates):<p aria-label="Matching logged calls unavailable">—</p>}</div>

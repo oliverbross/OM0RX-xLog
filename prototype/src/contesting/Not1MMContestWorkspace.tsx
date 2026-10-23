@@ -453,7 +453,7 @@ function contestSurfaceSpots(spots: BandMapSpot[]) {
       country:bounded(spot.country),adif:uintOrNull(spot.adif),continent:bounded(spot.continent),cqZone:uintOrNull(spot.cqZone),
       ituZone:uintOrNull(spot.ituZone),callStatus:bounded(spot.callStatus),dxccStatus:bounded(spot.dxccStatus),
       workedBefore:uintOrNull(spot.workedBefore),specialTags:strings(spot.specialTags,32,64),score:Math.max(0,Number(spot.score)||0),
-      contestPoints:null,contestDupe:null,contestMultiplierCount:null,
+      contestPoints:null,contestDupe:null,contestMultiplierCount:null,contestCountryMultiplier:null,contestZoneMultiplier:null,
       scoreReasons:strings(spot.scoreReasons,64,160),aggregateCount:uintOrNull(spot.aggregateCount)??0,
       aggregateSpotters:strings(spot.aggregateSpotters,64,64),source:bounded(spot.source),statusHex:bounded(spot.statusHex),
       bandHex:bounded(spot.bandHex),modeHex:bounded(spot.modeHex),marked:false}];
@@ -461,15 +461,17 @@ function contestSurfaceSpots(spots: BandMapSpot[]) {
 }
 
 type SpotPointsPreview = { sessionID:string; workspaceGeneration:string; revision:number;
-  spots:{spotID:string;points:number|null;dupe:boolean|null;multiplierCount:number|null;
+  spots:{spotID:string;points:number|null;dupe:boolean|null;multiplierCount:number|null;countryMultiplier:boolean|null;zoneMultiplier:boolean|null;
     reason:"unresolved_callsign"|"unsupported_band"|"exchange_required"|"scoring_unavailable"|null}[] };
 function validSpotPointsPreview(value:unknown,sessionID:string,workspaceGeneration:string,revision:number):value is SpotPointsPreview{
   if(!value||typeof value!=="object"||Array.isArray(value))return false;const row=value as Data;
   if(row.sessionID!==sessionID||row.workspaceGeneration!==workspaceGeneration||row.revision!==revision||!Array.isArray(row.spots)||row.spots.length>256)return false;
   const ids=new Set<string>();return row.spots.every(item=>item&&typeof item==="object"&&!Array.isArray(item)&&
-    Object.keys(item).length===5&&typeof item.spotID==="string"&&new TextEncoder().encode(item.spotID).length<=128&&!ids.has(item.spotID)&&
+    Object.keys(item).length===7&&typeof item.spotID==="string"&&new TextEncoder().encode(item.spotID).length<=128&&!ids.has(item.spotID)&&
     (item.points===null||typeof item.points==="number"&&Number.isFinite(item.points)&&item.points>=0)&&
     (item.dupe===null||typeof item.dupe==="boolean")&&(item.multiplierCount===null||Number.isSafeInteger(item.multiplierCount)&&item.multiplierCount>=0)&&
+    (item.countryMultiplier===null||typeof item.countryMultiplier==="boolean")&&
+    (item.zoneMultiplier===null||typeof item.zoneMultiplier==="boolean")&&
     [null,"unresolved_callsign","unsupported_band","exchange_required","scoring_unavailable"].includes(item.reason)&&!!ids.add(item.spotID));
 }
 
@@ -700,7 +702,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const timer=window.setInterval(refresh,5_000);return()=>{current=false;window.clearInterval(timer);};
   },[projection?.sessionID,setupOnly,contestingTest,request]);
   const sharedSpots=useMemo(()=>contestSurfaceSpots(spots),[spots]);
-  const [spotPointPreview,setSpotPointPreview]=useState<{scope:string;rows:Map<string,{points:number|null;dupe:boolean|null;multiplierCount:number|null}>}>({scope:"",rows:new Map()});
+  const [spotPointPreview,setSpotPointPreview]=useState<{scope:string;rows:Map<string,{points:number|null;dupe:boolean|null;multiplierCount:number|null;countryMultiplier:boolean|null;zoneMultiplier:boolean|null}>}>({scope:"",rows:new Map()});
   const spotPointScope=projection?`${projection.sessionID}/${projection.workspaceGeneration}/${projection.revision}`:"";
   useEffect(()=>{
     if(!projection||!sharedSpots.length){setSpotPointPreview({scope:spotPointScope,rows:new Map()});return;}
@@ -711,13 +713,14 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       return mode&&supported.has(mode)&&supportedBands.has(spot.band.trim().toLowerCase())&&Number.isSafeInteger(frequencyHz)
         ?[{spotID:spot.id,callsign:spot.callsign,frequencyHz,mode}]:[];
     });
-    let current=true;(async()=>{const rows=new Map<string,{points:number|null;dupe:boolean|null;multiplierCount:number|null}>();
+    let current=true;(async()=>{const rows=new Map<string,{points:number|null;dupe:boolean|null;multiplierCount:number|null;countryMultiplier:boolean|null;zoneMultiplier:boolean|null}>();
       for(let offset=0;offset<candidates.length;offset+=256){
         const value=unwrap<unknown>(await request("contest_spot_points_preview",{sessionID:projection.sessionID,
           workspaceGeneration:projection.workspaceGeneration,expectedRevision:projection.revision,spots:candidates.slice(offset,offset+256)}));
         if(!validSpotPointsPreview(value,projection.sessionID,projection.workspaceGeneration,projection.revision))
           throw new Error("The contest host returned an invalid spot points preview.");
-        for(const item of value.spots)rows.set(item.spotID,{points:item.points,dupe:item.dupe,multiplierCount:item.multiplierCount});
+        for(const item of value.spots)rows.set(item.spotID,{points:item.points,dupe:item.dupe,multiplierCount:item.multiplierCount,
+          countryMultiplier:item.countryMultiplier,zoneMultiplier:item.zoneMultiplier});
       }
       if(current)setSpotPointPreview({scope:spotPointScope,rows});
     })().catch(()=>{if(current)setSpotPointPreview({scope:spotPointScope,rows:new Map()});});return()=>{current=false;};
@@ -1258,6 +1261,18 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     setPhoneSimulationTrace(items => [...items, ...traces].slice(-24));
     return { ...changed, actions: [] };
   };
+  const suppressUnavailablePhoneOutput = async (changed: MutationResult, origin: PhoneIntentOrigin): Promise<MutationResult> => {
+    const operationID = changed.operationID, actions = changed.actions ?? [];
+    if (actions.length > 12 || actions.length > 0 && (!operationID || changed.replayed !== false ||
+        changed.revision !== changed.projection.revision) || actions.some((action, index) => action.actionID !== `${operationID}:${index}` ||
+        action.sessionID !== origin.sessionID || action.workspaceGeneration !== origin.workspaceGeneration ||
+        action.sourceRevision !== origin.sourceRevision || action.draftID !== origin.draftID ||
+        action.kind !== "voice_keyer" || action.signal !== "phone" || action.mode !== "SSB"))
+      throw new Error("The optional phone output intent could not be verified; no audio or PTT action was taken.");
+    // Voice output is optional. Keep the worker-owned ESM transition, but leave
+    // every output intent unclaimed and undispatched when no voice path exists.
+    return { ...changed, actions: [] };
+  };
   const consumeFldigiOutput = async (changed: MutationResult, origin: PhoneIntentOrigin): Promise<MutationResult> => {
     const operationID = changed.operationID, actions = changed.actions ?? [];
     if (!operationID || changed.replayed !== false || changed.revision !== changed.projection.revision ||
@@ -1299,7 +1314,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       const failure = new Error(phoneReleaseUncertain);
       setError(failure.message); if (throwFailures) throw failure; return null;
     }
-    if (phoneAction && (!phoneOutputAvailable || !phoneCanSend)) {
+    if (phoneAction && (method !== "contest_esm" || phoneOutputAvailable) && (!phoneOutputAvailable || !phoneCanSend)) {
       const failure = new Error(phoneOutputAvailable
         ? `Arm the ${phoneSimulationAvailable ? "nontransmitting phone simulation" : "recorded phone output"} before using phone contest messages.`
         : phoneProductionAvailable ? "Phone contest voice output is unavailable in production until a Voice WAV profile folder is saved; no audio or PTT action was taken."
@@ -1315,7 +1330,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       }
       phoneSimulationRecoveryRef.current = null;
     }
-    const phoneController = phoneAction ? new AbortController() : null;
+    const phoneController = phoneAction && phoneOutputAvailable ? new AbortController() : null;
     if (phoneController) { phoneSimulationControllerRef.current = phoneController; setPhoneSimulationPending(true); }
     try {
       const confirmed = await runMutation(async base => {
@@ -1331,7 +1346,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     if (!changed?.projection || changed.operationID !== operationID) throw new Error(native?.error || "Contest CW operation was not confirmed. Use Stop and reopen the session before deciding what to do next.");
     return { ...changed, actions: [], outputError: native?.error || undefined };
       }, !phoneAction, false, false, throwFailures,
-        phoneAction ? consumeContestPhoneSimulation : fldigiAction ? consumeFldigiOutput : undefined, phoneController?.signal,
+        phoneAction ? phoneOutputAvailable ? consumeContestPhoneSimulation : suppressUnavailablePhoneOutput
+          : fldigiAction ? consumeFldigiOutput : undefined, phoneController?.signal,
         recovery => { phoneSimulationRecoveryRef.current = recovery; });
       if (phoneAction && confirmed && !phoneController?.signal.aborted) void refresh(confirmed.sessionID, confirmed).catch(cause => {
         const current = projectionRef.current;
@@ -1885,7 +1901,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       connectedClusters,loadedSpots,selectedSpotID,configuredClusters,connections,
       markedOnly:effectiveSpotWorkflow.markedOnly,spots:visibleWorkflowSpots.map(spot=>{const preview=spotPointPreview.scope===spotPointScope?spotPointPreview.rows.get(spot.id):undefined;return{...spot,
         mode:canonicalContestSurfaceMode(spot.mode)??spot.mode,contestPoints:preview?.points??null,
-        contestDupe:preview?.dupe??null,contestMultiplierCount:preview?.multiplierCount??null};}),busy:busy||retiring};
+        contestDupe:preview?.dupe??null,contestMultiplierCount:preview?.multiplierCount??null,
+        contestCountryMultiplier:preview?.countryMultiplier??null,contestZoneMultiplier:preview?.zoneMultiplier??null};}),busy:busy||retiring};
     unavailable["station-control"] = { schemaVersion: 1, status: "ready",
       radioFrequencyHz: selectedRadioFrequencyHz, contestFrequencyHz: frequencyHz,
       band: bandLabels[String(projection.band)] ?? String(projection.band), mode: projection.mode, busy: busy || retiring };
@@ -1916,6 +1933,18 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         { id: "contestonlinescore", name: "Contest Online ScoreBoard", url: "https://contestonlinescore.com/post/", transportSecurity: "https" },
         { id: "contest-run", name: "Live Contest Score", url: "http://contest.run", transportSecurity: "legacy-http" },
       ], busy: busy || retiring };
+    unavailable.messages = { schemaVersion: 1, status: "ready", messages: [
+      ...(error ? [{ kind:"error" as const, text:error }] : []),
+      ...(catalogLoadError ? [{ kind:"error" as const, text:catalogLoadError }] : []),
+      ...(notice ? [{ kind:"notice" as const, text:notice }] : []),
+      ...(operationFrequencyHz === null ? [{ kind:"error" as const, text:"Enter a frequency on a band supported by this contest." }] : []),
+      ...(projection.dupe ? [{ kind:"notice" as const, text:projection.dupeExplanation ?? "Duplicate: worked on this band." }] : []),
+      ...(!projection.countryResolved ? [{ kind:"notice" as const, text:"Country is unresolved; scoring credit may be zero." }] : []),
+      ...(scpSurface?.error ? [{ kind:"error" as const, text:scpSurface.error }] : []),
+      ...(scpSurface?.notice ? [{ kind:"notice" as const, text:scpSurface.notice }] : []),
+      ...connections.filter(connection => connection.error).map(connection => ({kind:"error" as const,
+        text:`${connection.serverName}: ${connection.error}`})),
+    ], busy:busy || retiring };
     // An empty worker matrix is a valid tracker with no worked multipliers yet.
     // Missing matrices remain unavailable for plugins that do not expose them.
     if (scoreRead && projection.matrixTrackers?.includes("countries") && Array.isArray(matrices.countries)) {
@@ -1937,7 +1966,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     bandDefinitions, bandLabels, digitalSnapshot,rtcStatus,rtcCredentialSaved,
     setup.settings.SentExchange, setup.preferences.keyBindings, autoCQDeadlineMs, autoCQNowMs, autoCQDelaySeconds, selectedRadioFrequencyHz,
     sharedSpots,visibleWorkflowSpots,effectiveSpotWorkflow.markedOnly,spotPointPreview,spotPointScope,selectedSpotId,configuredClient,authorityClientReady,authorityDupe,
-    auxiliaryReads.log,auxiliaryReads.score,auxiliaryReads.rates]);
+    auxiliaryReads.log,auxiliaryReads.score,auxiliaryReads.rates,error,catalogLoadError,notice]);
 
   const surfaceContext = detachedAvailable && projection ? {
     operatingContext, sessionID: projection.sessionID, workspaceGeneration: projection.workspaceGeneration,
@@ -2084,6 +2113,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
           spotter:stationCall,spotterContinent:null,frequencyKHz,frequencyText:frequencyKHz.toFixed(3),callsign,comment:"Marked from Main Logging",
           band:bandLabels[String(active.band)]??String(active.band),mode:active.mode,country:"",adif:null,continent:"",cqZone:null,ituZone:null,
           callStatus:"",dxccStatus:"",workedBefore:null,specialTags:[],score:0,contestPoints:null,contestDupe:null,contestMultiplierCount:null,
+          contestCountryMultiplier:null,contestZoneMultiplier:null,
           scoreReasons:[],aggregateCount:1,
           aggregateSpotters:stationCall?[stationCall]:[],source:"Contest mark",statusHex:"",bandHex:"",modeHex:"",marked:false};
         setSpotWorkflow(current=>updateContestSpotWorkflow(workflowBase(current),[...allWorkflowSpots.filter(item=>item.id!==spot.id),spot],
@@ -2475,13 +2505,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       void flushDraftRef.current().then(() => setManager(true)).catch(cause => setError(errorMessage(cause)))
         .finally(() => { busyRef.current = false; setBusy(false); });
     }}>{manager ? "Back to desk" : "Select contest"}</button>}</div></header>}
-    {error && <p className="contest-alert is-error" role="alert">{error}<button type="button" onClick={() => setError("")}>Dismiss</button></p>}
-    {startupPending && <p className="contest-alert" role="status">Loading contest types…</p>}
-    {catalogLoadError && <p className="contest-alert is-error" role="alert">{catalogLoadError}<button type="button" onClick={() => setCatalogLoadAttempt(attempt => attempt + 1)}>Retry</button></p>}
-    {notice && <p className="contest-alert" role="status">{notice}</p>}
     {showSetup && <div className="contest-entry-context">
       <ContestTextField label="Manual frequency MHz" inputMode="decimal" disabled={busy || retiring}
         value={manualFrequencyMHz} onChange={event => setManualFrequencyMHz(event.target.value)}/>
+      {catalogLoadError && <button type="button" disabled={busy || retiring}
+        onClick={() => setCatalogLoadAttempt(attempt => attempt + 1)}>Reload contest types</button>}
     </div>}
     {showSetup ? <ContestSetupPanel value={setup} effectiveMacros={effectiveMacros} sessions={sessions} activeSessionID={projection?.sessionID}
       catalog={setupCatalog} busy={busy || retiring} newContestDisabled={!catalogReady}
@@ -2490,7 +2518,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       onOpenCallHistory={() => { if (!surfaceContext) { setError("Open a contest before opening Call History."); return; }
         if (!setupOnly) setManager(false); void openContestCallHistoryWindow(surfaceContext); }}/>
       : projection ? <><section className="contest-snapshot" aria-label="Contest identity"><div><span>Station</span><strong>{stationCall}</strong></div><div><span>Engine</span><strong>Not1MM Python</strong></div><div><span>Plugin</span><strong>{projection.pluginID}</strong></div><div><span>Revision</span><strong>{projection.revision}</strong></div><div><span>Source</span><small>{projection.sourceRevision.slice(0, 12)} · {projection.referenceID}</small></div></section>{detachedAvailable
-        ? <section className="contest-welcome"><h2>Contest windows are ready</h2><p>Use the Contest menu to open and position Main Logging, Check Partial, Stats, Rates, Score Reporting, Logbook, Band Map, Cluster, Rotator, DXCC, Zone and Remote VFO windows.</p></section>
+        ? <section className="contest-welcome"><h2>Contest windows are ready</h2><p>Use the Contest menu to open and position Main Logging, Check Partial, Stats, Rates, Score Reporting, Messages, Logbook, Band Map, Cluster, Rotator, DXCC, Zone and Remote VFO windows.</p></section>
         : <section className="contest-welcome"><h2>Preserved contest session</h2><p>This session predates detached contest windows for the current xLog workspace. Its Python/SQLite log is preserved; create a current-workspace contest before opening independent windows.</p></section>}</> : <section className="contest-welcome"><h2>Open a contest session</h2></section>}
     <div hidden aria-hidden="true">{checkPanel}</div>
   </main>;

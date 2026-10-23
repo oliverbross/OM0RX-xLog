@@ -113,10 +113,12 @@ it("keeps the detached owner on the compact Contest Setup panel instead of embed
   expect(screen.queryByRole("button", { name:"Back to desk" })).toBeNull();
 });
 
-it("shows a string rejection from the detached contest owner", async () => {
+it("keeps a detached owner rejection out of the contest workspace", async () => {
   const request = vi.fn(async () => Promise.reject("Contest mutations require backend admission."));
   render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);
-  expect((await screen.findByRole("alert")).textContent).toContain("Contest mutations require backend admission.");
+  await waitFor(() => expect(request).toHaveBeenCalled());
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.queryByText("Contest mutations require backend admission.")).toBeNull();
 });
 
 it("keeps New Contest unavailable until the contest catalog is ready", async () => {
@@ -130,7 +132,7 @@ it("keeps New Contest unavailable until the contest catalog is ready", async () 
   render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);
   const create = screen.getByRole("button", {name:"New Contest"}) as HTMLButtonElement;
   expect(create.disabled).toBe(true);
-  expect(screen.getByRole("status").textContent).toContain("Loading contest types");
+  expect(screen.queryByText("Loading contest types…")).toBeNull();
 
   await act(async () => { resolveCatalog({ id:crypto.randomUUID(), ok:true,
     result:{plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]} }); await catalog; });
@@ -151,11 +153,11 @@ it("replaces a cold catalog protocol failure with an actionable retry", async ()
   });
   render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);
 
-  const alert = await screen.findByRole("alert");
-  expect(alert.textContent).toContain("Contest types could not be loaded");
-  expect(alert.textContent).not.toContain("reply was invalid");
+  const retry = await screen.findByRole("button", {name:"Reload contest types"});
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.queryByText(/Contest types could not be loaded/)).toBeNull();
   expect((screen.getByRole("button", {name:"New Contest"}) as HTMLButtonElement).disabled).toBe(true);
-  await userEvent.click(within(alert).getByRole("button", {name:"Retry"}));
+  await userEvent.click(retry);
 
   await waitFor(() => expect((screen.getByRole("button", {name:"New Contest"}) as HTMLButtonElement).disabled).toBe(false));
   expect(screen.queryByRole("alert")).toBeNull();
@@ -219,7 +221,8 @@ it("routes Digital logging saves, starts, and stops through the real host servic
 it("persists exact confirm, mark, marked-only and delete spot lifecycle semantics",()=>{
   const base={receivedAt:1,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,frequencyText:"14025.0",comment:"CQ",
     band:"20m",mode:"CW",country:"Germany",adif:230,continent:"EU",cqZone:14,ituZone:28,callStatus:"New",dxccStatus:"New",
-    workedBefore:null,specialTags:[],score:80,contestPoints:null,contestDupe:null,contestMultiplierCount:null,scoreReasons:[],aggregateCount:1,aggregateSpotters:["K1ABC"],source:"DX Cluster",
+    workedBefore:null,specialTags:[],score:80,contestPoints:null,contestDupe:null,contestMultiplierCount:null,
+    contestCountryMultiplier:null,contestZoneMultiplier:null,scoreReasons:[],aggregateCount:1,aggregateSpotters:["K1ABC"],source:"DX Cluster",
     statusHex:"",bandHex:"",modeHex:"",marked:false};
   const spots=[{...base,id:"one",callsign:"DL1ABC",frequencyKHz:14025},{...base,id:"collision",callsign:"DL2ABC",frequencyKHz:14025.1},
     {...base,id:"other",callsign:"DL3ABC",frequencyKHz:14025.2}];
@@ -242,7 +245,8 @@ it("namespaces, expires, compacts and quota-retries bounded persisted spot overl
   expect(contestSpotWorkflowStorageKey(scopeA)).not.toBe(contestSpotWorkflowStorageKey(scopeB));
   const base={receivedAt:1,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,frequencyKHz:14025,frequencyText:"14025",
     callsign:"DL1ABC",comment:"CQ",band:"20m",mode:"CW",country:"Germany",adif:230,continent:"EU",cqZone:14,ituZone:28,
-    callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,contestPoints:null,contestDupe:null,contestMultiplierCount:null,scoreReasons:[],aggregateCount:1,
+    callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,contestPoints:null,contestDupe:null,contestMultiplierCount:null,
+    contestCountryMultiplier:null,contestZoneMultiplier:null,scoreReasons:[],aggregateCount:1,
     aggregateSpotters:["K1ABC"],source:"DX Cluster",statusHex:"",bandHex:"",modeHex:"",marked:true};
   const now=contestSpotWorkflowTTLms+10_000,entries=Object.fromEntries(Array.from({length:contestSpotWorkflowMaxEntries+25},(_,index)=>{
     const id=`spot-${index}`;return[id,{spot:{...base,id,callsign:`D${index}`},deleted:false,updatedAt:now-index}];
@@ -271,7 +275,8 @@ it("never resurrects dropped confirmed or unmarked authority while retaining a m
   const scope={operatingContext:"radio:one",sessionID:"session-1",workspaceGeneration:"generation-1"},now=1_000;
   const spot={id:"one",receivedAt:1,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,frequencyKHz:14025,frequencyText:"14025",
     callsign:"DL1ABC",comment:"CQ",band:"20m",mode:"CW",country:"Germany",adif:230,continent:"EU",cqZone:14,ituZone:28,
-    callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,contestPoints:null,contestDupe:null,contestMultiplierCount:null,scoreReasons:[],aggregateCount:1,
+    callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,contestPoints:null,contestDupe:null,contestMultiplierCount:null,
+    contestCountryMultiplier:null,contestZoneMultiplier:null,scoreReasons:[],aggregateCount:1,
     aggregateSpotters:["K1ABC"],source:"DX Cluster",statusHex:"",bandHex:"",modeHex:"",marked:false};
   const confirmed=updateContestSpotWorkflow(decodeContestSpotWorkflow(null,scope,now),[spot],spot.id,"confirm",false,2,now);
   expect(projectContestSpotWorkflow([],confirmed,false)).toEqual([]);
@@ -493,13 +498,17 @@ it("projects WIA-like wide-band and aliased modes through the canonical detached
   expect(validContestSurfaceProjection("active-qso",entry)).toBe(true);
 });
 
-const operationalRequest=(current:()=>ReturnType<typeof projection>,point:(spotID:string)=>number|null=()=>null)=>vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+const operationalRequest=(current:()=>ReturnType<typeof projection>,point:(spotID:string)=>number|null=()=>null,
+  classify:(spotID:string)=>{dupe:boolean|null;multiplierCount:number|null;countryMultiplier:boolean|null;zoneMultiplier:boolean|null}=spotID=>({
+    dupe:false,multiplierCount:point(spotID)===null?null:0,countryMultiplier:point(spotID)===null?null:false,zoneMultiplier:point(spotID)===null?null:false}))=>vi.fn(async(method:string,params:Record<string,unknown>={})=>{
   const active=current(),support=workspaceSupport(method,params,active);if(support)return support;
   if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
   if(method==="contest_spot_points_preview")return{id:crypto.randomUUID(),ok:true,result:{sessionID:active.sessionID,
-    workspaceGeneration:active.workspaceGeneration,revision:active.revision,spots:(params.spots as {spotID:string}[]).map(spot=>({
-      spotID:spot.spotID,points:point(spot.spotID),dupe:false,multiplierCount:point(spot.spotID)===null?null:0,
-      reason:point(spot.spotID)===null?"scoring_unavailable":null}))}};
+    workspaceGeneration:active.workspaceGeneration,revision:active.revision,spots:(params.spots as {spotID:string}[]).map(spot=>{
+      const points=point(spot.spotID),classification=classify(spot.spotID);return{
+        spotID:spot.spotID,points,dupe:classification.dupe,multiplierCount:classification.multiplierCount,
+        countryMultiplier:classification.countryMultiplier,zoneMultiplier:classification.zoneMultiplier,
+        reason:points===null?"scoring_unavailable":null};})}};
   const result=method==="contest_catalog"?{plugins:[]}:method==="contest_sessions"?{sessions:[]}:
     method==="contest_create"?{projection:active}:method==="contest_log_page"?{rows:[],total:0}:
     method==="contest_score"?{score:active.score}:null;
@@ -517,6 +526,26 @@ it("projects only fenced host contest points without replacing cluster opportuni
       expect.objectContaining({id:"three",score:80,contestPoints:3})])));
   expect(request).toHaveBeenCalledWith("contest_spot_points_preview",expect.objectContaining({sessionID:current.sessionID,
     workspaceGeneration:current.workspaceGeneration,expectedRevision:current.revision}));
+});
+
+it("preserves authoritative CQ WW SSB dupe and country-zone multiplier classifications in both spot surfaces",async()=>{
+  const current={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",supportedModes:["SSB"] as const},
+    classifications:Record<string,{dupe:boolean;multiplierCount:number;countryMultiplier:boolean;zoneMultiplier:boolean}>={
+      dupe:{dupe:true,multiplierCount:0,countryMultiplier:false,zoneMultiplier:false},
+      qso:{dupe:false,multiplierCount:0,countryMultiplier:false,zoneMultiplier:false},
+      countryOrZone:{dupe:false,multiplierCount:1,countryMultiplier:true,zoneMultiplier:false},
+      countryAndZone:{dupe:false,multiplierCount:2,countryMultiplier:true,zoneMultiplier:true}},
+    request=operationalRequest(()=>current,id=>id==="dupe"?0:3,id=>classifications[id]??{
+      dupe:false,multiplierCount:0,countryMultiplier:false,zoneMultiplier:false}),
+    shared=Object.keys(classifications).map((id,index)=>({id,callsign:["K1ABC","K2ABC","DL1ABC","JA1ABC"][index],
+      frequencyKHz:7125+index,band:"40m",mode:"LSB",score:80}));
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={shared as any}/>);
+  await createContestThroughSetup();
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots)
+    .toEqual(expect.arrayContaining(Object.entries(classifications).map(([id,value])=>expect.objectContaining({id,mode:"SSB",
+      contestDupe:value.dupe,contestMultiplierCount:value.multiplierCount,contestCountryMultiplier:value.countryMultiplier,
+      contestZoneMultiplier:value.zoneMultiplier,contestPoints:id==="dupe"?0:3})))));
+  expect(surfaceOwner.current.projections["dx-cluster"].spots).toEqual(surfaceOwner.current.projections["band-maps"].spots);
 });
 
 it("projects only modes and bands supported by a single-mode contest into Cluster and Band Map",async()=>{
@@ -650,7 +679,10 @@ it("routes detached EDI export through the prepared native single-completion own
   await act(async()=>expect(surfaceOwner.current.handle({...envelope,action:"log_export_edi",params:{}})).resolves.toBe("native-completed"));
   expect(preparedFormat).toBe("edi");
   expect(nativeExport.save).toHaveBeenCalledWith(expect.objectContaining({format:"edi"}),expect.objectContaining({requestID:envelope.requestID}));
-  await waitFor(()=>expect(screen.getByText("EDI save cancelled.")).toBeTruthy());
+  await waitFor(()=>expect(surfaceOwner.current.projections.messages.messages).toContainEqual({
+    kind:"notice",text:"EDI save cancelled.",
+  }));
+  expect(screen.queryByText("EDI save cancelled.")).toBeNull();
 });
 
 it("routes detached ADIF export and manual recalculation through the active Python owner", async () => {
@@ -710,7 +742,10 @@ it.each([
   const action={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,panelID:"logbook",
     projectionRevision:log.sessionRevision,requestID:crypto.randomUUID(),action:"log_export_adif",params:{}} as const;
   await act(async()=>expect(surfaceOwner.current.handle(action)).resolves.toBe("native-completed"));
-  expect(await screen.findByText(message)).toBeTruthy();
+  await waitFor(()=>expect(surfaceOwner.current.projections.messages.messages).toContainEqual({
+    kind:saveResult.status==="failed"?"error":"notice",text:message,
+  }));
+  expect(screen.queryByText(message)).toBeNull();
 });
 
 it("leaves pre-native export failures for the React action owner to reject", async () => {
@@ -1611,15 +1646,27 @@ it.each([
   {pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB"},
   {pluginID:"cq_wpx_ssb",pluginName:"CQ WPX SSB"},
   {pluginID:"arrl_ss_phone",pluginName:"ARRL Sweepstakes Phone"},
-])("keeps production $pluginName voice intents inert before the worker mutation", async ({pluginID,pluginName}) => {
-  const current={...projection(3,{sent:"59",receive:"59",other_1:"001"}),pluginID,pluginName,
+])("keeps production $pluginName voice optional while logging Enter without output", async ({pluginID,pluginName}) => {
+  let current={...projection(3,{callsign:"K1ABC",sent:"59",receive:"59",other_1:"001"}),pluginID,pluginName,
     mode:"SSB",supportedModes:["SSB"] as const,reservedSerial:pluginID==="cq_ww_ssb"?null:1,matrixTrackers:[] as Array<"countries"|"zones">};
+  let esmCalls=0,logged=0;
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
     const support=workspaceSupport(method,params,current);if(support)return support;
     if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
-    const result=method==="contest_catalog"?{plugins:[{id:pluginID,name:pluginName,modes:["SSB"]}]}:
+    let result:any=method==="contest_catalog"?{plugins:[{id:pluginID,name:pluginName,modes:["SSB"]}]}:
       method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
-      method==="contest_log_page"?{rows:[],total:0}:method==="contest_score"?{score:current.score}:null;
+      method==="contest_log_page"?{rows:[],total:logged}:method==="contest_score"?{score:current.score}:null;
+    if(method==="contest_esm"){
+      esmCalls+=1;const origin=current,final=esmCalls===2;
+      current={...current,revision:current.revision+1,focus:final?"callsign":"other_2",
+        ...(final?{draftID:"99999999-9999-4999-8999-999999999999",score:{...current.score,qsos:1,points:1,total:1}}:{})};
+      if(final)logged+=1;
+      const operationID=String(params.operationID);
+      result={operationID,revision:current.revision,projection:current,replayed:false,messages:[],actions:[{
+        actionID:`${operationID}:0`,kind:"voice_keyer",signal:"phone",mode:"SSB",sessionID:origin.sessionID,
+        workspaceGeneration:origin.workspaceGeneration,sourceRevision:origin.sourceRevision,draftID:origin.draftID,
+      }]};
+    }
     if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
   });
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
@@ -1633,6 +1680,17 @@ it.each([
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F1",focusedField:"callsign"}})).rejects.toThrow("unavailable in production");
   expect(request.mock.calls.some(([method])=>method==="contest_function_key")).toBe(false);
   expect(request.mock.calls.some(([method])=>method==="contest_output_claim")).toBe(false);
+  await act(async()=>surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Enter",focusedField:"callsign"}}));
+  expect(esmCalls).toBe(1);expect(logged).toBe(0);
+  expect(surfaceOwner.current.projections["active-qso"].operator.focusedField).toBe("other_2");
+  const progressed=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:progressed.draft.revision,key:"Enter",focusedField:"other_2"}}));
+  expect(esmCalls).toBe(2);expect(logged).toBe(1);
+  expect(request.mock.calls.some(([method])=>method==="contest_qso_commit")).toBe(false);
+  expect(request.mock.calls.some(([method])=>method==="contest_output_claim")).toBe(false);
+  expect(nativeVoice.play).not.toHaveBeenCalled();
 });
 
 it.each([{configured:false},{configured:true}])("projects original RTTY macros with truthful fldigi availability ($configured)",async({configured})=>{
@@ -2298,7 +2356,10 @@ it("hides prior-session log rows while independently refreshing a newly opened s
   await userEvent.click(screen.getByRole("button",{name:"Choose a Contest"}));
   await userEvent.click(screen.getByRole("radio",{name:"Second contest"}));
   await userEvent.click(screen.getByRole("button",{name:"OK"}));
-  expect((await screen.findByRole("alert")).textContent).toContain("Second contest log is temporarily unavailable.");
+  await waitFor(()=>expect(surfaceOwner.current.projections.messages.messages).toContainEqual({
+    kind:"error",text:"Second contest log is temporarily unavailable.",
+  }));
+  expect(screen.queryByRole("alert")).toBeNull();
   expect(surfaceOwner.current.context.sessionID).toBe(second.sessionID);
   expect(surfaceOwner.current.projections.logbook).toEqual({schemaVersion:1,status:"unavailable"});
   expect(surfaceOwner.current.projections.propagation.schemaVersion).toBe(3);
@@ -2376,16 +2437,17 @@ it("does not open Main Logging until its ready projection is published", async (
   await waitFor(() => expect(surfaceOwner.current.context).toMatchObject({sessionID:current.sessionID}));
   let completed = false;
   const opening = Promise.resolve(route!("contest-window-active-qso")).then(value => { completed = true; return value; });
-  await act(async () => { await Promise.resolve(); });
-  expect(surfaceOwner.waitForPublication).toHaveBeenCalledOnce();
+  await waitFor(() => expect(surfaceOwner.waitForPublication).toHaveBeenCalledOnce());
   expect(surfaceWindow.open).not.toHaveBeenCalled();
   expect(completed).toBe(false);
   releasePublication();
   await expect(opening).resolves.toBe(true);
   expect(surfaceWindow.open).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}), "active-qso");
   await expect(route!("contest-window-score-reporting")).resolves.toBe(true);
+  await expect(route!("contest-window-messages")).resolves.toBe(true);
   await expect(route!("contest-window-rotor")).resolves.toBe(true);
   expect(surfaceWindow.open).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}), "score-reporting");
+  expect(surfaceWindow.open).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}), "messages");
   expect(surfaceWindow.open).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}), "rotor");
   expect(request.mock.calls.some(([method]) => method === "contest_draft_apply")).toBe(false);
 });
@@ -2401,7 +2463,8 @@ it("acknowledges a native contest window command with Setup after startup finds 
     registerMenuRoute={handler => { route = handler; }}/>);
   await waitFor(() => expect(route).not.toBeNull());
   await waitFor(async () => expect(await route!("contest-window-active-qso")).toBe(true));
-  expect((await screen.findByRole("alert")).textContent).toContain("Open a contest session before opening its windows.");
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.queryByText("Open a contest session before opening its windows.")).toBeNull();
   expect(surfaceWindow.open).not.toHaveBeenCalled();
 });
 

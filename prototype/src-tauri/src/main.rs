@@ -2924,6 +2924,16 @@ fn contest_surface_action(window: tauri::WebviewWindow, app: tauri::AppHandle,
 }
 
 #[tauri::command]
+fn contest_surface_diagnostic_report(window: tauri::WebviewWindow, app: tauri::AppHandle,
+    session_i_d: String, workspace_generation: String, kind: String, message: String) -> Result<(), String> {
+    let context = contest_window_context::resolve(&session_i_d, &workspace_generation)?;
+    if contest_surface::report_diagnostic(window.label(), &context, &kind, &message)? {
+        let _ = app.emit("xlog:contest-surface", "messages");
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn contest_surface_action_next(window: tauri::WebviewWindow, app: tauri::AppHandle,
     operating_context: String, session_i_d: String, workspace_generation: String)
     -> Result<Option<serde_json::Value>, String> {
@@ -3474,7 +3484,7 @@ fn main() {
             contest_group_authority_request, contest_group_replica_sync_page,
             contest_voice_prepare, contest_voice_ptt, contest_voice_profile_manifest, contest_voice_profile_preview,
             contest_voice_profile_write, contest_voice_profile_pick,
-            contest_surface_action, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_owner_claim, contest_surface_publish, contest_surface_snapshot, contest_rotor_target,
+            contest_surface_action, contest_surface_diagnostic_report, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_owner_claim, contest_surface_publish, contest_surface_snapshot, contest_rotor_target,
             workspace_mode_present, workspace_canvas_close_ack,
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, contest_history_manager_request, contest_qrz_details_lookup, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
             detached_cluster_ready, cluster_session_selection, contest_post_spot, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk, close_propagation_window, show_propagation_desk, close_station_identity_window, show_station_identity_desk, close_alerts_window, show_alerts_desk, close_antenna_window, show_antenna_desk,
@@ -3625,7 +3635,7 @@ mod workspace_layout_tests {
 
     #[test]
     fn contest_window_open_is_setup_owner_only_and_bounded_to_connected_tools() {
-        for panel in ["active-qso", "call-history", "qrz-details", "group-chat", "callsign-intelligence", "propagation", "monitor", "score-reporting", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"] {
+        for panel in ["active-qso", "call-history", "qrz-details", "group-chat", "callsign-intelligence", "propagation", "monitor", "score-reporting", "messages", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"] {
             assert!(super::validate_contest_window_open("contest-setup", panel).is_ok());
             for label in ["main", "contest--active-qso", "contest--logbook", "logbook", "settings", ""] {
                 assert!(super::validate_contest_window_open(label, panel).is_err());

@@ -106,6 +106,7 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
             // mutation may have reached the worker, never rewrite that receipt
             // as rejected or replay the action from this owner.
             if (admitted && cause instanceof ContestMutationUncertain) { report(boundedMessage(cause)); continue; }
+            report(boundedMessage(cause));
             await completeContestSurfaceAction({ ...context, requestID: action.requestID, outcome: "rejected",
               message: boundedMessage(cause), projectionRevision: panelStateRef.current.publishedRevisions[action.panelID] ?? action.projectionRevision })
               .catch(error => report(boundedMessage(error)));
@@ -145,6 +146,7 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
             // its presentation and draft revisions stale before it is taken.
             await handleRef.current(action);
           } catch (cause) {
+            report(boundedMessage(cause));
             await completeContestSurfaceAction({ ...context, requestID: action.requestID, outcome: "rejected",
               message: boundedMessage(cause), projectionRevision: publishedRevisionRef.current }).catch(error => report(boundedMessage(error)));
             continue;
