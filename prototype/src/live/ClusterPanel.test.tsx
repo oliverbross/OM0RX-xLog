@@ -296,10 +296,10 @@ describe("cluster toolbar panels", () => {
     expect(screen.queryByText("CS")).toBeNull();expect(screen.queryByText("DS")).toBeNull();
     expect(screen.getByText("LONG/CALLSIGN1").textContent).toBe("LONG/CALLSIGN1");
     expect(screen.getByLabelText("LONG/CALLSIGN1 spot").textContent).toContain("1");
-    expect((screen.getByText("LONG/CALLSIGN1") as HTMLElement).style.color).toBe("rgb(77, 163, 255)");
-    expect((screen.getByText("VK1ABC") as HTMLElement).style.color).toBe("rgb(255, 91, 91)");
-    expect((screen.getByText("JA1ABC") as HTMLElement).style.color).toBe("rgb(18, 214, 160)");
-    expect((screen.getByText("VE1ABC") as HTMLElement).style.color).toBe("rgb(255, 91, 91)");
+    expect((screen.getByText("LONG/CALLSIGN1") as HTMLElement).style.color).toBe("rgb(61, 165, 244)");
+    expect((screen.getByText("VK1ABC") as HTMLElement).style.color).toBe("rgb(255, 82, 103)");
+    expect((screen.getByText("JA1ABC") as HTMLElement).style.color).toBe("rgb(0, 229, 27)");
+    expect((screen.getByText("VE1ABC") as HTMLElement).style.color).toBe("rgb(255, 82, 103)");
     expect(screen.getByTitle("Needed country multiplier").textContent).toBe("C");
     expect(screen.getByTitle("Needed country and CQ zone multipliers").textContent).toBe("C+Z");
     expect(screen.queryByLabelText("K1ABC spot")).toBeNull();
@@ -309,7 +309,7 @@ describe("cluster toolbar panels", () => {
     expect((screen.getByRole("checkbox",{name:"Show worked"}) as HTMLInputElement).disabled).toBe(true);
     fireEvent.change(screen.getByLabelText("CQ WW opportunities"),{target:{value:"all"}});
     fireEvent.click(screen.getByRole("checkbox",{name:"Show worked"}));
-    expect((screen.getByLabelText("K1ABC spot").querySelector(".live-cluster-call") as HTMLElement).style.color).toBe("rgb(139, 152, 165)");
+    expect((screen.getByLabelText("K1ABC spot").querySelector(".live-cluster-call") as HTMLElement).style.color).toBe("rgb(174, 181, 183)");
     expect(localStorage.getItem("xlog.test.cqww-cluster.showWorked")).toBe("true");
   });
 

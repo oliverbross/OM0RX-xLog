@@ -79,6 +79,6 @@ it("starts at functional controls in a responsive full-width task window and unr
   expect(screen.getByRole("button", { name: /^CQ/ })).toBeTruthy();
   expect(taskStyles).toMatch(/\.app\.live\.detached-task-app\s*\{[^}]*display: flex/);
   expect(taskStyles).toContain("flex-wrap: wrap");
-  expect(taskStyles).not.toContain("190px");
+  expect(taskStyles).toContain(".detached-cw-app .cw-desk-row select { flex: 0 1 180px; }");
   unmount(); expect(actions().at(-1)).toBe("unregister"); expect(native.dispose).toHaveBeenCalledOnce();
 });
