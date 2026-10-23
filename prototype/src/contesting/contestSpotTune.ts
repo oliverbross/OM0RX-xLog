@@ -37,6 +37,8 @@ export const createContestSpotTuner = ({ load, session }: Dependencies = default
   if (!provider || !providers.has(provider as StationProvider)) throw new Error("Select and refresh an xLog radio before tuning a contest spot.");
   const tune = session(radioId);
   if (tune.getSnapshot().pending) await tune.check();
+  const retained = tune.getSnapshot();
+  if (retained.pending && retained.reviewable) await tune.review();
   if (tune.getSnapshot().pending) throw new Error("Review the previous manual tune receipt before selecting another spot.");
   return tune.tune(provider as StationProvider, frequencyHz, mode);
 };

@@ -18,6 +18,19 @@ it("tunes the current active radio through the durable manual-tune session", asy
   expect(tune).toHaveBeenCalledWith("direct_flex_lan",14_025_000,"CW");
 });
 
+it("reviews a retained unknown tune before admitting one new explicit spot selection", async () => {
+  let state:{pending:string|null;reviewable:boolean} = {pending:"old",reviewable:false};
+  const tune = vi.fn(async () => ({accepted:true,confirmed:true}));
+  const check = vi.fn(async () => { state = {pending:"old",reviewable:true}; });
+  const review = vi.fn(async () => { state = {pending:null,reviewable:false}; });
+  const session = vi.fn(() => ({getSnapshot:()=>state,check,review,tune} as any));
+  const load = vi.fn(async () => station());
+  await createContestSpotTuner({load,session})(7_145_000,"SSB");
+  expect(check).toHaveBeenCalledOnce();
+  expect(review).toHaveBeenCalledOnce();
+  expect(tune).toHaveBeenCalledExactlyOnceWith("direct_flex_lan",7_145_000,"SSB");
+});
+
 it.each([
   ["CW",14_025_000,"up",14_025_020], ["CWR",14_025_000,"down",14_024_980],
   ["USB",14_250_000,"up",14_250_100], ["LSB",7_100_000,"down",7_099_900],
@@ -38,7 +51,7 @@ it("rejects unsupported or unobserved VFO modes before durable dispatch",async()
 it("resolves radio two and refuses stale or unresolved station state", async () => {
   const tune = vi.fn(async () => ({accepted:true,confirmed:true}));
   const states = [{pending:"old"},{pending:"old"}];
-  const session = vi.fn(() => ({getSnapshot:()=>states.shift() ?? {pending:"old"},check:vi.fn(async()=>{}),tune} as any));
+  const session = vi.fn(() => ({getSnapshot:()=>states.shift() ?? {pending:"old"},check:vi.fn(async()=>{}),review:vi.fn(async()=>{}),tune} as any));
   const load = vi.fn(async (radioId: string) => radioId === "radio1" ? station("radio2") : {...station("radio2"),radio_id:"radio2"});
   await expect(createContestSpotTuner({load,session})(7_025_000,"CW")).rejects.toThrow(/previous manual tune receipt/);
   expect(load.mock.calls.map(([radio])=>radio)).toEqual(["radio1","radio2"]);
