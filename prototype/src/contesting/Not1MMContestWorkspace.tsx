@@ -1845,10 +1845,17 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const unavailable = Object.fromEntries(contestSurfacePanelIDs.map(panelID => [panelID, unavailableProjection])) as
       Record<ContestSurfacePanelID, ContestSurfaceProjection>;
     if (!projection || !detachedAvailable) return unavailable;
-    const auxiliaryKey = `${projection.sessionID}:${projection.revision}`;
-    const logRead = auxiliaryReads.log === auxiliaryKey;
-    const scoreRead = auxiliaryReads.score === auxiliaryKey;
-    const ratesRead = auxiliaryReads.rates === auxiliaryKey;
+    // Draft edits advance the authoritative revision on every admitted field
+    // change, but they do not invalidate the last session-owned log, score,
+    // matrix, statistics, or rates snapshot. Keep those committed values on
+    // screen while their revision refresh runs in the background so detached
+    // windows update in place instead of flashing through `unavailable` after
+    // every callsign character. `acceptSessionProjection` clears every lane
+    // when the session changes, so this can never carry data across contests.
+    const auxiliarySessionPrefix = `${projection.sessionID}:`;
+    const logRead = auxiliaryReads.log?.startsWith(auxiliarySessionPrefix) === true;
+    const scoreRead = auxiliaryReads.score?.startsWith(auxiliarySessionPrefix) === true;
+    const ratesRead = auxiliaryReads.rates?.startsWith(auxiliarySessionPrefix) === true;
     const currentFields = fields;
     const frequencyHz = operationFrequencyHz;
     const reservedSerial = projection.reservedSerial ?? null;
@@ -2016,7 +2023,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     unavailable["station-control"] = { schemaVersion: 1, status: "ready",
       radioFrequencyHz: selectedRadioFrequencyHz, contestFrequencyHz: frequencyHz,
       band: bandLabels[String(projection.band)] ?? String(projection.band), mode: projection.mode, busy: busy || retiring };
-    if (statistics?.sessionID === projection.sessionID && statistics.revision === projection.revision) {
+    if (statistics?.sessionID === projection.sessionID) {
       unavailable.propagation = { schemaVersion: 3, status: "ready", ...(statistics.layout==="cq_ww"?{layout:"cq_ww" as const}:{}),
         score: scoreView, rows: statistics.rows, total: statistics.total, busy: busy || retiring } as ContestSurfaceProjection;
     }

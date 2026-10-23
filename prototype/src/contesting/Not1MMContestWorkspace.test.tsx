@@ -424,6 +424,50 @@ it.each(["contest_log_page", "contest_score", "contest_rates"] as const)(
     });
   });
 
+it("keeps detached log, score, rates and multiplier windows stable while a callsign edit advances the draft", async () => {
+  let current = { ...projection(), score:{qsos:1,points:3,countries:1,zones:1,multipliers:2,total:6} };
+  const row = {ID:"qso-1",TS:"2026-10-22 01:02:03",Call:"DL1ABC",Freq:14025,SNT:"599",RCV:"599",ZN:14,
+    SentNr:1,WPXPrefix:"DL1",CountryPrefix:"DL",Points:3,Band:14,Mode:"CW"};
+  const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+    const support = workspaceSupport(method, params, current); if (support) return support;
+    if (method === "contest_scp_status") return unavailableSCP();
+    if (method === "contest_history_status") return unavailableHistory();
+    if (method === "contest_draft_apply") {
+      current = {...current,revision:current.revision+1,fields:current.fields.map(field=>field.id==="callsign"
+        ? {...field,value:String((params.fields as Record<string,string>).callsign??"")} : field)};
+      return {id:crypto.randomUUID(),ok:true,result:{projection:current,actions:[],messages:[]}};
+    }
+    const result = method === "contest_catalog" ? {plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]} :
+      method === "contest_sessions" ? {sessions:[]} : method === "contest_create" ? {projection:current} :
+      method === "contest_log_page" ? {sessionID:current.sessionID,revision:current.revision,rows:[row],offset:0,limit:20,total:1} :
+      method === "contest_score" ? {sessionID:current.sessionID,revision:current.revision,score:current.score,
+        matrices:{countries:[{value:"Germany",band:14,qsos:1}],zones:[{value:"14",band:14,qsos:1}]},
+        statistics:{rows:[{band:"20m",qsos:1,calls:1,cw:1,phone:0,digital:0,wpx:1,points:3}],
+          total:{band:"TOTAL",qsos:1,calls:1,cw:1,phone:0,digital:0,wpx:1,points:3}}} : null;
+    if (!result) throw new Error(method);
+    return {id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();
+  await waitFor(()=>{
+    expect(surfaceOwner.current.projections.logbook.status).toBe("ready");
+    expect(surfaceOwner.current.projections.propagation.status).toBe("ready");
+    expect(surfaceOwner.current.projections.monitor.status).toBe("ready");
+    expect(surfaceOwner.current.projections.awards.status).toBe("ready");
+    expect(surfaceOwner.current.projections["chaser-dx"].status).toBe("ready");
+  });
+  const entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,
+    workspaceGeneration,panelID:"active-qso",projectionRevision:1,requestID:crypto.randomUUID(),action:"entry_set_text",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,field:"callsign",value:"D"}}));
+  expect(current.revision).toBe(2);
+  expect(surfaceOwner.current.projections.logbook).toMatchObject({status:"ready",page:{total:1}});
+  expect(surfaceOwner.current.projections.propagation.status).toBe("ready");
+  expect(surfaceOwner.current.projections.monitor.status).toBe("ready");
+  expect(surfaceOwner.current.projections.awards.status).toBe("ready");
+  expect(surfaceOwner.current.projections["chaser-dx"].status).toBe("ready");
+});
+
 it("publishes log rows without waiting for a pending sibling auxiliary lane", async () => {
   const current = { ...projection(), score:{qsos:1,points:3,countries:1,zones:1,multipliers:2,total:6} };
   const row = {ID:"qso-1",TS:"2026-10-22 01:02:03",Call:"DL1ABC",Freq:14025,SNT:"599",RCV:"599",ZN:14,
