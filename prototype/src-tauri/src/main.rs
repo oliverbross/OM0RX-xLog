@@ -839,6 +839,17 @@ fn show_main_workspace(app: &tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Debug, Eq, PartialEq)]
+enum MainWorkspaceMenuAction { Present, TransitionToNormal }
+
+fn main_workspace_menu_action(selected: &str) -> Result<MainWorkspaceMenuAction, String> {
+    match selected {
+        "normal_logging" => Ok(MainWorkspaceMenuAction::Present),
+        "contesting" => Ok(MainWorkspaceMenuAction::TransitionToNormal),
+        _ => Err("The active operating module could not be verified.".into()),
+    }
+}
+
 async fn navigate_workspace(app: tauri::AppHandle, screen: String) -> Result<(), String> {
     if workspace_navigation::contest_route(&screen).is_some() {
         app.state::<workspace_navigation::WorkspaceNavigation>().request(&screen)?;
@@ -986,8 +997,12 @@ fn fulfill_module_restart_intent(app: &tauri::AppHandle) -> Result<(), String> {
     match module_restart_intent::decision(
         contesting, setup_ready, contest_window_context::is_admitted(), Some(&destination),
     ) {
-        module_restart_intent::Decision::None | module_restart_intent::Decision::WaitForSetup
-            | module_restart_intent::Decision::WaitForContest => Ok(()),
+        module_restart_intent::Decision::None | module_restart_intent::Decision::WaitForNormal
+            | module_restart_intent::Decision::WaitForSetup | module_restart_intent::Decision::WaitForContest => Ok(()),
+        module_restart_intent::Decision::OpenNormalMain => {
+            show_main_workspace(app)?;
+            module_restart_intent::consume(&directory, destination)
+        }
         module_restart_intent::Decision::DiscardInactive => {
             module_restart_intent::consume(&directory, destination)
         }
@@ -3590,7 +3605,18 @@ fn main() {
             if event.id().0 == MAIN_WORKSPACE_MENU_ID {
                 let app = app.clone();
                 tauri::async_runtime::spawn_blocking(move || {
-                    if let Err(error) = show_main_workspace(&app) {
+                    let result = operating_module::owner().and_then(|owner| owner.snapshot()).and_then(|module| {
+                        let selected = module["selected"].as_str()
+                            .ok_or_else(|| "The active operating module could not be verified.".to_string())?;
+                        match main_workspace_menu_action(selected)? {
+                            MainWorkspaceMenuAction::Present => show_main_workspace(&app),
+                            MainWorkspaceMenuAction::TransitionToNormal => switch_operating_module(
+                                &app, "normal_logging", module["context"].as_str().unwrap_or(""),
+                                Some(module_restart_intent::Destination::NormalMain),
+                            ).map(|result| report_module_switch_failure(&app, &result)),
+                        }
+                    });
+                    if let Err(error) = result {
                         eprintln!("Could not open xLog main window: {error}");
                     }
                 });
@@ -3905,7 +3931,7 @@ fn main() {
 
 #[cfg(test)]
 mod workspace_layout_tests {
-    use super::{WorkspaceLayout, DraftWake, HostActiveContest, NativeForeground, contest_desk_focus_label, contest_desk_is_open, contest_desk_window, contest_setup_route, enters_contest_desk, foreground_presentation_guard, hide_normal_workspace_during_contest, host_active_contest, native_foreground, normal_workspace_window, recover_presentation_hint, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
+    use super::{WorkspaceLayout, DraftWake, HostActiveContest, MainWorkspaceMenuAction, NativeForeground, contest_desk_focus_label, contest_desk_is_open, contest_desk_window, contest_setup_route, enters_contest_desk, foreground_presentation_guard, hide_normal_workspace_during_contest, host_active_contest, main_workspace_menu_action, native_foreground, normal_workspace_window, recover_presentation_hint, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
     use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, is_raw_owned_station_lifecycle, station_session_changes_state, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_snapshot, validate_follow_set, validate_follow_settlement, validate_rotor_stop, contest_history_manager_worker_params, contest_history_preview_worker_params, AutomaticRotorCommands};
     use serde_json::json;
 
@@ -3936,6 +3962,13 @@ mod workspace_layout_tests {
         assert!(!hide_normal_workspace_during_contest("main", true));
         assert!(hide_normal_workspace_during_contest("settings", true));
         assert!(!hide_normal_workspace_during_contest("contest--active-qso", true));
+    }
+
+    #[test]
+    fn main_window_menu_transitions_out_of_contesting_before_presenting_normal_logging() {
+        assert_eq!(main_workspace_menu_action("contesting").unwrap(), MainWorkspaceMenuAction::TransitionToNormal);
+        assert_eq!(main_workspace_menu_action("normal_logging").unwrap(), MainWorkspaceMenuAction::Present);
+        assert!(main_workspace_menu_action("unknown").is_err());
     }
 
     #[test]

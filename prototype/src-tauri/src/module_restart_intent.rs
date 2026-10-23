@@ -10,6 +10,7 @@ pub struct ContestRoute(String);
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Destination {
+    NormalMain,
     ContestLogTransfer,
     ContestRoute(ContestRoute),
 }
@@ -23,7 +24,7 @@ impl Destination {
     }
 
     pub fn as_contest_route(&self) -> Option<&str> {
-        match self { Self::ContestRoute(route) => Some(&route.0), Self::ContestLogTransfer => None }
+        match self { Self::ContestRoute(route) => Some(&route.0), Self::NormalMain | Self::ContestLogTransfer => None }
     }
 
     fn validate(self) -> Result<Self, String> {
@@ -46,6 +47,8 @@ struct Persisted {
 pub enum Decision {
     None,
     DiscardInactive,
+    WaitForNormal,
+    OpenNormalMain,
     WaitForSetup,
     WaitForContest,
     ReplayContestRoute,
@@ -56,6 +59,8 @@ pub fn decision(contesting: bool, setup_ready: bool, contest_admitted: bool,
     pending: Option<&Destination>) -> Decision {
     match (contesting, setup_ready, contest_admitted, pending) {
         (_, _, _, None) => Decision::None,
+        (true, _, _, Some(Destination::NormalMain)) => Decision::WaitForNormal,
+        (false, _, _, Some(Destination::NormalMain)) => Decision::OpenNormalMain,
         (false, _, _, Some(_)) => Decision::DiscardInactive,
         (true, false, _, Some(_)) => Decision::WaitForSetup,
         (true, true, false, Some(Destination::ContestLogTransfer)) => Decision::WaitForContest,
@@ -148,6 +153,17 @@ mod tests {
         assert_eq!(decision(true, true, false, Some(&pending)), Decision::WaitForContest);
         assert_eq!(decision(true, true, true, Some(&pending)), Decision::OpenContestLogTransfer);
         assert_eq!(decision(true, true, true, None), Decision::None);
+    }
+
+    #[test]
+    fn normal_main_waits_for_the_authoritative_module_restart_before_opening() {
+        let directory = tempfile::tempdir().unwrap();
+        let destination = Destination::NormalMain;
+        publish(directory.path(), destination.clone()).unwrap();
+        assert_eq!(decision(true, true, true, Some(&destination)), Decision::WaitForNormal);
+        assert_eq!(decision(false, false, false, Some(&destination)), Decision::OpenNormalMain);
+        consume(directory.path(), destination).unwrap();
+        assert_eq!(load(directory.path()).unwrap(), None);
     }
 
     #[test]
