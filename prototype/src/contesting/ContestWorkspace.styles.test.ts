@@ -54,6 +54,9 @@ describe("ContestWorkspace responsive contract", () => {
     expect(detachedCSS).toContain("@container contest-detached (min-width:1080px)");
     expect(detachedCSS).toContain('grid-template-columns:repeat(3,minmax(0,1fr));');
     expect(detachedCSS).toContain(".contest-surface-check-columns > div:nth-child(4) { grid-column:1 / -1; }");
+    expect(detachedCSS).toContain('.contest-surface-check-columns[data-pane-count="3"] > [data-pane="scp"] { grid-column:2; grid-row:1 / -1; }');
+    expect(detachedCSS).toContain('.contest-surface-check-columns[data-pane-count="3"] > [data-pane="cluster"] { grid-column:1; }');
+    expect(detachedCSS).toContain('.contest-surface-check-columns > [data-pane="scp"] .contest-surface-results { grid-template-columns:repeat(auto-fit,minmax(112px,1fr)); }');
   });
 
   it("stacks narrow multiplier controls and lets wide country blocks use the full window", () => {

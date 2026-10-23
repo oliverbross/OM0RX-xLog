@@ -798,7 +798,7 @@ function Check({ projection, disabled, projectionRevision, receipts, send }: { p
         {projection.scp.error&&<button type="button" disabled={disabled} onClick={()=>assistance(availability==="status_unavailable"?"assistance_refresh":"assistance_download")}>Retry</button>}</div>
     </div></details>
     <div className="contest-surface-check-columns" data-pane-count={panes.length}>
-      {panes.map(pane=><div key={pane.key}><h2>{pane.title}</h2>{pane.body}</div>)}
+      {panes.map(pane=><div key={pane.key} data-pane={pane.key}><h2>{pane.title}</h2>{pane.body}</div>)}
     </div></section>;
 }
 function Statistics({ projection }: { projection: ContestStatisticsSurfaceProjection }) {

@@ -906,6 +906,20 @@ it("uses four N1MM Check Partial panes with exact, changed, and extra character 
   expect(screen.getByRole("button",{name:"KDL1A"}).querySelector(".contest-check-extra")?.textContent).toBe("K");
   expect(screen.getByRole("button",{name:"KDL1A"}).querySelectorAll(".contest-check-match")).toHaveLength(4);
   expect(screen.getByRole("button",{name:"KDL1A"}).querySelectorAll(".contest-check-callsign")).toHaveLength(1);
+  expect(screen.getByRole("heading",{name:"Master"}).parentElement?.dataset.pane).toBe("scp");
+});
+
+it("identifies the three Check Partial panes for the full-height Master layout",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=callsign-intelligence"));
+  const view={schemaVersion:1,status:"ready",draftID:"draft-1",draftRevision:5,inputCallsign:"OM",
+    loggedCandidates:[{candidateID:"log:OM0A",callsign:"OM0A"}],clusterCandidates:[{candidateID:"cluster:OM2KI",callsign:"OM2KI"}],
+    scp:{source:"MASTER.SCP",candidates:[{candidateID:"scp:OM0RX",callsign:"OM0RX"}]},history:{source:null,rows:[]},busy:false};
+  native.invoke.mockResolvedValue({...snapshot,panelID:"callsign-intelligence",projection:view});render(<DetachedContestSurface/>);
+  await screen.findByRole("heading",{name:"Check Partial"});
+  const columns=screen.getByRole("heading",{name:"Master"}).parentElement?.parentElement;
+  expect(columns?.dataset.paneCount).toBe("3");
+  expect(["log","scp","cluster"].map(kind=>columns?.querySelector(`[data-pane="${kind}"]`)?.getAttribute("data-pane")))
+    .toEqual(["log","scp","cluster"]);
 });
 
 it("routes missing-corpus download, refresh, and retry through the contest owner",async()=>{

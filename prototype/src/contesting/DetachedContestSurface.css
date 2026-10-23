@@ -196,9 +196,14 @@
 .contest-check-extra { color:var(--teal); }
 @container contest-detached (min-width:480px) {
   .contest-surface-check-columns { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .contest-surface-check-columns[data-pane-count="3"] { grid-template-rows:repeat(2,minmax(0,1fr)); }
+  .contest-surface-check-columns[data-pane-count="3"] > [data-pane="scp"] { grid-column:2; grid-row:1 / -1; }
+  .contest-surface-check-columns[data-pane-count="3"] > [data-pane="cluster"] { grid-column:1; }
+  .contest-surface-check-columns > [data-pane="scp"] .contest-surface-results { grid-template-columns:repeat(auto-fit,minmax(112px,1fr)); }
 }
 @container contest-detached (min-width:760px) {
   .contest-surface-check-columns { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .contest-surface-check-columns[data-pane-count="3"] { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .contest-surface-check-columns[data-pane-count="2"] { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .contest-surface-check-columns > div:nth-child(4) { grid-column:1 / -1; }
   .contest-surface-check-columns[data-pane-count="2"] .contest-surface-results { grid-template-columns:repeat(2,minmax(0,1fr)); }
