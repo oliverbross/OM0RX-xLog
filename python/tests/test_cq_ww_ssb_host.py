@@ -36,7 +36,11 @@ class CQWWSSBHostTests(unittest.TestCase):
                 "BandCategory": "ALL",
                 "PowerCategory": "LOW",
             },
-            "reference": {"id": "test-cty-v1", "countries": deepcopy(fixtures.CTY)},
+            "reference": {"id": "test-cty-v1", "countries": {
+                **deepcopy(fixtures.CTY),
+                "OM0A": {"entity": "Slovak Republic", "continent": "EU", "cq": 15,
+                         "itu": 28, "primary_pfx": "OM"},
+            }},
         }
         self.call("session_create", self.create)
 
@@ -120,6 +124,15 @@ class CQWWSSBHostTests(unittest.TestCase):
         with self.assertRaisesRegex(HostError, "requires SSB"):
             self.mutate("setup_save", setup=setup)
 
+    def test_callsign_reference_prefills_received_zone_and_operator_can_override_it(self):
+        resolved = self.mutate("draft_apply", fields={"callsign": "OM0A", "other_2": ""})["projection"]
+        resolved_fields = {field["id"]: field["value"] for field in resolved["fields"]}
+        self.assertEqual(resolved_fields["other_2"], "15")
+
+        overridden = self.mutate("draft_apply", fields={"other_2": "14"})["projection"]
+        overridden_fields = {field["id"]: field["value"] for field in overridden["fields"]}
+        self.assertEqual(overridden_fields["other_2"], "14")
+
     def test_original_scoring_country_zone_multipliers_and_band_dupes(self):
         self.log()
         self.log("DL1ABC", "14", 1)
@@ -138,9 +151,13 @@ class CQWWSSBHostTests(unittest.TestCase):
         self.assertEqual(len(score["matrices"]["countries"]), 3)
         self.assertEqual(len(score["matrices"]["zones"]), 3)
         rows = list(reversed(self.read("log")["rows"]))
-        self.assertEqual([(row["Call"], row["Band"], row["IsMultiplier1"], row["IsMultiplier2"]) for row in rows], [
-            ("K1ABC", 14, 1, 1), ("DL1ABC", 14, 1, 1),
-            ("K1ABC", 14, 0, 0), ("K1ABC", 7, 1, 1),
+        self.assertEqual([(row["Call"], row["Band"], row["IsMultiplier1"], row["IsMultiplier2"], row["is_dupe"]) for row in rows], [
+            ("K1ABC", 14, 1, 1, 0), ("DL1ABC", 14, 1, 1, 0),
+            ("K1ABC", 14, 0, 0, 1), ("K1ABC", 7, 1, 1, 0),
+        ])
+        partial = self.read("check_partial", query="K1ABC")["rows"]
+        self.assertEqual([(row["Band"], row["is_dupe"]) for row in partial], [
+            (14, 0), (14, 1), (7, 0),
         ])
 
     def test_cq_ww_multiplier_slots_are_zone_then_country_for_asymmetric_contacts(self):
@@ -284,6 +301,7 @@ class CQWWSSBHostTests(unittest.TestCase):
             "qsos": 1, "points": 0, "countries": 1, "zones": 1,
             "multipliers": 2, "total": 0,
         })
+        self.assertEqual(self.read("log")["rows"][0]["is_dupe"], 0)
 
     def test_same_band_duplicate_cannot_add_a_mistyped_zone_multiplier(self):
         first = self.log("K1ABC", "5", minute=1)

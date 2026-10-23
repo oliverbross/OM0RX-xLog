@@ -131,6 +131,23 @@ describe("Contest Setup station projection", () => {
     expect(mocks.framed).not.toHaveBeenCalledWith("wsjtx_snapshot",expect.anything());
   });
 
+  it("keeps the contest request identity stable while retained observations poll", async () => {
+    mocks.station.mockResolvedValue(session("radio1", "radio1", 14_025_000));
+    mocks.worker.mockImplementation(async (method: string) => {
+      if (method === "health") return { result: { mode: "integrated" } };
+      if (method === "workspace_status") return { result: { workspace_exists: true } };
+      if (method === "settings_load") return { result: { generation: "workspace", settings: { stationCall: "OM0RX" } } };
+      if (method === "cluster_snapshot") return { result: { snapshot: { spots: [] } } };
+      throw new Error(`unexpected method ${method}`);
+    });
+    render(React.createElement((await import("./DetachedContestSetupSurface")).DetachedContestSetupSurface));
+    await waitFor(() => expect(mocks.workspace).toHaveBeenCalled());
+    const firstRequest = (mocks.workspace.mock.calls.at(-1)?.[0] as { request: unknown }).request;
+    await waitFor(() => expect(mocks.worker.mock.calls.filter(([method]) => method === "cluster_snapshot")).toHaveLength(2), { timeout: 2_500 });
+    const latestRequest = (mocks.workspace.mock.calls.at(-1)?.[0] as { request: unknown }).request;
+    expect(latestRequest).toBe(firstRequest);
+  });
+
   it("uses empty retained observations in Contesting Test without polling blocked station or cluster services", async () => {
     mocks.worker.mockImplementation(async (method: string) => {
       if (method === "health") return { result: { mode: "contesting_test" } };

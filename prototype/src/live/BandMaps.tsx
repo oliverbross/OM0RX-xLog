@@ -6,6 +6,7 @@ import { clusterBandColors, clusterStatusCode, clusterStatusColors, paletteColor
 import { countryDisplay } from "./countryDisplay";
 import { BAND_ORDER, BAND_RANGES, bandForRadio } from "./band";
 export { BAND_ORDER, BAND_RANGES, bandForRadio } from "./band";
+import { contestModeForFrequency, explicitContestMode, visibleContestBandRange, type ContestBandMode, type ContestBandPlanEntry } from "../contesting/contestBandPlan";
 import "./BandMaps.css";
 
 export type BandMapSpot = Record<string, any> & { id?: unknown };
@@ -29,7 +30,8 @@ type Props = { spots: BandMapSpot[]; onSelect: (spot: BandMapSpot) => void; radi
   preferences?: BandMapViewPreferences; onPreferencesChange?: (next: BandMapViewPreferences) => void; onDock?: () => void; onUndock?: () => void; selectionHint?: string;
   focusedBand?: string; onFocusedBandChange?: (band: string) => void; storageNamespace?: string;
   selectedSpotId?: string | null; onSpotContextMenu?: (spot: BandMapSpot, event: ReactMouseEvent<HTMLElement>) => void;
-  contestPresentation?: boolean };
+  contestPresentation?: boolean; contestBandPlan?: ContestBandPlanEntry[]; contestBands?: readonly string[];
+  contestAllowedModes?: readonly ContestBandMode[] };
 type ViewRange = { low: number; high: number };
 type PlacedSpot = { spot: BandMapSpot; top: number; anchorTop: number; lane: number; key: string };
 export function panBandRange(view: ViewRange, full: ViewRange, delta: number): ViewRange {
@@ -164,16 +166,20 @@ export function contestBandMapMultiplierLabel(spot:BandMapSpot):string{
 }
 export function contestBandMapSpotColor(spot:BandMapSpot):string{
   if(contestBandMapSpotWorked(spot))return "#8b98a5";
-  const multipliers=contestNeededMultiplierCount(spot);
-  return multipliers===0?"#4da3ff":multipliers===1?"#ff5b5b":multipliers!==null&&multipliers>=2?"#28c76f":bandMapSpotColor(spot);
+  const points=finite(spot.contestPoints);
+  if(points===1)return "#4da3ff";
+  if(points===3)return "#ff5b5b";
+  if(points===2)return "#ffb020";
+  return bandMapSpotColor(spot);
 }
 function contestPointDescription(spot:BandMapSpot):string{
-  const points=finite(spot.contestPoints);if(points===null)return "Contest points unavailable";
-  if(spot.contestDupe===true)return `${points} contest point${points===1?"":"s"} · duplicate · grey`;
+  const points=finite(spot.contestPoints);if(points===null)return "Points unavailable";
+  if(spot.contestDupe===true)return `${points} pt · duplicate · grey`;
   const multipliers=contestNeededMultiplierCount(spot),country=spot.contestCountryMultiplier,zone=spot.contestZoneMultiplier;
   const needed=country===true&&zone===true?"country and CQ zone multipliers":country===true?"country multiplier":zone===true?"CQ zone multiplier":
-    country===false&&zone===false?"no needed multiplier":`${multipliers??"unknown"} needed multiplier${multipliers===1?"":"s"}`;
-  return `${points} contest point${points===1?"":"s"} · ${needed} · ${multipliers===0?"blue":multipliers===1?"red":multipliers!==null&&multipliers>=2?"green":"unclassified"}`;
+    country===false&&zone===false?"no needed multiplier":`${multipliers??"?"} needed multiplier${multipliers===1?"":"s"}`;
+  const color=points===1?"blue":points===3?"red":points===2?"amber":"fallback colour";
+  return `${points} pt · ${needed} · ${color}`;
 }
 function bandColor(band: string, spots: BandMapSpot[]): string {
   const configured = spots.find((spot) => spot.band === band && hex(spot.bandHex))?.bandHex;
@@ -185,6 +191,7 @@ function modeGroup(mode: string): "cw" | "phone" | "data" {
   if (["SSB", "USB", "LSB", "AM", "FM", "NFM"].includes(upper)) return "phone";
   return "data";
 }
+const contestModeLabel = (mode: ContestBandMode) => mode === "cw" ? "CW" : mode === "data" ? "Data" : "SSB";
 function matchesStatus(spot: BandMapSpot, scope: string): boolean {
   if (scope === "all") return true;
   const both = `${text(spot.callStatus)} ${text(spot.dxccStatus)}`.toLowerCase();
@@ -255,13 +262,13 @@ export function placeSpots(spots: BandMapSpot[], view: ViewRange, width: number,
 }
 
 function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontScale, resolution, onManualView, focusFrequencyKHz, hidden: panelHidden = false, modeSettings,
-    selectedSpotId, onSpotContextMenu, contestPresentation = false }: {
+    selectedSpotId, onSpotContextMenu, contestPresentation = false, contestBandPlan }: {
   band: string; spots: BandMapSpot[]; onSelect: Props["onSelect"]; onRemove: () => void;
-  canRemove: boolean; compact: boolean; fontScale: number; resolution: BandMapResolution; onManualView: () => void; focusFrequencyKHz?: number; hidden?: boolean; modeSettings?: { modes: readonly BandMapMode[]; setModes: (modes: BandMapMode[]) => void };
+  canRemove: boolean; compact: boolean; fontScale: number; resolution: BandMapResolution; onManualView: () => void; focusFrequencyKHz?: number; hidden?: boolean; modeSettings?: { modes: readonly BandMapMode[]; availableModes: readonly BandMapMode[]; setModes: (modes: BandMapMode[]) => void };
   selectedSpotId?: string | null; onSpotContextMenu?: Props["onSpotContextMenu"];
-  contestPresentation?: boolean;
+  contestPresentation?: boolean; contestBandPlan?: ContestBandPlanEntry[];
 }) {
-  const full = BAND_RANGES[band];
+  const full = contestPresentation ? visibleContestBandRange(contestBandPlan?.find(entry => entry.band === band), modeSettings?.modes ?? BAND_MAP_MODES) ?? BAND_RANGES[band] : BAND_RANGES[band];
   const [view, setView] = useState<ViewRange>({ low: full.low, high: full.high });
   const [width, setWidth] = useState(340);
   const chartRef = useRef<HTMLDivElement>(null);
@@ -290,7 +297,7 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
     const changed = previousResolution.current !== resolution;
     previousResolution.current = resolution;
     if (resolution === "custom") return;
-    if (resolution === "full") { if (changed) setView({ low: full.low, high: full.high }); return; }
+    if (resolution === "full") { setView(current => current.low === full.low && current.high === full.high ? current : { low: full.low, high: full.high }); return; }
     setView(current => {
       const span = Math.min(full.high - full.low, Math.max(2, chartHeight / resolution));
       const centre = changed && focusRef.current != null ? focusRef.current : (current.low + current.high) / 2;
@@ -339,7 +346,7 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
   return <section className="band-map-panel" hidden={panelHidden} aria-label={`${band} band map`} style={{ "--band-accent": bandColor(band, spots), "--band-font-scale": fontScale } as CSSProperties}>
     <header className="band-map-panel-head"><span className="band-map-accent" aria-hidden="true" /><strong>{band}</strong><small>{visible.length}/{allBandCount} spots</small>{modeSettings ? <details className="band-maps-mode-picker band-map-settings" onKeyDown={event => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}>
       <summary aria-label={`${band} mode visibility settings`} title="Mode visibility"><Settings size={15} /></summary>
-      <div className="band-maps-mode-options" role="group" aria-label={`${band} visible modes`}>{BAND_MAP_MODES.map(mode => <label key={mode}><input type="checkbox" checked={modeSettings.modes.includes(mode)} onChange={event => modeSettings.setModes(BAND_MAP_MODES.filter(item => item === mode ? event.target.checked : modeSettings.modes.includes(item)))} />{mode === "cw" ? "CW" : mode === "phone" ? "SSB / Phone" : "Data"}</label>)}</div>
+      <div className="band-maps-mode-options" role="group" aria-label={`${band} visible modes`}>{modeSettings.availableModes.map(mode => <label key={mode}><input type="checkbox" checked={modeSettings.modes.includes(mode)} onChange={event => modeSettings.setModes(modeSettings.availableModes.filter(item => item === mode ? event.target.checked : modeSettings.modes.includes(item)))} />{mode === "cw" ? "CW" : mode === "phone" ? "SSB / Phone" : "Data"}</label>)}</div>
     </details> : <button type="button" title={`Close ${band} band map`} aria-label={`Close ${band} band map`} disabled={!canRemove} onClick={onRemove}><X size={13} /></button>}</header>
     <div className="band-map-panel-tools"><label><span className="sr-only">{band} allocation</span><select aria-label={`${band} allocation`} value={segmentName} onChange={(event) => {
       const part = full.allocations.find((item) => `${item.name} portion` === event.target.value);
@@ -385,7 +392,8 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
       })}
       {placed.map(({ spot, lane, top, anchorTop, key }) => {
         const color = contestPresentation?contestBandMapSpotColor(spot):bandMapSpotColor(spot);
-        const code = contestPresentation?"":opportunityCode(spot);
+        const multiplierCode=contestBandMapMultiplierLabel(spot);
+        const code = contestPresentation?(multiplierCode==="—"||multiplierCode==="?"?"":multiplierCode):opportunityCode(spot);
         const tooltip = `${text(spot.callsign)} · ${(spot.frequencyKHz / 1000).toFixed(6)} MHz · ${text(spot.mode)} · ${text(spot.callStatus)} · ${text(spot.dxccStatus)}${contestPresentation?` · ${contestPointDescription(spot)}`:""}${spot.country ? ` · ${countryDisplay(spot.country)}` : ""}${spot.comment ? ` · ${text(spot.comment)}` : ""}`;
         const centre = axis + laneWidth * (lane + 0.5);
         return <Fragment key={key}><span className="band-map-spot-anchor" aria-hidden="true" style={{ top: anchorTop, left: axis - 4, width: Math.max(8, centre - axis + 4), color }} />
@@ -401,11 +409,21 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
 }
 
 export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBandwidthHz, compact = false, preferences, onPreferencesChange, onDock, onUndock, focusedBand, onFocusedBandChange,
-  storageNamespace, selectedSpotId, onSpotContextMenu, contestPresentation = false, selectionHint = "Select a marker to load it into the logger." }: Props) {
+  storageNamespace, selectedSpotId, onSpotContextMenu, contestPresentation = false, contestBandPlan, contestBands, contestAllowedModes,
+  selectionHint = "Select a marker to load it into the logger." }: Props) {
   const toolbarHost = useContext(BandMapsToolbarContext);
   const radioBand = bandForRadio(radioFrequencyHz);
-  const [contestBand, setContestBand] = useState(() => radioBand ?? "20m");
-  const activeFocusedBand = focusedBand ?? (contestPresentation ? contestBand : undefined);
+  const availableContestBands = useMemo(() => {
+    const configured = contestBands?.filter((band, index, values) => band in BAND_RANGES && values.indexOf(band) === index) ?? [];
+    return contestPresentation && configured.length ? configured : BAND_ORDER;
+  }, [contestBands, contestPresentation]);
+  const allowedContestModes = useMemo<BandMapMode[]>(() => {
+    const configured = contestAllowedModes?.filter((mode, index, values): mode is BandMapMode =>
+      BAND_MAP_MODES.includes(mode as BandMapMode) && values.indexOf(mode) === index) ?? [];
+    return contestPresentation && configured.length ? configured : [...BAND_MAP_MODES];
+  }, [contestAllowedModes, contestPresentation]);
+  const [contestBand, setContestBand] = useState(() => radioBand && availableContestBands.includes(radioBand) ? radioBand : availableContestBands[0] ?? "20m");
+  const activeFocusedBand = focusedBand && availableContestBands.includes(focusedBand) ? focusedBand : contestPresentation ? contestBand : focusedBand;
   const controlKey = (name: string) => controlStorageKey(compact, Boolean(activeFocusedBand), name, storageNamespace);
   const [localBands, setLocalBands] = useState(() => storedBands(compact, storageNamespace));
   const [localFollow, setLocalFollow] = useState(() => storedFlag(compact, "followRadio", false, storageNamespace));
@@ -480,17 +498,36 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
   const [localModes, setLocalModes] = useState<BandMapMode[]>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(storageKey(compact, "modes", storageNamespace)) || "null");
-      if (Array.isArray(saved) && saved.every(mode => BAND_MAP_MODES.includes(mode))) return [...new Set(saved)] as BandMapMode[];
+      if (Array.isArray(saved) && saved.every(mode => BAND_MAP_MODES.includes(mode))) {
+        const admitted = [...new Set(saved)].filter(mode => allowedContestModes.includes(mode)) as BandMapMode[];
+        if (admitted.length || saved.length === 0) return admitted;
+      }
     } catch { /* Missing or invalid legacy preference means all modes. */ }
-    return [...BAND_MAP_MODES];
+    return [...allowedContestModes];
   });
-  const modes = preferences ? preferences.modes ?? BAND_MAP_MODES : localModes;
+  const requestedModes = preferences ? preferences.modes ?? allowedContestModes : localModes;
+  const requestedAllowedModes = requestedModes.filter(mode => allowedContestModes.includes(mode));
+  const modes = requestedAllowedModes.length || requestedModes.length === 0 ? requestedAllowedModes : allowedContestModes;
+  const allAllowedModesSelected = modes.length === allowedContestModes.length && allowedContestModes.every(mode => modes.includes(mode));
   const setModes = (value: BandMapMode[]) => {
-    if (preferences) onPreferencesChange?.({ ...preferences, modes: value });
-    else setLocalModes(value);
+    const admitted = value.filter(mode => allowedContestModes.includes(mode));
+    if (preferences) onPreferencesChange?.({ ...preferences, modes: admitted });
+    else setLocalModes(admitted);
+    setResolution("full");
   };
   const [selected, setSelected] = useState<BandMapSpot | null>(null);
-  useEffect(() => { if (contestPresentation && radioBand) setContestBand(radioBand); }, [contestPresentation, radioBand]);
+  useEffect(() => {
+    if (!contestPresentation) return;
+    setContestBand(current => radioBand && availableContestBands.includes(radioBand) ? radioBand : availableContestBands.includes(current) ? current : availableContestBands[0] ?? "20m");
+  }, [availableContestBands, contestPresentation, radioBand]);
+  useEffect(() => {
+    if (preferences) return;
+    setLocalModes(current => {
+      const admitted = current.filter(mode => allowedContestModes.includes(mode));
+      if (admitted.length || current.length === 0) return admitted;
+      return [...allowedContestModes];
+    });
+  }, [allowedContestModes, preferences]);
   useEffect(() => { if (follow && radioBand && (bands.length !== 1 || bands[0] !== radioBand)) setBands([radioBand]); }, [follow, radioBand, bands]);
   useEffect(() => { if (!preferences) store(compact, "bands", bands, storageNamespace); }, [bands, compact, preferences, storageNamespace]);
   useEffect(() => { if (!preferences) store(compact, "followRadio", follow, storageNamespace); }, [follow, compact, preferences, storageNamespace]);
@@ -501,13 +538,19 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
   useEffect(() => { storeAt(controlKey("ageMinutes"), String(spotAgeMinutes)); }, [spotAgeMinutes, compact, activeFocusedBand]);
   useEffect(()=>{if(contestPresentation)store(compact,"showWorked",showWorked,storageNamespace);},[compact,contestPresentation,showWorked,storageNamespace]);
   useEffect(() => { const timer = window.setInterval(() => setAgeClock(Date.now()), 30_000); return () => window.clearInterval(timer); }, []);
-  const recentUnique = useMemo(() => deduplicateBandMapSpots(filterRecentBandMapSpots(spots, spotAgeMinutes, ageClock)), [spots, spotAgeMinutes, ageClock]);
+  const classifiedSpots = useMemo(() => contestPresentation ? spots.map(spot => {
+    const entry = contestBandPlan?.find(item => item.band === spot.band);
+    const frequency = finite(spot.frequencyKHz);
+    const mode = explicitContestMode(spot.comment) ?? (!entry || frequency === null ? modeGroup(text(spot.mode)) : contestModeForFrequency(entry, frequency));
+    return { ...spot, mode: contestModeLabel(mode) };
+  }) : spots, [contestBandPlan, contestPresentation, spots]);
+  const recentUnique = useMemo(() => deduplicateBandMapSpots(filterRecentBandMapSpots(classifiedSpots, spotAgeMinutes, ageClock)), [classifiedSpots, spotAgeMinutes, ageClock]);
   const contestVisible=useMemo(()=>contestPresentation&&!showWorked?recentUnique.filter(spot=>!contestBandMapSpotWorked(spot)):recentUnique,
     [contestPresentation,recentUnique,showWorked]);
-  const filtered = useMemo(() => compact ? contestVisible : contestVisible.filter((spot) => {
+  const filtered = useMemo(() => contestVisible.filter((spot) => {
     const needle = query.trim().toLowerCase();
-    return (!needle || [spot.callsign, spot.country, spot.comment, spot.source].some((part) => text(part).toLowerCase().includes(needle)))
-      && matchesStatus(spot, status) && modes.includes(modeGroup(text(spot.mode)));
+    return modes.includes(modeGroup(text(spot.mode))) && (compact || ((!needle || [spot.callsign, spot.country, spot.comment, spot.source].some((part) => text(part).toLowerCase().includes(needle)))
+      && matchesStatus(spot, status)));
   }), [contestVisible, compact, query, status, modes]);
   const add = (band: string) => {
     if (!(band in BAND_RANGES)) return;
@@ -533,24 +576,24 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
     {!activeFocusedBand && (compact && toolbarHost ? createPortal(toolbarControls, toolbarHost) : <header className="band-maps-head"><div><h2>Band maps</h2></div>{toolbarControls}</header>)}
     {!compact && !activeFocusedBand && <div className="band-maps-intelligence"><label className="band-maps-search">Search <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Call, country or note" /></label><label>Status <select value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">All</option><option value="needed">Needed</option><option value="worked">Worked</option><option value="confirmed">Confirmed</option><option value="priority">Priority</option></select></label>
       <details className="band-maps-mode-picker" onKeyDown={event => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}>
-        <summary>Modes · {modes.length === 3 ? "All" : modes.length === 0 ? "None" : modes.map(mode => mode === "cw" ? "CW" : mode === "data" ? "Data" : "Phone").join(" + ")}</summary>
+        <summary>Modes · {allAllowedModesSelected ? "All" : modes.length === 0 ? "None" : modes.map(mode => mode === "cw" ? "CW" : mode === "data" ? "Data" : "Phone").join(" + ")}</summary>
         <div className="band-maps-mode-options" role="group" aria-label="Band map modes">
-          <label><input type="checkbox" checked={modes.length === 3} onChange={event => setModes(event.target.checked ? [...BAND_MAP_MODES] : [])} />All modes</label>
-          {BAND_MAP_MODES.map(mode => <label key={mode}><input type="checkbox" checked={modes.includes(mode)} onChange={event => setModes(BAND_MAP_MODES.filter(item => item === mode ? event.target.checked : modes.includes(item)))} />{mode === "cw" ? "CW" : mode === "data" ? "Data" : "Phone"}</label>)}
+          <label><input type="checkbox" checked={modes.length === allowedContestModes.length} onChange={event => setModes(event.target.checked ? [...allowedContestModes] : [])} />All modes</label>
+          {allowedContestModes.map(mode => <label key={mode}><input type="checkbox" checked={modes.includes(mode)} onChange={event => setModes(allowedContestModes.filter(item => item === mode ? event.target.checked : modes.includes(item)))} />{mode === "cw" ? "CW" : mode === "data" ? "Data" : "Phone"}</label>)}
         </div>
       </details>
-      <span className="band-maps-count">{filtered.length} of {recentUnique.length} spots</span><span className="band-maps-selected">{selected ? `${text(selected.callsign)} · ${opportunityCode(selected)} · ${clusterStatusCode(text(selected.callStatus))} · ${clusterStatusCode(text(selected.dxccStatus))}` : selectionHint}</span>{(query || status !== "all" || modes.length !== 3) && <button type="button" onClick={() => { setQuery(""); setStatus("all"); setModes([...BAND_MAP_MODES]); }}>Clear filters</button>}</div>}
+      <span className="band-maps-count">{filtered.length} of {recentUnique.length} spots</span><span className="band-maps-selected">{selected ? `${text(selected.callsign)} · ${opportunityCode(selected)} · ${clusterStatusCode(text(selected.callStatus))} · ${clusterStatusCode(text(selected.dxccStatus))}` : selectionHint}</span>{(query || status !== "all" || !allAllowedModesSelected) && <button type="button" onClick={() => { setQuery(""); setStatus("all"); setModes([...allowedContestModes]); }}>Clear filters</button>}</div>}
     <div ref={panelsRef} className={`band-maps-panels band-maps-${compact || layout === "row" ? "row" : "grid"}`} style={{ gridTemplateColumns: `repeat(${Math.max(1, Math.min(columns, visibleCount))}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${Math.max(1, Math.ceil(visibleCount / columns))}, minmax(0, 1fr))` }}>
       {bands.map((band, index) => <BandPanel key={band} band={band} spots={filtered} onSelect={choose} onRemove={() => remove(band)} canRemove={bands.length > 1} compact={compact} fontScale={fontScale} resolution={resolution}
         onManualView={markCustom}
       focusFrequencyKHz={radioBand === band && radioFrequencyHz ? radioFrequencyHz / 1000 : finite(filtered.find(spot => spot.band === band)?.frequencyKHz) ?? undefined}
       selectedSpotId={selectedSpotId} onSpotContextMenu={onSpotContextMenu}
-        hidden={index < firstBand || index >= firstBand + capacity} modeSettings={activeFocusedBand ? { modes, setModes } : undefined} contestPresentation={contestPresentation} />)}
+        hidden={index < firstBand || index >= firstBand + capacity} modeSettings={activeFocusedBand ? { modes, availableModes: allowedContestModes, setModes } : undefined} contestPresentation={contestPresentation} contestBandPlan={contestBandPlan} />)}
     </div>
     <footer className="band-maps-quick-controls" aria-label="Band map view controls">
       {activeFocusedBand && typeof observedReceiveBandwidthHz === "number" && Number.isFinite(observedReceiveBandwidthHz) && observedReceiveBandwidthHz > 0 &&
         <output aria-label="Observed receive-filter bandwidth">RX filter {new Intl.NumberFormat("en-US").format(observedReceiveBandwidthHz)} Hz</output>}
-      {activeFocusedBand && <label>Band<select aria-label="Band" value={activeFocusedBand} onChange={event => onFocusedBandChange ? onFocusedBandChange(event.target.value) : setContestBand(event.target.value)}>{BAND_ORDER.map(band => <option key={band}>{band}</option>)}</select></label>}
+      {activeFocusedBand && <label>Band<select aria-label="Band" value={activeFocusedBand} onChange={event => onFocusedBandChange ? onFocusedBandChange(event.target.value) : setContestBand(event.target.value)}>{availableContestBands.map(band => <option key={band}>{band}</option>)}</select></label>}
       <label>Resolution<select aria-label="Band map resolution" value={resolution} onChange={event => setResolution(event.target.value === "full" ? "full" : Number(event.target.value) as BandMapResolution)}><option value="full">Full band</option>{resolution === "custom" && <option value="custom">Custom</option>}{BAND_MAP_RESOLUTIONS.map(value => <option key={value} value={value}>{value} px/kHz</option>)}</select></label>
       <label>{contestPresentation ? "Clear older" : "Spot age"}<select aria-label="Spot age" value={spotAgeMinutes} onChange={event => setSpotAgeMinutes(Number(event.target.value) as typeof BAND_MAP_AGES[number])}>{BAND_MAP_AGES.map(value => <option key={value} value={value}>{value} min</option>)}</select></label>
       {contestPresentation&&<label><input type="checkbox" checked={showWorked} onChange={event=>setShowWorked(event.target.checked)}/>Show worked</label>}

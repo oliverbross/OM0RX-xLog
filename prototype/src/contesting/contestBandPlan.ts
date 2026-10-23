@@ -1,0 +1,78 @@
+import { BAND_ORDER, BAND_RANGES, type BandAllocation } from "../live/band";
+
+export type ContestBandMode = "cw" | "data" | "phone";
+export type ContestBandPlanEntry = {
+  band: string;
+  cw: { low: number; high: number };
+  data: { low: number; high: number };
+  phone: { low: number; high: number };
+};
+
+const modeName: Record<ContestBandMode, BandAllocation["name"]> = {
+  cw: "CW", data: "Data", phone: "Phone",
+};
+
+function defaultRange(band: string, mode: ContestBandMode) {
+  const full = BAND_RANGES[band];
+  const allocation = full?.allocations.find(item => item.name === modeName[mode]);
+  return allocation ? { low: allocation.low, high: allocation.high } : { low: full?.low ?? 0, high: full?.low ?? 0 };
+}
+
+export function defaultContestBandPlan(bands: readonly string[] = BAND_ORDER): ContestBandPlanEntry[] {
+  return bands.filter(band => band in BAND_RANGES).map(band => ({
+    band, cw: defaultRange(band, "cw"), data: defaultRange(band, "data"), phone: defaultRange(band, "phone"),
+  }));
+}
+
+function validRange(value: unknown, band: string): value is { low: number; high: number } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const range = value as Record<string, unknown>, full = BAND_RANGES[band];
+  return !!full && typeof range.low === "number" && Number.isFinite(range.low) &&
+    typeof range.high === "number" && Number.isFinite(range.high) &&
+    range.low >= full.low && range.high <= full.high && range.high >= range.low;
+}
+
+export function encodeContestBandPlan(entries: readonly ContestBandPlanEntry[]): string[] {
+  return entries.map(entry => JSON.stringify(entry));
+}
+
+export function decodeContestBandPlan(value: unknown, bands: readonly string[] = BAND_ORDER): ContestBandPlanEntry[] {
+  const saved = new Map<string, ContestBandPlanEntry>();
+  if (Array.isArray(value)) for (const encoded of value) {
+    if (typeof encoded !== "string" || encoded.length > 512) continue;
+    try {
+      const entry = JSON.parse(encoded) as ContestBandPlanEntry;
+      if (entry && typeof entry === "object" && bands.includes(entry.band) &&
+          validRange(entry.cw, entry.band) && validRange(entry.data, entry.band) && validRange(entry.phone, entry.band)) saved.set(entry.band, entry);
+    } catch { /* A malformed saved row falls back to the known band defaults. */ }
+  }
+  return defaultContestBandPlan(bands).map(fallback => saved.get(fallback.band) ?? fallback);
+}
+
+export function visibleContestBandRange(entry: ContestBandPlanEntry | undefined, modes: readonly ContestBandMode[]) {
+  if (!entry || modes.length === 0) return entry ? BAND_RANGES[entry.band] : undefined;
+  const allocations = modes.map(mode => ({ name: modeName[mode], ...entry[mode] })).filter(item => item.high > item.low);
+  if (allocations.length === 0) return BAND_RANGES[entry.band];
+  return {
+    low: Math.min(...allocations.map(item => item.low)),
+    high: Math.max(...allocations.map(item => item.high)),
+    allocations,
+  };
+}
+
+export function contestModeForFrequency(entry: ContestBandPlanEntry | undefined, frequencyKHz: number): ContestBandMode {
+  if (!entry || !Number.isFinite(frequencyKHz)) return "phone";
+  // N1MM gives Digital precedence over CW when configured segments overlap;
+  // everything outside those explicit segments is treated as phone.
+  if (frequencyKHz >= entry.data.low && frequencyKHz <= entry.data.high && entry.data.high > entry.data.low) return "data";
+  if (frequencyKHz >= entry.cw.low && frequencyKHz <= entry.cw.high && entry.cw.high > entry.cw.low) return "cw";
+  return "phone";
+}
+
+export function explicitContestMode(comment: unknown): ContestBandMode | null {
+  const value = typeof comment === "string" ? comment.toUpperCase() : "";
+  if (/\b(?:RTTY|FT8|FT4|PSK(?:31|63|125)?|DIGI(?:TAL)?|DATA)\b/.test(value)) return "data";
+  if (/\b(?:CW|CWR)\b/.test(value)) return "cw";
+  if (/\b(?:SSB|USB|LSB|PHONE|AM|FM|NFM)\b/.test(value)) return "phone";
+  return null;
+}

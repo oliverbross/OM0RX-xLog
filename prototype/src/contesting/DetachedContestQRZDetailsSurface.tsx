@@ -106,25 +106,24 @@ export function ContestQRZDetailsSurface({ search = window.location.search,
   useAutoFit(`${call}:${loading}:${error}:${profile?.call ?? ""}`);
 
   const value = profile?.call === call ? profile.value : null;
-  const fields: Array<[string, string | null]> = value ? [
-    ["Nickname", text(value.nickname)], ["QTH", text(value.qth)], ["State / province", text(value.state)], ["County", text(value.county)],
-    ["Grid", text(value.gridSquare)], ["DXCC", number(value.dxcc)], ["Continent", text(value.continent)],
-    ["CQ zone", number(value.cqZone)], ["ITU zone", number(value.ituZone)], ["IOTA", text(value.iota)],
-    ["QSL manager", text(value.qslManager)], ["License", text(value.licenseClass)], ["Email", text(value.email)],
-    ["Website", text(value.websiteURL)],
-  ].filter((field): field is [string, string] => field[1] !== null) : [];
+  const fields: Array<[string, string | null, string]> = value ? [
+    ["Name", text(value.name) ?? text(value.nickname), "name"],
+    ["Country", text(value.country), "country"],
+    ["QTH", text(value.qth), "qth"],
+    ["Grid", text(value.gridSquare), "grid"],
+    ["Continent", text(value.continent), "continent"],
+    ["ITU zone", number(value.ituZone), "itu-zone"],
+    ["CQ zone", number(value.cqZone), "cq-zone"],
+  ] : [];
 
   return <main className="contest-qrz-details" aria-label="Contest Callsign Details">
-    <header><div><p>CONTEST LOOKUP</p><h1>{call || "Callsign Details"}</h1></div>{value && <span>{text(value.source) ?? "xLog lookup"}</span>}</header>
+    <header><div><p>Callsign</p><h1>{call || "Callsign Details"}</h1></div></header>
     {!projection && !error && <p role="status">Loading the current contest callsign…</p>}
     {projection && !validCall.test(call) && <p role="status">Enter a complete callsign in the contest logging window.</p>}
     {loading && <p role="status">Looking up {call}…</p>}
     {error && <p className="contest-qrz-error" role="alert">{error}</p>}
     {value && <section aria-label={`${call} callsign profile`}>
-      <div className="contest-qrz-identity"><strong>{text(value.name) ?? call}</strong><span>{text(value.country) ?? "Country unavailable"}</span></div>
-      {fields.length ? <dl>{fields.map(([label, detail]) => <div key={label}><dt>{label}</dt><dd>{detail}</dd></div>)}</dl>
-        : <p role="status">No additional callsign profile fields were returned.</p>}
-      {text(value.lookup_warning) && <p className="contest-qrz-warning" role="status">{text(value.lookup_warning)}</p>}
+      <dl>{fields.map(([label, detail, field]) => <div key={label} data-field={field}><dt>{label}</dt><dd>{detail ?? "—"}</dd></div>)}</dl>
     </section>}
   </main>;
 }

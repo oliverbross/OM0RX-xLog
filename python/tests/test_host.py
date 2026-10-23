@@ -369,7 +369,8 @@ class HostTests(unittest.TestCase):
         new_qso = self.log("DL1ABC", "14", 1)
         rows = {row["ID"]: row for row in self.read("log")["rows"]}
         self.assertEqual(
-            {key: value for key, value in rows[qso].items() if key not in {"raw_fields", "change_revision"}},
+            {key: value for key, value in rows[qso].items()
+             if key not in {"raw_fields", "change_revision", "is_dupe"}},
             before,
         )
         self.assertEqual(rows[qso]["raw_fields"]["other_2"], "5")
@@ -920,10 +921,10 @@ class HostTests(unittest.TestCase):
             "SELECT before_json,after_json FROM xlog_qso_audit WHERE qso_id=? AND kind='correct'", (qso,))
         self.assertEqual(json.loads(audit["before_json"]),
                          {key: value for key, value in before.items()
-                          if key not in {"raw_fields", "change_revision"}})
+                          if key not in {"raw_fields", "change_revision", "is_dupe"}})
         self.assertEqual(json.loads(audit["after_json"]),
                          {key: value for key, value in after.items()
-                          if key not in {"raw_fields", "change_revision"}})
+                          if key not in {"raw_fields", "change_revision", "is_dupe"}})
 
     def test_correction_updates_contact_metadata_and_preserves_it_on_unchanged_save(self):
         qso = self.log()

@@ -37,7 +37,7 @@ const sharedSpot={id:"spot-1",receivedAt:Math.floor(Date.now()/1000)-978_307_200
 const tabMaps={tabNext:{callsign:"sent",sent:"receive",receive:"other_1",other_1:"other_2",other_2:"callsign"},
   tabPrevious:{callsign:"other_2",sent:"callsign",receive:"sent",other_1:"receive",other_2:"other_1"}} as const;
 
-beforeEach(()=>{vi.resetAllMocks();localStorage.removeItem("xlog.integration.contest.cluster-age-minutes.v1");native.wake=null;native.emit=null;native.wakes=[];native.listen.mockImplementation(async(_name,callback)=>{native.wakes.push(callback);
+beforeEach(()=>{vi.resetAllMocks();localStorage.clear();native.wake=null;native.emit=null;native.wakes=[];native.listen.mockImplementation(async(_name,callback)=>{native.wakes.push(callback);
   native.wake=()=>native.wakes.forEach(wake=>wake({payload:null}));native.emit=payload=>native.wakes.forEach(wake=>wake({payload}));
   return()=>{native.wakes=native.wakes.filter(wake=>wake!==callback);};});window.history.replaceState({},"",search);});
 afterEach(()=>{cleanup();window.history.replaceState({},"","/");});
@@ -226,7 +226,8 @@ it("renders validated manual main context without manufacturing headings or dist
   expect(screen.getByLabelText("Country and zones").textContent).toBe("Germany cq:14 itu:28");
   expect(screen.getByLabelText("Current CW speed").textContent).toBe("27");
   expect(screen.getByLabelText("Contact heading, long path and distance").textContent).toContain("—° Hdg · LP —° / distance — km");
-  expect(screen.getByLabelText("QSOs, multipliers and score").textContent).toBe("42/17 2142");
+  expect(screen.getByLabelText("QSOs and multipliers").textContent).toBe("QSO / mults42/17");
+  expect(screen.getByLabelText("Score").textContent).toBe("Score2142");
   expect((document.querySelector(".contest-surface-main-fields") as HTMLElement).style.getPropertyValue("--contest-entry-field-columns"))
     .toBe("repeat(4,minmax(0,1fr))");
 });
@@ -637,6 +638,31 @@ it("renders the exact plugin log columns for both paged and partial rows",async(
   }));
 });
 
+it("marks explicit same-band dupes and shares persistent keyboard-resizable columns between both log tables",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
+  const columns=["Call","Freq","Zone mult","PTS"],row={qsoID:"dupe-qso",values:["K1ABC","14250","","0"],isDupe:true},
+    partial={qsoID:"partial-qso",values:["K1ABD","14255","✓","3"],isDupe:false},
+    pageRow={qsoID:row.qsoID,workedAt:"2026-10-20T12:00:00.000Z",callsign:"K1ABC",band:"20m",mode:"SSB",
+      sentExchange:"59 15",receivedExchange:"59 5",points:0,multiplierLabels:[]},
+    view={schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,exchangeLayout:"plugin",
+      pluginColumns:columns,pluginRows:[row],pluginPartialRows:[partial],page:{offset:0,limit:20,total:1,rows:[pageRow]},editing:null,busy:false};
+  native.invoke.mockResolvedValue({...snapshot,panelID:"logbook",projection:view});
+  const mounted=render(<DetachedContestSurface/>);await screen.findByRole("heading",{name:"Log Display"});
+  const duplicateRow=screen.getByRole("row",{name:/K1ABC duplicate/});
+  expect(duplicateRow.classList.contains("contest-surface-log-dupe")).toBe(true);
+  expect(screen.getByText("DUPE")).toBeTruthy();
+  expect(duplicateRow.querySelector(".contest-surface-log-points")?.textContent).toBe("0");
+  expect(screen.getByRole("table",{name:"Callsign partial matches"}).querySelector(".contest-surface-log-multiplier")?.textContent).toBe("✓");
+  const before=(screen.getByRole("table",{name:"Contest log"}).querySelector("col") as HTMLElement).style.width;
+  fireEvent.keyDown(screen.getAllByRole("separator",{name:"Resize Call column"})[0],{key:"ArrowRight"});
+  await waitFor(()=>{const primary=(screen.getByRole("table",{name:"Contest log"}).querySelector("col") as HTMLElement).style.width,
+    secondary=(screen.getByRole("table",{name:"Callsign partial matches"}).querySelector("col") as HTMLElement).style.width;
+    expect(primary).not.toBe(before);expect(secondary).toBe(primary);});
+  const saved=(screen.getByRole("table",{name:"Contest log"}).querySelector("col") as HTMLElement).style.width;
+  mounted.unmount();render(<DetachedContestSurface/>);await screen.findByRole("heading",{name:"Log Display"});
+  expect((screen.getByRole("table",{name:"Contest log"}).querySelector("col") as HTMLElement).style.width).toBe(saved);
+});
+
 it("fits the detached Log page to the visible primary pane and requests that exact limit",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
   let resized=()=>{};
@@ -752,6 +778,7 @@ it.each(["band-maps","dx-cluster"] as const)("selects shared spots from the cont
   localStorage.setItem("xlog.integration.full-cluster-columns.v1","normal-cluster-sentinel");
   const view={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14_025_000,
     connectedClusters:1,loadedSpots:25,selectedSpotID:null,
+    contestSessionID:sessionID,supportedBands:["40m","20m"],allowedModeGroups:["cw"],
     configuredClusters:[{serverID:"server-1",serverName:"ShackCQ",enabled:true}],
     connections:panelID==="dx-cluster"?[{serverID:"server-1",serverName:"ShackCQ",phase:"connected",error:null}]:[],
     markedOnly:false,spots:[sharedSpot],busy:false};
@@ -761,6 +788,8 @@ it.each(["band-maps","dx-cluster"] as const)("selects shared spots from the cont
   const callsign=await screen.findByText("DL1ABC");
   if(panelID==="dx-cluster"){
     expect(screen.getByLabelText("CQ WW opportunity totals")).toBeTruthy();
+    expect(Array.from((screen.getByLabelText("CQ WW band") as HTMLSelectElement).options).map(option=>option.value))
+      .toEqual(["all","40m","20m"]);
     expect(screen.queryByLabelText("Spot filters")).toBeNull();
     expect(screen.getByRole("button",{name:"Connect"})).toHaveProperty("disabled",true);
     expect(screen.getByRole("button",{name:"Disconnect"})).toHaveProperty("disabled",false);
@@ -781,7 +810,7 @@ it.each(["band-maps","dx-cluster"] as const)("selects shared spots from the cont
     expect(screen.getByLabelText("Spot age")).toBeTruthy();
   }
   await waitFor(()=>expect(localStorage.getItem(panelID==="band-maps"
-    ? "xlog.integration.bandMaps.contest.bands":"xlog.integration.contest.cluster-columns.v1")).not.toBeNull());
+    ? `xlog.integration.bandMaps.contest.${sessionID}.bands`:"xlog.integration.contest.cluster-columns.v1")).not.toBeNull());
 });
 
 it.each([
@@ -948,7 +977,12 @@ it("renders exact owner Rates independently of the current log page and refreshe
   expect(screen.getByText("Since 19:00:00z:")).toBeTruthy();
   expect(screen.getByText("QSO")).toBeTruthy();
   expect(screen.getByLabelText("Not enough contacts")).toBeTruthy();
-  expect(screen.getByRole("table", { name: "Run and Search & Pounce QSOs" }).textContent).toContain("210");
+  expect(screen.getByText("48").closest(".contest-surface-rate-current")).toBeTruthy();
+  expect(screen.getByText("72.5").closest(".contest-surface-rate-ten")).toBeTruthy();
+  const rateTable=screen.getByRole("table", { name: "Run and Search & Pounce QSOs" });
+  expect(rateTable.textContent).toContain("210");
+  expect(screen.getByRole("row",{name:/^Run QSO:/}).classList.contains("contest-surface-rate-run")).toBe(true);
+  expect(screen.getByRole("row",{name:/^S&P QSO:/}).classList.contains("contest-surface-rate-search")).toBe(true);
   revision=7; rates = { ...rates, runQso: 211 };
   await act(async () => { native.wake!(); });
   expect(await screen.findByText("211")).toBeTruthy();
@@ -1066,7 +1100,8 @@ it("renders Entry v2 sent and simulation state and forwards an exact style actio
   expect(screen.getByLabelText("Sent exchange")).toHaveProperty("value","100");
   expect(screen.getByLabelText("CW speed unavailable").textContent).toBe("—");
   expect((screen.getByLabelText("Increase CW speed") as HTMLButtonElement).disabled).toBe(true);
-  expect(screen.getByLabelText("QSOs, multipliers and score").textContent).toBe("—/— —");
+  expect(screen.getByLabelText("QSOs and multipliers").textContent).toBe("QSO / mults—/—");
+  expect(screen.getByLabelText("Score").textContent).toBe("Score—");
   expect(Array.from(document.querySelectorAll(".contest-surface-main-fields > *")).map(field=>field.querySelector("label")?.firstChild?.textContent??field.firstChild?.textContent))
     .toEqual(["Callsign","SNT","RCV","Power","sn prec ck sec"]);
   expect(screen.getByLabelText("Received exchange 1")).toHaveProperty("value","100");
@@ -1104,7 +1139,7 @@ it("uses the configured CW speed step for buttons and PgUp/PgDown with station b
   await waitFor(()=>expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&args.action==="entry_set_cw_speed"&&args.params.value===93)).toBe(true));
 });
 
-it("keeps optional unconfigured SSB voice controls and setup guidance out of Main Logging",async()=>{
+it("keeps SSB macros visible while optional unconfigured voice controls and setup guidance stay out of Main Logging",async()=>{
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode:"SSB",sentReport:"59",receivedReport:"59"},
     descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
     operator:{output:"xlog-native",outputAvailable:false,outputUnavailableReason:"Recorded phone output is unavailable until a Voice WAV profile folder is saved in Contest Setup.",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
@@ -1115,7 +1150,11 @@ it("keeps optional unconfigured SSB voice controls and setup guidance out of Mai
   await screen.findByRole("region",{name:"Main Logging"});
   expect(screen.getByRole("radio",{name:"Run"})).toBeTruthy();
   expect(screen.queryByRole("group",{name:"CW speed"})).toBeNull();
-  expect(screen.queryByRole("group",{name:"Function key macros"})).toBeNull();
+  const macros=screen.getByRole("group",{name:"Function key macros"});
+  expect(macros.querySelectorAll("button")).toHaveLength(12);
+  expect((screen.getByRole("button",{name:"F1 CQ"}) as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole("button",{name:"F2 Exchange"}) as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole("button",{name:"F12 Unassigned"}) as HTMLButtonElement).disabled).toBe(true);
   expect(screen.queryByRole("button",{name:"Arm recorded phone"})).toBeNull();
   expect(screen.queryByText(/recorded phone/i)).toBeNull();
   expect(screen.queryByText(/Voice WAV profile folder/i)).toBeNull();

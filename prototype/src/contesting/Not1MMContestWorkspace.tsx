@@ -19,6 +19,8 @@ import { openContestCallHistoryWindow, openContestSurfaceWindow } from "./contes
 import { openContestSetupService } from "./contestSetupServices";
 import { openContestSetupDialog, useContestSetupDialogs, type ContestDigitalSave, type ContestDigitalSnapshot } from "./contestSetupDialogs";
 import { defaultContestKeyBindings, encodeContestKeyBindings, readContestKeyBindings, validateContestKeyBindings } from "./contestKeyBindings";
+import { contestModeForFrequency, decodeContestBandPlan, encodeContestBandPlan, explicitContestMode,
+  type ContestBandMode } from "./contestBandPlan";
 import { setContestCWSpeed } from "./contestStationControl";
 import { configureContestGroupChat, openContestGroupChatWindow, publishContestGroupContact,
   readContestGroupNetwork, takeContestGroupUnverifiedAcknowledgements,
@@ -232,6 +234,11 @@ const contestSurfaceModes = (values: readonly unknown[], fallback: unknown): Con
   const fallbackMode = canonicalContestSurfaceMode(fallback);
   return [...new Set(modes.length ? modes : fallbackMode ? [fallbackMode] : ["CW"] as ContestSurfaceMode[])];
 };
+const contestBandMode = (value: unknown): ContestBandMode => {
+  const mode = canonicalContestSurfaceMode(value);
+  return mode === "CW" ? "cw" : mode === "RTTY" ? "data" : "phone";
+};
+const contestBandModeLabel = (mode: ContestBandMode) => mode === "cw" ? "CW" : mode === "data" ? "RTTY" : "SSB";
 const errorMessage = (cause: unknown) => cause instanceof Error ? cause.message :
   typeof cause === "string" && cause.trim() ? cause : "Contest operation failed.";
 const contestFrequency = (value: unknown, supportedBands: readonly string[], bandDefinitions: readonly ContestBandDefinition[]): number | null => {
@@ -426,7 +433,7 @@ function not1mmLogRows(rows: Data[], columns: string[], fields: Field[], pluginI
       }
       return null;
     });
-    return { qsoID:String(row.ID ?? ""), values, inlineEdits };
+    return { qsoID:String(row.ID ?? ""), values, isDupe:row.is_dupe === 1 || row.is_dupe === true, inlineEdits };
   });
 }
 
@@ -710,13 +717,23 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const timer=window.setInterval(refresh,5_000);return()=>{current=false;window.clearInterval(timer);};
   },[projection?.sessionID,setupOnly,contestingTest,request]);
   const sharedSpots=useMemo(()=>contestSurfaceSpots(spots),[spots]);
-  const [spotPointPreview,setSpotPointPreview]=useState<{scope:string;rows:Map<string,{points:number|null;dupe:boolean|null;multiplierCount:number|null;countryMultiplier:boolean|null;zoneMultiplier:boolean|null}>}>({scope:"",rows:new Map()});
-  const spotPointScope=projection?`${projection.sessionID}/${projection.workspaceGeneration}/${projection.revision}`:"";
+  const contestBandPlan=useMemo(()=>decodeContestBandPlan(setup.preferences.contestBandSegments,configuredBands),
+    [setup.preferences.contestBandSegments,configuredBands]);
+  const allowedModeGroups=useMemo(()=>[...new Set(contestSurfaceModes(projection?.supportedModes??[],projection?.mode)
+    .map(contestBandMode))],[projection?.supportedModes,projection?.mode]);
+  const classifiedSharedSpots=useMemo(()=>sharedSpots.map(spot=>{
+    const entry=contestBandPlan.find(item=>item.band===spot.band),frequency=Number(spot.frequencyKHz);
+    const group=explicitContestMode(spot.comment)??(entry&&Number.isFinite(frequency)
+      ?contestModeForFrequency(entry,frequency):contestBandMode(spot.mode));
+    return {...spot,mode:contestBandModeLabel(group)};
+  }),[contestBandPlan,sharedSpots]);
+  const [spotPointPreview,setSpotPointPreview]=useState<{identity:string;revision:number;rows:Map<string,{points:number|null;dupe:boolean|null;multiplierCount:number|null;countryMultiplier:boolean|null;zoneMultiplier:boolean|null}>}>({identity:"",revision:0,rows:new Map()});
+  const spotPointIdentity=projection?`${projection.sessionID}/${projection.workspaceGeneration}`:"";
   useEffect(()=>{
-    if(!projection||!sharedSpots.length){setSpotPointPreview({scope:spotPointScope,rows:new Map()});return;}
+    if(!projection||!classifiedSharedSpots.length){setSpotPointPreview({identity:spotPointIdentity,revision:projection?.revision??0,rows:new Map()});return;}
     const supported=new Set(contestSurfaceModes(projection.supportedModes??[],projection.mode));
-    const supportedBands=new Set(activeSupportedBands.map(band=>band.trim().toLowerCase()));
-    const candidates=sharedSpots.flatMap(spot=>{
+    const supportedBands=new Set(configuredBands.map(band=>band.trim().toLowerCase()));
+    const candidates=classifiedSharedSpots.flatMap(spot=>{
       const mode=canonicalContestSurfaceMode(spot.mode),frequencyHz=Math.round(spot.frequencyKHz*1_000);
       return mode&&supported.has(mode)&&supportedBands.has(spot.band.trim().toLowerCase())&&Number.isSafeInteger(frequencyHz)
         ?[{spotID:spot.id,callsign:spot.callsign,frequencyHz,mode}]:[];
@@ -730,25 +747,25 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         for(const item of value.spots)rows.set(item.spotID,{points:item.points,dupe:item.dupe,multiplierCount:item.multiplierCount,
           countryMultiplier:item.countryMultiplier,zoneMultiplier:item.zoneMultiplier});
       }
-      if(current)setSpotPointPreview({scope:spotPointScope,rows});
-    })().catch(()=>{if(current)setSpotPointPreview({scope:spotPointScope,rows:new Map()});});return()=>{current=false;};
+      if(current)setSpotPointPreview({identity:spotPointIdentity,revision:projection.revision,rows});
+    })().catch(()=>{if(current)setSpotPointPreview(previous=>previous.identity===spotPointIdentity?previous:{identity:spotPointIdentity,revision:projection.revision,rows:new Map()});});return()=>{current=false;};
   },[projection?.sessionID,projection?.workspaceGeneration,projection?.revision,projection?.supportedModes,projection?.mode,
-    activeSupportedBands,request,sharedSpots,spotPointScope]);
+    configuredBands,request,classifiedSharedSpots,spotPointIdentity]);
   const spotWorkflowScope=useMemo<SpotWorkflowScope>(()=>({operatingContext,workspaceGeneration,
     sessionID:projection?.sessionID??""}),[operatingContext,workspaceGeneration,projection?.sessionID]);
-  const authoritativeSpotIDs=useMemo(()=>new Set(sharedSpots.map(spot=>spot.id)),[sharedSpots]);
+  const authoritativeSpotIDs=useMemo(()=>new Set(classifiedSharedSpots.map(spot=>spot.id)),[classifiedSharedSpots]);
   const effectiveSpotWorkflow=useMemo(()=>sameSpotWorkflowScope(spotWorkflow,spotWorkflowScope)
     ?compactContestSpotWorkflow(spotWorkflow,authoritativeSpotIDs):emptySpotWorkflow(spotWorkflowScope),
     [spotWorkflow,spotWorkflowScope,authoritativeSpotIDs]);
-  const allWorkflowSpots=useMemo(()=>projectContestSpotWorkflow(sharedSpots,effectiveSpotWorkflow,false),[sharedSpots,effectiveSpotWorkflow]);
+  const allWorkflowSpots=useMemo(()=>projectContestSpotWorkflow(classifiedSharedSpots,effectiveSpotWorkflow,false),[classifiedSharedSpots,effectiveSpotWorkflow]);
   const visibleWorkflowSpots=useMemo(()=>{
-    const projected=projectContestSpotWorkflow(sharedSpots,effectiveSpotWorkflow);
+    const projected=projectContestSpotWorkflow(classifiedSharedSpots,effectiveSpotWorkflow);
     if(!projection)return projected;
     const supported=new Set(contestSurfaceModes(projection.supportedModes??[],projection.mode));
-    const supportedBands=new Set(activeSupportedBands.map(band=>band.trim().toLowerCase()));
+    const supportedBands=new Set(configuredBands.map(band=>band.trim().toLowerCase()));
     return projected.filter(spot=>{const mode=canonicalContestSurfaceMode(spot.mode);
       return mode!==null&&supported.has(mode)&&supportedBands.has(spot.band.trim().toLowerCase());});
-  },[sharedSpots,effectiveSpotWorkflow,projection?.supportedModes,projection?.mode,projection?.sessionID,activeSupportedBands]);
+  },[classifiedSharedSpots,effectiveSpotWorkflow,projection?.supportedModes,projection?.mode,projection?.sessionID,configuredBands]);
   const spotSelectionContext = `${operatingContext}/${workspaceGeneration}/${projection?.sessionID ?? "no-session"}`;
   const spotIDSignature = visibleWorkflowSpots.map(spot=>spot.id).join("\u001f");
   useEffect(() => {
@@ -1848,7 +1865,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const sourcePluginColumns = configuredPluginColumns.length ? configuredPluginColumns
       : projection.pluginID === "cq_ww_ssb" ? cqWwSsbLogColumns : [];
     const pluginColumns = contestLogColumnLabels(sourcePluginColumns, projection.pluginID);
-    if (logRead) unavailable.logbook = {
+    unavailable.logbook = {
       schemaVersion: 1, status: "ready", sessionRevision: projection.revision,
       canExportCabrillo: projection.exportFormats?.includes("cabrillo")??true,
       canExportAdif: projection.exportFormats?.includes("adif")??true,
@@ -1876,7 +1893,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         frequencyError: editedFrequencyHz === null ? "Enter a frequency on a band supported by this contest." : "",
         correctionReason, confirmDelete, deletionReason,
       } : null,
-      busy: busy || retiring,
+      busy: busy || retiring || !logRead,
     };
     unavailable["callsign-intelligence"] = {
       schemaVersion: 1, status: "ready", draftID: projection.draftID, draftRevision: projection.revision,
@@ -1910,7 +1927,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     for(const panelID of ["band-maps","dx-cluster"] as const) unavailable[panelID]={schemaVersion:2,status:"ready",
       draftID:projection.draftID,draftRevision:projection.revision,radioFrequencyHz:radioFrequencyHz??null,
       connectedClusters,loadedSpots,selectedSpotID,configuredClusters,connections,
-      markedOnly:effectiveSpotWorkflow.markedOnly,spots:visibleWorkflowSpots.map(spot=>{const preview=spotPointPreview.scope===spotPointScope?spotPointPreview.rows.get(spot.id):undefined;return{...spot,
+      contestSessionID:projection.sessionID,supportedBands:configuredBands,allowedModeGroups,
+      bandSegments:encodeContestBandPlan(contestBandPlan),
+      markedOnly:effectiveSpotWorkflow.markedOnly,spots:visibleWorkflowSpots.map(spot=>{const preview=spotPointPreview.identity===spotPointIdentity?spotPointPreview.rows.get(spot.id):undefined;return{...spot,
         mode:canonicalContestSurfaceMode(spot.mode)??spot.mode,contestPoints:preview?.points??null,
         contestDupe:preview?.dupe??null,contestMultiplierCount:preview?.multiplierCount??null,
         contestCountryMultiplier:preview?.countryMultiplier??null,contestZoneMultiplier:preview?.zoneMultiplier??null};}),busy:busy||retiring};
@@ -1976,7 +1995,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     phoneSimulationPending, phoneReleaseUncertain, phoneSimulationTrace, rates, matrices, statistics, partial, partialQuery, historyCandidate, spots, cluster, configuredBands,
     bandDefinitions, bandLabels, digitalSnapshot,rtcStatus,rtcCredentialSaved,
     setup.settings.SentExchange, setup.preferences.keyBindings, autoCQDeadlineMs, autoCQNowMs, autoCQDelaySeconds, selectedRadioFrequencyHz,
-    sharedSpots,visibleWorkflowSpots,effectiveSpotWorkflow.markedOnly,spotPointPreview,spotPointScope,selectedSpotId,configuredClient,authorityClientReady,authorityDupe,
+    sharedSpots,visibleWorkflowSpots,effectiveSpotWorkflow.markedOnly,spotPointPreview,spotPointIdentity,selectedSpotId,configuredClient,authorityClientReady,authorityDupe,
     auxiliaryReads.log,auxiliaryReads.score,auxiliaryReads.rates,error,catalogLoadError,notice]);
 
   const surfaceContext = detachedAvailable && projection ? {

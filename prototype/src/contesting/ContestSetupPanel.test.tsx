@@ -3,6 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ContestSetupPanel, contestSetupTabs, loadContestAudioInputs, loadContestAudioOutputs, newContestSetup, restoredESMPreferences, type ContestSetupDocument, type ContestSetupSession } from "./ContestSetupPanel";
 import { readContestKeyBindings } from "./contestKeyBindings";
+import { decodeContestBandPlan } from "./contestBandPlan";
 afterEach(() => { cleanup(); vi.useRealTimers(); document.documentElement.style.removeProperty("zoom"); });
 function props() {
   return { value: newContestSetup("OM0RX"), sessions: [{ sessionID: "session", name: "October CQ WW", pluginID: "cq_ww_cw", revision: 1, workspaceGeneration: "generation", startUTC: "2026-10-24 00:00:00" }],
@@ -205,6 +206,45 @@ it("uses the selected plugin's complete advertised band choices", () => {
   render(<ContestSetupPanel {...p}/>); open("Configuration Settings"); fireEvent.click(screen.getByRole("tab", { name: "Bands" }));
   for (const band of supportedBands) expect(screen.getByLabelText(band)).toBeTruthy();
   expect(screen.queryByLabelText("20m")).toBeNull();
+});
+it("edits and saves per-contest CW, Data and SSB band-map limits", async () => {
+  const p = props();
+  (p.catalog[0] as typeof p.catalog[0] & { supportedBands: string[] }).supportedBands = ["40m", "20m"];
+  render(<ContestSetupPanel {...p}/>); open("Configuration Settings"); fireEvent.click(screen.getByRole("tab", { name: "Bands" }));
+  expect(screen.getByRole("table", { name: /contest band-map segments/i })).toBeTruthy();
+  expect(screen.getByLabelText("40m CW from")).toHaveProperty("value", "7000");
+  expect(screen.getByLabelText("40m SSB from")).toHaveProperty("value", "7100");
+  fireEvent.change(screen.getByLabelText("40m CW to"), { target: { value: "7100" } });
+  fireEvent.blur(screen.getByLabelText("40m CW to"));
+  open("Save"); await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
+  const saved = decodeContestBandPlan(p.onSave.mock.calls[0][0].preferences.contestBandSegments, ["40m", "20m"]);
+  expect(saved.find(entry => entry.band === "40m")?.cw).toEqual({ low: 7000, high: 7100 });
+});
+it("allows partial band-edge typing and restores invalid values instead of clamping each keystroke", () => {
+  const p = props();
+  (p.catalog[0] as typeof p.catalog[0] & { supportedBands: string[] }).supportedBands = ["40m"];
+  render(<ContestSetupPanel {...p}/>); open("Configuration Settings"); fireEvent.click(screen.getByRole("tab", { name: "Bands" }));
+  const edge = screen.getByLabelText("40m CW to") as HTMLInputElement;
+  fireEvent.change(edge, { target: { value: "" } });
+  expect(edge.value).toBe("");
+  fireEvent.blur(edge);
+  expect(edge.value).toBe("7040");
+  fireEvent.change(edge, { target: { value: "9000" } });
+  fireEvent.blur(edge);
+  expect(edge.value).toBe("7040");
+  fireEvent.change(edge, { target: { value: "7095" } });
+  fireEvent.blur(edge);
+  expect(edge.value).toBe("7095");
+});
+it("canonicalizes legacy band-map rows to exactly the selected contest's supported bands on save", async () => {
+  const p = props();
+  (p.catalog[0] as typeof p.catalog[0] & { supportedBands: string[] }).supportedBands = ["40m", "20m"];
+  p.value.preferences.contestBandSegments = ["not-json"];
+  render(<ContestSetupPanel {...p}/>); open("Configuration Settings"); fireEvent.click(screen.getByRole("tab", { name: "Bands" }));
+  open("Save"); await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
+  const encoded = p.onSave.mock.calls[0][0].preferences.contestBandSegments;
+  expect(decodeContestBandPlan(encoded, ["40m", "20m"]).map(entry => entry.band)).toEqual(["40m", "20m"]);
+  expect(encoded).toHaveLength(2);
 });
 it("shows the bounded Renfield capabilities and pinned multicast default", () => {
   const p = props(); render(<ContestSetupPanel {...p}/>); open("Configuration Settings");

@@ -174,6 +174,17 @@ CQ_WW_SSB_LOG_COLUMNS = (
 )
 
 
+def cq_ww_duplicate_projection(plugin_id):
+    if plugin_id not in CQ_WW_STATION_ZONE_PLUGINS:
+        return ""
+    return (
+        ",CASE WHEN trim(d.Call)<>'' AND EXISTS(SELECT 1 FROM DXLOG AS prior "
+        "WHERE prior.ContestNR=d.ContestNR AND upper(trim(prior.Call))=upper(trim(d.Call)) "
+        "AND prior.Band=d.Band AND (prior.TS<d.TS OR (prior.TS=d.TS AND prior.rowid<d.rowid))) "
+        "THEN 1 ELSE 0 END AS is_dupe "
+    )
+
+
 def apply_canonical_cq_ww_station_zone(plugin_id, station, settings):
     """CQ WW CW/SSB always send the station identity's canonical CQ zone."""
     if plugin_id not in CQ_WW_STATION_ZONE_PLUGINS:
@@ -1371,6 +1382,7 @@ class Host:
                 expected = params.get("expectedRevision")
                 require(expected is None or type(expected) is int and expected == state["revision"],
                         "Contest changed before partial log lookup", "stale_revision")
+                duplicate_projection = cq_ww_duplicate_projection(state["pluginID"])
                 patterns = [f"%{query}%", *(f"{query[:index]}_{query[index + 1:]}%" for index in range(len(query)))]
                 predicate = "(" + " OR ".join("d.Call LIKE ?" for _ in patterns) + ")"
                 match = (*patterns, store.current_contest)
@@ -1379,7 +1391,7 @@ class Host:
                 )["n"]
                 rows = store.exec_sql_mult(
                     "SELECT d.*,i.raw_fields,coalesce((SELECT max(a.revision) "
-                    "FROM xlog_qso_audit AS a WHERE a.qso_id=d.ID),0) AS change_revision "
+                    "FROM xlog_qso_audit AS a WHERE a.qso_id=d.ID),0) AS change_revision" + duplicate_projection + " " +
                     "FROM DXLOG AS d "
                     "LEFT JOIN xlog_qso_identity AS i ON i.id=d.ID "
                     f"WHERE {predicate} AND d.ContestNR=? "
@@ -1567,9 +1579,10 @@ class Host:
             require(type(offset) is int and offset >= 0 and type(limit) is int and 1 <= limit <= 100, "Invalid page")
             expected = params.get("expectedRevision")
             require(expected is None or expected == state["revision"], "Contest changed before the next log page", "stale_revision")
+            duplicate_projection = cq_ww_duplicate_projection(state["pluginID"])
             rows = store.exec_sql_mult(
                 "SELECT d.*,i.raw_fields,coalesce((SELECT max(a.revision) "
-                "FROM xlog_qso_audit AS a WHERE a.qso_id=d.ID),0) AS change_revision "
+                "FROM xlog_qso_audit AS a WHERE a.qso_id=d.ID),0) AS change_revision" + duplicate_projection + " " +
                 "FROM DXLOG AS d "
                 "LEFT JOIN xlog_qso_identity AS i ON i.id=d.ID "
                 "ORDER BY d.TS DESC,d.rowid DESC LIMIT ? OFFSET ?",

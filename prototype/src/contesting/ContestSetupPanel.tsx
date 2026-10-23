@@ -3,6 +3,8 @@ import { contestKeyBindingActions, contestKeyBindingContexts, contestKeyBindingD
   encodeContestKeyBindings, readContestKeyBindings, validateContestKeyBindings, type ContestKeyBinding } from "./contestKeyBindings";
 import { ContestVoiceRecorder, inspectContestVoiceProfile, pickContestVoiceProfile, previewContestVoiceSlot, saveContestVoiceSlot,
   type ContestVoiceProfileSlot } from "./contestVoiceProfile";
+import { decodeContestBandPlan, defaultContestBandPlan, encodeContestBandPlan, type ContestBandMode } from "./contestBandPlan";
+import { BAND_RANGES } from "../live/band";
 import "./ContestSetupPanel.css";
 
 export type ContestSetupMacro = { mode: "R" | "S"; key: string; label: string; template: string };
@@ -58,6 +60,7 @@ export function newContestSetup(stationCall = ""): ContestSetupDocument {
     preferences: { cwSpeed: 25, cwSpeedStep: 1, cwRSTFormat: "5NN", cwSerialPaddingCharacter: "T", cwSerialPaddingLength: 3,
       cwSerialOne: "1", cwSerialNine: "9", cwSerialZero: "0", rtcEnabled: false, rtcURL: "https://hamscore.com/postxml/", rtcUsername: "", rtcIntervalMinutes: 2,
       bands: ["160m", "80m", "40m", "20m", "15m", "10m"], useESM: false, sendCorrectedCall: false,
+      contestBandSegments: encodeContestBandPlan(defaultContestBandPlan(["160m", "80m", "40m", "20m", "15m", "10m"])),
       esmCQ: "DISABLED", esmExchange: "DISABLED", esmQRZ: "DISABLED", esmAGN: "DISABLED", esmHisCall: "DISABLED", esmMyCall: "DISABLED", esmQsoB4: "DISABLED", autoCQ: false, autoCQDelay: 15,
       spaceTabs: true, prefillExchange: true, callHistory: true, clearOnVFOChange: false, scp: true, showQRZDetails: false, darkMode: true,
       keyESM: "Enter", keyLog: "Ctrl+Enter", keyStop: "Escape", keyWipe: "Alt+W", keyRun: "Alt+R", keySearch: "Alt+S" }, network: { stationName: "", groupHost: "", groupPort: 12060,
@@ -100,6 +103,27 @@ function setupDraft(value: ContestSetupDocument): ContestSetupDocument {
 
 function currentUTCStart(): string {
   return new Date().toISOString().slice(0, 19).replace("T", " ");
+}
+
+function ContestBandSegmentInput({ label, value, minimum, maximum, onCommit }: {
+  label: string; value: number; minimum: number; maximum: number; onCommit: (value: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => setDraft(String(value)), [value]);
+  const commit = () => {
+    const next = Number(draft);
+    if (!Number.isFinite(next) || next < minimum || next > maximum) {
+      setDraft(String(value));
+      return;
+    }
+    onCommit(next);
+  };
+  return <input type="number" step="0.1" min={minimum} max={maximum} aria-label={label} value={draft}
+    onChange={event => setDraft(event.target.value)} onBlur={commit}
+    onKeyDown={event => {
+      if (event.key === "Enter") { event.preventDefault(); commit(); }
+      else if (event.key === "Escape") { event.preventDefault(); setDraft(String(value)); event.currentTarget.blur(); }
+    }}/>
 }
 
 /** Controlled, service-agnostic editor: the owner supplies revisioned durable saves. */
@@ -238,6 +262,11 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
       if (!["0", "O", "T"].includes(String(document.preferences.cwSerialPaddingCharacter))) throw new Error("Choose a supported CW serial padding character.");
       if (!["1", "A"].includes(String(document.preferences.cwSerialOne)) || !["9", "N"].includes(String(document.preferences.cwSerialNine)) ||
           !["0", "O", "T"].includes(String(document.preferences.cwSerialZero))) throw new Error("Choose supported CW serial substitutions.");
+      const documentPlugin = catalog.find(item => item.id === document.pluginID);
+      const documentBands = (documentPlugin?.supportedBands?.length ? documentPlugin.supportedBands : supportedBandChoices)
+        .filter(band => band in BAND_RANGES);
+      document.preferences.contestBandSegments = encodeContestBandPlan(
+        decodeContestBandPlan(document.preferences.contestBandSegments, documentBands));
       if (view === "Edit Keys") document.preferences.keyBindings = encodeContestKeyBindings(
         validateContestKeyBindings(encodeContestKeyBindings(bindingValue)));
       if (view === "Choose a Contest") {
@@ -261,6 +290,19 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
   const selectedPlugin = catalog.find(plugin => plugin.id === draft.pluginID);
   const supportedBandChoices = selectedPlugin?.supportedBands?.length ? selectedPlugin.supportedBands
     : ["160m", "80m", "40m", "20m", "15m", "10m", "6m", "2m", "1.25m", "70cm", "33cm", "23cm"];
+  const editableBandChoices = supportedBandChoices.filter(band => band in BAND_RANGES);
+  const contestBandPlan = decodeContestBandPlan(draft.preferences.contestBandSegments, editableBandChoices);
+  const updateBandSegment = (band: string, mode: ContestBandMode, edge: "low" | "high", value: number) => {
+    const full = BAND_RANGES[band];
+    if (!Number.isFinite(value) || !full) return;
+    const next = contestBandPlan.map(entry => {
+      if (entry.band !== band) return entry;
+      const bounded = Math.max(full.low, Math.min(full.high, value)), range = { ...entry[mode], [edge]: bounded };
+      if (range.low > range.high) range[edge === "low" ? "high" : "low"] = bounded;
+      return { ...entry, [mode]: range };
+    });
+    update("preferences", "contestBandSegments", encodeContestBandPlan(next));
+  };
   const modeChoices = setupModeChoices(selectedPlugin);
   const usesCanonicalStationCQZone = cqWWStationZonePlugins.has(draft.pluginID);
   const overlayChoices = selectedPlugin?.overlayChoices?.length ? selectedPlugin.overlayChoices : ["N/A", "CLASSIC", "ROOKIE", "TB-WIRES", "YOUTH"];
@@ -294,7 +336,8 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
           settings: { ...current.settings, SentExchange: "", ModeCategory: mode, BandCategory: band,
             AssistedCategory: event.target.value === "cq_ww_ssb" ? "ASSISTED" : current.settings.AssistedCategory,
             OverlayCategory: plugin?.overlayChoices?.[0] ?? "N/A" },
-          preferences: bands.length ? { ...current.preferences, bands: [...bands] } : current.preferences };
+          preferences: bands.length ? { ...current.preferences, bands: [...bands],
+            contestBandSegments: encodeContestBandPlan(defaultContestBandPlan(bands)) } : current.preferences };
       }); }}>{catalog.map(plugin => <option key={plugin.id} value={plugin.id}>{plugin.name}</option>)}</select></label>
     {<label><span>Start UTC</span><input type="datetime-local" step="1" value={String(draft.settings.StartDate ?? "").replace(" ", "T")} onChange={event => update("settings", "StartDate", (event.target.value.length === 16 ? event.target.value + ":00" : event.target.value).replace("T", " "))}/></label>}
     <hr/>
@@ -379,7 +422,17 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
         {(["Radio", "Contact", "Lookup", "Score"] as const).map(kind => <div key={kind} className="contest-packet-row">{check("network", "n1mm" + kind, kind)}{field("network", "n1mm" + kind + "Destinations", kind + " destinations")}</div>)}
         <p>Enter each destination as <code>IP:port</code>. Separate multiple destinations with spaces.</p>
       </div>; break;
-      case "Bands": content = <div className="contest-manual-bands">{[supportedBandChoices.slice(0, Math.ceil(supportedBandChoices.length / 2)), supportedBandChoices.slice(Math.ceil(supportedBandChoices.length / 2))].map((bands, column) => <div key={column}>{bands.map(band => <label key={band} className="contest-setup-check"><input type="checkbox" checked={Array.isArray(draft.preferences.bands) && draft.preferences.bands.includes(band)} onChange={event => { const current = Array.isArray(draft.preferences.bands) ? draft.preferences.bands : []; update("preferences", "bands", event.target.checked ? [...current, band] : current.filter(item => item !== band)); }}/><span>{band}</span></label>)}</div>)}</div>; break;
+      case "Bands": content = <div className="contest-band-settings">
+        <div className="contest-manual-bands" role="group" aria-label="Contest bands">{[supportedBandChoices.slice(0, Math.ceil(supportedBandChoices.length / 2)), supportedBandChoices.slice(Math.ceil(supportedBandChoices.length / 2))].map((bands, column) => <div key={column}>{bands.map(band => <label key={band} className="contest-setup-check"><input type="checkbox" checked={Array.isArray(draft.preferences.bands) && draft.preferences.bands.includes(band)} onChange={event => { const current = Array.isArray(draft.preferences.bands) ? draft.preferences.bands : []; update("preferences", "bands", event.target.checked ? [...current, band] : current.filter(item => item !== band)); }}/><span>{band}</span></label>)}</div>)}</div>
+        <section aria-labelledby={id+"-band-plan-title"}><h3 id={id+"-band-plan-title"}>Contest band-map segments (kHz)</h3>
+          <p>These limits apply only to contest Band Maps. Mode visibility uses them to show only the selected CW, Data, or SSB portion.</p>
+          <div className="contest-band-plan-scroll"><table className="contest-band-plan" aria-label="Contest band-map segments"><thead><tr><th rowSpan={2}>Band</th><th colSpan={2}>CW</th><th colSpan={2}>Data</th><th colSpan={2}>SSB / Phone</th></tr><tr>{["From","To","From","To","From","To"].map((label,index)=><th key={index}>{label}</th>)}</tr></thead>
+            <tbody>{contestBandPlan.map(entry=><tr key={entry.band}><th scope="row">{entry.band}</th>{(["cw","data","phone"] as const).flatMap(mode=>(["low","high"] as const).map(edge=><td key={`${mode}-${edge}`}><ContestBandSegmentInput
+              label={`${entry.band} ${mode === "phone" ? "SSB" : mode.toUpperCase()} ${edge === "low" ? "from" : "to"}`}
+              value={entry[mode][edge]} minimum={BAND_RANGES[entry.band].low} maximum={BAND_RANGES[entry.band].high}
+              onCommit={value=>updateBandSegment(entry.band,mode,edge,value)}/></td>))}</tr>)}</tbody></table></div>
+        </section>
+      </div>; break;
       case "Options": content = <div className="contest-options-columns">
         <div className="contest-manual-stack">{check("preferences", "useESM", "Enable ESM")}{[["esmCQ", "CQ", "F1"], ["esmHisCall", "His Call", "F2"], ["esmExchange", "Exchange", "F3"], ["esmAGN", "AGN", "F9"], ["esmMyCall", "My Call", "F5"], ["esmQRZ", "QRZ", "F4"], ["esmQsoB4", "QSO B4", "DISABLED"]].map(([key, label, fallback]) => <label key={key}><span>{label}</span><select value={String(draft.preferences[key] ?? fallback)} onChange={event => update("preferences", key, event.target.value)}>{["DISABLED", ...Array.from({ length: 12 }, (_, i) => "F" + (i + 1))].map(keyName => <option key={keyName}>{keyName}</option>)}</select></label>)}</div>
         <div className="contest-manual-stack">

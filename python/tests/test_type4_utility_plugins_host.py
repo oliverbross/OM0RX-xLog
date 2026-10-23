@@ -187,6 +187,7 @@ class Type4UtilityPluginTests(unittest.TestCase):
             self.assertNotIn(qso_id, {row["ID"] for row in self.read(host, session, "log")["rows"]})
             partial = self.read(host, session, "check_partial", query="K1ABC")["rows"][0]
             self.assertEqual(partial["ID"], qso_id)
+            self.assertNotIn("is_dupe", partial)
             self.assertEqual(partial["raw_fields"], {
                 "callsign": "K1ABC", "sent": "599", "receive": "599",
                 "other_1": "Alice", "other_2": "portable",

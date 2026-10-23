@@ -44,6 +44,14 @@ describe("ContestWorkspace responsive contract", () => {
     expect(detachedCSS).toContain(".contest-surface-log-scroll { flex:1; min-width:0; max-width:100%; min-height:0; overflow:hidden;");
   });
 
+  it("reflows a resizable Check Partial window into two and three useful panes", () => {
+    expect(detachedCSS).toContain("@container contest-detached (min-width:480px)");
+    expect(detachedCSS).toContain(".contest-surface-check-columns { grid-template-columns:repeat(2,minmax(0,1fr)); }");
+    expect(detachedCSS).toContain("@container contest-detached (min-width:760px)");
+    expect(detachedCSS).toContain(".contest-surface-check-columns { grid-template-columns:repeat(3,minmax(0,1fr)); }");
+    expect(detachedCSS).toContain(".contest-surface-check-columns > div:nth-child(4) { grid-column:1 / -1; }");
+  });
+
   it("keeps the original contest windows compact while log rows fit and page without scrolling", () => {
     expect(detachedCSS).toContain("> main:has(> :is(.contest-surface-entry,.contest-surface-check,.contest-surface-statistics,.contest-surface-rates,.contest-surface-log)) { overflow:hidden; }");
     expect(detachedCSS).toContain(".contest-surface-check-columns > div { display:flex; flex-direction:column; min-width:0; min-height:0; overflow-x:hidden; overflow-y:auto;");

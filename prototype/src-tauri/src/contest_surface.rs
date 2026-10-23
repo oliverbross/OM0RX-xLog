@@ -1008,7 +1008,7 @@ fn validate_messages_projection(value: &Map<String, Value>) -> Result<(), String
 }
 
 fn validate_spot_projection(value: &Map<String, Value>) -> Result<(), String> {
-    exact(value, &["schemaVersion", "status", "draftID", "draftRevision", "radioFrequencyHz", "connectedClusters", "loadedSpots", "selectedSpotID", "configuredClusters", "connections", "markedOnly", "spots", "busy"], "spot projection")?;
+    exact_optional(value, &["schemaVersion", "status", "draftID", "draftRevision", "radioFrequencyHz", "connectedClusters", "loadedSpots", "selectedSpotID", "configuredClusters", "connections", "markedOnly", "spots", "busy"], &["contestSessionID", "supportedBands", "allowedModeGroups", "bandSegments"], "spot projection")?;
     text_value(&value["draftID"], 160, false, "spot draft ID")?;
     uint_value(&value["draftRevision"], MAX_SAFE_INTEGER, "spot draft revision")?;
     nullable_uint(&value["radioFrequencyHz"], 100_000_000_000, "spot radio frequency")?;
@@ -1029,6 +1029,40 @@ fn validate_spot_projection(value: &Map<String, Value>) -> Result<(), String> {
         text_value(&connection["serverName"], 160, false, "cluster connection name")?;
         text_value(&connection["phase"], 32, false, "cluster connection phase")?;
         nullable_text(&connection["error"], 512, "cluster connection error")?;
+    }
+    if let Some(session_id) = value.get("contestSessionID") {
+        text_value(session_id, 160, false, "contest session ID")?;
+    }
+    if let Some(bands) = value.get("supportedBands") {
+        let values = array(bands, 64, "contest supported bands")?;
+        if values.is_empty() {
+            return Err("Contest supported bands must not be empty".into());
+        }
+        let mut unique = BTreeSet::new();
+        for band in values {
+            let text = text_value(band, 16, false, "contest supported band")?;
+            if !unique.insert(text) {
+                return Err("Contest supported bands must be unique".into());
+            }
+        }
+    }
+    if let Some(modes) = value.get("allowedModeGroups") {
+        let values = array(modes, 3, "contest allowed mode groups")?;
+        if values.is_empty() {
+            return Err("Contest allowed mode groups must not be empty".into());
+        }
+        let mut unique = BTreeSet::new();
+        for mode in values {
+            let text = enum_value(mode, &["cw", "data", "phone"], "contest allowed mode group")?;
+            if !unique.insert(text) {
+                return Err("Contest allowed mode groups must be unique".into());
+            }
+        }
+    }
+    if let Some(segments) = value.get("bandSegments") {
+        for segment in array(segments, 64, "contest band segments")? {
+            text_value(segment, 512, false, "contest band segment")?;
+        }
     }
     boolean(&value["markedOnly"], "marked-only filter")?;
     boolean(&value["busy"], "spot projection busy state")?;
@@ -2568,6 +2602,14 @@ fn exact(object: &Map<String, Value>, keys: &[&str], name: &str) -> Result<(), S
         Err(format!("The {name} has unknown or missing fields."))
     }
 }
+fn exact_optional(object: &Map<String, Value>, required: &[&str], optional: &[&str], name: &str) -> Result<(), String> {
+    if required.iter().all(|key| object.contains_key(*key)) &&
+        object.keys().all(|key| required.contains(&key.as_str()) || optional.contains(&key.as_str())) {
+        Ok(())
+    } else {
+        Err(format!("The {name} has unknown or missing fields."))
+    }
+}
 fn object<'a>(value: &'a Value, name: &str) -> Result<&'a Map<String, Value>, String> {
     value
         .as_object()
@@ -3852,6 +3894,14 @@ mod tests {
             "connections":[{"serverID":"server-1","serverName":"ShackCQ","phase":"connected","error":null}],"markedOnly":false,
             "spots":[spot.clone()],"busy":false});
         for panel in ["band-maps", "dx-cluster"] { assert!(validate_projection(panel, &projection).is_ok()); }
+        let mut band_segments = projection.clone();
+        band_segments["contestSessionID"] = json!("session-1");
+        band_segments["supportedBands"] = json!(["40m"]);
+        band_segments["allowedModeGroups"] = json!(["phone"]);
+        band_segments["bandSegments"] = json!([r#"{"band":"40m","cw":{"low":7000,"high":7100},"data":{"low":7040,"high":7100},"phone":{"low":7100,"high":7300}}"#]);
+        assert!(validate_projection("band-maps", &band_segments).is_ok());
+        band_segments["bandSegments"] = json!([""]);
+        assert!(validate_projection("band-maps", &band_segments).is_err());
         let mut known_points = projection.clone(); known_points["spots"][0]["contestPoints"] = json!(3);
         assert!(validate_projection("band-maps", &known_points).is_ok());
         let mut invalid_points = projection.clone(); invalid_points["spots"][0]["contestPoints"] = json!(-1);

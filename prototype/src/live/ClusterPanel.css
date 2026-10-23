@@ -181,17 +181,6 @@
 .live-cluster.is-contest-terminal .live-cluster-call { color:#dbe5ec; font-weight:700; }
 .live-cluster.is-contest-terminal .live-cluster-age { color:#93a0aa; font-weight:500; }
 .live-cluster.is-contest-terminal .live-cluster-age-strip { box-shadow:none; }
-.live-cluster-contest-table .contest-col-age { width:5%; }
-.live-cluster-contest-table .contest-col-points { width:4%; }
-.live-cluster-contest-table .contest-col-band { width:5%; }
-.live-cluster-contest-table .contest-col-frequency { width:9%; }
-.live-cluster-contest-table .contest-col-call { width:12%; }
-.live-cluster-contest-table .contest-col-mode { width:5%; }
-.live-cluster-contest-table .contest-col-country { width:14%; }
-.live-cluster-contest-table .contest-col-zone { width:4%; }
-.live-cluster-contest-table .contest-col-spotter { width:10%; }
-.live-cluster-contest-table .contest-col-mults { width:5%; }
-.live-cluster-contest-table .contest-col-comment { width:27%; }
 .live-cluster-contest-table td:nth-child(5) { overflow:visible; text-overflow:clip; }
 .live-cluster-contest-table .live-cluster-call { white-space:nowrap; }
 .live-cluster-terminal-status { display:flex; flex:0 0 auto; align-items:center; justify-content:space-between; gap:8px; min-height:29px; padding:2px 6px; border-top:1px solid #27313a; color:#9da8b0; background:#171d22; font:10px ui-monospace,SFMono-Regular,Consolas,monospace; }

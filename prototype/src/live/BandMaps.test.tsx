@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { BAND_RANGES, BandMaps, BandMapsToolbarContext, bandForRadio, opportunityCode, placeSpots, panBandRange, bandMapCapacity, bandMapFrequencyTicks, bandMapLaneGeometry, bandMapSpotWidth, bandMapOverflowHeight, bandMapSpotColor, contestBandMapSpotColor, contestBandMapSpotWorked, deduplicateBandMapSpots, filterRecentBandMapSpots, formatBandMapFrequency } from "./BandMaps";
 import type { BandMapViewPreferences } from "./BandMaps";
+import { defaultContestBandPlan } from "../contesting/contestBandPlan";
 
 const spot = (id: string, frequencyKHz: number, band = "20m", callStatus = "New Call", dxccStatus = "Worked") => ({
   id, callsign: id, frequencyKHz, band, mode: "CW", callStatus, dxccStatus,
@@ -120,6 +121,72 @@ describe("native band-map parity", () => {
     rerender(<BandMaps compact contestPresentation storageNamespace="contest" spots={spots} onSelect={onSelect} radioFrequencyHz={21_025_000} />);
     expect(screen.getByRole("region", { name: "15m band map" })).toBeTruthy();
   });
+  it("applies compact contest mode filters and limits a phone-only map to its saved segment", () => {
+    localStorage.setItem("xlog.integration.bandMaps.contest.modes", JSON.stringify(["phone"]));
+    const plan = defaultContestBandPlan(["40m"]);
+    const spots = [
+      { ...spot("CW40", 7020, "40m"), comment: "CQ" },
+      { ...spot("DATA40", 7060, "40m"), comment: "CQ" },
+      { ...spot("PHONE40", 7120, "40m"), comment: "CQ" },
+      { ...spot("EXPLICITCW", 7150, "40m"), comment: "CW UP 1" },
+    ];
+    render(<BandMaps compact contestPresentation storageNamespace="contest" contestBandPlan={plan}
+      spots={spots} onSelect={vi.fn()} radioFrequencyHz={7_150_000} />);
+    expect(screen.queryByRole("button", { name: /CW40 ·/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /DATA40 ·/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /EXPLICITCW ·/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /PHONE40 ·/ })).toBeTruthy();
+    expect(screen.getByText("7.100–7.300 MHz")).toBeTruthy();
+  });
+  it("uses explicit CQ WW SSB bands and phone mode even when a stale saved mode is disallowed", () => {
+    localStorage.setItem("xlog.integration.bandMaps.contest.session-a.modes", JSON.stringify(["cw"]));
+    const plan = defaultContestBandPlan(["40m"]);
+    const spots = [
+      { ...spot("CW40", 7020, "40m"), comment: "CQ" },
+      { ...spot("PHONE40", 7120, "40m"), comment: "CQ" },
+      { ...spot("EXPLICITCW", 7150, "40m"), comment: "CW UP 1" },
+      { ...spot("PHONE20", 14200, "20m"), mode: "SSB", comment: "CQ" },
+    ];
+    render(<BandMaps compact contestPresentation storageNamespace="contest.session-a" contestBandPlan={plan}
+      contestBands={["40m"]} contestAllowedModes={["phone"]} spots={spots} onSelect={vi.fn()} radioFrequencyHz={7_150_000}/>);
+    expect(Array.from((screen.getByLabelText("Band") as HTMLSelectElement).options).map(option => option.value)).toEqual(["40m"]);
+    expect(screen.queryByRole("button", { name: /CW40 ·/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /EXPLICITCW ·/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /PHONE20 ·/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /PHONE40 ·/ })).toBeTruthy();
+    expect(screen.getByText("7.100–7.300 MHz")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("40m mode visibility settings"));
+    expect(screen.getByRole("checkbox", { name: "SSB / Phone" })).toBeTruthy();
+    expect(screen.queryByRole("checkbox", { name: "CW" })).toBeNull();
+  });
+  it("keeps contest mode preferences isolated by session namespace", () => {
+    localStorage.setItem("xlog.integration.bandMaps.contest.session-a.modes", JSON.stringify(["phone"]));
+    localStorage.setItem("xlog.integration.bandMaps.contest.session-b.modes", JSON.stringify(["cw"]));
+    const plan = defaultContestBandPlan(["40m"]);
+    const spots = [
+      { ...spot("CW40", 7020, "40m"), comment: "CQ" },
+      { ...spot("PHONE40", 7120, "40m"), comment: "CQ" },
+    ];
+    const first = render(<BandMaps compact contestPresentation storageNamespace="contest.session-a" contestBandPlan={plan}
+      contestBands={["40m"]} spots={spots} onSelect={vi.fn()} radioFrequencyHz={7_150_000}/>);
+    expect(screen.getByRole("button", { name: /PHONE40 ·/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /CW40 ·/ })).toBeNull();
+    first.unmount();
+    render(<BandMaps compact contestPresentation storageNamespace="contest.session-b" contestBandPlan={plan}
+      contestBands={["40m"]} spots={spots} onSelect={vi.fn()} radioFrequencyHz={7_020_000}/>);
+    expect(screen.getByRole("button", { name: /CW40 ·/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /PHONE40 ·/ })).toBeNull();
+  });
+  it("falls back to the allowed phone mode when controlled preferences came from a CW contest", () => {
+    const plan = defaultContestBandPlan(["40m"]);
+    const preferences: BandMapViewPreferences = { bands: ["40m"], followRadio: false, layout: "row", fontScale: 1, modes: ["cw"] };
+    render(<BandMaps compact contestPresentation storageNamespace="contest.session-ssb" contestBandPlan={plan}
+      contestBands={["40m"]} contestAllowedModes={["phone"]} preferences={preferences} onPreferencesChange={vi.fn()}
+      spots={[{ ...spot("CW40", 7020, "40m"), comment: "CQ" }, { ...spot("PHONE40", 7120, "40m"), comment: "CQ" }]}
+      onSelect={vi.fn()} radioFrequencyHz={7_150_000}/>);
+    expect(screen.queryByRole("button", { name: /CW40 ·/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /PHONE40 ·/ })).toBeTruthy();
+  });
   it("uses authoritative contest dupes and needed multipliers for N1MM colors",()=>{
     const needed={...spot("needed",14020),callsign:"LONG/CALLSIGN1",callStatus:"New Call",dxccStatus:"New Country",workedBefore:null,
       contestPoints:1,contestDupe:false,contestMultiplierCount:0,contestCountryMultiplier:false,contestZoneMultiplier:false};
@@ -129,24 +196,29 @@ describe("native band-map parity", () => {
       contestCountryMultiplier:false,contestZoneMultiplier:true};
     const double={...needed,id:"double",callsign:"JA1ABC",frequencyKHz:14022,contestPoints:0,contestMultiplierCount:2,
       contestCountryMultiplier:true,contestZoneMultiplier:true};
+    const twoPoint={...needed,id:"two",callsign:"VE1ABC",frequencyKHz:14023,contestPoints:2,contestMultiplierCount:1,
+      contestCountryMultiplier:false,contestZoneMultiplier:true};
     const worked={...needed,id:"worked",callsign:"K1ABC",frequencyKHz:14024,contestPoints:0,contestDupe:true,contestMultiplierCount:0};
     const globalWorked={...needed,id:"global-worked",callsign:"F1ABC",frequencyKHz:14026,workedBefore:1,dxccStatus:"Worked"};
     expect(contestBandMapSpotColor(needed)).toBe("#4da3ff");expect(contestBandMapSpotColor(country)).toBe("#ff5b5b");
     expect(contestBandMapSpotColor(zone)).toBe("#ff5b5b");
-    expect(contestBandMapSpotColor(double)).toBe("#28c76f");expect(contestBandMapSpotColor(worked)).toBe("#8b98a5");
+    expect(contestBandMapSpotColor(double)).toBe(bandMapSpotColor(double));
+    expect(contestBandMapSpotColor(twoPoint)).toBe("#ffb020");expect(contestBandMapSpotColor(worked)).toBe("#8b98a5");
     expect(contestBandMapSpotWorked(worked)).toBe(true);expect(contestBandMapSpotWorked(globalWorked)).toBe(false);
-    const first=render(<BandMaps compact contestPresentation storageNamespace="contest" spots={[needed,country,zone,double,worked,globalWorked]} onSelect={vi.fn()} radioFrequencyHz={14_025_000}/>);
+    const first=render(<BandMaps compact contestPresentation storageNamespace="contest" spots={[needed,country,zone,double,twoPoint,worked,globalWorked]} onSelect={vi.fn()} radioFrequencyHz={14_025_000}/>);
     const full=screen.getByRole("button",{name:/LONG\/CALLSIGN1/});expect(full.textContent).toBe("LONG/CALLSIGN1");
     expect(full.getAttribute("aria-label")).toContain("no needed multiplier · blue");
     expect(screen.getByRole("button",{name:/^VK1ABC /}).getAttribute("aria-label")).toContain("country multiplier · red");
     expect(screen.getByRole("button",{name:/^VK2ABC /}).getAttribute("aria-label")).toContain("CQ zone multiplier · red");
-    expect(screen.getByRole("button",{name:/^JA1ABC /}).getAttribute("aria-label")).toContain("country and CQ zone multipliers · green");
+    expect(screen.getByRole("button",{name:/^JA1ABC /}).getAttribute("aria-label")).toContain("country and CQ zone multipliers · fallback colour");
+    expect(screen.getByRole("button",{name:/^JA1ABC /}).textContent).toContain("C+Z");
+    expect(screen.getByRole("button",{name:/^VE1ABC /}).getAttribute("aria-label")).toContain("2 pt · CQ zone multiplier · amber");
     expect(screen.queryByRole("button",{name:/^K1ABC /})).toBeNull();expect(screen.getByRole("button",{name:/^F1ABC /})).toBeTruthy();
     fireEvent.click(screen.getByRole("checkbox",{name:"Show worked"}));
     expect(screen.getByRole("button",{name:/^K1ABC /})).toBeTruthy();
     expect(localStorage.getItem("xlog.integration.bandMaps.contest.showWorked")).toBe("true");
     first.unmount();
-    render(<BandMaps compact contestPresentation storageNamespace="contest" spots={[needed,country,zone,double,worked,globalWorked]} onSelect={vi.fn()} radioFrequencyHz={14_025_000}/>);
+    render(<BandMaps compact contestPresentation storageNamespace="contest" spots={[needed,country,zone,double,twoPoint,worked,globalWorked]} onSelect={vi.fn()} radioFrequencyHz={14_025_000}/>);
     expect((screen.getByRole("checkbox",{name:"Show worked"}) as HTMLInputElement).checked).toBe(true);
     expect(screen.getByRole("button",{name:/^K1ABC /})).toBeTruthy();
   });

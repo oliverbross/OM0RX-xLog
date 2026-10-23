@@ -36,6 +36,14 @@
 .contest-radio-options { display:flex; justify-content:center; gap:18px; padding:42px 0; }
 .contest-manual-bands,.contest-options-columns { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
 .contest-manual-bands>div { display:flex; flex-direction:column; gap:18px; }
+.contest-band-settings { display:grid; gap:18px; }
+.contest-band-settings h3 { margin:0 0 4px; }
+.contest-band-settings p { margin:0 0 10px; color:var(--secondary,#a6b6ca); }
+.contest-band-plan-scroll { max-width:100%; overflow-x:auto; }
+.contest-band-plan { width:100%; border-collapse:collapse; table-layout:fixed; }
+.contest-band-plan th,.contest-band-plan td { padding:4px; border-bottom:1px solid var(--border,#304b68); text-align:center; }
+.contest-band-plan th:first-child { width:58px; text-align:left; }
+.contest-band-plan input { width:100%; min-width:76px; font-variant-numeric:tabular-nums; }
 .contest-packet-row { display:grid; grid-template-columns:var(--contest-setup-label-width) minmax(0,1fr); gap:8px; }
 .contest-packet-row>label:last-child>span { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 .contest-choose-table,.contest-key-table { border-collapse:collapse; width:100%; text-align:left; }

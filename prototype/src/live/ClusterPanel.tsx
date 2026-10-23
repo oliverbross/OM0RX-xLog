@@ -55,7 +55,7 @@ type History = { call: string; previous_count: number; previous: HistoryRow[]; a
 type Props = { snapshot: unknown; onRequest: Request; onSelect: (spot: LiveClusterSpot) => void;
   passive?: boolean; presentationOnly?: boolean; contestPresentation?: boolean; onUndock?: () => void; onDock?: () => void; passwordControlsEnabled?: boolean; selectedSpotId?: string | null; taskOnly?: boolean;
   settingsOnly?: boolean; preferenceStorageKey?: string; onSpotContextMenu?: (spot: LiveClusterSpot,
-    event: ReactMouseEvent<HTMLElement>|ReactKeyboardEvent<HTMLElement>) => void };
+    event: ReactMouseEvent<HTMLElement>|ReactKeyboardEvent<HTMLElement>) => void; contestBands?: readonly string[] };
 
 const { bands, modes, callStatuses, dxccStatuses } = clusterFilterChoices;
 const formatDate = (value?: number | null) => value == null ? "—" : new Date((value + 978_307_200) * 1000).toLocaleString();
@@ -67,6 +67,28 @@ export const clusterRowTint = (status: string, configured?: Record<string, strin
 const emptyFilter: Filter = defaultClusterFilter();
 export const fullClusterColumnsKey = "xlog.integration.full-cluster-columns.v1";
 const defaultColumns = () => ({ ...defaultWorkspacePreferences(), columns: compactClusterColumns.map(([id]) => id) });
+const contestClusterColumns = [
+  ["age", "For", 55], ["points", "Pts", 48], ["band", "Band", 55], ["frequency", "MHz", 95],
+  ["callsign", "Callsign", 125], ["mode", "Mode", 58], ["country", "Country", 145], ["zone", "CQ", 48],
+  ["spotter", "Spotter", 105], ["mults", "Mults", 58], ["comment", "Comment", 260],
+] as const;
+type ContestClusterColumn = typeof contestClusterColumns[number][0];
+type ContestBandFilter = "all" | "160m" | "80m" | "40m" | "20m" | "15m" | "10m";
+const contestBandFilters: readonly ContestBandFilter[] = ["all", "160m", "80m", "40m", "20m", "15m", "10m"];
+const defaultContestColumnWidths = () => Object.fromEntries(contestClusterColumns.map(([id, , width]) => [id, width])) as Record<ContestClusterColumn, number>;
+function readContestColumnWidths(raw: string | null): Record<ContestClusterColumn, number> {
+  const widths = defaultContestColumnWidths();
+  if (!raw || raw.length > 4096) return widths;
+  try {
+    const value = JSON.parse(raw);
+    if (!value || Array.isArray(value) || value.version !== 1) return widths;
+    for (const [id] of contestClusterColumns) {
+      const width = value.widths?.[id];
+      if (typeof width === "number" && Number.isFinite(width)) widths[id] = boundColumnWidth(width);
+    }
+  } catch { /* Damaged preferences never block the contest cluster. */ }
+  return widths;
+}
 function ColumnWidthInput({ label, width, disabled, onCommit }: { label: string; width: number; disabled: boolean; onCommit: (width: number) => void }) {
   const [draft, setDraft] = useState(String(width));
   useEffect(() => { setDraft(String(width)); }, [width]);
@@ -80,7 +102,7 @@ function ColumnWidthInput({ label, width, disabled, onCommit }: { label: string;
     onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }} />;
 }
 export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, presentationOnly = false, contestPresentation = false, onUndock, onDock, passwordControlsEnabled = true, selectedSpotId, taskOnly = false, settingsOnly = false,
-  preferenceStorageKey = fullClusterColumnsKey, onSpotContextMenu }: Props) {
+  preferenceStorageKey = fullClusterColumnsKey, onSpotContextMenu, contestBands }: Props) {
   const saveToast = useSettingsSaveToast();
   const ageClock = useSpotAgeClock();
   const panelId = useId();
@@ -126,17 +148,30 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
   const [history, setHistory] = useState<History | null>(null);
   const [historySpot, setHistorySpot] = useState<LiveClusterSpot | null>(null);
   const [selectedSpot, setSelectedSpot] = useState<LiveClusterSpot | null>(null);
+  const contestColumnStorageKey = `${preferenceStorageKey}.cqwwColumns`;
+  const [contestColumnWidths, setContestColumnWidths] = useState(() => {
+    try { return readContestColumnWidths(localStorage.getItem(contestColumnStorageKey)); }
+    catch { return defaultContestColumnWidths(); }
+  });
+  const contestColumnDrag = useRef<{ id: ContestClusterColumn; x: number; width: number; scale: number } | null>(null);
+  const contestTotalColumnWidth = contestClusterColumns.reduce((sum, [id]) => sum + contestColumnWidths[id], 0);
+  const resizeContestColumn = (id: ContestClusterColumn, width: number) => {
+    if (Number.isFinite(width)) setContestColumnWidths(current => ({ ...current, [id]: boundColumnWidth(width) }));
+  };
   const showWorkedStorageKey = `${preferenceStorageKey}.showWorked`;
   const [showWorked, setShowWorked] = useState(() => {
     if (!contestPresentation) return true;
     try { return localStorage.getItem(showWorkedStorageKey) === "true"; } catch { return false; }
   });
   const [contestOpportunities,setContestOpportunities]=useState<"all"|"mults">("all");
+  const [contestBand, setContestBand] = useState<ContestBandFilter>("all");
+  const contestBandOptions=contestBandFilters.filter(band=>band==="all"||!contestBands?.length||contestBands.includes(band));
   const [, setForwarding] = useState<Forwarding | null>(null);
   const [snapshotTruncated, setSnapshotTruncated] = useState(false);
   const tableArea = useRef<HTMLDivElement>(null);
   const [spotPage, setSpotPage] = useState(0);
-  const contestNeededSpots=(live?.spots??[]).filter(spot=>!contestBandMapSpotWorked(spot));
+  const contestBandSpots=(live?.spots??[]).filter(spot=>contestBand==="all"||spot.band===contestBand);
+  const contestNeededSpots=contestBandSpots.filter(spot=>!contestBandMapSpotWorked(spot));
   const contestSummary=contestNeededSpots.reduce((summary,spot)=>{
     const multiplierCount=contestNeededMultiplierCount(spot);
     if(multiplierCount===0)summary.qsos+=1;
@@ -150,7 +185,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
   },{qsos:0,mults:0,countries:0,zones:0,bands:new Map<string,{qsos:number;mults:number}>()});
   const presentedSpots = contestPresentation
     ? contestOpportunities==="mults"?contestNeededSpots.filter(spot=>(contestNeededMultiplierCount(spot)??0)>0)
-      : showWorked?live?.spots??[]:contestNeededSpots
+      : showWorked?contestBandSpots:contestNeededSpots
     : live?.spots ?? [];
   const pageSize = useLogbookCapacity(tableArea, presentationOnly ? presentedSpots.length : 0);
   const spotCount = presentedSpots.length;
@@ -186,6 +221,12 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
     if (!contestPresentation) return;
     try { localStorage.setItem(showWorkedStorageKey, String(showWorked)); } catch { /* Keep usable in memory if storage is unavailable. */ }
   }, [contestPresentation, showWorked, showWorkedStorageKey]);
+  useEffect(()=>{if(!contestBandOptions.includes(contestBand))setContestBand("all");},[contestBand,contestBandOptions]);
+  useEffect(() => {
+    if (!contestPresentation) return;
+    try { localStorage.setItem(contestColumnStorageKey, JSON.stringify({ version: 1, widths: contestColumnWidths })); }
+    catch { /* Keep usable in memory if storage is unavailable. */ }
+  }, [contestColumnStorageKey, contestColumnWidths, contestPresentation]);
   useEffect(() => {
     if (spotPage !== currentSpotPage) setSpotPage(currentSpotPage);
   }, [currentSpotPage, spotPage]);
@@ -309,10 +350,12 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
       <div>{!taskOnly && <h2>DX Cluster</h2>}<p>{contestPresentation
         ? <span aria-label="CQ WW opportunity totals">QSO {contestSummary.qsos} · Mults {contestSummary.mults} · Country {contestSummary.countries} · Zone {contestSummary.zones}</span>
         : presentationOnly ? `${connected} live · ${spotCount} shown / ${live?.loadedSpots ?? 0} received` : `${connected} live · ${live?.spots.length ?? 0} shown / ${live?.loadedSpots ?? 0} received · ${live?.contactCount ?? 0} log contacts`}</p></div>
-      {contestPresentation && <div className="live-cluster-contest-controls"><label>Show <select aria-label="CQ WW opportunities" value={contestOpportunities}
-        onChange={event=>setContestOpportunities(event.currentTarget.value as "all"|"mults")}><option value="all">Qs + Mults</option><option value="mults">Mults only</option></select></label>
+      {contestPresentation && <div className="live-cluster-contest-controls"><label>Band <select aria-label="CQ WW band" value={contestBand}
+        onChange={event=>{setContestBand(event.currentTarget.value as ContestBandFilter);setSpotPage(0);}}>{contestBandOptions.map(band=><option key={band} value={band}>{band==="all"?"All":band.replace("m","")}</option>)}</select></label>
+        <label>Show <select aria-label="CQ WW opportunities" value={contestOpportunities}
+        onChange={event=>{setContestOpportunities(event.currentTarget.value as "all"|"mults");setSpotPage(0);}}><option value="all">Needed Qs + Mults</option><option value="mults">Mults only</option></select></label>
         <label className="live-cluster-show-worked"><input type="checkbox" checked={showWorked} disabled={contestOpportunities==="mults"}
-          onChange={event => setShowWorked(event.currentTarget.checked)} /> Show worked</label></div>}
+          onChange={event => {setShowWorked(event.currentTarget.checked);setSpotPage(0);}} /> Show worked</label></div>}
       {!presentationOnly && <div className="live-cluster-actions">
         <div className="live-cluster-connection-summary" role="status" aria-label="Cluster connections">{allConnections.length ? allConnections.map(connection => {
           const phase = connection.phase.toLowerCase(), label = phase.charAt(0).toUpperCase() + phase.slice(1);
@@ -382,10 +425,15 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
       <div className="live-cluster-column-actions"><span>Drag column edges or use arrow keys. Widths scale to fit the window.</span><button type="button" onClick={() => setColumnPreferences(defaultColumns())}>Reset columns</button><button type="button" onClick={() => setColumnsOpen(false)}>Done</button></div>
     </section>}
     <div ref={tableArea} className="table-scroll live-cluster-table">{contestPresentation ? <table className="live-cluster-contest-table" aria-label="CQ WW contest cluster spots"><colgroup>
-      <col className="contest-col-age"/><col className="contest-col-points"/><col className="contest-col-band"/><col className="contest-col-frequency"/>
-      <col className="contest-col-call"/><col className="contest-col-mode"/><col className="contest-col-country"/><col className="contest-col-zone"/>
-      <col className="contest-col-spotter"/><col className="contest-col-mults"/><col className="contest-col-comment"/>
-    </colgroup><thead><tr><th>For</th><th>Pts</th><th>Band</th><th>MHz</th><th>Callsign</th><th>Mode</th><th>Country</th><th>CQ</th><th>Spotter</th><th>Mults</th><th>Comment</th></tr></thead>
+      {contestClusterColumns.map(([id])=><col key={id} className={`contest-col-${id}`} style={{width:`${contestColumnWidths[id]/contestTotalColumnWidth*100}%`}}/>)}
+    </colgroup><thead><tr>{contestClusterColumns.map(([id,label])=><th key={id}><span title={label}>{label}</span>
+      <span className="live-cluster-column-resizer" role="separator" tabIndex={0} aria-orientation="vertical" aria-label={`Resize ${label} column`}
+        aria-valuemin={48} aria-valuemax={480} aria-valuenow={contestColumnWidths[id]}
+        onPointerDown={event=>{if(event.button!==0)return;event.preventDefault();event.currentTarget.setPointerCapture(event.pointerId);contestColumnDrag.current={id,x:event.clientX,width:contestColumnWidths[id],scale:contestColumnWidths[id]/Math.max(1,event.currentTarget.parentElement!.getBoundingClientRect().width)};}}
+        onPointerMove={event=>{const drag=contestColumnDrag.current;if(drag?.id===id)resizeContestColumn(id,drag.width+(event.clientX-drag.x)*drag.scale);}}
+        onPointerUp={()=>{contestColumnDrag.current=null;}} onPointerCancel={()=>{contestColumnDrag.current=null;}} onLostPointerCapture={()=>{contestColumnDrag.current=null;}}
+        onKeyDown={event=>{if(!["ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;event.preventDefault();resizeContestColumn(id,event.key==="Home"?48:event.key==="End"?480:contestColumnWidths[id]+(event.key==="ArrowRight"?10:-10));}}/>
+    </th>)}</tr></thead>
     <tbody>{visibleSpots.map((spot,index)=><tr key={spot.id} tabIndex={0}
       className={`${(selectedSpotId ?? selectedSpot?.id) === spot.id ? "is-selected" : ""}${spot.marked ? " is-marked" : ""} ${index % 2 ? "is-odd" : "is-even"}`}
       onClick={()=>{setSelectedSpot(spot);onSelect(spot);}} onContextMenu={event=>onSpotContextMenu?.(spot,event)}

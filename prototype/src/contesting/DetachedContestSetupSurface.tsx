@@ -104,6 +104,7 @@ export function DetachedContestSetupSurface() {
     menuHandler.current = handler;
     if (handler) for (const retry of readiness.current) retry();
   }, []);
+  const contestRequest = useCallback((method: string, params: Data = {}) => framedWorkerRequest(method, params), []);
   const resizeForSetupView = useCallback((view: SetupView | null) => {
     window.cancelAnimationFrame(resizeFrame.current);
     resizeFrame.current = window.requestAnimationFrame(() => {
@@ -194,7 +195,7 @@ export function DetachedContestSetupSurface() {
     <header className="contest-header"><div><h1>Contest Setup</h1><p>Detached contest session owner</p></div></header>
     {error ? <p className="contest-alert is-error" role="alert">{error}</p> : <p role="status">Loading contest setup…</p>}
   </main>;
-  return <Not1MMContestWorkspace setupOnly request={(method, params = {}) => framedWorkerRequest(method, params)}
+  return <Not1MMContestWorkspace setupOnly request={contestRequest}
     serviceRequest={request} stationTune={tuneContestSpot} stationStep={stepContestVFO} rotorStop={context.contestingTest?undefined:stopObservedContestRotor} contestSpot={postContestSpot} operatingContext={context.operatingContext} workspaceGeneration={context.workspaceGeneration}
     stationCall={context.stationCall} contestingTest={context.contestingTest} radioFrequencyHz={station?.radio?.frequency_hz}
     spots={Array.isArray(cluster?.snapshot?.spots) ? cluster.snapshot.spots : []} cluster={cluster}

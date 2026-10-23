@@ -29,13 +29,19 @@ beforeEach(() => { native.invoke.mockReset(); native.listener = undefined; });
 
 it("debounces lookup, renders useful fields, and never exposes an entry control", async () => {
   native.invoke.mockImplementation(async (command: string) => command === "contest_surface_snapshot" ? projection("EA7EU", 1) : {});
-  const lookup = vi.fn(async () => ({ call: "EA7EU", source: "QRZ XML", name: "Operator", country: "Spain", gridSquare: "IM67AA", dxcc: 281, qth: "Seville" }));
-  render(<ContestQRZDetailsSurface search={search} lookup={lookup}/>);
+  const lookup = vi.fn(async () => ({ call: "EA7EU", source: "QRZ XML", name: "Operator", country: "Spain", gridSquare: "IM67AA", dxcc: 281,
+    qth: "Seville", continent: "EU", ituZone: 37, cqZone: 14, email: "operator@example.invalid", qslManager: "EA0TEST", lookup_warning: "Extra warning" }));
+  const view = render(<ContestQRZDetailsSurface search={search} lookup={lookup}/>);
   await act(async () => { await Promise.resolve(); });
   expect(lookup).not.toHaveBeenCalled();
   await waitFor(() => expect(lookup).toHaveBeenCalledTimes(1));
-  expect((await screen.findAllByText("Operator")).length).toBeGreaterThan(0);
-  expect(screen.getByText("IM67AA")).toBeTruthy();
+  expect(await screen.findByText("Operator")).toBeTruthy();
+  expect([...view.container.querySelectorAll("dt")].map(node => node.textContent)).toEqual([
+    "Name", "Country", "QTH", "Grid", "Continent", "ITU zone", "CQ zone",
+  ]);
+  for (const detail of ["Spain", "Seville", "IM67AA", "EU", "37", "14"]) expect(screen.getByText(detail)).toBeTruthy();
+  for (const omitted of ["QRZ XML", "281", "operator@example.invalid", "EA0TEST", "Extra warning", "DXCC", "QSL manager", "Email"])
+    expect(screen.queryByText(omitted)).toBeNull();
   expect(screen.queryByRole("textbox")).toBeNull();
 });
 

@@ -70,7 +70,8 @@ export type ContestLogInlineEdit =
   | { kind: "text"; field: "callsign" | "sentReport" | "receivedReport" | "timestamp"; value: string; maximumUTF8Bytes: number }
   | { kind: "exchange"; fieldID: string; value: string; maximumUTF8Bytes: number }
   | { kind: "frequency"; value: string; maximumUTF8Bytes: number };
-export type ContestPluginLogRow = { qsoID: string; values: string[]; inlineEdits?: (ContestLogInlineEdit | null)[] };
+export type ContestPluginLogRow = { qsoID: string; values: string[]; isDupe?: boolean;
+  inlineEdits?: (ContestLogInlineEdit | null)[] };
 export type ContestManualContext = { operator: string; cwSpeedWpm: number | null; cwSpeedStepWpm: number; country: string | null; cqZone: number | null; ituZone: number | null;
   headingDegrees: number | null; longPathHeadingDegrees: number | null; distanceKm: number | null; qsos: number; multipliers: number; total: number };
 export type ContestEntrySurfaceProjection = { schemaVersion: 1; status: "ready";
@@ -151,7 +152,8 @@ export type ContestSpotSurfaceProjection = { schemaVersion: 2; status: "ready"; 
   radioFrequencyHz: number | null; connectedClusters: number; loadedSpots: number; selectedSpotID: string | null;
   configuredClusters: { serverID: string; serverName: string; enabled: boolean }[];
   connections: { serverID: string; serverName: string; phase: string; error: string | null }[];
-  markedOnly: boolean; spots: ContestSurfaceSpot[]; busy: boolean };
+  contestSessionID?: string; supportedBands?: string[]; allowedModeGroups?: Array<"cw" | "data" | "phone">;
+  bandSegments?: string[]; markedOnly: boolean; spots: ContestSurfaceSpot[]; busy: boolean };
 export type ContestRemoteVFOSurfaceProjection = { schemaVersion: 1; status: "ready";
   radioFrequencyHz: number | null; contestFrequencyHz: number | null; band: string; mode: string; busy: boolean };
 export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; sessionRevision: number;
@@ -199,9 +201,12 @@ const inlineEditValid = (value: unknown) => value === null || record(value) &&
   text(value.value, value.maximumUTF8Bytes as number, true) && (value.kind !== "text" || oneOf(value.field, ["callsign", "sentReport", "receivedReport", "timestamp"])) &&
   (value.kind !== "exchange" || text(value.fieldID, 64));
 const pluginRowsValid = (value: unknown, columns: number, maximum: number) => Array.isArray(value) && value.length <= maximum &&
-  value.every(row => record(row) && optionalKeys(row, ["qsoID", "values"], ["inlineEdits"]) && text(row.qsoID, 160) &&
+  value.every(row => record(row) && optionalKeys(row, ["qsoID", "values"], ["inlineEdits", "isDupe"]) && text(row.qsoID, 160) &&
     Array.isArray(row.values) && row.values.length === columns && row.values.every(item => text(item, 512, true)) &&
+    (!("isDupe" in row) || typeof row.isDupe === "boolean") &&
     (!("inlineEdits" in row) || Array.isArray(row.inlineEdits) && row.inlineEdits.length === columns && row.inlineEdits.every(inlineEditValid)));
+const uniqueArray=(value:unknown,maximum:number,item:(value:unknown)=>boolean)=>Array.isArray(value)&&value.length>0&&
+  value.length<=maximum&&value.every(item)&&new Set(value).size===value.length;
 const manualContextValid = (value: unknown) => record(value) && exact(value, ["operator", "cwSpeedWpm", "cwSpeedStepWpm", "country", "cqZone", "ituZone", "headingDegrees", "longPathHeadingDegrees", "distanceKm", "qsos", "multipliers", "total"]) &&
   text(value.operator, 32, true) && (value.country === null || text(value.country, 160, true)) &&
   typeof value.cwSpeedStepWpm === "number" && Number.isInteger(value.cwSpeedStepWpm) && value.cwSpeedStepWpm >= 1 && value.cwSpeedStepWpm <= 10 &&
@@ -458,11 +463,17 @@ function validMatrixProjection(value: Record<string, unknown>) {
   });
 }
 function validSpotProjection(value: Record<string, unknown>) {
-  if (!exact(value, ["schemaVersion", "status", "draftID", "draftRevision", "radioFrequencyHz", "connectedClusters", "loadedSpots",
-      "selectedSpotID", "configuredClusters", "connections", "markedOnly", "spots", "busy"]) ||
+  if (!optionalKeys(value, ["schemaVersion", "status", "draftID", "draftRevision", "radioFrequencyHz", "connectedClusters", "loadedSpots",
+      "selectedSpotID", "configuredClusters", "connections", "markedOnly", "spots", "busy"],
+      ["contestSessionID", "supportedBands", "allowedModeGroups", "bandSegments"]) ||
       !text(value.draftID, 160) || !uint(value.draftRevision) || !optionalFrequency(value.radioFrequencyHz) ||
       !uint(value.connectedClusters) || !uint(value.loadedSpots) || !Array.isArray(value.spots) || value.spots.length > 2_000 ||
-      value.selectedSpotID !== null && !text(value.selectedSpotID, 128) || typeof value.markedOnly !== "boolean" || typeof value.busy !== "boolean") return false;
+      value.selectedSpotID !== null && !text(value.selectedSpotID, 128) || typeof value.markedOnly !== "boolean" || typeof value.busy !== "boolean" ||
+      value.contestSessionID !== undefined && !text(value.contestSessionID, 160) ||
+      value.supportedBands !== undefined && !uniqueArray(value.supportedBands,64,item=>text(item,16)) ||
+      value.allowedModeGroups !== undefined && !uniqueArray(value.allowedModeGroups,3,item=>oneOf(item,["cw","data","phone"])) ||
+      value.bandSegments !== undefined && !(Array.isArray(value.bandSegments) && value.bandSegments.length <= 64 &&
+        value.bandSegments.every(item => text(item, 512)))) return false;
   if (!Array.isArray(value.configuredClusters) || value.configuredClusters.length > 32 || !value.configuredClusters.every(item => record(item) &&
       exact(item, ["serverID", "serverName", "enabled"]) && text(item.serverID, 128) && text(item.serverName, 160) && typeof item.enabled === "boolean") ||
       !Array.isArray(value.connections) || value.connections.length > 32 || !value.connections.every(item => record(item) &&

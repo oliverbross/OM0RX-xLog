@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent,
-  type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode, type Ref } from "react";
+  type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent,
+  type ReactNode, type Ref } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { contestSurfaceContextFromSearch, onContestSurfaceWake, readContestSurfaceSnapshot, reportContestSurfaceDiagnostic, submitContestSurfaceAction,
@@ -12,6 +13,7 @@ import { ContestTextField, ContestCandidates, ContestScoreSummary } from "./Cont
 import { contestKeyChord, functionKeyForContestAction, resolveContestKeyBinding,
   type ContestKeyBindingAction, type ContestKeyBindingContext } from "./contestKeyBindings";
 import BandMaps, { BAND_MAP_AGES, filterRecentBandMapSpots } from "../live/BandMaps";
+import { decodeContestBandPlan } from "./contestBandPlan";
 import ClusterPanel from "../live/ClusterPanel";
 import { requestViaSession } from "../live/DetachedClusterBridge";
 import { connectMonitorContext, observedReceiveBandwidthHz, type MonitorContext } from "../live/monitorContext";
@@ -315,8 +317,10 @@ function ContestSpots({panelID,context,projection,projectionRevision,send}:{pane
       <button type="button" role="menuitem" onClick={closeMenu}>Cancel</button>
     </div>}</>;
   if(panelID==="band-maps")return <section className="contest-spots" aria-label="Contest Band Map">{workflow}<BandMaps compact contestPresentation spots={projection.spots}
+    contestBandPlan={decodeContestBandPlan(projection.bandSegments,projection.supportedBands)}
+    contestBands={projection.supportedBands} contestAllowedModes={projection.allowedModeGroups}
     observedReceiveBandwidthHz={receiveBandwidth}
-    radioFrequencyHz={projection.radioFrequencyHz??undefined} storageNamespace="contest" selectedSpotId={projection.selectedSpotID}
+    radioFrequencyHz={projection.radioFrequencyHz??undefined} storageNamespace={`contest.${projection.contestSessionID??projection.draftID}`} selectedSpotId={projection.selectedSpotID}
     onSpotContextMenu={contextMenu} onSelect={spot=>select(String(spot.id))}
     selectionHint="Select a spot to load the active Not1MM draft and tune the selected xLog radio once. Right-click for spot actions."/></section>;
   const visibleClusterSpots=filterRecentBandMapSpots(projection.spots,clusterAgeMinutes,spotAgeClock);
@@ -344,6 +348,7 @@ function ContestSpots({panelID,context,projection,projectionRevision,send}:{pane
       <button type="button" disabled={projection.busy||clusterPending!==null||enabledClusters.length===0||connectSatisfied} onClick={()=>void clusterAction("cluster_connect")}>Connect</button>
       <button type="button" disabled={projection.busy||clusterPending!==null||activeConnections.length===0} onClick={()=>void clusterAction("cluster_disconnect")}>Disconnect</button></div>
   </div><ClusterPanel passive presentationOnly contestPresentation taskOnly snapshot={clusterSnapshot}
+    contestBands={projection.supportedBands}
     preferenceStorageKey="xlog.integration.contest.cluster-columns.v1" onRequest={async()=>null}
     selectedSpotId={projection.selectedSpotID} onSpotContextMenu={contextMenu} onSelect={spot=>select(spot.id)}/></section>;
 }
@@ -641,12 +646,12 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
         onClick={()=>void send({action:"entry_operator_arm",params:{...base,armed:!operator.armed}},projectionRevision)}>{operator.armed?"Disarm":phoneMode?testSimulation?"Arm phone simulation":"Arm recorded phone":operator.output==="xlog-native"?"Arm CW":"Arm simulation"}</button>}
       {operator&&(!phoneMode||operator.outputAvailable)&&<span className="contest-surface-output-state" role="status">{testSimulation?"Test simulation":phoneMode?"xLog recorded phone":fldigiMode?"fldigi":cwMode&&operator.output==="xlog-native"?"xLog CW":"Contest output"} · {operator.outputAvailable?operator.status:"unavailable"}</span>}
       {operator?.autoCQ?.active&&<div className="contest-surface-auto-cq" role="status"><span>Auto CQ</span><progress aria-label="Auto CQ countdown" max={operator.autoCQ.delaySeconds*1000} value={Math.max(0,operator.autoCQ.delaySeconds*1000-(operator.autoCQ.remainingMs??0))}/></div>}</div>
-      {projection.schemaVersion===2&&operator&&(!phoneMode||operator.outputAvailable)&&<><div className="contest-surface-macros" role="group" aria-label="Function key macros">{Array.from({length:12},(_,index)=>{const key=`F${index+1}`,item=operator.functionKeys.find((item:any)=>item.key===key),label=item?.macro??"Unassigned";return <button type="button" key={key}
+      {projection.schemaVersion===2&&operator&&<><div className="contest-surface-macros" role="group" aria-label="Function key macros">{Array.from({length:12},(_,index)=>{const key=`F${index+1}`,item=operator.functionKeys.find((item:any)=>item.key===key),label=item?.macro??"Unassigned";return <button type="button" key={key}
         className={item?.highlighted?"contest-primary":undefined} disabled={disabled||!item||!operator.outputAvailable||operator.status==="uncertain"||phoneMode&&!operator.armed}
         aria-label={`${key} ${label}`} onClick={()=>operatorKey(key,operator.focusedField)}><kbd>{key}:</kbd> <span>{label}</span></button>;})}</div>
-        {!operator.outputAvailable&&<p role="status">{operator.outputUnavailableReason}</p>}</>}
+        {!operator.outputAvailable&&!phoneMode&&<p role="status">{operator.outputUnavailableReason}</p>}</>}
     </div></div>
-    <div className="contest-surface-contact-footer"><div aria-label="Contact heading, long path and distance">{projection.manual?.headingDegrees??"—"}° Hdg · LP {projection.manual?.longPathHeadingDegrees??"—"}° / distance {projection.manual?.distanceKm??"—"} km<br/><span aria-label="Country and zones">{projection.manual?.country??"—"} cq:{projection.manual?.cqZone??"—"} itu:{projection.manual?.ituZone??"—"}</span></div><output aria-label="QSOs, multipliers and score">{projection.manual?.qsos??"—"}/{projection.manual?.multipliers??"—"} <span>{projection.manual?.total??"—"}</span></output></div>
+    <div className="contest-surface-contact-footer"><div className="contest-surface-contact-path"><div aria-label="Contact heading, long path and distance">{projection.manual?.headingDegrees??"—"}° Hdg · LP {projection.manual?.longPathHeadingDegrees??"—"}° / distance {projection.manual?.distanceKm??"—"} km</div><div aria-label="Country and zones">{projection.manual?.country??"—"} cq:{projection.manual?.cqZone??"—"} itu:{projection.manual?.ituZone??"—"}</div></div><output aria-label="QSOs and multipliers"><span>QSO / mults</span><strong>{projection.manual?.qsos??"—"}/{projection.manual?.multipliers??"—"}</strong></output><output aria-label="Score"><span>Score</span><strong>{projection.manual?.total??"—"}</strong></output></div>
     </section>;
 }
 function Check({ projection, disabled, projectionRevision, receipts, send }: { projection: any; disabled: boolean;
@@ -715,14 +720,14 @@ function Statistics({ projection }: { projection: ContestStatisticsSurfaceProjec
   </section>;
 }
 function Rates({ projection }: { projection: ContestRatesSurfaceProjection }) {
-  const rates = [["Last hour", projection.lastHourQsoPerHour], ["10 Last QSO", projection.last10QsoPerHour],
-    ["100 Last QSO", projection.last100QsoPerHour]] as const;
+  const rates = [["Last hour", projection.lastHourQsoPerHour,"current"], ["10 Last QSO", projection.last10QsoPerHour,"ten"],
+    ["100 Last QSO", projection.last100QsoPerHour,"hundred"]] as const;
   const sinceLabel = `Since ${String(projection.sinceHourUTC).padStart(2, "0")}:00:00z`;
   return <section aria-label="Contest Rates" aria-busy={projection.busy} className="contest-surface-rates"><h1>Rates</h1>
-    <p className="contest-surface-rate-scope">All bands · All modes</p><dl>{rates.map(([label, value]) => <div key={label}><dt>{label}:</dt><dd>{value === null ? <span aria-label="Not enough contacts">—</span> : value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>Q/h</small></dd></div>)}
-      <div><dt>{sinceLabel}:</dt><dd>{projection.sinceHourQso.toLocaleString()} <small>QSO</small></dd></div></dl>
+    <p className="contest-surface-rate-scope">All bands · All modes</p><dl>{rates.map(([label, value,kind]) => <div key={label} className={`contest-surface-rate-${kind}`}><dt>{label}:</dt><dd>{value === null ? <span aria-label="Not enough contacts">—</span> : value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>Q/h</small></dd></div>)}
+      <div className="contest-surface-rate-since"><dt>{sinceLabel}:</dt><dd>{projection.sinceHourQso.toLocaleString()} <small>QSO</small></dd></div></dl>
     <table aria-label="Run and Search & Pounce QSOs"><tbody>{[["Run QSO",projection.runQso],["S&P QSO",projection.searchAndPounceQso],
-      ["Hour Run QSO",projection.hourRunQso],["Hour S&P QSO",projection.hourSearchAndPounceQso]].map(([label,value])=><tr key={label}><th scope="row">{label}:</th><td>{value.toLocaleString()}</td></tr>)}</tbody></table>
+      ["Hour Run QSO",projection.hourRunQso],["Hour S&P QSO",projection.hourSearchAndPounceQso]].map(([label,value])=><tr key={label} className={String(label).includes("S&P")?"contest-surface-rate-search":"contest-surface-rate-run"}><th scope="row">{label}:</th><td>{value.toLocaleString()}</td></tr>)}</tbody></table>
   </section>;
 }
 function Matrix({ projection }: { projection: ContestMatrixSurfaceProjection }) {
@@ -760,18 +765,67 @@ function ManualLogTable({rows,disabled,onEdit,label}:{rows:any[];disabled:boolea
 }
 type InlineLogCell = { qsoID:string; columnIndex:number; source:string; edit:ContestLogInlineEdit; value:string;
   projectionRevision:number; expectedSessionRevision:number };
-function PluginLogTable({columns,rows,disabled,onEdit,onInlineEdit,inline,inlineInput,label}:{columns:string[];
-  rows:{qsoID:string;values:string[];inlineEdits?:(ContestLogInlineEdit|null)[]}[];disabled:boolean;onEdit:(qsoID:string)=>void;
+const contestLogColumnStoragePrefix="xlog.contesting.log-column-widths.v1:";
+const minimumLogColumnWidth=4;
+function defaultLogColumnWidths(columns:string[]) {
+  const raw=columns.map(column=>{const value=column.toLowerCase();
+    if(value.includes("yyyy")||value==="ts")return 19;
+    if(value==="call")return 14;
+    if(value.includes("country"))return 12;
+    if(value.includes("freq"))return 11;
+    if(value.includes("mult"))return 9;
+    return 7;
+  }),total=raw.reduce((sum,value)=>sum+value,0)||1;
+  return raw.map(value=>value*100/total);
+}
+function readLogColumnWidths(columns:string[]) {
+  const fallback=defaultLogColumnWidths(columns);
+  try { const value=JSON.parse(localStorage.getItem(contestLogColumnStoragePrefix+columns.join("\u001f"))||"null");
+    return Array.isArray(value)&&value.length===columns.length&&value.every(width=>typeof width==="number"&&Number.isFinite(width)&&width>=minimumLogColumnWidth)
+      ? value as number[]:fallback;
+  } catch { return fallback; }
+}
+function persistLogColumnWidths(columns:string[],widths:number[]) {
+  try { localStorage.setItem(contestLogColumnStoragePrefix+columns.join("\u001f"),JSON.stringify(widths)); } catch { /* storage is optional */ }
+}
+function logCellClass(column:string,editable:boolean) {
+  const normalized=column.trim().toLowerCase(),classes=editable?["contest-surface-inline-editable"]:[];
+  if(normalized==="call"||normalized==="callsign")classes.push("contest-surface-log-call");
+  else if(normalized.includes("freq"))classes.push("contest-surface-log-frequency");
+  else if(normalized==="band")classes.push("contest-surface-log-band");
+  else if(normalized.includes("mult")||normalized==="m1"||normalized==="m2")classes.push("contest-surface-log-multiplier");
+  else if(normalized.includes("zone")||normalized==="zn")classes.push("contest-surface-log-zone");
+  else if(normalized==="country"||normalized==="pfx")classes.push("contest-surface-log-country");
+  else if(normalized==="pts"||normalized==="points")classes.push("contest-surface-log-points");
+  return classes.join(" ")||undefined;
+}
+function startLogColumnResize(event:ReactPointerEvent<HTMLButtonElement>,index:number,widths:number[],onWidths:(value:number[])=>void) {
+  event.preventDefault();
+  const table=event.currentTarget.closest("table"),tableWidth=Math.max(1,table?.getBoundingClientRect().width||table?.clientWidth||1),
+    startX=event.clientX,start=widths[index],pairTotal=widths[index]+widths[index+1];
+  const move=(next:PointerEvent)=>{const left=Math.max(minimumLogColumnWidth,Math.min(pairTotal-minimumLogColumnWidth,start+(next.clientX-startX)*100/tableWidth));
+    const value=[...widths];value[index]=left;value[index+1]=pairTotal-left;onWidths(value);};
+  const finish=()=>{window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",finish);window.removeEventListener("pointercancel",finish);};
+  window.addEventListener("pointermove",move);window.addEventListener("pointerup",finish);window.addEventListener("pointercancel",finish);
+}
+function PluginLogTable({columns,rows,columnWidths,onColumnWidths,disabled,onEdit,onInlineEdit,inline,inlineInput,label}:{columns:string[];
+  rows:{qsoID:string;values:string[];isDupe?:boolean;inlineEdits?:(ContestLogInlineEdit|null)[]}[];columnWidths:number[];
+  onColumnWidths:(value:number[])=>void;disabled:boolean;onEdit:(qsoID:string)=>void;
   onInlineEdit:(qsoID:string,columnIndex:number,edit:ContestLogInlineEdit)=>void;inline:InlineLogCell|null;inlineInput:ReactNode;label:string}) {
   const callIndex=columns.indexOf("Call");
-  return <div className="contest-surface-log-scroll"><table aria-label={label}><thead><tr>{columns.map((column,index)=><th key={`${column}-${index}`} scope="col">{column}</th>)}</tr></thead>
+  const adjust=(index:number,delta:number)=>{const pairTotal=columnWidths[index]+columnWidths[index+1],
+    left=Math.max(minimumLogColumnWidth,Math.min(pairTotal-minimumLogColumnWidth,columnWidths[index]+delta)),value=[...columnWidths];
+    value[index]=left;value[index+1]=pairTotal-left;onColumnWidths(value);};
+  return <div className="contest-surface-log-scroll"><table aria-label={label}><colgroup>{columns.map((column,index)=><col key={`${column}-${index}`} style={{width:`${columnWidths[index]??0}%`}}/>)}</colgroup><thead><tr>{columns.map((column,index)=><th key={`${column}-${index}`} scope="col"><span>{column}</span>{index<columns.length-1&&<button type="button" className="contest-surface-log-column-resizer" role="separator" aria-orientation="vertical" aria-label={`Resize ${column} column`} aria-valuemin={minimumLogColumnWidth} aria-valuemax={Math.round(columnWidths[index]+columnWidths[index+1]-minimumLogColumnWidth)} aria-valuenow={Math.round(columnWidths[index])}
+      onPointerDown={event=>startLogColumnResize(event,index,columnWidths,onColumnWidths)} onKeyDown={event=>{if(event.key==="ArrowLeft"||event.key==="ArrowRight"){event.preventDefault();adjust(index,event.key==="ArrowLeft"?-2:2);}else if(event.key==="Home"){event.preventDefault();adjust(index,minimumLogColumnWidth-columnWidths[index]);}else if(event.key==="End"){event.preventDefault();adjust(index,columnWidths[index+1]-minimumLogColumnWidth);}}}/>}</th>)}</tr></thead>
     <tbody>{rows.length===0?<tr className="contest-surface-empty-row"><td colSpan={columns.length}>{label === "Callsign partial matches" ? "No partial matches" : "No contacts"}</td></tr>
-      :rows.map(row=><tr key={row.qsoID} onContextMenu={event=>{event.preventDefault();if(!disabled)onEdit(row.qsoID);}}>
+      :rows.map(row=><tr key={row.qsoID} className={row.isDupe?"contest-surface-log-dupe":undefined} aria-label={row.isDupe?`${row.values[callIndex]??"Contact"} duplicate`:undefined} onContextMenu={event=>{event.preventDefault();if(!disabled)onEdit(row.qsoID);}}>
         {row.values.map((value,index)=>{const edit=row.inlineEdits?.[index]??null,
           isEditing=inline?.qsoID===row.qsoID&&inline.columnIndex===index&&inline.source===label;
-          return <td key={`${columns[index]}-${index}`} className={edit?"contest-surface-inline-editable":undefined}
+          const content=<>{value}{index===callIndex&&row.isDupe&&<span className="contest-surface-dupe-badge">DUPE</span>}</>;
+          return <td key={`${columns[index]}-${index}`} className={logCellClass(columns[index],!!edit)}
             onDoubleClick={event=>{event.preventDefault();event.stopPropagation();if(!disabled&&edit)onInlineEdit(row.qsoID,index,edit);}}>
-            {isEditing?inlineInput:index===callIndex&&!edit?<button disabled={disabled} onClick={()=>onEdit(row.qsoID)}>{value}</button>:value}</td>;})}</tr>)}</tbody></table></div>;
+            {isEditing?inlineInput:index===callIndex&&!edit?<button disabled={disabled} onClick={()=>onEdit(row.qsoID)}>{content}</button>:content}</td>;})}</tr>)}</tbody></table></div>;
 }
 function ReadOnlyContactField({label,value,wide=false}:{label:string;value:string;wide?:boolean}) {
   return <div className={`contest-surface-readonly${wide?" contest-surface-editor-wide":""}`}><span>{label}</span><output>{value}</output></div>;
@@ -829,6 +883,11 @@ function ContactEditor({projection,disabled,sending,projectionRevision,receipts,
 }
 function Log({projection,disabled,sending,projectionRevision,send,openEditor}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;send:Send;openEditor:(qsoID:string)=>Promise<void>}) {
   const partialRows=projection.partialRows??[], pluginPartialRows=projection.pluginPartialRows??[], [inline,setInline]=useState<InlineLogCell|null>(null);
+  const pluginColumns:string[]=projection.exchangeLayout==="plugin"?projection.pluginColumns:[],columnSignature=pluginColumns.join("\u001f"),
+    [columnLayout,setColumnLayout]=useState(()=>({signature:columnSignature,widths:readLogColumnWidths(pluginColumns)}));
+  const columnWidths=columnLayout.signature===columnSignature?columnLayout.widths:readLogColumnWidths(pluginColumns);
+  useEffect(()=>{if(columnLayout.signature!==columnSignature)setColumnLayout({signature:columnSignature,widths:readLogColumnWidths(pluginColumns)});},[columnLayout.signature,columnSignature]);
+  const setColumnWidths=useCallback((widths:number[])=>{persistLogColumnWidths(pluginColumns,widths);setColumnLayout({signature:columnSignature,widths});},[columnSignature]);
   const primaryPane=useRef<HTMLElement|null>(null);
   useLayoutEffect(()=>{
     const element=primaryPane.current;
@@ -873,9 +932,9 @@ function Log({projection,disabled,sending,projectionRevision,send,openEditor}:{p
   {projection.canExportEdi===true&&<button disabled={disabled||sending} onClick={()=>void send({action:"log_export_edi",params:{}},projectionRevision)}>Export EDI…</button>}
   <button disabled={disabled||sending} onClick={()=>void send({action:"log_recalculate",params:{expectedSessionRevision:projection.sessionRevision}},projectionRevision)}>Recalculate</button></div></details></header>
   <div className="contest-surface-log-panes">{projection.exchangeLayout==="plugin" ? <>
-    <section ref={primaryPane} className="contest-surface-log-pane-primary"><h2>Chronological log</h2><PluginLogTable columns={projection.pluginColumns} rows={projection.pluginRows} disabled={disabled} label="Contest log" inline={inline} inlineInput={inlineInput}
+    <section ref={primaryPane} className="contest-surface-log-pane-primary"><h2>Chronological log</h2><PluginLogTable columns={projection.pluginColumns} rows={projection.pluginRows} columnWidths={columnWidths} onColumnWidths={setColumnWidths} disabled={disabled} label="Contest log" inline={inline} inlineInput={inlineInput}
       onInlineEdit={(qsoID,columnIndex,edit)=>void beginInline(qsoID,columnIndex,edit,"Contest log")} onEdit={qsoID=>{setInline(null);void openEditor(qsoID);}}/></section>
-    <section className="contest-surface-log-pane-secondary"><h2>Callsign partial matches</h2><PluginLogTable columns={projection.pluginColumns} rows={pluginPartialRows} disabled={disabled} label="Callsign partial matches" inline={inline} inlineInput={inlineInput}
+    <section className="contest-surface-log-pane-secondary"><h2>Callsign partial matches</h2><PluginLogTable columns={projection.pluginColumns} rows={pluginPartialRows} columnWidths={columnWidths} onColumnWidths={setColumnWidths} disabled={disabled} label="Callsign partial matches" inline={inline} inlineInput={inlineInput}
       onInlineEdit={(qsoID,columnIndex,edit)=>void beginInline(qsoID,columnIndex,edit,"Callsign partial matches")} onEdit={qsoID=>{setInline(null);void openEditor(qsoID);}}/></section></>
     : <><section ref={primaryPane} className="contest-surface-log-pane-primary"><h2>Chronological log</h2><ManualLogTable rows={projection.manualRows??projection.page.rows} disabled={disabled} label="Contest log" onEdit={qsoID=>void openEditor(qsoID)}/></section>
       <section className="contest-surface-log-pane-secondary"><h2>Callsign partial matches</h2><ManualLogTable rows={partialRows} disabled={disabled} label="Callsign partial matches" onEdit={qsoID=>void openEditor(qsoID)}/></section></>}</div>

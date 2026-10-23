@@ -21,6 +21,11 @@ it.each(["band-maps","dx-cluster"] as const)("validates fenced %s spot selection
     connections:[{serverID:"server-1",serverName:"ShackCQ",phase:"connected",error:null}],
     markedOnly:false,spots:[spot],busy:false};
   expect(validContestSurfaceProjection(panelID,projection)).toBe(true);
+  expect(validContestSurfaceProjection(panelID,{...projection,contestSessionID:base.sessionID,supportedBands:["40m"],
+    allowedModeGroups:["phone"],bandSegments:['{"band":"40m"}']})).toBe(true);
+  expect(validContestSurfaceProjection(panelID,{...projection,supportedBands:[]})).toBe(false);
+  expect(validContestSurfaceProjection(panelID,{...projection,allowedModeGroups:["phone","phone"]})).toBe(false);
+  expect(validContestSurfaceProjection(panelID,{...projection,bandSegments:[""]})).toBe(false);
   expect(validContestSurfaceProjection(panelID,{...projection,spots:[{...spot,contestPoints:3}]})).toBe(true);
   expect(validContestSurfaceProjection(panelID,{...projection,spots:[{...spot,contestPoints:-1}]})).toBe(false);
   expect(validContestSurfaceProjection(panelID,{...projection,spots:[{...spot,contestPoints:Number.NaN}]})).toBe(false);
@@ -55,12 +60,13 @@ it("validates exact plugin-owned log columns and rejects mixed or ragged rows",(
   const pageRow={qsoID:"qso-1",workedAt:"2026-10-20T12:00:00.000Z",callsign:"K1ABC",band:"20m",mode:"CW",
     sentExchange:"1",receivedExchange:"123 A K1ABC 67 CT",points:2,multiplierLabels:["CT"]};
   const projection={schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,exchangeLayout:"plugin",
-    pluginColumns:columns,pluginRows:[{qsoID:"qso-1",values:["K1ABC","123","67","A","CT","2"]}],pluginPartialRows:[],
+    pluginColumns:columns,pluginRows:[{qsoID:"qso-1",values:["K1ABC","123","67","A","CT","2"],isDupe:true}],pluginPartialRows:[],
     page:{offset:0,limit:20,total:1,rows:[pageRow]},editing:null,busy:false};
   expect(validContestSurfaceProjection("logbook",projection)).toBe(true);
   expect(validContestSurfaceProjection("logbook",{...projection,manualRows:[]})).toBe(false);
   expect(validContestSurfaceProjection("logbook",{...projection,pluginRows:[{qsoID:"qso-1",values:["K1ABC"]}]})).toBe(false);
   expect(validContestSurfaceProjection("logbook",{...projection,pluginRows:[{...projection.pluginRows[0],qsoID:"other"}]})).toBe(false);
+  expect(validContestSurfaceProjection("logbook",{...projection,pluginRows:[{...projection.pluginRows[0],isDupe:"yes"}]})).toBe(false);
   for(const pluginColumns of [["RcvNr","PTS"],["Call","Call"],[" Call","PTS"]])
     expect(validContestSurfaceProjection("logbook",{...projection,pluginColumns,pluginRows:[],
       page:{...projection.page,total:0,rows:[]}})).toBe(false);
