@@ -378,11 +378,19 @@ const pluginColumnFields: Record<string, string> = {
   "YYYY-MM-DD HH:MM:SS": "TS", Snt: "SNT", Rcv: "RCV", RcvNr: "NR", WPX: "WPXPrefix",
   M1: "IsMultiplier1", M2: "IsMultiplier2", PTS: "Points",
 };
+const cqWwSsbLogColumns = ["YYYY-MM-DD HH:MM:SS", "Call", "Freq", "Snt", "Rcv", "M1", "ZN", "M2", "PFX", "PTS"];
 function not1mmLogColumns(value: unknown): string[] {
   if (!Array.isArray(value) || value.length === 0 || value.length > 32) return [];
   const columns = value.map(column => typeof column === "string" ? column : "");
   return columns.every(column => column.trim() && column === column.trim() && new TextEncoder().encode(column).length <= 64) &&
     new Set(columns).size === columns.length && columns.filter(column => column === "Call").length === 1 ? columns : [];
+}
+function contestLogColumnLabels(columns: string[], pluginID?: string): string[] {
+  if (pluginID !== "cq_ww_ssb") return columns;
+  const labels: Record<string, string> = {
+    M1: "Zone mult", ZN: "CQ Zone", M2: "Country mult", PFX: "Country",
+  };
+  return columns.map(column => labels[column] ?? column);
 }
 function not1mmLogRows(rows: Data[], columns: string[], fields: Field[], pluginID?: string): ContestPluginLogRow[] {
   const editableFields = new Map(fields.filter(field => field.visible && field.enabled && !field.readOnly).map(field => [field.id, field]));
@@ -1836,16 +1844,19 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     unavailable["qrz-details"] = unavailable["active-qso"];
     const partialRows = partial?.sessionID===projection.sessionID && partial.revision===projection.revision && partial.query===partialQuery
       ? partial.rows : [];
-    const pluginColumns = not1mmLogColumns(projection.columns);
+    const configuredPluginColumns = not1mmLogColumns(projection.columns);
+    const sourcePluginColumns = configuredPluginColumns.length ? configuredPluginColumns
+      : projection.pluginID === "cq_ww_ssb" ? cqWwSsbLogColumns : [];
+    const pluginColumns = contestLogColumnLabels(sourcePluginColumns, projection.pluginID);
     if (logRead) unavailable.logbook = {
       schemaVersion: 1, status: "ready", sessionRevision: projection.revision,
       canExportCabrillo: projection.exportFormats?.includes("cabrillo")??true,
       canExportAdif: projection.exportFormats?.includes("adif")??true,
       canExportEdi: projection.exportFormats?.includes("edi")??false,
       page: { offset: logOffset, limit: logPageSize, total: logTotal, rows: logRows(rows, projection.pluginID, bandLabels) },
-      ...(pluginColumns.length ? { exchangeLayout: "plugin" as const, pluginColumns,
-        pluginRows:not1mmLogRows(rows,pluginColumns,projection.fields,projection.pluginID),
-        pluginPartialRows:not1mmLogRows(partialRows,pluginColumns,projection.fields,projection.pluginID) }
+      ...(sourcePluginColumns.length ? { exchangeLayout: "plugin" as const, pluginColumns,
+        pluginRows:not1mmLogRows(rows,sourcePluginColumns,projection.fields,projection.pluginID),
+        pluginPartialRows:not1mmLogRows(partialRows,sourcePluginColumns,projection.fields,projection.pluginID) }
         : { manualRows:manualRows(rows), partialRows:manualRows(partialRows) }),
       editing: editing ? {
         qsoID: String(editing.ID ?? ""), workedAt: editTimestamp, operator: editOperator, callsign: editCall,
