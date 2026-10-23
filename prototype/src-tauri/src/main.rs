@@ -70,6 +70,7 @@ use std::time::{Duration, Instant};
 
 static MAIN_CREATION: Mutex<()> = Mutex::new(());
 static WORKSPACE_PRESENTATION: Mutex<bool> = Mutex::new(false);
+static FOREGROUND_PRESENTATION: Mutex<()> = Mutex::new(());
 static APP_EXITING: AtomicBool = AtomicBool::new(false);
 static MAIN_WORKSPACE_REOPENED: AtomicBool = AtomicBool::new(false);
 static SCP_IMPORT_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -828,6 +829,8 @@ fn ensure_main_workspace(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow,
 }
 
 fn show_main_workspace(app: &tauri::AppHandle) -> Result<(), String> {
+    let _presentation = foreground_presentation_guard();
+    main_workspace(app)?;
     MAIN_WORKSPACE_REOPENED.store(true, Ordering::Release);
     if let Err(error) = present_active_workspace(app) {
         MAIN_WORKSPACE_REOPENED.store(false, Ordering::Release);
@@ -1085,6 +1088,14 @@ fn normal_workspace_window(label: &str) -> bool {
             .is_ok_and(|identity| identity.scope == workspace_windows::WorkspaceWindowScope::NormalLogging)
 }
 
+fn foreground_presentation_guard() -> std::sync::MutexGuard<'static, ()> {
+    FOREGROUND_PRESENTATION.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+fn hide_normal_workspace_during_contest(label: &str, main_reopened: bool) -> bool {
+    normal_workspace_window(label) && !(main_reopened && label == "main")
+}
+
 fn contest_desk_is_open<'a>(labels: impl IntoIterator<Item = &'a str>) -> bool {
     labels.into_iter().any(contest_desk_window)
 }
@@ -1103,7 +1114,7 @@ enum NativeForeground {
 }
 
 fn native_foreground(labels: &[String], contesting: bool, main_reopened: bool) -> NativeForeground {
-    if !contesting && main_reopened && labels.iter().any(|label| label == "main") {
+    if main_reopened && labels.iter().any(|label| label == "main") {
         return NativeForeground::Main;
     }
     if contesting {
@@ -1154,6 +1165,9 @@ fn enters_contest_desk(label: &str, method: &str) -> bool {
 
 fn present_contest_desk(app: &tauri::AppHandle,
     context: &contest_window_context::ContestWindowContext, attempt: u64) -> Result<(), String> {
+    // A contest transition may take several seconds. Clear the prior reopen
+    // intent before waiting so a later explicit menu command can win.
+    MAIN_WORKSPACE_REOPENED.store(false, Ordering::Release);
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
         let status = workspace_window_runtime::contest_status(app, context.clone())?;
@@ -1161,6 +1175,7 @@ fn present_contest_desk(app: &tauri::AppHandle,
             return Err(status["error"].as_str().unwrap_or("The contest desk could not be opened.").into());
         }
         if status["state"] == "applied" && status["attempt"].as_u64().is_some_and(|value| value >= attempt) {
+            let _presentation = foreground_presentation_guard();
             let labels = app.webview_windows().into_keys().collect::<Vec<_>>();
             if !labels.iter().any(|label| label == "contest--active-qso") {
                 return Err("The contest desk did not open Main Logging; the xLog main window remains available.".into());
@@ -1169,10 +1184,16 @@ fn present_contest_desk(app: &tauri::AppHandle,
                 return Err("The contest desk did not open a usable window; the xLog main window remains available.".into());
             }
             let windows = app.webview_windows();
-            MAIN_WORKSPACE_REOPENED.store(false, Ordering::Release);
-            for window in windows.values().filter(|window| normal_workspace_window(window.label())) {
+            let main_reopened = MAIN_WORKSPACE_REOPENED.load(Ordering::Acquire);
+            for window in windows.values().filter(|window| hide_normal_workspace_during_contest(window.label(), main_reopened)) {
                 if window.label() == "main" { validate_editor_transition(window.label())?; }
                 window.hide().map_err(|error| error.to_string())?;
+            }
+            if main_reopened {
+                let main = main_workspace(app)?;
+                main.unminimize().map_err(|error| error.to_string())?;
+                main.show().and_then(|_| main.set_focus()).map_err(|error| error.to_string())?;
+                return Ok(());
             }
             let main_logging = app.get_webview_window("contest--active-qso")
                 .ok_or("The contest desk did not retain Main Logging; the xLog main window remains available.")?;
@@ -3569,17 +3590,8 @@ fn main() {
             if event.id().0 == MAIN_WORKSPACE_MENU_ID {
                 let app = app.clone();
                 tauri::async_runtime::spawn_blocking(move || {
-                    let module = operating_module::owner().and_then(|owner| owner.snapshot());
-                    match module {
-                        Ok(module) if module["selected"] == "contesting" => match switch_operating_module(&app,
-                            "normal_logging", module["context"].as_str().unwrap_or(""), None) {
-                            Ok(result) => report_module_switch_failure(&app, &result),
-                            Err(error) => eprintln!("Could not return to Normal Logging: {error}"),
-                        },
-                        Ok(_) => if let Err(error) = show_main_workspace(&app) {
-                            eprintln!("Could not open xLog main window: {error}");
-                        },
-                        Err(error) => eprintln!("Could not read operating module: {error}"),
+                    if let Err(error) = show_main_workspace(&app) {
+                        eprintln!("Could not open xLog main window: {error}");
                     }
                 });
                 return;
@@ -3893,7 +3905,7 @@ fn main() {
 
 #[cfg(test)]
 mod workspace_layout_tests {
-    use super::{WorkspaceLayout, DraftWake, HostActiveContest, NativeForeground, contest_desk_focus_label, contest_desk_is_open, contest_desk_window, contest_setup_route, enters_contest_desk, host_active_contest, native_foreground, normal_workspace_window, recover_presentation_hint, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
+    use super::{WorkspaceLayout, DraftWake, HostActiveContest, NativeForeground, contest_desk_focus_label, contest_desk_is_open, contest_desk_window, contest_setup_route, enters_contest_desk, foreground_presentation_guard, hide_normal_workspace_during_contest, host_active_contest, native_foreground, normal_workspace_window, recover_presentation_hint, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
     use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, is_raw_owned_station_lifecycle, station_session_changes_state, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_snapshot, validate_follow_set, validate_follow_settlement, validate_rotor_stop, contest_history_manager_worker_params, contest_history_preview_worker_params, AutomaticRotorCommands};
     use serde_json::json;
 
@@ -3916,6 +3928,32 @@ mod workspace_layout_tests {
         for label in ["contest--active-qso", "contest--band-maps", "contest--logbook", "contest-setup-operator", ""] {
             assert!(!normal_workspace_window(label), "contest/non-workspace window misclassified: {label}");
         }
+    }
+
+    #[test]
+    fn a_later_explicit_main_reopen_wins_over_an_older_contest_transition() {
+        assert!(hide_normal_workspace_during_contest("main", false));
+        assert!(!hide_normal_workspace_during_contest("main", true));
+        assert!(hide_normal_workspace_during_contest("settings", true));
+        assert!(!hide_normal_workspace_during_contest("contest--active-qso", true));
+    }
+
+    #[test]
+    fn foreground_window_presentations_are_serialized() {
+        use std::sync::mpsc;
+        let first = foreground_presentation_guard();
+        let (attempted_tx, attempted_rx) = mpsc::channel();
+        let (acquired_tx, acquired_rx) = mpsc::channel();
+        let waiter = std::thread::spawn(move || {
+            attempted_tx.send(()).unwrap();
+            let _second = foreground_presentation_guard();
+            acquired_tx.send(()).unwrap();
+        });
+        attempted_rx.recv_timeout(std::time::Duration::from_secs(1)).unwrap();
+        assert!(acquired_rx.recv_timeout(std::time::Duration::from_millis(25)).is_err());
+        drop(first);
+        acquired_rx.recv_timeout(std::time::Duration::from_secs(1)).unwrap();
+        waiter.join().unwrap();
     }
 
     #[test]
@@ -3988,7 +4026,7 @@ mod workspace_layout_tests {
             NativeForeground::Main);
         assert_eq!(native_foreground(&[
             "main".into(), "contest--active-qso".into(), "contest--dx-cluster".into(),
-        ], true, true), NativeForeground::Contest("contest--active-qso".into()));
+        ], true, true), NativeForeground::Main);
     }
 
     #[test]

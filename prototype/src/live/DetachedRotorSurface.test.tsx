@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DetachedRotorSurface } from "./DetachedRotorSurface";
 import { readFileSync } from "node:fs";
@@ -78,6 +78,9 @@ it("places the bearing under the left compass and automatic controls to its righ
   expect(taskStyles).toMatch(/\.app\.live\.detached-task-app\s*\{[^}]*display: flex/);
   expect(taskStyles).toMatch(/\.detached-rotor-observation\s*\{[^}]*grid-template-columns: minmax\(0, 240px\) minmax\(180px, 1fr\);/);
   expect(taskStyles).toContain("width: min(100%, 220px, max(140px, calc(100dvh - 250px)))");
+  expect(taskStyles).toContain("width: min(100%, 300px, max(190px, calc(100dvh - 170px)))");
+  expect(taskStyles).toContain(".contest-rotor-primary-actions button { min-height: 28px;");
+  expect(taskStyles).toContain(".contest-rotor-cardinals button { min-height: 26px;");
   expect(taskStyles).toContain("@container detached-rotor (max-width: 480px)");
   expect(taskStyles).not.toMatch(/\.detached-rotor-app d[ldt]\s*\{/);
   expect(native.invoke.mock.calls).toEqual([["rotor_telemetry_snapshot"]]);
@@ -195,6 +198,28 @@ it("shows the current contest target and routes LP through the same durable manu
   expect(native.invoke.mock.calls.some(([command])=>command==="rotor_goto")).toBe(false);
 });
 
+it("routes contest automatic-rotor errors to Messages without adding an inline warning", async () => {
+  const operatingContext="00000000-0000-4000-8000-000000000001", sessionID="00000000-0000-4000-8000-000000000002",
+    workspaceGeneration="00000000-0000-4000-8000-000000000003";
+  window.history.replaceState({}, "", `/?view=rotor&scope=contesting&operatingContext=${operatingContext}&sessionID=${sessionID}&workspaceGeneration=${workspaceGeneration}`);
+  automatic.state=null;automatic.error="Native automatic rotor status unavailable.";
+  native.invoke.mockImplementation(async(command,args)=>{
+    if(command==="rotor_telemetry_snapshot")return observation();
+    if(command==="contest_rotor_target")return{available:false,projectionRevision:8,callsign:null,shortPathBearing:null,longPathBearing:null};
+    if(command==="manual_rotor_request"&&args.params.action==="snapshot")return{
+      generation:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",revision:4,last_receipt:null,worker_generation:3,rotor:observation()};
+    if(command==="contest_surface_diagnostic_report")return;
+    throw new Error(`Unexpected ${command}`);
+  });
+  render(<DetachedRotorSurface/>);await act(async()=>{await vi.advanceTimersByTimeAsync(0);});
+  expect(screen.getByText("Auto rotor")).toBeTruthy();
+  expect(screen.queryByText("Auto rotor unavailable")).toBeNull();
+  expect(screen.queryByRole("alert")).toBeNull();
+  await act(async()=>{await Promise.resolve();});
+  expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_diagnostic_report"&&
+    args.kind==="error"&&args.message==="Native automatic rotor status unavailable.")).toBe(true);
+});
+
 it("routes a contest compass click through durable manual admission and retains its acknowledgement", async () => {
   const operatingContext="00000000-0000-4000-8000-000000000001", sessionID="00000000-0000-4000-8000-000000000002",
     workspaceGeneration="00000000-0000-4000-8000-000000000003";
@@ -207,6 +232,7 @@ it("routes a contest compass click through durable manual admission and retains 
       generation:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",revision:4,last_receipt:null,worker_generation:3,rotor:retained};
     if(command==="manual_rotor_request"&&args.params.action==="manual_rotor_goto")return{
       operation_id:args.params.operation_id,request:{action:"manual_rotor_goto"},status:"acknowledged"};
+    if(command==="contest_surface_diagnostic_report")return;
     throw new Error(`Unexpected ${command}`);
   });
   render(<DetachedRotorSurface/>);
@@ -218,7 +244,9 @@ it("routes a contest compass click through durable manual admission and retains 
   const admitted=native.invoke.mock.calls.find(([command,args])=>command==="manual_rotor_request"&&args.params.action==="manual_rotor_goto");
   expect(admitted?.[1].params).toMatchObject({rotor_owner:"native_dcu1",rotor_generation:7,bearing:90,label:"Compass 90 deg"});
   expect(native.invoke.mock.calls.some(([command])=>command==="rotor_goto")).toBe(false);
-  expect(screen.getAllByRole("status").some(item=>item.textContent?.includes("Goto acknowledged"))).toBe(true);
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_diagnostic_report"&&
+    args.kind==="notice"&&args.message.includes("Goto acknowledged"))).toBe(true);
 });
 
 it("offers Hamlib Park only and verifies the existing fenced worker acknowledgement", async () => {

@@ -797,15 +797,17 @@ function Matrix({ projection,preferenceScope }: { projection: ContestMatrixSurfa
   useEffect(() => { if(selectedKey&&lastFollowed.current!==selectedKey)rows.current.get(selectedKey)?.scrollIntoView?.({ block: "center", inline: "nearest" });
     lastFollowed.current=selectedKey;}, [selectedKey]);
   const workedInView=projection.rows.filter(row=>visibleBands.some(band=>(row.counts[band]??0)>0)).length;
-  const requestedBlocks=viewportWidth>=960?3:viewportWidth>=640?2:1,blockCount=Math.max(1,Math.min(requestedBlocks,projectedRows.length||1)),
+  const blockMinWidth=Math.max(148,104+visibleBands.length*44),requestedBlocks=Math.max(1,Math.floor((viewportWidth-16)/blockMinWidth)),
+    blockCount=Math.max(1,Math.min(requestedBlocks,projectedRows.length||1)),
     rowsPerBlock=Math.ceil(projectedRows.length/blockCount),blocks=Array.from({length:blockCount},(_,index)=>projectedRows.slice(index*rowsPerBlock,(index+1)*rowsPerBlock));
   return <section aria-label={`Contest ${projection.title}`} aria-busy={projection.busy} className="contest-surface-matrix"><header className="contest-surface-matrix-toolbar"><h1>{projection.title}</h1>
     {rich&&<><label>Band<select aria-label="Multiplier band scope" value={bandScope} onChange={event=>setBandScope(event.target.value as typeof bandScope)}>
       <option value="configured">Configured</option><option value="current" disabled={!rich.currentBand}>Current</option><option value="all">All</option></select></label>
       <label>Show<select aria-label="Multiplier row filter" value={rowFilter} onChange={event=>setRowFilter(event.target.value as typeof rowFilter)}>
         <option value="needed">Needed</option><option value="worked">Worked</option><option value="all">All</option></select></label></>}
-    <span>{rich&&`${projectedRows.length.toLocaleString()} shown · `}{workedInView.toLocaleString()} worked in view{workedInView!==projection.total?` · ${projection.total.toLocaleString()} unique total`:""}</span></header>
-      <div className="contest-surface-matrix-scroll"><div className="contest-surface-matrix-blocks" style={{gridTemplateColumns:`repeat(${blockCount},max-content)`}}>{blocks.map((block,blockIndex)=><table
+    <span className="contest-surface-matrix-summary"><span>{rich&&`${projectedRows.length.toLocaleString()} shown · `}{workedInView.toLocaleString()} worked in view</span>
+      {workedInView!==projection.total&&<span>{projection.total.toLocaleString()} unique total</span>}</span></header>
+      <div className="contest-surface-matrix-scroll"><div className="contest-surface-matrix-blocks" style={{gridTemplateColumns:`repeat(${blockCount},minmax(${blockMinWidth}px,1fr))`}}>{blocks.map((block,blockIndex)=><table
         key={blockIndex} aria-label={blockIndex===0?`${projection.title} by band`:`${projection.title} by band continuation ${blockIndex+1}`}><thead><tr><th scope="col">{projection.title === "DXCC" ? "DXCC" : "Zone"}</th>
         {visibleBands.map(band => <th key={band} scope="col">{band}</th>)}<th scope="col">Total</th></tr></thead><tbody>
         {block.map(row => { const key = row.label.trim().toLocaleUpperCase(), current = !!selectedKey && key === selectedKey,

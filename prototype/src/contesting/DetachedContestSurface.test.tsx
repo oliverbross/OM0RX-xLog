@@ -143,7 +143,8 @@ it.each(["band-maps","dx-cluster"] as const)("offers accessible Not1MM spot life
     command==="contest_surface_action"?{requestID:args.requestID,status:"applied",projectionRevision:7}:Promise.reject(new Error(`unexpected ${command}`)));
   render(<DetachedContestSurface/>);
   const callsign=await screen.findByText("DL1ABC"),target=panelID==="dx-cluster"?callsign.closest("tr")!:callsign.closest("button")!;
-  expect(screen.getByLabelText("Marked")).toBeTruthy();
+  if(panelID==="dx-cluster")expect(screen.getByLabelText("Marked")).toBeTruthy();
+  else {expect(target.textContent).toBe("DL1ABC");expect(target.getAttribute("aria-label")).toContain("Marked");}
   fireEvent.contextMenu(target,{clientX:40,clientY:50});
   expect(await screen.findByRole("menu",{name:"Spot actions for DL1ABC"})).toBeTruthy();
   fireEvent.click(screen.getByRole("menuitem",{name:"Unmark"}));
@@ -311,8 +312,8 @@ it("contains matrix overflow inside its scroll region", () => {
   const css = readFileSync(`${process.cwd()}/src/contesting/DetachedContestSurface.css`, "utf8");
   expect(css).toContain(".contest-surface-matrix { align-items:flex-start; overflow:hidden;");
   expect(css).toContain(".contest-surface-matrix-scroll { flex:1 1 auto; width:100%; max-width:100%; min-width:0;");
-  expect(css).toContain(".contest-surface-matrix-blocks { display:grid; align-items:start; gap:8px; width:max-content; min-width:100%;");
-  expect(css).toContain(".contest-surface-matrix-scroll table { width:max-content; min-width:0;");
+  expect(css).toContain(".contest-surface-matrix-blocks { display:grid; align-items:start; gap:8px; width:100%; min-width:max-content;");
+  expect(css).toContain(".contest-surface-matrix-scroll table { width:100%; min-width:max-content;");
   expect(css).toContain(".contest-surface-matrix :is(th,td) { min-width:34px; padding:3px 6px !important;");
 });
 
@@ -1054,10 +1055,10 @@ it("highlights and scrolls to the contest's current CQ zone without a misleading
   const mounted=render(<DetachedContestSurface/>);
   expect(await screen.findByRole("heading", { name:"CQ Zones" })).toBeTruthy();
   expect(screen.queryByRole("radio")).toBeNull();
-  expect(screen.getByRole("columnheader", { name:"20m" })).toBeTruthy();
+  expect(screen.getAllByRole("columnheader", { name:"20m" })).toHaveLength(2);
   expect(screen.queryByRole("columnheader", { name:"40m" })).toBeNull();
   fireEvent.change(screen.getByRole("combobox", { name:"Multiplier band scope" }), { target:{value:"all"} });
-  expect(screen.getByRole("columnheader", { name:"40m" })).toBeTruthy();
+  expect(screen.getAllByRole("columnheader", { name:"40m" }).length).toBeGreaterThan(0);
   fireEvent.change(screen.getByRole("combobox", { name:"Multiplier row filter" }), { target:{value:"needed"} });
   mounted.unmount();render(<DetachedContestSurface/>);
   expect(await screen.findByRole("combobox", { name:"Multiplier band scope" })).toHaveProperty("value","all");
@@ -1082,6 +1083,27 @@ it("highlights and scrolls to the current DXCC entity", async () => {
   expect(row?.getAttribute("aria-current")).toBe("true");
   await waitFor(() => expect(scrollIntoView).toHaveBeenCalledOnce());
   expect(screen.queryByRole("radio")).toBeNull();
+});
+
+it("fills a wide DXCC window with as many country blocks as its width permits",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=awards"));
+  const priorWidth=window.innerWidth;Object.defineProperty(window,"innerWidth",{configurable:true,value:1400});
+  try {
+    native.invoke.mockImplementation(async(command:string)=>{
+      if(command==="contest_surface_snapshot")return{...snapshot,panelID:"awards",projection:{schemaVersion:4,status:"ready",
+        title:"DXCC",tracker:"dxcc",zoneSystem:null,current:{dxcc:"Slovak Republic",cqZone:15,ituZone:28},bands:["15m"],
+        configuredBands:["15m"],currentBand:"15m",rows:[
+          {label:"DL",counts:{"15m":0},total:0},{label:"VK",counts:{"15m":0},total:0},{label:"OM",counts:{"15m":0},total:0},
+        ],total:3,busy:false}};
+      throw new Error(command);
+    });
+    render(<DetachedContestSurface/>);await screen.findByRole("heading",{name:"DXCC"});
+    const summary=document.querySelector(".contest-surface-matrix-summary")!;
+    expect(Array.from(summary.children).map(item=>item.textContent)).toEqual(["4 shown · 0 worked in view","3 unique total"]);
+    expect(screen.getAllByRole("table")).toHaveLength(4);
+    expect((document.querySelector(".contest-surface-matrix-blocks") as HTMLElement).style.gridTemplateColumns)
+      .toBe("repeat(4,minmax(148px,1fr))");
+  } finally {Object.defineProperty(window,"innerWidth",{configurable:true,value:priorWidth});}
 });
 
 it.each([{ panelID: "awards", title: "DXCC", column: "DXCC" }, { panelID: "chaser-dx", title: "CQ Zones", column: "Zone" }])(

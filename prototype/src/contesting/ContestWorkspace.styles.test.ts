@@ -39,7 +39,7 @@ describe("ContestWorkspace responsive contract", () => {
     expect(detachedCSS).toContain(".contest-surface-logging-body { display:flex; flex:0 0 auto; min-width:0; min-height:0;");
     expect(detachedCSS).toContain(".contest-surface-check-columns { display:grid; flex:1 1 0;");
     expect(detachedCSS).toContain("min-height:0; overflow-x:hidden; overflow-y:auto; border-right:1px solid var(--border)");
-    expect(detachedCSS).toContain("flex-direction:column; flex-wrap:nowrap;");
+    expect(detachedCSS).toContain("display:grid; flex:1 1 0; grid-template-columns:minmax(0,1fr);");
     expect(detachedCSS).toContain(".contest-surface-check-columns button { width:100%; min-width:0; overflow:hidden; text-overflow:ellipsis;");
     expect(detachedCSS).toContain(".contest-surface-log-scroll { flex:1; min-width:0; max-width:100%; min-height:0; overflow:hidden;");
   });
@@ -49,7 +49,21 @@ describe("ContestWorkspace responsive contract", () => {
     expect(detachedCSS).toContain(".contest-surface-check-columns { grid-template-columns:repeat(2,minmax(0,1fr)); }");
     expect(detachedCSS).toContain("@container contest-detached (min-width:760px)");
     expect(detachedCSS).toContain(".contest-surface-check-columns { grid-template-columns:repeat(3,minmax(0,1fr)); }");
+    expect(detachedCSS).toContain('.contest-surface-check-columns[data-pane-count="2"] { grid-template-columns:repeat(2,minmax(0,1fr)); }');
+    expect(detachedCSS).toContain('.contest-surface-check-columns[data-pane-count="2"] .contest-surface-results { grid-template-columns:repeat(2,minmax(0,1fr)); }');
+    expect(detachedCSS).toContain("@container contest-detached (min-width:1080px)");
+    expect(detachedCSS).toContain('grid-template-columns:repeat(3,minmax(0,1fr));');
     expect(detachedCSS).toContain(".contest-surface-check-columns > div:nth-child(4) { grid-column:1 / -1; }");
+  });
+
+  it("stacks narrow multiplier controls and lets wide country blocks use the full window", () => {
+    expect(detachedCSS).toContain(".contest-surface-matrix-summary { display:flex; flex-wrap:wrap;");
+    expect(detachedCSS).toContain(".contest-surface-matrix-summary > span { white-space:nowrap; }");
+    expect(detachedCSS).toContain(".contest-surface-matrix-blocks { display:grid; align-items:start; gap:8px; width:100%; min-width:max-content;");
+    expect(detachedCSS).toContain(".contest-surface-matrix-scroll table { width:100%; min-width:max-content;");
+    expect(detachedCSS).toContain(".contest-surface-matrix-toolbar { display:grid; grid-template-columns:minmax(0,1fr);");
+    expect(detachedCSS).toContain(".contest-surface-matrix-toolbar label { display:grid; grid-template-columns:auto minmax(0,1fr); }");
+    expect(detachedCSS).toContain(".contest-surface-matrix-summary { display:grid; grid-template-columns:minmax(0,1fr); gap:1px; }");
   });
 
   it("keeps the original contest windows compact while log rows fit and page without scrolling", () => {

@@ -2474,7 +2474,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         setError("Open a contest session before opening its windows.");
         return true;
       }
-      await flushDraftRef.current();
+      if (panelID !== "active-qso") await flushDraftRef.current();
       await waitForSurfacePublication();
       await openContestSurfaceWindow(surfaceContext, panelID);
       return true;

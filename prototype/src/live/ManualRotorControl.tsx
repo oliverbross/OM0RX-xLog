@@ -1,11 +1,16 @@
-import { useRef, useState, useSyncExternalStore, type FormEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { manualRotorGotoSession, type ManualRotorGotoSession } from "./manualRotorGoto";
 import { nativeRotorStop } from "./nativeRotorStop";
 import { rotorProjection, validRotorSnapshot, type RotorSnapshot } from "./rotorControl";
 import type { MonitorContext } from "./monitorContext";
 
-export function ManualRotorStatus({ session = manualRotorGotoSession(), onResolved }: { session?: ManualRotorGotoSession; onResolved?: (operationId: string) => void }) {
+export function ManualRotorStatus({ session = manualRotorGotoSession(), onResolved, showMessages = true, onMessage }: {
+  session?: ManualRotorGotoSession; onResolved?: (operationId: string) => void; showMessages?: boolean;
+  onMessage?: (message: string, error: boolean) => void;
+}) {
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot), [error, setError] = useState("");
+  useEffect(() => { if (error) onMessage?.(error, true); }, [error, onMessage]);
+  useEffect(() => { if (state.message) onMessage?.(state.message, false); }, [state.message, onMessage]);
   const recover = async (action: () => Promise<void>, fallback: string) => {
     const operation = session.getSnapshot().pending; setError("");
     try { await action(); if (operation && !session.getSnapshot().pending) onResolved?.(operation); }
@@ -13,17 +18,21 @@ export function ManualRotorStatus({ session = manualRotorGotoSession(), onResolv
   };
   return <>{state.pending && <div className="live-actions"><button disabled={state.busy} onClick={() => void recover(() => session.check(), "Manual rotor receipt unavailable.")}>Check rotor receipt</button>
     {state.reviewable && <button disabled={state.busy} onClick={() => void recover(() => session.review(), "Manual rotor review could not be retained.")}>Acknowledge unknown turn</button>}</div>}
-    {error && <p className="live-station-error" role="alert">{error}</p>}{state.message && <p role="status">{state.message}</p>}</>;
+    {showMessages && error && <p className="live-station-error" role="alert">{error}</p>}
+    {showMessages && state.message && <p role="status">{state.message}</p>}</>;
 }
 
 type RotorObservation = { available: boolean; snapshot: RotorSnapshot | null };
-export function ManualRotorControl({ context, observation, session = manualRotorGotoSession(), target, onManual, onPark, hideHeading = false, contestLayout = false }: {
+export function ManualRotorControl({ context, observation, session = manualRotorGotoSession(), target, onManual, onPark, hideHeading = false,
+  contestLayout = false, onFeedback }: {
   context?: MonitorContext | null; observation?: RotorObservation; session?: ManualRotorGotoSession;
   target?: { callsign: string; shortPathBearing: number | null; longPathBearing: number | null } | null;
   onManual?: () => void | Promise<void>; onPark?: (snapshot: RotorSnapshot) => Promise<void>; hideHeading?: boolean; contestLayout?: boolean;
+  onFeedback?: (message: string, error: boolean) => void;
 }) {
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot), [bearing, setBearing] = useState("");
   const [feedback, setFeedback] = useState<{ message: string; error: boolean; gotoOperation?: string } | null>(null);
+  useEffect(() => { if (feedback) onFeedback?.(feedback.message, feedback.error); }, [feedback, onFeedback]);
   const [stopping, setStopping] = useState(false), [parking, setParking] = useState(false), stoppingRef = useRef(false), parkingRef = useRef(false);
   const retained = observation ?? context?.rotor;
   const rotor = validRotorSnapshot(retained?.snapshot) ? retained!.snapshot : null;
@@ -89,7 +98,9 @@ export function ManualRotorControl({ context, observation, session = manualRotor
       {stopButton}
       {rotor?.owner === "hamlib" && onPark && <button type="button" aria-label="Park rotor" disabled={!connected || parking}
         onClick={() => void park()}>{parking ? "Parking…" : "Park"}</button>}</form>}
-    {feedback && <p className={feedback.error ? "live-station-error" : undefined} role={feedback.error ? "alert" : "status"}>{feedback.message}</p>}
-    <ManualRotorStatus session={session} onResolved={operation => setFeedback(current => current?.gotoOperation === operation ? null : current)} />
+    {feedback && (!contestLayout || !onFeedback) && <p className={feedback.error ? "live-station-error" : undefined}
+      role={feedback.error ? "alert" : "status"}>{feedback.message}</p>}
+    <ManualRotorStatus session={session} onResolved={operation => setFeedback(current => current?.gotoOperation === operation ? null : current)}
+      showMessages={!contestLayout || !onFeedback} onMessage={onFeedback} />
   </section>;
 }
