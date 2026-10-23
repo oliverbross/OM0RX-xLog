@@ -9,6 +9,117 @@ port or a public macOS release is finished.
 > candidate only. In particular, earlier 46/94, 64/94 and HF-only limitations
 > do not describe the current source or the installed 1.3.0 milestone.
 
+## CQ-WW-SSB-2026-10-23-f9e1c46f — installed macOS candidate
+
+**Verdict: READY WITH LIMITATIONS.** This verdict is intentionally limited to
+the local Apple Silicon/macOS operating candidate. Windows and Linux packaging
+and installed behavior are deferred and are not claimed by this checkpoint.
+
+### Candidate and release gates
+
+- Version/build `1.3.0` is installed at `/Applications/OM0RX-xLog.app` from
+  clean canonical `main` source
+  `f9e1c46f7350509b5e792c1f4204cbde2b33fbeb`. The embedded Not1MM runtime
+  receipt records the same `sourceCommit` and an empty `sourceChanges` array.
+  The CQ WW window/scoring implementation is commit `870fdc4d`; `f9e1c46f`
+  contains only the final deterministic release-gate corrections.
+- The installed main executable SHA-256 is
+  `a5bc90510d2d2e135adcbe278b59bc2d80abdaeac712fa9d05d781f21b14b601`;
+  the installed worker SHA-256 is
+  `ac2e48d515a4921c46e6c5da364da48973f53077b95c9c9903b9eb0e98978fe0`.
+  Deep/strict Developer ID verification passes for the installed application.
+  Gatekeeper identifies it as an **unnotarized Developer ID** build, so this is
+  a local operating candidate rather than a notarized public release.
+- Exact-source GitHub CI run `39870640928` passed. Exact-source Contest
+  portability run `39870640828` also passed; only its macOS results are in this
+  acceptance scope. Cross-platform prototype run `39870640826` was still in
+  progress at the freeze point and is neither counted as passed nor treated as
+  a macOS blocker because the installed package below was independently built,
+  signed, installed and exercised from the same clean source.
+- The complete local frontend gate passed 276 files and 4,038 tests, TypeScript
+  compilation, the production Vite build and the bundle-budget check. The final
+  archive is `dist/OM0RX-xLog-1.3.0-f9e1c46f-macOS-arm64.zip`, SHA-256
+  `a0765ac87d350f1378ccea7ffcb82b3617a67fd6e25fddf02e7019c897b264fd`;
+  `unzip -t` passes.
+
+### Installed acceptance
+
+- **PASS — installed application identity and isolation.** The installed binary,
+  not a development server, produced a 35/35 passing native acceptance report
+  with `station_io: false`. Evidence is
+  `/Users/oliver/.codex/acceptance/cqww-f9e1c46f/installed-ui.json`, SHA-256
+  `ed3bc9a1f565dcd902b707b3b1055f8d61a62bf489c60ec818c24e1e518ef352`.
+- **PASS — CQ WW SSB entry surface.** Main Logging restored with CQ WW SSB,
+  operator OM0RX, the six HF bands, sent/received `59`, editable received CQ
+  zone, Run/S&P state and F1-F12 controls. The earlier unresolved-action,
+  unconfirmed-edit and Entry-controls banners were absent. Enter/focus/correction
+  behavior remains covered by the installed native acceptance and focused
+  contest tests; no production contact was logged to demonstrate it.
+- **PASS — contest windows.** Main Logging, Log Display, Stats, Check Partial,
+  Cluster, Band Map and Rates loaded without `Panel unavailable`. Log Display
+  showed contest-specific `YYYY-MM-DD HH:MM:SS, Call, Freq, Snt, Rcv, M1, ZN,
+  M2, PFX, PTS` columns with fitted-row bottom paging. Stats showed `BAND, QSO,
+  PTS, ZN, CTY` plus total/claimed score. Check Partial showed the four
+  Log/Master/Telnet/Call History panes and active MASTER.SCP suggestions. Cluster
+  showed full calls, contest points, an operable Marked-only toggle and bottom
+  paging without a row scrollbar. Band Map showed full calls, contest-point and
+  needed-multiplier coloring, with worked/gray spots hidden by default.
+- **PASS — window lifecycle.** The Window menu exposes the contest auxiliary
+  routes and `Open xLog Main Window`. The normal main window opened on request;
+  closing it left the contest Main Logging window running and frontmost.
+- **PASS — UTC clock behavior.** The installed main app showed the correct UTC
+  date/time and seconds advanced during observation. Date/time are no longer a
+  stale launch snapshot.
+- **PASS — score/export regression, automated simulation.** The exact-source CQ
+  WW tests cover RS plus zone entry, same-band dupes, different-band validity,
+  country/zone-by-band multipliers, immediate multiplier flags, correction,
+  deletion promotion, restart and export. The earlier unchanged six-contact
+  rehearsal result of 14 points, 12 multipliers and score 168 remains regression
+  evidence for those same fixture inputs; it is not represented as a new
+  production or exact-installed QSO run.
+- **NOT TESTED — live radio readback.** The app reported the radio offline during
+  this installed pass. Consequently live frequency/band/mode readback and spot
+  tuning of the intended 40 m SSB radio were not re-proved. No radio setting,
+  frequency or mode was changed. Rotor operation is outside this contest plan.
+
+### SSB voice results
+
+1. **Macro substitution: PASS (automated).** The bounded, typed Not1MM phone
+   macro substitutions and unavailable-output suppression are tested.
+2. **Recordings/profile: NOT READY/NOT CONFIGURED.** The installed Main Logging
+   window correctly reported recorded phone unavailable because no Voice WAV
+   profile folder was saved; no valid operator recording was claimed.
+3. **Output routing: NOT TESTED.** The output-device/profile controls exist, but
+   no audio was played into the Flex/DAX path.
+4. **PTT ownership/interlocks: NOT TESTED on hardware.** No PTT was requested.
+5. **Transmitter audio/RF: NOT TESTED.** No microphone permission, transmitter
+   audio or RF transmission was used.
+
+Manual-microphone SSB logging is the workable accepted configuration. Recorded
+F-key voice operation is a separately named limitation, not a hidden prerequisite
+for saving a QSO.
+
+### Data, remaining action and rollback
+
+- The installed acceptance used its isolated namespace and did not create,
+  edit, delete or transfer a production QSO. The protected normal database
+  passes `PRAGMA quick_check` with 68,518 active rows and one existing
+  soft-deleted row. The current real contest database passes `quick_check` and
+  contains zero contacts.
+- Before operating, the only required supervised check is to connect the
+  intended Flex/radio and confirm the displayed frequency, 40 m band and SSB
+  mode. If recorded voice is desired, save the WAV profile, record/preview each
+  intended macro on the selected nontransmitting output, then separately test
+  PTT/audio/RF under operator control. None of those actions is needed merely to
+  log a manual-microphone QSO.
+- Rollback is the verified, deep/strict-signed
+  `/Applications/OM0RX-xLog-previous-20261022T210247Z-20230.app`. The existing
+  pre-install database backup remains at
+  `/Users/oliver/Library/Application Support/OM0RX-xLog Release Backups/1.3.0-pre-870fdc4d-20261023T0815Z/`.
+  Superseded application bundles and old distribution archives were permanently
+  removed after verification; the installed candidate, this rollback, the final
+  archive and acceptance evidence were retained.
+
 ## 1.3.0 CQ WW SSB readiness candidate — exact installed source
 
 - The installed application is version/build `1.3.0` from clean canonical
