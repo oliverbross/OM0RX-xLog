@@ -1,4 +1,4 @@
-# Not1MM operator acceptance — updated 23 October 2026
+# Not1MM operator acceptance — updated 24 October 2026
 
 This checkpoint records demonstrated desktop behavior for the original executable
 Not1MM Python/SQLite host inside xLog. It is not a claim that the complete Not1MM
@@ -8,6 +8,127 @@ port or a public macOS release is finished.
 > later section in this file is retained as historical evidence for its named
 > candidate only. In particular, earlier 46/94, 64/94 and HF-only limitations
 > do not describe the current source or the installed 1.3.0 milestone.
+
+## CQ-WW-SSB-2026-10-24-0369a44a — final reviewed installed macOS candidate
+
+**Verdict: READY WITH LIMITATIONS.** This is the frozen macOS candidate for
+manual-microphone CQ WW SSB operation, prioritised for 40 m. Manual QSO entry,
+CQ WW scoring, duplicate handling, correction/deletion controls, exports,
+SCP/QRZ presentation, contest cluster/Band Map/Spots Map and normal-log services
+have passed the applicable automated or non-destructive installed checks below.
+The remaining limitations are operator-controlled live radio/spot-tune checks,
+fresh external QRZ network lookup, optional recorded-voice hardware, notarized
+public distribution and work explicitly deferred beyond macOS.
+
+### Exact source, package and review evidence
+
+- Installed product source is clean canonical `main` commit
+  `0369a44a0404076815492f888e4fead312b1747b`, pushed to `origin/main` with
+  `HEAD...origin/main` at `0 0`. The later documentation-only commit that
+  publishes this record is not part of the installed binary.
+- `/Applications/OM0RX-xLog.app` is version/build `1.3.0`. Its embedded receipt
+  records the source commit above, an empty `sourceChanges` array and hash phase
+  `final-component-signatures-before-outer-app-signature`. Deep/strict signing
+  verification passes for the app and bundled worker.
+- Packaged and installed isolated native acceptance each passed **35/35** with
+  embedded UI and worker present, `production_singleton: false` and
+  `station_io: false`. Durable reports are in
+  `docs/contesting/evidence/cq-ww-ssb-0369a44a/`; SHA-256 is
+  `62858bcc55526806c87026b1948f0cd3a44a6e8de1e603837b9b6cec363fcbca`
+  for packaged acceptance and
+  `b15026b479cc80846efaf8718e90ff4ddceebe8817576b93ccc612e8d89f6fb4`
+  for installed acceptance.
+- Packaged and installed component bytes match: main executable SHA-256
+  `31a571586636a08fed51376031e711d1f7a93ea320cdac7d8ae4ca3c73da3a8e`,
+  worker `a5d6144c094956a870e8ee40a08f06c6a2804e0c1e1fd7202a4f88b9cb64f1a4`
+  and embedded receipt
+  `1988f47d3cdc56ccc71710ee64e020ee2067b18dca5636866bf57389aedcf78e`.
+- Full exact-source gates passed: 279 frontend test files / 4,098 tests, all
+  TypeScript and production-build checks, 848 Rust tests and 311 Swift tests
+  (including 227 XCTest cases with zero failures). Existing compiler warnings
+  were unchanged.
+- Independent bounded review found and fixed: worker admission during module
+  transitions, authoritative contest fields in Spots Map, and durable retirement
+  of contest-owned radio spots across restart and shutdown. Focused regressions
+  passed; the final follow-up review returned no findings.
+
+### Protected CQ WW rehearsal and installed application checks
+
+- **PASS — CQ WW SSB Run and S&P rehearsal.** An isolated exact-source browser
+  rehearsal passed all 8 cases, 382 frames, 84 observations, 967 actions and 16
+  exports. Both WW SSB Run and S&P logged three synthetic QSOs and produced a
+  claimed score of 42, with Cabrillo and ADIF output. Protected production
+  database metadata was unchanged. The durable rehearsal summary SHA-256 is
+  `bd16667d081bb84058195fc4cd5fddb7ff32010364c63a07a9ba755b8c9c07a7`.
+- **PASS — entry, validation, duplicates and score.** The installed Main Logging
+  window shows 7.115 MHz SSB, operator OM0RX, 40 m, callsign `OM0A`, sent/received
+  `59`, editable CQ zone `15`, Run/S&P and Log/Edit/Wipe/Stop controls. It shows
+  `OM0A not worked on 40m`, country/zones, 4 QSOs / 6 multipliers and score 24.
+  Automated CQ WW SSB rehearsal directly proved accepted logging, invalid-zone
+  blocking, duplicate marking, score and both export formats.
+- **PASS — correction and deletion paths, without production mutation.** In the
+  installed Log Display, double-clicking CQ Zone exposed the inline editor and
+  right-clicking the call exposed `Delete contact…`; both were cancelled. Exact
+  mutation, score recalculation and multiplier promotion are covered by the
+  shared CQ WW synthetic correction/deletion path. No production QSO was edited
+  or deleted to manufacture evidence.
+- **PASS — contest spots and filtering.** Cluster defaults to the current radio
+  band (40 m) or the sole configured contest band, uses CQ WW opportunity/worked
+  filters and excludes non-SSB spots for this configured SSB contest. Band Map
+  shows the 40 m phone portion, worked control and live `Current VFO 7.115000
+  MHz` marker. Contest Spots Map opens from native Contest and Window menus and
+  uses authoritative contest call/frequency/band/mode/classification data with
+  the agreed double-multiplier, single-multiplier, valid-QSO and dupe legend.
+- **PASS — SCP, details and QRZ presentation.** Check Partial populated Log and
+  MASTER.SCP suggestions for the OM0A family, used the available panes, and a
+  repeated accessibility observation showed no renderer-tree change. Callsign
+  Details resolved `OM0A` to Viliam Petrik, Slovak Republic, Ivanovce, KN09dd,
+  EU, ITU 28 and CQ 15. A fresh credentialed external QRZ network request was
+  not made during this protected pass.
+- **PASS — normal-log services; operator transition retained.** The isolated
+  native gate and exact-source regressions cover normal logging and normal
+  window routes. The installed UI correctly refused to leave Contest Logging
+  while the operator's retained `OM0A` draft was active, explaining that the
+  current entry must be finished or resolved first. The draft was deliberately
+  not wiped. After the operator finishes or wipes it, `Open xLog Main Window`
+  is the normal transition path.
+- **NOT TESTED — live cluster selection and radio/Maestro forwarding.** There
+  were no needed live 40 m SSB spots at the observation moment. No cluster,
+  Band Map or map spot was selected, so authoritative radio tune/readback and
+  colour-coded forwarding to Maestro remain an operator-controlled station
+  check. No radio, PTT, rotor or RF action was requested.
+
+### Recorded voice is separate from logging readiness
+
+1. **Macro substitution: PASS (automated).** F1-F12 remain visible and the
+   bounded substitution/optional-output tests pass.
+2. **Recordings/profile: NOT CONFIGURED / NOT TESTED.** No operator voice WAV
+   profile was created for this candidate.
+3. **Output routing: NOT TESTED.** No recording was played into Flex/DAX.
+4. **PTT: NOT TESTED.** No transmit ownership or PTT action was requested.
+5. **Transmitter audio/RF: NOT TESTED.** No audio or RF was transmitted.
+
+Manual-microphone logging remains available when recorded voice is absent.
+Voice is optional, does not block QSO saving and places no warning in Main
+Logging; the only collapsed description states that manual logging remains
+available.
+
+### Remaining operator checks, cleanup and rollback
+
+- Finish or wipe the retained `OM0A` draft, then confirm the normal desk opens.
+  With the Flex connected, confirm displayed 40 m SSB readback and, if desired,
+  select one supervised needed contest spot to prove tune and Maestro forwarding.
+  A fresh external QRZ lookup may be exercised with the operator's configured
+  credentials. These actions were intentionally excluded from protected
+  acceptance.
+- Retained rollback is the deep/strict-signed
+  `/Applications/OM0RX-xLog-previous-20261023T170228Z-44586.app`, embedded
+  source `eb40ea77a3f9224b747d45302a115f8088feffd5`. `/Applications` now contains
+  only the installed candidate and this rollback. An additional superseded app
+  was moved recoverably to Trash; logbook/database backups were retained.
+- Scope is macOS only. Windows/Linux verification, optional voice hardware and
+  notarized public packaging remain deferred. No final release ZIP is claimed
+  for this local installed candidate.
 
 ## CQ-WW-SSB-2026-10-23-cb708501 — reconciled installed macOS candidate
 

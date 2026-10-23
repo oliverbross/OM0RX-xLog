@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "expectedHead": "0369a44a0404076815492f888e4fead312b1747b",
+  "command": {
+    "xctest": "/Applications/Xcode.app/Contents/Developer/usr/bin/xctest",
+    "selector": "XLogPrototypeTests.ContestOperatorBrowserAcceptanceTests/testRealWorkspaceAndMutationOwnerAgainstIsolatedLiveWorker",
+    "bundle": "/tmp/xlog-cqww-build-0369a44a-20261024T024500Z/out/Products/Debug/XLogPrototypeTests.xctest",
+    "scratch": "/tmp/xlog-cqww-build-0369a44a-20261024T024500Z"
+  },
+  "source": {
+    "head": "0369a44a0404076815492f888e4fead312b1747b",
+    "status": [],
+    "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untracked": {}
+  },
+  "build": {
+    "code": 0,
+    "stdoutSHA256": "2052d20709607877562c2b0e45846c3264e2051bc1408c6d7dfca190101acbdb",
+    "stderrSHA256": "8b4e63cd26b24184c580d77b2c5df0290bd4061cbd72aa7983a83365ac769d9c"
+  },
+  "host": {
+    "path": "/tmp/xlog-cqww-build-0369a44a-20261024T024500Z/out/Products/Debug/XLogPrototypeTests.xctest/Contents/MacOS/XLogPrototypeTests",
+    "sha256": "6c2014939bd1f2aa19725d8dc0d8e1ff05f38e7a8434fec60de23617585ccf9d"
+  },
+  "probes": [
+    {
+      "mode": "response",
+      "code": "deadline_exceeded",
+      "signal": "SIGTERM",
+      "ownedPIDs": [
+        31270,
+        31271
+      ],
+      "lingeringPIDs": [],
+      "stdoutSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSHA256": "5d98409d160b9f7fc6f5c901b8c704f2c0e17af2312bb1ab3e0298220cfb1063"
+    },
+    {
+      "mode": "shutdown",
+      "code": "deadline_exceeded",
+      "signal": "SIGTERM",
+      "ownedPIDs": [
+        31317,
+        31318
+      ],
+      "lingeringPIDs": [],
+      "stdoutSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSHA256": "9f30a50fac7f93d605cd610029e9786d071027c20e41f745fff8b75e82db232d"
+    }
+  ],
+  "run": {
+    "code": 0,
+    "stdoutSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrSHA256": "7ebd0a0679000360bf0b4d2226cdfde48f6c05587944c2aad70d7f37bb0a36c1",
+    "acceptancePath": "/tmp/xlog-cqww-0369a44a-20261024T024500Z/evidence/acceptance.json"
+  }
+}
