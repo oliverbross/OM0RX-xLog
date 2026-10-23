@@ -66,10 +66,10 @@ function useContestSurface(context: Context) {
     return () => { mounted.current = false; ticket.current += 1; stop?.(); window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", visible); };
   }, [refresh]);
-  const retryableUnavailable = snapshot?.projection.status === "unavailable" &&
+  const retryableLoading = (snapshot === null || snapshot.projection.status === "unavailable") &&
     retryableUnavailablePanels.has(context.panelID);
   useEffect(() => {
-    if (!retryableUnavailable) return;
+    if (!retryableLoading) return;
     let active = true, timer: number | undefined, delay = 250;
     const schedule = () => { timer = window.setTimeout(async () => {
       await refresh();
@@ -79,7 +79,7 @@ function useContestSurface(context: Context) {
     }, delay); };
     schedule();
     return () => { active = false; if (timer !== undefined) window.clearTimeout(timer); };
-  }, [refresh, retryableUnavailable]);
+  }, [refresh, retryableLoading]);
   return { snapshot, error, refresh };
 }
 
@@ -786,12 +786,13 @@ function Matrix({ projection,preferenceScope }: { projection: ContestMatrixSurfa
   const selectedKey = selectedLabel?.trim().toLocaleUpperCase() ?? "";
   const configured=rich?.configuredBands?.length?rich.configuredBands:projection.bands;
   const visibleBands=bandScope==="all"?projection.bands:bandScope==="current"&&rich?.currentBand?[rich.currentBand]:configured;
-  const projectedRows=useMemo(()=>{const source=[...projection.rows];
-    if(selectedKey&&!source.some(row=>row.label.trim().toLocaleUpperCase()===selectedKey))source.push({label:selectedLabel!,counts:Object.fromEntries(projection.bands.map(band=>[band,0])),total:0});
+  const projectedRows=useMemo(()=>{const dxcc=rich?.tracker==="dxcc"||projection.title==="DXCC",
+    source=projection.rows.filter(row=>!dxcc||visibleBands.some(band=>(row.counts[band]??0)>0));
+    if(!dxcc&&selectedKey&&!source.some(row=>row.label.trim().toLocaleUpperCase()===selectedKey))source.push({label:selectedLabel!,counts:Object.fromEntries(projection.bands.map(band=>[band,0])),total:0});
     return source.filter(row=>{const worked=visibleBands.some(band=>(row.counts[band]??0)>0);
       const needed=visibleBands.some(band=>(row.counts[band]??0)===0);
       return rowFilter==="all"?true:rowFilter==="worked"?worked:needed;});
-  },[projection.rows,projection.bands,selectedKey,selectedLabel,visibleBands.join("\u001f"),rowFilter]);
+  },[projection.rows,projection.bands,projection.title,rich?.tracker,selectedKey,selectedLabel,visibleBands.join("\u001f"),rowFilter]);
   useEffect(()=>{try{localStorage.setItem(preferenceKey,JSON.stringify({bandScope,rowFilter}));}catch{/* Display preferences remain optional. */}},[preferenceKey,bandScope,rowFilter]);
   useEffect(()=>{const resized=()=>setViewportWidth(window.innerWidth);window.addEventListener("resize",resized);return()=>window.removeEventListener("resize",resized);},[]);
   useEffect(() => { if(selectedKey&&lastFollowed.current!==selectedKey)rows.current.get(selectedKey)?.scrollIntoView?.({ block: "center", inline: "nearest" });

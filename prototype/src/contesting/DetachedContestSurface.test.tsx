@@ -120,6 +120,44 @@ it("recovers a restored Main Logging window when its ready publication was misse
   } finally { vi.useRealTimers(); }
 });
 
+it("retries a restored Main Logging window after its startup snapshot reads are rejected",async()=>{
+  vi.useFakeTimers();
+  try {
+    let reads=0;
+    native.invoke.mockImplementation(async(command:string)=>{
+      if(command!=="contest_surface_snapshot")throw new Error(command);
+      reads+=1;
+      if(reads<=2)throw new Error("The replacement contest window is still settling.");
+      return snapshot;
+    });
+    render(<DetachedContestSurface/>);
+    await act(async()=>{await Promise.resolve();await Promise.resolve();});
+    expect(screen.getByText("Loading shared contest panel…")).toBeTruthy();
+    await act(async()=>{await vi.advanceTimersByTimeAsync(250);});
+    expect(screen.getByLabelText("Callsign")).toHaveProperty("value","OM0RX");
+    expect(reads).toBeGreaterThanOrEqual(3);
+  } finally { vi.useRealTimers(); }
+});
+
+it("supersedes a hung startup snapshot with the scheduled restored-window retry",async()=>{
+  vi.useFakeTimers();
+  try {
+    let reads=0;
+    native.invoke.mockImplementation((command:string)=>{
+      if(command!=="contest_surface_snapshot")return Promise.reject(new Error(command));
+      reads+=1;
+      return reads===1?new Promise(()=>{}):Promise.resolve(snapshot);
+    });
+    native.listen.mockImplementation(()=>new Promise(()=>{}));
+    render(<DetachedContestSurface/>);
+    await act(async()=>{await Promise.resolve();});
+    expect(screen.getByText("Loading shared contest panel…")).toBeTruthy();
+    await act(async()=>{await vi.advanceTimersByTimeAsync(250);});
+    expect(screen.getByLabelText("Callsign")).toHaveProperty("value","OM0RX");
+    expect(reads).toBe(2);
+  } finally { vi.useRealTimers(); }
+});
+
 it("keeps unsupported multiplier trackers terminal instead of polling them",async()=>{
   vi.useFakeTimers();
   try {
@@ -1093,17 +1131,38 @@ it("fills a wide DXCC window with as many country blocks as its width permits",a
       if(command==="contest_surface_snapshot")return{...snapshot,panelID:"awards",projection:{schemaVersion:4,status:"ready",
         title:"DXCC",tracker:"dxcc",zoneSystem:null,current:{dxcc:"Slovak Republic",cqZone:15,ituZone:28},bands:["15m"],
         configuredBands:["15m"],currentBand:"15m",rows:[
-          {label:"DL",counts:{"15m":0},total:0},{label:"VK",counts:{"15m":0},total:0},{label:"OM",counts:{"15m":0},total:0},
-        ],total:3,busy:false}};
+          {label:"DL",counts:{"15m":1},total:1},{label:"VK",counts:{"15m":1},total:1},{label:"OM",counts:{"15m":1},total:1},
+          {label:"Slovak Republic",counts:{"15m":1},total:1},
+        ],total:4,busy:false}};
       throw new Error(command);
     });
     render(<DetachedContestSurface/>);await screen.findByRole("heading",{name:"DXCC"});
     const summary=document.querySelector(".contest-surface-matrix-summary")!;
-    expect(Array.from(summary.children).map(item=>item.textContent)).toEqual(["4 shown · 0 worked in view","3 unique total"]);
+    expect(Array.from(summary.children).map(item=>item.textContent)).toEqual(["4 shown · 4 worked in view"]);
     expect(screen.getAllByRole("table")).toHaveLength(4);
     expect((document.querySelector(".contest-surface-matrix-blocks") as HTMLElement).style.gridTemplateColumns)
       .toBe("repeat(4,minmax(148px,1fr))");
   } finally {Object.defineProperty(window,"innerWidth",{configurable:true,value:priorWidth});}
+});
+
+it("shows only DXCC entities worked within the selected band scope",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=awards"));
+  native.invoke.mockImplementation(async(command:string)=>{
+    if(command==="contest_surface_snapshot")return{...snapshot,panelID:"awards",projection:{schemaVersion:4,status:"ready",
+      title:"DXCC",tracker:"dxcc",zoneSystem:null,current:{dxcc:"Slovak Republic",cqZone:15,ituZone:28},bands:["15m","40m"],
+      configuredBands:["40m"],currentBand:"40m",rows:[
+        {label:"DL",counts:{"15m":1,"40m":0},total:1},{label:"VK",counts:{"15m":0,"40m":1},total:1},
+        {label:"OM",counts:{"15m":0,"40m":2},total:2},
+      ],total:3,busy:false}};
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);await screen.findByRole("heading",{name:"DXCC"});
+  expect(screen.queryByRole("rowheader",{name:"DL"})).toBeNull();
+  expect(screen.queryByRole("rowheader",{name:"Slovak Republic"})).toBeNull();
+  expect(screen.getByRole("rowheader",{name:"VK"})).toBeTruthy();
+  expect(screen.getByRole("rowheader",{name:"OM"})).toBeTruthy();
+  const summary=document.querySelector(".contest-surface-matrix-summary")!;
+  expect(Array.from(summary.children).map(item=>item.textContent)).toEqual(["2 shown · 2 worked in view","3 unique total"]);
 });
 
 it.each([{ panelID: "awards", title: "DXCC", column: "DXCC" }, { panelID: "chaser-dx", title: "CQ Zones", column: "Zone" }])(
