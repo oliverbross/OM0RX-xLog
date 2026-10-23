@@ -2508,7 +2508,8 @@ class Host:
                     desk = Desk(store, state, self.commit)
                 else:
                     required = common | {"baseRevision"}
-                    allowed = (required | {"fields", "timestamp", "frequencyHz", "operator", "countries",
+                    allowed = (required | {"fields", "timestamp", "frequencyHz", "receiveFrequencyHz", "power",
+                                           "operator", "countries",
                                            "referenceID", "reason"} if action == "correct"
                                else required | {"reason"})
                     require(required <= set(params) <= allowed, "Remote contact change fields are invalid")
@@ -3653,12 +3654,19 @@ class Host:
             frequency = params.get("frequencyHz", round(before["Freq"] * 1000))
             require(type(frequency) is int, "Frequency must be integer Hz")
             desk.contest_band(frequency)
+            receive_frequency = params.get("receiveFrequencyHz", round(float(before.get("QSXFreq") or 0) * 1000))
+            require(type(receive_frequency) is int and 0 <= receive_frequency <= 100_000_000_000,
+                    "RX frequency must be integer Hz")
+            power = text(params.get("power", str(before.get("Power", ""))), 8)
+            require(not power or power.isdigit(), "Power must contain digits only")
             if desk.state["pluginID"] == "darc_schwaben" and BAND_LABELS[desk.band(frequency)] in {"2m", "70cm"}:
                 require(bool(desk.contest.parse_exchange(updated["other_2"])[1]),
                         "DARC Schwaben VHF exchange requires a locator")
             operator = text(params.get("operator", before["Operator"]), 20)
             require(bool(operator.strip()), "Operator is required")
             after = desk.contact_for(updated, qso_id, timestamp, frequency, base=before, operator=operator)
+            after["QSXFreq"] = receive_frequency / 1000
+            after["Power"] = power
             for name, maximum in CONTACT_METADATA_FIELDS.items():
                 if name in correction_fields:
                     after[name] = text(correction_fields[name], maximum)

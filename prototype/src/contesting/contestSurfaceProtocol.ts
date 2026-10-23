@@ -36,9 +36,10 @@ export type ContestSurfaceAction =
   | { action: "log_export_cabrillo" | "log_export_adif" | "log_export_edi"; params: Record<string, never> }
   | { action: "log_recalculate"; params: { expectedSessionRevision: Revision } }
   | { action: "log_page"; params: { offset: number; limit: number } }
-  | { action: "log_edit_begin" | "log_edit_cancel"; params: { qsoID: string } }
+  | { action: "log_edit_begin" | "log_edit_begin_delete" | "log_edit_cancel"; params: { qsoID: string } }
   | { action: "log_edit_set_text"; params: { qsoID: string; field: "callsign" | "sentReport" | "receivedReport" |
-      "timestamp" | "operator" | "name" | "qth" | "comment" | "correctionReason" | "deletionReason"; value: string } }
+      "timestamp" | "operator" | "name" | "qth" | "comment" | "receiveFrequency" | "power" |
+      "correctionReason" | "deletionReason"; value: string } }
   | { action: "log_edit_set_exchange"; params: { qsoID: string; fieldID: string; value: string } }
   | { action: "log_edit_set_frequency_text"; params: { qsoID: string; value: string } }
   | { action: "log_edit_set_band"; params: { qsoID: string; value: string } }
@@ -165,8 +166,9 @@ export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; s
   pluginColumns?: string[]; pluginRows?: ContestPluginLogRow[]; pluginPartialRows?: ContestPluginLogRow[];
   page: { offset: number; limit: number; total: number; rows: { qsoID: string; workedAt: string; callsign: string; band: string;
     mode: string; sentExchange: string; receivedExchange: string; points: number; multiplierLabels: string[] }[] };
-  editing: null | { reportsVisible?: boolean; details?: ContestLogEditDetails; qsoID: string; workedAt: string; operator: string; callsign: string; name?: string; qth?: string; comment?: string; band: string; mode: string; sentReport: string; receivedReport: string;
+  editing: null | { editorProfile?: "cq_ww_ssb"; reportsVisible?: boolean; details?: ContestLogEditDetails; qsoID: string; workedAt: string; operator: string; callsign: string; name?: string; qth?: string; comment?: string; band: string; mode: string; sentReport: string; receivedReport: string;
     entryFields?: ContestSurfaceReceivedField[]; receivedFields: ContestSurfaceReceivedField[]; frequencyHz: number | null; editFrequencyText: string; frequencyError: string;
+    receiveFrequencyHz?: number | null; editReceiveFrequencyText?: string; receiveFrequencyError?: string; editPower?: string; powerError?: string;
     correctionReason: string; confirmDelete: boolean; deletionReason: string }; busy: boolean };
 export type ContestMessagesSurfaceProjection = { schemaVersion: 1; status: "ready";
   messages: { kind: "error" | "notice"; text: string }[]; busy: boolean };
@@ -415,7 +417,7 @@ function validLogProjection(value: Record<string, unknown>) {
         text(row.sentExchange, 2048, true) && text(row.receivedExchange, 2048, true) && uint(row.points) && texts(row.multiplierLabels, 32, 160); }) &&
     (!pluginLayout || Array.isArray(value.pluginRows) && value.pluginRows.length === pageRows.length && value.pluginRows.every((item, index) =>
       record(item) && record(pageRows[index]) && item.qsoID === pageRows[index].qsoID)) &&
-    (value.editing === null || !!editing && optionalKeys(editing, ["qsoID", "workedAt", "operator", "callsign", "band", "mode", "sentReport", "receivedReport", "receivedFields", "frequencyHz", "editFrequencyText", "frequencyError", "correctionReason", "confirmDelete", "deletionReason"], ["entryFields", "reportsVisible", "details", "name", "qth", "comment"]) &&
+    (value.editing === null || !!editing && optionalKeys(editing, ["qsoID", "workedAt", "operator", "callsign", "band", "mode", "sentReport", "receivedReport", "receivedFields", "frequencyHz", "editFrequencyText", "frequencyError", "correctionReason", "confirmDelete", "deletionReason"], ["editorProfile", "entryFields", "reportsVisible", "details", "name", "qth", "comment", "receiveFrequencyHz", "editReceiveFrequencyText", "receiveFrequencyError", "editPower", "powerError"]) &&
       (!("reportsVisible" in editing) || typeof editing.reportsVisible === "boolean") &&
       (!("details" in editing) || validLogEditDetails(editing.details)) &&
       text(editing.qsoID, 160) && text(editing.workedAt, 32) && text(editing.operator, 32, true) && text(editing.callsign, 32, true) &&
@@ -424,6 +426,12 @@ function validLogProjection(value: Record<string, unknown>) {
       text(editing.receivedReport, 160, true) && (!("entryFields" in editing) || validReceivedFields(editing.entryFields)) &&
       validReceivedFields(editing.receivedFields) && optionalFrequency(editing.frequencyHz) &&
       text(editing.editFrequencyText, 11, true) && text(editing.frequencyError, 512, true) && text(editing.correctionReason, 1024, true) &&
+      (editing.editorProfile === undefined || editing.editorProfile === "cq_ww_ssb") &&
+      (editing.receiveFrequencyHz === undefined || editing.receiveFrequencyHz === null || uint(editing.receiveFrequencyHz, 100_000_000_000)) &&
+      (editing.editReceiveFrequencyText === undefined || text(editing.editReceiveFrequencyText, 12, true)) &&
+      (editing.receiveFrequencyError === undefined || text(editing.receiveFrequencyError, 512, true)) &&
+      (editing.editPower === undefined || text(editing.editPower, 8, true)) &&
+      (editing.powerError === undefined || text(editing.powerError, 512, true)) &&
       typeof editing.confirmDelete === "boolean" && text(editing.deletionReason, 1024, true)) && typeof value.busy === "boolean";
 }
 
@@ -593,9 +601,9 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "log_recalculate") return exact(params, ["expectedSessionRevision"]) && uint(params.expectedSessionRevision);
   if (action === "log_page") return exact(params, ["offset", "limit"]) && uint(params.offset, 1_000_000) &&
     uint(params.limit, 20) && (params.limit as number) > 0;
-  if (action === "log_edit_begin" || action === "log_edit_cancel") return qso(params, []);
+  if (action === "log_edit_begin" || action === "log_edit_begin_delete" || action === "log_edit_cancel") return qso(params, []);
   if (action === "log_edit_set_text") return qso(params, ["field", "value"]) &&
-    oneOf(params.field, ["callsign", "sentReport", "receivedReport", "timestamp", "operator", "name", "qth", "comment", "correctionReason", "deletionReason"]) && text(params.value, 1024, true);
+    oneOf(params.field, ["callsign", "sentReport", "receivedReport", "timestamp", "operator", "name", "qth", "comment", "receiveFrequency", "power", "correctionReason", "deletionReason"]) && text(params.value, 1024, true);
   if (action === "log_edit_set_exchange") return qso(params, ["fieldID", "value"]) && text(params.fieldID, 64) && text(params.value, 1024, true);
   if (action === "log_edit_set_frequency_text") return qso(params, ["value"]) && text(params.value, 11, true);
   if (action === "log_edit_set_band") return qso(params, ["value"]) && text(params.value, 16);
@@ -614,7 +622,7 @@ export function validContestSurfaceActionEnvelope(value: unknown): value is Cont
   const action = typeof envelope?.action === "string" ? envelope.action : "";
   const panel = typeof envelope?.panelID === "string" ? envelope.panelID : "";
   const params = record(envelope?.params) ? envelope.params : undefined;
-  const panelMatches = action.startsWith("spot_") ? panel === "band-maps" || panel === "dx-cluster" : action.startsWith("entry_") ? panel === "active-qso" : action.startsWith("assistance_")
+  const panelMatches = action.startsWith("spot_") ? panel === "band-maps" || panel === "dx-cluster" || panel === "world-map" && action === "spot_select" : action.startsWith("entry_") ? panel === "active-qso" : action.startsWith("assistance_")
     ? panel === "callsign-intelligence" : action.startsWith("log_") ? panel === "logbook" : action.startsWith("score_") ? panel === "score-reporting" : false;
   return !!envelope && exact(envelope, keys) && validContestSurfaceUUID(envelope.operatingContext) && envelope.scope === "contesting" &&
       validContestSurfaceUUID(envelope.sessionID) && validContestSurfaceUUID(envelope.workspaceGeneration) && oneOf(panel, contestSurfacePanelIDs) &&

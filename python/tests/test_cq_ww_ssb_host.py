@@ -524,13 +524,23 @@ class CQWWSSBHostTests(unittest.TestCase):
         first = self.log(frequency=7125000)
         second = self.log(minute=1)
         self.mutate("qso_correct", qsoID=first,
-                    fields={"callsign": "DL1ABC", "other_2": "14"}, reason="Correct call")
+                    fields={"callsign": "DL1ABC", "other_2": "14"},
+                    receiveFrequencyHz=7126500, power="100", reason="Correct call")
+        corrected = next(row for row in self.read("log_page")["rows"] if row["ID"] == first)
+        self.assertEqual(corrected["NR"], 14)
+        self.assertEqual(corrected["ZN"], 14)
+        self.assertEqual(corrected["Band"], 7)
+        self.assertEqual(corrected["QSXFreq"], 7126.5)
+        self.assertEqual(corrected["Power"], "100")
         self.assertEqual(self.read("score")["score"]["total"], 16)
         self.mutate("qso_delete", qsoID=second, reason="Remove duplicate")
         self.assertEqual(self.read("score")["score"]["total"], 2)
         self.host.close()
         self.host = Host(self.root)
         self.assertEqual(self.read("score")["score"]["total"], 2)
+        corrected = self.read("log_page")["rows"][0]
+        self.assertEqual(corrected["QSXFreq"], 7126.5)
+        self.assertEqual(corrected["Power"], "100")
         export = self.read("export")["content"]
         self.assertIn("CONTEST: CQ-WW-SSB\r\n", export)
         self.assertIn("CATEGORY-MODE: SSB\r\n", export)

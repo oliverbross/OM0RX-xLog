@@ -3,8 +3,9 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { Profiler, useMemo, useState } from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { contestMapSpots, DetachedContestSurface } from "./DetachedContestSurface";
+import { contestMapSpots, contestMapView, DetachedContestSurface } from "./DetachedContestSurface";
 import { loadWindowSurface } from "../windowSurface";
+import { syntheticMapContext } from "../live/mapContextFixtures";
 import { contestSurfacePanelIDs, type ContestEntrySurfaceProjection, type ContestSurfaceActionEnvelope,
   type ContestSurfaceProjection, validContestSurfaceProjection } from "./contestSurfaceProtocol";
 import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
@@ -20,6 +21,8 @@ vi.mock("@tauri-apps/api/core", () => ({
 vi.mock("@tauri-apps/api/event", () => ({ listen: native.listen }));
 vi.mock("@tauri-apps/api/window",()=>({getCurrentWindow:()=>({onCloseRequested:async(handler:typeof native.closeRequested)=>{
   native.closeRequested=handler;return()=>{native.closeRequested=null;};}})}));
+vi.mock("../Map",()=>({default:(props:any)=><button type="button" data-testid="world-map" onClick={()=>props.onSpot?.(props.data[0])}>
+  {[props.data[0]?.band,props.data.length,props.home?.call,props.target?.call,props.data[0]?.statusHex].join("|")}</button>}));
 
 const operatingContext="00000000-0000-4000-8000-000000000001", sessionID="00000000-0000-4000-8000-000000000002",
   workspaceGeneration="00000000-0000-4000-8000-000000000003";
@@ -60,6 +63,50 @@ it("maps only contest-projected located spots with CQ WW multiplier colors",()=>
     expect.objectContaining({id:"qso",callStatus:"Valid QSO",statusHex:"#3da5f4"}),
     expect.objectContaining({id:"dupe",callStatus:"Dupe / non-workable",statusHex:"#aeb5b7",state:"worked"}),
   ]);
+});
+
+it("limits the contest map to the operating band and reuses the normal map home and selected path target",()=>{
+  const forty={...sharedSpot,id:"forty",callsign:"DL1ABC",frequencyKHz:7125,frequencyText:"7125.0",band:"40m",mode:"SSB",
+      contestDupe:false,contestMultiplierCount:2,contestCountryMultiplier:true,contestZoneMultiplier:true},
+    twenty={...sharedSpot,id:"twenty",callsign:"K1ABC",frequencyKHz:14225,frequencyText:"14225.0",band:"20m",mode:"SSB",
+      contestDupe:false,contestMultiplierCount:0,contestCountryMultiplier:false,contestZoneMultiplier:false},
+    shared=[{...forty,latitude:51,longitude:13},{...twenty,latitude:38,longitude:-77}],context=syntheticMapContext(),
+    projection={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:7_125_000,
+      connectedClusters:1,loadedSpots:2,selectedSpotID:"forty",configuredClusters:[],connections:[],
+      contestSessionID:sessionID,supportedBands:["20m","40m"],allowedModeGroups:["phone"],bandSegments:[],markedOnly:false,
+      spots:[forty,twenty],busy:false} as const;
+  const view=contestMapView(projection as any,shared,context);
+  expect(view.currentBand).toBe("40m");
+  expect(view.spots).toEqual([expect.objectContaining({id:"forty",statusHex:"#00e51b"})]);
+  expect(view.home).toEqual(context.metadata.home);
+  expect(view.target).toEqual({call:"DL1ABC",lat:51,lon:13,country:"Germany",locationSource:"Selected contest spot"});
+  expect(view.selected).toBe("forty");
+  expect(contestMapView({...projection,radioFrequencyHz:null,supportedBands:["40m"]} as any,shared,context).spots)
+    .toEqual([expect.objectContaining({id:"forty"})]);
+  expect(contestMapView({...projection,radioFrequencyHz:null} as any,shared,context).spots).toEqual([]);
+});
+
+it("renders the current-band contest map with the normal home path and selects a clicked spot",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=world-map"));
+  const spot={...sharedSpot,id:"forty",callsign:"DL1ABC",frequencyKHz:7125,frequencyText:"7125.0",band:"40m",mode:"SSB",
+      contestDupe:false,contestMultiplierCount:2,contestCountryMultiplier:true,contestZoneMultiplier:true},
+    view={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:7_125_000,
+      connectedClusters:1,loadedSpots:1,selectedSpotID:"forty",configuredClusters:[],connections:[],
+      contestSessionID:sessionID,supportedBands:["40m"],allowedModeGroups:["phone"],bandSegments:[],markedOnly:false,
+      spots:[spot],busy:false},context=syntheticMapContext();
+  context.cluster.response={snapshot:{spots:[{...spot,latitude:51,longitude:13}]},configuration:{palette:{}}};
+  native.invoke.mockImplementation(async(command:string,args:any)=>{
+    if(command==="contest_surface_snapshot")return{...snapshot,panelID:"world-map",projection:view};
+    if(command==="map_context_snapshot")return context;
+    if(command==="contest_surface_action")return{applied:true,projectionRevision:7,message:null};
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);
+  const map=await screen.findByTestId("world-map");
+  await waitFor(()=>expect(map.textContent).toBe("40m|1|TESTHOME|DL1ABC|#00e51b"));
+  fireEvent.click(map);
+  await waitFor(()=>expect(native.invoke).toHaveBeenCalledWith("contest_surface_action",expect.objectContaining({
+    action:"spot_select",params:{draftID:"draft-1",expectedDraftRevision:5,spotID:"forty"}})));
 });
 
 it("rereads a restored Main Logging window after the replacement context listener is installed",async()=>{
@@ -631,8 +678,7 @@ it("offers Delete contact from the call context menu and opens the editor in its
     if(command==="contest_surface_snapshot")return {...snapshot,panelID:"logbook",projectionRevision,projection:current};
     if(command==="contest_surface_action"){
       actions.push(args);
-      if(args.action==="log_edit_begin"){current={...current,editing};projectionRevision+=1;}
-      if(args.action==="log_edit_confirm_delete"){current={...current,editing:{...editing,confirmDelete:true}};projectionRevision+=1;}
+      if(args.action==="log_edit_begin_delete"){current={...current,editing:{...editing,confirmDelete:true}};projectionRevision+=1;}
       return{requestID:args.requestID,status:"applied"};
     }
     if(command==="contest_contact_editor_open")return;
@@ -642,8 +688,8 @@ it("offers Delete contact from the call context menu and opens the editor in its
   fireEvent.contextMenu((await screen.findByText("K1ABC")).closest("td")!,{clientX:50,clientY:60});
   expect(await screen.findByRole("menu",{name:"Contact actions for K1ABC"})).toBeTruthy();
   fireEvent.click(screen.getByRole("menuitem",{name:"Delete contact…"}));
-  await waitFor(()=>expect(actions.map(action=>action.action)).toEqual(["log_edit_begin","log_edit_confirm_delete"]));
-  expect(actions[1]).toMatchObject({projectionRevision:7,params:{qsoID:"logged-qso",confirmed:true}});
+  await waitFor(()=>expect(actions.map(action=>action.action)).toEqual(["log_edit_begin_delete"]));
+  expect(actions[0]).toMatchObject({projectionRevision:6,params:{qsoID:"logged-qso"}});
   expect(actions.some(action=>action.action==="log_edit_delete")).toBe(false);
   expect(native.invoke).toHaveBeenCalledWith("contest_contact_editor_open",{operatingContext,sessionID,workspaceGeneration});
 });
@@ -705,6 +751,39 @@ it("renders the original contact fields in the dedicated editor and closes after
   expect(native.invoke.mock.calls.find(([command])=>command==="contest_surface_action")?.[1]).toMatchObject({
     panelID:"logbook",action:"log_edit_save",params:{qsoID:"logged-qso",expectedSessionRevision:7},
   });
+});
+
+it("limits CQ WW SSB contact correction to operator-owned fields",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=edit-contact"));
+  const editing={editorProfile:"cq_ww_ssb",qsoID:"logged-qso",workedAt:"2026-10-20 12:00:00",operator:"OM0RX",
+    callsign:"DL1ABC",name:"Alice",qth:"Berlin",comment:"Imported",band:"40m",mode:"SSB",sentReport:"59",receivedReport:"59",
+    entryFields:[
+      {id:"sent",label:"SNT",value:"59",required:true,maximumUTF8Bytes:160,enabled:true,readOnly:false},
+      {id:"receive",label:"RCV",value:"59",required:true,maximumUTF8Bytes:160,enabled:true,readOnly:false},
+      {id:"other_1",label:"Sent zone",value:"15",required:true,maximumUTF8Bytes:32,enabled:true,readOnly:false},
+      {id:"other_2",label:"CQ Zone",value:"14",required:true,maximumUTF8Bytes:128,enabled:true,readOnly:false},
+    ],receivedFields:[],details:{country:"DL",stationCall:"OM0RX",receivedNumber:"14",sentNumber:"15",points:"1",power:"100",
+      zone:"14",section:"",multiplier1:"Yes",multiplier2:"Yes",multiplier3:"",check:"",precedence:"",wpx:"DL1",exchange:"",
+      run:"1",radio:"1",grid:"JO62",misc:"",roverQTH:"",contest:"CQ-WW-SSB",rxFrequency:"7126500",name:"Alice",qth:"Berlin",comment:"Imported"},
+    frequencyHz:7125000,editFrequencyText:"7125000",frequencyError:"",receiveFrequencyHz:7126500,
+    editReceiveFrequencyText:"7126500",receiveFrequencyError:"",editPower:"100",powerError:"",
+    correctionReason:"Operator correction",confirmDelete:false,deletionReason:""};
+  const view={schemaVersion:1,status:"ready",sessionRevision:7,canExportCabrillo:true,exchangeLayout:"plugin",
+    pluginColumns:["Call"],pluginRows:[],pluginPartialRows:[],page:{offset:0,limit:20,total:0,rows:[]},editing,busy:false};
+  const actions:Record<string,any>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return {...snapshot,panelID:"logbook",projection:view};
+    if(command==="contest_surface_action"){actions.push(args);return {requestID:args.requestID,status:"queued"};}
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);await screen.findByRole("heading",{name:"Edit Contact"});
+  for(const label of ["Callsign","TimeStamp (UTC)","RX Freq (Hz)","Tx Freq (Hz)","CQ Zone","Power","Correction note"])
+    expect(screen.getByLabelText(label)).toBeTruthy();
+  for(const label of ["SNT","RCV","Sent zone","Country","Points","Band","Name","QTH","Comment","Op"])
+    expect(screen.queryByLabelText(label)).toBeNull();
+  fireEvent.change(screen.getByLabelText("RX Freq (Hz)"),{target:{value:"7127000"}});
+  await waitFor(()=>expect(actions.some(action=>action.action==="log_edit_set_text"&&action.params.field==="receiveFrequency"&&
+    action.params.value==="7127000")).toBe(true));
 });
 
 it("uses General Logging entry fields as the single Name and Comment authority",async()=>{
@@ -1428,6 +1507,26 @@ it("keeps SSB macros visible while optional unconfigured voice controls and setu
   fireEvent.keyDown(screen.getByRole("region",{name:"Main Logging"}),{key:"F1"});
   expect(native.invoke.mock.calls.some(([command])=>command==="contest_surface_action")).toBe(false);
   expect(screen.queryByText(/Phone contest voice output is unavailable in production/i)).toBeNull();
+});
+
+it.each([
+  ["Callsign","callsign"],["SNT","sent"],["RCV","receive"],["CQ Zone","other_2"],
+] as const)("accepts Enter from the CQ WW %s field",async(label,focusedField)=>{
+  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,callsign:"DL1ABC",mode:"SSB",
+      sentReport:"59",receivedReport:"59",receivedFields:[{id:"other_2",label:"CQ Zone",value:"14",required:true,maximumUTF8Bytes:128,enabled:true,readOnly:false}]},
+    descriptor:{bands:["40m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
+    operator:{output:"xlog-native",outputAvailable:false,outputUnavailableReason:"Optional voice output is not configured.",armed:false,style:"search-and-pounce",status:"disarmed",
+      pending:null,focusedField,...tabMaps,functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,
+        canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return view;
+    if(command==="contest_surface_action")return{requestID:args.requestID,status:"applied",projectionRevision:7};
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const input=await screen.findByLabelText(label);
+  fireEvent.keyDown(input,{key:"Enter"});
+  await waitFor(()=>expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&
+    args.action==="entry_operator_key"&&args.params.key==="Enter"&&args.params.focusedField===focusedField)).toBe(true));
 });
 
 it("shows saved only after a confirmed commit advances to a new draft",async()=>{

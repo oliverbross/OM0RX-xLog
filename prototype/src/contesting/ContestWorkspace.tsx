@@ -588,6 +588,7 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
       case "log_export_cabrillo": throw new Error("Cabrillo export is available from the Python contest host.");
       case "log_page": await movePage(action.params.offset, true); return;
       case "log_edit_begin": await editQSO(action.params.qsoID, true); return;
+      case "log_edit_begin_delete": await editQSO(action.params.qsoID, true); setConfirmDelete(true); return;
       case "log_edit_cancel":
         if (editing?.qso.qsoID !== action.params.qsoID) throw new Error("The contact editor changed.");
         setEditing(null); setConfirmDelete(false); setEditorFrequencyError(""); return;
@@ -597,6 +598,8 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
         else if (action.params.field === "deletionReason") setDeletionReason(action.params.value);
         else if (action.params.field === "timestamp") changeQSO("originalUTC", action.params.value);
         else if (action.params.field === "operator") changeQSO("operatorCallsign", action.params.value);
+        else if (action.params.field === "receiveFrequency" || action.params.field === "power")
+          throw new Error("Receive frequency and power corrections require the Python contest host.");
         else if (action.params.field === "name" || action.params.field === "qth" || action.params.field === "comment")
           throw new Error("Contact metadata corrections require the Python contest host.");
         else changeQSO(action.params.field, action.params.value); return;

@@ -36,12 +36,13 @@ it.each(["band-maps","dx-cluster"] as const)("validates fenced %s spot selection
   expect(validContestSurfaceProjection(panelID,{...projection,spots:[spot,{...spot}]})).toBe(false);
   expect(validContestSurfaceProjection(panelID,{...projection,connections:[{...projection.connections[0],phase:"x".repeat(33)}]})).toBe(false);
 });
-it("validates the contest Spots Map projection while keeping it read-only",()=>{
+it("validates the contest Spots Map projection while allowing only spot selection",()=>{
   const projection={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:7_125_000,
     connectedClusters:1,loadedSpots:1,selectedSpotID:null,configuredClusters:[],connections:[],contestSessionID:base.sessionID,
     supportedBands:["40m"],allowedModeGroups:["phone"],markedOnly:false,spots:[{...spot,band:"40m",mode:"SSB",frequencyKHz:7125}],busy:false};
   expect(validContestSurfaceProjection("world-map",projection)).toBe(true);
-  expect(()=>validateContestSurfaceActionEnvelope({...base,panelID:"world-map",action:"spot_select",params:{...draft,spotID:spot.id}})).toThrow();
+  expect(()=>validateContestSurfaceActionEnvelope({...base,panelID:"world-map",action:"spot_select",params:{...draft,spotID:spot.id}})).not.toThrow();
+  expect(()=>validateContestSurfaceActionEnvelope({...base,panelID:"world-map",action:"spot_delete",params:{...draft,spotID:spot.id}})).toThrow();
 });
 it("validates the read-only Remote VFO projection exactly", () => {
   const projection = { schemaVersion: 1, status: "ready", radioFrequencyHz: 14_025_000,
@@ -115,8 +116,11 @@ const valid = [
   { panelID: "logbook", action: "log_export_edi", params: {} },
   { panelID: "logbook", action: "log_recalculate", params: { expectedSessionRevision: 6 } },
   { panelID: "logbook", action: "log_edit_begin", params: qso },
+  { panelID: "logbook", action: "log_edit_begin_delete", params: qso },
   { panelID: "logbook", action: "log_edit_cancel", params: qso },
   { panelID: "logbook", action: "log_edit_set_text", params: { ...qso, field: "correctionReason", value: "Corrected from paper log" } },
+  { panelID: "logbook", action: "log_edit_set_text", params: { ...qso, field: "receiveFrequency", value: "7126500" } },
+  { panelID: "logbook", action: "log_edit_set_text", params: { ...qso, field: "power", value: "100" } },
   { panelID: "logbook", action: "log_edit_set_exchange", params: { ...qso, fieldID: "zone", value: "15" } },
   { panelID: "logbook", action: "log_edit_set_frequency_text", params: { ...qso, value: "14.025A" } },
   { panelID: "logbook", action: "log_edit_set_band", params: { ...qso, value: "20m" } },

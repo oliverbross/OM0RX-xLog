@@ -59,9 +59,11 @@ function validClientParams(action:ClientAction,value:unknown,qsoID:string,baseRe
   const fields=params.fields;
   if(!fields||typeof fields!=="object"||Array.isArray(fields)||Object.keys(fields).length>64||
       !Object.values(fields).every(item=>typeof item==="string"&&new TextEncoder().encode(item).length<=4096))return false;
-  if(action==="correct")return exactKeys(params,["action","qsoID","baseRevision","timestamp","frequencyHz","operator","fields","reason"])&&
+  if(action==="correct")return exactKeys(params,["action","qsoID","baseRevision","timestamp","frequencyHz","receiveFrequencyHz","power","operator","fields","reason"])&&
     params.baseRevision===baseRevision&&typeof params.timestamp==="string"&&params.timestamp.length<=64&&
-    Number.isSafeInteger(params.frequencyHz)&&Number(params.frequencyHz)>0&&typeof params.operator==="string"&&
+    Number.isSafeInteger(params.frequencyHz)&&Number(params.frequencyHz)>0&&Number.isSafeInteger(params.receiveFrequencyHz)&&
+    Number(params.receiveFrequencyHz)>=0&&Number(params.receiveFrequencyHz)<=100_000_000_000&&
+    typeof params.power==="string"&&/^\d{0,8}$/.test(params.power)&&typeof params.operator==="string"&&
     typeof params.reason==="string"&&params.reason.length<=1024;
   const keys=Object.keys(params),allowed=["action","qsoID","timestamp","frequencyHz","mode","operator","fields","serialRequestID"];
   return keys.every(key=>allowed.includes(key))&&keys.length===(params.serialRequestID===undefined?7:8)&&
@@ -137,6 +139,8 @@ type Projection = {
   replicaAuthority?: { sessionID:string; workspaceGeneration:string } | null;
   authoritySerialRequestID?: string | null;
 };
+type ContestPathContext = { callsign: string; country: string | null; cqZone: number | null; ituZone: number | null;
+  headingDegrees: number | null; longPathHeadingDegrees: number | null; distanceKm: number | null };
 type Session = { sessionID: string; workspaceGeneration: string; name: string; pluginID: string; sourceRevision: string; revision: number };
 type MutationResult = { operationID?: string; revision?: number; projection: Projection; actions?: Data[]; messages?: string[]; replayed?: boolean; outputError?: string; effectiveMacros?: ContestSetupMacro[] };
 type PhoneIntentOrigin = Pick<Projection, "sessionID" | "workspaceGeneration" | "draftID" | "revision" | "sourceRevision">;
@@ -253,6 +257,16 @@ const contestFrequency = (value: unknown, supportedBands: readonly string[], ban
 const manualFrequency = (value: string, supportedBands: readonly string[], bandDefinitions: readonly ContestBandDefinition[]): number | null => {
   const mhz = Number(value.trim());
   return Number.isFinite(mhz) ? contestFrequency(mhz * 1_000_000, supportedBands, bandDefinitions) : null;
+};
+const correctedReceiveFrequency = (value: string): number | null => {
+  const trimmed = value.trim();
+  if (!/^\d{1,12}$/.test(trimmed)) return null;
+  const frequency = Number(trimmed);
+  return Number.isSafeInteger(frequency) && frequency >= 0 && frequency <= 100_000_000_000 ? frequency : null;
+};
+const correctedPower = (value: string): string | null => {
+  const trimmed = value.trim();
+  return trimmed === "" || /^\d{1,8}$/.test(trimmed) ? trimmed : null;
 };
 const clearedContestFields = (projection: Projection, mode: string) => {
   const defaultReport = ["SSB", "AM", "FM"].includes(canonicalContestSurfaceMode(mode) ?? "") ? "59" : "599";
@@ -676,8 +690,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const autoCQHostActionRef = useRef<(method: string, extra?: Record<string, unknown>, throwFailures?: boolean,
     contestSurfaceRequestID?: string) => Promise<unknown>>(async () => null);
   const [manualFrequencyMHz, setManualFrequencyMHz] = useState("");
+  const [lookupPathContext, setLookupPathContext] = useState<ContestPathContext | null>(null);
   const [editing, setEditing] = useState<Data | null>(null), [editCall, setEditCall] = useState(""), [editZone, setEditZone] = useState("");
   const [editTimestamp, setEditTimestamp] = useState(""), [editFrequencyMHz, setEditFrequencyMHz] = useState("");
+  const [editReceiveFrequencyHz, setEditReceiveFrequencyHz] = useState("0"), [editPower, setEditPower] = useState("0");
   const [editOperator, setEditOperator] = useState(""), [editSent, setEditSent] = useState(""), [editReceived, setEditReceived] = useState("");
   const [editSentExchange, setEditSentExchange] = useState("");
   const [editName, setEditName] = useState(""), [editQTH, setEditQTH] = useState(""), [editComment, setEditComment] = useState("");
@@ -898,6 +914,29 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
 
   const result = async <T,>(method: string, params: Record<string, unknown> = {}) => unwrap<T>(await request(method, params));
   const partialQuery = (fields.callsign ?? "").trim().toUpperCase();
+  useEffect(() => {
+    if (!/^[A-Z0-9/]{3,32}$/.test(partialQuery)) return;
+    let cancelled = false;
+    const call = partialQuery;
+    const timer = window.setTimeout(() => {
+      void serviceRequest("lookup_call", { call }).then(response => {
+        const frame = response && typeof response === "object" && !Array.isArray(response) ? response as Data : {};
+        const value = frame.result && typeof frame.result === "object" && !Array.isArray(frame.result) ? frame.result as Data : frame;
+        if (cancelled || String(value.call ?? "").trim().toUpperCase() !== call) return;
+        const metric = (input: unknown, maximum: number) => {
+          if (input === null || input === undefined || input === "") return null;
+          const numeric = typeof input === "number" ? input : Number(input);
+          return Number.isFinite(numeric) && numeric >= 0 && numeric <= maximum ? numeric : null;
+        };
+        setLookupPathContext({ callsign: call,
+          country: typeof value.country === "string" && value.country.trim() ? value.country.trim() : null,
+          cqZone: metric(value.cqZone, 90), ituZone: metric(value.ituZone, 90),
+          headingDegrees: metric(value.bearing, 360), longPathHeadingDegrees: metric(value.long_path_bearing, 360),
+          distanceKm: metric(value.distance_km, 50_000) });
+      }).catch(() => { /* Offline CTY context remains authoritative. */ });
+    }, 250);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [partialQuery, serviceRequest]);
   const historyCandidate = useMemo(() => not1mmHistoryCandidate(fields.callsign ?? "", projection?.history ?? ""),
     [fields.callsign, projection?.history]);
   const loggedCandidates = partialCandidates("log",
@@ -1729,6 +1768,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       setEditing({ ...row, raw_fields: raw }); setEditCall(String(raw.callsign ?? row.Call ?? ""));
       setEditZone(correctionFieldValue(row, raw, "other_2", active?.pluginID));
       setEditTimestamp(String(row.TS ?? "")); setEditFrequencyMHz((Number(row.Freq ?? 0) / 1000).toFixed(6));
+      const receiveKHz = Number(row.QSXFreq ?? 0);
+      setEditReceiveFrequencyHz(Number.isFinite(receiveKHz) && receiveKHz >= 0 ? String(Math.round(receiveKHz * 1000)) : "0");
+      setEditPower(String(row.Power ?? "0"));
       setEditOperator(String(row.Operator ?? "")); setEditSent(String(raw.sent ?? row.SNT ?? "")); setEditReceived(String(raw.receive ?? row.RCV ?? ""));
       setEditName(String(raw.Name ?? row.Name ?? "")); setEditQTH(String(raw.QTH ?? row.QTH ?? "")); setEditComment(String(raw.Comment ?? row.Comment ?? ""));
       setEditSentExchange(correctionFieldValue(row, raw, "other_1", active?.pluginID)); setCorrectionReason("Operator correction");
@@ -1739,6 +1781,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const saveCorrection = async (reason: string, throwFailures = false) => { if (!editing) return null;
     const frequencyHz = manualFrequency(editFrequencyMHz, activeSupportedBands, bandDefinitions);
     if (frequencyHz === null) throw new Error("Enter a frequency on a band supported by this contest before saving the correction.");
+    const receiveFrequencyHz = correctedReceiveFrequency(editReceiveFrequencyHz);
+    if (receiveFrequencyHz === null) throw new Error("Enter the RX frequency in Hz using digits only.");
+    const power = correctedPower(editPower);
+    if (power === null) throw new Error("Enter transmit power as up to 8 digits, or leave it blank.");
     const originalFields = editing.raw_fields && typeof editing.raw_fields === "object" && !Array.isArray(editing.raw_fields)
       ? editing.raw_fields as Record<string, unknown> : {};
     const active = projectionRef.current;
@@ -1757,13 +1803,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       const baseRevision=authoritativeChangeRevision(editing);
       if(!active)throw new Error("The active contest authority context is unavailable.");
       const pending=pendingMutation("correct",active,baseRevision,()=>{const qsoID=String(editing.ID);return{qsoID,params:{action:"correct",qsoID,baseRevision,
-        timestamp:editTimestamp,frequencyHz,operator:editOperator,
+        timestamp: editTimestamp, frequencyHz, receiveFrequencyHz, power, operator: editOperator,
         fields:correctionFields,reason}}});
       const next=await sendPendingMutation(pending);setEditing(null);setConfirmDelete(false);return next;
       }finally{authorityBusyRef.current=false;}
     }
     const next = await runMutation(base => mutate("contest_qso_correct", base, { qsoID: editing.ID,
-      timestamp: editTimestamp, frequencyHz, operator: editOperator,
+      timestamp: editTimestamp, frequencyHz, receiveFrequencyHz, power, operator: editOperator,
       fields: correctionFields, reason }), true, true, false, throwFailures);
     if (next) { setEditing(null); setConfirmDelete(false); }
     return next;
@@ -1869,7 +1915,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const reportsVisible = reportFields.length > 0;
     const allocatedSerialField = reservedSerial === null ? null : projection.allocatedSerialFieldID ?? null;
     const editedFrequencyHz = editing ? manualFrequency(editFrequencyMHz, activeSupportedBands, bandDefinitions) : null;
+    const editedReceiveFrequencyHz = editing ? correctedReceiveFrequency(editReceiveFrequencyHz) : null;
+    const editedPower = editing ? correctedPower(editPower) : null;
+    const correctedBand = editedFrequencyHz === null ? null :
+      bandDefinitions.find(definition => editedFrequencyHz >= definition.lowHz && editedFrequencyHz < definition.highHz)?.id ?? null;
     const callContext = projection.callContext?.callsign === partialQuery ? projection.callContext : undefined;
+    const pathContext = lookupPathContext?.callsign === partialQuery ? lookupPathContext : undefined;
     const fldigiOperatorAvailable = projection.fldigiTransmitAvailable === true &&
       digitalSnapshot?.fldigi?.configuration.transmit_enabled === true;
     const digitalOperatorMode = rttyContestModeAliases.has(projection.mode);
@@ -1883,9 +1934,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       schemaVersion: 2, status: "ready",
       manual: {operator:projection.operator ?? "", cwSpeedWpm:projection.cwSpeedWpm ?? null,
         cwSpeedStepWpm:Number.isInteger(setup.preferences.cwSpeedStep) && Number(setup.preferences.cwSpeedStep) >= 1 && Number(setup.preferences.cwSpeedStep) <= 10 ? Number(setup.preferences.cwSpeedStep) : 1,
-        country:callContext?.country ?? null, cqZone:callContext?.cqZone ?? null, ituZone:callContext?.ituZone ?? null,
-        headingDegrees:callContext?.headingDegrees ?? null, longPathHeadingDegrees:callContext?.longPathHeadingDegrees ?? null,
-        distanceKm:callContext?.distanceKm ?? null, qsos:projection.score.qsos, multipliers:projection.score.multipliers ?? projection.score.countries + projection.score.zones, total:projection.score.total},
+        country:pathContext?.country ?? callContext?.country ?? null, cqZone:pathContext?.cqZone ?? callContext?.cqZone ?? null,
+        ituZone:pathContext?.ituZone ?? callContext?.ituZone ?? null,
+        headingDegrees:pathContext?.headingDegrees ?? callContext?.headingDegrees ?? null,
+        longPathHeadingDegrees:pathContext?.longPathHeadingDegrees ?? callContext?.longPathHeadingDegrees ?? null,
+        distanceKm:pathContext?.distanceKm ?? callContext?.distanceKm ?? null, qsos:projection.score.qsos,
+        multipliers:projection.score.multipliers ?? projection.score.countries + projection.score.zones, total:projection.score.total},
       session: { name: activeSessionName, ruleName: projection.pluginName ?? projection.pluginID, mode: projection.mode },
       draft: {
         draftID: projection.draftID, revision: projection.revision, callsign: currentFields.callsign ?? "",
@@ -1962,10 +2016,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         pluginPartialRows:not1mmLogRows(partialRows,sourcePluginColumns,projection.fields,projection.pluginID) }
         : { manualRows:manualRows(rows), partialRows:manualRows(partialRows) }),
       editing: editing ? {
+        ...(projection.pluginID === "cq_ww_ssb" ? { editorProfile: "cq_ww_ssb" as const } : {}),
         qsoID: String(editing.ID ?? ""), workedAt: editTimestamp, operator: editOperator, callsign: editCall,
         name: editName, qth: editQTH, comment: editComment, reportsVisible,
-        details: logEditDetails(editing),
-        band: bandLabels[String(editing.Band)] ?? String(editing.Band ?? ""), mode: String(editing.Mode ?? "CW"),
+        details: { ...logEditDetails(editing), ...(projection.pluginID === "cq_ww_ssb" ?
+          { receivedNumber: editZone, zone: editZone, power: editPower } : {}) },
+        band: correctedBand ?? bandLabels[String(editing.Band)] ?? String(editing.Band ?? ""), mode: String(editing.Mode ?? "CW"),
         sentReport: editSent, receivedReport: editReceived,
         entryFields: visibleHostFields.filter(field => field.id !== "callsign").map(field => ({ id:field.id,label:field.label,
           value:field.id==="sent"?editSent:field.id==="receive"?editReceived:field.id==="other_1"?editSentExchange:editZone,
@@ -1977,6 +2033,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         ],
         frequencyHz: editedFrequencyHz, editFrequencyText: editedFrequencyHz === null ? "" : String(editedFrequencyHz),
         frequencyError: editedFrequencyHz === null ? "Enter a frequency on a band supported by this contest." : "",
+        receiveFrequencyHz: editedReceiveFrequencyHz, editReceiveFrequencyText: editReceiveFrequencyHz,
+        receiveFrequencyError: editedReceiveFrequencyHz === null ? "Enter the RX frequency in Hz using digits only." : "",
+        editPower, powerError: editedPower === null ? "Enter transmit power as up to 8 digits, or leave it blank." : "",
         correctionReason, confirmDelete, deletionReason,
       } : null,
       busy: busy || retiring || !logRead,
@@ -2084,11 +2143,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     }
     return unavailable;
   }, [projection, detachedAvailable, activeSessionName, fields, operationFrequencyHz, rows, logOffset, logTotal, editing,
-    editCall, editTimestamp, editFrequencyMHz, editOperator, editSent, editReceived, editSentExchange, editZone, editName, editQTH, editComment,
+    editCall, editTimestamp, editFrequencyMHz, editReceiveFrequencyHz, editPower, editOperator, editSent, editReceived, editSentExchange, editZone, editName, editQTH, editComment,
     correctionReason, confirmDelete, deletionReason,
     busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, phoneSimulationAvailable, phoneOutputAvailable, phoneSimulationArmed,
     phoneSimulationPending, phoneReleaseUncertain, phoneSimulationTrace, rates, matrices, statistics, partial, partialQuery, historyCandidate, spots, cluster, configuredBands,
-    bandDefinitions, bandLabels, digitalSnapshot,rtcStatus,rtcCredentialSaved,
+    bandDefinitions, bandLabels, digitalSnapshot,rtcStatus,rtcCredentialSaved,lookupPathContext,
     setup.settings.SentExchange, setup.preferences.keyBindings, autoCQDeadlineMs, autoCQNowMs, autoCQDelaySeconds, selectedRadioFrequencyHz,
     sharedSpots,visibleWorkflowSpots,effectiveSpotWorkflow.markedOnly,spotPointPreview,spotPointIdentity,selectedSpotId,configuredClient,authorityClientReady,authorityDupe,
     auxiliaryReads.log,auxiliaryReads.score,auxiliaryReads.rates,error,catalogLoadError,notice]);
@@ -2394,6 +2453,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         await loadLogPage(action.params.offset, true, action.params.limit);
         return;
       case "log_edit_begin": await beginEdit(action.params.qsoID, true); return;
+      case "log_edit_begin_delete": await beginEdit(action.params.qsoID, true); setConfirmDelete(true); return;
       case "log_edit_cancel": requireEditing(action.params.qsoID); setEditing(null); setConfirmDelete(false); return;
       case "log_edit_set_text":
         requireEditing(action.params.qsoID);
@@ -2405,6 +2465,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         else if (action.params.field === "name") setEditName(action.params.value);
         else if (action.params.field === "qth") setEditQTH(action.params.value);
         else if (action.params.field === "comment") setEditComment(action.params.value);
+        else if (action.params.field === "receiveFrequency") setEditReceiveFrequencyHz(action.params.value);
+        else if (action.params.field === "power") setEditPower(action.params.value);
         else if (action.params.field === "correctionReason") setCorrectionReason(action.params.value);
         else setDeletionReason(action.params.value);
         return;

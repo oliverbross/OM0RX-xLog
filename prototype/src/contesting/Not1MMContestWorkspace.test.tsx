@@ -333,7 +333,10 @@ it("queries the full contest log for partials and retains raw rows beyond the di
       method==="contest_score"?{score:current.score}:method==="contest_check_partial"?{query:"DL1",rows:[raw],total:1}:null;
     if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
   });
-  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={[{callsign:"DL1XYZ"},{callsign:"K1ABC"}]}/>);
+  const serviceRequest=vi.fn(async(method:string,params:Record<string,unknown>={})=>method==="lookup_call"
+    ?{call:params.call,country:"Germany",cqZone:14,ituZone:28,bearing:312,long_path_bearing:132,distance_km:1180}
+    :request(method,params));
+  render(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps} spots={[{callsign:"DL1XYZ"},{callsign:"K1ABC"}]}/>);
   await createContestThroughSetup();
   await waitFor(()=>expect(surfaceOwner.current.projections["callsign-intelligence"].loggedCalls).toEqual(["DL1ABC"]));
   expect(request.mock.calls.some(([method])=>method==="contest_history_status")).toBe(false);
@@ -341,7 +344,9 @@ it("queries the full contest log for partials and retains raw rows beyond the di
   expect(surfaceOwner.current.projections["callsign-intelligence"].clusterCalls).toEqual(["DL1XYZ"]);
   expect(surfaceOwner.current.projections.logbook.page.rows).toEqual([]);
   expect(surfaceOwner.current.projections.logbook.partialRows).toEqual([{qsoID:"off-page",TS:raw.TS,Call:raw.Call,Freq:"14025.125",SNT:"579",RCV:"589",M1:"",ZN:"14",M2:"",prefix:"DL1",Points:"3"}]);
-  expect(surfaceOwner.current.projections["active-qso"].manual).toMatchObject({operator:"OM0RX/P",cwSpeedWpm:25,cwSpeedStepWpm:1,country:"Germany",cqZone:14,ituZone:28,qsos:25,multipliers:7,total:350,distanceKm:null});
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].manual).toMatchObject({operator:"OM0RX/P",cwSpeedWpm:25,
+    cwSpeedStepWpm:1,country:"Germany",cqZone:14,ituZone:28,headingDegrees:312,longPathHeadingDegrees:132,
+    distanceKm:1180,qsos:25,multipliers:7,total:350}));
   expect(surfaceOwner.current.projections["station-control"]).toEqual({schemaVersion:1,status:"ready",
     radioFrequencyHz:14_025_000,contestFrequencyHz:14_025_000,band:"20m",mode:"CW",busy:false});
   for(const panel of contestSurfacePanelIDs)expect(validContestSurfaceProjection(panel,surfaceOwner.current.projections[panel])).toBe(true);
@@ -1491,7 +1496,7 @@ it.each([
   { pluginID:"cq_ww_ssb", pluginName:"CQ WW SSB",
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","M1","CQ Zone","M2","Country","PTS"],
     sourceColumns:[],
-    row:{ID:"cqww-ssb-qso",TS:"2026-10-20 11:00:00",Call:"K1ABC",Freq:14250,Band:14,Mode:"USB",SNT:"59",RCV:"59",SentNr:15,ZN:5,
+    row:{ID:"cqww-ssb-qso",TS:"2026-10-20 11:00:00",Call:"K1ABC",Freq:14250,QSXFreq:14260,Band:14,Mode:"USB",SNT:"59",RCV:"59",SentNr:15,ZN:5,Power:"100",
       CountryPrefix:"K",WPXPrefix:"K1",IsMultiplier1:1,IsMultiplier2:1,Points:3,is_dupe:1,raw_fields:{other_2:""}},
     receivedExchange:"5", multiplierLabels:["K","Zone 5"],
     values:["2026-10-20 11:00:00","K1ABC","14250","59","59","✓","5","✓","K","3"],
@@ -1554,6 +1559,16 @@ it.each([
     await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
       panelID:"logbook",projectionRevision:current.revision,requestID:crypto.randomUUID(),action:"log_edit_begin",params:{qsoID:row.ID}}));
     expect(surfaceOwner.current.projections.logbook.editing.receivedFields).toEqual(correction);
+    if(pluginID==="cq_ww_ssb"){
+      expect(surfaceOwner.current.projections.logbook.editing).toMatchObject({editorProfile:"cq_ww_ssb",
+        editReceiveFrequencyText:"14260000",editPower:"100",band:"20m",details:{receivedNumber:"5",zone:"5",power:"100"}});
+      for(const [field,value] of [["receiveFrequency","14261000"],["power","80"]] as const)
+        await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+          panelID:"logbook",projectionRevision:current.revision,requestID:crypto.randomUUID(),action:"log_edit_set_text",
+          params:{qsoID:row.ID,field,value}}));
+      await waitFor(()=>expect(surfaceOwner.current.projections.logbook.editing).toMatchObject({
+        editReceiveFrequencyText:"14261000",editPower:"80"}));
+    }
   }
 });
 
@@ -2189,9 +2204,9 @@ it("publishes imported plugin history to Check Partial and clears it with the ne
 });
 
 it.each([
-  {label:"mixed-mode",supportedModes:["CW","SSB"],expectedMode:"SSB"},
-  {label:"single-mode",supportedModes:["CW"],expectedMode:"CW"},
-])("applies a $label contest spot mode to the radio and authoritative Not1MM draft exactly once",async({supportedModes,expectedMode})=>{
+  {label:"mixed-mode Band Map",panelID:"band-maps" as const,supportedModes:["CW","SSB"],expectedMode:"SSB"},
+  {label:"single-mode Cluster",panelID:"dx-cluster" as const,supportedModes:["CW"],expectedMode:"CW"},
+])("applies a $label contest spot mode to the radio and authoritative Not1MM draft exactly once",async({panelID,supportedModes,expectedMode})=>{
   let current={...projection(),supportedModes};
   const tune=vi.fn(async(_frequencyHz:number,_mode:string)=>({accepted:true,confirmed:true}));
   const frequencyKHz=expectedMode==="CW"?14025:14195;
@@ -2217,7 +2232,7 @@ it.each([
   expect(surfaceOwner.current.projections["dx-cluster"]).toMatchObject({connectedClusters:1,loadedSpots:25,
     configuredClusters:[{serverID:"server-1",serverName:"ShackCQ",enabled:true}],
     connections:[{serverID:"server-1",serverName:"ShackCQ",phase:"connected",error:null}]});
-  const envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,panelID:"band-maps",
+  const envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,panelID,
     projectionRevision:1,requestID:crypto.randomUUID(),action:"spot_select",params:{draftID:current.draftID,expectedDraftRevision:current.revision,spotID:"spot-1"}};
   await expect(surfaceOwner.current.handle({...envelope,params:{...envelope.params,expectedDraftRevision:current.revision-1}})).rejects.toThrow("entry changed");
   expect(tune).not.toHaveBeenCalled();

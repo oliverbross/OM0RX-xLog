@@ -15,7 +15,7 @@ import { contestKeyChord, functionKeyForContestAction, resolveContestKeyBinding,
 import BandMaps, { BAND_MAP_AGES, bandForRadio, contestBandMapSpotColor, filterRecentBandMapSpots } from "../live/BandMaps";
 import { decodeContestBandPlan } from "./contestBandPlan";
 import ClusterPanel from "../live/ClusterPanel";
-import { connectMapContext, mapSpots } from "../live/mapContext";
+import { connectMapContext, mapSpots, type MapContext } from "../live/mapContext";
 import { requestViaSession } from "../live/DetachedClusterBridge";
 import { connectMonitorContext, observedReceiveBandwidthHz, type MonitorContext } from "../live/monitorContext";
 import "./DetachedContestSurface.css";
@@ -225,15 +225,14 @@ function Surface({ context }: { context: Context }) {
             projectionRevision={snapshot.projectionRevision} receipts={snapshot.receipts} send={send}/>
         : <Log projection={projection as Extract<typeof projection, { page: unknown }>} disabled={projection.busy} sending={sending}
             projectionRevision={snapshot.projectionRevision} send={send} openEditor={async(qsoID,deleteIntent=false)=>{
-              try { const result=await send({action:"log_edit_begin",params:{qsoID}},snapshot.projectionRevision);
+              try { const result=await send({action:deleteIntent?"log_edit_begin_delete":"log_edit_begin",params:{qsoID}},snapshot.projectionRevision);
                 if(!result.applied||result.projectionRevision===null)return;
-                if(deleteIntent){const confirmed=await send({action:"log_edit_confirm_delete",params:{qsoID,confirmed:true}},result.projectionRevision);
-                  if(!confirmed.applied)return;}
                 await openContestContactEditorWindow(context); }
                catch(cause){reportDiagnostic("error",message(cause));}
             }}/>
       : snapshot.panelID === "world-map" ? <ContestSpotsMap
-          projection={projection as Extract<typeof projection, { spots: unknown }>}/>
+          projection={projection as Extract<typeof projection, { spots: unknown }>}
+          projectionRevision={snapshot.projectionRevision} send={send}/>
       : snapshot.panelID === "band-maps" || snapshot.panelID === "dx-cluster" ? <ContestSpots panelID={snapshot.panelID}
           context={context} projection={projection as Extract<typeof projection, { spots: unknown }>}
           projectionRevision={snapshot.projectionRevision} send={send}/>
@@ -308,15 +307,29 @@ export function contestMapSpots(contestSpots:ContestSpotSurfaceProjection["spots
       note:contest.comment,receivedAt:contest.receivedAt}];
   });
 }
-function ContestSpotsMap({projection}:{projection:ContestSpotSurfaceProjection}) {
-  const [sharedSpots,setSharedSpots]=useState<Record<string,any>[]>([]);
-  useEffect(()=>{const connection=connectMapContext(value=>setSharedSpots(value.cluster.response?.snapshot?.spots??[]),()=>{});
+export function contestMapView(projection:ContestSpotSurfaceProjection,sharedSpots:Record<string,any>[],context:MapContext|null) {
+  const configuredBands=projection.supportedBands??[],observedBand=bandForRadio(projection.radioFrequencyHz??undefined),
+    currentBand=observedBand&&(!configuredBands.length||configuredBands.includes(observedBand))
+      ?observedBand:configuredBands.length===1?configuredBands[0]:null,
+    spots=currentBand===null?[]:contestMapSpots(projection.spots.filter(spot=>spot.band===currentBand),sharedSpots),
+    selected=projection.selectedSpotID===null?null:spots.find(spot=>spot.id===projection.selectedSpotID)??null,
+    target=selected&&Number.isFinite(selected.lat)&&Number.isFinite(selected.lon)
+      ?{call:selected.call,lat:selected.lat,lon:selected.lon,country:selected.country,locationSource:"Selected contest spot"}:null;
+  return{currentBand,spots,selected: selected?.id??null,home:context?.metadata.home??null,
+    dxccStatuses:context?.metadata.dxccStatuses??null,target};
+}
+function ContestSpotsMap({projection,projectionRevision,send}:{projection:ContestSpotSurfaceProjection;projectionRevision:number;send:Send}) {
+  const [mapContext,setMapContext]=useState<MapContext|null>(null);
+  useEffect(()=>{const connection=connectMapContext(setMapContext,()=>{});
     return()=>connection.dispose();},[]);
-  const spots=useMemo(()=>contestMapSpots(projection.spots,sharedSpots),[projection.spots,sharedSpots]);
+  const view=useMemo(()=>contestMapView(projection,mapContext?.cluster.response?.snapshot?.spots??[],mapContext),[projection,mapContext]);
   return <section className="contest-spots contest-spots-map" aria-label="Contest Spots Map"><Suspense fallback={<p role="status">Loading contest map…</p>}><WorldMap
-    selected={projection.selectedSpotID} data={spots} frequencyHz={projection.radioFrequencyHz??undefined}
+    selected={view.selected} data={view.spots} home={view.home} target={view.target} dxccStatuses={view.dxccStatuses}
+    frequencyHz={projection.radioFrequencyHz??undefined}
+    onSpot={spot=>void send({action:"spot_select",params:{draftID:projection.draftID,
+      expectedDraftRevision:projection.draftRevision,spotID:String(spot.id)}},projectionRevision)}
     spotColorMode="status" spotLegend={contestSpotLegend} persistenceKey={`contest-spots-${projection.contestSessionID??projection.draftID}`}
-    locationLabel="Configured contest band and mode reports · inspect only"/></Suspense></section>;
+    locationLabel={`${view.currentBand??"No active band"} contest phone reports · inspect only`}/></Suspense></section>;
 }
 function ContestSpots({panelID,context,projection,projectionRevision,send}:{panelID:"band-maps"|"dx-cluster";context:ContestSurfaceContext;
     projection:ContestSpotSurfaceProjection;projectionRevision:number;send:Send}) {
@@ -975,9 +988,10 @@ function ContactEditor({projection,disabled,sending,projectionRevision,receipts,
     <button type="button" onClick={()=>void closeContestContactEditorWindow()}>Close</button></section>;
   const finish=async(action:ContestSurfaceAction)=>{const result=await send(action,projectionRevision);if(result.applied)await closeContestContactEditorWindow();};
   const details=editing.details??{};
+  const cqWWSSB=editing.editorProfile==="cq_ww_ssb";
   const entryFields=Array.isArray(editing.entryFields)?editing.entryFields:null;
   const entryLabels=new Set((entryFields??[]).map((field:any)=>String(field.label??"").trim().toLowerCase()));
-  const renderEntryField=(field:any)=><div key={field.id} className={`contest-surface-editor-field${String(field.label??"").trim().toLowerCase()==="comment"?" contest-surface-editor-wide":""}`}>{field.readOnly
+  const renderEntryField=(field:any)=><div key={field.id} className={`contest-surface-editor-field${String(field.label??"").trim().toLowerCase()==="comment"?" contest-surface-editor-wide":""}`}>{field.readOnly||cqWWSSB&&field.id!=="other_2"
     ?<ReadOnlyContactField label={field.label} value={field.value}/>
     :<IntentInput label={field.label} value={field.value} identity={`${editing.qsoID}/field/${field.id}`} projectionRevision={projectionRevision}
       receipts={receipts} disabled={disabled||field.enabled===false} maximumUTF8Bytes={field.maximumUTF8Bytes} send={send}
@@ -988,35 +1002,38 @@ function ContactEditor({projection,disabled,sending,projectionRevision,receipts,
   return <section className="contest-surface-contact-editor"><header><h1>Edit Contact</h1><span>{editing.callsign}</span></header>
     <div className="contest-surface-editor"><div className="contest-surface-editor-primary"><IntentInput label="Callsign" value={editing.callsign} identity={`${editing.qsoID}/callsign`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={32} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"callsign",value}})}/>
     <IntentInput label="TimeStamp (UTC)" value={editing.workedAt??""} identity={`${editing.qsoID}/timestamp`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={32} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"timestamp",value}})}/>
-    <ReadOnlyContactField label="RX" value={details.rxFrequency??""}/>
+    {cqWWSSB?<IntentInput label="RX Freq (Hz)" value={editing.editReceiveFrequencyText??""} identity={`${editing.qsoID}/receiveFrequency`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={12} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"receiveFrequency",value}})}/>
+      :<ReadOnlyContactField label="RX" value={details.rxFrequency??""}/>}
     <IntentInput label="Tx Freq (Hz)" value={editing.editFrequencyText} identity={`${editing.qsoID}/frequency`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={11} send={send} action={value=>({action:"log_edit_set_frequency_text",params:{qsoID:editing.qsoID,value}})}/>
     <ReadOnlyContactField label="Mode" value={editing.mode}/><ReadOnlyContactField label="Contest" value={details.contest??""}/>
     {entryFields?topEntryFields.map(renderEntryField):editing.reportsVisible!==false&&<><IntentInput label="RST Sent" value={editing.sentReport} identity={`${editing.qsoID}/sentReport`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={160} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"sentReport",value}})}/>
       <IntentInput label="RST Rcv" value={editing.receivedReport} identity={`${editing.qsoID}/receivedReport`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={160} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"receivedReport",value}})}/></>}
     <ReadOnlyContactField label="Country" value={details.country??""}/><ReadOnlyContactField label="Station Call" value={details.stationCall??""}/>
-    {!entryLabels.has("name")&&<IntentInput label="Name" value={editing.name??details.name??""} identity={`${editing.qsoID}/name`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={20} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"name",value}})}/>}
-    {!entryLabels.has("qth")&&<IntentInput label="QTH" value={editing.qth??details.qth??""} identity={`${editing.qsoID}/qth`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={25} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"qth",value}})}/>}
-    {!entryLabels.has("comment")&&<div className="contest-surface-editor-wide"><IntentInput label="Comment" value={editing.comment??details.comment??""} identity={`${editing.qsoID}/comment`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={60} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"comment",value}})}/></div>}
+    {!entryLabels.has("name")&&(cqWWSSB?<ReadOnlyContactField label="Name" value={editing.name??details.name??""}/>:<IntentInput label="Name" value={editing.name??details.name??""} identity={`${editing.qsoID}/name`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={20} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"name",value}})}/>)}
+    {!entryLabels.has("qth")&&(cqWWSSB?<ReadOnlyContactField label="QTH" value={editing.qth??details.qth??""}/>:<IntentInput label="QTH" value={editing.qth??details.qth??""} identity={`${editing.qsoID}/qth`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={25} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"qth",value}})}/>)}
+    {!entryLabels.has("comment")&&<div className="contest-surface-editor-wide">{cqWWSSB?<ReadOnlyContactField label="Comment" value={editing.comment??details.comment??""}/>:<IntentInput label="Comment" value={editing.comment??details.comment??""} identity={`${editing.qsoID}/comment`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={60} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"comment",value}})}/>}</div>}
     </div><div className="contest-surface-editor-secondary">
     {entryFields?lowerEntryFields.map(renderEntryField):editing.receivedFields.map((field:any)=><IntentInput key={field.id} label={field.label} value={field.value} identity={`${editing.qsoID}/exchange/${field.id}`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={field.maximumUTF8Bytes} send={send} action={value=>({action:"log_edit_set_exchange",params:{qsoID:editing.qsoID,fieldID:field.id,value}})}/>)}
     <ReadOnlyContactField label="Nr" value={details.receivedNumber??""}/><ReadOnlyContactField label="Nr Sent" value={details.sentNumber??""}/>
-    <ReadOnlyContactField label="Points" value={details.points??""}/><ReadOnlyContactField label="Power" value={details.power??""}/>
-    <ReadOnlyContactField label="Zone" value={details.zone??""}/><ReadOnlyContactField label="Section" value={details.section??""}/>
+    <ReadOnlyContactField label="Points" value={details.points??""}/>{cqWWSSB?<IntentInput label="Power" value={editing.editPower??""} identity={`${editing.qsoID}/power`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={8} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"power",value}})}/>:<ReadOnlyContactField label="Power" value={details.power??""}/>}
+    {!cqWWSSB&&<ReadOnlyContactField label="Zone" value={details.zone??""}/>}<ReadOnlyContactField label="Section" value={details.section??""}/>
     <ReadOnlyContactField label="Multiplier 1" value={details.multiplier1??""}/><ReadOnlyContactField label="Band" value={editing.band}/>
     <ReadOnlyContactField label="Check" value={details.check??""}/><ReadOnlyContactField label="Precedence" value={details.precedence??""}/>
     <ReadOnlyContactField label="Multiplier 2" value={details.multiplier2??""}/><ReadOnlyContactField label="WPX" value={details.wpx??""}/>
     <ReadOnlyContactField label="Exchange" value={details.exchange??""}/><ReadOnlyContactField label="Run 1/2" value={details.run??""}/>
     <ReadOnlyContactField label="Multiplier 3" value={details.multiplier3??""}/><ReadOnlyContactField label="Radio" value={details.radio??""}/>
     <ReadOnlyContactField label="Grid" value={details.grid??""}/>
-    <IntentInput label="Op" value={editing.operator??""} identity={`${editing.qsoID}/operator`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={32} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"operator",value}})}/>
+    {cqWWSSB?<ReadOnlyContactField label="Op" value={editing.operator??""}/>:<IntentInput label="Op" value={editing.operator??""} identity={`${editing.qsoID}/operator`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={32} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"operator",value}})}/>}
     <ReadOnlyContactField label="Misc" value={details.misc??""}/><ReadOnlyContactField label="Rover QTH" value={details.roverQTH??""}/>
     </div><div className="contest-surface-editor-note"><IntentInput label="Correction note" value={editing.correctionReason} identity={`${editing.qsoID}/correctionReason`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={1024} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"correctionReason",value}})}/></div>
     </div>{editing.frequencyError&&<p role="alert">{editing.frequencyError}</p>}
+    {editing.receiveFrequencyError&&<p role="alert">{editing.receiveFrequencyError}</p>}
+    {editing.powerError&&<p role="alert">{editing.powerError}</p>}
     {editing.confirmDelete&&<div className="contest-surface-delete"><IntentInput label="Deletion reason" value={editing.deletionReason} identity={`${editing.qsoID}/deletionReason`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={1024} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"deletionReason",value}})}/>
       <button disabled={disabled||sending||!editing.deletionReason.trim()} onClick={()=>void finish({action:"log_edit_delete",params:{qsoID:editing.qsoID,expectedSessionRevision:projection.sessionRevision}})}>Delete contact</button></div>}
     <footer className="contest-surface-editor-actions"><button disabled={disabled||sending} aria-pressed={editing.confirmDelete} onClick={()=>void send({action:"log_edit_confirm_delete",params:{qsoID:editing.qsoID,confirmed:!editing.confirmDelete}},projectionRevision)}>{editing.confirmDelete?"Keep contact":"Delete…"}</button>
       <button disabled={disabled||sending} onClick={()=>void finish({action:"log_edit_cancel",params:{qsoID:editing.qsoID}})}>Cancel</button>
-      <button disabled={disabled||sending||!!editing.frequencyError||!editing.correctionReason.trim()} onClick={()=>void finish({action:"log_edit_save",params:{qsoID:editing.qsoID,expectedSessionRevision:projection.sessionRevision}})}>OK</button></footer>
+      <button disabled={disabled||sending||!!editing.frequencyError||!!editing.receiveFrequencyError||!!editing.powerError||!editing.correctionReason.trim()} onClick={()=>void finish({action:"log_edit_save",params:{qsoID:editing.qsoID,expectedSessionRevision:projection.sessionRevision}})}>OK</button></footer>
   </section>;
 }
 function Log({projection,disabled,sending,projectionRevision,send,openEditor}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;send:Send;

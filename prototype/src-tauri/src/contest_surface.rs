@@ -729,7 +729,9 @@ fn validate_action_envelope(value: &Value) -> Result<CheckedAction, String> {
     let action = text_value(&envelope["action"], 64, false, "contest action")?;
     let params = object(&envelope["params"], "contest action params")?;
     validate_action_params(action, params)?;
-    let matches_panel = action.starts_with("spot_") && matches!(panel_id, "band-maps" | "dx-cluster")
+    let matches_panel = action.starts_with("spot_")
+        && (matches!(panel_id, "band-maps" | "dx-cluster")
+            || panel_id == "world-map" && action == "spot_select")
         || action.starts_with("entry_") && panel_id == "active-qso"
         || action.starts_with("assistance_") && panel_id == "callsign-intelligence"
         || action.starts_with("log_") && panel_id == "logbook"
@@ -879,7 +881,7 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
             let limit = uint_value(&params["limit"], 20, "log page size")?;
             if limit == 0 { return Err("The log page size is invalid.".into()); }
         }
-        "log_edit_begin" | "log_edit_cancel" => qso(params, &[])?,
+        "log_edit_begin" | "log_edit_begin_delete" | "log_edit_cancel" => qso(params, &[])?,
         "log_edit_set_text" => {
             qso(params, &["field", "value"])?;
             enum_value(
@@ -893,6 +895,8 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
                     "name",
                     "qth",
                     "comment",
+                    "receiveFrequency",
+                    "power",
                     "correctionReason",
                     "deletionReason",
                 ],
@@ -2450,6 +2454,12 @@ fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String>
         let name = required_edit.remove("name");
         let qth = required_edit.remove("qth");
         let comment = required_edit.remove("comment");
+        let editor_profile = required_edit.remove("editorProfile");
+        let receive_frequency_hz = required_edit.remove("receiveFrequencyHz");
+        let edit_receive_frequency_text = required_edit.remove("editReceiveFrequencyText");
+        let receive_frequency_error = required_edit.remove("receiveFrequencyError");
+        let edit_power = required_edit.remove("editPower");
+        let power_error = required_edit.remove("powerError");
         exact(
             &required_edit,
             &[
@@ -2480,6 +2490,24 @@ fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String>
         }
         if let Some(reports_visible) = reports_visible {
             boolean(&reports_visible, "log edit report visibility")?;
+        }
+        if let Some(editor_profile) = editor_profile {
+            enum_value(&editor_profile, &["cq_ww_ssb"], "log edit profile")?;
+        }
+        if let Some(receive_frequency_hz) = receive_frequency_hz {
+            nullable_uint(&receive_frequency_hz, 100_000_000_000, "log RX frequency")?;
+        }
+        if let Some(edit_receive_frequency_text) = edit_receive_frequency_text {
+            text_value(&edit_receive_frequency_text, 12, true, "log RX frequency text")?;
+        }
+        if let Some(receive_frequency_error) = receive_frequency_error {
+            text_value(&receive_frequency_error, 512, true, "log RX frequency error")?;
+        }
+        if let Some(edit_power) = edit_power {
+            text_value(&edit_power, 8, true, "log edit power")?;
+        }
+        if let Some(power_error) = power_error {
+            text_value(&power_error, 512, true, "log power error")?;
         }
         if let Some(details) = details {
             let details = object(&details, "log edit details")?;
@@ -3027,6 +3055,12 @@ mod tests {
 
     #[test]
     fn log_contact_metadata_edits_match_the_typescript_surface_contract() {
+        assert!(validate_action_envelope(&action(
+            "log_edit_begin_delete",
+            "logbook",
+            json!({"qsoID":"qso"})
+        ))
+        .is_ok());
         for field in ["name", "qth", "comment"] {
             assert!(validate_action_envelope(&action(
                 "log_edit_set_text",
@@ -3197,8 +3231,10 @@ mod tests {
                     {"kind":"exchange","fieldID":"other_2","value":"14","maximumUTF8Bytes":128},null,null,null]}],
             "pluginPartialRows":[],
             "editing":{"qsoID":"qso","workedAt":"2026-10-18 00:00:00","operator":"OM0RX","callsign":"DL1AAA","name":"Alice","qth":"Darwin","comment":"Corrected","reportsVisible":false,
+                "editorProfile":"cq_ww_ssb",
                 "band":"20m","mode":"CW","sentReport":"599","receivedReport":"599","receivedFields":[],
                 "frequencyHz":14025000,"editFrequencyText":"14025000","frequencyError":"","correctionReason":"Operator correction",
+                "receiveFrequencyHz":14026000,"editReceiveFrequencyText":"14026000","receiveFrequencyError":"","editPower":"100","powerError":"",
                 "confirmDelete":false,"deletionReason":"Operator deletion"},"busy":false});
         not1mm_logbook["editing"]["details"] = json!({
             "rxFrequency":"","contest":"CQWW","country":"DL","stationCall":"OM0RX","name":"","qth":"","comment":"",
@@ -4017,6 +4053,8 @@ mod tests {
             "spots":[spot.clone()],"busy":false});
         for panel in ["band-maps", "world-map", "dx-cluster"] { assert!(validate_projection(panel, &projection).is_ok()); }
         assert!(validate_action_envelope(&action("spot_select", "world-map",
+            json!({"draftID":"draft","expectedDraftRevision":2,"spotID":"spot-1"}))).is_ok());
+        assert!(validate_action_envelope(&action("spot_delete", "world-map",
             json!({"draftID":"draft","expectedDraftRevision":2,"spotID":"spot-1"}))).is_err());
         let mut band_segments = projection.clone();
         band_segments["contestSessionID"] = json!("session-1");
