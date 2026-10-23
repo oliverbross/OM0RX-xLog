@@ -890,6 +890,9 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
                     "receivedReport",
                     "timestamp",
                     "operator",
+                    "name",
+                    "qth",
+                    "comment",
                     "correctionReason",
                     "deletionReason",
                 ],
@@ -2444,6 +2447,9 @@ fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String>
         let entry_fields = required_edit.remove("entryFields");
         let reports_visible = required_edit.remove("reportsVisible");
         let details = required_edit.remove("details");
+        let name = required_edit.remove("name");
+        let qth = required_edit.remove("qth");
+        let comment = required_edit.remove("comment");
         exact(
             &required_edit,
             &[
@@ -2489,6 +2495,11 @@ fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String>
             )?;
             for field in details.values() {
                 text_value(field, 2048, true, "log edit detail")?;
+            }
+        }
+        for (value, label) in [(name, "name"), (qth, "QTH"), (comment, "comment")] {
+            if let Some(value) = value {
+                text_value(&value, 1024, true, &format!("log edit {label}"))?;
             }
         }
         text_value(&edit["qsoID"], 160, false, "QSO ID")?;
@@ -3015,6 +3026,18 @@ mod tests {
     }
 
     #[test]
+    fn log_contact_metadata_edits_match_the_typescript_surface_contract() {
+        for field in ["name", "qth", "comment"] {
+            assert!(validate_action_envelope(&action(
+                "log_edit_set_text",
+                "logbook",
+                json!({"qsoID":"qso","field":field,"value":"corrected"})
+            ))
+            .is_ok());
+        }
+    }
+
+    #[test]
     fn entry_operator_actions_are_typed_and_revision_fenced() {
         assert!(validate_action_envelope(&action("entry_clear", "active-qso",
             json!({"draftID":"draft","expectedDraftRevision":2}))).is_ok());
@@ -3173,7 +3196,7 @@ mod tests {
                     {"kind":"frequency","value":"14025000","maximumUTF8Bytes":11},null,null,
                     {"kind":"exchange","fieldID":"other_2","value":"14","maximumUTF8Bytes":128},null,null,null]}],
             "pluginPartialRows":[],
-            "editing":{"qsoID":"qso","workedAt":"2026-10-18 00:00:00","operator":"OM0RX","callsign":"DL1AAA","reportsVisible":false,
+            "editing":{"qsoID":"qso","workedAt":"2026-10-18 00:00:00","operator":"OM0RX","callsign":"DL1AAA","name":"Alice","qth":"Darwin","comment":"Corrected","reportsVisible":false,
                 "band":"20m","mode":"CW","sentReport":"599","receivedReport":"599","receivedFields":[],
                 "frequencyHz":14025000,"editFrequencyText":"14025000","frequencyError":"","correctionReason":"Operator correction",
                 "confirmDelete":false,"deletionReason":"Operator deletion"},"busy":false});

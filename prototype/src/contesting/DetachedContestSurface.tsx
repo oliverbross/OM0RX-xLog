@@ -156,10 +156,23 @@ function Surface({ context }: { context: Context }) {
         }
         const existing=snapshotRef.current?.receipts.find(item=>item.requestID===requestID&&
           (item.status==="applied"||item.status==="rejected"));
-        const terminal=existing??await new Promise<ContestSurfaceTerminalReceipt|null>(resolve=>{
-          const timer=window.setTimeout(()=>{receiptWaiters.current.delete(requestID);resolve(null);},20_000);
-          receiptWaiters.current.set(requestID,{resolve,timer});
-        });
+        let terminal=existing??null;
+        if(!terminal){
+          const pending=new Promise<ContestSurfaceTerminalReceipt|null>(resolve=>{
+            const timer=window.setTimeout(()=>{receiptWaiters.current.delete(requestID);resolve(null);},20_000);
+            receiptWaiters.current.set(requestID,{resolve,timer});
+          });
+          // The owner can finish between returning `queued` and registering the
+          // waiter. Reconcile once after the waiter is live so a lost wake does
+          // not leave callsign entry showing Checking for the full timeout.
+          const reconciled=await refresh();
+          terminal=reconciled?.receipts.find(item=>item.requestID===requestID&&
+            (item.status==="applied"||item.status==="rejected"))??null;
+          if(terminal){
+            const waiter=receiptWaiters.current.get(requestID);
+            if(waiter){window.clearTimeout(waiter.timer);receiptWaiters.current.delete(requestID);waiter.resolve(terminal);}
+          }else terminal=await pending;
+        }
         if(terminal?.status==="applied")return appliedResult(terminal.projectionRevision);
         const terminalMessage=!terminal?"The action is still being reconciled.":terminal.message||"The contest action could not be applied.";
         if(terminalMessage)reportDiagnostic("error",terminalMessage);
@@ -309,6 +322,7 @@ function ContestSpots({panelID,context,projection,projectionRevision,send}:{pane
     projection:ContestSpotSurfaceProjection;projectionRevision:number;send:Send}) {
   const [stationContext,setStationContext]=useState<MonitorContext|null>(null);
   const [clusterPending,setClusterPending]=useState<null|{requestID:number;method:"cluster_connect"|"cluster_disconnect";signature:string}>(null);
+  const [clusterHistoryPending,setClusterHistoryPending]=useState(false);
   const clusterRequestID=useRef(0),clusterSignatureRef=useRef("");
   const clusterAgeKey="xlog.integration.contest.cluster-age-minutes.v1";
   const [clusterAgeMinutes,setClusterAgeMinutes]=useState<typeof BAND_MAP_AGES[number]>(()=>{
@@ -391,14 +405,22 @@ function ContestSpots({panelID,context,projection,projectionRevision,send}:{pane
       void reportContestSurfaceDiagnostic(context,"notice",method==="cluster_connect"?"Cluster connected.":"Cluster disconnected.").catch(()=>{});}
     catch(cause){if(clusterRequestID.current!==requestID)return;clusterRequestID.current+=1;
       setClusterPending(null);void reportContestSurfaceDiagnostic(context,"error",boundedDiagnostic(message(cause))).catch(()=>{});}};
+  const requestClusterHistory=async()=>{if(clusterHistoryPending)return;setClusterHistoryPending(true);
+    try{await requestViaSession("cluster_command",{command:"SH/DX/100"});
+      void reportContestSurfaceDiagnostic(context,"notice","Requested 100 recent DX spots.").catch(()=>{});}
+    catch(cause){void reportContestSurfaceDiagnostic(context,"error",boundedDiagnostic(message(cause))).catch(()=>{});}
+    finally{setClusterHistoryPending(false);}};
   return <section className="contest-spots" aria-label="Contest Cluster">{workflow}<div className="contest-cluster-controls">
     <div role="status" aria-label="Contest cluster connections">{projection.connections.length?projection.connections.map(connection=>{const phase=connection.phase.toLowerCase();return <span key={connection.serverID}
       className={phase==="connected"?"live-cluster-connected":"live-cluster-disconnected"}>{connection.serverName} · {phase.charAt(0).toUpperCase()+phase.slice(1)}</span>;}):
       projection.configuredClusters.filter(server=>server.enabled).map(server=><span className="live-cluster-disconnected" key={server.serverID}>{server.serverName} · Disconnected</span>)}</div>
     <div><label>Clear older<select aria-label="Cluster spot age" value={clusterAgeMinutes}
       onChange={event=>setClusterAgeMinutes(Number(event.currentTarget.value) as typeof BAND_MAP_AGES[number])}>{BAND_MAP_AGES.map(value=><option key={value} value={value}>{value} min</option>)}</select></label>
-      <button type="button" disabled={projection.busy||clusterPending!==null||enabledClusters.length===0||connectSatisfied} onClick={()=>void clusterAction("cluster_connect")}>Connect</button>
-      <button type="button" disabled={projection.busy||clusterPending!==null||activeConnections.length===0} onClick={()=>void clusterAction("cluster_disconnect")}>Disconnect</button></div>
+      <button type="button" disabled={clusterPending!==null||enabledClusters.length===0||connectSatisfied} onClick={()=>void clusterAction("cluster_connect")}>Connect</button>
+      <button type="button" disabled={clusterPending!==null||activeConnections.length===0} onClick={()=>void clusterAction("cluster_disconnect")}>Disconnect</button>
+      <button type="button" disabled={clusterPending!==null||clusterHistoryPending||activeConnections.length===0}
+        title="Request the 100 most recent spots from the connected DX cluster"
+        onClick={()=>void requestClusterHistory()}>SH/DX/100</button></div>
   </div><ClusterPanel passive presentationOnly contestPresentation taskOnly snapshot={clusterSnapshot}
     contestBands={projection.supportedBands}
     contestCurrentBand={bandForRadio(projection.radioFrequencyHz??undefined)}
@@ -433,6 +455,7 @@ function IntentInput({label,value:authoritative,identity,projectionRevision,rece
 type EntryIntentKey = "callsign"|"sentReport"|"receivedReport"|"frequency"|`exchange:${string}`;
 type EntryIntent = { value:string; action:(value:string)=>ContestSurfaceAction };
 type EntryFlushResult = { ok:boolean;lastAppliedProjectionRevision:number|null };
+const entryIntentDebounceMs=120;
 function useEntryIntents(projection:any,projectionRevision:number,send:Send){
   const authoritative=useMemo(()=>Object.fromEntries([
     ["callsign",projection.draft.callsign],["sentReport",projection.draft.sentReport],
@@ -442,13 +465,16 @@ function useEntryIntents(projection:any,projectionRevision:number,send:Send){
     projection.draft.frequencyText,projection.draft.receivedFields]);
   const [values,setValues]=useState(authoritative),[,setUnresolved]=useState<Set<EntryIntentKey>>(new Set());
   const identity=projection.draft.draftID,identityRef=useRef(identity),authoritativeRef=useRef(authoritative),valuesRef=useRef(values),
-    dirty=useRef(new Map<EntryIntentKey,EntryIntent>()),inFlight=useRef(new Set<EntryIntentKey>()),running=useRef<Promise<EntryFlushResult>|null>(null),generation=useRef(0);
+    dirty=useRef(new Map<EntryIntentKey,EntryIntent>()),inFlight=useRef(new Set<EntryIntentKey>()),running=useRef<Promise<EntryFlushResult>|null>(null),generation=useRef(0),
+    scheduled=useRef<number|null>(null);
   authoritativeRef.current=authoritative;valuesRef.current=values;
   useEffect(()=>{if(identityRef.current===identity)return;identityRef.current=identity;generation.current+=1;dirty.current.clear();inFlight.current.clear();running.current=null;
+    if(scheduled.current!==null){window.clearTimeout(scheduled.current);scheduled.current=null;}
     valuesRef.current=authoritative;setValues(authoritative);setUnresolved(new Set());},[authoritative,identity]);
   useEffect(()=>{setValues(previous=>{let changed=false;const next={...previous};for(const [key,value] of Object.entries(authoritative) as [EntryIntentKey,string][])
       if(!dirty.current.has(key)&&!inFlight.current.has(key)&&next[key]!==value){next[key]=value;changed=true;}return changed?next:previous;});},[authoritative]);
   const flush=useCallback(async():Promise<EntryFlushResult>=>{
+    if(scheduled.current!==null){window.clearTimeout(scheduled.current);scheduled.current=null;}
     if(running.current)return running.current;
     const runGeneration=generation.current,operation=(async()=>{let lastAppliedProjectionRevision:number|null=null;while(runGeneration===generation.current&&dirty.current.size){const [key,intent]=dirty.current.entries().next().value as [EntryIntentKey,EntryIntent];
       dirty.current.delete(key);inFlight.current.add(key);setUnresolved(previous=>{const next=new Set(previous);next.delete(key);return next;});
@@ -460,7 +486,9 @@ function useEntryIntents(projection:any,projectionRevision:number,send:Send){
     [projectionRevision,send]);
   const change=useCallback((key:EntryIntentKey,value:string,action:(value:string)=>ContestSurfaceAction)=>{
     valuesRef.current={...valuesRef.current,[key]:value};setValues(valuesRef.current);dirty.current.set(key,{value,action});
-    queueMicrotask(()=>void flush());},[flush]);
+    if(scheduled.current!==null)window.clearTimeout(scheduled.current);
+    scheduled.current=window.setTimeout(()=>{scheduled.current=null;void flush();},entryIntentDebounceMs);},[flush]);
+  useEffect(()=>()=>{if(scheduled.current!==null)window.clearTimeout(scheduled.current);},[]);
   const capture=useCallback(()=>({...valuesRef.current}),[]);
   const matches=useCallback((draft:any,intended:Record<EntryIntentKey,string>)=>draft?.draftID===identityRef.current&&
     draft.callsign.trim().toUpperCase()===intended.callsign.trim().toUpperCase()&&draft.sentReport===intended.sentReport&&draft.receivedReport===intended.receivedReport&&
@@ -1034,10 +1062,13 @@ function Log({projection,disabled,sending,projectionRevision,send,openEditor}:{p
       changed.projectionRevision,{safePresentation:true});
     if(saved.applied)setInline(null);
   };
-  const inlineInput=inline?<input aria-label={`Edit ${projection.pluginColumns?.[inline.columnIndex]??"log cell"}`} autoFocus
+  const inlineLabel=inline?projection.pluginColumns?.[inline.columnIndex]??"log cell":"log cell";
+  const inlineInput=inline?<span className="contest-surface-inline-editor"><input aria-label={`Edit ${inlineLabel}`} autoFocus
     disabled={disabled||sending} value={inline.value} onChange={event=>{const value=event.target.value;
       if(new TextEncoder().encode(value).length<=inline.edit.maximumUTF8Bytes)setInline(current=>current?{...current,value}:current);}}
-    onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();void commitInline();}else if(event.key==="Escape"){event.preventDefault();void cancelInline();}}}/>:null;
+    onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();void commitInline();}else if(event.key==="Escape"){event.preventDefault();void cancelInline();}}}/>
+    <button type="button" aria-label={`Save ${inlineLabel}`} title="Save" disabled={disabled||sending} onClick={()=>void commitInline()}>✓</button>
+    <button type="button" aria-label={`Cancel ${inlineLabel}`} title="Cancel" disabled={disabled||sending} onClick={()=>void cancelInline()}>×</button></span>:null;
   const openDeleteMenu=(qsoID:string,callsign:string,event:ReactMouseEvent<HTMLElement>)=>setDeleteMenu({qsoID,callsign,
     x:Math.max(4,Math.min(event.clientX,window.innerWidth-176)),y:Math.max(4,Math.min(event.clientY,window.innerHeight-80))});
   return <section className="contest-surface-log"><header><h1>Log Display</h1>

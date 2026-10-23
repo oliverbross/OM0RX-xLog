@@ -7,6 +7,7 @@ import "./ContestAssistancePanel.css";
 export type SCPSelectionScope = { ownerLeaseID: number; sessionID: string; workspaceGeneration: string; draftID: string; inputCallsign: string };
 export type SCPAvailability = "ready" | "not_imported" | "invalid_cache" | "replacing" | "stopped" | "status_unavailable";
 export type ContestSCPPanelSurface = { source: string | null; candidates: { candidateID: string; callsign: string }[];
+  query: string | null;
   availability: SCPAvailability; notice: string | null; error: string | null; busy: boolean;
   downloadLatest: () => Promise<void>; refresh: () => Promise<void>; selectCandidate: (candidateID: string) => Promise<void> };
 type Props = { request: AssistanceRequest; ownerLeaseID: number; sessionID: string; workspaceGeneration: string; draftID: string; callsign: string;
@@ -104,6 +105,7 @@ export function ContestAssistancePanel({request,ownerLeaseID,sessionID,workspace
   const availability:SCPAvailability=recoveryRequired?"status_unavailable":dataset?"ready":unavailable??"not_imported";
   useEffect(()=>()=>onSurfaceChange?.(null),[onSurfaceChange]);
   useEffect(()=>{if(!onSurfaceChange)return;const current:ContestSCPPanelSurface={source:dataset?.version??null,
+    query:result?.normalizedQuery??null,
     candidates:result?.matches.map(match=>({candidateID:match.matchID,callsign:match.callsign}))??[],availability,
     notice:notice||null,error:error||null,busy,downloadLatest:download,refresh:recover,
     selectCandidate:async candidateID=>{const match=result?.matches.find(item=>item.matchID===candidateID);

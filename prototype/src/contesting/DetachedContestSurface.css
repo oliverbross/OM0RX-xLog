@@ -264,6 +264,10 @@
 .contest-surface-original-log td:nth-child(7),.contest-surface-original-log td:nth-child(10) { text-align:center!important; }
 .contest-surface-log-scroll td > input { min-height:20px; padding:1px 3px; font:inherit; }
 .contest-surface-log-scroll button { min-height:20px; padding:0; background:transparent; border:0; font:inherit; }
+.contest-surface-inline-editor { display:grid; grid-template-columns:minmax(0,1fr) 18px 18px; align-items:center; gap:2px; }
+.contest-surface-log-scroll .contest-surface-inline-editor input { width:100%; min-width:0; min-height:20px; padding:1px 3px; font:inherit; }
+.contest-surface-log-scroll .contest-surface-inline-editor button { color:var(--secondary); font-weight:800; }
+.contest-surface-log-scroll .contest-surface-inline-editor button:first-of-type { color:var(--teal); }
 .contest-surface-log-call,.contest-surface-log-call button { color:var(--teal); font-weight:700!important; }
 .contest-surface-log-frequency { color:var(--cyan); font-variant-numeric:tabular-nums; }
 .contest-surface-log-band { color:var(--amber); font-weight:650!important; }

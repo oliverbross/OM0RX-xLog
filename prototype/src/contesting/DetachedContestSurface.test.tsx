@@ -562,6 +562,40 @@ it("edits an explicitly writable plugin cell inline through begin, set, and revi
   expect(actions[4]).toMatchObject({params:{qsoID:"logged-qso",fieldID:"other_2",value:"15"}});
 });
 
+it("offers mouse-accessible Save and Cancel controls for callsign and CQ zone inline edits",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
+  const pageRow={qsoID:"logged-qso",workedAt:"2026-10-20T12:00:00.000Z",callsign:"K1ABC",band:"20m",mode:"SSB",
+    sentExchange:"59",receivedExchange:"5",points:3,multiplierLabels:[]};
+  const columns=["Call","CQ Zone","PTS"],pluginRow={qsoID:pageRow.qsoID,values:["K1ABC","5","3"],inlineEdits:[
+    {kind:"text",field:"callsign",value:"K1ABC",maximumUTF8Bytes:32},
+    {kind:"exchange",fieldID:"other_2",value:"5",maximumUTF8Bytes:128},null]};
+  let current:any={schemaVersion:1,status:"ready",sessionRevision:7,canExportCabrillo:true,exchangeLayout:"plugin",
+    pluginColumns:columns,pluginRows:[pluginRow],pluginPartialRows:[],page:{offset:0,limit:20,total:1,rows:[pageRow]},editing:null,busy:false};
+  const editing={qsoID:"logged-qso",workedAt:"2026-10-20 12:00:00",operator:"OM0RX",callsign:"K1ABC",band:"20m",mode:"SSB",
+    sentReport:"59",receivedReport:"59",receivedFields:[],frequencyHz:14250000,editFrequencyText:"14250000",frequencyError:"",
+    correctionReason:"Operator correction",confirmDelete:false,deletionReason:"Operator deletion"};
+  const actions:Record<string,any>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return {...snapshot,panelID:"logbook",projection:current};
+    if(command==="contest_surface_action"){
+      actions.push(args);
+      if(args.action==="log_edit_begin")current={...current,editing};
+      if(args.action==="log_edit_save"||args.action==="log_edit_cancel")current={...current,editing:null};
+      return {requestID:args.requestID,status:"applied"};
+    }
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);
+  fireEvent.doubleClick((await screen.findByText("K1ABC")).closest("td")!);
+  const callInput=await screen.findByLabelText("Edit Call");fireEvent.change(callInput,{target:{value:"K1XYZ"}});
+  fireEvent.click(screen.getByRole("button",{name:"Save Call"}));
+  await waitFor(()=>expect(actions.map(action=>action.action)).toEqual(["log_edit_begin","log_edit_set_text","log_edit_save"]));
+  fireEvent.doubleClick(screen.getByText("5").closest("td")!);
+  expect(await screen.findByLabelText("Edit CQ Zone")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button",{name:"Cancel CQ Zone"}));
+  await waitFor(()=>expect(actions.map(action=>action.action)).toEqual(["log_edit_begin","log_edit_set_text","log_edit_save","log_edit_begin","log_edit_cancel"]));
+});
+
 it("uses compact CQ WW multiplier headings and centers report, zone, and points values only",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
   const columns=["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","M1","CQ Zone","M2","Country","PTS"],
@@ -992,6 +1026,33 @@ it.each([
   await waitFor(()=>expect(actionButton).toHaveProperty("disabled",true));
   expect(screen.queryByText(method==="cluster_connect"?"Cluster connected.":"Cluster disconnected.")).toBeNull();
   expect(native.invoke.mock.calls.some(([command])=>command==="contest_surface_action")).toBe(false);
+});
+
+it("requests 100 recent spots once from the connected Contest Cluster even while the contest owner is busy",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=dx-cluster"));
+  const view={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:7_150_000,
+    connectedClusters:1,loadedSpots:0,selectedSpotID:null,supportedBands:["40m"],allowedModeGroups:["phone"],
+    configuredClusters:[{serverID:"server-1",serverName:"ShackCQ",enabled:true}],
+    connections:[{serverID:"server-1",serverName:"ShackCQ",phase:"connected",error:null}],markedOnly:false,spots:[],busy:true};
+  let finishWorker!:()=>void;
+  native.invoke.mockImplementation(async(command,args)=>{
+    if(command==="contest_surface_snapshot")return {...snapshot,panelID:"dx-cluster",projection:view};
+    if(command==="worker_request")return new Promise(resolve=>{finishWorker=()=>resolve({id:args.request.id,ok:true,result:{snapshot:{spots:[]}}});});
+    if(command==="contest_surface_diagnostic_report")return;
+    throw new Error(`unexpected ${command}`);
+  });
+  render(<DetachedContestSurface/>);
+  const recent=await screen.findByRole("button",{name:"SH/DX/100"});
+  expect(recent).toHaveProperty("disabled",false);
+  fireEvent.click(recent);fireEvent.click(recent);
+  await waitFor(()=>expect(native.invoke.mock.calls.filter(([command])=>command==="worker_request")).toHaveLength(1));
+  expect(native.invoke.mock.calls.find(([command])=>command==="worker_request")?.[1].request)
+    .toMatchObject({method:"cluster_command",params:{command:"SH/DX/100"}});
+  expect(recent).toHaveProperty("disabled",true);
+  finishWorker();
+  await waitFor(()=>expect(recent).toHaveProperty("disabled",false));
+  expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_diagnostic_report"&&
+    args.kind==="notice"&&args.message==="Requested 100 recent DX spots.")).toBe(true);
 });
 
 it("settles a successful Cluster request when the shared connection snapshot is unchanged",async()=>{
@@ -1962,6 +2023,35 @@ it("coalesces synchronous rapid Entry typing into one full-value action",async()
   fireEvent.change(input,{target:{value:"K"}});fireEvent.change(input,{target:{value:"K1"}});fireEvent.change(input,{target:{value:"K1A"}});
   expect((input as HTMLInputElement).value).toBe("K1A");await waitFor(()=>expect(actions).toHaveLength(1));
   expect(actions[0]).toMatchObject({projectionRevision:6,action:"entry_set_text",params:{value:"K1A"}});
+});
+
+it("reconciles a queued callsign receipt that settles before its wake and restores DUPE actions",async()=>{
+  let current:any={...snapshot,projection:{...projection,schemaVersion:2,session:{name:"CQ WW SSB",ruleName:"CQ WW SSB",mode:"SSB"},
+    draft:{...projection.draft,callsign:"",sentReport:"59",receivedReport:"59",frequencyHz:7_115_000,frequencyText:"7115000",frequencyError:"",
+      band:"40m",mode:"SSB",dupe:{state:"clear",reason:"Clear for this contest."},
+      receivedFields:[{id:"other_2",label:"CQ Zone",value:"14",required:true,maximumUTF8Bytes:2}]},
+    descriptor:{bands:["40m"],modes:["SSB"],advanceOnSpace:["callsign"],spaceNext:{callsign:"other_2"},sentFields:[],
+      serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator:null}};
+  const actions:Record<string,any>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_action"){
+      actions.push(args);
+      current={...current,projectionRevision:7,receipts:[{requestID:args.requestID,status:"applied",message:null,projectionRevision:7}],
+        projection:{...current.projection,draft:{...current.projection.draft,revision:6,callsign:args.params.value,
+          dupe:{state:"duplicate",reason:"Worked at 02:06 UTC."}}}};
+      // Deliberately omit a wake: the terminal receipt became visible in the
+      // narrow queued/waiter race that previously left Main Logging stuck.
+      return{requestID:args.requestID,status:"queued"};
+    }
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign");
+  fireEvent.change(callsign,{target:{value:"DL3A"}});fireEvent.change(callsign,{target:{value:"DL3AO"}});
+  expect(await screen.findByText("Checking — DL3AO")).toBeTruthy();
+  expect(await screen.findByText("DUPE — DL3AO already worked on 40m")).toBeTruthy();
+  expect(actions).toHaveLength(1);expect(actions[0]).toMatchObject({action:"entry_set_text",params:{value:"DL3AO"}});
+  expect(screen.getByRole("button",{name:/^Log It/})).toHaveProperty("disabled",false);
 });
 
 it("submits Escape outside a blocked edit queue without replaying either action",async()=>{

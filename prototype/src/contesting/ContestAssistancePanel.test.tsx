@@ -152,6 +152,31 @@ it("cancels stale query context on callsign change and never selects implicitly"
   await waitFor(()=>expect(cancelled.length).toBeGreaterThan(0)); expect(selected).not.toHaveBeenCalled();
 });
 
+it("publishes query identity and never restores candidates from an obsolete callsign", async()=>{
+  let surface:ContestSCPPanelSurface|null=null;
+  let finishObsolete:((value:ContestWorkerResponse<any>)=>void)|undefined;
+  const response=(params:Record<string,unknown>,query:string,callsign:string):ContestWorkerResponse<any>=>({id:"query",ok:true,result:{
+    sessionID:context.sessionID,workspaceGeneration:context.workspaceGeneration,requestID:String(params.requestID),
+    normalizedQuery:query,matches:[{matchID:`${dataset.sha256}:0`,callsign,score:100,isPrefixMatch:true}],
+    dataset,evaluatedRecordCount:dataset.recordCount,isPartial:false}});
+  const request=(async(method:string,params:Record<string,unknown>={})=>{
+    if(method==="contest_scp_status")return{id:"status",ok:true,result:{dataset,unavailableReason:null}};
+    if(method==="contest_scp_cancel")return{id:"cancel",ok:true,result:{cancelled:true}};
+    if(method==="contest_scp_query"){
+      if(params.query==="K8")return new Promise<ContestWorkerResponse<any>>(resolve=>{finishObsolete=resolve;});
+      return response(params,"DL3AO","DL3AO");
+    }
+    throw new Error(method);
+  }) as ContestRequest;
+  const props={request,...context,onSelect:vi.fn(),onSurfaceChange:(value:ContestSCPPanelSurface|null)=>{surface=value;}};
+  const view=render(<ContestAssistancePanel {...props} callsign="K8"/>);
+  await waitFor(()=>expect(finishObsolete).toBeTypeOf("function"));
+  view.rerender(<ContestAssistancePanel {...props} callsign="DL3AO"/>);
+  await waitFor(()=>expect(surface).toMatchObject({query:"DL3AO",candidates:[{callsign:"DL3AO"}]}));
+  await act(async()=>{finishObsolete!(response({requestID:"obsolete"},"K8","K8SB"));await Promise.resolve();});
+  expect(surface).toMatchObject({query:"DL3AO",candidates:[{callsign:"DL3AO"}]});
+});
+
 it("drops a delayed authoritative selection after the active session changes", async()=>{
   let finishSelection:((value:ContestWorkerResponse<{callsign:string}>)=>void)|undefined;
   const selected=vi.fn();

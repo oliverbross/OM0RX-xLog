@@ -1980,7 +1980,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       loggedCalls:loggedCandidates.map(candidate => candidate.callsign),
       clusterCalls:clusterCandidates.map(candidate => candidate.callsign),
       loggedCandidates, clusterCandidates,
-      scp: { source: scpSurface?.source ?? null, candidates: scpSurface?.candidates ?? [],
+      scp: { source: scpSurface?.source ?? null,
+        candidates: scpSurface?.query===(currentFields.callsign??"").trim().toUpperCase()?scpSurface.candidates:[],
         availability: scpSurface?.availability ?? "not_imported", notice: scpSurface?.notice ?? null, error: scpSurface?.error ?? null },
       history: { source: historyCandidate ? "Imported Call History" : null,
         rows: historyCandidate ? [historyCandidate] : [] },
@@ -2612,7 +2613,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const scorePanel = <aside className="contest-score" aria-label="Score and multipliers"><h2><Trophy size={15}/> Score</h2><ContestScoreSummary score={scoreView}/></aside>;
   const checkPanel = <section className="contest-score" aria-label="Check Partial"><h2>Check Partial</h2>{projection && <ContestAssistancePanel
     request={request as ContestRequest} ownerLeaseID={0} sessionID={projection.sessionID} workspaceGeneration={projection.workspaceGeneration}
-    draftID={projection.draftID} callsign={fields.callsign ?? ""} disabled={busy || retiring}
+    draftID={projection.draftID} callsign={fields.callsign ?? ""} disabled={retiring}
     onSelect={applyAssistanceCallsign} onSurfaceChange={setSCPSurface}/>}<p className="contest-source">{projection?.history || "Type a call to query Not1MM call history."}</p><p>{projection?.dupe
       ? projection.dupeExplanation ?? "Worked in this contest" : projection?.countryResolved ? "Country resolved · not a duplicate" : "No country match yet"}</p></section>;
   const matrixPanel = <section className="contest-score" aria-label="Country and zone matrices"><h2>Countries / zones</h2><div className="contest-multipliers">{[...(matrices.countries ?? []), ...(matrices.zones ?? [])].map((item: Data, index: number) => <span key={`${item.value}-${item.band}-${index}`}>{item.value || "Unknown"} · {bandLabels[String(item.band)] ?? item.band} · {item.qsos}</span>)}</div></section>;
