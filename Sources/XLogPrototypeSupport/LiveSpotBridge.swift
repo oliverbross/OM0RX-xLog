@@ -206,11 +206,22 @@ actor SpotForwardBroker {
     /// Logging owner are withdrawn; third-party and contest-owned spots are not
     /// addressed.
     func withdrawNormalForwardedSpots() async throws -> Int {
+        try await withdrawForwardedSpots(owner: "normal_logging")
+    }
+
+    /// A replacement Contest worker invokes this before publishing its first
+    /// authoritative snapshot so spots retained after a failed prior shutdown
+    /// are removed using their durable radio identities.
+    func withdrawContestForwardedSpots() async throws -> Int {
+        try await withdrawForwardedSpots(owner: "contesting")
+    }
+
+    private func withdrawForwardedSpots(owner: String) async throws -> Int {
         var document = try loadInventory()
-        let normal = document.spots.filter { $0.owner == "normal_logging" }
-        guard !normal.isEmpty else { return 0 }
+        let owned = document.spots.filter { $0.owner == owner }
+        guard !owned.isEmpty else { return 0 }
         var removedKeys = Set<String>(), firstFailure: Error?
-        for entry in normal {
+        for entry in owned {
             do {
                 let spot = try FlexSpot(frequencyHz: entry.frequencyHz, callsign: entry.callsign, mode: "CW",
                                         source: "xLog module transition", spotter: "", comment: "",

@@ -202,6 +202,39 @@ final class LiveSpotBridgeTests: XCTestCase {
         ])
     }
 
+    func testReplacementContestWorkerRetriesPersistedContestWithdrawal() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-contest-recovery-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let inventoryURL = directory.appendingPathComponent("spots.json")
+        let routing = TargetedSpotRouting(radio1Available: false)
+        func broker() -> SpotForwardBroker {
+            SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { spot, provider, preferred in
+                try await routing.add(spot: spot, provider: provider, preferred: preferred)
+            }, targetedRemove: { spot, provider, radioID in
+                try await routing.remove(spot: spot, provider: provider, radioID: radioID)
+            })
+        }
+        let contestSpot = try spot(priority: 5, source: "xLog Contest")
+        let forwarded = try await broker().forward(contestSpot, replacingExisting: true)
+        XCTAssertTrue(forwarded)
+
+        await routing.setRemovalAccepted(false)
+        do {
+            _ = try await broker().withdrawContestForwardedSpots()
+            XCTFail("Rejected contest withdrawal must retain the durable inventory")
+        } catch {}
+
+        await routing.setRemovalAccepted(true)
+        let withdrawn = try await broker().withdrawContestForwardedSpots()
+        let events = await routing.events()
+        XCTAssertEqual(withdrawn, 1)
+        XCTAssertEqual(events, [
+            "add:direct_agent:radio2:K1ABC:14074000",
+            "remove:direct_agent:radio2:K1ABC:14074000",
+            "remove:direct_agent:radio2:K1ABC:14074000",
+        ])
+    }
+
     func testAcceptedDedupeCacheIsBoundedUnderManyDistinctSpots() async throws {
         let broker = SpotForwardBroker { _ in }
         let original = try spot()
@@ -498,9 +531,11 @@ private actor GatedDelivery {
 
 private actor TargetedSpotRouting {
     private var radio1Available: Bool
+    private var removalAccepted = true
     private var recorded: [String] = []
     init(radio1Available: Bool) { self.radio1Available = radio1Available }
     func setRadio1Available(_ available: Bool) { radio1Available = available }
+    func setRemovalAccepted(_ accepted: Bool) { removalAccepted = accepted }
     func add(spot: FlexSpot, provider: String, preferred: String?) throws -> String {
         let radioID: String
         if let preferred {
@@ -514,6 +549,7 @@ private actor TargetedSpotRouting {
     func remove(spot: FlexSpot, provider: String, radioID: String?) throws {
         guard let radioID else { throw NSError(domain: "missing-radio", code: 1) }
         recorded.append("remove:\(provider):\(radioID):\(spot.callsign):\(spot.frequencyHz)")
+        if !removalAccepted { throw NSError(domain: "rejected-removal", code: 1) }
     }
     func events() -> [String] { recorded }
 }

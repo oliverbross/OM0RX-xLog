@@ -142,7 +142,7 @@ public actor LiveClusterMethods {
     private let spotForward: @Sendable (ClusterRadioSpotPayload, String, Bool) async throws -> Bool
     private let spotRemove: @Sendable (ClusterRadioSpotPayload, String) async throws -> Bool
     private let beforeContestSpotPublication: @Sendable () async throws -> Void
-    private var withdrewNormalRadioSpots = false
+    private var withdrewPriorRadioSpots = false
     private var contestPublisherID: String?
     private var contestPublisherStartedAt = 0
     private var contestPublisherSequence = 0
@@ -202,6 +202,7 @@ public actor LiveClusterMethods {
             self.beforeContestSpotPublication = {
                 #if os(macOS)
                 _ = try await SpotForwardBroker.shared.withdrawNormalForwardedSpots()
+                _ = try await SpotForwardBroker.shared.withdrawContestForwardedSpots()
                 #endif
             }
         } else {
@@ -679,9 +680,9 @@ public actor LiveClusterMethods {
               let spots = try? JSONDecoder().decode([ContestRadioSpotInput].self, from: data),
               action == "replace" || chunkCount == 1 && chunkIndex == 0 && spots.isEmpty else { throw invalid() }
 
-        if !withdrewNormalRadioSpots {
+        if !withdrewPriorRadioSpots {
             try await beforeContestSpotPublication()
-            withdrewNormalRadioSpots = true
+            withdrewPriorRadioSpots = true
         }
 
         if retiredContestPublisherIDs.contains(publisherID) {
