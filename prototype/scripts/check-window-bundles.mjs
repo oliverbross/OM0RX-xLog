@@ -58,8 +58,10 @@ for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "Calls
   // bootstrap. Their setup UI and session owner remain outside this startup
   // graph. Keep the adjustment local to the affected budget.
   // CQ WW log DUPE metadata and bounded detached-contest projection fields add
-  // less than 0.03% to the shared Logbook graph; retain only 100 bytes of headroom.
-  const budget = name === "Settings" ? 408_000 : name === "QSO" ? 407_000 : name === "Logbook" ? 402_100 : 401_000;
+  // less than 0.03% to the shared Logbook graph. Node 22 and Node 24 currently
+  // differ by 20 emitted bytes, so retain a bounded 150-byte allowance above
+  // the larger verified graph instead of making the gate toolchain-dependent.
+  const budget = name === "Settings" ? 408_000 : name === "QSO" ? 407_000 : name === "Logbook" ? 402_250 : 401_000;
   console.log(JSON.stringify({ window: name, bytes, gzip, files }));
   assert(bytes <= budget, `${name} startup JavaScript exceeds the ${budget / 1_000} kB budget: ${bytes}`);
 }
