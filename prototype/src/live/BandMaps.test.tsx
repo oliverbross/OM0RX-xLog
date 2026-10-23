@@ -202,10 +202,10 @@ describe("native band-map parity", () => {
       contestCountryMultiplier:true,contestZoneMultiplier:false};
     const worked={...needed,id:"worked",callsign:"K1ABC",frequencyKHz:14024,contestPoints:0,contestDupe:true,contestMultiplierCount:0};
     const globalWorked={...needed,id:"global-worked",callsign:"F1ABC",frequencyKHz:14026,workedBefore:1,dxccStatus:"Worked"};
-    expect(contestBandMapSpotColor(needed)).toBe("#4da3ff");expect(contestBandMapSpotColor(country)).toBe("#ff5b5b");
-    expect(contestBandMapSpotColor(zone)).toBe("#ff5b5b");
-    expect(contestBandMapSpotColor(double)).toBe("#12d6a0");
-    expect(contestBandMapSpotColor(twoPoint)).toBe("#ff5b5b");expect(contestBandMapSpotColor(worked)).toBe("#8b98a5");
+    expect(contestBandMapSpotColor(needed)).toBe("#3da5f4");expect(contestBandMapSpotColor(country)).toBe("#ff5267");
+    expect(contestBandMapSpotColor(zone)).toBe("#ff5267");
+    expect(contestBandMapSpotColor(double)).toBe("#00e51b");
+    expect(contestBandMapSpotColor(twoPoint)).toBe("#ff5267");expect(contestBandMapSpotColor(worked)).toBe("#aeb5b7");
     expect(contestBandMapSpotWorked(worked)).toBe(true);expect(contestBandMapSpotWorked(globalWorked)).toBe(false);
     const first=render(<BandMaps compact contestPresentation storageNamespace="contest" spots={[needed,country,zone,double,twoPoint,pointsPending,worked,globalWorked]} onSelect={vi.fn()} radioFrequencyHz={14_025_000}/>);
     const full=screen.getByRole("button",{name:/LONG\/CALLSIGN1/});expect(full.textContent).toBe("LONG/CALLSIGN1");
@@ -213,7 +213,9 @@ describe("native band-map parity", () => {
     expect(screen.getByRole("button",{name:/^VK1ABC /}).getAttribute("aria-label")).toContain("country multiplier · red");
     expect(screen.getByRole("button",{name:/^VK2ABC /}).getAttribute("aria-label")).toContain("CQ zone multiplier · red");
     expect(screen.getByRole("button",{name:/^JA1ABC /}).getAttribute("aria-label")).toContain("country and CQ zone multipliers · green");
-    expect(screen.getByRole("button",{name:/^JA1ABC /}).textContent).toContain("C+Z");
+    expect(screen.getByRole("button",{name:/^JA1ABC /}).textContent).toBe("JA1ABC");
+    expect(screen.getByRole("button",{name:/^VK1ABC /}).textContent).toBe("VK1ABC");
+    expect(screen.getByRole("button",{name:/^VK2ABC /}).textContent).toBe("VK2ABC");
     expect(screen.getByRole("button",{name:/^VE1ABC /}).getAttribute("aria-label")).toContain("2 pt · CQ zone multiplier · red");
     expect(screen.getByRole("button",{name:/^W1PENDING /}).getAttribute("aria-label")).toContain("Points unavailable · country multiplier · red");
     expect(screen.queryByRole("button",{name:/^K1ABC /})).toBeNull();expect(screen.getByRole("button",{name:/^F1ABC /})).toBeTruthy();
@@ -224,6 +226,21 @@ describe("native band-map parity", () => {
     render(<BandMaps compact contestPresentation storageNamespace="contest" spots={[needed,country,zone,double,twoPoint,worked,globalWorked]} onSelect={vi.fn()} radioFrequencyHz={14_025_000}/>);
     expect((screen.getByRole("checkbox",{name:"Show worked"}) as HTMLInputElement).checked).toBe(true);
     expect(screen.getByRole("button",{name:/^K1ABC /})).toBeTruthy();
+  });
+  it("keeps complete contest callsigns in separate lanes without visible classification suffixes",()=>{
+    const contestSpot=(id:string,callsign:string)=>({...spot(callsign,21258,"15m","New Call","New Country"),id,mode:"SSB",
+      callsign,contestPoints:3,contestDupe:false,contestMultiplierCount:2,contestCountryMultiplier:true,contestZoneMultiplier:true}),
+      marked={...contestSpot("a","IE9/DJ4EL"),marked:true};
+    render(<BandMaps compact contestPresentation storageNamespace="contest-full-calls" contestBands={["15m"]}
+      contestAllowedModes={["phone"]} spots={[marked,contestSpot("b","SM2/UT0CZ")]}
+      onSelect={vi.fn()} radioFrequencyHz={21_258_000}/>);
+    const first=screen.getByRole("button",{name:/^IE9\/DJ4EL /}) as HTMLButtonElement,
+      second=screen.getByRole("button",{name:/^SM2\/UT0CZ /}) as HTMLButtonElement;
+    expect(first.textContent).toBe("IE9/DJ4EL");expect(second.textContent).toBe("SM2/UT0CZ");
+    expect(first.getAttribute("aria-label")).toContain("Marked");
+    expect(first.querySelector("b")).toBeNull();expect(second.querySelector("b")).toBeNull();
+    expect(Math.abs(parseFloat(first.style.left)-parseFloat(second.style.left))).toBeGreaterThanOrEqual(parseFloat(first.style.width));
+    expect(first.getAttribute("aria-label")).toContain("country and CQ zone multipliers · green");
   });
   it("puts optional Undock immediately beside Add band map, preserves Dock back and removes redundant subtitle", () => {
     const undock = vi.fn(), dock = vi.fn(), select = vi.fn();

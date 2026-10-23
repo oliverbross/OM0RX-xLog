@@ -165,11 +165,11 @@ export function contestBandMapMultiplierLabel(spot:BandMapSpot):string{
   const count=finite(spot.contestMultiplierCount);return count===null?"?":count===0?"—":String(count);
 }
 export function contestBandMapSpotColor(spot:BandMapSpot):string{
-  if(contestBandMapSpotWorked(spot))return "#8b98a5";
+  if(contestBandMapSpotWorked(spot))return "#aeb5b7";
   const multipliers=contestNeededMultiplierCount(spot);
-  if(multipliers!==null&&multipliers>1)return "#12d6a0";
-  if(multipliers===1)return "#ff5b5b";
-  if(multipliers===0&&spot.contestDupe===false)return "#4da3ff";
+  if(multipliers!==null&&multipliers>1)return "#00e51b";
+  if(multipliers===1)return "#ff5267";
+  if(multipliers===0&&spot.contestDupe===false)return "#3da5f4";
   return bandMapSpotColor(spot);
 }
 function contestPointDescription(spot:BandMapSpot):string{
@@ -392,15 +392,14 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
       })}
       {placed.map(({ spot, lane, top, anchorTop, key }) => {
         const color = contestPresentation?contestBandMapSpotColor(spot):bandMapSpotColor(spot);
-        const multiplierCode=contestBandMapMultiplierLabel(spot);
-        const code = contestPresentation?(multiplierCode==="—"||multiplierCode==="?"?"":multiplierCode):opportunityCode(spot);
+        const code = contestPresentation ? "" : opportunityCode(spot);
         const tooltip = `${text(spot.callsign)} · ${(spot.frequencyKHz / 1000).toFixed(6)} MHz · ${text(spot.mode)} · ${text(spot.callStatus)} · ${text(spot.dxccStatus)}${contestPresentation?` · ${contestPointDescription(spot)}`:""}${spot.country ? ` · ${countryDisplay(spot.country)}` : ""}${spot.comment ? ` · ${text(spot.comment)}` : ""}`;
         const centre = axis + laneWidth * (lane + 0.5);
         return <Fragment key={key}><span className="band-map-spot-anchor" aria-hidden="true" style={{ top: anchorTop, left: axis - 4, width: Math.max(8, centre - axis + 4), color }} />
           <button type="button" className={`band-map-spot${spot.marked ? " is-marked" : ""}${selectedSpotId === String(spot.id) ? " is-selected" : ""}`}
             style={{ top, left: centre, width: spotWidth, color }} title={tooltip} aria-label={`${tooltip}${spot.marked ? " · Marked" : ""}`}
             aria-current={selectedSpotId === String(spot.id) ? "true" : undefined} onClick={() => onSelect(spot)}
-             onContextMenu={event => onSpotContextMenu?.(spot, event)}><strong>{text(spot.callsign)}</strong>{spot.marked && <span aria-label="Marked">★</span>}{code&&<b>{code}</b>}</button></Fragment>;
+             onContextMenu={event => onSpotContextMenu?.(spot, event)}><strong>{text(spot.callsign)}</strong>{spot.marked && !contestPresentation && <span aria-label="Marked">★</span>}{code&&<b>{code}</b>}</button></Fragment>;
       })}
       {hidden > 0 && <span className="band-map-overflow" role="status" aria-label={`${hidden} more spots; zoom in to separate labels`} title={`${hidden} more spots; zoom in to separate labels`}>{hidden} more · zoom in</span>}
     </div>
