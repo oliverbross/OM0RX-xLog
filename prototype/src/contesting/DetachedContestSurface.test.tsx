@@ -932,6 +932,7 @@ it.each(["band-maps","dx-cluster"] as const)("selects shared spots from the cont
     expect(screen.getByLabelText("CQ WW opportunity totals")).toBeTruthy();
     expect(Array.from((screen.getByLabelText("CQ WW band") as HTMLSelectElement).options).map(option=>option.value))
       .toEqual(["all","40m","20m"]);
+    expect((screen.getByLabelText("CQ WW band") as HTMLSelectElement).value).toBe("20m");
     expect(screen.queryByLabelText("Spot filters")).toBeNull();
     expect(screen.getByRole("button",{name:"Connect"})).toHaveProperty("disabled",true);
     expect(screen.getByRole("button",{name:"Disconnect"})).toHaveProperty("disabled",false);

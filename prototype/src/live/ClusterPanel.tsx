@@ -55,7 +55,8 @@ type History = { call: string; previous_count: number; previous: HistoryRow[]; a
 type Props = { snapshot: unknown; onRequest: Request; onSelect: (spot: LiveClusterSpot) => void;
   passive?: boolean; presentationOnly?: boolean; contestPresentation?: boolean; onUndock?: () => void; onDock?: () => void; passwordControlsEnabled?: boolean; selectedSpotId?: string | null; taskOnly?: boolean;
   settingsOnly?: boolean; preferenceStorageKey?: string; onSpotContextMenu?: (spot: LiveClusterSpot,
-    event: ReactMouseEvent<HTMLElement>|ReactKeyboardEvent<HTMLElement>) => void; contestBands?: readonly string[] };
+    event: ReactMouseEvent<HTMLElement>|ReactKeyboardEvent<HTMLElement>) => void; contestBands?: readonly string[];
+  contestCurrentBand?: string | null; contestBandPreferenceKey?: string };
 
 const { bands, modes, callStatuses, dxccStatuses } = clusterFilterChoices;
 const formatDate = (value?: number | null) => value == null ? "—" : new Date((value + 978_307_200) * 1000).toLocaleString();
@@ -75,6 +76,15 @@ const contestClusterColumns = [
 type ContestClusterColumn = typeof contestClusterColumns[number][0];
 type ContestBandFilter = "all" | "160m" | "80m" | "40m" | "20m" | "15m" | "10m";
 const contestBandFilters: readonly ContestBandFilter[] = ["all", "160m", "80m", "40m", "20m", "15m", "10m"];
+const contestBandFilter = (value: string | null | undefined, available?: readonly string[]): ContestBandFilter | null =>
+  contestBandFilters.includes(value as ContestBandFilter) && (value === "all" || !available?.length || available.includes(value!))
+    ? value as ContestBandFilter : null;
+const defaultContestBand = (current: string | null | undefined, available?: readonly string[]): ContestBandFilter =>
+  contestBandFilter(current, available) ?? (available?.length === 1 ? contestBandFilter(available[0], available) : null) ?? "all";
+function storedContestBand(key: string, available?: readonly string[]): ContestBandFilter | null {
+  try { return contestBandFilter(localStorage.getItem(key), available); }
+  catch { return null; }
+}
 const defaultContestColumnWidths = () => Object.fromEntries(contestClusterColumns.map(([id, , width]) => [id, width])) as Record<ContestClusterColumn, number>;
 function readContestColumnWidths(raw: string | null): Record<ContestClusterColumn, number> {
   const widths = defaultContestColumnWidths();
@@ -102,7 +112,7 @@ function ColumnWidthInput({ label, width, disabled, onCommit }: { label: string;
     onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }} />;
 }
 export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, presentationOnly = false, contestPresentation = false, onUndock, onDock, passwordControlsEnabled = true, selectedSpotId, taskOnly = false, settingsOnly = false,
-  preferenceStorageKey = fullClusterColumnsKey, onSpotContextMenu, contestBands }: Props) {
+  preferenceStorageKey = fullClusterColumnsKey, onSpotContextMenu, contestBands, contestCurrentBand, contestBandPreferenceKey }: Props) {
   const saveToast = useSettingsSaveToast();
   const ageClock = useSpotAgeClock();
   const panelId = useId();
@@ -164,7 +174,12 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
     try { return localStorage.getItem(showWorkedStorageKey) === "true"; } catch { return false; }
   });
   const [contestOpportunities,setContestOpportunities]=useState<"all"|"mults">("all");
-  const [contestBand, setContestBand] = useState<ContestBandFilter>("all");
+  const contestBandStorageKey = contestBandPreferenceKey ?? `${preferenceStorageKey}.cqwwBand`;
+  const initialStoredContestBand = useRef(storedContestBand(contestBandStorageKey, contestBands));
+  const contestBandWasChosen = useRef(initialStoredContestBand.current !== null);
+  const previousContestBandStorageKey = useRef(contestBandStorageKey);
+  const [contestBand, setContestBand] = useState<ContestBandFilter>(() =>
+    initialStoredContestBand.current ?? defaultContestBand(contestCurrentBand, contestBands));
   const contestBandOptions=contestBandFilters.filter(band=>band==="all"||!contestBands?.length||contestBands.includes(band));
   const [, setForwarding] = useState<Forwarding | null>(null);
   const [snapshotTruncated, setSnapshotTruncated] = useState(false);
@@ -221,7 +236,27 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
     if (!contestPresentation) return;
     try { localStorage.setItem(showWorkedStorageKey, String(showWorked)); } catch { /* Keep usable in memory if storage is unavailable. */ }
   }, [contestPresentation, showWorked, showWorkedStorageKey]);
-  useEffect(()=>{if(!contestBandOptions.includes(contestBand))setContestBand("all");},[contestBand,contestBandOptions]);
+  useEffect(()=>{
+    const current=defaultContestBand(contestCurrentBand,contestBands);
+    if(previousContestBandStorageKey.current!==contestBandStorageKey){
+      previousContestBandStorageKey.current=contestBandStorageKey;
+      const stored=storedContestBand(contestBandStorageKey,contestBands);
+      contestBandWasChosen.current=stored!==null;
+      setContestBand(stored??current);
+      setSpotPage(0);
+      return;
+    }
+    if(!contestBandWasChosen.current){
+      try{if(localStorage.getItem(contestBandStorageKey)!==null&&storedContestBand(contestBandStorageKey,contestBands)===null)
+        localStorage.removeItem(contestBandStorageKey);}catch{/* An unavailable preference store must not block spots. */}
+    }
+    if(!contestBandOptions.includes(contestBand)){
+      contestBandWasChosen.current=false;
+      try{localStorage.removeItem(contestBandStorageKey);}catch{/* An unavailable preference store must not block spots. */}
+      setContestBand(current);return;
+    }
+    if(!contestBandWasChosen.current&&contestBand!==current)setContestBand(current);
+  },[contestBand,contestBandOptions,contestCurrentBand,contestBands,contestBandStorageKey]);
   useEffect(() => {
     if (!contestPresentation) return;
     try { localStorage.setItem(contestColumnStorageKey, JSON.stringify({ version: 1, widths: contestColumnWidths })); }
@@ -351,7 +386,8 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
         ? <span aria-label="CQ WW opportunity totals">QSO {contestSummary.qsos} · Mults {contestSummary.mults} · Country {contestSummary.countries} · Zone {contestSummary.zones}</span>
         : presentationOnly ? `${connected} live · ${spotCount} shown / ${live?.loadedSpots ?? 0} received` : `${connected} live · ${live?.spots.length ?? 0} shown / ${live?.loadedSpots ?? 0} received · ${live?.contactCount ?? 0} log contacts`}</p></div>
       {contestPresentation && <div className="live-cluster-contest-controls"><label>Band <select aria-label="CQ WW band" value={contestBand}
-        onChange={event=>{setContestBand(event.currentTarget.value as ContestBandFilter);setSpotPage(0);}}>{contestBandOptions.map(band=><option key={band} value={band}>{band==="all"?"All":band.replace("m","")}</option>)}</select></label>
+        onChange={event=>{const next=event.currentTarget.value as ContestBandFilter;contestBandWasChosen.current=true;setContestBand(next);setSpotPage(0);
+          try{localStorage.setItem(contestBandStorageKey,next);}catch{/* Keep the explicit choice in memory when storage is unavailable. */}}}>{contestBandOptions.map(band=><option key={band} value={band}>{band==="all"?"All":band.replace("m","")}</option>)}</select></label>
         <label>Show <select aria-label="CQ WW opportunities" value={contestOpportunities}
         onChange={event=>{setContestOpportunities(event.currentTarget.value as "all"|"mults");setSpotPage(0);}}><option value="all">Needed Qs + Mults</option><option value="mults">Mults only</option></select></label>
         <label className="live-cluster-show-worked"><input type="checkbox" checked={showWorked} disabled={contestOpportunities==="mults"}

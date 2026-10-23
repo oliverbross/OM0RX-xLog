@@ -12,7 +12,7 @@ import { contestInputFieldIDs, type ContestInputFieldID, type ContestLogInlineEd
 import { ContestTextField, ContestCandidates, ContestScoreSummary } from "./ContestPresentation";
 import { contestKeyChord, functionKeyForContestAction, resolveContestKeyBinding,
   type ContestKeyBindingAction, type ContestKeyBindingContext } from "./contestKeyBindings";
-import BandMaps, { BAND_MAP_AGES, contestBandMapSpotColor, filterRecentBandMapSpots } from "../live/BandMaps";
+import BandMaps, { BAND_MAP_AGES, bandForRadio, contestBandMapSpotColor, filterRecentBandMapSpots } from "../live/BandMaps";
 import { decodeContestBandPlan } from "./contestBandPlan";
 import ClusterPanel from "../live/ClusterPanel";
 import { connectMapContext, mapSpots } from "../live/mapContext";
@@ -399,6 +399,8 @@ function ContestSpots({panelID,context,projection,projectionRevision,send}:{pane
       <button type="button" disabled={projection.busy||clusterPending!==null||activeConnections.length===0} onClick={()=>void clusterAction("cluster_disconnect")}>Disconnect</button></div>
   </div><ClusterPanel passive presentationOnly contestPresentation taskOnly snapshot={clusterSnapshot}
     contestBands={projection.supportedBands}
+    contestCurrentBand={bandForRadio(projection.radioFrequencyHz??undefined)}
+    contestBandPreferenceKey={`xlog.integration.contest.cluster-band.v1.${projection.contestSessionID??projection.draftID}`}
     preferenceStorageKey="xlog.integration.contest.cluster-columns.v1" onRequest={async()=>null}
     selectedSpotId={projection.selectedSpotID} onSpotContextMenu={contextMenu} onSelect={spot=>select(spot.id)}/></section>;
 }

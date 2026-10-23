@@ -345,6 +345,63 @@ describe("cluster toolbar panels", () => {
       .toEqual(["all", "40m", "20m"]);
   });
 
+  it("defaults the CQ WW cluster to the current radio band until the operator chooses otherwise", async () => {
+    const preferenceKey="xlog.test.cqww-current-band";
+    const first=render(<ClusterPanel passive presentationOnly contestPresentation taskOnly
+      preferenceStorageKey="xlog.test.cqww-current-band-columns" contestBandPreferenceKey={preferenceKey}
+      contestCurrentBand="40m" contestBands={["40m","20m"]} snapshot={response()} onRequest={vi.fn()} onSelect={vi.fn()}/>);
+    expect((screen.getByLabelText("CQ WW band") as HTMLSelectElement).value).toBe("40m");
+
+    first.rerender(<ClusterPanel passive presentationOnly contestPresentation taskOnly
+      preferenceStorageKey="xlog.test.cqww-current-band-columns" contestBandPreferenceKey={preferenceKey}
+      contestCurrentBand="20m" contestBands={["40m","20m"]} snapshot={response()} onRequest={vi.fn()} onSelect={vi.fn()}/>);
+    await waitFor(()=>expect((screen.getByLabelText("CQ WW band") as HTMLSelectElement).value).toBe("20m"));
+
+    fireEvent.change(screen.getByLabelText("CQ WW band"),{target:{value:"all"}});
+    expect(localStorage.getItem(preferenceKey)).toBe("all");
+    first.rerender(<ClusterPanel passive presentationOnly contestPresentation taskOnly
+      preferenceStorageKey="xlog.test.cqww-current-band-columns" contestBandPreferenceKey={preferenceKey}
+      contestCurrentBand="40m" contestBands={["40m","20m"]} snapshot={response()} onRequest={vi.fn()} onSelect={vi.fn()}/>);
+    expect((screen.getByLabelText("CQ WW band") as HTMLSelectElement).value).toBe("all");
+    first.unmount();
+
+    render(<ClusterPanel passive presentationOnly contestPresentation taskOnly
+      preferenceStorageKey="xlog.test.cqww-current-band-columns" contestBandPreferenceKey={preferenceKey}
+      contestCurrentBand="40m" contestBands={["40m","20m"]} snapshot={response()} onRequest={vi.fn()} onSelect={vi.fn()}/>);
+    expect((screen.getByLabelText("CQ WW band") as HTMLSelectElement).value).toBe("all");
+  });
+
+  it("discards a persisted contest band that is not configured and follows the current band", () => {
+    const preferenceKey="xlog.test.cqww-stale-band";
+    localStorage.setItem(preferenceKey,"20m");
+    render(<ClusterPanel passive presentationOnly contestPresentation taskOnly
+      preferenceStorageKey="xlog.test.cqww-stale-band-columns" contestBandPreferenceKey={preferenceKey}
+      contestCurrentBand="40m" contestBands={["40m"]} snapshot={response()} onRequest={vi.fn()} onSelect={vi.fn()}/>);
+    expect((screen.getByLabelText("CQ WW band") as HTMLSelectElement).value).toBe("40m");
+    expect(localStorage.getItem(preferenceKey)).toBeNull();
+  });
+
+  it("reinitializes the CQ WW band when the contest-session preference key changes", async () => {
+    localStorage.setItem("xlog.test.cqww-session-b", "20m");
+    const view=render(<ClusterPanel passive presentationOnly contestPresentation taskOnly
+      preferenceStorageKey="xlog.test.cqww-session-columns" contestBandPreferenceKey="xlog.test.cqww-session-a"
+      contestCurrentBand="40m" contestBands={["40m","20m"]} snapshot={response()} onRequest={vi.fn()} onSelect={vi.fn()}/>);
+    expect((screen.getByLabelText("CQ WW band") as HTMLSelectElement).value).toBe("40m");
+
+    fireEvent.change(screen.getByLabelText("CQ WW band"),{target:{value:"all"}});
+    view.rerender(<ClusterPanel passive presentationOnly contestPresentation taskOnly
+      preferenceStorageKey="xlog.test.cqww-session-columns" contestBandPreferenceKey="xlog.test.cqww-session-b"
+      contestCurrentBand="40m" contestBands={["40m","20m"]} snapshot={response()} onRequest={vi.fn()} onSelect={vi.fn()}/>);
+    await waitFor(()=>expect((screen.getByLabelText("CQ WW band") as HTMLSelectElement).value).toBe("20m"));
+  });
+
+  it("defaults to the sole configured contest band when no radio frequency is available", () => {
+    render(<ClusterPanel passive presentationOnly contestPresentation taskOnly
+      preferenceStorageKey="xlog.test.cqww-single-band-columns" contestBandPreferenceKey="xlog.test.cqww-single-band"
+      contestCurrentBand={null} contestBands={["40m"]} snapshot={response()} onRequest={vi.fn()} onSelect={vi.fn()}/>);
+    expect((screen.getByLabelText("CQ WW band") as HTMLSelectElement).value).toBe("40m");
+  });
+
   it("persists accessible CQ WW contest column resizing", () => {
     const preferenceStorageKey="xlog.test.cqww-resize";
     const first=render(<ClusterPanel passive presentationOnly contestPresentation taskOnly preferenceStorageKey={preferenceStorageKey}
