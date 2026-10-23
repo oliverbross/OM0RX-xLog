@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent,
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent,
   type ReactNode, type Ref } from "react";
 import { isTauri } from "@tauri-apps/api/core";
@@ -15,12 +15,13 @@ import { contestKeyChord, functionKeyForContestAction, resolveContestKeyBinding,
 import BandMaps, { BAND_MAP_AGES, contestBandMapSpotColor, filterRecentBandMapSpots } from "../live/BandMaps";
 import { decodeContestBandPlan } from "./contestBandPlan";
 import ClusterPanel from "../live/ClusterPanel";
-import WorldMap from "../Map";
 import { connectMapContext, mapSpots } from "../live/mapContext";
 import { requestViaSession } from "../live/DetachedClusterBridge";
 import { connectMonitorContext, observedReceiveBandwidthHz, type MonitorContext } from "../live/monitorContext";
 import "./DetachedContestSurface.css";
 import { ContestQRZDetailsSurface } from "./DetachedContestQRZDetailsSurface";
+
+const WorldMap = lazy(() => import("../Map"));
 
 type Context = ContestSurfaceContext & { panelID: ContestSurfaceActionEnvelope["panelID"] };
 const message = (cause: unknown) => cause instanceof Error ? cause.message : String(cause);
@@ -297,10 +298,10 @@ function ContestSpotsMap({projection}:{projection:ContestSpotSurfaceProjection})
   useEffect(()=>{const connection=connectMapContext(value=>setSharedSpots(value.cluster.response?.snapshot?.spots??[]),()=>{});
     return()=>connection.dispose();},[]);
   const spots=useMemo(()=>contestMapSpots(projection.spots,sharedSpots),[projection.spots,sharedSpots]);
-  return <section className="contest-spots contest-spots-map" aria-label="Contest Spots Map"><WorldMap
+  return <section className="contest-spots contest-spots-map" aria-label="Contest Spots Map"><Suspense fallback={<p role="status">Loading contest map…</p>}><WorldMap
     selected={projection.selectedSpotID} data={spots} frequencyHz={projection.radioFrequencyHz??undefined}
     spotColorMode="status" spotLegend={contestSpotLegend} persistenceKey={`contest-spots-${projection.contestSessionID??projection.draftID}`}
-    locationLabel="Configured contest band and mode reports · inspect only"/></section>;
+    locationLabel="Configured contest band and mode reports · inspect only"/></Suspense></section>;
 }
 function ContestSpots({panelID,context,projection,projectionRevision,send}:{panelID:"band-maps"|"dx-cluster";context:ContestSurfaceContext;
     projection:ContestSpotSurfaceProjection;projectionRevision:number;send:Send}) {
