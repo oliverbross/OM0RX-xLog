@@ -1289,6 +1289,7 @@ fn validate_entry_descriptor(value: &Value) -> Result<BTreeSet<String>, String> 
     let allow_duplicate_commit = required.remove("allowDuplicateCommit");
     let automatic_serial = required.remove("automaticSerial");
     let advance_on_space = required.remove("advanceOnSpace");
+    let space_next = required.remove("spaceNext");
     let key_bindings = required.remove("keyBindings");
     exact(
         &required,
@@ -1312,6 +1313,19 @@ fn validate_entry_descriptor(value: &Value) -> Result<BTreeSet<String>, String> 
             Some(&["callsign", "sent", "receive", "other_1", "other_2"]),
             "space-advance fields",
         )?;
+    }
+    if let Some(space_next) = space_next {
+        let space_next = object(&space_next, "space-next field map")?;
+        let input_fields = ["callsign", "sent", "receive", "other_1", "other_2"];
+        if space_next.len() > input_fields.len() {
+            return Err("The space-next field map is invalid.".into());
+        }
+        for (source, target) in space_next {
+            if !input_fields.contains(&source.as_str()) {
+                return Err("The space-next source field is invalid.".into());
+            }
+            enum_value(target, &input_fields, "space-next target field")?;
+        }
     }
     unique_text_array(&descriptor["bands"], 32, 16, None, "entry bands")?;
     unique_text_array(
@@ -3523,6 +3537,30 @@ mod tests {
             )
             .collect::<Vec<_>>());
         assert!(validate_projection("active-qso", &excessive_trace).is_err());
+    }
+
+    #[test]
+    fn entry_v2_accepts_cq_ww_space_next_and_rejects_invalid_maps() {
+        let mut cq_ww_ssb = entry_v2();
+        cq_ww_ssb["session"]["name"] = json!("CQ WW SSB");
+        cq_ww_ssb["session"]["ruleName"] = json!("CQ WW SSB");
+        cq_ww_ssb["session"]["mode"] = json!("SSB");
+        cq_ww_ssb["draft"]["sentReport"] = json!("59");
+        cq_ww_ssb["draft"]["receivedReport"] = json!("59");
+        cq_ww_ssb["draft"]["mode"] = json!("SSB");
+        cq_ww_ssb["descriptor"]["modes"] = json!(["SSB"]);
+        cq_ww_ssb["descriptor"]["spaceNext"] = json!({"callsign":"other_2"});
+        assert!(validate_projection("active-qso", &cq_ww_ssb).is_ok());
+
+        for invalid in [
+            json!({"band":"other_2"}),
+            json!({"callsign":"band"}),
+            json!([{"callsign":"other_2"}]),
+        ] {
+            let mut projection = cq_ww_ssb.clone();
+            projection["descriptor"]["spaceNext"] = invalid;
+            assert!(validate_projection("active-qso", &projection).is_err());
+        }
     }
 
     #[test]
