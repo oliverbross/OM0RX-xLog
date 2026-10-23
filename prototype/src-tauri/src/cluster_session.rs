@@ -47,10 +47,10 @@ pub fn validate(label: &str, request: &Value) -> Result<(), String> {
         return Err("Only the active Contest Setup owner may publish classified contest spots.".into());
     }
     if contest.is_some()
-        && !((label == "dx-cluster" && matches!(method, "cluster_snapshot" | "cluster_connect" | "cluster_disconnect"))
+        && !((label == "dx-cluster" && matches!(method, "cluster_snapshot" | "cluster_connect" | "cluster_disconnect" | "cluster_command"))
             || (label == "contest-setup" && method == "cluster_contest_radio_spots_publish"))
     {
-        return Err("The contest Cluster window may only read, connect, or disconnect the shared cluster session.".into());
+        return Err("The contest Cluster window may only read, connect, disconnect, or request recent spots from the shared cluster session.".into());
     }
     if label == "settings" && !matches!(method, "cluster_snapshot" | "cluster_radio_spots_configure") {
         return Err("This cluster action is unavailable in Settings.".into());
@@ -539,13 +539,13 @@ mod tests {
             assert!(validate(label, &request("cluster_snapshot")).is_ok());
             assert!(validate(label, &request("cluster_connect")).is_err());
         }
-        for method in ["cluster_snapshot", "cluster_connect", "cluster_disconnect"] {
+        for method in ["cluster_snapshot", "cluster_connect", "cluster_disconnect", "cluster_command"] {
             assert!(validate("contest--dx-cluster", &request(method)).is_ok());
         }
         assert!(validate("contest-setup", &request("cluster_contest_radio_spots_publish")).is_ok());
         assert!(validate("main", &request("cluster_contest_radio_spots_publish")).is_err());
         assert!(validate("dx-cluster", &request("cluster_contest_radio_spots_publish")).is_err());
-        for method in ["cluster_filter", "cluster_command", "cluster_configure", "cluster_password_set"] {
+        for method in ["cluster_filter", "cluster_configure", "cluster_password_set"] {
             assert!(validate("contest--dx-cluster", &request(method)).is_err());
         }
         assert!(validate("contest--band-maps", &request("cluster_connect")).is_err());

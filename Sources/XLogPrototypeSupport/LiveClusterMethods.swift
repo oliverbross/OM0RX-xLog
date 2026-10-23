@@ -434,8 +434,10 @@ public actor LiveClusterMethods {
             throw WorkerFailure("method_not_allowed", "Unknown live cluster method.")
         }
         let (snapshot, truncated) = try await boundedSnapshot(service)
+        let contestSpots = await service.contestSpots()
         return ["configuration": try json(currentConfiguration()),
                 "snapshot": try json(snapshot), "snapshot_truncated": truncated,
+                "contest_spots": try json(contestSpots),
                 "password_storage_available": vault.available,
                 "resume_error": resumeError as Any? ?? NSNull(),
                 "resume_initialized": (try? readResumeIntent()) != nil,

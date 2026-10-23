@@ -27,6 +27,10 @@ const message = (cause: unknown) => cause instanceof Error ? cause.message :
 const request = async (method: string, params: Record<string, unknown> = {}) =>
   (await workerRequest(method, params)).result as Data;
 
+export const contestClusterSpots = (cluster: Data | null | undefined): Data[] =>
+  Array.isArray(cluster?.contest_spots) ? cluster.contest_spots :
+    Array.isArray(cluster?.snapshot?.spots) ? cluster.snapshot.spots : [];
+
 type LoadStationSession = (radioId: RadioID) => Promise<StationSession>;
 export type HostActiveContestStartup = { sessionID: string; workspaceGeneration: string };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -205,7 +209,7 @@ export function DetachedContestSetupSurface() {
   return <Not1MMContestWorkspace setupOnly request={contestRequest}
     serviceRequest={request} stationTune={tuneContestSpot} stationStep={stepContestVFO} rotorStop={context.contestingTest?undefined:stopObservedContestRotor} contestSpot={postContestSpot} operatingContext={context.operatingContext} workspaceGeneration={context.workspaceGeneration}
     stationCall={context.stationCall} contestingTest={context.contestingTest} radioFrequencyHz={station?.radio?.frequency_hz}
-    spots={Array.isArray(cluster?.snapshot?.spots) ? cluster.snapshot.spots : []} cluster={cluster}
+    spots={contestClusterSpots(cluster)} cluster={cluster}
     strictHostActive={strictHostActive} registerTransition={registerTransition}
     registerMenuRoute={registerMenuRoute} onSetupViewChange={resizeForSetupView}/>;
 }

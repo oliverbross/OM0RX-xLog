@@ -614,6 +614,18 @@ public actor ClusterSessionService {
                                       spots: Array(visible.prefix(max(1, min(configuration.maximumSpots, 500)))), console: console)
     }
 
+    /// Contest windows share the live cluster transport and classified spot store,
+    /// but must not inherit the normal logbook's display filters. The contest
+    /// workspace applies its own configured band, mode, age, worked and multiplier
+    /// rules to this bounded newest-first projection.
+    public func contestSpots(limit: Int = 500) -> [ClassifiedClusterSpot] {
+        for index in spots.indices where spots[index].refreshInferredMode(palette: configuration.palette) {
+            reclassifySpot(at: index)
+        }
+        return Array(spots.sorted { $0.receivedAt > $1.receivedAt }
+            .prefix(max(1, min(limit, 500))))
+    }
+
     /// FLEX forwarding follows the exact currently visible filtered/sorted/max-count snapshot.
     public func isVisibleSpot(_ spotID: UUID, in generation: UUID) -> Bool {
         generation == connectionGeneration && statuses.values.contains(where: { $0.phase == .connected })

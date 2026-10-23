@@ -3,7 +3,7 @@ import React from "react";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { contestSetupWindowSize, fittedContestSetupWindowSize, hostActiveContestStartup, isManagedContestSetupWindowSize, loadContestStationSnapshot,
-  stopObservedContestRotor } from "./DetachedContestSetupSurface";
+  contestClusterSpots, stopObservedContestRotor } from "./DetachedContestSetupSurface";
 import type { RadioID, StationSession } from "../live/stationSession";
 import contestSetupOwnerCapability from "../../src-tauri/capabilities/contest-setup-owner.json";
 
@@ -44,6 +44,13 @@ const session = (radioId: RadioID, activeRadio: RadioID, frequencyHz?: number): 
 });
 
 describe("Contest Setup station projection", () => {
+  it("uses the unfiltered contest spot projection without changing the normal cluster snapshot", () => {
+    const contestSpot = { id: "40m-ssb", band: "40m", mode: "SSB" };
+    expect(contestClusterSpots({ contest_spots: [contestSpot], snapshot: { spots: [] } })).toEqual([contestSpot]);
+    expect(contestClusterSpots({ snapshot: { spots: [contestSpot] } })).toEqual([contestSpot]);
+    expect(contestClusterSpots({ contest_spots: [], snapshot: { spots: [contestSpot] } })).toEqual([]);
+  });
+
   it("accepts only one exact native host-active startup context", () => {
     const sessionID = "20000000-0000-4000-8000-000000000002";
     const workspaceGeneration = "30000000-0000-4000-8000-000000000003";

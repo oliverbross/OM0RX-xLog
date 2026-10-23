@@ -402,6 +402,45 @@ struct LiveClusterMethodsTests {
         await cluster.terminate()
     }
 
+    @Test("Contest spot projection bypasses normal cluster display filters")
+    func contestSpotProjectionBypassesNormalFilters() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let configurationURL = root.appendingPathComponent("cluster.json")
+        var filter = ClusterSpotFilter()
+        filter.bands = ["20m"]
+        filter.modes = ["CW"]
+        filter.excludedSpecials = ["CONTEST"]
+        let configuration = ClusterSessionConfiguration(servers: [
+            .init(name: "Fixture", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX")
+        ], requestRecentSpotsOnConnect: false, filter: filter)
+        try JSONEncoder().encode(configuration).write(to: configurationURL)
+        let fixture = WorkerClusterFixture()
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let cluster = LiveClusterMethods(logbook: logbook, configurationURL: configurationURL,
+                                         vault: UnavailableClusterTestVault(),
+                                         transportFactory: { _, _, _, _, state, line in
+            fixture.callbacks(state: state, line: line); return fixture
+        })
+        _ = try await cluster.handle(method: "cluster_connect", params: [:])
+        fixture.emit("DX de W1AW: 7125.0 K1SSB SSB CQ CONTEST 1200Z")
+
+        var response: [String: Any] = [:]
+        for _ in 0..<100 {
+            response = try await cluster.handle(method: "cluster_snapshot", params: [:])
+            if (response["contest_spots"] as? [[String: Any]])?.count == 1 { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(((response["snapshot"] as? [String: Any])?["spots"] as? [[String: Any]])?.isEmpty == true)
+        let contestSpots = try #require(response["contest_spots"] as? [[String: Any]])
+        #expect(contestSpots.count == 1)
+        #expect(contestSpots.first?["callsign"] as? String == "K1SSB")
+        #expect(contestSpots.first?["band"] as? String == "40m")
+        #expect(contestSpots.first?["mode"] as? String == "SSB")
+        await cluster.terminate()
+    }
+
     @Test("Connect resolves cluster credentials before persisting connected intent")
     func credentialFailurePrecedesResumeIntent() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
