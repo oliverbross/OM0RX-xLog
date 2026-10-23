@@ -19,9 +19,9 @@ The user stopped the prior task because repeated implementation/review/build cyc
 
 ### Reconciliation report intake
 
-Expected report: `docs/contesting/CQ_WW_SSB_RECONCILIATION_2026-10-23.md`.
+**Report received and reviewed:** `docs/contesting/CQ_WW_SSB_RECONCILIATION_2026-10-23.md` at documentation commit `014f6a5a0dac213ea80e06ca751db8747024f075` (report blob `58504ef9d7527f3ebec022bf576423185496bf41`). **Read section 10 before resuming.**
 
-At publication, the report had not yet appeared at the announced main-branch path (repeated reads returned 404). It has **not been reviewed** and no claims from it are treated as verified. This plan is grounded in the pinned code, screenshot and attached manual. A follow-up reconciliation section should identify the report commit/blob and only change findings for which it supplies newer evidence; do not silently rewrite the original review baseline.
+The report was absent when this plan was first published. It is now reconciled below against its exact installed source, `cb708501`, which is the same executable baseline as this review. The later commit adds documentation/evidence only; it does not implement the screenshot corrections. Original findings and implementation requirements are preserved, with their current disposition and acceptance evidence in section 10.
 
 On resumption, first read that report and current HEAD. Preserve all newer work. For each finding below, record: still present, fixed with a cited commit and evidence, or not reproduced with a stated reason. Do not rerun already accepted unrelated work just because this document is newer. If the report describes a different installed source, explicitly reconcile source commit, packaged commit and installed commit.
 
@@ -399,3 +399,73 @@ Do not use “deadline” as a reason to fake output readiness or lose data; do 
 - **Stopped scope:** list retained post-contest tasks; no further automatic compatibility batch.
 
 The next deliverable is the corrected operating application and its evidence, not another open-ended analysis report.
+
+## 10. Reconciliation of Codex's published report — 23 October 2026
+
+**Report reviewed:** `docs/contesting/CQ_WW_SSB_RECONCILIATION_2026-10-23.md` at documentation commit `014f6a5a0dac213ea80e06ca751db8747024f075`, report blob `58504ef9d7527f3ebec022bf576423185496bf41`.
+
+**Other evidence read:** the newest 116-line acceptance-record addition; the check inventory in both committed packaged/installed native acceptance JSON files; and the installed JSON's relevant details and scope. Current Entry rendering, Check layout and matrix helper were re-read at the documentation commit. The repository compare from `cb708501` to `014f6a5a` contains exactly four documentation/evidence files and **no application-source changes**. Main was at `014f6a5a` when checked.
+
+### 10.1 What the report establishes, and what it does not
+
+Codex reports a signed, receipt-matched Apple Silicon macOS 14+ application, version 1.3.0, built and installed from `cb708501d781dafc5517e51c6a8c6b341ec2fa55`, with a retained signed rollback and protected data. Its verdict is **READY WITH LIMITATIONS for manual-microphone operation**. It explicitly excludes full Not1MM parity, live radio/voice/RF proof, public notarization, multi-Mac acceptance and Windows/Linux installed acceptance. Preserve these boundaries and the completed work.
+
+This is **the same executable source used by this completion plan**, not an implementation of the plan that was published while Codex was preparing the report. The documentation commit makes the baseline and evidence available; it does not close the screenshot findings. There is no basis to infer that Codex ignored instructions that had not yet been handed back to the stopped task.
+
+The 35/35 packaged and installed native gates are useful general xLog integration evidence. Their check inventory includes normal contact editing/logging, awards, map, settings, spot history and workspace lifecycle. The installed JSON identifies `scope: integrated-local-ui`, `station_io: false`, and `production_singleton: false`; its sample rendered-submit contact is an ordinary W1AW QSO. **Those 35 checks do not demonstrate a visible CQ WW Entry DUPE warning, invalid-zone feedback, the requested Check pane sizing, or configured-band multiplier reflow.** The acceptance record itself explicitly says these JSON files do not independently establish CQ WW behavior or bundle identity. Do not relabel them as 35 CQ WW acceptance scenarios.
+
+The report's exact-source workflow outcomes are mixed: regular CI `39918021036` PASS; cross-platform prototype `39918021028` FAIL (reported packaging timeout on attempt 1 and one ARRL DX async test failure on attempt 2); portability `39918699201` overall FAIL with the reported macOS/Ubuntu jobs passing and a Windows native directory-sync failure. These are the report's outcomes, not new independent reruns in this reconciliation. Preserve the failures and the macOS acceptance exception explicitly. Do not restart unrelated Windows/ARRL work merely to finish this user-requested macOS desk, and do not call every gate green.
+
+Signature, local hash, installed visual inspection, protection of production data, rollback existence and disk cleanup are **Codex-reported results**. This review read committed evidence and source; it did not operate the Mac or independently rerun those checks.
+
+### 10.2 Disposition of the findings
+
+| Finding | Disposition after reading the report | Evidence/action |
+|---|---|---|
+| CQ-01 | **OPEN — P0** | Re-read Entry JSX still has no rendering of `draft.dupe`. A Log Display DUPE badge, correct backend scoring and gray worked spots do not replace the requested live Entry warning. Implement A1 first. |
+| CQ-02 | **OPEN — P0 feedback; action row as specified** | The report expressly centralizes all diagnostics in Messages and praises absence of inline warnings. Critical duplicate/validation/save-outcome feedback is operating status, not optional diagnostic clutter. Use a compact persistent line; retain detailed diagnostics in Messages. Manual log/clear keyboard paths already exist. |
+| CQ-03 | **OPEN — P1** | Same CSS still forces Call History across the second row at the wide breakpoint, applies a 220 px grid minimum and nested vertical overflow. A populated MASTER.SCP and stable accessibility tree do not test the reported wasted-space defect. |
+| CQ-04 | **OPEN — P1** | Re-read `multiplierMatrix` still returns the fixed `contestBands` set. The report describes a planned 40 m operation, which makes the requested band-column scope particularly relevant; verify the actual saved category/display preferences rather than forcing 40 m. |
+| CQ-05 | **OPEN — P1** | No source change repairs country-name versus prefix identity. The report's general current-target-highlight claim is not a counterexample to the specific OM versus SLOVAK REPUBLIC mismatch. |
+| CQ-06 | **OPEN — P1** | The report acknowledges partial multiplier-display parity, but the user's explicit needed/worked/configured-band/reflow request remains in this finishing scope. Advanced clickable availability/expected-mult features can stay deferred. |
+| CQ-07 | **OPEN — targeted installed proof** | Opening restored windows and finding column resize controls does not prove native frame resizing or content accessibility at compact/expanded sizes. Exercise the actual supplied layouts after the CSS/native-minimum corrections. |
+| CQ-08 | **OPEN — chosen keyboard behavior** | No implementation change reconciles CQ WW Space smart-tab with ordinary tab progression. Show the intended Callsign → Space → Zone path; retain Tab access to both reports. |
+| CQ-09 | **OPEN — small presentation clarification only** | Report correctly identifies no configured WAV profile and untested routing/PTT/RF. Keep manual logging independent. A compact tooltip/setup affordance or explicit manual-microphone state is sufficient; do not add persistent large voice-warning banners. |
+| CQ-10 | **OPEN — P1 presentation** | Report intentionally leaves missing provider fields as dashes. That does not resolve the user's visible difference between available CTY zones and blank provider-only details. Add a labeled existing-data fallback without changing the received exchange. |
+| CQ-11 | **VERIFY, not a proven radio defect** | Report describes a 40 m map and 20 m restored draft plus an offline Flex. Make Follow/Pinned state clear; do not automatically retune or reinterpret a pinned display as a broken control path. |
+| CQ-12 | **PARTIAL historical evidence; targeted trial still due** | Preserve previously tested input-buffering/focus and scoring behavior. The final installed pass kept four existing contacts untouched, so it is not the new disposable rapid-entry/correction/error-outcome trial. Run only the focused journey required by the changes. |
+
+**No CQ finding is closed merely by this documentation-only commit.** This does not erase earlier working behavior or demand reimplementation. It identifies the remaining difference between the accepted baseline and Oliver's latest operating requirements.
+
+### 10.3 Acceptance-criteria reconciliation
+
+- **AC-01:** protection of production QSOs/settings and station I/O is reported; retain it. No independent production inspection was performed here.
+- **AC-02:** not satisfied by the inspected Entry renderer; live DUPE remains the first blocker to signing off this plan.
+- **AC-03 / AC-04:** earlier keyboard/manual logging exists, but the final installed inspection is not the new rapid-entry, smart-tab and visible invalid/uncertain-commit proof.
+- **AC-05 / AC-06:** not closed; Check layout and configured-band/needed-multiplier changes remain open in source.
+- **AC-07:** no supplied compact/expanded resize sweep establishes the requested result. Fix and demonstrate, without another broad styling audit.
+- **AC-08:** report supports existing two-pane display, editing/paging and related automated coverage. Preserve it; recheck only affected edits, scrolling and feedback after the finishing batch.
+- **AC-09:** source spot routing is reported; live selection was deliberately not performed. A controlled fake-transport trial can prove software behavior; real tuning remains operator-controlled.
+- **AC-10 / AC-11:** report cites an earlier six-contact fixture at 14 points, 12 multipliers and score 168 plus existing export tests. This is **not a contradiction** of the plan's different eight-contact fixture (90 all-band / 64 for 20M). Reuse a sufficient existing fixture and extend it only for missing scenarios; preserve exact inputs and distinguish automated exports from a newly exercised installed Save-panel export.
+- **AC-12:** report supports restoration and general workspace round trips. Requested user-resized contest geometry still needs the targeted restart demonstration; never restore armed output.
+- **AC-13:** source/package/installed identity is clearly recorded by Codex; actual external verification was not repeated here. Retain the explicit mixed CI outcomes and unnotarized local-candidate status.
+- **AC-14:** boundaries are correctly disclosed: substitution tested; recordings/profile not configured; routing, hardware PTT and RF not tested. They stay optional only for the explicitly accepted manual-microphone configuration.
+
+### 10.4 Clarification of the current priority, not a new project
+
+The report's earlier **no banners** policy must not suppress the user's newest explicit DUPE request or hide a failed/uncertain save. Retain the clean desk: one compact local status area for `DUPE`, `Not logged — invalid zone`, or an unresolved save; technical diagnostics stay in Messages. Optional recorded-voice notices can remain out of the main status area. This is not permission to restore every old warning.
+
+Resume the existing Batch A and Batch B with the above dispositions. In practical order: live DUPE and local save feedback; CQ WW keyboard/focus verification; SCP usable-space correction; matrix band/identity/reflow correction; a focused resize sweep of the remaining screenshot windows. Leave audio-stream development, all-contest parity, general settings redesign and cleanup out of the batch. Keep the known signed baseline/rollback until its replacement is accepted; do not repeat cache deletion during active finishing work.
+
+**Reviewer verdict:** the report is a useful reconciliation of the current candidate, but it does not justify signing off Oliver's latest completion request. The candidate may remain available for the limited manual workflow described by Codex; that is not equivalent to acceptance of this plan. Close the visible and source-confirmed items, demonstrate the corrected desk in a disposable session, record the new exact-source candidate, and stop. Do not solve the discrepancy by changing only the readiness wording or by repeating the same 35 general checks.
+
+### References for this reconciliation
+
+- [Published reconciliation report](https://github.com/oliverbross/OM0RX-xLog/blob/014f6a5a0dac213ea80e06ca751db8747024f075/docs/contesting/CQ_WW_SSB_RECONCILIATION_2026-10-23.md)
+- [Documentation-only comparison](https://github.com/oliverbross/OM0RX-xLog/compare/cb708501d781dafc5517e51c6a8c6b341ec2fa55...014f6a5a0dac213ea80e06ca751db8747024f075)
+- [Updated acceptance record](https://github.com/oliverbross/OM0RX-xLog/blob/014f6a5a0dac213ea80e06ca751db8747024f075/docs/contesting/NOT1MM_OPERATOR_ACCEPTANCE_2026-10-20.md)
+- [Installed native evidence](https://github.com/oliverbross/OM0RX-xLog/blob/014f6a5a0dac213ea80e06ca751db8747024f075/docs/contesting/evidence/cq-ww-ssb-cb708501/installed-native-acceptance.json)
+- [Packaged native evidence](https://github.com/oliverbross/OM0RX-xLog/blob/014f6a5a0dac213ea80e06ca751db8747024f075/docs/contesting/evidence/cq-ww-ssb-cb708501/packaged-native-acceptance.json)
+- [Entry renderer](https://github.com/oliverbross/OM0RX-xLog/blob/014f6a5a0dac213ea80e06ca751db8747024f075/prototype/src/contesting/DetachedContestSurface.tsx#L602-L667)
+- [Check layout](https://github.com/oliverbross/OM0RX-xLog/blob/014f6a5a0dac213ea80e06ca751db8747024f075/prototype/src/contesting/DetachedContestSurface.css#L164-L184)
+- [Matrix builder](https://github.com/oliverbross/OM0RX-xLog/blob/014f6a5a0dac213ea80e06ca751db8747024f075/prototype/src/contesting/Not1MMContestWorkspace.tsx#L565-L578)
