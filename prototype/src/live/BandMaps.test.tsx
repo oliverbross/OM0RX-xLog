@@ -159,6 +159,26 @@ describe("native band-map parity", () => {
     expect(screen.getByRole("checkbox", { name: "SSB / Phone" })).toBeTruthy();
     expect(screen.queryByRole("checkbox", { name: "CW" })).toBeNull();
   });
+  it("moves a green contest VFO marker with the observed radio frequency and hides it outside the visible segment", () => {
+    const plan = defaultContestBandPlan(["40m"]);
+    const props = { compact:true, contestPresentation:true, storageNamespace:"contest.vfo", contestBandPlan:plan,
+      contestBands:["40m"], contestAllowedModes:["phone" as const], spots:[], onSelect:vi.fn() };
+    const { rerender } = render(<BandMaps {...props} radioFrequencyHz={7_150_000}/>);
+    const marker = screen.getByRole("img", { name:"Current VFO 7.150000 MHz" });
+    expect(marker.classList.contains("band-map-vfo-marker")).toBe(true);
+    expect(marker.style.top).toBe("25%");
+    rerender(<BandMaps {...props} radioFrequencyHz={7_200_000}/>);
+    expect(screen.getByRole("img", { name:"Current VFO 7.200000 MHz" }).style.top).toBe("50%");
+    rerender(<BandMaps {...props} radioFrequencyHz={7_020_000}/>);
+    expect(screen.queryByRole("img", { name:/Current VFO/ })).toBeNull();
+    rerender(<BandMaps {...props} radioFrequencyHz={undefined}/>);
+    expect(screen.queryByRole("img", { name:/Current VFO/ })).toBeNull();
+  });
+  it("does not add the contest VFO marker to normal Band Maps", () => {
+    render(<BandMaps compact spots={[]} onSelect={vi.fn()} radioFrequencyHz={7_150_000}
+      preferences={{ bands:["40m"], followRadio:true, layout:"row", fontScale:1 }}/>);
+    expect(screen.queryByRole("img", { name:/Current VFO/ })).toBeNull();
+  });
   it("keeps contest mode preferences isolated by session namespace", () => {
     localStorage.setItem("xlog.integration.bandMaps.contest.session-a.modes", JSON.stringify(["phone"]));
     localStorage.setItem("xlog.integration.bandMaps.contest.session-b.modes", JSON.stringify(["cw"]));
@@ -206,6 +226,8 @@ describe("native band-map parity", () => {
     expect(contestBandMapSpotColor(zone)).toBe("#ff5267");
     expect(contestBandMapSpotColor(double)).toBe("#00e51b");
     expect(contestBandMapSpotColor(twoPoint)).toBe("#ff5267");expect(contestBandMapSpotColor(worked)).toBe("#aeb5b7");
+  expect(contestBandMapSpotColor({...needed,contestDupe:null,contestMultiplierCount:null,
+    contestCountryMultiplier:null,contestZoneMultiplier:null})).toBe("#aeb5b7");
     expect(contestBandMapSpotWorked(worked)).toBe(true);expect(contestBandMapSpotWorked(globalWorked)).toBe(false);
     const first=render(<BandMaps compact contestPresentation storageNamespace="contest" spots={[needed,country,zone,double,twoPoint,pointsPending,worked,globalWorked]} onSelect={vi.fn()} radioFrequencyHz={14_025_000}/>);
     const full=screen.getByRole("button",{name:/LONG\/CALLSIGN1/});expect(full.textContent).toBe("LONG/CALLSIGN1");

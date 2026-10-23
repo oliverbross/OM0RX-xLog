@@ -170,7 +170,7 @@ export function contestBandMapSpotColor(spot:BandMapSpot):string{
   if(multipliers!==null&&multipliers>1)return "#00e51b";
   if(multipliers===1)return "#ff5267";
   if(multipliers===0&&spot.contestDupe===false)return "#3da5f4";
-  return bandMapSpotColor(spot);
+  return "#aeb5b7";
 }
 function contestPointDescription(spot:BandMapSpot):string{
   const points=finite(spot.contestPoints),pointLabel=points===null?"Points unavailable":`${points} pt`;
@@ -178,7 +178,7 @@ function contestPointDescription(spot:BandMapSpot):string{
   const multipliers=contestNeededMultiplierCount(spot),country=spot.contestCountryMultiplier,zone=spot.contestZoneMultiplier;
   const needed=country===true&&zone===true?"country and CQ zone multipliers":country===true?"country multiplier":zone===true?"CQ zone multiplier":
     country===false&&zone===false?"no needed multiplier":`${multipliers??"?"} needed multiplier${multipliers===1?"":"s"}`;
-  const color=multipliers!==null&&multipliers>1?"green":multipliers===1?"red":multipliers===0&&spot.contestDupe===false?"blue":"fallback colour";
+  const color=multipliers!==null&&multipliers>1?"green":multipliers===1?"red":multipliers===0&&spot.contestDupe===false?"blue":"grey";
   return `${pointLabel} · ${needed} · ${color}`;
 }
 function bandColor(band: string, spots: BandMapSpot[]): string {
@@ -262,9 +262,9 @@ export function placeSpots(spots: BandMapSpot[], view: ViewRange, width: number,
 }
 
 function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontScale, resolution, onManualView, focusFrequencyKHz, hidden: panelHidden = false, modeSettings,
-    selectedSpotId, onSpotContextMenu, contestPresentation = false, contestBandPlan }: {
+    radioFrequencyKHz, selectedSpotId, onSpotContextMenu, contestPresentation = false, contestBandPlan }: {
   band: string; spots: BandMapSpot[]; onSelect: Props["onSelect"]; onRemove: () => void;
-  canRemove: boolean; compact: boolean; fontScale: number; resolution: BandMapResolution; onManualView: () => void; focusFrequencyKHz?: number; hidden?: boolean; modeSettings?: { modes: readonly BandMapMode[]; availableModes: readonly BandMapMode[]; setModes: (modes: BandMapMode[]) => void };
+  canRemove: boolean; compact: boolean; fontScale: number; resolution: BandMapResolution; onManualView: () => void; focusFrequencyKHz?: number; radioFrequencyKHz?: number; hidden?: boolean; modeSettings?: { modes: readonly BandMapMode[]; availableModes: readonly BandMapMode[]; setModes: (modes: BandMapMode[]) => void };
   selectedSpotId?: string | null; onSpotContextMenu?: Props["onSpotContextMenu"];
   contestPresentation?: boolean; contestBandPlan?: ContestBandPlanEntry[];
 }) {
@@ -333,6 +333,10 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
   const selectedSegment = full.allocations.find((part) => part.low === view.low && part.high === view.high);
   const segmentName = selectedSegment ? `${selectedSegment.name} portion` : view.low === full.low && view.high === full.high ? "Full band" : "Custom range";
   const rangeLabel = `${(view.low / 1000).toFixed(3)}–${(view.high / 1000).toFixed(3)} MHz`;
+  const observedRadioFrequency = finite(radioFrequencyKHz);
+  const visibleRadioFrequency = contestPresentation && observedRadioFrequency !== null
+    && observedRadioFrequency >= view.low && observedRadioFrequency <= view.high
+    ? observedRadioFrequency : null;
   const pan = (direction: number) => { onManualView(); setView((current) => {
     const span = current.high - current.low;
     return panBandRange(current, full, direction * span * 0.3);
@@ -390,6 +394,10 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
         const fraction = (frequency - view.low) / (view.high - view.low);
         return <div key={frequency} className="band-map-gridline" data-edge={index === 0 ? "upper" : index === ticks.length - 1 ? "lower" : undefined} style={{ top: `${fraction * 100}%` }} aria-hidden="true"><span>{formatBandMapFrequency(frequency)}</span></div>;
       })}
+      {visibleRadioFrequency !== null && <span className="band-map-vfo-marker" role="img"
+        aria-label={`Current VFO ${(visibleRadioFrequency / 1000).toFixed(6)} MHz`}
+        title={`Current VFO ${(visibleRadioFrequency / 1000).toFixed(6)} MHz`}
+        style={{ top: `${((visibleRadioFrequency - view.low) / (view.high - view.low)) * 100}%`, left: axis - 5 }} />}
       {placed.map(({ spot, lane, top, anchorTop, key }) => {
         const color = contestPresentation?contestBandMapSpotColor(spot):bandMapSpotColor(spot);
         const code = contestPresentation ? "" : opportunityCode(spot);
@@ -586,6 +594,7 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
       {bands.map((band, index) => <BandPanel key={band} band={band} spots={filtered} onSelect={choose} onRemove={() => remove(band)} canRemove={bands.length > 1} compact={compact} fontScale={fontScale} resolution={resolution}
         onManualView={markCustom}
       focusFrequencyKHz={radioBand === band && radioFrequencyHz ? radioFrequencyHz / 1000 : finite(filtered.find(spot => spot.band === band)?.frequencyKHz) ?? undefined}
+      radioFrequencyKHz={radioBand === band && radioFrequencyHz ? radioFrequencyHz / 1000 : undefined}
       selectedSpotId={selectedSpotId} onSpotContextMenu={onSpotContextMenu}
         hidden={index < firstBand || index >= firstBand + capacity} modeSettings={activeFocusedBand ? { modes, availableModes: allowedContestModes, setModes } : undefined} contestPresentation={contestPresentation} contestBandPlan={contestBandPlan} />)}
     </div>
