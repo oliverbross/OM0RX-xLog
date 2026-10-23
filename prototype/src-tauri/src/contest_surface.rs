@@ -2502,6 +2502,7 @@ fn validate_plugin_rows(value: &Value, columns: usize, maximum: usize) -> Result
         let row = object(row, "plugin log row")?;
         let mut required = row.clone();
         let inline_edits = required.remove("inlineEdits");
+        let is_dupe = required.remove("isDupe");
         exact(&required, &["qsoID", "values"], "plugin log row")?;
         ids.push(text_value(&row["qsoID"], 160, false, "plugin log QSO ID")?.to_string());
         let values = array(&row["values"], columns, "plugin log values")?;
@@ -2510,6 +2511,9 @@ fn validate_plugin_rows(value: &Value, columns: usize, maximum: usize) -> Result
         }
         for value in values {
             text_value(value, 512, true, "plugin log value")?;
+        }
+        if let Some(is_dupe) = is_dupe {
+            boolean(&is_dupe, "plugin log duplicate marker")?;
         }
         if let Some(inline_edits) = inline_edits {
             let inline_edits = array(&inline_edits, columns, "plugin log inline edits")?;
@@ -3102,7 +3106,7 @@ mod tests {
                 "callsign":"DL1AAA","band":"20m","mode":"CW","sentExchange":"599 15","receivedExchange":"599 14",
                 "points":3,"multiplierLabels":["Germany"]}]},
             "pluginColumns":["TS","Call","Freq","SNT","RCV","ZN","SentNr","prefix","Points"],
-            "pluginRows":[{"qsoID":"qso","values":["2026-10-18 00:00:00","DL1AAA","14025.0","599","599","14","15","DL","3"],
+            "pluginRows":[{"qsoID":"qso","values":["2026-10-18 00:00:00","DL1AAA","14025.0","599","599","14","15","DL","3"],"isDupe":true,
                 "inlineEdits":[{"kind":"text","field":"timestamp","value":"2026-10-18 00:00:00","maximumUTF8Bytes":32},
                     {"kind":"text","field":"callsign","value":"DL1AAA","maximumUTF8Bytes":32},
                     {"kind":"frequency","value":"14025000","maximumUTF8Bytes":11},null,null,
@@ -3124,6 +3128,9 @@ mod tests {
                 "maximumUTF8Bytes":32,"enabled":true,"readOnly":false}
         ]);
         assert!(validate_projection("logbook", &not1mm_logbook).is_ok());
+        let mut malformed_dupe_marker = not1mm_logbook.clone();
+        malformed_dupe_marker["pluginRows"][0]["isDupe"] = json!("true");
+        assert!(validate_projection("logbook", &malformed_dupe_marker).is_err());
         let mut malformed_inline_edit = not1mm_logbook.clone();
         malformed_inline_edit["pluginRows"][0]["inlineEdits"][5]["fieldID"] = json!("");
         assert!(validate_projection("logbook", &malformed_inline_edit).is_err());
