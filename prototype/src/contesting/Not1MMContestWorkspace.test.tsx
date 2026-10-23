@@ -1448,9 +1448,11 @@ it.each([
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","M1","CQ Zone","M2","Country","PTS"],
     sourceColumns:[],
     row:{ID:"cqww-ssb-qso",TS:"2026-10-20 11:00:00",Call:"K1ABC",Freq:14250,Band:14,Mode:"USB",SNT:"59",RCV:"59",SentNr:15,ZN:5,
-      CountryPrefix:"K",WPXPrefix:"K1",IsMultiplier1:1,IsMultiplier2:1,Points:3,is_dupe:1},
+      CountryPrefix:"K",WPXPrefix:"K1",IsMultiplier1:1,IsMultiplier2:1,Points:3,is_dupe:1,raw_fields:{other_2:""}},
     receivedExchange:"5", multiplierLabels:["K","Zone 5"],
-    values:["2026-10-20 11:00:00","K1ABC","14250","59","59","✓","5","✓","K","3"], correction:undefined },
+    values:["2026-10-20 11:00:00","K1ABC","14250","59","59","✓","5","✓","K","3"],
+    correction:[{id:"other_1",label:"Sent exchange",value:"15",required:true,maximumUTF8Bytes:32},
+      {id:"other_2",label:"CQ Zone",value:"5",required:true,maximumUTF8Bytes:128}] },
   { pluginID:"oceania_dx_ssb", pluginName:"Oceania DX SSB", sourceColumns:undefined,
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","M1","PTS"],
     row:{ID:"oc-ssb-qso",TS:"2026-10-20 11:00:00",Call:"VK4ABC",Freq:14250,Band:14,Mode:"USB",SNT:"59",RCV:"59",SentNr:1,NR:123,WPXPrefix:"VK4",IsMultiplier1:1,Points:1},
@@ -1500,6 +1502,8 @@ it.each([
   const logbook=surfaceOwner.current.projections.logbook;
   expect(logbook).toMatchObject({exchangeLayout:"plugin",pluginColumns:columns,
     pluginRows:[{qsoID:row.ID,values,isDupe:"is_dupe" in row&&row.is_dupe===1}],pluginPartialRows:[],page:{rows:[{receivedExchange,...(multiplierLabels ? {multiplierLabels} : {})}]}});
+  if(pluginID==="cq_ww_ssb")expect(logbook.pluginRows[0].inlineEdits[columns.indexOf("CQ Zone")])
+    .toMatchObject({kind:"exchange",fieldID:"other_2",value:"5"});
   expect(logbook).not.toHaveProperty("manualRows");
   expect(validContestSurfaceProjection("logbook",logbook)).toBe(true);
   if(correction){

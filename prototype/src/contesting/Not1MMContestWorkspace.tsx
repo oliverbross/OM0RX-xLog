@@ -347,6 +347,12 @@ function correctionExchangeValues(row: Data, pluginID?: string) {
   if (pluginID === "k1usn_sst") return { other_1: String(row.Name ?? ""), other_2: String(row.Sect ?? "") };
   return { other_1: String(row.SentNr ?? ""), other_2: receivedExchange(row, pluginID) };
 }
+function correctionFieldValue(row: Data, raw: Record<string, unknown>, fieldID: "other_1" | "other_2", pluginID?: string): string {
+  const rawValue = raw[fieldID];
+  if (rawValue !== undefined && rawValue !== null && !(pluginID === "cq_ww_ssb" && fieldID === "other_2" && String(rawValue).trim() === ""))
+    return String(rawValue);
+  return correctionExchangeValues(row, pluginID)[fieldID];
+}
 function logRows(rows: Data[], pluginID?: string, labels: Record<string, string> = defaultBandLabels): ContestLogRow[] {
   return rows.map(row => ({
     qsoID: String(row.ID ?? ""), workedAt: canonicalWorkedAt(row.TS), callsign: String(row.Call ?? ""),
@@ -407,8 +413,7 @@ function not1mmLogRows(rows: Data[], columns: string[], fields: Field[], pluginI
   return rows.map(row => {
     const raw = row.raw_fields && typeof row.raw_fields === "object" && !Array.isArray(row.raw_fields)
       ? row.raw_fields as Record<string, unknown> : {};
-    const exchange = correctionExchangeValues(row, pluginID);
-    const editableValue = (fieldID: "other_1" | "other_2") => String(raw[fieldID] ?? exchange[fieldID]);
+    const editableValue = (fieldID: "other_1" | "other_2") => correctionFieldValue(row, raw, fieldID, pluginID);
     const values = columns.map(column => {
       const field = column === "PFX" ? pluginID === "cq_ww_ssb" ? "CountryPrefix" : "WPXPrefix" : pluginColumnFields[column] ?? column;
       const value = row[field];
@@ -1720,13 +1725,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     busyRef.current = true; setBusy(true); setError("");
     try {
       await flushDraftRef.current();
-      const exchange = correctionExchangeValues(row, active?.pluginID);
       const raw = row.raw_fields && typeof row.raw_fields === "object" && !Array.isArray(row.raw_fields) ? row.raw_fields as Record<string, unknown> : {};
-      setEditing({ ...row, raw_fields: raw }); setEditCall(String(raw.callsign ?? row.Call ?? "")); setEditZone(String(raw.other_2 ?? exchange.other_2));
+      setEditing({ ...row, raw_fields: raw }); setEditCall(String(raw.callsign ?? row.Call ?? ""));
+      setEditZone(correctionFieldValue(row, raw, "other_2", active?.pluginID));
       setEditTimestamp(String(row.TS ?? "")); setEditFrequencyMHz((Number(row.Freq ?? 0) / 1000).toFixed(6));
       setEditOperator(String(row.Operator ?? "")); setEditSent(String(raw.sent ?? row.SNT ?? "")); setEditReceived(String(raw.receive ?? row.RCV ?? ""));
       setEditName(String(raw.Name ?? row.Name ?? "")); setEditQTH(String(raw.QTH ?? row.QTH ?? "")); setEditComment(String(raw.Comment ?? row.Comment ?? ""));
-      setEditSentExchange(String(raw.other_1 ?? exchange.other_1)); setCorrectionReason("Operator correction");
+      setEditSentExchange(correctionFieldValue(row, raw, "other_1", active?.pluginID)); setCorrectionReason("Operator correction");
       setDeletionReason("Operator deletion"); setConfirmDelete(false);
     } catch (cause) { setError(errorMessage(cause)); if (throwFailures) throw cause; }
     finally { busyRef.current = false; setBusy(false); }
