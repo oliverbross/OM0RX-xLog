@@ -1094,10 +1094,17 @@ fn validate_spot_projection(value: &Map<String, Value>) -> Result<(), String> {
     let mut ids = BTreeSet::new();
     for item in array(&value["spots"], 2_000, "contest spots")? {
         let spot = object(item, "contest spot")?;
-        exact(spot, &["id", "receivedAt", "clusterName", "spotter", "spotterContinent", "frequencyKHz", "frequencyText", "callsign", "comment",
+        exact_optional(spot, &["id", "receivedAt", "clusterName", "spotter", "spotterContinent", "frequencyKHz", "frequencyText", "callsign", "comment",
             "band", "mode", "country", "adif", "continent", "cqZone", "ituZone", "callStatus", "dxccStatus", "workedBefore", "specialTags", "score", "contestPoints", "contestDupe", "contestMultiplierCount",
             "contestCountryMultiplier", "contestZoneMultiplier",
-            "scoreReasons", "aggregateCount", "aggregateSpotters", "source", "statusHex", "bandHex", "modeHex", "marked"], "contest spot")?;
+            "scoreReasons", "aggregateCount", "aggregateSpotters", "source", "statusHex", "bandHex", "modeHex", "marked"], &["latitude", "longitude"], "contest spot")?;
+        match (spot.get("latitude"), spot.get("longitude")) {
+            (None, None) | (Some(Value::Null), Some(Value::Null)) => {}
+            (Some(latitude), Some(longitude))
+                if latitude.as_f64().is_some_and(|value| value.is_finite() && value.abs() <= 90.0)
+                    && longitude.as_f64().is_some_and(|value| value.is_finite() && value.abs() <= 180.0) => {}
+            _ => return Err("Contest spot coordinates are invalid.".into()),
+        }
         let id = text_value(&spot["id"], 128, false, "spot ID")?;
         if !ids.insert(id) { return Err("Contest spot IDs must be unique.".into()); }
         for key in ["receivedAt", "frequencyKHz", "score"] {

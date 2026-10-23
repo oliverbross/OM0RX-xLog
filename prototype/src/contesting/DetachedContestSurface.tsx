@@ -294,14 +294,17 @@ const contestSpotLegend=[
   {label:"Valid QSO",color:"#3da5f4"},{label:"Dupe / non-workable",color:"#aeb5b7"},
 ];
 export function contestMapSpots(contestSpots:ContestSpotSurfaceProjection["spots"],sharedSpots:Record<string,any>[]) {
-  const contestByID=new Map(contestSpots.map(spot=>[spot.id,spot]));
-  return mapSpots(sharedSpots).flatMap(spot=>{
-    const contest=contestByID.get(spot.id);if(!contest)return [];
+  const sharedByID=new Map(mapSpots(sharedSpots).map(spot=>[spot.id,spot]));
+  return contestSpots.flatMap(contest=>{
+    const located=typeof contest.latitude==="number"&&Number.isFinite(contest.latitude)&&Math.abs(contest.latitude)<=90&&
+      typeof contest.longitude==="number"&&Number.isFinite(contest.longitude)&&Math.abs(contest.longitude)<=180
+      ?mapSpots([{...contest,latitude:contest.latitude,longitude:contest.longitude}])[0]:sharedByID.get(contest.id);
+    if(!located)return [];
     const multiplierCount=contest.contestCountryMultiplier!==null&&contest.contestZoneMultiplier!==null
       ? Number(contest.contestCountryMultiplier)+Number(contest.contestZoneMultiplier):contest.contestMultiplierCount;
     const callStatus=contest.contestDupe===true?"Dupe / non-workable":multiplierCount!==null&&multiplierCount>1?"Double multiplier":
       multiplierCount===1?"Single multiplier":multiplierCount===0&&contest.contestDupe===false?"Valid QSO":"Scoring pending";
-    return [{...spot,call:contest.callsign,mhz:contest.frequencyKHz/1000,band:contest.band,mode:contest.mode as typeof spot.mode,
+    return [{...located,call:contest.callsign,mhz:contest.frequencyKHz/1000,band:contest.band,mode:contest.mode as typeof located.mode,
       country:contest.country,adif:contest.adif,reporter:contest.spotter,callStatus,
       statusHex:contestBandMapSpotColor(contest),state:contest.contestDupe===true?"worked" as const:"needed" as const,
       note:contest.comment,receivedAt:contest.receivedAt}];

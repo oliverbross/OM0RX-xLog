@@ -146,7 +146,8 @@ export type ContestMatrixSurfaceProjection = ContestMatrixSurfaceProjectionV1 | 
 export type ContestSurfaceSpot = { id: string; receivedAt: number; clusterName: string; spotter: string;
   spotterContinent: string | null; frequencyKHz: number; frequencyText: string; callsign: string; comment: string;
   band: string; mode: string; country: string; adif: number | null; continent: string; cqZone: number | null;
-  ituZone: number | null; callStatus: string; dxccStatus: string; workedBefore: number | null; specialTags: string[];
+  ituZone: number | null; latitude?: number | null; longitude?: number | null;
+  callStatus: string; dxccStatus: string; workedBefore: number | null; specialTags: string[];
   score: number; contestPoints: number | null; contestDupe: boolean | null; contestMultiplierCount: number | null;
   contestCountryMultiplier: boolean | null; contestZoneMultiplier: boolean | null;
   scoreReasons: string[]; aggregateCount: number; aggregateSpotters: string[]; source: string;
@@ -498,11 +499,16 @@ function validSpotProjection(value: Record<string, unknown>) {
       (item.error === null || text(item.error, 512, true)))) return false;
   const ids = new Set<string>();
   return value.spots.every(item => {
-    if (!record(item) || !exact(item, ["id", "receivedAt", "clusterName", "spotter", "spotterContinent", "frequencyKHz",
+    if (!record(item) || !optionalKeys(item, ["id", "receivedAt", "clusterName", "spotter", "spotterContinent", "frequencyKHz",
         "frequencyText", "callsign", "comment", "band", "mode", "country", "adif", "continent", "cqZone", "ituZone",
         "callStatus", "dxccStatus", "workedBefore", "specialTags", "score", "contestPoints", "contestDupe", "contestMultiplierCount",
         "contestCountryMultiplier", "contestZoneMultiplier", "scoreReasons", "aggregateCount",
-        "aggregateSpotters", "source", "statusHex", "bandHex", "modeHex", "marked"]) || !text(item.id, 128) || ids.has(item.id as string) ||
+        "aggregateSpotters", "source", "statusHex", "bandHex", "modeHex", "marked"], ["latitude", "longitude"]) ||
+        (("latitude" in item) !== ("longitude" in item)) ||
+        ("latitude" in item && !((item.latitude === null && item.longitude === null) ||
+          typeof item.latitude === "number" && Number.isFinite(item.latitude) && Math.abs(item.latitude) <= 90 &&
+          typeof item.longitude === "number" && Number.isFinite(item.longitude) && Math.abs(item.longitude) <= 180)) ||
+        !text(item.id, 128) || ids.has(item.id as string) ||
         !["receivedAt", "frequencyKHz", "score"].every(key => typeof item[key] === "number" && Number.isFinite(item[key]) && (item[key] as number) >= 0) ||
         item.contestPoints !== null && (typeof item.contestPoints !== "number" || !Number.isFinite(item.contestPoints) || item.contestPoints < 0) ||
         item.contestDupe !== null && typeof item.contestDupe !== "boolean" ||

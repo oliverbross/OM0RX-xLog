@@ -483,12 +483,14 @@ function contestSurfaceSpots(spots: BandMapSpot[]) {
     ids.add(id);
     const bounded=(value:unknown,maximum=512)=>{const text=String(value??"");return new TextEncoder().encode(text).length<=maximum?text:"";};
     const uintOrNull=(value:unknown)=>Number.isSafeInteger(value)&&Number(value)>=0?Number(value):null;
+    const coordinate=(value:unknown,maximum:number)=>typeof value==="number"&&Number.isFinite(value)&&Math.abs(value)<=maximum?value:null;
     const strings=(value:unknown,maximum:number,bytes:number)=>Array.isArray(value)?value.filter(item=>typeof item==="string").slice(0,maximum).map(item=>bounded(item,bytes)):[];
     return [{id,receivedAt:Math.max(0,Number(spot.receivedAt)||0),clusterName:bounded(spot.clusterName),spotter:bounded(spot.spotter),
       spotterContinent:spot.spotterContinent==null?null:bounded(spot.spotterContinent,32),frequencyKHz,
       frequencyText:bounded(spot.frequencyText),callsign,comment:bounded(spot.comment),band,mode,
       country:bounded(spot.country),adif:uintOrNull(spot.adif),continent:bounded(spot.continent),cqZone:uintOrNull(spot.cqZone),
-      ituZone:uintOrNull(spot.ituZone),callStatus:bounded(spot.callStatus),dxccStatus:bounded(spot.dxccStatus),
+      ituZone:uintOrNull(spot.ituZone),latitude:coordinate(spot.latitude,90),longitude:coordinate(spot.longitude,180),
+      callStatus:bounded(spot.callStatus),dxccStatus:bounded(spot.dxccStatus),
       workedBefore:uintOrNull(spot.workedBefore),specialTags:strings(spot.specialTags,32,64),score:Math.max(0,Number(spot.score)||0),
       contestPoints:null,contestDupe:null,contestMultiplierCount:null,contestCountryMultiplier:null,contestZoneMultiplier:null,
       scoreReasons:strings(spot.scoreReasons,64,160),aggregateCount:uintOrNull(spot.aggregateCount)??0,
