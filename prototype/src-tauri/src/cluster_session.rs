@@ -46,8 +46,13 @@ pub fn validate(label: &str, request: &Value) -> Result<(), String> {
     if method == "cluster_contest_radio_spots_publish" && label != "contest-setup" {
         return Err("Only the active Contest Setup owner may publish classified contest spots.".into());
     }
+    let exact_recent_spots_command = method == "cluster_command"
+        && request["params"].as_object().is_some_and(|params| {
+            params.len() == 1 && params.get("command").and_then(Value::as_str) == Some("SH/DX/100")
+        });
     if contest.is_some()
-        && !((label == "dx-cluster" && matches!(method, "cluster_snapshot" | "cluster_connect" | "cluster_disconnect" | "cluster_command"))
+        && !((label == "dx-cluster" && (matches!(method, "cluster_snapshot" | "cluster_connect" | "cluster_disconnect")
+                || exact_recent_spots_command))
             || (label == "contest-setup" && method == "cluster_contest_radio_spots_publish"))
     {
         return Err("The contest Cluster window may only read, connect, disconnect, or request recent spots from the shared cluster session.".into());
@@ -511,6 +516,9 @@ mod tests {
     fn request(method: &str) -> Value {
         json!({"id":"fixture-12345678","method":method,"params":{}})
     }
+    fn command_request(command: &str) -> Value {
+        json!({"id":"fixture-12345678","method":"cluster_command","params":{"command":command}})
+    }
 
     #[test]
     fn surface_capabilities_are_explicit() {
@@ -539,13 +547,21 @@ mod tests {
             assert!(validate(label, &request("cluster_snapshot")).is_ok());
             assert!(validate(label, &request("cluster_connect")).is_err());
         }
-        for method in ["cluster_snapshot", "cluster_connect", "cluster_disconnect", "cluster_command"] {
+        for method in ["cluster_snapshot", "cluster_connect", "cluster_disconnect"] {
             assert!(validate("contest--dx-cluster", &request(method)).is_ok());
         }
+        assert!(validate("contest--dx-cluster", &command_request("SH/DX/100")).is_ok());
+        for command in ["sh/dx/100", "SH/DX/50", "SH/MYDX/100"] {
+            assert!(validate("contest--dx-cluster", &command_request(command)).is_err());
+        }
+        assert!(validate("contest--dx-cluster", &json!({
+            "id":"fixture-12345678","method":"cluster_command",
+            "params":{"command":"SH/DX/100","server_id":"00000000-0000-4000-8000-000000000001"}
+        })).is_err());
         assert!(validate("contest-setup", &request("cluster_contest_radio_spots_publish")).is_ok());
         assert!(validate("main", &request("cluster_contest_radio_spots_publish")).is_err());
         assert!(validate("dx-cluster", &request("cluster_contest_radio_spots_publish")).is_err());
-        for method in ["cluster_filter", "cluster_configure", "cluster_password_set"] {
+        for method in ["cluster_filter", "cluster_command", "cluster_configure", "cluster_password_set"] {
             assert!(validate("contest--dx-cluster", &request(method)).is_err());
         }
         assert!(validate("contest--band-maps", &request("cluster_connect")).is_err());
