@@ -45,6 +45,7 @@ private actor ClusterRadioSpotRecorder {
     private var removals: [(ClusterRadioSpotPayload, String)] = []
     private var active: [String: (ClusterRadioSpotPayload, String)] = [:]
     private var lifecycle: [String] = []
+    private var removalAccepted = true
     private func key(_ payload: ClusterRadioSpotPayload, provider: String) -> String {
         "\(provider)|\(payload.callsign)|\(payload.frequencyHz)"
     }
@@ -57,6 +58,7 @@ private actor ClusterRadioSpotRecorder {
     func remove(_ payload: ClusterRadioSpotPayload, provider: String) -> Bool {
         lifecycle.append("remove")
         removals.append((payload, provider))
+        guard removalAccepted else { return false }
         if provider == "direct_tci" {
             active = active.filter { $0.value.1 != provider || $0.value.0.callsign != payload.callsign }
         } else {
@@ -69,6 +71,7 @@ private actor ClusterRadioSpotRecorder {
     func activeSnapshot() -> [(ClusterRadioSpotPayload, String)] { Array(active.values) }
     func recordCleanup() { lifecycle.append("cleanup") }
     func lifecycleSnapshot() -> [String] { lifecycle }
+    func setRemovalAccepted(_ accepted: Bool) { removalAccepted = accepted }
 }
 
 @Suite("Portable live cluster worker bridge")
@@ -226,6 +229,44 @@ struct LiveClusterMethodsTests {
             7_125_000: "#AEB5B7", 7_126_000: "#3DA5F4"])
         await cluster.terminate()
         #expect((await recorder.removed()).count == 2)
+        #expect((await recorder.activeSnapshot()).isEmpty)
+    }
+
+    @Test("Contest shutdown fails closed and retains retry state when radio spot withdrawal is rejected")
+    func contestShutdownRetainsRejectedWithdrawal() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let configurationURL = root.appendingPathComponent("cluster.json")
+        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [], showWorkedBandModeSpots: true,
+                                                              forwardSpotsToFlex: true)).write(to: configurationURL)
+        let recorder = ClusterRadioSpotRecorder()
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let cluster = LiveClusterMethods(logbook: logbook,
+                                         configurationURL: configurationURL, vault: UnavailableClusterTestVault(),
+                                         forwardClassifiedIngressSpots: false,
+                                         spotForward: { payload, provider, replacing in
+            await recorder.forward(payload, provider: provider, replacing: replacing)
+        }, spotRemove: { payload, provider in
+            await recorder.remove(payload, provider: provider)
+        })
+        let published = try await cluster.handle(method: "cluster_contest_radio_spots_publish", params: [
+            "publisher_id": UUID().uuidString, "publisher_started_at": 1_800_000_000_000,
+            "publication_sequence": 1, "action": "replace", "session_id": UUID().uuidString,
+            "workspace_generation": UUID().uuidString, "revision": 1, "configured_bands": ["40m"],
+            "allowed_mode_groups": ["phone"], "chunk_index": 0, "chunk_count": 1, "spots": [[
+                "spot_id": "double", "callsign": "DL1AAA", "frequency_hz": 7_125_000,
+                "band": "40m", "mode": "SSB", "spotter": "W1AW", "comment": "CQ TEST",
+                "timestamp": Date().timeIntervalSinceReferenceDate, "points": 3, "dupe": false,
+                "multiplier_count": 2, "country_multiplier": true, "zone_multiplier": true]]])
+        #expect(published["accepted"] as? Int == 1)
+        await recorder.setRemovalAccepted(false)
+        let worker = LiveWorker(logbook: logbook, cluster: cluster, localAcceptance: true)
+        #expect(await worker.shutdown() == false)
+        #expect((await recorder.activeSnapshot()).count == 1)
+
+        await recorder.setRemovalAccepted(true)
+        #expect(await cluster.terminate() == true)
         #expect((await recorder.activeSnapshot()).isEmpty)
     }
 

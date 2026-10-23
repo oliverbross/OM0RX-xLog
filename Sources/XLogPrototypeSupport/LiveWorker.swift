@@ -345,6 +345,7 @@ public actor LiveWorker {
     @discardableResult public func shutdown() async -> Bool {
         await beginTerminalShutdown()
         let onlineLogsRetired = await onlineLogs.terminate()
+        var contestSpotsRetired = true
         await remoteBackup.terminate()
         await services.beginTermination()
         #if os(macOS)
@@ -359,9 +360,9 @@ public actor LiveWorker {
         if localAcceptance {
             // Only the injected local cluster/archive owner is retired here;
             // process-wide station singletons remain outside acceptance scope.
-            await cluster.terminate()
+            contestSpotsRetired = await cluster.terminate()
             await services.terminate()
-            return onlineLogsRetired
+            return onlineLogsRetired && contestSpotsRetired
         }
         #if os(macOS)
         if ownsProcessSessions {
@@ -369,19 +370,19 @@ public actor LiveWorker {
             // Contest-owned radio spots must be withdrawn while their station
             // transports are still available. Normal Logging starts only after
             // this worker has retired.
-            await cluster.terminate()
+            contestSpotsRetired = await cluster.terminate()
             await LiveRotorSession.shared.terminate()
             await LiveFlexSession.shared.terminate()
             await LiveTCISession.shared.terminate()
             await LiveStationSession.shared.terminate()
         } else {
-            await cluster.terminate()
+            contestSpotsRetired = await cluster.terminate()
         }
         #else
-        await cluster.terminate()
+        contestSpotsRetired = await cluster.terminate()
         #endif
         await services.terminate()
-        return onlineLogsRetired
+        return onlineLogsRetired && contestSpotsRetired
     }
 
     public func response(to data: Data) async -> Data {

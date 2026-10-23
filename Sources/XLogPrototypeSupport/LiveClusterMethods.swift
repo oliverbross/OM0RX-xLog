@@ -213,17 +213,26 @@ public actor LiveClusterMethods {
             : logbook.workspaceDirectoryURL.appendingPathComponent("Cluster/cluster.json"))
     }
 
-    func terminate() async {
+    @discardableResult func terminate() async -> Bool {
         terminated = true
         contactRefreshRevision &+= 1
+        var contestSpotsRetired = true
         if let publication = contestPublication, !contestForwardedSpots.isEmpty {
-            _ = try? await reconcileContestRadioSpots([], publication: publication, forceReplaceAll: true)
+            do {
+                let result = try await reconcileContestRadioSpots([], publication: publication, forceReplaceAll: true)
+                contestSpotsRetired = result["rejected"] as? Int == 0 && contestForwardedSpots.isEmpty
+            } catch {
+                contestSpotsRetired = false
+            }
         }
-        contestPublication = nil
-        contestForwardIdentity = nil
-        contestAppliedIdentity = nil
+        if contestSpotsRetired {
+            contestPublication = nil
+            contestForwardIdentity = nil
+            contestAppliedIdentity = nil
+        }
         await service?.terminate()
         await history?.stop()
+        return contestSpotsRetired
     }
 
     private func requireRunning() throws {
