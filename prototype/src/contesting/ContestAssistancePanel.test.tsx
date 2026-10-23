@@ -10,6 +10,23 @@ afterEach(cleanup);
 const dataset={sourceID:"operator-managed-local",version:"tiny.scp",retrievedAtUTC:"2026-10-18T00:00:00.000Z",sha256:"a".repeat(64),byteCount:16,recordCount:2,duplicateCount:0,digestVerification:"computedOnly" as const};
 const context={ownerLeaseID:7,sessionID:"11111111-1111-4111-8111-111111111111",workspaceGeneration:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",draftID:"draft-1"};
 
+it("starts a durable-draft SCP query without relying on a background window timer",async()=>{
+  const methods:string[]=[];
+  const request=(async(method:string,params:Record<string,unknown>={})=>{
+    methods.push(method);
+    if(method==="contest_scp_status")return{id:"status",ok:true,result:{dataset,unavailableReason:null}};
+    if(method==="contest_scp_query")return{id:"query",ok:true,result:{sessionID:context.sessionID,
+      workspaceGeneration:context.workspaceGeneration,requestID:params.requestID,normalizedQuery:"K1",
+      matches:[{matchID:`${dataset.sha256}:0`,callsign:"K1ABC",score:100,isPrefixMatch:true}],dataset,
+      evaluatedRecordCount:2,isPartial:false}};
+    if(method==="contest_scp_cancel")return{id:"cancel",ok:true,result:{cancelled:true}};
+    throw new Error(method);
+  }) as ContestRequest;
+  render(<ContestAssistancePanel request={request} {...context} callsign="K1" onSelect={vi.fn()}/>);
+  await act(async()=>{await Promise.resolve();await Promise.resolve();});
+  expect(methods).toContain("contest_scp_query");
+});
+
 it("shows honest unavailable state then imports, queries, and selects only the authoritative callsign", async()=>{
   let available=false; const calls:string[]=[];
   const request=(async(method:string,params:Record<string,unknown>={})=>{

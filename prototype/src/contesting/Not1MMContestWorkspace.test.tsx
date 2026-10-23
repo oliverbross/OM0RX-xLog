@@ -3249,6 +3249,42 @@ it("applies retained SCP selection through the active Python draft owner", async
   });
 });
 
+it("refreshes detached Check Partial after Main Logging changes the callsign", async () => {
+  let current=projection();
+  const digest="a".repeat(64), matchID=`${digest}:0`;
+  const dataset={sourceID:"local-private-file",version:"MASTER.SCP",retrievedAtUTC:null,sha256:digest,
+    byteCount:12,recordCount:1,duplicateCount:0,digestVerification:"computedOnly"};
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    let result:any;
+    if(method==="contest_history_status")result={dataset:null,pendingPreview:null,unavailableReason:"not_imported",activation:{state:"not_imported",generation:null,digest:null,rowCount:null,message:null}};
+    else if(method==="contest_scp_status")result={dataset,unavailableReason:null};
+    else if(method==="contest_scp_query")result={sessionID:params.sessionID,workspaceGeneration:params.workspaceGeneration,
+      requestID:params.requestID,normalizedQuery:String(params.query).toUpperCase(),
+      matches:[{matchID,callsign:"K1ABC",score:100,isPrefixMatch:true}],dataset,evaluatedRecordCount:1,isPartial:false};
+    else if(method==="contest_scp_cancel")result={cancelled:true};
+    else if(method==="contest_catalog")result={plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]};
+    else if(method==="contest_sessions")result={sessions:[]};
+    else if(method==="contest_create")result={projection:current};
+    else if(method==="contest_log_page")result={rows:[],offset:0,limit:20,total:0};
+    else if(method==="contest_score")result={score:current.score,matrices:{countries:[],zones:[]}};
+    else if(method==="contest_draft_apply"){
+      current=projection(current.revision+1,params.fields as Record<string,string>);
+      result={projection:current,actions:[],messages:[]};
+    }else throw new Error(`Unexpected ${method}`);
+    return {id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();
+  const entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,
+    workspaceGeneration,panelID:"active-qso",projectionRevision:1,requestID:crypto.randomUUID(),action:"entry_set_text",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,field:"callsign",value:"K1"}}));
+  await waitFor(()=>expect(surfaceOwner.current.projections["callsign-intelligence"]).toMatchObject({inputCallsign:"K1",
+    scp:{candidates:[{candidateID:matchID,callsign:"K1ABC"}]}}));
+  expect(request.mock.calls.some(([method,params])=>method==="contest_scp_query"&&params?.query==="K1")).toBe(true);
+});
+
 it("keeps legacy-generation Python sessions open in the main desk with detached windows disabled", async () => {
   const legacyGeneration="55555555-5555-4555-8555-555555555555";
   const legacy={...projection(),workspaceGeneration:legacyGeneration};

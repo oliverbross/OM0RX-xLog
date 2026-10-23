@@ -36,11 +36,17 @@ export function ContestAssistancePanel({request,ownerLeaseID,sessionID,workspace
     const context:SCPContext={sessionID,workspaceGeneration,requestID:crypto.randomUUID()};
     currentQuery.current=context;
     setQuerying(true);setError("");
-    const timer=window.setTimeout(()=>void scpQuery(request,context,query).then(value=>{
+    // The contest owner remains mounted in a hidden WebView while operators use
+    // the detached windows. Background timer throttling can otherwise prevent
+    // this query from ever starting, leaving Check Partial on the cleared
+    // projection indefinitely. Main Logging already journals/debounces entry
+    // changes, so start the bounded local lookup as soon as its durable draft
+    // reaches the owner.
+    void scpQuery(request,context,query).then(value=>{
       if(mounted.current&&queryTicket.current===ticket)setResult(value);
     }).catch(cause=>{if(mounted.current&&queryTicket.current===ticket){setResult(null);setError(message(cause));}})
-      .finally(()=>{if(currentQuery.current===context)currentQuery.current=null;if(mounted.current&&queryTicket.current===ticket)setQuerying(false);}),120);
-    return()=>{window.clearTimeout(timer);if(currentQuery.current===context)currentQuery.current=null;void scpCancel(request,context);};
+      .finally(()=>{if(currentQuery.current===context)currentQuery.current=null;if(mounted.current&&queryTicket.current===ticket)setQuerying(false);});
+    return()=>{if(currentQuery.current===context)currentQuery.current=null;void scpCancel(request,context);};
   },[request,dataset,ownerLeaseID,sessionID,workspaceGeneration,draftID,callsign,disabled]);
 
   async function choose(){
