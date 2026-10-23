@@ -289,7 +289,9 @@ export function contestMapSpots(contestSpots:ContestSpotSurfaceProjection["spots
       ? Number(contest.contestCountryMultiplier)+Number(contest.contestZoneMultiplier):contest.contestMultiplierCount;
     const callStatus=contest.contestDupe===true?"Dupe / non-workable":multiplierCount!==null&&multiplierCount>1?"Double multiplier":
       multiplierCount===1?"Single multiplier":multiplierCount===0&&contest.contestDupe===false?"Valid QSO":"Scoring pending";
-    return [{...spot,callStatus,statusHex:contestBandMapSpotColor(contest),state:contest.contestDupe===true?"worked" as const:"needed" as const,
+    return [{...spot,call:contest.callsign,mhz:contest.frequencyKHz/1000,band:contest.band,mode:contest.mode as typeof spot.mode,
+      country:contest.country,adif:contest.adif,reporter:contest.spotter,callStatus,
+      statusHex:contestBandMapSpotColor(contest),state:contest.contestDupe===true?"worked" as const:"needed" as const,
       note:contest.comment,receivedAt:contest.receivedAt}];
   });
 }

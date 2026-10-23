@@ -45,7 +45,8 @@ afterEach(()=>{cleanup();window.history.replaceState({},"","/");});
 it("maps only contest-projected located spots with CQ WW multiplier colors",()=>{
   const located={...sharedSpot,latitude:51,longitude:13};
   const projected=[
-    {...sharedSpot,id:"double",contestDupe:false,contestMultiplierCount:2,contestCountryMultiplier:true,contestZoneMultiplier:true},
+    {...sharedSpot,id:"double",callsign:"DL1PROJECTED",frequencyKHz:7125,frequencyText:"7125.0",band:"40m",mode:"SSB",
+      country:"Projected Germany",adif:999,spotter:"PROJECTED",contestDupe:false,contestMultiplierCount:2,contestCountryMultiplier:true,contestZoneMultiplier:true},
     {...sharedSpot,id:"single",contestDupe:false,contestMultiplierCount:1,contestCountryMultiplier:true,contestZoneMultiplier:false},
     {...sharedSpot,id:"qso",contestDupe:false,contestMultiplierCount:0,contestCountryMultiplier:false,contestZoneMultiplier:false},
     {...sharedSpot,id:"dupe",contestDupe:true,contestMultiplierCount:0,contestCountryMultiplier:false,contestZoneMultiplier:false},
@@ -53,7 +54,8 @@ it("maps only contest-projected located spots with CQ WW multiplier colors",()=>
   const shared=projected.map((spot,index)=>({...located,id:spot.id,callsign:`DL${index}ABC`,latitude:51+index,longitude:13+index}));
   shared.push({...located,id:"not-in-contest",callsign:"K1ABC"});
   expect(contestMapSpots(projected,shared)).toEqual([
-    expect.objectContaining({id:"double",callStatus:"Double multiplier",statusHex:"#00e51b"}),
+    expect.objectContaining({id:"double",call:"DL1PROJECTED",mhz:7.125,band:"40m",mode:"SSB",country:"Projected Germany",
+      adif:999,reporter:"PROJECTED",lat:51,lon:13,callStatus:"Double multiplier",statusHex:"#00e51b"}),
     expect.objectContaining({id:"single",callStatus:"Single multiplier",statusHex:"#ff5267"}),
     expect.objectContaining({id:"qso",callStatus:"Valid QSO",statusHex:"#3da5f4"}),
     expect.objectContaining({id:"dupe",callStatus:"Dupe / non-workable",statusHex:"#aeb5b7",state:"worked"}),
