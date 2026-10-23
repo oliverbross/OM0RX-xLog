@@ -1018,8 +1018,19 @@ fn request_using(request: Value, session: impl FnOnce() -> Result<Arc<Session>, 
 }
 
 fn request_blocks_module_transition(request: &Value) -> bool {
-    crate::operating_module::worker_module(request).is_some()
-        || crate::operating_module::shared_worker_mutation(request)
+    !matches!(request["method"].as_str(), Some(
+        "health" | "workspace_status" | "settings_load" |
+        "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot" |
+        "spot_bridge_snapshot" | "wsjtx_snapshot" | "fldigi_snapshot" |
+        "cluster_snapshot" | "cluster_history" |
+        "contest_catalog" | "contest_sessions" | "contest_draft_get" |
+        "contest_qso_get" | "contest_operation_receipt" | "contest_log_page" |
+        "contest_log_transfer_status" | "contest_score" | "contest_spot_points_preview" |
+        "contest_rates" | "contest_check_partial" | "contest_setup_get" |
+        "contest_statistics" | "contest_export_read" |
+        "contest_scp_status" | "contest_scp_query" |
+        "contest_history_status" | "contest_history_preview_page" | "contest_history_query"
+    ))
 }
 
 fn request_in_session(
@@ -1203,23 +1214,44 @@ mod tests {
             "contest_check_partial",
             "contest_log_page",
         ] {
-            assert!(!request_blocks_module_transition(&json!({
+            let request = json!({
                 "id":"passive",
                 "method":method,
                 "params":{},
-            })), "passive read unexpectedly blocks: {method}");
+            });
+            validate_request(&request).unwrap();
+            assert!(!request_blocks_module_transition(&request),
+                "passive read unexpectedly blocks: {method}");
         }
         for method in [
             "contest_qso_commit",
             "logbook_operator_draft_apply",
             "settings_save",
             "cluster_disconnect",
+            "cluster_configure",
+            "cluster_filter",
+            "cluster_password_set",
+            "cluster_resume",
+            "cluster_command",
+            "cluster_console_clear",
+            "spot_bridge_start",
+            "spot_bridge_stop",
+            "contest_export_prepare",
+            "contest_export_release",
+            "contest_scp_cancel",
+            "contest_scp_select",
+            "contest_history_preview_cancel",
+            "contest_history_query_cancel",
+            "contest_history_select",
         ] {
-            assert!(request_blocks_module_transition(&json!({
+            let request = json!({
                 "id":"mutation",
                 "method":method,
                 "params":{},
-            })), "mutation unexpectedly bypasses transition barrier: {method}");
+            });
+            validate_request(&request).unwrap();
+            assert!(request_blocks_module_transition(&request),
+                "mutation unexpectedly bypasses transition barrier: {method}");
         }
     }
 
