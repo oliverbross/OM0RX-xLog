@@ -261,7 +261,7 @@ struct LiveClusterMethodsTests {
                 "multiplier_count": 2, "country_multiplier": true, "zone_multiplier": true]]])
         #expect(published["accepted"] as? Int == 1)
         await recorder.setRemovalAccepted(false)
-        let worker = LiveWorker(logbook: logbook, cluster: cluster, localAcceptance: true)
+        let worker = LiveWorker(logbook: logbook, localAcceptance: true, cluster: cluster)
         #expect(await worker.shutdown() == false)
         #expect((await recorder.activeSnapshot()).count == 1)
 
