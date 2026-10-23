@@ -113,7 +113,10 @@ async function openExportDialog(item) {
   await browser(["press", "Enter"]);
   await waitSelector("dialog[aria-label='Export contest log']");
 }
-const pressIn = async (label, key) => { await browser(["eval", `(() => { const direct=[...document.querySelectorAll('input,select,textarea')].find(x=>x.getAttribute('aria-label')===${JSON.stringify(label)}); const owner=[...document.querySelectorAll('label')].find(x=>x.textContent.startsWith(${JSON.stringify(label)})); const field=direct ?? owner?.querySelector('input,select,textarea'); if(!field) throw new Error('Missing field'); field.focus(); })()`]); await browser(["press", key]); };
+const pressIn = async (label, key) => {
+  await browser(["eval", `(() => { document.querySelector('[data-acceptance-press-target]')?.removeAttribute('data-acceptance-press-target'); const direct=[...document.querySelectorAll('input,select,textarea')].find(x=>x.getAttribute('aria-label')===${JSON.stringify(label)}); const owner=[...document.querySelectorAll('label')].find(x=>x.textContent.startsWith(${JSON.stringify(label)})); const field=direct ?? owner?.querySelector('input,select,textarea'); if(!field) throw new Error('Missing field'); field.setAttribute('data-acceptance-press-target','true'); })()`]);
+  await browser(["batch", "--bail", "focus [data-acceptance-press-target]", `press ${key}`]);
+};
 const text = selector => browser(["get", "text", selector]);
 const expectText = async (selector, expected) => assert.match(await text(selector), expected instanceof RegExp ? expected : new RegExp(expected));
 const waitScore = item => browser(["eval", `new Promise((resolve,reject)=>{ const until=Date.now()+10000; const expected=${JSON.stringify(`Claimedscore${item.expected.score}QSOs6Points${item.expected.points}Multipliers${item.expected.multipliers}`)}; const poll=()=>{ if(!document.body.textContent.includes(${JSON.stringify(item.name)})) return reject(new Error('Active contest session changed while waiting for score')); const value=document.querySelector('[aria-label="Score and multipliers"]')?.textContent??'',compact=value.replace(/\\s+/g,''); if(compact.includes(expected)) return resolve(value); if(Date.now()>until) return reject(new Error('Authoritative score did not settle: '+value)); setTimeout(poll,50); }; poll(); })`]);
