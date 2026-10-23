@@ -166,20 +166,20 @@ export function contestBandMapMultiplierLabel(spot:BandMapSpot):string{
 }
 export function contestBandMapSpotColor(spot:BandMapSpot):string{
   if(contestBandMapSpotWorked(spot))return "#8b98a5";
-  const points=finite(spot.contestPoints);
-  if(points===1)return "#4da3ff";
-  if(points===3)return "#ff5b5b";
-  if(points===2)return "#ffb020";
+  const multipliers=contestNeededMultiplierCount(spot);
+  if(multipliers!==null&&multipliers>1)return "#12d6a0";
+  if(multipliers===1)return "#ff5b5b";
+  if(multipliers===0&&spot.contestDupe===false)return "#4da3ff";
   return bandMapSpotColor(spot);
 }
 function contestPointDescription(spot:BandMapSpot):string{
-  const points=finite(spot.contestPoints);if(points===null)return "Points unavailable";
-  if(spot.contestDupe===true)return `${points} pt · duplicate · grey`;
+  const points=finite(spot.contestPoints),pointLabel=points===null?"Points unavailable":`${points} pt`;
+  if(spot.contestDupe===true)return `${pointLabel} · duplicate · grey`;
   const multipliers=contestNeededMultiplierCount(spot),country=spot.contestCountryMultiplier,zone=spot.contestZoneMultiplier;
   const needed=country===true&&zone===true?"country and CQ zone multipliers":country===true?"country multiplier":zone===true?"CQ zone multiplier":
     country===false&&zone===false?"no needed multiplier":`${multipliers??"?"} needed multiplier${multipliers===1?"":"s"}`;
-  const color=points===1?"blue":points===3?"red":points===2?"amber":"fallback colour";
-  return `${points} pt · ${needed} · ${color}`;
+  const color=multipliers!==null&&multipliers>1?"green":multipliers===1?"red":multipliers===0&&spot.contestDupe===false?"blue":"fallback colour";
+  return `${pointLabel} · ${needed} · ${color}`;
 }
 function bandColor(band: string, spots: BandMapSpot[]): string {
   const configured = spots.find((spot) => spot.band === band && hex(spot.bandHex))?.bandHex;

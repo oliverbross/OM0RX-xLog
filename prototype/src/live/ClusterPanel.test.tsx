@@ -268,7 +268,7 @@ describe("cluster toolbar panels", () => {
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: "contest-spot" }));
   });
 
-  it("uses CQ WW points and multiplier colours, hides dupes by default, and never shows generic CS or DS", () => {
+  it("uses CQ WW multiplier-opportunity colours, hides dupes by default, and never shows generic CS or DS", () => {
     const data=response(),base={receivedAt:812_000_000,clusterName:"ShackCQ",spotter:"K1ABC",frequencyKHz:14_025,
       frequencyText:"14.025",comment:"CQ WW",band:"20m",mode:"SSB",country:"Germany",continent:"EU",cqZone:14,
       callStatus:"New Call",dxccStatus:"New Band",workedBefore:null,specialTags:[],score:80,scoreReasons:[],aggregateCount:1,
@@ -298,8 +298,8 @@ describe("cluster toolbar panels", () => {
     expect(screen.getByLabelText("LONG/CALLSIGN1 spot").textContent).toContain("1");
     expect((screen.getByText("LONG/CALLSIGN1") as HTMLElement).style.color).toBe("rgb(77, 163, 255)");
     expect((screen.getByText("VK1ABC") as HTMLElement).style.color).toBe("rgb(255, 91, 91)");
-    expect((screen.getByText("JA1ABC") as HTMLElement).style.color).toBe("rgb(255, 91, 91)");
-    expect((screen.getByText("VE1ABC") as HTMLElement).style.color).toBe("rgb(255, 176, 32)");
+    expect((screen.getByText("JA1ABC") as HTMLElement).style.color).toBe("rgb(18, 214, 160)");
+    expect((screen.getByText("VE1ABC") as HTMLElement).style.color).toBe("rgb(255, 91, 91)");
     expect(screen.getByTitle("Needed country multiplier").textContent).toBe("C");
     expect(screen.getByTitle("Needed country and CQ zone multipliers").textContent).toBe("C+Z");
     expect(screen.queryByLabelText("K1ABC spot")).toBeNull();
