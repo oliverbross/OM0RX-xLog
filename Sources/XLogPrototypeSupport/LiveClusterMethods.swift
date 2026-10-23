@@ -216,6 +216,12 @@ public actor LiveClusterMethods {
     func terminate() async {
         terminated = true
         contactRefreshRevision &+= 1
+        if let publication = contestPublication, !contestForwardedSpots.isEmpty {
+            _ = try? await reconcileContestRadioSpots([], publication: publication, forceReplaceAll: true)
+        }
+        contestPublication = nil
+        contestForwardIdentity = nil
+        contestAppliedIdentity = nil
         await service?.terminate()
         await history?.stop()
     }

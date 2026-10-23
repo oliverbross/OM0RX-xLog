@@ -225,6 +225,8 @@ struct LiveClusterMethodsTests {
         #expect(Dictionary(uniqueKeysWithValues: active.map { ($0.0.frequencyHz, $0.0.colorHex) }) == [
             7_125_000: "#AEB5B7", 7_126_000: "#3DA5F4"])
         await cluster.terminate()
+        #expect((await recorder.removed()).count == 2)
+        #expect((await recorder.activeSnapshot()).isEmpty)
     }
 
     @Test("Contest module suppresses the unfiltered ingress radio publisher")

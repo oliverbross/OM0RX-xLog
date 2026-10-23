@@ -366,13 +366,20 @@ public actor LiveWorker {
         #if os(macOS)
         if ownsProcessSessions {
             await LiveSpotBridge.shared.stopForShutdown()
+            // Contest-owned radio spots must be withdrawn while their station
+            // transports are still available. Normal Logging starts only after
+            // this worker has retired.
+            await cluster.terminate()
             await LiveRotorSession.shared.terminate()
             await LiveFlexSession.shared.terminate()
             await LiveTCISession.shared.terminate()
             await LiveStationSession.shared.terminate()
+        } else {
+            await cluster.terminate()
         }
-        #endif
+        #else
         await cluster.terminate()
+        #endif
         await services.terminate()
         return onlineLogsRetired
     }
