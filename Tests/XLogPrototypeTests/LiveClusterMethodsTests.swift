@@ -40,11 +40,217 @@ private final class WorkerClusterFixture: ClusterConnectionTransport, @unchecked
     var optionUpdates: [(Bool, Bool)] { lock.withLock { options } }
 }
 
+private actor ClusterRadioSpotRecorder {
+    private var values: [(ClusterRadioSpotPayload, String, Bool)] = []
+    private var removals: [(ClusterRadioSpotPayload, String)] = []
+    private var active: [String: (ClusterRadioSpotPayload, String)] = [:]
+    private var lifecycle: [String] = []
+    private func key(_ payload: ClusterRadioSpotPayload, provider: String) -> String {
+        "\(provider)|\(payload.callsign)|\(payload.frequencyHz)"
+    }
+    func forward(_ payload: ClusterRadioSpotPayload, provider: String, replacing: Bool) -> Bool {
+        lifecycle.append("forward")
+        values.append((payload, provider, replacing))
+        active[key(payload, provider: provider)] = (payload, provider)
+        return true
+    }
+    func remove(_ payload: ClusterRadioSpotPayload, provider: String) -> Bool {
+        lifecycle.append("remove")
+        removals.append((payload, provider))
+        if provider == "direct_tci" {
+            active = active.filter { $0.value.1 != provider || $0.value.0.callsign != payload.callsign }
+        } else {
+            active.removeValue(forKey: key(payload, provider: provider))
+        }
+        return true
+    }
+    func snapshot() -> [(ClusterRadioSpotPayload, String, Bool)] { values }
+    func removed() -> [(ClusterRadioSpotPayload, String)] { removals }
+    func activeSnapshot() -> [(ClusterRadioSpotPayload, String)] { Array(active.values) }
+    func recordCleanup() { lifecycle.append("cleanup") }
+    func lifecycleSnapshot() -> [String] { lifecycle }
+}
+
 @Suite("Portable live cluster worker bridge")
 struct LiveClusterMethodsTests {
     private func request(_ worker: LiveWorker, _ method: String, _ params: [String: Any] = [:]) async throws -> [String: Any] {
         let data = try JSONSerialization.data(withJSONObject: ["id": method, "method": method, "params": params])
         return try #require(JSONSerialization.jsonObject(with: await worker.response(to: data)) as? [String: Any])
+    }
+
+    @Test("Contest radio spots are scoped and carry the authoritative four-colour classification")
+    func contestRadioSpotPublication() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let configurationURL = root.appendingPathComponent("cluster.json")
+        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [], showWorkedBandModeSpots: true,
+                                                              forwardSpotsToFlex: true)).write(to: configurationURL)
+        let recorder = ClusterRadioSpotRecorder()
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let cluster = LiveClusterMethods(logbook: logbook, configurationURL: configurationURL,
+                                         vault: UnavailableClusterTestVault(),
+                                         forwardClassifiedIngressSpots: false,
+                                         spotForward: { payload, provider, replacing in
+            await recorder.forward(payload, provider: provider, replacing: replacing)
+        }, spotRemove: { payload, provider in
+            await recorder.remove(payload, provider: provider)
+        }, beforeContestSpotPublication: {
+            await recorder.recordCleanup()
+        })
+        let timestamp = Date().timeIntervalSinceReferenceDate
+        func row(_ id: String, _ call: String, frequency: Int64, band: String = "40m", mode: String = "SSB",
+                 points: Int = 3, dupe: Bool = false, multipliers: Int = 0,
+                 country: Bool = false, zone: Bool = false) -> [String: Any] {
+            ["spot_id": id, "callsign": call, "frequency_hz": frequency, "band": band, "mode": mode,
+             "spotter": "W1AW", "comment": "CQ TEST", "timestamp": timestamp, "points": points,
+             "dupe": dupe, "multiplier_count": multipliers,
+             "country_multiplier": country, "zone_multiplier": zone]
+        }
+        let sessionID = UUID().uuidString, generation = UUID().uuidString, publisherID = UUID().uuidString
+        var spots = [
+            row("double", "DL1AAA", frequency: 7_125_000, multipliers: 2, country: true, zone: true),
+            row("single", "K1BBB", frequency: 7_126_000, multipliers: 1, country: true),
+            row("qso", "VK1CCC", frequency: 7_127_000),
+            row("dupe", "JA1DDD", frequency: 7_128_000, points: 0, dupe: true),
+            row("off-band", "F1EEE", frequency: 14_215_000, band: "20m"),
+            row("wrong-mode", "G1FFF", frequency: 7_025_000, mode: "CW"),
+        ]
+        func publish(revision: Int, sequence: Int, action: String = "replace",
+                     session: String? = nil, workspace: String? = nil) async throws -> [String: Any] {
+            try await cluster.handle(method: "cluster_contest_radio_spots_publish", params: [
+                "publisher_id": publisherID, "publication_sequence": sequence, "action": action,
+                "publisher_started_at": 1_800_000_000_000,
+                "session_id": session ?? sessionID, "workspace_generation": workspace ?? generation, "revision": revision,
+                "configured_bands": ["40m"], "allowed_mode_groups": ["phone"],
+                "chunk_index": 0, "chunk_count": 1, "spots": action == "clear" ? [] : spots])
+        }
+        let first = try await publish(revision: 7, sequence: 1)
+        #expect(first["accepted"] as? Int == 4)
+        #expect(first["filtered"] as? Int == 2)
+        var delivered = await recorder.snapshot()
+        #expect(delivered.count == 4)
+        #expect(Dictionary(uniqueKeysWithValues: delivered.map { ($0.0.callsign, $0.0.colorHex) }) == [
+            "DL1AAA": "#00E51B", "K1BBB": "#FF5267", "VK1CCC": "#3DA5F4", "JA1DDD": "#AEB5B7"])
+        #expect(delivered.allSatisfy { $0.1 == "direct_agent" && $0.2 })
+        #expect(delivered.allSatisfy { $0.0.source == "xLog Contest" && $0.0.timestamp > 1_700_000_000 })
+        #expect(Array((await recorder.lifecycleSnapshot()).prefix(2)) == ["cleanup", "forward"])
+
+        let delayedOldPublisher = try await cluster.handle(method: "cluster_contest_radio_spots_publish", params: [
+            "publisher_id": UUID().uuidString, "publisher_started_at": 1_700_000_000_000,
+            "publication_sequence": 1, "action": "replace", "session_id": sessionID,
+            "workspace_generation": generation, "revision": 7, "configured_bands": ["40m"],
+            "allowed_mode_groups": ["phone"], "chunk_index": 0, "chunk_count": 1, "spots": spots])
+        #expect(delayedOldPublisher["stale"] as? Bool == true)
+
+        let unchanged = try await publish(revision: 7, sequence: 2)
+        #expect(unchanged["accepted"] as? Int == 0)
+        #expect(unchanged["unchanged"] as? Int == 4)
+        let afterUnchanged = await recorder.snapshot()
+        #expect(afterUnchanged.count == 4)
+
+        spots[0] = row("double", "DL1AAA", frequency: 7_125_000, points: 0, dupe: true)
+        let repainted = try await publish(revision: 8, sequence: 3)
+        #expect(repainted["accepted"] as? Int == 1)
+        #expect(repainted["removed"] as? Int == 1)
+        #expect(repainted["unchanged"] as? Int == 3)
+        delivered = await recorder.snapshot()
+        #expect(delivered.count == 5)
+        #expect(delivered.last?.0.colorHex == "#AEB5B7")
+        #expect((await recorder.removed()).map(\.0.callsign) == ["DL1AAA"])
+        let activeAfterQSO = await recorder.activeSnapshot()
+        #expect(activeAfterQSO.count == 4)
+        #expect(activeAfterQSO.filter { $0.0.callsign == "DL1AAA" }.map(\.0.colorHex) == ["#AEB5B7"])
+
+        let delayed = try await publish(revision: 7, sequence: 2)
+        #expect(delayed["stale"] as? Bool == true)
+        let nextSession = UUID().uuidString, nextGeneration = UUID().uuidString
+        let switched = try await publish(revision: 1, sequence: 4, session: nextSession, workspace: nextGeneration)
+        #expect(switched["removed"] as? Int == 4)
+        #expect(switched["accepted"] as? Int == 4)
+        let delayedOldSession = try await publish(revision: 8, sequence: 3)
+        #expect(delayedOldSession["stale"] as? Bool == true)
+        let wrongClear = try await publish(revision: 1, sequence: 5, action: "clear")
+        #expect(wrongClear["stale"] as? Bool == true)
+        let cleared = try await publish(revision: 1, sequence: 6, action: "clear",
+                                        session: nextSession, workspace: nextGeneration)
+        #expect(cleared["removed"] as? Int == 4)
+        #expect((await recorder.removed()).count == 9)
+        await cluster.terminate()
+    }
+
+    @Test("TCI callsign removal replays sibling frequencies before the new classification is admitted")
+    func contestTCICallsignReconciliation() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let configurationURL = root.appendingPathComponent("cluster.json")
+        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [], showWorkedBandModeSpots: true,
+                                                              forwardSpotsToTCI: true)).write(to: configurationURL)
+        let recorder = ClusterRadioSpotRecorder()
+        let cluster = LiveClusterMethods(logbook: LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false),
+                                         configurationURL: configurationURL, vault: UnavailableClusterTestVault(),
+                                         forwardClassifiedIngressSpots: false,
+                                         spotForward: { payload, provider, replacing in
+            await recorder.forward(payload, provider: provider, replacing: replacing)
+        }, spotRemove: { payload, provider in
+            await recorder.remove(payload, provider: provider)
+        })
+        let publisherID = UUID().uuidString, sessionID = UUID().uuidString, generation = UUID().uuidString
+        let timestamp = Date().timeIntervalSinceReferenceDate
+        func row(_ id: String, frequency: Int64, dupe: Bool, multipliers: Int) -> [String: Any] {
+            ["spot_id": id, "callsign": "DL1AAA", "frequency_hz": frequency, "band": "40m", "mode": "SSB",
+             "spotter": "W1AW", "comment": "CQ TEST", "timestamp": timestamp, "points": dupe ? 0 : 3,
+             "dupe": dupe, "multiplier_count": multipliers,
+             "country_multiplier": multipliers > 0, "zone_multiplier": multipliers > 1]
+        }
+        var spots = [row("primary", frequency: 7_125_000, dupe: false, multipliers: 2),
+                     row("sibling", frequency: 7_126_000, dupe: false, multipliers: 0)]
+        func publish(revision: Int, sequence: Int) async throws -> [String: Any] {
+            try await cluster.handle(method: "cluster_contest_radio_spots_publish", params: [
+                "publisher_id": publisherID, "publisher_started_at": 1_800_000_000_000,
+                "publication_sequence": sequence, "action": "replace", "session_id": sessionID,
+                "workspace_generation": generation, "revision": revision, "configured_bands": ["40m"],
+                "allowed_mode_groups": ["phone"], "chunk_index": 0, "chunk_count": 1, "spots": spots])
+        }
+        let first = try await publish(revision: 1, sequence: 1)
+        #expect(first["accepted"] as? Int == 2)
+        spots[0] = row("primary", frequency: 7_125_000, dupe: true, multipliers: 0)
+        let repainted = try await publish(revision: 2, sequence: 2)
+        #expect(repainted["removed"] as? Int == 2)
+        #expect(repainted["accepted"] as? Int == 2)
+        #expect((await recorder.removed()).count == 1)
+        let active = await recorder.activeSnapshot()
+        #expect(active.count == 2)
+        #expect(Dictionary(uniqueKeysWithValues: active.map { ($0.0.frequencyHz, $0.0.colorHex) }) == [
+            7_125_000: "#AEB5B7", 7_126_000: "#3DA5F4"])
+        await cluster.terminate()
+    }
+
+    @Test("Contest module suppresses the unfiltered ingress radio publisher")
+    func contestSuppressesRawIngressForwarding() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let configurationURL = root.appendingPathComponent("cluster.json")
+        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [
+            .init(name: "Fixture", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX")
+        ], requestRecentSpotsOnConnect: false, forwardSpotsToFlex: true)).write(to: configurationURL)
+        let fixture = WorkerClusterFixture(), recorder = ClusterRadioSpotRecorder()
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let cluster = LiveClusterMethods(logbook: logbook, configurationURL: configurationURL,
+                                         vault: UnavailableClusterTestVault(),
+                                         transportFactory: { _, _, _, _, state, line in
+            fixture.callbacks(state: state, line: line); return fixture
+        }, forwardClassifiedIngressSpots: false, spotForward: { payload, provider, replacing in
+            await recorder.forward(payload, provider: provider, replacing: replacing)
+        })
+        _ = try await cluster.handle(method: "cluster_connect", params: [:])
+        fixture.emit("DX de W1AW: 7125.0 DL1AAA SSB CQ TEST")
+        try await Task.sleep(for: .milliseconds(50))
+        let delivered = await recorder.snapshot()
+        #expect(delivered.isEmpty)
+        await cluster.terminate()
     }
 
     @Test("RBN source filtering does not change the live skimmer subscription")

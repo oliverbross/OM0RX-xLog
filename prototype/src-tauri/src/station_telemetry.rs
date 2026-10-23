@@ -30,7 +30,8 @@ pub fn changes_radio(request: &Value) -> bool {
                 | "station_radio"
                 | "station_capabilities"
                 | "station_configuration"
-                | "station_add_spot"
+        | "station_add_spot"
+        | "station_remove_spot"
         );
     }
     request["params"]["device"] == "radio"

@@ -233,7 +233,9 @@ public actor LiveWorker {
         #if os(macOS)
         references = LiveReferenceMethods(logbook: logbook)
         #endif
-        let cluster = cluster ?? (logbook === LiveLogbookMethods.shared ? .shared : LiveClusterMethods(logbook: logbook))
+        let cluster = cluster ?? (logbook === LiveLogbookMethods.shared && operatingModule == .normalLogging
+            ? .shared : LiveClusterMethods(logbook: logbook,
+                                           forwardClassifiedIngressSpots: operatingModule == .normalLogging))
         self.cluster = cluster
         self.contactRefresher = contactRefresher ?? { try await cluster.refreshContacts() }
         let opportunityMethods = LiveOpportunitiesMethods(logbook: logbook, clusterSpots: { await cluster.currentSpotRowsIfStarted() })

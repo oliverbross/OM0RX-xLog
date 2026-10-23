@@ -40,7 +40,25 @@ final class SpotIngressGate: @unchecked Sendable {
 /// A reservation is rolled back on rejected or uncertain delivery; success
 /// means a matching Remote Agent ACK, never visual confirmation on the radio.
 actor SpotForwardBroker {
-    static let shared = SpotForwardBroker { spot, provider in
+    private struct InventoryEntry: Codable, Equatable {
+        let provider: String
+        let radioID: String
+        let callsign: String
+        let frequencyHz: Int64
+        let owner: String
+        let acceptedAt: TimeInterval
+
+        var key: String { "\(provider)|\(radioID)|\(callsign)|\(frequencyHz)" }
+    }
+    private struct InventoryDocument: Codable {
+        let version: Int
+        var spots: [InventoryEntry]
+    }
+
+    private static let defaultInventoryURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("OM0RX-xLog Integration Services", isDirectory: true)
+        .appendingPathComponent("forwarded-radio-spots.json")
+    static let shared = SpotForwardBroker(inventoryURL: defaultInventoryURL, targetedDeliver: { spot, provider, preferredRadioID in
         let payload: [String: Any] = [
             "frequency_hz": spot.frequencyHz, "callsign": spot.callsign,
             "mode": spot.mode, "source": spot.source, "spotter": spot.spotter,
@@ -49,7 +67,7 @@ actor SpotForwardBroker {
             "color_hex": spot.colorHex
         ]
         var lastError: Error?
-        for radioID in ["radio1", "radio2"] {
+        for radioID in preferredRadioID.map({ [$0] }) ?? ["radio1", "radio2"] {
             do {
                 let result = try await LiveStationMethods.handle("station_add_spot", params: [
                     "provider": provider, "radio_id": radioID, "spot": payload
@@ -57,26 +75,59 @@ actor SpotForwardBroker {
                 guard result["accepted"] as? Bool == true else {
                     throw WorkerFailure("station_rejected", "The selected radio did not accept the spot.")
                 }
-                return
+                return radioID
             } catch { lastError = error }
         }
         throw lastError ?? WorkerFailure("station_rejected", "No configured radio accepted the spot.")
+    }, targetedRemove: { spot, provider, acceptedRadioID in
+        guard let radioID = acceptedRadioID else {
+            throw WorkerFailure("station_rejected", "The accepted radio identity for this xLog spot is unavailable.")
+        }
+        let result = try await LiveStationMethods.handle("station_remove_spot", params: [
+            "provider": provider, "radio_id": radioID,
+            "callsign": spot.callsign, "frequency_hz": spot.frequencyHz,
+        ])
+        guard result["accepted"] as? Bool == true else {
+            throw WorkerFailure("station_rejected", "The selected radio did not remove the spot.")
+        }
+    })
+
+    private let deliver: @Sendable (FlexSpot, String, String?) async throws -> String?
+    private let removeDelivery: @Sendable (FlexSpot, String, String?) async throws -> Void
+    private let inventoryURL: URL?
+    private var accepted: [String: (at: Date, priority: Int, radioID: String?)] = [:]
+    private var recentRemovalTargets: [String: (radioID: String, at: Date)] = [:]
+    private var pending: Set<String> = []
+    private var pendingWaiters: [String: [CheckedContinuation<Void, Never>]] = [:]
+
+    init(deliver: @escaping @Sendable (FlexSpot, String) async throws -> Void,
+         remove: @escaping @Sendable (FlexSpot, String) async throws -> Void = { _, _ in
+             throw WorkerFailure("station_action_blocked", "This spot transport does not support removal.")
+         }) {
+        self.inventoryURL = nil
+        self.deliver = { spot, provider, _ in try await deliver(spot, provider); return nil }
+        self.removeDelivery = { spot, provider, _ in try await remove(spot, provider) }
     }
 
-    private let deliver: @Sendable (FlexSpot, String) async throws -> Void
-    private var accepted: [String: (at: Date, priority: Int)] = [:]
-    private var pending: Set<String> = []
-
-    init(deliver: @escaping @Sendable (FlexSpot, String) async throws -> Void) {
-        self.deliver = deliver
+    init(inventoryURL: URL,
+         targetedDeliver: @escaping @Sendable (FlexSpot, String, String?) async throws -> String,
+         targetedRemove: @escaping @Sendable (FlexSpot, String, String?) async throws -> Void) {
+        self.inventoryURL = inventoryURL
+        self.deliver = targetedDeliver
+        self.removeDelivery = targetedRemove
     }
 
     init(deliver: @escaping @Sendable (FlexSpot) async throws -> Void) {
-        self.deliver = { spot, _ in try await deliver(spot) }
+        self.inventoryURL = nil
+        self.deliver = { spot, _, _ in try await deliver(spot); return nil }
+        self.removeDelivery = { _, _, _ in
+            throw WorkerFailure("station_action_blocked", "This spot transport does not support removal.")
+        }
     }
 
     /// Returns false for a duplicate or an already-pending matching spot.
-    func forward(_ spot: FlexSpot, provider: String = "direct_agent", now: Date = Date()) async throws -> Bool {
+    func forward(_ spot: FlexSpot, provider: String = "direct_agent", now: Date = Date(),
+                 replacingExisting: Bool = false) async throws -> Bool {
         let key = "\(provider)|\(spot.callsign)|\(spot.frequencyHz)"
         accepted = accepted.filter { now.timeIntervalSince($0.value.at) < 180 }
         if accepted.count >= 4_096 {
@@ -84,7 +135,23 @@ actor SpotForwardBroker {
                 accepted.removeValue(forKey: old.key)
             }
         }
+        // Contest scoring can change a retained spot from multiplier to QSO or
+        // dupe without changing its callsign/frequency. The contest publisher
+        // owns its own unchanged-signature fence, so an explicitly changed
+        // classification must be allowed to repaint the radio spot.
+        let recentRemoval = recentRemovalTargets.removeValue(forKey: key)
+        var preferredRadioID = accepted[key]?.radioID ?? recentRemoval.flatMap {
+            now.timeIntervalSince($0.at) < 30 ? $0.radioID : nil
+        }
+        if replacingExisting {
+            while pending.contains(key) {
+                await withCheckedContinuation { pendingWaiters[key, default: []].append($0) }
+            }
+            preferredRadioID = accepted[key]?.radioID ?? preferredRadioID
+            accepted.removeValue(forKey: key)
+        }
         if let prior = accepted[key], prior.priority >= spot.priority { return false }
+        preferredRadioID = accepted[key]?.radioID ?? preferredRadioID
         guard pending.count < 256 else {
             throw WorkerFailure("spot_broker_busy", "Spot forwarding is busy; retry after the current deliveries settle.")
         }
@@ -92,15 +159,137 @@ actor SpotForwardBroker {
         // is in flight is deliberately suppressed, never reported as accepted.
         // A repeated higher-priority spot after ACK replaces the lower style.
         guard pending.insert(key).inserted else { return false }
-        defer { pending.remove(key) }
-        try await deliver(spot, provider)
-        accepted[key] = (now, spot.priority)
+        defer { finishPending(key) }
+        let radioID = try await deliver(spot, provider, preferredRadioID)
+        accepted[key] = (now, spot.priority, radioID)
+        if let radioID {
+            do { try persistAccepted(spot, provider: provider, radioID: radioID, acceptedAt: now) }
+            catch {
+                accepted.removeValue(forKey: key)
+                try? await removeDelivery(spot, provider, radioID)
+                throw error
+            }
+        }
         if accepted.count > 4_096 {
             for old in accepted.sorted(by: { $0.value.at < $1.value.at }).prefix(1_024) {
                 accepted.removeValue(forKey: old.key)
             }
         }
         return true
+    }
+
+    func remove(_ spot: FlexSpot, provider: String = "direct_agent") async throws -> Bool {
+        let key = "\(provider)|\(spot.callsign)|\(spot.frequencyHz)"
+        while pending.contains(key) {
+            await withCheckedContinuation { pendingWaiters[key, default: []].append($0) }
+        }
+        guard pending.count < 256 else {
+            throw WorkerFailure("spot_broker_busy", "Spot forwarding is busy; retry after the current deliveries settle.")
+        }
+        guard pending.insert(key).inserted else { return false }
+        defer { finishPending(key) }
+        let radioID: String?
+        if let acceptedRadioID = accepted[key]?.radioID { radioID = acceptedRadioID }
+        else { radioID = try persistedRadioID(for: spot, provider: provider) }
+        try await removeDelivery(spot, provider, radioID)
+        accepted.removeValue(forKey: key)
+        if let radioID {
+            recentRemovalTargets[key] = (radioID, Date())
+            if recentRemovalTargets.count > 4_096 { recentRemovalTargets.removeAll(keepingCapacity: true) }
+            try removePersisted(spot, provider: provider, radioID: radioID)
+        }
+        return true
+    }
+
+    /// Contest startup invokes this before publishing its first authoritative
+    /// snapshot. Only exact spots previously accepted from xLog's Normal
+    /// Logging owner are withdrawn; third-party and contest-owned spots are not
+    /// addressed.
+    func withdrawNormalForwardedSpots() async throws -> Int {
+        var document = try loadInventory()
+        let normal = document.spots.filter { $0.owner == "normal_logging" }
+        guard !normal.isEmpty else { return 0 }
+        var removedKeys = Set<String>(), firstFailure: Error?
+        for entry in normal {
+            do {
+                let spot = try FlexSpot(frequencyHz: entry.frequencyHz, callsign: entry.callsign, mode: "CW",
+                                        source: "xLog module transition", spotter: "", comment: "",
+                                        timestamp: Int64(Date().timeIntervalSince1970), lifetimeSeconds: 600,
+                                        priority: 1, colorHex: "#AEB5B7")
+                try await removeDelivery(spot, entry.provider, entry.radioID)
+                removedKeys.insert(entry.key)
+                accepted.removeValue(forKey: "\(entry.provider)|\(entry.callsign)|\(entry.frequencyHz)")
+            } catch {
+                if firstFailure == nil { firstFailure = error }
+            }
+        }
+        if !removedKeys.isEmpty {
+            document.spots.removeAll { removedKeys.contains($0.key) }
+            try saveInventory(document)
+        }
+        if let firstFailure { throw firstFailure }
+        return removedKeys.count
+    }
+
+    private func finishPending(_ key: String) {
+        pending.remove(key)
+        let waiters = pendingWaiters.removeValue(forKey: key) ?? []
+        for waiter in waiters { waiter.resume() }
+    }
+
+    private func loadInventory() throws -> InventoryDocument {
+        guard let inventoryURL else { return InventoryDocument(version: 1, spots: []) }
+        let data: Data
+        do { data = try Data(contentsOf: inventoryURL, options: [.mappedIfSafe]) }
+        catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return InventoryDocument(version: 1, spots: [])
+        }
+        guard data.count <= 1_048_576,
+              let document = try? JSONDecoder().decode(InventoryDocument.self, from: data),
+              document.version == 1, document.spots.count <= 4_096,
+              document.spots.allSatisfy({ ["direct_agent", "direct_tci"].contains($0.provider)
+                  && ["radio1", "radio2"].contains($0.radioID)
+                  && !$0.callsign.isEmpty && $0.callsign.utf8.count <= 32
+                  && (100_000...60_000_000).contains($0.frequencyHz)
+                  && ["normal_logging", "contesting"].contains($0.owner)
+                  && $0.acceptedAt.isFinite }) else {
+            throw WorkerFailure("spot_inventory_invalid", "The xLog radio spot inventory is invalid; no radio spots were removed.")
+        }
+        return document
+    }
+
+    private func saveInventory(_ document: InventoryDocument) throws {
+        guard let inventoryURL else { return }
+        try FileManager.default.createDirectory(at: inventoryURL.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        try JSONEncoder().encode(document).write(to: inventoryURL, options: [.atomic])
+    }
+
+    private func persistAccepted(_ spot: FlexSpot, provider: String, radioID: String, acceptedAt: Date) throws {
+        var document = try loadInventory()
+        let owner = spot.source == "xLog Contest" ? "contesting" : "normal_logging"
+        let entry = InventoryEntry(provider: provider, radioID: radioID, callsign: spot.callsign,
+                                   frequencyHz: spot.frequencyHz, owner: owner,
+                                   acceptedAt: acceptedAt.timeIntervalSince1970)
+        document.spots.removeAll { $0.provider == provider && $0.callsign == spot.callsign && $0.frequencyHz == spot.frequencyHz }
+        document.spots.append(entry)
+        if document.spots.count > 4_096 {
+            document.spots.sort { $0.acceptedAt < $1.acceptedAt }
+            document.spots.removeFirst(document.spots.count - 4_096)
+        }
+        try saveInventory(document)
+    }
+
+    private func persistedRadioID(for spot: FlexSpot, provider: String) throws -> String? {
+        try loadInventory().spots.last { $0.provider == provider && $0.callsign == spot.callsign
+            && $0.frequencyHz == spot.frequencyHz }?.radioID
+    }
+
+    private func removePersisted(_ spot: FlexSpot, provider: String, radioID: String) throws {
+        var document = try loadInventory()
+        document.spots.removeAll { $0.provider == provider && $0.radioID == radioID
+            && $0.callsign == spot.callsign && $0.frequencyHz == spot.frequencyHz }
+        try saveInventory(document)
     }
 
     func cacheSizeForTesting() -> Int { accepted.count }

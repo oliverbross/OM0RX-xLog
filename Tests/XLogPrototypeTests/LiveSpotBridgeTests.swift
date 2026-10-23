@@ -54,6 +54,23 @@ final class LiveSpotBridgeTests: XCTestCase {
         XCTAssertEqual(count, 2)
     }
 
+    func testContestClassificationCanRepaintAnAcceptedSpot() async throws {
+        let recorder = ProviderRecorder()
+        let broker = SpotForwardBroker { spot, _ in await recorder.record(spot.colorHex) }
+        let multiplier = try spot(priority: 5)
+        let dupe = try FlexSpot(frequencyHz: multiplier.frequencyHz, callsign: multiplier.callsign,
+                                 mode: multiplier.mode, source: "xLog Contest", spotter: multiplier.spotter,
+                                 comment: multiplier.comment, timestamp: multiplier.timestamp,
+                                 lifetimeSeconds: multiplier.lifetimeSeconds, priority: 2,
+                                 colorHex: "#AEB5B7")
+        let first = try await broker.forward(multiplier, replacingExisting: true)
+        let second = try await broker.forward(dupe, replacingExisting: true)
+        let colors = await recorder.value()
+        XCTAssertTrue(first)
+        XCTAssertTrue(second)
+        XCTAssertEqual(colors, ["#FF453A", "#AEB5B7"])
+    }
+
     func testBrokerRoutesSameSpotIndependentlyToFlexAndTCI() async throws {
         let recorder = ProviderRecorder()
         let broker = SpotForwardBroker { _, provider in await recorder.record(provider) }
@@ -80,22 +97,109 @@ final class LiveSpotBridgeTests: XCTestCase {
         XCTAssertEqual(count, 2)
     }
 
-    func testHigherPriorityDuringPendingIsNotMisreportedAndCanUpgradeLater() async throws {
+    func testReplacementWaitsForPendingDeliveryAndCannotLoseTheNewClassification() async throws {
         let gate = GatedDelivery()
         let broker = SpotForwardBroker { _ in await gate.deliver() }
         let low = try spot(priority: 1)
         let high = try spot(priority: 5)
         let first = Task { try await broker.forward(low) }
         await gate.waitStarted()
-        let pendingUpgrade = try await broker.forward(high)
-        XCTAssertFalse(pendingUpgrade, "Pending higher-priority spot was not ACKed")
+        let pendingUpgrade = Task { try await broker.forward(high, replacingExisting: true) }
+        try await Task.sleep(for: .milliseconds(20))
+        let beforeRelease = await gate.value()
+        XCTAssertEqual(beforeRelease, 1, "Replacement must wait behind the in-flight delivery")
         await gate.release()
         let firstAccepted = try await first.value
+        let acceptedUpgrade = try await pendingUpgrade.value
         XCTAssertTrue(firstAccepted)
-        let acceptedUpgrade = try await broker.forward(high)
         let deliveredCount = await gate.value()
         XCTAssertTrue(acceptedUpgrade)
         XCTAssertEqual(deliveredCount, 2)
+    }
+
+    func testRemovalWaitsForPendingDeliveryAndUsesTheSameIdentity() async throws {
+        let gate = GatedDelivery(), removed = ProviderRecorder()
+        let broker = SpotForwardBroker(deliver: { _, _ in await gate.deliver() },
+                                       remove: { spot, _ in await removed.record("\(spot.callsign)|\(spot.frequencyHz)") })
+        let value = try spot()
+        let first = Task { try await broker.forward(value) }
+        await gate.waitStarted()
+        let removal = Task { try await broker.remove(value) }
+        try await Task.sleep(for: .milliseconds(20))
+        let beforeRelease = await removed.value()
+        XCTAssertTrue(beforeRelease.isEmpty)
+        await gate.release()
+        let forwarded = try await first.value
+        let wasRemoved = try await removal.value
+        let identities = await removed.value()
+        XCTAssertTrue(forwarded)
+        XCTAssertTrue(wasRemoved)
+        XCTAssertEqual(identities, ["K1ABC|14074000"])
+    }
+
+    func testRepaintRemovesAndReaddsOnTheRadioThatAcceptedTheOriginalSpot() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-target-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let routing = TargetedSpotRouting(radio1Available: false)
+        let broker = SpotForwardBroker(inventoryURL: directory.appendingPathComponent("spots.json"),
+            targetedDeliver: { spot, provider, preferred in
+                try await routing.add(spot: spot, provider: provider, preferred: preferred)
+            }, targetedRemove: { spot, provider, radioID in
+                try await routing.remove(spot: spot, provider: provider, radioID: radioID)
+            })
+        let original = try spot(priority: 5, source: "xLog Contest")
+        let originalAccepted = try await broker.forward(original, replacingExisting: true)
+        XCTAssertTrue(originalAccepted)
+        await routing.setRadio1Available(true)
+        let originalRemoved = try await broker.remove(original)
+        XCTAssertTrue(originalRemoved)
+        let grey = try FlexSpot(frequencyHz: original.frequencyHz, callsign: original.callsign, mode: original.mode,
+                                source: "xLog Contest", spotter: original.spotter, comment: original.comment,
+                                timestamp: original.timestamp, lifetimeSeconds: original.lifetimeSeconds,
+                                priority: 1, colorHex: "#AEB5B7")
+        let greyAccepted = try await broker.forward(grey, replacingExisting: true)
+        XCTAssertTrue(greyAccepted)
+        let repaintEvents = await routing.events()
+        XCTAssertEqual(repaintEvents, [
+            "add:direct_agent:radio2:K1ABC:14074000",
+            "remove:direct_agent:radio2:K1ABC:14074000",
+            "add:direct_agent:radio2:K1ABC:14074000",
+        ])
+    }
+
+    func testContestTransitionWithdrawsOnlyPersistedNormalSpotsBeforePublishing() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-transition-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let inventoryURL = directory.appendingPathComponent("spots.json"), routing = TargetedSpotRouting(radio1Available: false)
+        let normal = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { spot, provider, preferred in
+            try await routing.add(spot: spot, provider: provider, preferred: preferred)
+        }, targetedRemove: { spot, provider, radioID in
+            try await routing.remove(spot: spot, provider: provider, radioID: radioID)
+        })
+        let offBandCW = try spot(priority: 3, source: "xLog xCluster")
+        let normalAccepted = try await normal.forward(offBandCW)
+        XCTAssertTrue(normalAccepted)
+
+        let contest = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { spot, provider, preferred in
+            try await routing.add(spot: spot, provider: provider, preferred: preferred)
+        }, targetedRemove: { spot, provider, radioID in
+            try await routing.remove(spot: spot, provider: provider, radioID: radioID)
+        })
+        let withdrawn = try await contest.withdrawNormalForwardedSpots()
+        XCTAssertEqual(withdrawn, 1)
+        await routing.setRadio1Available(true)
+        let contestSpot = try FlexSpot(frequencyHz: 7_125_000, callsign: "DL1AAA", mode: "SSB",
+                                       source: "xLog Contest", spotter: "W1AW", comment: "CQ TEST",
+                                       timestamp: Int64(Date().timeIntervalSince1970), lifetimeSeconds: 600,
+                                       priority: 5, colorHex: "#00E51B")
+        let contestAccepted = try await contest.forward(contestSpot, replacingExisting: true)
+        XCTAssertTrue(contestAccepted)
+        let transitionEvents = await routing.events()
+        XCTAssertEqual(transitionEvents, [
+            "add:direct_agent:radio2:K1ABC:14074000",
+            "remove:direct_agent:radio2:K1ABC:14074000",
+            "add:direct_agent:radio1:DL1AAA:7125000",
+        ])
     }
 
     func testAcceptedDedupeCacheIsBoundedUnderManyDistinctSpots() async throws {
@@ -390,6 +494,28 @@ private actor GatedDelivery {
     }
     func release() { firstContinuation?.resume(); firstContinuation = nil }
     func value() -> Int { count }
+}
+
+private actor TargetedSpotRouting {
+    private var radio1Available: Bool
+    private var recorded: [String] = []
+    init(radio1Available: Bool) { self.radio1Available = radio1Available }
+    func setRadio1Available(_ available: Bool) { radio1Available = available }
+    func add(spot: FlexSpot, provider: String, preferred: String?) throws -> String {
+        let radioID: String
+        if let preferred {
+            radioID = preferred
+        } else {
+            radioID = radio1Available ? "radio1" : "radio2"
+        }
+        recorded.append("add:\(provider):\(radioID):\(spot.callsign):\(spot.frequencyHz)")
+        return radioID
+    }
+    func remove(spot: FlexSpot, provider: String, radioID: String?) throws {
+        guard let radioID else { throw NSError(domain: "missing-radio", code: 1) }
+        recorded.append("remove:\(provider):\(radioID):\(spot.callsign):\(spot.frequencyHz)")
+    }
+    func events() -> [String] { recorded }
 }
 
 private final class FakeSpotReceiver: SpotDatagramReceiving, @unchecked Sendable {

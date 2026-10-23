@@ -238,7 +238,7 @@ actor LiveStationSession {
                                         "station_forget", "station_configuration", "station_configuration_save",
                                         "station_radio_control", "station_rotor_snapshot", "station_rotor_connect",
                                         "station_rotor_disconnect", "station_rotor_goto", "station_rotor_stop",
-                                        "station_add_spot", "station_cat_servers"]
+                                        "station_add_spot", "station_remove_spot", "station_cat_servers"]
 
     func handle(_ method: String, params: [String: Any]) async throws -> [String: Any] {
         try requireActive()
@@ -502,6 +502,29 @@ actor LiveStationSession {
                         "source": "direct_agent", "state": await snapshot()]
             } catch {
                 throw WorkerFailure("station_rejected", "The Remote Station Agent rejected the FLEX spot.")
+            }
+
+        case "station_remove_spot":
+            try requireKeys(params, allowed: ["provider", "callsign", "frequency_hz"])
+            guard let frequency = try Self.integer(params["frequency_hz"]),
+                  (100_000...60_000_000).contains(frequency),
+                  let callsign = Self.spotText(params["callsign"], maximum: 32, required: true) else {
+                throw Self.invalidParams()
+            }
+            try await ensureExclusiveWriter()
+            guard let client else { throw WorkerFailure("station_unavailable", "Connect to the Remote Station Agent first.") }
+            let observed = await client.observedSnapshot()
+            try requireActive()
+            guard observed.isConnected,
+                  observed.remoteStationStatus?.supportedCommands.contains("remove_spot") == true else {
+                throw WorkerFailure("station_action_blocked", "The agent does not advertise FLEX spot removal.")
+            }
+            do {
+                try await client.removeSpot(callsign: callsign, frequencyHz: frequency)
+                return ["accepted": true, "confirmed": false, "action": "remove_spot",
+                        "source": "direct_agent", "state": await snapshot()]
+            } catch {
+                throw WorkerFailure("station_rejected", "The Remote Station Agent rejected FLEX spot removal.")
             }
 
         default:

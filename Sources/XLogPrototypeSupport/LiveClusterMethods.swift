@@ -17,6 +17,68 @@ protocol ClusterCredentialStoring: Sendable {
     func save(_ password: String, serverID: UUID) throws
 }
 
+struct ClusterRadioSpotPayload: Equatable, Sendable {
+    let frequencyHz: Int64
+    let callsign: String
+    let mode: String
+    let source: String
+    let spotter: String
+    let comment: String
+    let timestamp: Int64
+    let lifetimeSeconds: Int
+    let priority: Int
+    let colorHex: String
+
+    #if os(macOS)
+    func flexSpot() throws -> FlexSpot {
+        try FlexSpot(frequencyHz: frequencyHz, callsign: callsign, mode: mode, source: source,
+                     spotter: spotter, comment: comment, timestamp: timestamp,
+                     lifetimeSeconds: lifetimeSeconds, priority: priority, colorHex: colorHex)
+    }
+    #endif
+}
+
+private struct ContestRadioSpotInput: Decodable {
+    let spotID: String
+    let callsign: String
+    let frequencyHz: Int64
+    let band: String
+    let mode: String
+    let spotter: String
+    let comment: String
+    let timestamp: Double
+    let points: Int?
+    let dupe: Bool?
+    let multiplierCount: Int?
+    let countryMultiplier: Bool?
+    let zoneMultiplier: Bool?
+
+    private enum CodingKeys: String, CodingKey {
+        case spotID = "spot_id", callsign, frequencyHz = "frequency_hz", band, mode, spotter, comment, timestamp
+        case points, dupe, multiplierCount = "multiplier_count"
+        case countryMultiplier = "country_multiplier", zoneMultiplier = "zone_multiplier"
+    }
+}
+
+private struct ContestRadioPublicationAccumulator {
+    let publisherID: String
+    let sequence: Int
+    let sessionID: String
+    let workspaceGeneration: String
+    let revision: Int
+    let action: String
+    let configuredBands: [String]
+    let allowedModeGroups: [String]
+    let chunkCount: Int
+    var chunks: [Int: [ContestRadioSpotInput]]
+}
+
+private struct ContestForwardedRadioSpot {
+    let spotID: String
+    let payload: ClusterRadioSpotPayload
+    let signature: String
+}
+
 /// Serializes and memoizes secure-store reads for the worker lifetime. Cluster
 /// snapshots are renderer-polled, so a missing or denied item must not cause a
 /// fresh Security.framework request on every snapshot.
@@ -76,6 +138,20 @@ public actor LiveClusterMethods {
     private var contactRefreshState = "not_loaded"
     private var contactRefreshError: String?
     private let beforeContactPublication: (@Sendable () async throws -> Void)?
+    private let forwardClassifiedIngressSpots: Bool
+    private let spotForward: @Sendable (ClusterRadioSpotPayload, String, Bool) async throws -> Bool
+    private let spotRemove: @Sendable (ClusterRadioSpotPayload, String) async throws -> Bool
+    private let beforeContestSpotPublication: @Sendable () async throws -> Void
+    private var withdrewNormalRadioSpots = false
+    private var contestPublisherID: String?
+    private var contestPublisherStartedAt = 0
+    private var contestPublisherSequence = 0
+    private var retiredContestPublisherIDs: [String] = []
+    private var contestPublication: ContestRadioPublicationAccumulator?
+    private var contestForwardIdentity: (sessionID: String, workspaceGeneration: String)?
+    private var contestAppliedIdentity: (sessionID: String, workspaceGeneration: String)?
+    private var contestForwardRevision = -1
+    private var contestForwardedSpots: [String: ContestForwardedRadioSpot] = [:]
     private var history: LiveSpotHistoryMethods?
     private enum ResumeIntent: String, Codable { case automatic, connected, disconnected }
     private struct ResumeRecord: Codable { let version: Int; let intent: ResumeIntent }
@@ -97,11 +173,40 @@ public actor LiveClusterMethods {
          transportFactory: @escaping ClusterTransportFactory = { server, password, reconnect, skimmer, state, line in
              makeClusterTCPTransport(server: server, password: password, reconnect: reconnect,
                                      requestSkimmer: skimmer, onState: state, onLine: line)
-         }, beforeContactPublication: (@Sendable () async throws -> Void)? = nil) {
+         }, beforeContactPublication: (@Sendable () async throws -> Void)? = nil,
+         forwardClassifiedIngressSpots: Bool = true,
+         spotForward: @escaping @Sendable (ClusterRadioSpotPayload, String, Bool) async throws -> Bool = { payload, provider, replacing in
+             #if os(macOS)
+             return try await SpotForwardBroker.shared.forward(try payload.flexSpot(), provider: provider,
+                                                               replacingExisting: replacing)
+             #else
+             return false
+             #endif
+         }, spotRemove: @escaping @Sendable (ClusterRadioSpotPayload, String) async throws -> Bool = { payload, provider in
+             #if os(macOS)
+             return try await SpotForwardBroker.shared.remove(try payload.flexSpot(), provider: provider)
+             #else
+             return false
+             #endif
+         }, beforeContestSpotPublication: (@Sendable () async throws -> Void)? = nil) {
         self.logbook = logbook
         self.vault = CachedClusterCredentialStore(base: vault)
         self.transportFactory = transportFactory
         self.beforeContactPublication = beforeContactPublication
+        self.forwardClassifiedIngressSpots = forwardClassifiedIngressSpots
+        self.spotForward = spotForward
+        self.spotRemove = spotRemove
+        if let beforeContestSpotPublication {
+            self.beforeContestSpotPublication = beforeContestSpotPublication
+        } else if logbook === LiveLogbookMethods.shared {
+            self.beforeContestSpotPublication = {
+                #if os(macOS)
+                _ = try await SpotForwardBroker.shared.withdrawNormalForwardedSpots()
+                #endif
+            }
+        } else {
+            self.beforeContestSpotPublication = {}
+        }
         self.configurationURL = configurationURL ?? (logbook === LiveLogbookMethods.shared
             ? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                 .appendingPathComponent("OM0RX-xLog Integration Services/cluster.json")
@@ -136,6 +241,8 @@ public actor LiveClusterMethods {
         defer { if mutatesConfiguration { endConfigurationMutation() } }
         try requireRunning()
         switch method {
+        case "cluster_contest_radio_spots_publish":
+            return try await publishContestRadioSpots(params)
         case "cluster_resume_initialize":
             try require(params, allowed: ["intent"])
             let intent: ResumeIntent?
@@ -484,7 +591,8 @@ public actor LiveClusterMethods {
 
     private func forwardSpotIfEnabled(_ spot: ClassifiedClusterSpot, generation: UUID) async {
         #if os(macOS)
-        guard let config = configuration,
+        guard forwardClassifiedIngressSpots,
+              let config = configuration,
               config.forwardSpotsToFlex || config.forwardSpotsToTCI,
               let service,
               await service.isVisibleSpot(spot.id, in: generation) else { return }
@@ -492,42 +600,303 @@ public actor LiveClusterMethods {
         let frequencyHz = Int64((spot.frequencyKHz * 1_000).rounded())
         guard (100_000...60_000_000).contains(frequencyHz),
               abs(now.timeIntervalSince(spot.receivedAt)) < 86_400 else { return }
-        do {
-            let flexSpot = try FlexSpot(frequencyHz: frequencyHz, callsign: spot.callsign,
-                                        mode: spot.mode, source: "xLog xCluster", spotter: spot.spotter,
-                                        comment: spot.comment,
-                                        timestamp: Int64(spot.receivedAt.timeIntervalSince1970),
-                                        lifetimeSeconds: 600, priority: 3,
-                                        colorHex: radioSpotColor(for: spot))
-            guard !flexSpot.mode.isEmpty else { return }
-            let destinations = [(config.forwardSpotsToFlex, "direct_agent"), (config.forwardSpotsToTCI, "direct_tci")]
-            for (enabled, provider) in destinations where enabled {
-                let retryAfter = provider == "direct_agent" ? flexForwardRetryAfter : tciForwardRetryAfter
-                guard now >= retryAfter else { continue }
-                do {
-                    if try await SpotForwardBroker.shared.forward(flexSpot, provider: provider) {
-                        forwardAcceptedCount += 1
-                        if provider == "direct_agent" {
-                            flexForwardStatus = "Accepted by Remote Station Agent; FLEX/Maestro display is not verified."
-                        } else {
-                            tciForwardStatus = "Sent through TCI; SunSDR display is not verified."
-                        }
-                    }
-                } catch {
+        let payload = ClusterRadioSpotPayload(frequencyHz: frequencyHz, callsign: spot.callsign,
+                                              mode: spot.mode, source: "xLog xCluster", spotter: spot.spotter,
+                                              comment: spot.comment,
+                                              timestamp: Int64(spot.receivedAt.timeIntervalSince1970),
+                                              lifetimeSeconds: 600, priority: 3,
+                                              colorHex: radioSpotColor(for: spot))
+        guard !payload.mode.isEmpty else { return }
+        let destinations = [(config.forwardSpotsToFlex, "direct_agent"), (config.forwardSpotsToTCI, "direct_tci")]
+        for (enabled, provider) in destinations where enabled {
+            let retryAfter = provider == "direct_agent" ? flexForwardRetryAfter : tciForwardRetryAfter
+            guard now >= retryAfter else { continue }
+            do {
+                if try await spotForward(payload, provider, false) {
+                    forwardAcceptedCount += 1
                     if provider == "direct_agent" {
-                        flexForwardStatus = "FLEX forwarding failed: \(error.localizedDescription)"
-                        flexForwardRetryAfter = now.addingTimeInterval(60)
+                        flexForwardStatus = "Accepted by Remote Station Agent; FLEX/Maestro display is not verified."
                     } else {
-                        tciForwardStatus = "TCI forwarding failed: \(error.localizedDescription)"
-                        tciForwardRetryAfter = now.addingTimeInterval(60)
+                        tciForwardStatus = "Sent through TCI; SunSDR display is not verified."
                     }
                 }
+            } catch {
+                if provider == "direct_agent" {
+                    flexForwardStatus = "FLEX forwarding failed: \(error.localizedDescription)"
+                    flexForwardRetryAfter = now.addingTimeInterval(60)
+                } else {
+                    tciForwardStatus = "TCI forwarding failed: \(error.localizedDescription)"
+                    tciForwardRetryAfter = now.addingTimeInterval(60)
+                }
             }
-        } catch {
-            if config.forwardSpotsToFlex { flexForwardStatus = "Radio spot rejected: \(error.localizedDescription)" }
-            if config.forwardSpotsToTCI { tciForwardStatus = "Radio spot rejected: \(error.localizedDescription)" }
         }
         #endif
+    }
+
+    private func publishContestRadioSpots(_ params: [String: Any]) async throws -> [String: Any] {
+        try require(params, allowed: ["publisher_id", "publisher_started_at", "publication_sequence", "action", "session_id",
+                                      "workspace_generation", "revision", "configured_bands", "allowed_mode_groups",
+                                      "chunk_index", "chunk_count", "spots"],
+                    required: ["publisher_id", "publisher_started_at", "publication_sequence", "action", "session_id",
+                               "workspace_generation", "revision", "configured_bands", "allowed_mode_groups",
+                               "chunk_index", "chunk_count", "spots"])
+        guard let publisherID = params["publisher_id"] as? String, UUID(uuidString: publisherID) != nil,
+              let publisherStartedAt = params["publisher_started_at"] as? Int, publisherStartedAt > 0,
+              let sequence = params["publication_sequence"] as? Int, sequence > 0,
+              let action = params["action"] as? String, ["replace", "clear"].contains(action),
+              let sessionID = params["session_id"] as? String, UUID(uuidString: sessionID) != nil,
+              let workspaceGeneration = params["workspace_generation"] as? String, UUID(uuidString: workspaceGeneration) != nil,
+              let revision = params["revision"] as? Int, revision >= 0,
+              let configuredBands = params["configured_bands"] as? [String],
+              !configuredBands.isEmpty, configuredBands.count <= 32,
+              Set(configuredBands).count == configuredBands.count,
+              Set(configuredBands).isSubset(of: Set(SpotLogic.bands)),
+              let allowedModeGroups = params["allowed_mode_groups"] as? [String],
+              !allowedModeGroups.isEmpty, allowedModeGroups.count <= 3,
+              Set(allowedModeGroups).count == allowedModeGroups.count,
+              Set(allowedModeGroups).isSubset(of: ["cw", "phone", "data"]),
+              let chunkIndex = params["chunk_index"] as? Int,
+              let chunkCount = params["chunk_count"] as? Int, (1...8).contains(chunkCount),
+              (0..<chunkCount).contains(chunkIndex),
+              let rawSpots = params["spots"] as? [[String: Any]], rawSpots.count <= 64,
+              JSONSerialization.isValidJSONObject(rawSpots),
+              let data = try? JSONSerialization.data(withJSONObject: rawSpots),
+              let spots = try? JSONDecoder().decode([ContestRadioSpotInput].self, from: data),
+              action == "replace" || chunkCount == 1 && chunkIndex == 0 && spots.isEmpty else { throw invalid() }
+
+        if !withdrewNormalRadioSpots {
+            try await beforeContestSpotPublication()
+            withdrewNormalRadioSpots = true
+        }
+
+        if retiredContestPublisherIDs.contains(publisherID) {
+            return Self.staleContestPublication(revision: revision, workspaceGeneration: workspaceGeneration)
+        }
+        if contestPublisherID != publisherID {
+            guard sequence == 1, contestPublisherID == nil || publisherStartedAt > contestPublisherStartedAt else {
+                return Self.staleContestPublication(revision: revision, workspaceGeneration: workspaceGeneration)
+            }
+            if let previous = contestPublisherID {
+                retiredContestPublisherIDs.append(previous)
+                if retiredContestPublisherIDs.count > 32 { retiredContestPublisherIDs.removeFirst(8) }
+            }
+            contestPublisherID = publisherID
+            contestPublisherStartedAt = publisherStartedAt
+            contestPublisherSequence = 1
+            contestPublication = nil
+        } else if sequence < contestPublisherSequence {
+            return Self.staleContestPublication(revision: revision, workspaceGeneration: workspaceGeneration)
+        } else if sequence > contestPublisherSequence {
+            contestPublisherSequence = sequence
+            contestPublication = nil
+        }
+
+        let incomingIdentity = (sessionID: sessionID, workspaceGeneration: workspaceGeneration)
+        if let active = contestForwardIdentity,
+           active.sessionID == sessionID, active.workspaceGeneration == workspaceGeneration,
+           revision < contestForwardRevision {
+            return Self.staleContestPublication(revision: revision, workspaceGeneration: workspaceGeneration)
+        }
+        if action == "clear", let active = contestForwardIdentity,
+           active.sessionID != sessionID || active.workspaceGeneration != workspaceGeneration {
+            return Self.staleContestPublication(revision: revision, workspaceGeneration: workspaceGeneration)
+        }
+
+        if contestPublication == nil {
+            contestPublication = ContestRadioPublicationAccumulator(
+                publisherID: publisherID, sequence: sequence, sessionID: sessionID,
+                workspaceGeneration: workspaceGeneration, revision: revision, action: action,
+                configuredBands: configuredBands, allowedModeGroups: allowedModeGroups,
+                chunkCount: chunkCount, chunks: [:])
+        }
+        guard var publication = contestPublication,
+              publication.publisherID == publisherID, publication.sequence == sequence,
+              publication.sessionID == sessionID, publication.workspaceGeneration == workspaceGeneration,
+              publication.revision == revision, publication.action == action,
+              publication.configuredBands == configuredBands,
+              publication.allowedModeGroups == allowedModeGroups,
+              publication.chunkCount == chunkCount else {
+            return Self.staleContestPublication(revision: revision, workspaceGeneration: workspaceGeneration)
+        }
+        publication.chunks[chunkIndex] = spots
+        guard publication.chunks.values.reduce(0, { $0 + $1.count }) <= 512 else { throw invalid() }
+        contestPublication = publication
+        guard publication.chunks.count == chunkCount else {
+            return ["accepted": 0, "removed": 0, "unchanged": 0, "filtered": 0, "rejected": 0,
+                    "pending": true, "stale": false, "revision": revision,
+                    "workspace_generation": workspaceGeneration]
+        }
+        let orderedSpots = action == "clear" ? [] : (0..<chunkCount).flatMap { publication.chunks[$0] ?? [] }
+        guard Set(orderedSpots.map(\.spotID)).count == orderedSpots.count else { throw invalid() }
+        let previousIdentity = contestForwardIdentity
+        let sameIdentity = previousIdentity?.sessionID == sessionID
+            && previousIdentity?.workspaceGeneration == workspaceGeneration
+        contestForwardIdentity = incomingIdentity
+        contestForwardRevision = sameIdentity ? max(contestForwardRevision, revision) : revision
+        let identityChanged = contestAppliedIdentity != nil
+            && (contestAppliedIdentity?.sessionID != sessionID || contestAppliedIdentity?.workspaceGeneration != workspaceGeneration)
+        let result = try await reconcileContestRadioSpots(orderedSpots, publication: publication,
+                                                          forceReplaceAll: identityChanged)
+        if result["rejected"] as? Int == 0 {
+            contestAppliedIdentity = action == "clear" ? nil : incomingIdentity
+        }
+        return result
+    }
+
+    private func reconcileContestRadioSpots(_ spots: [ContestRadioSpotInput],
+                                            publication: ContestRadioPublicationAccumulator,
+                                            forceReplaceAll: Bool) async throws -> [String: Any] {
+        let config = try currentConfiguration()
+        let enabledProviders = Set([(config.forwardSpotsToFlex, "direct_agent"),
+                                    (config.forwardSpotsToTCI, "direct_tci")].filter(\.0).map(\.1))
+        let now = Date(), bandSet = Set(publication.configuredBands), modeSet = Set(publication.allowedModeGroups)
+        var desired: [String: ContestForwardedRadioSpot] = [:]
+        var filtered = 0
+        if forwardingAvailable {
+            for spot in spots {
+                guard !spot.spotID.isEmpty, spot.spotID.utf8.count <= 128,
+                      !spot.callsign.isEmpty, spot.callsign.utf8.count <= 32,
+                      spot.spotter.utf8.count <= 32, spot.comment.utf8.count <= 96,
+                      bandSet.contains(spot.band), modeSet.contains(Self.contestModeGroup(spot.mode)),
+                      SpotLogic.band(for: Double(spot.frequencyHz) / 1_000) == spot.band,
+                      (100_000...60_000_000).contains(spot.frequencyHz) else { filtered += 1; continue }
+                let unixTimestamp = spot.timestamp < 1_000_000_000
+                    ? spot.timestamp + Date.timeIntervalBetween1970AndReferenceDate : spot.timestamp
+                guard unixTimestamp.isFinite, abs(now.timeIntervalSince1970 - unixTimestamp) <= 86_400 else {
+                    filtered += 1; continue
+                }
+                let presentation = Self.contestRadioPresentation(for: spot)
+                if presentation.colorHex == "#AEB5B7", !config.showWorkedBandModeSpots {
+                    filtered += 1; continue
+                }
+                let payload = ClusterRadioSpotPayload(
+                    frequencyHz: spot.frequencyHz, callsign: spot.callsign, mode: spot.mode,
+                    source: "xLog Contest", spotter: spot.spotter, comment: spot.comment,
+                    timestamp: Int64(unixTimestamp.rounded()), lifetimeSeconds: 600,
+                    priority: presentation.priority, colorHex: presentation.colorHex)
+                let signature = "\(payload.callsign)|\(payload.frequencyHz)|\(payload.mode)|\(payload.colorHex)|\(payload.spotter)|\(payload.comment)"
+                for provider in enabledProviders {
+                    desired["\(provider)|\(spot.spotID)"] = ContestForwardedRadioSpot(
+                        spotID: spot.spotID, payload: payload, signature: signature)
+                }
+            }
+        }
+
+        var accepted = 0, removed = 0, unchanged = 0, rejected = 0
+        var obsoleteKeys = Set(contestForwardedSpots.keys.filter { key in
+            if forceReplaceAll { return true }
+            guard let current = contestForwardedSpots[key], let next = desired[key] else { return true }
+            return current.signature != next.signature
+        })
+        // TCI's official SPOT_DELETE frame is callsign-scoped. If one retained
+        // TCI spot for a callsign changes, remove and replay every desired spot
+        // for that callsign so an unchanged sibling frequency is not silently
+        // erased on the radio while remaining in our reconciliation state.
+        let tciCallsignsToReplay = Set(obsoleteKeys.compactMap { key -> String? in
+            guard key.hasPrefix("direct_tci|"), let current = contestForwardedSpots[key] else { return nil }
+            return current.payload.callsign
+        })
+        if !tciCallsignsToReplay.isEmpty {
+            for (key, current) in contestForwardedSpots where key.hasPrefix("direct_tci|")
+                && tciCallsignsToReplay.contains(current.payload.callsign) {
+                obsoleteKeys.insert(key)
+            }
+        }
+        var removedTCICallsigns: [String: Bool] = [:]
+        for key in obsoleteKeys.sorted() {
+            guard let current = contestForwardedSpots[key], let provider = key.split(separator: "|").first.map(String.init) else {
+                contestForwardedSpots.removeValue(forKey: key); continue
+            }
+            if provider == "direct_tci" {
+                if removedTCICallsigns[current.payload.callsign] != nil { continue }
+                do {
+                    let accepted = try await spotRemove(current.payload, provider)
+                    removedTCICallsigns[current.payload.callsign] = accepted
+                    if !accepted { rejected += 1 }
+                } catch {
+                    removedTCICallsigns[current.payload.callsign] = false
+                    rejected += 1
+                    tciForwardStatus = "TCI contest spot removal failed; check the Radio spots diagnostics."
+                }
+                continue
+            }
+            do {
+                if try await spotRemove(current.payload, provider) {
+                    contestForwardedSpots.removeValue(forKey: key)
+                    removed += 1
+                } else { rejected += 1 }
+            } catch {
+                rejected += 1
+                if provider == "direct_agent" {
+                    flexForwardStatus = "FLEX contest spot removal failed; check the Radio spots diagnostics."
+                } else {
+                    tciForwardStatus = "TCI contest spot removal failed; check the Radio spots diagnostics."
+                }
+            }
+        }
+        for key in obsoleteKeys where key.hasPrefix("direct_tci|") {
+            guard let current = contestForwardedSpots[key], removedTCICallsigns[current.payload.callsign] == true else { continue }
+            contestForwardedSpots.removeValue(forKey: key)
+            removed += 1
+        }
+        for (key, next) in desired {
+            if let current = contestForwardedSpots[key] {
+                if current.signature == next.signature { unchanged += 1 }
+                else { rejected += 1 }
+                continue
+            }
+            guard let provider = key.split(separator: "|").first.map(String.init) else { rejected += 1; continue }
+            do {
+                if try await spotForward(next.payload, provider, true) {
+                    contestForwardedSpots[key] = next
+                    accepted += 1
+                    forwardAcceptedCount += 1
+                } else { rejected += 1 }
+            } catch {
+                rejected += 1
+                if provider == "direct_agent" {
+                    flexForwardStatus = "FLEX contest spot forwarding failed; check the Radio spots diagnostics."
+                } else {
+                    tciForwardStatus = "TCI contest spot forwarding failed; check the Radio spots diagnostics."
+                }
+            }
+        }
+        if accepted > 0 {
+            if enabledProviders.contains("direct_agent") {
+                flexForwardStatus = "Contest spots accepted by Remote Station Agent; FLEX/Maestro display is not verified."
+            }
+            if enabledProviders.contains("direct_tci") {
+                tciForwardStatus = "Contest spots sent through TCI; SunSDR display is not verified."
+            }
+        }
+        return ["accepted": accepted, "removed": removed, "unchanged": unchanged, "filtered": filtered,
+                "rejected": rejected, "pending": false, "stale": false,
+                "revision": publication.revision, "workspace_generation": publication.workspaceGeneration]
+    }
+
+    private static func staleContestPublication(revision: Int, workspaceGeneration: String) -> [String: Any] {
+        ["accepted": 0, "removed": 0, "unchanged": 0, "filtered": 0, "rejected": 0,
+         "pending": false, "stale": true, "revision": revision,
+         "workspace_generation": workspaceGeneration]
+    }
+
+    private static func contestModeGroup(_ mode: String) -> String {
+        switch mode.uppercased() {
+        case "CW", "CWR": return "cw"
+        case "SSB", "USB", "LSB", "AM", "FM", "NFM": return "phone"
+        default: return "data"
+        }
+    }
+
+    private static func contestRadioPresentation(for spot: ContestRadioSpotInput) -> (colorHex: String, priority: Int) {
+        if spot.dupe == true { return ("#AEB5B7", 2) }
+        let multipliers: Int? = if let country = spot.countryMultiplier, let zone = spot.zoneMultiplier {
+            (country ? 1 : 0) + (zone ? 1 : 0)
+        } else { spot.multiplierCount }
+        if let multipliers, multipliers > 1 { return ("#00E51B", 5) }
+        if multipliers == 1 { return ("#FF5267", 4) }
+        if multipliers == 0, spot.dupe == false, spot.points != nil { return ("#3DA5F4", 3) }
+        return ("#AEB5B7", 2)
     }
 
     private func radioSpotColor(for spot: ClassifiedClusterSpot) -> String {

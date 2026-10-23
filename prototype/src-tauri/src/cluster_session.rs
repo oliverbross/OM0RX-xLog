@@ -24,6 +24,7 @@ pub fn handles(method: &str) -> bool {
             | "cluster_console_clear"
             | "cluster_configure"
             | "cluster_radio_spots_configure"
+            | "cluster_contest_radio_spots_publish"
             | "cluster_password_set"
     )
 }
@@ -42,7 +43,13 @@ pub fn validate(label: &str, request: &Value) -> Result<(), String> {
     {
         return Err("This window cannot access the cluster session.".into());
     }
-    if contest.is_some() && (label != "dx-cluster" || !matches!(method, "cluster_snapshot" | "cluster_connect" | "cluster_disconnect")) {
+    if method == "cluster_contest_radio_spots_publish" && label != "contest-setup" {
+        return Err("Only the active Contest Setup owner may publish classified contest spots.".into());
+    }
+    if contest.is_some()
+        && !((label == "dx-cluster" && matches!(method, "cluster_snapshot" | "cluster_connect" | "cluster_disconnect"))
+            || (label == "contest-setup" && method == "cluster_contest_radio_spots_publish"))
+    {
         return Err("The contest Cluster window may only read, connect, or disconnect the shared cluster session.".into());
     }
     if label == "settings" && !matches!(method, "cluster_snapshot" | "cluster_radio_spots_configure") {
@@ -50,7 +57,8 @@ pub fn validate(label: &str, request: &Value) -> Result<(), String> {
     }
     if label != "main" && label != "settings"
         && (method == "cluster_password_set"
-            || label != "dx-cluster" && method != "cluster_snapshot")
+            || label != "dx-cluster" && method != "cluster_snapshot"
+                && !(label == "contest-setup" && method == "cluster_contest_radio_spots_publish"))
     {
         return Err("This cluster action is unavailable in this window.".into());
     }
@@ -534,6 +542,9 @@ mod tests {
         for method in ["cluster_snapshot", "cluster_connect", "cluster_disconnect"] {
             assert!(validate("contest--dx-cluster", &request(method)).is_ok());
         }
+        assert!(validate("contest-setup", &request("cluster_contest_radio_spots_publish")).is_ok());
+        assert!(validate("main", &request("cluster_contest_radio_spots_publish")).is_err());
+        assert!(validate("dx-cluster", &request("cluster_contest_radio_spots_publish")).is_err());
         for method in ["cluster_filter", "cluster_command", "cluster_configure", "cluster_password_set"] {
             assert!(validate("contest--dx-cluster", &request(method)).is_err());
         }

@@ -145,6 +145,13 @@ struct RemoteAgentCommand: Equatable, Sendable {
         ], requiresSafeStation: false)
     }
 
+    static func removeSpot(callsign: String, frequencyHz: Int64) -> Self {
+        Self(name: "remove_spot", arguments: [
+            "callsign": .string(callsign),
+            "frequency_hz": .integer(frequencyHz),
+        ], requiresSafeStation: false)
+    }
+
     static let clearCW = Self(name: "clear_cw", arguments: [:], requiresSafeStation: false)
 
     static func station(_ action: RemoteStationAction) -> Self {

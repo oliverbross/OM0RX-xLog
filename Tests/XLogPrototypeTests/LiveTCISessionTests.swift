@@ -77,7 +77,8 @@ final class LiveTCISessionTests: XCTestCase {
         _ = try await session.handle("station_connect", params: connect)
         await socket.enqueue(.text(Self.discovery + "trx:0,false;ready;"))
         let ready = try await wait(session) { $0["available"] as? Bool == true }
-        XCTAssertEqual((ready["capabilities"] as? [String: Any])?["supported_commands"] as? [String], ["station_tune", "station_add_spot"])
+        XCTAssertEqual((ready["capabilities"] as? [String: Any])?["supported_commands"] as? [String],
+                       ["station_tune", "station_add_spot", "station_remove_spot"])
         XCTAssertEqual((ready["tci"] as? [String: Any])?["read_only"] as? Bool, false)
         XCTAssertEqual((ready["tci"] as? [String: Any])?["receive_control_only"] as? Bool, true)
         let tune: [String: Any] = ["provider": "direct_tci", "frequency_hz": 7_100_000,
@@ -133,13 +134,22 @@ final class LiveTCISessionTests: XCTestCase {
         XCTAssertEqual(result["confirmed"] as? Bool, false)
         let sent = await socket.sentTexts()
         XCTAssertEqual(sent, ["SPOT:OM0RX,CW,144300000,4278255360,xLog xCluster DL1ABC CQ  DX;"])
+        let removed = try await session.handle("station_remove_spot", params: [
+            "provider": "direct_tci", "callsign": "OM0RX", "frequency_hz": 144_300_000])
+        XCTAssertEqual(removed["accepted"] as? Bool, true)
+        XCTAssertEqual(removed["confirmed"] as? Bool, false)
+        let sentAfterRemoval = await socket.sentTexts()
+        XCTAssertEqual(sentAfterRemoval, [
+            "SPOT:OM0RX,CW,144300000,4278255360,xLog xCluster DL1ABC CQ  DX;",
+            "SPOT_DELETE:OM0RX;",
+        ])
         var outside = spot; outside["frequency_hz"] = 1_000_000_001
         do {
             _ = try await session.handle("station_add_spot", params: ["provider": "direct_tci", "spot": outside])
             XCTFail("Out-of-capability TCI spot admitted")
         } catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "invalid_params") }
         let sentAfterRejectedSpot = await socket.sentTexts()
-        XCTAssertEqual(sentAfterRejectedSpot.count, 1)
+        XCTAssertEqual(sentAfterRejectedSpot.count, 2)
         await session.terminate()
     }
 
@@ -160,7 +170,8 @@ final class LiveTCISessionTests: XCTestCase {
         XCTAssertTrue(radio["split"] is NSNull)
         XCTAssertTrue(radio["transmit_frequency_hz"] is NSNull)
         XCTAssertEqual(ready["allow_transmit"] as? Bool, false)
-        XCTAssertEqual((ready["capabilities"] as? [String: Any])?["supported_commands"] as? [String], ["station_tune", "station_add_spot"])
+        XCTAssertEqual((ready["capabilities"] as? [String: Any])?["supported_commands"] as? [String],
+                       ["station_tune", "station_add_spot", "station_remove_spot"])
         XCTAssertEqual((ready["station"] as? [String: Any])?["allowed_actions"] as? [String], [])
         let stamp = ready["generated_at"] as? Double
         time.advance(10)

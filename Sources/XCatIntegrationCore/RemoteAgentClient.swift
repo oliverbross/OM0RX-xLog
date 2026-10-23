@@ -391,6 +391,10 @@ public actor RemoteAgentClient: RadioControlling {
         try await execute(.addSpot(spot), expectedSpot: spot)
     }
 
+    public func removeSpot(callsign: String, frequencyHz: Int64) async throws {
+        try await execute(.removeSpot(callsign: callsign, frequencyHz: frequencyHz), attempts: 1)
+    }
+
     public func fetchConfiguration() async throws -> RemoteStationConfiguration {
         let request = endpoint.httpRequest(path: "/api/v1/config", token: token)
         let (data, response) = try await session.data(for: request)

@@ -481,6 +481,47 @@ public actor TCIReadOnlyWebSocketSession {
         }
     }
 
+    /// Sends the official callsign-scoped SPOT_DELETE frame. Transport completion
+    /// is an acceptance receipt only; TCI provides no display readback.
+    public func deleteSpot(callsign: String, expectedGeneration: UInt64) async throws {
+        guard !callsign.isEmpty, callsign.utf8.count <= 32,
+              !callsign.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else {
+            throw TCITuneSessionError.invalidTarget
+        }
+        guard !commandInFlight else { throw TCITuneSessionError.commandInFlight }
+        guard expectedGeneration == generation,
+              observationValue.generation == generation,
+              observationValue.availability == .available,
+              let snapshot = observationValue.snapshot,
+              let activeConnection = connection,
+              let activeConnectionID = connectionID else { throw TCITuneSessionError.notReady }
+        let lower = Int64(snapshot.vfoLimits.lower.rounded(.up))
+        let upper = Int64(snapshot.vfoLimits.upper.rounded(.down))
+        guard lower <= upper else { throw TCITuneSessionError.notReady }
+        let encoder: TCICommandEncoder
+        do {
+            encoder = try TCICommandEncoder(trxCount: snapshot.trxCount, channelCount: snapshot.channelCount,
+                                            frequencyRange: lower...upper,
+                                            supportedModulations: Set(snapshot.supportedModulations), limits: limits)
+        } catch { throw TCITuneSessionError.notReady }
+        let frame: String
+        do { frame = try encoder.encode(.deleteSpot(callsign: callsign)) }
+        catch { throw TCITuneSessionError.invalidTarget }
+        let activeGeneration = generation, activeRevision = lifecycleRevision
+        commandInFlight = true
+        defer { commandInFlight = false }
+        do { try await activeConnection.send(text: frame) }
+        catch {
+            await fail(.transportClosed, connection: activeConnection, connectionID: activeConnectionID,
+                       generation: activeGeneration, revision: activeRevision)
+            throw TCITuneSessionError.transportClosed
+        }
+        guard generation == activeGeneration, lifecycleRevision == activeRevision,
+              connectionID == activeConnectionID, connection != nil else {
+            throw TCITuneSessionError.connectionChanged
+        }
+    }
+
     private func receiveCommand(frequencyHz: Int64, mode: String, filter: TCIFilterBand?, expectedGeneration: UInt64,
                                 timeoutNanoseconds: UInt64) async throws -> TCIReadOnlySessionObservation {
         guard timeoutNanoseconds > 0, timeoutNanoseconds <= 120_000_000_000 else {

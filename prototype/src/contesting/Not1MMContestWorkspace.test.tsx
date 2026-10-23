@@ -605,6 +605,48 @@ it("preserves authoritative CQ WW SSB dupe and country-zone multiplier classific
   expect(surfaceOwner.current.projections["dx-cluster"].spots).toEqual(surfaceOwner.current.projections["band-maps"].spots);
 });
 
+it("reclassifies a newly logged CQ WW spot as grey and republishes its radio replacement",async()=>{
+  const setup=newContestSetup("OM0RX");setup.pluginID="cq_ww_ssb";setup.preferences.bands=["40m"];
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(setup));
+  let current:any={...projection(1,{callsign:"DL1AAA"}),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",
+    supportedModes:["SSB"],supportedBands:["160m","80m","40m","20m","15m","10m"]};
+  const base=operationalRequest(()=>current,()=>current.revision===1?3:0,()=>current.revision===1
+    ?{dupe:false,multiplierCount:2,countryMultiplier:true,zoneMultiplier:true}
+    :{dupe:true,multiplierCount:0,countryMultiplier:false,zoneMultiplier:false});
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    if(method==="contest_qso_commit"){
+      current={...current,revision:current.revision+1};
+      return{id:crypto.randomUUID(),ok:true,result:{projection:current,actions:[],messages:[]}};
+    }
+    return base(method,params);
+  });
+  const serviceRequest=vi.fn(async(method:string,params:Record<string,unknown>={})=>method==="cluster_contest_radio_spots_publish"
+    ?{accepted:1,removed:0,unchanged:0,filtered:0,rejected:0,stale:false}:request(method,params));
+  render(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps}
+    spots={[{id:"worked-after-save",callsign:"DL1AAA",frequencyKHz:7125,band:"40m",mode:"LSB",score:80}] as any}/>);
+  await createContestThroughSetup();
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots[0]).toMatchObject({
+    id:"worked-after-save",contestDupe:false,contestMultiplierCount:2,contestCountryMultiplier:true,contestZoneMultiplier:true}));
+  await waitFor(()=>expect(serviceRequest).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
+    publication_sequence:1,action:"replace",revision:1,spots:[expect.objectContaining({spot_id:"worked-after-save",dupe:false,
+      multiplier_count:2,country_multiplier:true,zone_multiplier:true})]})));
+
+  const entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,
+    workspaceGeneration,panelID:"active-qso",projectionRevision:entry.draft.revision,requestID:crypto.randomUUID(),
+    action:"entry_commit",params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision}}));
+
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots[0]).toMatchObject({
+    id:"worked-after-save",contestDupe:true,contestMultiplierCount:0,contestCountryMultiplier:false,contestZoneMultiplier:false}));
+  expect(surfaceOwner.current.projections["dx-cluster"].spots[0]).toMatchObject({
+    id:"worked-after-save",contestDupe:true,contestMultiplierCount:0,contestCountryMultiplier:false,contestZoneMultiplier:false});
+  await waitFor(()=>expect(serviceRequest).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
+    publication_sequence:2,action:"clear",revision:1,spots:[]})));
+  await waitFor(()=>expect(serviceRequest).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
+    publication_sequence:3,action:"replace",revision:2,spots:[expect.objectContaining({spot_id:"worked-after-save",dupe:true,
+      multiplier_count:0,country_multiplier:false,zone_multiplier:false})]})));
+});
+
 it("projects only the configured mode and bands into Cluster and Band Map even when the plug-in supports more modes",async()=>{
   const current={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",supportedModes:["CW","SSB"] as const,
     supportedBands:["160m","80m","40m","20m","15m","10m"]};
@@ -616,7 +658,15 @@ it("projects only the configured mode and bands into Cluster and Band Map even w
     {id:"cw",callsign:"K1ABC",frequencyKHz:14025,band:"20m",mode:"CW",score:80},
     {id:"warc",callsign:"W1AW",frequencyKHz:24950,band:"12m",mode:"USB",score:90},
   ];
-  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={shared as any}/>);
+  let publicationAttempt=0;
+  const serviceRequest=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    if(method!=="cluster_contest_radio_spots_publish")return request(method,params);
+    publicationAttempt+=1;
+    if(publicationAttempt===1)throw new Error("temporary radio publisher failure");
+    return publicationAttempt===2?{accepted:0,removed:0,unchanged:0,filtered:0,rejected:1,stale:false}:
+      {accepted:1,removed:0,unchanged:0,filtered:0,rejected:0,stale:false};
+  });
+  const view=render(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps} spots={shared as any}/>);
   await createContestThroughSetup();
   await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots)
     .toEqual([expect.objectContaining({id:"ssb",mode:"SSB",contestPoints:3})]));
@@ -628,6 +678,25 @@ it("projects only the configured mode and bands into Cluster and Band Map even w
   expect(preview?.[1]).toMatchObject({spots:[expect.objectContaining({spotID:"ssb",mode:"SSB"})]});
   expect((preview?.[1] as {spots:{spotID:string}[]}).spots).not.toEqual(expect.arrayContaining([
     expect.objectContaining({spotID:"disabled-band"}),expect.objectContaining({spotID:"cw"}),expect.objectContaining({spotID:"warc"})]));
+  await waitFor(()=>expect(serviceRequest).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
+    publisher_id:expect.any(String),publisher_started_at:expect.any(Number),publication_sequence:1,action:"replace",chunk_index:0,chunk_count:1,
+    session_id:current.sessionID,workspace_generation:current.workspaceGeneration,revision:current.revision,
+    configured_bands:["20m"],allowed_mode_groups:["phone"],spots:[expect.objectContaining({
+      spot_id:"ssb",callsign:"DL1ABC",frequency_hz:14_215_000,band:"20m",mode:"SSB",points:3,dupe:false,
+      multiplier_count:0,country_multiplier:false,zone_multiplier:false})]})));
+  const published=serviceRequest.mock.calls.find(([method])=>method==="cluster_contest_radio_spots_publish")?.[1] as {spots:{spot_id:string}[]};
+  expect(published.spots.map(spot=>spot.spot_id)).toEqual(["ssb"]);
+  await waitFor(()=>expect(serviceRequest.mock.calls.filter(([method])=>method==="cluster_contest_radio_spots_publish").length).toBeGreaterThanOrEqual(3));
+  const firstThree=serviceRequest.mock.calls.filter(([method])=>method==="cluster_contest_radio_spots_publish").slice(0,3);
+  expect(firstThree[1][1]).toMatchObject({publisher_id:(firstThree[0][1] as any).publisher_id,publication_sequence:1,action:"replace"});
+  expect(firstThree[2][1]).toMatchObject({publisher_id:(firstThree[0][1] as any).publisher_id,publication_sequence:1,action:"replace"});
+
+  view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps} spots={[]}/>);
+  await waitFor(()=>expect(serviceRequest).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
+    publication_sequence:2,action:"replace",spots:[]})));
+  view.unmount();
+  await waitFor(()=>expect(serviceRequest).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
+    publication_sequence:3,action:"clear",spots:[]})));
 });
 
 it("retains the last spot classification until a newer draft revision preview swaps atomically",async()=>{
@@ -1373,7 +1442,7 @@ it("projects Trans Tasman low bands, serial exchange, plugin dupe period and ret
 
 it.each([
   { pluginID:"cq_ww_ssb", pluginName:"CQ WW SSB",
-    columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","Zone mult","CQ Zone","Country mult","Country","PTS"],
+    columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","M1","CQ Zone","M2","Country","PTS"],
     sourceColumns:[],
     row:{ID:"cqww-ssb-qso",TS:"2026-10-20 11:00:00",Call:"K1ABC",Freq:14250,Band:14,Mode:"USB",SNT:"59",RCV:"59",SentNr:15,ZN:5,
       CountryPrefix:"K",WPXPrefix:"K1",IsMultiplier1:1,IsMultiplier2:1,Points:3,is_dupe:1},
@@ -3120,9 +3189,13 @@ it("pages, edits, and deletes through the detached Log owner actions", async () 
   await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_edit_confirm_delete",
     params:{qsoID:"qso-021",confirmed:true}}));
   await waitFor(()=>expect(surfaceOwner.current.projections.logbook.editing?.confirmDelete).toBe(true));
+  const scoreReadsBeforeDelete=request.mock.calls.filter(([method])=>method==="contest_score").length,
+    logReadsBeforeDelete=request.mock.calls.filter(([method])=>method==="contest_log_page").length;
   await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_edit_delete",
     params:{qsoID:"qso-021",expectedSessionRevision:current.revision}}));
   expect(deleted).toMatchObject({qsoID:"qso-021",reason:"Duplicate import"});
+  expect(request.mock.calls.filter(([method])=>method==="contest_score").length).toBeGreaterThan(scoreReadsBeforeDelete);
+  expect(request.mock.calls.filter(([method])=>method==="contest_log_page").length).toBeGreaterThan(logReadsBeforeDelete);
 });
 
 it("applies retained SCP selection through the active Python draft owner", async () => {

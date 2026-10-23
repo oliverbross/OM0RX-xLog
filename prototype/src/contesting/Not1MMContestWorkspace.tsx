@@ -398,7 +398,7 @@ function not1mmLogColumns(value: unknown): string[] {
 function contestLogColumnLabels(columns: string[], pluginID?: string): string[] {
   if (pluginID !== "cq_ww_ssb") return columns;
   const labels: Record<string, string> = {
-    M1: "Zone mult", ZN: "CQ Zone", M2: "Country mult", PFX: "Country",
+    M1: "M1", ZN: "CQ Zone", M2: "M2", PFX: "Country",
   };
   return columns.map(column => labels[column] ?? column);
 }
@@ -685,6 +685,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const focusRef = useRef("callsign");
   const spotCursorRef = useRef<{ context: string; spotID: string | null; externalSpotID: string | null }>(
     { context: "", spotID: null, externalSpotID: null });
+  const contestRadioPublicationRef=useRef<{publisherID:string;publisherStartedAt:number;sequence:number;mountToken:number;mounted:boolean;key:string;identity:string;
+    base:null|{session_id:string;workspace_generation:string;revision:number;configured_bands:string[];allowed_mode_groups:ContestBandMode[]};
+    chain:Promise<void>}>({publisherID:crypto.randomUUID(),publisherStartedAt:Date.now(),sequence:0,mountToken:0,mounted:true,key:"",identity:"",base:null,chain:Promise.resolve()});
+  const contestRadioServiceRef=useRef(serviceRequest);contestRadioServiceRef.current=serviceRequest;
+  const [contestRadioRetryTick,setContestRadioRetryTick]=useState(0);
   const [spotWorkflow,setSpotWorkflow]=useState<SpotWorkflow>(()=>emptySpotWorkflow());
   const editVersionRef = useRef(0);
   const observedFrequencyRef = useRef<{ sessionID: string; frequencyHz: number | null }>({ sessionID: "", frequencyHz: null });
@@ -775,6 +780,67 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     return projected.filter(spot=>{const mode=canonicalContestSurfaceMode(spot.mode);
       return mode!==null&&supported.has(mode)&&supportedBands.has(spot.band.trim().toLowerCase());});
   },[classifiedSharedSpots,effectiveSpotWorkflow,projection?.pluginID,projection?.supportedModes,projection?.mode,projection?.sessionID,configuredBands]);
+  const contestRadioPublication=useMemo(()=>{
+    if(!projection||spotPointPreview.identity!==spotPointIdentity||spotPointPreview.revision!==projection.revision)return null;
+    const rows=visibleWorkflowSpots.slice(0,500).flatMap(spot=>{
+      const preview=spotPointPreview.rows.get(spot.id),frequencyHz=Math.round(spot.frequencyKHz*1_000);
+      if(!preview||!Number.isSafeInteger(frequencyHz))return [];
+      return [{spot_id:spot.id,callsign:spot.callsign,frequency_hz:frequencyHz,band:spot.band,
+        mode:canonicalContestSurfaceMode(spot.mode)??spot.mode,spotter:spot.spotter,comment:spot.comment,
+        timestamp:spot.receivedAt,points:preview.points,dupe:preview.dupe,multiplier_count:preview.multiplierCount,
+        country_multiplier:preview.countryMultiplier,zone_multiplier:preview.zoneMultiplier}];
+    });
+    return {session_id:projection.sessionID,workspace_generation:projection.workspaceGeneration,revision:projection.revision,
+      configured_bands:configuredBands,allowed_mode_groups:allowedModeGroups,spots:rows};
+  },[projection?.sessionID,projection?.workspaceGeneration,projection?.revision,spotPointPreview,spotPointIdentity,
+    visibleWorkflowSpots,configuredBands,allowedModeGroups]);
+  const enqueueContestRadioPublication=(action:"replace"|"clear",base:NonNullable<typeof contestRadioPublication>)=>{
+    const state=contestRadioPublicationRef.current,sequence=++state.sequence,
+      spots=action==="clear"?[]:base.spots,chunkCount=Math.max(1,Math.ceil(spots.length/64));
+    const publish=async()=>{
+      for(let chunkIndex=0;chunkIndex<chunkCount;chunkIndex++){
+        const params={publisher_id:state.publisherID,publisher_started_at:state.publisherStartedAt,publication_sequence:sequence,action,
+          session_id:base.session_id,workspace_generation:base.workspace_generation,revision:base.revision,
+          configured_bands:base.configured_bands,allowed_mode_groups:base.allowed_mode_groups,
+          chunk_index:chunkIndex,chunk_count:chunkCount,spots:spots.slice(chunkIndex*64,(chunkIndex+1)*64)};
+        let delivered=false;
+        for(let attempt=0;attempt<3&&!delivered;attempt++){
+          try{
+            const result=await contestRadioServiceRef.current("cluster_contest_radio_spots_publish",params) as {stale?:boolean;rejected?:number};
+            if(result?.stale===true||!(Number(result?.rejected??0)>0)){delivered=true;break;}
+          }catch{/* A bounded retry preserves ordering without surfacing optional radio output in the logging window. */}
+          if(!delivered)await new Promise(resolve=>setTimeout(resolve,50*(attempt+1)));
+        }
+        if(!delivered)throw new Error("Contest radio spot reconciliation was not accepted.");
+      }
+    };
+    state.chain=state.chain.catch(()=>{}).then(publish).catch(()=>{
+      if(state.mounted&&contestRadioPublicationRef.current.publisherID===state.publisherID&&state.sequence===sequence){
+        state.key="";setTimeout(()=>setContestRadioRetryTick(value=>value+1),1_000);
+      }
+    });
+  };
+  useEffect(()=>{
+    const state=contestRadioPublicationRef.current;
+    if(contestingTest){state.key="";state.identity="";state.base=null;return;}
+    if(!contestRadioPublication){
+      if(state.base){enqueueContestRadioPublication("clear",{...state.base,spots:[]});state.key="";state.identity="";state.base=null;}
+      return;
+    }
+    const key=JSON.stringify(contestRadioPublication),identity=`${contestRadioPublication.session_id}/${contestRadioPublication.workspace_generation}`;
+    if(state.key===key)return;
+    state.key=key;state.identity=identity;state.base={session_id:contestRadioPublication.session_id,
+      workspace_generation:contestRadioPublication.workspace_generation,revision:contestRadioPublication.revision,
+      configured_bands:contestRadioPublication.configured_bands,allowed_mode_groups:contestRadioPublication.allowed_mode_groups};
+    enqueueContestRadioPublication("replace",contestRadioPublication);
+  },[contestRadioPublication,contestingTest,contestRadioRetryTick]);
+  useEffect(()=>{
+    const state=contestRadioPublicationRef.current,token=++state.mountToken;state.mounted=true;
+    return()=>{queueMicrotask(()=>{
+      if(state.mountToken===token){state.mounted=false;
+        if(!contestingTest&&state.base)enqueueContestRadioPublication("clear",{...state.base,spots:[]});}
+    });};
+  },[]);
   const spotSelectionContext = `${operatingContext}/${workspaceGeneration}/${projection?.sessionID ?? "no-session"}`;
   const spotIDSignature = visibleWorkflowSpots.map(spot=>spot.id).join("\u001f");
   useEffect(() => {

@@ -301,6 +301,9 @@ fn publish_preference(path: &PathBuf, bytes: &[u8]) -> Result<(), String> {
 
 pub fn worker_module(request: &Value) -> Option<OperatingModule> {
     let method = request["method"].as_str().unwrap_or("");
+    if method == "cluster_contest_radio_spots_publish" {
+        return Some(OperatingModule::Contesting);
+    }
     if method.starts_with("contest_") {
         return (!matches!(
             method,
@@ -461,6 +464,10 @@ mod tests {
         );
         assert_eq!(
             worker_module(&request("contest_open")),
+            Some(OperatingModule::Contesting)
+        );
+        assert_eq!(
+            worker_module(&request("cluster_contest_radio_spots_publish")),
             Some(OperatingModule::Contesting)
         );
         for method in [

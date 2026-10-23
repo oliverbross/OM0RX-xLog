@@ -152,6 +152,17 @@ actor LiveTCISession {
                 guard !terminal, connectionID == id, session === active else { throw cancelled() }
                 return ["accepted": true, "confirmed": false, "state": snapshot()]
             } catch let failure as TCITuneSessionError { throw Self.tuneFailure(failure) }
+        case "station_remove_spot":
+            guard Set(params.keys) == ["provider", "callsign", "frequency_hz"], !terminal,
+                  let active = session, let id = connectionID,
+                  let frequency = Self.integer(params["frequency_hz"]), Self.receiveFrequencyRange.contains(frequency),
+                  let callsign = Self.spotText(params["callsign"], maximum: 32, required: true) else { throw invalid() }
+            let transportGeneration = (await active.currentObservation()).generation
+            do {
+                try await active.deleteSpot(callsign: callsign, expectedGeneration: transportGeneration)
+                guard !terminal, connectionID == id, session === active else { throw cancelled() }
+                return ["accepted": true, "confirmed": false, "state": snapshot()]
+            } catch let failure as TCITuneSessionError { throw Self.tuneFailure(failure) }
         default:
             throw WorkerFailure("method_not_allowed", "TCI permits only explicit connection, observation, bounded receive controls and spot output.")
         }
@@ -178,7 +189,7 @@ actor LiveTCISession {
     private func snapshot() -> [String: Any] {
         let state = observation?.availability == .available ? observation?.snapshot : nil
         let fresh = receivedAt.map { (-1...5).contains(clock().timeIntervalSince($0)) } ?? false
-        let commands = state == nil ? [String]() : ["station_tune", "station_add_spot"]
+        let commands = state == nil ? [String]() : ["station_tune", "station_add_spot", "station_remove_spot"]
             + (state?.transceiver.receiveFilter == nil ? [] : ["station_receive_filter"])
         let radio: Any = state.map { s in
             ["connected": true, "observed": true, "frequency_hz": s.frequencyHz,

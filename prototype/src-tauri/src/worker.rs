@@ -35,7 +35,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
         else { Err("Contest methods are available only in the detached Contest Setup owner window.".into()) };
     }
     if label == "contest-setup" {
-        return if matches!(request["method"].as_str(), Some("health" | "workspace_status" | "settings_load" | "station_snapshot" | "cluster_snapshot")) {
+        return if matches!(request["method"].as_str(), Some("health" | "workspace_status" | "settings_load" | "station_snapshot" | "cluster_snapshot" | "cluster_contest_radio_spots_publish")) {
             Ok(())
         } else if matches!(request["method"].as_str(), Some("wsjtx_snapshot" | "wsjtx_configure" | "wsjtx_start" | "wsjtx_stop"
             | "fldigi_snapshot" | "fldigi_configure" | "fldigi_start" | "fldigi_stop" | "fldigi_send")) {
@@ -335,6 +335,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "rotor_park",
         "rotor_stop",
         "station_add_spot",
+        "station_remove_spot",
         "spot_bridge_snapshot",
         "spot_bridge_configure",
         "spot_bridge_start",
@@ -355,6 +356,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "cluster_disconnect",
         "cluster_configure",
         "cluster_radio_spots_configure",
+        "cluster_contest_radio_spots_publish",
         "cluster_command",
         "cluster_filter",
         "cluster_password_set",
