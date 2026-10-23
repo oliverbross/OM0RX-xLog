@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 const MAX_REQUEST: usize = 32_768;
 const MAX_RESPONSE: u64 = 1_048_576;
 static IN_FLIGHT: AtomicUsize = AtomicUsize::new(0);
+static TRANSITION_BLOCKING_IN_FLIGHT: AtomicUsize = AtomicUsize::new(0);
 const MAX_IN_FLIGHT: usize = 16;
 const MAX_ABANDONED: usize = MAX_IN_FLIGHT;
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(45);
@@ -163,10 +164,15 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     }
     Ok(())
 }
-struct RequestSlot;
+struct RequestSlot {
+    blocks_module_transition: bool,
+}
 impl Drop for RequestSlot {
     fn drop(&mut self) {
         IN_FLIGHT.fetch_sub(1, Ordering::AcqRel);
+        if self.blocks_module_transition {
+            TRANSITION_BLOCKING_IN_FLIGHT.fetch_sub(1, Ordering::AcqRel);
+        }
     }
 }
 
@@ -711,7 +717,9 @@ static LOCAL_ACCEPTANCE: OnceLock<bool> = OnceLock::new();
 static CONTESTING_TEST: OnceLock<bool> = OnceLock::new();
 pub fn local_acceptance() -> bool { *LOCAL_ACCEPTANCE.get().unwrap_or(&false) }
 pub fn generation() -> u64 { SESSION_GENERATION.load(Ordering::Acquire) }
-pub fn requests_in_flight() -> usize { IN_FLIGHT.load(Ordering::Acquire) }
+pub fn transition_blocking_requests_in_flight() -> usize {
+    TRANSITION_BLOCKING_IN_FLIGHT.load(Ordering::Acquire)
+}
 
 /// Called once by native main before creating any webviews. A renderer cannot
 /// opt into or out of isolation, or nominate a directory for acceptance data.
@@ -991,18 +999,27 @@ pub(crate) fn require_retired_generation(old: u64, current: u64) -> Result<(), S
 
 fn request_using(request: Value, session: impl FnOnce() -> Result<Arc<Session>, String>) -> Result<Value, String> {
     validate_request(&request)?;
+    let blocks_module_transition = request_blocks_module_transition(&request);
     IN_FLIGHT
         .fetch_update(Ordering::AcqRel, Ordering::Acquire, |count| {
             (count < MAX_IN_FLIGHT).then_some(count + 1)
         })
         .map_err(|_| "Prototype worker is busy; try again")?;
-    let _slot = RequestSlot;
+    if blocks_module_transition {
+        TRANSITION_BLOCKING_IN_FLIGHT.fetch_add(1, Ordering::AcqRel);
+    }
+    let _slot = RequestSlot { blocks_module_transition };
     let session = session()?;
     let identity = crate::station_identity::begin(&request, session.generation);
     let timeout = request_timeout(&request);
     let response = request_in_session(&session, request, timeout);
     crate::station_identity::finish(identity, &response);
     response
+}
+
+fn request_blocks_module_transition(request: &Value) -> bool {
+    crate::operating_module::worker_module(request).is_some()
+        || crate::operating_module::shared_worker_mutation(request)
 }
 
 fn request_in_session(
@@ -1176,6 +1193,34 @@ mod tests {
         assert_eq!(service_request_failure("timed out", false),
             "Station service is not responding. Finish any macOS Keychain prompt, then retry.");
         assert!(service_request_failure("timed out", true).contains("control outcome unknown"));
+    }
+
+    #[test]
+    fn module_transition_ignores_passive_reads_but_retains_mutation_barriers() {
+        for method in [
+            "cluster_snapshot",
+            "contest_setup_get",
+            "contest_check_partial",
+            "contest_log_page",
+        ] {
+            assert!(!request_blocks_module_transition(&json!({
+                "id":"passive",
+                "method":method,
+                "params":{},
+            })), "passive read unexpectedly blocks: {method}");
+        }
+        for method in [
+            "contest_qso_commit",
+            "logbook_operator_draft_apply",
+            "settings_save",
+            "cluster_disconnect",
+        ] {
+            assert!(request_blocks_module_transition(&json!({
+                "id":"mutation",
+                "method":method,
+                "params":{},
+            })), "mutation unexpectedly bypasses transition barrier: {method}");
+        }
     }
 
     #[test]

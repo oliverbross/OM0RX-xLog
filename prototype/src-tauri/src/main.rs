@@ -2534,7 +2534,11 @@ fn require_module_transition_idle(app: &tauri::AppHandle) -> Result<(), String> 
     if !open.is_empty() {
         return Err(format!("Close these operator windows before changing module: {}.", open.join(", ")));
     }
-    if worker::requests_in_flight() != 0 {
+    // Passive snapshots may still be draining after the active workspace has
+    // acknowledged preparation. They are safe to retire with the worker and
+    // must not make the menu action fail at random. Mutations remain fenced by
+    // the operating-module owner and this explicit native-worker check.
+    if worker::transition_blocking_requests_in_flight() != 0 {
         return Err("Wait for the current station or logbook operation to finish before changing module.".into());
     }
     if SCP_IMPORT_ACTIVE.load(Ordering::Acquire) || HISTORY_PREVIEW_ACTIVE.load(Ordering::Acquire) {
