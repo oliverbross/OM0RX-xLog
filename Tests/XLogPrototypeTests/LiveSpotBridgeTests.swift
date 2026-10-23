@@ -235,6 +235,46 @@ final class LiveSpotBridgeTests: XCTestCase {
         ])
     }
 
+    func testReplacementWorkerShutdownRetiresContestInventoryWithoutPublication() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-contest-shutdown-recovery-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let inventoryURL = directory.appendingPathComponent("spots.json")
+        let routing = TargetedSpotRouting(radio1Available: false)
+        func broker() -> SpotForwardBroker {
+            SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { spot, provider, preferred in
+                try await routing.add(spot: spot, provider: provider, preferred: preferred)
+            }, targetedRemove: { spot, provider, radioID in
+                try await routing.remove(spot: spot, provider: provider, radioID: radioID)
+            })
+        }
+        func replacementWorker() -> LiveClusterMethods {
+            let durableInventory = broker()
+            return LiveClusterMethods(
+                logbook: LiveLogbookMethods(supportDirectory: directory, inheritNativePreferences: false),
+                configurationURL: directory.appendingPathComponent("cluster.json"),
+                retirePersistedContestSpots: {
+                    _ = try await durableInventory.withdrawContestForwardedSpots()
+                })
+        }
+        let contestSpot = try spot(priority: 5, source: "xLog Contest")
+        let forwarded = try await broker().forward(contestSpot, replacingExisting: true)
+        XCTAssertTrue(forwarded)
+
+        await routing.setRemovalAccepted(false)
+        let failedRetirement = await replacementWorker().terminate()
+        XCTAssertFalse(failedRetirement)
+
+        await routing.setRemovalAccepted(true)
+        let recoveredRetirement = await replacementWorker().terminate()
+        let events = await routing.events()
+        XCTAssertTrue(recoveredRetirement)
+        XCTAssertEqual(events, [
+            "add:direct_agent:radio2:K1ABC:14074000",
+            "remove:direct_agent:radio2:K1ABC:14074000",
+            "remove:direct_agent:radio2:K1ABC:14074000",
+        ])
+    }
+
     func testAcceptedDedupeCacheIsBoundedUnderManyDistinctSpots() async throws {
         let broker = SpotForwardBroker { _ in }
         let original = try spot()

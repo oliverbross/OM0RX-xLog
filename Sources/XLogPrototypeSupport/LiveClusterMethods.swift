@@ -142,6 +142,7 @@ public actor LiveClusterMethods {
     private let spotForward: @Sendable (ClusterRadioSpotPayload, String, Bool) async throws -> Bool
     private let spotRemove: @Sendable (ClusterRadioSpotPayload, String) async throws -> Bool
     private let beforeContestSpotPublication: @Sendable () async throws -> Void
+    private let retirePersistedContestSpots: (@Sendable () async throws -> Void)?
     private var withdrewPriorRadioSpots = false
     private var contestPublisherID: String?
     private var contestPublisherStartedAt = 0
@@ -188,7 +189,8 @@ public actor LiveClusterMethods {
              #else
              return false
              #endif
-         }, beforeContestSpotPublication: (@Sendable () async throws -> Void)? = nil) {
+         }, beforeContestSpotPublication: (@Sendable () async throws -> Void)? = nil,
+         retirePersistedContestSpots: (@Sendable () async throws -> Void)? = nil) {
         self.logbook = logbook
         self.vault = CachedClusterCredentialStore(base: vault)
         self.transportFactory = transportFactory
@@ -208,6 +210,19 @@ public actor LiveClusterMethods {
         } else {
             self.beforeContestSpotPublication = {}
         }
+        if let retirePersistedContestSpots {
+            self.retirePersistedContestSpots = retirePersistedContestSpots
+        } else if logbook === LiveLogbookMethods.shared {
+            #if os(macOS)
+            self.retirePersistedContestSpots = {
+                _ = try await SpotForwardBroker.shared.withdrawContestForwardedSpots()
+            }
+            #else
+            self.retirePersistedContestSpots = nil
+            #endif
+        } else {
+            self.retirePersistedContestSpots = nil
+        }
         self.configurationURL = configurationURL ?? (logbook === LiveLogbookMethods.shared
             ? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                 .appendingPathComponent("OM0RX-xLog Integration Services/cluster.json")
@@ -226,7 +241,16 @@ public actor LiveClusterMethods {
                 contestSpotsRetired = false
             }
         }
+        if let retirePersistedContestSpots {
+            do {
+                try await retirePersistedContestSpots()
+                contestSpotsRetired = true
+            } catch {
+                contestSpotsRetired = false
+            }
+        }
         if contestSpotsRetired {
+            contestForwardedSpots.removeAll()
             contestPublication = nil
             contestForwardIdentity = nil
             contestAppliedIdentity = nil
