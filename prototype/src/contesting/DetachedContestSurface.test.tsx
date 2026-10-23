@@ -542,6 +542,58 @@ it("edits an explicitly writable plugin cell inline through begin, set, and revi
   expect(actions[4]).toMatchObject({params:{qsoID:"logged-qso",fieldID:"other_2",value:"15"}});
 });
 
+it("uses compact CQ WW multiplier headings and centers report, zone, and points values only",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
+  const columns=["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","M1","CQ Zone","M2","Country","PTS"],
+    values=["2026-10-20 12:00:00","K1ABC","14250","59","58","✓","5","✓","K","3"],
+    pageRow={qsoID:"logged-qso",workedAt:"2026-10-20T12:00:00.000Z",callsign:"K1ABC",band:"20m",mode:"SSB",
+      sentExchange:"59 15",receivedExchange:"58 5",points:3,multiplierLabels:["K","Zone 5"]},
+    view={schemaVersion:1,status:"ready",sessionRevision:7,canExportCabrillo:true,exchangeLayout:"plugin",
+      pluginColumns:columns,pluginRows:[{qsoID:pageRow.qsoID,values,inlineEdits:Array(columns.length).fill(null)}],pluginPartialRows:[],
+      page:{offset:0,limit:20,total:1,rows:[pageRow]},editing:null,busy:false};
+  native.invoke.mockResolvedValue({...snapshot,panelID:"logbook",projection:view});
+  render(<DetachedContestSurface/>);
+  const table=await screen.findByRole("table",{name:"Contest log"}),headers=Array.from(table.querySelectorAll("thead th")),
+    cells=Array.from(table.querySelectorAll("tbody td"));
+  expect(headers.map(cell=>cell.textContent)).toEqual(columns);
+  expect(headers.some(cell=>cell.classList.contains("contest-surface-log-centered"))).toBe(false);
+  for(const index of [3,4,6,9])expect(cells[index].classList.contains("contest-surface-log-centered")).toBe(true);
+  for(const index of [0,1,2,5,7,8])expect(cells[index].classList.contains("contest-surface-log-centered")).toBe(false);
+});
+
+it("offers Delete contact from the call context menu and opens the editor in its confirmed reason workflow without deleting",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
+  const pageRow={qsoID:"logged-qso",workedAt:"2026-10-20T12:00:00.000Z",callsign:"K1ABC",band:"20m",mode:"SSB",
+      sentExchange:"59 15",receivedExchange:"59 5",points:3,multiplierLabels:["K","Zone 5"]},
+    editing={qsoID:"logged-qso",workedAt:"2026-10-20 12:00:00",operator:"OM0RX",callsign:"K1ABC",band:"20m",mode:"SSB",
+      sentReport:"59",receivedReport:"59",receivedFields:[],frequencyHz:14250000,editFrequencyText:"14250000",frequencyError:"",
+      correctionReason:"Operator correction",confirmDelete:false,deletionReason:""};
+  let current:any={schemaVersion:1,status:"ready",sessionRevision:7,canExportCabrillo:true,exchangeLayout:"plugin",
+    pluginColumns:["Call","CQ Zone","PTS"],pluginRows:[{qsoID:pageRow.qsoID,values:["K1ABC","5","3"],inlineEdits:[
+      {kind:"text",field:"callsign",value:"K1ABC",maximumUTF8Bytes:32},{kind:"exchange",fieldID:"other_2",value:"5",maximumUTF8Bytes:128},null]}],
+    pluginPartialRows:[],page:{offset:0,limit:20,total:1,rows:[pageRow]},editing:null,busy:false};
+  const actions:Record<string,any>[]=[];let projectionRevision=6;
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return {...snapshot,panelID:"logbook",projectionRevision,projection:current};
+    if(command==="contest_surface_action"){
+      actions.push(args);
+      if(args.action==="log_edit_begin"){current={...current,editing};projectionRevision+=1;}
+      if(args.action==="log_edit_confirm_delete"){current={...current,editing:{...editing,confirmDelete:true}};projectionRevision+=1;}
+      return{requestID:args.requestID,status:"applied"};
+    }
+    if(command==="contest_contact_editor_open")return;
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);
+  fireEvent.contextMenu((await screen.findByText("K1ABC")).closest("td")!,{clientX:50,clientY:60});
+  expect(await screen.findByRole("menu",{name:"Contact actions for K1ABC"})).toBeTruthy();
+  fireEvent.click(screen.getByRole("menuitem",{name:"Delete contact…"}));
+  await waitFor(()=>expect(actions.map(action=>action.action)).toEqual(["log_edit_begin","log_edit_confirm_delete"]));
+  expect(actions[1]).toMatchObject({projectionRevision:7,params:{qsoID:"logged-qso",confirmed:true}});
+  expect(actions.some(action=>action.action==="log_edit_delete")).toBe(false);
+  expect(native.invoke).toHaveBeenCalledWith("contest_contact_editor_open",{operatingContext,sessionID,workspaceGeneration});
+});
+
 it("keeps computed plugin cells read-only and opens the full editor from the context menu",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
   const pageRow={qsoID:"logged-qso",workedAt:"2026-10-20T12:00:00.000Z",callsign:"K1ABC",band:"20m",mode:"CW",

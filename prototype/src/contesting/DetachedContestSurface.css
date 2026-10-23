@@ -258,6 +258,9 @@
 .contest-surface-log-column-resizer:focus-visible { outline:1px solid var(--cyan); outline-offset:-1px; }
 .contest-surface-log-scroll td { font:11px ui-monospace,monospace; padding:3px; }
 .contest-surface-log-scroll td.contest-surface-inline-editable { cursor:text; }
+.contest-surface-log-scroll td.contest-surface-log-centered,
+.contest-surface-original-log td:nth-child(4),.contest-surface-original-log td:nth-child(5),
+.contest-surface-original-log td:nth-child(7),.contest-surface-original-log td:nth-child(10) { text-align:center!important; }
 .contest-surface-log-scroll td > input { min-height:20px; padding:1px 3px; font:inherit; }
 .contest-surface-log-scroll button { min-height:20px; padding:0; background:transparent; border:0; font:inherit; }
 .contest-surface-log-call,.contest-surface-log-call button { color:var(--teal); font-weight:700!important; }
@@ -266,7 +269,7 @@
 .contest-surface-log-multiplier { color:var(--error); font-weight:800!important; text-align:center!important; }
 .contest-surface-log-zone { color:var(--pink); font-variant-numeric:tabular-nums; }
 .contest-surface-log-country { color:var(--cyan); }
-.contest-surface-log-points { color:var(--amber); font-weight:700!important; text-align:right!important; font-variant-numeric:tabular-nums; }
+.contest-surface-log-points { color:var(--amber); font-weight:700!important; font-variant-numeric:tabular-nums; }
 .contest-surface-log-dupe > td { color:var(--secondary); }
 .contest-surface-log-dupe .contest-surface-log-call,.contest-surface-log-dupe .contest-surface-log-call button { color:var(--secondary); }
 .contest-surface-dupe-badge { display:inline-block; margin-left:5px; padding:0 3px; border:1px solid currentColor; border-radius:3px; color:var(--error); font-size:8px; font-weight:800; line-height:1.35; letter-spacing:.04em; vertical-align:1px; }

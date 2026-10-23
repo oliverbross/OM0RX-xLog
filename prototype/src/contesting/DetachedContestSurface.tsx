@@ -208,9 +208,12 @@ function Surface({ context }: { context: Context }) {
         ? <ContactEditor projection={projection as Extract<typeof projection, { page: unknown }>} disabled={projection.busy} sending={sending}
             projectionRevision={snapshot.projectionRevision} receipts={snapshot.receipts} send={send}/>
         : <Log projection={projection as Extract<typeof projection, { page: unknown }>} disabled={projection.busy} sending={sending}
-            projectionRevision={snapshot.projectionRevision} send={send} openEditor={async qsoID=>{
+            projectionRevision={snapshot.projectionRevision} send={send} openEditor={async(qsoID,deleteIntent=false)=>{
               try { const result=await send({action:"log_edit_begin",params:{qsoID}},snapshot.projectionRevision);
-                if(result.applied)await openContestContactEditorWindow(context); }
+                if(!result.applied||result.projectionRevision===null)return;
+                if(deleteIntent){const confirmed=await send({action:"log_edit_confirm_delete",params:{qsoID,confirmed:true}},result.projectionRevision);
+                  if(!confirmed.applied)return;}
+                await openContestContactEditorWindow(context); }
                catch(cause){reportDiagnostic("error",message(cause));}
             }}/>
       : snapshot.panelID === "band-maps" || snapshot.panelID === "dx-cluster" ? <ContestSpots panelID={snapshot.panelID}
@@ -819,13 +822,15 @@ function Matrix({ projection,preferenceScope }: { projection: ContestMatrixSurfa
       </tbody></table>)}</div></div>
   </section>;
 }
-function ManualLogTable({rows,disabled,onEdit,label,emptyMessage}:{rows:any[];disabled:boolean;onEdit:(qsoID:string)=>void;label:string;emptyMessage?:string}) {
+function ManualLogTable({rows,disabled,onEdit,onDeleteMenu,label,emptyMessage}:{rows:any[];disabled:boolean;onEdit:(qsoID:string)=>void;
+    onDeleteMenu:(qsoID:string,callsign:string,event:ReactMouseEvent<HTMLElement>)=>void;label:string;emptyMessage?:string}) {
   const columns=["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","M1","ZN","M2","PFX","PTS"];
   return <div className="contest-surface-log-scroll"><table className="contest-surface-original-log" aria-label={label}><thead><tr>{columns.map(title=><th key={title} scope="col">{title}</th>)}</tr></thead><tbody>{rows.length===0
     ? <tr className="contest-surface-empty-row"><td colSpan={columns.length}>{emptyMessage ?? (label === "Callsign partial matches" ? "No partial matches" : "No contacts")}</td></tr>
     : rows.map(row=><tr key={row.qsoID} onDoubleClick={event=>{if(!disabled&&!(event.target as Element).closest("button"))onEdit(row.qsoID);}}
       onContextMenu={event=>{event.preventDefault();if(!disabled)onEdit(row.qsoID);}}>
-    <td>{row.TS??new Date(row.workedAt).toISOString().slice(0,19).replace("T"," ")}</td><td><button disabled={disabled} onDoubleClick={event=>event.stopPropagation()} onClick={()=>onEdit(row.qsoID)}>{row.Call??row.callsign}</button></td>
+    <td>{row.TS??new Date(row.workedAt).toISOString().slice(0,19).replace("T"," ")}</td><td onContextMenu={event=>{event.preventDefault();event.stopPropagation();
+      if(!disabled)onDeleteMenu(row.qsoID,String(row.Call??row.callsign??"Contact"),event);}}><button disabled={disabled} onDoubleClick={event=>event.stopPropagation()} onClick={()=>onEdit(row.qsoID)}>{row.Call??row.callsign}</button></td>
     <td>{row.Freq??"—"}</td><td>{row.SNT??"—"}</td><td>{row.RCV??"—"}</td>
     <td>{row.M1??""}</td><td>{row.ZN??"—"}</td><td>{row.M2??""}</td><td>{row.prefix??"—"}</td><td>{row.Points??row.points}</td></tr>)}</tbody></table></div>;
 }
@@ -856,6 +861,7 @@ function persistLogColumnWidths(columns:string[],widths:number[]) {
 }
 function logCellClass(column:string,editable:boolean) {
   const normalized=column.trim().toLowerCase(),classes=editable?["contest-surface-inline-editable"]:[];
+  if(["snt","rcv","cq zone","zn","pts","points"].includes(normalized))classes.push("contest-surface-log-centered");
   if(normalized==="call"||normalized==="callsign")classes.push("contest-surface-log-call");
   else if(normalized.includes("freq"))classes.push("contest-surface-log-frequency");
   else if(normalized==="band")classes.push("contest-surface-log-band");
@@ -874,9 +880,10 @@ function startLogColumnResize(event:ReactPointerEvent<HTMLButtonElement>,index:n
   const finish=()=>{window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",finish);window.removeEventListener("pointercancel",finish);};
   window.addEventListener("pointermove",move);window.addEventListener("pointerup",finish);window.addEventListener("pointercancel",finish);
 }
-function PluginLogTable({columns,rows,columnWidths,onColumnWidths,disabled,onEdit,onInlineEdit,inline,inlineInput,label,emptyMessage}:{columns:string[];
+function PluginLogTable({columns,rows,columnWidths,onColumnWidths,disabled,onEdit,onDeleteMenu,onInlineEdit,inline,inlineInput,label,emptyMessage}:{columns:string[];
   rows:{qsoID:string;values:string[];isDupe?:boolean;inlineEdits?:(ContestLogInlineEdit|null)[]}[];columnWidths:number[];
   onColumnWidths:(value:number[])=>void;disabled:boolean;onEdit:(qsoID:string)=>void;
+  onDeleteMenu:(qsoID:string,callsign:string,event:ReactMouseEvent<HTMLElement>)=>void;
   onInlineEdit:(qsoID:string,columnIndex:number,edit:ContestLogInlineEdit)=>void;inline:InlineLogCell|null;inlineInput:ReactNode;label:string;emptyMessage?:string}) {
   const callIndex=columns.indexOf("Call");
   const adjust=(index:number,delta:number)=>{const pairTotal=columnWidths[index]+columnWidths[index+1],
@@ -890,6 +897,8 @@ function PluginLogTable({columns,rows,columnWidths,onColumnWidths,disabled,onEdi
           isEditing=inline?.qsoID===row.qsoID&&inline.columnIndex===index&&inline.source===label;
           const content=<>{value}{index===callIndex&&row.isDupe&&<span className="contest-surface-dupe-badge">DUPE</span>}</>;
           return <td key={`${columns[index]}-${index}`} className={logCellClass(columns[index],!!edit)}
+            onContextMenu={event=>{if(index!==callIndex)return;event.preventDefault();event.stopPropagation();
+              if(!disabled)onDeleteMenu(row.qsoID,String(row.values[callIndex]??"Contact"),event);}}
             onDoubleClick={event=>{event.preventDefault();event.stopPropagation();if(!disabled&&edit)onInlineEdit(row.qsoID,index,edit);}}>
             {isEditing?inlineInput:index===callIndex&&!edit?<button disabled={disabled} onClick={()=>onEdit(row.qsoID)}>{content}</button>:content}</td>;})}</tr>)}</tbody></table></div>;
 }
@@ -947,8 +956,10 @@ function ContactEditor({projection,disabled,sending,projectionRevision,receipts,
       <button disabled={disabled||sending||!!editing.frequencyError||!editing.correctionReason.trim()} onClick={()=>void finish({action:"log_edit_save",params:{qsoID:editing.qsoID,expectedSessionRevision:projection.sessionRevision}})}>OK</button></footer>
   </section>;
 }
-function Log({projection,disabled,sending,projectionRevision,send,openEditor}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;send:Send;openEditor:(qsoID:string)=>Promise<void>}) {
+function Log({projection,disabled,sending,projectionRevision,send,openEditor}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;send:Send;
+    openEditor:(qsoID:string,deleteIntent?:boolean)=>Promise<void>}) {
   const partialRows=projection.partialRows??[], pluginPartialRows=projection.pluginPartialRows??[], [inline,setInline]=useState<InlineLogCell|null>(null);
+  const [deleteMenu,setDeleteMenu]=useState<{qsoID:string;callsign:string;x:number;y:number}|null>(null);
   const pluginColumns:string[]=projection.exchangeLayout==="plugin"?projection.pluginColumns:[],columnSignature=pluginColumns.join("\u001f"),
     [columnLayout,setColumnLayout]=useState(()=>({signature:columnSignature,widths:readLogColumnWidths(pluginColumns)}));
   const columnWidths=columnLayout.signature===columnSignature?columnLayout.widths:readLogColumnWidths(pluginColumns);
@@ -992,6 +1003,8 @@ function Log({projection,disabled,sending,projectionRevision,send,openEditor}:{p
     disabled={disabled||sending} value={inline.value} onChange={event=>{const value=event.target.value;
       if(new TextEncoder().encode(value).length<=inline.edit.maximumUTF8Bytes)setInline(current=>current?{...current,value}:current);}}
     onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();void commitInline();}else if(event.key==="Escape"){event.preventDefault();void cancelInline();}}}/>:null;
+  const openDeleteMenu=(qsoID:string,callsign:string,event:ReactMouseEvent<HTMLElement>)=>setDeleteMenu({qsoID,callsign,
+    x:Math.max(4,Math.min(event.clientX,window.innerWidth-176)),y:Math.max(4,Math.min(event.clientY,window.innerHeight-80))});
   return <section className="contest-surface-log"><header><h1>Log Display</h1>
   <details className="contest-surface-log-tools"><summary>Log tools</summary><div className="contest-surface-log-actions">{projection.canExportCabrillo&&<button disabled={disabled||sending} onClick={()=>void send({action:"log_export_cabrillo",params:{}},projectionRevision)}>Export Cabrillo…</button>}
   <button disabled={disabled||sending||projection.canExportAdif!==true} onClick={()=>void send({action:"log_export_adif",params:{}},projectionRevision)}>Export ADIF…</button>
@@ -999,11 +1012,15 @@ function Log({projection,disabled,sending,projectionRevision,send,openEditor}:{p
   <button disabled={disabled||sending} onClick={()=>void send({action:"log_recalculate",params:{expectedSessionRevision:projection.sessionRevision}},projectionRevision)}>Recalculate</button></div></details></header>
   <div className="contest-surface-log-panes">{projection.exchangeLayout==="plugin" ? <>
     <section ref={primaryPane} className="contest-surface-log-pane-primary"><h2>Chronological log</h2><PluginLogTable columns={projection.pluginColumns} rows={projection.pluginRows} columnWidths={columnWidths} onColumnWidths={setColumnWidths} disabled={disabled} label="Contest log" emptyMessage={projection.busy?"Loading…":undefined} inline={inline} inlineInput={inlineInput}
-      onInlineEdit={(qsoID,columnIndex,edit)=>void beginInline(qsoID,columnIndex,edit,"Contest log")} onEdit={qsoID=>{setInline(null);void openEditor(qsoID);}}/></section>
+      onInlineEdit={(qsoID,columnIndex,edit)=>void beginInline(qsoID,columnIndex,edit,"Contest log")} onEdit={qsoID=>{setInline(null);void openEditor(qsoID);}} onDeleteMenu={openDeleteMenu}/></section>
     <section className="contest-surface-log-pane-secondary"><h2>Callsign partial matches</h2><PluginLogTable columns={projection.pluginColumns} rows={pluginPartialRows} columnWidths={columnWidths} onColumnWidths={setColumnWidths} disabled={disabled} label="Callsign partial matches" inline={inline} inlineInput={inlineInput}
-      onInlineEdit={(qsoID,columnIndex,edit)=>void beginInline(qsoID,columnIndex,edit,"Callsign partial matches")} onEdit={qsoID=>{setInline(null);void openEditor(qsoID);}}/></section></>
-    : <><section ref={primaryPane} className="contest-surface-log-pane-primary"><h2>Chronological log</h2><ManualLogTable rows={projection.manualRows??projection.page.rows} disabled={disabled} label="Contest log" emptyMessage={projection.busy?"Loading…":undefined} onEdit={qsoID=>void openEditor(qsoID)}/></section>
-      <section className="contest-surface-log-pane-secondary"><h2>Callsign partial matches</h2><ManualLogTable rows={partialRows} disabled={disabled} label="Callsign partial matches" onEdit={qsoID=>void openEditor(qsoID)}/></section></>}</div>
+      onInlineEdit={(qsoID,columnIndex,edit)=>void beginInline(qsoID,columnIndex,edit,"Callsign partial matches")} onEdit={qsoID=>{setInline(null);void openEditor(qsoID);}} onDeleteMenu={openDeleteMenu}/></section></>
+    : <><section ref={primaryPane} className="contest-surface-log-pane-primary"><h2>Chronological log</h2><ManualLogTable rows={projection.manualRows??projection.page.rows} disabled={disabled} label="Contest log" emptyMessage={projection.busy?"Loading…":undefined} onEdit={qsoID=>void openEditor(qsoID)} onDeleteMenu={openDeleteMenu}/></section>
+      <section className="contest-surface-log-pane-secondary"><h2>Callsign partial matches</h2><ManualLogTable rows={partialRows} disabled={disabled} label="Callsign partial matches" onEdit={qsoID=>void openEditor(qsoID)} onDeleteMenu={openDeleteMenu}/></section></>}</div>
+  {deleteMenu&&<div className="contest-spot-menu" role="menu" aria-label={`Contact actions for ${deleteMenu.callsign}`} style={{left:deleteMenu.x,top:deleteMenu.y}}
+      onKeyDown={event=>{if(event.key==="Escape"){event.preventDefault();setDeleteMenu(null);}}}>
+    <button type="button" role="menuitem" autoFocus onClick={()=>{const target=deleteMenu;setDeleteMenu(null);setInline(null);void openEditor(target.qsoID,true);}}>Delete contact…</button>
+    <button type="button" role="menuitem" onClick={()=>setDeleteMenu(null)}>Cancel</button></div>}
   <footer><button disabled={disabled||projection.page.offset===0} onClick={()=>void send({action:"log_page",params:{offset:Math.max(0,projection.page.offset-projection.page.limit),limit:projection.page.limit}},projectionRevision)}>Previous</button>
     <span>{projection.page.total?`${projection.page.offset+1}–${projection.page.offset+projection.page.rows.length} of ${projection.page.total}`:projection.busy?"Loading…":"No contacts"}</span>
     <button disabled={disabled||projection.page.offset+projection.page.rows.length>=projection.page.total} onClick={()=>void send({action:"log_page",params:{offset:projection.page.offset+projection.page.limit,limit:projection.page.limit}},projectionRevision)}>Next</button></footer></section>; }
