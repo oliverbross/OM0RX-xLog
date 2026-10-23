@@ -96,12 +96,15 @@ function sameContestSurfaceSnapshot(current: ContestSurfaceSnapshot | null, next
     });
 }
 
+type EntryFeedback = { kind:"error"|"saved"; text:string };
 function Surface({ context }: { context: Context }) {
-  const { snapshot, error, refresh } = useContestSurface(context), [sending, setSending] = useState(false);
+  const { snapshot, error, refresh } = useContestSurface(context), [sending, setSending] = useState(false),
+    [entryFeedback,setEntryFeedback]=useState<EntryFeedback|null>(null);
   const snapshotRef=useRef(snapshot),queueRef=useRef<Promise<void>>(Promise.resolve()),pendingCount=useRef(0);
   const receiptWaiters=useRef(new Map<string,{resolve:(receipt:ContestSurfaceTerminalReceipt|null)=>void;timer:number}>());
   snapshotRef.current=snapshot;
   const reportDiagnostic=useCallback((kind:"error"|"notice",text:string)=>{
+    if(kind==="error"&&context.panelID==="active-qso")setEntryFeedback({kind:"error",text:boundedDiagnostic(text)});
     if(context.panelID!=="messages")void reportContestSurfaceDiagnostic(context,kind,boundedDiagnostic(text)).catch(()=>{});
   },[context]);
   useEffect(()=>{if(error)reportDiagnostic("error",error);},[error,reportDiagnostic]);
@@ -115,38 +118,50 @@ function Surface({ context }: { context: Context }) {
     const requestID=options.requestID??crypto.randomUUID();
     const execute=async()=>{
       pendingCount.current+=1;setSending(true);
+        if(context.panelID==="active-qso")setEntryFeedback(null);
       try {
         let currentAction=action,projectionRevision=requestedProjectionRevision;
         if(options.safePresentation){const current=await refresh();
-          if(!current||current.panelID!==context.panelID||current.projection.status!=="ready")return {applied:false,projectionRevision:null};
+          if(!current||current.panelID!==context.panelID||current.projection.status!=="ready")return {applied:false,projectionRevision:null,message:"The contest panel is not ready."};
           const params=action.params as Record<string,unknown>;
           projectionRevision=current.projectionRevision;
           if(typeof params.draftID==="string"){
           const projection=current.projection as any,draftRevision=projection.draft?.draftID===params.draftID?projection.draft.revision:
             projection.draftID===params.draftID?projection.draftRevision:null;
-          if(!Number.isSafeInteger(draftRevision))return {applied:false,projectionRevision:null};
+          if(!Number.isSafeInteger(draftRevision))return {applied:false,projectionRevision:null,message:"The contest draft is no longer available."};
           currentAction={...action,params:{...params,expectedDraftRevision:draftRevision}} as ContestSurfaceAction;
-          }else if(typeof params.qsoID==="string"&&(current.projection as any).editing?.qsoID!==params.qsoID)return {applied:false,projectionRevision:null};
-        }else{const current=await refresh();if(!current||current.panelID!==context.panelID||current.projection.status!=="ready")return {applied:false,projectionRevision:null};
+          }else if(typeof params.qsoID==="string"&&(current.projection as any).editing?.qsoID!==params.qsoID)return {applied:false,projectionRevision:null,message:"The selected contact is no longer being edited."};
+        }else{const current=await refresh();if(!current||current.panelID!==context.panelID||current.projection.status!=="ready")return {applied:false,projectionRevision:null,message:"The contest panel is not ready."};
           const params=action.params as Record<string,unknown>,escape=action.action==="entry_operator_key"&&params.key==="Escape";
           if(escape){const draft=(current.projection as any).draft;if(draft?.draftID!==params.draftID||
               !Number.isSafeInteger(params.expectedDraftRevision)||params.expectedDraftRevision as number>draft.revision||
-              requestedProjectionRevision>current.projectionRevision){reportDiagnostic("error","The shared contest entry no longer owns this Escape action.");return {applied:false,projectionRevision:null};}}
-          else if(current.projectionRevision!==requestedProjectionRevision){reportDiagnostic("error","The shared contest panel changed before this action could be applied.");return {applied:false,projectionRevision:null};}}
+              requestedProjectionRevision>current.projectionRevision){const text="The shared contest entry no longer owns this Escape action.";reportDiagnostic("error",text);return {applied:false,projectionRevision:null,message:text};}}
+          else if(current.projectionRevision!==requestedProjectionRevision){const text="The shared contest panel changed before this action could be applied.";reportDiagnostic("error",text);return {applied:false,projectionRevision:null,message:text};}}
+        const appliedResult=async(fallbackRevision:number)=>{const current=await refresh();
+          const params=currentAction.params as Record<string,unknown>,commitLike=currentAction.action==="entry_commit"||
+            currentAction.action==="entry_operator_key"&&params.key==="Enter",draft=(current?.projection as any)?.draft;
+          if(context.panelID==="active-qso"&&commitLike&&typeof params.draftID==="string"&&
+              typeof draft?.draftID==="string"&&draft.draftID!==params.draftID)
+            setEntryFeedback({kind:"saved",text:"QSO saved"});
+          return {applied:true,projectionRevision:current?.projectionRevision??fallbackRevision,message:null};};
         const immediate=await submitContestSurfaceAction({...context,scope:"contesting",projectionRevision,
           requestID,...currentAction} as ContestSurfaceActionEnvelope);
-        if(immediate.status==="applied"){const current=await refresh();return {applied:true,projectionRevision:current?.projectionRevision??projectionRevision};}
-        if(immediate.status==="rejected")return {applied:false,projectionRevision:null};
+        if(immediate.status==="applied")return appliedResult(projectionRevision);
+        if(immediate.status==="rejected"){
+          const current=await refresh(),receipt=current?.receipts.find(item=>item.requestID===requestID),text=receipt?.message||"The contest action could not be applied.";
+          reportDiagnostic("error",text);return {applied:false,projectionRevision:null,message:text};
+        }
         const existing=snapshotRef.current?.receipts.find(item=>item.requestID===requestID&&
           (item.status==="applied"||item.status==="rejected"));
         const terminal=existing??await new Promise<ContestSurfaceTerminalReceipt|null>(resolve=>{
           const timer=window.setTimeout(()=>{receiptWaiters.current.delete(requestID);resolve(null);},20_000);
           receiptWaiters.current.set(requestID,{resolve,timer});
         });
-        if(!terminal)reportDiagnostic("error","The action is still being reconciled.");
-        else if(terminal.status==="rejected")reportDiagnostic("error",terminal.message||"The contest action could not be applied.");
-        return {applied:terminal?.status==="applied",projectionRevision:terminal?.status==="applied"?terminal.projectionRevision:null};
-      }catch(cause){reportDiagnostic("error",message(cause));await refresh();return {applied:false,projectionRevision:null};}
+        if(terminal?.status==="applied")return appliedResult(terminal.projectionRevision);
+        const terminalMessage=!terminal?"The action is still being reconciled.":terminal.message||"The contest action could not be applied.";
+        if(terminalMessage)reportDiagnostic("error",terminalMessage);
+        return {applied:false,projectionRevision:null,message:terminalMessage};
+      }catch(cause){const text=message(cause);reportDiagnostic("error",text);await refresh();return {applied:false,projectionRevision:null,message:text};}
       finally{pendingCount.current-=1;if(pendingCount.current===0)setSending(false);}
     };
     if(options.bypassQueue)return execute();
@@ -179,7 +194,7 @@ function Surface({ context }: { context: Context }) {
       : (() => { throw new Error(`No shared contest renderer owns ${context.panelID}.`); })()
       : snapshot.panelID === "active-qso" ? <Entry projection={projection as Extract<typeof projection, { draft: unknown }>} disabled={projection.busy} sending={sending}
           context={context} projectionRevision={snapshot.projectionRevision} send={send} refresh={refresh} settle={()=>queueRef.current}
-          reportConflict={text=>reportDiagnostic("error",text)}/>
+          feedback={entryFeedback} reportConflict={text=>reportDiagnostic("error",text)}/>
       : snapshot.panelID === "callsign-intelligence" ? <Check projection={projection as Extract<typeof projection, { scp: unknown }>} disabled={projection.busy}
           projectionRevision={snapshot.projectionRevision} receipts={snapshot.receipts} send={send}/>
       : snapshot.panelID === "propagation" ? <Statistics projection={projection as ContestStatisticsSurfaceProjection}/>
@@ -187,7 +202,8 @@ function Surface({ context }: { context: Context }) {
       : snapshot.panelID === "score-reporting" ? <ScoreReporting projection={projection as ContestScoreReportingSurfaceProjection}
           projectionRevision={snapshot.projectionRevision} send={send}/>
       : snapshot.panelID === "messages" ? <Messages projection={projection as ContestMessagesSurfaceProjection}/>
-      : snapshot.panelID === "awards" || snapshot.panelID === "chaser-dx" ? <Matrix projection={projection as ContestMatrixSurfaceProjection}/>
+      : snapshot.panelID === "awards" || snapshot.panelID === "chaser-dx" ? <Matrix projection={projection as ContestMatrixSurfaceProjection}
+          preferenceScope={`${context.sessionID}/${snapshot.panelID}`}/>
       : snapshot.panelID === "logbook" ? editorOnly
         ? <ContactEditor projection={projection as Extract<typeof projection, { page: unknown }>} disabled={projection.busy} sending={sending}
             projectionRevision={snapshot.projectionRevision} receipts={snapshot.receipts} send={send}/>
@@ -250,7 +266,7 @@ function ScoreReporting({ projection, projectionRevision, send }: { projection: 
   </section>;
 }
 
-type SendResult={applied:boolean;projectionRevision:number|null};
+type SendResult={applied:boolean;projectionRevision:number|null;message:string|null};
 type Send = (action: ContestSurfaceAction, projectionRevision:number,
   options?:{requestID?:string;safePresentation?:boolean;bypassQueue?:boolean}) => Promise<SendResult>;
 function ContestSpots({panelID,context,projection,projectionRevision,send}:{panelID:"band-maps"|"dx-cluster";context:ContestSurfaceContext;
@@ -421,16 +437,16 @@ function EntryIntentInput({label,accessibleLabel,intentKey,value,maximumUTF8Byte
     value={value} disabled={disabled} onChange={event=>{const next=event.target.value;if(new TextEncoder().encode(next).length<=maximumUTF8Bytes)
       onChange(intentKey,next);}}/></div>;
 }
-function Entry({ projection, disabled, sending, context, projectionRevision, send, refresh, settle, reportConflict }: { projection: any; disabled: boolean; sending:boolean;
+function Entry({ projection, disabled, sending, context, projectionRevision, send, refresh, settle, feedback, reportConflict }: { projection: any; disabled: boolean; sending:boolean;
   context:ContestSurfaceContext;
   projectionRevision:number;send:Send;refresh:()=>Promise<ContestSurfaceSnapshot|null>;
-  settle:()=>Promise<void>;reportConflict:(message:string)=>void }) {
+  settle:()=>Promise<void>;feedback:EntryFeedback|null;reportConflict:(message:string)=>void }) {
   const base = { draftID: projection.draft.draftID, expectedDraftRevision: projection.draft.revision };
   const fieldRefs=useRef<Partial<Record<ContestInputFieldID,HTMLInputElement|null>>>({});
   const cwInputRef=useRef<HTMLInputElement|null>(null);
   const cwReturnFocus=useRef<HTMLElement|null>(null);
   const cwInputBindingContext=useRef<ContestKeyBindingContext>("*");
-  const [cwInputOpen,setCWInputOpen]=useState(false),[cwInput,setCWInput]=useState("");
+  const [cwInputOpen,setCWInputOpen]=useState(false),[cwInput,setCWInput]=useState(""),[macrosOpen,setMacrosOpen]=useState(true);
   const focusPending=useRef<Promise<number|null>>(Promise.resolve(null)),desiredFocus=useRef<ContestInputFieldID|null>(null),
     focusDraft=useRef(base.draftID);
   const operator=projection.schemaVersion===2?projection.operator:null;
@@ -448,12 +464,15 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
     ? projection.descriptor.reportFields:null;
   const reportsVisible=reportFields?reportFields.length>0:projection.descriptor?.reportsVisible!==false;
   const entryFieldCount=1+(reportFields?.length??(reportsVisible?2:0))+(projection.descriptor?.sentFields?.length??0)+Math.max(1,projection.draft.receivedFields.length);
-  const entryFieldColumns=`repeat(${entryFieldCount},minmax(0,1fr))`;
+  const entryFieldColumns=entryFieldCount>1?`minmax(140px,1.6fr) repeat(${entryFieldCount-1},minmax(64px,1fr))`:`minmax(140px,1fr)`;
   // The owner reports busy while it persists the first character. These
   // inputs are locally journalled, so disabling them would drop the rest of
   // a real keyboard burst before the queued intent can drain.
   const entryBufferDisabled=false;
   const intents=useEntryIntents(projection,projectionRevision,send);
+  const intendedCall=intents.values.callsign.trim(),authoritativeCall=projection.draft.callsign.trim(),
+    duplicatePending=intendedCall.toLocaleUpperCase()!==authoritativeCall.toLocaleUpperCase(),
+    duplicateState=duplicatePending?"unchecked":projection.draft.dupe.state;
   const actionFor=(key:EntryIntentKey)=>(value:string):ContestSurfaceAction=>key==="callsign"||key==="sentReport"||key==="receivedReport"
     ?{action:"entry_set_text",params:{...base,field:key,value}}
     :key==="frequency"?{action:"entry_set_frequency_text",params:{...base,value}}
@@ -587,7 +606,8 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
     if(event.key==="Tab"&&focusedField){const next=nextFocusable(focusedField,event.shiftKey?"tabPrevious":"tabNext");
       if(next){event.preventDefault();event.stopPropagation();fieldRefs.current[next]?.focus();}return;}
     const advanceOnSpace=focusedField&&(projection.descriptor?.advanceOnSpace?.includes(focusedField)??focusedField==="callsign");
-    if(!event.shiftKey&&event.key===" "&&advanceOnSpace){const next=nextFocusable(focusedField,"tabNext");
+    if(!event.shiftKey&&event.key===" "&&advanceOnSpace){const explicit=(focusedField?projection.descriptor?.spaceNext?.[focusedField]:undefined) as ContestInputFieldID|undefined,
+      next=explicit&&fieldRefs.current[explicit]&&!fieldRefs.current[explicit]?.disabled?explicit:nextFocusable(focusedField,"tabNext");
       if(next){event.preventDefault();event.stopPropagation();fieldRefs.current[next]?.focus();}return;}
     if(event.shiftKey&&event.key!=="F1")return;
     if(operatorKey(event.key,focusedField,event.shiftKey)){event.preventDefault();event.stopPropagation();}};
@@ -635,6 +655,17 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
       label={field.label} accessibleLabel={`Received exchange ${index+1}`} intentKey={key} value={intents.values[key]} maximumUTF8Bytes={field.maximumUTF8Bytes} disabled={entryBufferDisabled||field.enabled===false}
       operatorField={fieldID} inputRef={fieldID?setFieldRef(fieldID):undefined} onFocus={fieldID?()=>focusField(fieldID):undefined} onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))}/>;}) : <div className="contest-surface-sent-number"><span>RcvNR</span><output>—</output></div>}
     </div>
+    <div className={`contest-surface-entry-status is-${duplicateState}`} role={duplicateState==="duplicate"?"alert":"status"}>
+      {intendedCall===""?<span>Ready for callsign</span>:duplicatePending?<span>Checking — {intendedCall}</span>:duplicateState==="duplicate"
+        ?<strong>DUPE — {authoritativeCall} already worked on {projection.draft.band}</strong>
+        :duplicateState==="unchecked"?<span>{projection.draft.dupe.reason||"Checking duplicate…"}</span>
+        :<span>Clear — {authoritativeCall} not worked on {projection.draft.band}</span>}
+      {!duplicatePending&&duplicateState==="duplicate"&&projection.draft.dupe.reason&&<small>{projection.draft.dupe.reason}</small>}
+    </div>
+    {(feedback||(projection.schemaVersion===2&&(projection.draft.frequencyError||projection.draft.validation.errors[0])))&&
+      <p className={`contest-surface-entry-feedback${feedback?.kind==="saved"?" is-saved":""}`} role={feedback?.kind==="saved"?"status":"alert"}>
+        {feedback?.text||projection.draft.frequencyError||projection.draft.validation.errors[0]}
+      </p>}
     <div className="contest-surface-run-strip" role="region" aria-label={testSimulation?"Run and S&P test simulation":phoneMode?"Run and S&P phone controls":fldigiMode?"Run and S&P fldigi controls":cwMode&&operator?.output==="xlog-native"?"Run and S&P CW controls":"Run and S&P output controls"}>
       <div role="group" aria-label="Run and S&P">{([['run','Run'],['search-and-pounce','S&P']] as const).map(([value,label])=><label className={`contest-style-${value}`} key={value}><input type="radio" name="contest-operating-style" checked={operator?.style===value} disabled={!operator||disabled||operator.pending!==null}
         onChange={()=>void send({action:"entry_operator_style",params:{...base,value}},projectionRevision)}/>{label}</label>)}</div>
@@ -646,10 +677,18 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
         onClick={()=>void send({action:"entry_operator_arm",params:{...base,armed:!operator.armed}},projectionRevision)}>{operator.armed?"Disarm":phoneMode?testSimulation?"Arm phone simulation":"Arm recorded phone":operator.output==="xlog-native"?"Arm CW":"Arm simulation"}</button>}
       {operator&&(!phoneMode||operator.outputAvailable)&&<span className="contest-surface-output-state" role="status">{testSimulation?"Test simulation":phoneMode?"xLog recorded phone":fldigiMode?"fldigi":cwMode&&operator.output==="xlog-native"?"xLog CW":"Contest output"} · {operator.outputAvailable?operator.status:"unavailable"}</span>}
       {operator?.autoCQ?.active&&<div className="contest-surface-auto-cq" role="status"><span>Auto CQ</span><progress aria-label="Auto CQ countdown" max={operator.autoCQ.delaySeconds*1000} value={Math.max(0,operator.autoCQ.delaySeconds*1000-(operator.autoCQ.remainingMs??0))}/></div>}</div>
-      {projection.schemaVersion===2&&operator&&<><div className="contest-surface-macros" role="group" aria-label="Function key macros">{Array.from({length:12},(_,index)=>{const key=`F${index+1}`,item=operator.functionKeys.find((item:any)=>item.key===key),label=item?.macro??"Unassigned";return <button type="button" key={key}
+      {projection.schemaVersion===2&&<><div className="contest-surface-entry-actions" role="group" aria-label="Logging actions">
+        <button type="button" aria-label="Stop" disabled={disabled||sending||!operator} onClick={()=>operatorKey("Escape",operator?.focusedField)}>Stop <kbd>Esc</kbd></button>
+        <button type="button" disabled={disabled||sending} onClick={()=>runBoundAction("CLEAR_INPUTS",operator?.focusedField??null)}>Wipe</button>
+        <button type="button" aria-label="Log It" className="contest-primary" disabled={disabled||sending} onClick={()=>runBoundAction("LOG_NOW",operator?.focusedField??null)}>Log It <kbd>Enter</kbd></button>
+        <button type="button" disabled={disabled||sending} onClick={()=>void(async()=>{const flushed=await intents.flush();if(!flushed.ok)return;await settle();const current=await refresh(),currentProjection=current?.projection as any;
+          if(!current||current.panelID!=="active-qso"||currentProjection?.status!=="ready")return;const result=await send({action:"entry_edit_last",params:{draftID:currentProjection.draft.draftID,expectedDraftRevision:currentProjection.draft.revision}},current.projectionRevision);
+          if(result.applied)await openContestContactEditorWindow(context);})()}>Edit last</button>
+      </div>{operator&&<details className="contest-surface-macro-bank" open={macrosOpen} onToggle={event=>setMacrosOpen(event.currentTarget.open)}
+        title={phoneMode&&!operator.outputAvailable?"Recorded phone is optional; manual QSO logging remains available.":undefined}><summary>Function key macros</summary><div className="contest-surface-macros" role="group" aria-label="Function key macros">{Array.from({length:12},(_,index)=>{const key=`F${index+1}`,item=operator.functionKeys.find((item:any)=>item.key===key),label=item?.macro??"Unassigned";return <button type="button" key={key}
         className={item?.highlighted?"contest-primary":undefined} disabled={disabled||!item||!operator.outputAvailable||operator.status==="uncertain"||phoneMode&&!operator.armed}
-        aria-label={`${key} ${label}`} onClick={()=>operatorKey(key,operator.focusedField)}><kbd>{key}:</kbd> <span>{label}</span></button>;})}</div>
-        {!operator.outputAvailable&&!phoneMode&&<p role="status">{operator.outputUnavailableReason}</p>}</>}
+        aria-label={`${key} ${label}`} onClick={()=>operatorKey(key,operator.focusedField)}><kbd>{key}:</kbd> <span>{label}</span></button>;})}</div></details>}
+        {operator&&!operator.outputAvailable&&!phoneMode&&<p role="status">{operator.outputUnavailableReason}</p>}</>}
     </div></div>
     <div className="contest-surface-contact-footer"><div className="contest-surface-contact-path"><div aria-label="Contact heading, long path and distance">{projection.manual?.headingDegrees??"—"}° Hdg · LP {projection.manual?.longPathHeadingDegrees??"—"}° / distance {projection.manual?.distanceKm??"—"} km</div><div aria-label="Country and zones">{projection.manual?.country??"—"} cq:{projection.manual?.cqZone??"—"} itu:{projection.manual?.ituZone??"—"}</div></div><output aria-label="QSOs and multipliers"><span>QSO / mults</span><strong>{projection.manual?.qsos??"—"}/{projection.manual?.multipliers??"—"}</strong></output><output aria-label="Score"><span>Score</span><strong>{projection.manual?.total??"—"}</strong></output></div>
     </section>;
@@ -666,31 +705,34 @@ function Check({ projection, disabled, projectionRevision, receipts, send }: { p
   const assistance=(action:"assistance_download"|"assistance_refresh")=>void send({action,params:base},projectionRevision);
   const candidateLabel=(callsign:string)=>{
     const query=String(projection.inputCallsign??"").trim().toUpperCase();
-    if(callsign===query)return <em className="contest-check-exact">{callsign}</em>;
     const substring=callsign.indexOf(query);
-    return <>{[...callsign].map((character,index)=>{
+    return <span className="contest-check-callsign" aria-label={callsign}>{callsign===query?<em className="contest-check-exact">{callsign}</em>:[...callsign].map((character,index)=>{
       const extra=substring>=0?(index<substring||index>=substring+query.length):index>=query.length;
       const changed=substring<0&&index<query.length&&character!==query[index];
       return <span key={`${index}-${character}`} className={extra?"contest-check-extra":changed?"contest-check-changed":"contest-check-match"}>{character}</span>;
-    })}</>;
+    })}</span>;
   };
   const candidates=(kind:"log"|"scp"|"cluster"|"history",items:any[])=>items.length?<ContestCandidates className="contest-surface-results"
     disabled={disabled} strongLabel={false} candidates={items.map(item=>({id:item.candidateID,label:candidateLabel(item.callsign),
       detail:kind==="history"?item.fields.map((field:any)=>`${field.label}: ${field.value}`).join(" · "):undefined,
       className:kind==="history"?"contest-surface-history":undefined}))}
     onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind,candidateID}},projectionRevision)}/>:<p>—</p>;
+  const panes=[
+    {key:"log",title:"Log",body:projection.loggedCandidates?candidates("log",projection.loggedCandidates):<p aria-label="Matching logged calls unavailable">—</p>},
+    {key:"scp",title:"Master",body:candidates("scp",projection.scp.candidates)},
+    ...(projection.clusterCandidates?.length?[{key:"cluster",title:"Telnet",body:candidates("cluster",projection.clusterCandidates)}]:[]),
+    ...(projection.history.rows.length?[{key:"history",title:"Call History",body:candidates("history",projection.history.rows)}]:[]),
+  ];
   return <section className="contest-surface-check"><h1>Check Partial</h1>
-    <div className="contest-surface-check-recovery" role="region" aria-label="Super Check Partial corpus">
-      <div><strong>{projection.scp.source??"MASTER.SCP unavailable"}</strong>{availability!=="ready"&&<p>{unavailableMessage}</p>}</div>
+    <details className="contest-surface-check-tools">
+      <summary>{projection.scp.source??"MASTER.SCP unavailable"}</summary><div role="region" aria-label="Super Check Partial corpus">
+      <section>{availability!=="ready"&&<p>{unavailableMessage}</p>}</section>
       <div><button type="button" disabled={disabled} onClick={()=>assistance("assistance_download")}>Download latest</button>
         <button type="button" disabled={disabled} onClick={()=>assistance("assistance_refresh")}>Refresh</button>
         {projection.scp.error&&<button type="button" disabled={disabled} onClick={()=>assistance(availability==="status_unavailable"?"assistance_refresh":"assistance_download")}>Retry</button>}</div>
-    </div>
-    <div className="contest-surface-check-columns">
-      <div><h2>Log</h2>{projection.loggedCandidates?candidates("log",projection.loggedCandidates):<p aria-label="Matching logged calls unavailable">—</p>}</div>
-      <div><h2>Master</h2>{candidates("scp",projection.scp.candidates)}</div>
-      <div><h2>Telnet</h2>{projection.clusterCandidates?candidates("cluster",projection.clusterCandidates):<p aria-label="Matching cluster calls unavailable">—</p>}</div>
-      <div><h2>Call History</h2>{candidates("history",projection.history.rows)}</div>
+    </div></details>
+    <div className="contest-surface-check-columns" data-pane-count={panes.length}>
+      {panes.map(pane=><div key={pane.key}><h2>{pane.title}</h2>{pane.body}</div>)}
     </div></section>;
 }
 function Statistics({ projection }: { projection: ContestStatisticsSurfaceProjection }) {
@@ -730,27 +772,48 @@ function Rates({ projection }: { projection: ContestRatesSurfaceProjection }) {
       ["Hour Run QSO",projection.hourRunQso],["Hour S&P QSO",projection.hourSearchAndPounceQso]].map(([label,value])=><tr key={label} className={String(label).includes("S&P")?"contest-surface-rate-search":"contest-surface-rate-run"}><th scope="row">{label}:</th><td>{value.toLocaleString()}</td></tr>)}</tbody></table>
   </section>;
 }
-function Matrix({ projection }: { projection: ContestMatrixSurfaceProjection }) {
+function Matrix({ projection,preferenceScope }: { projection: ContestMatrixSurfaceProjection;preferenceScope:string }) {
   const rich = projection.schemaVersion === 4 ? projection : null;
-  const [zoneSystem, setZoneSystem] = useState<"cq" | "itu">(rich?.zoneSystem ?? "cq");
-  const rows = useRef(new Map<string, HTMLTableRowElement>());
-  useEffect(() => { if (rich?.tracker === "zone" && rich.zoneSystem) setZoneSystem(rich.zoneSystem); }, [rich?.tracker, rich?.zoneSystem]);
+  const preferenceKey=`xlog.contesting.matrix-view.v1/${preferenceScope}/${rich?.tracker??projection.title.toLocaleLowerCase()}`;
+  const restored=()=>{try{return JSON.parse(localStorage.getItem(preferenceKey)??"null") as {bandScope?:string;rowFilter?:string}|null;}catch{return null;}},
+    initial=restored();
+  const [bandScope,setBandScope]=useState<"configured"|"current"|"all">(()=>(["configured","current","all"].includes(initial?.bandScope??"")?initial!.bandScope:"configured") as "configured"|"current"|"all"),
+    [rowFilter,setRowFilter]=useState<"needed"|"worked"|"all">(()=>(["needed","worked","all"].includes(initial?.rowFilter??"")?initial!.rowFilter:"all") as "needed"|"worked"|"all");
+  const [viewportWidth,setViewportWidth]=useState(()=>window.innerWidth);
+  const rows = useRef(new Map<string, HTMLTableRowElement>()),lastFollowed=useRef("");
   const selectedLabel = rich?.tracker === "dxcc" ? rich.current.dxcc : rich?.tracker === "zone"
-    ? String(zoneSystem === "cq" ? rich.current.cqZone ?? "" : rich.current.ituZone ?? "") : null;
+    ? String(rich.zoneSystem === "itu" ? rich.current.ituZone ?? "" : rich.current.cqZone ?? "") : null;
   const selectedKey = selectedLabel?.trim().toLocaleUpperCase() ?? "";
-  useEffect(() => { if (selectedKey) rows.current.get(selectedKey)?.scrollIntoView?.({ block: "center", inline: "nearest" }); }, [selectedKey, projection.rows]);
+  const configured=rich?.configuredBands?.length?rich.configuredBands:projection.bands;
+  const visibleBands=bandScope==="all"?projection.bands:bandScope==="current"&&rich?.currentBand?[rich.currentBand]:configured;
+  const projectedRows=useMemo(()=>{const source=[...projection.rows];
+    if(selectedKey&&!source.some(row=>row.label.trim().toLocaleUpperCase()===selectedKey))source.push({label:selectedLabel!,counts:Object.fromEntries(projection.bands.map(band=>[band,0])),total:0});
+    return source.filter(row=>{const worked=visibleBands.some(band=>(row.counts[band]??0)>0);
+      const needed=visibleBands.some(band=>(row.counts[band]??0)===0);
+      return rowFilter==="all"?true:rowFilter==="worked"?worked:needed;});
+  },[projection.rows,projection.bands,selectedKey,selectedLabel,visibleBands.join("\u001f"),rowFilter]);
+  useEffect(()=>{try{localStorage.setItem(preferenceKey,JSON.stringify({bandScope,rowFilter}));}catch{/* Display preferences remain optional. */}},[preferenceKey,bandScope,rowFilter]);
+  useEffect(()=>{const resized=()=>setViewportWidth(window.innerWidth);window.addEventListener("resize",resized);return()=>window.removeEventListener("resize",resized);},[]);
+  useEffect(() => { if(selectedKey&&lastFollowed.current!==selectedKey)rows.current.get(selectedKey)?.scrollIntoView?.({ block: "center", inline: "nearest" });
+    lastFollowed.current=selectedKey;}, [selectedKey]);
+  const workedInView=projection.rows.filter(row=>visibleBands.some(band=>(row.counts[band]??0)>0)).length;
+  const requestedBlocks=viewportWidth>=960?3:viewportWidth>=640?2:1,blockCount=Math.max(1,Math.min(requestedBlocks,projectedRows.length||1)),
+    rowsPerBlock=Math.ceil(projectedRows.length/blockCount),blocks=Array.from({length:blockCount},(_,index)=>projectedRows.slice(index*rowsPerBlock,(index+1)*rowsPerBlock));
   return <section aria-label={`Contest ${projection.title}`} aria-busy={projection.busy} className="contest-surface-matrix"><header className="contest-surface-matrix-toolbar"><h1>{projection.title}</h1>
-    {rich?.tracker === "zone" && <fieldset className="contest-surface-zone-system"><legend>Scroll to</legend>
-      {(["cq", "itu"] as const).map(value => <label key={value}><input type="radio" name="contest-zone-system" value={value}
-        checked={zoneSystem === value} onChange={() => setZoneSystem(value)}/>{value.toUpperCase()}</label>)}</fieldset>}
-    <span>{projection.total.toLocaleString()} worked</span></header>
-      <div className="contest-surface-matrix-scroll"><table aria-label={`${projection.title} by band`}><thead><tr><th scope="col">{projection.title === "DXCC" ? "DXCC" : "Zone"}</th>
-        {projection.bands.map(band => <th key={band} scope="col">{band}</th>)}<th scope="col">Total</th></tr></thead><tbody>
-        {projection.rows.map(row => { const key = row.label.trim().toLocaleUpperCase(), current = !!selectedKey && key === selectedKey; return <tr key={row.label}
+    {rich&&<><label>Band<select aria-label="Multiplier band scope" value={bandScope} onChange={event=>setBandScope(event.target.value as typeof bandScope)}>
+      <option value="configured">Configured</option><option value="current" disabled={!rich.currentBand}>Current</option><option value="all">All</option></select></label>
+      <label>Show<select aria-label="Multiplier row filter" value={rowFilter} onChange={event=>setRowFilter(event.target.value as typeof rowFilter)}>
+        <option value="needed">Needed</option><option value="worked">Worked</option><option value="all">All</option></select></label></>}
+    <span>{rich&&`${projectedRows.length.toLocaleString()} shown · `}{workedInView.toLocaleString()} worked in view{workedInView!==projection.total?` · ${projection.total.toLocaleString()} unique total`:""}</span></header>
+      <div className="contest-surface-matrix-scroll"><div className="contest-surface-matrix-blocks" style={{gridTemplateColumns:`repeat(${blockCount},max-content)`}}>{blocks.map((block,blockIndex)=><table
+        key={blockIndex} aria-label={blockIndex===0?`${projection.title} by band`:`${projection.title} by band continuation ${blockIndex+1}`}><thead><tr><th scope="col">{projection.title === "DXCC" ? "DXCC" : "Zone"}</th>
+        {visibleBands.map(band => <th key={band} scope="col">{band}</th>)}<th scope="col">Total</th></tr></thead><tbody>
+        {block.map(row => { const key = row.label.trim().toLocaleUpperCase(), current = !!selectedKey && key === selectedKey,
+          visibleTotal=visibleBands.reduce((sum,band)=>sum+(row.counts[band]??0),0); return <tr key={row.label}
           ref={element => { if (element) rows.current.set(key, element); else rows.current.delete(key); }} aria-current={current ? "true" : undefined}>
-          <th scope="row">{row.label}</th>{projection.bands.map(band => <td key={band} className={row.counts[band] > 0 ? "contest-surface-worked" : undefined}>
-          {row.counts[band].toLocaleString()}</td>)}<td>{row.total.toLocaleString()}</td></tr>; })}
-      </tbody></table></div>
+          <th scope="row">{row.label}</th>{visibleBands.map(band => <td key={band} className={row.counts[band] > 0 ? "contest-surface-worked" : undefined}>
+          {(row.counts[band]??0).toLocaleString()}</td>)}<td>{visibleTotal.toLocaleString()}</td></tr>; })}
+      </tbody></table>)}</div></div>
   </section>;
 }
 function ManualLogTable({rows,disabled,onEdit,label,emptyMessage}:{rows:any[];disabled:boolean;onEdit:(qsoID:string)=>void;label:string;emptyMessage?:string}) {

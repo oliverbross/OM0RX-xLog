@@ -106,14 +106,22 @@ export function ContestQRZDetailsSurface({ search = window.location.search,
   useAutoFit(`${call}:${loading}:${error}:${profile?.call ?? ""}`);
 
   const value = profile?.call === call ? profile.value : null;
+  const country=text(value?.country)??projection?.manual?.country??null,
+    ituZone=number(value?.ituZone)??number(projection?.manual?.ituZone),
+    cqZone=number(value?.cqZone)??number(projection?.manual?.cqZone);
+  const fallbackFields=new Set([
+    !text(value?.country)&&country?"country":null,
+    !number(value?.ituZone)&&ituZone?"itu-zone":null,
+    !number(value?.cqZone)&&cqZone?"cq-zone":null,
+  ].filter((field):field is string=>field!==null));
   const fields: Array<[string, string | null, string]> = value ? [
     ["Name", text(value.name) ?? text(value.nickname), "name"],
-    ["Country", text(value.country), "country"],
+    ["Country", country, "country"],
     ["QTH", text(value.qth), "qth"],
     ["Grid", text(value.gridSquare), "grid"],
     ["Continent", text(value.continent), "continent"],
-    ["ITU zone", number(value.ituZone), "itu-zone"],
-    ["CQ zone", number(value.cqZone), "cq-zone"],
+    ["ITU zone", ituZone, "itu-zone"],
+    ["CQ zone", cqZone, "cq-zone"],
   ] : [];
 
   return <main className="contest-qrz-details" aria-label="Contest Callsign Details">
@@ -123,7 +131,7 @@ export function ContestQRZDetailsSurface({ search = window.location.search,
     {loading && <p role="status">Looking up {call}…</p>}
     {error && <p className="contest-qrz-error" role="alert">{error}</p>}
     {value && <section aria-label={`${call} callsign profile`}>
-      <dl>{fields.map(([label, detail, field]) => <div key={label} data-field={field}><dt>{label}</dt><dd>{detail ?? "—"}</dd></div>)}</dl>
+      <dl>{fields.map(([label, detail, field]) => <div key={label} data-field={field}><dt>{label}</dt><dd>{detail ?? "—"}{fallbackFields.has(field)&&<small> CTY</small>}</dd></div>)}</dl>
     </section>}
   </main>;
 }

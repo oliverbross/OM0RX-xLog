@@ -18,7 +18,7 @@ export type ContestSurfaceAction =
   | { action: "entry_set_frequency_text"; params: DraftRevision & { value: string; callsignCommand?: true } }
   | { action: "entry_set_band"; params: DraftRevision & { value: string } }
   | { action: "entry_set_mode"; params: DraftRevision & { value: string; callsignCommand?: true } }
-  | { action: "entry_reserve_serial" | "entry_commit" | "entry_clear"; params: DraftRevision }
+  | { action: "entry_reserve_serial" | "entry_commit" | "entry_clear" | "entry_edit_last"; params: DraftRevision }
   | { action: "entry_spot" | "entry_mark_spot" | "entry_tune_spot"; params: DraftRevision }
   | { action: "entry_step_spot"; params: DraftRevision & { direction: "previous" | "next" } }
   | { action: "entry_step_vfo"; params: DraftRevision & { direction: "up" | "down" } }
@@ -84,7 +84,8 @@ export type ContestEntrySurfaceProjection = { schemaVersion: 1; status: "ready";
   busy: boolean; dirty: boolean; uncertain: boolean };
 export type ContestEntrySurfaceProjectionV2 = Omit<ContestEntrySurfaceProjection, "schemaVersion"> & { schemaVersion: 2;
   descriptor: { reportsVisible?: boolean; bands: string[]; modes: ("CW" | "SSB" | "RTTY" | "AM" | "FM")[];
-    allowDuplicateCommit?: boolean; automaticSerial?: boolean; advanceOnSpace?: ContestInputFieldID[]; keyBindings?: ContestKeyBinding[];
+    allowDuplicateCommit?: boolean; automaticSerial?: boolean; advanceOnSpace?: ContestInputFieldID[];
+    spaceNext?: Partial<Record<ContestInputFieldID, ContestInputFieldID>>; keyBindings?: ContestKeyBinding[];
     reportFields?: ContestSurfaceReceivedField[];
     sentFields: ContestSurfaceReceivedField[];
     serial: { requirement: "none" | "requiredForCommit"; allocatedFieldID: string | null; reservedSerial: number | null } };
@@ -138,7 +139,8 @@ type ContestMatrixSurfaceProjectionV1 = { schemaVersion: 1; status: "ready"; tit
 export type ContestMatrixSurfaceProjectionV4 = { schemaVersion: 4; status: "ready"; title: string;
   tracker: "dxcc" | "zone"; zoneSystem: "cq" | "itu" | null;
   current: { dxcc: string | null; cqZone: number | null; ituZone: number | null };
-  bands: string[]; rows: { label: string; counts: Record<string, number>; total: number }[]; total: number; busy: boolean };
+  bands: string[]; configuredBands?: string[]; currentBand?: string | null;
+  rows: { label: string; counts: Record<string, number>; total: number }[]; total: number; busy: boolean };
 export type ContestMatrixSurfaceProjection = ContestMatrixSurfaceProjectionV1 | ContestMatrixSurfaceProjectionV4;
 export type ContestSurfaceSpot = { id: string; receivedAt: number; clusterName: string; spotter: string;
   spotterContinent: string | null; frequencyKHz: number; frequencyText: string; callsign: string; comment: string;
@@ -273,6 +275,9 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
   const advanceOnSpaceValid = descriptor?.advanceOnSpace === undefined || Array.isArray(descriptor.advanceOnSpace) &&
     descriptor.advanceOnSpace.length <= contestInputFieldIDs.length && new Set(descriptor.advanceOnSpace).size === descriptor.advanceOnSpace.length &&
     descriptor.advanceOnSpace.every(item => oneOf(item, contestInputFieldIDs));
+  const spaceNextValid = descriptor?.spaceNext === undefined || record(descriptor.spaceNext) &&
+    Object.keys(descriptor.spaceNext).length <= contestInputFieldIDs.length &&
+    Object.entries(descriptor.spaceNext).every(([from, to]) => oneOf(from, contestInputFieldIDs) && oneOf(to, contestInputFieldIDs));
   const operatorValid = value.operator === null || !!operator &&
     optionalKeys(operator, ["output", "outputAvailable", "outputUnavailableReason", "armed", "style", "status", "pending", "focusedField", "tabNext", "tabPrevious", "functionKeys", "readiness", "trace"], ["autoCQ"]) &&
     oneOf(operator.output, ["simulation-only", "xlog-native", "test-simulation"]) && typeof operator.outputAvailable === "boolean" &&
@@ -299,14 +304,14 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
       oneOf(trace.mode, ["CW", "SSB", "AM", "FM"]) && text(trace.macro, 160, true) &&
       text(trace.text, 4096, true) && oneOf(trace.status, ["pending", "confirmed", "failed", "stopped"]); });
   return optionalKeys(value, ["schemaVersion", "status", "session", "draft", "busy", "dirty", "uncertain", "descriptor", "operator"], ["manual"]) &&
-    validEntryProjection(base) && !!descriptor && optionalKeys(descriptor, ["bands", "modes", "sentFields", "serial"], ["reportFields", "reportsVisible", "allowDuplicateCommit", "automaticSerial", "advanceOnSpace", "keyBindings"]) &&
+    validEntryProjection(base) && !!descriptor && optionalKeys(descriptor, ["bands", "modes", "sentFields", "serial"], ["reportFields", "reportsVisible", "allowDuplicateCommit", "automaticSerial", "advanceOnSpace", "spaceNext", "keyBindings"]) &&
     (!("reportsVisible" in descriptor) || typeof descriptor.reportsVisible === "boolean") &&
     (!("allowDuplicateCommit" in descriptor) || typeof descriptor.allowDuplicateCommit === "boolean") &&
     (!("automaticSerial" in descriptor) || typeof descriptor.automaticSerial === "boolean") &&
     texts(descriptor.bands, 64, 16) && new Set(descriptor.bands as string[]).size === (descriptor.bands as string[]).length &&
     Array.isArray(descriptor.modes) && descriptor.modes.length <= 5 &&
     descriptor.modes.every(item => oneOf(item, ["CW", "SSB", "RTTY", "AM", "FM"])) &&
-    new Set(descriptor.modes).size === descriptor.modes.length && reportFieldsValid && sentFieldsValid && serialValid && advanceOnSpaceValid && keyBindingsValid && operatorValid;
+    new Set(descriptor.modes).size === descriptor.modes.length && reportFieldsValid && sentFieldsValid && serialValid && advanceOnSpaceValid && spaceNextValid && keyBindingsValid && operatorValid;
 }
 function validCallCandidates(value: unknown) {
   if (!Array.isArray(value) || value.length > 500) return false;
@@ -440,9 +445,10 @@ function validMatrixProjection(value: Record<string, unknown>) {
   const bands = value.bands;
   const version = value.schemaVersion;
   if (version !== 1 && version !== 4) return false;
-  const keys = version === 1 ? ["schemaVersion", "status", "title", "bands", "rows", "total", "busy"] :
+  const required = version === 1 ? ["schemaVersion", "status", "title", "bands", "rows", "total", "busy"] :
     ["schemaVersion", "status", "title", "tracker", "zoneSystem", "current", "bands", "rows", "total", "busy"];
-  if (!exact(value, keys) || !text(value.title, 160) ||
+  const optional = version === 4 ? ["configuredBands", "currentBand"] : [];
+  if (!optionalKeys(value, required, optional) || !text(value.title, 160) ||
       !Array.isArray(bands) || bands.length > 32 || !bands.every(band => text(band, 16)) || new Set(bands).size !== bands.length ||
       !Array.isArray(value.rows) || value.rows.length > 10_000 || !uint(value.total) || typeof value.busy !== "boolean") return false;
   if (version === 4) {
@@ -452,6 +458,9 @@ function validMatrixProjection(value: Record<string, unknown>) {
         value.tracker === "dxcc" && value.zoneSystem !== null ||
         value.tracker === "zone" && value.zoneSystem !== "cq" && value.zoneSystem !== "itu" ||
         current.dxcc !== null && !text(current.dxcc, 160) ||
+        value.configuredBands !== undefined && (!Array.isArray(value.configuredBands) ||
+          !value.configuredBands.every(band => text(band, 16) && (bands as string[]).includes(band as string))) ||
+        value.currentBand !== undefined && value.currentBand !== null && (!text(value.currentBand, 16) || !(bands as string[]).includes(value.currentBand as string)) ||
         ![current.cqZone, current.ituZone].every(zone => zone === null || uint(zone, 90))) return false;
   }
   const labels = new Set<string>();
@@ -562,7 +571,7 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "entry_set_band") return draft(params, ["value"]) && text(params.value, 16);
   if (action === "entry_set_mode") return draft(params, ["value"], ["callsignCommand"]) && text(params.value, 16) &&
     (params.callsignCommand === undefined || params.callsignCommand === true);
-  if (action === "entry_reserve_serial" || action === "entry_commit" || action === "entry_clear") return draft(params, []);
+  if (action === "entry_reserve_serial" || action === "entry_commit" || action === "entry_clear" || action === "entry_edit_last") return draft(params, []);
   if (action === "entry_spot" || action === "entry_mark_spot" || action === "entry_tune_spot") return draft(params, []);
   if (action === "entry_step_spot") return draft(params, ["direction"]) && oneOf(params.direction, ["previous", "next"]);
   if (action === "entry_step_vfo") return draft(params, ["direction"]) && oneOf(params.direction, ["up", "down"]);

@@ -229,7 +229,7 @@ it("renders validated manual main context without manufacturing headings or dist
   expect(screen.getByLabelText("QSOs and multipliers").textContent).toBe("QSO / mults42/17");
   expect(screen.getByLabelText("Score").textContent).toBe("Score2142");
   expect((document.querySelector(".contest-surface-main-fields") as HTMLElement).style.getPropertyValue("--contest-entry-field-columns"))
-    .toBe("repeat(4,minmax(0,1fr))");
+    .toBe("minmax(140px,1.6fr) repeat(3,minmax(64px,1fr))");
 });
 
 it("renders Statistics v3 as the original compact table with TOTAL last", async () => {
@@ -310,7 +310,8 @@ it("allows the compact Statistics table to fit the supported 400px window minimu
 it("contains matrix overflow inside its scroll region", () => {
   const css = readFileSync(`${process.cwd()}/src/contesting/DetachedContestSurface.css`, "utf8");
   expect(css).toContain(".contest-surface-matrix { align-items:flex-start; overflow:hidden;");
-  expect(css).toContain(".contest-surface-matrix-scroll { flex:0 1 auto; width:auto; max-width:100%; min-width:0;");
+  expect(css).toContain(".contest-surface-matrix-scroll { flex:1 1 auto; width:100%; max-width:100%; min-width:0;");
+  expect(css).toContain(".contest-surface-matrix-blocks { display:grid; align-items:start; gap:8px; width:max-content; min-width:100%;");
   expect(css).toContain(".contest-surface-matrix-scroll table { width:max-content; min-width:0;");
   expect(css).toContain(".contest-surface-matrix :is(th,td) { min-width:34px; padding:3px 6px !important;");
 });
@@ -374,10 +375,29 @@ it("keeps Trans Tasman duplicates loggable and presents the original period expl
   expect(validContestSurfaceProjection("active-qso",view)).toBe(true);
   native.invoke.mockResolvedValue({...snapshot,projection:view});render(<DetachedContestSurface/>);
   expect(await screen.findByLabelText("Sent exchange")).toHaveProperty("value","001");
-  expect(screen.queryByText(`Duplicate: ${reason}`)).toBeNull();
-  expect(screen.queryByRole("button",{name:"Log QSO",hidden:true})).toBeNull();
+  expect(screen.getByRole("alert").textContent).toContain("DUPE");
+  expect(screen.getByRole("alert").textContent).toContain(reason);
+  expect(screen.getByRole("button",{name:/^Log It/})).toBeTruthy();
+  expect(screen.getByRole("button",{name:"Wipe"})).toBeTruthy();
+  expect(screen.getByRole("button",{name:/^Stop/})).toBeTruthy();
+  expect(screen.getByRole("button",{name:"Edit last"})).toBeTruthy();
   expect(screen.queryByRole("button",{name:"Reserve serial",hidden:true})).toBeNull();
   expect(screen.getByLabelText("Current band and mode").textContent).toBe("CW1608040");
+});
+
+it("shows Checking instead of attaching a stale DUPE result to locally typed callsign text",async()=>{
+  const view={...projection,draft:{...projection.draft,callsign:"OM0A",frequencyError:"",dupe:{state:"duplicate",reason:"Worked at 09:43 UTC."}}};
+  native.invoke.mockImplementation(async(command:string)=>{
+    if(command==="contest_surface_snapshot")return{...snapshot,projection:view};
+    if(command==="contest_surface_action")return new Promise(()=>{});
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);
+  const callsign=await screen.findByLabelText("Callsign");
+  expect(screen.getByRole("alert").textContent).toContain("DUPE — OM0A");
+  fireEvent.change(callsign,{target:{value:"K1ABC"}});
+  expect(await screen.findByText("Checking — K1ABC")).toBeTruthy();
+  expect(screen.queryByText(/DUPE — OM0A/)).toBeNull();
 });
 
 it.each(["legacy", "manual", "plugin"])("reserves chronological and partial-match panes for the %s log",async layout=>{
@@ -740,6 +760,7 @@ it("uses four N1MM Check Partial panes with exact, changed, and extra character 
   expect(screen.getByRole("button",{name:"DL1ABC"}).querySelectorAll(".contest-check-extra")).toHaveLength(2);
   expect(screen.getByRole("button",{name:"KDL1A"}).querySelector(".contest-check-extra")?.textContent).toBe("K");
   expect(screen.getByRole("button",{name:"KDL1A"}).querySelectorAll(".contest-check-match")).toHaveLength(4);
+  expect(screen.getByRole("button",{name:"KDL1A"}).querySelectorAll(".contest-check-callsign")).toHaveLength(1);
 });
 
 it("routes missing-corpus download, refresh, and retry through the contest owner",async()=>{
@@ -752,6 +773,7 @@ it("routes missing-corpus download, refresh, and retry through the contest owner
     {...snapshot,panelID:"callsign-intelligence",projection:view}:{requestID:args.requestID,status:"applied",projectionRevision:7});
   render(<DetachedContestSurface/>);
   expect(await screen.findByText(/saved local MASTER\.SCP index is invalid/)).toBeTruthy();
+  expect(screen.getAllByRole("heading",{level:2}).map(node=>node.textContent)).toEqual(["Log","Master"]);
   fireEvent.click(screen.getByRole("button",{name:"Download latest"}));
   fireEvent.click(screen.getByRole("button",{name:"Refresh"}));
   fireEvent.click(screen.getByRole("button",{name:"Retry"}));
@@ -1013,30 +1035,35 @@ it.each([{ panelID: "awards", title: "DXCC", label: "Slovakia" }, { panelID: "ch
     expect(screen.getByRole("table", { name: `${title} by band` })).toBeTruthy();
     expect(screen.getByRole("rowheader", { name: label })).toBeTruthy();
     expect(screen.getByRole("cell", { name: "0" })).toBeTruthy();
-    expect(screen.getByText("1 worked")).toBeTruthy();
+    expect(screen.getByText("1 worked in view")).toBeTruthy();
     expect(screen.queryByRole("button")).toBeNull();
     expect(native.invoke.mock.calls.every(([command]) => command === "contest_surface_snapshot")).toBe(true);
   });
 
-it("highlights and scrolls to the current zone while preserving the original CQ/ITU choice", async () => {
+it("highlights and scrolls to the contest's current CQ zone without a misleading CQ/ITU switch", async () => {
   window.history.replaceState({}, "", search.replace("view=active-qso", "view=chaser-dx"));
   const scrollIntoView = vi.fn();
   Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable:true, value:scrollIntoView });
   native.invoke.mockImplementation(async (command: string) => {
     if (command === "contest_surface_snapshot") return { ...snapshot, panelID:"chaser-dx", projection:{schemaVersion:4,status:"ready",
-      title:"CQ Zones",tracker:"zone",zoneSystem:"cq",current:{dxcc:"Germany",cqZone:14,ituZone:28},bands:["20m"],
-      rows:[{label:"14",counts:{"20m":1},total:1},{label:"28",counts:{"20m":0},total:0}],total:1,busy:false} };
+      title:"CQ Zones",tracker:"zone",zoneSystem:"cq",current:{dxcc:"Germany",cqZone:14,ituZone:28},bands:["20m","40m"],
+      configuredBands:["20m"],currentBand:"20m",
+      rows:[{label:"14",counts:{"20m":1,"40m":0},total:1},{label:"28",counts:{"20m":0,"40m":0},total:0}],total:1,busy:false} };
     throw new Error(command);
   });
-  render(<DetachedContestSurface/>);
-  expect(await screen.findByRole("group", { name:"Scroll to" })).toBeTruthy();
-  const cq = await screen.findByRole("radio", { name:"CQ" });
-  expect((cq as HTMLInputElement).checked).toBe(true);
+  const mounted=render(<DetachedContestSurface/>);
+  expect(await screen.findByRole("heading", { name:"CQ Zones" })).toBeTruthy();
+  expect(screen.queryByRole("radio")).toBeNull();
+  expect(screen.getByRole("columnheader", { name:"20m" })).toBeTruthy();
+  expect(screen.queryByRole("columnheader", { name:"40m" })).toBeNull();
+  fireEvent.change(screen.getByRole("combobox", { name:"Multiplier band scope" }), { target:{value:"all"} });
+  expect(screen.getByRole("columnheader", { name:"40m" })).toBeTruthy();
+  fireEvent.change(screen.getByRole("combobox", { name:"Multiplier row filter" }), { target:{value:"needed"} });
+  mounted.unmount();render(<DetachedContestSurface/>);
+  expect(await screen.findByRole("combobox", { name:"Multiplier band scope" })).toHaveProperty("value","all");
+  expect(screen.getByRole("combobox", { name:"Multiplier row filter" })).toHaveProperty("value","needed");
   expect(screen.getByRole("rowheader", { name:"14" }).closest("tr")?.getAttribute("aria-current")).toBe("true");
   await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
-  fireEvent.click(screen.getByRole("radio", { name:"ITU" }));
-  expect(screen.getByRole("rowheader", { name:"28" }).closest("tr")?.getAttribute("aria-current")).toBe("true");
-  await waitFor(() => expect(scrollIntoView).toHaveBeenCalledTimes(2));
   expect(native.invoke.mock.calls.every(([command]) => command === "contest_surface_snapshot")).toBe(true);
 });
 
@@ -1070,7 +1097,7 @@ it.each([{ panelID: "awards", title: "DXCC", column: "DXCC" }, { panelID: "chase
     expect(await screen.findByRole("heading", { name: title })).toBeTruthy();
     expect(screen.getByRole("table", { name: `${title} by band` })).toBeTruthy();
     expect(screen.getAllByRole("columnheader").map(cell => cell.textContent)).toEqual([column, ...bands, "Total"]);
-    expect(screen.getByText("0 worked")).toBeTruthy();
+    expect(screen.getByText("0 worked in view")).toBeTruthy();
     expect(screen.queryAllByRole("rowheader")).toHaveLength(0);
     expect(screen.queryByText("Panel unavailable")).toBeNull();
     expect(native.invoke.mock.calls.every(([command]) => command === "contest_surface_snapshot")).toBe(true);
@@ -1172,6 +1199,28 @@ it("keeps SSB macros visible while optional unconfigured voice controls and setu
   fireEvent.keyDown(screen.getByRole("region",{name:"Main Logging"}),{key:"F1"});
   expect(native.invoke.mock.calls.some(([command])=>command==="contest_surface_action")).toBe(false);
   expect(screen.queryByText(/Phone contest voice output is unavailable in production/i)).toBeNull();
+});
+
+it("shows saved only after a confirmed commit advances to a new draft",async()=>{
+  const operator={output:"xlog-native",outputAvailable:false,outputUnavailableReason:"Optional voice is not configured.",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+    functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  let current:any={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14_250_000,frequencyText:"14250000",frequencyError:"",mode:"SSB",sentReport:"59",receivedReport:"59"},
+    descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_action"){
+      expect(args.action).toBe("entry_commit");
+      current={...current,projectionRevision:7,projection:{...current.projection,
+        draft:{...current.projection.draft,draftID:"draft-2",revision:6,callsign:"",dupe:{state:"unchecked",reason:""}},
+        operator:{...current.projection.operator,focusedField:"callsign"}}};
+      return{requestID:args.requestID,status:"applied"};
+    }
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);
+  fireEvent.click(await screen.findByRole("button",{name:/^Log It/}));
+  expect((await screen.findByText("QSO saved")).getAttribute("role")).toBe("status");
+  expect(screen.getByLabelText("Callsign")).toHaveProperty("value","");
 });
 
 it.each([{available:false},{available:true}])("keeps original RTTY macros visible with truthful fldigi availability ($available)",async({available})=>{
@@ -1485,15 +1534,14 @@ it("routes the default Ctrl+Q return-to-CQ binding through one fenced owner acti
     .toMatchObject({action:"entry_return_cq_frequency",params:{draftID:"draft-1",expectedDraftRevision:5}}));
 });
 
-it("retains four Check Partial columns with explicit missing sources",async()=>{
+it("collapses unloaded Check Partial sources instead of reserving empty rows",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=callsign-intelligence"));
   native.invoke.mockResolvedValue({...snapshot,panelID:"callsign-intelligence",projection:{schemaVersion:1,status:"ready",draftID:"draft-1",draftRevision:5,
     inputCallsign:"OM0",scp:{source:null,candidates:[{candidateID:"scp-1",callsign:"OM0RX"}]},history:{source:null,rows:[]},busy:false}});
   render(<DetachedContestSurface/>);
   await screen.findByRole("heading",{name:"Check Partial"});
-  expect(["Log","Master","Telnet","Call History"].map(name=>screen.getByRole("heading",{name}).textContent)).toEqual(["Log","Master","Telnet","Call History"]);
+  expect(screen.getAllByRole("heading",{level:2}).map(node=>node.textContent)).toEqual(["Log","Master"]);
   expect(screen.getByLabelText("Matching logged calls unavailable").textContent).toBe("—");
-  expect(screen.getByLabelText("Matching cluster calls unavailable").textContent).toBe("—");
   expect(screen.getByRole("button",{name:"OM0RX"})).toBeTruthy();
   expect(screen.queryByLabelText("Callsign query")).toBeNull();
 });
@@ -1561,6 +1609,20 @@ it("uses the pinned plugin space-advance fields instead of limiting space to Cal
   render(<DetachedContestSurface/>);const sent=await screen.findByLabelText("SNT"),receive=screen.getByLabelText("RCV");
   expect(document.activeElement).toBe(sent);fireEvent.keyDown(sent,{key:" "});
   expect(document.activeElement).toBe(receive);
+});
+
+it("uses CQ WW smart Space from callsign directly to the received zone while Tab still visits both reports",async()=>{
+  const operator={output:"xlog-native",outputAvailable:false,outputUnavailableReason:"Recorded phone output is optional.",armed:false,style:"search-and-pounce",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+    functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode:"SSB",sentReport:"59",receivedReport:"59",
+      frequencyHz:7_100_000,frequencyText:"7100000",frequencyError:"",receivedFields:[{id:"other_2",label:"CQ Zone",value:"5",required:true,maximumUTF8Bytes:2}]},
+    descriptor:{bands:["40m"],modes:["SSB"],advanceOnSpace:["callsign"],spaceNext:{callsign:"other_2"},sentFields:[],
+      serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>command==="contest_surface_snapshot"?view:
+    command==="contest_surface_action"?{requestID:args.requestID,status:"queued"}:Promise.reject(new Error(command)));
+  render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign"),zone=screen.getByLabelText("Received exchange 1");
+  callsign.focus();fireEvent.keyDown(callsign,{key:" "});expect(document.activeElement).toBe(zone);
+  callsign.focus();fireEvent.keyDown(callsign,{key:"Tab"});expect(document.activeElement).toBe(screen.getByLabelText("SNT"));
 });
 
 it("opens Operator for exact OPON Space while ordinary callsigns keep space advance",async()=>{
@@ -1657,7 +1719,7 @@ it("keeps a CWT keyboard burst and its Name tab target live while the owner pers
   });
   render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign"),name=screen.getByLabelText("Name");
   expect((document.querySelector(".contest-surface-main-fields") as HTMLElement).style.getPropertyValue("--contest-entry-field-columns"))
-    .toBe("repeat(3,minmax(0,1fr))");
+    .toBe("minmax(140px,1.6fr) repeat(2,minmax(64px,1fr))");
   expect(screen.getByText("Member No./SPC", { selector: ".contest-field-label" }).getAttribute("title")).toBe("Member No./SPC");
   expect(screen.queryByLabelText("Sent exchange")).toBeNull();
   fireEvent.change(callsign,{target:{value:"K"}});await waitFor(()=>expect(actions).toHaveLength(1));
@@ -1715,7 +1777,7 @@ it("does not replay a field action when its reply is lost",async()=>{
   render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign");
   fireEvent.change(callsign,{target:{value:"K1ABC"}});
   await waitFor(()=>expect(actions).toBe(1));
-  expect(screen.queryByText("IPC reply lost")).toBeNull();
+  expect(await screen.findByRole("alert")).toHaveProperty("textContent","IPC reply lost");
   expect(actions).toBe(1); expect(snapshots).toBeGreaterThanOrEqual(2);
 });
 
@@ -1727,7 +1789,7 @@ it("keeps a failed presentation edit local without leaking reconciliation contro
   });
   render(<DetachedContestSurface/>);const input=await screen.findByLabelText("Callsign");
   fireEvent.change(input,{target:{value:"K1ABC"}});await waitFor(()=>expect(actions).toBe(1));
-  expect(screen.queryByText("pre-submit IPC failure")).toBeNull();
+  expect(await screen.findByRole("alert")).toHaveProperty("textContent","pre-submit IPC failure");
   expect((input as HTMLInputElement).value).toBe("K1ABC");expect(actions).toBe(1);
   await act(async()=>{native.wake!();});expect(actions).toBe(1);
   expect(screen.queryByText("This edit is not confirmed.")).toBeNull();
@@ -1778,7 +1840,7 @@ it("admits only Escape across benign refresh churn",async()=>{
   await waitFor(()=>expect(actions).toHaveLength(1));expect(actions[0]).toMatchObject({projectionRevision:6,action:"entry_operator_key",params:{key:"Escape",expectedDraftRevision:5}});
   view.unmount();reads=0;actions.length=0;render(<DetachedContestSurface/>);const ordinary=await screen.findByLabelText("Callsign");fireEvent.keyDown(ordinary,{key:"Enter"});
   await waitFor(()=>expect(reads).toBeGreaterThanOrEqual(4));
-  expect(screen.queryByText("The shared contest panel changed before this action could be applied.")).toBeNull();expect(actions).toHaveLength(0);
+  expect(await screen.findByRole("alert")).toHaveProperty("textContent","The shared contest panel changed before this action could be applied.");expect(actions).toHaveLength(0);
 });
 
 it("does not silently rebase a control action after another surface revision wins",async()=>{
@@ -1796,7 +1858,7 @@ it("does not silently rebase a control action after another surface revision win
   fireEvent.click(screen.getByRole("radio",{name:"S&P"}));
   current={...current,projectionRevision:7,projection:{...current.projection,draft:{...current.projection.draft,revision:6,callsign:"K"}},
     receipts:[{requestID:actions[0].requestID,status:"applied",message:null,projectionRevision:7}]};await act(async()=>{native.wake!();});
-  expect(screen.queryByText("The shared contest panel changed before this action could be applied.")).toBeNull();
+  expect(await screen.findByRole("alert")).toHaveProperty("textContent","The shared contest panel changed before this action could be applied.");
   expect(actions).toHaveLength(1);
   await waitFor(()=>expect(diagnostics).toContainEqual(expect.objectContaining({kind:"error",
     message:"The shared contest panel changed before this action could be applied."})));

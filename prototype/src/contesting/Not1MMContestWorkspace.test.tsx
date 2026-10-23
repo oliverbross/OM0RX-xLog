@@ -605,8 +605,8 @@ it("preserves authoritative CQ WW SSB dupe and country-zone multiplier classific
   expect(surfaceOwner.current.projections["dx-cluster"].spots).toEqual(surfaceOwner.current.projections["band-maps"].spots);
 });
 
-it("projects only modes and bands supported by a single-mode contest into Cluster and Band Map",async()=>{
-  const current={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",supportedModes:["SSB"] as const,
+it("projects only the configured mode and bands into Cluster and Band Map even when the plug-in supports more modes",async()=>{
+  const current={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",supportedModes:["CW","SSB"] as const,
     supportedBands:["160m","80m","40m","20m","15m","10m"]};
   const setup=newContestSetup("OM0RX");setup.pluginID="cq_ww_ssb";setup.preferences.bands=["20m"];
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(setup));
@@ -863,8 +863,13 @@ const statisticsFor = (current: ReturnType<typeof projection>) => ({
 });
 
 it.each([false, true])("publishes ready empty CQ WW trackers and preserves populated matrices (worked=%s)", async worked => {
-  const current = projection();
-  const matrices = { countries: worked ? [{ value: "Slovakia", band: 14, qsos: 2 }] : [],
+  const setup = newContestSetup("OM0RX");
+  setup.preferences.bands = ["40m"];
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1", JSON.stringify(setup));
+  const current = { ...projection(1,{callsign:"OM0A",other_2:"28"}), frequencyHz: 7_100_000, band: 7,
+    callContext:{callsign:"OM0A",primaryPrefix:"OM",country:"Slovakia",cqZone:15,ituZone:28,
+      headingDegrees:null,longPathHeadingDegrees:null,distanceKm:null} };
+  const matrices = { countries: worked ? [{ value: "Slovakia", band: 7, qsos: 2 }] : [],
     zones: worked ? [{ value: "15", band: 7, qsos: 1 }] : [] };
   const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
     const support = workspaceSupport(method, params, current); if (support) return support;
@@ -883,11 +888,13 @@ it.each([false, true])("publishes ready empty CQ WW trackers and preserves popul
   const countries = surfaceOwner.current.projections.awards;
   const zones = surfaceOwner.current.projections["chaser-dx"];
   expect(countries).toMatchObject({ schemaVersion: 4, status: "ready", title: "DXCC", tracker:"dxcc", zoneSystem:null,
-    current:{dxcc:null,cqZone:null,ituZone:null}, bands, total: worked ? 1 : 0 });
+    current:{dxcc:"Slovakia",cqZone:15,ituZone:28}, bands, configuredBands:["40m"], currentBand:"40m", total: worked ? 1 : 0 });
   expect(zones).toMatchObject({ schemaVersion: 4, status: "ready", title: "CQ Zones", tracker:"zone", zoneSystem:"cq",
-    current:{dxcc:null,cqZone:null,ituZone:null}, bands, total: worked ? 1 : 0 });
-  expect(countries.rows).toEqual(worked ? [{ label: "Slovakia", counts: { "160m": 0, "80m": 0, "40m": 0, "20m": 2, "15m": 0, "10m": 0 }, total: 2 }] : []);
-  expect(zones.rows).toEqual(worked ? [{ label: "15", counts: { "160m": 0, "80m": 0, "40m": 1, "20m": 0, "15m": 0, "10m": 0 }, total: 1 }] : []);
+    current:{dxcc:"Slovakia",cqZone:28,ituZone:28}, bands, configuredBands:["40m"], currentBand:"40m", total: worked ? 1 : 0 });
+  expect(countries.rows).toEqual(worked ? [{ label: "Slovakia", counts: { "160m": 0, "80m": 0, "40m": 2, "20m": 0, "15m": 0, "10m": 0 }, total: 2 }] : []);
+  expect(zones.rows).toHaveLength(40);
+  expect(zones.rows.find((row:any)=>row.label==="15")).toEqual({label:"15",
+    counts:{"160m":0,"80m":0,"40m":worked?1:0,"20m":0,"15m":0,"10m":0},total:worked?1:0});
   expect(validContestSurfaceProjection("awards", countries)).toBe(true);
   expect(validContestSurfaceProjection("chaser-dx", zones)).toBe(true);
 });
@@ -1431,6 +1438,8 @@ it.each([
 });
 
 it("creates an SSB session from catalog metadata and runs ESM without native CW admission", async () => {
+  const esmSetup=newContestSetup("OM0RX");esmSetup.preferences.useESM=true;
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(esmSetup));
   const current={...projection(3,{sent:"59",receive:"59",other_1:"001",other_2:"012"}),pluginID:"oceania_dx_ssb",
     pluginName:"Oceania DX SSB",mode:"SSB",supportedModes:["SSB"],reservedSerial:1,allowDuplicateCommit:true,matrixTrackers:[]};
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
@@ -1465,6 +1474,8 @@ it.each([
   {pluginID:"cq_wpx_ssb",pluginName:"CQ WPX SSB",other1:"001",other2:"123",reservedSerial:1,esmPayload:"59 001"},
   {pluginID:"arrl_ss_phone",pluginName:"ARRL Sweepstakes Phone",other1:"001",other2:"123 A K1ABC 67 CT",reservedSerial:1,esmPayload:"K1ABC 001 A OM0RX 67 CT"},
 ])("simulates only claimed $pluginName voice-keyer intents in Contesting Test", async ({pluginID,pluginName,other1,other2,reservedSerial,esmPayload}) => {
+  const esmSetup=newContestSetup("OM0RX");esmSetup.preferences.useESM=true;
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(esmSetup));
   let current={...projection(3,{sent:"59",receive:"59",other_1:other1,other_2:other2}),pluginID,
     pluginName,mode:"SSB",supportedModes:["SSB"] as const,reservedSerial,matrixTrackers:[] as Array<"countries"|"zones">};
   current.functionKeys=Array.from({length:12},(_,index)=>({id:`F${index+1}`,highlighted:false,label:index===11?"His call TU":`Message ${index+1}`}));
@@ -1756,6 +1767,10 @@ it.each([
         actionID:`${operationID}:0`,kind:"voice_keyer",signal:"phone",mode:"SSB",sessionID:origin.sessionID,
         workspaceGeneration:origin.workspaceGeneration,sourceRevision:origin.sourceRevision,draftID:origin.draftID,
       }]};
+    }else if(method==="contest_qso_commit"){
+      logged+=1;current={...current,revision:current.revision+1,draftID:"99999999-9999-4999-8999-999999999999",
+        focus:"callsign",score:{...current.score,qsos:1,points:1,total:1}};
+      result={projection:current,actions:[],messages:[]};
     }
     if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
   });
@@ -1764,6 +1779,7 @@ it.each([
   const entry=surfaceOwner.current.projections["active-qso"];
   expect(entry.operator).toMatchObject({outputAvailable:false,
     outputUnavailableReason:expect.stringMatching(/Voice WAV profile folder/)});
+  if(pluginID==="cq_ww_ssb")expect(entry.descriptor.spaceNext).toEqual({callsign:"other_2"});
   expect(entry.operator.functionKeys).toHaveLength(12);
   expect(entry.operator.functionKeys[1]).toEqual({key:"F2",macro:"F2",highlighted:true});
   await expect(surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_operator_key",
@@ -1772,13 +1788,9 @@ it.each([
   expect(request.mock.calls.some(([method])=>method==="contest_output_claim")).toBe(false);
   await act(async()=>surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_operator_key",
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Enter",focusedField:"callsign"}}));
-  expect(esmCalls).toBe(1);expect(logged).toBe(0);
-  expect(surfaceOwner.current.projections["active-qso"].operator.focusedField).toBe("other_2");
-  const progressed=surfaceOwner.current.projections["active-qso"];
-  await act(async()=>surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_operator_key",
-    params:{draftID:current.draftID,expectedDraftRevision:progressed.draft.revision,key:"Enter",focusedField:"other_2"}}));
-  expect(esmCalls).toBe(2);expect(logged).toBe(1);
-  expect(request.mock.calls.some(([method])=>method==="contest_qso_commit")).toBe(false);
+  expect(esmCalls).toBe(0);expect(logged).toBe(1);
+  expect(surfaceOwner.current.projections["active-qso"].operator.focusedField).toBe("callsign");
+  expect(request.mock.calls.filter(([method])=>method==="contest_qso_commit")).toHaveLength(1);
   expect(request.mock.calls.some(([method])=>method==="contest_output_claim")).toBe(false);
   expect(nativeVoice.play).not.toHaveBeenCalled();
 });
@@ -2653,6 +2665,8 @@ it("creates a Python CQ WW session and logs through the actual-host wire", async
 });
 
 it("sends one native ESM operation with buffered fields and accepts its confirmed log even when CW fails", async () => {
+  const esmSetup=newContestSetup("OM0RX");esmSetup.preferences.useESM=true;
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(esmSetup));
   let current = projection();
   const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
     const support = workspaceSupport(method, params, current); if (support) return support;
@@ -2833,7 +2847,7 @@ it.each(["discovering","lease_lost"] as const)("never falls back to local loggin
     .rejects.toThrow(/waiting for its master authority/);
   await expect(surfaceOwner.current.handle({...base,requestID:crypto.randomUUID(),action:"entry_operator_key",
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Enter",focusedField:"callsign"}}))
-    .rejects.toThrow(/disabled until the master/);
+    .rejects.toThrow(/waiting for its master authority/);
   expect(request.mock.calls.some(([method])=>method==="contest_qso_commit"||method==="contest_esm")).toBe(false);
   expect(groupChat.authority).not.toHaveBeenCalled();
 });
@@ -3017,7 +3031,8 @@ it("keeps a lost focus reply uncertain and never reports a following failed ESM 
   await expect(surfaceOwner.current.handle({...envelope,action:"entry_focus",
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,fieldID:"other_2"}})).rejects.toBeInstanceOf(ContestMutationUncertain);
   await expect(surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"entry_operator_key",
-    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Enter",focusedField:"other_2"}})).rejects.toThrow("Session changed");
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Enter",focusedField:"other_2"}}))
+    .rejects.toThrow("The save reply was not confirmed");
 });
 
 it.each([
@@ -3072,6 +3087,7 @@ it("pages, edits, and deletes through the detached Log owner actions", async () 
   let current = projection(), deleted: Record<string, unknown> | null = null;
   const row = {ID:"qso-021",TS:"2026-10-19 08:00:00",Call:"DL1ABC",Freq:14025,Band:14,Mode:"CW",
     SNT:"599",RCV:"599",SentNr:15,ZN:14,Operator:"OM0RX",Points:1,CountryPrefix:"DL"};
+  const newest = {...row,ID:"qso-001",TS:"2026-10-19 08:21:00",Call:"K1NEW",CountryPrefix:"K"};
   const request = vi.fn(async (method:string,params:Record<string,unknown>={})=>{
     const support = workspaceSupport(method, params, current); if (support) return support;
     if(method==="contest_scp_status")return unavailableSCP();
@@ -3080,7 +3096,7 @@ it("pages, edits, and deletes through the detached Log owner actions", async () 
     if(method==="contest_catalog")result={plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]};
     else if(method==="contest_sessions")result={sessions:[]};
     else if(method==="contest_create")result={projection:current};
-    else if(method==="contest_log_page"){const offset=Number(params.offset??0);result={rows:offset===20?[row]:[],offset,limit:20,total:21};}
+    else if(method==="contest_log_page"){const offset=Number(params.offset??0);result={rows:offset===20?[row]:[newest],offset,limit:Number(params.limit??20),total:21};}
     else if(method==="contest_score")result={score:current.score,matrices:{countries:[],zones:[]}};
     else if(method==="contest_qso_delete"){deleted=params;current=projection(current.revision+1);result={projection:current,actions:[],messages:[]};}
     else throw new Error(`Unexpected ${method}`);
@@ -3092,6 +3108,11 @@ it("pages, edits, and deletes through the detached Log owner actions", async () 
     panelID:"logbook",projectionRevision:1,requestID:crypto.randomUUID()};
   await act(async()=>surfaceOwner.current.handle({...envelope,action:"log_page",params:{offset:20,limit:20}}));
   await waitFor(()=>expect(surfaceOwner.current.projections.logbook.page.rows[0]?.qsoID).toBe("qso-021"));
+  const entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({...envelope,panelID:"active-qso",requestID:crypto.randomUUID(),action:"entry_edit_last",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision}}));
+  await waitFor(()=>expect(surfaceOwner.current.projections.logbook.editing?.qsoID).toBe("qso-001"));
+  expect(request.mock.calls).toContainEqual(["contest_log_page",expect.objectContaining({offset:0,limit:1})]);
   await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_edit_begin",params:{qsoID:"qso-021"}}));
   await waitFor(()=>expect(surfaceOwner.current.projections.logbook.editing?.qsoID).toBe("qso-021"));
   await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_edit_set_text",

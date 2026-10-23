@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { act, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, expect, it, vi } from "vitest";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ContestQRZDetailsSurface, fittedQRZDetailsHeight } from "./DetachedContestQRZDetailsSurface";
 
 const native = vi.hoisted(() => ({ invoke: vi.fn(), listener: undefined as undefined | (() => void) }));
@@ -19,6 +19,8 @@ const projection = (callsign: string, revision: number) => ({
   operatingContext: "10000000-0000-4000-8000-000000000001", scope: "contesting", sessionID: "10000000-0000-4000-8000-000000000002",
   workspaceGeneration: "10000000-0000-4000-8000-000000000003", panelID: "qrz-details", projectionRevision: revision, receipts: [],
   projection: { schemaVersion: 2, status: "ready", session: { name: "CQ WW", ruleName: "CQ WW", mode: "CW" },
+    manual:{operator:"OM0RX",cwSpeedWpm:null,cwSpeedStepWpm:1,country:"Slovakia",cqZone:15,ituZone:28,
+      headingDegrees:null,longPathHeadingDegrees:null,distanceKm:null,qsos:0,multipliers:0,total:0},
     draft: { draftID: "10000000-0000-4000-8000-000000000004", revision, callsign, sentReport: "599", receivedReport: "599", receivedFields: [], frequencyHz: 14_025_000,
       frequencyText: "14025000", frequencyError: "", band: "20m", mode: "CW", dupe: { state: "clear", reason: "" }, validation: { errors: [], warnings: [] }, reservedSerial: null },
     descriptor: { bands: ["20m"], modes: ["CW"], sentFields: [], serial: { requirement: "none", allocatedFieldID: null, reservedSerial: null } },
@@ -26,6 +28,7 @@ const projection = (callsign: string, revision: number) => ({
 });
 
 beforeEach(() => { native.invoke.mockReset(); native.listener = undefined; });
+afterEach(() => cleanup());
 
 it("debounces lookup, renders useful fields, and never exposes an entry control", async () => {
   native.invoke.mockImplementation(async (command: string) => command === "contest_surface_snapshot" ? projection("EA7EU", 1) : {});
@@ -58,6 +61,19 @@ it("discards an old lookup when the contest draft callsign changes", async () =>
   expect((await screen.findAllByText("Current operator")).length).toBeGreaterThan(0);
   await act(async () => resolveOld({ call: "EA7EU", name: "Stale operator" }));
   expect(screen.queryByText("Stale operator")).toBeNull();
+});
+
+it("labels contest CTY country and zone fallbacks when the provider omits them",async()=>{
+  native.invoke.mockImplementation(async(command:string)=>command==="contest_surface_snapshot"?projection("OM0RX",1):{});
+  const lookup=vi.fn(async()=>({call:"OM0RX",name:"Oliver"}));
+  render(<ContestQRZDetailsSurface search={search} lookup={lookup}/>);
+  await waitFor(()=>expect(lookup).toHaveBeenCalledTimes(1));
+  expect(await screen.findByText("Slovakia")).toBeTruthy();
+  for(const field of ["country","itu-zone","cq-zone"]){
+    const detail=document.querySelector(`[data-field="${field}"] dd`)!;
+    expect(detail.textContent).toMatch(/CTY$/);
+  }
+  expect(screen.getByText(/^28/)).toBeTruthy();expect(screen.getByText(/^15/)).toBeTruthy();
 });
 
 it("fits content to the available screen height", () => {

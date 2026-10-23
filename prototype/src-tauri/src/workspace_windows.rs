@@ -85,18 +85,18 @@ pub const SUPPORTED_WINDOWS: [WindowSpec; 23] = [
 ];
 pub const CONTEST_LABEL_PREFIX: &str = "contest--";
 pub const CONTEST_WINDOWS: [WindowSpec; 17] = [
-    WindowSpec { id: "active-qso", title: "OM0RX-xLog Contest — Main Logging", width: 800.0, height: 440.0 },
+    WindowSpec { id: "active-qso", title: "OM0RX-xLog Contest — Main Logging", width: 800.0, height: 360.0 },
     WindowSpec { id: "call-history", title: "OM0RX-xLog Contest — Call History", width: 840.0, height: 360.0 },
     WindowSpec { id: "qrz-details", title: "OM0RX-xLog Contest — Callsign Details", width: 520.0, height: 420.0 },
     WindowSpec { id: "group-chat", title: "OM0RX-xLog Contest — Group Chat", width: 620.0, height: 420.0 },
     WindowSpec { id: "band-maps", title: "OM0RX-xLog Contest — Band Map", width: 520.0, height: 700.0 },
-    WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog Contest — Check Partial", width: 660.0, height: 620.0 },
+    WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog Contest — Check Partial", width: 800.0, height: 360.0 },
     WindowSpec { id: "monitor", title: "OM0RX-xLog Contest — Rates", width: 340.0, height: 300.0 },
     WindowSpec { id: "score-reporting", title: "OM0RX-xLog Contest — Score Reporting", width: 620.0, height: 540.0 },
     WindowSpec { id: "messages", title: "OM0RX-xLog Contest — Messages", width: 620.0, height: 320.0 },
     WindowSpec { id: "propagation", title: "OM0RX-xLog Contest — Stats", width: 520.0, height: 220.0 },
-    WindowSpec { id: "awards", title: "OM0RX-xLog Contest — DXCC", width: 920.0, height: 360.0 },
-    WindowSpec { id: "chaser-dx", title: "OM0RX-xLog Contest — Zone", width: 760.0, height: 360.0 },
+    WindowSpec { id: "awards", title: "OM0RX-xLog Contest — DXCC", width: 720.0, height: 420.0 },
+    WindowSpec { id: "chaser-dx", title: "OM0RX-xLog Contest — Zone", width: 620.0, height: 380.0 },
     WindowSpec { id: "rotor", title: "OM0RX-xLog Contest — Rotator", width: 540.0, height: 520.0 },
     WindowSpec { id: "station-control", title: "OM0RX-xLog Contest — Remote VFO", width: 560.0, height: 260.0 },
     WindowSpec { id: "logbook", title: "OM0RX-xLog Contest — Log Display", width: 1120.0, height: 620.0 },
@@ -125,19 +125,19 @@ pub fn contest_default_size_migrations(label: &str) -> Option<(&'static [(f64, f
     let identity = WorkspaceWindowIdentity::parse_native_label(label).ok()?;
     if identity.scope != WorkspaceWindowScope::Contesting { return None; }
     let old: &'static [(f64, f64)] = match identity.panel_id {
-        "active-qso" => &[(800.0, 620.0), (800.0, 480.0)],
+        "active-qso" => &[(800.0, 620.0), (800.0, 480.0), (800.0, 440.0)],
         "call-history" => &[(900.0, 720.0), (840.0, 640.0)],
         "group-chat" => &[],
         "band-maps" => &[(380.0, 760.0), (520.0, 500.0)],
-        "callsign-intelligence" => &[(700.0, 620.0), (660.0, 500.0)],
+        "callsign-intelligence" => &[(700.0, 620.0), (660.0, 500.0), (660.0, 620.0)],
         "monitor" => &[(780.0, 600.0)],
         "score-reporting" => &[],
         "messages" => &[],
         "propagation" => &[(800.0, 480.0), (520.0, 380.0), (520.0, 140.0)],
         "rotor" => &[(700.0, 600.0), (620.0, 420.0)],
         "station-control" => &[(900.0, 700.0), (900.0, 680.0), (680.0, 420.0)],
-        "awards" => &[(1280.0, 800.0), (920.0, 720.0), (920.0, 460.0), (920.0, 300.0)],
-        "chaser-dx" => &[(1180.0, 800.0), (760.0, 680.0), (760.0, 460.0), (760.0, 300.0)],
+        "awards" => &[(1280.0, 800.0), (920.0, 720.0), (920.0, 460.0), (920.0, 300.0), (920.0, 360.0)],
+        "chaser-dx" => &[(1180.0, 800.0), (760.0, 680.0), (760.0, 460.0), (760.0, 300.0), (760.0, 360.0)],
         "logbook" => &[(1280.0, 800.0), (1120.0, 700.0), (1120.0, 480.0)],
         "edit-contact" => &[(560.0, 540.0)],
         "dx-cluster" => &[(1180.0, 800.0), (1040.0, 680.0), (1040.0, 420.0)],
@@ -170,23 +170,23 @@ pub fn native_minimum(label: &str) -> (f64, f64) {
     if let Ok(identity) = WorkspaceWindowIdentity::parse_native_label(label) {
         if identity.scope == WorkspaceWindowScope::Contesting {
             return match identity.panel_id {
-                "active-qso" => (680.0, 400.0),
-                "call-history" => (620.0, 280.0),
-                "qrz-details" => (420.0, 260.0),
+                "active-qso" => (500.0, 260.0),
+                "call-history" => (440.0, 220.0),
+                "qrz-details" => (340.0, 220.0),
                 "group-chat" => (360.0, 240.0),
-                "callsign-intelligence" => (480.0, 500.0),
-                "logbook" => (760.0, 480.0),
+                "callsign-intelligence" => (440.0, 200.0),
+                "logbook" => (620.0, 300.0),
                 "edit-contact" => (500.0, 480.0),
-                "propagation" => (400.0, 180.0),
-                "band-maps" => (420.0, 520.0),
-                "dx-cluster" => (720.0, 300.0),
+                "propagation" => (300.0, 180.0),
+                "band-maps" => (340.0, 400.0),
+                "dx-cluster" => (620.0, 260.0),
                 "rotor" => (420.0, 420.0),
-                "monitor" => (300.0, 240.0),
+                "monitor" => (280.0, 200.0),
                 "score-reporting" => (480.0, 420.0),
                 "messages" => (420.0, 220.0),
                 "station-control" => (440.0, 220.0),
-                "awards" => (560.0, 280.0),
-                "chaser-dx" => (520.0, 280.0),
+                "awards" => (340.0, 220.0),
+                "chaser-dx" => (300.0, 220.0),
                 _ => unreachable!("validated contest window identity"),
             };
         }
@@ -539,17 +539,17 @@ mod tests {
     #[test]
     fn contest_windows_use_scoped_compact_minima_without_changing_normal_tools() {
         let expected = [
-            ("active-qso", (680.0, 400.0)), ("call-history", (620.0, 280.0)), ("qrz-details", (420.0, 260.0)),
+            ("active-qso", (500.0, 260.0)), ("call-history", (440.0, 220.0)), ("qrz-details", (340.0, 220.0)),
             ("edit-contact", (500.0, 480.0)),
             ("group-chat", (360.0, 240.0)),
-            ("callsign-intelligence", (480.0, 500.0)), ("logbook", (760.0, 480.0)),
-            ("propagation", (400.0, 180.0)),
-            ("band-maps", (420.0, 520.0)), ("dx-cluster", (720.0, 300.0)),
-            ("rotor", (420.0, 420.0)), ("monitor", (300.0, 240.0)),
+            ("callsign-intelligence", (440.0, 200.0)), ("logbook", (620.0, 300.0)),
+            ("propagation", (300.0, 180.0)),
+            ("band-maps", (340.0, 400.0)), ("dx-cluster", (620.0, 260.0)),
+            ("rotor", (420.0, 420.0)), ("monitor", (280.0, 200.0)),
             ("score-reporting", (480.0, 420.0)),
             ("messages", (420.0, 220.0)),
-            ("station-control", (440.0, 220.0)), ("awards", (560.0, 280.0)),
-            ("chaser-dx", (520.0, 280.0)),
+            ("station-control", (440.0, 220.0)), ("awards", (340.0, 220.0)),
+            ("chaser-dx", (300.0, 220.0)),
         ];
         assert_eq!(expected.len(), CONTEST_WINDOWS.len());
         for (panel, minimum) in expected {
@@ -571,16 +571,16 @@ mod tests {
         assert_eq!(contest_default_size_migrations("contest-setup-digital"), Some((&[(720.0, 560.0)][..], (760.0, 680.0))));
         assert_eq!(contest_default_size_migrations("contest-setup-macros"), Some((&[(820.0, 620.0)][..], (820.0, 560.0))));
         assert_eq!(contest_default_size_migrations("contest-setup-keys"), Some((&[(880.0, 700.0)][..], (820.0, 560.0))));
-        assert_eq!(contest_default_size_migrations("contest--active-qso"), Some((&[(800.0, 620.0), (800.0, 480.0)][..], (800.0, 440.0))));
+        assert_eq!(contest_default_size_migrations("contest--active-qso"), Some((&[(800.0, 620.0), (800.0, 480.0), (800.0, 440.0)][..], (800.0, 360.0))));
         assert_eq!(contest_default_size_migrations("contest--call-history"), Some((&[(900.0, 720.0), (840.0, 640.0)][..], (840.0, 360.0))));
         assert_eq!(contest_default_size_migrations("contest--band-maps"), Some((&[(380.0, 760.0), (520.0, 500.0)][..], (520.0, 700.0))));
-        assert_eq!(contest_default_size_migrations("contest--callsign-intelligence"), Some((&[(700.0, 620.0), (660.0, 500.0)][..], (660.0, 620.0))));
+        assert_eq!(contest_default_size_migrations("contest--callsign-intelligence"), Some((&[(700.0, 620.0), (660.0, 500.0), (660.0, 620.0)][..], (800.0, 360.0))));
         assert_eq!(contest_default_size_migrations("contest--monitor"), Some((&[(780.0, 600.0)][..], (340.0, 300.0))));
         assert_eq!(contest_default_size_migrations("contest--propagation"), Some((&[(800.0, 480.0), (520.0, 380.0), (520.0, 140.0)][..], (520.0, 220.0))));
         assert_eq!(contest_default_size_migrations("contest--rotor"), Some((&[(700.0, 600.0), (620.0, 420.0)][..], (540.0, 520.0))));
         assert_eq!(contest_default_size_migrations("contest--station-control"), Some((&[(900.0, 700.0), (900.0, 680.0), (680.0, 420.0)][..], (560.0, 260.0))));
-        assert_eq!(contest_default_size_migrations("contest--awards"), Some((&[(1280.0, 800.0), (920.0, 720.0), (920.0, 460.0), (920.0, 300.0)][..], (920.0, 360.0))));
-        assert_eq!(contest_default_size_migrations("contest--chaser-dx"), Some((&[(1180.0, 800.0), (760.0, 680.0), (760.0, 460.0), (760.0, 300.0)][..], (760.0, 360.0))));
+        assert_eq!(contest_default_size_migrations("contest--awards"), Some((&[(1280.0, 800.0), (920.0, 720.0), (920.0, 460.0), (920.0, 300.0), (920.0, 360.0)][..], (720.0, 420.0))));
+        assert_eq!(contest_default_size_migrations("contest--chaser-dx"), Some((&[(1180.0, 800.0), (760.0, 680.0), (760.0, 460.0), (760.0, 300.0), (760.0, 360.0)][..], (620.0, 380.0))));
         assert_eq!(contest_default_size_migrations("contest--logbook"), Some((&[(1280.0, 800.0), (1120.0, 700.0), (1120.0, 480.0)][..], (1120.0, 620.0))));
         assert_eq!(contest_default_size_migrations("contest--edit-contact"), Some((&[(560.0, 540.0)][..], (720.0, 760.0))));
         assert_eq!(contest_default_size_migrations("contest--dx-cluster"), Some((&[(1180.0, 800.0), (1040.0, 680.0), (1040.0, 420.0)][..], (1040.0, 360.0))));

@@ -10,6 +10,7 @@ body { margin: 0; overflow-x: hidden; }
 .contest-qrz-details dl > div:nth-child(even) { padding-inline: 12px 0; }
 .contest-qrz-details dt { color: var(--secondary, #92a7bf); font-size: 11px; font-weight: 650; }
 .contest-qrz-details dd { margin: 3px 0 0; color: var(--text, #e6edf6); font-size: 15px; font-weight: 620; overflow-wrap: anywhere; }
+.contest-qrz-details dd small { margin-left:4px; color:var(--secondary,#92a7bf); font-size:9px; font-weight:700; letter-spacing:.08em; }
 .contest-qrz-details [data-field="country"] dd { color: var(--teal, #12d6a0); }
 .contest-qrz-details [data-field="grid"] dd { color: var(--cyan, #35c8f5); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .contest-qrz-details [data-field="continent"] dd { color: var(--pink, #f47bc5); }

@@ -782,7 +782,7 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
             draft(params, &["value"])?;
             text_value(&params["value"], 16, false, "entry selection")?;
         }
-        "entry_reserve_serial" | "entry_commit" | "entry_clear" | "entry_spot" | "entry_mark_spot"
+        "entry_reserve_serial" | "entry_commit" | "entry_clear" | "entry_edit_last" | "entry_spot" | "entry_mark_spot"
         | "entry_tune_spot" | "entry_return_cq_frequency" => draft(params, &[])?,
         "entry_step_spot" => {
             draft(params, &["direction"])?;
@@ -1835,8 +1835,10 @@ fn validate_native_rate_projection(value: &Map<String, Value>) -> Result<(), Str
 
 fn validate_matrix_projection(value: &Map<String, Value>) -> Result<(), String> {
     let version = value["schemaVersion"].as_u64();
-    let keys = if version == Some(4) {
-        vec![
+    if version == Some(4) {
+        exact_optional(
+            value,
+            &[
             "schemaVersion",
             "status",
             "title",
@@ -1847,15 +1849,17 @@ fn validate_matrix_projection(value: &Map<String, Value>) -> Result<(), String> 
             "rows",
             "total",
             "busy",
-        ]
+            ],
+            &["configuredBands", "currentBand"],
+            "multiplier matrix projection",
+        )?;
     } else {
-        vec!["schemaVersion", "status", "title", "bands", "rows", "total", "busy"]
-    };
-    exact(
-        value,
-        &keys,
-        "multiplier matrix projection",
-    )?;
+        exact(
+            value,
+            &["schemaVersion", "status", "title", "bands", "rows", "total", "busy"],
+            "multiplier matrix projection",
+        )?;
+    }
     text_value(&value["title"], 160, false, "multiplier matrix title")?;
     if version == Some(4) {
         let tracker = text_value(&value["tracker"], 8, false, "multiplier matrix tracker")?;
@@ -1895,6 +1899,25 @@ fn validate_matrix_projection(value: &Map<String, Value>) -> Result<(), String> 
         let band = text_value(band, 16, false, "multiplier matrix band")?;
         if !band_names.insert(band) {
             return Err("The multiplier matrix bands are not unique.".into());
+        }
+    }
+    if version == Some(4) {
+        if let Some(configured) = value.get("configuredBands") {
+            let mut configured_names = BTreeSet::new();
+            for band in array(configured, 32, "configured multiplier bands")? {
+                let band = text_value(band, 16, false, "configured multiplier band")?;
+                if !band_names.contains(band) || !configured_names.insert(band) {
+                    return Err("The configured multiplier bands are invalid.".into());
+                }
+            }
+        }
+        if let Some(current) = value.get("currentBand") {
+            if !current.is_null() {
+                let current = text_value(current, 16, false, "current multiplier band")?;
+                if !band_names.contains(current) {
+                    return Err("The current multiplier band is invalid.".into());
+                }
+            }
         }
     }
     let mut labels = BTreeSet::new();
@@ -2835,6 +2858,12 @@ mod tests {
         ))
         .is_err());
         assert!(validate_action_envelope(&action(
+            "entry_edit_last",
+            "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2})
+        ))
+        .is_ok());
+        assert!(validate_action_envelope(&action(
             "log_export_cabrillo",
             "logbook",
             json!({})
@@ -3242,8 +3271,15 @@ mod tests {
         assert!(validate_projection("chaser-dx", &matrix).is_ok());
         let zone_matrix = json!({"schemaVersion":4,"status":"ready","title":"CQ Zones","tracker":"zone","zoneSystem":"cq",
             "current":{"dxcc":"Germany","cqZone":14,"ituZone":28},"bands":["20m","40m"],
+            "configuredBands":["40m"],"currentBand":"20m",
             "rows":[{"label":"14","counts":{"20m":1,"40m":0},"total":1}],"total":1,"busy":false});
         assert!(validate_projection("chaser-dx", &zone_matrix).is_ok());
+        let mut malformed_configured = zone_matrix.clone();
+        malformed_configured["configuredBands"] = json!(["15m"]);
+        assert!(validate_projection("chaser-dx", &malformed_configured).is_err());
+        let mut malformed_current = zone_matrix.clone();
+        malformed_current["currentBand"] = json!("15m");
+        assert!(validate_projection("chaser-dx", &malformed_current).is_err());
         let mut malformed_zone_matrix = zone_matrix;
         malformed_zone_matrix["zoneSystem"] = Value::Null;
         assert!(validate_projection("chaser-dx", &malformed_zone_matrix).is_err());
