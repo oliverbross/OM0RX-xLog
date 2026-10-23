@@ -424,6 +424,62 @@ it.each(["contest_log_page", "contest_score", "contest_rates"] as const)(
     });
   });
 
+it("publishes log rows without waiting for a pending sibling auxiliary lane", async () => {
+  const current = { ...projection(), score:{qsos:1,points:3,countries:1,zones:1,multipliers:2,total:6} };
+  const row = {ID:"qso-1",TS:"2026-10-22 01:02:03",Call:"DL1ABC",Freq:14025,SNT:"599",RCV:"599",ZN:14,
+    SentNr:1,WPXPrefix:"DL1",CountryPrefix:"DL",Points:3,Band:14,Mode:"CW"};
+  let releaseRates!: (value: any) => void;
+  const pendingRates = new Promise(resolve => { releaseRates = resolve; });
+  const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+    if (method === "contest_rates") return pendingRates;
+    const support = workspaceSupport(method, params, current); if (support) return support;
+    if (method === "contest_scp_status") return unavailableSCP();
+    if (method === "contest_history_status") return unavailableHistory();
+    const result = method === "contest_catalog" ? {plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]} :
+      method === "contest_sessions" ? {sessions:[]} : method === "contest_create" ? {projection:current} :
+      method === "contest_log_page" ? {sessionID:current.sessionID,revision:current.revision,rows:[row],offset:0,limit:20,total:1} :
+      method === "contest_score" ? {sessionID:current.sessionID,revision:current.revision,score:current.score,matrices:{countries:[],zones:[]}} : null;
+    if (!result) throw new Error(method);
+    return {id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();
+  await waitFor(() => expect(surfaceOwner.current.projections.logbook.page.rows).toHaveLength(1));
+  expect(surfaceOwner.current.projections.logbook.page.rows[0].qsoID).toBe("qso-1");
+  expect(surfaceOwner.current.projections.logbook.busy).toBe(true);
+  await act(async () => releaseRates({id:crypto.randomUUID(),ok:true,result:{sessionID:current.sessionID,revision:current.revision,
+    lastHourQsoPerHour:1,last10QsoPerHour:null,last100QsoPerHour:null,sinceHourUTC:1,sinceHourQso:1,
+    runQso:1,searchAndPounceQso:0,hourRunQso:1,hourSearchAndPounceQso:0}}));
+});
+
+it("retains the last good log page when a later refresh fails", async () => {
+  const current = { ...projection(), score:{qsos:1,points:3,countries:1,zones:1,multipliers:2,total:6} };
+  const row = {ID:"qso-1",TS:"2026-10-22 01:02:03",Call:"DL1ABC",Freq:14025,SNT:"599",RCV:"599",ZN:14,
+    SentNr:1,WPXPrefix:"DL1",CountryPrefix:"DL",Points:3,Band:14,Mode:"CW"};
+  let logReads = 0;
+  const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+    const support = workspaceSupport(method, params, current); if (support) return support;
+    if (method === "contest_scp_status") return unavailableSCP();
+    if (method === "contest_history_status") return unavailableHistory();
+    if (method === "contest_log_page" && ++logReads > 1) throw new Error("log refresh failed");
+    const result = method === "contest_catalog" ? {plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]} :
+      method === "contest_sessions" ? {sessions:[]} : method === "contest_create" ? {projection:current} :
+      method === "contest_log_page" ? {sessionID:current.sessionID,revision:current.revision,rows:[row],offset:0,limit:20,total:1} :
+      method === "contest_score" ? {sessionID:current.sessionID,revision:current.revision,score:current.score,matrices:{countries:[],zones:[]}} : null;
+    if (!result) throw new Error(method);
+    return {id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();
+  await waitFor(() => expect(surfaceOwner.current.projections.logbook.page.rows[0]?.qsoID).toBe("qso-1"));
+  const envelope = {operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"logbook",projectionRevision:current.revision,requestID:crypto.randomUUID()} as const;
+  await act(async () => surfaceOwner.current.handle({...envelope,action:"log_page",params:{offset:0,limit:20}}));
+  expect(logReads).toBe(2);
+  expect(surfaceOwner.current.projections.logbook.page.rows[0]?.qsoID).toBe("qso-1");
+  expect(surfaceOwner.current.projections.logbook.page.total).toBe(1);
+});
+
 it("projects the final seven plugin contracts into the compact contest setup form", async () => {
   const rttyModes = ["RTTY", "RTTY-R", "LSB-D", "USB-D", "AM-D", "FM-D", "DIGI-U", "DIGI-L", "RTTYR", "PKTLSB", "PKTUSB"];
   const vhfAndUp = ["6m", "4m", "2m", "1.25m", "70cm", "33cm", "23cm", "13cm", "9cm", "6cm", "3cm", "1.25cm", "6mm", "4mm", "2.5mm", "2mm", "1mm", "submm"];

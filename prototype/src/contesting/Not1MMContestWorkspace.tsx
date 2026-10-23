@@ -891,33 +891,29 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const expected = next ?? projectionRef.current;
     if (!expected || expected.sessionID !== sessionID) return;
     const revision = expected.revision;
-    const operations = lanes.map(lane => lane === "log"
-      ? result<Data>("contest_log_page", { sessionID, expectedRevision: revision, offset, limit: pageLimit })
-      : lane === "score" ? result<Data>("contest_score", { sessionID, expectedRevision: revision })
-      : result<Data>("contest_rates", { sessionID, expectedRevision: revision }));
+    const key = `${sessionID}:${revision}`;
+    const operations = lanes.map(async lane => {
+      const value = await (lane === "log"
+        ? result<Data>("contest_log_page", { sessionID, expectedRevision: revision, offset, limit: pageLimit })
+        : lane === "score" ? result<Data>("contest_score", { sessionID, expectedRevision: revision })
+        : result<Data>("contest_rates", { sessionID, expectedRevision: revision }));
+      const current = projectionRef.current;
+      if (current?.sessionID !== sessionID || current.revision !== revision) return false;
+      if (lane === "log") {
+        setRows(Array.isArray(value.rows) ? value.rows : []); setLogOffset(Number(value.offset ?? offset)); setLogTotal(Number(value.total ?? 0));
+      } else if (lane === "score") {
+        setScore(value.score as Score); setMatrices(value.matrices ?? {});
+        admitStatistics(value, sessionID, revision);
+      } else if (!admitRates(value, sessionID, revision)) return false;
+      setAuxiliaryReads(previous => {
+        if (previous[lane] === key) return previous;
+        return { ...previous, [lane]:key };
+      });
+      return true;
+    });
     const settled = await Promise.allSettled(operations);
     const current = projectionRef.current;
     if (current?.sessionID !== sessionID || current.revision !== revision) return;
-    const admitted: AuxiliaryLane[] = [];
-    settled.forEach((outcome, index) => {
-      if (outcome.status !== "fulfilled") return;
-      const lane = lanes[index], value = outcome.value;
-      if (lane === "log") {
-        setRows(Array.isArray(value.rows) ? value.rows : []); setLogOffset(Number(value.offset ?? offset)); setLogTotal(Number(value.total ?? 0));
-        admitted.push(lane);
-      } else if (lane === "score") {
-        setScore(value.score as Score); setMatrices(value.matrices ?? {});
-        admitStatistics(value, sessionID, revision); admitted.push(lane);
-      } else if (admitRates(value, sessionID, revision)) admitted.push(lane);
-    });
-    if (admitted.length) {
-      const key = `${sessionID}:${revision}`;
-      setAuxiliaryReads(previous => {
-        const updated = { ...previous };
-        for (const lane of admitted) updated[lane] = key;
-        return updated;
-      });
-    }
     const failure = settled.find((outcome): outcome is PromiseRejectedResult => outcome.status === "rejected");
     if (failure) {
       const message = errorMessage(failure.reason);

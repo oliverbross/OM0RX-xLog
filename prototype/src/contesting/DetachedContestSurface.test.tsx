@@ -397,6 +397,17 @@ it.each(["legacy", "manual", "plugin"])("reserves chronological and partial-matc
   expect(document.querySelectorAll(".contest-surface-log-scroll")).toHaveLength(2);
 });
 
+it("shows Loading instead of No contacts while the initial log page is pending",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
+  const view={schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,
+    exchangeLayout:"plugin",pluginColumns:["Call"],pluginRows:[],pluginPartialRows:[],
+    page:{offset:0,limit:20,total:0,rows:[]},editing:null,busy:true};
+  native.invoke.mockResolvedValue({...snapshot,panelID:"logbook",projection:view});
+  render(<DetachedContestSurface/>);
+  expect(await screen.findAllByText("Loading…")).toHaveLength(2);
+  expect(screen.queryByText("No contacts")).toBeNull();
+});
+
 it("opens editing from Log Display in a separate native Edit Contact window",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
   const row={qsoID:"logged-qso",workedAt:"2026-10-20T12:00:00.000Z",callsign:"K1ABC",band:"20m",mode:"CW",

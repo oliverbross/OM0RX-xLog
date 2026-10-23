@@ -753,10 +753,10 @@ function Matrix({ projection }: { projection: ContestMatrixSurfaceProjection }) 
       </tbody></table></div>
   </section>;
 }
-function ManualLogTable({rows,disabled,onEdit,label}:{rows:any[];disabled:boolean;onEdit:(qsoID:string)=>void;label:string}) {
+function ManualLogTable({rows,disabled,onEdit,label,emptyMessage}:{rows:any[];disabled:boolean;onEdit:(qsoID:string)=>void;label:string;emptyMessage?:string}) {
   const columns=["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","M1","ZN","M2","PFX","PTS"];
   return <div className="contest-surface-log-scroll"><table className="contest-surface-original-log" aria-label={label}><thead><tr>{columns.map(title=><th key={title} scope="col">{title}</th>)}</tr></thead><tbody>{rows.length===0
-    ? <tr className="contest-surface-empty-row"><td colSpan={columns.length}>{label === "Callsign partial matches" ? "No partial matches" : "No contacts"}</td></tr>
+    ? <tr className="contest-surface-empty-row"><td colSpan={columns.length}>{emptyMessage ?? (label === "Callsign partial matches" ? "No partial matches" : "No contacts")}</td></tr>
     : rows.map(row=><tr key={row.qsoID} onDoubleClick={event=>{if(!disabled&&!(event.target as Element).closest("button"))onEdit(row.qsoID);}}
       onContextMenu={event=>{event.preventDefault();if(!disabled)onEdit(row.qsoID);}}>
     <td>{row.TS??new Date(row.workedAt).toISOString().slice(0,19).replace("T"," ")}</td><td><button disabled={disabled} onDoubleClick={event=>event.stopPropagation()} onClick={()=>onEdit(row.qsoID)}>{row.Call??row.callsign}</button></td>
@@ -808,17 +808,17 @@ function startLogColumnResize(event:ReactPointerEvent<HTMLButtonElement>,index:n
   const finish=()=>{window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",finish);window.removeEventListener("pointercancel",finish);};
   window.addEventListener("pointermove",move);window.addEventListener("pointerup",finish);window.addEventListener("pointercancel",finish);
 }
-function PluginLogTable({columns,rows,columnWidths,onColumnWidths,disabled,onEdit,onInlineEdit,inline,inlineInput,label}:{columns:string[];
+function PluginLogTable({columns,rows,columnWidths,onColumnWidths,disabled,onEdit,onInlineEdit,inline,inlineInput,label,emptyMessage}:{columns:string[];
   rows:{qsoID:string;values:string[];isDupe?:boolean;inlineEdits?:(ContestLogInlineEdit|null)[]}[];columnWidths:number[];
   onColumnWidths:(value:number[])=>void;disabled:boolean;onEdit:(qsoID:string)=>void;
-  onInlineEdit:(qsoID:string,columnIndex:number,edit:ContestLogInlineEdit)=>void;inline:InlineLogCell|null;inlineInput:ReactNode;label:string}) {
+  onInlineEdit:(qsoID:string,columnIndex:number,edit:ContestLogInlineEdit)=>void;inline:InlineLogCell|null;inlineInput:ReactNode;label:string;emptyMessage?:string}) {
   const callIndex=columns.indexOf("Call");
   const adjust=(index:number,delta:number)=>{const pairTotal=columnWidths[index]+columnWidths[index+1],
     left=Math.max(minimumLogColumnWidth,Math.min(pairTotal-minimumLogColumnWidth,columnWidths[index]+delta)),value=[...columnWidths];
     value[index]=left;value[index+1]=pairTotal-left;onColumnWidths(value);};
   return <div className="contest-surface-log-scroll"><table aria-label={label}><colgroup>{columns.map((column,index)=><col key={`${column}-${index}`} style={{width:`${columnWidths[index]??0}%`}}/>)}</colgroup><thead><tr>{columns.map((column,index)=><th key={`${column}-${index}`} scope="col"><span>{column}</span>{index<columns.length-1&&<button type="button" className="contest-surface-log-column-resizer" role="separator" aria-orientation="vertical" aria-label={`Resize ${column} column`} aria-valuemin={minimumLogColumnWidth} aria-valuemax={Math.round(columnWidths[index]+columnWidths[index+1]-minimumLogColumnWidth)} aria-valuenow={Math.round(columnWidths[index])}
       onPointerDown={event=>startLogColumnResize(event,index,columnWidths,onColumnWidths)} onKeyDown={event=>{if(event.key==="ArrowLeft"||event.key==="ArrowRight"){event.preventDefault();adjust(index,event.key==="ArrowLeft"?-2:2);}else if(event.key==="Home"){event.preventDefault();adjust(index,minimumLogColumnWidth-columnWidths[index]);}else if(event.key==="End"){event.preventDefault();adjust(index,columnWidths[index+1]-minimumLogColumnWidth);}}}/>}</th>)}</tr></thead>
-    <tbody>{rows.length===0?<tr className="contest-surface-empty-row"><td colSpan={columns.length}>{label === "Callsign partial matches" ? "No partial matches" : "No contacts"}</td></tr>
+    <tbody>{rows.length===0?<tr className="contest-surface-empty-row"><td colSpan={columns.length}>{emptyMessage ?? (label === "Callsign partial matches" ? "No partial matches" : "No contacts")}</td></tr>
       :rows.map(row=><tr key={row.qsoID} className={row.isDupe?"contest-surface-log-dupe":undefined} aria-label={row.isDupe?`${row.values[callIndex]??"Contact"} duplicate`:undefined} onContextMenu={event=>{event.preventDefault();if(!disabled)onEdit(row.qsoID);}}>
         {row.values.map((value,index)=>{const edit=row.inlineEdits?.[index]??null,
           isEditing=inline?.qsoID===row.qsoID&&inline.columnIndex===index&&inline.source===label;
@@ -932,14 +932,14 @@ function Log({projection,disabled,sending,projectionRevision,send,openEditor}:{p
   {projection.canExportEdi===true&&<button disabled={disabled||sending} onClick={()=>void send({action:"log_export_edi",params:{}},projectionRevision)}>Export EDI…</button>}
   <button disabled={disabled||sending} onClick={()=>void send({action:"log_recalculate",params:{expectedSessionRevision:projection.sessionRevision}},projectionRevision)}>Recalculate</button></div></details></header>
   <div className="contest-surface-log-panes">{projection.exchangeLayout==="plugin" ? <>
-    <section ref={primaryPane} className="contest-surface-log-pane-primary"><h2>Chronological log</h2><PluginLogTable columns={projection.pluginColumns} rows={projection.pluginRows} columnWidths={columnWidths} onColumnWidths={setColumnWidths} disabled={disabled} label="Contest log" inline={inline} inlineInput={inlineInput}
+    <section ref={primaryPane} className="contest-surface-log-pane-primary"><h2>Chronological log</h2><PluginLogTable columns={projection.pluginColumns} rows={projection.pluginRows} columnWidths={columnWidths} onColumnWidths={setColumnWidths} disabled={disabled} label="Contest log" emptyMessage={projection.busy?"Loading…":undefined} inline={inline} inlineInput={inlineInput}
       onInlineEdit={(qsoID,columnIndex,edit)=>void beginInline(qsoID,columnIndex,edit,"Contest log")} onEdit={qsoID=>{setInline(null);void openEditor(qsoID);}}/></section>
     <section className="contest-surface-log-pane-secondary"><h2>Callsign partial matches</h2><PluginLogTable columns={projection.pluginColumns} rows={pluginPartialRows} columnWidths={columnWidths} onColumnWidths={setColumnWidths} disabled={disabled} label="Callsign partial matches" inline={inline} inlineInput={inlineInput}
       onInlineEdit={(qsoID,columnIndex,edit)=>void beginInline(qsoID,columnIndex,edit,"Callsign partial matches")} onEdit={qsoID=>{setInline(null);void openEditor(qsoID);}}/></section></>
-    : <><section ref={primaryPane} className="contest-surface-log-pane-primary"><h2>Chronological log</h2><ManualLogTable rows={projection.manualRows??projection.page.rows} disabled={disabled} label="Contest log" onEdit={qsoID=>void openEditor(qsoID)}/></section>
+    : <><section ref={primaryPane} className="contest-surface-log-pane-primary"><h2>Chronological log</h2><ManualLogTable rows={projection.manualRows??projection.page.rows} disabled={disabled} label="Contest log" emptyMessage={projection.busy?"Loading…":undefined} onEdit={qsoID=>void openEditor(qsoID)}/></section>
       <section className="contest-surface-log-pane-secondary"><h2>Callsign partial matches</h2><ManualLogTable rows={partialRows} disabled={disabled} label="Callsign partial matches" onEdit={qsoID=>void openEditor(qsoID)}/></section></>}</div>
   <footer><button disabled={disabled||projection.page.offset===0} onClick={()=>void send({action:"log_page",params:{offset:Math.max(0,projection.page.offset-projection.page.limit),limit:projection.page.limit}},projectionRevision)}>Previous</button>
-    <span>{projection.page.total?`${projection.page.offset+1}–${projection.page.offset+projection.page.rows.length} of ${projection.page.total}`:"No contacts"}</span>
+    <span>{projection.page.total?`${projection.page.offset+1}–${projection.page.offset+projection.page.rows.length} of ${projection.page.total}`:projection.busy?"Loading…":"No contacts"}</span>
     <button disabled={disabled||projection.page.offset+projection.page.rows.length>=projection.page.total} onClick={()=>void send({action:"log_page",params:{offset:projection.page.offset+projection.page.limit,limit:projection.page.limit}},projectionRevision)}>Next</button></footer></section>; }
 
 function SharedContestSurface() {
