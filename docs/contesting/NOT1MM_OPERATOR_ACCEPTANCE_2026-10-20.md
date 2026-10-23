@@ -9,6 +9,108 @@ port or a public macOS release is finished.
 > candidate only. In particular, earlier 46/94, 64/94 and HF-only limitations
 > do not describe the current source or the installed 1.3.0 milestone.
 
+## CQ-WW-SSB-2026-10-23-cb6f6759 — final installed macOS candidate
+
+**Verdict: READY WITH LIMITATIONS.** This is the frozen Apple Silicon/macOS
+candidate for manual-microphone CQ WW SSB operation. The remaining limitations
+are operator-controlled radio/RF and recorded-voice checks, plus public-release
+notarization; none prevents saving a manual-microphone QSO.
+
+### Exact candidate and release gates
+
+- `/Applications/OM0RX-xLog.app` is version/build `1.3.0` from canonical
+  `main` source `cb6f6759b811c25fba77c82a9f9d9d131dd6fb8e`. Its embedded
+  `Contents/Resources/Not1MM/python-runtime.json` records that exact
+  `sourceCommit`, an empty `sourceChanges` array and hash phase
+  `final-component-signatures-before-outer-app-signature`.
+- Installed main executable SHA-256 is
+  `aac155b2df573eab34631a716f45639fef57accd70f14f19a009edcee76d5758`;
+  installed worker SHA-256 is
+  `a071893063ace3c5f3b8d10033e4ae60e27e559514dfebc2ef1b795bf167025c`.
+  Deep/strict Developer ID verification passes. Gatekeeper reports
+  **Unnotarized Developer ID**, so this remains a local operating candidate,
+  not a notarized public release.
+- Final archive is
+  `dist/OM0RX-xLog-1.3.0-cb6f6759-macOS-arm64.zip`, SHA-256
+  `2bd12ee9aa3a9f1251b17495498dae7f2899da50c263d863bd50bbe73281021e`;
+  archive integrity passed.
+- Exact-source GitHub CI run `39901123618` and Cross-platform prototype run
+  `39901123615` passed. Only macOS is in this acceptance scope.
+- The complete local frontend gate passed 277 files and 4,066 tests, followed
+  by TypeScript, production Vite/budget, all 796 Rust tests and the remaining
+  integration suites. Packaged and installed native acceptance each passed all
+  35 checks with `station_io: false`. Evidence is retained in
+  `docs/contesting/evidence/cq-ww-ssb-cb6f6759/`; SHA-256 is
+  `15e51d9f7fa03b0b75b9c545e1b8ab46d42d3892fe4c9af5a62e4f97e8c55ee2`
+  for packaged and
+  `0efef53e6e01353cf667bca2102e5b27755185b059cdda8ecb715206ef059268`
+  for installed acceptance.
+
+### Critical installed-app checks
+
+- **PASS — CQ WW SSB entry and exchange prefill.** After a true process
+  restart, installed Main Logging restored CQ WW SSB at 14,215 kHz SSB with
+  operator OM0RX, visible F1-F12 controls, `59` sent, `59` received and the
+  editable CQ Zone field. The current `OM0A` draft visibly prefills CQ zone
+  `15`. MASTER.SCP itself is callsign-only; the zone comes from pinned CTY
+  entity data. The focused host regression `OM0A -> 15` passes and also proves
+  that an operator override to `14` is preserved.
+- **PASS — installed contest Log Display.** The first observation was made from
+  an old executable process that had started before the bundle replacement.
+  After gracefully restarting `/Applications/OM0RX-xLog.app`, Log Display
+  showed all four existing contest contacts (`OM0RX`, `DL3AG`, `VK8DX`,
+  `OM0A`), CQ WW columns, multiplier marks, points and `1–4 of 4`. Main Logging
+  simultaneously showed 4 QSOs, 6 multipliers and score 24. Direct readback
+  from the installed bundled host returned the same four rows and score. No
+  QSO was created, edited, deleted or transferred for this proof.
+- **PASS — detached routes and lifecycle.** Installed Main Logging and Log
+  Display reopened from the Contest menu with the correct session and
+  workspace-generation identity. Exact-source regressions cover independent
+  log/score/rates publication, last-good snapshot retention, plugin-column
+  projection, duplicate-marked rows, migration, native routes and macro
+  substitution. The installed 35-check harness independently passed native menu
+  routes and detached-window lifecycle without station I/O.
+- **PASS — UTC and existing data integrity.** The installed UTC date/time is
+  live rather than a stale launch snapshot. The active contest SQLite database
+  and bundled host agree on the four pre-existing contacts. Production QSO
+  content was not modified during acceptance.
+- **NOT TESTED — live radio/spot tune.** The intended Flex was not connected for
+  this final pass, so authoritative live frequency/band/mode readback and an
+  installed cluster/band-map click-to-tune were not re-proved. No radio, rotor,
+  spot, PTT or RF action was requested.
+
+### Recorded voice is a separate acceptance result
+
+1. **Macro substitution: PASS (automated).** Bounded phone macro substitution
+   and optional-output behavior pass exact-source tests; F1-F12 remain visible.
+2. **Recordings/profile: NOT CONFIGURED / NOT TESTED.** No operator WAV profile
+   or recording was created for this acceptance.
+3. **Output routing: NOT TESTED.** No file was played into the Flex/DAX route.
+4. **PTT: NOT TESTED.** No transmit ownership or PTT action was requested.
+5. **Actual transmitter audio/RF: NOT TESTED.** No microphone permission,
+   transmitter audio or RF transmission was used.
+
+Manual-microphone logging remains available when recorded voice is absent; the
+optional voice path is not a QSO-save prerequisite and does not place warnings
+in Main Logging.
+
+### Remaining operator check and rollback
+
+- Before contest operation, connect the intended Flex and confirm displayed
+  frequency, 40 m band and SSB mode. Exercise one supervised cluster/band-map
+  tune only if desired. Recorded voice requires its own recording, preview,
+  routing, PTT and RF checks and is not part of this candidate verdict.
+- Retained rollback is the exact prior baseline at
+  `/Applications/OM0RX-xLog-previous-20261023T035424Z-43953.app`, embedded source
+  `823956b9556ce4a0392bb3c1c97433ab32c80341`. The pre-install data backup remains
+  `/Users/oliver/Library/Application Support/OM0RX-xLog Release Backups/1.3.0-pre-870fdc4d-20261023T0815Z/`.
+- Superseded application bundles, the obsolete Contesting Test bundle, four old
+  release ZIPs and two superseded candidate-evidence folders were permanently
+  removed after exact-path inventory. `/Applications` now contains only the
+  installed candidate and the named rollback; `dist/` contains only the final
+  `cb6f6759` archive. Approximately 1.1 GB of obsolete app/archive data was
+  removed while the data backup above was retained.
+
 ## CQ-WW-SSB-2026-10-23-f9e1c46f — installed macOS candidate
 
 **Verdict: READY WITH LIMITATIONS.** This verdict is intentionally limited to
