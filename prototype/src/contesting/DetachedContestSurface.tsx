@@ -401,7 +401,8 @@ function ContestSpots({panelID,context,projection,projectionRevision,send}:{pane
     // Stable sort ties must not inherit changing snapshot order as classifications
     // arrive. The chosen newest/frequency/callsign/score sort remains primary.
     const spots=panelID==="dx-cluster"?[...projection.spots].sort((left,right)=>left.id.localeCompare(right.id)):projection.spots;
-    return filterClusterSpots(spots,filter);
+    return filterClusterSpots(spots,{...filter,worked:[]}).filter(spot=>!filter.worked.length||
+      filter.worked.includes(spot.contestDupe===true?"Worked before":"Not worked"));
   },[projection.spots,filter,panelID]);
   const specialChoices=useMemo(()=>["RBN",...new Set(projection.spots.flatMap(spot=>spot.specialTags)
     .filter(tag=>tag.toUpperCase()!=="RBN"))],[projection.spots]);
@@ -412,11 +413,17 @@ function ContestSpots({panelID,context,projection,projectionRevision,send}:{pane
     clamp();window.addEventListener("resize",clamp);return()=>window.removeEventListener("resize",clamp);},[menu?.spotID,menu?.requestedX,menu?.requestedY]);
   useEffect(()=>{if(menu&&!target)closeMenu();},[menu,target]);
   const closeFilters=()=>{setFiltersOpen(false);window.requestAnimationFrame(()=>filtersButton.current?.focus());};
+  const changeFilters=(next:ClusterFilter)=>{
+    setFilter(next);
+    if(panelID==="band-maps"&&next.worked.includes("Worked before")&&!projection.showWorked)
+      void send({action:"spot_set_show_worked",params:{draftID:projection.draftID,expectedDraftRevision:projection.draftRevision,
+        showWorked:true}},projectionRevision,{safePresentation:true});
+  };
   const workflow=<><div className="contest-spot-toolbar"><label><input type="checkbox" checked={projection.markedOnly}
     onChange={event=>void send({action:"spot_set_marked_only",params:{draftID:projection.draftID,expectedDraftRevision:projection.draftRevision,
       markedOnly:event.currentTarget.checked}},projectionRevision,{safePresentation:true})}/>Marked only</label><div><span>{selected?`Selected ${selected.callsign}`:"No selected spot"}</span>
       <button ref={filtersButton} type="button" aria-expanded={filtersOpen} aria-controls={filterDialogID} onClick={()=>setFiltersOpen(true)}>Filters</button></div></div>
-    {filtersOpen&&<ClusterFilterDialog dialogID={filterDialogID} filter={filter} specialChoices={specialChoices} onChange={setFilter} onClose={closeFilters}/>}
+    {filtersOpen&&<ClusterFilterDialog dialogID={filterDialogID} contestWorked filter={filter} specialChoices={specialChoices} onChange={changeFilters} onClose={closeFilters}/>}
     {menu&&target&&<div ref={menuRef} className="contest-spot-menu" role="menu" aria-label={`Spot actions for ${target.callsign}`}
       style={{left:menu.x,top:menu.y}} onKeyDown={event=>{if(event.key==="Escape"){event.preventDefault();closeMenu();return;}
         if(!["ArrowDown","ArrowUp","Home","End"].includes(event.key))return;event.preventDefault();
@@ -436,8 +443,8 @@ function ContestSpots({panelID,context,projection,projectionRevision,send}:{pane
     contestBands={projection.supportedBands} contestAllowedModes={projection.allowedModeGroups}
     observedReceiveBandwidthHz={receiveBandwidth}
     radioFrequencyHz={projection.radioFrequencyHz??undefined} storageNamespace={`contest.${projection.contestSessionID??projection.draftID}`} selectedSpotId={projection.selectedSpotID}
-    showWorked={projection.showWorked??false} onShowWorkedChange={showWorked=>void send({action:"spot_set_show_worked",params:{
-      draftID:projection.draftID,expectedDraftRevision:projection.draftRevision,showWorked}},projectionRevision,{safePresentation:true})}
+    showWorked={projection.showWorked??false} onShowWorkedChange={showWorked=>{setFilter(current=>({...current,worked:[]}));void send({action:"spot_set_show_worked",params:{
+      draftID:projection.draftID,expectedDraftRevision:projection.draftRevision,showWorked}},projectionRevision,{safePresentation:true});}}
     onSpotContextMenu={contextMenu} onSelect={spot=>select(String(spot.id))}
     selectionHint="Select a spot to load the active Not1MM draft and tune the selected xLog radio once. Right-click for spot actions."/></section>;
   const visibleClusterSpots=filterRecentBandMapSpots(filteredSpots,clusterAgeMinutes,spotAgeClock);
@@ -473,6 +480,7 @@ function ContestSpots({panelID,context,projection,projectionRevision,send}:{pane
         title="Request the 100 most recent spots from the connected DX cluster"
         onClick={()=>void requestClusterHistory()}>SH/DX/100</button></div>
   </div><ClusterPanel passive presentationOnly contestPresentation taskOnly snapshot={clusterSnapshot}
+    contestWorkedFilter={filter.worked} onContestWorkedFilterReset={()=>setFilter(current=>({...current,worked:[]}))}
     radioFrequencyHz={projection.radioFrequencyHz??undefined}
     contestBands={projection.supportedBands}
     contestCurrentBand={bandForRadio(projection.radioFrequencyHz??undefined)}

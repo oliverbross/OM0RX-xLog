@@ -836,6 +836,32 @@ it("projects only the configured mode and bands into Cluster and Band Map even w
     publication_sequence:3,action:"clear",spots:[]})));
 });
 
+it("keeps inferred FT8 and out-of-range phone spots out of the CQ WW SSB desk",async()=>{
+  const current:any={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
+    supportedModes:["SSB"],supportedBands:["40m"]};
+  const setup=newContestSetup("OM0RX");setup.pluginID="cq_ww_ssb";setup.preferences.bands=["40m"];
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(setup));
+  const request=operationalRequest(()=>current,()=>3),shared=[
+    {id:"ft8",callsign:"K1FT",frequencyKHz:7074,mode:"FT8",comment:"Tnx for QSO"},
+    {id:"below",callsign:"EU2F",frequencyKHz:7045,mode:"SSB",comment:"CQ SSB"},
+    {id:"above",callsign:"W1OUT",frequencyKHz:7205,mode:"SSB",comment:"CQ SSB"},
+    {id:"cw",callsign:"CW1A",frequencyKHz:7120,mode:"CW",comment:"CW UP 1"},
+    {id:"data",callsign:"RT1A",frequencyKHz:7121,mode:"RTTY",comment:"Tnx"},
+    {id:"low-phone",callsign:"F1ABC",frequencyKHz:7060,mode:"SSB",comment:"CQ TEST"},
+    {id:"phone",callsign:"DL1ABC",frequencyKHz:7125,mode:"LSB",comment:"CQ SSB"},
+  ].map(spot=>({...spot,band:"40m",score:42}));
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}
+    radioFrequencyHz={7_125_000} spots={shared as any}/>);
+  await createContestThroughSetup();
+  await waitFor(()=>expect(surfaceOwner.current.projections["dx-cluster"].spots.map((spot:any)=>spot.id)).toEqual(["low-phone","phone"]));
+  for(const panel of ["band-maps","world-map"])expect(surfaceOwner.current.projections[panel].spots.map((spot:any)=>spot.id)).toEqual(["low-phone","phone"]);
+  await waitFor(()=>expect(request.mock.calls.some(([method])=>method==="contest_spot_points_preview")).toBe(true));
+  const previewIDs=request.mock.calls.filter(([method])=>method==="contest_spot_points_preview")
+    .flatMap(([,params])=>((params?.spots??[]) as {spotID:string}[]).map(spot=>spot.spotID));
+  expect(previewIDs).toEqual(expect.arrayContaining(["low-phone","phone"]));
+  expect(previewIDs.some(id=>["ft8","below","above","cw","data"].includes(id))).toBe(false);
+});
+
 it("keeps publishing live contest spots when an older full-list preview is overtaken",async()=>{
   const current:any={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
     supportedModes:["SSB"],supportedBands:["160m","80m","40m","20m","15m","10m"]};
@@ -1051,9 +1077,14 @@ it("renews an unchanged ready contest radio publication every minute",async()=>{
     await createContestThroughSetup();
     const publications=()=>serviceRequest.mock.calls.filter(([method])=>method==="cluster_contest_radio_spots_publish");
     await waitFor(()=>expect(publications()).toHaveLength(1));expect(renew).toBeTypeOf("function");
-    await act(async()=>renew?.());
-    await waitFor(()=>expect(publications()).toHaveLength(2));
-    expect(publications()[1][1]).toEqual({...publications()[0][1],publication_sequence:2});
+    // Renew beyond both the reported six-minute disappearance and the radio's
+    // ten-minute lease without feed changes, focus events or draft mutations.
+    for(let minute=1;minute<=11;minute++){
+      await act(async()=>renew?.());
+      await waitFor(()=>expect(publications()).toHaveLength(minute+1));
+      expect(publications()[minute][1]).toEqual({...publications()[0][1],publication_sequence:minute+1});
+    }
+    expect(publications().every(([,params])=>params?.action==="replace"&&Array.isArray(params.spots)&&params.spots.length===1)).toBe(true);
   }finally{interval.mockRestore();}
 });
 

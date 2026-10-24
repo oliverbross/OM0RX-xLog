@@ -21,7 +21,7 @@ import { openContestCallHistoryWindow, openContestSurfaceWindow } from "./contes
 import { openContestSetupService } from "./contestSetupServices";
 import { openContestSetupDialog, useContestSetupDialogs, type ContestDigitalSave, type ContestDigitalSnapshot } from "./contestSetupDialogs";
 import { defaultContestKeyBindings, encodeContestKeyBindings, readContestKeyBindings, validateContestKeyBindings } from "./contestKeyBindings";
-import { contestModeForSpot, decodeContestBandPlan, encodeContestBandPlan,
+import { contestModeForSpot, contestSpotWithinModeRange, decodeContestBandPlan, encodeContestBandPlan,
   type ContestBandMode } from "./contestBandPlan";
 import { setContestCWSpeed } from "./contestStationControl";
 import { configureContestGroupChat, openContestGroupChatWindow, publishContestGroupContact,
@@ -860,7 +860,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const classifiedSharedSpots=useMemo(()=>deduplicateBandMapSpots(sharedSpots.map(spot=>{
     const entry=contestBandPlan.find(item=>item.band===spot.band),frequency=Number(spot.frequencyKHz);
     const group=entry&&Number.isFinite(frequency)
-      ?contestModeForSpot(entry,frequency,allowedModeGroups,spot.comment):contestBandMode(spot.mode);
+      ?contestModeForSpot(entry,frequency,allowedModeGroups,spot.comment,spot.mode):contestBandMode(spot.mode);
     return {...spot,mode:contestBandModeLabel(group)};
   })),[allowedModeGroups,contestBandPlan,sharedSpots]);
   const [spotPointPreview,setSpotPointPreview]=useState<{identity:string;revision:number;rows:Map<string,{inputSignature:string;points:number|null;dupe:boolean|null;multiplierCount:number|null;countryMultiplier:boolean|null;zoneMultiplier:boolean|null}>}>({identity:"",revision:0,rows:new Map()});
@@ -883,8 +883,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const supported=new Set(contestSpotSurfaceModes(projection.pluginID,projection.supportedModes??[],projection.mode));
     const supportedBands=new Set(configuredBands.map(band=>band.trim().toLowerCase()));
     return projected.filter(spot=>{const mode=canonicalContestSurfaceMode(spot.mode);
-      return mode!==null&&supported.has(mode)&&supportedBands.has(spot.band.trim().toLowerCase());});
-  },[classifiedSharedSpots,effectiveSpotWorkflow,projection?.pluginID,projection?.supportedModes,projection?.mode,projection?.sessionID,configuredBands]);
+      return mode!==null&&supported.has(mode)&&supportedBands.has(spot.band.trim().toLowerCase())&&
+        (projection.pluginID!=="cq_ww_ssb"||contestSpotWithinModeRange(contestBandPlan.find(entry=>entry.band===spot.band),spot.frequencyKHz,contestBandMode(mode)));});
+  },[classifiedSharedSpots,effectiveSpotWorkflow,projection?.pluginID,projection?.supportedModes,projection?.mode,projection?.sessionID,configuredBands,contestBandPlan]);
   const currentEntryMapSpot=useMemo<ContestSurfaceSpot|null>(()=>{
     if(!projection||operationFrequencyHz===null)return null;
     const callsign=(fields.callsign??"").trim().toUpperCase();

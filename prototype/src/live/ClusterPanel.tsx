@@ -56,7 +56,8 @@ type Props = { snapshot: unknown; onRequest: Request; onSelect: (spot: LiveClust
   passive?: boolean; presentationOnly?: boolean; contestPresentation?: boolean; onUndock?: () => void; onDock?: () => void; passwordControlsEnabled?: boolean; selectedSpotId?: string | null; taskOnly?: boolean;
   settingsOnly?: boolean; preferenceStorageKey?: string; onSpotContextMenu?: (spot: LiveClusterSpot,
     event: ReactMouseEvent<HTMLElement>|ReactKeyboardEvent<HTMLElement>) => void; contestBands?: readonly string[];
-  contestCurrentBand?: string | null; contestBandPreferenceKey?: string; radioFrequencyHz?: number | null };
+  contestCurrentBand?: string | null; contestBandPreferenceKey?: string; radioFrequencyHz?: number | null;
+  contestWorkedFilter?: readonly string[]; onContestWorkedFilterReset?: () => void };
 
 const { bands, modes, callStatuses, dxccStatuses } = clusterFilterChoices;
 const formatDate = (value?: number | null) => value == null ? "—" : new Date((value + 978_307_200) * 1000).toLocaleString();
@@ -147,7 +148,8 @@ function ColumnWidthInput({ label, width, disabled, onCommit }: { label: string;
     onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }} />;
 }
 export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, presentationOnly = false, contestPresentation = false, onUndock, onDock, passwordControlsEnabled = true, selectedSpotId, taskOnly = false, settingsOnly = false,
-  preferenceStorageKey = fullClusterColumnsKey, onSpotContextMenu, contestBands, contestCurrentBand, contestBandPreferenceKey, radioFrequencyHz }: Props) {
+  preferenceStorageKey = fullClusterColumnsKey, onSpotContextMenu, contestBands, contestCurrentBand, contestBandPreferenceKey, radioFrequencyHz,
+  contestWorkedFilter,onContestWorkedFilterReset }: Props) {
   const saveToast = useSettingsSaveToast();
   const ageClock = useSpotAgeClock();
   const panelId = useId();
@@ -218,11 +220,18 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
     if (Number.isFinite(width)) setContestColumnWidths(current => ({ ...current, [id]: boundColumnWidth(width) }));
   };
   const showWorkedStorageKey = `${preferenceStorageKey}.showWorked`;
-  const [showWorked, setShowWorked] = useState(() => {
+  const [storedShowWorked, setShowWorked] = useState(() => {
     if (!contestPresentation) return true;
     try { return localStorage.getItem(showWorkedStorageKey) === "true"; } catch { return false; }
   });
+  const showWorked=contestPresentation&&contestWorkedFilter?.length?contestWorkedFilter.includes("Worked before"):storedShowWorked;
   const [contestOpportunities,setContestOpportunities]=useState<"all"|"mults">("all");
+  const workedFilterSignature=contestWorkedFilter?.join("|")??"";
+  useEffect(()=>{
+    if(!contestPresentation||!contestWorkedFilter?.length)return;
+    const includesWorked=contestWorkedFilter.includes("Worked before");setShowWorked(includesWorked);
+    if(includesWorked)setContestOpportunities("all");
+  },[contestPresentation,workedFilterSignature]);
   const contestBandStorageKey = contestBandPreferenceKey ?? `${preferenceStorageKey}.cqwwBand`;
   const initialStoredContestBand = useRef(storedContestBand(contestBandStorageKey, contestBands));
   const contestBandWasChosen = useRef(initialStoredContestBand.current !== null);
@@ -444,7 +453,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
         <label>Show <select aria-label="CQ WW opportunities" value={contestOpportunities}
         onChange={event=>{setContestOpportunities(event.currentTarget.value as "all"|"mults");setSpotPage(0);}}><option value="all">Needed Qs + Mults</option><option value="mults">Mults only</option></select></label>
         <label className="live-cluster-show-worked"><input type="checkbox" checked={showWorked} disabled={contestOpportunities==="mults"}
-          onChange={event => {setShowWorked(event.currentTarget.checked);setSpotPage(0);}} /> Show worked</label>
+          onChange={event => {setShowWorked(event.currentTarget.checked);onContestWorkedFilterReset?.();setSpotPage(0);}} /> Show worked</label>
         <details className="contest-cluster-filter-details"><summary>Filter details</summary><div aria-label="Contest cluster filter counts">
           <p>Counts start after upstream cluster filters and expiry.</p><dl>
             <dt>Supplied rows</dt><dd>{live?.spots.length??0}</dd>

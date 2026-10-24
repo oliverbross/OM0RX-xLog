@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { contestModeForFrequency, contestModeForSpot, decodeContestBandPlan, defaultContestBandPlan, encodeContestBandPlan,
-  explicitContestMode, visibleContestBandRange } from "./contestBandPlan";
+  explicitContestMode, contestSpotWithinModeRange, visibleContestBandRange } from "./contestBandPlan";
 
 describe("contest band plan", () => {
   it("uses the CQ WW 40 m phone operating range and migrates the old generated guide", () => {
@@ -47,5 +47,24 @@ describe("contest band plan", () => {
     expect(contestModeForSpot(entry, 7060, ["phone"], "CQ TEST")).toBe("phone");
     expect(contestModeForSpot(entry, 7060, ["phone"], "CQ RTTY TEST")).toBe("data");
     expect(contestModeForSpot(entry, 7045, ["phone"], "CQ TEST")).toBe("data");
+  });
+
+  it("preserves cluster-inferred digital modes inside an overlapping phone contest segment",()=>{
+    const entry=defaultContestBandPlan(["40m"])[0];
+    expect(contestModeForSpot(entry,7074,["phone"],"Tnx for QSO","FT8")).toBe("data");
+    expect(contestModeForSpot(entry,7052,["phone"],"CQ","FT2")).toBe("data");
+    expect(contestModeForSpot(entry,7075,["phone"],"CQ","PSK31")).toBe("data");
+    expect(contestModeForSpot(entry,7060,["phone"],"CQ TEST","SSB")).toBe("phone");
+    expect(contestModeForSpot(entry,7074,["phone"],"CQ SSB","FT8")).toBe("phone");
+    expect(contestModeForSpot(entry,7125,["phone"],"CW UP 1","SSB")).toBe("cw");
+    expect(contestModeForSpot(entry,7125,["phone"],"FT-8 -10dB","SSB")).toBe("data");
+  });
+
+  it("does not treat explicit phone mode as permission to escape the configured contest segment",()=>{
+    const entry=defaultContestBandPlan(["40m"])[0];
+    expect(contestSpotWithinModeRange(entry,7045,"phone")).toBe(false);
+    expect(contestSpotWithinModeRange(entry,7201,"phone")).toBe(false);
+    expect(contestSpotWithinModeRange(entry,7050,"phone")).toBe(true);
+    expect(contestSpotWithinModeRange(entry,7200,"phone")).toBe(true);
   });
 });

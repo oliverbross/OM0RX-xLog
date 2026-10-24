@@ -234,6 +234,15 @@ describe("native band-map parity", () => {
     expect(screen.getByRole("button", { name: /PHONE40 ·/ })).toBeTruthy();
     expect(screen.getByText("7.050–7.200 MHz")).toBeTruthy();
   });
+  it("does not reclassify shared FT8 reports as phone in the overlapping CQ WW range",()=>{
+    const plan=defaultContestBandPlan(["40m"]);
+    render(<BandMaps compact contestPresentation storageNamespace="contest.ft8" contestBandPlan={plan}
+      contestBands={["40m"]} contestAllowedModes={["phone"]} radioFrequencyHz={7_125_000} onSelect={vi.fn()}
+      spots={[{...spot("FT8CALL",7074,"40m"),mode:"FT8",comment:"Tnx for QSO"},
+        {...spot("PHONELOW",7060,"40m"),mode:"SSB",comment:"CQ TEST"}]}/>);
+    expect(screen.queryByRole("button",{name:/FT8CALL ·/})).toBeNull();
+    expect(screen.getByRole("button",{name:/PHONELOW ·/})).toBeTruthy();
+  });
   it("uses explicit CQ WW SSB bands and phone mode even when a stale saved mode is disallowed", () => {
     localStorage.setItem("xlog.integration.bandMaps.contest.session-a.modes", JSON.stringify(["cw"]));
     const plan = defaultContestBandPlan(["40m"]);

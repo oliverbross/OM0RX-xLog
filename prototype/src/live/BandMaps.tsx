@@ -623,7 +623,7 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
   const classifiedSpots = useMemo(() => contestPresentation ? spots.map(spot => {
     const entry = contestBandPlan?.find(item => item.band === spot.band);
     const frequency = finite(spot.frequencyKHz);
-    const mode = !entry || frequency === null ? modeGroup(text(spot.mode)) : contestModeForSpot(entry,frequency,allowedContestModes,spot.comment);
+    const mode = !entry || frequency === null ? modeGroup(text(spot.mode)) : contestModeForSpot(entry,frequency,allowedContestModes,spot.comment,spot.mode);
     return { ...spot, mode: contestModeLabel(mode) };
   }) : spots, [allowedContestModes,contestBandPlan, contestPresentation, spots]);
   const recentReports=useMemo(()=>filterRecentBandMapSpots(classifiedSpots,spotAgeMinutes,ageClock),[classifiedSpots,spotAgeMinutes,ageClock]);

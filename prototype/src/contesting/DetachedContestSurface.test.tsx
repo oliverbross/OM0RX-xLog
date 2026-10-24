@@ -336,6 +336,43 @@ it.each(["band-maps","dx-cluster"] as const)("reuses desktop Filters locally in 
   await waitFor(()=>expect(document.activeElement).toBe(trigger));
 });
 
+it("uses contest dupes for Worked filters and reconciles the Cluster Show worked toggle without changing normal history or radio preferences",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=dx-cluster"));
+  const dupe={...sharedSpot,id:"worked",callsign:"DL1DUPE",contestDupe:true,workedBefore:null},
+    needed={...sharedSpot,id:"needed",callsign:"DL1NEW",contestDupe:false,workedBefore:123};
+  const view={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14_025_000,
+    connectedClusters:1,loadedSpots:2,selectedSpotID:null,configuredClusters:[],connections:[],markedOnly:false,showWorked:false,spots:[dupe,needed],busy:false};
+  native.invoke.mockImplementation(async command=>command==="contest_surface_snapshot"?{...snapshot,panelID:"dx-cluster",projection:view}:{});
+  const mounted=render(<DetachedContestSurface/>);
+  expect(await screen.findByLabelText("DL1NEW spot")).toBeTruthy();expect(screen.queryByLabelText("DL1DUPE spot")).toBeNull();
+  fireEvent.click(screen.getByRole("button",{name:"Filters"}));
+  fireEvent.click(screen.getByRole("checkbox",{name:"Worked in this contest"}));
+  expect(await screen.findByLabelText("DL1DUPE spot")).toBeTruthy();expect(screen.queryByLabelText("DL1NEW spot")).toBeNull();
+  expect(screen.getByRole("checkbox",{name:"Show worked"})).toHaveProperty("checked",true);
+  fireEvent.click(screen.getByRole("checkbox",{name:"Not worked in this contest"}));
+  expect(screen.getByLabelText("DL1DUPE spot")).toBeTruthy();expect(screen.getByLabelText("DL1NEW spot")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button",{name:"Done"}));
+  fireEvent.click(screen.getByRole("checkbox",{name:"Show worked"}));
+  expect(screen.queryByLabelText("DL1DUPE spot")).toBeNull();expect(screen.getByLabelText("DL1NEW spot")).toBeTruthy();
+  fireEvent.click(screen.getByRole("checkbox",{name:"Show worked"}));
+  expect(screen.getByLabelText("DL1DUPE spot")).toBeTruthy();
+  mounted.unmount();render(<DetachedContestSurface/>);
+  expect(await screen.findByLabelText("DL1DUPE spot")).toBeTruthy();expect(screen.getByLabelText("DL1NEW spot")).toBeTruthy();
+  expect(native.invoke.mock.calls.some(([command])=>command==="contest_surface_action")).toBe(false);
+});
+
+it("requests the owner Show worked preference when Band Map Filters explicitly includes worked contest stations",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=band-maps"));
+  const view={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14_025_000,
+    connectedClusters:1,loadedSpots:0,selectedSpotID:null,configuredClusters:[],connections:[],markedOnly:false,showWorked:false,spots:[],busy:false};
+  native.invoke.mockImplementation(async(command,args)=>command==="contest_surface_snapshot"?{...snapshot,panelID:"band-maps",projection:view}:
+    command==="contest_surface_action"?{requestID:args.requestID,status:"applied",projectionRevision:7}:null);
+  render(<DetachedContestSurface/>);fireEvent.click(await screen.findByRole("button",{name:"Filters"}));
+  fireEvent.click(screen.getByRole("checkbox",{name:"Worked in this contest"}));
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="spot_set_show_worked")?.[1])
+    .toMatchObject({panelID:"band-maps",action:"spot_set_show_worked",params:{draftID:"draft-1",expectedDraftRevision:5,showWorked:true}}));
+});
+
 it("can untick Marked only from an empty Cluster after its shared projection advances",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=dx-cluster"));
   let current:any={...snapshot,panelID:"dx-cluster",projectionRevision:6,projection:{schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,

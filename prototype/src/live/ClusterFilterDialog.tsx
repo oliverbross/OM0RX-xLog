@@ -8,9 +8,10 @@ const filterSections: Array<[keyof Pick<ClusterFilter, "bands" | "modes" | "cont
   ["dxccStatuses", "DXCC status"], ["specials", "Special"], ["sources", "Source"], ["worked", "Worked"],
 ];
 
-export function ClusterFilterDialog({ filter, specialChoices, error = "", dialogID, onChange, onClose }: {
+export function ClusterFilterDialog({ filter, specialChoices, error = "", dialogID, contestWorked = false, onChange, onClose }: {
   filter: ClusterFilter; specialChoices: readonly string[]; error?: string;
   dialogID?: string;
+  contestWorked?: boolean;
   onChange: (next: ClusterFilter) => void; onClose: () => void;
 }) {
   const id = useId(), choices = { ...clusterFilterChoices, specials: specialChoices };
@@ -28,12 +29,12 @@ export function ClusterFilterDialog({ filter, specialChoices, error = "", dialog
       </div>
       <div className="operator-filter-sections">{filterSections.map(([key, label]) => {
         const values = choices[key] as readonly string[], selected = filter[key];
-        return <fieldset key={key} data-filter={key}><legend>{label}</legend>
+        return <fieldset key={key} data-filter={key}><legend>{key==="worked"&&contestWorked?"Worked in this contest":label}</legend>
           {key === "specials" && values.length ? <SpecialFilterOptions filter={filter} options={values} onChange={onChange} />
             : values.length ? <div>{values.map(option => <label key={option}><input type="checkbox" checked={selected.includes(option)} onChange={event => {
               const next = event.target.checked ? [...selected, option] : selected.filter(value => value !== option);
               onChange({ ...filter, [key]: next });
-            }} />{option === "rbl" ? "RBN / Skimmer" : option === "cluster" ? "DX Cluster" : option}</label>)}</div>
+            }} />{key==="worked"&&contestWorked?(option==="Worked before"?"Worked in this contest":"Not worked in this contest"):option === "rbl" ? "RBN / Skimmer" : option === "cluster" ? "DX Cluster" : option}</label>)}</div>
             : <p>No configured choices.</p>}
         </fieldset>;
       })}</div>
