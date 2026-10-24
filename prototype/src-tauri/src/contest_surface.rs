@@ -1055,7 +1055,7 @@ fn validate_messages_projection(value: &Map<String, Value>) -> Result<(), String
 }
 
 fn validate_spot_projection(value: &Map<String, Value>) -> Result<(), String> {
-    exact_optional(value, &["schemaVersion", "status", "draftID", "draftRevision", "radioFrequencyHz", "connectedClusters", "loadedSpots", "selectedSpotID", "configuredClusters", "connections", "markedOnly", "spots", "busy"], &["contestSessionID", "supportedBands", "allowedModeGroups", "bandSegments"], "spot projection")?;
+    exact_optional(value, &["schemaVersion", "status", "draftID", "draftRevision", "radioFrequencyHz", "connectedClusters", "loadedSpots", "selectedSpotID", "configuredClusters", "connections", "markedOnly", "spots", "busy"], &["contestSessionID", "supportedBands", "allowedModeGroups", "bandSegments", "showWorked"], "spot projection")?;
     text_value(&value["draftID"], 160, false, "spot draft ID")?;
     uint_value(&value["draftRevision"], MAX_SAFE_INTEGER, "spot draft revision")?;
     nullable_uint(&value["radioFrequencyHz"], 100_000_000_000, "spot radio frequency")?;
@@ -1112,6 +1112,9 @@ fn validate_spot_projection(value: &Map<String, Value>) -> Result<(), String> {
         }
     }
     boolean(&value["markedOnly"], "marked-only filter")?;
+    if let Some(show_worked) = value.get("showWorked") {
+        boolean(show_worked, "show-worked filter")?;
+    }
     boolean(&value["busy"], "spot projection busy state")?;
     let mut ids = BTreeSet::new();
     for item in array(&value["spots"], 2_000, "contest spots")? {
@@ -4088,8 +4091,10 @@ mod tests {
             "radioFrequencyHz":14025000,"connectedClusters":1,"loadedSpots":1,"selectedSpotID":"spot-1",
             "configuredClusters":[{"serverID":"server-1","serverName":"ShackCQ","enabled":true}],
             "connections":[{"serverID":"server-1","serverName":"ShackCQ","phase":"connected","error":null}],"markedOnly":false,
-            "spots":[spot.clone()],"busy":false});
+            "showWorked":false,"spots":[spot.clone()],"busy":false});
         for panel in ["band-maps", "world-map", "dx-cluster"] { assert!(validate_projection(panel, &projection).is_ok()); }
+        let mut invalid_show_worked = projection.clone(); invalid_show_worked["showWorked"] = json!("false");
+        assert!(validate_projection("band-maps", &invalid_show_worked).is_err());
         assert!(validate_action_envelope(&action("spot_select", "world-map",
             json!({"draftID":"draft","expectedDraftRevision":2,"spotID":"spot-1"}))).is_ok());
         assert!(validate_action_envelope(&action("spot_delete", "world-map",
