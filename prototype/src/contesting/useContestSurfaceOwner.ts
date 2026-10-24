@@ -18,6 +18,12 @@ const rebasablePresentationActions = new Set<ContestSurfaceActionEnvelope["actio
   "assistance_download", "assistance_refresh",
   "log_edit_set_text", "log_edit_set_exchange", "log_edit_set_frequency_text", "log_edit_set_band", "log_edit_confirm_delete",
 ]);
+export function actionStillOwnsCurrentDraft(action:ContestSurfaceActionEnvelope,projection:ContestSurfaceProjection):boolean{
+  const params=action.params as Record<string,unknown>,view=projection as Record<string,any>,draft=view.draft&&typeof view.draft==="object"?view.draft:view;
+  const revision=Number.isSafeInteger(draft.revision)?draft.revision:draft.draftRevision;
+  return typeof params.draftID==="string"&&Number.isSafeInteger(params.expectedDraftRevision)&&
+    draft.draftID===params.draftID&&revision===params.expectedDraftRevision;
+}
 
 /** Keeps the single mounted ContestWorkspace authoritative. Wake events carry no
  * state; every action and projection is reread through the typed native bridge. */
@@ -90,7 +96,8 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
           try {
             const panelState = panelStateRef.current, panelRevision = panelState.publishedRevisions[action.panelID] ?? 0;
             const panelChanged = currentProjectionKeysRef.current[action.panelID] !== panelState.publishedKeys[action.panelID];
-            if ((action.projectionRevision !== panelRevision || panelChanged) && !rebasablePresentationActions.has(action.action))
+            if ((action.projectionRevision !== panelRevision || panelChanged) && !rebasablePresentationActions.has(action.action)&&
+                !actionStillOwnsCurrentDraft(action,projectionsRef.current[action.panelID]))
               throw new Error("The contest panel changed before this action reached the owner.");
             if (projectionsRef.current[action.panelID].status !== "ready")
               throw new Error("The requested contest panel is not available.");

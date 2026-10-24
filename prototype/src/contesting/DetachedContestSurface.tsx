@@ -513,10 +513,10 @@ function useEntryIntents(projection:any,projectionRevision:number,send:Send){
     (acceptCallsignPrefill||draft.receivedFields.every((field:any)=>intended[`exchange:${field.id}`]===field.value)),[projection.draft.receivedFields.length]);
   return {values,change,flush,capture,matches};
 }
-function EntryIntentInput({label,accessibleLabel,intentKey,value,maximumUTF8Bytes,disabled,operatorField,inputRef,onFocus,onChange}:{
+function EntryIntentInput({label,accessibleLabel,intentKey,value,maximumUTF8Bytes,disabled,operatorField,inputRef,onFocus,onChange,className}:{
   label:string;accessibleLabel?:string;intentKey:EntryIntentKey;value:string;maximumUTF8Bytes:number;disabled:boolean;operatorField?:ContestInputFieldID;
-  inputRef?:Ref<HTMLInputElement>;onFocus?:()=>void;onChange:(key:EntryIntentKey,value:string)=>void}){
-  return <div className="contest-surface-intent"><ContestTextField label={label} aria-label={accessibleLabel} inputRef={inputRef} data-contest-field-id={operatorField} onFocus={onFocus}
+  inputRef?:Ref<HTMLInputElement>;onFocus?:()=>void;onChange:(key:EntryIntentKey,value:string)=>void;className?:string}){
+  return <div className={`contest-surface-intent${className?` ${className}`:""}`}><ContestTextField label={label} aria-label={accessibleLabel} inputRef={inputRef} data-contest-field-id={operatorField} onFocus={onFocus}
     value={value} disabled={disabled} onChange={event=>{const next=event.target.value;if(new TextEncoder().encode(next).length<=maximumUTF8Bytes)
       onChange(intentKey,next);}}/></div>;
 }
@@ -583,7 +583,7 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
     void (async()=>{let lastLocalProjectionRevision:number|null=null,focusProjectionRevision:number|null=null;if(key!=="Escape"){const flushed=await intents.flush();if(!flushed.ok)return;
       lastLocalProjectionRevision=flushed.lastAppliedProjectionRevision;focusProjectionRevision=await focusPending.current;await settle();}const current=await refresh();const currentProjection=current?.projection as any;
       if(!current||current.panelID!=="active-qso"||currentProjection?.status!=="ready"||currentProjection.draft?.draftID!==base.draftID)return;
-      if(key!=="Escape"&&(!intents.matches(currentProjection.draft,intended,focusedField==="callsign")||
+      if(key!=="Escape"&&key!=="Enter"&&(!intents.matches(currentProjection.draft,intended)||
           current.projectionRevision<Math.max(projectionRevision,lastLocalProjectionRevision??0,focusProjectionRevision??0)||currentProjection.draft.band!==intentContext.band||
           currentProjection.draft.mode!==intentContext.mode||currentProjection.draft.reservedSerial!==intentContext.reservedSerial||
           currentProjection.operator?.armed!==intentContext.armed||currentProjection.operator?.style!==intentContext.style)){
@@ -632,8 +632,8 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
     void (async()=>{const flushed=await intents.flush();if(!flushed.ok)return;const focusProjectionRevision=await focusPending.current;await settle();
       const current=await refresh(),currentProjection=current?.projection as any;
       if(!current||current.panelID!=="active-qso"||currentProjection?.status!=="ready"||currentProjection.draft?.draftID!==base.draftID)return;
-      if(!intents.matches(currentProjection.draft,intended,action==="LOG_NOW"&&focusedField==="callsign")||current.projectionRevision!==Math.max(projectionRevision,
-          flushed.lastAppliedProjectionRevision??0,focusProjectionRevision??0)){
+      if(action!=="LOG_NOW"&&(!intents.matches(currentProjection.draft,intended)||current.projectionRevision!==Math.max(projectionRevision,
+          flushed.lastAppliedProjectionRevision??0,focusProjectionRevision??0))){
         reportConflict("The shared contest entry changed before this key action. Review it and press the key again.");return;}
       const params={draftID:base.draftID,expectedDraftRevision:currentProjection.draft.revision};
       if(action==="TOGGLE_RUN"||action==="SET_RUN"||action==="SET_S_AND_P")await send({action:"entry_operator_style",params:{...params,
@@ -675,6 +675,10 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
     if(event.defaultPrevented||event.repeat||event.nativeEvent.isComposing)return;
     const dataField=target?.dataset.contestFieldId,focusedField=contestInputFieldIDs.includes(dataField as ContestInputFieldID)
       ? dataField as ContestInputFieldID : operator?.focusedField??null;
+    if(event.key==="Enter"&&!event.altKey&&!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&
+        projection.session.ruleName.trim().toUpperCase()==="CQ WW SSB"){
+      event.preventDefault();event.stopPropagation();runBoundAction("LOG_NOW",focusedField);return;
+    }
     const chord=contestKeyChord(event),bound=projection.descriptor?.keyBindings&&chord
       ? resolveContestKeyBinding(projection.descriptor.keyBindings,bindingContext(focusedField),chord) : null;
     if(bound){event.preventDefault();event.stopPropagation();runBoundAction(bound,focusedField);return;}
@@ -720,7 +724,8 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
     <div className="contest-surface-logging-controls">
     <div className="contest-surface-main-fields" style={{"--contest-entry-field-columns":entryFieldColumns} as CSSProperties}>
     <EntryIntentInput label="Callsign" intentKey="callsign" value={intents.values.callsign} maximumUTF8Bytes={32} disabled={entryBufferDisabled}
-      operatorField="callsign" inputRef={setFieldRef("callsign")} onFocus={()=>focusField("callsign")} onChange={(key,value)=>intents.change(key,value,actionFor(key))}/>
+      className={duplicateState==="duplicate"?"is-duplicate":undefined} operatorField="callsign" inputRef={setFieldRef("callsign")}
+      onFocus={()=>focusField("callsign")} onChange={(key,value)=>intents.change(key,value,actionFor(key))}/>
     {(reportFields??(reportsVisible?[{id:"sent",label:"SNT",value:intents.values.sentReport,enabled:true,readOnly:false,maximumUTF8Bytes:160},
       {id:"receive",label:"RCV",value:intents.values.receivedReport,enabled:true,readOnly:false,maximumUTF8Bytes:160}]:[])).map((field:any)=>{
         const key=(field.id==="sent"?"sentReport":"receivedReport") as EntryIntentKey,

@@ -31,6 +31,24 @@ describe("native band-map parity", () => {
     expect(deduplicateBandMapSpots([first, winner])[0]).toBe(winner);
   });
 
+  it("collapses reports at the displayed 100 Hz precision and retains authoritative contest classification", () => {
+    const receivedAt = Date.now() / 1000 - 978_307_200;
+    const classified = { ...spot("classified", 7181.399, "40m"), callsign:"PJ4G", receivedAt,
+      contestPoints:0,contestDupe:true,contestMultiplierCount:0,contestCountryMultiplier:false,contestZoneMultiplier:false };
+    const newerFeedCopy = { ...spot("newer", 7181.401, "40m"), callsign:"pj4g", receivedAt:receivedAt+1,
+      contestPoints:null,contestDupe:null,contestMultiplierCount:null,contestCountryMultiplier:null,contestZoneMultiplier:null };
+    const rows = deduplicateBandMapSpots([classified,newerFeedCopy]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({id:"newer",contestDupe:true,contestMultiplierCount:0});
+    expect(contestBandMapSpotColor(rows[0])).toBe("#aeb5b7");
+  });
+
+  it("does not merge the same callsign and frequency across operating modes", () => {
+    const cw = { ...spot("cw", 7100, "40m"), callsign:"OM0RX", mode:"CW" };
+    const ssb = { ...spot("ssb", 7100, "40m"), callsign:"OM0RX", mode:"SSB" };
+    expect(deduplicateBandMapSpots([cw, ssb]).map(item => item.id)).toEqual(["cw", "ssb"]);
+  });
+
   it("filters by spot age without hiding legacy reports that have no trustworthy timestamp", () => {
     const now = Date.UTC(2026, 9, 16, 12, 0, 0);
     const appleNow = now / 1000 - 978_307_200;

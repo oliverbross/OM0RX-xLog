@@ -62,26 +62,36 @@ export function filterRecentBandMapSpots(spots: BandMapSpot[], ageMinutes: numbe
   });
 }
 
-export function deduplicateBandMapSpots(spots: BandMapSpot[]): BandMapSpot[] {
-  const groups = new Map<string, { spot: BandMapSpot; timestamp: number; index: number; tie: string }>();
+export function deduplicateBandMapSpots<T extends BandMapSpot>(spots: T[]): T[] {
+  const groups = new Map<string, { rows: Array<{ spot: T; timestamp: number; index: number; tie: string }>; index: number }>();
   spots.forEach((spot, index) => {
     const callsign = text(spot.callsign).trim().toUpperCase();
     const frequency = finite(spot.frequencyKHz);
+    const mode = text(spot.mode).trim().toUpperCase();
     // Cluster and WSJT-X projections can report the same observation through
-    // more than one feed. One-Hz normalization removes those copies without
-    // hiding a real QSY by the same callsign elsewhere in the band.
-    const key = callsign && frequency !== null ? `${callsign}\u0000${Math.round(frequency * 1000)}` : `unkeyed\u0000${index}`;
+    // more than one feed with sub-display-frequency rounding differences.
+    // Match the 100 Hz precision shown to the operator while preserving a real
+    // QSY by the same callsign elsewhere in the band.
+    const key = callsign && frequency !== null ? `${callsign}\u0000${mode}\u0000${Math.round(frequency * 10)}` : `unkeyed\u0000${index}`;
     const timestamp = receivedAtMilliseconds(spot.receivedAt) ?? -Infinity;
     const tie = text(spot.id);
     const match = groups.get(key);
-    if (!match) groups.set(key, { spot, timestamp, index, tie });
-    else if (timestamp > match.timestamp || timestamp === match.timestamp && (tie > match.tie || tie === match.tie && index > match.index)) {
-      match.spot = spot;
-      match.timestamp = timestamp;
-      match.tie = tie;
-    }
+    if (!match) groups.set(key, { rows: [{ spot, timestamp, index, tie }], index });
+    else match.rows.push({ spot, timestamp, index, tie });
   });
-  return [...groups.values()].sort((a, b) => a.index - b.index).map(group => group.spot);
+  return [...groups.values()].sort((a, b) => a.index - b.index).map(group => {
+    const rows = [...group.rows].sort((a, b) => b.timestamp - a.timestamp || b.tie.localeCompare(a.tie) || b.index - a.index);
+    const latest = rows[0].spot;
+    // A feed copy with a missing contest preview must never override another
+    // copy that already carries the authoritative worked/multiplier result.
+    const classified = rows.find(row => row.spot.contestDupe !== null && row.spot.contestDupe !== undefined);
+    return classified ? { ...latest,
+      contestPoints: classified.spot.contestPoints,
+      contestDupe: classified.spot.contestDupe,
+      contestMultiplierCount: classified.spot.contestMultiplierCount,
+      contestCountryMultiplier: classified.spot.contestCountryMultiplier,
+      contestZoneMultiplier: classified.spot.contestZoneMultiplier } : latest;
+  });
 }
 
 export function formatBandMapFrequency(frequencyKHz: number): string {

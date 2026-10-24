@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import userEvent from "@testing-library/user-event";
 import { compactContestSpotWorkflow, contestSpotWorkflowMaxBytes, contestSpotWorkflowMaxEntries, contestSpotWorkflowStorageKey,
   contestSpotWorkflowTTLms, decodeContestSpotWorkflow, encodeContestSpotWorkflow, Not1MMContestWorkspace, persistContestSpotWorkflow,
-  projectContestSpotWorkflow, updateContestSpotWorkflow, authoritativeChangeRevision, observedContestSpot,
+  projectContestSpotWorkflow, updateContestSpotWorkflow, authoritativeChangeRevision, observedContestSpot, localContestHeardSpot,
   rtcConfigurationRequired, rtcReportState, storedPendingClientMutation } from "./Not1MMContestWorkspace";
 import { ContestScoreSummary } from "./ContestPresentation";
 import { ContestMutationUncertain } from "./client";
@@ -32,7 +32,10 @@ vi.mock("./contestSetupDialogs", () => ({ openContestSetupDialog: surfaceWindow.
 vi.mock("./contestGroupChat", () => ({ configureContestGroupChat: groupChat.configure, openContestGroupChatWindow: groupChat.open,
   readContestGroupNetwork:groupChat.read,requestContestGroupAuthority:groupChat.authority,syncContestGroupReplicaPage:groupChat.sync,
   publishContestGroupContact: groupChat.publish, takeContestGroupUnverifiedAcknowledgements: groupChat.acknowledgements }));
-vi.mock("../live/BandMaps", () => ({ default: () => <div>Shared bandmap</div> }));
+vi.mock("../live/BandMaps", () => ({
+  default: () => <div>Shared bandmap</div>,
+  deduplicateBandMapSpots: <T,>(spots: T[]) => spots,
+}));
 vi.mock("../live/ClusterPanel", () => ({ default: () => <div>Shared cluster</div> }));
 
 it("reports RTC success and failure before the next scheduled attempt",()=>{
@@ -54,6 +57,15 @@ it("selects only the nearest contest spot inside N1MM's 300 Hz tuning tolerance"
   ] as any[];
   expect(observedContestSpot(spots,14_025_000)?.callsign).toBe("NEW");
   expect(observedContestSpot([spots[0]],14_025_000)).toBeNull();
+});
+it("creates a local marked S&P spot at the frequency being left without transmitting it",()=>{
+  const heard=localContestHeardSpot({callsign:" k1ttt ",frequencyHz:7_152_100,mode:"SSB",stationCall:"OM0RX",
+    bandDefinitions:[{id:"40m",lowHz:7_000_000,highHz:7_300_000,value:7}],receivedAt:123,
+    callContext:{callsign:"K1TTT",country:"United States",cqZone:5,ituZone:8}});
+  expect(heard).toMatchObject({id:"contest-heard:7152100:K1TTT",callsign:"K1TTT",frequencyKHz:7152.1,
+    band:"40m",mode:"SSB",country:"United States",cqZone:5,ituZone:8,marked:true,source:"Contest S&P"});
+  expect(localContestHeardSpot({callsign:"?",frequencyHz:7_152_100,mode:"SSB",stationCall:"OM0RX",
+    bandDefinitions:[{id:"40m",lowHz:7_000_000,highHz:7_300_000,value:7}]})).toBeNull();
 });
 vi.mock("../live/useSharedCW", () => ({ useSharedCW: () => ({
   controller: { refresh: vi.fn(async () => {}), arm: vi.fn(async () => {}), stop: nativeCW.stop, send: vi.fn(async () => {}), executeContest: nativeCW.execute },
@@ -344,7 +356,7 @@ it("queries the full contest log for partials and retains raw rows beyond the di
     if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
   });
   const serviceRequest=vi.fn(async(method:string,params:Record<string,unknown>={})=>method==="lookup_call"
-    ?{call:params.call,country:"Germany",cqZone:14,ituZone:28,bearing:312,long_path_bearing:132,distance_km:1180}
+    ?{call:params.call,country:"Germany",cqZone:14,ituZone:28,latitude:51,longitude:10,bearing:312,long_path_bearing:132,distance_km:1180}
     :request(method,params));
   render(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps} spots={[{callsign:"DL1XYZ"},{callsign:"K1ABC"}]}/>);
   await createContestThroughSetup();
@@ -359,6 +371,9 @@ it("queries the full contest log for partials and retains raw rows beyond the di
     distanceKm:1180,qsos:25,multipliers:7,total:350}));
   expect(surfaceOwner.current.projections["station-control"]).toEqual({schemaVersion:1,status:"ready",
     radioFrequencyHz:14_025_000,contestFrequencyHz:14_025_000,band:"20m",mode:"CW",busy:false});
+  expect(surfaceOwner.current.projections["world-map"]).toMatchObject({
+    selectedSpotID:"contest-entry:22222222-2222-4222-8222-222222222222",
+    spots:expect.arrayContaining([expect.objectContaining({callsign:"DL1",latitude:51,longitude:10,comment:"Current contest entry"})])});
   for(const panel of contestSurfacePanelIDs)expect(validContestSurfaceProjection(panel,surfaceOwner.current.projections[panel])).toBe(true);
 });
 
@@ -712,9 +727,7 @@ it("reclassifies a newly logged CQ WW spot as grey and republishes its radio rep
   expect(surfaceOwner.current.projections["dx-cluster"].spots[0]).toMatchObject({
     id:"worked-after-save",contestDupe:true,contestMultiplierCount:0,contestCountryMultiplier:false,contestZoneMultiplier:false});
   await waitFor(()=>expect(serviceRequest).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
-    publication_sequence:2,action:"clear",revision:1,spots:[]})));
-  await waitFor(()=>expect(serviceRequest).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
-    publication_sequence:3,action:"replace",revision:2,spots:[expect.objectContaining({spot_id:"worked-after-save",dupe:true,
+    publication_sequence:2,action:"replace",revision:2,spots:[expect.objectContaining({spot_id:"worked-after-save",dupe:true,
       multiplier_count:0,country_multiplier:false,zone_multiplier:false})]})));
 });
 
@@ -797,6 +810,21 @@ it("retains the last spot classification until a newer draft revision preview sw
   expect(surfaceOwner.current.projections["band-maps"].spots[0].contestPoints).toBe(1);
   await act(async()=>releasePreview?.());
   await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots[0].contestPoints).toBe(3));
+});
+
+it("retries a transient spot preview failure without blanking contest colors",async()=>{
+  const current=projection(),base=operationalRequest(()=>current,()=>3);
+  let previewAttempts=0;
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    if(method==="contest_spot_points_preview"&&++previewAttempts===1)throw new Error("temporary preview failure");
+    return base(method,params);
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}
+    spots={[{id:"one",callsign:"DL1ABC",frequencyKHz:14025,band:"20m",mode:"CW",score:42}] as any}/>);
+  await createContestThroughSetup();
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots[0]).toMatchObject({contestPoints:3,contestDupe:false}),
+    {timeout:2_500});
+  expect(previewAttempts).toBe(2);
 });
 
 it("routes the visible SPOT_DX action through the owned native contest spot adapter", async () => {
@@ -1626,7 +1654,6 @@ it("creates an SSB session from catalog metadata and runs ESM without native CW 
 });
 
 it.each([
-  {pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",other1:"15",other2:"5",reservedSerial:null,esmPayload:"59 15"},
   {pluginID:"cq_wpx_ssb",pluginName:"CQ WPX SSB",other1:"001",other2:"123",reservedSerial:1,esmPayload:"59 001"},
   {pluginID:"arrl_ss_phone",pluginName:"ARRL Sweepstakes Phone",other1:"001",other2:"123 A K1ABC 67 CT",reservedSerial:1,esmPayload:"K1ABC 001 A OM0RX 67 CT"},
 ])("simulates only claimed $pluginName voice-keyer intents in Contesting Test", async ({pluginID,pluginName,other1,other2,reservedSerial,esmPayload}) => {
@@ -2488,6 +2515,8 @@ it("always clears or loads a nearby CQ WW SSB spot on a fresh S&P VFO transition
   await createContestThroughSetup();await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));
   view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={liveSpots as any} radioFrequencyHz={7_181_400}/>);
   await waitFor(()=>expect(observedApply).toMatchObject({frequencyHz:7_181_400,observedVFOChange:true,observedSpotCallsign:"PJ4G"}));
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"]).toMatchObject({radioFrequencyHz:7_181_400,
+    spots:expect.arrayContaining([expect.objectContaining({id:"contest-heard:7175000:OLD1",callsign:"OLD1",frequencyKHz:7175,marked:true})])}));
 });
 
 it("wipes the entry with one mutation while keeping committed auxiliary panels mounted",async()=>{

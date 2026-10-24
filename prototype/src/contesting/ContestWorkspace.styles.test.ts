@@ -79,10 +79,12 @@ describe("ContestWorkspace responsive contract", () => {
     expect(detachedCSS).toContain(".contest-surface-log-tools { position:relative;");
   });
 
-  it("aligns the Main Logging title bar and Rates values without changing the operator strips", () => {
+  it("aligns the Main Logging title bar and spreads Rates across the available width without changing the operator strips", () => {
     expect(detachedCSS).toContain("grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)");
     expect(detachedCSS).toContain(".contest-surface-entry > header h1 { min-width:0; justify-self:end; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }");
-    expect(detachedCSS).toContain(".contest-surface-rates dl > div,.contest-surface-rates tr { display:grid; grid-template-columns:minmax(0,1fr) 96px;");
+    expect(detachedCSS).toContain(".contest-surface-rates dl { display:grid; grid-template-columns:repeat(2,minmax(0,1fr));");
+    expect(detachedCSS).toContain(".contest-surface-rates tr { display:grid; grid-template-columns:minmax(0,1fr) auto;");
+    expect(detachedCSS).toContain(".contest-surface-rates dt,.contest-surface-rates th { text-align:left; }");
     expect(detachedCSS).toContain(".contest-surface-run-strip > * + * { margin-inline-start:14px; }");
     expect(detachedCSS).toContain(".contest-surface-band-ladder { display:flex; flex:0 0 42px;");
   });

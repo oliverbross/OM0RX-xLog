@@ -481,6 +481,7 @@ it("keeps Trans Tasman duplicates loggable and presents the original period expl
   expect(validContestSurfaceProjection("active-qso",view)).toBe(true);
   native.invoke.mockResolvedValue({...snapshot,projection:view});render(<DetachedContestSurface/>);
   expect(await screen.findByLabelText("Sent exchange")).toHaveProperty("value","001");
+  expect(screen.getByLabelText("Callsign").closest(".contest-surface-intent")?.classList.contains("is-duplicate")).toBe(true);
   expect(screen.getByRole("alert").textContent).toContain("DUPE");
   expect(screen.getByRole("alert").textContent).toContain(reason);
   expect(screen.getByRole("button",{name:/^Log It/})).toBeTruthy();
@@ -501,8 +502,10 @@ it("shows Checking instead of attaching a stale DUPE result to locally typed cal
   render(<DetachedContestSurface/>);
   const callsign=await screen.findByLabelText("Callsign");
   expect(screen.getByRole("alert").textContent).toContain("DUPE — OM0A");
+  expect(callsign.closest(".contest-surface-intent")?.classList.contains("is-duplicate")).toBe(true);
   fireEvent.change(callsign,{target:{value:"K1ABC"}});
   expect(await screen.findByText("Checking — K1ABC")).toBeTruthy();
+  expect(callsign.closest(".contest-surface-intent")?.classList.contains("is-duplicate")).toBe(false);
   expect(screen.queryByText(/DUPE — OM0A/)).toBeNull();
 });
 
@@ -1510,9 +1513,9 @@ it("keeps SSB macros visible while optional unconfigured voice controls and setu
 });
 
 it.each([
-  ["Callsign","callsign"],["SNT","sent"],["RCV","receive"],["CQ Zone","other_2"],
-] as const)("accepts Enter from the CQ WW %s field",async(label,focusedField)=>{
-  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,callsign:"DL1ABC",mode:"SSB",
+  ["Callsign","callsign","DL1ABC"],["SNT","sent","58"],["RCV","receive","58"],["CQ Zone","other_2","15"],
+] as const)("flushes a freshly typed CQ WW %s value and accepts Enter immediately",async(label,focusedField,typedValue)=>{
+  let view:any={...snapshot,projection:{...projection,schemaVersion:2,session:{name:"CQ WW SSB",ruleName:"CQ WW SSB",mode:"SSB"},draft:{...projection.draft,callsign:focusedField==="callsign"?"":"DL1ABC",mode:"SSB",
       sentReport:"59",receivedReport:"59",receivedFields:[{id:"other_2",label:"CQ Zone",value:"14",required:true,maximumUTF8Bytes:128,enabled:true,readOnly:false}]},
     descriptor:{bands:["40m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
     operator:{output:"xlog-native",outputAvailable:false,outputUnavailableReason:"Optional voice output is not configured.",armed:false,style:"search-and-pounce",status:"disarmed",
@@ -1520,13 +1523,21 @@ it.each([
         canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
     if(command==="contest_surface_snapshot")return view;
-    if(command==="contest_surface_action")return{requestID:args.requestID,status:"applied",projectionRevision:7};
+    if(command==="contest_surface_action"){
+      const draft=view.projection.draft;
+      if(args.action==="entry_set_text")view={...view,projectionRevision:view.projectionRevision+1,projection:{...view.projection,
+        draft:{...draft,revision:draft.revision+1,[args.params.field]:args.params.value}}};
+      if(args.action==="entry_set_exchange")view={...view,projectionRevision:view.projectionRevision+1,projection:{...view.projection,
+        draft:{...draft,revision:draft.revision+1,receivedFields:draft.receivedFields.map((field:any)=>field.id===args.params.fieldID?{...field,value:args.params.value}:field)}}};
+      return{requestID:args.requestID,status:"applied"};
+    }
     throw new Error(command);
   });
   render(<DetachedContestSurface/>);const input=await screen.findByLabelText(label);
+  fireEvent.change(input,{target:{value:typedValue}});
   fireEvent.keyDown(input,{key:"Enter"});
-  await waitFor(()=>expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&
-    args.action==="entry_operator_key"&&args.params.key==="Enter"&&args.params.focusedField===focusedField)).toBe(true));
+  await waitFor(()=>expect(native.invoke.mock.calls.filter(([command])=>command==="contest_surface_action").map(([,args])=>args))
+    .toContainEqual(expect.objectContaining({action:"entry_commit",params:expect.objectContaining({draftID:"draft-1"})})));
 });
 
 it("shows saved only after a confirmed commit advances to a new draft",async()=>{

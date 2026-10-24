@@ -113,7 +113,7 @@ it("does not execute a dequeued action after its owner context closes",async()=>
   expect(native.invoke.mock.calls.some(([name])=>name==="contest_surface_context_close")).toBe(true);
 });
 
-it.each(["log", "cluster"] as const)("rejects stale %s candidate projection revisions before mutation",async kind=>{
+it.each(["log", "cluster"] as const)("admits a %s candidate after an unrelated panel refresh when the draft is unchanged",async kind=>{
   const queue:ContestSurfaceActionEnvelope[]=[],completed:Record<string,unknown>[]=[];
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
     if(command==="contest_surface_owner_claim")return {ownerEpoch:args.ownerEpoch,projectionRevision:0};
@@ -134,11 +134,11 @@ it.each(["log", "cluster"] as const)("rejects stale %s candidate projection revi
     requestID:crypto.randomUUID(),action:"assistance_select",params:{draftID:"draft-1",expectedDraftRevision:5,kind,candidateID:`${kind}:K1ABC`}};
   queue.push(select);await act(async()=>{native.wake!();});
   await waitFor(()=>expect(completed).toHaveLength(1));
-  expect(completed[0]).toMatchObject({outcome:"rejected",message:"The contest panel changed before this action reached the owner."});
-  expect(handle).not.toHaveBeenCalled();
+  expect(completed[0]).toMatchObject({outcome:"applied"});
+  expect(handle).toHaveBeenCalledWith(select);
 });
 
-it("rejects stale contest spot selection before the owner can tune or mutate",async()=>{
+it("admits contest spot selection after an unrelated panel refresh when the draft is unchanged",async()=>{
   const queue:ContestSurfaceActionEnvelope[]=[],completed:Record<string,unknown>[]=[];
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
     if(command==="contest_surface_owner_claim")return {ownerEpoch:args.ownerEpoch,projectionRevision:0};
@@ -159,8 +159,8 @@ it("rejects stale contest spot selection before the owner can tune or mutate",as
     action:"spot_select",params:{draftID:"draft-1",expectedDraftRevision:5,spotID:"spot-1"}});
   await act(async()=>{native.wake!();});
   await waitFor(()=>expect(completed).toHaveLength(1));
-  expect(completed[0]).toMatchObject({outcome:"rejected",message:"The contest panel changed before this action reached the owner."});
-  expect(handle).not.toHaveBeenCalled();
+  expect(completed[0]).toMatchObject({outcome:"applied"});
+  expect(handle).toHaveBeenCalledOnce();
 });
 
 it("rebases safe presentation edits across a sibling projection update but rejects a stale commit",async()=>{
@@ -175,7 +175,7 @@ it("rebases safe presentation edits across a sibling projection update but rejec
   });
   const handle=vi.fn(async()=>{}),projections={...unavailable(),"active-qso":entry},view=render(<Harness projections={projections} handle={handle}/>);
   await waitFor(()=>expect(native.wake).toBeTypeOf("function"));
-  view.rerender(<Harness projections={{...projections,"active-qso":{...entry,dirty:true}}} handle={handle}/>);
+  view.rerender(<Harness projections={{...projections,"active-qso":{...entry,draft:{...entry.draft,revision:6},dirty:true}}} handle={handle}/>);
   const safe={...action(1),requestID:crypto.randomUUID(),action:"entry_set_text" as const,
     params:{draftID:"draft-1",expectedDraftRevision:5,field:"callsign" as const,value:"K1ABC"}};
   queue.push(safe,action(1));await act(async()=>{native.wake!();});
