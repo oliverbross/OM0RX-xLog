@@ -392,11 +392,21 @@ actor PythonContestLane {
             result["reference"] = ["id": reference.version, "countries": [call.uppercased(): country]]
         }
         let fields = result["fields"] as? [String: Any]
-        if result["countries"] == nil, let call = fields?["callsign"] as? String,
-           !call.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-           let country = countryWire(call) {
-            result["countries"] = [call.uppercased(): country]
-            result["referenceID"] = reference.version
+        if result["countries"] == nil {
+            // Radio follow clears the departed draft call and sends the next
+            // call separately. Hydrate it before Python adopts that spot and
+            // prefills its exchange; normal typed calls still resolve here.
+            let observedCall = method == "contest_draft_apply" && result["observedVFOChange"] as? Bool == true
+                ? result["observedSpotCallsign"] as? String : nil
+            var countries: [String: [String: Any]] = [:]
+            for rawCall in [fields?["callsign"] as? String, observedCall].compactMap({ $0 }) {
+                let call = rawCall.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                if !call.isEmpty, let country = countryWire(call) { countries[call] = country }
+            }
+            if !countries.isEmpty {
+                result["countries"] = countries
+                result["referenceID"] = reference.version
+            }
         }
         if method == "contest_spot_points_preview", result["countries"] == nil,
            let spots = result["spots"] as? [[String: Any]] {

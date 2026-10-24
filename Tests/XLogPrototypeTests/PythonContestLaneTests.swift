@@ -8,6 +8,52 @@ import XLogPortableCore
 @testable import XLogPrototypeSupport
 
 final class PythonContestLaneTests: XCTestCase {
+    func testObservedSpotCallResolvesCountryBeforeCQWWZonePrefill() async throws {
+        let temporary = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
+            .appendingPathComponent("xlog-observed-spot-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let lane = try PythonContestLane(configuration: PythonContestHostConfiguration(
+            executableURL: try python312(),
+            launcherURL: repositoryRoot().appendingPathComponent("python/contest_host/launcher.py"),
+            dataRootURL: temporary.appendingPathComponent("Contesting/Python", isDirectory: true)))
+        let session = UUID().uuidString.lowercased()
+        let created = try await lane.handle(method: "contest_session_create", params: [
+            "sessionID": session, "workspaceGeneration": UUID().uuidString.lowercased(),
+            "operationID": UUID().uuidString.lowercased(), "expectedRevision": 0,
+            "pluginID": "cq_ww_ssb", "frequencyHz": 7_125_000,
+            "station": ["Call": "OM0RX", "CQZone": "15"], "settings": ["SentExchange": "15"],
+        ])
+        var projection = try XCTUnwrap(created["projection"] as? [String: Any])
+        func mutate(_ method: String, _ extra: [String: Any]) async throws -> [String: Any] {
+            var params: [String: Any] = ["sessionID": session,
+                "operationID": UUID().uuidString.lowercased(), "expectedRevision": projection["revision"]!,
+                "draftID": projection["draftID"]!]
+            params.merge(extra) { _, new in new }
+            let result = try await lane.handle(method: method, params: params)
+            return try XCTUnwrap(result["projection"] as? [String: Any])
+        }
+        projection = try await mutate("contest_run_state", ["run": false])
+        // This is the actual radio-follow envelope: the old call is cleared,
+        // and Python adopts the observed spot only after native CTY hydration.
+        projection = try await mutate("contest_draft_apply", [
+            "fields": ["callsign": "", "other_2": ""], "frequencyHz": 7_145_000,
+            "observedVFOChange": true, "observedSpotCallsign": "MX0KBS",
+        ])
+        func value(_ name: String) -> String? {
+            (projection["fields"] as? [[String: Any]])?.first { $0["id"] as? String == name }?["value"] as? String
+        }
+        XCTAssertEqual(value("callsign"), "MX0KBS")
+        XCTAssertEqual(projection["countryResolved"] as? Bool, true)
+        XCTAssertEqual(value("other_2"), "14")
+        projection = try await mutate("contest_draft_apply", ["fields": ["callsign": "MX0KBS", "other_2": "9"]])
+        XCTAssertEqual(value("other_2"), "9")
+        projection = try await mutate("contest_draft_apply", ["fields": ["callsign": "MX0KBS"],
+            "observedVFOChange": false, "observedSpotCallsign": "K1ABC"])
+        XCTAssertEqual(value("callsign"), "MX0KBS")
+        XCTAssertEqual(value("other_2"), "9")
+        await lane.shutdown()
+    }
+
     func testContestingTestWorkerUsesPythonLaneInsideIsolatedSupportRoot() async throws {
         let repository = repositoryRoot()
         let applicationSupport = URL(fileURLWithPath: FileManager.default.temporaryDirectory.path

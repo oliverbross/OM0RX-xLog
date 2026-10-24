@@ -2812,6 +2812,41 @@ it("leaving a CQ WW SSB Run frequency switches to S&P and loads a nearby spot", 
     expect.objectContaining({id:"contest-heard:7175000:OLD1"})]));
 });
 
+it("adopts the radio-follow CQ zone and preserves a manual override through delayed lookup",async()=>{
+  const saved=newContestSetup("OM0RX");saved.pluginID="cq_ww_ssb";saved.preferences.bands=["40m"];
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(saved));
+  let current:any={...projection(1,{callsign:"",other_2:""}),pluginID:"cq_ww_ssb",mode:"SSB",band:7,frequencyHz:7_175_000,run:false};
+  let releaseLookup:(()=>void)|undefined;
+  const base=operationalRequest(()=>current),request=vi.fn(async(method:string,params:Record<string,any>={})=>{
+    if(method!=="contest_draft_apply")return base(method,params);
+    const values=params.observedVFOChange?{...params.fields,callsign:params.observedSpotCallsign,other_2:"14"}:params.fields;
+    current={...current,revision:current.revision+1,frequencyHz:params.frequencyHz,
+      fields:current.fields.map((field:any)=>({...field,value:values[field.id]??field.value})),countryResolved:true,
+      callContext:{callsign:"MX0KBS",country:"England",cqZone:14,ituZone:27}};
+    return{id:crypto.randomUUID(),ok:true,result:{projection:current,actions:[],messages:[]}};
+  }),serviceRequest=vi.fn(async(method:string,params:Record<string,any>={})=>{
+    if(method==="lookup_call"&&params.call==="MX0KBS")return new Promise(resolve=>{
+      releaseLookup=()=>resolve({call:"MX0KBS",country:"England",cqZone:14,ituZone:27});
+    });
+    return request(method,params);
+  });
+  const props={request,serviceRequest,...workspaceProps,spots:[{id:"mx0kbs",callsign:"MX0KBS",frequencyKHz:7181.4,band:"40m",mode:"SSB"}] as any};
+  const view=render(<Not1MMContestWorkspace {...props} radioFrequencyHz={7_175_000}/>);
+  await createContestThroughSetup();
+  view.rerender(<Not1MMContestWorkspace {...props} radioFrequencyHz={7_181_400}/>);
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].draft).toMatchObject({callsign:"MX0KBS",
+    receivedFields:expect.arrayContaining([expect.objectContaining({id:"other_2",value:"14"})])}));
+  expect(request.mock.calls.find(([method])=>method==="contest_draft_apply")?.[1]).toMatchObject({
+    fields:{callsign:""},observedVFOChange:true,observedSpotCallsign:"MX0KBS"});
+  await waitFor(()=>expect(releaseLookup).toBeTypeOf("function"));
+  await act(async()=>surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,
+    action:"entry_set_exchange",params:{draftID:current.draftID,expectedDraftRevision:current.revision,fieldID:"other_2",value:"9"}}));
+  await act(async()=>releaseLookup?.());
+  expect(surfaceOwner.current.projections["active-qso"]).toMatchObject({manual:{country:"England",cqZone:14},draft:{
+    receivedFields:expect.arrayContaining([expect.objectContaining({id:"other_2",value:"9"})])}});
+  expect(request.mock.calls.filter(([method])=>method==="contest_draft_apply")).toHaveLength(2);
+});
+
 it("keeps Run state and entry intact when CAT reconnects at a frequency", async () => {
   const saved = newContestSetup("OM0RX");
   saved.pluginID = "cq_ww_ssb"; saved.name = "CQ WW SSB"; saved.settings.ModeCategory = "SSB";
