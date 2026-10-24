@@ -808,9 +808,6 @@ public actor LiveClusterMethods {
                     filtered += 1; continue
                 }
                 let presentation = Self.contestRadioPresentation(for: spot)
-                if presentation.colorHex == "#AEB5B7", !config.showWorkedBandModeSpots {
-                    filtered += 1; continue
-                }
                 let payload = ClusterRadioSpotPayload(
                     frequencyHz: spot.frequencyHz, callsign: spot.callsign, mode: spot.mode,
                     source: "xLog Contest", spotter: spot.spotter, comment: spot.comment,

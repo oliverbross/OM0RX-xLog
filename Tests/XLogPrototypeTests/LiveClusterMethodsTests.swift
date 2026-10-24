@@ -87,7 +87,9 @@ struct LiveClusterMethodsTests {
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let configurationURL = root.appendingPathComponent("cluster.json")
-        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [], showWorkedBandModeSpots: true,
+        // Contest publication owns its complete N1MM-style colour set. The
+        // Normal Logging preference must not suppress grey contest spots.
+        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [], showWorkedBandModeSpots: false,
                                                               forwardSpotsToFlex: true)).write(to: configurationURL)
         let recorder = ClusterRadioSpotRecorder()
         let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
