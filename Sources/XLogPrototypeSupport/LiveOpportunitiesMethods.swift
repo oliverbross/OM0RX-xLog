@@ -61,10 +61,12 @@ actor LiveOpportunitiesMethods {
             guard Set(params.keys).isSubset(of: ["source", "automatic"]), let source = params["source"] as? String,
                   params["automatic"] == nil || params["automatic"] is Bool,
                   names.contains(source) || source == "all" else { throw invalid() }
+            let refreshNames = method == "opportunities_dxpedition_refresh" ? ["adxo", "425dxn"] : names
+            guard source == "all" || refreshNames.contains(source) else { throw invalid() }
             if source == "all" {
                 let automatic = params["automatic"] as? Bool ?? true
                 await withTaskGroup(of: Void.self) { group in
-                    for name in names { group.addTask { await self.refresh(name, automatic: automatic) } }
+                    for name in refreshNames { group.addTask { await self.refresh(name, automatic: automatic) } }
                 }
             } else { await refresh(source, automatic: params["automatic"] as? Bool ?? false) }
         default:
@@ -237,7 +239,8 @@ actor LiveOpportunitiesMethods {
                          "worked_count": cell.workedCount, "confirmed_count": cell.confirmedCount] as [String: Any]
                     } ?? []] as [String: Any]
         }
-        let sources: [[String: Any]] = names.map { source in
+        let sourceNames = dxpeditionOnly ? ["adxo", "425dxn"] : names
+        let sources: [[String: Any]] = sourceNames.map { source in
             let feed = feeds[source] ?? Feed()
             let age = feed.lastSuccess.map { now.timeIntervalSince($0) }
             let ttl: TimeInterval = ["adxo", "425dxn"].contains(source) ? 25 * 3_600 : 300

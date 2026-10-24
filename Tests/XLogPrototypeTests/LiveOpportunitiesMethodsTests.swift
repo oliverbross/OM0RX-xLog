@@ -112,6 +112,26 @@ struct LiveOpportunitiesMethodsTests {
         }
     }
 
+    @Test("DXpedition refresh is narrow to its two catalogue providers")
+    func dxpeditionRefreshBoundary() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [EmptyOpportunityProjectionFeed.self]
+        let session = URLSession(configuration: config)
+        defer { session.invalidateAndCancel() }
+        let actor = LiveOpportunitiesMethods(logbook: logbook, session: session, clusterSpots: { [] })
+        let result = try await actor.handle(method: "opportunities_dxpedition_refresh", params: ["source": "all"])
+        let sources = try #require(result["sources"] as? [[String: Any]])
+        #expect(Set(sources.compactMap { $0["source"] as? String }) == Set(["adxo", "425dxn"]))
+        #expect(sources.allSatisfy { $0["last_attempt"] is String })
+        await #expect(throws: WorkerFailure.self) {
+            try await actor.handle(method: "opportunities_dxpedition_refresh", params: ["source": "pota"])
+        }
+    }
+
     @Test("Every shared public programme and the DX calendar retain their source evidence")
     func portableProgrammeParsing() throws {
         let now = Date(timeIntervalSince1970: 1_791_763_200)
