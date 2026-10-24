@@ -163,6 +163,31 @@ it("admits contest spot selection after an unrelated panel refresh when the draf
   expect(handle).toHaveBeenCalledOnce();
 });
 
+it.each(["spot_set_show_worked","spot_set_marked_only"] as const)("rebases %s across a passive draft refresh",async name=>{
+  const queue:ContestSurfaceActionEnvelope[]=[],completed:Record<string,unknown>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_owner_claim")return {ownerEpoch:args.ownerEpoch,projectionRevision:0};
+    if(command==="contest_surface_publish"||command==="contest_surface_context_close")return;
+    if(command==="contest_surface_escape_next")return null;
+    if(command==="contest_surface_action_next")return queue.shift()??null;
+    if(command==="contest_surface_action_complete"){completed.push(args);return;}
+    throw new Error(command);
+  });
+  const spotProjection={schemaVersion:2 as const,status:"ready" as const,draftID:"draft-1",draftRevision:5,
+    radioFrequencyHz:14_025_000,connectedClusters:1,loadedSpots:0,selectedSpotID:null,configuredClusters:[],connections:[],
+    markedOnly:false,showWorked:false,spots:[],busy:false};
+  const projections={...unavailable(),"band-maps":spotProjection},handle=vi.fn(async()=>{});
+  const view=render(<Harness projections={projections} handle={handle}/>);
+  await waitFor(()=>expect(native.wake).toBeTypeOf("function"));
+  view.rerender(<Harness projections={{...projections,"band-maps":{...spotProjection,draftRevision:6}}} handle={handle}/>);
+  const preference={...context,scope:"contesting",panelID:"band-maps",projectionRevision:1,requestID:crypto.randomUUID(),
+    action:name,params:{draftID:"draft-1",expectedDraftRevision:5,...(name==="spot_set_show_worked"?{showWorked:true}:{markedOnly:true})}} as ContestSurfaceActionEnvelope;
+  queue.push(preference);await act(async()=>{native.wake!();});
+  await waitFor(()=>expect(completed).toHaveLength(1));
+  expect(completed[0]).toMatchObject({outcome:"applied"});
+  expect(handle).toHaveBeenCalledWith(preference);
+});
+
 it("rebases safe presentation edits across a sibling projection update but rejects a stale commit",async()=>{
   const queue:ContestSurfaceActionEnvelope[]=[],completed:Record<string,unknown>[]=[];
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{

@@ -763,6 +763,10 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
             draft(params, &["markedOnly"])?;
             boolean(&params["markedOnly"], "marked-only filter")?;
         }
+        "spot_set_show_worked" => {
+            draft(params, &["showWorked"])?;
+            boolean(&params["showWorked"], "show-worked filter")?;
+        }
         "entry_set_text" => {
             draft(params, &["field", "value"])?;
             enum_value(
@@ -4127,10 +4131,21 @@ mod tests {
             ("spot_set_marked", json!({"draftID":"draft","expectedDraftRevision":2,"spotID":"spot-1","marked":true})),
             ("spot_delete", json!({"draftID":"draft","expectedDraftRevision":2,"spotID":"spot-1"})),
             ("spot_set_marked_only", json!({"draftID":"draft","expectedDraftRevision":2,"markedOnly":true})),
+            ("spot_set_show_worked", json!({"draftID":"draft","expectedDraftRevision":2,"showWorked":true})),
         ].into_iter().enumerate() {
             let mut lifecycle = action(name, "dx-cluster", params);
             lifecycle["requestID"] = json!(format!("40000000-0000-4000-8000-{:012}", 20 + index));
             assert!(validate_action_envelope(&lifecycle).is_ok());
+        }
+        for panel in ["band-maps", "dx-cluster"] {
+            for enabled in [true, false] {
+                assert!(validate_action_envelope(&action("spot_set_show_worked", panel,
+                    json!({"draftID":"draft","expectedDraftRevision":2,"showWorked":enabled}))).is_ok());
+            }
+            for invalid in [json!("true"), Value::Null, json!(1)] {
+                assert!(validate_action_envelope(&action("spot_set_show_worked", panel,
+                    json!({"draftID":"draft","expectedDraftRevision":2,"showWorked":invalid}))).is_err());
+            }
         }
         let mut cross_panel = action("spot_select", "active-qso", json!({"draftID":"draft","expectedDraftRevision":2,"spotID":"spot-1"}));
         cross_panel["requestID"] = json!("40000000-0000-4000-8000-000000000010");
