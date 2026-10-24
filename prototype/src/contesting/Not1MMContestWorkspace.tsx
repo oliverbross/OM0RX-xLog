@@ -694,6 +694,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const auxiliaryErrorRef = useRef("");
   const [create, setCreate] = useState({ name: "CQ WW CW", cqZone: "15" });
   const [setup, setSetup] = useState<ContestSetupDocument>(() => restoredSetup(stationCall));
+  const effectiveStationCall = String(setup.station.Call || stationCall).trim().toUpperCase();
   const [rtcStatus,setRTCStatus]=useState<RTCStatus|null>(null),[rtcCredentialSaved,setRTCCredentialSaved]=useState(false);
   const rtcConfigurationRef=useRef("");
   const [digitalSnapshot, setDigitalSnapshot] = useState<ContestDigitalSnapshot | undefined>();
@@ -831,12 +832,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const path=lookupPathContext?.callsign===callsign?lookupPathContext:null;
     if(matching)return path?{...matching,latitude:matching.latitude??path.latitude,longitude:matching.longitude??path.longitude}:matching;
     if(!path||path.latitude===null||path.longitude===null)return null;
-    const spot=localContestHeardSpot({callsign,frequencyHz:operationFrequencyHz,mode:projection.mode,stationCall,bandDefinitions,
+    const spot=localContestHeardSpot({callsign,frequencyHz:operationFrequencyHz,mode:projection.mode,stationCall:effectiveStationCall,bandDefinitions,
       callContext:{...projection.callContext,callsign,country:path.country,cqZone:path.cqZone,ituZone:path.ituZone}});
     return spot?{...spot,id:`contest-entry:${projection.draftID}`,latitude:path.latitude,longitude:path.longitude,
       comment:"Current contest entry",source:"Contest entry",marked:false}:null;
   },[projection?.draftID,projection?.mode,projection?.callContext,operationFrequencyHz,fields.callsign,visibleWorkflowSpots,
-    lookupPathContext,stationCall,bandDefinitions]);
+    lookupPathContext,effectiveStationCall,bandDefinitions]);
   useEffect(()=>{const connection=connectMapContext(value=>setMapHome(current=>{
     const next=value.metadata.home;
     return current?.lat===next?.lat&&current?.lon===next?.lon&&current?.call===next?.call&&current?.grid===next?.grid?current:next;
@@ -1702,7 +1703,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       const existing = allWorkflowSpots.find(spot => spot.callsign.trim().toUpperCase() === heardCall &&
         Math.round(spot.frequencyKHz * 10) === Math.round(previous.frequencyHz! / 100));
       const heardBase = existing ?? localContestHeardSpot({ callsign:heardCall, frequencyHz:previous.frequencyHz,
-        mode:projection.mode, stationCall, bandDefinitions, callContext:projection.callContext });
+        mode:projection.mode, stationCall:effectiveStationCall, bandDefinitions, callContext:projection.callContext });
       const heardPath=lookupPathContext?.callsign===heardCall?lookupPathContext:null;
       const heard=heardBase&&heardPath?{...heardBase,latitude:heardBase.latitude??heardPath.latitude,
         longitude:heardBase.longitude??heardPath.longitude,country:heardBase.country||heardPath.country||"",
@@ -1734,10 +1735,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     })().finally(()=>{if(observedFrequencySyncRef.current===syncKey)observedFrequencySyncRef.current="";});
   }, [observedFrequencyHz, projection?.sessionID, projection?.frequencyHz, projection?.run, busy, retiring,
     projection?.mode,projection?.callContext,setup.preferences.clearOnVFOChange,visibleWorkflowSpots,allWorkflowSpots,lookupPathContext,
-    spotWorkflowScope,effectiveSpotWorkflow,stationCall,bandDefinitions,spotSelectionContext,onSelectedSpot]);
+    spotWorkflowScope,effectiveSpotWorkflow,effectiveStationCall,bandDefinitions,spotSelectionContext,onSelectedSpot]);
 
   const createSession = async (document: ContestSetupDocument) => {
-    const contestCall = String(document.station.Call || stationCall).trim().toUpperCase();
+    const contestCall = String(document.station.Call || effectiveStationCall).trim().toUpperCase();
     if (!contestCall) throw new Error("Configure the xLog station callsign before creating a contest.");
     const catalogBands = catalog.find(item => item.id === document.pluginID)?.supportedBands;
     const supportedBands = Array.isArray(catalogBands) && catalogBands.length ? catalogBands as string[] : bandDefinitions.map(band => band.id);
@@ -1981,7 +1982,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const commitEntry=async()=>{
     const committedCall=(fieldsRef.current.callsign??"").trim().toUpperCase(),committedFrequency=operationFrequencyHz;
     const retainedBase=committedFrequency===null?null:localContestHeardSpot({callsign:committedCall,frequencyHz:committedFrequency,
-      mode:projectionRef.current?.mode??"",stationCall,bandDefinitions,callContext:projectionRef.current?.callContext});
+      mode:projectionRef.current?.mode??"",stationCall:effectiveStationCall,bandDefinitions,callContext:projectionRef.current?.callContext});
     const retainedPath=lookupPathContext?.callsign===committedCall?lookupPathContext:null;
     const retainedSpot=retainedBase?{...retainedBase,latitude:retainedPath?.latitude??null,longitude:retainedPath?.longitude??null,
       country:retainedPath?.country??retainedBase.country,cqZone:retainedPath?.cqZone??retainedBase.cqZone,
@@ -2465,12 +2466,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         const frequencyKHz=admittedFrequencyHz/1_000,receivedAt=Date.now()/1_000-978_307_200;
         const existing=allWorkflowSpots.find(spot=>spot.callsign===callsign&&Math.round(spot.frequencyKHz*1_000)===selectedRadioFrequencyHz);
         const spot:ContestSurfaceSpot=existing??{id:`contest-mark:${selectedRadioFrequencyHz}:${callsign}`,receivedAt,clusterName:"Contest",
-          spotter:stationCall,spotterContinent:null,frequencyKHz,frequencyText:frequencyKHz.toFixed(3),callsign,comment:"Marked from Main Logging",
+          spotter:effectiveStationCall,spotterContinent:null,frequencyKHz,frequencyText:frequencyKHz.toFixed(3),callsign,comment:"Marked from Main Logging",
           band:bandLabels[String(active.band)]??String(active.band),mode:active.mode,country:"",adif:null,continent:"",cqZone:null,ituZone:null,
           callStatus:"",dxccStatus:"",workedBefore:null,specialTags:[],score:0,contestPoints:null,contestDupe:null,contestMultiplierCount:null,
           contestCountryMultiplier:null,contestZoneMultiplier:null,
           scoreReasons:[],aggregateCount:1,
-          aggregateSpotters:stationCall?[stationCall]:[],source:"Contest mark",statusHex:"",bandHex:"",modeHex:"",marked:false};
+          aggregateSpotters:effectiveStationCall?[effectiveStationCall]:[],source:"Contest mark",statusHex:"",bandHex:"",modeHex:"",marked:false};
         setSpotWorkflow(current=>updateContestSpotWorkflow(workflowBase(current),[...allWorkflowSpots.filter(item=>item.id!==spot.id),spot],
           spot.id,"mark",!spot.marked,receivedAt));return;
       }
@@ -2920,7 +2921,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       onOpenDialog={setupOnly ? openContestSetupDialog : undefined} onViewChange={onSetupViewChange}
       onOpenCallHistory={() => { if (!surfaceContext) { setError("Open a contest before opening Call History."); return; }
         if (!setupOnly) setManager(false); void openContestCallHistoryWindow(surfaceContext); }}/>
-      : projection ? <><section className="contest-snapshot" aria-label="Contest identity"><div><span>Station</span><strong>{stationCall}</strong></div><div><span>Engine</span><strong>Not1MM Python</strong></div><div><span>Plugin</span><strong>{projection.pluginID}</strong></div><div><span>Revision</span><strong>{projection.revision}</strong></div><div><span>Source</span><small>{projection.sourceRevision.slice(0, 12)} · {projection.referenceID}</small></div></section>{detachedAvailable
+      : projection ? <><section className="contest-snapshot" aria-label="Contest identity"><div><span>Station</span><strong>{effectiveStationCall}</strong></div><div><span>Engine</span><strong>Not1MM Python</strong></div><div><span>Plugin</span><strong>{projection.pluginID}</strong></div><div><span>Revision</span><strong>{projection.revision}</strong></div><div><span>Source</span><small>{projection.sourceRevision.slice(0, 12)} · {projection.referenceID}</small></div></section>{detachedAvailable
         ? <section className="contest-welcome"><h2>Contest windows are ready</h2><p>Use the Contest menu to open and position Main Logging, Check Partial, Stats, Rates, Score Reporting, Messages, Logbook, Band Map, Cluster, Rotator, DXCC, Zone and Remote VFO windows.</p></section>
         : <section className="contest-welcome"><h2>Preserved contest session</h2><p>This session predates detached contest windows for the current xLog workspace. Its Python/SQLite log is preserved; create a current-workspace contest before opening independent windows.</p></section>}</> : <section className="contest-welcome"><h2>Open a contest session</h2></section>}
     <div hidden aria-hidden="true">{checkPanel}</div>

@@ -24,7 +24,7 @@ vi.mock("../live/workspaceNavigation", () => ({ connectWorkspaceNavigation: () =
 vi.mock("./Not1MMContestWorkspace", () => ({ Not1MMContestWorkspace: mocks.workspace }));
 vi.mock("./contestSpotTune", () => ({ tuneContestSpot: vi.fn(), stepContestVFO: vi.fn() }));
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); window.history.replaceState(null, "", "/"); });
 
 const session = (radioId: RadioID, activeRadio: RadioID, frequencyHz?: number): StationSession => ({
   radio_id: radioId,
@@ -168,5 +168,25 @@ describe("Contest Setup station projection", () => {
     expect(mocks.workspace.mock.calls.at(-1)?.[0]).toMatchObject({ contestingTest: true });
     expect(mocks.station).not.toHaveBeenCalled();
     expect(mocks.worker.mock.calls.map(([method]) => method)).not.toContain("cluster_snapshot");
+  });
+
+  it("resumes one native host-active contest without requiring a separate integrated logbook", async () => {
+    const sessionID = "20000000-0000-4000-8000-000000000002";
+    const workspaceGeneration = "30000000-0000-4000-8000-000000000003";
+    window.history.replaceState(null, "", `/?startup=host-active&hostActiveSessionID=${sessionID}&hostActiveWorkspaceGeneration=${workspaceGeneration}`);
+    mocks.station.mockResolvedValue(session("radio1", "radio1", 7_119_000));
+    mocks.worker.mockImplementation(async (method: string) => {
+      if (method === "health") return { result: { mode: "integrated" } };
+      if (method === "cluster_snapshot") return { result: { contest_spots: [] } };
+      if (method === "workspace_status" || method === "settings_load") throw new Error("workspace required");
+      throw new Error(`unexpected method ${method}`);
+    });
+    render(React.createElement((await import("./DetachedContestSetupSurface")).DetachedContestSetupSurface));
+    await waitFor(() => expect(mocks.workspace).toHaveBeenCalled());
+    expect(mocks.worker.mock.calls.map(([method]) => method)).not.toContain("workspace_status");
+    expect(mocks.worker.mock.calls.map(([method]) => method)).not.toContain("settings_load");
+    expect(mocks.workspace.mock.calls.at(-1)?.[0]).toMatchObject({
+      strictHostActive: { sessionID, workspaceGeneration }, workspaceGeneration,
+    });
   });
 });

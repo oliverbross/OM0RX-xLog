@@ -161,15 +161,24 @@ export function DetachedContestSetupSurface() {
       const observations = isolated
         ? Promise.resolve([{}, { snapshot: { spots: [] } }] as [Data, Data])
         : Promise.all([loadContestStationSnapshot(), request("cluster_snapshot")]);
-      const [operating, workspace, settings, [nextStation, nextCluster]] = await Promise.all([
-        operatingModuleStatus(true), request("workspace_status"), request("settings_load"), observations,
+      const workspace = strictHostActive ? Promise.resolve(null) : Promise.all([
+        request("workspace_status"), request("settings_load"),
+      ]);
+      const [operating, mainWorkspace, [nextStation, nextCluster]] = await Promise.all([
+        operatingModuleStatus(true), workspace, observations,
       ]);
       if (!active) return;
-      const generation = typeof settings.generation === "string" ? settings.generation : "";
-      if (!workspace.workspace_exists || !generation) throw new Error("Reconnect the xLog workspace before opening Contest Setup.");
-      setContext({ operatingContext: operating.context, workspaceGeneration: generation,
-        stationCall: typeof settings.settings?.stationCall === "string" ? settings.settings.stationCall : "",
-        contestingTest: isolated });
+      if (strictHostActive) {
+        setContext({ operatingContext: operating.context, workspaceGeneration: strictHostActive.workspaceGeneration,
+          stationCall: "", contestingTest: isolated });
+      } else {
+        const [status, settings] = mainWorkspace!;
+        const generation = typeof settings.generation === "string" ? settings.generation : "";
+        if (!status.workspace_exists || !generation) throw new Error("Reconnect the xLog workspace before opening Contest Setup.");
+        setContext({ operatingContext: operating.context, workspaceGeneration: generation,
+          stationCall: typeof settings.settings?.stationCall === "string" ? settings.settings.stationCall : "",
+          contestingTest: isolated });
+      }
       setStation(nextStation); setCluster(nextCluster); setError(""); ready = true;
     };
     const poll = async () => {
