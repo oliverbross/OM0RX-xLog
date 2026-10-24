@@ -1,12 +1,65 @@
 # CQ WW SSB macOS reconciliation — 23 October 2026
 
+## Final installed addendum — 24 October 2026
+
+**READY WITH LIMITATIONS** for the requested CQ WW SSB 40 m operating workflow
+on Apple Silicon macOS. This addendum supersedes the older candidate identity,
+installed receipt and rollback details retained later in this document as
+historical evidence.
+
+| Final gate | Concrete result |
+| --- | --- |
+| Canonical source | `fb1c59352046f4e35f93f873d6f893a201d06043`, clean and pushed to `origin/main` (`0 0` ahead/behind) |
+| Installed application | `/Applications/OM0RX-xLog.app`, version/build `1.3.0` |
+| Embedded source receipt | `sourceCommit` exactly `fb1c59352046f4e35f93f873d6f893a201d06043`; `sourceChanges` empty |
+| Signature | Developer ID deep/strict verification PASS for the installed bundle, embedded Python framework, worker, `rigctld` and `rotctld` |
+| Packaged native acceptance | 35/35 PASS; `station_io: false`; SHA-256 `64b35a5a61190092be88e1d12415b3ffe81d0a4772a0769f8d1f622084ad2a23` |
+| Installed native acceptance | 35/35 PASS; `station_io: false`; SHA-256 `98249bbd0e8c8b6a754a1d8faaf1a1450a85de0fec2d8882750fb62cfd3d498d` |
+| Focused CQ WW desk | 153/153 React owner/surface tests PASS; TypeScript PASS |
+| CQ WW SSB Python host | 22/22 PASS, including immutable pinned-country DUPE handling, fresh-zone prefill and VFO clear/spot-load behavior |
+| Live installed inspection | Logging controls enabled; Wipe returned immediately; Messages displayed `No contest messages.`; at the observed radio frequency 7.161 MHz the contest desk automatically loaded cluster call `IB9TUP` with CQ zone 15 |
+| ADIF import | The supplied N1MM ADIF imported 39 CQ WW SSB QSOs into session `4ac63449-bb24-4370-b159-e2b671321618`; database readback and ADIF export contained 39 contacts at the import checkpoint; pre-import backup retained |
+| Rollback | `/Applications/OM0RX-xLog-previous-20261024T041656Z-59790.app`, receipt `8f89e860e3839803b2d359894bec225bc96f75a0` |
+
+The final correction removes the cascading `Pinned country resolution changed`
+/ owner-busy / stale-session loop, keeps exact logged-call DUPE detection
+authoritative, resets CQ zone when the callsign changes, suppresses the false
+unresolved-country notice for an empty draft, and makes CQ WW SSB S&P VFO
+behavior deterministic: leaving a frequency clears the previous callsign and
+tuning within 300 Hz of a visible contest spot loads that call and its exchange.
+The behavior is mandatory for CQ WW SSB even when an older saved profile has
+`clearOnVFOChange` disabled; Run mode and other contests retain their existing
+policy.
+
+Cluster and Band Map spot status now comes from the same authoritative CQ WW
+preview: green is a double multiplier, red a single multiplier, blue a valid
+non-multiplier QSO and gray a dupe/non-workable station. The ADIF import command,
+Enter-from-entry-fields path, single-mutation Wipe, stale-zone correction and
+diagnostic clearing are part of the same frozen candidate.
+
+No acceptance step transmitted RF, asserted PTT, played audio, moved a rotor,
+changed the radio frequency or created/edited/deleted a production QSO. The live
+7.161 MHz result was observed from the operator's existing radio state. Recorded
+voice remains separate from macro substitution: recording presence, output
+routing, PTT release and actual transmitted audio were not accepted and do not
+block manual-microphone logging. Windows/Linux, notarization, multi-Mac behavior
+and broad all-contest parity remain outside this freeze.
+
+The pre-import backup is
+`/Users/oliver/Library/Application Support/Contesting/Python/Import Backups/4ac63449-bb24-4370-b159-e2b671321618-before-n1mm-adif-20261024T031400Z.sqlite`.
+Two older superseded application bundles were removed after the final rollback
+receipt was verified; one signed rollback remains. Generated Rust/Tauri, Swift
+worker, frontend and distribution-metadata build directories were also removed,
+reclaiming approximately 4.3 GiB without touching source, settings or contest
+data.
+
 ## Executive verdict
 
 **READY WITH LIMITATIONS** for CQ WW SSB on Apple Silicon macOS 14 or later
 using a manual microphone.
 
 The exact installed candidate is OM0RX-xLog `1.3.0` from clean canonical source
-`cb708501d781dafc5517e51c6a8c6b341ec2fa55` at
+`fb1c59352046f4e35f93f873d6f893a201d06043` at
 `/Applications/OM0RX-xLog.app`. Source, package receipt and installed receipt
 agree. The completed workflow is CQ WW SSB entry, duplicate protection, scoring,
 per-band country/zone multipliers, SCP, contest log, cluster opportunity view,
@@ -43,12 +96,14 @@ Implementation commits after the previous accepted `cb6f6759` candidate:
 - `ca4aea92` — multiplier-semantic contest spot colors.
 - `09d8ec37` — exclusive Normal Logging/Contesting operating modules.
 - `cb708501` — bounded Node-version variance in the Logbook release gate.
+- `8f89e860` — CQ WW live workflow, authoritative spot/DUPE projection and ADIF import.
+- `fb1c5935` — final installed VFO clear/spot-load and quiet-message corrections.
 
 ## Candidate, tests and durable evidence
 
 | Item | Result |
 | --- | --- |
-| Canonical source | `cb708501d781dafc5517e51c6a8c6b341ec2fa55`, pushed to `origin/main` |
+| Canonical source | `fb1c59352046f4e35f93f873d6f893a201d06043`, pushed to `origin/main` |
 | Installed bundle | `/Applications/OM0RX-xLog.app`, version/build `1.3.0` |
 | Source receipt | exact SHA, empty `sourceChanges`, final component-signature hash phase |
 | Signature | Developer ID deep/strict PASS; Gatekeeper says Unnotarized Developer ID |
@@ -57,10 +112,10 @@ Implementation commits after the previous accepted `cb6f6759` candidate:
 | Contest portability | `39918699201` overall FAIL: macOS contest/native PASS; Ubuntu contest/native PASS; Windows contest PASS; definition generator PASS; Windows native FAIL on directory sync `Access is denied` |
 | Local production frontend | TypeScript/Vite/bundle budget PASS; preceding full suite passed 279 files / 4,073 tests |
 | Rust | preceding exact-product run passed 814 unit and 26 integration tests |
-| CQ WW focused host | 20 tests PASS, including `OM0A -> CQ zone 15` and manual override preservation |
+| CQ WW focused host | 22 tests PASS, including `OM0A -> CQ zone 15`, manual override preservation and VFO clear/spot-load behavior |
 | Packaged native acceptance | isolated non-production gate: 35/35 PASS, embedded UI + worker, `production_singleton: false`, `station_io: false` |
 | Installed native acceptance | isolated non-production gate: 35/35 PASS, embedded UI + worker, `production_singleton: false`, `station_io: false` |
-| Final archive | `dist/OM0RX-xLog-1.3.0-cb708501-macOS-arm64.zip`; ZIP integrity PASS |
+| Previous accepted archive | `dist/OM0RX-xLog-1.3.0-cb708501-macOS-arm64.zip`; historical ZIP integrity PASS; superseded by the installed `fb1c5935` candidate |
 
 Evidence committed with this report records the isolated native gates; bundle
 identity and CQ WW behavior are established separately by receipt reconciliation
