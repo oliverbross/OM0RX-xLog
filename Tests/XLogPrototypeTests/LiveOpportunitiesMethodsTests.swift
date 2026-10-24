@@ -99,10 +99,11 @@ struct LiveOpportunitiesMethodsTests {
         async let second = actor.handle(method: "opportunities_refresh", params: ["source": "all"])
         let results = try await [first, second]
         let sources = try #require(results[0]["sources"] as? [[String: Any]])
-        #expect(sources.count == 5)
-        #expect(sources.allSatisfy { $0["state"] as? String == "current" && $0["count"] as? Int == 0 })
+        #expect(sources.count == 6)
+        #expect(sources.allSatisfy { $0["state"] as? String == "current" })
+        #expect(sources.reduce(0) { $0 + ($1["count"] as? Int ?? 0) } == 1)
         let attempts = sources.compactMap { $0["last_attempt"] as? String }
-        #expect(attempts.count == 5)
+        #expect(attempts.count == 6)
         let later = try await actor.handle(method: "opportunities_refresh", params: ["source": "all"])
         #expect((later["sources"] as? [[String: Any]])?.compactMap { $0["last_attempt"] as? String } == attempts)
         await actor.terminate()
@@ -352,10 +353,12 @@ private final class EmptyOpportunityProjectionFeed: URLProtocol {
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
+        let adxo = request.url?.path.hasSuffix("/adxoplain.html") == true
         let response = HTTPURLResponse(url: request.url!, statusCode: 200,
-            httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
+            httpVersion: "HTTP/1.1", headerFields: ["Content-Type": adxo ? "text/html" : "application/json"])!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: Data("[]".utf8))
+        let body = adxo ? "<p>Jan 1, 2020 - Dec 31, 2099</p><p>DXCC: Fixture</p><p>Callsign: TEST1</p>" : "[]"
+        client?.urlProtocol(self, didLoad: Data(body.utf8))
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() { }

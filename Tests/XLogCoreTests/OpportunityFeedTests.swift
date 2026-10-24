@@ -54,4 +54,28 @@ struct OpportunityFeedTests {
         let drift = Data(#"[{"cal":"DX1ABC","from":"2026-10-01"}]"#.utf8)
         #expect(throws: OpportunityFeedError.schemaChanged) { try OpportunityFeedParser.parse(drift, source: "425dxn", observedAt: Date()) }
     }
+
+    @Test("ADXO labelled text retains exact announced aliases and UTC date range")
+    func adxo() throws {
+        let body = Data(#"""
+        <html><body>
+        <p>Oct 20 - Nov 2, 2026</p>
+        <p>DXCC: Christmas Island</p>
+        <p>Callsign: VK9X1 / VK9X2</p>
+        <p>QSL: via M0OXO</p>
+        <p>Source: NG3K</p>
+        <p>Info: 160-6 metres</p>
+        <p>Jan 1 - Jan 2, 2025</p><p>DXCC: Old</p><p>Callsign: OLD1A</p>
+        </body></html>
+        """#.utf8)
+        let now = ISO8601DateFormatter().date(from: "2026-10-24T12:00:00Z")!
+        let values = try OpportunityFeedParser.parse(body, source: "adxo", observedAt: now)
+        #expect(values.count == 1)
+        #expect(values[0].callsign == "VK9X1")
+        #expect(values[0].callsigns == ["VK9X1", "VK9X2"])
+        #expect(values[0].qslRoute == "via M0OXO")
+        #expect(values[0].source == "NG3K ADXO")
+        #expect(values[0].startsAt == ISO8601DateFormatter().date(from: "2026-10-20T00:00:00Z"))
+        #expect(values[0].endsAt == ISO8601DateFormatter().date(from: "2026-11-02T23:59:59Z")?.addingTimeInterval(0.999))
+    }
 }

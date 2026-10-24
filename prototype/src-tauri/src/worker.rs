@@ -119,6 +119,11 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
             Ok(())
         } else { Err("Chaser & DX can only read and refresh public opportunity feeds.".into()) };
     }
+    if label == "dxpedition-map" {
+        return if matches!(request["method"].as_str(), Some("opportunities_dxpedition_snapshot" | "opportunities_dxpedition_refresh")) {
+            Ok(())
+        } else { Err("DXpedition Map can only read and refresh its bounded public catalogue.".into()) };
+    }
     if label == "spot-history" {
         return if matches!(request["method"].as_str(), Some("spot_history_status" | "spot_history_query"
             | "spot_history_detail" | "spot_history_stats")) {
@@ -308,6 +313,8 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "reference_configure",
         "opportunities_snapshot",
         "opportunities_refresh",
+        "opportunities_dxpedition_snapshot",
+        "opportunities_dxpedition_refresh",
         "logbook_draft",
         "logbook_operator_draft",
         "logbook_operator_draft_apply",

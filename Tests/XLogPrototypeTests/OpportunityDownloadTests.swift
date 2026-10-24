@@ -23,6 +23,8 @@ struct OpportunityDownloadTests {
             let body = try await OpportunityDownload.fetch(request(path), configuration: configuration())
             #expect(body == Data("[{\"value\":1}]".utf8))
         }
+        let html = try await OpportunityDownload.fetch(request("html"), configuration: configuration(), format: .html, byteLimit: 32)
+        #expect(html == Data("[{\"value\":1}]".utf8))
     }
 
     @Test("HTTP, content type, origin and declared/streamed body limits fail closed")
