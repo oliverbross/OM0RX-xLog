@@ -235,6 +235,32 @@ final class LiveSpotBridgeTests: XCTestCase {
         ])
     }
 
+    func testReplacementContestWorkerRetiresExpiredReceiptsWithoutBlockingOnRadioRemoval() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-contest-expired-recovery-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let inventoryURL = directory.appendingPathComponent("spots.json")
+        let old = Date().timeIntervalSince1970 - 601
+        let document = """
+        {"version":1,"spots":[{"provider":"direct_agent","radioID":"radio1","callsign":"DL1AAA","frequencyHz":7125000,"owner":"contesting","acceptedAt":\(old)}]}
+        """
+        try Data(document.utf8).write(to: inventoryURL)
+        let routing = TargetedSpotRouting(radio1Available: true)
+        await routing.setRemovalAccepted(false)
+        let broker = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { spot, provider, preferred in
+            try await routing.add(spot: spot, provider: provider, preferred: preferred)
+        }, targetedRemove: { spot, provider, radioID in
+            try await routing.remove(spot: spot, provider: provider, radioID: radioID)
+        })
+
+        let withdrawn = try await broker.withdrawContestForwardedSpots()
+        XCTAssertEqual(withdrawn, 1)
+        let events = await routing.events()
+        XCTAssertEqual(events, [])
+        let saved = try JSONSerialization.jsonObject(with: Data(contentsOf: inventoryURL)) as? [String: Any]
+        XCTAssertEqual((saved?["spots"] as? [[String: Any]])?.count, 0)
+    }
+
     func testReplacementWorkerShutdownRetiresContestInventoryWithoutPublication() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-contest-shutdown-recovery-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: directory) }

@@ -220,8 +220,24 @@ actor SpotForwardBroker {
         var document = try loadInventory()
         let owned = document.spots.filter { $0.owner == owner }
         guard !owned.isEmpty else { return 0 }
+        // Radio spots are published with a ten-minute lifetime. Do not make a
+        // replacement worker replay hours-old remove commands before it can
+        // publish the current contest snapshot; retire those expired receipts
+        // locally and reserve radio removal for entries that can still exist.
+        let expirationCutoff = Date().timeIntervalSince1970 - 600
+        let expired = owned.filter { $0.acceptedAt <= expirationCutoff }
+        if !expired.isEmpty {
+            let expiredKeys = Set(expired.map(\.key))
+            document.spots.removeAll { expiredKeys.contains($0.key) }
+            for entry in expired {
+                accepted.removeValue(forKey: "\(entry.provider)|\(entry.callsign)|\(entry.frequencyHz)")
+            }
+            try saveInventory(document)
+        }
+        let activeOwned = document.spots.filter { $0.owner == owner }
+        guard !activeOwned.isEmpty else { return expired.count }
         var removedKeys = Set<String>(), firstFailure: Error?
-        for entry in owned {
+        for entry in activeOwned {
             do {
                 let spot = try FlexSpot(frequencyHz: entry.frequencyHz, callsign: entry.callsign, mode: "CW",
                                         source: "xLog module transition", spotter: "", comment: "",
@@ -239,7 +255,7 @@ actor SpotForwardBroker {
             try saveInventory(document)
         }
         if let firstFailure { throw firstFailure }
-        return removedKeys.count
+        return expired.count + removedKeys.count
     }
 
     private func finishPending(_ key: String) {
