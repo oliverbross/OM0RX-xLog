@@ -1,7 +1,7 @@
 # macOS 1.3.10 source freeze
 
-Application changes frozen at `005747155b62e11d49722f0edd023e3b8cca9f8e`. Version metadata is raised from
-1.3.9 to 1.3.10 in the release-record commit. Build that clean commit from
+Application changes frozen at `23d50c14069452f4240ab79bd704169e4c87593e`. Version metadata was raised from
+1.3.9 to 1.3.10 in `d9b3da2d`. Build the clean final release-record commit from
 the canonical `/Users/oliver/Documents/Projects/OM0RX-xLog` checkout with
 `bash prototype/scripts/package-macos.sh`. The embedded components receipt
 records the exact packaging HEAD; record installed hashes and rollback in
@@ -21,6 +21,14 @@ Stew Perry power-field error). Exact classification parity and timing samples
 are in `evidence/cq-ww-ssb-1.3.10/classification-performance.json`.
 Independent backend, scheduling and Band Map reviews found no blocking issue.
 Band Map crowded-label fixture was visually checked at 430px width.
+
+The initial d9b3da2d package passed signing and 26 packaged Python tests but was
+not installed: the operator then demonstrated a blank CQ-zone exchange after
+radio-follow. The bridge omitted country resolution for observedSpotCallsign.
+Commit 23d50c14 fixes that route, with a fail-before/pass-after native regression,
+12/12 native bridge tests and three focused frontend radio-follow tests passing.
+Manual exchange overrides remain intact. This functional correction requires
+the final replacement package; no cosmetic-only rebuild was performed.
 
 Physical radio delivery, live operator timing and installed UI are distinct
 from these tests. Preserve production data/settings and do not create test
