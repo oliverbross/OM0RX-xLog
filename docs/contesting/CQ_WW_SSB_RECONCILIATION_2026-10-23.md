@@ -4,9 +4,10 @@
 
 **READY WITH LIMITATIONS** for the bounded macOS CQ WW SSB workflow. The installed
 candidate is **1.3.12**, clean source **`4bc7d4f4159cf190f953da02bd8a8fb3bc957a4c`**.
-Physical Flex/Maestro visibility and the operator's worked-filter trial remain
-pending confirmation for this version; successful delivery inventory is not a
-claim of physical display acceptance or uninterrupted operation.
+On 25 October 2026 (Australia/Darwin), the operator confirmed **“Both are working”**
+when asked whether spots are visible on Flex/Maestro and Show worked behaves
+correctly. Both previously pending operator checks are now confirmed. This
+establishes observed operation, not uninterrupted delivery for the entire contest.
 
 | Gate | Concrete result |
 | --- | --- |
@@ -17,6 +18,7 @@ claim of physical display acceptance or uninterrupted operation.
 | Independent review | Native receipt, mode/range and worked-filter changes independently reviewed; no remaining blocking findings in this bounded diff |
 | Restored production session | Original session `4ac63449-bb24-4370-b159-e2b671321618` reopened; backup had 288 contacts. Read-only UI observation after the operator resumed showed 293 QSOs, 82 multipliers, score 30,422, live 7.102 MHz and ready-for-callsign state. No test QSO was added to production |
 | Running spot output | [Read-only observation](evidence/cq-ww-ssb-1.3.12/live-observation.json): 42 entries in forwarded-radio inventory at 19:21:02 UTC, inventory updated at 19:21:00. Band Map showed live VFO and classified green/blue calls within 7.050–7.200 MHz |
+| Operator acceptance | Flex/Maestro spot visibility and Show worked confirmed together: “Both are working”, 25 October 2026 (Australia/Darwin); recorded separately from automated and read-only observations |
 | Backup | `/Users/oliver/Documents/Backups/OM0RX-xLog-1.3.12-before-install-20261024T191500Z`; 288 contacts, SQLite quick check OK, 30 databases and 55 files; [summary](evidence/cq-ww-ssb-1.3.12/backup.json) |
 | Rollback | `/Applications/OM0RX-xLog-previous-20261024T191454Z-2517.app`, verified signed 1.3.11. Preserve the current live database when rolling back the app; restoring the pre-install database would discard newer operator QSOs |
 
