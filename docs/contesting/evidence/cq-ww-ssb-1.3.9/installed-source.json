@@ -1,0 +1,19 @@
+{
+  "packaged": {
+    "version": "1.3.9",
+    "sourceCommit": "e161d52fe3d5dfe0177a533a8ffe5459644c53dc",
+    "sourceChanges": null,
+    "executableSHA256": "8486a76b95a1fbdab5408cc0c26c29139dba11fdcbb65a8f7fbfb6d90e01bbad",
+    "workerSHA256": "66cf3c742c751bfa86f95b4e9c9c75f2706b5936599f226402249f7d5a4b9013",
+    "pythonReceiptSHA256": "ced870f67a4d7be59553567fe368b7fa64b81657558ef9c05cd2222d9d7917ed"
+  },
+  "installed": {
+    "version": "1.3.9",
+    "sourceCommit": "e161d52fe3d5dfe0177a533a8ffe5459644c53dc",
+    "sourceChanges": null,
+    "executableSHA256": "8486a76b95a1fbdab5408cc0c26c29139dba11fdcbb65a8f7fbfb6d90e01bbad",
+    "workerSHA256": "66cf3c742c751bfa86f95b4e9c9c75f2706b5936599f226402249f7d5a4b9013",
+    "pythonReceiptSHA256": "ced870f67a4d7be59553567fe368b7fa64b81657558ef9c05cd2222d9d7917ed"
+  },
+  "stationIO": "No RF, PTT, audio, rotor or tune test performed; existing spot publishing is operator-authorized."
+}

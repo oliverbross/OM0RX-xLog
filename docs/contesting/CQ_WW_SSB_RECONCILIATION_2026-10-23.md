@@ -1,5 +1,43 @@
 # CQ WW SSB macOS reconciliation — 23 October 2026
 
+## 1.3.9 installed recovery and latency evidence — 25 October 2026
+
+**READY WITH LIMITATIONS** for continuing the preserved macOS CQ WW SSB
+40 m session. The operator confirmed: “spots are loading and are little faster”.
+Subsequent reports demonstrate a remaining classification backlog and Cluster
+row movement; these are open follow-up work, not claimed fixed by 1.3.9.
+
+| Gate | Recorded result |
+| --- | --- |
+| Exact installed source | Version `1.3.9`, `/Applications/OM0RX-xLog.app`, commit `e161d52fe3d5dfe0177a533a8ffe5459644c53dc` |
+| Provenance | Packaged and installed receipts/hashes match; `sourceChanges` absent; [receipt](evidence/cq-ww-ssb-1.3.9/installed-source.json) |
+| Native installed acceptance | [35/35 PASS](evidence/cq-ww-ssb-1.3.9/installed-acceptance.json), integrated-local-ui, station IO disabled; this does not substitute for Python workflow or physical-radio evidence |
+| Preserved data | Read-only pre-install backup verified `quick_check=ok`, 237 contest QSOs; operator continued logging after launch. Restored original normal workspace contained 68,560 QSOs, original settings/window arrangement and 125% display scale |
+| Physical Flex/Maestro | Operator confirmed spots appearing after recovery and loading after 1.3.9. Continuous renewal over an entire contest remains an operator observation |
+| Actual Python timing | Disposable copy, 237 QSOs: eight distinct previews median 191.60 ms/max 204.39 ms; first 50 log rows 9.93/13.47 ms; partial lookup 1.48/1.76 ms; score 17.23/20.40 ms; rates 1.70/2.40 ms. Host timings exclude end-to-end UI/IPC latency |
+| Export evidence reused | Earlier actual UI export `Documents/xLog Contest.adi`, 209 records, SHA-256 `4eed3f34bce750e8c2f6945551377a4dc774b3b110cd1f4092b98f79dbaab918`. This is the earlier 209-contact snapshot, not a current full-log export |
+| Data/settings rollback | `/Users/oliver/Documents/Backups/OM0RX-xLog-1.3.9-before-install-20261024T163916Z` |
+| Application rollback | `/Applications/OM0RX-xLog-previous-20261024T163919Z-46795.app`, version 1.3.8 |
+
+The installed changes restore main Settings navigation, keep the hidden contest
+owner active, admit Show worked and typed-call lookup through the native bridge,
+renew unchanged radio spots before expiry, and bound preview batches to eight.
+Durable QSO saves no longer await auxiliary log/score/rates reads. A publication
+failure after a durable save cannot reject or replay that save. Worked calls use
+plain grey Band Map text.
+
+`SH/DX/100` returns recent spots across all bands: captured replies contained 100
+reports but only 13 and 9 distinct 40 m SSB calls respectively. Show worked removes
+the duplicate filter; it does not override age or frequency-range filters.
+
+No production QSO was added, edited or deleted for verification. No test tune,
+PTT, rotor, audio playback or RF action was performed. Existing operator-authorized
+spot publication resumed. Macro substitution, recorded files, playback routing,
+PTT and actual transmitter audio are separate checks; the latter voice/hardware
+checks were not exercised and voice remains optional. Live QRZ, typed-call map
+paths, window-filter behaviour and sustained spot delivery must not be inferred
+from the native acceptance suite. No Windows/Linux acceptance is claimed.
+
 ## 1.3.8 preserved-contest cold-start addendum — 25 October 2026
 
 **READY WITH LIMITATIONS** for continuing the preserved CQ WW SSB 40 m
