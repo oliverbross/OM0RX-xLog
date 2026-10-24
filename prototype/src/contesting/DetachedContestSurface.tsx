@@ -474,6 +474,7 @@ function IntentInput({label,value:authoritative,identity,projectionRevision,rece
 type EntryIntentKey = "callsign"|"sentReport"|"receivedReport"|"frequency"|`exchange:${string}`;
 type EntryIntent = { value:string; action:(value:string)=>ContestSurfaceAction };
 type EntryFlushResult = { ok:boolean;lastAppliedProjectionRevision:number|null };
+type EntryIntentSnapshot = { generation:number;editVersion:number };
 const entryIntentDebounceMs=120;
 const entryIntentValues=(draft:any)=>Object.fromEntries([
   ["callsign",draft.callsign],["sentReport",draft.sentReport],["receivedReport",draft.receivedReport],["frequency",draft.frequencyText],
@@ -485,7 +486,7 @@ function useEntryIntents(projection:any,projectionRevision:number,send:Send){
   const [values,setValues]=useState(authoritative),[,setUnresolved]=useState<Set<EntryIntentKey>>(new Set());
   const identity=projection.draft.draftID,identityRef=useRef(identity),authoritativeRef=useRef(authoritative),valuesRef=useRef(values),
     dirty=useRef(new Map<EntryIntentKey,EntryIntent>()),inFlight=useRef(new Set<EntryIntentKey>()),
-    running=useRef<{generation:number;promise:Promise<EntryFlushResult>}|null>(null),generation=useRef(0),
+    running=useRef<{generation:number;promise:Promise<EntryFlushResult>}|null>(null),generation=useRef(0),editVersion=useRef(0),
     scheduled=useRef<number|null>(null);
   authoritativeRef.current=authoritative;valuesRef.current=values;
   useEffect(()=>{if(identityRef.current===identity)return;identityRef.current=identity;generation.current+=1;dirty.current.clear();inFlight.current.clear();running.current=null;
@@ -511,20 +512,25 @@ function useEntryIntents(projection:any,projectionRevision:number,send:Send){
     try{return await operation;}finally{if(running.current===tracked)running.current=null;}} ,
     [projectionRevision,send]);
   const change=useCallback((key:EntryIntentKey,value:string,action:(value:string)=>ContestSurfaceAction)=>{
-    valuesRef.current={...valuesRef.current,[key]:value};setValues(valuesRef.current);dirty.current.set(key,{value,action});
+    editVersion.current+=1;valuesRef.current={...valuesRef.current,[key]:value};setValues(valuesRef.current);dirty.current.set(key,{value,action});
     if(scheduled.current!==null)window.clearTimeout(scheduled.current);
     scheduled.current=window.setTimeout(()=>{scheduled.current=null;void flush();},entryIntentDebounceMs);},[flush]);
   useEffect(()=>()=>{generation.current+=1;if(scheduled.current!==null)window.clearTimeout(scheduled.current);},[]);
-  const discard=useCallback(()=>{generation.current+=1;running.current=null;dirty.current.clear();setUnresolved(new Set());
-    if(scheduled.current!==null){window.clearTimeout(scheduled.current);scheduled.current=null;}},[]);
-  const reset=useCallback((draft:any)=>{discard();inFlight.current.clear();identityRef.current=draft.draftID;
-    const next=entryIntentValues(draft);authoritativeRef.current=next;valuesRef.current=next;setValues(next);},[discard]);
+  const discard=useCallback((draft?:any):EntryIntentSnapshot=>{generation.current+=1;running.current=null;dirty.current.clear();setUnresolved(new Set());
+    if(scheduled.current!==null){window.clearTimeout(scheduled.current);scheduled.current=null;}
+    if(draft){identityRef.current=draft.draftID;const next=entryIntentValues(draft);
+      authoritativeRef.current=next;valuesRef.current=next;setValues(next);}
+    return {generation:generation.current,editVersion:editVersion.current};},[]);
+  const reconcile=useCallback((snapshot:EntryIntentSnapshot,draft:any)=>{if(generation.current!==snapshot.generation||
+      editVersion.current!==snapshot.editVersion||dirty.current.size>0)return false;
+    identityRef.current=draft.draftID;const next=entryIntentValues(draft);
+    authoritativeRef.current=next;valuesRef.current=next;setValues(next);setUnresolved(new Set());return true;},[]);
   const capture=useCallback(()=>({...valuesRef.current}),[]);
   const matches=useCallback((draft:any,intended:Record<EntryIntentKey,string>,acceptCallsignPrefill=false)=>draft?.draftID===identityRef.current&&
     draft.callsign.trim().toUpperCase()===intended.callsign.trim().toUpperCase()&&draft.sentReport===intended.sentReport&&draft.receivedReport===intended.receivedReport&&
     draft.frequencyText===intended.frequency&&Array.isArray(draft.receivedFields)&&draft.receivedFields.length===projection.draft.receivedFields.length&&
     (acceptCallsignPrefill||draft.receivedFields.every((field:any)=>intended[`exchange:${field.id}`]===field.value)),[projection.draft.receivedFields.length]);
-  return {values,change,flush,discard,reset,capture,matches};
+  return {values,change,flush,discard,reconcile,capture,matches};
 }
 function EntryIntentInput({label,accessibleLabel,intentKey,value,maximumUTF8Bytes,disabled,operatorField,inputRef,onFocus,onChange,className}:{
   label:string;accessibleLabel?:string;intentKey:EntryIntentKey;value:string;maximumUTF8Bytes:number;disabled:boolean;operatorField?:ContestInputFieldID;
@@ -646,12 +652,12 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
         "WIN_BAND"|"WIN_CHECK"|"WIN_LOG"|"WIN_RATE"|"WIN_STATS"|"WIN_VFO"];
     if(windowPanel){void toggleContestSurfaceWindow(context,windowPanel).catch(cause=>reportConflict(message(cause)));return;}
     if(action==="CLEAR_INPUTS"){
-      intents.discard();
+      const wipeSnapshot=intents.discard(projection.draft);
       void(async()=>{await settle();const current=await refresh(),currentProjection=current?.projection as any;
         if(!current||current.panelID!=="active-qso"||currentProjection?.status!=="ready"||currentProjection.draft?.draftID!==base.draftID)return;
         const result=await send({action:"entry_clear",params:{draftID:base.draftID,expectedDraftRevision:currentProjection.draft.revision}},current.projectionRevision);
         if(!result.applied){const reconciled=await refresh(),reconciledProjection=reconciled?.projection as any;
-          if(reconciled?.panelID==="active-qso"&&reconciledProjection?.status==="ready")intents.reset(reconciledProjection.draft);}})();return;
+          if(reconciled?.panelID==="active-qso"&&reconciledProjection?.status==="ready")intents.reconcile(wipeSnapshot,reconciledProjection.draft);}})();return;
     }
     if(action==="LOG_NOW"&&commitPending.current)return;
     if(action==="LOG_NOW")commitPending.current=true;
