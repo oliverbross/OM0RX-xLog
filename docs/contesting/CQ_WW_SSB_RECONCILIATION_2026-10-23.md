@@ -1,5 +1,58 @@
 # CQ WW SSB macOS reconciliation — 23 October 2026
 
+## 1.3.1 installed candidate addendum — 24 October 2026
+
+**READY WITH LIMITATIONS** for the requested CQ WW SSB 40 m workflow on
+Apple Silicon macOS. This is the frozen candidate; it supersedes the 1.3.0
+installed identity below without reopening broad Not1MM/N1MM parity work.
+
+| Final gate | Concrete result |
+| --- | --- |
+| Canonical source | `3a534d57b92e8f1e52b9bc9038bae1c4361e6c42`, clean, committed and pushed to `origin/main` (`0 0` ahead/behind before packaging) |
+| Installed application | `/Applications/OM0RX-xLog.app`, version/build `1.3.1` |
+| Embedded source receipt | `sourceCommit` exactly `3a534d57b92e8f1e52b9bc9038bae1c4361e6c42`; the clean receipt has no `sourceChanges` entry |
+| Signature | Developer ID deep/strict verification PASS for the packaged and installed bundles, embedded Python framework, worker, `rigctld` and `rotctld` |
+| Packaged native acceptance | 35/35 PASS; `production_singleton: false`; `station_io: false`; report SHA-256 `bd42267fbbace14e47df9b0599282043deb415d6784f8ce2fccfd5e3edb05094` |
+| Installed native acceptance | 35/35 PASS; `production_singleton: false`; `station_io: false`; report SHA-256 `9c8a181d53dc8573af11ff8928cac47c20e08ef5a843548d82f52b76e93ae906` |
+| Frontend and review regression | Full run: 280 files / 4,126 tests plus 2 Node packaging tests PASS; final TypeScript/Vite build PASS; post-review CQ WW/Band Map run 199/199 PASS plus the transient-preview retry regression PASS |
+| Native contest logic | Rust 832/832 PASS; CQ WW SSB Python host 22/22 PASS |
+| Rollback | `/Applications/OM0RX-xLog-previous-20261024T053837Z-80897.app`, signed 1.3.0 receipt `fb1c59352046f4e35f93f873d6f893a201d06043` |
+
+This candidate stabilizes the operating path reported during the live contest:
+spot classifications are retained while the CQ WW preview is pending and retry
+after a transient failure; Cluster, Band Map and Flex/Maestro publication share
+the same green double-multiplier, red single-multiplier, blue valid-QSO and gray
+dupe/non-workable result. Display spots are deduplicated by callsign, mode and
+displayed 100 Hz frequency. S&P VFO changes clear the prior draft, load a nearby
+contest spot and retain an unworked typed call as a local marked spot when the
+operator tunes away. The typed call is also projected to the contest map.
+
+The main CQ WW entry fields accept Enter from callsign, SNT, RCV or CQ zone,
+DUPE calls are red, lookup bearings/distances retry after resolution, and
+same-draft owner reconciliation no longer creates the false panel-changed loop.
+The Rates window uses the available width. Code review found and corrected two
+release risks before packaging: mode was added to spot deduplication, and a
+transient preview failure now schedules a retry instead of leaving stale colors.
+
+No acceptance step changed the radio frequency, published spots to a physical
+radio, asserted PTT, played audio, moved a rotor, or created/edited/deleted a
+production QSO. The remaining operator-controlled checks are therefore the live
+Flex/Maestro tune/readback and spot-publication path, real CAT VFO clear/autofill,
+physical-keyboard Enter behavior, authenticated QRZ lookup, and visual inspection
+of installed Cluster/Band Map colors and the VFO arrow. Recorded voice is tracked
+separately: recording presence, output routing, PTT release and actual transmitter
+audio remain unaccepted and do not block manual-microphone logging.
+Gatekeeper reports `Unnotarized Developer ID`; notarization remains outside this
+operator-candidate freeze.
+
+The installed 1.3.1 and one verified 1.3.0 rollback are the only application
+bundles retained. The older `8f89e860` rollback and generated Rust/Tauri, Swift
+worker, frontend and distribution-metadata output were removed after acceptance,
+reclaiming approximately 2.9 GiB without touching settings, backups or contest
+data. Durable reports are in
+`docs/contesting/evidence/cq-ww-ssb-3a534d57/`. No next compatibility batch was
+started.
+
 ## Final installed addendum — 24 October 2026
 
 **READY WITH LIMITATIONS** for the requested CQ WW SSB 40 m operating workflow
