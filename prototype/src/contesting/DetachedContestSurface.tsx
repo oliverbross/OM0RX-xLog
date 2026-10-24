@@ -413,6 +413,8 @@ function ContestSpots({panelID,context,projection,projectionRevision,send}:{pane
     contestBands={projection.supportedBands} contestAllowedModes={projection.allowedModeGroups}
     observedReceiveBandwidthHz={receiveBandwidth}
     radioFrequencyHz={projection.radioFrequencyHz??undefined} storageNamespace={`contest.${projection.contestSessionID??projection.draftID}`} selectedSpotId={projection.selectedSpotID}
+    showWorked={projection.showWorked??false} onShowWorkedChange={showWorked=>void send({action:"spot_set_show_worked",params:{
+      draftID:projection.draftID,expectedDraftRevision:projection.draftRevision,showWorked}},projectionRevision,{safePresentation:true})}
     onSpotContextMenu={contextMenu} onSelect={spot=>select(String(spot.id))}
     selectionHint="Select a spot to load the active Not1MM draft and tune the selected xLog radio once. Right-click for spot actions."/></section>;
   const visibleClusterSpots=filterRecentBandMapSpots(projection.spots,clusterAgeMinutes,spotAgeClock);

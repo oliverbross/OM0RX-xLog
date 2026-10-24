@@ -13,6 +13,7 @@ export type ContestSurfaceAction =
   | { action: "spot_confirm" | "spot_delete"; params: DraftRevision & { spotID: string } }
   | { action: "spot_set_marked"; params: DraftRevision & { spotID: string; marked: boolean } }
   | { action: "spot_set_marked_only"; params: DraftRevision & { markedOnly: boolean } }
+  | { action: "spot_set_show_worked"; params: DraftRevision & { showWorked: boolean } }
   | { action: "entry_set_text"; params: DraftRevision & { field: "callsign" | "sentReport" | "receivedReport"; value: string } }
   | { action: "entry_set_exchange"; params: DraftRevision & { fieldID: string; value: string } }
   | { action: "entry_set_frequency_text"; params: DraftRevision & { value: string; callsignCommand?: true } }
@@ -161,7 +162,7 @@ export type ContestSpotSurfaceProjection = { schemaVersion: 2; status: "ready"; 
   configuredClusters: { serverID: string; serverName: string; enabled: boolean }[];
   connections: { serverID: string; serverName: string; phase: string; error: string | null }[];
   contestSessionID?: string; supportedBands?: string[]; allowedModeGroups?: Array<"cw" | "data" | "phone">;
-  bandSegments?: string[]; markedOnly: boolean; spots: ContestSurfaceSpot[]; busy: boolean };
+  bandSegments?: string[]; markedOnly: boolean; showWorked?: boolean; spots: ContestSurfaceSpot[]; busy: boolean };
 export type ContestRemoteVFOSurfaceProjection = { schemaVersion: 1; status: "ready";
   radioFrequencyHz: number | null; contestFrequencyHz: number | null; band: string; mode: string; busy: boolean };
 export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; sessionRevision: number;
@@ -487,10 +488,11 @@ function validMatrixProjection(value: Record<string, unknown>) {
 function validSpotProjection(value: Record<string, unknown>) {
   if (!optionalKeys(value, ["schemaVersion", "status", "draftID", "draftRevision", "radioFrequencyHz", "connectedClusters", "loadedSpots",
       "selectedSpotID", "configuredClusters", "connections", "markedOnly", "spots", "busy"],
-      ["contestSessionID", "supportedBands", "allowedModeGroups", "bandSegments"]) ||
+      ["contestSessionID", "supportedBands", "allowedModeGroups", "bandSegments", "showWorked"]) ||
       !text(value.draftID, 160) || !uint(value.draftRevision) || !optionalFrequency(value.radioFrequencyHz) ||
       !uint(value.connectedClusters) || !uint(value.loadedSpots) || !Array.isArray(value.spots) || value.spots.length > 2_000 ||
-      value.selectedSpotID !== null && !text(value.selectedSpotID, 128) || typeof value.markedOnly !== "boolean" || typeof value.busy !== "boolean" ||
+      value.selectedSpotID !== null && !text(value.selectedSpotID, 128) || typeof value.markedOnly !== "boolean" ||
+      value.showWorked !== undefined && typeof value.showWorked !== "boolean" || typeof value.busy !== "boolean" ||
       value.contestSessionID !== undefined && !text(value.contestSessionID, 160) ||
       value.supportedBands !== undefined && !uniqueArray(value.supportedBands,64,item=>text(item,16)) ||
       value.allowedModeGroups !== undefined && !uniqueArray(value.allowedModeGroups,3,item=>oneOf(item,["cw","data","phone"])) ||
@@ -581,6 +583,7 @@ function validParams(action: string, params: Record<string, unknown>) {
     return draft(params, ["spotID"]) && text(params.spotID, 128);
   if (action === "spot_set_marked") return draft(params, ["spotID", "marked"]) && text(params.spotID, 128) && typeof params.marked === "boolean";
   if (action === "spot_set_marked_only") return draft(params, ["markedOnly"]) && typeof params.markedOnly === "boolean";
+  if (action === "spot_set_show_worked") return draft(params, ["showWorked"]) && typeof params.showWorked === "boolean";
   if (action === "entry_set_text") return draft(params, ["field", "value"]) &&
     oneOf(params.field, ["callsign", "sentReport", "receivedReport"]) && text(params.value, 160, true);
   if (action === "entry_set_exchange") return draft(params, ["fieldID", "value"]) && text(params.fieldID, 64) && text(params.value, 1024, true);

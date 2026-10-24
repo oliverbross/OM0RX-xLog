@@ -247,7 +247,7 @@ it.each(["band-maps","dx-cluster"] as const)("offers accessible Not1MM spot life
   window.history.replaceState({},"",search.replace("view=active-qso",`view=${panelID}`));
   const view={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14_025_000,
     connectedClusters:1,loadedSpots:1,selectedSpotID:"spot-1",configuredClusters:[],connections:[],
-    markedOnly:false,spots:[{...sharedSpot,marked:true}],busy:false};
+    markedOnly:false,showWorked:false,spots:[{...sharedSpot,marked:true}],busy:false};
   native.invoke.mockImplementation(async(command,args)=>command==="contest_surface_snapshot"?{...snapshot,panelID,projection:view}:
     command==="contest_surface_action"?{requestID:args.requestID,status:"applied",projectionRevision:7}:Promise.reject(new Error(`unexpected ${command}`)));
   render(<DetachedContestSurface/>);
@@ -262,6 +262,11 @@ it.each(["band-maps","dx-cluster"] as const)("offers accessible Not1MM spot life
   fireEvent.click(screen.getByLabelText("Marked only"));
   await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="spot_set_marked_only")?.[1])
     .toMatchObject({panelID,action:"spot_set_marked_only",params:{markedOnly:true}}));
+  if(panelID==="band-maps"){
+    fireEvent.click(screen.getByLabelText("Show worked"));
+    await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="spot_set_show_worked")?.[1])
+      .toMatchObject({panelID,action:"spot_set_show_worked",params:{showWorked:true}}));
+  }
 });
 
 it("can untick Marked only from an empty Cluster after its shared projection advances",async()=>{

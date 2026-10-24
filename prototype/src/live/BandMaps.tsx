@@ -31,7 +31,7 @@ type Props = { spots: BandMapSpot[]; onSelect: (spot: BandMapSpot) => void; radi
   focusedBand?: string; onFocusedBandChange?: (band: string) => void; storageNamespace?: string;
   selectedSpotId?: string | null; onSpotContextMenu?: (spot: BandMapSpot, event: ReactMouseEvent<HTMLElement>) => void;
   contestPresentation?: boolean; contestBandPlan?: ContestBandPlanEntry[]; contestBands?: readonly string[];
-  contestAllowedModes?: readonly ContestBandMode[] };
+  contestAllowedModes?: readonly ContestBandMode[]; showWorked?: boolean; onShowWorkedChange?: (showWorked: boolean) => void };
 type ViewRange = { low: number; high: number };
 type PlacedSpot = { spot: BandMapSpot; top: number; anchorTop: number; lane: number; key: string };
 export function panBandRange(view: ViewRange, full: ViewRange, delta: number): ViewRange {
@@ -437,6 +437,7 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
 
 export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBandwidthHz, compact = false, preferences, onPreferencesChange, onDock, onUndock, focusedBand, onFocusedBandChange,
   storageNamespace, selectedSpotId, onSpotContextMenu, contestPresentation = false, contestBandPlan, contestBands, contestAllowedModes,
+  showWorked: controlledShowWorked, onShowWorkedChange,
   selectionHint = "Select a marker to load it into the logger." }: Props) {
   const toolbarHost = useContext(BandMapsToolbarContext);
   const radioBand = bandForRadio(radioFrequencyHz);
@@ -471,7 +472,8 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
     } catch { return "full"; }
   });
   const [spotAgeMinutes, setSpotAgeMinutes] = useState(() => storedNumber(controlKey("ageMinutes"), BAND_MAP_AGES, 30));
-  const [showWorked,setShowWorked]=useState(()=>storedFlag(compact,"showWorked",false,storageNamespace));
+  const [localShowWorked,setLocalShowWorked]=useState(()=>storedFlag(compact,"showWorked",false,storageNamespace));
+  const showWorked=controlledShowWorked??localShowWorked;
   const [ageClock, setAgeClock] = useState(() => Date.now());
   const bands = activeFocusedBand ? [activeFocusedBand] : preferences?.bands ?? localBands;
   const follow = activeFocusedBand ? false : preferences?.followRadio ?? localFollow;
@@ -563,7 +565,8 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
   useEffect(() => { if (!preferences) store(compact, "modes", modes, storageNamespace); }, [modes, compact, preferences, storageNamespace]);
   useEffect(() => { if (resolution !== "custom") storeAt(controlKey("resolution"), String(resolution)); }, [resolution, compact, activeFocusedBand]);
   useEffect(() => { storeAt(controlKey("ageMinutes"), String(spotAgeMinutes)); }, [spotAgeMinutes, compact, activeFocusedBand]);
-  useEffect(()=>{if(contestPresentation)store(compact,"showWorked",showWorked,storageNamespace);},[compact,contestPresentation,showWorked,storageNamespace]);
+  useEffect(()=>{if(contestPresentation&&controlledShowWorked===undefined)store(compact,"showWorked",showWorked,storageNamespace);},
+    [compact,contestPresentation,controlledShowWorked,showWorked,storageNamespace]);
   useEffect(() => { const timer = window.setInterval(() => setAgeClock(Date.now()), 30_000); return () => window.clearInterval(timer); }, []);
   const classifiedSpots = useMemo(() => contestPresentation ? spots.map(spot => {
     const entry = contestBandPlan?.find(item => item.band === spot.band);
@@ -629,7 +632,9 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
       {activeFocusedBand && <label>Band<select aria-label="Band" value={activeFocusedBand} onChange={event => onFocusedBandChange ? onFocusedBandChange(event.target.value) : setContestBand(event.target.value)}>{availableContestBands.map(band => <option key={band}>{band}</option>)}</select></label>}
       <label>Resolution<select aria-label="Band map resolution" value={resolution} onChange={event => setResolution(event.target.value === "full" ? "full" : Number(event.target.value) as BandMapResolution)}><option value="full">Full band</option>{resolution === "custom" && <option value="custom">Custom</option>}{BAND_MAP_RESOLUTIONS.map(value => <option key={value} value={value}>{value} px/kHz</option>)}</select></label>
       <label>{contestPresentation ? "Clear older" : "Spot age"}<select aria-label="Spot age" value={spotAgeMinutes} onChange={event => setSpotAgeMinutes(Number(event.target.value) as typeof BAND_MAP_AGES[number])}>{BAND_MAP_AGES.map(value => <option key={value} value={value}>{value} min</option>)}</select></label>
-      {contestPresentation&&<label><input type="checkbox" checked={showWorked} onChange={event=>setShowWorked(event.target.checked)}/>Show worked</label>}
+      {contestPresentation&&<label><input type="checkbox" checked={showWorked} onChange={event=>{
+        const next=event.target.checked;if(controlledShowWorked===undefined)setLocalShowWorked(next);onShowWorkedChange?.(next);
+      }}/>Show worked</label>}
     </footer>
   </section>;
 }

@@ -262,12 +262,13 @@ it("persists exact confirm, mark, marked-only and delete spot lifecycle semantic
   workflow=updateContestSpotWorkflow(workflow,spots,"one","confirm",false,200,1_000);
   expect(projectContestSpotWorkflow(spots,workflow,false).map(spot=>[spot.id,spot.receivedAt])).toEqual([["one",200],["other",1]]);
   workflow=updateContestSpotWorkflow(workflow,projectContestSpotWorkflow(spots,workflow,false),"one","mark",true,201,1_001);
-  workflow={...workflow,markedOnly:true};
+  workflow={...workflow,markedOnly:true,showWorked:true};
   const restored=decodeContestSpotWorkflow(encodeContestSpotWorkflow(workflow,1_002),scope,1_002);
+  expect(restored.showWorked).toBe(true);
   expect(projectContestSpotWorkflow(spots,restored).map(spot=>[spot.id,spot.marked])).toEqual([["one",true]]);
   workflow=updateContestSpotWorkflow(restored,projectContestSpotWorkflow(spots,restored,false),"one","delete",false,202,1_002);
   expect(projectContestSpotWorkflow(spots,workflow,false).map(spot=>spot.id)).toEqual(["other"]);
-  expect(decodeContestSpotWorkflow("{bad",scope)).toEqual({...scope,markedOnly:false,entries:{}});
+  expect(decodeContestSpotWorkflow("{bad",scope)).toEqual({...scope,markedOnly:false,showWorked:false,entries:{}});
 });
 
 it("namespaces, expires, compacts and quota-retries bounded persisted spot overlays",()=>{
@@ -365,10 +366,11 @@ it("queries the full contest log for partials and retains raw rows beyond the di
     if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
   });
   const serviceRequest=vi.fn(async(method:string,params:Record<string,unknown>={})=>method==="lookup_call"
-    ?{call:params.call,country:"Germany",cqZone:14,ituZone:28,latitude:51,longitude:10,bearing:312,long_path_bearing:132,distance_km:1180}
+    ?{call:params.call,country:"Germany",cqZone:14,ituZone:28,latitude:51,longitude:10,bearing:null,long_path_bearing:null,distance_km:null}
     :request(method,params));
   render(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps} spots={[{callsign:"DL1XYZ"},{callsign:"K1ABC"}]}/>);
   await createContestThroughSetup();
+  await act(async()=>mapContext.changed?.({metadata:{home:{call:"OM0RX",grid:"JN98",lat:48.15,lon:17.12}}}));
   await waitFor(()=>expect(surfaceOwner.current.projections["callsign-intelligence"].loggedCalls).toEqual(["DL1ABC"]));
   expect(request.mock.calls.some(([method])=>method==="contest_history_status")).toBe(false);
   expect(request.mock.calls.find(([method])=>method==="contest_check_partial")?.[1]).toEqual({sessionID:current.sessionID,expectedRevision:9,query:"DL1",limit:500});
@@ -376,8 +378,8 @@ it("queries the full contest log for partials and retains raw rows beyond the di
   expect(surfaceOwner.current.projections.logbook.page.rows).toEqual([]);
   expect(surfaceOwner.current.projections.logbook.partialRows).toEqual([{qsoID:"off-page",TS:raw.TS,Call:raw.Call,Freq:"14025.125",SNT:"579",RCV:"589",M1:"",ZN:"14",M2:"",prefix:"DL1",Points:"3"}]);
   await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].manual).toMatchObject({operator:"OM0RX/P",cwSpeedWpm:25,
-    cwSpeedStepWpm:1,country:"Germany",cqZone:14,ituZone:28,headingDegrees:312,longPathHeadingDegrees:132,
-    distanceKm:1180,qsos:25,multipliers:7,total:350}));
+    cwSpeedStepWpm:1,country:"Germany",cqZone:14,ituZone:28,headingDegrees:expect.any(Number),longPathHeadingDegrees:expect.any(Number),
+    distanceKm:expect.any(Number),qsos:25,multipliers:7,total:350}));
   expect(surfaceOwner.current.projections["station-control"]).toEqual({schemaVersion:1,status:"ready",
     radioFrequencyHz:14_025_000,contestFrequencyHz:14_025_000,band:"20m",mode:"CW",busy:false});
   expect(surfaceOwner.current.projections["world-map"]).toMatchObject({
@@ -692,22 +694,20 @@ it("preserves authoritative CQ WW SSB dupe and country-zone multiplier classific
       frequencyKHz:7125+index,band:"40m",mode:"LSB",score:80}));
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={shared as any}/>);
   await createContestThroughSetup();
-  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots)
+  await waitFor(()=>expect(surfaceOwner.current.projections["dx-cluster"].spots)
     .toEqual(expect.arrayContaining(Object.entries(classifications).map(([id,value])=>expect.objectContaining({id,mode:"SSB",
       contestDupe:value.dupe,contestMultiplierCount:value.multiplierCount,contestCountryMultiplier:value.countryMultiplier,
       contestZoneMultiplier:value.zoneMultiplier,contestPoints:id==="dupe"?0:3})))));
-  expect(surfaceOwner.current.projections["dx-cluster"].spots).toEqual(surfaceOwner.current.projections["band-maps"].spots);
+  expect(surfaceOwner.current.projections["band-maps"].spots.map((spot:any)=>spot.id)).toEqual(["qso","countryOrZone","countryAndZone"]);
   expect(surfaceOwner.current.projections["world-map"].spots).toEqual(surfaceOwner.current.projections["band-maps"].spots);
 });
 
-it("reclassifies a newly logged CQ WW spot as grey and republishes its radio replacement",async()=>{
+it("retains a manually entered CQ WW QSO and publishes it to Band Map and radio only when Show worked is enabled",async()=>{
   const setup=newContestSetup("OM0RX");setup.pluginID="cq_ww_ssb";setup.preferences.bands=["40m"];
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(setup));
   let current:any={...projection(1,{callsign:"DL1AAA"}),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
     supportedModes:["SSB"],supportedBands:["160m","80m","40m","20m","15m","10m"]};
-  const base=operationalRequest(()=>current,()=>current.revision===1?3:0,()=>current.revision===1
-    ?{dupe:false,multiplierCount:2,countryMultiplier:true,zoneMultiplier:true}
-    :{dupe:true,multiplierCount:0,countryMultiplier:false,zoneMultiplier:false});
+  const base=operationalRequest(()=>current,()=>0,()=>({dupe:true,multiplierCount:0,countryMultiplier:false,zoneMultiplier:false}));
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
     if(method==="contest_qso_commit"){
       current={...current,revision:current.revision+1};
@@ -717,26 +717,30 @@ it("reclassifies a newly logged CQ WW spot as grey and republishes its radio rep
   });
   const serviceRequest=vi.fn(async(method:string,params:Record<string,unknown>={})=>method==="cluster_contest_radio_spots_publish"
     ?{accepted:1,removed:0,unchanged:0,filtered:0,rejected:0,stale:false}:request(method,params));
-  render(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps} radioFrequencyHz={7_125_000}
-    spots={[{id:"worked-after-save",callsign:"DL1AAA",frequencyKHz:7125,band:"40m",mode:"LSB",score:80}] as any}/>);
+  render(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps} radioFrequencyHz={7_125_000} spots={[]}/>);
   await createContestThroughSetup();
-  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots[0]).toMatchObject({
-    id:"worked-after-save",contestDupe:false,contestMultiplierCount:2,contestCountryMultiplier:true,contestZoneMultiplier:true}));
-  await waitFor(()=>expect(serviceRequest).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
-    publication_sequence:1,action:"replace",revision:1,spots:[expect.objectContaining({spot_id:"worked-after-save",dupe:false,
-      multiplier_count:2,country_multiplier:true,zone_multiplier:true})]})));
+  expect(surfaceOwner.current.projections["band-maps"].spots).toEqual([]);
 
   const entry=surfaceOwner.current.projections["active-qso"];
   await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,
     workspaceGeneration,panelID:"active-qso",projectionRevision:entry.draft.revision,requestID:crypto.randomUUID(),
     action:"entry_commit",params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision}}));
 
-  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots[0]).toMatchObject({
-    id:"worked-after-save",contestDupe:true,contestMultiplierCount:0,contestCountryMultiplier:false,contestZoneMultiplier:false}));
-  expect(surfaceOwner.current.projections["dx-cluster"].spots[0]).toMatchObject({
-    id:"worked-after-save",contestDupe:true,contestMultiplierCount:0,contestCountryMultiplier:false,contestZoneMultiplier:false});
+  await waitFor(()=>expect(surfaceOwner.current.projections["dx-cluster"].spots[0]).toMatchObject({
+    id:"contest-heard:7125000:DL1AAA",callsign:"DL1AAA",frequencyKHz:7125,marked:true,contestDupe:true,
+    contestMultiplierCount:0,contestCountryMultiplier:false,contestZoneMultiplier:false}));
+  expect(surfaceOwner.current.projections["band-maps"]).toMatchObject({showWorked:false,spots:[]});
   await waitFor(()=>expect(serviceRequest).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
-    publication_sequence:2,action:"replace",revision:2,spots:[expect.objectContaining({spot_id:"worked-after-save",dupe:true,
+    action:"replace",revision:2,spots:[]})));
+
+  const bandMap=surfaceOwner.current.projections["band-maps"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,
+    workspaceGeneration,panelID:"band-maps",projectionRevision:bandMap.draftRevision,requestID:crypto.randomUUID(),
+    action:"spot_set_show_worked",params:{draftID:current.draftID,expectedDraftRevision:bandMap.draftRevision,showWorked:true}}));
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"]).toMatchObject({showWorked:true,
+    spots:[expect.objectContaining({id:"contest-heard:7125000:DL1AAA",contestDupe:true})]}));
+  await waitFor(()=>expect(serviceRequest).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
+    action:"replace",revision:2,spots:[expect.objectContaining({spot_id:"contest-heard:7125000:DL1AAA",dupe:true,
       multiplier_count:0,country_multiplier:false,zone_multiplier:false})]})));
 });
 

@@ -22,7 +22,8 @@ it.each(["band-maps","dx-cluster"] as const)("validates fenced %s spot selection
     markedOnly:false,spots:[spot],busy:false};
   expect(validContestSurfaceProjection(panelID,projection)).toBe(true);
   expect(validContestSurfaceProjection(panelID,{...projection,contestSessionID:base.sessionID,supportedBands:["40m"],
-    allowedModeGroups:["phone"],bandSegments:['{"band":"40m"}']})).toBe(true);
+    allowedModeGroups:["phone"],bandSegments:['{"band":"40m"}'],showWorked:true})).toBe(true);
+  expect(validContestSurfaceProjection(panelID,{...projection,showWorked:"yes"})).toBe(false);
   expect(validContestSurfaceProjection(panelID,{...projection,supportedBands:[]})).toBe(false);
   expect(validContestSurfaceProjection(panelID,{...projection,allowedModeGroups:["phone","phone"]})).toBe(false);
   expect(validContestSurfaceProjection(panelID,{...projection,bandSegments:[""]})).toBe(false);
@@ -96,6 +97,7 @@ const valid = [
   { panelID: "band-maps", action: "spot_set_marked", params: { ...draft, spotID:"spot-1", marked:true } },
   { panelID: "dx-cluster", action: "spot_delete", params: { ...draft, spotID:"spot-1" } },
   { panelID: "dx-cluster", action: "spot_set_marked_only", params: { ...draft, markedOnly:true } },
+  { panelID: "band-maps", action: "spot_set_show_worked", params: { ...draft, showWorked:true } },
   { panelID: "active-qso", action: "entry_step_spot", params: { ...draft, direction: "previous" } },
   { panelID: "active-qso", action: "entry_step_vfo", params: { ...draft, direction: "up" } },
   { panelID: "active-qso", action: "entry_return_cq_frequency", params: draft },
