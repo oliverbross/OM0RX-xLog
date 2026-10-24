@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { Profiler, useMemo, useState } from "react";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { contestMapSpots, contestMapView, DetachedContestSurface } from "./DetachedContestSurface";
 import { loadWindowSurface } from "../windowSurface";
 import { syntheticMapContext } from "../live/mapContextFixtures";
@@ -267,6 +267,29 @@ it.each(["band-maps","dx-cluster"] as const)("offers accessible Not1MM spot life
     await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="spot_set_show_worked")?.[1])
       .toMatchObject({panelID,action:"spot_set_show_worked",params:{showWorked:true}}));
   }
+});
+
+it.each(["band-maps","dx-cluster"] as const)("reuses desktop Filters locally in the detached contest %s window",async panelID=>{
+  window.history.replaceState({},"",search.replace("view=active-qso",`view=${panelID}`));
+  const other={...sharedSpot,id:"spot-2",callsign:"VK8XYZ",country:"Australia",continent:"OC",frequencyKHz:14030,frequencyText:"14030.0"};
+  const view={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14_025_000,
+    connectedClusters:1,loadedSpots:2,selectedSpotID:null,configuredClusters:[],connections:[],
+    markedOnly:false,showWorked:true,spots:[sharedSpot,other],busy:false};
+  native.invoke.mockImplementation(async command=>command==="contest_surface_snapshot"?{...snapshot,panelID,projection:view}:
+    command==="monitor_context_snapshot"?null:Promise.reject(new Error(`unexpected ${command}`)));
+  render(<DetachedContestSurface/>);
+  expect(await screen.findByText("DL1ABC")).toBeTruthy();expect(screen.getByText("VK8XYZ")).toBeTruthy();
+  const trigger=screen.getByRole("button",{name:"Filters"});
+  expect(trigger.closest(".contest-spot-toolbar>div")).toBeTruthy();
+  fireEvent.click(trigger);
+  const dialog=screen.getByRole("dialog",{name:"Cluster filters"});
+  expect(within(dialog).getByRole("checkbox",{name:"Show only RBN"})).toBeTruthy();
+  fireEvent.change(within(dialog).getByPlaceholderText("Callsign, country or note"),{target:{value:"DL1"}});
+  expect(screen.getByText("DL1ABC")).toBeTruthy();expect(screen.queryByText("VK8XYZ")).toBeNull();
+  expect(native.invoke.mock.calls.some(([command])=>command==="worker_request"||command==="contest_surface_action")).toBe(false);
+  expect(JSON.parse(localStorage.getItem(`xlog.integration.contest.${panelID}.filters.v1.draft-1`)!)).toMatchObject({query:"DL1"});
+  fireEvent.click(within(dialog).getByRole("button",{name:"Done"}));
+  await waitFor(()=>expect(document.activeElement).toBe(trigger));
 });
 
 it("can untick Marked only from an empty Cluster after its shared projection advances",async()=>{
@@ -1298,6 +1321,31 @@ it("renders exact owner Rates independently of the current log page and refreshe
   await act(async () => { native.wake!(); });
   expect(await screen.findByText("211")).toBeTruthy();
   expect(native.invoke.mock.calls.every(([command]) => command === "contest_surface_snapshot")).toBe(true);
+});
+
+it("ticks the detached Rates UTC and local clocks without refreshing rate data",async()=>{
+  vi.useFakeTimers();
+  try {
+    vi.setSystemTime(new Date("2026-10-24T12:34:56.000Z"));
+    window.history.replaceState({},"",search.replace("view=active-qso","view=monitor"));
+    const rates={schemaVersion:1,status:"ready",lastHourQsoPerHour:48,last10QsoPerHour:72.5,last100QsoPerHour:null,
+      sinceHourUTC:19,sinceHourQso:2,runQso:210,searchAndPounceQso:70,hourRunQso:30,hourSearchAndPounceQso:18,busy:false};
+    native.invoke.mockImplementation(async(command:string)=>command==="contest_surface_snapshot"
+      ?{...snapshot,panelID:"monitor",projectionRevision:6,projection:rates}:Promise.reject(new Error(command)));
+    render(<DetachedContestSurface/>);
+    await act(async()=>{await Promise.resolve();await Promise.resolve();});
+    const localNow=new Date(),localText=[localNow.getHours(),localNow.getMinutes(),localNow.getSeconds()].map(value=>String(value).padStart(2,"0")).join(":");
+    const utc=screen.getByLabelText("UTC time 12:34:56");
+    expect(utc.textContent).toBe("12:34:56UTC");
+    expect(screen.getByLabelText(`Local time ${localText}`).classList.contains("contest-surface-rate-clock-local")).toBe(true);
+    const reads=native.invoke.mock.calls.filter(([command])=>command==="contest_surface_snapshot").length;
+    const rateTable=screen.getByRole("table",{name:"Run and Search & Pounce QSOs"});
+    await act(async()=>{await vi.advanceTimersByTimeAsync(1_000);});
+    expect(screen.getByLabelText("UTC time 12:34:57")).toBeTruthy();
+    expect(screen.getByRole("table",{name:"Run and Search & Pounce QSOs"})).toBe(rateTable);
+    expect(rateTable.textContent).toContain("210");
+    expect(native.invoke.mock.calls.filter(([command])=>command==="contest_surface_snapshot")).toHaveLength(reads);
+  } finally {vi.useRealTimers();}
 });
 
 it.each([{ panelID: "awards", title: "DXCC", label: "Slovakia" }, { panelID: "chaser-dx", title: "Zone", label: "15" }])(

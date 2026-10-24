@@ -37,3 +37,32 @@ export function setSpecialFilterState(filter: ClusterFilter, option: string, sta
   if (state === "exclude") excludedSpecials.push(option);
   return { ...filter, specials, excludedSpecials };
 }
+
+export type ClusterFilterSpot = {
+  callsign: string; country: string; comment: string; band: string; mode: string; continent: string;
+  spotterContinent?: string | null; callStatus: string; dxccStatus: string; specialTags: string[];
+  source: string; workedBefore?: number | null; receivedAt: number; score: number; frequencyKHz: number;
+};
+
+export function filterClusterSpots<T extends ClusterFilterSpot>(spots: readonly T[], filter: ClusterFilter): T[] {
+  const query = filter.query.toLocaleLowerCase();
+  const visible = spots.filter(spot => {
+    const rbn = ["rbl", "rbn"].includes(spot.source.trim().toLocaleLowerCase());
+    const source = rbn ? "rbl" : "cluster", specialTags = rbn ? [...spot.specialTags, "RBN"] : spot.specialTags;
+    return (!query || [spot.callsign, spot.country, spot.comment].some(value => value.toLocaleLowerCase().includes(query))) &&
+      (!filter.bands.length || filter.bands.includes(spot.band)) &&
+      (!filter.modes.length || filter.modes.includes(spot.mode)) &&
+      (!filter.continents.length || filter.continents.includes(spot.continent)) &&
+      (!filter.spotterContinents.length || filter.spotterContinents.includes(spot.spotterContinent ?? "")) &&
+      (!filter.callStatuses.length || filter.callStatuses.includes(spot.callStatus)) &&
+      (!filter.dxccStatuses.length || filter.dxccStatuses.includes(spot.dxccStatus)) &&
+      (!filter.specials.length || filter.specials.some(value => specialTags.includes(value))) &&
+      !(filter.excludedSpecials ?? []).some(value => specialTags.includes(value)) &&
+      filter.sources.includes(source) &&
+      (!filter.worked.length || filter.worked.includes(spot.workedBefore == null ? "Not worked" : "Worked before"));
+  });
+  return visible.sort((left, right) => filter.sort === "score" ? right.score - left.score || right.receivedAt - left.receivedAt
+    : filter.sort === "frequency" ? left.frequencyKHz - right.frequencyKHz
+    : filter.sort === "callsign" ? left.callsign.localeCompare(right.callsign)
+    : right.receivedAt - left.receivedAt);
+}

@@ -15,6 +15,8 @@ import { contestKeyChord, functionKeyForContestAction, resolveContestKeyBinding,
 import BandMaps, { BAND_MAP_AGES, bandForRadio, contestBandMapSpotColor, filterRecentBandMapSpots } from "../live/BandMaps";
 import { decodeContestBandPlan } from "./contestBandPlan";
 import ClusterPanel from "../live/ClusterPanel";
+import ClusterFilterDialog from "../live/ClusterFilterDialog";
+import { defaultClusterFilter, filterClusterSpots, normalizeClusterFilter, type ClusterFilter } from "../live/clusterFilters";
 import { connectMapContext, mapSpots, type MapContext } from "../live/mapContext";
 import { requestViaSession } from "../live/DetachedClusterBridge";
 import { connectMonitorContext, observedReceiveBandwidthHz, type MonitorContext } from "../live/monitorContext";
@@ -350,6 +352,12 @@ function ContestSpots({panelID,context,projection,projectionRevision,send}:{pane
   const [clusterPending,setClusterPending]=useState<null|{requestID:number;method:"cluster_connect"|"cluster_disconnect";signature:string}>(null);
   const [clusterHistoryPending,setClusterHistoryPending]=useState(false);
   const clusterRequestID=useRef(0),clusterSignatureRef=useRef("");
+  const filterDialogID=`contest-${panelID}-filters`;
+  const filtersButton=useRef<HTMLButtonElement>(null),filterStorageKey=`xlog.integration.contest.${panelID}.filters.v1.${projection.contestSessionID??projection.draftID}`;
+  const [filtersOpen,setFiltersOpen]=useState(false),[filter,setFilter]=useState<ClusterFilter>(()=>{
+    try{return normalizeClusterFilter(JSON.parse(localStorage.getItem(filterStorageKey)??"null"));}
+    catch{return defaultClusterFilter();}
+  });
   const clusterAgeKey="xlog.integration.contest.cluster-age-minutes.v1";
   const [clusterAgeMinutes,setClusterAgeMinutes]=useState<typeof BAND_MAP_AGES[number]>(()=>{
     try { const stored=Number(localStorage.getItem(clusterAgeKey));return BAND_MAP_AGES.includes(stored as typeof BAND_MAP_AGES[number])
@@ -359,6 +367,7 @@ function ContestSpots({panelID,context,projection,projectionRevision,send}:{pane
     return()=>connection.dispose();},[panelID]);
   useEffect(()=>{if(panelID!=="dx-cluster")return;try{localStorage.setItem(clusterAgeKey,String(clusterAgeMinutes));}catch{/* Keep the window usable without storage. */}
     const timer=window.setInterval(()=>setSpotAgeClock(Date.now()),30_000);return()=>window.clearInterval(timer);},[clusterAgeMinutes,panelID]);
+  useEffect(()=>{try{localStorage.setItem(filterStorageKey,JSON.stringify(filter));}catch{/* Keep filters usable in memory. */}},[filter,filterStorageKey]);
   const receiveBandwidth=panelID==="band-maps"?observedReceiveBandwidthHz(stationContext):null;
   const clusterSignature=JSON.stringify(projection.connections.map(connection=>[
     connection.serverID,connection.phase,connection.error??null]));
@@ -385,15 +394,21 @@ function ContestSpots({panelID,context,projection,projectionRevision,send}:{pane
     setMenu({spotID:String(spot.id),x:requestedX,y:requestedY,requestedX,requestedY,origin});
   };
   const target=menu&&projection.spots.find(spot=>spot.id===menu.spotID);
+  const filteredSpots=useMemo(()=>filterClusterSpots(projection.spots,filter),[projection.spots,filter]);
+  const specialChoices=useMemo(()=>["RBN",...new Set(projection.spots.flatMap(spot=>spot.specialTags)
+    .filter(tag=>tag.toUpperCase()!=="RBN"))],[projection.spots]);
   useLayoutEffect(()=>{if(!menu)return;const clamp=()=>{const rect=menuRef.current?.getBoundingClientRect(),margin=8,
       width=rect?.width??160,height=rect?.height??150,x=Math.max(margin,Math.min(menu.requestedX,window.innerWidth-width-margin)),
       y=Math.max(margin,Math.min(menu.requestedY,window.innerHeight-height-margin));
       setMenu(current=>current&&(current.x!==x||current.y!==y)?{...current,x,y}:current);};
     clamp();window.addEventListener("resize",clamp);return()=>window.removeEventListener("resize",clamp);},[menu?.spotID,menu?.requestedX,menu?.requestedY]);
   useEffect(()=>{if(menu&&!target)closeMenu();},[menu,target]);
+  const closeFilters=()=>{setFiltersOpen(false);window.requestAnimationFrame(()=>filtersButton.current?.focus());};
   const workflow=<><div className="contest-spot-toolbar"><label><input type="checkbox" checked={projection.markedOnly}
     onChange={event=>void send({action:"spot_set_marked_only",params:{draftID:projection.draftID,expectedDraftRevision:projection.draftRevision,
-      markedOnly:event.currentTarget.checked}},projectionRevision,{safePresentation:true})}/>Marked only</label><span>{selected?`Selected ${selected.callsign}`:"No selected spot"}</span></div>
+      markedOnly:event.currentTarget.checked}},projectionRevision,{safePresentation:true})}/>Marked only</label><div><span>{selected?`Selected ${selected.callsign}`:"No selected spot"}</span>
+      <button ref={filtersButton} type="button" aria-expanded={filtersOpen} aria-controls={filterDialogID} onClick={()=>setFiltersOpen(true)}>Filters</button></div></div>
+    {filtersOpen&&<ClusterFilterDialog dialogID={filterDialogID} filter={filter} specialChoices={specialChoices} onChange={setFilter} onClose={closeFilters}/>}
     {menu&&target&&<div ref={menuRef} className="contest-spot-menu" role="menu" aria-label={`Spot actions for ${target.callsign}`}
       style={{left:menu.x,top:menu.y}} onKeyDown={event=>{if(event.key==="Escape"){event.preventDefault();closeMenu();return;}
         if(!["ArrowDown","ArrowUp","Home","End"].includes(event.key))return;event.preventDefault();
@@ -408,7 +423,7 @@ function ContestSpots({panelID,context,projection,projectionRevision,send}:{pane
         expectedDraftRevision:projection.draftRevision,spotID:target.id}})}>Delete</button>
       <button type="button" role="menuitem" onClick={closeMenu}>Cancel</button>
     </div>}</>;
-  if(panelID==="band-maps")return <section className="contest-spots" aria-label="Contest Band Map">{workflow}<BandMaps compact contestPresentation spots={projection.spots}
+  if(panelID==="band-maps")return <section className="contest-spots" aria-label="Contest Band Map">{workflow}<BandMaps compact contestPresentation spots={filteredSpots}
     contestBandPlan={decodeContestBandPlan(projection.bandSegments,projection.supportedBands)}
     contestBands={projection.supportedBands} contestAllowedModes={projection.allowedModeGroups}
     observedReceiveBandwidthHz={receiveBandwidth}
@@ -417,7 +432,7 @@ function ContestSpots({panelID,context,projection,projectionRevision,send}:{pane
       draftID:projection.draftID,expectedDraftRevision:projection.draftRevision,showWorked}},projectionRevision,{safePresentation:true})}
     onSpotContextMenu={contextMenu} onSelect={spot=>select(String(spot.id))}
     selectionHint="Select a spot to load the active Not1MM draft and tune the selected xLog radio once. Right-click for spot actions."/></section>;
-  const visibleClusterSpots=filterRecentBandMapSpots(projection.spots,clusterAgeMinutes,spotAgeClock);
+  const visibleClusterSpots=filterRecentBandMapSpots(filteredSpots,clusterAgeMinutes,spotAgeClock);
   const clusterSnapshot={snapshot:{connectedClusters:projection.connectedClusters,loadedSpots:projection.loadedSpots,contactCount:0,contactRevision:0,
     logbookDataLoaded:false,countryDataLoaded:false,connections:projection.connections,spots:visibleClusterSpots,console:[]}};
   const activeConnections=projection.connections.filter(connection=>!["disconnected","failed"].includes(connection.phase.toLowerCase()));
@@ -890,12 +905,25 @@ function Statistics({ projection }: { projection: ContestStatisticsSurfaceProjec
     </tr>)}</tbody></table></div>
   </section>;
 }
+const twoDigit=(value:number)=>String(value).padStart(2,"0");
+const clockText=(date:Date,utc:boolean)=>utc
+  ?`${twoDigit(date.getUTCHours())}:${twoDigit(date.getUTCMinutes())}:${twoDigit(date.getUTCSeconds())}`
+  :`${twoDigit(date.getHours())}:${twoDigit(date.getMinutes())}:${twoDigit(date.getSeconds())}`;
+function RatesClock() {
+  const [now,setNow]=useState(()=>new Date());
+  useEffect(()=>{const timer=window.setInterval(()=>setNow(new Date()),1_000);return()=>window.clearInterval(timer);},[]);
+  const utc=clockText(now,true),local=clockText(now,false);
+  return <div className="contest-surface-rate-clocks" aria-label="Current time">
+    <time className="contest-surface-rate-clock-utc" dateTime={now.toISOString()} aria-label={`UTC time ${utc}`}><strong>{utc}</strong><span>UTC</span></time>
+    <time className="contest-surface-rate-clock-local" dateTime={now.toISOString()} aria-label={`Local time ${local}`}><strong>{local}</strong><span>Local</span></time>
+  </div>;
+}
 function Rates({ projection }: { projection: ContestRatesSurfaceProjection }) {
   const rates = [["Last hour", projection.lastHourQsoPerHour,"current"], ["10 Last QSO", projection.last10QsoPerHour,"ten"],
     ["100 Last QSO", projection.last100QsoPerHour,"hundred"]] as const;
   const sinceLabel = `Since ${String(projection.sinceHourUTC).padStart(2, "0")}:00:00z`;
   return <section aria-label="Contest Rates" aria-busy={projection.busy} className="contest-surface-rates"><h1>Rates</h1>
-    <p className="contest-surface-rate-scope">All bands · All modes</p><dl>{rates.map(([label, value,kind]) => <div key={label} className={`contest-surface-rate-${kind}`}><dt>{label}:</dt><dd>{value === null ? <span aria-label="Not enough contacts">—</span> : value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>Q/h</small></dd></div>)}
+    <p className="contest-surface-rate-scope">All bands · All modes</p><RatesClock/><dl>{rates.map(([label, value,kind]) => <div key={label} className={`contest-surface-rate-${kind}`}><dt>{label}:</dt><dd>{value === null ? <span aria-label="Not enough contacts">—</span> : value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>Q/h</small></dd></div>)}
       <div className="contest-surface-rate-since"><dt>{sinceLabel}:</dt><dd>{projection.sinceHourQso.toLocaleString()} <small>QSO</small></dd></div></dl>
     <table aria-label="Run and Search & Pounce QSOs"><tbody>{[["Run QSO",projection.runQso],["S&P QSO",projection.searchAndPounceQso],
       ["Hour Run QSO",projection.hourRunQso],["Hour S&P QSO",projection.hourSearchAndPounceQso]].map(([label,value])=><tr key={label} className={String(label).includes("S&P")?"contest-surface-rate-search":"contest-surface-rate-run"}><th scope="row">{label}:</th><td>{value.toLocaleString()}</td></tr>)}</tbody></table>

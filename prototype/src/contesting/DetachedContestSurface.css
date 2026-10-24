@@ -15,6 +15,9 @@
 .contest-spot-toolbar { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 7px; border:1px solid var(--border); border-radius:6px; color:var(--secondary); background:var(--panel); font-size:12px; }
 .contest-spot-toolbar label { display:flex; flex-direction:row; align-items:center; gap:5px; color:var(--text); }
 .contest-spot-toolbar input { accent-color:var(--amber); }
+.contest-spot-toolbar>div { display:flex; align-items:center; justify-content:flex-end; gap:8px; min-width:0; }
+.contest-spot-toolbar>div>span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.contest-spot-toolbar>div>button { flex:0 0 auto; }
 .contest-cluster-controls { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:6px 10px; align-items:center; padding:6px 8px; flex:0 0 auto;
   border:1px solid var(--border); border-radius:6px; background:var(--panel); }
 .contest-cluster-controls>[role="status"] { display:flex; flex-wrap:wrap; gap:5px 12px; min-width:0; overflow:hidden; }
@@ -227,6 +230,12 @@
 .contest-surface-statistics-score strong { color:var(--teal); font:700 16px ui-monospace,monospace; font-variant-numeric:tabular-nums; }
 .contest-surface-rates { width:100%; font-family:ui-monospace,monospace; }
 .contest-surface-rates .contest-surface-rate-scope { text-align:center; font-size:12px; color:var(--secondary); }
+.contest-surface-rate-clocks { display:flex; align-items:center; justify-content:center; gap:clamp(14px,5vw,34px); margin:5px 0 7px; padding:7px 10px; border-block:1px solid color-mix(in srgb,var(--border) 78%,transparent); background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--panel) 82%,transparent),transparent); }
+.contest-surface-rate-clocks time { display:flex; align-items:baseline; gap:5px; min-width:0; font-variant-numeric:tabular-nums; }
+.contest-surface-rate-clocks strong { font-size:clamp(20px,7cqi,30px); font-weight:750; line-height:1; letter-spacing:.035em; }
+.contest-surface-rate-clocks span { font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+.contest-surface-rate-clock-utc { color:var(--cyan); text-shadow:0 0 14px color-mix(in srgb,var(--cyan) 24%,transparent); }
+.contest-surface-rate-clock-local { color:var(--pink); text-shadow:0 0 14px color-mix(in srgb,var(--pink) 20%,transparent); }
 .contest-surface-rates dl { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px 8px; margin:0; }
 .contest-surface-rates dl > div { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:baseline; gap:12px; padding:3px 6px; border-bottom:1px solid var(--border); }
 .contest-surface-rates dd { margin:0; min-width:84px; color:var(--cyan); text-align:right; font-size:12px; font-weight:400; }
