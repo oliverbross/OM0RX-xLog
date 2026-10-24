@@ -1,0 +1,10 @@
+import { describe,expect,it,vi } from "vitest";
+import { collectAnalytics } from "./contestAnalyticsService";
+import { analyticsFixtureMeta,analyticsFixtureRows } from "./contestAnalytics.fixtures";
+describe("analytics snapshot acquisition",()=>{
+  const fixture=()=>vi.fn(async(params:Record<string,unknown>)=>params.action==="prepare"?analyticsFixtureMeta:params.action==="check"?{current:true,identity:analyticsFixtureMeta.identity}:params.action==="release"?{released:true}:{snapshotID:analyticsFixtureMeta.snapshotID,identity:analyticsFixtureMeta.identity,total:4,offset:0,rows:analyticsFixtureRows});
+  it("reads and validates a complete copied snapshot without any mutation request",async()=>{const read=fixture(),result=await collectAnalytics(read,new AbortController().signal,()=>{});expect(result.rows).toHaveLength(4);expect(read.mock.calls.map(([p])=>p.action)).toEqual(["prepare","page","check"]);});
+  it("rejects a changed log and releases its copy",async()=>{const base=fixture(),read=vi.fn(async(p:Record<string,unknown>)=>p.action==="check"?{current:false,identity:analyticsFixtureMeta.identity}:base(p));await expect(collectAnalytics(read,new AbortController().signal,()=>{})).rejects.toThrow("contest changed");expect(read.mock.calls.at(-1)?.[0].action).toBe("release");});
+  it("rejects mixed identities and duplicate IDs",async()=>{const base=fixture(),read=vi.fn(async(p:Record<string,unknown>)=>p.action==="page"?{snapshotID:analyticsFixtureMeta.snapshotID,identity:"wrong",offset:0,total:4,rows:analyticsFixtureRows}:base(p));await expect(collectAnalytics(read,new AbortController().signal,()=>{})).rejects.toThrow("inconsistent pages");});
+  it("cancels before reading a page and releases a prepared copy",async()=>{const base=fixture(),abort=new AbortController(),read=vi.fn(async(p:Record<string,unknown>)=>{const result=await base(p);if(p.action==="prepare")abort.abort();return result;});await expect(collectAnalytics(read,abort.signal,()=>{})).rejects.toMatchObject({name:"AbortError"});expect(read.mock.calls.map(([p])=>p.action)).toEqual(["prepare","release"]);});
+});

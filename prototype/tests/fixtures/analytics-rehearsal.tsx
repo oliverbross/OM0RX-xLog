@@ -1,0 +1,10 @@
+import { createRoot } from "react-dom/client";
+import { ContestAnalyticsWindow } from "../../src/contesting/ContestAnalyticsWindow";
+import { analyticsFixtureMeta,analyticsFixtureRows } from "../../src/contesting/contestAnalytics.fixtures";
+import { prepareAnalytics } from "../../src/contesting/contestAnalytics";
+const start=Date.parse("2026-10-24T00:00:00Z"),bands=["160m","80m","40m","20m","15m","10m"];
+const rows=Array.from({length:10000},(_,i)=>({...analyticsFixtureRows[i%4],multiplierEligible:true,id:`synthetic-${i}`,call:`${["K","DL","OM","JA"][i%4]}${Math.floor(i/4)}TEST`,band:bands[Math.floor(i/53)%6],utc:new Date(start+Math.floor(i/10000*47*60)*60000).toISOString(),operator:i%17===0?"Unknown":i%2?"OM0RX":"OM1TEST",style:i%11===0?"Unknown":i%3===0?"S&P":"Run"}));
+const derived=prepareAnalytics({...analyticsFixtureMeta,score:{...analyticsFixtureMeta.score,total:0}},rows);
+const points=rows.reduce((s,q)=>s+(q.points??0),0),multipliers=new Set(derived.contacts.flatMap(q=>q.newKeys)).size;
+const meta={...analyticsFixtureMeta,total:rows.length,name:"CQ WW SSB · SYNTHETIC REHEARSAL",score:{qsos:rows.length,points,multipliers,total:points*multipliers},capturedAt:new Date().toISOString()};
+createRoot(document.getElementById("root")!).render(<ContestAnalyticsWindow initialSnapshot={{meta,rows}}/>);

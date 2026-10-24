@@ -61,7 +61,15 @@ for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "Calls
   // less than 0.03% to the shared Logbook graph. Node 22 and Node 24 currently
   // differ by 20 emitted bytes, so retain a bounded 150-byte allowance above
   // the larger verified graph instead of making the gate toolchain-dependent.
-  const budget = name === "Settings" ? 408_000 : name === "QSO" ? 407_000 : name === "Logbook" ? 402_250 : 401_000;
+  // Analytics adds a lazy route and its preload descriptors (220 bytes in the
+  // measured Logbook graph); the analytics UI/worker stay outside startup.
+  const budget = name === "Settings" ? 408_000 : name === "QSO" ? 407_000 : name === "Logbook" ? 402_750 : 401_000;
   console.log(JSON.stringify({ window: name, bytes, gzip, files }));
   assert(bytes <= budget, `${name} startup JavaScript exceeds the ${budget / 1_000} kB budget: ${bytes}`);
 }
+const analyticsEntry = "src/contesting/ContestAnalyticsWindow.tsx";
+assert(manifest[analyticsEntry], "Contest Analytics lazy entry is missing");
+assert(!eagerGraph.has(analyticsEntry), "Contest Analytics is loaded by ordinary window startup");
+const analyticsGraph = closure(analyticsEntry);
+assert(!analyticsGraph.has(main), "Analytics imports the live station controller");
+assert(!analyticsGraph.has("src/Map.tsx"), "Analytics imports the map renderer");

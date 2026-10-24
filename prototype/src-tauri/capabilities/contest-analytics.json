@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "contest-analytics",
+  "description": "Bundled read-only contest analytics window.",
+  "windows": ["contest-analytics"],
+  "permissions": ["core:default", "core:webview:allow-set-webview-zoom"]
+}

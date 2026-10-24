@@ -14,6 +14,7 @@ export async function loadContestWindowSurface(query: URLSearchParams): Promise<
   if(view==="contest-setup-digital")return(await import("./DetachedContestDigitalDialog")).DetachedContestDigitalDialog;
   if(view==="contest-log-transfer")return(await import("./ContestLogTransferWindow")).ContestLogTransferWindow;
   if(view==="contest-log-review")return(await import("./ContestLogReviewWindow")).ContestLogReviewWindow;
+  if(view==="contest-analytics")return(await import("./ContestAnalyticsWindow")).ContestAnalyticsWindow;
   if(view==="contest-setup")return(await import("./DetachedContestSetupSurface")).DetachedContestSetupSurface;
   if(view==="call-history")return(await import("./DetachedContestCallHistorySurface")).DetachedContestCallHistorySurface;
   if(view==="qrz-details")return(await import("./DetachedContestQRZDetailsSurface")).DetachedContestQRZDetailsSurface;

@@ -13,6 +13,7 @@ import { loadContestWindowSurface, sharedContestWindowViews } from "./loadContes
 import { loadWindowSurface } from "../windowSurface";
 import { ContestLogTransferWindow } from "./ContestLogTransferWindow";
 import { ContestLogReviewWindow } from "./ContestLogReviewWindow";
+import { ContestAnalyticsWindow } from "./ContestAnalyticsWindow";
 import { DetachedRotorSurface } from "../live/DetachedRotorSurface";
 import { DetachedStationControlSurface } from "../live/DetachedStationControlSurface";
 
@@ -51,6 +52,7 @@ describe("contest window route completeness", () => {
     ["contest-setup-about", DetachedContestAuxiliaryDialog],
     ["contest-log-transfer", ContestLogTransferWindow],
     ["contest-log-review", ContestLogReviewWindow],
+    ["contest-analytics", ContestAnalyticsWindow],
   ] as const)("routes ancillary contest window %s", async (view, renderer) => {
     await expect(loadWindowSurface(`?view=${view}&scope=contesting`)).resolves.toBe(renderer);
   });

@@ -19,6 +19,7 @@ from xml.etree import ElementTree
 
 from .store import CALLHISTORY_COLUMNS, Store, canonical
 from .rates import calculate_rates
+from .analytics import AnalyticsCopies
 from .legacy_import import LegacyImportError, inspect_source, row_digest
 from .n1mm import N1MMOutput
 from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, ARRL_VHF_PLUGINS, CENTRAL_EUROPEAN_PLUGINS,
@@ -1090,6 +1091,7 @@ class Host:
         self.root = supplied.resolve()
         self.stores = {}
         self.exports = {}
+        self.analytics = AnalyticsCopies()
         self._operation = None
         self._n1mm_events = None
         self.n1mm = N1MMOutput()
@@ -1329,6 +1331,11 @@ class Host:
         state = store.state(session_id)
         require(state is not None, "Session does not exist", "not_found")
         self.verify_engine(state)
+        if method == "analytics":
+            require(params.get("workspaceGeneration") == workspace_generation(state),
+                    "Analytics workspace changed", "stale_context")
+            return self.analytics.read(store, state, params, lambda current: Desk(store, current, self.commit),
+                                       BAND_LABELS, require)
         if method.startswith("history_"):
             return self.callhistory(store, state, method, params)
         if method in {"multi_serial_reserve", "multi_dupe_inquiry", "multi_changes"}:

@@ -8,6 +8,51 @@ import XLogPortableCore
 @testable import XLogPrototypeSupport
 
 final class PythonContestLaneTests: XCTestCase {
+    func testAnalyticsSnapshotThroughRealPythonBridgeKeepsDraftAndLogSeparate() async throws {
+        let root = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
+            .appendingPathComponent("xlog-analytics-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let lane = try PythonContestLane(configuration: PythonContestHostConfiguration(
+            executableURL: try python312(),
+            launcherURL: repositoryRoot().appendingPathComponent("python/contest_host/launcher.py"),
+            dataRootURL: root))
+        let session = UUID().uuidString.lowercased(), workspace = UUID().uuidString.lowercased()
+        let created = try await lane.handle(method: "contest_session_create", params: [
+            "sessionID": session, "workspaceGeneration": workspace,
+            "operationID": UUID().uuidString.lowercased(), "expectedRevision": 0,
+            "pluginID": "cq_ww_ssb", "frequencyHz": 14_200_000,
+            "station": ["Call": "OM0RX", "CQZone": "15"], "settings": ["SentExchange": "15"],
+        ])
+        let projection = try XCTUnwrap(created["projection"] as? [String: Any])
+        let committed = try await lane.handle(method: "contest_qso_commit", params: [
+            "sessionID": session, "operationID": UUID().uuidString.lowercased(),
+            "expectedRevision": projection["revision"]!, "fields": ["callsign": "K1ABC", "other_2": "5"],
+        ])
+        let meta = try await lane.handle(method: "contest_analytics", params: [
+            "sessionID": session, "workspaceGeneration": workspace, "action": "prepare",
+        ])
+        XCTAssertEqual(meta["total"] as? Int, 1)
+        let id = try XCTUnwrap(meta["snapshotID"] as? String)
+        let page = try await lane.handle(method: "contest_analytics", params: [
+            "sessionID": session, "workspaceGeneration": workspace, "action": "page",
+            "snapshotID": id, "offset": 0, "limit": 500,
+        ])
+        let row = try XCTUnwrap((page["rows"] as? [[String: Any]])?.first)
+        XCTAssertEqual(row["call"] as? String, "K1ABC")
+        XCTAssertEqual(row["band"] as? String, "20m")
+        XCTAssertEqual(row["zone"] as? String, "5")
+        let current = try XCTUnwrap(committed["projection"] as? [String: Any])
+        _ = try await lane.handle(method: "contest_draft_apply", params: [
+            "sessionID": session, "operationID": UUID().uuidString.lowercased(),
+            "expectedRevision": current["revision"]!, "fields": ["callsign": "JA1ABC"],
+        ])
+        let check = try await lane.handle(method: "contest_analytics", params: [
+            "sessionID": session, "workspaceGeneration": workspace, "action": "check", "snapshotID": id,
+        ])
+        XCTAssertEqual(check["current"] as? Bool, true, "Typing and lazy CTY hydration must not invalidate the log copy")
+        await lane.shutdown()
+    }
+
     func testObservedSpotCallResolvesCountryBeforeCQWWZonePrefill() async throws {
         let temporary = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
             .appendingPathComponent("xlog-observed-spot-\(UUID().uuidString)", isDirectory: true)

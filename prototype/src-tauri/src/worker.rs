@@ -256,6 +256,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "contest_score",
         "contest_spot_points_preview",
         "contest_rates",
+        "contest_analytics",
         "contest_check_partial",
         "contest_setup_get",
         "contest_setup_save",
