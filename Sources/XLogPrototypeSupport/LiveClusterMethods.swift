@@ -77,6 +77,7 @@ private struct ContestForwardedRadioSpot {
     let spotID: String
     let payload: ClusterRadioSpotPayload
     let signature: String
+    let forwardedAt: Date
 }
 
 /// Serializes and memoizes secure-store reads for the worker lifetime. Cluster
@@ -141,6 +142,7 @@ public actor LiveClusterMethods {
     private let forwardClassifiedIngressSpots: Bool
     private let spotForward: @Sendable (ClusterRadioSpotPayload, String, Bool) async throws -> Bool
     private let spotRemove: @Sendable (ClusterRadioSpotPayload, String) async throws -> Bool
+    private let contestRadioClock: @Sendable () -> Date
     private let beforeContestSpotPublication: @Sendable () async throws -> Void
     private let retirePersistedContestSpots: (@Sendable () async throws -> Void)?
     private var withdrewPriorRadioSpots = false
@@ -190,7 +192,8 @@ public actor LiveClusterMethods {
              return false
              #endif
          }, beforeContestSpotPublication: (@Sendable () async throws -> Void)? = nil,
-         retirePersistedContestSpots: (@Sendable () async throws -> Void)? = nil) {
+          retirePersistedContestSpots: (@Sendable () async throws -> Void)? = nil,
+          contestRadioClock: @escaping @Sendable () -> Date = { Date() }) {
         self.logbook = logbook
         self.vault = CachedClusterCredentialStore(base: vault)
         self.transportFactory = transportFactory
@@ -198,6 +201,7 @@ public actor LiveClusterMethods {
         self.forwardClassifiedIngressSpots = forwardClassifiedIngressSpots
         self.spotForward = spotForward
         self.spotRemove = spotRemove
+        self.contestRadioClock = contestRadioClock
         if let beforeContestSpotPublication {
             self.beforeContestSpotPublication = beforeContestSpotPublication
         } else if logbook === LiveLogbookMethods.shared {
@@ -791,7 +795,7 @@ public actor LiveClusterMethods {
         let config = try currentConfiguration()
         let enabledProviders = Set([(config.forwardSpotsToFlex, "direct_agent"),
                                     (config.forwardSpotsToTCI, "direct_tci")].filter(\.0).map(\.1))
-        let now = Date(), bandSet = Set(publication.configuredBands), modeSet = Set(publication.allowedModeGroups)
+        let now = contestRadioClock(), bandSet = Set(publication.configuredBands), modeSet = Set(publication.allowedModeGroups)
         var desired: [String: ContestForwardedRadioSpot] = [:]
         var filtered = 0
         if forwardingAvailable {
@@ -816,7 +820,7 @@ public actor LiveClusterMethods {
                 let signature = "\(payload.callsign)|\(payload.frequencyHz)|\(payload.mode)|\(payload.colorHex)|\(payload.spotter)|\(payload.comment)"
                 for provider in enabledProviders {
                     desired["\(provider)|\(spot.spotID)"] = ContestForwardedRadioSpot(
-                        spotID: spot.spotID, payload: payload, signature: signature)
+                        spotID: spot.spotID, payload: payload, signature: signature, forwardedAt: now)
                 }
             }
         }
@@ -880,14 +884,18 @@ public actor LiveClusterMethods {
         }
         for (key, next) in desired {
             if let current = contestForwardedSpots[key] {
-                if current.signature == next.signature { unchanged += 1 }
-                else { rejected += 1 }
-                continue
+                guard current.signature == next.signature else { rejected += 1; continue }
+                // The radio expires spots after 600 seconds. A fresh, fully
+                // admitted publication renews retained spots before that lease
+                // ends; unchanged classification must not suppress them forever.
+                if now.timeIntervalSince(current.forwardedAt) < 480 { unchanged += 1; continue }
             }
             guard let provider = key.split(separator: "|").first.map(String.init) else { rejected += 1; continue }
             do {
                 if try await spotForward(next.payload, provider, true) {
-                    contestForwardedSpots[key] = next
+                    contestForwardedSpots[key] = ContestForwardedRadioSpot(
+                        spotID: next.spotID, payload: next.payload, signature: next.signature,
+                        forwardedAt: contestRadioClock())
                     accepted += 1
                     forwardAcceptedCount += 1
                 } else { rejected += 1 }

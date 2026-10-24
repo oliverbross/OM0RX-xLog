@@ -46,12 +46,14 @@ private actor ClusterRadioSpotRecorder {
     private var active: [String: (ClusterRadioSpotPayload, String)] = [:]
     private var lifecycle: [String] = []
     private var removalAccepted = true
+    private var forwardAccepted = true
     private func key(_ payload: ClusterRadioSpotPayload, provider: String) -> String {
         "\(provider)|\(payload.callsign)|\(payload.frequencyHz)"
     }
     func forward(_ payload: ClusterRadioSpotPayload, provider: String, replacing: Bool) -> Bool {
         lifecycle.append("forward")
         values.append((payload, provider, replacing))
+        guard forwardAccepted else { return false }
         active[key(payload, provider: provider)] = (payload, provider)
         return true
     }
@@ -72,6 +74,14 @@ private actor ClusterRadioSpotRecorder {
     func recordCleanup() { lifecycle.append("cleanup") }
     func lifecycleSnapshot() -> [String] { lifecycle }
     func setRemovalAccepted(_ accepted: Bool) { removalAccepted = accepted }
+    func setForwardAccepted(_ accepted: Bool) { forwardAccepted = accepted }
+}
+
+private final class ContestSpotTestClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = Date()
+    func now() -> Date { lock.withLock { value } }
+    func advance(_ seconds: TimeInterval) { lock.withLock { value.addTimeInterval(seconds) } }
 }
 
 @Suite("Portable live cluster worker bridge")
@@ -181,6 +191,60 @@ struct LiveClusterMethodsTests {
                                         session: nextSession, workspace: nextGeneration)
         #expect(cleared["removed"] as? Int == 4)
         #expect((await recorder.removed()).count == 9)
+        await cluster.terminate()
+    }
+
+    @Test("Current contest publications renew unchanged radio spots before expiry and retry rejected renewals")
+    func contestRadioSpotLeaseRenewal() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let configurationURL = root.appendingPathComponent("cluster.json")
+        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [], forwardSpotsToFlex: true))
+            .write(to: configurationURL)
+        let recorder = ClusterRadioSpotRecorder(), clock = ContestSpotTestClock()
+        let cluster = LiveClusterMethods(
+            logbook: LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false),
+            configurationURL: configurationURL, vault: UnavailableClusterTestVault(),
+            forwardClassifiedIngressSpots: false,
+            spotForward: { await recorder.forward($0, provider: $1, replacing: $2) },
+            spotRemove: { await recorder.remove($0, provider: $1) },
+            contestRadioClock: { clock.now() })
+        let publisherID = UUID().uuidString, sessionID = UUID().uuidString, generation = UUID().uuidString
+        let timestamp = clock.now().timeIntervalSinceReferenceDate
+        let spots: [[String: Any]] = [["spot_id": "local-heard", "callsign": "DL1AAA", "frequency_hz": 7_125_000,
+            "band": "40m", "mode": "SSB", "spotter": "OM0RX", "comment": "CQ TEST", "timestamp": timestamp,
+            "points": 3, "dupe": false, "multiplier_count": 1, "country_multiplier": true, "zone_multiplier": false]]
+        func publish(_ sequence: Int, action: String = "replace") async throws -> [String: Any] {
+            try await cluster.handle(method: "cluster_contest_radio_spots_publish", params: [
+                "publisher_id": publisherID, "publisher_started_at": 1_800_000_000_000,
+                "publication_sequence": sequence, "action": action, "session_id": sessionID,
+                "workspace_generation": generation, "revision": 7, "configured_bands": ["40m"],
+                "allowed_mode_groups": ["phone"], "chunk_index": 0, "chunk_count": 1,
+                "spots": action == "clear" ? [] : spots])
+        }
+        #expect(try await publish(1)["accepted"] as? Int == 1)
+        clock.advance(479)
+        #expect(try await publish(2)["unchanged"] as? Int == 1)
+        #expect((await recorder.snapshot()).count == 1)
+        clock.advance(1)
+        #expect(try await publish(3)["accepted"] as? Int == 1)
+        #expect((await recorder.snapshot()).count == 2)
+        #expect((await recorder.removed()).isEmpty)
+        clock.advance(601)
+        #expect(try await publish(2)["stale"] as? Bool == true)
+        #expect((await recorder.snapshot()).count == 2)
+        await recorder.setForwardAccepted(false)
+        #expect(try await publish(4)["rejected"] as? Int == 1)
+        await recorder.setForwardAccepted(true)
+        // A rejected renewal must not advance the accepted lease or suppress retry.
+        #expect(try await publish(4)["accepted"] as? Int == 1)
+        #expect((await recorder.snapshot()).count == 4)
+        #expect(try await publish(5)["unchanged"] as? Int == 1)
+        #expect(try await publish(6, action: "clear")["removed"] as? Int == 1)
+        clock.advance(601)
+        #expect(try await publish(5)["stale"] as? Bool == true)
+        #expect((await recorder.activeSnapshot()).isEmpty)
         await cluster.terminate()
     }
 
