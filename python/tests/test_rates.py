@@ -5,6 +5,17 @@ from contest_host.rates import calculate_rates
 
 
 class RatesTimelineTests(unittest.TestCase):
+    def test_wall_clock_rate_boundary_and_unknown_style_survive_bad_timestamp(self):
+        rows = [{"ID":"a","TS":"2026-10-25 12:00:00","IsRunQSO":1},
+                {"ID":"b","TS":"2026-10-25 12:01:00","IsRunQSO":None},
+                {"ID":"c","TS":"broken","IsRunQSO":0}]
+        result = calculate_rates(rows, datetime(2026,10,25,12,30,tzinfo=UTC))
+        self.assertEqual(result["lastHourQsoPerHour"], 2)
+        self.assertEqual(result["sinceHourQso"], 2)
+        self.assertEqual(result["searchAndPounceQso"], 0)
+        self.assertEqual(result["unknownStyleQso"], 1)
+        self.assertEqual(result["invalidTimestampQso"], 1)
+
     def test_hourly_timeline_keeps_utc_day_and_quiet_hours(self):
         rows = [{"ID": str(index), "TS": stamp, "IsRunQSO": 0} for index, stamp in enumerate([
             "2026-10-24 23:59:00", "2026-10-25T02:00:00+02:00", "2026-10-25 02:15:00",

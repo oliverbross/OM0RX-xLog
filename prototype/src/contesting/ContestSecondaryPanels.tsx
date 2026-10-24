@@ -22,11 +22,11 @@ export function Rates({ projection,preferenceScope="default" }: { projection: Co
   const hourly=projection.hourly?.slice(-24)??[],goalKey=`xlog.contesting.hourly-goal.v1/${preferenceScope}`,
     [goal,setGoal]=useState(()=>readPanelNumber(goalKey,0,0,1000)),maximum=Math.max(1,goal,...hourly.map(hour=>hour.qsos));
   useEffect(()=>{try{localStorage.setItem(goalKey,String(goal));}catch{/* Goals remain usable without storage. */}},[goal,goalKey]);
-  const rates = [["Last hour", projection.lastHourQsoPerHour,"current"], ["10 Last QSO", projection.last10QsoPerHour,"ten"],
-    ["100 Last QSO", projection.last100QsoPerHour,"hundred"]] as const;
+  const rates = [["Last 60 min logged", projection.lastHourQsoPerHour,"current"], ["10-contact pace", projection.last10QsoPerHour,"ten"],
+    ["100-contact pace", projection.last100QsoPerHour,"hundred"]] as const;
   const sinceLabel = `Since ${String(projection.sinceHourUTC).padStart(2, "0")}:00:00z`;
   return <section aria-label="Contest Rates" aria-busy={projection.busy} className="contest-surface-rates"><h1>Rates</h1>
-    <p className="contest-surface-rate-scope">All bands · All modes</p><RatesClock lastQsoAt={projection.lastQsoAt}/><dl>{rates.map(([label, value,kind]) => <div key={label} className={`contest-surface-rate-${kind}`}><dt>{label}:</dt><dd>{value === null ? <span aria-label="Not enough contacts">—</span> : value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>Q/h</small></dd></div>)}
+    <p className="contest-surface-rate-scope" title="Last 60 min uses a fixed 60-minute denominator. Contact pace uses N contacts across N−1 intercontact intervals. Invalid timestamps are excluded; missing style is unclassified.">All bands · All modes · Fixed 60-min window</p><RatesClock lastQsoAt={projection.lastQsoAt}/><dl>{rates.map(([label, value,kind]) => <div key={label} className={`contest-surface-rate-${kind}`}><dt>{label}:</dt><dd>{value === null ? <span aria-label="Not enough contacts">—</span> : value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>Q/h</small></dd></div>)}
       <div className="contest-surface-rate-since"><dt>{sinceLabel}:</dt><dd>{projection.sinceHourQso.toLocaleString()} <small>QSO</small></dd></div></dl>
     <table aria-label="Run and Search & Pounce QSOs"><tbody>{[["Run QSO",projection.runQso],["S&P QSO",projection.searchAndPounceQso],
       ["Hour Run QSO",projection.hourRunQso],["Hour S&P QSO",projection.hourSearchAndPounceQso]].map(([label,value])=><tr key={label} className={String(label).includes("S&P")?"contest-surface-rate-search":"contest-surface-rate-run"}><th scope="row">{label}:</th><td>{value.toLocaleString()}</td></tr>)}</tbody></table>
