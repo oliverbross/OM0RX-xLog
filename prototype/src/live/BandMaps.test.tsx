@@ -96,6 +96,9 @@ describe("native band-map parity", () => {
     expect(changeBand).toHaveBeenCalledWith("20m");
     fireEvent.change(screen.getByLabelText("Band map resolution"), { target: { value: "5" } });
     expect((screen.getByLabelText("Band map resolution") as HTMLSelectElement).value).toBe("5");
+    expect(screen.getByLabelText("40m spectrum, 7.098–7.202 MHz")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Band map resolution"), { target: { value: "10" } });
+    expect(screen.getByLabelText("40m spectrum, 7.124–7.176 MHz")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Spot age"), { target: { value: "45" } });
     expect((screen.getByLabelText("Spot age") as HTMLSelectElement).value).toBe("45");
   });

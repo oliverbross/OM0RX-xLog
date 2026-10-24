@@ -309,12 +309,15 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
     if (resolution === "custom") return;
     if (resolution === "full") { setView(current => current.low === full.low && current.high === full.high ? current : { low: full.low, high: full.high }); return; }
     setView(current => {
-      const span = Math.min(full.high - full.low, Math.max(2, chartHeight / resolution));
+      // Resolution is a stable operator zoom preset, not a request to expand
+      // the frequency span again when the window becomes unusually tall.
+      const densityHeight = Math.min(chartHeight, compact ? 336 : 520);
+      const span = Math.min(full.high - full.low, Math.max(2, densityHeight / resolution));
       const centre = changed && focusRef.current != null ? focusRef.current : (current.low + current.high) / 2;
       const low = Math.max(full.low, Math.min(full.high - span, centre - span / 2));
       return { low, high: low + span };
     });
-  }, [resolution, chartHeight, full.low, full.high]);
+  }, [resolution, chartHeight, compact, full.low, full.high]);
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
