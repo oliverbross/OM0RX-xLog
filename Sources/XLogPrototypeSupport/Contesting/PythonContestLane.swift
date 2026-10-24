@@ -114,6 +114,12 @@ actor PythonContestLane {
             if method == "contest_log" || method == "contest_log_page" || method == "contest_check_partial" {
                 canonicalizeCountryPrefixes(in: &result)
             }
+            if method == "contest_score" {
+                result["countryUniverse"] = reference.entityNamesByPrefix.keys.sorted().map { prefix -> [String: Any] in
+                    ["value": prefix, "label": reference.entityNamesByPrefix[prefix] ?? prefix,
+                     "continent": reference.countryContinentsByPrefix[prefix].map { $0 as Any } ?? NSNull()]
+                }
+            }
             if let projection = result["projection"] as? [String: Any] {
                 activeProjection = projection
             }

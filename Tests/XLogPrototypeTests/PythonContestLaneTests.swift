@@ -559,6 +559,17 @@ for line in sys.stdin:
         let matrices = try XCTUnwrap(score["matrices"] as? [String: Any])
         let countries = try XCTUnwrap(matrices["countries"] as? [[String: Any]])
         XCTAssertEqual(countries.map { $0["value"] as? String }, ["OE"])
+        let universe = try XCTUnwrap(score["countryUniverse"] as? [[String: Any]])
+        let prefixes = universe.compactMap { $0["value"] as? String }
+        XCTAssertGreaterThan(prefixes.count, 300)
+        XCTAssertEqual(Set(prefixes).count, prefixes.count)
+        let austria = try XCTUnwrap(universe.first { $0["value"] as? String == "OE" })
+        let vienna = try XCTUnwrap(universe.first { $0["value"] as? String == "*4U1V" })
+        XCTAssertEqual(austria["continent"] as? String, "EU")
+        XCTAssertEqual(vienna["continent"] as? String, "EU")
+        XCTAssertNotEqual(austria["label"] as? String, vienna["label"] as? String)
+        XCTAssertTrue(universe.contains { $0["value"] as? String == "K" })
+        XCTAssertFalse(prefixes.contains("OE8DDX"))
         await repairedLane.shutdown()
     }
 

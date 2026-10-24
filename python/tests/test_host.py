@@ -282,7 +282,10 @@ class HostTests(unittest.TestCase):
         rates = calculate_rates(rows, at)
         self.assertEqual(rates, {"lastHourQsoPerHour": 4, "last10QsoPerHour": None,
             "last100QsoPerHour": None, "sinceHourUTC": 9, "sinceHourQso": 1,
-            "runQso": 2, "searchAndPounceQso": 1, "hourRunQso": 0, "hourSearchAndPounceQso": 1})
+            "runQso": 2, "searchAndPounceQso": 1, "hourRunQso": 0, "hourSearchAndPounceQso": 1,
+            "hourly": [{"hourUTC": "2026-10-19T08:00:00Z", "qsos": 1},
+                       {"hourUTC": "2026-10-19T09:00:00Z", "qsos": 2}],
+            "lastQsoAt": "2026-10-19T09:30:00Z"})
         self.assertEqual(calculate_rates(rows, at.replace(minute=0))["sinceHourQso"], 0)
         boundary = [{"ID": "after", "TS": "2026-10-19T09:00:00.001Z", "IsRunQSO": 1}]
         self.assertEqual(calculate_rates(boundary, at)["sinceHourQso"], 1)

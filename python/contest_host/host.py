@@ -896,6 +896,15 @@ class Desk:
                 return definition["value"]
         raise HostError("invalid_frequency", "Frequency is outside supported contest bands")
 
+    def exchange_warnings(self):
+        if self.state["pluginID"] != "cq_ww_ssb":
+            return []
+        call = self.parsed_call()
+        country = self.state["reference"]["countries"].get(call, {})
+        prior = self.database.exec_sql_mult(
+            "SELECT DISTINCT ZN FROM DXLOG WHERE ContestNR=? AND Call=?", (self.database.current_contest, call)) if call else []
+        return Host.exchange_warnings(self.other_2.text(), country, [row["ZN"] for row in prior])
+
     def projection(self):
         if (self.state.get("setup", {}).get("preferences", {}).get("callHistory", True) is not False
                 and hasattr(self.contest, "populate_history_info_line")):
@@ -983,6 +992,7 @@ class Desk:
                                     "Duplicate checking disabled." if self.contest.dupe_type == 4 else
                                     "Worked on this band."),
                 "countryResolved": bool(self.cty_lookup(call)), "history": self.history_info.text(),
+                "exchangeWarnings": self.exchange_warnings(),
                 "columns": (list(CQ_WW_SSB_LOG_COLUMNS) if self.state["pluginID"] == "cq_ww_ssb"
                             else self.contest.columns), "score": self.score()}
 
@@ -1402,6 +1412,7 @@ class Host:
                     row["raw_fields"] = json.loads(row["raw_fields"]) if row["raw_fields"] else {}
                     row["country_identity"] = json.loads(row["country_identity"]) if row["country_identity"] else None
                     self.add_legacy_provenance(store, row)
+                self.add_exchange_warnings(store, state, rows)
                 return {"sessionID": session_id, "revision": state["revision"], "query": query,
                         "limit": limit, "total": total, "rows": rows}
             finally:
@@ -1594,6 +1605,7 @@ class Host:
                 row["raw_fields"] = json.loads(row["raw_fields"]) if row["raw_fields"] else {}
                 row["country_identity"] = json.loads(row["country_identity"]) if row["country_identity"] else None
                 self.add_legacy_provenance(store, row)
+            self.add_exchange_warnings(store, state, rows)
             return {"sessionID": session_id, "revision": state["revision"], "offset": offset, "limit": limit,
                     "total": store.exec_sql("SELECT count(*) AS n FROM DXLOG")["n"],
                     "rows": rows}
@@ -2615,6 +2627,41 @@ class Host:
         finally:
             self._operation = None
             self._n1mm_events = None
+
+    @staticmethod
+    def exchange_warnings(received, country, prior_zones):
+        received = str(received).strip()
+        if not received.isdigit() or not 1 <= int(received) <= 40:
+            return []
+        zone = int(received)
+        expected = country.get("cq") if isinstance(country, dict) else None
+        warnings = []
+        if type(expected) is int and 1 <= expected <= 40 and expected != zone:
+            warnings.append({"fieldID": "other_2", "kind": "mismatch",
+                             "message": f"Reference suggests CQ zone {expected}; received zone {zone} is retained."})
+        previous = sorted({int(str(value).strip()) for value in prior_zones
+                           if str(value).strip().isdigit() and 1 <= int(str(value).strip()) <= 40
+                           and int(str(value).strip()) != zone})
+        if previous:
+            values = ", ".join(str(value) for value in previous)
+            warnings.append({"fieldID": "other_2", "kind": "conflict",
+                             "message": f"Other logged contacts with this call use CQ zone {values}; received zone {zone} is retained."})
+        return warnings
+
+    @staticmethod
+    def add_exchange_warnings(store, state, rows):
+        if state["pluginID"] != "cq_ww_ssb" or not rows:
+            return
+        calls = sorted({row["Call"] for row in rows})
+        placeholders = ",".join("?" for _ in calls)
+        prior = {}
+        for contact in store.exec_sql_mult(
+                f"SELECT DISTINCT Call,ZN FROM DXLOG WHERE ContestNR=? AND Call IN ({placeholders})",
+                (store.current_contest, *calls)):
+            prior.setdefault(contact["Call"], []).append(contact["ZN"])
+        for row in rows:
+            country = row.get("country_identity") or state["reference"]["countries"].get(row["Call"], {})
+            row["exchangeWarnings"] = Host.exchange_warnings(row.get("ZN", ""), country, prior.get(row["Call"], []))
 
     @staticmethod
     def add_legacy_provenance(store, row):

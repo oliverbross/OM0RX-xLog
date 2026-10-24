@@ -1772,24 +1772,40 @@ struct ContestReferenceData {
     let entityNames: [Int: String]
     let entityNamesByPrefix: [String: String]
     let countryReference: ContestCountryMultiplierReference?
+    let countryContinentsByPrefix: [String: String]
+
+    init(resolver: CTYResolver, version: String, primaryPrefixes: [Int: String],
+         entityNames: [Int: String], entityNamesByPrefix: [String: String],
+         countryReference: ContestCountryMultiplierReference?, countryContinentsByPrefix: [String: String] = [:]) {
+        self.resolver = resolver; self.version = version; self.primaryPrefixes = primaryPrefixes
+        self.entityNames = entityNames; self.entityNamesByPrefix = entityNamesByPrefix
+        self.countryReference = countryReference; self.countryContinentsByPrefix = countryContinentsByPrefix
+    }
 
     static func bundled(countryReference: ContestCountryMultiplierReference? = nil) throws -> Self {
         let csv = try CTYResolver.bundledCSV()
         var hash: UInt64 = 14_695_981_039_346_656_037
         for byte in csv.utf8 { hash = (hash ^ UInt64(byte)) &* 1_099_511_628_211 }
         var prefixes: [Int: String] = [:], names: [Int: String] = [:], namesByPrefix: [String: String] = [:]
+        var continentsByPrefix: [String: String] = [:]
         for line in csv.split(whereSeparator: \.isNewline) {
             let columns = csvColumns(String(line))
+            // CQ WW named entities may share an ADIF number. Keep every unique
+            // primary CTY row, without expanding its callsign/prefix aliases.
+            if columns.count >= 4, !columns[0].isEmpty {
+                let prefix = columns[0].uppercased()
+                namesByPrefix[prefix] = columns[1]
+                continentsByPrefix[prefix] = columns[3].uppercased()
+            }
             if columns.count >= 3, let adif = Int(columns[2]), prefixes[adif] == nil {
                 let prefix = columns[0].uppercased()
                 prefixes[adif] = prefix
                 names[adif] = columns[1]
-                namesByPrefix[prefix] = columns[1]
             }
         }
         return .init(resolver: try CTYResolver.bundled(), version: String(format: "bundled-cty-fnv64-%016llx", hash),
                      primaryPrefixes: prefixes, entityNames: names, entityNamesByPrefix: namesByPrefix,
-                     countryReference: countryReference)
+                      countryReference: countryReference, countryContinentsByPrefix: continentsByPrefix)
     }
 
     func resolve(_ callsign: String, at date: Date) -> CountryInfo? { resolver.resolve(callsign, at: date) }

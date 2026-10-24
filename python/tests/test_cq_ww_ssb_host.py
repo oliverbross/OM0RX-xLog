@@ -431,6 +431,27 @@ class CQWWSSBHostTests(unittest.TestCase):
             {"value": 5, "band": 14.0, "qsos": 1},
         ])
 
+    def test_zone_mismatch_and_history_conflict_warn_without_rewriting_received_exchange(self):
+        self.log("K1ABC", "5")
+        changed = self.mutate("draft_apply", fields={"callsign": "K1ABC", "other_2": "9"})
+        # The first new callsign gets its canonical prefill; an explicit operator
+        # edit on that same call is retained and only produces advisory warnings.
+        changed = self.mutate("draft_apply", fields={"other_2": "9"})
+        projection = changed["projection"]
+        self.assertEqual(next(field["value"] for field in projection["fields"] if field["id"] == "other_2"), "9")
+        self.assertEqual({warning["kind"] for warning in projection["exchangeWarnings"]}, {"mismatch", "conflict"})
+        self.assertTrue(all(warning["fieldID"] == "other_2" for warning in projection["exchangeWarnings"]))
+        committed = self.log("K1ABC", "9", minute=1)
+        revision = self.revision
+        rows = self.read("log")["rows"]
+        row = next(row for row in rows if row["ID"] == committed)
+        self.assertEqual(row["ZN"], 9)
+        self.assertEqual(row["raw_fields"]["other_2"], "9")
+        self.assertEqual({warning["kind"] for warning in row["exchangeWarnings"]}, {"mismatch", "conflict"})
+        partial = self.read("check_partial", query="K1ABC")["rows"]
+        self.assertEqual(next(item for item in partial if item["ID"] == committed)["exchangeWarnings"], row["exchangeWarnings"])
+        self.assertEqual(self.revision, revision)
+
     def test_valid_same_country_zero_point_qso_keeps_both_multipliers(self):
         self.log("OM1ABC", "15")
         self.assertEqual(self.read("score")["score"], {
