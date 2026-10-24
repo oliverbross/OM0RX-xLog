@@ -22,7 +22,9 @@ import { requestViaSession } from "../live/DetachedClusterBridge";
 import { connectMonitorContext, observedReceiveBandwidthHz, type MonitorContext } from "../live/monitorContext";
 import "./DetachedContestSurface.css";
 import { ContestQRZDetailsSurface } from "./DetachedContestQRZDetailsSurface";
+import { Rates, Matrix } from "./ContestSecondaryPanels";
 import { contestADIFImport, type ContestADIFImportRecord } from "./contestAdifImport";
+import { moveContestLogColumn, persistContestLogView, readContestLogView, readPanelNumber, type ContestLogView } from "./contestPanelPreferences";
 
 const WorldMap = lazy(() => import("../Map"));
 
@@ -224,12 +226,13 @@ function Surface({ context }: { context: Context }) {
       : snapshot.panelID === "callsign-intelligence" ? <Check projection={projection as Extract<typeof projection, { scp: unknown }>} disabled={projection.busy}
           projectionRevision={snapshot.projectionRevision} receipts={snapshot.receipts} send={send}/>
       : snapshot.panelID === "propagation" ? <Statistics projection={projection as ContestStatisticsSurfaceProjection}/>
-      : snapshot.panelID === "monitor" ? <Rates projection={projection as ContestRatesSurfaceProjection}/>
+      : snapshot.panelID === "monitor" ? <Rates key={context.sessionID} projection={projection as ContestRatesSurfaceProjection} preferenceScope={context.sessionID}/>
       : snapshot.panelID === "score-reporting" ? <ScoreReporting projection={projection as ContestScoreReportingSurfaceProjection}
           projectionRevision={snapshot.projectionRevision} send={send}/>
       : snapshot.panelID === "messages" ? <Messages projection={projection as ContestMessagesSurfaceProjection}/>
-      : snapshot.panelID === "awards" || snapshot.panelID === "chaser-dx" ? <Matrix projection={projection as ContestMatrixSurfaceProjection}
-          preferenceScope={`${context.sessionID}/${snapshot.panelID}`}/>
+      : snapshot.panelID === "awards" || snapshot.panelID === "chaser-dx" ? <Matrix key={`${context.sessionID}/${snapshot.panelID}`} projection={projection as ContestMatrixSurfaceProjection}
+          preferenceScope={`${context.sessionID}/${snapshot.panelID}`} onSelectSpot={typeof (projection as any).draftID==="string"?spotID=>void send({action:"spot_select",params:{
+            draftID:(projection as any).draftID,expectedDraftRevision:(projection as any).draftRevision,spotID}},snapshot.projectionRevision):undefined}/>
       : snapshot.panelID === "logbook" ? editorOnly
         ? <ContactEditor projection={projection as Extract<typeof projection, { page: unknown }>} disabled={projection.busy} sending={sending}
             projectionRevision={snapshot.projectionRevision} receipts={snapshot.receipts} send={send}/>
@@ -470,6 +473,7 @@ function ContestSpots({panelID,context,projection,projectionRevision,send}:{pane
         title="Request the 100 most recent spots from the connected DX cluster"
         onClick={()=>void requestClusterHistory()}>SH/DX/100</button></div>
   </div><ClusterPanel passive presentationOnly contestPresentation taskOnly snapshot={clusterSnapshot}
+    radioFrequencyHz={projection.radioFrequencyHz??undefined}
     contestBands={projection.supportedBands}
     contestCurrentBand={bandForRadio(projection.radioFrequencyHz??undefined)}
     contestBandPreferenceKey={`xlog.integration.contest.cluster-band.v1.${projection.contestSessionID??projection.draftID}`}
@@ -561,12 +565,13 @@ function useEntryIntents(projection:any,projectionRevision:number,send:Send){
     (acceptCallsignPrefill||draft.receivedFields.every((field:any)=>intended[`exchange:${field.id}`]===field.value)),[projection.draft.receivedFields.length]);
   return {values,change,flush,discard,reconcile,capture,matches};
 }
-function EntryIntentInput({label,accessibleLabel,intentKey,value,maximumUTF8Bytes,disabled,operatorField,inputRef,onFocus,onChange,className}:{
+function EntryIntentInput({label,accessibleLabel,intentKey,value,maximumUTF8Bytes,disabled,operatorField,inputRef,onFocus,onChange,className,warning}:{
   label:string;accessibleLabel?:string;intentKey:EntryIntentKey;value:string;maximumUTF8Bytes:number;disabled:boolean;operatorField?:ContestInputFieldID;
-  inputRef?:Ref<HTMLInputElement>;onFocus?:()=>void;onChange:(key:EntryIntentKey,value:string)=>void;className?:string}){
+  inputRef?:Ref<HTMLInputElement>;onFocus?:()=>void;onChange:(key:EntryIntentKey,value:string)=>void;className?:string;warning?:string}){
+  const warningID=`contest-advisory-${intentKey.replace(/[^a-z0-9]/gi,"-")}`;
   return <div className={`contest-surface-intent${className?` ${className}`:""}`}><ContestTextField label={label} aria-label={accessibleLabel} inputRef={inputRef} data-contest-field-id={operatorField} onFocus={onFocus}
-    value={value} disabled={disabled} onChange={event=>{const next=event.target.value;if(new TextEncoder().encode(next).length<=maximumUTF8Bytes)
-      onChange(intentKey,next);}}/></div>;
+    value={value} disabled={disabled} aria-describedby={warning?warningID:undefined} onChange={event=>{const next=event.target.value;if(new TextEncoder().encode(next).length<=maximumUTF8Bytes)
+      onChange(intentKey,next);}}/>{warning&&<small id={warningID} className="contest-exchange-advisory" role="status" title={warning}><span aria-hidden="true">Check exchange</span><span className="contest-advisory-description">{warning}</span></small>}</div>;
 }
 function Entry({ projection, disabled, sending, context, projectionRevision, send, refresh, settle, feedback, clearFeedback, reportConflict }: { projection: any; disabled: boolean; sending:boolean;
   context:ContestSurfaceContext;
@@ -701,7 +706,8 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
       if(action==="TOGGLE_RUN"||action==="SET_RUN"||action==="SET_S_AND_P")await send({action:"entry_operator_style",params:{...params,
         value:action==="SET_RUN"?"run":action==="SET_S_AND_P"?"search-and-pounce":currentProjection.operator?.style==="run"?"search-and-pounce":"run"}},current.projectionRevision);
       else if(action==="LOG_NOW")await send({action:"entry_commit",params},current.projectionRevision);
-      else if(action==="PREV_SPOT"||action==="NEXT_SPOT")await send({action:"entry_step_spot",params:{...params,direction:action==="PREV_SPOT"?"previous":"next"}},current.projectionRevision);
+      else if(action==="PREV_SPOT"||action==="NEXT_SPOT"||action==="PREV_MULTIPLIER"||action==="NEXT_MULTIPLIER")await send({action:"entry_step_spot",params:{...params,direction:action.startsWith("PREV_")?"previous":"next",...(action.endsWith("_MULTIPLIER")?{multiplierOnly:true}:{})}},current.projectionRevision);
+       else if(action==="QUICK_EDIT")await send({action:"entry_edit_last",params},current.projectionRevision);
       else if(action==="VFO_UP"||action==="VFO_DOWN")await send({action:"entry_step_vfo",params:{...params,direction:action==="VFO_UP"?"up":"down"}},current.projectionRevision);
       else if(action==="RETURN_CQ_FREQUENCY")await send({action:"entry_return_cq_frequency",params},current.projectionRevision);
       else if(action==="SPOT_DX")await send({action:"entry_spot",params},current.projectionRevision);
@@ -802,7 +808,8 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
     {projection.draft.receivedFields.length ? projection.draft.receivedFields.map((field:any,index:number)=>{const key=`exchange:${field.id}` as EntryIntentKey,
       fieldID=contestInputFieldIDs.includes(field.id as ContestInputFieldID)?field.id as ContestInputFieldID:index===0?"other_2":undefined;return <EntryIntentInput key={field.id}
       label={field.label} accessibleLabel={`Received exchange ${index+1}`} intentKey={key} value={intents.values[key]} maximumUTF8Bytes={field.maximumUTF8Bytes} disabled={entryBufferDisabled||field.enabled===false}
-      operatorField={fieldID} inputRef={fieldID?setFieldRef(fieldID):undefined} onFocus={fieldID?()=>focusField(fieldID):undefined} onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))}/>;}) : <div className="contest-surface-sent-number"><span>RcvNR</span><output>—</output></div>}
+      warning={projection.draft.exchangeWarnings?.filter((item:any)=>item.fieldID===field.id).map((item:any)=>item.message).join(" ")}
+       operatorField={fieldID} inputRef={fieldID?setFieldRef(fieldID):undefined} onFocus={fieldID?()=>focusField(fieldID):undefined} onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))}/>;}) : <div className="contest-surface-sent-number"><span>RcvNR</span><output>—</output></div>}
     </div>
     <div className={`contest-surface-entry-status is-${duplicateState}`} role={duplicateState==="duplicate"?"alert":"status"}>
       {intendedCall===""?<span>Ready for callsign</span>:duplicatePending?<span>Checking — {intendedCall}</span>:duplicateState==="duplicate"
@@ -866,12 +873,16 @@ function Check({ projection, disabled, projectionRevision, receipts, send }: { p
       detail:kind==="history"?item.fields.map((field:any)=>`${field.label}: ${field.value}`).join(" · "):undefined,
       className:kind==="history"?"contest-surface-history":undefined}))}
     onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind,candidateID}},projectionRevision)}/>:<p>—</p>;
+  const paneChoices=[{key:"log",title:"Log"},{key:"scp",title:"Master"},{key:"cluster",title:"Telnet"},{key:"history",title:"Call History"}];
+  const [shownPanes,setShownPanes]=useState<string[]>(()=>{try{const value=JSON.parse(localStorage.getItem("xlog.contesting.check-panes.v1")??"null");
+    return Array.isArray(value)?value.filter(key=>paneChoices.some(pane=>pane.key===key)):paneChoices.map(pane=>pane.key);}catch{return paneChoices.map(pane=>pane.key);}});
+  useEffect(()=>{try{localStorage.setItem("xlog.contesting.check-panes.v1",JSON.stringify(shownPanes));}catch{/* Optional presentation preferences. */}},[shownPanes]);
   const panes=[
     {key:"log",title:"Log",body:projection.loggedCandidates?candidates("log",projection.loggedCandidates):<p aria-label="Matching logged calls unavailable">—</p>},
     {key:"scp",title:"Master",body:candidates("scp",projection.scp.candidates)},
     ...(projection.clusterCandidates?.length?[{key:"cluster",title:"Telnet",body:candidates("cluster",projection.clusterCandidates)}]:[]),
     ...(projection.history.rows.length?[{key:"history",title:"Call History",body:candidates("history",projection.history.rows)}]:[]),
-  ];
+  ].filter(pane=>shownPanes.includes(pane.key));
   return <section className="contest-surface-check"><h1>Check Partial</h1>
     <details className="contest-surface-check-tools">
       <summary>{projection.scp.source??"MASTER.SCP unavailable"}</summary><div role="region" aria-label="Super Check Partial corpus">
@@ -880,7 +891,9 @@ function Check({ projection, disabled, projectionRevision, receipts, send }: { p
         <button type="button" disabled={disabled} onClick={()=>assistance("assistance_refresh")}>Refresh</button>
         {projection.scp.error&&<button type="button" disabled={disabled} onClick={()=>assistance(availability==="status_unavailable"?"assistance_refresh":"assistance_download")}>Retry</button>}</div>
     </div></details>
-    <div className="contest-surface-check-columns" data-pane-count={panes.length}>
+    <details className="contest-surface-pane-controls"><summary>Panes</summary><div role="group" aria-label="Check Partial panes">{paneChoices.map(pane=><label key={pane.key}>
+      <input type="checkbox" checked={shownPanes.includes(pane.key)} onChange={event=>setShownPanes(current=>event.target.checked?[...current,pane.key]:current.filter(key=>key!==pane.key))}/>{pane.title}</label>)}</div></details>
+    {panes.length===0&&<p>No panes are visible. Choose panes above.</p>}<div className="contest-surface-check-columns" data-pane-count={panes.length}>
       {panes.map(pane=><div key={pane.key} data-pane={pane.key}><h2>{pane.title}</h2>{pane.body}</div>)}
     </div></section>;
 }
@@ -908,77 +921,6 @@ function Statistics({ projection }: { projection: ContestStatisticsSurfaceProjec
       <td>{row.cw.toLocaleString()}</td><td>{row.phone.toLocaleString()}</td><td>{row.digital.toLocaleString()}</td>
       <td>{row.wpx.toLocaleString()}</td><td>{row.points.toLocaleString()}</td>
     </tr>)}</tbody></table></div>
-  </section>;
-}
-const twoDigit=(value:number)=>String(value).padStart(2,"0");
-const clockText=(date:Date,utc:boolean)=>utc
-  ?`${twoDigit(date.getUTCHours())}:${twoDigit(date.getUTCMinutes())}:${twoDigit(date.getUTCSeconds())}`
-  :`${twoDigit(date.getHours())}:${twoDigit(date.getMinutes())}:${twoDigit(date.getSeconds())}`;
-function RatesClock() {
-  const [now,setNow]=useState(()=>new Date());
-  useEffect(()=>{const timer=window.setInterval(()=>setNow(new Date()),1_000);return()=>window.clearInterval(timer);},[]);
-  const utc=clockText(now,true),local=clockText(now,false);
-  return <div className="contest-surface-rate-clocks" aria-label="Current time">
-    <time className="contest-surface-rate-clock-utc" dateTime={now.toISOString()} aria-label={`UTC time ${utc}`}><strong>{utc}</strong><span>UTC</span></time>
-    <time className="contest-surface-rate-clock-local" dateTime={now.toISOString()} aria-label={`Local time ${local}`}><strong>{local}</strong><span>Local</span></time>
-  </div>;
-}
-function Rates({ projection }: { projection: ContestRatesSurfaceProjection }) {
-  const rates = [["Last hour", projection.lastHourQsoPerHour,"current"], ["10 Last QSO", projection.last10QsoPerHour,"ten"],
-    ["100 Last QSO", projection.last100QsoPerHour,"hundred"]] as const;
-  const sinceLabel = `Since ${String(projection.sinceHourUTC).padStart(2, "0")}:00:00z`;
-  return <section aria-label="Contest Rates" aria-busy={projection.busy} className="contest-surface-rates"><h1>Rates</h1>
-    <p className="contest-surface-rate-scope">All bands · All modes</p><RatesClock/><dl>{rates.map(([label, value,kind]) => <div key={label} className={`contest-surface-rate-${kind}`}><dt>{label}:</dt><dd>{value === null ? <span aria-label="Not enough contacts">—</span> : value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>Q/h</small></dd></div>)}
-      <div className="contest-surface-rate-since"><dt>{sinceLabel}:</dt><dd>{projection.sinceHourQso.toLocaleString()} <small>QSO</small></dd></div></dl>
-    <table aria-label="Run and Search & Pounce QSOs"><tbody>{[["Run QSO",projection.runQso],["S&P QSO",projection.searchAndPounceQso],
-      ["Hour Run QSO",projection.hourRunQso],["Hour S&P QSO",projection.hourSearchAndPounceQso]].map(([label,value])=><tr key={label} className={String(label).includes("S&P")?"contest-surface-rate-search":"contest-surface-rate-run"}><th scope="row">{label}:</th><td>{value.toLocaleString()}</td></tr>)}</tbody></table>
-  </section>;
-}
-function Matrix({ projection,preferenceScope }: { projection: ContestMatrixSurfaceProjection;preferenceScope:string }) {
-  const rich = projection.schemaVersion === 4 ? projection : null;
-  const preferenceKey=`xlog.contesting.matrix-view.v1/${preferenceScope}/${rich?.tracker??projection.title.toLocaleLowerCase()}`;
-  const restored=()=>{try{return JSON.parse(localStorage.getItem(preferenceKey)??"null") as {bandScope?:string;rowFilter?:string}|null;}catch{return null;}},
-    initial=restored();
-  const [bandScope,setBandScope]=useState<"configured"|"current"|"all">(()=>(["configured","current","all"].includes(initial?.bandScope??"")?initial!.bandScope:"configured") as "configured"|"current"|"all"),
-    [rowFilter,setRowFilter]=useState<"needed"|"worked"|"all">(()=>(["needed","worked","all"].includes(initial?.rowFilter??"")?initial!.rowFilter:"all") as "needed"|"worked"|"all");
-  const [viewportWidth,setViewportWidth]=useState(()=>window.innerWidth);
-  const rows = useRef(new Map<string, HTMLTableRowElement>()),lastFollowed=useRef("");
-  const selectedLabel = rich?.tracker === "dxcc" ? rich.current.dxcc : rich?.tracker === "zone"
-    ? String(rich.zoneSystem === "itu" ? rich.current.ituZone ?? "" : rich.current.cqZone ?? "") : null;
-  const selectedKey = selectedLabel?.trim().toLocaleUpperCase() ?? "";
-  const configured=rich?.configuredBands?.length?rich.configuredBands:projection.bands;
-  const visibleBands=bandScope==="all"?projection.bands:bandScope==="current"&&rich?.currentBand?[rich.currentBand]:configured;
-  const projectedRows=useMemo(()=>{const dxcc=rich?.tracker==="dxcc"||projection.title==="DXCC",
-    source=projection.rows.filter(row=>!dxcc||visibleBands.some(band=>(row.counts[band]??0)>0));
-    if(!dxcc&&selectedKey&&!source.some(row=>row.label.trim().toLocaleUpperCase()===selectedKey))source.push({label:selectedLabel!,counts:Object.fromEntries(projection.bands.map(band=>[band,0])),total:0});
-    return source.filter(row=>{const worked=visibleBands.some(band=>(row.counts[band]??0)>0);
-      const needed=visibleBands.some(band=>(row.counts[band]??0)===0);
-      return rowFilter==="all"?true:rowFilter==="worked"?worked:needed;});
-  },[projection.rows,projection.bands,projection.title,rich?.tracker,selectedKey,selectedLabel,visibleBands.join("\u001f"),rowFilter]);
-  useEffect(()=>{try{localStorage.setItem(preferenceKey,JSON.stringify({bandScope,rowFilter}));}catch{/* Display preferences remain optional. */}},[preferenceKey,bandScope,rowFilter]);
-  useEffect(()=>{const resized=()=>setViewportWidth(window.innerWidth);window.addEventListener("resize",resized);return()=>window.removeEventListener("resize",resized);},[]);
-  useEffect(() => { if(selectedKey&&lastFollowed.current!==selectedKey)rows.current.get(selectedKey)?.scrollIntoView?.({ block: "center", inline: "nearest" });
-    lastFollowed.current=selectedKey;}, [selectedKey]);
-  const workedInView=projection.rows.filter(row=>visibleBands.some(band=>(row.counts[band]??0)>0)).length;
-  const blockMinWidth=Math.max(148,104+visibleBands.length*44),requestedBlocks=Math.max(1,Math.floor((viewportWidth-16)/blockMinWidth)),
-    blockCount=Math.max(1,Math.min(requestedBlocks,projectedRows.length||1)),
-    rowsPerBlock=Math.ceil(projectedRows.length/blockCount),blocks=Array.from({length:blockCount},(_,index)=>projectedRows.slice(index*rowsPerBlock,(index+1)*rowsPerBlock));
-  return <section aria-label={`Contest ${projection.title}`} aria-busy={projection.busy} className="contest-surface-matrix"><header className="contest-surface-matrix-toolbar"><h1>{projection.title}</h1>
-    {rich&&<><label>Band<select aria-label="Multiplier band scope" value={bandScope} onChange={event=>setBandScope(event.target.value as typeof bandScope)}>
-      <option value="configured">Configured</option><option value="current" disabled={!rich.currentBand}>Current</option><option value="all">All</option></select></label>
-      <label>Show<select aria-label="Multiplier row filter" value={rowFilter} onChange={event=>setRowFilter(event.target.value as typeof rowFilter)}>
-        <option value="needed">Needed</option><option value="worked">Worked</option><option value="all">All</option></select></label></>}
-    <span className="contest-surface-matrix-summary"><span>{rich&&`${projectedRows.length.toLocaleString()} shown · `}{workedInView.toLocaleString()} worked in view</span>
-      {workedInView!==projection.total&&<span>{projection.total.toLocaleString()} unique total</span>}</span></header>
-      <div className="contest-surface-matrix-scroll"><div className="contest-surface-matrix-blocks" style={{gridTemplateColumns:`repeat(${blockCount},minmax(${blockMinWidth}px,1fr))`}}>{blocks.map((block,blockIndex)=><table
-        key={blockIndex} aria-label={blockIndex===0?`${projection.title} by band`:`${projection.title} by band continuation ${blockIndex+1}`}><thead><tr><th scope="col">{projection.title === "DXCC" ? "DXCC" : "Zone"}</th>
-        {visibleBands.map(band => <th key={band} scope="col">{band}</th>)}<th scope="col">Total</th></tr></thead><tbody>
-        {block.map(row => { const key = row.label.trim().toLocaleUpperCase(), current = !!selectedKey && key === selectedKey,
-          visibleTotal=visibleBands.reduce((sum,band)=>sum+(row.counts[band]??0),0); return <tr key={row.label}
-          ref={element => { if (element) rows.current.set(key, element); else rows.current.delete(key); }} aria-current={current ? "true" : undefined}>
-          <th scope="row">{row.label}</th>{visibleBands.map(band => <td key={band} className={row.counts[band] > 0 ? "contest-surface-worked" : undefined}>
-          {(row.counts[band]??0).toLocaleString()}</td>)}<td>{visibleTotal.toLocaleString()}</td></tr>; })}
-      </tbody></table>)}</div></div>
   </section>;
 }
 function ManualLogTable({rows,disabled,onEdit,onDeleteMenu,label,emptyMessage}:{rows:any[];disabled:boolean;onEdit:(qsoID:string)=>void;
@@ -1039,22 +981,34 @@ function startLogColumnResize(event:ReactPointerEvent<HTMLButtonElement>,index:n
   const finish=()=>{window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",finish);window.removeEventListener("pointercancel",finish);};
   window.addEventListener("pointermove",move);window.addEventListener("pointerup",finish);window.addEventListener("pointercancel",finish);
 }
-function PluginLogTable({columns,rows,columnWidths,onColumnWidths,disabled,onEdit,onDeleteMenu,onInlineEdit,inline,inlineInput,label,emptyMessage}:{columns:string[];
-  rows:{qsoID:string;values:string[];isDupe?:boolean;inlineEdits?:(ContestLogInlineEdit|null)[]}[];columnWidths:number[];
+function PluginLogTable({columns,rows,columnWidths,onColumnWidths,view,onView,disabled,onEdit,onDeleteMenu,onInlineEdit,inline,inlineInput,label,emptyMessage}:{columns:string[];
+  rows:{qsoID:string;values:string[];isDupe?:boolean;exchangeWarnings?:{fieldID:string;message:string;kind:string}[];inlineEdits?:(ContestLogInlineEdit|null)[]}[];columnWidths:number[];
+  view:ContestLogView;onView:(view:ContestLogView)=>void;
   onColumnWidths:(value:number[])=>void;disabled:boolean;onEdit:(qsoID:string)=>void;
   onDeleteMenu:(qsoID:string,callsign:string,event:ReactMouseEvent<HTMLElement>)=>void;
   onInlineEdit:(qsoID:string,columnIndex:number,edit:ContestLogInlineEdit)=>void;inline:InlineLogCell|null;inlineInput:ReactNode;label:string;emptyMessage?:string}) {
-  const callIndex=columns.indexOf("Call");
-  const adjust=(index:number,delta:number)=>{const pairTotal=columnWidths[index]+columnWidths[index+1],
-    left=Math.max(minimumLogColumnWidth,Math.min(pairTotal-minimumLogColumnWidth,columnWidths[index]+delta)),value=[...columnWidths];
-    value[index]=left;value[index+1]=pairTotal-left;onColumnWidths(value);};
-  return <div className="contest-surface-log-scroll"><table aria-label={label}><colgroup>{columns.map((column,index)=><col key={`${column}-${index}`} style={{width:`${columnWidths[index]??0}%`}}/>)}</colgroup><thead><tr>{columns.map((column,index)=><th key={`${column}-${index}`} scope="col"><span>{column}</span>{index<columns.length-1&&<button type="button" className="contest-surface-log-column-resizer" role="separator" aria-orientation="vertical" aria-label={`Resize ${column} column`} aria-valuemin={minimumLogColumnWidth} aria-valuemax={Math.round(columnWidths[index]+columnWidths[index+1]-minimumLogColumnWidth)} aria-valuenow={Math.round(columnWidths[index])}
-      onPointerDown={event=>startLogColumnResize(event,index,columnWidths,onColumnWidths)} onKeyDown={event=>{if(event.key==="ArrowLeft"||event.key==="ArrowRight"){event.preventDefault();adjust(index,event.key==="ArrowLeft"?-2:2);}else if(event.key==="Home"){event.preventDefault();adjust(index,minimumLogColumnWidth-columnWidths[index]);}else if(event.key==="End"){event.preventDefault();adjust(index,columnWidths[index+1]-minimumLogColumnWidth);}}}/>}</th>)}</tr></thead>
+  const callIndex=columns.indexOf("Call"),orderedWidths=view.order.map(index=>columnWidths[index]);
+  const commitWidths=(widths:number[])=>{const next=[...columnWidths];view.order.forEach((original,index)=>{next[original]=widths[index];});onColumnWidths(next);};
+  const adjust=(index:number,delta:number)=>{const pairTotal=orderedWidths[index]+orderedWidths[index+1],
+    left=Math.max(minimumLogColumnWidth,Math.min(pairTotal-minimumLogColumnWidth,orderedWidths[index]+delta)),value=[...orderedWidths];
+    value[index]=left;value[index+1]=pairTotal-left;commitWidths(value);};
+  const sortedRows=view.sort?[...rows].sort((left,right)=>String(left.values[view.sort!.column]??"").localeCompare(String(right.values[view.sort!.column]??""),undefined,
+    {numeric:true,sensitivity:"base"})*(view.sort!.direction==="ascending"?1:-1)):rows;
+  const sortColumn=(column:number)=>onView({...view,sort:view.sort?.column!==column?{column,direction:"ascending"}:
+    view.sort.direction==="ascending"?{column,direction:"descending"}:null});
+  const moveColumn=(source:number,target:number)=>onView({...view,order:moveContestLogColumn(view.order,source,target)});
+  return <div className="contest-surface-log-scroll"><table aria-label={label}><colgroup>{view.order.map(index=><col key={`${columns[index]}-${index}`} style={{width:`${columnWidths[index]??0}%`}}/>)}</colgroup><thead><tr>{view.order.map((original,index)=>{const column=columns[original];return <th key={`${column}-${original}`} scope="col"
+    aria-sort={view.sort?.column===original?view.sort.direction:"none"} draggable onDragStart={event=>event.dataTransfer.setData("text/x-xlog-log-column",String(original))}
+    onDragOver={event=>event.preventDefault()} onDrop={event=>{event.preventDefault();const raw=event.dataTransfer.getData("text/x-xlog-log-column");if(raw!==""&&Number.isInteger(Number(raw)))moveColumn(Number(raw),original);}}>
+    <button type="button" className="contest-surface-log-sort" title={`Sort displayed rows by ${column}. Drag to reorder, or use Alt+Left/Right.`}
+      aria-label={`Sort displayed rows by ${column}`} onClick={()=>sortColumn(original)} onKeyDown={event=>{if(event.altKey&&["ArrowLeft","ArrowRight"].includes(event.key)){
+        event.preventDefault();const target=view.order[index+(event.key==="ArrowLeft"?-1:1)];if(target!==undefined)moveColumn(original,target);}}}>{column}</button>{index<columns.length-1&&<button type="button" className="contest-surface-log-column-resizer" role="separator" aria-orientation="vertical" aria-label={`Resize ${column} column`} aria-valuemin={minimumLogColumnWidth} aria-valuemax={Math.round(orderedWidths[index]+orderedWidths[index+1]-minimumLogColumnWidth)} aria-valuenow={Math.round(orderedWidths[index])}
+      onPointerDown={event=>startLogColumnResize(event,index,orderedWidths,commitWidths)} onKeyDown={event=>{if(event.key==="ArrowLeft"||event.key==="ArrowRight"){event.preventDefault();adjust(index,event.key==="ArrowLeft"?-2:2);}else if(event.key==="Home"){event.preventDefault();adjust(index,minimumLogColumnWidth-orderedWidths[index]);}else if(event.key==="End"){event.preventDefault();adjust(index,orderedWidths[index+1]-minimumLogColumnWidth);}}}/>}</th>;})}</tr></thead>
     <tbody>{rows.length===0?<tr className="contest-surface-empty-row"><td colSpan={columns.length}>{emptyMessage ?? (label === "Callsign partial matches" ? "No partial matches" : "No contacts")}</td></tr>
-      :rows.map(row=><tr key={row.qsoID} className={row.isDupe?"contest-surface-log-dupe":undefined} aria-label={row.isDupe?`${row.values[callIndex]??"Contact"} duplicate`:undefined} onContextMenu={event=>{event.preventDefault();if(!disabled)onEdit(row.qsoID);}}>
-        {row.values.map((value,index)=>{const edit=row.inlineEdits?.[index]??null,
+      :sortedRows.map(row=><tr key={row.qsoID} className={row.isDupe?"contest-surface-log-dupe":undefined} aria-label={row.isDupe?`${row.values[callIndex]??"Contact"} duplicate`:undefined} onContextMenu={event=>{event.preventDefault();if(!disabled)onEdit(row.qsoID);}}>
+        {view.order.map(index=>{const value=row.values[index]??"",edit=row.inlineEdits?.[index]??null,
           isEditing=inline?.qsoID===row.qsoID&&inline.columnIndex===index&&inline.source===label;
-          const content=<>{value}{index===callIndex&&row.isDupe&&<span className="contest-surface-dupe-badge">DUPE</span>}</>;
+          const content=<>{value}{index===callIndex&&row.isDupe&&<span className="contest-surface-dupe-badge">DUPE</span>}{index===callIndex&&!!row.exchangeWarnings?.length&&<span className="contest-log-advisory" role="note" aria-label={row.exchangeWarnings.map(item=>item.message).join(" ")} title={row.exchangeWarnings.map(item=>item.message).join(" ")}>!</span>}</>;
           return <td key={`${columns[index]}-${index}`} className={logCellClass(columns[index],!!edit)}
             onContextMenu={event=>{if(index!==callIndex)return;event.preventDefault();event.stopPropagation();
               if(!disabled)onDeleteMenu(row.qsoID,String(row.values[callIndex]??"Contact"),event);}}
@@ -1128,6 +1082,17 @@ function Log({projection,disabled,sending,projectionRevision,send,openEditor,rep
   const pluginColumns:string[]=projection.exchangeLayout==="plugin"?projection.pluginColumns:[],columnSignature=pluginColumns.join("\u001f"),
     [columnLayout,setColumnLayout]=useState(()=>({signature:columnSignature,widths:readLogColumnWidths(pluginColumns)}));
   const columnWidths=columnLayout.signature===columnSignature?columnLayout.widths:readLogColumnWidths(pluginColumns);
+  const [storedView,setStoredView]=useState(()=>({signature:columnSignature,view:readContestLogView(pluginColumns)}));
+  const logView=storedView.signature===columnSignature?storedView.view:readContestLogView(pluginColumns);
+  const setLogView=(view:ContestLogView)=>{persistContestLogView(pluginColumns,view);setStoredView({signature:columnSignature,view});};
+  const splitKey="xlog.contesting.log-split.v1",[split,setSplit]=useState(()=>readPanelNumber(splitKey,66,25,80));
+  const panesRef=useRef<HTMLDivElement|null>(null),splitDrag=useRef<{y:number;split:number;height:number}|null>(null);
+  useEffect(()=>{try{localStorage.setItem(splitKey,String(split));}catch{/* Optional layout preference. */}},[split]);
+  const divider=<button type="button" role="separator" aria-label="Resize log panes" aria-orientation="horizontal" aria-valuemin={25} aria-valuemax={80} aria-valuenow={Math.round(split)}
+    className="contest-surface-log-divider" onPointerDown={event=>{event.preventDefault();splitDrag.current={y:event.clientY,split,height:Math.max(1,panesRef.current?.getBoundingClientRect().height??1)};
+      event.currentTarget.setPointerCapture?.(event.pointerId);}} onPointerMove={event=>{const drag=splitDrag.current;if(drag)setSplit(Math.max(25,Math.min(80,drag.split+(event.clientY-drag.y)*100/drag.height)));}}
+    onPointerUp={()=>{splitDrag.current=null;}} onPointerCancel={()=>{splitDrag.current=null;}} onLostPointerCapture={()=>{splitDrag.current=null;}}
+    onKeyDown={event=>{if(["ArrowUp","ArrowDown","Home","End"].includes(event.key)){event.preventDefault();setSplit(current=>event.key==="Home"?25:event.key==="End"?80:Math.max(25,Math.min(80,current+(event.key==="ArrowUp"?-5:5))));}}}/>;
   useEffect(()=>{if(columnLayout.signature!==columnSignature)setColumnLayout({signature:columnSignature,widths:readLogColumnWidths(pluginColumns)});},[columnLayout.signature,columnSignature]);
   const setColumnWidths=useCallback((widths:number[])=>{persistLogColumnWidths(pluginColumns,widths);setColumnLayout({signature:columnSignature,widths});},[columnSignature]);
   const primaryPane=useRef<HTMLElement|null>(null);
@@ -1201,13 +1166,13 @@ function Log({projection,disabled,sending,projectionRevision,send,openEditor,rep
   {importReview&&<div className="contest-surface-import-confirm" role="group" aria-label="Confirm ADIF import"><span>{importReview.sourceName}: {importReview.records.length} contacts</span>
     <button disabled={disabled||sending||importing} onClick={()=>setImportReview(null)}>Cancel</button>
     <button disabled={disabled||sending||importing} onClick={()=>void commitImport()}>{importing?"Importing…":`Import ${importReview.records.length} contacts`}</button></div>}</details></header>
-  <div className="contest-surface-log-panes">{projection.exchangeLayout==="plugin" ? <>
-    <section ref={primaryPane} className="contest-surface-log-pane-primary"><h2>Chronological log</h2><PluginLogTable columns={projection.pluginColumns} rows={projection.pluginRows} columnWidths={columnWidths} onColumnWidths={setColumnWidths} disabled={disabled} label="Contest log" emptyMessage={projection.busy?"Loading…":undefined} inline={inline} inlineInput={inlineInput}
+  <div ref={panesRef} className="contest-surface-log-panes" style={{gridTemplateRows:`minmax(72px,${split}fr) 6px minmax(54px,${100-split}fr)`}}>{projection.exchangeLayout==="plugin" ? <>
+    <section ref={primaryPane} className="contest-surface-log-pane-primary"><h2>{logView.sort?`Displayed page · ${pluginColumns[logView.sort.column]} ${logView.sort.direction}`:"Chronological log"}</h2><PluginLogTable columns={projection.pluginColumns} rows={projection.pluginRows} columnWidths={columnWidths} onColumnWidths={setColumnWidths} view={logView} onView={setLogView} disabled={disabled} label="Contest log" emptyMessage={projection.busy?"Loading…":undefined} inline={inline} inlineInput={inlineInput}
       onInlineEdit={(qsoID,columnIndex,edit)=>void beginInline(qsoID,columnIndex,edit,"Contest log")} onEdit={qsoID=>{setInline(null);void openEditor(qsoID);}} onDeleteMenu={openDeleteMenu}/></section>
-    <section className="contest-surface-log-pane-secondary"><h2>Callsign partial matches</h2><PluginLogTable columns={projection.pluginColumns} rows={pluginPartialRows} columnWidths={columnWidths} onColumnWidths={setColumnWidths} disabled={disabled} label="Callsign partial matches" inline={inline} inlineInput={inlineInput}
+    {divider}<section className="contest-surface-log-pane-secondary"><h2>Callsign partial matches</h2><PluginLogTable columns={projection.pluginColumns} rows={pluginPartialRows} columnWidths={columnWidths} onColumnWidths={setColumnWidths} view={logView} onView={setLogView} disabled={disabled} label="Callsign partial matches" inline={inline} inlineInput={inlineInput}
       onInlineEdit={(qsoID,columnIndex,edit)=>void beginInline(qsoID,columnIndex,edit,"Callsign partial matches")} onEdit={qsoID=>{setInline(null);void openEditor(qsoID);}} onDeleteMenu={openDeleteMenu}/></section></>
     : <><section ref={primaryPane} className="contest-surface-log-pane-primary"><h2>Chronological log</h2><ManualLogTable rows={projection.manualRows??projection.page.rows} disabled={disabled} label="Contest log" emptyMessage={projection.busy?"Loading…":undefined} onEdit={qsoID=>void openEditor(qsoID)} onDeleteMenu={openDeleteMenu}/></section>
-      <section className="contest-surface-log-pane-secondary"><h2>Callsign partial matches</h2><ManualLogTable rows={partialRows} disabled={disabled} label="Callsign partial matches" onEdit={qsoID=>void openEditor(qsoID)} onDeleteMenu={openDeleteMenu}/></section></>}</div>
+      {divider}<section className="contest-surface-log-pane-secondary"><h2>Callsign partial matches</h2><ManualLogTable rows={partialRows} disabled={disabled} label="Callsign partial matches" onEdit={qsoID=>void openEditor(qsoID)} onDeleteMenu={openDeleteMenu}/></section></>}</div>
   {deleteMenu&&<div className="contest-spot-menu" role="menu" aria-label={`Contact actions for ${deleteMenu.callsign}`} style={{left:deleteMenu.x,top:deleteMenu.y}}
       onKeyDown={event=>{if(event.key==="Escape"){event.preventDefault();setDeleteMenu(null);}}}>
     <button type="button" role="menuitem" autoFocus onClick={()=>{const target=deleteMenu;setDeleteMenu(null);setInline(null);void openEditor(target.qsoID,true);}}>Delete contact…</button>

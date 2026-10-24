@@ -6,7 +6,7 @@ export const contestFunctionKeyActions = ["SEND_F1", "SEND_F2", "SEND_F3", "SEND
 export type ContestFunctionKeyAction = typeof contestFunctionKeyActions[number];
 
 export const contestKeyBindingActions = ["TOGGLE_RUN", "SET_RUN", "SET_S_AND_P", "LOG_NOW", "CLEAR_INPUTS",
-  "PREV_SPOT", "NEXT_SPOT", "SPOT_DX", "MARK_SPOT", "TUNE_SPOT", "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN",
+  "PREV_SPOT", "NEXT_SPOT", "PREV_MULTIPLIER", "NEXT_MULTIPLIER", "QUICK_EDIT", "SPOT_DX", "MARK_SPOT", "TUNE_SPOT", "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN",
   "TOGGLE_CW_INPUT", "RST_INCR", "RST_DECR", "EXCH_INCR", "EXCH_DECR",
   "WIN_BAND", "WIN_CHECK", "WIN_LOG", "WIN_RATE", "WIN_STATS", "WIN_VFO", "VFO_UP", "VFO_DOWN", "RETURN_CQ_FREQUENCY",
   ...contestFunctionKeyActions] as const;
@@ -26,6 +26,9 @@ export const contestKeyBindingDescriptions: Record<ContestKeyBindingAction, stri
   CLEAR_INPUTS: "Clear all input fields",
   PREV_SPOT: "Jump to the previous spot in the bandmap",
   NEXT_SPOT: "Jump to the next spot in the bandmap",
+  PREV_MULTIPLIER: "Jump to the previous needed multiplier by frequency",
+  NEXT_MULTIPLIER: "Jump to the next needed multiplier by frequency",
+  QUICK_EDIT: "Edit the last logged contact",
   SPOT_DX: "Spot the current callsign to the cluster",
   MARK_SPOT: "Mark or unmark the current callsign to work later",
   TUNE_SPOT: "Tune to the selected spot or a callsign match",
@@ -95,6 +98,19 @@ export const defaultContestKeyBindings: ContestKeyBinding[] = [
 export function functionKeyForContestAction(action: ContestKeyBindingAction): `F${number}` | null {
   return action.startsWith("SEND_F") ? action.slice("SEND_".length) as `F${number}` : null;
 }
+
+// Opt-in profile; existing/custom bindings are never silently replaced.
+export const n1mmContestKeyBindings:ContestKeyBinding[]=[
+  {context:"*",key:"Ctrl+Up",action:"PREV_SPOT"},
+  {context:"*",key:"Ctrl+Down",action:"NEXT_SPOT"},
+  {context:"*",key:"Ctrl+Alt+Up",action:"PREV_MULTIPLIER"},
+  {context:"*",key:"Ctrl+Alt+Down",action:"NEXT_MULTIPLIER"},
+  {context:"*",key:"Ctrl+Q",action:"QUICK_EDIT"},
+  {context:"*",key:"Alt+Q",action:"RETURN_CQ_FREQUENCY"},
+  {context:"*",key:"Ctrl+W",action:"CLEAR_INPUTS"},
+  {context:"*",key:"Ctrl+R",action:"TOGGLE_RUN"},
+  {context:"*",key:"Ctrl+L",action:"LOG_NOW"},
+];
 
 const contextSet = new Set<string>(contestKeyBindingContexts);
 const actionSet = new Set<string>(contestKeyBindingActions);

@@ -21,7 +21,7 @@ export type ContestSurfaceAction =
   | { action: "entry_set_mode"; params: DraftRevision & { value: string; callsignCommand?: true } }
   | { action: "entry_reserve_serial" | "entry_commit" | "entry_clear" | "entry_edit_last"; params: DraftRevision }
   | { action: "entry_spot" | "entry_mark_spot" | "entry_tune_spot"; params: DraftRevision }
-  | { action: "entry_step_spot"; params: DraftRevision & { direction: "previous" | "next" } }
+  | { action: "entry_step_spot"; params: DraftRevision & { direction: "previous" | "next"; multiplierOnly?: boolean } }
   | { action: "entry_step_vfo"; params: DraftRevision & { direction: "up" | "down" } }
   | { action: "entry_return_cq_frequency"; params: DraftRevision }
   | { action: "entry_operator_arm"; params: DraftRevision & { armed: boolean } }
@@ -76,7 +76,8 @@ export type ContestLogInlineEdit =
   | { kind: "text"; field: "callsign" | "sentReport" | "receivedReport" | "timestamp"; value: string; maximumUTF8Bytes: number }
   | { kind: "exchange"; fieldID: string; value: string; maximumUTF8Bytes: number }
   | { kind: "frequency"; value: string; maximumUTF8Bytes: number };
-export type ContestPluginLogRow = { qsoID: string; values: string[]; isDupe?: boolean;
+export type ContestExchangeWarning = {fieldID:string;message:string;kind:"mismatch"|"conflict"};
+export type ContestPluginLogRow = { qsoID: string; values: string[]; isDupe?: boolean; exchangeWarnings?:ContestExchangeWarning[];
   inlineEdits?: (ContestLogInlineEdit | null)[] };
 export type ContestManualContext = { operator: string; cwSpeedWpm: number | null; cwSpeedStepWpm: number; country: string | null; cqZone: number | null; ituZone: number | null;
   headingDegrees: number | null; longPathHeadingDegrees: number | null; distanceKm: number | null; qsos: number; multipliers: number; total: number };
@@ -86,7 +87,7 @@ export type ContestEntrySurfaceProjection = { schemaVersion: 1; status: "ready";
   draft: { draftID: string; revision: number; callsign: string; sentReport: string; receivedReport: string;
     receivedFields: ContestSurfaceReceivedField[]; frequencyHz: number | null; frequencyText: string; frequencyError: string;
     band: string; mode: string; dupe: { state: "unchecked" | "clear" | "duplicate"; reason: string };
-    validation: { errors: string[]; warnings: string[] }; reservedSerial: number | null };
+    validation: { errors: string[]; warnings: string[] }; reservedSerial: number | null; exchangeWarnings?:ContestExchangeWarning[] };
   busy: boolean; dirty: boolean; uncertain: boolean };
 export type ContestEntrySurfaceProjectionV2 = Omit<ContestEntrySurfaceProjection, "schemaVersion"> & { schemaVersion: 2;
   descriptor: { reportsVisible?: boolean; bands: string[]; modes: ("CW" | "SSB" | "RTTY" | "AM" | "FM")[];
@@ -133,7 +134,7 @@ export type ContestStatisticsSurfaceProjection = ContestStatisticsSurfaceProject
 export type ContestRatesSurfaceProjection = { schemaVersion: 1; status: "ready";
   lastHourQsoPerHour: number | null; last10QsoPerHour: number | null; last100QsoPerHour: number | null;
   sinceHourUTC: number; sinceHourQso: number; runQso: number; searchAndPounceQso: number;
-  hourRunQso: number; hourSearchAndPounceQso: number; busy: boolean };
+  hourRunQso: number; hourSearchAndPounceQso: number; hourly?:{hourUTC:string;qsos:number}[];lastQsoAt?:string|null; busy: boolean };
 export type ContestScoreReportingSurfaceProjection = { schemaVersion: 1; status: "ready";
   score: ContestStatisticsScore; intervalMinutes: number; reportingEnabled: boolean; availability: "available" | "unavailable";
   reason: string; service: "hamscore" | "contestonlinescore"; username: string; credentialSaved: boolean;
@@ -143,10 +144,14 @@ export type ContestScoreReportingSurfaceProjection = { schemaVersion: 1; status:
 type ContestMatrixSurfaceProjectionV1 = { schemaVersion: 1; status: "ready"; title: string;
   bands: string[]; rows: { label: string; counts: Record<string, number>; total: number }[]; total: number; busy: boolean };
 export type ContestMatrixSurfaceProjectionV4 = { schemaVersion: 4; status: "ready"; title: string;
+  draftID?:string;draftRevision?:number;
   tracker: "dxcc" | "zone"; zoneSystem: "cq" | "itu" | null;
   current: { dxcc: string | null; cqZone: number | null; ituZone: number | null };
   bands: string[]; configuredBands?: string[]; currentBand?: string | null;
-  rows: { label: string; counts: Record<string, number>; total: number }[]; total: number; busy: boolean };
+  rows: { label: string; counts: Record<string, number>; total: number;continent?:string|null;
+    availableSpots?:Record<string,ContestAvailableMultiplierSpot[]> }[]; total: number; busy: boolean };
+export type ContestAvailableMultiplierSpot = {spotID:string;callsign:string;frequencyKHz:number;mode:string;
+  contestDupe:boolean|null;contestMultiplierCount:number|null;contestCountryMultiplier:boolean|null;contestZoneMultiplier:boolean|null};
 export type ContestMatrixSurfaceProjection = ContestMatrixSurfaceProjectionV1 | ContestMatrixSurfaceProjectionV4;
 export type ContestSurfaceSpot = { id: string; receivedAt: number; clusterName: string; spotter: string;
   spotterContinent: string | null; frequencyKHz: number; frequencyText: string; callsign: string; comment: string;
@@ -210,8 +215,11 @@ const inlineEditValid = (value: unknown) => value === null || record(value) &&
   oneOf(value.kind, ["text", "exchange", "frequency"]) && uint(value.maximumUTF8Bytes, 1024) && (value.maximumUTF8Bytes as number) > 0 &&
   text(value.value, value.maximumUTF8Bytes as number, true) && (value.kind !== "text" || oneOf(value.field, ["callsign", "sentReport", "receivedReport", "timestamp"])) &&
   (value.kind !== "exchange" || text(value.fieldID, 64));
+const exchangeWarningsValid=(value:unknown)=>Array.isArray(value)&&value.length<=32&&value.every(item=>record(item)&&
+  exact(item,["fieldID","message","kind"])&&text(item.fieldID,64)&&text(item.message,512)&&oneOf(item.kind,["mismatch","conflict"]));
 const pluginRowsValid = (value: unknown, columns: number, maximum: number) => Array.isArray(value) && value.length <= maximum &&
-  value.every(row => record(row) && optionalKeys(row, ["qsoID", "values"], ["inlineEdits", "isDupe"]) && text(row.qsoID, 160) &&
+  value.every(row => record(row) && optionalKeys(row, ["qsoID", "values"], ["inlineEdits", "isDupe","exchangeWarnings"]) && text(row.qsoID, 160) &&
+    (row.exchangeWarnings===undefined||exchangeWarningsValid(row.exchangeWarnings))&&
     Array.isArray(row.values) && row.values.length === columns && row.values.every(item => text(item, 512, true)) &&
     (!("isDupe" in row) || typeof row.isDupe === "boolean") &&
     (!("inlineEdits" in row) || Array.isArray(row.inlineEdits) && row.inlineEdits.length === columns && row.inlineEdits.every(inlineEditValid)));
@@ -244,7 +252,8 @@ function validEntryProjection(value: Record<string, unknown>) {
   return optionalKeys(value, ["schemaVersion", "status", "session", "draft", "busy", "dirty", "uncertain"], ["manual"]) &&
     (!("manual" in value) || manualContextValid(value.manual)) &&
     !!session && exact(session, ["name", "ruleName", "mode"]) && text(session.name, 128) && text(session.ruleName, 128) && text(session.mode, 16) &&
-    !!draftValue && exact(draftValue, ["draftID", "revision", "callsign", "sentReport", "receivedReport", "receivedFields", "frequencyHz", "frequencyText", "frequencyError", "band", "mode", "dupe", "validation", "reservedSerial"]) &&
+    !!draftValue && optionalKeys(draftValue, ["draftID", "revision", "callsign", "sentReport", "receivedReport", "receivedFields", "frequencyHz", "frequencyText", "frequencyError", "band", "mode", "dupe", "validation", "reservedSerial"],["exchangeWarnings"]) &&
+    (draftValue.exchangeWarnings===undefined||exchangeWarningsValid(draftValue.exchangeWarnings))&&
     text(draftValue.draftID, 160) && uint(draftValue.revision) && text(draftValue.callsign, 32, true) && text(draftValue.sentReport, 160, true) &&
     text(draftValue.receivedReport, 160, true) && validReceivedFields(draftValue.receivedFields) && optionalFrequency(draftValue.frequencyHz) &&
     text(draftValue.frequencyText, 11, true) && text(draftValue.frequencyError, 512, true) && text(draftValue.band, 16) && text(draftValue.mode, 16) &&
@@ -451,9 +460,17 @@ function validLogEditDetails(value: unknown): value is ContestLogEditDetails {
 function validRatesProjection(value: Record<string, unknown>) {
   const rateKeys = ["lastHourQsoPerHour", "last10QsoPerHour", "last100QsoPerHour"];
   const countKeys = ["sinceHourQso", "runQso", "searchAndPounceQso", "hourRunQso", "hourSearchAndPounceQso"];
-  return exact(value, ["schemaVersion", "status", ...rateKeys, "sinceHourUTC", ...countKeys, "busy"]) &&
+  return optionalKeys(value, ["schemaVersion", "status", ...rateKeys, "sinceHourUTC", ...countKeys, "busy"],["hourly","lastQsoAt"]) &&
+    (value.hourly===undefined||Array.isArray(value.hourly)&&value.hourly.length<=168&&value.hourly.every(item=>record(item)&&exact(item,["hourUTC","qsos"])&&canonicalISO(item.hourUTC)&&uint(item.qsos)))&&
+    (value.lastQsoAt===undefined||value.lastQsoAt===null||canonicalISO(value.lastQsoAt))&&
     rateKeys.every(key => value[key] === null || typeof value[key] === "number" && Number.isFinite(value[key]) && (value[key] as number) >= 0) &&
     uint(value.sinceHourUTC, 23) && countKeys.every(key => uint(value[key])) && typeof value.busy === "boolean";
+}
+function availableMultiplierSpotValid(value:unknown){
+  return record(value)&&exact(value,["spotID","callsign","frequencyKHz","mode","contestDupe","contestMultiplierCount","contestCountryMultiplier","contestZoneMultiplier"])&&
+    text(value.spotID,128)&&text(value.callsign,32)&&text(value.mode,16)&&typeof value.frequencyKHz==="number"&&Number.isFinite(value.frequencyKHz)&&value.frequencyKHz>0&&value.frequencyKHz<=1_300_000&&
+    [value.contestDupe,value.contestCountryMultiplier,value.contestZoneMultiplier].every(item=>item===null||typeof item==="boolean")&&
+    (value.contestMultiplierCount===null||uint(value.contestMultiplierCount,10));
 }
 function validMatrixProjection(value: Record<string, unknown>) {
   const bands = value.bands;
@@ -461,13 +478,15 @@ function validMatrixProjection(value: Record<string, unknown>) {
   if (version !== 1 && version !== 4) return false;
   const required = version === 1 ? ["schemaVersion", "status", "title", "bands", "rows", "total", "busy"] :
     ["schemaVersion", "status", "title", "tracker", "zoneSystem", "current", "bands", "rows", "total", "busy"];
-  const optional = version === 4 ? ["configuredBands", "currentBand"] : [];
+  const optional = version === 4 ? ["configuredBands", "currentBand","draftID","draftRevision"] : [];
   if (!optionalKeys(value, required, optional) || !text(value.title, 160) ||
       !Array.isArray(bands) || bands.length > 32 || !bands.every(band => text(band, 16)) || new Set(bands).size !== bands.length ||
       !Array.isArray(value.rows) || value.rows.length > 10_000 || !uint(value.total) || typeof value.busy !== "boolean") return false;
   if (version === 4) {
     const current = record(value.current) ? value.current : undefined;
     if (!current || !exact(current, ["dxcc", "cqZone", "ituZone"]) ||
+        value.draftID!==undefined&&(!text(value.draftID,160)||!uint(value.draftRevision))||
+        value.draftRevision!==undefined&&!text(value.draftID,160)||
         value.tracker !== "dxcc" && value.tracker !== "zone" ||
         value.tracker === "dxcc" && value.zoneSystem !== null ||
         value.tracker === "zone" && value.zoneSystem !== "cq" && value.zoneSystem !== "itu" ||
@@ -479,7 +498,10 @@ function validMatrixProjection(value: Record<string, unknown>) {
   }
   const labels = new Set<string>();
   return value.rows.every(item => {
-    if (!record(item) || !exact(item, ["label", "counts", "total"]) || !text(item.label, 160) ||
+    if (!record(item) || !optionalKeys(item, ["label", "counts", "total"],version===4?["continent","availableSpots"]:[]) || !text(item.label, 160) ||
+        item.continent!==undefined&&item.continent!==null&&!text(item.continent,8,true)||
+        item.availableSpots!==undefined&&(!record(item.availableSpots)||!Object.entries(item.availableSpots).every(([band,spots])=>
+          bands.includes(band)&&Array.isArray(spots)&&spots.length<=500&&spots.every(availableMultiplierSpotValid)))||
         labels.has(item.label as string) || !record(item.counts) || !exact(item.counts, bands) ||
         !Object.values(item.counts).every(count => uint(count)) || !uint(item.total)) return false;
     labels.add(item.label as string); return true;
@@ -594,7 +616,7 @@ function validParams(action: string, params: Record<string, unknown>) {
     (params.callsignCommand === undefined || params.callsignCommand === true);
   if (action === "entry_reserve_serial" || action === "entry_commit" || action === "entry_clear" || action === "entry_edit_last") return draft(params, []);
   if (action === "entry_spot" || action === "entry_mark_spot" || action === "entry_tune_spot") return draft(params, []);
-  if (action === "entry_step_spot") return draft(params, ["direction"]) && oneOf(params.direction, ["previous", "next"]);
+  if (action === "entry_step_spot") return draft(params, ["direction"],["multiplierOnly"]) && oneOf(params.direction, ["previous", "next"]) && (params.multiplierOnly===undefined||typeof params.multiplierOnly==="boolean");
   if (action === "entry_step_vfo") return draft(params, ["direction"]) && oneOf(params.direction, ["up", "down"]);
   if (action === "entry_return_cq_frequency") return draft(params, []);
   if (action === "entry_operator_arm") return draft(params, ["armed"]) && typeof params.armed === "boolean";
@@ -641,7 +663,7 @@ export function validContestSurfaceActionEnvelope(value: unknown): value is Cont
   const action = typeof envelope?.action === "string" ? envelope.action : "";
   const panel = typeof envelope?.panelID === "string" ? envelope.panelID : "";
   const params = record(envelope?.params) ? envelope.params : undefined;
-  const panelMatches = action.startsWith("spot_") ? panel === "band-maps" || panel === "dx-cluster" || panel === "world-map" && action === "spot_select" : action.startsWith("entry_") ? panel === "active-qso" : action.startsWith("assistance_")
+  const panelMatches = action.startsWith("spot_") ? panel === "band-maps" || panel === "dx-cluster" || ["world-map","awards","chaser-dx"].includes(panel) && action === "spot_select" : action.startsWith("entry_") ? panel === "active-qso" : action.startsWith("assistance_")
     ? panel === "callsign-intelligence" : action.startsWith("log_") ? panel === "logbook" : action.startsWith("score_") ? panel === "score-reporting" : false;
   return !!envelope && exact(envelope, keys) && validContestSurfaceUUID(envelope.operatingContext) && envelope.scope === "contesting" &&
       validContestSurfaceUUID(envelope.sessionID) && validContestSurfaceUUID(envelope.workspaceGeneration) && oneOf(panel, contestSurfacePanelIDs) &&

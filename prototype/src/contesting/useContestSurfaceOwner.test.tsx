@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { contestSurfacePanelIDs, type ContestEntrySurfaceProjection, type ContestSurfaceActionEnvelope, type ContestSurfaceProjection } from "./contestSurfaceProtocol";
 import { ContestMutationUncertain } from "./client";
-import { useContestSurfaceOwner, type ContestSurfaceActionDisposition } from "./useContestSurfaceOwner";
+import { advanceContestDraftRevision, useContestSurfaceOwner, type ContestDraftContent, type ContestSurfaceActionDisposition } from "./useContestSurfaceOwner";
 
 const native=vi.hoisted(()=>({invoke:vi.fn(),listen:vi.fn(),wake:null as null|(()=>void),wakes:[] as (()=>void)[]}));
 vi.mock("@tauri-apps/api/core",()=>({invoke:native.invoke,isTauri:()=>true}));
@@ -19,6 +19,21 @@ function Harness({projections,handle,report=vi.fn(),capture,ownerContext=context
 beforeEach(()=>{vi.resetAllMocks();native.wake=null;native.wakes=[];native.listen.mockImplementation(async(_name,callback)=>{native.wakes.push(callback);
   native.wake=()=>native.wakes.forEach(wake=>wake());return()=>{native.wakes=native.wakes.filter(wake=>wake!==callback);};});});
 afterEach(cleanup);
+
+it("keeps semantic draft authority stable across passive revisions and object ordering",()=>{
+  const content:ContestDraftContent={...context,draftID:"draft-1",fields:{callsign:"MX0KBS",other_2:"14"},
+    frequencyHz:7125000,mode:"SSB",operator:"OM0RX",run:false,reservedSerial:null,
+    pluginID:"cq_ww_ssb",sourceRevision:"pinned",referenceID:"cty-1",scoringContext:{rule:"cqww",station:"OM0RX"}};
+  const initial=advanceContestDraftRevision(null,content,5);
+  expect(advanceContestDraftRevision(initial,{...content,fields:{other_2:"14",callsign:"MX0KBS"},
+    scoringContext:{station:"OM0RX",rule:"cqww"}},20)).toBe(initial);
+  for(const change of [{fields:{callsign:"MX0KBS",other_2:"9"}},{frequencyHz:7145000},{mode:"CW"},
+    {run:true},{operator:"DL1ABC"},{reservedSerial:2},{referenceID:"cty-2"},{sourceRevision:"new"},
+    {scoringContext:{rule:"changed",station:"OM0RX"}},{draftID:"draft-2"},{sessionID:crypto.randomUUID()}]){
+    expect(advanceContestDraftRevision(initial,{...content,...change},20).revision).toBe(20);
+  }
+  expect(advanceContestDraftRevision(initial,{...content,fields:{callsign:"K1ABC"}},5).revision).toBe(6);
+});
 
 it("exposes the current native projection publication as an opening barrier",async()=>{
   let release!:()=>void,waitForPublication:(()=>Promise<void>)|undefined,completed=false;

@@ -1,9 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { contestFunctionKeyActions, contestKeyBindingActions, contestKeyChord, defaultContestKeyBindings, encodeContestKeyBindings,
   functionKeyForContestAction, normalizeContestKey,
-  readContestKeyBindings, resolveContestKeyBinding, validateContestKeyBindings } from "./contestKeyBindings";
+  readContestKeyBindings, resolveContestKeyBinding, validateContestKeyBindings, n1mmContestKeyBindings } from "./contestKeyBindings";
 
 describe("contest key bindings", () => {
+  it("round-trips the opt-in N1MM navigation profile within the host 512-byte preference limit",()=>{
+    const encoded=encodeContestKeyBindings(n1mmContestKeyBindings);
+    expect(new TextEncoder().encode(encoded).length).toBeLessThanOrEqual(512);
+    expect(validateContestKeyBindings(encoded)).toEqual(n1mmContestKeyBindings);
+    expect(readContestKeyBindings(encoded)).toEqual(n1mmContestKeyBindings);
+    expect(resolveContestKeyBinding(readContestKeyBindings(encoded),"Callsign","Ctrl+Alt+Down")).toBe("NEXT_MULTIPLIER");
+    expect(resolveContestKeyBinding(readContestKeyBindings(encoded),"Other 2","Ctrl+Q")).toBe("QUICK_EDIT");
+    expect(defaultContestKeyBindings.find(item=>item.key==="Ctrl+Q")?.action).toBe("RETURN_CQ_FREQUENCY");
+  });
   it("stores the supported pinned Not1MM defaults inside the host preference limit", () => {
     const encoded = encodeContestKeyBindings(defaultContestKeyBindings);
     expect(new TextEncoder().encode(encoded).length).toBeLessThanOrEqual(512);

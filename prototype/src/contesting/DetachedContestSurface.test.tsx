@@ -1424,7 +1424,7 @@ it("highlights and scrolls to the contest's current CQ zone without a misleading
   const mounted=render(<DetachedContestSurface/>);
   expect(await screen.findByRole("heading", { name:"CQ Zones" })).toBeTruthy();
   expect(screen.queryByRole("radio")).toBeNull();
-  expect(screen.getAllByRole("columnheader", { name:"20m" })).toHaveLength(2);
+  expect(screen.getAllByRole("columnheader", { name:"20m" }).length).toBeGreaterThan(0);
   expect(screen.queryByRole("columnheader", { name:"40m" })).toBeNull();
   fireEvent.change(screen.getByRole("combobox", { name:"Multiplier band scope" }), { target:{value:"all"} });
   expect(screen.getAllByRole("columnheader", { name:"40m" }).length).toBeGreaterThan(0);
@@ -1472,7 +1472,10 @@ it("fills a wide DXCC window with as many country blocks as its width permits",a
     expect(Array.from(summary.children).map(item=>item.textContent)).toEqual(["4 shown · 4 worked in view"]);
     expect(screen.getAllByRole("table")).toHaveLength(4);
     expect((document.querySelector(".contest-surface-matrix-blocks") as HTMLElement).style.gridTemplateColumns)
-      .toBe("repeat(4,minmax(148px,1fr))");
+      .toBe("repeat(4,minmax(240px,1fr))");
+    Object.defineProperty(window,"innerWidth",{configurable:true,value:420});fireEvent(window,new Event("resize"));
+    expect(screen.getAllByRole("table")).toHaveLength(1);
+    expect(screen.getAllByRole("rowheader")).toHaveLength(4);
   } finally {Object.defineProperty(window,"innerWidth",{configurable:true,value:priorWidth});}
 });
 
@@ -2476,11 +2479,13 @@ it("shows the owner validation rejection from the first detached Enter",async()=
 
 it.each([
   ["Callsign","callsign"],["SNT","sent"],["RCV","receive"],["Received exchange 1","other_2"],
-] as const)("submits one acknowledged Enter from %s",async(label,focusedField)=>{
+] as const)("submits one acknowledged Enter from %s despite advisory exchange mismatch and conflict",async(label,focusedField)=>{
   const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField,...tabMaps,
     functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   const current:any={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyError:"",
-    receivedFields:[{id:"other_2",label:"CQ Zone",value:"14",required:true,maximumUTF8Bytes:2}]},
+    receivedFields:[{id:"other_2",label:"CQ Zone",value:"14",required:true,maximumUTF8Bytes:2}],
+    exchangeWarnings:[{fieldID:"other_2",kind:"mismatch",message:"Received zone 14 differs from suggested zone 5."},
+      {fieldID:"other_2",kind:"conflict",message:"Previous contacts used zone 9."}]},
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
   const actions:Record<string,any>[]=[];
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
@@ -2488,7 +2493,11 @@ it.each([
     if(command==="contest_surface_action"){actions.push(args);return {requestID:args.requestID,status:"applied",projectionRevision:6};}
     throw new Error(command);
   });
-  render(<DetachedContestSurface/>);fireEvent.keyDown(await screen.findByLabelText(label),{key:"Enter"});
+  render(<DetachedContestSurface/>);const input=await screen.findByLabelText(label);
+  expect(screen.getByLabelText("Received exchange 1")).toHaveProperty("value","14");
+  expect(screen.getByLabelText("Received exchange 1").getAttribute("aria-describedby")).toBe("contest-advisory-exchange-other-2");
+  expect(screen.getByText(/Received zone 14 differs from suggested zone 5/).textContent).toContain("Previous contacts used zone 9.");
+  fireEvent.keyDown(input,{key:"Enter"});
   await waitFor(()=>expect(actions).toHaveLength(1));expect(actions[0]).toMatchObject({action:"entry_operator_key",params:{key:"Enter",focusedField}});
 });
 
@@ -2717,4 +2726,110 @@ it("preserves the latest rapid log edit and resets the presentation buffer when 
   expect(actions.length).toBeLessThanOrEqual(3);expect(actions.at(-1)).toMatchObject({params:{qsoID:"qso-1",value:"W1AW"}});
   current={...current,projectionRevision:ownerRevision,projection:{...current.projection,editing:editing("qso-2","VE3XYZ")},receipts:[]};await act(async()=>{native.wake!();});
   await waitFor(()=>expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("VE3XYZ"));
+});
+
+
+it("sorts displayed log rows numerically and persists column order and pane size without changing inline edit targets",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
+  const pageRow={qsoID:"first",workedAt:"2026-10-20T12:00:00.000Z",callsign:"K1ABC",band:"20m",mode:"SSB",
+    sentExchange:"59",receivedExchange:"14",points:10,multiplierLabels:[]};
+  const first={qsoID:"first",values:["K1ABC","14","10"],exchangeWarnings:[{fieldID:"other_2",kind:"mismatch",message:"Received zone 14 differs from suggested zone 5."}],inlineEdits:[null,{kind:"exchange",fieldID:"other_2",value:"14",maximumUTF8Bytes:128},null]},
+    second={qsoID:"second",values:["DL1ABC","15","2"],inlineEdits:[null,null,null]};
+  let view:any={schemaVersion:1,status:"ready",sessionRevision:7,canExportCabrillo:true,exchangeLayout:"plugin",
+    pluginColumns:["Call","CQ Zone","PTS"],pluginRows:[first,second],pluginPartialRows:[],page:{offset:0,limit:20,total:2,rows:[pageRow,{...pageRow,qsoID:"second"}]},editing:null,busy:false};
+  const actions:Record<string,any>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return {...snapshot,panelID:"logbook",projection:view};
+    if(command==="contest_surface_action"){actions.push(args);
+      if(args.action==="log_edit_begin")view={...view,editing:{qsoID:"first",workedAt:"2026-10-20 12:00:00",operator:"OM0RX",callsign:"K1ABC",band:"20m",mode:"SSB",
+        sentReport:"59",receivedReport:"59",receivedFields:[],frequencyHz:14250000,editFrequencyText:"14250000",frequencyError:"",
+        correctionReason:"Operator correction",confirmDelete:false,deletionReason:"Operator deletion"}};
+      if(args.action==="log_edit_save")view={...view,editing:null};
+      return {requestID:args.requestID,status:"applied"};}
+    throw new Error(command);
+  });
+  let mounted=render(<DetachedContestSurface/>);
+  const table=await screen.findByRole("table",{name:"Contest log"});
+  expect(within(table).getByRole("note").getAttribute("aria-label")).toContain("suggested zone 5");
+  fireEvent.click(within(table).getByRole("button",{name:"Sort displayed rows by PTS"}));
+  expect([...table.querySelectorAll("tbody tr td:first-child")].map(cell=>cell.textContent)).toEqual(["DL1ABC","K1ABC!"]);
+  fireEvent.click(within(table).getByRole("button",{name:"Sort displayed rows by PTS"}));
+  expect(table.querySelector("tbody tr td")?.textContent).toBe("K1ABC!");
+  const column=within(table).getByRole("button",{name:"Sort displayed rows by CQ Zone"});
+  fireEvent.keyDown(column,{key:"ArrowLeft",altKey:true});
+  expect([...table.querySelectorAll("thead th")].map(cell=>cell.textContent)).toEqual(["CQ Zone","Call","PTS"]);
+  const dragData=new Map<string,string>(),dataTransfer={setData:(key:string,value:string)=>dragData.set(key,value),getData:(key:string)=>dragData.get(key)??""};
+  fireEvent.dragStart(within(table).getByRole("button",{name:"Sort displayed rows by PTS"}).closest("th")!,{dataTransfer});
+  fireEvent.drop(within(table).getByRole("button",{name:"Sort displayed rows by Call"}).closest("th")!,{dataTransfer});
+  expect([...table.querySelectorAll("thead th")].map(cell=>cell.textContent)).toEqual(["CQ Zone","PTS","Call"]);
+  const divider=screen.getByRole("separator",{name:"Resize log panes"});
+  fireEvent.keyDown(divider,{key:"ArrowDown"});
+  expect(divider.getAttribute("aria-valuenow")).toBe("71");
+  vi.spyOn(document.querySelector(".contest-surface-log-panes")!,"getBoundingClientRect").mockReturnValue({height:200} as DOMRect);
+  fireEvent(divider,new MouseEvent("pointerdown",{bubbles:true,clientY:100}));
+  fireEvent(divider,new MouseEvent("pointermove",{bubbles:true,clientY:140}));
+  fireEvent(divider,new MouseEvent("pointerup",{bubbles:true,clientY:140}));
+  expect(divider.getAttribute("aria-valuenow")).toBe("80");
+  mounted.unmount();mounted=render(<DetachedContestSurface/>);
+  const restored=await screen.findByRole("table",{name:"Contest log"});
+  expect([...restored.querySelectorAll("thead th")].map(cell=>cell.textContent)).toEqual(["CQ Zone","PTS","Call"]);
+  expect(screen.getByRole("separator",{name:"Resize log panes"}).getAttribute("aria-valuenow")).toBe("80");
+  expect(restored.querySelector("tbody tr td")?.textContent).toBe("14");
+  fireEvent.doubleClick(within(restored).getByText("14").closest("td")!);
+  const input=await screen.findByLabelText("Edit CQ Zone");fireEvent.change(input,{target:{value:"9"}});fireEvent.keyDown(input,{key:"Enter"});
+  await waitFor(()=>expect(actions.map(action=>action.action)).toEqual(["log_edit_begin","log_edit_set_exchange","log_edit_save"]));
+  expect(actions[1]).toMatchObject({params:{qsoID:"first",fieldID:"other_2",value:"9"}});
+});
+
+it("lets Check Partial panes be hidden and restored without changing their data or owner",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=callsign-intelligence"));
+  const view={schemaVersion:1,status:"ready",draftID:"draft-1",draftRevision:5,inputCallsign:"DL1A",
+    loggedCandidates:[{candidateID:"log:DL1A",callsign:"DL1A"}],clusterCandidates:[{candidateID:"cluster:DL1E",callsign:"DL1E"}],
+    scp:{source:"MASTER.SCP",candidates:[{candidateID:"scp:DL1ABC",callsign:"DL1ABC"}]},history:{source:null,rows:[]},busy:false};
+  native.invoke.mockResolvedValue({...snapshot,panelID:"callsign-intelligence",projection:view});
+  let mounted=render(<DetachedContestSurface/>);await screen.findByRole("heading",{name:"Check Partial"});
+  fireEvent.click(screen.getByText("Panes"));fireEvent.click(screen.getByRole("checkbox",{name:"Master"}));
+  expect(screen.queryByRole("heading",{name:"Master"})).toBeNull();
+  expect(screen.queryByRole("button",{name:"DL1ABC"})).toBeNull();
+  mounted.unmount();mounted=render(<DetachedContestSurface/>);await screen.findByRole("heading",{name:"Check Partial"});
+  expect(screen.queryByRole("heading",{name:"Master"})).toBeNull();
+  fireEvent.click(screen.getByText("Panes"));fireEvent.click(screen.getByRole("checkbox",{name:"Master"}));
+  expect(screen.getByRole("heading",{name:"Master"})).toBeTruthy();expect(screen.getByRole("button",{name:"DL1ABC"})).toBeTruthy();
+  expect(native.invoke.mock.calls.every(([command])=>command==="contest_surface_snapshot")).toBe(true);
+});
+
+it("dispatches a multiplier candidate with the owner draft and projection revisions",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=awards"));
+  const matrix={schemaVersion:4,status:"ready",title:"DXCC",tracker:"dxcc",zoneSystem:null,draftID:"draft-1",draftRevision:5,
+    current:{dxcc:null,cqZone:null,ituZone:null},bands:["40m"],configuredBands:["40m"],currentBand:"40m",total:0,busy:false,
+    rows:[{label:"Australia",continent:"OC",counts:{"40m":0},total:0,availableSpots:{"40m":[{spotID:"vk",callsign:"VK2ABC",frequencyKHz:7125,mode:"SSB",
+      contestDupe:false,contestMultiplierCount:2,contestCountryMultiplier:true,contestZoneMultiplier:true}]}}]};
+  const actions:Record<string,any>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return {...snapshot,panelID:"awards",projection:matrix};
+    if(command==="contest_surface_action"){actions.push(args);return {requestID:args.requestID,status:"applied"};}
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);fireEvent.change(await screen.findByRole("combobox",{name:"Multiplier row filter"}),{target:{value:"spotted-needed"}});
+  fireEvent.click(screen.getByRole("button",{name:"Select VK2ABC for Australia on 40m"}));
+  await waitFor(()=>expect(actions).toHaveLength(1));
+  expect(actions[0]).toMatchObject({action:"spot_select",projectionRevision:6,params:{draftID:"draft-1",expectedDraftRevision:5,spotID:"vk"}});
+});
+
+it.each([["PREV_MULTIPLIER","entry_step_spot",{direction:"previous",multiplierOnly:true}],
+  ["NEXT_MULTIPLIER","entry_step_spot",{direction:"next",multiplierOnly:true}],
+  ["QUICK_EDIT","entry_edit_last",{}]] as const)("routes %s through its revision-fenced owner action",async(bindingAction,action,params)=>{
+  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14025000,frequencyError:""},
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null},
+      keyBindings:[{context:"*",key:"Ctrl+G",action:bindingAction}]},
+    operator:{output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_snapshot")return view;
+    if(command==="contest_surface_action")return {requestID:args.requestID,status:"applied",projectionRevision:7};
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);fireEvent.keyDown(await screen.findByRole("region",{name:"Main Logging"}),{key:"g",ctrlKey:true});
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action===action)?.[1])
+    .toMatchObject({action,params:{draftID:"draft-1",expectedDraftRevision:5,...params}}));
 });

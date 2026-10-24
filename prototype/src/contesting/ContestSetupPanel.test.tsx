@@ -2,7 +2,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ContestSetupPanel, contestSetupTabs, loadContestAudioInputs, loadContestAudioOutputs, newContestSetup, restoredESMPreferences, type ContestSetupDocument, type ContestSetupSession } from "./ContestSetupPanel";
-import { readContestKeyBindings } from "./contestKeyBindings";
+import { readContestKeyBindings, n1mmContestKeyBindings } from "./contestKeyBindings";
 import { decodeContestBandPlan } from "./contestBandPlan";
 afterEach(() => { cleanup(); vi.useRealTimers(); document.documentElement.style.removeProperty("zoom"); });
 function props() {
@@ -11,6 +11,29 @@ function props() {
     onSave: vi.fn(async (_value: ContestSetupDocument) => {}), onCreate: vi.fn(async (_value: ContestSetupDocument) => {}), onOpen: vi.fn(async (_session: ContestSetupSession) => {}), onOpenSettings: vi.fn() };
 }
 function open(name: string) { fireEvent.click(screen.getByRole("button", { name })); }
+it("saves and reloads the opt-in N1MM navigation profile inside the host preference limit",async()=>{
+  const p=props(),mounted=render(<ContestSetupPanel {...p}/>);open("Edit Keys");
+  expect(screen.getByLabelText("action 1")).toHaveProperty("value","TOGGLE_RUN");
+  open("Use N1MM navigation profile");open("OK");
+  await waitFor(()=>expect(p.onSave).toHaveBeenCalledOnce());
+  const saved=p.onSave.mock.calls[0][0],encoded=String(saved.preferences.keyBindings);
+  expect(new TextEncoder().encode(encoded).length).toBeLessThanOrEqual(512);
+  expect(readContestKeyBindings(encoded)).toEqual(n1mmContestKeyBindings);
+  mounted.unmount();render(<ContestSetupPanel {...p} value={saved}/>);open("Edit Keys");
+  expect(screen.getAllByLabelText(/^key \d+$/).map(input=>(input as HTMLInputElement).value)).toEqual(n1mmContestKeyBindings.map(item=>item.key));
+  expect(screen.getAllByLabelText(/^action \d+$/).map(input=>(input as HTMLSelectElement).value)).toEqual(n1mmContestKeyBindings.map(item=>item.action));
+});
+
+it("persists the configured SSB tuning tolerance and bounds the input",async()=>{
+  const p=props(),mounted=render(<ContestSetupPanel {...p} initialTab="Options"/>);
+  const tolerance=screen.getByLabelText("SSB tuning tolerance (Hz)");expect(tolerance).toHaveProperty("value","300");
+  fireEvent.change(tolerance,{target:{value:"1200"}});open("Save");await waitFor(()=>expect(p.onSave).toHaveBeenCalledOnce());
+  const saved=p.onSave.mock.calls[0][0];expect(saved.preferences.ssbTuningToleranceHz).toBe(1200);
+  mounted.unmount();render(<ContestSetupPanel {...p} value={saved} initialTab="Options"/>);
+  expect(screen.getByLabelText("SSB tuning tolerance (Hz)")).toHaveProperty("value","1200");
+  fireEvent.change(screen.getByLabelText("SSB tuning tolerance (Hz)"),{target:{value:"30000"}});
+  expect(screen.getByLabelText("SSB tuning tolerance (Hz)")).toHaveProperty("value","20000");
+});
 it("uses upstream ESM defaults for new contests and explicit compatibility defaults only for missing saved fields", () => {
   const preferences = newContestSetup("OM0RX").preferences;
   expect(newContestSetup("OM0RX").settings.SentExchange).toBe("");
@@ -213,7 +236,7 @@ it("edits and saves per-contest CW, Data and SSB band-map limits", async () => {
   render(<ContestSetupPanel {...p}/>); open("Configuration Settings"); fireEvent.click(screen.getByRole("tab", { name: "Bands" }));
   expect(screen.getByRole("table", { name: /contest band-map segments/i })).toBeTruthy();
   expect(screen.getByLabelText("40m CW from")).toHaveProperty("value", "7000");
-  expect(screen.getByLabelText("40m SSB from")).toHaveProperty("value", "7100");
+  expect(screen.getByLabelText("40m SSB from")).toHaveProperty("value", "7050");
   fireEvent.change(screen.getByLabelText("40m CW to"), { target: { value: "7100" } });
   fireEvent.blur(screen.getByLabelText("40m CW to"));
   open("Save"); await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());

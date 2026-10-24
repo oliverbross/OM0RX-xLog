@@ -218,6 +218,15 @@ fn submit_after_admission_focused(
     submit_checked(state, panel_id, checked, envelope)
 }
 
+fn action_owns_projected_draft(envelope: &Value, projection: &Value) -> bool {
+    let draft = projection.get("draft").filter(|value| value.is_object()).unwrap_or(projection);
+    let Some(draft_id) = draft.get("draftID").and_then(Value::as_str) else { return false; };
+    let Some(revision) = draft.get("revision").or_else(|| draft.get("draftRevision")).and_then(Value::as_u64)
+        else { return false; };
+    envelope["params"]["draftID"].as_str() == Some(draft_id)
+        && envelope["params"]["expectedDraftRevision"].as_u64() == Some(revision)
+}
+
 fn submit_checked(
     state: &mut State,
     panel_id: &str,
@@ -253,6 +262,8 @@ fn submit_checked(
                     checked.projection_revision <= *revision
                 } else {
                     checked.projection_revision == *revision
+                        || (checked.projection_revision < *revision
+                            && action_owns_projected_draft(&envelope, projection))
                 }
         })
         .ok_or("Refresh this contest surface before sending an action.")?
@@ -732,7 +743,7 @@ fn validate_action_envelope(value: &Value) -> Result<CheckedAction, String> {
     validate_action_params(action, params)?;
     let matches_panel = action.starts_with("spot_")
         && (matches!(panel_id, "band-maps" | "dx-cluster")
-            || panel_id == "world-map" && action == "spot_select")
+            || matches!(panel_id, "world-map" | "awards" | "chaser-dx") && action == "spot_select")
         || action.starts_with("entry_") && panel_id == "active-qso"
         || action.starts_with("assistance_") && panel_id == "callsign-intelligence"
         || action.starts_with("log_") && panel_id == "logbook"
@@ -782,17 +793,25 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
             text_value(&params["value"], 1024, true, "exchange value")?;
         }
         "entry_set_frequency_text" => {
-            draft(params, &["value"])?;
+            draft_with_callsign_command(params)?;
             frequency_text(&params["value"])?;
         }
-        "entry_set_band" | "entry_set_mode" => {
+        "entry_set_mode" => {
+            draft_with_callsign_command(params)?;
+            text_value(&params["value"], 16, false, "entry selection")?;
+        }
+        "entry_set_band" => {
             draft(params, &["value"])?;
             text_value(&params["value"], 16, false, "entry selection")?;
         }
         "entry_reserve_serial" | "entry_commit" | "entry_clear" | "entry_edit_last" | "entry_spot" | "entry_mark_spot"
         | "entry_tune_spot" | "entry_return_cq_frequency" => draft(params, &[])?,
         "entry_step_spot" => {
-            draft(params, &["direction"])?;
+            let mut required = params.clone();
+            if let Some(value) = required.remove("multiplierOnly") {
+                boolean(&value, "multiplier-only spot selection")?;
+            }
+            draft(&required, &["direction"])?;
             enum_value(&params["direction"], &["previous", "next"], "spot direction")?;
         }
         "entry_step_vfo" => {
@@ -958,6 +977,16 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
         _ => return Err("The contest surface action is invalid.".into()),
     }
     Ok(())
+}
+
+fn draft_with_callsign_command(params: &Map<String, Value>) -> Result<(), String> {
+    let mut required = params.clone();
+    if let Some(value) = required.remove("callsignCommand") {
+        if value != Value::Bool(true) {
+            return Err("The callsign command marker is invalid.".into());
+        }
+    }
+    draft(&required, &["value"])
 }
 
 fn draft(params: &Map<String, Value>, extras: &[&str]) -> Result<(), String> {
@@ -1270,7 +1299,7 @@ fn validate_entry_projection_body(value: &Map<String, Value>) -> Result<(), Stri
     }
     text_value(&session["mode"], 16, false, "entry mode")?;
     let draft = object(&value["draft"], "entry draft")?;
-    exact(
+    exact_optional(
         draft,
         &[
             "draftID",
@@ -1288,8 +1317,12 @@ fn validate_entry_projection_body(value: &Map<String, Value>) -> Result<(), Stri
             "validation",
             "reservedSerial",
         ],
+        &["exchangeWarnings"],
         "entry draft",
     )?;
+    if let Some(warnings) = draft.get("exchangeWarnings") {
+        validate_exchange_warnings(warnings)?;
+    }
     text_value(&draft["draftID"], 160, false, "draft ID")?;
     uint_value(&draft["revision"], MAX_SAFE_INTEGER, "draft revision")?;
     for key in ["callsign", "sentReport", "receivedReport"] {
@@ -1394,7 +1427,7 @@ fn validate_entry_descriptor(value: &Value) -> Result<BTreeSet<String>, String> 
             return Err("The entry key binding is not canonical.".into());
         }
         enum_value(&binding["action"], &["TOGGLE_RUN", "SET_RUN", "SET_S_AND_P", "LOG_NOW", "CLEAR_INPUTS",
-            "PREV_SPOT", "NEXT_SPOT", "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN",
+            "PREV_SPOT", "NEXT_SPOT", "PREV_MULTIPLIER", "NEXT_MULTIPLIER", "QUICK_EDIT", "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN",
             "TOGGLE_CW_INPUT", "RST_INCR", "RST_DECR", "EXCH_INCR", "EXCH_DECR",
             "SPOT_DX", "MARK_SPOT", "TUNE_SPOT", "WIN_BAND", "WIN_CHECK", "WIN_LOG", "WIN_RATE", "WIN_STATS", "WIN_VFO",
             "VFO_UP", "VFO_DOWN", "RETURN_CQ_FREQUENCY",
@@ -1852,7 +1885,7 @@ fn validate_rate_projection(value: &Map<String, Value>) -> Result<(), String> {
 }
 
 fn validate_native_rate_projection(value: &Map<String, Value>) -> Result<(), String> {
-    exact(
+    exact_optional(
         value,
         &[
             "schemaVersion",
@@ -1868,8 +1901,20 @@ fn validate_native_rate_projection(value: &Map<String, Value>) -> Result<(), Str
             "hourSearchAndPounceQso",
             "busy",
         ],
+        &["hourly", "lastQsoAt"],
         "native rate projection",
     )?;
+    if let Some(hourly) = value.get("hourly") {
+        for hour in array(hourly, 168, "hourly contest rates")? {
+            let hour = object(hour, "hourly contest rate")?;
+            exact(hour, &["hourUTC", "qsos"], "hourly contest rate")?;
+            canonical_timestamp(&hour["hourUTC"], "rate hour")?;
+            uint_value(&hour["qsos"], MAX_SAFE_INTEGER, "hourly contest QSOs")?;
+        }
+    }
+    if let Some(last) = value.get("lastQsoAt").filter(|value| !value.is_null()) {
+        canonical_timestamp(last, "last QSO time")?;
+    }
     for key in [
         "lastHourQsoPerHour",
         "last10QsoPerHour",
@@ -1907,7 +1952,7 @@ fn validate_matrix_projection(value: &Map<String, Value>) -> Result<(), String> 
             "total",
             "busy",
             ],
-            &["configuredBands", "currentBand"],
+            &["configuredBands", "currentBand", "draftID", "draftRevision"],
             "multiplier matrix projection",
         )?;
     } else {
@@ -1919,6 +1964,14 @@ fn validate_matrix_projection(value: &Map<String, Value>) -> Result<(), String> 
     }
     text_value(&value["title"], 160, false, "multiplier matrix title")?;
     if version == Some(4) {
+        match (value.get("draftID"), value.get("draftRevision")) {
+            (None, None) => {},
+            (Some(id), Some(revision)) => {
+                text_value(id, 160, false, "matrix draft ID")?;
+                uint_value(revision, MAX_SAFE_INTEGER, "matrix draft revision")?;
+            },
+            _ => return Err("The matrix draft identity is incomplete.".into()),
+        }
         let tracker = text_value(&value["tracker"], 8, false, "multiplier matrix tracker")?;
         if !matches!(tracker, "dxcc" | "zone") {
             return Err("The multiplier matrix tracker is invalid.".into());
@@ -1980,7 +2033,33 @@ fn validate_matrix_projection(value: &Map<String, Value>) -> Result<(), String> 
     let mut labels = BTreeSet::new();
     for row in array(&value["rows"], 10_000, "multiplier matrix rows")? {
         let row = object(row, "multiplier matrix row")?;
-        exact(row, &["label", "counts", "total"], "multiplier matrix row")?;
+        exact_optional(row, &["label", "counts", "total"],
+            if version == Some(4) { &["continent", "availableSpots"] } else { &[] }, "multiplier matrix row")?;
+        if let Some(continent) = row.get("continent").filter(|value| !value.is_null()) {
+            text_value(continent, 8, true, "multiplier continent")?;
+        }
+        if let Some(spots) = row.get("availableSpots") {
+            for (band, spots) in object(spots, "available multiplier spots")? {
+                if !band_names.contains(band.as_str()) {
+                    return Err("The available multiplier spot band is invalid.".into());
+                }
+                for spot in array(spots, 500, "available multiplier spots")? {
+                    let spot = object(spot, "available multiplier spot")?;
+                    exact(spot, &["spotID", "callsign", "frequencyKHz", "mode", "contestDupe",
+                        "contestMultiplierCount", "contestCountryMultiplier", "contestZoneMultiplier"], "available multiplier spot")?;
+                    text_value(&spot["spotID"], 128, false, "multiplier spot ID")?;
+                    text_value(&spot["callsign"], 32, false, "multiplier spot callsign")?;
+                    text_value(&spot["mode"], 16, false, "multiplier spot mode")?;
+                    if !spot["frequencyKHz"].as_f64().is_some_and(|frequency| frequency.is_finite() && frequency > 0.0 && frequency <= 1_300_000.0) {
+                        return Err("The multiplier spot frequency is invalid.".into());
+                    }
+                    for key in ["contestDupe", "contestCountryMultiplier", "contestZoneMultiplier"] {
+                        if !spot[key].is_null() { boolean(&spot[key], "multiplier spot classification")?; }
+                    }
+                    nullable_uint(&spot["contestMultiplierCount"], 10, "needed multiplier count")?;
+                }
+            }
+        }
         let label = text_value(&row["label"], 160, false, "multiplier matrix label")?;
         if !labels.insert(label) {
             return Err("The multiplier matrix labels are not unique.".into());
@@ -2625,6 +2704,17 @@ fn validate_plugin_columns(value: &Value) -> Result<usize, String> {
     Ok(columns.len())
 }
 
+fn validate_exchange_warnings(value: &Value) -> Result<(), String> {
+    for warning in array(value, 32, "exchange warnings")? {
+        let warning = object(warning, "exchange warning")?;
+        exact(warning, &["fieldID", "message", "kind"], "exchange warning")?;
+        text_value(&warning["fieldID"], 64, false, "exchange warning field")?;
+        text_value(&warning["message"], 512, false, "exchange warning message")?;
+        enum_value(&warning["kind"], &["mismatch", "conflict"], "exchange warning kind")?;
+    }
+    Ok(())
+}
+
 fn validate_plugin_rows(value: &Value, columns: usize, maximum: usize) -> Result<Vec<String>, String> {
     let rows = array(value, maximum, "plugin log rows")?;
     let mut ids = Vec::with_capacity(rows.len());
@@ -2633,6 +2723,9 @@ fn validate_plugin_rows(value: &Value, columns: usize, maximum: usize) -> Result
         let mut required = row.clone();
         let inline_edits = required.remove("inlineEdits");
         let is_dupe = required.remove("isDupe");
+        if let Some(warnings) = required.remove("exchangeWarnings") {
+            validate_exchange_warnings(&warnings)?;
+        }
         exact(&required, &["qsoID", "values"], "plugin log row")?;
         ids.push(text_value(&row["qsoID"], 160, false, "plugin log QSO ID")?.to_string());
         let values = array(&row["values"], columns, "plugin log values")?;
@@ -3404,6 +3497,90 @@ mod tests {
     }
 
     #[test]
+    fn advisory_warnings_timeline_and_available_multiplier_spots_are_bounded() {
+        let warnings = json!([{"fieldID":"other_2","message":"Received zone retained.","kind":"mismatch"}]);
+        let mut entry = entry_v2();
+        entry["draft"]["exchangeWarnings"] = warnings.clone();
+        entry["descriptor"]["keyBindings"] = json!([
+            {"context":"*","key":"Alt+Up","action":"PREV_MULTIPLIER"},
+            {"context":"*","key":"Alt+Down","action":"NEXT_MULTIPLIER"},
+            {"context":"*","key":"Ctrl+Q","action":"QUICK_EDIT"}
+        ]);
+        assert!(validate_projection("active-qso", &entry).is_ok());
+        let rows = json!([{"qsoID":"qso-1","values":["K1ABC"],"exchangeWarnings":warnings}]);
+        assert!(validate_plugin_rows(&rows, 1, 100).is_ok());
+        entry["draft"]["exchangeWarnings"][0]["kind"] = json!("blocking");
+        assert!(validate_projection("active-qso", &entry).is_err());
+        assert!(validate_exchange_warnings(&json!(vec![rows[0]["exchangeWarnings"][0].clone(); 33])).is_err());
+
+        let mut rates = json!({"schemaVersion":1,"status":"ready","lastHourQsoPerHour":null,
+            "last10QsoPerHour":120.5,"last100QsoPerHour":null,"sinceHourUTC":19,"sinceHourQso":2,
+            "runQso":2,"searchAndPounceQso":1,"hourRunQso":1,"hourSearchAndPounceQso":0,"busy":false,
+            "hourly":[{"hourUTC":"2026-10-25T19:00:00.000Z","qsos":2}],"lastQsoAt":"2026-10-25T19:42:13.123Z"});
+        assert!(validate_projection("monitor", &rates).is_ok());
+        rates["lastQsoAt"] = Value::Null;
+        assert!(validate_projection("monitor", &rates).is_ok());
+        rates["hourly"][0]["qsos"] = json!(-1);
+        assert!(validate_projection("monitor", &rates).is_err());
+        rates["hourly"] = json!(vec![json!({"hourUTC":"2026-10-25T19:00:00.000Z","qsos":0});169]);
+        assert!(validate_projection("monitor", &rates).is_err());
+        rates["hourly"] = json!([]);
+        rates["lastQsoAt"] = json!("2026-02-30T19:00:00.000Z");
+        assert!(validate_projection("monitor", &rates).is_err());
+
+        let mut matrix = json!({"schemaVersion":4,"status":"ready","title":"DXCC","tracker":"dxcc","zoneSystem":null,
+            "draftID":"draft","draftRevision":3,"current":{"dxcc":"United States","cqZone":5,"ituZone":8},"bands":["20m"],
+            "rows":[{"label":"United States","continent":"NA","counts":{"20m":0},"total":0,
+            "availableSpots":{"20m":[{"spotID":"spot","callsign":"K1ABC","frequencyKHz":14200,"mode":"SSB",
+                "contestDupe":false,"contestMultiplierCount":2,"contestCountryMultiplier":true,"contestZoneMultiplier":true}]}}],
+            "total":0,"busy":false});
+        assert!(validate_projection("awards", &matrix).is_ok());
+        assert!(validate_projection("chaser-dx", &matrix).is_ok());
+        matrix["rows"][0]["availableSpots"]["20m"][0]["spotID"] = json!("s".repeat(128));
+        assert!(validate_projection("awards", &matrix).is_ok());
+        matrix["rows"][0]["availableSpots"]["20m"][0]["spotID"] = json!("s".repeat(129));
+        assert!(validate_projection("awards", &matrix).is_err());
+        matrix["rows"][0]["availableSpots"]["20m"][0]["spotID"] = json!("spot");
+        let available_spot = matrix["rows"][0]["availableSpots"]["20m"][0].clone();
+        matrix["rows"][0]["availableSpots"]["20m"] = json!(vec![available_spot.clone(); 500]);
+        assert!(validate_projection("awards", &matrix).is_ok());
+        matrix["rows"][0]["availableSpots"]["20m"] = json!(vec![available_spot.clone(); 501]);
+        assert!(validate_projection("awards", &matrix).is_err());
+        matrix["rows"][0]["availableSpots"]["20m"] = json!([available_spot]);
+        matrix.as_object_mut().unwrap().remove("draftRevision");
+        assert!(validate_projection("awards", &matrix).is_err());
+        matrix["draftRevision"] = json!(3);
+        matrix["rows"][0]["availableSpots"]["40m"] = json!([]);
+        assert!(validate_projection("awards", &matrix).is_err());
+        matrix["rows"][0]["availableSpots"].as_object_mut().unwrap().remove("40m");
+        matrix["rows"][0]["availableSpots"]["20m"][0]["frequencyKHz"] = json!(0);
+        assert!(validate_projection("awards", &matrix).is_err());
+    }
+
+    #[test]
+    fn multiplier_navigation_and_callsign_commands_keep_exact_action_contracts() {
+        for panel in ["awards", "chaser-dx"] {
+            let envelope = action("spot_select", panel, json!({"draftID":"draft","expectedDraftRevision":2,"spotID":"spot"}));
+            assert!(validate_action_envelope(&envelope).is_ok());
+            let mut forbidden = envelope;
+            forbidden["action"] = json!("spot_delete");
+            assert!(validate_action_envelope(&forbidden).is_err());
+        }
+        let mut step = action("entry_step_spot", "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2,"direction":"next","multiplierOnly":true}));
+        assert!(validate_action_envelope(&step).is_ok());
+        step["params"]["multiplierOnly"] = json!("true");
+        assert!(validate_action_envelope(&step).is_err());
+        for (name, value) in [("entry_set_mode", "SSB"), ("entry_set_frequency_text", "14200")] {
+            let mut command = action(name, "active-qso",
+                json!({"draftID":"draft","expectedDraftRevision":2,"value":value,"callsignCommand":true}));
+            assert!(validate_action_envelope(&command).is_ok());
+            command["params"]["callsignCommand"] = json!(false);
+            assert!(validate_action_envelope(&command).is_err());
+        }
+    }
+
+    #[test]
     fn rate_and_statistics_projections_reject_noncanonical_or_inconsistent_snapshots() {
         let mut rate = rate_projection();
         rate["asOfUTC"] = json!("2026-10-18T00:00:00Z");
@@ -3867,6 +4044,32 @@ mod tests {
     }
 
     #[test]
+    fn passive_panel_changes_keep_exact_semantic_draft_actions_and_receipts_valid() {
+        let mut state = State { context: Some(context()), ..State::default() };
+        publish_after_admission(&mut state, "active-qso", 9,
+            json!({"status":"ready","draft":{"draftID":"draft","revision":2}})).unwrap();
+        let envelope = action("entry_commit", "active-qso", json!({"draftID":"draft","expectedDraftRevision":2}));
+        let checked = validate_action_envelope(&envelope).unwrap();
+        assert_eq!(submit_checked(&mut state, "active-qso", &checked, envelope.clone()).unwrap()["status"], "queued");
+        assert_eq!(submit_checked(&mut state, "active-qso", &checked, envelope.clone()).unwrap()["status"], "queued");
+        assert_eq!(state.actions.len(), 1);
+        assert_eq!(take_next(&mut state).unwrap(), Some(envelope.clone()));
+        assert_eq!(submit_checked(&mut state, "active-qso", &checked, envelope.clone()).unwrap()["status"], "uncertain");
+        for (index, params) in [json!({"draftID":"draft","expectedDraftRevision":1}),
+            json!({"draftID":"other-draft","expectedDraftRevision":2})].into_iter().enumerate() {
+            let mut changed = action("entry_commit", "active-qso", params);
+            changed["requestID"] = json!(format!("40000000-0000-4000-8000-{:012}", 80 + index));
+            let checked = validate_action_envelope(&changed).unwrap();
+            assert!(submit_checked(&mut state, "active-qso", &checked, changed).is_err());
+        }
+        let mut future = envelope;
+        future["requestID"] = json!("40000000-0000-4000-8000-000000000090");
+        future["projectionRevision"] = json!(10);
+        let checked = validate_action_envelope(&future).unwrap();
+        assert!(submit_checked(&mut state, "active-qso", &checked, future).is_err());
+    }
+
+    #[test]
     fn action_queue_marks_taken_work_uncertain_and_never_replays_duplicate_ids() {
         let mut state = State {
             context: Some(context()),
@@ -4150,7 +4353,7 @@ mod tests {
         let mut cross_panel = action("spot_select", "active-qso", json!({"draftID":"draft","expectedDraftRevision":2,"spotID":"spot-1"}));
         cross_panel["requestID"] = json!("40000000-0000-4000-8000-000000000010");
         assert!(validate_action_envelope(&cross_panel).is_err());
-        let mut stale = action("spot_select", "band-maps", json!({"draftID":"draft","expectedDraftRevision":2,"spotID":"spot-1"}));
+        let mut stale = action("spot_select", "band-maps", json!({"draftID":"draft","expectedDraftRevision":1,"spotID":"spot-1"}));
         stale["requestID"] = json!("40000000-0000-4000-8000-000000000011"); stale["projectionRevision"] = json!(6);
         let stale_checked = validate_action_envelope(&stale).unwrap();
         assert!(submit_checked(&mut state, "band-maps", &stale_checked, stale).is_err());

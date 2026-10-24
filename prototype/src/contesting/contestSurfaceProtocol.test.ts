@@ -220,6 +220,33 @@ const matrixProjection = { schemaVersion: 1, status: "ready", title: "DXCC", ban
 const matrixProjectionV2 = { schemaVersion: 4, status: "ready", title: "CQ Zones", tracker: "zone", zoneSystem: "cq",
   current: { dxcc: "Slovakia", cqZone: 15, ituZone: 28 }, bands: ["20m", "40m"],
   rows: [{ label: "15", counts: { "20m": 2, "40m": 0 }, total: 2 }], total: 1, busy: false };
+
+it("validates bounded selectable matrix opportunities and their paired draft authority",()=>{
+  const candidate={spotID:"vk",callsign:"VK2ABC",frequencyKHz:7025,mode:"CW",contestDupe:false,contestMultiplierCount:2,
+    contestCountryMultiplier:true,contestZoneMultiplier:true};
+  const value={...matrixProjectionV2,draftID:"draft-1",draftRevision:5,
+    rows:[{...matrixProjectionV2.rows[0],continent:null,availableSpots:{"40m":[candidate]}}]};
+  expect(validContestSurfaceProjection("chaser-dx",value)).toBe(true);
+  for(const panelID of ["awards","chaser-dx"]){
+    expect(()=>validateContestSurfaceActionEnvelope({...base,panelID,action:"spot_select",params:{...draft,spotID:"vk"}})).not.toThrow();
+    expect(()=>validateContestSurfaceActionEnvelope({...base,panelID,action:"spot_delete",params:{...draft,spotID:"vk"}})).toThrow();
+  }
+  expect(validContestSurfaceProjection("chaser-dx",{...value,draftRevision:undefined})).toBe(false);
+  expect(validContestSurfaceProjection("chaser-dx",{...value,draftID:undefined})).toBe(false);
+  for(const candidateChange of [{spotID:"x".repeat(129)},{contestMultiplierCount:-1},{contestDupe:"yes"},{frequencyKHz:NaN}])
+    expect(validContestSurfaceProjection("chaser-dx",{...value,rows:[{...value.rows[0],availableSpots:{"40m":[{...candidate,...candidateChange}]}}]})).toBe(false);
+  expect(validContestSurfaceProjection("chaser-dx",{...value,rows:[{...value.rows[0],availableSpots:{"80m":[candidate]}}]})).toBe(false);
+});
+
+it("validates advisory exchange warnings without treating received values as invalid",()=>{
+  const warning={fieldID:"other_2",kind:"mismatch",message:"Received zone 9 differs from suggested zone 14."};
+  expect(validContestSurfaceProjection("active-qso",{...entryProjection,draft:{...entryProjection.draft,exchangeWarnings:[warning]}})).toBe(true);
+  for(const changed of [{kind:"error"},{message:"x".repeat(513)},{fieldID:""}])
+    expect(validContestSurfaceProjection("active-qso",{...entryProjection,draft:{...entryProjection.draft,exchangeWarnings:[{...warning,...changed}]}})).toBe(false);
+  expect(validContestSurfaceProjection("monitor",{...ratesProjection,hourly:[{hourUTC:"2026-10-25T00:00:00.000Z",qsos:0}],lastQsoAt:null})).toBe(true);
+  expect(validContestSurfaceProjection("monitor",{...ratesProjection,hourly:[{hourUTC:"bad-date",qsos:0}]})).toBe(false);
+  expect(validContestSurfaceProjection("monitor",{...ratesProjection,lastQsoAt:"bad-date"})).toBe(false);
+});
 const logProjection = { schemaVersion: 1, status: "ready", sessionRevision: 7, canExportCabrillo: true, page: { offset: 0, limit: 20, total: 1,
   rows: [{ qsoID: "qso-1", workedAt: "2026-10-18T00:00:00.000Z", callsign: "K1ABC", band: "20m", mode: "CW",
     sentExchange: "599 100", receivedExchange: "599 MA", points: 3, multiplierLabels: ["K"] }] },

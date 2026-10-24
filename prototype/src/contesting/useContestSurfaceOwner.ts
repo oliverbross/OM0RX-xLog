@@ -19,6 +19,27 @@ const rebasablePresentationActions = new Set<ContestSurfaceActionEnvelope["actio
   "spot_set_marked_only", "spot_set_show_worked",
   "log_edit_set_text", "log_edit_set_exchange", "log_edit_set_frequency_text", "log_edit_set_band", "log_edit_confirm_delete",
 ]);
+export type ContestDraftContent = {
+  sessionID:string;workspaceGeneration:string;draftID:string;
+  fields:Record<string,string>;frequencyHz:number|null;mode:string;operator:string;run:boolean;reservedSerial:number|null;
+  pluginID:string;sourceRevision:string;referenceID:string;scoringContext:unknown;
+};
+export type ContestDraftRevision = {signature:string;revision:number};
+const canonicalDraftContent=(value:unknown):unknown=>Array.isArray(value)?value.map(canonicalDraftContent):
+  value!==null&&typeof value==="object"?Object.fromEntries(Object.entries(value).sort(([left],[right])=>left.localeCompare(right))
+    .map(([key,item])=>[key,canonicalDraftContent(item)])):value;
+/** Panel presentation can change without changing what Enter would commit.
+ * Callers supply only commit content and rule/reference context, excluding
+ * lookup presentation, focus, busy state and recomputed score totals. */
+export function advanceContestDraftRevision(previous:ContestDraftRevision|null,content:ContestDraftContent,
+  hostRevision:number):ContestDraftRevision{
+  if(!Number.isSafeInteger(hostRevision)||hostRevision<0)throw new Error("Invalid contest draft revision.");
+  const signature=JSON.stringify(canonicalDraftContent(content));
+  if(previous?.signature===signature)return previous;
+  const revision=Math.max(hostRevision,(previous?.revision??0)+1);
+  if(!Number.isSafeInteger(revision))throw new Error("Contest draft revision exceeded its supported range.");
+  return {signature,revision};
+}
 export function actionStillOwnsCurrentDraft(action:ContestSurfaceActionEnvelope,projection:ContestSurfaceProjection):boolean{
   const params=action.params as Record<string,unknown>,view=projection as Record<string,any>,draft=view.draft&&typeof view.draft==="object"?view.draft:view;
   const revision=Number.isSafeInteger(draft.revision)?draft.revision:draft.draftRevision;

@@ -16,7 +16,7 @@ import { contestInputFieldIDs, contestSurfacePanelIDs, type ContestInputFieldID,
   type ContestSurfaceProjection, type ContestLogInlineEdit, type ContestManualRow, type ContestManualContext, type ContestPluginLogRow,
   type ContestCQWWStatisticsRow, type ContestStatisticsRow, type ContestSurfaceSpot, validContestSurfaceProjection } from "./contestSurfaceProtocol";
 import type { ContestTransitionController } from "./ContestWorkspace";
-import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
+import { useContestSurfaceOwner, advanceContestDraftRevision, type ContestDraftRevision } from "./useContestSurfaceOwner";
 import { openContestCallHistoryWindow, openContestSurfaceWindow } from "./contestSurfaceNative";
 import { openContestSetupService } from "./contestSetupServices";
 import { openContestSetupDialog, useContestSetupDialogs, type ContestDigitalSave, type ContestDigitalSnapshot } from "./contestSetupDialogs";
@@ -135,6 +135,7 @@ type Projection = {
   supportedBands?: string[]; supportedModes?: string[]; allowDuplicateCommit?: boolean;
   fldigiReceiveSupported?: boolean; fldigiTransmitSupported?: boolean; fldigiTransmitAvailable?: boolean;
   columns?: string[];
+  exchangeWarnings?:import("./contestSurfaceProtocol").ContestExchangeWarning[];
   history: string; score: Score; operator?: string; roverLocation?: string; cwSpeedWpm?: number | null;
   callContext?: Partial<ContestManualContext> & {callsign?:string;primaryPrefix?:string};
   replicaCursor?: { revision:number; sequence:number } | null;
@@ -466,7 +467,8 @@ function not1mmLogRows(rows: Data[], columns: string[], fields: Field[], pluginI
       }
       return null;
     });
-    return { qsoID:String(row.ID ?? ""), values, isDupe:row.is_dupe === 1 || row.is_dupe === true, inlineEdits };
+    return { qsoID:String(row.ID ?? ""), values, isDupe:row.is_dupe === 1 || row.is_dupe === true, inlineEdits,
+      ...(Array.isArray(row.exchangeWarnings)?{exchangeWarnings:row.exchangeWarnings}:{} ) };
   });
 }
 
@@ -616,7 +618,7 @@ export function projectContestSpotWorkflow(spots: ContestSurfaceSpot[],workflow:
     const current=projected.get(id);if(current)projected.set(id,{...current,receivedAt:entry.spot.receivedAt,marked:entry.spot.marked});
     else if(entry.spot.marked)projected.set(id,entry.spot);
   }
-  const values=[...projected.values()];return includeOnlyMarked?values.filter(spot=>spot.marked):values;
+  const values=deduplicateBandMapSpots([...projected.values()],true);return includeOnlyMarked?values.filter(spot=>spot.marked):values;
 }
 export function updateContestSpotWorkflow(workflow:SpotWorkflow,spots:ContestSurfaceSpot[],spotID:string,
     operation:"confirm"|"delete"|"mark",marked=false,now=Date.now()/1000-978_307_200,updatedAt=Date.now()):SpotWorkflow{
@@ -633,8 +635,11 @@ export function updateContestSpotWorkflow(workflow:SpotWorkflow,spots:ContestSur
 
 function multiplierMatrix(title: string, tracker: "dxcc" | "zone", values: Data[], busy: boolean,
     current: { dxcc: string | null; cqZone: number | null; ituZone: number | null }, zoneSystem: "cq" | "itu" | null,
-    configuredBands: string[], currentBand: string | null) {
+    configuredBands: string[], currentBand: string | null,
+    opportunities?:{universe:Data[];spots:ContestSurfaceSpot[];draftID:string;draftRevision:number}) {
   const rows = new Map<string, Record<string, number>>();
+  const universe=opportunities?.universe??[];
+  if(tracker==="dxcc")for(const item of universe)rows.set(String(item.value),Object.fromEntries(contestBands.map(value=>[value,0])));
   if (tracker === "zone" && zoneSystem === "cq") for (let zone = 1; zone <= 40; zone += 1)
     rows.set(String(zone), Object.fromEntries(contestBands.map(value => [value, 0])));
   for (const item of values) {
@@ -645,10 +650,27 @@ function multiplierMatrix(title: string, tracker: "dxcc" | "zone", values: Data[
     counts[band] = Number(item.qsos ?? 0); rows.set(label, counts);
   }
   const workedRows=[...rows.values()].filter(counts=>Object.values(counts).some(value=>value>0)).length;
-  return { schemaVersion: 4 as const, status: "ready" as const, title, tracker, zoneSystem, current, bands: contestBands,
+  const available=new Map<string,Record<string,import("./contestSurfaceProtocol").ContestAvailableMultiplierSpot[]>>();
+  for(const spot of opportunities?.spots??[]){
+    const country=universe.find(item=>String(item.label).toUpperCase()===spot.country.toUpperCase()||String(item.value).toUpperCase()===spot.country.toUpperCase());
+    const key=tracker==="zone"?String(zoneSystem==="itu"?spot.ituZone:spot.cqZone):country?String(country.value):spot.country;
+    if(!rows.has(key)||!contestBands.includes(spot.band))continue;
+    const bands=available.get(key)??{};
+    const bandSpots=bands[spot.band]??=[];
+    if(bandSpots.length>=500)continue;
+    bandSpots.push({spotID:spot.id,callsign:spot.callsign,frequencyKHz:spot.frequencyKHz,mode:spot.mode,
+      contestDupe:spot.contestDupe,contestMultiplierCount:spot.contestMultiplierCount,
+      contestCountryMultiplier:spot.contestCountryMultiplier,contestZoneMultiplier:spot.contestZoneMultiplier});
+    available.set(key,bands);
+  }
+  const currentCountry=universe.find(item=>String(item.label).toUpperCase()===(current.dxcc??"").toUpperCase()||String(item.value).toUpperCase()===(current.dxcc??"").toUpperCase());
+  return { schemaVersion: 4 as const, status: "ready" as const, title, tracker, zoneSystem,
+    current:currentCountry?{...current,dxcc:String(currentCountry.value)}:current, bands: contestBands,
+    ...(opportunities?{draftID:opportunities.draftID,draftRevision:opportunities.draftRevision}:{}),
     configuredBands: configuredBands.filter(band => contestBands.includes(band)),
     currentBand: currentBand && contestBands.includes(currentBand) ? currentBand : null,
     rows: [...rows.entries()].map(([label, counts]) => ({ label, counts,
+      ...(opportunities?{continent:tracker==="dxcc"?universe.find(item=>String(item.value)===label)?.continent??null:null,availableSpots:available.get(label)??{}}:{}),
       total: Object.values(counts).reduce((sum, value) => sum + value, 0) })), total: workedRows, busy };
 }
 
@@ -764,10 +786,38 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const [spotWorkflow,setSpotWorkflow]=useState<SpotWorkflow>(()=>emptySpotWorkflow());
   const editVersionRef = useRef(0);
   const observedFrequencyRef = useRef<{ sessionID: string; frequencyHz: number | null }>({ sessionID: "", frequencyHz: null });
+  const tuningAnchorRef=useRef<{identity:string;frequencyHz:number}>({identity:"",frequencyHz:0});
+  const ssbTuningToleranceHz=Number.isFinite(Number(setup.preferences.ssbTuningToleranceHz))
+    ?Math.max(0,Math.min(20000,Number(setup.preferences.ssbTuningToleranceHz))):300;
   const observedFrequencySyncRef=useRef("");
   const observedFrequencyHzRef=useRef<number|null>(null),lastCQFrequencyRef=useRef<{
     sessionID:string;workspaceGeneration:string;frequencyHz:number;mode:string}|null>(null);
-  const pendingRadioTuneRef = useRef<{ sessionID: string; sourceHz: number; targetHz: number } | null>(null);
+  type PendingRadioTune = { sessionID: string; sourceHz: number; targetHz: number; confirmedAt?:number };
+  const pendingRadioTuneRef = useRef<PendingRadioTune | null>(null);
+  const [radioTuneCompletionTick,setRadioTuneCompletionTick]=useState(0);
+  const manualHeardCallRef=useRef<{sessionID:string;draftID:string;callsign:string;frequencyHz:number}|null>(null);
+  const recordManualHeardCall=(value:string)=>{
+    const callsign=value.trim().toUpperCase(),active=projectionRef.current;
+    if(callsign===(fieldsRef.current.callsign??"").trim().toUpperCase())return;
+    manualHeardCallRef.current=active&&callsign?{sessionID:active.sessionID,draftID:active.draftID,callsign,
+      frequencyHz:observedFrequencyHzRef.current??active.frequencyHz}:null;
+  };
+  const finishRadioTune=(intent:PendingRadioTune)=>{
+    if(pendingRadioTuneRef.current!==intent)return;
+    intent.confirmedAt=Date.now();
+    const active=projectionRef.current;
+    if(active?.sessionID===intent.sessionID){
+      observedFrequencyRef.current={sessionID:intent.sessionID,frequencyHz:intent.targetHz};
+      tuningAnchorRef.current={identity:`${active.sessionID}/${active.draftID}/${fieldsRef.current.callsign??""}/${active.run}`,frequencyHz:intent.targetHz};
+    }
+    setRadioTuneCompletionTick(value=>value+1);
+  };
+  const cancelRadioTune=(intent:PendingRadioTune|null)=>{
+    if(intent&&pendingRadioTuneRef.current===intent){
+      pendingRadioTuneRef.current=null;
+      setRadioTuneCompletionTick(value=>value+1);
+    }
+  };
   const flushDraftRef = useRef<() => Promise<Projection | null>>(async () => projectionRef.current);
   const cw = useSharedCW(projection?.sessionID ?? "not1mm-no-session", retiring, setupOnly);
   projectionRef.current = projection; fieldsRef.current = fields;groupNetworkRef.current=groupNetwork;editingRef.current=editing;
@@ -816,6 +866,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const [spotPointPreview,setSpotPointPreview]=useState<{identity:string;revision:number;rows:Map<string,{inputSignature:string;points:number|null;dupe:boolean|null;multiplierCount:number|null;countryMultiplier:boolean|null;zoneMultiplier:boolean|null}>}>({identity:"",revision:0,rows:new Map()});
   const [spotPointRetryTick,setSpotPointRetryTick]=useState(0);
   const spotPointPreviewRef=useRef(spotPointPreview);spotPointPreviewRef.current=spotPointPreview;
+  const spotPointProgressRef=useRef(spotPointPreview);
   const spotPreviewRunRef=useRef<Promise<void>>(Promise.resolve());
   const spotPointIdentity=projection?`${projection.sessionID}/${projection.workspaceGeneration}`:"";
   const spotScoreRevision=projection?.spotScoreRevision??projection?.revision??0;
@@ -869,7 +920,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       const next=typeof update==="function"?update(spotPointPreviewRef.current):update;
       spotPointPreviewRef.current=next;setSpotPointPreview(next);
     };
-    if(!projection||!previewWorkflowSpots.length){updatePreview({identity:spotPointIdentity,revision:spotScoreRevision,rows:new Map()});return;}
+    if(!projection||!previewWorkflowSpots.length){const empty={identity:spotPointIdentity,revision:spotScoreRevision,rows:new Map()};spotPointProgressRef.current=empty;updatePreview(empty);return;}
     const candidates=previewCandidates;
     const candidateSignatures=new Map(candidates.map(candidate=>[candidate.spotID,candidate.inputSignature]));
     let current=true,retryTimer:number|undefined;
@@ -877,7 +928,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     // Coalesce changing snapshots behind the one admitted host request. Obsolete
     // effects retire without adding duplicate batches to the serialized worker.
     const run=(async()=>{await preceding;if(!current)return;
-      const previous=spotPointPreviewRef.current,
+      const progress=spotPointProgressRef.current,
+      previous=progress.identity===spotPointIdentity&&progress.revision===spotScoreRevision?progress:spotPointPreviewRef.current,
       rows=new Map<string,{inputSignature:string;points:number|null;dupe:boolean|null;multiplierCount:number|null;countryMultiplier:boolean|null;zoneMultiplier:boolean|null}>(
         previous.identity===spotPointIdentity&&previous.revision===spotScoreRevision
           ?[...previous.rows].filter(([id,row])=>candidateSignatures.get(id)===row.inputSignature):[]),
@@ -904,16 +956,20 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         for(const item of value.spots){const inputSignature=candidateSignatures.get(item.spotID);if(inputSignature)rows.set(item.spotID,{inputSignature,
           points:item.points,dupe:item.dupe,multiplierCount:item.multiplierCount,
           countryMultiplier:item.countryMultiplier,zoneMultiplier:item.zoneMultiplier});}
-        // A newly arrived spot can supersede this list while its batch runs.
-        // Retain completed rows that still describe current candidates and the
-        // same scoring basis; never let an obsolete list replace newer rows.
-        updatePreview(previous=>{
-          const liveInputs=new Map(previewCandidatesRef.current.map(candidate=>[candidate.spotID,candidate.inputSignature]));
-          const merged=new Map(previous.identity===spotPointIdentity&&previous.revision===spotScoreRevision
-            ?[...previous.rows].filter(([id,row])=>liveInputs.get(id)===row.inputSignature):[]);
-          for(const [id,row] of rows)if(liveInputs.get(id)===row.inputSignature)merged.set(id,row);
-          return {identity:spotPointIdentity,revision:spotScoreRevision,rows:merged};
-        });
+        // Keep accepted work across superseding feed snapshots, independently
+        // from the last complete display. A score rebuild publishes atomically,
+        // but a new arrival must not restart its already completed batches.
+        const liveInputs=new Map(previewCandidatesRef.current.map(candidate=>[candidate.spotID,candidate.inputSignature]));
+        const progress=spotPointProgressRef.current;
+        const merged=new Map(progress.identity===spotPointIdentity&&progress.revision===spotScoreRevision
+          ?[...progress.rows].filter(([id,row])=>liveInputs.get(id)===row.inputSignature):[]);
+        for(const [id,row] of rows)if(liveInputs.get(id)===row.inputSignature)merged.set(id,row);
+        const next={identity:spotPointIdentity,revision:spotScoreRevision,rows:merged};
+        spotPointProgressRef.current=next;
+        const published=spotPointPreviewRef.current;
+        const rebuilding=published.identity===spotPointIdentity&&published.revision!==spotScoreRevision&&published.rows.size>0;
+        if(!rebuilding||
+            [...liveInputs.keys()].every(id=>merged.has(id)))updatePreview(next);
         // Let typing/logging and newly arrived snapshots run between batches.
         await new Promise<void>(resolve=>window.setTimeout(resolve,0));
       }
@@ -1170,7 +1226,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       if (lane === "log") {
         setRows(Array.isArray(value.rows) ? value.rows : []); setLogOffset(Number(value.offset ?? offset)); setLogTotal(Number(value.total ?? 0));
       } else if (lane === "score") {
-        setScore(value.score as Score); setMatrices(value.matrices ?? {});
+          setScore(value.score as Score); setMatrices({...value.matrices,countryUniverse:value.countryUniverse??[]});
         admitStatistics(value, sessionID, revision);
       } else if (!admitRates(value, sessionID, revision)) return false;
       setAuxiliaryReads(previous => {
@@ -1740,6 +1796,18 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     fieldRefs.current[projection.focus]?.focus();
   }, [projection?.focus, projection?.draftID, editing]);
 
+  useEffect(()=>{
+    const pending=pendingRadioTuneRef.current;
+    if(pending?.confirmedAt===undefined)return;
+    // A confirmed tune may precede the renderer's next telemetry snapshot.
+    // Only the old source sample gets a short grace period; never fence later
+    // manual tuning indefinitely when the target snapshot was coalesced away.
+    const remaining=2000-(Date.now()-pending.confirmedAt);
+    if(remaining<=0)return;
+    const timer=window.setTimeout(()=>setRadioTuneCompletionTick(value=>value+1),remaining);
+    return()=>window.clearTimeout(timer);
+  },[radioTuneCompletionTick]);
+
   useEffect(() => {
     if (!projection) return;
     const previous = observedFrequencyRef.current;
@@ -1749,23 +1817,39 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     }
     if (busyRef.current || retiring) return;
     const pendingTune = pendingRadioTuneRef.current;
+    let commandedArrival=false;
     if (pendingTune?.sessionID === projection.sessionID) {
-      if (observedFrequencyHz === pendingTune.targetHz) pendingRadioTuneRef.current = null;
-      else if (observedFrequencyHz === pendingTune.sourceHz) return;
-      else pendingRadioTuneRef.current = null;
+      if (observedFrequencyHz !== pendingTune.targetHz &&
+          (pendingTune.confirmedAt===undefined||observedFrequencyHz===pendingTune.sourceHz&&Date.now()-pendingTune.confirmedAt<2000)) return;
+      pendingRadioTuneRef.current = null;
+      commandedArrival=observedFrequencyHz===pendingTune.targetHz;
+      // This is the readback of our spot click, not an operator leaving the
+      // newly loaded callsign behind at the previous VFO frequency.
+      if(commandedArrival){
+        observedFrequencyRef.current={sessionID:projection.sessionID,frequencyHz:observedFrequencyHz};
+        tuningAnchorRef.current={identity:`${projection.sessionID}/${projection.draftID}/${fieldsRef.current.callsign??""}/${projection.run}`,frequencyHz:observedFrequencyHz};
+        if(projection.frequencyHz===observedFrequencyHz)return;
+      }
     }
     const freshObservedChange = previous.sessionID === projection.sessionID && previous.frequencyHz !== null
       ? previous.frequencyHz !== observedFrequencyHz : projection.frequencyHz !== observedFrequencyHz;
-    const operatorRetune=previous.sessionID===projection.sessionID&&previous.frequencyHz!==null&&previous.frequencyHz!==observedFrequencyHz;
+    const tuningIdentity=`${projection.sessionID}/${projection.draftID}/${fieldsRef.current.callsign??""}/${projection.run}`;
+    if(tuningAnchorRef.current.identity!==tuningIdentity)tuningAnchorRef.current={identity:tuningIdentity,frequencyHz:projection.frequencyHz};
+    const tolerance=["SSB","USB","LSB"].includes(projection.mode.toUpperCase())?ssbTuningToleranceHz:0;
+    const operatorRetune=!commandedArrival&&previous.sessionID===projection.sessionID&&previous.frequencyHz!==null&&previous.frequencyHz!==observedFrequencyHz&&
+      (!(fieldsRef.current.callsign??"").trim()&&!projection.run||Math.abs(observedFrequencyHz-tuningAnchorRef.current.frequencyHz)>tolerance);
+    if(operatorRetune)tuningAnchorRef.current={identity:tuningIdentity,frequencyHz:observedFrequencyHz};
     observedFrequencyRef.current = { sessionID: projection.sessionID, frequencyHz: observedFrequencyHz };
     if (!freshObservedChange && projection.frequencyHz === observedFrequencyHz) return;
     const syncKey=`${projection.sessionID}:${observedFrequencyHz}`;
     if(observedFrequencySyncRef.current===syncKey)return;
-    if (freshObservedChange && !projection.run && previous.sessionID === projection.sessionID && previous.frequencyHz !== null) {
+    if (operatorRetune && !projection.run && previous.sessionID === projection.sessionID && previous.frequencyHz !== null) {
       const heardCall = (fieldsRef.current.callsign ?? "").trim().toUpperCase();
+      const manual=manualHeardCallRef.current;
+      if(manual?.sessionID===projection.sessionID&&manual.draftID===projection.draftID&&manual.callsign===heardCall){
       const existing = allWorkflowSpots.find(spot => spot.callsign.trim().toUpperCase() === heardCall &&
-        Math.round(spot.frequencyKHz * 10) === Math.round(previous.frequencyHz! / 100));
-      const heardBase = existing ?? localContestHeardSpot({ callsign:heardCall, frequencyHz:previous.frequencyHz,
+        Math.round(spot.frequencyKHz * 10) === Math.round(manual.frequencyHz / 100));
+      const heardBase = existing ?? localContestHeardSpot({ callsign:heardCall, frequencyHz:manual.frequencyHz,
         mode:projection.mode, stationCall:effectiveStationCall, bandDefinitions, callContext:projection.callContext });
       const heardPath=lookupPathContext?.callsign===heardCall?lookupPathContext:null;
       const heard=heardBase&&heardPath?{...heardBase,latitude:heardBase.latitude??heardPath.latitude,
@@ -1774,12 +1858,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       if (heard) setSpotWorkflow(current => updateContestSpotWorkflow(
         sameSpotWorkflowScope(current,spotWorkflowScope)?current:effectiveSpotWorkflow,
         [...allWorkflowSpots.filter(item=>item.id!==heard.id),heard], heard.id, "mark", true));
+      }
     }
     const tunedSpot = operatorRetune &&
       (projection.pluginID === "cq_ww_ssb" || setup.preferences.clearOnVFOChange === true)
-      ? observedContestSpot(visibleWorkflowSpots, observedFrequencyHz) : null;
+      ? observedContestSpot(visibleWorkflowSpots, observedFrequencyHz,ssbTuningToleranceHz) : null;
     const observedFields=operatorRetune?{...fieldsRef.current,callsign:""}:fieldsRef.current;
-    if(operatorRetune){fieldsRef.current=observedFields;setFields(observedFields);}
+    if(operatorRetune){manualHeardCallRef.current=null;fieldsRef.current=observedFields;setFields(observedFields);}
     observedFrequencySyncRef.current=syncKey;
     void (async()=>{
       if(operatorRetune&&projection.run){
@@ -1797,7 +1882,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       onSelectedSpot?.(spotID);
     })().finally(()=>{if(observedFrequencySyncRef.current===syncKey)observedFrequencySyncRef.current="";});
   }, [observedFrequencyHz, projection?.sessionID, projection?.frequencyHz, projection?.run, busy, retiring,
-    projection?.mode,projection?.callContext,setup.preferences.clearOnVFOChange,visibleWorkflowSpots,allWorkflowSpots,lookupPathContext,
+    projection?.mode,projection?.callContext,setup.preferences.clearOnVFOChange,ssbTuningToleranceHz,radioTuneCompletionTick,visibleWorkflowSpots,allWorkflowSpots,lookupPathContext,
     spotWorkflowScope,effectiveSpotWorkflow,effectiveStationCall,bandDefinitions,spotSelectionContext,onSelectedSpot]);
 
   const createSession = async (document: ContestSetupDocument) => {
@@ -1914,7 +1999,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       if (throwFailures) throw new Error("That spot is outside the active contest's supported bands.");
       return;
     }
+    const sourceHz=observedFrequencyHzRef.current,sessionID=projectionRef.current?.sessionID;
+    const tuneIntent:PendingRadioTune|null=sourceHz!==null&&sessionID?{sessionID,sourceHz,targetHz:frequencyHz}:null;
+    // Register before changing the entry: old telemetry must not pull the new
+    // callsign back to the old frequency while the tune command is in flight.
+    if(tuneIntent)pendingRadioTuneRef.current=tuneIntent;
     let admittedSpotMode: string | null = null;
+    try {
     const next = await runMutation(async base => {
       const supportedModes=contestSpotSurfaceModes(base.pluginID,base.supportedModes??[],base.mode),spotMode=canonicalContestSurfaceMode(spot.mode);
       const admittedMode=supportedModes.length===1?base.mode:
@@ -1926,18 +2017,22 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         fields: { ...fieldsRef.current, callsign: String(spot.callsign ?? "").toUpperCase() }, frequencyHz, mode:admittedMode,
       });
     }, false, false, false, throwFailures);
-    if (!next || !admittedSpotMode) return;
+    if (!next || !admittedSpotMode) {cancelRadioTune(tuneIntent);return;}
+    manualHeardCallRef.current=null;
     spotCursorRef.current = { ...spotCursorRef.current, context: spotSelectionContext, spotID: String(spot.id) };
     setManualFrequencyMHz((frequencyHz / 1_000_000).toFixed(6));
     onSelectedSpot?.(String(spot.id));
     setNotice(`Loaded ${spot.callsign}.`);
     try {
       await stationTune(frequencyHz, admittedSpotMode);
+      if(tuneIntent)finishRadioTune(tuneIntent);
       setNotice(`Loaded ${spot.callsign} and confirmed the selected radio tune.`);
     } catch (cause) {
+      cancelRadioTune(tuneIntent);
       setError(errorMessage(cause));
       if (throwFailures) throw cause;
     }
+    } catch(cause){cancelRadioTune(tuneIntent);throw cause;}
   };
 
   const exportLog = async (format: PythonContestExportFormat, throwFailures = false, completion?: {
@@ -2051,7 +2146,14 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       country:retainedPath?.country??retainedBase.country,cqZone:retainedPath?.cqZone??retainedBase.cqZone,
       ituZone:retainedPath?.ituZone??retainedBase.ituZone,comment:"Worked in this contest",source:"Contest log",marked:true,
       contestPoints:0,contestDupe:true,contestMultiplierCount:0,contestCountryMultiplier:false,contestZoneMultiplier:false}:null;
-    const retainCommittedSpot=()=>{if(!retainedSpot)return;setSpotWorkflow(current=>updateContestSpotWorkflow(
+    const retainCommittedSpot=()=>{if(!retainedSpot)return;
+      setSpotPointPreview(previous=>({...previous,rows:new Map([...previous.rows].map(([id,row])=>{
+        const spot=previewCandidatesRef.current.find(item=>item.spotID===id);
+        return spot&&spot.callsign.trim().toUpperCase()===committedCall&&
+          allWorkflowSpots.find(item=>item.id===id)?.band===retainedSpot.band
+          ?[id,{...row,points:0,dupe:true,multiplierCount:0,countryMultiplier:false,zoneMultiplier:false}]:[id,row];
+      }))}));
+      setSpotWorkflow(current=>updateContestSpotWorkflow(
       sameSpotWorkflowScope(current,spotWorkflowScope)?current:effectiveSpotWorkflow,
       [...allWorkflowSpots.filter(item=>item.id!==retainedSpot.id),retainedSpot],retainedSpot.id,"mark",true));};
     if(configuredClient){
@@ -2084,6 +2186,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const scoreView = scoreSummary(score, projection?.pluginID);
   const visibleFields = projection?.fields.filter(field => field.visible) ?? [];
   const changeField = (field: string, value: string) => {
+    if(field==="callsign")recordManualHeardCall(value);
     if (field === "callsign" && autoCQActiveRef.current) void stopAutoCQ();
     editVersionRef.current += 1;
     const next = { ...fieldsRef.current, [field]: value };
@@ -2115,6 +2218,15 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const detachedAvailable = !!projection && projection.workspaceGeneration === workspaceGeneration;
   const activeSessionName = sessions.find(session => session.sessionID === projection?.sessionID)?.name || create.name.trim() || "CQ WW CW";
   const unavailableProjection = { schemaVersion: 1, status: "unavailable" } as const;
+  const surfaceDraftRevisionRef=useRef<ContestDraftRevision|null>(null);
+  if(projection)surfaceDraftRevisionRef.current=advanceContestDraftRevision(surfaceDraftRevisionRef.current,{
+    sessionID:projection.sessionID,workspaceGeneration:projection.workspaceGeneration,draftID:projection.draftID,
+    fields,frequencyHz:operationFrequencyHz,mode:projection.mode,operator:projection.operator??setup.operator,
+    run:projection.run,reservedSerial:projection.reservedSerial??null,pluginID:projection.pluginID,
+    sourceRevision:projection.sourceRevision,referenceID:projection.referenceID,scoringContext:projection.ruleIdentity??null,
+  },projection.revision);
+  else surfaceDraftRevisionRef.current=null;
+  const surfaceDraftRevision=surfaceDraftRevisionRef.current?.revision??0;
   const surfaceProjections = useMemo(() => {
     const unavailable = Object.fromEntries(contestSurfacePanelIDs.map(panelID => [panelID, unavailableProjection])) as
       Record<ContestSurfacePanelID, ContestSurfaceProjection>;
@@ -2170,7 +2282,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         multipliers:projection.score.multipliers ?? projection.score.countries + projection.score.zones, total:projection.score.total},
       session: { name: activeSessionName, ruleName: projection.pluginName ?? projection.pluginID, mode: projection.mode },
       draft: {
-        draftID: projection.draftID, revision: projection.revision, callsign: currentFields.callsign ?? "",
+        draftID: projection.draftID, revision: surfaceDraftRevision, callsign: currentFields.callsign ?? "",
         sentReport: currentFields.sent ?? "", receivedReport: currentFields.receive ?? "",
         receivedFields: receivedExchangeFields.map(field => ({ id: field.id, label: field.label,
           value: currentFields[field.id] ?? "", required: true, maximumUTF8Bytes: field.id === "other_1" ? 32 : 128,
@@ -2185,7 +2297,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
           ? projection.dupeExplanation ?? "Worked on this band." : "Clear for this contest." },
         validation: { errors: [], warnings: !(currentFields.callsign ?? "").trim() || projection.countryResolved
           ? [] : ["Country is unresolved; scoring credit may be zero."] },
-        reservedSerial,
+        reservedSerial,exchangeWarnings:projection.exchangeWarnings??[],
       },
       descriptor: {
         bands: configuredBands, modes: contestSurfaceModes(projection.supportedModes ?? [], projection.mode), reportsVisible,
@@ -2270,7 +2382,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       busy: busy || retiring || !logRead,
     };
     unavailable["callsign-intelligence"] = {
-      schemaVersion: 1, status: "ready", draftID: projection.draftID, draftRevision: projection.revision,
+      schemaVersion: 1, status: "ready", draftID: projection.draftID, draftRevision: surfaceDraftRevision,
       inputCallsign: currentFields.callsign ?? "",
       loggedCalls:loggedCandidates.map(candidate => candidate.callsign),
       clusterCalls:clusterCandidates.map(candidate => candidate.callsign),
@@ -2312,7 +2424,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         filteredSpots=panelID!=="dx-cluster"&&!effectiveSpotWorkflow.showWorked
           ?surfaceSpots.filter(spot=>spot.contestDupe!==true):surfaceSpots,
         panelSpots=entrySpot&&!filteredSpots.some(spot=>spot.id===entrySpot.id)?[...filteredSpots,classifiedSurfaceSpot(entrySpot)]:filteredSpots;
-      unavailable[panelID]={schemaVersion:2,status:"ready",draftID:projection.draftID,draftRevision:projection.revision,
+      unavailable[panelID]={schemaVersion:2,status:"ready",draftID:projection.draftID,draftRevision:surfaceDraftRevision,
         radioFrequencyHz:observedFrequencyHz??radioFrequencyHz??null,connectedClusters,loadedSpots,
         selectedSpotID:entrySpot?.id??(panelID==="world-map"&&/^[A-Z0-9/]{3,32}$/.test(partialQuery)?null:selectedSpotID),configuredClusters,connections,
         contestSessionID:projection.sessionID,supportedBands:configuredBands,allowedModeGroups,
@@ -2335,7 +2447,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       last100QsoPerHour: rates.last100QsoPerHour ?? null, sinceHourUTC: Number(rates.sinceHourUTC),
       sinceHourQso: Number(rates.sinceHourQso), runQso: Number(rates.runQso),
       searchAndPounceQso: Number(rates.searchAndPounceQso), hourRunQso: Number(rates.hourRunQso),
-      hourSearchAndPounceQso: Number(rates.hourSearchAndPounceQso), busy: busy || retiring };
+      hourSearchAndPounceQso: Number(rates.hourSearchAndPounceQso),
+      hourly:(rates.hourly??[]).map((item:Data)=>({hourUTC:new Date(item.hourUTC).toISOString(),qsos:item.qsos})),
+      lastQsoAt:rates.lastQsoAt?new Date(rates.lastQsoAt).toISOString():null, busy: busy || retiring };
     const rtcService=setup.preferences.rtcURL==="https://contestonlinescore.com/post/"?"contestonlinescore":"hamscore";
     const rtcOutcome=rtcStatus?.last_outcome??"Score reporting is disabled.";
     const reportState=rtcReportState(rtcStatus);
@@ -2368,7 +2482,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     if (scoreRead && projection.matrixTrackers?.includes("countries") && Array.isArray(matrices.countries)) {
       unavailable.awards = multiplierMatrix("DXCC", "dxcc", matrices.countries, busy || retiring,
         { dxcc: callContext?.country ?? null, cqZone: callContext?.cqZone ?? null, ituZone: callContext?.ituZone ?? null }, null,
-        configuredBands, bandLabels[String(projection.band)] ?? String(projection.band ?? ""));
+        configuredBands, bandLabels[String(projection.band)] ?? String(projection.band ?? ""),
+        {universe:matrices.countryUniverse??[],spots:surfaceSpots,draftID:projection.draftID,draftRevision:surfaceDraftRevision});
     }
     if (scoreRead && projection.matrixTrackers?.includes("zones") && Array.isArray(matrices.zones)) {
       const zoneLabel = receivedZone?.label.toUpperCase() ?? "";
@@ -2381,7 +2496,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         { dxcc: callContext?.country ?? null,
           cqZone:zoneSystem==="cq"?effectiveReceivedZone??callContext?.cqZone??null:callContext?.cqZone??null,
           ituZone:zoneSystem==="itu"?effectiveReceivedZone??callContext?.ituZone??null:callContext?.ituZone??null }, zoneSystem,
-        configuredBands, bandLabels[String(projection.band)] ?? String(projection.band ?? ""));
+        configuredBands, bandLabels[String(projection.band)] ?? String(projection.band ?? ""),
+        {universe:matrices.countryUniverse??[],spots:surfaceSpots,draftID:projection.draftID,draftRevision:surfaceDraftRevision});
     }
     return unavailable;
   }, [projection, detachedAvailable, activeSessionName, fields, operationFrequencyHz, rows, logOffset, logTotal, editing,
@@ -2393,7 +2509,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     setup.settings.SentExchange, setup.preferences.keyBindings, autoCQDeadlineMs, autoCQNowMs, autoCQDelaySeconds, selectedRadioFrequencyHz,observedFrequencyHz,
     sharedSpots,visibleWorkflowSpots,currentEntryMapSpot,entryPathMetrics,effectiveSpotWorkflow.markedOnly,effectiveSpotWorkflow.showWorked,
     spotPointPreview,spotPointIdentity,selectedSpotId,configuredClient,authorityClientReady,authorityDupe,
-    auxiliaryReads.log,auxiliaryReads.score,auxiliaryReads.rates,error,catalogLoadError,notice]);
+    auxiliaryReads.log,auxiliaryReads.score,auxiliaryReads.rates,error,catalogLoadError,notice,surfaceDraftRevision]);
 
   const surfaceContext = detachedAvailable && projection ? {
     operatingContext, sessionID: projection.sessionID, workspaceGeneration: projection.workspaceGeneration,
@@ -2423,11 +2539,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       const rebasablePresentationAction = ["entry_set_text","entry_set_exchange","entry_set_frequency_text","entry_set_band","entry_set_mode",
         "assistance_query","assistance_download","assistance_refresh","spot_set_marked_only","spot_set_show_worked"].includes(action.action);
       if (!("draftID" in action.params) || action.params.draftID !== active.draftID ||
-          !rebasablePresentationAction && action.params.expectedDraftRevision !== active.revision)
+          !rebasablePresentationAction && action.params.expectedDraftRevision !== surfaceDraftRevisionRef.current?.revision)
         throw new Error("The contest entry changed before this action reached the owner.");
     }
     const persistFields = async (fieldID: string, value: string) => {
       if (fieldID === "callsign" && autoCQActiveRef.current) await stopAutoCQ();
+      if(fieldID==="callsign")recordManualHeardCall(value);
       const next = { ...fieldsRef.current, [fieldID]: value };
       fieldsRef.current = next; setFields(next); editVersionRef.current += 1;
       await runMutation(base => mutate("contest_draft_apply", base, { fields: next,
@@ -2487,8 +2604,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         const nextFields = action.params.callsignCommand ? clearedContestFields(active, active.mode) : fieldsRef.current;
         const next = await runMutation(async base => {
           if (observedFrequencyHz !== null) {
-            await stationTune(frequencyHz, base.mode);
-            pendingRadioTuneRef.current = { sessionID: base.sessionID, sourceHz: observedFrequencyHz, targetHz: frequencyHz };
+            const intent:PendingRadioTune={sessionID:base.sessionID,sourceHz:observedFrequencyHz,targetHz:frequencyHz};
+            pendingRadioTuneRef.current=intent;
+            try{await stationTune(frequencyHz,base.mode);finishRadioTune(intent);}
+            catch(cause){cancelRadioTune(intent);throw cause;}
           }
           return mutate("contest_draft_apply", base, { fields: nextFields, frequencyHz });
         }, false, false, false, true);
@@ -2555,13 +2674,23 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         await chooseSpot(spot,true);return;
       }
       case "entry_step_spot": {
-        if (!visibleWorkflowSpots.length) throw new Error("No shared contest spots are available.");
+        const band=bandLabels[String(active.band)]??String(active.band),
+          candidates=visibleWorkflowSpots.filter(spot=>{const cached=spotPointPreview.rows.get(spot.id),candidate=contestSpotPreviewCandidate(spot);
+            return spot.band===band&&(!action.params.multiplierOnly||spotPointPreview.identity===spotPointIdentity&&spotPointPreview.revision===spotScoreRevision&&
+              cached?.inputSignature===candidate?.inputSignature&&cached?.dupe===false&&(cached?.multiplierCount??0)>0);})
+            .sort((a,b)=>a.frequencyKHz-b.frequencyKHz||a.callsign.localeCompare(b.callsign));
+        if (!candidates.length) throw new Error(action.params.multiplierOnly?"No needed multiplier spots on this band.":"No shared contest spots on this band.");
         const cursor = spotCursorRef.current.context === spotSelectionContext ? spotCursorRef.current.spotID : null;
-        const current = cursor == null ? -1 : visibleWorkflowSpots.findIndex(spot => spot.id === cursor);
-        const nextIndex = action.params.direction === "next"
-          ? current < 0 || current + 1 >= visibleWorkflowSpots.length ? 0 : current + 1
-          : current <= 0 ? visibleWorkflowSpots.length - 1 : current - 1;
-        await chooseSpot(visibleWorkflowSpots[nextIndex], true); return;
+        const pending=pendingRadioTuneRef.current,
+          awaitingTuneSample=pending?.sessionID===active.sessionID&&observedFrequencyHz===pending.sourceHz&&
+            (pending.confirmedAt===undefined||Date.now()-pending.confirmedAt<2000),
+          frequency=(awaitingTuneSample?pending.targetHz:observedFrequencyHz??active.frequencyHz)/1000,
+          tolerance=["SSB","USB","LSB"].includes(active.mode.toUpperCase())?ssbTuningToleranceHz:0,
+          current = cursor == null ? -1 : candidates.findIndex(spot => spot.id === cursor&&Math.abs(spot.frequencyKHz-frequency)*1000<=tolerance);
+        const next=action.params.direction==="next"
+          ?current>=0?candidates[(current+1)%candidates.length]:candidates.find(spot=>spot.frequencyKHz>frequency)??candidates[0]
+          :current>=0?candidates[(current+candidates.length-1)%candidates.length]:[...candidates].reverse().find(spot=>spot.frequencyKHz<frequency)??candidates.at(-1)!;
+        await chooseSpot(next, true); return;
       }
       case "entry_step_vfo":
         if(contestingTest)throw new Error("VFO stepping is disabled in Contesting Test.");
@@ -2574,8 +2703,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         if(!target||target.sessionID!==active.sessionID||target.workspaceGeneration!==active.workspaceGeneration)
           throw new Error("No confirmed CQ frequency is available for this contest session.");
         if(currentFrequency===null)throw new Error("Refresh a current observed xLog radio frequency before returning to the CQ frequency.");
-        if(currentFrequency!==target.frequencyHz){await stationTune(target.frequencyHz,target.mode);
-          pendingRadioTuneRef.current={sessionID:active.sessionID,sourceHz:currentFrequency,targetHz:target.frequencyHz};}
+        if(currentFrequency!==target.frequencyHz){
+          const intent:PendingRadioTune={sessionID:active.sessionID,sourceHz:currentFrequency,targetHz:target.frequencyHz};
+          pendingRadioTuneRef.current=intent;
+          try{await stationTune(target.frequencyHz,target.mode);finishRadioTune(intent);}
+          catch(cause){cancelRadioTune(intent);throw cause;}
+        }
         setNotice(`Returned to the last confirmed CQ frequency ${(target.frequencyHz/1_000_000).toFixed(6)} MHz.`);return;
       }
       case "entry_commit":
@@ -2917,6 +3050,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       return;
     }
     const nextFields = { ...fieldsRef.current, callsign };
+    recordManualHeardCall(callsign);
     editVersionRef.current += 1; fieldsRef.current = nextFields; setFields(nextFields);
     void runMutation(base => mutate("contest_draft_apply", base, {
       fields: nextFields, frequencyHz: operationFrequencyHz ?? base.frequencyHz,
