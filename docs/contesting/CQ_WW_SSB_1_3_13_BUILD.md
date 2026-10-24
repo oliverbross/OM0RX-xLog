@@ -13,6 +13,10 @@ and the following independently reviewed release fixes:
   cannot crash rendering; obsolete failed checks cannot clear a newer snapshot.
 - Duplicate attribution follows the host's stored contact order for backdated entries.
 - Unrelated contact correction preserves existing plugin-owned power categories.
+- Installed testing exposed a WebKit Blob-download hang. Analytics JSON and CSV
+  exports now use the native Save dialog with explicit cancellation/error feedback
+  and atomic file replacement. The first candidate was rejected for this blocker;
+  the final embedded source receipt identifies the corrected build.
 
 Validation before packaging: 4,263 frontend tests, 339 Python tests, 836 Rust tests,
 full portable Swift suite, 24 focused Analytics frontend regressions, five Analytics

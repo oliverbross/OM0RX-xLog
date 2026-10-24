@@ -3,7 +3,8 @@ import { Activity, BarChart3, Clock3, Download, Filter, Layers, ListChecks, Refr
 import { aggregate, analyticsReport, defaultAnalyticsFilters, numberText, utcText, type AnalyticsDataset, type AnalyticsFilters, type AnalyticsResult } from "./contestAnalytics";
 import { collectAnalytics, readAnalytics, type AnalyticsRead, type AnalyticsSnapshot } from "./contestAnalyticsService";
 import { AnalyticsExplorer, AnalyticsTimeline, type Drill } from "./ContestAnalyticsCharts";
-import { AnalyticsDrilldown, AnalyticsMultipliers, AnalyticsPerformance, AnalyticsQuality, saveAnalyticsFile } from "./ContestAnalyticsDetails";
+import { AnalyticsDrilldown, AnalyticsMultipliers, AnalyticsPerformance, AnalyticsQuality } from "./ContestAnalyticsDetails";
+import { useAnalyticsExport } from "./contestAnalyticsExport";
 import { AnalyticsCompare } from "./ContestAnalyticsCompare";
 import "./ContestAnalyticsWindow.css";
 
@@ -12,6 +13,7 @@ type Tab=typeof tabs[number]["id"];
 const errorText=(cause:unknown)=>cause instanceof Error?cause.message:String(cause);
 
 export function ContestAnalyticsWindow({read=readAnalytics,initialSnapshot}:{read?:AnalyticsRead;initialSnapshot?:AnalyticsSnapshot}){
+  const exportState=useAnalyticsExport();
   const [snapshot,setSnapshot]=useState<AnalyticsSnapshot|null>(initialSnapshot??null),[dataset,setDataset]=useState<AnalyticsDataset|null>(null),[result,setResult]=useState<AnalyticsResult|null>(null);
   const [filters,setFilters]=useState<AnalyticsFilters>(defaultAnalyticsFilters),[tab,setTab]=useState<Tab>("overview"),[live,setLive]=useState(true),[busy,setBusy]=useState(false),[analyzing,setAnalyzing]=useState(false),[error,setError]=useState(""),[progress,setProgress]=useState("");
   const [drill,setDrill]=useState<{title:string;ids:string[]}|null>(null),[advanced,setAdvanced]=useState(false),[goal,setGoal]=useState(0),[measure,setMeasure]=useState<"qsos"|"points"|"multipliers"|"score">("qsos");
@@ -57,8 +59,10 @@ export function ContestAnalyticsWindow({read=readAnalytics,initialSnapshot}:{rea
   const metric=measure==="qsos"?"Logged contacts":measure==="points"?"Stored QSO points":measure==="multipliers"?"New category multipliers":"Reconstructed category score growth";
   const status=busy?progress:analyzing?"Calculating this view…":dataset?`${dataset.meta.total.toLocaleString()} contacts · Snapshot ${utcText(Date.parse(dataset.meta.capturedAt))} UTC`:"Open a contest session, then refresh analytics.";
   return <main className="contest-analytics" aria-label="Contest Analytics" aria-busy={locked}>
-    <header className="analytics-header"><div className="analytics-title"><BarChart3 size={27} aria-hidden="true"/><div><h1>Contest Analytics</h1><p>{dataset?`${dataset.meta.stationCall} · ${dataset.meta.name}`:"OM0RX-xLog · Contest analysis"}</p></div></div><div className="analytics-actions"><label className="analytics-live"><input type="checkbox" checked={live} onChange={e=>setLive(e.target.checked)}/><Activity size={14}/> Live refresh</label><button onClick={()=>void refresh()} disabled={busy}><RefreshCw size={15}/> {busy?"Loading…":"Refresh"}</button><button disabled={!dataset||locked} onClick={()=>dataset&&saveAnalyticsFile(`xlog-${dataset.meta.pluginID}-analytics.json`,JSON.stringify(analyticsReport(dataset,filters),null,2))}><Download size={15}/> Export report</button><button disabled={!dataset||locked} onClick={()=>window.print()}>Print / PDF</button></div></header>
+    <header className="analytics-header"><div className="analytics-title"><BarChart3 size={27} aria-hidden="true"/><div><h1>Contest Analytics</h1><p>{dataset?`${dataset.meta.stationCall} · ${dataset.meta.name}`:"OM0RX-xLog · Contest analysis"}</p></div></div><div className="analytics-actions"><label className="analytics-live"><input type="checkbox" checked={live} onChange={e=>setLive(e.target.checked)}/><Activity size={14}/> Live refresh</label><button onClick={()=>void refresh()} disabled={busy}><RefreshCw size={15}/> {busy?"Loading…":"Refresh"}</button><button disabled={!dataset||locked||exportState.pending} onClick={()=>dataset&&void exportState.save(`xlog-${dataset.meta.pluginID}-analytics.json`,()=>JSON.stringify(analyticsReport(dataset,filters),null,2))}><Download size={15}/> Export report</button><button disabled={!dataset||locked||exportState.pending} onClick={()=>window.print()}>Print / PDF</button></div></header>
     <div className="analytics-status" role="status"><span className={busy||analyzing?"analytics-attention":""}>{status}</span><span>Read-only · Local contest data</span></div>
+    {(exportState.pending||exportState.message)&&<p role="status" className="analytics-note">{exportState.pending?"Choose where to save the export…":exportState.message}</p>}
+    {exportState.error&&<p role="alert" className="analytics-error">{exportState.error}</p>}
     {error&&<p role="alert" className="analytics-error">{error} <button disabled={busy} onClick={()=>void refresh()}>Retry</button></p>}
     {dataset&&<>
       <div className="analytics-scope"><span>Claimed category <strong>{category}</strong></span><span>Viewing <strong>{filters.scope==="category"?"Claimed category":"All logged bands"}{filters.band!=="all"?` · ${filters.band}`:""}</strong></span><span>Host score remains authoritative</span></div>
@@ -88,7 +92,7 @@ export function ContestAnalyticsWindow({read=readAnalytics,initialSnapshot}:{rea
       {tab==="performance"&&<AnalyticsPerformance dataset={dataset} result={result} filters={filters} onDrill={onDrill}/>}
       {tab==="compare"&&<AnalyticsCompare dataset={dataset} filters={filters} onDrill={onDrill}/>}
       {tab==="quality"&&<AnalyticsQuality dataset={dataset} result={result} onDrill={onDrill}/>}
-      {drill&&<div ref={drillRef as React.RefObject<HTMLDivElement>}><AnalyticsDrilldown title={drill.title} contacts={selectedContacts} onClose={()=>setDrill(null)}/></div>}
+      {drill&&<div ref={drillRef as React.RefObject<HTMLDivElement>}><AnalyticsDrilldown title={drill.title} contacts={selectedContacts} exportState={exportState} onClose={()=>setDrill(null)}/></div>}
       <footer className="analytics-footer"><span>Revision {dataset.meta.revision} · {dataset.meta.referenceID} · Corrected claimed log</span><button onClick={()=>{setTab("quality");setDrill(null);}}>View calculation basis & coverage</button></footer>
       </>}
     </>}

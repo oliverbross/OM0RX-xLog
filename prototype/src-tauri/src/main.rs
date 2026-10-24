@@ -3979,6 +3979,7 @@ fn main() {
             workspace_windows_status, workspace_windows_reconcile, contest_window_open, contest_window_toggle, contest_contact_editor_open, contest_contact_editor_close, contest_surface_context_close, contest_setup_service_open,
             contest_log_review::contest_log_review_read,
             contest_analytics::contest_analytics_read,
+            contest_analytics::contest_analytics_export,
             contest_log_review::contest_log_review_open_log,
             contest_log_transfer::contest_log_transfer_context, contest_log_transfer::contest_log_transfer_request,
             contest_log_transfer::contest_legacy_choose_preview, contest_log_transfer::contest_legacy_import,

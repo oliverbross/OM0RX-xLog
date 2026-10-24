@@ -1,8 +1,108 @@
 //! Analytics can copy and page contest records; it has no station or log-write API.
 use serde_json::{json, Value};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub const WINDOW: &str = "contest-analytics";
 pub const MENU_ID: &str = "contest_analytics";
+const MAX_EXPORT_BYTES: usize = 64 * 1024 * 1024;
+static EXPORT_PENDING: AtomicBool = AtomicBool::new(false);
+
+fn validate_export(label: &str, filename: &str, content: &str) -> Result<&'static str, String> {
+    if label != WINDOW { return Err("Only Analytics can export an analytical report.".into()); }
+    if filename.is_empty() || filename.len() > 128
+        || !filename.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.')) {
+        return Err("Use a simple JSON or CSV report filename.".into());
+    }
+    let extension = match Path::new(filename).extension().and_then(|value| value.to_str()) {
+        Some("json") => "json", Some("csv") => "csv",
+        _ => return Err("Analytics exports must be JSON or CSV files.".into()),
+    };
+    if content.is_empty() || content.len() > MAX_EXPORT_BYTES || content.contains('\0') {
+        return Err("The Analytics export must contain between 1 byte and 64 MiB of text.".into());
+    }
+    if extension == "json" && serde_json::from_str::<Value>(content).is_err() {
+        return Err("The Analytics report is not valid JSON.".into());
+    }
+    Ok(extension)
+}
+
+struct ExportLease;
+impl ExportLease {
+    fn acquire() -> Result<Self, String> {
+        EXPORT_PENDING.compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .map(|_| Self).map_err(|_| "An Analytics export is already open.".to_string())
+    }
+}
+impl Drop for ExportLease {
+    fn drop(&mut self) { EXPORT_PENDING.store(false, Ordering::Release); }
+}
+
+fn save_export(path: Option<PathBuf>, extension: &str, content: &str) -> Result<Value, String> {
+    use std::io::Write;
+    let Some(path) = path else { return Ok(json!({"saved":false,"cancelled":true})); };
+    if !path.extension().and_then(|value| value.to_str()).is_some_and(|value| value.eq_ignore_ascii_case(extension)) {
+        return Err(format!("Choose a .{extension} file for this Analytics export."));
+    }
+    match std::fs::symlink_metadata(&path) {
+        Ok(metadata) if !metadata.file_type().is_file() => return Err("Choose a regular report file, not a folder or link.".into()),
+        Err(error) if error.kind() != std::io::ErrorKind::NotFound => return Err("The selected report destination is unavailable.".into()),
+        _ => {}
+    }
+    let write = || -> Result<(), Box<dyn std::error::Error>> {
+        let mut temporary = tempfile::NamedTempFile::new_in(path.parent().ok_or("Missing export directory")?)?;
+        temporary.write_all(content.as_bytes())?;
+        temporary.as_file().sync_all()?;
+        temporary.persist(&path)?;
+        Ok(())
+    };
+    write().map_err(|_| "The Analytics report could not be saved. Choose another destination and retry.".to_string())?;
+    Ok(json!({"saved":true,"cancelled":false}))
+}
+
+#[cfg(target_os = "macos")]
+async fn choose_export(window: tauri::WebviewWindow, filename: String, _extension: &str) -> Result<Option<PathBuf>, String> {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSModalResponseOK, NSSavePanel};
+    use objc2_foundation::NSString;
+    let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+    window.run_on_main_thread(move || {
+        let selected = if crate::APP_EXITING.load(Ordering::Acquire) { Err("Analytics export is unavailable during shutdown.") }
+        else { MainThreadMarker::new().ok_or("Analytics export chooser is unavailable.").map(|main| {
+            let panel = NSSavePanel::savePanel(main);
+            panel.setNameFieldStringValue(&NSString::from_str(&filename));
+            panel.setMessage(Some(&NSString::from_str("Save the displayed analytical copy. The contest log remains unchanged.")));
+            if panel.runModal() == NSModalResponseOK {
+                panel.URL().and_then(|url| url.path()).map(|path| PathBuf::from(path.to_string()))
+            } else { None }
+        }) };
+        let _ = sender.send(selected);
+    }).map_err(|_| "Analytics export chooser is unavailable.".to_string())?;
+    tauri::async_runtime::spawn_blocking(move || receiver.recv()
+        .map_err(|_| "Analytics export chooser closed unexpectedly.".to_string())?.map_err(str::to_string))
+        .await.map_err(|_| "Analytics export chooser is unavailable.".to_string())?
+}
+
+#[cfg(not(target_os = "macos"))]
+async fn choose_export(_window: tauri::WebviewWindow, filename: String, extension: &str) -> Result<Option<PathBuf>, String> {
+    let extension = extension.to_owned();
+    tauri::async_runtime::spawn_blocking(move || rfd::FileDialog::new()
+        .set_title("Save Analytics report").set_file_name(filename)
+        .add_filter("Analytics report", &[extension]).save_file())
+        .await.map_err(|_| "Analytics export chooser is unavailable.".to_string())
+}
+
+#[tauri::command]
+pub async fn contest_analytics_export(window: tauri::WebviewWindow, filename: String, content: String) -> Result<Value, String> {
+    let extension = validate_export(window.label(), &filename, &content)?;
+    if crate::APP_EXITING.load(Ordering::Acquire) { return Err("Analytics export is unavailable during shutdown.".into()); }
+    let _lease = ExportLease::acquire()?;
+    let path = choose_export(window, filename, extension).await?;
+    tauri::async_runtime::spawn_blocking(move || {
+        if crate::APP_EXITING.load(Ordering::Acquire) { return Err("Analytics export is unavailable during shutdown.".into()); }
+        save_export(path, extension, &content)
+    }).await.map_err(|_| "Analytics export task failed.".to_string())?
+}
 
 fn validate(label: &str, params: &Value) -> Result<(), String> {
     if label != WINDOW { return Err("Open Contest → Analytics to analyze the active contest.".into()); }
@@ -63,5 +163,48 @@ mod tests {
         }
         assert!(validate(WINDOW, &json!({"action":"prepare","sessionID":"other"})).is_err());
         assert!(validate(WINDOW, &json!({"action":"page","snapshotID":id,"offset":0,"limit":501})).is_err());
+    }
+
+    #[test]
+    fn analytics_export_validates_window_text_and_file_type() {
+        assert_eq!(validate_export(WINDOW, "xlog-report.json", "{\"rows\":[]}").unwrap(), "json");
+        assert_eq!(validate_export(WINDOW, "xlog-contacts.csv", "Call,UTC\r\nOM0RX,2026-10-25").unwrap(), "csv");
+        assert!(validate_export("main", "xlog.json", "{}").is_err());
+        for name in ["../report.json", "/tmp/report.json", "report.sqlite", "report.json/evil", "report\\evil.csv"] {
+            assert!(validate_export(WINDOW, name, "{}").is_err(), "{name}");
+        }
+        for content in ["", "invalid JSON", "{}\0"] { assert!(validate_export(WINDOW, "report.json", content).is_err()); }
+        assert!(validate_export(WINDOW, "report.csv", &"x".repeat(MAX_EXPORT_BYTES + 1)).is_err());
+    }
+
+    #[test]
+    fn analytics_export_cancellation_atomic_replace_and_failure_preserve_other_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("report.json");
+        assert_eq!(save_export(None, "json", "{}").unwrap(), json!({"saved":false,"cancelled":true}));
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
+        std::fs::write(&path, "old report").unwrap();
+        assert_eq!(save_export(Some(path.clone()), "json", "{\"rows\":[]}").unwrap(), json!({"saved":true,"cancelled":false}));
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "{\"rows\":[]}");
+        // Never append an extension after the chooser: that could overwrite a
+        // different existing file without the native overwrite confirmation.
+        assert!(save_export(Some(directory.path().join("report")), "json", "{}").is_err());
+        assert!(save_export(Some(directory.path().join("contest.sqlite")), "json", "{}").is_err());
+        assert!(save_export(Some(directory.path().join("missing/report.json")), "json", "{}").is_err());
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
+        #[cfg(unix)] {
+            let link = directory.path().join("linked.json");
+            std::os::unix::fs::symlink(&path, &link).unwrap();
+            assert!(save_export(Some(link), "json", "{}").is_err());
+            assert_eq!(std::fs::read_to_string(&path).unwrap(), "{\"rows\":[]}");
+        }
+    }
+
+    #[test]
+    fn analytics_export_has_one_dialog_owner_and_releases_after_completion() {
+        let lease = ExportLease::acquire().unwrap();
+        assert!(ExportLease::acquire().is_err());
+        drop(lease);
+        assert!(ExportLease::acquire().is_ok());
     }
 }

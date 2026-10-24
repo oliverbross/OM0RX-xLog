@@ -4,16 +4,77 @@ import { afterEach,beforeEach,describe,expect,it,vi } from "vitest";
 import { ContestAnalyticsWindow } from "./ContestAnalyticsWindow";
 import { analyzeAnalytics,analyticsReport,defaultAnalyticsFilters,prepareAnalytics,type AnalyticsDataset } from "./contestAnalytics";
 import { analyticsFixtureMeta,analyticsFixtureRows } from "./contestAnalytics.fixtures";
+import { saveAnalyticsFile } from "./contestAnalyticsExport";
+
+const native=vi.hoisted(()=>({invoke:vi.fn(),isTauri:vi.fn(()=>true)}));
+vi.mock("@tauri-apps/api/core",()=>native);
 
 class AnalysisWorker {
   onmessage:((event:{data:unknown})=>void)|null=null;onerror:(()=>void)|null=null;dataset:AnalyticsDataset|null=null;terminated=false;
   postMessage(message:any){setTimeout(()=>{if(this.terminated)return;try{if(message.snapshot)this.dataset=prepareAnalytics(message.snapshot.meta,message.snapshot.rows);this.onmessage?.({data:{id:message.id,result:analyzeAnalytics(this.dataset!,message.filters,message.now),...(message.snapshot?{dataset:this.dataset}:{})}});}catch(error){this.onmessage?.({data:{id:message.id,error:error instanceof Error?error.message:"failed",...(message.snapshot&&this.dataset?{dataset:this.dataset}:{})}});}},0);}
   terminate(){this.terminated=true;}
 }
-beforeEach(()=>{vi.stubGlobal("Worker",AnalysisWorker);});
-afterEach(()=>{cleanup();vi.unstubAllGlobals();vi.restoreAllMocks();});
+beforeEach(()=>{vi.stubGlobal("Worker",AnalysisWorker);native.invoke.mockReset();native.isTauri.mockReturnValue(true);});
+afterEach(()=>{cleanup();vi.unstubAllGlobals();vi.restoreAllMocks();vi.useRealTimers();});
 const snapshot={meta:analyticsFixtureMeta,rows:analyticsFixtureRows};
 describe("Contest Analytics interaction",()=>{
+  it("saves JSON and displayed CSV through the native chooser without browser downloads",async()=>{
+    native.invoke.mockResolvedValue({saved:true,cancelled:false});
+    const browserDownload=vi.spyOn(HTMLAnchorElement.prototype,"click");
+    render(<ContestAnalyticsWindow initialSnapshot={snapshot}/>);
+    await screen.findByRole("button",{name:/Contacts in view 4/});
+    fireEvent.click(screen.getByRole("button",{name:"Export report"}));
+    await screen.findByText("Export saved.");
+    const [command,args]=native.invoke.mock.calls[0];
+    expect(command).toBe("contest_analytics_export");
+    expect(args.filename).toBe(`xlog-${snapshot.meta.pluginID}-analytics.json`);
+    expect(JSON.parse(args.content)).toEqual({...analyticsReport(prepareAnalytics(snapshot.meta,snapshot.rows),defaultAnalyticsFilters),exportedAt:expect.any(String)});
+    fireEvent.change(screen.getByLabelText("Analytics style"),{target:{value:"Unknown"}});
+    fireEvent.click(await screen.findByRole("button",{name:/Contacts in view 1/}));
+    fireEvent.click(screen.getByRole("button",{name:"CSV"}));
+    await waitFor(()=>expect(native.invoke).toHaveBeenCalledTimes(2));
+    expect(native.invoke.mock.calls[1][0]).toBe("contest_analytics_export");
+    expect(native.invoke.mock.calls[1][1].filename).toBe("xlog-analytics-contacts.csv");
+    expect(native.invoke.mock.calls[1][1].content.split("\r\n")).toHaveLength(2);
+    expect(native.invoke.mock.calls[1][1].content).toContain('"c"');
+    expect(browserDownload).not.toHaveBeenCalled();
+  });
+  it("prevents duplicate exports while the chooser is open and reports cancellation",async()=>{
+    let finish!:(value:{saved:boolean;cancelled:boolean})=>void;
+    native.invoke.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
+    render(<ContestAnalyticsWindow initialSnapshot={snapshot}/>);
+    fireEvent.click(await screen.findByRole("button",{name:/Contacts in view 4/}));
+    const report=screen.getByRole("button",{name:"Export report"}),csv=screen.getByRole("button",{name:"CSV"});
+    fireEvent.click(report);fireEvent.click(report);fireEvent.click(csv);
+    expect((report as HTMLButtonElement).disabled).toBe(true);
+    expect((csv as HTMLButtonElement).disabled).toBe(true);
+    expect(native.invoke).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Choose where to save the export…")).toBeTruthy();
+    await act(async()=>finish({saved:false,cancelled:true}));
+    expect(screen.getByText("Export cancelled.")).toBeTruthy();
+    expect((report as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+  it("reports native save errors and permits retry without discarding analytics",async()=>{
+    native.invoke.mockRejectedValueOnce("Permission denied").mockResolvedValue({saved:true,cancelled:false});
+    render(<ContestAnalyticsWindow initialSnapshot={snapshot}/>);
+    await screen.findByRole("button",{name:/Contacts in view 4/});
+    fireEvent.click(screen.getByRole("button",{name:"Export report"}));
+    expect((await screen.findByRole("alert")).textContent).toBe("Export failed: Permission denied");
+    expect(screen.getByRole("button",{name:/Contacts in view 4/})).toBeTruthy();
+    fireEvent.click(screen.getByRole("button",{name:"Export report"}));
+    await screen.findByText("Export saved.");expect(screen.queryByRole("alert")).toBeNull();
+  });
+  it("retains downloads for browser previews only",async()=>{
+    vi.useFakeTimers();
+    native.isTauri.mockReturnValue(false);
+    const create=vi.fn(()=>"blob:analytics-preview"),revoke=vi.fn();
+    vi.stubGlobal("URL",{createObjectURL:create,revokeObjectURL:revoke});
+    const click=vi.spyOn(HTMLAnchorElement.prototype,"click").mockImplementation(()=>{});
+    expect(await saveAnalyticsFile("preview.csv","header\r\nvalue","text/csv")).toBe("Download requested.");
+    expect(create).toHaveBeenCalledOnce();expect(click).toHaveBeenCalledOnce();expect(native.invoke).not.toHaveBeenCalled();
+    vi.runAllTimers();expect(revoke).toHaveBeenCalledWith("blob:analytics-preview");
+  });
   it("keeps filters and drilldown on one copied log without invoking station or log actions",async()=>{
     const read=vi.fn();render(<ContestAnalyticsWindow initialSnapshot={snapshot} read={read}/>);
     const metric=await screen.findByRole("button",{name:/Contacts in view 4/});fireEvent.click(metric);
