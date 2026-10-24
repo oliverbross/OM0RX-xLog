@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
 import { clusterBandColors, clusterModeColors, clusterStatusCode, clusterStatusColors, paletteColor, specialTagColors } from "./clusterPalette";
 import { boundColumnWidth, compactClusterColumns, compactClusterHeader, defaultWorkspacePreferences, readWorkspacePreferences, type CompactColumn } from "./operatorWorkspacePreferences";
 import { useSettingsSaveToast } from "./SettingsSaveToast";
@@ -7,7 +7,7 @@ import { countryDisplay } from "./countryDisplay";
 import { clusterFilterChoices, defaultClusterFilter, normalizeClusterFilter, type ClusterFilter } from "./clusterFilters";
 import SpecialFilterOptions from "./SpecialFilterOptions";
 import { useLogbookCapacity } from "./logbookCapacity";
-import { contestBandMapMultiplierLabel, contestBandMapSpotColor, contestBandMapSpotWorked, contestNeededMultiplierCount } from "./BandMaps";
+import { contestBandMapMultiplierLabel, contestBandMapSpotColor, contestBandMapSpotPending, contestBandMapSpotWorked, contestNeededMultiplierCount } from "./BandMaps";
 import "./ClusterPanel.css";
 
 export { clusterFilterChoices, defaultClusterFilter, type ClusterFilter } from "./clusterFilters";
@@ -56,7 +56,7 @@ type Props = { snapshot: unknown; onRequest: Request; onSelect: (spot: LiveClust
   passive?: boolean; presentationOnly?: boolean; contestPresentation?: boolean; onUndock?: () => void; onDock?: () => void; passwordControlsEnabled?: boolean; selectedSpotId?: string | null; taskOnly?: boolean;
   settingsOnly?: boolean; preferenceStorageKey?: string; onSpotContextMenu?: (spot: LiveClusterSpot,
     event: ReactMouseEvent<HTMLElement>|ReactKeyboardEvent<HTMLElement>) => void; contestBands?: readonly string[];
-  contestCurrentBand?: string | null; contestBandPreferenceKey?: string };
+  contestCurrentBand?: string | null; contestBandPreferenceKey?: string; radioFrequencyHz?: number | null };
 
 const { bands, modes, callStatuses, dxccStatuses } = clusterFilterChoices;
 const formatDate = (value?: number | null) => value == null ? "—" : new Date((value + 978_307_200) * 1000).toLocaleString();
@@ -74,6 +74,41 @@ const contestClusterColumns = [
   ["spotter", "Spotter", 105], ["mults", "Mults", 58], ["comment", "Comment", 260],
 ] as const;
 type ContestClusterColumn = typeof contestClusterColumns[number][0];
+type ContestSort = { column: ContestClusterColumn; descending: boolean };
+const defaultContestOrder=()=>contestClusterColumns.map(([id])=>id);
+function readContestTablePreferences(key:string):{order:ContestClusterColumn[];sort:ContestSort[]}{
+  const fallback={order:defaultContestOrder(),sort:[{column:"age" as const,descending:true}]};
+  try{
+    const value=JSON.parse(localStorage.getItem(key)??"null");
+    if(!value||value.version!==1)return fallback;
+    const valid=(id:unknown):id is ContestClusterColumn=>contestClusterColumns.some(([column])=>column===id);
+    const order:ContestClusterColumn[]=Array.isArray(value.order)?value.order.filter(valid):[];
+    const unique=[...new Set(order)];
+    const sort:ContestSort[]=Array.isArray(value.sort)?value.sort.filter((item:ContestSort)=>item&&valid(item.column)&&typeof item.descending==="boolean").slice(0,2):[];
+    return {order:[...unique,...defaultContestOrder().filter(id=>!unique.includes(id))],sort:sort.length?sort:fallback.sort};
+  }catch{return fallback;}
+}
+function contestSortValue(spot:LiveClusterSpot,column:ContestClusterColumn):string|number|null{
+  switch(column){
+    case "age":return spot.receivedAt;
+    case "frequency":return spot.frequencyKHz;
+    case "points":return spot.contestPoints??null;
+    case "zone":return spot.cqZone??null;
+    case "mults":return contestNeededMultiplierCount(spot);
+    default:return spot[column];
+  }
+}
+function sortContestSpots(spots:LiveClusterSpot[],sort:ContestSort[]):LiveClusterSpot[]{
+  return [...spots].sort((left,right)=>{
+    for(const {column,descending} of sort){
+      const a=contestSortValue(left,column),b=contestSortValue(right,column);
+      if(a===null||b===null){if(a!==b)return a===null?1:-1;continue;}
+      const compared=typeof a==="number"&&typeof b==="number"?a-b:String(a).localeCompare(String(b),undefined,{numeric:true,sensitivity:"base"});
+      if(compared)return descending?-compared:compared;
+    }
+    return left.callsign.localeCompare(right.callsign)||left.frequencyKHz-right.frequencyKHz||left.id.localeCompare(right.id);
+  });
+}
 type ContestBandFilter = "all" | "160m" | "80m" | "40m" | "20m" | "15m" | "10m";
 const contestBandFilters: readonly ContestBandFilter[] = ["all", "160m", "80m", "40m", "20m", "15m", "10m"];
 const contestBandFilter = (value: string | null | undefined, available?: readonly string[]): ContestBandFilter | null =>
@@ -112,7 +147,7 @@ function ColumnWidthInput({ label, width, disabled, onCommit }: { label: string;
     onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }} />;
 }
 export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, presentationOnly = false, contestPresentation = false, onUndock, onDock, passwordControlsEnabled = true, selectedSpotId, taskOnly = false, settingsOnly = false,
-  preferenceStorageKey = fullClusterColumnsKey, onSpotContextMenu, contestBands, contestCurrentBand, contestBandPreferenceKey }: Props) {
+  preferenceStorageKey = fullClusterColumnsKey, onSpotContextMenu, contestBands, contestCurrentBand, contestBandPreferenceKey, radioFrequencyHz }: Props) {
   const saveToast = useSettingsSaveToast();
   const ageClock = useSpotAgeClock();
   const panelId = useId();
@@ -159,6 +194,20 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
   const [historySpot, setHistorySpot] = useState<LiveClusterSpot | null>(null);
   const [selectedSpot, setSelectedSpot] = useState<LiveClusterSpot | null>(null);
   const contestColumnStorageKey = `${preferenceStorageKey}.cqwwColumns`;
+  const contestTableStorageKey=`${preferenceStorageKey}.cqwwTable`;
+  const [contestTable,setContestTable]=useState(()=>readContestTablePreferences(contestTableStorageKey));
+  const contestColumns=contestTable.order.map(id=>contestClusterColumns.find(([column])=>column===id)!);
+  const reorderedColumn=useRef<ContestClusterColumn|null>(null);
+  const moveContestColumn=(from:ContestClusterColumn,to:ContestClusterColumn)=>setContestTable(current=>{
+    const order=current.order.filter(id=>id!==from);order.splice(current.order.indexOf(to),0,from);return {...current,order};
+  });
+  const sortContestColumn=(column:ContestClusterColumn,secondary:boolean)=>{
+    setContestTable(current=>{
+      const old=current.sort.find(item=>item.column===column),next={column,descending:old?!old.descending:column==="age"};
+      return {...current,sort:secondary&&current.sort[0].column!==column?[current.sort[0],next]:[next]};
+    });setSpotPage(0);
+  };
+  useEffect(()=>{if(contestPresentation)try{localStorage.setItem(contestTableStorageKey,JSON.stringify({version:1,...contestTable}));}catch{/* Retain in memory. */}},[contestTable,contestTableStorageKey,contestPresentation]);
   const [contestColumnWidths, setContestColumnWidths] = useState(() => {
     try { return readContestColumnWidths(localStorage.getItem(contestColumnStorageKey)); }
     catch { return defaultContestColumnWidths(); }
@@ -198,10 +247,14 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
     if(multiplierCount!==null&&multiplierCount>0)band.mults+=1;
     summary.bands.set(spot.band,band);return summary;
   },{qsos:0,mults:0,countries:0,zones:0,bands:new Map<string,{qsos:number;mults:number}>()});
-  const presentedSpots = contestPresentation
+  const filteredSpots = contestPresentation
     ? contestOpportunities==="mults"?contestNeededSpots.filter(spot=>(contestNeededMultiplierCount(spot)??0)>0)
       : showWorked?contestBandSpots:contestNeededSpots
     : live?.spots ?? [];
+  const presentedSpots=useMemo(()=>contestPresentation?sortContestSpots(filteredSpots,contestTable.sort):filteredSpots,[contestPresentation,filteredSpots,contestTable.sort]);
+  const currentVfoSpot=typeof radioFrequencyHz==="number"&&Number.isFinite(radioFrequencyHz)
+    ?presentedSpots.filter(spot=>Math.abs(spot.frequencyKHz*1000-radioFrequencyHz)<=500)
+      .sort((a,b)=>Math.abs(a.frequencyKHz*1000-radioFrequencyHz)-Math.abs(b.frequencyKHz*1000-radioFrequencyHz)||b.receivedAt-a.receivedAt)[0]?.id:null;
   const pageSize = useLogbookCapacity(tableArea, presentationOnly ? presentedSpots.length : 0);
   const spotCount = presentedSpots.length;
   const pageCount = Math.max(1, Math.ceil(spotCount / pageSize));
@@ -391,7 +444,15 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
         <label>Show <select aria-label="CQ WW opportunities" value={contestOpportunities}
         onChange={event=>{setContestOpportunities(event.currentTarget.value as "all"|"mults");setSpotPage(0);}}><option value="all">Needed Qs + Mults</option><option value="mults">Mults only</option></select></label>
         <label className="live-cluster-show-worked"><input type="checkbox" checked={showWorked} disabled={contestOpportunities==="mults"}
-          onChange={event => {setShowWorked(event.currentTarget.checked);setSpotPage(0);}} /> Show worked</label></div>}
+          onChange={event => {setShowWorked(event.currentTarget.checked);setSpotPage(0);}} /> Show worked</label>
+        <details className="contest-cluster-filter-details"><summary>Filter details</summary><div aria-label="Contest cluster filter counts">
+          <p>Counts start after upstream cluster filters and expiry.</p><dl>
+            <dt>Supplied rows</dt><dd>{live?.spots.length??0}</dd>
+            <dt>Outside selected band</dt><dd>{(live?.spots.length??0)-contestBandSpots.length}</dd>
+            <dt>Worked hidden</dt><dd>{showWorked&&contestOpportunities!=="mults"?0:contestBandSpots.length-contestNeededSpots.length}</dd>
+            <dt>Not a requested multiplier</dt><dd>{contestOpportunities==="mults"?contestNeededSpots.length-presentedSpots.length:0}</dd>
+            <dt>Matching rows</dt><dd>{presentedSpots.length}</dd><dt>On this page</dt><dd>{visibleSpots.length}</dd>
+          </dl></div></details></div>}
       {!presentationOnly && <div className="live-cluster-actions">
         <div className="live-cluster-connection-summary" role="status" aria-label="Cluster connections">{allConnections.length ? allConnections.map(connection => {
           const phase = connection.phase.toLowerCase(), label = phase.charAt(0).toUpperCase() + phase.slice(1);
@@ -461,32 +522,47 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
       <div className="live-cluster-column-actions"><span>Drag column edges or use arrow keys. Widths scale to fit the window.</span><button type="button" onClick={() => setColumnPreferences(defaultColumns())}>Reset columns</button><button type="button" onClick={() => setColumnsOpen(false)}>Done</button></div>
     </section>}
     <div ref={tableArea} className="table-scroll live-cluster-table">{contestPresentation ? <table className="live-cluster-contest-table" aria-label="CQ WW contest cluster spots"><colgroup>
-      {contestClusterColumns.map(([id])=><col key={id} className={`contest-col-${id}`} style={{width:`${contestColumnWidths[id]/contestTotalColumnWidth*100}%`}}/>)}
-    </colgroup><thead><tr>{contestClusterColumns.map(([id,label])=><th key={id}><span title={label}>{label}</span>
+      {contestColumns.map(([id])=><col key={id} className={`contest-col-${id}`} style={{width:`${contestColumnWidths[id]/contestTotalColumnWidth*100}%`}}/>)}
+    </colgroup><thead><tr>{contestColumns.map(([id,label])=>{const sortIndex=contestTable.sort.findIndex(item=>item.column===id),sort=contestTable.sort[sortIndex];return <th key={id}
+      className={`contest-col-${id}`} aria-sort={sortIndex===0?(sort.descending?"descending":"ascending"):undefined}
+      draggable onDragStart={event=>{reorderedColumn.current=id;event.dataTransfer.setData("text/plain",id);}}
+      onDragOver={event=>event.preventDefault()} onDrop={event=>{event.preventDefault();if(reorderedColumn.current)moveContestColumn(reorderedColumn.current,id);reorderedColumn.current=null;}}
+      onDragEnd={()=>{reorderedColumn.current=null;}}>
+      <button type="button" className="contest-column-sort" aria-label={`Sort by ${label}`} title="Click to sort; Shift-click for secondary sort. Drag to reorder, or use Alt+Left/Right."
+        onClick={event=>sortContestColumn(id,event.shiftKey)} onKeyDown={event=>{
+          if(event.altKey&&(event.key==="ArrowLeft"||event.key==="ArrowRight")){event.preventDefault();const index=contestTable.order.indexOf(id)+(event.key==="ArrowRight"?1:-1);const target=contestTable.order[index];if(target)moveContestColumn(id,target);}
+        }}>{label}{sort&&<small aria-label={`${sortIndex===0?"Primary":"Secondary"} ${sort.descending?"descending":"ascending"} sort`}> {sort.descending?"▼":"▲"}{sortIndex+1}</small>}</button>
       <span className="live-cluster-column-resizer" role="separator" tabIndex={0} aria-orientation="vertical" aria-label={`Resize ${label} column`}
         aria-valuemin={48} aria-valuemax={480} aria-valuenow={contestColumnWidths[id]}
         onPointerDown={event=>{if(event.button!==0)return;event.preventDefault();event.currentTarget.setPointerCapture(event.pointerId);contestColumnDrag.current={id,x:event.clientX,width:contestColumnWidths[id],scale:contestColumnWidths[id]/Math.max(1,event.currentTarget.parentElement!.getBoundingClientRect().width)};}}
         onPointerMove={event=>{const drag=contestColumnDrag.current;if(drag?.id===id)resizeContestColumn(id,drag.width+(event.clientX-drag.x)*drag.scale);}}
         onPointerUp={()=>{contestColumnDrag.current=null;}} onPointerCancel={()=>{contestColumnDrag.current=null;}} onLostPointerCapture={()=>{contestColumnDrag.current=null;}}
         onKeyDown={event=>{if(!["ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;event.preventDefault();resizeContestColumn(id,event.key==="Home"?48:event.key==="End"?480:contestColumnWidths[id]+(event.key==="ArrowRight"?10:-10));}}/>
-    </th>)}</tr></thead>
+    </th>;})}</tr></thead>
     <tbody>{visibleSpots.map((spot,index)=><tr key={spot.id} tabIndex={0}
-      className={`${(selectedSpotId ?? selectedSpot?.id) === spot.id ? "is-selected" : ""}${spot.marked ? " is-marked" : ""} ${index % 2 ? "is-odd" : "is-even"}`}
+      className={`${(selectedSpotId ?? selectedSpot?.id) === spot.id ? "is-selected" : ""}${spot.id===currentVfoSpot?" is-current-vfo":""}${spot.marked ? " is-marked" : ""} ${index % 2 ? "is-odd" : "is-even"}`}
       onClick={()=>{setSelectedSpot(spot);onSelect(spot);}} onContextMenu={event=>onSpotContextMenu?.(spot,event)}
       onKeyDown={event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();setSelectedSpot(spot);onSelect(spot);}
         else if(event.key==="ContextMenu"||event.shiftKey&&event.key==="F10")onSpotContextMenu?.(spot,event);}}
       aria-label={`${spot.callsign}${spot.marked?" marked":""} spot`} title="Load this spot into the contest draft and tune the selected radio">
-      <td className="mono live-cluster-age" title={`Received ${formatDate(spot.receivedAt)}`}>{formatSpotAge(spot.receivedAt,ageClock)}</td>
-      <td><span className="live-cluster-score">{spot.contestPoints??"—"}</span></td>
-      <td>{spot.band}</td><td className="cyan mono">{(spot.frequencyKHz/1000).toFixed(6)}</td>
-      <td><span className="live-cluster-call" style={{color:contestBandMapSpotColor(spot)}}>{spot.marked&&<span className="live-cluster-mark" aria-label="Marked">★ </span>}{spot.callsign}</span></td>
-      <td>{spot.mode}</td><td title={countryDisplay(spot.country)}>{countryDisplay(spot.country)}</td><td>{spot.cqZone??"—"}</td>
-      <td title={`${isRbnSource(spot.source)?"RBN":"DX Cluster"} · ${spot.clusterName}`}>{spot.aggregateCount>1?`${spot.spotter} +${spot.aggregateCount-1}`:spot.spotter}</td>
-      <td title={spot.contestCountryMultiplier===true&&spot.contestZoneMultiplier===true?"Needed country and CQ zone multipliers":
+      {contestColumns.map(([id])=>{
+        switch(id){
+        case "age":return <td key={id} className="mono live-cluster-age" title={`Received ${formatDate(spot.receivedAt)}`}>{formatSpotAge(spot.receivedAt,ageClock)}</td>;
+        case "points":return <td key={id}><span className="live-cluster-score">{spot.contestPoints??"—"}</span></td>;
+        case "band":return <td key={id}>{spot.band}</td>;
+        case "frequency":return <td key={id} className="cyan mono">{spot.id===currentVfoSpot&&<span className="contest-vfo-indicator" aria-label="Current VFO">▶ </span>}{(spot.frequencyKHz/1000).toFixed(6)}</td>;
+        case "callsign":return <td key={id} className="contest-col-callsign"><span className={`live-cluster-call${contestBandMapSpotPending(spot)?" is-pending":""}`} title={contestBandMapSpotPending(spot)?"Classification pending":undefined} style={{color:contestBandMapSpotColor(spot)}}>{spot.marked&&<span className="live-cluster-mark" aria-label="Marked">★ </span>}{spot.callsign}</span></td>;
+        case "mode":return <td key={id}>{spot.mode}</td>;
+        case "country":return <td key={id} className="contest-col-country" title={countryDisplay(spot.country)}>{countryDisplay(spot.country)}</td>;
+        case "zone":return <td key={id}>{spot.cqZone??"—"}</td>;
+        case "spotter":return <td key={id} className="contest-col-spotter" title={`${isRbnSource(spot.source)?"RBN":"DX Cluster"} · ${spot.clusterName}`}>{spot.aggregateCount>1?`${spot.spotter} +${spot.aggregateCount-1}`:spot.spotter}</td>;
+        case "mults":return <td key={id} title={spot.contestCountryMultiplier===true&&spot.contestZoneMultiplier===true?"Needed country and CQ zone multipliers":
         spot.contestCountryMultiplier===true?"Needed country multiplier":spot.contestZoneMultiplier===true?"Needed CQ zone multiplier":
         spot.contestCountryMultiplier===false&&spot.contestZoneMultiplier===false?"No needed multiplier":"Multiplier classification unavailable"}>
-        {contestBandMapMultiplierLabel(spot)}</td>
-      <td title={spot.comment}>{spot.comment||"—"}</td>
+        {contestBandMapMultiplierLabel(spot)}</td>;
+        case "comment":return <td key={id} className="contest-col-comment" title={spot.comment}>{spot.comment||"—"}</td>;
+        }
+      })}
     </tr>)}</tbody></table> : <table aria-label="Live cluster spots"><colgroup>{columnPreferences.columns.map(id => <col key={id} style={{ width: `${columnPreferences.widths[id] / totalColumnWidth * 100}%` }} />)}</colgroup><thead><tr>
       {compactClusterColumns.filter(([id]) => visibleColumns.has(id)).map(([id, label]) => <th key={id} aria-label={id === "callStatus" || id === "dxccStatus" ? label : undefined}
         className={id === "callStatus" || id === "dxccStatus" ? "live-cluster-status-column" : undefined}><span title={label}>{compactClusterHeader(id)}</span>

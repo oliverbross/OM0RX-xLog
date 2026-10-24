@@ -61,6 +61,13 @@
 .band-map-spot-leaders { position: absolute; inset: 0; z-index: 2; overflow: visible; pointer-events: none; }
 .band-map-spot-leaders path { fill: none; stroke: currentColor; stroke-width: 1; opacity: .7; }
 .band-map-spot-leaders circle { fill: currentColor; }
+.band-map-spot.is-pending { border-style: dashed; }
+.band-map-filter-details { position:relative; }
+.band-map-filter-details summary { cursor:pointer; white-space:nowrap; }
+.band-map-filter-details>div { position:absolute; right:0; bottom:100%; z-index:12; width:240px; max-height:180px; overflow:auto; padding:10px; background:#0e2032; border:1px solid #38516a; border-radius:5px; color:#dce7f4; box-shadow:0 4px 12px #0008; }
+.band-map-filter-details p { margin:0 0 8px; }
+.band-map-filter-details dl { display:grid; grid-template-columns:1fr auto; gap:4px 12px; margin:0; }
+.band-map-filter-details dd { margin:0; font-variant-numeric:tabular-nums; }
 .band-map-spot { position: absolute; z-index: 4; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: space-between; gap: 4px; height: calc(22px * var(--band-font-scale)); min-height: calc(22px * var(--band-font-scale)) !important; padding: 1px 4px; border: 1px solid currentColor !important; border-radius: 4px; background: color-mix(in srgb, currentColor 16%, #0b1728 84%) !important; text-shadow: 0 1px 2px #000, 0 0 5px #07111f; text-align: left; font: calc(10px * var(--band-font-scale)) ui-monospace, SFMono-Regular, monospace; overflow: hidden; }
 .band-map-spot strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .band-map-spot b { flex: none; font-size: .86em; white-space: nowrap; }
@@ -110,6 +117,7 @@
 .contest-band-map-legend .is-single { color: #ff5267; }
 .contest-band-map-legend .is-qso { color: #3da5f4; }
 .contest-band-map-legend .is-dupe { color: #aeb5b7; }
+.contest-band-map-legend .is-pending { color: #d9b56f; }
 .band-maps-contest .band-maps-quick-controls label { flex: 1 1 112px; min-width: 0; }
 .band-maps-contest .band-maps-quick-controls select { min-width: 0; width: 100%; }
 @container band-map-contest (max-width: 340px) {

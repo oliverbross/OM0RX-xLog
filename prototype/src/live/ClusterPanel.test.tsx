@@ -15,6 +15,35 @@ const luminance = (hex: string) => {
   return values[0] * 0.2126 + values[1] * 0.7152 + values[2] * 0.0722;
 };
 
+it("sorts contest columns with primary/secondary keys, persists order, and identifies VFO independently of selection",()=>{
+  const data=response();
+  const base={receivedAt:812000000,clusterName:"ShackCQ",spotter:"K1ABC",frequencyKHz:7120,frequencyText:"",comment:"CQ WW",band:"40m",mode:"SSB",country:"Germany",continent:"EU",cqZone:14,
+    callStatus:"New Call",dxccStatus:"New Band",workedBefore:null,specialTags:[],score:80,scoreReasons:[],aggregateCount:1,aggregateSpotters:[],source:"cluster",statusHex:"",bandHex:"",modeHex:"",contestDupe:false,contestMultiplierCount:0};
+  data.snapshot.spots=[{...base,id:"b",callsign:"B1ABC",contestPoints:1},{...base,id:"a",callsign:"A1ABC",contestPoints:1},{...base,id:"c",callsign:"C1ABC",frequencyKHz:7130,contestPoints:3}] as any;
+  const props={passive:true,presentationOnly:true,contestPresentation:true,taskOnly:true,preferenceStorageKey:"test.sort",snapshot:data,onRequest:vi.fn(),onSelect:vi.fn(),radioFrequencyHz:7130000,selectedSpotId:"a"};
+  const first=render(<ClusterPanel {...props}/>);
+  const rows=()=>screen.getAllByRole("row").slice(1).map(row=>row.getAttribute("aria-label"));
+  fireEvent.click(screen.getByRole("button",{name:"Sort by Pts"}));
+  fireEvent.click(screen.getByRole("button",{name:"Sort by Callsign"}),{shiftKey:true});
+  expect(rows()).toEqual(["A1ABC spot","B1ABC spot","C1ABC spot"]);
+  expect(screen.getByLabelText("Secondary ascending sort")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button",{name:"Sort by Pts"}));
+  expect(rows()[0]).toBe("C1ABC spot");
+  expect(screen.getByLabelText("C1ABC spot").classList.contains("is-current-vfo")).toBe(true);
+  expect(screen.getByLabelText("A1ABC spot").classList.contains("is-selected")).toBe(true);
+  fireEvent.keyDown(screen.getByRole("button",{name:"Sort by Callsign"}),{key:"ArrowLeft",altKey:true});
+  const headers=()=>screen.getAllByRole("columnheader").map(header=>header.querySelector("button")!.getAttribute("aria-label"));
+  expect(headers().slice(3,5)).toEqual(["Sort by Callsign","Sort by MHz"]);
+  const retained=screen.getByLabelText("A1ABC spot");
+  first.rerender(<ClusterPanel {...props} snapshot={{...data,snapshot:{...data.snapshot,spots:[...data.snapshot.spots].reverse().map((row:any)=>({...row,contestMultiplierCount:1}))}}}/>);
+  expect(screen.getByLabelText("A1ABC spot")).toBe(retained);
+  expect(rows()).toEqual(["C1ABC spot","A1ABC spot","B1ABC spot"]);
+  first.unmount();render(<ClusterPanel {...props}/>);
+  expect(headers().slice(3,5)).toEqual(["Sort by Callsign","Sort by MHz"]);
+  expect(rows()[0]).toBe("C1ABC spot");
+  expect(props.onRequest).not.toHaveBeenCalled();expect(props.onSelect).not.toHaveBeenCalled();
+});
+
 describe("DX Cluster filter colours", () => {
   it("assigns a stable category colour without changing filter labels or actions", async () => {
     const request = vi.fn(async (_method: string, _params?: Record<string, unknown>) => ({}));
@@ -288,7 +317,7 @@ describe("cluster toolbar panels", () => {
     ] as any;
     render(<ClusterPanel passive presentationOnly contestPresentation taskOnly preferenceStorageKey="xlog.test.cqww-cluster"
       snapshot={data} onRequest={vi.fn()} onSelect={vi.fn()}/>);
-    expect(screen.getAllByRole("columnheader").map(header=>header.textContent)).toEqual([
+    expect(screen.getAllByRole("columnheader").map(header=>header.querySelector("button")?.getAttribute("aria-label")?.replace("Sort by ",""))).toEqual([
       "For","Pts","Band","MHz","Callsign","Mode","Country","CQ","Spotter","Mults","Comment",
     ]);
     expect(screen.getByLabelText("CQ WW opportunity totals").textContent).toBe("QSO 1 · Mults 3 · Country 2 · Zone 2");
@@ -330,6 +359,11 @@ describe("cluster toolbar panels", () => {
     expect(screen.getByLabelText("VK1M spot")).toBeTruthy();
     expect(screen.queryByLabelText("K1W spot")).toBeNull();
     expect(screen.getByLabelText("CQ WW opportunity totals").textContent).toBe("QSO 0 · Mults 1 · Country 1 · Zone 0");
+    fireEvent.click(screen.getByText("Filter details"));
+    const counts=screen.getByLabelText("Contest cluster filter counts");
+    const count=(label:string)=>within(counts).getByText(label).nextElementSibling?.textContent;
+    expect(count("Supplied rows")).toBe("3");expect(count("Outside selected band")).toBe("1");
+    expect(count("Worked hidden")).toBe("1");expect(count("Matching rows")).toBe("1");
     fireEvent.change(screen.getByLabelText("CQ WW opportunities"),{target:{value:"mults"}});
     expect(screen.getByLabelText("VK1M spot")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("CQ WW opportunities"),{target:{value:"all"}});

@@ -141,7 +141,7 @@ export function routeLabelPosition(sections: Coordinate[][]): { point: Coordinat
 export function routeFrequencyLabel(frequencyHz?: number): string | null {
   if (typeof frequencyHz !== "number" || !Number.isSafeInteger(frequencyHz) || frequencyHz <= 0) return null;
   const mhz = (frequencyHz / 1_000_000).toFixed(6);
-  return `${mhz.slice(0, -3)}.${mhz.slice(-3)} MHz`;
+  return `${mhz} MHz`;
 }
 
 export function routeFitPadding(compact: boolean, topOverlayInset = 0, bottomOverlayInset = 0) {

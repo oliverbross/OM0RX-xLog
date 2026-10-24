@@ -13,6 +13,70 @@ const spot = (id: string, frequencyKHz: number, band = "20m", callStatus = "New 
 beforeEach(() => localStorage.clear());
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
+it("keeps remaining contest markers and DOM positions when a worked neighbour disappears",()=>{
+  const rows=["LONGESTCALL/P","K1ABC","DL1ABC"].map((call,index)=>({...spot(call,7120,"40m"),mode:"SSB",contestDupe:false,
+    contestMultiplierCount:0,contestCountryMultiplier:false,contestZoneMultiplier:false,id:String(index)}));
+  const view=render(<BandMaps compact contestPresentation spots={rows} onSelect={vi.fn()} radioFrequencyHz={7120000}/>);
+  const before=screen.getByRole("button",{name:/^K1ABC ·/}) as HTMLElement;
+  const position=[before.style.left,before.style.top];
+  view.rerender(<BandMaps compact contestPresentation spots={rows.slice(1).map(row=>({...row,id:`new-${row.id}`,contestMultiplierCount:1,contestCountryMultiplier:true}))} onSelect={vi.fn()} radioFrequencyHz={7120000}/>);
+  const after=screen.getByRole("button",{name:/^K1ABC ·/}) as HTMLElement;
+  expect(after).toBe(before);expect([after.style.left,after.style.top]).toEqual(position);
+  expect(after.style.color).toBe("rgb(255, 82, 103)");
+});
+
+it("shows unresolved classification as pending rather than a grey worked station",()=>{
+  render(<BandMaps compact contestPresentation spots={[{...spot("PENDING",7120,"40m"),mode:"SSB"}]} onSelect={vi.fn()} radioFrequencyHz={7120000}/>);
+  const pending=screen.getByRole("button",{name:/^PENDING ·/}) as HTMLElement;
+  expect(pending.classList.contains("is-pending")).toBe(true);
+  expect(pending.classList.contains("is-worked")).toBe(false);
+  expect(pending.title).toContain("Classification pending");
+  expect(pending.style.color).toBe("rgb(217, 181, 111)");
+});
+
+it("keeps the zoomed range and exact clicked spot frequency when the observed VFO changes",()=>{
+  vi.stubGlobal("PointerEvent",MouseEvent);
+  const sx={...spot("SX5P",7147,"40m"),mode:"SSB",contestDupe:false,contestMultiplierCount:1};
+  const other={...sx,id:"other",callsign:"K1ABC",frequencyKHz:7172};
+  const onSelect=vi.fn(),props={compact:true,contestPresentation:true,spots:[sx,other],onSelect};
+  const view=render(<BandMaps {...props} radioFrequencyHz={7172000}/>);
+  fireEvent.change(screen.getByLabelText("Band map resolution"),{target:{value:"5"}});
+  const before=screen.getByLabelText(/^40m spectrum,/);
+  const range=before.getAttribute("aria-label");
+  const marker=screen.getByRole("button",{name:/^SX5P ·/});
+  before.setPointerCapture=vi.fn();before.hasPointerCapture=()=>true;before.releasePointerCapture=vi.fn();
+  fireEvent.pointerDown(marker,{button:0,clientY:100});
+  fireEvent.pointerMove(before,{button:0,clientY:130});
+  fireEvent.pointerUp(before,{button:0,clientY:130});
+  expect(before.getAttribute("aria-label")).toBe(range);
+  fireEvent.click(marker,{detail:1});
+  expect(onSelect).toHaveBeenLastCalledWith(expect.objectContaining({id:"SX5P",callsign:"SX5P",frequencyKHz:7147}));
+  view.rerender(<BandMaps {...props} spots={[{...sx,contestMultiplierCount:0},other]} radioFrequencyHz={7147000} selectedSpotId="SX5P"/>);
+  expect(screen.getByLabelText(/^40m spectrum,/)).toBe(before);
+  expect(before.getAttribute("aria-label")).toBe(range);
+  expect(screen.getByRole("img",{name:"Current VFO 7.147000 MHz"})).toBeTruthy();
+});
+
+it("explains only locally observed filtering counts without inventing upstream received totals",()=>{
+  const now=Date.now()/1000-978307200;
+  const base={...spot("K1ABC",7120,"40m"),mode:"SSB",receivedAt:now};
+  render(<BandMaps compact contestPresentation contestAllowedModes={["phone"]} radioFrequencyHz={7120000} onSelect={vi.fn()} spots={[
+    base,{...base,id:"old",callsign:"OLD",receivedAt:now-86400},
+    {...base,id:"repeat",receivedAt:now-60},
+    {...base,id:"worked",callsign:"WORKED",contestDupe:true},
+    {...base,id:"other",callsign:"OTHER",band:"20m",frequencyKHz:14200},
+    {...base,id:"cw",callsign:"CW",mode:"CW",frequencyKHz:7020},
+    {...base,id:"fresh",callsign:"FRESH",frequencyKHz:7125},
+  ]}/>);
+  fireEvent.click(screen.getByText("Filter details"));
+  const counts=screen.getByLabelText("40m filter counts");
+  const count=(label:string)=>within(counts).getByText(label).nextElementSibling?.textContent;
+  expect(count("Supplied reports")).toBe("7");expect(count("Expired / future dated")).toBe("1");
+  expect(count("Superseded reports")).toBe("1");expect(count("Worked hidden")).toBe("1");
+  expect(count("Mode / search hidden")).toBe("1");expect(count("Other bands")).toBe("1");
+  expect(count("Displayed markers")).toBe("2");
+});
+
 describe("native band-map parity", () => {
   it("merges only the same callsign-frequency occurrence and retains a real QSY", () => {
     const now = Date.UTC(2026, 9, 16, 12, 0, 0);
@@ -259,7 +323,7 @@ describe("native band-map parity", () => {
     expect(contestBandMapSpotColor(double)).toBe("#00e51b");
     expect(contestBandMapSpotColor(twoPoint)).toBe("#ff5267");expect(contestBandMapSpotColor(worked)).toBe("#aeb5b7");
   expect(contestBandMapSpotColor({...needed,contestDupe:null,contestMultiplierCount:null,
-    contestCountryMultiplier:null,contestZoneMultiplier:null})).toBe("#aeb5b7");
+    contestCountryMultiplier:null,contestZoneMultiplier:null})).toBe("#d9b56f");
     expect(contestBandMapSpotWorked(worked)).toBe(true);expect(contestBandMapSpotWorked(globalWorked)).toBe(false);
     const first=render(<BandMaps compact contestPresentation storageNamespace="contest" spots={[needed,country,zone,double,twoPoint,pointsPending,worked,globalWorked]} onSelect={vi.fn()} radioFrequencyHz={14_025_000}/>);
     const full=screen.getByRole("button",{name:/LONG\/CALLSIGN1/});expect(full.textContent).toBe("LONG/CALLSIGN1");
