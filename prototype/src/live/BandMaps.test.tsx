@@ -43,6 +43,16 @@ describe("native band-map parity", () => {
     expect(contestBandMapSpotColor(rows[0])).toBe("#aeb5b7");
   });
 
+  it("prefers the immediate worked classification when duplicate feed copies still disagree", () => {
+    const receivedAt = Date.now() / 1000 - 978_307_200;
+    const stale = { ...spot("stale", 14215, "20m"), callsign:"LN8W", mode:"SSB", receivedAt:receivedAt+1,
+      contestPoints:3,contestDupe:false,contestMultiplierCount:2,contestCountryMultiplier:true,contestZoneMultiplier:true };
+    const worked = { ...spot("worked", 14215, "20m"), callsign:"LN8W", mode:"SSB", receivedAt,
+      contestPoints:0,contestDupe:true,contestMultiplierCount:0,contestCountryMultiplier:false,contestZoneMultiplier:false };
+    expect(deduplicateBandMapSpots([worked,stale])).toEqual([expect.objectContaining({id:"stale",contestDupe:true,
+      contestPoints:0,contestMultiplierCount:0,contestCountryMultiplier:false,contestZoneMultiplier:false})]);
+  });
+
   it("does not merge the same callsign and frequency across operating modes", () => {
     const cw = { ...spot("cw", 7100, "40m"), callsign:"OM0RX", mode:"CW" };
     const ssb = { ...spot("ssb", 7100, "40m"), callsign:"OM0RX", mode:"SSB" };
@@ -269,6 +279,24 @@ describe("native band-map parity", () => {
     render(<BandMaps compact contestPresentation storageNamespace="contest" spots={[needed,country,zone,double,twoPoint,worked,globalWorked]} onSelect={vi.fn()} radioFrequencyHz={14_025_000}/>);
     expect((screen.getByRole("checkbox",{name:"Show worked"}) as HTMLInputElement).checked).toBe(true);
     expect(screen.getByRole("button",{name:/^K1ABC /})).toBeTruthy();
+  });
+  it("removes a newly logged duplicate immediately unless Show worked is enabled",()=>{
+    const receivedAt=Date.now()/1000-978_307_200,base={...spot("stale",14215,"20m"),callsign:"LN8W",mode:"SSB",receivedAt,
+      contestPoints:3,contestDupe:false,contestMultiplierCount:2,contestCountryMultiplier:true,contestZoneMultiplier:true},
+      worked={...base,id:"worked",receivedAt:receivedAt-1,contestPoints:0,contestDupe:true,contestMultiplierCount:0,
+        contestCountryMultiplier:false,contestZoneMultiplier:false};
+    const view=render(<BandMaps compact contestPresentation storageNamespace="contest-post-log" contestBands={["20m"]}
+      contestAllowedModes={["phone"]} spots={[base]} onSelect={vi.fn()} radioFrequencyHz={14_215_000}/>);
+    expect(screen.getByRole("button",{name:/^LN8W /})).toBeTruthy();
+
+    view.rerender(<BandMaps compact contestPresentation storageNamespace="contest-post-log" contestBands={["20m"]}
+      contestAllowedModes={["phone"]} spots={[base,worked]} onSelect={vi.fn()} radioFrequencyHz={14_215_000}/>);
+    expect(screen.queryByRole("button",{name:/^LN8W /})).toBeNull();
+
+    fireEvent.click(screen.getByRole("checkbox",{name:"Show worked"}));
+    const retained=screen.getByRole("button",{name:/^LN8W /});
+    expect(retained.getAttribute("aria-label")).toContain("duplicate · grey");
+    expect(retained.style.color).toBe("rgb(174, 181, 183)");
   });
   it("keeps complete contest callsigns in separate lanes without visible classification suffixes",()=>{
     const contestSpot=(id:string,callsign:string)=>({...spot(callsign,21258,"15m","New Call","New Country"),id,mode:"SSB",

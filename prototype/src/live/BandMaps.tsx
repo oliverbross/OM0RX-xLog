@@ -84,7 +84,13 @@ export function deduplicateBandMapSpots<T extends BandMapSpot>(spots: T[]): T[] 
     const latest = rows[0].spot;
     // A feed copy with a missing contest preview must never override another
     // copy that already carries the authoritative worked/multiplier result.
-    const classified = rows.find(row => row.spot.contestDupe !== null && row.spot.contestDupe !== undefined);
+    // A just-logged QSO can race another feed copy whose earlier preview still
+    // says the occurrence is workable. Worked is monotonic within this one
+    // callsign/frequency/mode occurrence: retain the fresh duplicate result as
+    // soon as any authoritative copy carries it, then let the next complete
+    // projection reconcile the remaining scoring fields.
+    const classified = rows.find(row => row.spot.contestDupe === true) ??
+      rows.find(row => row.spot.contestDupe !== null && row.spot.contestDupe !== undefined);
     return classified ? { ...latest,
       contestPoints: classified.spot.contestPoints,
       contestDupe: classified.spot.contestDupe,
