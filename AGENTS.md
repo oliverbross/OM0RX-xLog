@@ -4,6 +4,7 @@
 - Before starting work, fetch/pull `main` with fast-forward-only semantics and verify the checkout is clean. If it is not clean, preserve and identify unrelated user changes; never reset, overwrite, or absorb them into the task.
 - Keep each commit to one logical change. Run tests proportional to the affected behavior before committing.
 - Push every completed commit to GitHub immediately. Do not leave finished commits only on a local branch.
+- Every packaged or installed application candidate must advance the user-visible software version; never reuse a prior version for a different source candidate. Documentation-only commits do not require a version bump.
 - Never bump a version without recording the exact source commit and build provenance used for the release.
 - Package or install OM0RX-xLog only from this canonical checkout, never from another worktree.
 - Remove or archive temporary worktrees and artifacts only after confirming that they contain no unique work.
