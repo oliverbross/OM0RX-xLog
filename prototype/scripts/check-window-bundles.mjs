@@ -24,7 +24,7 @@ assert(!setupDialogGraph.has(main), "Setup dialogs import the main station works
 assert(!setupDialogGraph.has("src/contesting/DetachedContestSetupSurface.tsx"), "Setup dialogs import the session mutation owner");
 // Maps are explicit child entries too. World Map legitimately owns MapLibre;
 // Band Maps must not pay for it or import the main station controller.
-for (const name of ["WorldMap", "BandMaps", "Monitor"]) {
+for (const name of ["WorldMap", "DXpeditionMap", "BandMaps", "Monitor"]) {
   const entry = `src/live/Detached${name}Surface.tsx`;
   const graph = closure(entry, closure("index.html"));
   assert(!graph.has(main), `${name} imports the main station workspace`);
@@ -61,7 +61,10 @@ for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "Calls
   // less than 0.03% to the shared Logbook graph. Node 22 and Node 24 currently
   // differ by 20 emitted bytes, so retain a bounded 150-byte allowance above
   // the larger verified graph instead of making the gate toolchain-dependent.
-  const budget = name === "Settings" ? 408_000 : name === "QSO" ? 407_000 : name === "Logbook" ? 402_250 : 401_000;
+  // The independent DXpedition Map adds one lazy route to the shared bootstrap,
+  // but its MapLibre/UI graph stays outside ordinary detached windows. Keep the
+  // measured 317-byte route metadata increase local to Logbook's tight budget.
+  const budget = name === "Settings" ? 408_000 : name === "QSO" ? 407_000 : name === "Logbook" ? 402_600 : 401_000;
   console.log(JSON.stringify({ window: name, bytes, gzip, files }));
   assert(bytes <= budget, `${name} startup JavaScript exceeds the ${budget / 1_000} kB budget: ${bytes}`);
 }

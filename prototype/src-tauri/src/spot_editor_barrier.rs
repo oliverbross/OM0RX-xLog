@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 use std::{collections::BTreeMap, sync::{Condvar, Mutex}, time::{Duration, Instant, SystemTime, UNIX_EPOCH}};
 
 pub fn editor_role(label: &str) -> bool { matches!(label, "main" | "log-qso" | "logbook") }
-pub fn activation_role(label: &str) -> bool { matches!(crate::workspace_windows::surface_role(label), "main" | "dx-cluster" | "world-map" | "band-maps") }
+pub fn activation_role(label: &str) -> bool { matches!(crate::workspace_windows::surface_role(label), "main" | "dx-cluster" | "world-map" | "dxpedition-map" | "band-maps") }
 fn uuid(value: &str) -> Result<(), String> { uuid::Uuid::parse_str(value).map(|_| ()).map_err(|_| "Invalid activation identity.".into()) }
 
 struct Pending {
