@@ -46,7 +46,7 @@ export function ContestAnalyticsWindow({read=readAnalytics,initialSnapshot}:{rea
       if(document.hidden||checking||busyRef.current)return;const current=snapshotRef.current;if(!current)return;checking=true;
       try{const check=await read({action:"check",snapshotID:current.meta.snapshotID},current.meta);if(!mounted.current||snapshotRef.current!==current)return;
         if(check.current!==true)await refresh();else if(workerRef.current){setAnalyzing(true);workerRef.current.postMessage({id:++requestRef.current,filters:filtersRef.current,now:Date.now()});}
-      }catch(cause){if(mounted.current){setError(errorText(cause));setDataset(null);setResult(null);setSnapshot(null);setDrill(null);}}
+      }catch(cause){if(mounted.current&&snapshotRef.current===current){setError(errorText(cause));setDataset(null);setResult(null);setSnapshot(null);setDrill(null);}}
       finally{checking=false;}
     },15000);return()=>clearInterval(timer);
   },[live,read,refresh,initialSnapshot]);

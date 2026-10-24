@@ -1,17 +1,17 @@
 // @vitest-environment jsdom
-import { cleanup,fireEvent,render,screen,waitFor,within } from "@testing-library/react";
+import { act,cleanup,fireEvent,render,screen,waitFor,within } from "@testing-library/react";
 import { afterEach,beforeEach,describe,expect,it,vi } from "vitest";
 import { ContestAnalyticsWindow } from "./ContestAnalyticsWindow";
-import { analyzeAnalytics,prepareAnalytics,type AnalyticsDataset } from "./contestAnalytics";
+import { analyzeAnalytics,analyticsReport,defaultAnalyticsFilters,prepareAnalytics,type AnalyticsDataset } from "./contestAnalytics";
 import { analyticsFixtureMeta,analyticsFixtureRows } from "./contestAnalytics.fixtures";
 
 class AnalysisWorker {
   onmessage:((event:{data:unknown})=>void)|null=null;onerror:(()=>void)|null=null;dataset:AnalyticsDataset|null=null;terminated=false;
-  postMessage(message:any){setTimeout(()=>{if(this.terminated)return;try{if(message.snapshot)this.dataset=prepareAnalytics(message.snapshot.meta,message.snapshot.rows);this.onmessage?.({data:{id:message.id,result:analyzeAnalytics(this.dataset!,message.filters,message.now),...(message.snapshot?{dataset:this.dataset}:{})}});}catch(error){this.onmessage?.({data:{id:message.id,error:error instanceof Error?error.message:"failed"}});}},0);}
+  postMessage(message:any){setTimeout(()=>{if(this.terminated)return;try{if(message.snapshot)this.dataset=prepareAnalytics(message.snapshot.meta,message.snapshot.rows);this.onmessage?.({data:{id:message.id,result:analyzeAnalytics(this.dataset!,message.filters,message.now),...(message.snapshot?{dataset:this.dataset}:{})}});}catch(error){this.onmessage?.({data:{id:message.id,error:error instanceof Error?error.message:"failed",...(message.snapshot&&this.dataset?{dataset:this.dataset}:{})}});}},0);}
   terminate(){this.terminated=true;}
 }
 beforeEach(()=>{vi.stubGlobal("Worker",AnalysisWorker);});
-afterEach(()=>{cleanup();vi.unstubAllGlobals();});
+afterEach(()=>{cleanup();vi.unstubAllGlobals();vi.restoreAllMocks();});
 const snapshot={meta:analyticsFixtureMeta,rows:analyticsFixtureRows};
 describe("Contest Analytics interaction",()=>{
   it("keeps filters and drilldown on one copied log without invoking station or log actions",async()=>{
@@ -42,5 +42,62 @@ describe("Contest Analytics interaction",()=>{
     const read=vi.fn().mockRejectedValue(new Error("No active contest. Open a session."));render(<ContestAnalyticsWindow read={read}/>);
     expect((await screen.findByRole("alert")).textContent).toContain("No active contest");expect((screen.getByRole("button",{name:"Retry"}) as HTMLButtonElement).disabled).toBe(false);
     expect(read.mock.calls.every(([params])=>params.action==="prepare")).toBe(true);
+  });
+  it("keeps UTC controls available when an initial distant timestamp exceeds the timeline limit",async()=>{
+    const distant={meta:{...snapshot.meta,total:5},rows:[...snapshot.rows,{...snapshot.rows[0],id:"distant",utc:"2020-10-25 12:00:00"}]};
+    render(<ContestAnalyticsWindow initialSnapshot={distant}/>);
+    expect((await screen.findByRole("alert")).textContent).toContain("4,096");
+    fireEvent.click(screen.getByRole("button",{name:"UTC range"}));
+    fireEvent.change(screen.getByLabelText("Analytics UTC start"),{target:{value:"2026-10-24T00:00"}});
+    expect(await screen.findByRole("button",{name:/Contacts in view 4/})).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+  it("ignores a rejected old snapshot check after a manual refresh installs a new snapshot",async()=>{
+    let tick:(()=>Promise<void>)|undefined,rejectCheck!:(error:Error)=>void;
+    const pendingCheck=new Promise((_,reject)=>{rejectCheck=reject;});
+    const originalInterval=globalThis.setInterval;
+    vi.spyOn(globalThis,"setInterval").mockImplementation(((handler:TimerHandler,delay?:number,...args:unknown[])=>{
+      if(delay===15000){tick=handler as ()=>Promise<void>;return originalInterval(handler,1_000_000,...args);}
+      return originalInterval(handler,delay,...args);
+    }) as typeof setInterval);
+    const oldMeta={...snapshot.meta,snapshotID:"old-snapshot"},newMeta={...snapshot.meta,snapshotID:"new-snapshot",total:3};
+    let prepares=0,oldChecks=0;
+    const read=vi.fn(async(params:Record<string,unknown>)=>{
+      const meta=params.snapshotID===newMeta.snapshotID?newMeta:oldMeta;
+      if(params.action==="prepare")return ++prepares===1?oldMeta:newMeta;
+      if(params.action==="page")return {snapshotID:meta.snapshotID,identity:meta.identity,offset:0,total:meta.total,rows:snapshot.rows.slice(0,meta.total)};
+      if(params.action==="check"){
+        if(meta===oldMeta&&++oldChecks===2)return pendingCheck;
+        return {current:true,identity:meta.identity};
+      }
+      return {released:true};
+    });
+    render(<ContestAnalyticsWindow read={read}/>);
+    await screen.findByRole("button",{name:/Contacts in view 4/});
+    expect(tick).toBeTypeOf("function");
+    let checking!:Promise<void>;
+    act(()=>{checking=tick!();});
+    fireEvent.click(screen.getByRole("button",{name:"Refresh"}));
+    await screen.findByRole("button",{name:/Contacts in view 3/});
+    await act(async()=>{rejectCheck(new Error("Old snapshot expired"));await checking;});
+    expect(screen.getByRole("button",{name:/Contacts in view 3/})).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+  it("contains invalid UTC ranges while a comparison report is loaded and permits reset",async()=>{
+    render(<ContestAnalyticsWindow initialSnapshot={snapshot}/>);
+    await screen.findByRole("button",{name:/Contacts in view 4/});
+    fireEvent.click(screen.getByRole("button",{name:"Compare"}));
+    const report=JSON.stringify(analyticsReport(prepareAnalytics({...snapshot.meta,name:"Previous effort fixture"},snapshot.rows),defaultAnalyticsFilters));
+    fireEvent.change(screen.getByLabelText("Reference analytics report"),{target:{files:[{size:report.length,text:async()=>report}]}});
+    await screen.findByText(/OM0RX · Previous effort fixture/);
+    fireEvent.click(screen.getByRole("button",{name:"UTC range"}));
+    fireEvent.change(screen.getByLabelText("Analytics UTC start"),{target:{value:"2026-10-26T00:00"}});
+    await waitFor(()=>expect((screen.getByRole("button",{name:"Reset"}) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.change(screen.getByLabelText("Analytics UTC end"),{target:{value:"2026-10-25T00:00"}});
+    await waitFor(()=>expect(screen.getAllByRole("alert").some(alert=>alert.textContent?.includes("valid UTC interval"))).toBe(true));
+    await waitFor(()=>expect((screen.getByRole("button",{name:"Reset"}) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole("button",{name:"Reset"}));
+    expect(await screen.findByRole("button",{name:/Contacts in view 4/})).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });
