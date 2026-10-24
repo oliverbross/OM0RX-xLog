@@ -20,17 +20,19 @@ public struct PublicOpportunity: Codable, Equatable, Sendable {
     public var startsAt: Date?
     public var endsAt: Date?
     public var callsigns: [String]?
+    public var qslRoute: String?
 
     public init(id: String, kind: String, callsign: String, reference: String, name: String,
                 frequencyHz: Int64?, mode: String, observedAt: Date, expiresAt: Date,
                 source: String, sourceURL: String, comment: String, latitude: Double? = nil, longitude: Double? = nil,
-                startsAt: Date? = nil, endsAt: Date? = nil, callsigns: [String]? = nil) {
+                startsAt: Date? = nil, endsAt: Date? = nil, callsigns: [String]? = nil, qslRoute: String? = nil) {
         self.id = id; self.kind = kind; self.callsign = callsign; self.reference = reference
         self.name = name; self.frequencyHz = frequencyHz; self.mode = mode
         self.observedAt = observedAt; self.expiresAt = expiresAt
         self.source = source; self.sourceURL = sourceURL; self.comment = comment
         self.latitude = latitude; self.longitude = longitude
         self.startsAt = startsAt; self.endsAt = endsAt; self.callsigns = callsigns
+        self.qslRoute = qslRoute
     }
 }
 
@@ -42,6 +44,7 @@ public enum OpportunityFeedError: Error, Equatable {
 
 public enum OpportunityFeedParser {
     public static func parse(_ data: Data, source: String, observedAt: Date) throws -> [PublicOpportunity] {
+        if source == "adxo" { return try adxo(data, observedAt: observedAt) }
         guard (1...2_097_152).contains(data.count),
               let raw = try? JSONSerialization.jsonObject(with: data),
               let rows = rows(raw), rows.count <= 2_000 else {
@@ -113,6 +116,76 @@ public enum OpportunityFeedParser {
         return found.sorted { $0.expiresAt < $1.expiresAt }
     }
 
+    /// NG3K's supported public text view is HTML, but its operation records are
+    /// deliberately labelled fields. Parse those labels instead of scraping
+    /// presentation columns or executing remote code.
+    private static func adxo(_ data: Data, observedAt: Date) throws -> [PublicOpportunity] {
+        guard (1...2_097_152).contains(data.count), let html = String(data: data, encoding: .utf8) else {
+            throw OpportunityFeedError.invalidBody
+        }
+        var text = html.replacingOccurrences(of: #"(?i)<br\s*/?>|</(?:p|div|li|tr|td|h[1-6])>"#,
+                                             with: "\n", options: .regularExpression)
+        text = text.replacingOccurrences(of: #"(?s)<script\b.*?</script>|<style\b.*?</style>"#,
+                                         with: "", options: .regularExpression)
+        text = text.replacingOccurrences(of: #"<[^>]{0,200}>"#, with: "", options: .regularExpression)
+        for (entity, value) in [("&amp;", "&"), ("&lt;", "<"), ("&gt;", ">"), ("&quot;", "\""), ("&#39;", "'")]
+        { text = text.replacingOccurrences(of: entity, with: value) }
+        let lines = text.components(separatedBy: .newlines).map { clean($0, max: 800) }.filter { !$0.isEmpty }
+        let datePattern = try NSRegularExpression(pattern: #"^([A-Z][a-z]{2})\s+(\d{1,2})(?:,\s*(\d{4}))?\s*-\s*(?:([A-Z][a-z]{2})\s+)?(\d{1,2}),\s*(\d{4})$"#)
+        let callPattern = try NSRegularExpression(pattern: #"[A-Z0-9]+(?:/[A-Z0-9]+)*"#)
+        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0); formatter.dateFormat = "MMM d yyyy"
+        formatter.isLenient = false
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        var rows: [PublicOpportunity] = []
+        var recognizedRows = 0
+        var index = 0
+        while index < lines.count {
+            let line = lines[index], range = NSRange(line.startIndex..<line.endIndex, in: line)
+            guard let match = datePattern.firstMatch(in: line, range: range) else { index += 1; continue }
+            func group(_ number: Int) -> String? {
+                guard match.range(at: number).location != NSNotFound, let value = Range(match.range(at: number), in: line) else { return nil }
+                return String(line[value])
+            }
+            let startMonth = group(1)!, startDay = group(2)!, endMonth = group(4) ?? startMonth, endDay = group(5)!, endYear = Int(group(6)!)!
+            guard let startMonthDate = formatter.date(from: "\(startMonth) 1 \(endYear)"),
+                  let endMonthDate = formatter.date(from: "\(endMonth) 1 \(endYear)") else { index += 1; continue }
+            let startYear = group(3).flatMap(Int.init) ?? (calendar.component(.month, from: startMonthDate) >
+                calendar.component(.month, from: endMonthDate) ? endYear - 1 : endYear)
+            guard let start = formatter.date(from: "\(startMonth) \(startDay) \(startYear)"),
+                  let end = formatter.date(from: "\(endMonth) \(endDay) \(endYear)"), end >= start else { index += 1; continue }
+            var fields: [String: String] = [:]
+            index += 1
+            while index < lines.count {
+                let next = lines[index], nextRange = NSRange(next.startIndex..<next.endIndex, in: next)
+                if datePattern.firstMatch(in: next, range: nextRange) != nil { break }
+                for key in ["DXCC", "Callsign", "QSL", "Source", "Info"] where next.hasPrefix("\(key):") {
+                    fields[key] = clean(String(next.dropFirst(key.count + 1)), max: key == "Info" ? 600 : 240)
+                }
+                index += 1
+            }
+            guard let rawCall = fields["Callsign"] else { continue }
+            let upperCall = rawCall.uppercased()
+            let callRange = NSRange(upperCall.startIndex..<upperCall.endIndex, in: upperCall)
+            let aliases = callPattern.matches(in: upperCall, range: callRange).compactMap { result -> String? in
+                guard let value = Range(result.range, in: upperCall) else { return nil }
+                let call = String(upperCall[value]); return validCall(call) ? call : nil
+            }
+            guard let call = aliases.first else { continue }
+            recognizedRows += 1
+            let endOfDay = end.addingTimeInterval(86_400 - 0.001)
+            let horizon = calendar.date(byAdding: .day, value: 30, to: calendar.startOfDay(for: observedAt))!
+            guard endOfDay >= calendar.startOfDay(for: observedAt), start <= horizon else { continue }
+            let day = formatter.string(from: start).replacingOccurrences(of: " ", with: "-")
+            rows.append(PublicOpportunity(id: "adxo:\(day):\(call)", kind: "dxpedition", callsign: call,
+                reference: "", name: fields["DXCC"] ?? "", frequencyHz: nil, mode: "", observedAt: observedAt,
+                expiresAt: endOfDay, source: "NG3K ADXO", sourceURL: sourceURL("adxo"), comment: fields["Info"] ?? "",
+                startsAt: start, endsAt: endOfDay, callsigns: aliases, qslRoute: fields["QSL"]))
+        }
+        guard recognizedRows > 0 else { throw OpportunityFeedError.noUsableRows }
+        return Array(rows.prefix(500))
+    }
+
     /// Only explicit programme references; never infer an island from a prefix.
     public static func iotaReference(in text: String) -> String? {
         guard let range = text.range(of: #"\b(?:AF|AN|AS|EU|NA|OC|SA)-\d{3}\b"#, options: [.regularExpression, .caseInsensitive]) else { return nil }
@@ -172,6 +245,7 @@ public enum OpportunityFeedParser {
         case "sota": return "https://api2.sota.org.uk/api/spots/50/all/all"
         case "wwff": return "https://spots.wwff.co/static/spots.json"
         case "wwbota": return "https://api.wwbota.org/spots/?age=3"
+        case "adxo": return "https://www.ng3k.com/Misc/adxoplain.html"
         default: return "https://www.425dxn.org/dx4win.php"
         }
     }

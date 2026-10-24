@@ -143,6 +143,7 @@ public actor LiveWorker {
     private(set) var contactRefreshTask: Task<Void, Never>?
     init(logbook: LiveLogbookMethods = .shared, localAcceptance: Bool = false, cluster: LiveClusterMethods? = nil,
          publicServices: LivePublicServiceMethods? = nil,
+         opportunityMethods: LiveOpportunitiesMethods? = nil,
          powerCapture: NativeDraftPowerGate = NativeDraftPowerGate(),
          powerDelivery: NativeDraftPowerDelivery = NativeDraftPowerDelivery(),
          remoteBackup: LiveRemoteBackupService? = nil,
@@ -238,7 +239,7 @@ public actor LiveWorker {
                                            forwardClassifiedIngressSpots: operatingModule == .normalLogging))
         self.cluster = cluster
         self.contactRefresher = contactRefresher ?? { try await cluster.refreshContacts() }
-        let opportunityMethods = LiveOpportunitiesMethods(logbook: logbook, clusterSpots: { await cluster.currentSpotRowsIfStarted() })
+        let opportunityMethods = opportunityMethods ?? LiveOpportunitiesMethods(logbook: logbook, clusterSpots: { await cluster.currentSpotRowsIfStarted() })
         opportunities = opportunityMethods
         operatingGoals = LiveOperatingGoalMethods(logbook: logbook, opportunities: opportunityMethods)
         self.localAcceptance = localAcceptance

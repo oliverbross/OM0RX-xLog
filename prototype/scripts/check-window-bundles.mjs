@@ -24,7 +24,7 @@ assert(!setupDialogGraph.has(main), "Setup dialogs import the main station works
 assert(!setupDialogGraph.has("src/contesting/DetachedContestSetupSurface.tsx"), "Setup dialogs import the session mutation owner");
 // Maps are explicit child entries too. World Map legitimately owns MapLibre;
 // Band Maps must not pay for it or import the main station controller.
-for (const name of ["WorldMap", "BandMaps", "Monitor"]) {
+for (const name of ["WorldMap", "DXpeditionMap", "BandMaps", "Monitor"]) {
   const entry = `src/live/Detached${name}Surface.tsx`;
   const graph = closure(entry, closure("index.html"));
   assert(!graph.has(main), `${name} imports the main station workspace`);
@@ -42,6 +42,7 @@ for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "Calls
   const graph = closure(entry, closure("index.html"));
   assert(!graph.has(main), `${name} imports the main station workspace`);
   assert(!graph.has("src/Map.tsx"), `${name} imports the map UI`);
+  assert(!graph.has("src/live/DetachedDXpeditionMapSurface.tsx"), `${name} imports the DXpedition Map UI`);
   const lateCss = [...graph].flatMap(key => manifest[key].css ?? []).filter(file => !eagerCss.has(file));
   assert.equal(lateCss.length, 0, `${name} loads late CSS after shared overrides: ${lateCss.join(", ")}`);
   const files = [...new Set([...graph].map(key => manifest[key].file))];
@@ -61,9 +62,10 @@ for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "Calls
   // less than 0.03% to the shared Logbook graph. Node 22 and Node 24 currently
   // differ by 20 emitted bytes, so retain a bounded 150-byte allowance above
   // the larger verified graph instead of making the gate toolchain-dependent.
-  // Analytics adds a lazy route and preload descriptors. The measured Logbook
-  // graph is 402,470 bytes; the analytics UI/worker stay outside startup.
-  const budget = name === "Settings" ? 408_000 : name === "QSO" ? 407_000 : name === "Logbook" ? 402_750 : 401_000;
+  // Analytics and DXpedition Map add lazy routes and preload descriptors.
+  // The measured Logbook graph is 402,807 bytes; their UI stays outside startup.
+  // Keep the route allowance bounded and local to the tight Logbook budget.
+  const budget = name === "Settings" ? 408_000 : name === "QSO" ? 407_000 : name === "Logbook" ? 402_950 : 401_000;
   console.log(JSON.stringify({ window: name, bytes, gzip, files }));
   assert(bytes <= budget, `${name} startup JavaScript exceeds the ${budget / 1_000} kB budget: ${bytes}`);
 }

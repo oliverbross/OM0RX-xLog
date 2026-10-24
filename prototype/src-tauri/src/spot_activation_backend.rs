@@ -220,7 +220,7 @@ fn tune_request(provider: &str, spot: &Value) -> Result<Value, String> {
             "FT8" | "FT4" | "FT2" | "PSK" | "DIGI" | "DATA" | "DIGU" => "PKTUSB", "DIGL" => "PKTLSB", _ => &mode,
         };
         Ok(json!({"id":id,"method":"hamlib_control","params":{"device":"radio","action":"tune_simplex","hz":hz,"mode":mode}}))
-    } else if matches!(provider, "direct_agent" | "direct_flex_lan") {
+    } else if matches!(provider, "direct_agent" | "direct_flex_lan" | "direct_tci") {
         Ok(json!({"id":id,"method":"station_tune","params":{"provider":provider,"frequency_hz":hz,"mode":mode}}))
     } else { Err("Native radio provider is unsupported".into()) }
 }
@@ -514,6 +514,8 @@ mod tests {
         for spot in [json!({"frequencyHz":0,"mode":"CW"}),json!({"frequencyHz":14025000,"mode":"raw command"}),json!({"frequencyHz":14025000.5,"mode":"CW"})] {
             assert!(tune_request("direct_agent",&spot).is_err());
         }
+        let tci=tune_request("direct_tci",&json!({"frequencyHz":14025000,"mode":"CW"})).unwrap();
+        assert_eq!(tci["method"],"station_tune");assert_eq!(tci["params"]["provider"],"direct_tci");
         assert!(tune_request("xcat_loopback",&json!({"frequencyHz":14025000,"mode":"CW"})).is_err());
     }
 }

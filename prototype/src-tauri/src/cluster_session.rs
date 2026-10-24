@@ -169,6 +169,7 @@ impl ClusterSession {
             || !payload["snapshot"]["spots"]
                 .as_array()
                 .is_some_and(|spots| spots.len() <= 500)
+            || !payload["contest_spots"].as_array().is_some_and(|spots| spots.len() <= 500)
         {
             return Err("The cluster service did not provide a valid snapshot.".into());
         }
@@ -476,7 +477,7 @@ pub fn owner(app: &tauri::AppHandle) -> Result<Arc<ClusterSession>, String> {
                     if let Some(alerts) = crate::dx_alerts::existing() {
                         if let Err(error) = alerts.observe(&projection) { eprintln!("DX alert observation unavailable: {error}"); }
                     }
-                    for label in ["dx-cluster", "world-map", "band-maps", "monitor"] {
+                    for label in ["dx-cluster", "world-map", "dxpedition-map", "band-maps", "monitor"] {
                         let _ = app.emit_to(label, "xlog:cluster-projection", &projection);
                     }
                 }),
@@ -515,7 +516,7 @@ pub fn shutdown() {
 mod tests {
     use super::*;
     fn reply(request: &Value, query: &str) -> Value {
-        json!({"id":request["id"],"ok":true,"result":{"snapshot":{"spots":[{"id":"spot-a"}]},"query":query}})
+        json!({"id":request["id"],"ok":true,"result":{"snapshot":{"spots":[{"id":"spot-a"}]},"contest_spots":[{"id":"spot-a"}],"query":query}})
     }
     fn request(method: &str) -> Value {
         json!({"id":"fixture-12345678","method":method,"params":{}})
@@ -715,7 +716,8 @@ mod tests {
     #[test]
     fn first_direct_reply_has_native_tokens_and_old_worker_payload_is_never_relabelled() {
         let owner = ClusterSession::new(Arc::new(|request| Ok(json!({"id":request["id"],"ok":true,"result":{
-            "snapshot":{"spots":[{"id":"source-report","callsign":"TEST1","frequencyKHz":14074.0,"mode":"FT8","band":"20m"}]}
+            "snapshot":{"spots":[{"id":"source-report","callsign":"TEST1","frequencyKHz":14074.0,"mode":"FT8","band":"20m"}]},
+            "contest_spots":[{"id":"source-report","callsign":"TEST1","frequencyKHz":14074.0,"mode":"FT8","band":"20m"}]
         }}))), Arc::new(|_| {}));
         let response = owner.request(request("cluster_snapshot")).unwrap();
         let token = &response["result"]["snapshot"]["spots"][0]["activation"];

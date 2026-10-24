@@ -21,6 +21,7 @@ export async function loadWindowSurface(search: string): Promise<ComponentType> 
   if (view === "monitor") return (await import("./live/DetachedMonitorSurface")).DetachedMonitorSurface;
   if (view === "callsign-intelligence") return (await import("./live/DetachedCallsignIntelligenceSurface")).DetachedCallsignIntelligenceSurface;
   if (view === "world-map") return (await import("./live/DetachedWorldMapSurface")).DetachedWorldMapSurface;
+  if (view === "dxpedition-map") return (await import("./live/DetachedDXpeditionMapSurface")).DetachedDXpeditionMapSurface;
   if (view === "band-maps") return (await import("./live/DetachedBandMapsSurface")).DetachedBandMapsSurface;
   if (view === "awards") return (await import("./live/DetachedAwardsSurface")).DetachedAwardsSurface;
   if (view === "logbook") return (await import("./live/DetachedLogbookSurface")).DetachedLogbookSurface;

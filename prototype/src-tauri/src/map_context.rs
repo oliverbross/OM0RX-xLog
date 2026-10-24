@@ -17,7 +17,7 @@ fn next_revision() -> Result<u64, String> {
 
 pub fn validate(label: &str, isolated: bool) -> Result<(), String> {
     let label = crate::workspace_windows::surface_role(label);
-    if isolated || !matches!(label, "main" | "world-map" | "band-maps" | "monitor" | "contest--world-map") {
+    if isolated || !matches!(label, "main" | "world-map" | "dxpedition-map" | "band-maps" | "monitor" | "contest--world-map") {
         return Err("Map context is unavailable in this window.".into());
     }
     Ok(())
@@ -116,7 +116,7 @@ mod tests {
     fn value() -> Value { json!({"generation":"fixture", "revision":0,"preferences":{},"dxccStatuses":{}}) }
     #[test]
     fn map_scope_is_exact_and_isolation_never_starts_owners() {
-        for label in ["main", "world-map", "band-maps", "monitor", "contest--world-map"] {
+        for label in ["main", "world-map", "dxpedition-map", "band-maps", "monitor", "contest--world-map"] {
             assert!(validate(label, false).is_ok()); assert!(validate(label, true).is_err());
         }
         for label in ["log-qso", "spot-history", "dx-cluster", "unknown", ""] { assert!(validate(label, false).is_err()); }

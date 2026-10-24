@@ -265,7 +265,7 @@ fn validate_spot_effect(label: &str, isolated: bool, exiting: bool) -> Result<()
     } else { Ok(()) }
 }
 fn validate_opportunity_effect(label: &str, isolated: bool, exiting: bool) -> Result<(), String> {
-    if isolated || exiting || !matches!(label, "main" | "chaser-dx") { Err("Opportunity draft selection is unavailable in this window.".into()) } else { Ok(()) }
+    if isolated || exiting || !matches!(label, "main" | "chaser-dx" | "dxpedition-map") { Err("Opportunity draft selection is unavailable in this window.".into()) } else { Ok(()) }
 }
 fn validate_editor_transition(label: &str) -> Result<(), String> {
     if spot_editor_barrier::editor_role(label) {
@@ -2367,8 +2367,8 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         return Err("Use the shared CW session for CW output controls.".into());
     }
     // This explicit role gate precedes every native special dispatcher too.
-    if matches!(workspace_windows::surface_role(window.label()), "monitor" | "log-qso" | "spot-history" | "world-map" | "band-maps" | "callsign-intelligence" | "previous-qsos" | "operating-goals" | "station-control" | "cw" | "rotor" | "station-status" | "propagation" | "station-identity" | "alerts" | "antenna") { worker::validate_surface(window.label(), &request)?; }
-    if state.path.is_none() && matches!(method, "opportunities_snapshot" | "opportunities_refresh") {
+    if matches!(workspace_windows::surface_role(window.label()), "monitor" | "log-qso" | "spot-history" | "world-map" | "dxpedition-map" | "band-maps" | "callsign-intelligence" | "previous-qsos" | "operating-goals" | "station-control" | "cw" | "rotor" | "station-status" | "propagation" | "station-identity" | "alerts" | "antenna") { worker::validate_surface(window.label(), &request)?; }
+    if state.path.is_none() && matches!(method, "opportunities_snapshot" | "opportunities_refresh" | "opportunities_dxpedition_snapshot" | "opportunities_dxpedition_refresh") {
         worker::validate_surface(window.label(), &request)?;
         return tauri::async_runtime::spawn_blocking(move || opportunity_selection::snapshot(request)).await
             .map_err(|_| "Opportunity feed task failed".to_string())?;
@@ -4757,13 +4757,13 @@ mod workspace_layout_tests {
 
     #[test]
     fn spot_activation_capabilities_are_role_scoped_and_never_bypass_isolation_or_shutdown() {
-        for label in ["main", "dx-cluster", "world-map", "band-maps", "log-qso", "logbook", "monitor", "settings", "chaser-dx", "station-control", "unknown"] {
+        for label in ["main", "dx-cluster", "world-map", "dxpedition-map", "band-maps", "log-qso", "logbook", "monitor", "settings", "chaser-dx", "station-control", "unknown"] {
             let writer = spot_editor_barrier::activation_role(label);
             assert_eq!(validate_spot_effect(label, false, false).is_ok(), writer);
             assert!(validate_spot_effect(label, true, false).is_err());
             assert!(validate_spot_effect(label, false, true).is_err());
             assert_eq!(validate_activation_reader(label).is_ok(), label == "chaser-dx" || writer || spot_editor_barrier::editor_role(label));
-            assert_eq!(crate::validate_opportunity_effect(label,false,false).is_ok(), matches!(label,"main" | "chaser-dx"));
+            assert_eq!(crate::validate_opportunity_effect(label,false,false).is_ok(), matches!(label,"main" | "chaser-dx" | "dxpedition-map"));
             assert!(crate::validate_opportunity_effect(label,true,false).is_err()); assert!(crate::validate_opportunity_effect(label,false,true).is_err());
         }
         for method in ["workspace_create", "backup_restore", "station_connect", "station_disconnect", "station_reconnect"] {

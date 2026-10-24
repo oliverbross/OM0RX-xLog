@@ -99,15 +99,40 @@ struct LiveOpportunitiesMethodsTests {
         async let second = actor.handle(method: "opportunities_refresh", params: ["source": "all"])
         let results = try await [first, second]
         let sources = try #require(results[0]["sources"] as? [[String: Any]])
-        #expect(sources.count == 5)
-        #expect(sources.allSatisfy { $0["state"] as? String == "current" && $0["count"] as? Int == 0 })
+        #expect(sources.count == 6)
+        #expect(sources.allSatisfy { $0["state"] as? String == "current" })
+        #expect(sources.reduce(0) { $0 + ($1["count"] as? Int ?? 0) } == 1)
         let attempts = sources.compactMap { $0["last_attempt"] as? String }
-        #expect(attempts.count == 5)
+        #expect(attempts.count == 6)
         let later = try await actor.handle(method: "opportunities_refresh", params: ["source": "all"])
         #expect((later["sources"] as? [[String: Any]])?.compactMap { $0["last_attempt"] as? String } == attempts)
         await actor.terminate()
         await #expect(throws: WorkerFailure.self) {
             try await actor.handle(method: "opportunities_refresh", params: ["source": "all"])
+        }
+    }
+
+    @Test("DXpedition refresh is narrow to its two catalogue providers")
+    func dxpeditionRefreshBoundary() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [EmptyOpportunityProjectionFeed.self]
+        let session = URLSession(configuration: config)
+        defer { session.invalidateAndCancel() }
+        let actor = LiveOpportunitiesMethods(logbook: logbook, session: session, clusterSpots: { [] })
+        let result = try await actor.handle(method: "opportunities_dxpedition_refresh", params: ["source": "all"])
+        let sources = try #require(result["sources"] as? [[String: Any]])
+        #expect(Set(sources.compactMap { $0["source"] as? String }) == Set(["adxo", "425dxn"]))
+        #expect(sources.allSatisfy { $0["last_attempt"] is String })
+        let shared = try await actor.handle(method: "opportunities_snapshot", params: [:])
+        let sharedSources = try #require(shared["sources"] as? [[String: Any]])
+        #expect(sharedSources.filter { !["adxo", "425dxn"].contains($0["source"] as? String ?? "") }
+            .allSatisfy { $0["last_attempt"] is NSNull })
+        await #expect(throws: WorkerFailure.self) {
+            try await actor.handle(method: "opportunities_dxpedition_refresh", params: ["source": "pota"])
         }
     }
 
@@ -151,7 +176,7 @@ struct LiveOpportunitiesMethodsTests {
         let item = PublicOpportunity(id: "calendar:island", kind: "dxpedition", callsign: "DX1ABC", reference: "OC-001",
             name: "DX1ABC, DX2ABC: Island (OC-001)", frequencyHz: nil, mode: "", observedAt: now,
             expiresAt: now.addingTimeInterval(86_400), source: "425DXN Worldwide DX Calendar", sourceURL: "", comment: "",
-            startsAt: now.addingTimeInterval(-86_400), endsAt: now.addingTimeInterval(86_400), callsigns: ["DX1ABC", "DX2ABC"])
+            startsAt: now.addingTimeInterval(-86_400), endsAt: now.addingTimeInterval(86_400), callsigns: ["DX1ABC", "DX2ABC"], qslRoute: "via M0OXO")
         var future = item; future.id = "calendar:future"; future.startsAt = now.addingTimeInterval(3_600)
         var unlocated = item; unlocated.id = "calendar:unknown"; unlocated.reference = ""; unlocated.name = "Unknown island"; unlocated.callsigns = ["DX3ABC"]
         let cache = logbook.workspaceDirectoryURL.appendingPathComponent("Opportunities", isDirectory: true)
@@ -159,7 +184,7 @@ struct LiveOpportunitiesMethodsTests {
         try JSONEncoder().encode(["425dxn": FixtureFeed(items: [item, future, unlocated], lastSuccess: now, lastAttempt: now)])
             .write(to: cache.appendingPathComponent("public-feed-cache.json"))
         let actor = LiveOpportunitiesMethods(logbook: logbook, clusterSpots: {
-            [["id": "fresh", "callsign": "DX2ABC", "frequencyKHz": 14250.0, "mode": "SSB", "receivedAt": now.timeIntervalSinceReferenceDate],
+            [["id": "fresh", "callsign": "DX2ABC", "comment": "POTA US-3051", "frequencyKHz": 14250.0, "mode": "SSB", "receivedAt": now.timeIntervalSinceReferenceDate],
              ["id": "old", "callsign": "DX1ABC", "frequencyKHz": 21050.0, "receivedAt": now.addingTimeInterval(-7_200).timeIntervalSinceReferenceDate]]
         })
         let result = try await actor.handle(method: "opportunities_snapshot", params: [:])
@@ -180,6 +205,19 @@ struct LiveOpportunitiesMethodsTests {
         #expect(unknown["location_accuracy"] as? String == "unavailable")
         #expect(result["selection_tunes"] as? Bool == false)
         _ = try JSONSerialization.data(withJSONObject: result)
+
+        let map = try await actor.handle(method: "opportunities_dxpedition_snapshot", params: [:])
+        let expeditions = try #require(map["items"] as? [[String: Any]])
+        #expect(expeditions.count == 3)
+        #expect(map["total_available"] as? Int == 3)
+        #expect(expeditions.allSatisfy { $0["kind"] as? String == "dxpedition" })
+        let primary = try #require(expeditions.first { $0["id"] as? String == item.id })
+        #expect(primary["callsign"] as? String == "DX1ABC")
+        #expect(primary["aliases"] as? [String] == ["DX1ABC", "DX2ABC"])
+        #expect(primary["frequency_hz"] as? Int64 == 14_250_000)
+        #expect(primary["qsl_route"] as? String == "via M0OXO")
+        #expect(primary["activity"] as? String == "spotted_operation")
+        #expect(map["surface"] as? String == "dxpedition_map")
     }
 
     @Test("Refresh uses the bounded portable transport and preserves validated cache on failure")
@@ -244,6 +282,12 @@ struct LiveOpportunitiesMethodsTests {
         let result = try #require(response["result"] as? [String: Any])
         #expect((result["items"] as? [[String: Any]])?.isEmpty == true)
         #expect(result["history_state"] as? String == "ready")
+        let mapRequest = Data(#"{"id":"dx-map","method":"opportunities_dxpedition_snapshot","params":{}}"#.utf8)
+        let mapResponse = try #require(JSONSerialization.jsonObject(with: await worker.response(to: mapRequest)) as? [String: Any])
+        #expect(mapResponse["ok"] as? Bool == true)
+        let map = try #require(mapResponse["result"] as? [String: Any])
+        #expect(map["surface"] as? String == "dxpedition_map")
+        #expect((map["sources"] as? [[String: Any]])?.count == 2)
         await worker.beginTerminalShutdown()
         let stopped = try #require(JSONSerialization.jsonObject(with: await worker.response(to: request)) as? [String: Any])
         #expect((stopped["error"] as? [String: Any])?["code"] as? String == "worker_stopping")
@@ -352,10 +396,12 @@ private final class EmptyOpportunityProjectionFeed: URLProtocol {
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
+        let adxo = request.url?.path.hasSuffix("/adxoplain.html") == true
         let response = HTTPURLResponse(url: request.url!, statusCode: 200,
-            httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
+            httpVersion: "HTTP/1.1", headerFields: ["Content-Type": adxo ? "text/html" : "application/json"])!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: Data("[]".utf8))
+        let body = adxo ? "<p>Jan 1, 2020 - Dec 31, 2099</p><p>DXCC: Fixture</p><p>Callsign: TEST1</p>" : "[]"
+        client?.urlProtocol(self, didLoad: Data(body.utf8))
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() { }

@@ -58,7 +58,7 @@ pub struct WindowSpec {
     pub width: f64,
     pub height: f64,
 }
-pub const SUPPORTED_WINDOWS: [WindowSpec; 23] = [
+pub const SUPPORTED_WINDOWS: [WindowSpec; 24] = [
     WindowSpec { id: "operating-goals", title: "OM0RX-xLog — Operating Goals", width: 900.0, height: 700.0 },
     WindowSpec { id: "previous-qsos", title: "OM0RX-xLog — Previous QSOs", width: 860.0, height: 600.0 },
     WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog — Callsign Intelligence", width: 700.0, height: 620.0 },
@@ -66,6 +66,7 @@ pub const SUPPORTED_WINDOWS: [WindowSpec; 23] = [
     WindowSpec { id: "spot-history", title: "OM0RX-xLog — Spot History", width: 1180.0, height: 800.0 },
     WindowSpec { id: "monitor", title: "OM0RX-xLog — Station Monitor", width: 780.0, height: 600.0 },
     WindowSpec { id: "world-map", title: "OM0RX-xLog — World Map", width: 1100.0, height: 720.0 },
+    WindowSpec { id: "dxpedition-map", title: "OM0RX-xLog — DXpedition Map", width: 1240.0, height: 800.0 },
     WindowSpec { id: "band-maps", title: "OM0RX-xLog — Band Maps", width: 920.0, height: 760.0 },
     WindowSpec { id: "dx-cluster", title: "OM0RX-xLog — DX Cluster", width: 1180.0, height: 800.0 },
     WindowSpec { id: "logbook", title: "OM0RX-xLog — Logbook", width: 1280.0, height: 800.0 },
@@ -196,6 +197,7 @@ pub fn native_minimum(label: &str) -> (f64, f64) {
     }
     match surface_role(label) {
         "band-maps" => (280.0, 480.0),
+        "dxpedition-map" => (700.0, 520.0),
         "propagation" => (480.0, 190.0),
         _ => (640.0, 480.0),
     }
@@ -523,7 +525,7 @@ mod tests {
     #[test]
     fn registry_covers_only_real_windows() {
         let ids: BTreeSet<_> = SUPPORTED_WINDOWS.iter().map(|window| window.id).collect();
-        assert_eq!(ids.len(), 23);
+        assert_eq!(ids.len(), 24);
         let capabilities: Value = serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
         for id in &ids { assert!(capabilities["windows"].as_array().unwrap().contains(&json!(id))); }
         for window in SUPPORTED_WINDOWS {

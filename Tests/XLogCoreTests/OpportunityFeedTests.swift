@@ -54,4 +54,55 @@ struct OpportunityFeedTests {
         let drift = Data(#"[{"cal":"DX1ABC","from":"2026-10-01"}]"#.utf8)
         #expect(throws: OpportunityFeedError.schemaChanged) { try OpportunityFeedParser.parse(drift, source: "425dxn", observedAt: Date()) }
     }
+
+    @Test("ADXO labelled text retains exact announced aliases and UTC date range")
+    func adxo() throws {
+        let body = Data(#"""
+        <html><body>
+        <p>Oct 20 - Nov 2, 2026</p>
+        <p>DXCC: Christmas Island</p>
+        <p>Callsign: VK9X1 / VK9X2</p>
+        <p>QSL: via M0OXO</p>
+        <p>Source: NG3K</p>
+        <p>Info: 160-6 metres</p>
+        <p>Jan 1 - Jan 2, 2025</p><p>DXCC: Old</p><p>Callsign: OLD1A</p>
+        </body></html>
+        """#.utf8)
+        let now = ISO8601DateFormatter().date(from: "2026-10-24T12:00:00Z")!
+        let values = try OpportunityFeedParser.parse(body, source: "adxo", observedAt: now)
+        #expect(values.count == 1)
+        #expect(values[0].callsign == "VK9X1")
+        #expect(values[0].callsigns == ["VK9X1", "VK9X2"])
+        #expect(values[0].qslRoute == "via M0OXO")
+        #expect(values[0].source == "NG3K ADXO")
+        #expect(values[0].startsAt == ISO8601DateFormatter().date(from: "2026-10-20T00:00:00Z"))
+        #expect(values[0].endsAt == ISO8601DateFormatter().date(from: "2026-11-02T23:59:59Z")?.addingTimeInterval(0.999))
+    }
+
+    @Test("ADXO valid catalogue outside the 30-day horizon is a healthy empty response")
+    func adxoValidEmpty() throws {
+        let body = Data(#"<p>Jan 1 - Jan 2, 2025</p><p>DXCC: Old</p><p>Callsign: OLD1A</p>"#.utf8)
+        let now = ISO8601DateFormatter().date(from: "2026-10-24T12:00:00Z")!
+        #expect(try OpportunityFeedParser.parse(body, source: "adxo", observedAt: now).isEmpty)
+    }
+
+    @Test("ADXO malformed months and reversed dates fail closed without crashing")
+    func adxoInvalidDates() throws {
+        let now = ISO8601DateFormatter().date(from: "2026-10-24T12:00:00Z")!
+        for dates in ["Xxx 20 - Nov 2, 2026", "Oct 20 - Xxx 2, 2026", "Oct 30 - Oct 29, 2026", "Feb 30 - Mar 2, 2026"] {
+            let body = Data("<p>\(dates)</p><p>Callsign: VK9X1</p>".utf8)
+            #expect(throws: OpportunityFeedError.noUsableRows) {
+                try OpportunityFeedParser.parse(body, source: "adxo", observedAt: now)
+            }
+        }
+    }
+
+    @Test("ADXO New Year operations infer the previous start year")
+    func adxoYearBoundary() throws {
+        let now = ISO8601DateFormatter().date(from: "2026-12-25T12:00:00Z")!
+        let body = Data("<p>Dec 28 - Jan 5, 2027</p><p>Callsign: VK9X1</p>".utf8)
+        let row = try #require(OpportunityFeedParser.parse(body, source: "adxo", observedAt: now).first)
+        #expect(row.startsAt == ISO8601DateFormatter().date(from: "2026-12-28T00:00:00Z"))
+        #expect(row.endsAt == ISO8601DateFormatter().date(from: "2027-01-05T23:59:59Z")?.addingTimeInterval(0.999))
+    }
 }

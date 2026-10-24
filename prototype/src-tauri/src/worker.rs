@@ -119,6 +119,11 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
             Ok(())
         } else { Err("Chaser & DX can only read and refresh public opportunity feeds.".into()) };
     }
+    if label == "dxpedition-map" {
+        return if matches!(request["method"].as_str(), Some("opportunities_dxpedition_snapshot" | "opportunities_dxpedition_refresh")) {
+            Ok(())
+        } else { Err("DXpedition Map can only read and refresh its bounded public catalogue.".into()) };
+    }
     if label == "spot-history" {
         return if matches!(request["method"].as_str(), Some("spot_history_status" | "spot_history_query"
             | "spot_history_detail" | "spot_history_stats")) {
@@ -310,6 +315,8 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "reference_configure",
         "opportunities_snapshot",
         "opportunities_refresh",
+        "opportunities_dxpedition_snapshot",
+        "opportunities_dxpedition_refresh",
         "logbook_draft",
         "logbook_operator_draft",
         "logbook_operator_draft_apply",
@@ -1065,6 +1072,8 @@ fn request_blocks_module_transition(request: &Value) -> bool {
         "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot" |
         "spot_bridge_snapshot" | "wsjtx_snapshot" | "fldigi_snapshot" |
         "cluster_snapshot" | "cluster_history" |
+        "opportunities_snapshot" | "opportunities_refresh" |
+        "opportunities_dxpedition_snapshot" | "opportunities_dxpedition_refresh" |
         "spot_history_status" | "spot_history_query" | "spot_history_detail" | "reference_log_review" |
         "contest_catalog" | "contest_sessions" | "contest_draft_get" |
         "contest_qso_get" | "contest_operation_receipt" | "contest_log_page" |
@@ -1166,6 +1175,8 @@ fn request_is_non_retiring_read(request: &Value) -> bool {
         "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot" |
         "lookup_call" | "logbook_previous" | "logbook_duplicate" |
         "logbook_matrix" | "cluster_history" | "cluster_snapshot" |
+        "opportunities_snapshot" | "opportunities_refresh" |
+        "opportunities_dxpedition_snapshot" | "opportunities_dxpedition_refresh" |
         "wsjtx_snapshot" | "fldigi_snapshot" | "reference_resolve" | "contest_qso_get" | "contest_log_transfer_status" |
         "contest_export_prepare" | "contest_export_read" | "contest_export_release" | "contest_spot_points_preview" |
         "contest_scp_status" | "contest_scp_query" | "contest_scp_cancel" | "contest_scp_select" |
@@ -1179,7 +1190,10 @@ fn request_timeout(request: &Value) -> Duration {
     // QRZ may legitimately spend one bounded request authenticating and one
     // fetching the profile. Do not abandon that valid reply at the generic
     // five-second passive-read deadline; QRZClient's refresh worst case is 40s.
-    if request["method"].as_str() == Some("lookup_call") {
+    // Catalogue refresh performs bounded public network reads and cache updates,
+    // but cannot change station/QSO state. Keep its network-sized timeout without
+    // retiring the shared worker if a provider still fails to answer in time.
+    if matches!(request["method"].as_str(), Some("lookup_call" | "opportunities_refresh" | "opportunities_dxpedition_refresh")) {
         return RESPONSE_TIMEOUT;
     }
     if request_is_non_retiring_read(request) {
@@ -1257,6 +1271,8 @@ mod tests {
             "contest_setup_get",
             "contest_check_partial",
             "contest_log_page",
+            "opportunities_snapshot", "opportunities_refresh",
+            "opportunities_dxpedition_snapshot", "opportunities_dxpedition_refresh",
         ] {
             let request = json!({
                 "id":"passive",
@@ -1724,6 +1740,19 @@ mod tests {
         for method in ["logbook_operator_draft", "logbook_operator_draft_apply", "station_connect", "station_tune",
             "rotor_goto", "hamlib_control", "settings_load", "secret_save", "sync_run", "backup_restore", "cluster_connect", "health"] {
             assert!(validate_surface("chaser-dx", &json!({"id":"test","method":method,"params":{}})).is_err(), "{method}");
+        }
+    }
+    #[test]
+    fn detached_dxpedition_can_only_read_and_refresh_its_catalogue() {
+        for method in ["opportunities_dxpedition_snapshot", "opportunities_dxpedition_refresh"] {
+            let request = json!({"id":"test", "method":method, "params":{}});
+            assert!(validate_surface("dxpedition-map", &request).is_ok());
+            assert!(validate_request(&request).is_ok());
+            assert!(validate_surface("chaser-dx", &request).is_err());
+        }
+        for method in ["opportunities_snapshot", "opportunities_refresh", "logbook_operator_draft_apply",
+            "logbook_save", "station_tune", "rotor_goto", "settings_load", "settings_save", "cluster_connect"] {
+            assert!(validate_surface("dxpedition-map", &json!({"id":"test", "method":method, "params":{}})).is_err(), "{method}");
         }
     }
     #[test]
@@ -2234,6 +2263,13 @@ mod tests {
     fn analytics_timeout_keeps_shared_worker_and_routes_late_reply() {
         assert_passive_timeout_preserves_worker("contest_analytics");
     }
+    #[cfg(unix)]
+    #[test]
+    fn dxpedition_catalogue_timeout_does_not_retire_logging_worker() {
+        for method in ["opportunities_dxpedition_snapshot", "opportunities_dxpedition_refresh"] {
+            assert_passive_timeout_preserves_worker(method);
+        }
+    }
 
     #[cfg(unix)]
     fn assert_passive_timeout_preserves_worker(method: &str) {
@@ -2264,6 +2300,8 @@ mod tests {
             "station_snapshot", "station_rotor_snapshot", "rotor_snapshot",
             "lookup_call", "logbook_previous", "logbook_duplicate",
             "logbook_matrix", "cluster_history", "cluster_snapshot",
+            "opportunities_snapshot", "opportunities_refresh",
+            "opportunities_dxpedition_snapshot", "opportunities_dxpedition_refresh",
             "wsjtx_snapshot", "reference_resolve", "contest_export_prepare",
             "contest_export_read", "contest_export_release",
             "contest_spot_points_preview",
@@ -2274,7 +2312,7 @@ mod tests {
         ] {
             assert!(request_is_non_retiring_read(&json!({"method":method})), "{method}");
             assert_eq!(request_timeout(&json!({"method":method})),
-                if method == "lookup_call" { RESPONSE_TIMEOUT } else { PASSIVE_READ_TIMEOUT }, "{method}");
+                if matches!(method, "lookup_call" | "opportunities_refresh" | "opportunities_dxpedition_refresh") { RESPONSE_TIMEOUT } else { PASSIVE_READ_TIMEOUT }, "{method}");
         }
         for method in [
             "station_connect", "station_tune", "station_action", "station_radio_control",

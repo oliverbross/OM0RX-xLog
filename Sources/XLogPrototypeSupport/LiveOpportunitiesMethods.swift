@@ -27,7 +27,7 @@ actor LiveOpportunitiesMethods {
     private var refreshing: [String: Task<Void, Never>] = [:]
     private var terminated = false
     private var cachedDirectory: (path: String, identity: String, value: ActivationReferenceDirectory)?
-    private let names = ["pota", "sota", "wwff", "wwbota", "425dxn"]
+    private let names = ["adxo", "425dxn", "pota", "sota", "wwff", "wwbota"]
     private let timestampFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -55,23 +55,25 @@ actor LiveOpportunitiesMethods {
         _ = try logbook.openedDatabase()
         try loadCache()
         switch method {
-        case "opportunities_snapshot":
+        case "opportunities_snapshot", "opportunities_dxpedition_snapshot":
             guard params.isEmpty else { throw invalid() }
-        case "opportunities_refresh":
+        case "opportunities_refresh", "opportunities_dxpedition_refresh":
             guard Set(params.keys).isSubset(of: ["source", "automatic"]), let source = params["source"] as? String,
                   params["automatic"] == nil || params["automatic"] is Bool,
                   names.contains(source) || source == "all" else { throw invalid() }
+            let refreshNames = method == "opportunities_dxpedition_refresh" ? ["adxo", "425dxn"] : names
+            guard source == "all" || refreshNames.contains(source) else { throw invalid() }
             if source == "all" {
                 let automatic = params["automatic"] as? Bool ?? true
                 await withTaskGroup(of: Void.self) { group in
-                    for name in names { group.addTask { await self.refresh(name, automatic: automatic) } }
+                    for name in refreshNames { group.addTask { await self.refresh(name, automatic: automatic) } }
                 }
             } else { await refresh(source, automatic: params["automatic"] as? Bool ?? false) }
         default:
             throw WorkerFailure("method_not_allowed", "Unknown opportunity operation.")
         }
         guard !terminated else { throw WorkerFailure("worker_stopping", "The opportunity service has shut down.") }
-        return try await snapshot()
+        return try await snapshot(dxpeditionOnly: method.hasPrefix("opportunities_dxpedition_"))
     }
 
     func terminate() {
@@ -95,7 +97,7 @@ actor LiveOpportunitiesMethods {
         if let pending = refreshing[source] { await pending.value; return }
         // Shared across windows/remounts. Slow or unavailable sources cannot
         // create overlapping downloads or a tight retry loop.
-        let interval: TimeInterval = source == "425dxn" && feeds[source]?.safeError == nil ? 6 * 3_600 : 60
+        let interval: TimeInterval = ["adxo", "425dxn"].contains(source) && feeds[source]?.safeError == nil ? 6 * 3_600 : 60
         let oldCalendar = source == "425dxn" && feeds[source]?.items.contains(where: { $0.startsAt == nil }) == true
         if automatic, !oldCalendar, let attempt = feeds[source]?.lastAttempt, Date().timeIntervalSince(attempt) < interval { return }
         let task = Task { await self.fetch(source) }
@@ -112,8 +114,9 @@ actor LiveOpportunitiesMethods {
             guard let url = URL(string: OpportunityFeedParser.sourceURL(source)) else { throw OpportunityFeedError.invalidBody }
             var request = URLRequest(url: url)
             request.timeoutInterval = 15
-            request.setValue("application/json", forHTTPHeaderField: "Accept")
-            let data = try await OpportunityDownload.fetch(request, configuration: session.configuration)
+            let html = source == "adxo"
+            request.setValue(html ? "text/html" : "application/json", forHTTPHeaderField: "Accept")
+            let data = try await OpportunityDownload.fetch(request, configuration: session.configuration, format: html ? .html : .json)
             let items = try OpportunityFeedParser.parse(data, source: source, observedAt: Date())
             guard !terminated, !Task.isCancelled else { return }
             prior.items = items
@@ -129,9 +132,10 @@ actor LiveOpportunitiesMethods {
         }
     }
 
-    private func snapshot() async throws -> [String: Any] {
+    private func snapshot(dxpeditionOnly: Bool = false) async throws -> [String: Any] {
         let now = Date()
         var all = names.flatMap { feeds[$0]?.items ?? [] }.filter { $0.expiresAt > now }
+        if dxpeditionOnly { all = all.filter { $0.kind == "dxpedition" } }
         // Cluster rows supplement official data. Their source and reference
         // evidence remain distinct; an unvalidated comment is not a park name.
         let spots = await clusterSpots()
@@ -145,7 +149,7 @@ actor LiveOpportunitiesMethods {
             let key = call.uppercased()
             if received > (latestByCall[key]?["receivedAt"] as? Double ?? -.infinity) { latestByCall[key] = row }
         }
-        for row in spots.prefix(350) {
+        for row in spots.prefix(dxpeditionOnly ? 0 : 350) {
                 guard let call = row["callsign"] as? String,
                       let comment = row["comment"] as? String,
                       let id = row["id"] as? String,
@@ -173,7 +177,7 @@ actor LiveOpportunitiesMethods {
         let byReference = Dictionary(uniqueKeysWithValues: history.map { ("\($0.kind.lowercased()):\($0.reference.uppercased())", $0) })
         let classification = try? logbook.clusterClassificationSnapshot()
         let directory = try activationDirectory()
-        let selected = Array(all.sorted { $0.observedAt > $1.observedAt }.prefix(300))
+        let selected = Array(all.sorted { $0.observedAt > $1.observedAt }.prefix(dxpeditionOnly ? 500 : 300))
         let items: [[String: Any]] = selected.map { item in
             let calendar = item.kind == "dxpedition" || item.kind == "special_event"
             let reference = calendar ? OpportunityFeedParser.iotaReference(in: item.reference + " " + item.name) ?? item.reference : item.reference
@@ -188,7 +192,7 @@ actor LiveOpportunitiesMethods {
             let operationActive = (item.startsAt ?? .distantPast) <= now && (item.endsAt ?? item.expiresAt) > now
             let latestSpot = calendar && operationActive ? aliases.compactMap { latestByCall[$0] }
                 .max { ($0["receivedAt"] as? Double ?? 0) < ($1["receivedAt"] as? Double ?? 0) } : nil
-            let callsign = latestSpot?["callsign"] as? String ?? item.callsign
+            let callsign = dxpeditionOnly ? item.callsign : latestSpot?["callsign"] as? String ?? item.callsign
             let frequency = latestSpot.flatMap { ($0["frequencyKHz"] as? Double).map { Int64(($0 * 1_000).rounded()) } } ?? item.frequencyHz
             let areaLocation = directoryLocation && kind == .iota
             let referenceStatus = kind.map { !directory.hasData(for: $0) ? "not_installed" : match == nil ? "not_found" : "verified" } ?? "not_applicable"
@@ -223,6 +227,8 @@ actor LiveOpportunitiesMethods {
                     "activity": calendar ? latestSpot == nil ? "scheduled" : "spotted_operation" : "live_spot",
                     "starts_at": item.startsAt.map(iso) as Any? ?? NSNull(),
                     "ends_at": calendar ? iso(item.endsAt ?? item.expiresAt) as Any : NSNull(),
+                    "aliases": Array(aliases).sorted(),
+                    "qsl_route": item.qslRoute as Any? ?? NSNull(),
                     "latest_spot_at": latestSpot.flatMap { ($0["receivedAt"] as? Double).map { iso(Date(timeIntervalSinceReferenceDate: $0)) } } as Any? ?? NSNull(),
                     "dxcc_history": dxccHistory,
                     "callsign_history": callsignHistoryJSON,
@@ -233,10 +239,11 @@ actor LiveOpportunitiesMethods {
                          "worked_count": cell.workedCount, "confirmed_count": cell.confirmedCount] as [String: Any]
                     } ?? []] as [String: Any]
         }
-        let sources: [[String: Any]] = names.map { source in
+        let sourceNames = dxpeditionOnly ? ["adxo", "425dxn"] : names
+        let sources: [[String: Any]] = sourceNames.map { source in
             let feed = feeds[source] ?? Feed()
             let age = feed.lastSuccess.map { now.timeIntervalSince($0) }
-            let ttl: TimeInterval = source == "425dxn" ? 25 * 3_600 : 300
+            let ttl: TimeInterval = ["adxo", "425dxn"].contains(source) ? 25 * 3_600 : 300
             let state = feed.lastSuccess == nil ? "unavailable" : feed.safeError != nil || (age ?? .infinity) > ttl ? "stale" : "current"
             return ["source": source, "state": state, "count": feed.items.filter { $0.expiresAt > now }.count,
                     "refreshing": refreshing[source] != nil,
@@ -247,7 +254,8 @@ actor LiveOpportunitiesMethods {
         }
         return ["generated_at": iso(now), "items": items, "total_available": all.count,
                 "history_state": "ready", "sources": sources,
-                "selection_tunes": false, "transmit": false]
+                "selection_tunes": false, "transmit": false,
+                "surface": dxpeditionOnly ? "dxpedition_map" : "opportunities"]
     }
 
     private func cacheURL(createDirectory: Bool = true) throws -> URL {

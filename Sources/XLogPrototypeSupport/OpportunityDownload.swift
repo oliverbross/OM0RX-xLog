@@ -7,7 +7,7 @@ import FoundationNetworking
 /// transport on every OS rather than buffering an unbounded body on portable OSes.
 final class OpportunityDownload: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     static let maximumBytes = 2_097_152
-    enum Format: Sendable { case json, xml }
+    enum Format: Sendable { case json, xml, html }
     private let format: Format
     private let byteLimit: Int
     private let lock = NSLock()
@@ -95,6 +95,7 @@ final class OpportunityDownload: NSObject, URLSessionDataDelegate, @unchecked Se
             (mime.hasPrefix("application/") && mime.hasSuffix("+json"))
         case .xml: return mime == "application/xml" || mime == "text/xml" ||
             (mime.hasPrefix("application/") && mime.hasSuffix("+xml"))
+        case .html: return mime == "text/html" || mime == "application/xhtml+xml" || mime == "text/plain"
         }
     }
 

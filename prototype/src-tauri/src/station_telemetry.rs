@@ -219,6 +219,7 @@ impl StationTelemetry {
             ("direct_agent", "set_receive_frequency_a") => ("station", &["set_frequency_hz"]),
             ("direct_agent", "set_receive_mode_a") => ("station", &["set_mode"]),
             ("direct_agent", "tune_simplex") => ("station", &["set_frequency_hz", "set_mode"]),
+            ("direct_tci", "tune_simplex") => ("capabilities", &["station_tune"]),
             ("hamlib", "set_receive_frequency_a") => ("station", &["set_receive_frequency_a"]),
             ("hamlib", "set_receive_mode_a") => ("station", &["set_receive_mode_a"]),
             ("hamlib", "tune_simplex") => ("station", &["set_receive_frequency_a", "set_receive_mode_a"]),
@@ -244,7 +245,7 @@ impl StationTelemetry {
                 && observed_age.is_some_and(|age| (-1000..=5000).contains(&age)) && field_fresh
                 && snapshot["fields"]["frequency"].is_object() && snapshot["fields"]["mode"].is_object()
                 && snapshot["fields"]["vfo"]["VFO"] == "VFOA" && snapshot["fields"]["ptt"]["PTT"] == "0"
-        } else if provider == "direct_agent" {
+        } else if matches!(provider, "direct_agent" | "direct_tci") {
             // The Remote Station Agent owns the physical receive-VFO choice and
             // re-reads the radio before and after tuneSimplex.  Its compact
             // snapshot can legitimately omit per-VFO/timestamp detail, so the
@@ -637,7 +638,7 @@ mod tests {
                 "fields":{"frequency":{"Frequency":"14074000"},"mode":{"Mode":"USB"},"vfo":{"VFO":"VFOA"},"ptt":{"PTT":"0"}},"errors":{}})
         } else {
             json!({"source":provider,"generation":13,"generated_at":10.0,"radio":{"connected":true,"observed":true,"observed_at":10.0,"transmitting":false,"receive_vfo":"A","vfos":[{"letter":"A","receive":true}]},
-                "station":{"supported_commands":["set_frequency_hz","set_mode"]},"capabilities":{"supported_commands":["set_frequency_a","set_mode_a"]}})
+                "station":{"supported_commands":["set_frequency_hz","set_mode"]},"capabilities":{"supported_commands":if provider == "direct_tci" { json!(["station_tune"]) } else { json!(["set_frequency_a","set_mode_a"]) }}})
         };
         state.projection = json!({"revision":1,"provider":provider,"selection_id":identity,"selection_generation":2,"available":true,"received_at_ms":10000,"snapshot":snapshot});
         drop(state); (owner, identity)
@@ -668,6 +669,7 @@ mod tests {
                                     ("direct_flex_lan", "tune_simplex"),
                                     ("direct_agent", "set_receive_frequency_a"), ("direct_agent", "set_receive_mode_a"),
                                     ("direct_agent", "tune_simplex"),
+                                    ("direct_tci", "tune_simplex"),
                                     ("hamlib", "set_receive_frequency_a"), ("hamlib", "set_receive_mode_a"), ("hamlib", "tune_simplex")] {
             let (owner, identity) = receive_fixture(provider); let fence = owner.receive_control_at(2, &identity, 13, control, 10000).unwrap();
             assert_eq!(owner.snapshot().unwrap()["available"], false); assert!(owner.receive_control_at(2, &identity, 13, control, 10000).is_err()); drop(fence);
