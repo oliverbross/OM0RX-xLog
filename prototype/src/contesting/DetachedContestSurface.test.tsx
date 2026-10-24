@@ -84,6 +84,10 @@ it("limits the contest map to the operating band and reuses the normal map home 
   expect(contestMapView({...projection,radioFrequencyHz:null,supportedBands:["40m"]} as any,shared,context).spots)
     .toEqual([expect.objectContaining({id:"forty"})]);
   expect(contestMapView({...projection,radioFrequencyHz:null} as any,shared,context).spots).toEqual([]);
+  const worked={...forty,contestDupe:true,contestMultiplierCount:0,contestCountryMultiplier:false,contestZoneMultiplier:false};
+  expect(contestMapView({...projection,spots:[worked],selectedSpotID:"forty"} as any,shared,context)).toMatchObject({
+    spots:[],selected:null,target:null,
+  });
 });
 
 it("renders the current-band contest map with the normal home path and selects a clicked spot",async()=>{
@@ -2147,6 +2151,29 @@ it("coalesces synchronous rapid Entry typing into one full-value action",async()
   fireEvent.change(input,{target:{value:"K"}});fireEvent.change(input,{target:{value:"K1"}});fireEvent.change(input,{target:{value:"K1A"}});
   expect((input as HTMLInputElement).value).toBe("K1A");await waitFor(()=>expect(actions).toHaveLength(1));
   expect(actions[0]).toMatchObject({projectionRevision:6,action:"entry_set_text",params:{value:"K1A"}});
+});
+
+it("retries a transient owner-busy callsign edit without leaving the entry unresolved",async()=>{
+  let current:any=structuredClone(snapshot),attempts=0;
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_action"){
+      attempts+=1;
+      if(attempts===1){current={...current,receipts:[{requestID:args.requestID,status:"rejected",
+        message:"The contest owner is busy.",projectionRevision:current.projectionRevision}]};
+        return {requestID:args.requestID,status:"rejected"};}
+      current={...current,projectionRevision:7,receipts:[{requestID:args.requestID,status:"applied",message:null,projectionRevision:7}],
+        projection:{...current.projection,draft:{...current.projection.draft,revision:6,callsign:args.params.value}}};
+      return {requestID:args.requestID,status:"applied"};
+    }
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign");
+  fireEvent.change(callsign,{target:{value:"LN8W"}});
+  await waitFor(()=>expect(attempts).toBe(2));
+  await waitFor(()=>expect(current.projection.draft.callsign).toBe("LN8W"));
+  expect((callsign as HTMLInputElement).value).toBe("LN8W");
+  expect(screen.queryByText("The contest owner is busy.")).toBeNull();
 });
 
 it("reconciles a queued callsign receipt that settles before its wake and restores DUPE actions",async()=>{

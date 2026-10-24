@@ -93,6 +93,28 @@ struct LivePublicServiceMethodsTests {
         await service.terminate()
     }
 
+    @Test("Offline lookup falls back to bundled CTY when downloaded data has no matching prefix")
+    func offlineLookupBundledFallback() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = try workspace(root)
+        let reference = try logbook.referenceDirectoryURL().appendingPathComponent("cty.xml")
+        try Data("<cty><prefix><call>ZZ1</call><adif>990</adif><cqz>1</cqz><entity>Fixture only</entity></prefix></cty>".utf8)
+            .write(to: reference)
+        #expect(logbook.currentCTYResolverIfReady()?.resolve("LN8W") == nil)
+        let service = LivePublicServiceMethods(logbook: logbook, download: { _, _, _ in
+            Issue.record("Offline lookup attempted HTTP"); throw URLError(.unsupportedURL)
+        })
+        let profile = try await service.handle(method: "lookup_call", params: ["call": "LN8W"])
+        #expect(profile["country"] as? String == "NORWAY")
+        #expect(profile["dxcc"] as? Int == 266)
+        #expect(profile["cqZone"] as? String == "14")
+        #expect(profile["ituZone"] as? String == "18")
+        #expect(profile["latitude"] as? Double != nil)
+        #expect(profile["longitude"] as? Double != nil)
+        await service.terminate()
+    }
+
     @Test("Propagation mounts passively, shares explicit refresh and retains observation after failure")
     func propagationCache() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

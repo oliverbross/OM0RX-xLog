@@ -118,7 +118,7 @@ function Surface({ context }: { context: Context }) {
   useEffect(()=>()=>{for(const waiter of receiptWaiters.current.values()){window.clearTimeout(waiter.timer);waiter.resolve(null);}receiptWaiters.current.clear();},[]);
   const latest = snapshot?.receipts.at(-1);
   const send = useCallback((action: ContestSurfaceAction, requestedProjectionRevision:number,
-      options:{requestID?:string;safePresentation?:boolean;bypassQueue?:boolean}={}) => {
+      options:{requestID?:string;safePresentation?:boolean;bypassQueue?:boolean;quietOwnerBusy?:boolean}={}) => {
     const requestID=options.requestID??crypto.randomUUID();
     const execute=async()=>{
       pendingCount.current+=1;setSending(true);
@@ -153,7 +153,8 @@ function Surface({ context }: { context: Context }) {
         if(immediate.status==="applied")return appliedResult(projectionRevision);
         if(immediate.status==="rejected"){
           const current=await refresh(),receipt=current?.receipts.find(item=>item.requestID===requestID),text=receipt?.message||"The contest action could not be applied.";
-          reportDiagnostic("error",text);return {applied:false,projectionRevision:null,message:text};
+          if(!(options.quietOwnerBusy&&text==="The contest owner is busy."))reportDiagnostic("error",text);
+          return {applied:false,projectionRevision:null,message:text};
         }
         const existing=snapshotRef.current?.receipts.find(item=>item.requestID===requestID&&
           (item.status==="applied"||item.status==="rejected"));
@@ -176,9 +177,10 @@ function Surface({ context }: { context: Context }) {
         }
         if(terminal?.status==="applied")return appliedResult(terminal.projectionRevision);
         const terminalMessage=!terminal?"The action is still being reconciled.":terminal.message||"The contest action could not be applied.";
-        if(terminalMessage)reportDiagnostic("error",terminalMessage);
+        if(terminalMessage&&!(options.quietOwnerBusy&&terminalMessage==="The contest owner is busy."))reportDiagnostic("error",terminalMessage);
         return {applied:false,projectionRevision:null,message:terminalMessage};
-      }catch(cause){const text=message(cause);reportDiagnostic("error",text);await refresh();return {applied:false,projectionRevision:null,message:text};}
+      }catch(cause){const text=message(cause);if(!(options.quietOwnerBusy&&text==="The contest owner is busy."))reportDiagnostic("error",text);
+        await refresh();return {applied:false,projectionRevision:null,message:text};}
       finally{pendingCount.current-=1;if(pendingCount.current===0)setSending(false);}
     };
     if(options.bypassQueue)return execute();
@@ -289,7 +291,7 @@ function ScoreReporting({ projection, projectionRevision, send }: { projection: 
 
 type SendResult={applied:boolean;projectionRevision:number|null;message:string|null};
 type Send = (action: ContestSurfaceAction, projectionRevision:number,
-  options?:{requestID?:string;safePresentation?:boolean;bypassQueue?:boolean}) => Promise<SendResult>;
+  options?:{requestID?:string;safePresentation?:boolean;bypassQueue?:boolean;quietOwnerBusy?:boolean}) => Promise<SendResult>;
 const contestSpotLegend=[
   {label:"Double multiplier",color:"#00e51b"},{label:"Single multiplier",color:"#ff5267"},
   {label:"Valid QSO",color:"#3da5f4"},{label:"Dupe / non-workable",color:"#aeb5b7"},
@@ -315,7 +317,7 @@ export function contestMapView(projection:ContestSpotSurfaceProjection,sharedSpo
   const configuredBands=projection.supportedBands??[],observedBand=bandForRadio(projection.radioFrequencyHz??undefined),
     currentBand=observedBand&&(!configuredBands.length||configuredBands.includes(observedBand))
       ?observedBand:configuredBands.length===1?configuredBands[0]:null,
-    spots=currentBand===null?[]:contestMapSpots(projection.spots.filter(spot=>spot.band===currentBand),sharedSpots),
+    spots=currentBand===null?[]:contestMapSpots(projection.spots.filter(spot=>spot.band===currentBand&&spot.contestDupe!==true),sharedSpots),
     selected=projection.selectedSpotID===null?null:spots.find(spot=>spot.id===projection.selectedSpotID)??null,
     target=selected&&Number.isFinite(selected.lat)&&Number.isFinite(selected.lon)
       ?{call:selected.call,lat:selected.lat,lon:selected.lon,country:selected.country,locationSource:"Selected contest spot"}:null;
@@ -493,12 +495,17 @@ function useEntryIntents(projection:any,projectionRevision:number,send:Send){
   const flush=useCallback(async():Promise<EntryFlushResult>=>{
     if(scheduled.current!==null){window.clearTimeout(scheduled.current);scheduled.current=null;}
     if(running.current)return running.current;
-    const runGeneration=generation.current,operation=(async()=>{let lastAppliedProjectionRevision:number|null=null;while(runGeneration===generation.current&&dirty.current.size){const [key,intent]=dirty.current.entries().next().value as [EntryIntentKey,EntryIntent];
+    const runGeneration=generation.current,operation=(async()=>{let lastAppliedProjectionRevision:number|null=null,ownerBusyAttempts=0;while(runGeneration===generation.current&&dirty.current.size){const [key,intent]=dirty.current.entries().next().value as [EntryIntentKey,EntryIntent];
       dirty.current.delete(key);inFlight.current.add(key);setUnresolved(previous=>{const next=new Set(previous);next.delete(key);return next;});
-      const result=await send(intent.action(intent.value),projectionRevision,{safePresentation:true});inFlight.current.delete(key);
+      const result=await send(intent.action(intent.value),projectionRevision,{safePresentation:true,quietOwnerBusy:ownerBusyAttempts<12});inFlight.current.delete(key);
       if(runGeneration!==generation.current)return {ok:false,lastAppliedProjectionRevision};
+      if(!result.applied&&result.message==="The contest owner is busy."&&ownerBusyAttempts<12){ownerBusyAttempts+=1;
+        if(!dirty.current.has(key))dirty.current.set(key,intent);
+        await new Promise(resolve=>window.setTimeout(resolve,Math.min(50*ownerBusyAttempts,250)));
+        continue;
+      }
       if(!result.applied){if(!dirty.current.has(key))dirty.current.set(key,intent);setUnresolved(previous=>new Set(previous).add(key));return {ok:false,lastAppliedProjectionRevision};}
-      lastAppliedProjectionRevision=result.projectionRevision;
+      ownerBusyAttempts=0;lastAppliedProjectionRevision=result.projectionRevision;
     }return {ok:true,lastAppliedProjectionRevision};})();running.current=operation;try{return await operation;}finally{if(running.current===operation)running.current=null;}} ,
     [projectionRevision,send]);
   const change=useCallback((key:EntryIntentKey,value:string,action:(value:string)=>ContestSurfaceAction)=>{

@@ -968,7 +968,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const result = async <T,>(method: string, params: Record<string, unknown> = {}) => unwrap<T>(await request(method, params));
   const partialQuery = (fields.callsign ?? "").trim().toUpperCase();
   useEffect(() => {
-    if (!/^[A-Z0-9/]{3,32}$/.test(partialQuery)) return;
+    if (!/^[A-Z0-9/]{3,32}$/.test(partialQuery)) { setLookupPathContext(null); return; }
+    setLookupPathContext(current => current?.callsign === partialQuery ? current : null);
     let cancelled = false, retryTimer: number | null = null;
     const call = partialQuery;
     const lookup = (attempt: number) => {
@@ -995,7 +996,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         if (attempt < 2 && ["settings_busy","workspace_unavailable"].includes(String(value.lookup_status ?? "")) &&
             (value.bearing == null || value.long_path_bearing == null || value.distance_km == null))
           retryTimer = window.setTimeout(() => lookup(attempt + 1), 450 * (attempt + 1));
-      }).catch(() => { /* Offline CTY context remains authoritative. */ });
+      }).catch(() => { if(!cancelled&&attempt<4)retryTimer=window.setTimeout(()=>lookup(attempt+1),250*(attempt+1)); });
     };
     const timer = window.setTimeout(() => lookup(0), 250);
     return () => { cancelled = true; window.clearTimeout(timer); if (retryTimer !== null) window.clearTimeout(retryTimer); };
@@ -2173,7 +2174,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         panelSpots=entrySpot&&!surfaceSpots.some(spot=>spot.id===entrySpot.id)?[...surfaceSpots,classifiedSurfaceSpot(entrySpot)]:surfaceSpots;
       unavailable[panelID]={schemaVersion:2,status:"ready",draftID:projection.draftID,draftRevision:projection.revision,
         radioFrequencyHz:observedFrequencyHz??radioFrequencyHz??null,connectedClusters,loadedSpots,
-        selectedSpotID:entrySpot?.id??selectedSpotID,configuredClusters,connections,
+        selectedSpotID:entrySpot?.id??(panelID==="world-map"&&/^[A-Z0-9/]{3,32}$/.test(partialQuery)?null:selectedSpotID),configuredClusters,connections,
         contestSessionID:projection.sessionID,supportedBands:configuredBands,allowedModeGroups,
         bandSegments:encodeContestBandPlan(contestBandPlan),markedOnly:effectiveSpotWorkflow.markedOnly,
         spots:panelSpots,busy:busy||retiring};

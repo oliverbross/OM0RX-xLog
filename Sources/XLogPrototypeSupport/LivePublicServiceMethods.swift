@@ -139,8 +139,8 @@ enum LocalCallsignProfile {
         // Callsign identity is useful before the workspace/database owner has
         // completed launch. Prefer its downloaded CTY snapshot, but never lose
         // bundled prefix resolution merely because that owner is unavailable.
-        let resolver = logbook.currentCTYResolverIfReady() ?? bundledResolver
-        if let country = resolver?.resolve(call) {
+        let resolver = logbook.currentCTYResolverIfReady()
+        if let country = resolver?.resolve(call) ?? bundledResolver?.resolve(call) {
             profile.merge(["country": country.name, "dxcc": country.adif,
                 "continent": country.continent, "cqZone": String(country.cqZone),
                 "ituZone": String(country.ituZone), "source": "CTY approximate",
