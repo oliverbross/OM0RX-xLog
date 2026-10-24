@@ -1069,7 +1069,7 @@ fn request_blocks_module_transition(request: &Value) -> bool {
         "contest_catalog" | "contest_sessions" | "contest_draft_get" |
         "contest_qso_get" | "contest_operation_receipt" | "contest_log_page" |
         "contest_log_transfer_status" | "contest_score" | "contest_spot_points_preview" |
-        "contest_rates" | "contest_check_partial" | "contest_setup_get" |
+        "contest_rates" | "contest_analytics" | "contest_check_partial" | "contest_setup_get" |
         "contest_statistics" | "contest_export_read" |
         "contest_scp_status" | "contest_scp_query" |
         "contest_history_status" | "contest_history_preview_page" | "contest_history_query"
@@ -1171,7 +1171,7 @@ fn request_is_non_retiring_read(request: &Value) -> bool {
         "contest_scp_status" | "contest_scp_query" | "contest_scp_cancel" | "contest_scp_select" |
         "contest_history_status" | "contest_history_preview_page" | "contest_history_preview_cancel" |
         "contest_history_query" | "contest_history_query_cancel" | "contest_history_select" |
-        "contest_log_page" | "spot_history_status" | "spot_history_query" | "spot_history_detail" | "reference_log_review"
+        "contest_log_page" | "contest_analytics" | "spot_history_status" | "spot_history_query" | "spot_history_detail" | "reference_log_review"
     ))
 }
 
@@ -2226,11 +2226,22 @@ mod tests {
         // the shared timeout/routing mechanism once with a deliberately wide
         // timing gap so a loaded CI runner cannot turn the late reply into an
         // incidental success.
+        assert_passive_timeout_preserves_worker("station_snapshot");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn analytics_timeout_keeps_shared_worker_and_routes_late_reply() {
+        assert_passive_timeout_preserves_worker("contest_analytics");
+    }
+
+    #[cfg(unix)]
+    fn assert_passive_timeout_preserves_worker(method: &str) {
         let script = "IFS= read -r stale; sleep 0.25; printf '%s\\n' '{\"id\":\"stale\",\"ok\":true,\"result\":{}}'; IFS= read -r health; printf '%s\\n' '{\"id\":\"health\",\"ok\":true,\"result\":{}}'; cat >/dev/null";
         let session = scripted_session(script);
         let result = request_in_session(
             &session,
-            json!({"id":"stale","method":"station_snapshot","params":{}}),
+            json!({"id":"stale","method":method,"params":{}}),
             Duration::from_millis(50),
         );
         assert!(result.unwrap_err().contains("not responding"));
@@ -2259,7 +2270,7 @@ mod tests {
             "contest_scp_status", "contest_scp_query", "contest_scp_cancel", "contest_scp_select",
             "contest_history_status", "contest_history_preview_page", "contest_history_preview_cancel",
             "contest_history_query", "contest_history_query_cancel", "contest_history_select",
-            "contest_log_page", "spot_history_status", "spot_history_query", "spot_history_detail",
+            "contest_log_page", "contest_analytics", "spot_history_status", "spot_history_query", "spot_history_detail",
         ] {
             assert!(request_is_non_retiring_read(&json!({"method":method})), "{method}");
             assert_eq!(request_timeout(&json!({"method":method})),
@@ -2282,7 +2293,7 @@ mod tests {
 
     #[test]
     fn review_reads_do_not_block_module_transitions_or_retire_on_timeout() {
-        for method in ["contest_log_page", "spot_history_status", "spot_history_query", "spot_history_detail", "reference_log_review"] {
+        for method in ["contest_log_page", "contest_analytics", "spot_history_status", "spot_history_query", "spot_history_detail", "reference_log_review"] {
             let request = json!({"method":method});
             assert!(!request_blocks_module_transition(&request), "{method}");
             assert!(request_is_non_retiring_read(&request), "{method}");
