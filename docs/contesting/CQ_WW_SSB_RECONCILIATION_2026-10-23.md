@@ -763,3 +763,31 @@ The retained signed rollback is
 `8f89e860e3839803b2d359894bec225bc96f75a0`. The final installed candidate and
 rollback both pass deep/strict signature verification. Logbook and installation
 backup directories were retained and were not part of cleanup.
+
+## 25 October: Log Review source acceptance, installation deferred
+
+Feature source `0b468867aa3740a9f7ac6d0ecfddd0ebfb5bfc11` is committed and pushed
+to canonical `main`. This adds **Contest → Log Review**, using the existing
+separate received-spot archive, local CTY, cached Club Log country data and cached
+LoTW exact-call activity membership. See [guide](CONTEST_LOG_REVIEW.md).
+
+Validation: 65 frontend tests, 10 Swift tests (including actual LiveWorker routing
+with disposable reference/logbook state), and 2 native tests passed. TypeScript,
+Vite production build and bundle graph checks passed. Browser rehearsal exercised
+the real comparison worker, typo/country-zone suggestions, raw evidence, persistent
+review decisions and narrow layout. Independent review findings were corrected.
+No production contacts, settings or radio state were changed for these checks.
+
+**Source ready for integration; installed acceptance pending.** This work did not
+bump a version, package, sign, install or relaunch the application. The previously
+accepted 1.3.12 installation is not replaced by this source commit. Coordination
+with the operator's separate “Create contest analytics” task reserves one combined
+versioned release; that task must verify the installed Log Review menu, native IPC,
+actual packaged Python log reads, report copying and existing correction workflow
+using disposable data. No installed acceptance of Log Review is claimed here.
+
+Review runs only on demand; no missing spot or absent LoTW membership is proof of
+an invalid contact. Source freshness/availability, archive gaps and acquisition
+limits are visible. Club Log membership and SCP membership checks are not included.
+Review never automatically corrects QSOs. Existing production backup and rollback
+locations are unchanged by this source-only addition.
