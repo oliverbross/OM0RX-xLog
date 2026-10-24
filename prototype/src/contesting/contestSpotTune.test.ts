@@ -31,6 +31,40 @@ it("reviews a retained unknown tune before admitting one new explicit spot selec
   expect(tune).toHaveBeenCalledExactlyOnceWith("direct_flex_lan",7_145_000,"SSB");
 });
 
+it("retires an unknown tune discovered by the fresh native snapshot and honors the spot click", async () => {
+  let state:{pending:string|null;reviewable:boolean} = {pending:null,reviewable:false};
+  const tune = vi.fn(async () => {
+    if (tune.mock.calls.length === 1) {
+      state = {pending:"native-old",reviewable:false};
+      throw new Error("The previous manual tune outcome is unknown.");
+    }
+    return {accepted:true,confirmed:true};
+  });
+  const check = vi.fn(async () => { state = {pending:"native-old",reviewable:true}; });
+  const review = vi.fn(async () => { state = {pending:null,reviewable:false}; });
+  const session = vi.fn(() => ({getSnapshot:()=>state,check,review,tune} as any));
+  await createContestSpotTuner({load:vi.fn(async()=>station()),session})(7_164_000,"SSB");
+  expect(check).toHaveBeenCalledOnce();
+  expect(review).toHaveBeenCalledOnce();
+  expect(tune).toHaveBeenCalledTimes(2);
+  expect(tune).toHaveBeenLastCalledWith("direct_flex_lan",7_164_000,"SSB");
+});
+
+it("never replays a newly dispatched tune whose outcome is unknown", async () => {
+  let state:{pending:string|null;reviewable:boolean} = {pending:null,reviewable:false};
+  const tune = vi.fn(async () => {
+    state = {pending:"new-operation",reviewable:true};
+    throw new Error("Manual tune outcome is unknown.");
+  });
+  const check = vi.fn(), review = vi.fn();
+  const session = vi.fn(() => ({getSnapshot:()=>state,check,review,tune} as any));
+  await expect(createContestSpotTuner({load:vi.fn(async()=>station()),session})(7_164_000,"SSB"))
+    .rejects.toThrow(/outcome is unknown/);
+  expect(tune).toHaveBeenCalledOnce();
+  expect(check).not.toHaveBeenCalled();
+  expect(review).not.toHaveBeenCalled();
+});
+
 it.each([
   ["CW",14_025_000,"up",14_025_020], ["CWR",14_025_000,"down",14_024_980],
   ["USB",14_250_000,"up",14_250_100], ["LSB",7_100_000,"down",7_099_900],
@@ -53,7 +87,7 @@ it("resolves radio two and refuses stale or unresolved station state", async () 
   const states = [{pending:"old"},{pending:"old"}];
   const session = vi.fn(() => ({getSnapshot:()=>states.shift() ?? {pending:"old"},check:vi.fn(async()=>{}),review:vi.fn(async()=>{}),tune} as any));
   const load = vi.fn(async (radioId: string) => radioId === "radio1" ? station("radio2") : {...station("radio2"),radio_id:"radio2"});
-  await expect(createContestSpotTuner({load,session})(7_025_000,"CW")).rejects.toThrow(/previous manual tune receipt/);
+  await expect(createContestSpotTuner({load,session})(7_025_000,"CW")).rejects.toThrow(/previous manual tune is still in progress/);
   expect(load.mock.calls.map(([radio])=>radio)).toEqual(["radio1","radio2"]);
   expect(tune).not.toHaveBeenCalled();
 

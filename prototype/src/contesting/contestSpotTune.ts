@@ -36,11 +36,23 @@ export const createContestSpotTuner = ({ load, session }: Dependencies = default
   const provider = current.selection.provider;
   if (!provider || !providers.has(provider as StationProvider)) throw new Error("Select and refresh an xLog radio before tuning a contest spot.");
   const tune = session(radioId);
-  if (tune.getSnapshot().pending) await tune.check();
-  const retained = tune.getSnapshot();
-  if (retained.pending && retained.reviewable) await tune.review();
-  if (tune.getSnapshot().pending) throw new Error("Review the previous manual tune receipt before selecting another spot.");
-  return tune.tune(provider as StationProvider, frequencyHz, mode);
+  const clearRetainedTune = async () => {
+    if (tune.getSnapshot().pending) await tune.check();
+    const retained = tune.getSnapshot();
+    if (retained.pending && retained.reviewable) await tune.review();
+    return !tune.getSnapshot().pending;
+  };
+  if (!await clearRetainedTune()) throw new Error("The previous manual tune is still in progress. Select the spot again after it completes.");
+  try {
+    return await tune.tune(provider as StationProvider, frequencyHz, mode);
+  } catch (cause) {
+    // A native receipt can outlive renderer session storage. The first fresh
+    // snapshot discovers it inside tune(); retire an unknown receipt once and
+    // immediately honor this explicit operator spot selection.
+    const discovered = tune.getSnapshot();
+    if (!discovered.pending || discovered.reviewable || !await clearRetainedTune()) throw cause;
+    return tune.tune(provider as StationProvider, frequencyHz, mode);
+  }
 };
 
 export const tuneContestSpot = createContestSpotTuner();
