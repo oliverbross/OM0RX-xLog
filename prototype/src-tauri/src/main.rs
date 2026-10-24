@@ -1993,6 +1993,16 @@ fn validate_contest_station_target(label: &str, action: &str, requested_radio: &
     Ok(())
 }
 
+fn validate_station_session_review_request(params: &serde_json::Value) -> Result<(), String> {
+    let required = ["action", "operation_id", "radio_id", "reviewed_action"];
+    let valid = params.as_object().is_some_and(|value| {
+        value.len() == required.len() && required.iter().all(|key| value.contains_key(*key))
+    }) && params["action"] == "review"
+        && params["operation_id"].as_str().is_some_and(|value| uuid::Uuid::parse_str(value).is_ok())
+        && matches!(params["reviewed_action"].as_str(), Some("manual_tune" | "tci_receive_filter"));
+    if valid { Ok(()) } else { Err("Invalid exact manual operation review request.".into()) }
+}
+
 #[derive(Debug, PartialEq)]
 struct ContestCWSpeedTarget {
     radio_id: String,
@@ -2103,9 +2113,7 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
         return Ok(receipt);
     }
     if action == "review" {
-        if params.as_object().is_none_or(|value| value.len() != 3) || !matches!(params["reviewed_action"].as_str(), Some("manual_tune" | "tci_receive_filter")) {
-            return Err("Invalid exact manual operation review request.".into());
-        }
+        validate_station_session_review_request(&params)?;
         station_session::validate_review(window.label(), params["reviewed_action"].as_str().unwrap())?;
         return owner.review(params["operation_id"].as_str().ok_or("Missing operation identity.")?, params["reviewed_action"].as_str().unwrap());
     }
@@ -4267,6 +4275,29 @@ mod workspace_layout_tests {
         assert!(super::validate_contest_station_target("contest--station-control", "manual_tune", "radio2", "radio1").is_err());
         assert!(super::validate_contest_station_target("contest-setup", "snapshot", "radio2", "radio1").is_ok());
         assert!(super::validate_contest_station_target("station-control", "manual_tune", "radio2", "radio1").is_ok());
+    }
+
+    #[test]
+    fn manual_operation_review_accepts_the_radio_scoped_renderer_contract_exactly() {
+        let operation_id = "10000000-0000-4000-8000-000000000001";
+        let exact = serde_json::json!({
+            "action":"review", "operation_id":operation_id,
+            "radio_id":"radio1", "reviewed_action":"manual_tune"
+        });
+        assert!(super::validate_station_session_review_request(&exact).is_ok());
+        let mut missing_radio = exact.clone();
+        missing_radio.as_object_mut().unwrap().remove("radio_id");
+        assert!(super::validate_station_session_review_request(&missing_radio).is_err());
+        let mut extra = exact.clone(); extra["unexpected"] = serde_json::json!(true);
+        assert!(super::validate_station_session_review_request(&extra).is_err());
+        for (key, value) in [
+            ("action", serde_json::json!("receipt")),
+            ("operation_id", serde_json::json!("not-an-operation")),
+            ("reviewed_action", serde_json::json!("manual_rotor_goto")),
+        ] {
+            let mut invalid = exact.clone(); invalid[key] = value;
+            assert!(super::validate_station_session_review_request(&invalid).is_err());
+        }
     }
 
     #[test]
