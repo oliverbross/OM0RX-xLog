@@ -176,8 +176,8 @@ final class LiveStationMethodsTests: XCTestCase {
         XCTAssertFalse(LiveStationSession.confirmsSimplex(keyed, frequencyHz: 14_074_000, mode: "USB"))
         XCTAssertFalse(LiveFlexSession.confirmsSimplex(keyed, frequencyHz: 14_074_000, mode: "USB"))
     }
-    func testReceiveTuneConfirmationDoesNotWaitForTransmitVFOToFollow() {
-        let target = RadioSnapshot(
+    func testManualTuneConfirmationWaitsForTransmitVFOToFollow() {
+        let receiveOnly = RadioSnapshot(
             frequencyHz: 14_246_000,
             mode: "USB",
             isConnected: true,
@@ -189,10 +189,21 @@ final class LiveStationMethodsTests: XCTestCase {
             transportReceivedAt: Date().addingTimeInterval(1)
         )
 
-        XCTAssertTrue(LiveStationSession.confirmsReceiveTarget(target, frequencyHz: 14_246_000, mode: "USB"))
-        XCTAssertFalse(LiveStationSession.confirmsSimplex(target, frequencyHz: 14_246_000, mode: "USB"))
-        XCTAssertFalse(LiveStationSession.confirmsReceiveTarget(target, frequencyHz: 14_245_000, mode: "USB"))
-        XCTAssertFalse(LiveStationSession.confirmsReceiveTarget(target, frequencyHz: 14_246_000, mode: "CW"))
+        XCTAssertTrue(LiveStationSession.confirmsReceiveTarget(receiveOnly, frequencyHz: 14_246_000, mode: "USB"))
+        XCTAssertFalse(LiveStationSession.confirmsSimplex(receiveOnly, frequencyHz: 14_246_000, mode: "USB"))
+
+        let simplex = RadioSnapshot(
+            frequencyHz: 14_246_000,
+            mode: "USB",
+            isConnected: true,
+            isTransmitting: false,
+            slice: "A",
+            transmitSlice: "A",
+            transmitFrequencyHz: 14_246_000,
+            remoteStationStatus: RemoteStationStatus(radioKnown: true, radioStale: false),
+            transportReceivedAt: Date().addingTimeInterval(1)
+        )
+        XCTAssertTrue(LiveStationSession.confirmsSimplex(simplex, frequencyHz: 14_246_000, mode: "USB"))
     }
     func testManualSimplexRejectsReplacedConnectionBeforeAnyTransport() async throws {
         let agent = LiveStationSession()

@@ -1717,22 +1717,30 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       if (throwFailures) throw new Error("That spot is outside the active contest's supported bands.");
       return;
     }
+    let admittedSpotMode: string | null = null;
     const next = await runMutation(async base => {
       const supportedModes=contestSpotSurfaceModes(base.pluginID,base.supportedModes??[],base.mode),spotMode=canonicalContestSurfaceMode(spot.mode);
       const admittedMode=supportedModes.length===1?base.mode:
         base.supportedModes?.find(mode=>canonicalContestSurfaceMode(mode)===spotMode)??
         (spotMode&&supportedModes.includes(spotMode)?spotMode:null);
       if(!admittedMode)throw new Error("That spot's mode is not supported by the active contest.");
-      await stationTune(frequencyHz, admittedMode);
+      admittedSpotMode = admittedMode;
       return mutate("contest_draft_apply", base, {
         fields: { ...fieldsRef.current, callsign: String(spot.callsign ?? "").toUpperCase() }, frequencyHz, mode:admittedMode,
       });
     }, false, false, false, throwFailures);
-    if (!next) return;
+    if (!next || !admittedSpotMode) return;
     spotCursorRef.current = { ...spotCursorRef.current, context: spotSelectionContext, spotID: String(spot.id) };
     setManualFrequencyMHz((frequencyHz / 1_000_000).toFixed(6));
     onSelectedSpot?.(String(spot.id));
-    setNotice(`Loaded ${spot.callsign} after the selected radio confirmed one tune.`);
+    setNotice(`Loaded ${spot.callsign}.`);
+    try {
+      await stationTune(frequencyHz, admittedSpotMode);
+      setNotice(`Loaded ${spot.callsign} and confirmed the selected radio tune.`);
+    } catch (cause) {
+      setError(errorMessage(cause));
+      if (throwFailures) throw cause;
+    }
   };
 
   const exportLog = async (format: PythonContestExportFormat, throwFailures = false, completion?: {

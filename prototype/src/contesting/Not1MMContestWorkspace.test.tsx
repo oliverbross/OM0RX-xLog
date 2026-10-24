@@ -2343,15 +2343,22 @@ it("tunes the selected spot ID when duplicate callsigns exist and rejects an amb
   expect(tune).toHaveBeenCalledTimes(1);
 });
 
-it.each(["band-maps","dx-cluster"])("returns tune and draft failures to the originating detached %s action",async panelID=>{
+it.each(["band-maps","dx-cluster"])("loads the spot before returning tune failures and blocks tune after detached %s draft failures",async panelID=>{
   let current=projection(), failure:"tune"|"draft"|"uncertain"="tune";
   const spot={id:"spot-1",callsign:"DL1ABC",frequencyKHz:14025,band:"20m",mode:"CW"};
   const tune=vi.fn(async()=>{if(failure==="tune")throw new Error("Radio tune was not confirmed");return {accepted:true,confirmed:true};});
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
     const support=workspaceSupport(method,params,current);if(support)return support;
     if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
-    if(method==="contest_draft_apply")return{id:crypto.randomUUID(),ok:false,error:{code:"contest_revision",message:"Draft changed after tune",
-      outcome:failure==="uncertain"?"uncertain":"confirmed"}};
+    if(method==="contest_draft_apply"){
+      if(failure==="tune"){
+        current={...current,revision:current.revision+1,frequencyHz:Number(params.frequencyHz),mode:String(params.mode??current.mode),
+          fields:current.fields.map((field:any)=>({...field,value:(params.fields as Record<string,string>)[field.id]??field.value}))};
+        return{id:crypto.randomUUID(),ok:true,result:{projection:current,actions:[],messages:[]}};
+      }
+      return{id:crypto.randomUUID(),ok:false,error:{code:"contest_revision",message:"Draft changed before tune",
+        outcome:failure==="uncertain"?"uncertain":"confirmed"}};
+    }
     const result=method==="contest_catalog"?{plugins:[]}:method==="contest_sessions"?{sessions:[]}:
       method==="contest_create"?{projection:current}:method==="contest_log_page"?{rows:[],total:0}:
       method==="contest_score"?{score:current.score}:null;
@@ -2363,13 +2370,16 @@ it.each(["band-maps","dx-cluster"])("returns tune and draft failures to the orig
   const envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,panelID,
     projectionRevision:1,requestID:crypto.randomUUID(),action:"spot_select",params:{draftID:current.draftID,expectedDraftRevision:current.revision,spotID:"spot-1"}};
   await act(async()=>{await expect(surfaceOwner.current.handle(envelope)).rejects.toThrow("Radio tune was not confirmed");});
-  expect(request.mock.calls.filter(([method])=>method==="contest_draft_apply")).toHaveLength(0);
+  expect(request.mock.calls.filter(([method])=>method==="contest_draft_apply")).toHaveLength(1);
+  expect(current.fields.find((field:any)=>field.id==="callsign")?.value).toBe("DL1ABC");
+  expect(selected).toHaveBeenCalledWith("spot-1");
   failure="draft";
-  await act(async()=>{await expect(surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID()})).rejects.toThrow("Draft changed after tune");});
+  const currentEnvelope={...envelope,projectionRevision:current.revision,requestID:crypto.randomUUID(),
+    params:{...envelope.params,expectedDraftRevision:current.revision}};
+  await act(async()=>{await expect(surfaceOwner.current.handle(currentEnvelope)).rejects.toThrow("Draft changed before tune");});
   failure="uncertain";
-  await act(async()=>{await expect(surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID()})).rejects.toBeInstanceOf(ContestMutationUncertain);});
-  expect(tune).toHaveBeenCalledTimes(3);
-  expect(selected).not.toHaveBeenCalled();
+  await act(async()=>{await expect(surfaceOwner.current.handle({...currentEnvelope,requestID:crypto.randomUUID()})).rejects.toBeInstanceOf(ContestMutationUncertain);});
+  expect(tune).toHaveBeenCalledTimes(1);
 });
 
 it.each(["", "10.1", "invalid"])("admits an offline contest only after the operator enters a valid manual frequency (initial %j)", async initial => {

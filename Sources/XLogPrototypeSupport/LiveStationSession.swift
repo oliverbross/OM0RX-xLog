@@ -659,7 +659,7 @@ actor LiveStationSession {
                   self.client === client else { throw lifecycleChanged() }
             try requireActive()
             if Self.exactReceiveConfirmed(observed, after: startedAt, matches: {
-                Self.confirmsReceiveTarget($0, frequencyHz: frequencyHz, mode: normalized)
+                Self.confirmsSimplex($0, frequencyHz: frequencyHz, mode: normalized)
             }) {
                 let rotorProjection = await rotor.projection()
                 reconcilePowerObservationSession()
@@ -682,7 +682,7 @@ actor LiveStationSession {
         if tuneError != nil {
             throw WorkerFailure("station_rejected", "The Remote Station Agent did not confirm the tune request.")
         }
-        throw WorkerFailure("station_timeout", "The radio did not confirm the requested receive target.")
+        throw WorkerFailure("station_timeout", "The radio did not confirm the requested simplex target.")
     }
 
     func action(_ name: String, expectedGeneration: UInt64? = nil, expectedNativeIntent: UInt64? = nil) async throws -> [String: Any] {
