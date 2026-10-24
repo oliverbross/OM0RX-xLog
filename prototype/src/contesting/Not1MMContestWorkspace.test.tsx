@@ -830,10 +830,10 @@ it("projects only the configured mode and bands into Cluster and Band Map even w
 
   view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps} spots={[]}/>);
   await waitFor(()=>expect(serviceRequest).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
-    publication_sequence:2,action:"replace",spots:[]})));
+    publication_sequence:2,action:"clear",spots:[]})));
   view.unmount();
-  await waitFor(()=>expect(serviceRequest).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
-    publication_sequence:3,action:"clear",spots:[]})));
+  await act(async()=>{await Promise.resolve();});
+  expect(serviceRequest.mock.calls.filter(([method])=>method==="cluster_contest_radio_spots_publish")).toHaveLength(4);
 });
 
 it("keeps inferred FT8 and out-of-range phone spots out of the CQ WW SSB desk",async()=>{
@@ -885,14 +885,16 @@ it("keeps publishing live contest spots when an older full-list preview is overt
   await createContestThroughSetup();
   await waitFor(()=>expect(previewAttempt).toBe(2));
   await act(async()=>{await Promise.resolve();});
-  expect(serviceRequest.mock.calls.filter(([method])=>method==="cluster_contest_radio_spots_publish")).toHaveLength(0);
+  const initial=serviceRequest.mock.calls.filter(([method])=>method==="cluster_contest_radio_spots_publish").at(-1)?.[1];
+  expect(initial?.spots).toHaveLength(8);
+  expect((initial?.spots as {spot_id:string}[]).map(spot=>spot.spot_id)).not.toContain("spot-8");
 
   view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps}
     radioFrequencyHz={7_125_000} spots={[newest,...first] as any}/>);
   expect(previewAttempt).toBe(2);
   await act(async()=>release?.());
   await waitFor(()=>expect(serviceRequest).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
-    publication_sequence:1,action:"replace",revision:current.revision,spots:expect.arrayContaining([
+    action:"replace",revision:current.revision,spots:expect.arrayContaining([
       expect.objectContaining({spot_id:"spot-0"}),expect.objectContaining({spot_id:"spot-8"}),
       expect.objectContaining({spot_id:"newest",callsign:"K1ABC"})])})));
   const previewCalls=request.mock.calls.filter(([method])=>method==="contest_spot_points_preview");
@@ -1020,9 +1022,12 @@ it("discards an in-flight pre-QSO classification and drains the new scoring revi
   await act(async()=>releases[0]());
   await waitFor(()=>expect(releases).toHaveLength(2));
   expect(surfaceOwner.current.projections["band-maps"].spots[0].contestPoints).toBeNull();
+  expect(request.mock.calls.filter(([method])=>method==="cluster_contest_radio_spots_publish")).toHaveLength(0);
   expect(request.mock.calls.filter(([method])=>method==="contest_spot_points_preview").map(([,params])=>params?.expectedRevision)).toEqual([1,2]);
   await act(async()=>releases[1]());
   await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots[0].contestPoints).toBe(1));
+  await waitFor(()=>expect(request).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
+    revision:2,spots:[expect.objectContaining({spot_id:"one",points:1})]})));
 });
 
 it("retains completed classifications when new spots supersede an in-flight list",async()=>{
@@ -1060,6 +1065,203 @@ it("stops a superseded classification list before issuing its remaining batches"
   view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={[]}/>);
   await act(async()=>release?.());
   expect(previews).toBe(1);
+});
+
+it.each(["20m","40m"])("renews ready active-band radio spots while a new %s classification is pending",async(pendingBand)=>{
+  const original=window.setInterval.bind(window);let renew:(()=>void)|undefined;
+  vi.spyOn(window,"setInterval").mockImplementation(((handler:TimerHandler,timeout?:number,...args:any[])=>{
+    if(timeout===60_000&&typeof handler==="function")renew=handler as ()=>void;
+    return original(handler,timeout,...args);
+  }) as typeof window.setInterval);
+  const current:any={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
+    supportedModes:["SSB"],supportedBands:["40m","20m"]};
+  const setup=newContestSetup("OM0RX");setup.pluginID="cq_ww_ssb";setup.preferences.bands=["40m","20m"];
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(setup));
+  const base=operationalRequest(()=>current,()=>3);let release:(()=>void)|undefined;
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const reply=await base(method,params);
+    if(method==="contest_spot_points_preview"&&(params.spots as {spotID:string}[]).some(spot=>spot.spotID==="other-band"))
+      return new Promise(resolve=>{release=()=>resolve(reply);});
+    return reply;
+  }),serviceRequest=vi.fn(async(method:string,params:Record<string,unknown>={})=>method==="cluster_contest_radio_spots_publish"
+    ?{accepted:1,removed:0,unchanged:0,filtered:0,rejected:0,stale:false}:request(method,params));
+  const active={id:"active-band",callsign:"DL1ABC",frequencyKHz:7125,band:"40m",mode:"LSB",score:42};
+  const props={request,serviceRequest,...workspaceProps,radioFrequencyHz:7_125_000};
+  const view=render(<Not1MMContestWorkspace {...props} spots={[active] as any}/>);await createContestThroughSetup();
+  const publications=()=>serviceRequest.mock.calls.filter(([method])=>method==="cluster_contest_radio_spots_publish");
+  await waitFor(()=>expect(publications()).toHaveLength(1));
+  view.rerender(<Not1MMContestWorkspace {...props} spots={[active,
+    {id:"other-band",callsign:"K1ABC",frequencyKHz:pendingBand==="40m"?7150:14215,band:pendingBand,mode:pendingBand==="40m"?"LSB":"USB",score:42}] as any}/>);
+  await waitFor(()=>expect(release).toBeTypeOf("function"));
+  await act(async()=>renew?.());
+  await waitFor(()=>expect(publications().length).toBeGreaterThan(1));
+  expect(publications().at(-1)?.[1]).toMatchObject({action:"replace",configured_bands:["40m"],
+    spots:[expect.objectContaining({spot_id:"active-band",dupe:false,points:3})]});
+  await act(async()=>release?.());
+});
+
+it.each(["unchanged","draft and arrival","QSO"])("coalesces radio subsets and validates admitted chunks across %s",async(change)=>{
+  let current=projection(),release:(()=>void)|undefined,releasePreview:(()=>void)|undefined,
+    releaseChunk:(()=>void)|undefined,releaseFreshPreview:(()=>void)|undefined;
+  const base=operationalRequest(()=>current,()=>current.score.qsos?1:3);
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    if(method==="contest_draft_apply"){
+      current={...current,revision:current.revision+1,fields:current.fields.map(field=>({...field,
+        value:(params.fields as Record<string,string>)[String(field.id)]??field.value}))};
+      return{id:crypto.randomUUID(),ok:true,result:{projection:current,actions:[],messages:[]}};
+    }
+    if(method==="contest_qso_commit"){
+      current={...current,revision:current.revision+1,draftID:crypto.randomUUID(),score:{...current.score,qsos:1}};
+      return{id:crypto.randomUUID(),ok:true,result:{projection:current,actions:[],messages:[]}};
+    }
+    const reply=await base(method,params);
+    if(method==="contest_spot_points_preview"&&current.revision===1&&(params.spots as {spotID:string}[])[0]?.spotID==="spot-8")
+      return new Promise(resolve=>{releasePreview=()=>resolve(reply);});
+    if(method==="contest_spot_points_preview"&&current.score.qsos&&!releaseFreshPreview)
+      return new Promise(resolve=>{releaseFreshPreview=()=>resolve(reply);});
+    return reply;
+  });
+  const serviceRequest=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    if(method!=="cluster_contest_radio_spots_publish")return request(method,params);
+    if(!release)await new Promise<void>(resolve=>{release=resolve;});
+    if(change!=="unchanged"&&params.publication_sequence===2&&params.chunk_index===0)
+      await new Promise<void>(resolve=>{releaseChunk=resolve;});
+    return{accepted:1,removed:0,unchanged:0,filtered:0,rejected:0,stale:false};
+  });
+  const spots=Array.from({length:70},(_,index)=>({id:`spot-${index}`,callsign:`DL1A${index}`,
+    frequencyKHz:14025+index/10,band:"20m",mode:"CW",score:42}));
+  const props={request,serviceRequest,...workspaceProps};
+  const view=render(<Not1MMContestWorkspace {...props} spots={spots as any}/>);
+  await createContestThroughSetup();
+  const publications=()=>serviceRequest.mock.calls.filter(([method])=>method==="cluster_contest_radio_spots_publish");
+  await waitFor(()=>expect(release).toBeTypeOf("function"));
+  await waitFor(()=>expect(releasePreview).toBeTypeOf("function"));
+  await act(async()=>releasePreview?.());
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots.every((spot:any)=>spot.contestPoints===3)).toBe(true));
+  expect(publications()).toHaveLength(1);
+  expect(publications()[0]?.[1]).toMatchObject({publication_sequence:1,chunk_index:0,chunk_count:1});
+  await act(async()=>release?.());
+  if(change!=="unchanged"){
+    await waitFor(()=>expect(releaseChunk).toBeTypeOf("function"));
+    const entry=surfaceOwner.current.projections["active-qso"];
+    await act(async()=>surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,
+      action:change==="QSO"?"entry_commit":"entry_set_text",params:{draftID:current.draftID,
+        expectedDraftRevision:entry.draft.revision,...(change==="QSO"?{}:{field:"callsign",value:"DL9AAA"})}}));
+    if(change==="QSO")await waitFor(()=>expect(releaseFreshPreview).toBeTypeOf("function"));
+    else{
+      view.rerender(<Not1MMContestWorkspace {...props} spots={[...spots,{...spots[0],id:"new",callsign:"OK5D",frequencyKHz:14050}] as any}/>);
+      await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots.find((spot:any)=>spot.id==="new")?.contestPoints).toBe(3));
+    }
+    await act(async()=>releaseChunk?.());
+    if(change==="QSO"){
+      expect(publications()).toHaveLength(2);
+      await act(async()=>releaseFreshPreview?.());
+      await waitFor(()=>expect(publications().some(([,params])=>params?.revision===2)).toBe(true));
+      expect(publications().slice(2).every(([,params])=>params?.revision===2)).toBe(true);
+      expect(publications().some(([,params])=>params?.publication_sequence===2&&params?.chunk_index===1)).toBe(false);
+      return;
+    }
+  }
+  await waitFor(()=>expect(publications().length).toBeGreaterThanOrEqual(3));
+  expect(publications()[1]?.[1]).toMatchObject({publication_sequence:2,chunk_index:0,chunk_count:2});
+  expect(publications()[2]?.[1]).toMatchObject({publication_sequence:2,chunk_index:1,chunk_count:2});
+  expect(publications().slice(1,3).flatMap(([,params])=>(params?.spots as {spot_id:string}[]).map(spot=>spot.spot_id)))
+    .toEqual(spots.map(spot=>spot.id));
+});
+
+it.each(["accepted","rejected"])("discards queued pre-QSO snapshots and stale retries after an %s receipt",async(receipt)=>{
+  let current=projection(),releasePublication:(()=>void)|undefined,releasePreview:(()=>void)|undefined,
+    releaseOldPreview:(()=>void)|undefined;
+  const base=operationalRequest(()=>current,()=>current.revision===1?3:1);
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    if(method==="contest_qso_commit"){
+      current={...current,revision:2,draftID:crypto.randomUUID(),score:{...current.score,qsos:1}};
+      return{id:crypto.randomUUID(),ok:true,result:{projection:current,actions:[],messages:[]}};
+    }
+    const reply=await base(method,params);
+    if(method==="contest_spot_points_preview"&&params.expectedRevision===1&&
+      (params.spots as {spotID:string}[])[0]?.spotID==="spot-8")
+      return new Promise(resolve=>{releaseOldPreview=()=>resolve(reply);});
+    if(method==="contest_spot_points_preview"&&params.expectedRevision===2&&!releasePreview)
+      return new Promise(resolve=>{releasePreview=()=>resolve(reply);});
+    return reply;
+  }),serviceRequest=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    if(method!=="cluster_contest_radio_spots_publish")return request(method,params);
+    if(!releasePublication){
+      await new Promise<void>(resolve=>{releasePublication=resolve;});
+      if(receipt==="rejected")return{accepted:0,removed:0,unchanged:0,filtered:0,rejected:1,stale:false};
+    }
+    return{accepted:1,removed:0,unchanged:0,filtered:0,rejected:0,stale:false};
+  });
+  const spots=Array.from({length:16},(_,index)=>({id:`spot-${index}`,callsign:`DL1A${index}`,
+    frequencyKHz:14025+index,band:"20m",mode:"CW",score:42}));
+  render(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps} spots={spots as any}/>);
+  await createContestThroughSetup();
+  const publications=()=>serviceRequest.mock.calls.filter(([method])=>method==="cluster_contest_radio_spots_publish");
+  await waitFor(()=>expect(releasePublication).toBeTypeOf("function"));
+  expect(publications()[0]?.[1]).toMatchObject({publication_sequence:1,revision:1});
+  expect(publications()[0]?.[1]?.spots).toHaveLength(8);
+  await waitFor(()=>expect(releaseOldPreview).toBeTypeOf("function"));
+  await act(async()=>releaseOldPreview?.());
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots.every((spot:any)=>spot.contestPoints===3)).toBe(true));
+  const entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,
+    action:"entry_commit",params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision}}));
+  await waitFor(()=>expect(releasePreview).toBeTypeOf("function"));
+  await act(async()=>releasePublication?.());
+  if(receipt==="rejected")await act(async()=>{await new Promise(resolve=>setTimeout(resolve,100));});
+  // The queued complete revision-one snapshot must not reach native delivery
+  // while revision two is waiting for its first authoritative classification.
+  expect(publications()).toHaveLength(1);
+  await act(async()=>releasePreview?.());
+  await waitFor(()=>expect(publications().length).toBeGreaterThan(1));
+  expect(publications()[1]?.[1]).toMatchObject({publication_sequence:2,revision:2});
+  expect(publications().slice(1).every(([,params])=>params?.revision===2&&
+    (params?.spots as {points:number}[]).every(spot=>spot.points===1))).toBe(true);
+});
+
+it.each(["20m","40m"])("publishes fresh active-band scoring after a QSO while a %s row is rebuilding",async(pendingBand)=>{
+  let current:any={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
+    supportedModes:["SSB"],supportedBands:["40m","20m"]};
+  const setup=newContestSetup("OM0RX");setup.pluginID="cq_ww_ssb";setup.preferences.bands=["40m","20m"];
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(setup));
+  const base=operationalRequest(()=>current,()=>current.revision===1?1:3);let release:(()=>void)|undefined;
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    if(method==="contest_qso_commit"){
+      current={...current,revision:current.revision+1};
+      return{id:crypto.randomUUID(),ok:true,result:{projection:current,actions:[],messages:[]}};
+    }
+    const reply:any=await base(method,params);
+    if(method==="contest_spot_points_preview"&&current.revision===2){
+      for(const spot of reply.result.spots)if(spot.spotID==="active-0")spot.dupe=true;
+      if((params.spots as {spotID:string}[]).some(spot=>spot.spotID==="other-band"))
+        return new Promise(resolve=>{release=()=>resolve(reply);});
+    }
+    return reply;
+  }),serviceRequest=vi.fn(async(method:string,params:Record<string,unknown>={})=>method==="cluster_contest_radio_spots_publish"
+    ?{accepted:1,removed:0,unchanged:0,filtered:0,rejected:0,stale:false}:request(method,params));
+  const pending={id:"other-band",callsign:"K1ABC",frequencyKHz:pendingBand==="40m"?7150:14215,band:pendingBand,
+    mode:pendingBand==="40m"?"LSB":"USB",score:42};
+  const active=Array.from({length:8},(_,index)=>({id:`active-${index}`,callsign:`DL1A${index}`,frequencyKHz:7100+index,
+    band:"40m",mode:"LSB",score:42}));
+  // The other band arrives first, but current-band work takes priority. A new
+  // active-band arrival may instead remain pending behind already admitted rows.
+  const spots=pendingBand==="20m"?[pending,...active]:[...active,pending];
+  render(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps}
+    radioFrequencyHz={7_125_000} spots={spots as any}/>);await createContestThroughSetup();
+  const publications=()=>serviceRequest.mock.calls.filter(([method])=>method==="cluster_contest_radio_spots_publish");
+  await waitFor(()=>expect(publications().some(([,params])=>params?.revision===1)).toBe(true));
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots.find((spot:any)=>spot.id==="other-band")?.contestPoints).toBe(1));
+  const entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,
+    action:"entry_commit",params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision}}));
+  await waitFor(()=>expect(release).toBeTypeOf("function"));
+  await waitFor(()=>expect(publications().some(([,params])=>params?.revision===2)).toBe(true));
+  const latest=publications().at(-1)?.[1];expect(latest?.spots).toHaveLength(7);
+  expect((latest?.spots as {spot_id:string;points:number}[]).every(spot=>spot.spot_id!=="active-0"&&spot.points===3)).toBe(true);
+  // Other surfaces keep their prior complete score snapshot until all bands finish.
+  expect(surfaceOwner.current.projections["band-maps"].spots.find((spot:any)=>spot.id==="other-band")?.contestPoints).toBe(1);
+  await act(async()=>release?.());
 });
 
 it("renews an unchanged ready contest radio publication every minute",async()=>{

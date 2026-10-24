@@ -778,9 +778,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const focusRef = useRef("callsign");
   const spotCursorRef = useRef<{ context: string; spotID: string | null; externalSpotID: string | null }>(
     { context: "", spotID: null, externalSpotID: null });
-  const contestRadioPublicationRef=useRef<{publisherID:string;publisherStartedAt:number;sequence:number;mountToken:number;mounted:boolean;key:string;identity:string;
+  const contestRadioPublicationRef=useRef<{publisherID:string;publisherStartedAt:number;sequence:number;queueVersion:number;mountToken:number;mounted:boolean;key:string;identity:string;
     base:null|{session_id:string;workspace_generation:string;revision:number;configured_bands:string[];allowed_mode_groups:ContestBandMode[]};
-    chain:Promise<void>}>({publisherID:crypto.randomUUID(),publisherStartedAt:Date.now(),sequence:0,mountToken:0,mounted:true,key:"",identity:"",base:null,chain:Promise.resolve()});
+    chain:Promise<void>}>({publisherID:crypto.randomUUID(),publisherStartedAt:Date.now(),sequence:0,queueVersion:0,mountToken:0,mounted:true,key:"",identity:"",base:null,chain:Promise.resolve()});
   const contestRadioServiceRef=useRef(serviceRequest);contestRadioServiceRef.current=serviceRequest;
   const [contestRadioRetryTick,setContestRadioRetryTick]=useState(0);
   const [spotWorkflow,setSpotWorkflow]=useState<SpotWorkflow>(()=>emptySpotWorkflow());
@@ -857,6 +857,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     [setup.preferences.contestBandSegments,configuredBands]);
   const allowedModeGroups=useMemo(()=>[...new Set(contestSpotSurfaceModes(projection?.pluginID,projection?.supportedModes??[],projection?.mode)
     .map(contestBandMode))],[projection?.pluginID,projection?.supportedModes,projection?.mode]);
+  const contestRadioBand=projection?(bandLabels[String(projection.band)]??String(projection.band)):"";
   const classifiedSharedSpots=useMemo(()=>deduplicateBandMapSpots(sharedSpots.map(spot=>{
     const entry=contestBandPlan.find(item=>item.band===spot.band),frequency=Number(spot.frequencyKHz);
     const group=entry&&Number.isFinite(frequency)
@@ -864,6 +865,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     return {...spot,mode:contestBandModeLabel(group)};
   })),[allowedModeGroups,contestBandPlan,sharedSpots]);
   const [spotPointPreview,setSpotPointPreview]=useState<{identity:string;revision:number;rows:Map<string,{inputSignature:string;points:number|null;dupe:boolean|null;multiplierCount:number|null;countryMultiplier:boolean|null;zoneMultiplier:boolean|null}>}>({identity:"",revision:0,rows:new Map()});
+  const [spotRadioPreview,setSpotRadioPreview]=useState(spotPointPreview);
   const [spotPointRetryTick,setSpotPointRetryTick]=useState(0);
   const spotPointPreviewRef=useRef(spotPointPreview);spotPointPreviewRef.current=spotPointPreview;
   const spotPointProgressRef=useRef(spotPointPreview);
@@ -912,16 +914,17 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     [visibleWorkflowSpots,currentEntryMapSpot]);
   const visibleSpotSignature=useMemo(()=>previewWorkflowSpots.map(spot=>
     `${spot.id}\u001f${spot.callsign}\u001f${spot.frequencyKHz}\u001f${spot.mode}`).join("\u001e"),[previewWorkflowSpots]);
-  const previewCandidates=useMemo(()=>previewWorkflowSpots.flatMap(spot=>{
+  const previewCandidates=useMemo(()=>[...previewWorkflowSpots]
+    .sort((one,two)=>Number(two.band===contestRadioBand)-Number(one.band===contestRadioBand)).flatMap(spot=>{
     const candidate=contestSpotPreviewCandidate(spot);return candidate?[candidate]:[];
-  }),[visibleSpotSignature]);
+  }),[visibleSpotSignature,contestRadioBand]);
   const previewCandidatesRef=useRef(previewCandidates);previewCandidatesRef.current=previewCandidates;
   useEffect(()=>{
     const updatePreview=(update:typeof spotPointPreview|((previous:typeof spotPointPreview)=>typeof spotPointPreview))=>{
       const next=typeof update==="function"?update(spotPointPreviewRef.current):update;
       spotPointPreviewRef.current=next;setSpotPointPreview(next);
     };
-    if(!projection||!previewWorkflowSpots.length){const empty={identity:spotPointIdentity,revision:spotScoreRevision,rows:new Map()};spotPointProgressRef.current=empty;updatePreview(empty);return;}
+    if(!projection||!previewWorkflowSpots.length){const empty={identity:spotPointIdentity,revision:spotScoreRevision,rows:new Map()};spotPointProgressRef.current=empty;setSpotRadioPreview(empty);updatePreview(empty);return;}
     const candidates=previewCandidates;
     const candidateSignatures=new Map(candidates.map(candidate=>[candidate.spotID,candidate.inputSignature]));
     let current=true,retryTimer:number|undefined;
@@ -935,7 +938,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         previous.identity===spotPointIdentity&&previous.revision===spotScoreRevision
           ?[...previous.rows].filter(([id,row])=>candidateSignatures.get(id)===row.inputSignature):[]),
       pending=candidates.filter(candidate=>!rows.has(candidate.spotID));
-      if(!pending.length){if(current)updatePreview({identity:spotPointIdentity,revision:spotScoreRevision,rows:new Map(rows)});return;}
+      if(!pending.length){if(current){const next={identity:spotPointIdentity,revision:spotScoreRevision,rows:new Map(rows)};
+        setSpotRadioPreview(next);updatePreview(next);}return;}
       // Preview shares the serialized Python lane with typing and QSO saves.
       // Keep each non-preemptible request short enough for interactive entry.
       const previewBatchSize=8;
@@ -967,6 +971,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         for(const [id,row] of rows)if(liveInputs.get(id)===row.inputSignature)merged.set(id,row);
         const next={identity:spotPointIdentity,revision:spotScoreRevision,rows:merged};
         spotPointProgressRef.current=next;
+        // Radio readiness is active-band scoped. Keep accepted current-revision
+        // progress separate from the all-band atomic display snapshot.
+        setSpotRadioPreview(next);
         const published=spotPointPreviewRef.current;
         const rebuilding=published.identity===spotPointIdentity&&published.revision!==spotScoreRevision&&published.rows.size>0;
         if(!rebuilding||
@@ -978,18 +985,28 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       retryTimer=window.setTimeout(()=>setSpotPointRetryTick(value=>value+1),1_000);}});
     spotPreviewRunRef.current=run;
     return()=>{current=false;if(retryTimer!==undefined)window.clearTimeout(retryTimer);};
-  },[projection?.sessionID,projection?.workspaceGeneration,spotScoreRevision,request,visibleSpotSignature,spotPointIdentity,spotPointRetryTick]);
-  const contestRadioPreviewComplete=Boolean(projection&&spotPointPreview.identity===spotPointIdentity&&
-    spotPointPreview.revision===spotScoreRevision&&visibleWorkflowSpots.every(spot=>{
-      const candidate=contestSpotPreviewCandidate(spot),row=spotPointPreview.rows.get(spot.id);
-      return candidate===null||row?.inputSignature===candidate.inputSignature;
-    }));
+  },[projection?.sessionID,projection?.workspaceGeneration,spotScoreRevision,request,visibleSpotSignature,spotPointIdentity,spotPointRetryTick,contestRadioBand]);
+  const contestRadioWorkflowSpots=useMemo(()=>configuredBands.includes(contestRadioBand)
+    ?visibleWorkflowSpots.filter(spot=>spot.band===contestRadioBand):[],[visibleWorkflowSpots,configuredBands,contestRadioBand]);
+  // Renew only accepted rows for the current scoring basis and exact input.
+  // A pending arrival must not starve existing spots of their radio lease.
+  const contestRadioPreviewCurrent=Boolean(projection&&spotRadioPreview.identity===spotPointIdentity&&
+    spotRadioPreview.revision===spotScoreRevision);
+  const contestRadioReadySpots=useMemo(()=>contestRadioPreviewCurrent?contestRadioWorkflowSpots.filter(spot=>{
+    const candidate=contestSpotPreviewCandidate(spot),row=spotRadioPreview.rows.get(spot.id);
+    return candidate!==null&&row?.inputSignature===candidate.inputSignature;
+  }):[],[contestRadioPreviewCurrent,contestRadioWorkflowSpots,spotRadioPreview]);
+  const contestRadioPreviewPending=Boolean(projection&&contestRadioWorkflowSpots.some(spot=>{
+    const candidate=contestSpotPreviewCandidate(spot);
+    return candidate!==null&&(!contestRadioPreviewCurrent||spotRadioPreview.rows.get(spot.id)?.inputSignature!==candidate.inputSignature);
+  }));
   const contestRadioPublication=useMemo(()=>{
-    if(!projection||!contestRadioPreviewComplete||spotPointPreview.rows.size===0)return null;
+    if(!projection||!contestRadioPreviewCurrent||spotRadioPreview.rows.size===0||
+      !contestRadioReadySpots.length&&contestRadioPreviewPending)return null;
     const activeBand=bandLabels[String(projection.band)]??String(projection.band),activeBandConfigured=configuredBands.includes(activeBand),
       radioBands=activeBandConfigured?[activeBand]:configuredBands;
-    const rows=(activeBandConfigured?visibleWorkflowSpots:[]).filter(spot=>radioBands.includes(spot.band)).slice(0,500).flatMap(spot=>{
-      const preview=spotPointPreview.rows.get(spot.id),candidate=contestSpotPreviewCandidate(spot),frequencyHz=Math.round(spot.frequencyKHz*1_000);
+    const rows=contestRadioReadySpots.slice(0,500).flatMap(spot=>{
+      const preview=spotRadioPreview.rows.get(spot.id),candidate=contestSpotPreviewCandidate(spot),frequencyHz=Math.round(spot.frequencyKHz*1_000);
       if(!candidate||!preview||preview.inputSignature!==candidate.inputSignature||preview.dupe===true&&!effectiveSpotWorkflow.showWorked)return [];
       return [{spot_id:spot.id,callsign:spot.callsign,frequency_hz:frequencyHz,band:spot.band,
         mode:canonicalContestSurfaceMode(spot.mode)??spot.mode,spotter:spot.spotter,comment:spot.comment,
@@ -998,20 +1015,43 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     });
     return {session_id:projection.sessionID,workspace_generation:projection.workspaceGeneration,revision:projection.revision,
       configured_bands:radioBands,allowed_mode_groups:allowedModeGroups,spots:rows};
-  },[projection?.sessionID,projection?.workspaceGeneration,projection?.revision,spotPointPreview,contestRadioPreviewComplete,
-    visibleWorkflowSpots,configuredBands,allowedModeGroups,bandLabels,effectiveSpotWorkflow.showWorked]);
-  const contestRadioPreviewPending=Boolean(projection&&visibleWorkflowSpots.length&&!contestRadioPreviewComplete);
+  },[projection?.sessionID,projection?.workspaceGeneration,projection?.revision,spotRadioPreview,contestRadioPreviewCurrent,
+    contestRadioPreviewPending,contestRadioReadySpots,configuredBands,allowedModeGroups,bandLabels,effectiveSpotWorkflow.showWorked]);
+  const contestRadioCurrentKey=contestingTest||!contestRadioPublication?null:JSON.stringify(contestRadioPublication);
+  const contestRadioCurrentKeyRef=useRef(contestRadioCurrentKey);contestRadioCurrentKeyRef.current=contestRadioCurrentKey;
+  const contestRadioCurrentRef=useRef(contestRadioPublication);contestRadioCurrentRef.current=contestingTest?null:contestRadioPublication;
   const enqueueContestRadioPublication=(action:"replace"|"clear",base:NonNullable<typeof contestRadioPublication>)=>{
-    const state=contestRadioPublicationRef.current,sequence=++state.sequence,
+    const state=contestRadioPublicationRef.current,queueVersion=++state.queueVersion,snapshotKey=JSON.stringify(base),
+      scoringRevision=spotScoreRevision,
       spots=action==="clear"?[]:base.spots,chunkCount=Math.max(1,Math.ceil(spots.length/64));
+    const isQueuedCurrent=()=>state.queueVersion===queueVersion&&(action==="clear"||
+      state.mounted&&contestRadioCurrentKeyRef.current===snapshotKey);
+    const isAdmittedCurrent=()=>{
+      if(action==="clear")return state.queueVersion===queueVersion;
+      const active=projectionRef.current,latest=contestRadioCurrentRef.current;
+      if(!state.mounted||!active||!latest||active.sessionID!==base.session_id||
+        active.workspaceGeneration!==base.workspace_generation||(active.spotScoreRevision??active.revision)!==scoringRevision||
+        JSON.stringify(latest.configured_bands)!==JSON.stringify(base.configured_bands)||
+        JSON.stringify(latest.allowed_mode_groups)!==JSON.stringify(base.allowed_mode_groups))return false;
+      const currentRows=new Map(latest.spots.map(spot=>[spot.spot_id,JSON.stringify(spot)]));
+      return spots.every(spot=>currentRows.get(spot.spot_id)===JSON.stringify(spot));
+    };
     const publish=async()=>{
+      if(!isQueuedCurrent()||!isAdmittedCurrent())return;
+      // Skipped queue entries consume no native sequence: a new publisher must
+      // start at one. Every chunk/retry of an admitted snapshot shares its number.
+      const sequence=++state.sequence;
       for(let chunkIndex=0;chunkIndex<chunkCount;chunkIndex++){
+        // Finish an admitted chunk set across harmless typing/additions, but
+        // never finish or retry it after scoring, selection or its inputs change.
+        if(!isAdmittedCurrent())return;
         const params={publisher_id:state.publisherID,publisher_started_at:state.publisherStartedAt,publication_sequence:sequence,action,
           session_id:base.session_id,workspace_generation:base.workspace_generation,revision:base.revision,
           configured_bands:base.configured_bands,allowed_mode_groups:base.allowed_mode_groups,
           chunk_index:chunkIndex,chunk_count:chunkCount,spots:spots.slice(chunkIndex*64,(chunkIndex+1)*64)};
         let delivered=false;
         for(let attempt=0;attempt<3&&!delivered;attempt++){
+          if(!isAdmittedCurrent())return;
           try{
             const result=await contestRadioServiceRef.current("cluster_contest_radio_spots_publish",params) as {stale?:boolean;rejected?:number};
             if(result?.stale===true||!(Number(result?.rejected??0)>0)){delivered=true;break;}
@@ -1022,7 +1062,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       }
     };
     state.chain=state.chain.catch(()=>{}).then(publish).catch(()=>{
-      if(state.mounted&&contestRadioPublicationRef.current.publisherID===state.publisherID&&state.sequence===sequence){
+      if(state.mounted&&contestRadioPublicationRef.current.publisherID===state.publisherID&&state.queueVersion===queueVersion){
         state.key="";setTimeout(()=>setContestRadioRetryTick(value=>value+1),1_000);
       }
     });
