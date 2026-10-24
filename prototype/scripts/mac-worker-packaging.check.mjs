@@ -52,7 +52,10 @@ test('Mac installation verifies the staged and installed resource/signature layo
   assert.match(script, /codesign --verify --strict "\$bundle\/Contents\/MacOS\/xlog-prototype-worker"/);
   assert.match(script, /source_worker_hash=/);
   assert.match(script, /installed_worker_hash=/);
-  assert.match(script, /installation stopped before replacement/);
+  assert.match(script, /source "\$root\/prototype\/scripts\/macos-app-process\.sh"/);
+  assert.match(script, /stop_macos_app "\$destination\/Contents\/MacOS\/\$installed_executable"/);
+  assert.ok(script.indexOf('stop_macos_app ') < script.indexOf('mv "$destination" "$backup"'));
+  assert.match(source('macos-app-process.sh'), /installation stopped before replacement/);
   assert.match(script, /the previous application was restored/);
 });
 
