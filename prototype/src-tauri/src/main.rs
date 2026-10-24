@@ -69,6 +69,7 @@ use std::sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 static MAIN_CREATION: Mutex<()> = Mutex::new(());
+static CONTEST_SETUP_CREATION: Mutex<()> = Mutex::new(());
 static WORKSPACE_PRESENTATION: Mutex<bool> = Mutex::new(false);
 static FOREGROUND_PRESENTATION: Mutex<()> = Mutex::new(());
 static APP_EXITING: AtomicBool = AtomicBool::new(false);
@@ -934,11 +935,13 @@ fn contest_setup_route(acceptance: bool, host_active: Option<&HostActiveContest>
 }
 
 fn ensure_contest_setup_window_for(app: &tauri::AppHandle, foreground: bool,
-    host_active: Option<&HostActiveContest>) -> Result<(), String> {
-    let window = recover_singleton(&MAIN_CREATION, || app.get_webview_window("contest-setup"), || {
+    host_active: Option<&HostActiveContest>, query_missing: bool) -> Result<(), String> {
+    let window = recover_singleton(&CONTEST_SETUP_CREATION, || app.get_webview_window("contest-setup"), || {
+        let queried = if query_missing { query_host_active_contest()? } else { None };
+        let effective_active = if query_missing { queried.as_ref() } else { host_active };
         let acceptance = app.state::<acceptance::Acceptance>().path.is_some();
         let mut builder = tauri::WebviewWindowBuilder::new(app, "contest-setup",
-            tauri::WebviewUrl::App(contest_setup_route(acceptance, host_active).into()))
+            tauri::WebviewUrl::App(contest_setup_route(acceptance, effective_active).into()))
             .title("OM0RX-xLog Contest — Setup")
             .inner_size(600.0, 360.0)
             .min_inner_size(520.0, 320.0)
@@ -966,7 +969,7 @@ fn ensure_contest_setup_window_for(app: &tauri::AppHandle, foreground: bool,
 }
 
 fn ensure_contest_setup_window(app: &tauri::AppHandle, foreground: bool) -> Result<(), String> {
-    ensure_contest_setup_window_for(app, foreground, None)
+    ensure_contest_setup_window_for(app, foreground, None, true)
 }
 
 fn ensure_contest_log_transfer_window(app: &tauri::AppHandle) -> Result<(), String> {
@@ -1036,6 +1039,8 @@ fn consume_acknowledged_module_restart_route(app: &tauri::AppHandle, route: &str
 }
 
 fn retire_hidden_contest_owner(app: &tauri::AppHandle) -> Result<(), String> {
+    let _contest_creation = CONTEST_SETUP_CREATION.lock()
+        .map_err(|_| "Contest controller creation unavailable")?;
     let _creation = MAIN_CREATION.lock().map_err(|_| "Contest controller retirement unavailable")?;
     let Some(owner) = app.get_webview_window(CONTEST_SETUP_WINDOW) else { return Ok(()); };
     let visible = owner.is_visible().unwrap_or(true);
@@ -3854,7 +3859,7 @@ fn main() {
                     tauri::async_runtime::spawn_blocking(move || match query_host_active_contest() {
                         Ok(active) => {
                             if let Err(error) = ensure_contest_setup_window_for(
-                                &startup_app, active.is_none(), active.as_ref(),
+                                &startup_app, active.is_none(), active.as_ref(), false,
                             ) {
                                 eprintln!("Contest startup unavailable: {error}");
                             } else if let Err(error) = fulfill_module_restart_intent(&startup_app) {
@@ -3863,7 +3868,7 @@ fn main() {
                         }
                         Err(error) => {
                             eprintln!("Active contest startup query unavailable: {error}");
-                            if let Err(setup_error) = ensure_contest_setup_window_for(&startup_app, true, None) {
+                            if let Err(setup_error) = ensure_contest_setup_window_for(&startup_app, true, None, false) {
                                 eprintln!("Contest Setup recovery unavailable: {setup_error}");
                             } else if let Err(intent_error) = fulfill_module_restart_intent(&startup_app) {
                                 eprintln!("Could not replay the retained Contest destination: {intent_error}");

@@ -63,7 +63,8 @@ actor PythonContestLane {
     private var output: FileHandle?
     private var errorOutput: FileHandle?
     private var outputReader: Task<Void, Never>?
-    private var outputContinuation: AsyncStream<Data>.Continuation?
+    private var errorReader: Task<Void, Never>?
+    private var processGeneration: UInt64 = 0
     private var outputBuffer = Data()
     private var pending: Pending?
     private var tail: Task<Void, Never>?
@@ -499,6 +500,8 @@ actor PythonContestLane {
                                         attributes: [.posixPermissions: 0o700])
         let standardInput = Pipe(), standardOutput = Pipe(), standardError = Pipe()
         let child = Process()
+        processGeneration &+= 1
+        let generation = processGeneration
         child.executableURL = configuration.executableURL
         child.arguments = ["-I", "-B", configuration.launcherURL.path,
                            "--data-root", configuration.dataRootURL.path]
@@ -507,42 +510,11 @@ actor PythonContestLane {
         child.standardInput = standardInput
         child.standardOutput = standardOutput
         child.standardError = standardError
-        // FileHandle can split a large JSONL response across callbacks. Feed
-        // those callbacks into one reader task so actor hops cannot reorder
-        // chunks under a busy integrated test or application process.
-        var streamContinuation: AsyncStream<Data>.Continuation?
-        let outputStream = AsyncStream<Data> { streamContinuation = $0 }
-        guard let streamContinuation else {
-            throw ContestLaneError.confirmed("contest_host_unavailable", "The bundled contest host output could not be observed.")
-        }
-        outputContinuation = streamContinuation
-        outputReader = Task { [weak self] in
-            for await data in outputStream {
-                guard let self else { return }
-                await self.consume(data)
-            }
-        }
-        standardOutput.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            streamContinuation.yield(data)
-            if data.isEmpty { streamContinuation.finish() }
-        }
-        // Drain and discard diagnostics. They can contain contact data and must
-        // never cross the renderer or normal application log boundary.
-        standardError.fileHandleForReading.readabilityHandler = { handle in
-            _ = handle.availableData
-        }
         child.terminationHandler = { [weak self] _ in
-            Task { await self?.observeChildTermination() }
+            Task { await self?.observeChildTermination(generation: generation) }
         }
         do { try child.run() }
         catch {
-            standardOutput.fileHandleForReading.readabilityHandler = nil
-            standardError.fileHandleForReading.readabilityHandler = nil
-            outputContinuation?.finish()
-            outputReader?.cancel()
-            outputContinuation = nil
-            outputReader = nil
             throw ContestLaneError.confirmed("contest_host_unavailable", "The bundled contest host could not start.")
         }
         process = child
@@ -550,6 +522,21 @@ actor PythonContestLane {
         output = standardOutput.fileHandleForReading
         errorOutput = standardError.fileHandleForReading
         outputBuffer.removeAll(keepingCapacity: true)
+        let outputHandle = standardOutput.fileHandleForReading
+        outputReader = Task.detached { [weak self] in
+            while !Task.isCancelled {
+                let data = outputHandle.availableData
+                guard !data.isEmpty else { break }
+                await self?.consume(data, generation: generation)
+            }
+            await self?.observeChildTermination(generation: generation)
+        }
+        let errorHandle = standardError.fileHandleForReading
+        // Drain and discard diagnostics. They can contain contact data and must
+        // never cross the renderer or normal application log boundary.
+        errorReader = Task.detached {
+            while !Task.isCancelled, !errorHandle.availableData.isEmpty {}
+        }
     }
 
     static func childEnvironment(n1mmUDPAllowed: Bool, sslCertificateFileURL: URL? = nil) -> [String: String] {
@@ -562,9 +549,10 @@ actor PythonContestLane {
         return environment
     }
 
-    private func consume(_ data: Data) {
+    private func consume(_ data: Data, generation: UInt64) {
+        guard generation == processGeneration else { return }
         guard !data.isEmpty else {
-            Task { [weak self] in await self?.observeChildTermination() }
+            Task { [weak self] in await self?.observeChildTermination(generation: generation) }
             return
         }
         outputBuffer.append(data)
@@ -592,10 +580,11 @@ actor PythonContestLane {
         stopProcess()
     }
 
-    private func observeChildTermination() async {
+    private func observeChildTermination(generation: UInt64) async {
         // FileHandle may publish the final data chunk and process termination on
         // different queues. Yield once so a complete final reply wins that race.
         try? await Task.sleep(nanoseconds: 25_000_000)
+        guard generation == processGeneration else { return }
         guard process?.isRunning != true else { return }
         failPending(.uncertain("contest_host_ended", "The contest host ended before its reply was confirmed."))
         stopProcess(terminate: false)
@@ -608,10 +597,9 @@ actor PythonContestLane {
     }
 
     private func stopProcess(terminate: Bool = true) {
-        output?.readabilityHandler = nil
-        errorOutput?.readabilityHandler = nil
-        outputContinuation?.finish()
+        processGeneration &+= 1
         outputReader?.cancel()
+        errorReader?.cancel()
         try? input?.close()
         try? output?.close()
         try? errorOutput?.close()
@@ -620,8 +608,8 @@ actor PythonContestLane {
         input = nil
         output = nil
         errorOutput = nil
-        outputContinuation = nil
         outputReader = nil
+        errorReader = nil
         outputBuffer.removeAll(keepingCapacity: true)
     }
 }

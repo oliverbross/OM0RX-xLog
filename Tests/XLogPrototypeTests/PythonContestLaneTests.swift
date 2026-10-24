@@ -186,6 +186,29 @@ for line in sys.stdin:
         return URL(fileURLWithPath: path)
     }
 
+    private func python3ForBridgeTest() throws -> URL {
+        let fileManager = FileManager.default
+        let configured = ProcessInfo.processInfo.environment["XLOG_TEST_PYTHON312"]
+        #if os(Windows)
+        let executableNames = ["python.exe", "python3.exe"]
+        let pathListSeparator: Character = ";"
+        let pathSeparator = "\\"
+        #else
+        let executableNames = ["python3"]
+        let pathListSeparator: Character = ":"
+        let pathSeparator = "/"
+        #endif
+        let pathCandidates = (ProcessInfo.processInfo.environment["PATH"] ?? "")
+            .split(separator: pathListSeparator).flatMap { directory in
+                executableNames.map { String(directory) + pathSeparator + $0 }
+            }
+        let candidates = [configured, "/usr/bin/python3"] + pathCandidates.map(Optional.some)
+        guard let path = candidates.compactMap({ $0 }).first(where: fileManager.isExecutableFile(atPath:)) else {
+            throw XCTSkip("Python 3 was not available for the isolated pipe-drain bridge test.")
+        }
+        return URL(fileURLWithPath: path)
+    }
+
     func testOriginalDigitalHandlerIsLeasedDeduplicatedAndRetiredOnContestSwitch() async throws {
         let root = repositoryRoot()
         let basePath = FileManager.default.temporaryDirectory.path
@@ -304,6 +327,28 @@ for line in sys.stdin:
     private func repositoryRoot() -> URL {
         URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
+    }
+
+    func testContestHostBridgeDrainsResponseLargerThanPipeCapacity() async throws {
+        let temporary = FileManager.default.temporaryDirectory
+            .appendingPathComponent("xlog-python-large-response-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
+        let launcher = temporary.appendingPathComponent("large_response.py")
+        try """
+        import json
+        import sys
+        request = json.loads(sys.stdin.readline())
+        response = {"id": request["id"], "ok": True, "result": {"payload": "x" * 120000}}
+        sys.stdout.write(json.dumps(response, separators=(",", ":")) + "\\n")
+        sys.stdout.flush()
+        """.write(to: launcher, atomically: true, encoding: .utf8)
+        let lane = try PythonContestLane(configuration: PythonContestHostConfiguration(
+            executableURL: try python3ForBridgeTest(), launcherURL: launcher,
+            dataRootURL: temporary.appendingPathComponent("data", isDirectory: true)))
+        let result = try await lane.handle(method: "contest_large_response", params: [:])
+        XCTAssertEqual((result["payload"] as? String)?.count, 120_000)
+        await lane.shutdown()
     }
 
     func testActualPinnedHostRunsThroughBoundedSerializedBridge() async throws {
