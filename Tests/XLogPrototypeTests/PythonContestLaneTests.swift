@@ -412,6 +412,39 @@ for line in sys.stdin:
         }
     }
 
+    func testCountryBridgeKeepsOESeparateFromNamed4U1VAuthority() async throws {
+        let root = repositoryRoot()
+        let basePath = FileManager.default.temporaryDirectory.path
+            .replacingOccurrences(of: "/var/", with: "/private/var/")
+            .replacingOccurrences(of: "/tmp/", with: "/private/tmp/")
+        let temporary = URL(fileURLWithPath: basePath, isDirectory: true)
+            .appendingPathComponent("xlog-python-country-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let dataRoot = temporary.appendingPathComponent("Contesting/Python", isDirectory: true)
+        let lane = try PythonContestLane(configuration: PythonContestHostConfiguration(
+            executableURL: try python312(), launcherURL: root.appendingPathComponent("python/contest_host/launcher.py"),
+            dataRootURL: dataRoot))
+        let session = UUID().uuidString.lowercased()
+        let created = try await lane.handle(method: "contest_session_create", params: [
+            "sessionID": session, "workspaceGeneration": UUID().uuidString.lowercased(),
+            "operationID": UUID().uuidString.lowercased(), "expectedRevision": 0,
+            "pluginID": "cq_ww_ssb", "frequencyHz": 7_110_000,
+            "station": ["Call": "OM0RX", "CQZone": "15"], "settings": ["SentExchange": "15"],
+        ])
+        let projection = try XCTUnwrap(created["projection"] as? [String: Any])
+        _ = try await lane.handle(method: "contest_qso_commit", params: [
+            "sessionID": session, "operationID": UUID().uuidString.lowercased(),
+            "expectedRevision": try XCTUnwrap(projection["revision"] as? Int),
+            "fields": ["callsign": "OE8DDX", "other_2": "15"],
+        ])
+        let log = try await lane.handle(method: "contest_log", params: [
+            "sessionID": session, "offset": 0, "limit": 10,
+        ])
+        let row = try XCTUnwrap((log["rows"] as? [[String: Any]])?.first)
+        XCTAssertEqual(row["CountryPrefix"] as? String, "OE")
+        await lane.shutdown()
+    }
+
     func testCallHistoryActivationSerializesHostTrafficAndNormalizesSQLiteLookupCall() async throws {
         let root = repositoryRoot()
         let basePath = FileManager.default.temporaryDirectory.path

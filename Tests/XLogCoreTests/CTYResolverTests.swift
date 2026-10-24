@@ -23,6 +23,19 @@ struct CTYResolverTests {
         #expect(country.continent == "EU")
     }
 
+    @Test("Matched CTY rows retain distinct primary prefixes even when ADIF is shared")
+    func sharedADIFPrimaryPrefixes() throws {
+        let resolver = try CTYResolver.bundled()
+        let austria = try #require(resolver.resolveCountryEndpointWithPrimaryPrefix("OE8DDX"))
+        let vienna = try #require(resolver.resolveCountryEndpointWithPrimaryPrefix("4U1VIC"))
+        #expect(austria.country.name == "AUSTRIA")
+        #expect(austria.country.adif == 206)
+        #expect(austria.primaryPrefix == "OE")
+        #expect(vienna.country.name == "VIENNA INTL CTR")
+        #expect(vienna.country.adif == 206)
+        #expect(vienna.primaryPrefix == "*4U1V")
+    }
+
     @Test("Continent annotations remain opt-in and do not change legacy token matching")
     func continentOverrideDoesNotChangeLegacyMatching() throws {
         let csv = "XY,Fixture Country,999,EU,14,28,48.00,-17.00,-1.0,ZZ{AF};\n"

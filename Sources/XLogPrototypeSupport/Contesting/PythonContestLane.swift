@@ -105,6 +105,9 @@ actor PythonContestLane {
                 }
             }
             var result = try await perform(method: method, params: effectiveParams)
+            if method == "contest_log" || method == "contest_log_page" || method == "contest_check_partial" {
+                canonicalizeCountryPrefixes(in: &result)
+            }
             if let projection = result["projection"] as? [String: Any] {
                 activeProjection = projection
             }
@@ -405,10 +408,22 @@ actor PythonContestLane {
 
     private func countryWire(_ rawCallsign: String) -> [String: Any]? {
         let callsign = rawCallsign.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        guard let country = reference.resolveCountryEndpoint(callsign, at: Date()),
-              let prefix = reference.primaryPrefixes[country.adif], !prefix.isEmpty else { return nil }
+        guard let resolved = reference.resolver.resolveCountryEndpointWithPrimaryPrefix(callsign, at: Date()),
+              !resolved.primaryPrefix.isEmpty else { return nil }
+        let country = resolved.country
         return ["entity": country.name, "continent": country.continent,
-                "cq": country.cqZone, "itu": country.ituZone, "primary_pfx": prefix]
+                "cq": country.cqZone, "itu": country.ituZone, "primary_pfx": resolved.primaryPrefix]
+    }
+
+    private func canonicalizeCountryPrefixes(in result: inout [String: Any]) {
+        guard var rows = result["rows"] as? [[String: Any]] else { return }
+        for index in rows.indices {
+            guard let call = rows[index]["Call"] as? String,
+                  let resolved = reference.resolver.resolveCountryEndpointWithPrimaryPrefix(call),
+                  !resolved.primaryPrefix.isEmpty else { continue }
+            rows[index]["CountryPrefix"] = resolved.primaryPrefix
+        }
+        result["rows"] = rows
     }
 
     private func startIfNeeded() throws {

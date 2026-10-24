@@ -3013,6 +3013,14 @@ class Host:
                 # that must not block draft updates or hide authoritative dupes.
                 if call not in current:
                     current[call] = country
+                elif (str(current[call].get("entity", "")).upper() == str(country.get("entity", "")).upper()
+                      and all(current[call].get(key) == country.get(key)
+                              for key in ("continent", "cq", "itu"))):
+                    # Repair a primary-prefix-only bridge defect without
+                    # accepting a different country endpoint into the pinned
+                    # contest reference. This covers named CQ WW authorities
+                    # that share an ADIF number with an ordinary entity.
+                    current[call] = country
         fields = params.get("fields", {})
         require(isinstance(fields, dict) and set(fields) <= set(INPUTS), "Unknown draft field")
         serial_field = "sent" if desk.state["pluginID"] in SENT_FIELD_SERIAL_PLUGINS else "other_1"

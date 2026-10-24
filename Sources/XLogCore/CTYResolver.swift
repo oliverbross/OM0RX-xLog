@@ -7,6 +7,7 @@ public final class CTYResolver: @unchecked Sendable {
     fileprivate struct Rule {
         var token: String
         var endpointToken: String
+        var primaryPrefix: String
         var exact: Bool
         var country: CountryInfo
         var endpointCountry: CountryInfo
@@ -34,6 +35,7 @@ public final class CTYResolver: @unchecked Sendable {
                 let endpointToken = Self.cleanEndpointToken(raw)
                 if !legacyToken.isEmpty, !endpointToken.isEmpty {
                     parsed.append(Rule(token: legacyToken, endpointToken: endpointToken,
+                                       primaryPrefix: columns[0].uppercased(),
                                        exact: exact, country: info,
                                        endpointCountry: Self.applyingOverrides(in: raw, to: info),
                                        start: nil, end: nil))
@@ -91,6 +93,17 @@ public final class CTYResolver: @unchecked Sendable {
     /// overrides. The legacy `resolve` result remains unchanged for persisted callers.
     public func resolveCountryEndpoint(_ rawCallsign: String, at date: Date = Date()) -> CountryInfo? {
         matchingRule(rawCallsign, at: date, rules: endpointRules, token: \.endpointToken)?.endpointCountry
+    }
+
+    /// Resolves the country endpoint together with the primary prefix from the
+    /// matched CTY row. The prefix must not be inferred from ADIF alone because
+    /// named CQ WW entities can share an ADIF number with an ordinary country.
+    public func resolveCountryEndpointWithPrimaryPrefix(
+        _ rawCallsign: String, at date: Date = Date()
+    ) -> (country: CountryInfo, primaryPrefix: String)? {
+        guard let rule = matchingRule(rawCallsign, at: date, rules: endpointRules,
+                                      token: \.endpointToken) else { return nil }
+        return (rule.endpointCountry, rule.primaryPrefix)
     }
 
     private func matchingRule(_ rawCallsign: String, at date: Date, rules: [Rule],
@@ -272,6 +285,7 @@ private final class ClubLogXMLParser: NSObject, XMLParserDelegate {
         rules.append(CTYResolver.Rule(
             token: token,
             endpointToken: token,
+            primaryPrefix: token,
             exact: name == "exception",
             country: info,
             endpointCountry: info,

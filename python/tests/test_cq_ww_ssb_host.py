@@ -44,6 +44,8 @@ class CQWWSSBHostTests(unittest.TestCase):
                           "itu": 28, "primary_pfx": "LZ"},
                 "ED5D": {"entity": "Spain", "continent": "EU", "cq": 14,
                           "itu": 37, "primary_pfx": "EA"},
+                "OE8DDX": {"entity": "Austria", "continent": "EU", "cq": 15,
+                            "itu": 28, "primary_pfx": "*4U1V"},
             }},
         }
         self.call("session_create", self.create)
@@ -160,6 +162,15 @@ class CQWWSSBHostTests(unittest.TestCase):
             spots=[{"spotID": "ed5d", "callsign": "ED5D", "frequencyHz": 7097200, "mode": "SSB"}],
         )
         self.assertTrue(preview["spots"][0]["dupe"])
+
+    def test_same_endpoint_primary_prefix_correction_repairs_future_contacts(self):
+        corrected = {"OE8DDX": {"entity": "AUSTRIA", "continent": "EU", "cq": 15,
+                                 "itu": 28, "primary_pfx": "OE"}}
+        self.mutate("draft_apply", fields={"callsign": "OE8DDX", "other_2": "15"},
+                    referenceID="test-cty-v1", countries=corrected)
+        self.log("OE8DDX", "15", frequency=7110000)
+        row = self.read("log", offset=0, limit=1)["rows"][0]
+        self.assertEqual(row["CountryPrefix"], "OE")
 
     def test_observed_vfo_change_clears_departed_call_and_loads_nearby_spot(self):
         setup = self.read("setup_get")["setup"]
