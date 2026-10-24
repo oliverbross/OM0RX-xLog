@@ -336,7 +336,11 @@ impl ClusterSession {
             }
         };
         self.active()?;
-        if response["ok"] == true && request["method"] != "cluster_history" {
+        // History and contest radio publication return their own results, not
+        // cluster snapshots. Accepting a delivery receipt as a snapshot would
+        // invalidate the retained feed after the radio already accepted spots.
+        if response["ok"] == true && !matches!(request["method"].as_str(),
+            Some("cluster_history" | "cluster_contest_radio_spots_publish")) {
             if let Err(error) = self.accept(&response, generation) {
                 self.unavailable();
                 return Err(error);
@@ -591,6 +595,45 @@ mod tests {
             );
         }
         assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn contest_radio_publication_receipts_preserve_the_cluster_projection() {
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let published = events.clone();
+        let owner = ClusterSession::new(Arc::new(|request| {
+            if request["method"] == "cluster_contest_radio_spots_publish" {
+                let params = &request["params"];
+                Ok(json!({"id":request["id"],"ok":true,"result":{
+                    "accepted":params["accepted"],"removed":params["removed"],"unchanged":0,
+                    "filtered":0,"rejected":params["rejected"],"pending":params["pending"],
+                    "stale":params["stale"],"revision":7,"workspace_generation":"generation-1"
+                }}))
+            } else {
+                Ok(reply(&request, "retained"))
+            }
+        }), Arc::new(move |value| published.lock().unwrap().push(value)));
+        owner.refresh().unwrap();
+        owner.select(Some("spot-a".into())).unwrap();
+        let before = owner.projection_value().unwrap();
+        let event_count = events.lock().unwrap().len();
+        // Completed replace, intermediate chunk, stale publisher, delivery
+        // rejection and clear all return receipts rather than snapshots.
+        for (accepted, removed, rejected, pending, stale) in [
+            (1, 0, 0, false, false), (0, 0, 0, true, false),
+            (0, 0, 0, false, true), (0, 0, 1, false, false),
+            (0, 1, 0, false, false),
+        ] {
+            let mut publication = request("cluster_contest_radio_spots_publish");
+            publication["params"] = json!({"accepted":accepted, "removed":removed,
+                "rejected":rejected, "pending":pending, "stale":stale});
+            let result = owner.request(publication).unwrap();
+            assert_eq!(result["result"], json!({"accepted":accepted, "removed":removed, "unchanged":0, "filtered":0,
+                "rejected":rejected, "pending":pending, "stale":stale, "revision":7,"workspace_generation":"generation-1"}));
+            assert_eq!(owner.projection_value().unwrap(), before);
+            assert_eq!(events.lock().unwrap().len(), event_count);
+            assert_eq!(owner.request(request("cluster_snapshot")).unwrap()["result"], before["response"]);
+        }
     }
 
     #[test]
