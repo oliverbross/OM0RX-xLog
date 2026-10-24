@@ -5,12 +5,14 @@ Status for the independent `codex/dxpedition-map` source branch. A packaged/inst
 ## Source gates
 
 - TypeScript/Vite production build and detached-window bundle/CSS graph checks: pass.
-- Focused DX Map model/component suite: 7 tests pass.
-- `OpportunityFeedTests`, including ADXO aliases/QSL/UTC date bounds: pass.
-- Portable opportunity owner (10 tests) and bounded-download (5 tests) suites: pass.
+- Focused DX Map model/component/style suite: 13 tests pass; the shared Map/MapSpot regression set brings the focused frontend pass to 46 tests.
+- `OpportunityFeedTests`, including ADXO aliases/QSL/UTC date bounds and a valid empty out-of-horizon catalogue: 6 tests pass.
+- Portable opportunity owner (11 tests), including the two-provider DX refresh boundary, and bounded-download (5 tests) suites: pass.
 - Full portable Swift suite: pass.
 - Full native Rust suite: 852 tests pass.
-- First sharded full frontend run: 281 files / 4,134 tests pass; one exact supported-window registry assertion failed, was corrected, and its 55 focused window/DX-map tests pass. A final post-rebase frontend rerun remains required before handoff.
+- Full sharded frontend suite after rebasing onto published `main` `69b170d9`: 283 files / 4,145 tests pass.
+- Production TypeScript/Vite build and detached-window bundle/CSS graph gate: pass.
+- Rendered browser QA at 1440×900 and 480×800: full-width root layout, visible source/filter controls, readable empty/error states, and complete EN/IT surface navigation verified; browser mode cannot establish native-service behaviour.
 
 ## Master-plan acceptance mapping
 
@@ -19,7 +21,7 @@ Status for the independent `codex/dxpedition-map` source branch. A packaged/inst
 | AC-01–14, 45–48 | Typed/bounded catalogue, UTC dates, exact aliases, source health, status/filter/search, cache/single-flight owners, safe URLs and retained identities implemented. | Live-provider parity and sleep/resume session. |
 | AC-15–23 | Singleton detached window, passive selection, independent map persistence, details, positions, observations and external links implemented. | Multi-display/DPI and assistive-technology run. |
 | AC-24–39, 44, 47 | Pre-filter cluster projection, shared native tokens, exact-Hz explicit actions, draft-only fallback, selected-radio fences, Direct TCI path, no QSO save, and lifecycle cleanup implemented. | Integrated packaged run plus physical Flex/Hamlib/Agent/TCI evidence where applicable. |
-| AC-40 | English/Italian, narrow responsive CSS, native keyboard controls, non-colour text status, reduced motion. | Human narrow-window/focus review. |
+| AC-40 | English/Italian, rendered narrow layout, native keyboard controls, detail focus entry/Escape restoration, non-colour text status, reduced motion. | Native-window assistive-technology and multi-display/DPI run. |
 | AC-41 | ADXO/425DXN routes and truthful per-source health implemented. | Representative production-provider comparison; fixture success is not full parity. |
 | AC-42 | Branch source and diff can be recorded at handoff. | Canonical-main version/build/install provenance after integration. |
 | AC-43 | Catalogue and observations are capped at 500; detail retains 15 and renders 8. | Measured realistic worst-case/long-session performance. |
