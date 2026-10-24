@@ -1,5 +1,73 @@
 # CQ WW SSB macOS reconciliation — 23 October 2026
 
+## 1.3.2 installed candidate addendum — 24 October 2026
+
+**READY WITH LIMITATIONS** for the requested CQ WW SSB 40 m workflow on
+Apple Silicon macOS. This is the frozen candidate. It supersedes 1.3.1 and
+closes the demonstrated contest-entry, worked-spot refresh, band-map rendering
+and FLEX spot-publication blockers without starting another parity batch.
+
+| Final gate | Concrete result |
+| --- | --- |
+| Canonical source | `0d3209e4fc6983050d59b3766459d8c82dba2156`, clean, committed and pushed to `origin/main` (`0 0` ahead/behind before packaging) |
+| Installed application | `/Applications/OM0RX-xLog.app`, version/build `1.3.2`; the old process was stopped and the running executable was verified from this exact path |
+| Embedded source receipt | `sourceCommit` exactly `0d3209e4fc6983050d59b3766459d8c82dba2156`; `sourceChanges: []`; receipt SHA-256 `cd33b38409c11a129bc267bdbf06e3dd969e13cd07c3379ea3a12909d5a6b432` |
+| Signature and identity | Developer ID deep/strict verification PASS for packaged and installed bundles; packaged and installed executable SHA-256 `68bf280bcadaf26d0b044201731dfe66a00eda65f2b0c1c87141f9d5d84dbded`; worker SHA-256 `fcdc90618ed2ca6b74f091cc2f853b4677744febca62c819c1eda4ade9327196` |
+| Packaged native acceptance | 35/35 PASS; `scope: integrated-local-ui`; `production_singleton: false`; `station_io: false`; report SHA-256 `7c0519e31d6b85ad738a5a839775fe0a7228f3454132c5d404db8fc11e923b44` |
+| Installed native acceptance | 35/35 PASS; `scope: integrated-local-ui`; `production_singleton: false`; `station_io: false`; report SHA-256 `64d5bd0963cb072a914f77ab91114ce2566221c90eabebbaeb5a4f4e41de7abd` |
+| Focused frontend regression | 361/361 affected CQ WW, detached-contest and Band Map tests PASS before review; final entry-queue/Wipe suite 161/161 PASS; TypeScript and production build PASS |
+| Native and FLEX regression | 26 focused Swift public-service/cluster tests PASS. Dedicated Remote Station Agent tests PASS for 40 m SSB to LSB, 20 m SSB to USB, green/red/blue/grey spot publication, post-log removal/republication and frontend-revision republish |
+| Independent review | Two review rounds found five concrete queue/cancellation/lockfile issues; all were corrected. The final narrow re-review returned no findings |
+| Rollback | `/Applications/OM0RX-xLog-previous-20261024T071349Z-57988.app`, signed version 1.3.1 with clean source receipt `3a534d57b92e8f1e52b9bc9038bae1c4361e6c42` |
+
+### Demonstrated fixes in 1.3.2
+
+- A newly logged callsign is classified as a dupe immediately. With **Show
+  worked** off, duplicate feed copies now disappear immediately from the Band
+  Map and Spots Map; with it on, the station remains visible in grey.
+- Contest spots preserve all four CQ WW states for radio publication: green
+  double multiplier, red single multiplier, blue valid QSO and grey
+  dupe/non-workable. CQ WW SSB is normalized to the mode FLEX expects: LSB
+  below 10 MHz and USB above 10 MHz.
+- Enter from Callsign, SNT, RCV or CQ Zone now coalesces to one pending commit
+  rather than dropping or duplicating clicks while the owner is busy. Wipe
+  cancels an unsent commit, resets immediately, and uses a generation/edit
+  fence so a new callsign typed while reconciliation finishes is not erased.
+- The 40 m configured phone segment is honoured even where the default band
+  plan labels an overlapping segment as data; custom 7050–7200-style limits
+  and Band Map resolution changes therefore remain effective.
+- Callsign lookup has a bounded fallback/retry path, including the reproduced
+  `LN8W` Norway/CQ 14/ITU 18 case, without repeatedly blanking unrelated
+  contest windows.
+
+The candidate was exercised without production-QSO edits and without radio
+tuning, RF, PTT, rotor or transmitter-audio actions. Normal Logging remains
+present and was not replaced by the contest lane.
+
+### Remaining operator-controlled checks and explicit limits
+
+- The application-side Remote Station Agent publication contract is verified,
+  but an actual coloured spot appearing on the physical FLEX/Maestro display
+  still requires the operator's live radio/session observation. An accepted
+  command or test-double receipt is not physical-device proof.
+- Live CAT frequency following, spot selection against the operator's active
+  radio, QRZ credential resolution, microphone routing, PTT and actual
+  transmitter audio were deliberately not exercised in this release pass.
+- Recorded voice remains separate: file presence, macro substitution, output
+  routing, PTT and transmitted audio are independent results. Voice remains
+  optional and does not block logging.
+
+### Cleanup and rollback
+
+The signed 1.3.1 bundle above is the single retained rollback. The superseded
+1.3.0 bundle was moved recoverably to
+`/Users/oliver/.Trash/OM0RX-xLog-previous-20261024T053837Z-80897.app`.
+Regenerated Swift, Rust/Tauri and frontend build outputs were removed after
+the installed bundle and rollback were verified; source, settings, evidence,
+logbook backups and contest data were not removed.
+
+No further Not1MM/N1MM parity or macro-expansion batch starts from this report.
+
 ## 1.3.1 installed candidate addendum — 24 October 2026
 
 **READY WITH LIMITATIONS** for the requested CQ WW SSB 40 m workflow on
