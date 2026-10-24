@@ -736,9 +736,12 @@ it("retains a manually entered CQ WW QSO and publishes it to Band Map and radio 
   const bandMap=surfaceOwner.current.projections["band-maps"];
   await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,
     workspaceGeneration,panelID:"band-maps",projectionRevision:bandMap.draftRevision,requestID:crypto.randomUUID(),
-    action:"spot_set_show_worked",params:{draftID:current.draftID,expectedDraftRevision:bandMap.draftRevision,showWorked:true}}));
+    // A passive radio/draft refresh may advance before this presentation-only preference reaches the owner.
+    action:"spot_set_show_worked",params:{draftID:current.draftID,expectedDraftRevision:bandMap.draftRevision-1,showWorked:true}}));
   await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"]).toMatchObject({showWorked:true,
     spots:[expect.objectContaining({id:"contest-heard:7125000:DL1AAA",contestDupe:true})]}));
+  await waitFor(()=>expect(JSON.parse(localStorage.getItem(contestSpotWorkflowStorageKey({operatingContext,
+    workspaceGeneration,sessionID:current.sessionID}))!)).toMatchObject({showWorked:true}));
   await waitFor(()=>expect(serviceRequest).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
     action:"replace",revision:2,spots:[expect.objectContaining({spot_id:"contest-heard:7125000:DL1AAA",dupe:true,
       multiplier_count:0,country_multiplier:false,zone_multiplier:false})]})));
@@ -835,6 +838,119 @@ it("keeps publishing live contest spots when an older full-list preview is overt
   expect(((latestPreview?.spots??[]) as {spotID:string}[]).map(spot=>spot.spotID)).not.toContain("spot-0");
 });
 
+it("finishes in-flight classification across passive draft edits and classifies only arriving spots",async()=>{
+  let current:any={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
+    supportedModes:["SSB"],supportedBands:["40m"]};
+  const setup=newContestSetup("OM0RX");setup.pluginID="cq_ww_ssb";setup.preferences.bands=["40m"];
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(setup));
+  const base=operationalRequest(()=>current,()=>3);let release:(()=>void)|undefined,previewCalls=0;
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    if(method==="contest_draft_apply"){
+      current={...current,revision:current.revision+1,fields:current.fields.map((field:any)=>({...field,
+        value:(params.fields as Record<string,string>)[String(field.id)]??field.value}))};
+      return{id:crypto.randomUUID(),ok:true,result:{projection:current,actions:[],messages:[]}};
+    }
+    const reply=await base(method,params);
+    if(method==="contest_spot_points_preview"&&++previewCalls===2)return new Promise(resolve=>{release=()=>resolve(reply);});
+    return reply;
+  }),serviceRequest=vi.fn(async(method:string,params:Record<string,unknown>={})=>method==="cluster_contest_radio_spots_publish"
+    ?{accepted:1,removed:0,unchanged:0,filtered:0,rejected:0,stale:false}:request(method,params));
+  const first=Array.from({length:33},(_,index)=>({id:`spot-${index}`,callsign:`DL1A${String(index).padStart(2,"0")}`,
+    frequencyKHz:7100+index,band:"40m",mode:"LSB",score:42}));
+  const props={request,serviceRequest,...workspaceProps,radioFrequencyHz:7_125_000};
+  const view=render(<Not1MMContestWorkspace {...props} spots={first as any}/>);await createContestThroughSetup();
+  await waitFor(()=>expect(release).toBeTypeOf("function"));
+  const entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,
+    action:"entry_set_text",params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,field:"callsign",value:"K1ABC"}}));
+  expect(previewCalls).toBe(2);
+  await act(async()=>release?.());
+  await waitFor(()=>expect(serviceRequest).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
+    revision:2,spots:expect.arrayContaining([expect.objectContaining({spot_id:"spot-32",points:3})])})));
+  const newest={id:"newest",callsign:"OK5D",frequencyKHz:7199,band:"40m",mode:"LSB",score:80};
+  view.rerender(<Not1MMContestWorkspace {...props} spots={[newest,...first] as any}/>);
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots.find((spot:any)=>spot.id==="newest"))
+    .toMatchObject({contestPoints:3,contestDupe:false}));
+  const last=request.mock.calls.filter(([method])=>method==="contest_spot_points_preview").at(-1)?.[1];
+  expect(last).toMatchObject({expectedRevision:2,spots:[expect.objectContaining({spotID:"newest"})]});
+});
+
+it("retains completed classifications when new spots supersede an in-flight list",async()=>{
+  const current=projection(),base=operationalRequest(()=>current,()=>3),releases:(()=>void)[]=[];
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const reply=await base(method,params);
+    return method==="contest_spot_points_preview"?new Promise(resolve=>releases.push(()=>resolve(reply))):reply;
+  });
+  const old={id:"old",callsign:"DL1ABC",frequencyKHz:14025,band:"20m",mode:"CW",score:42},
+    newest={...old,id:"newest",callsign:"OK5D",frequencyKHz:14026};
+  const view=render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={[old] as any}/>);
+  await createContestThroughSetup();await waitFor(()=>expect(releases).toHaveLength(1));
+  view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={[newest,old] as any}/>);
+  await waitFor(()=>expect(releases).toHaveLength(2));
+  await act(async()=>releases[0]());
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots.find((spot:any)=>spot.id==="old"))
+    .toMatchObject({contestPoints:3}));
+  expect(surfaceOwner.current.projections["band-maps"].spots.find((spot:any)=>spot.id==="newest").contestPoints).toBeNull();
+  await act(async()=>releases[1]());
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots.every((spot:any)=>spot.contestPoints===3)).toBe(true));
+});
+
+it("stops a superseded classification list before issuing its remaining batches",async()=>{
+  const current=projection(),base=operationalRequest(()=>current,()=>3);let release:(()=>void)|undefined,previews=0;
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const reply=await base(method,params);
+    if(method==="contest_spot_points_preview"&&++previews===1)return new Promise(resolve=>{release=()=>resolve(reply);});
+    return reply;
+  });
+  const spots=Array.from({length:33},(_,index)=>({id:`spot-${index}`,callsign:`DL1A${String(index).padStart(2,"0")}`,
+    frequencyKHz:14025+index,band:"20m",mode:"CW",score:42}));
+  const view=render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={spots as any}/>);
+  await createContestThroughSetup();await waitFor(()=>expect(release).toBeTypeOf("function"));
+  view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={[]}/>);
+  await act(async()=>release?.());
+  expect(previews).toBe(1);
+});
+
+it("renews an unchanged ready contest radio publication every minute",async()=>{
+  const original=window.setInterval.bind(window);let renew:(()=>void)|undefined;
+  const interval=vi.spyOn(window,"setInterval").mockImplementation(((handler:TimerHandler,timeout?:number,...args:any[])=>{
+    if(timeout===60_000&&typeof handler==="function")renew=handler as ()=>void;
+    return original(handler,timeout,...args);
+  }) as typeof window.setInterval);
+  try{
+    const current=projection(),request=operationalRequest(()=>current,()=>3);
+    const serviceRequest=vi.fn(async(method:string,params:Record<string,unknown>={})=>method==="cluster_contest_radio_spots_publish"
+      ?{accepted:1,removed:0,unchanged:0,filtered:0,rejected:0,stale:false}:request(method,params));
+    render(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps}
+      spots={[{id:"one",callsign:"DL1ABC",frequencyKHz:14025,band:"20m",mode:"CW",score:42}] as any}/>);
+    await createContestThroughSetup();
+    const publications=()=>serviceRequest.mock.calls.filter(([method])=>method==="cluster_contest_radio_spots_publish");
+    await waitFor(()=>expect(publications()).toHaveLength(1));expect(renew).toBeTypeOf("function");
+    await act(async()=>renew?.());
+    await waitFor(()=>expect(publications()).toHaveLength(2));
+    expect(publications()[1][1]).toEqual({...publications()[0][1],publication_sequence:2});
+  }finally{interval.mockRestore();}
+});
+
+it("isolates malformed cluster callsigns from classification batches and radio readiness",async()=>{
+  const current=projection(),base=operationalRequest(()=>current,()=>3);
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    if(method==="contest_spot_points_preview"&&(params.spots as {callsign:string}[]).some(spot=>!/^[A-Z0-9/]{3,32}$/.test(spot.callsign)))
+      throw new Error("Invalid spot points preview item");
+    return base(method,params);
+  }),serviceRequest=vi.fn(async(method:string,params:Record<string,unknown>={})=>method==="cluster_contest_radio_spots_publish"
+    ?{accepted:1,removed:0,unchanged:0,filtered:0,rejected:0,stale:false}:request(method,params));
+  render(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps}
+    spots={["ZA","DL-ABC","OK5D"].map((callsign,index)=>({id:`spot-${index}`,callsign,
+      frequencyKHz:14025+index,band:"20m",mode:"CW",score:42})) as any}/>);
+  await createContestThroughSetup();
+  await waitFor(()=>expect(serviceRequest).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
+    spots:[expect.objectContaining({callsign:"OK5D",points:3})]})));
+  expect(request.mock.calls.find(([method])=>method==="contest_spot_points_preview")?.[1]).toMatchObject({
+    spots:[expect.objectContaining({callsign:"OK5D"})]});
+  expect(surfaceOwner.current.projections["band-maps"].spots.find((spot:any)=>spot.callsign==="ZA").contestPoints).toBeNull();
+});
+
 it("clears contest radio spots when the active radio band is outside the configured contest bands",async()=>{
   const current:any={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
     supportedModes:["SSB"],supportedBands:["160m","80m","40m","20m","15m","10m"]};
@@ -850,13 +966,12 @@ it("clears contest radio spots when the active radio band is outside the configu
     action:"replace",configured_bands:["20m"],allowed_mode_groups:["phone"],spots:[]})));
 });
 
-it("retains the last spot classification until a newer draft revision preview swaps atomically",async()=>{
+it("retains the last spot classification until a QSO mutation preview swaps atomically",async()=>{
   let current=projection(),releasePreview:(()=>void)|undefined;
   const base=operationalRequest(()=>current,()=>current.revision===1?1:3);
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
-    if(method==="contest_draft_apply"){
-      current={...current,revision:current.revision+1,fields:current.fields.map(field=>({...field,
-        value:(params.fields as Record<string,string>)[String(field.id)]??field.value}))};
+    if(method==="contest_qso_commit"){
+      current={...current,revision:current.revision+1};
       return{id:crypto.randomUUID(),ok:true,result:{projection:current,actions:[],messages:[]}};
     }
     if(method==="contest_spot_points_preview"&&current.revision===2)return new Promise(resolve=>{
@@ -870,7 +985,7 @@ it("retains the last spot classification until a newer draft revision preview sw
   await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots[0].contestPoints).toBe(1));
   const entry=surfaceOwner.current.projections["active-qso"];
   await act(async()=>surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,
-    action:"entry_set_text",params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,field:"callsign",value:"K1ABC"}}));
+    action:"entry_commit",params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision}}));
   await waitFor(()=>expect(releasePreview).toBeTypeOf("function"));
   expect(surfaceOwner.current.projections["band-maps"].spots[0].contestPoints).toBe(1);
   await act(async()=>releasePreview?.());

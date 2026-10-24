@@ -126,7 +126,7 @@ type StatisticsState = { sessionID: string; revision: number } & (
 type AuxiliaryLane = "log" | "score" | "rates";
 type Projection = {
   sessionID: string; engine: "not1mm-python"; pluginID: string; pluginName?: string; reservedSerial?: number | null; allocatedSerialFieldID?: string | null; sourceRevision: string; referenceID: string;
-  workspaceGeneration: string; revision: number; draftID: string; fields: Field[]; frequencyHz: number; mode: string; band: number;
+  workspaceGeneration: string; revision: number; spotScoreRevision?: number; draftID: string; fields: Field[]; frequencyHz: number; mode: string; band: number;
   focus: string; tabNext: Record<string, string>; tabPrevious: Record<string, string>; advanceOnSpace?: string[]; run: boolean;
   functionKeys: Array<{ id: string; highlighted: boolean; label?: string; template?: string }>; dupe: boolean; dupeExplanation?: string; countryResolved: boolean;
   matrixTrackers?: Array<"countries" | "zones">;
@@ -535,6 +535,13 @@ export function localContestHeardSpot({ callsign, frequencyHz, mode, stationCall
     aggregateSpotters:stationCall?[stationCall]:[], source:"Contest S&P", statusHex:"", bandHex:"", modeHex:"", marked:true };
 }
 
+function contestSpotPreviewCandidate(spot:ContestSurfaceSpot){
+  const mode=canonicalContestSurfaceMode(spot.mode),frequencyHz=Math.round(spot.frequencyKHz*1_000),
+    callsign=spot.callsign.trim().toUpperCase();
+  if(!mode||!/^[A-Z0-9/]{3,32}$/.test(callsign)||!Number.isSafeInteger(frequencyHz)||frequencyHz<100_000||frequencyHz>100_000_000_000)return null;
+  return {spotID:spot.id,callsign,frequencyHz,mode,inputSignature:`${callsign}\u001f${frequencyHz}\u001f${mode}`};
+}
+
 type SpotPointsPreview = { sessionID:string; workspaceGeneration:string; revision:number;
   spots:{spotID:string;points:number|null;dupe:boolean|null;multiplierCount:number|null;countryMultiplier:boolean|null;zoneMultiplier:boolean|null;
     reason:"unresolved_callsign"|"unsupported_band"|"exchange_required"|"scoring_unavailable"|null}[] };
@@ -810,6 +817,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const [spotPointRetryTick,setSpotPointRetryTick]=useState(0);
   const spotPointPreviewRef=useRef(spotPointPreview);spotPointPreviewRef.current=spotPointPreview;
   const spotPointIdentity=projection?`${projection.sessionID}/${projection.workspaceGeneration}`:"";
+  const spotScoreRevision=projection?.spotScoreRevision??projection?.revision??0;
   const spotWorkflowScope=useMemo<SpotWorkflowScope>(()=>({operatingContext,workspaceGeneration,
     sessionID:projection?.sessionID??""}),[operatingContext,workspaceGeneration,projection?.sessionID]);
   const authoritativeSpotIDs=useMemo(()=>new Set(classifiedSharedSpots.map(spot=>spot.id)),[classifiedSharedSpots]);
@@ -851,49 +859,64 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     [visibleWorkflowSpots,currentEntryMapSpot]);
   const visibleSpotSignature=useMemo(()=>previewWorkflowSpots.map(spot=>
     `${spot.id}\u001f${spot.callsign}\u001f${spot.frequencyKHz}\u001f${spot.mode}`).join("\u001e"),[previewWorkflowSpots]);
+  const previewCandidates=useMemo(()=>previewWorkflowSpots.flatMap(spot=>{
+    const candidate=contestSpotPreviewCandidate(spot);return candidate?[candidate]:[];
+  }),[visibleSpotSignature]);
+  const previewCandidatesRef=useRef(previewCandidates);previewCandidatesRef.current=previewCandidates;
   useEffect(()=>{
-    if(!projection||!previewWorkflowSpots.length){setSpotPointPreview({identity:spotPointIdentity,revision:projection?.revision??0,rows:new Map()});return;}
-    const candidates=previewWorkflowSpots.flatMap(spot=>{
-      const mode=canonicalContestSurfaceMode(spot.mode),frequencyHz=Math.round(spot.frequencyKHz*1_000);
-      return mode&&Number.isSafeInteger(frequencyHz)?[{spotID:spot.id,callsign:spot.callsign,frequencyHz,mode,
-        inputSignature:`${spot.callsign.trim().toUpperCase()}\u001f${frequencyHz}\u001f${mode}`}]:[];
-    });
+    if(!projection||!previewWorkflowSpots.length){setSpotPointPreview({identity:spotPointIdentity,revision:spotScoreRevision,rows:new Map()});return;}
+    const candidates=previewCandidates;
     const candidateSignatures=new Map(candidates.map(candidate=>[candidate.spotID,candidate.inputSignature]));
     let current=true,retryTimer:number|undefined;(async()=>{const previous=spotPointPreviewRef.current,
       rows=new Map<string,{inputSignature:string;points:number|null;dupe:boolean|null;multiplierCount:number|null;countryMultiplier:boolean|null;zoneMultiplier:boolean|null}>(
-        previous.identity===spotPointIdentity&&previous.revision===projection.revision
+        previous.identity===spotPointIdentity&&previous.revision===spotScoreRevision
           ?[...previous.rows].filter(([id,row])=>candidateSignatures.get(id)===row.inputSignature):[]),
       pending=candidates.filter(candidate=>!rows.has(candidate.spotID));
-      if(!pending.length){if(current)setSpotPointPreview({identity:spotPointIdentity,revision:projection.revision,rows:new Map(rows)});return;}
+      if(!pending.length){if(current)setSpotPointPreview({identity:spotPointIdentity,revision:spotScoreRevision,rows:new Map(rows)});return;}
       for(let offset=0;offset<pending.length;offset+=32){
+        // A superseded list must not keep filling the serialized host queue.
+        if(!current)return;
+        const active=projectionRef.current;
+        if(!active||active.sessionID!==projection.sessionID||active.workspaceGeneration!==projection.workspaceGeneration||
+            (active.spotScoreRevision??active.revision)!==spotScoreRevision)return;
         const batch=pending.slice(offset,offset+32);
-        const value=unwrap<unknown>(await request("contest_spot_points_preview",{sessionID:projection.sessionID,
-          workspaceGeneration:projection.workspaceGeneration,expectedRevision:projection.revision,
+        const value=unwrap<unknown>(await request("contest_spot_points_preview",{sessionID:active.sessionID,
+          workspaceGeneration:active.workspaceGeneration,expectedRevision:active.revision,
           spots:batch.map(({inputSignature:_,...candidate})=>candidate)}));
-        if(!validSpotPointsPreview(value,projection.sessionID,projection.workspaceGeneration,projection.revision))
+        const observed=projectionRef.current;
+        if(!observed||observed.sessionID!==active.sessionID||observed.workspaceGeneration!==active.workspaceGeneration||
+            (observed.spotScoreRevision??observed.revision)!==spotScoreRevision)return;
+        if(!validSpotPointsPreview(value,active.sessionID,active.workspaceGeneration,active.revision))
           throw new Error("The contest host returned an invalid spot points preview.");
         for(const item of value.spots){const inputSignature=candidateSignatures.get(item.spotID);if(inputSignature)rows.set(item.spotID,{inputSignature,
           points:item.points,dupe:item.dupe,multiplierCount:item.multiplierCount,
           countryMultiplier:item.countryMultiplier,zoneMultiplier:item.zoneMultiplier});}
-        if(current)setSpotPointPreview({identity:spotPointIdentity,
-          revision:projection.revision,rows:new Map(rows)});
+        // A newly arrived spot can supersede this list while its batch runs.
+        // Retain completed rows that still describe current candidates and the
+        // same scoring basis; never let an obsolete list replace newer rows.
+        setSpotPointPreview(previous=>{
+          const liveInputs=new Map(previewCandidatesRef.current.map(candidate=>[candidate.spotID,candidate.inputSignature]));
+          const merged=new Map(previous.identity===spotPointIdentity&&previous.revision===spotScoreRevision
+            ?[...previous.rows].filter(([id,row])=>liveInputs.get(id)===row.inputSignature):[]);
+          for(const [id,row] of rows)if(liveInputs.get(id)===row.inputSignature)merged.set(id,row);
+          return {identity:spotPointIdentity,revision:spotScoreRevision,rows:merged};
+        });
       }
-    })().catch(()=>{if(current){setSpotPointPreview(previous=>previous.identity===spotPointIdentity?previous:{identity:spotPointIdentity,revision:projection.revision,rows:new Map()});
+    })().catch(()=>{if(current){setSpotPointPreview(previous=>previous.identity===spotPointIdentity?previous:{identity:spotPointIdentity,revision:spotScoreRevision,rows:new Map()});
       retryTimer=window.setTimeout(()=>setSpotPointRetryTick(value=>value+1),1_000);}});return()=>{current=false;if(retryTimer!==undefined)window.clearTimeout(retryTimer);};
-  },[projection?.sessionID,projection?.workspaceGeneration,projection?.revision,request,visibleSpotSignature,spotPointIdentity,spotPointRetryTick]);
+  },[projection?.sessionID,projection?.workspaceGeneration,spotScoreRevision,request,visibleSpotSignature,spotPointIdentity,spotPointRetryTick]);
   const contestRadioPreviewComplete=Boolean(projection&&spotPointPreview.identity===spotPointIdentity&&
-    spotPointPreview.revision===projection.revision&&visibleWorkflowSpots.every(spot=>{
-      const mode=canonicalContestSurfaceMode(spot.mode),frequencyHz=Math.round(spot.frequencyKHz*1_000),row=spotPointPreview.rows.get(spot.id);
-      return mode!==null&&Number.isSafeInteger(frequencyHz)&&row?.inputSignature===
-        `${spot.callsign.trim().toUpperCase()}\u001f${frequencyHz}\u001f${mode}`;
+    spotPointPreview.revision===spotScoreRevision&&visibleWorkflowSpots.every(spot=>{
+      const candidate=contestSpotPreviewCandidate(spot),row=spotPointPreview.rows.get(spot.id);
+      return candidate===null||row?.inputSignature===candidate.inputSignature;
     }));
   const contestRadioPublication=useMemo(()=>{
     if(!projection||!contestRadioPreviewComplete||spotPointPreview.rows.size===0)return null;
     const activeBand=bandLabels[String(projection.band)]??String(projection.band),activeBandConfigured=configuredBands.includes(activeBand),
       radioBands=activeBandConfigured?[activeBand]:configuredBands;
     const rows=(activeBandConfigured?visibleWorkflowSpots:[]).filter(spot=>radioBands.includes(spot.band)).slice(0,500).flatMap(spot=>{
-      const preview=spotPointPreview.rows.get(spot.id),frequencyHz=Math.round(spot.frequencyKHz*1_000);
-      if(!preview||!Number.isSafeInteger(frequencyHz)||preview.dupe===true&&!effectiveSpotWorkflow.showWorked)return [];
+      const preview=spotPointPreview.rows.get(spot.id),candidate=contestSpotPreviewCandidate(spot),frequencyHz=Math.round(spot.frequencyKHz*1_000);
+      if(!candidate||!preview||preview.inputSignature!==candidate.inputSignature||preview.dupe===true&&!effectiveSpotWorkflow.showWorked)return [];
       return [{spot_id:spot.id,callsign:spot.callsign,frequency_hz:frequencyHz,band:spot.band,
         mode:canonicalContestSurfaceMode(spot.mode)??spot.mode,spotter:spot.spotter,comment:spot.comment,
         timestamp:spot.receivedAt,points:preview.points,dupe:preview.dupe,multiplier_count:preview.multiplierCount,
@@ -930,6 +953,14 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       }
     });
   };
+  useEffect(()=>{
+    if(contestingTest)return;
+    const timer=window.setInterval(()=>{
+      contestRadioPublicationRef.current.key="";
+      setContestRadioRetryTick(value=>value+1);
+    },60_000);
+    return()=>window.clearInterval(timer);
+  },[contestingTest]);
   useEffect(()=>{
     const state=contestRadioPublicationRef.current;
     if(contestingTest){state.key="";state.identity="";state.base=null;return;}
@@ -1296,7 +1327,16 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const mutate = async (method: string, base: Projection, extra: Record<string, unknown> = {}) => {
     const operationID = crypto.randomUUID();
     const payload = { sessionID: base.sessionID, operationID, expectedRevision: base.revision, draftID: base.draftID, ...extra };
-    try { return await result<MutationResult>(method, payload); }
+    try {
+      const changed=await result<MutationResult>(method,payload),next=changed.projection;
+      // These exact consecutive local edits cannot change any candidate's log
+      // score. Unknown/external revisions, contacts and setup always invalidate.
+      if(["contest_draft_apply","contest_focus","contest_run_state"].includes(method)&&
+          next.sessionID===base.sessionID&&next.workspaceGeneration===base.workspaceGeneration&&next.revision===base.revision+1&&
+          next.pluginID===base.pluginID&&next.referenceID===base.referenceID&&canonicalJSON(next.score)===canonicalJSON(base.score))
+        return {...changed,projection:{...next,spotScoreRevision:base.spotScoreRevision??base.revision}};
+      return changed;
+    }
     catch (cause) {
       const durableMethods = new Set<ContestMutation["method"]>(["contest_draft_apply", "contest_focus", "contest_qso_commit", "contest_qso_correct", "contest_qso_delete", "contest_recalculate"]);
       const uncertain = !(cause instanceof ContestServerError) || cause.outcome === "uncertain";
@@ -2232,7 +2272,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const selectedCandidate=spotCursorRef.current.context===spotSelectionContext?spotCursorRef.current.spotID:
       selectedSpotId==null?null:String(selectedSpotId);
     const selectedSpotID=selectedCandidate!==null&&visibleWorkflowSpots.some(spot=>spot.id===selectedCandidate)?selectedCandidate:null;
-    const classifiedSurfaceSpot=(spot:ContestSurfaceSpot)=>{const preview=spotPointPreview.identity===spotPointIdentity?spotPointPreview.rows.get(spot.id):undefined;return{...spot,
+    const classifiedSurfaceSpot=(spot:ContestSurfaceSpot)=>{const candidate=contestSpotPreviewCandidate(spot),
+      cached=spotPointPreview.identity===spotPointIdentity?spotPointPreview.rows.get(spot.id):undefined,
+      preview=candidate&&cached?.inputSignature===candidate.inputSignature?cached:undefined;return{...spot,
       mode:canonicalContestSurfaceMode(spot.mode)??spot.mode,contestPoints:preview?.points??spot.contestPoints??null,
       contestDupe:preview?.dupe??spot.contestDupe??null,contestMultiplierCount:preview?.multiplierCount??spot.contestMultiplierCount??null,
       contestCountryMultiplier:preview?.countryMultiplier??spot.contestCountryMultiplier??null,
@@ -2352,7 +2394,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     if (busyRef.current || retiring) throw new Error("The contest owner is busy.");
     if (action.action.startsWith("entry_") || action.action.startsWith("assistance_") || action.action.startsWith("spot_")) {
       const rebasablePresentationAction = ["entry_set_text","entry_set_exchange","entry_set_frequency_text","entry_set_band","entry_set_mode",
-        "assistance_query","assistance_download","assistance_refresh"].includes(action.action);
+        "assistance_query","assistance_download","assistance_refresh","spot_set_marked_only","spot_set_show_worked"].includes(action.action);
       if (!("draftID" in action.params) || action.params.draftID !== active.draftID ||
           !rebasablePresentationAction && action.params.expectedDraftRevision !== active.revision)
         throw new Error("The contest entry changed before this action reached the owner.");
