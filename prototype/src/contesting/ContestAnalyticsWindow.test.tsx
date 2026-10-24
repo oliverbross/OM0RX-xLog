@@ -18,6 +18,42 @@ beforeEach(()=>{vi.stubGlobal("Worker",AnalysisWorker);native.invoke.mockReset()
 afterEach(()=>{cleanup();vi.unstubAllGlobals();vi.restoreAllMocks();vi.useRealTimers();});
 const snapshot={meta:analyticsFixtureMeta,rows:analyticsFixtureRows};
 describe("Contest Analytics interaction",()=>{
+  it("opens native Print/PDF once and blocks overlapping exports while pending",async()=>{
+    let finish!:()=>void;
+    native.invoke.mockImplementation(()=>new Promise<void>(resolve=>{finish=resolve;}));
+    const browserPrint=vi.spyOn(window,"print").mockImplementation(()=>{});
+    render(<ContestAnalyticsWindow initialSnapshot={snapshot}/>);
+    fireEvent.click(await screen.findByRole("button",{name:/Contacts in view 4/}));
+    const print=screen.getByRole("button",{name:"Print / PDF"}),report=screen.getByRole("button",{name:"Export report"}),csv=screen.getByRole("button",{name:"CSV"});
+    fireEvent.click(print);fireEvent.click(print);fireEvent.click(report);fireEvent.click(csv);
+    expect(native.invoke).toHaveBeenCalledExactlyOnceWith("contest_analytics_print");
+    expect(browserPrint).not.toHaveBeenCalled();
+    expect((print as HTMLButtonElement).disabled).toBe(true);
+    expect((report as HTMLButtonElement).disabled).toBe(true);
+    expect((csv as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText("Opening print dialog…")).toBeTruthy();
+    await act(async()=>finish());
+    expect(screen.getByText("Print dialog requested.")).toBeTruthy();
+    expect((print as HTMLButtonElement).disabled).toBe(false);
+  });
+  it("reports native print errors and allows retry",async()=>{
+    native.invoke.mockRejectedValueOnce("Print service unavailable").mockResolvedValue(undefined);
+    render(<ContestAnalyticsWindow initialSnapshot={snapshot}/>);
+    await screen.findByRole("button",{name:/Contacts in view 4/});
+    fireEvent.click(screen.getByRole("button",{name:"Print / PDF"}));
+    expect((await screen.findByRole("alert")).textContent).toBe("Print failed: Print service unavailable");
+    fireEvent.click(screen.getByRole("button",{name:"Print / PDF"}));
+    await screen.findByText("Print dialog requested.");expect(screen.queryByRole("alert")).toBeNull();
+  });
+  it("uses window.print only in browser previews",async()=>{
+    native.isTauri.mockReturnValue(false);
+    const print=vi.spyOn(window,"print").mockImplementation(()=>{});
+    render(<ContestAnalyticsWindow initialSnapshot={snapshot}/>);
+    await screen.findByRole("button",{name:/Contacts in view 4/});
+    fireEvent.click(screen.getByRole("button",{name:"Print / PDF"}));
+    await screen.findByText("Print dialog requested.");
+    expect(print).toHaveBeenCalledOnce();expect(native.invoke).not.toHaveBeenCalled();
+  });
   it("saves JSON and displayed CSV through the native chooser without browser downloads",async()=>{
     native.invoke.mockResolvedValue({saved:true,cancelled:false});
     const browserDownload=vi.spyOn(HTMLAnchorElement.prototype,"click");

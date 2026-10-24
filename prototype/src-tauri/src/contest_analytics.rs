@@ -104,6 +104,21 @@ pub async fn contest_analytics_export(window: tauri::WebviewWindow, filename: St
     }).await.map_err(|_| "Analytics export task failed.".to_string())?
 }
 
+fn dispatch_print(label: &str, exiting: bool, print: impl FnOnce() -> Result<(), String>) -> Result<(), String> {
+    if label != WINDOW { return Err("Only Analytics can print the analytical view.".into()); }
+    if exiting { return Err("Analytics printing is unavailable during shutdown.".into()); }
+    print()
+}
+
+#[tauri::command]
+pub async fn contest_analytics_print(window: tauri::WebviewWindow) -> Result<(), String> {
+    // WKWebView does not present a dialog for JavaScript window.print(). Tauri's
+    // native print API dispatches the WKWebView NSPrintOperation on macOS.
+    // Its return value confirms dispatch, not printing or PDF save completion.
+    dispatch_print(window.label(), crate::APP_EXITING.load(Ordering::Acquire), ||
+        window.print().map_err(|_| "The Analytics print dialog could not be opened.".to_string()))
+}
+
 fn validate(label: &str, params: &Value) -> Result<(), String> {
     if label != WINDOW { return Err("Open Contest → Analytics to analyze the active contest.".into()); }
     let object = params.as_object().ok_or("Invalid analytics parameters.")?;
@@ -152,6 +167,21 @@ pub async fn contest_analytics_read(window: tauri::WebviewWindow, params: Value,
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn analytics_print_is_window_scoped_and_preserves_dispatch_errors() {
+        use std::cell::Cell;
+        let calls = Cell::new(0);
+        let print = || { calls.set(calls.get() + 1); Ok(()) };
+        for label in ["main", "contest-setup", "contest-log-review", "unknown"] {
+            assert!(dispatch_print(label, false, print).is_err());
+        }
+        assert!(dispatch_print(WINDOW, true, print).is_err());
+        assert_eq!(calls.get(), 0);
+        dispatch_print(WINDOW, false, print).unwrap();
+        assert_eq!(calls.get(), 1);
+        assert_eq!(dispatch_print(WINDOW, false, || Err("print failed".into())).unwrap_err(), "print failed");
+    }
+
     #[test]
     fn analytics_only_accepts_its_own_bounded_copy_reads() {
         assert!(validate(WINDOW, &json!({"action":"prepare"})).is_ok());

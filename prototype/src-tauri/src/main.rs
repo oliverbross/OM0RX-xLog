@@ -3980,6 +3980,7 @@ fn main() {
             contest_log_review::contest_log_review_read,
             contest_analytics::contest_analytics_read,
             contest_analytics::contest_analytics_export,
+            contest_analytics::contest_analytics_print,
             contest_log_review::contest_log_review_open_log,
             contest_log_transfer::contest_log_transfer_context, contest_log_transfer::contest_log_transfer_request,
             contest_log_transfer::contest_legacy_choose_preview, contest_log_transfer::contest_legacy_import,
