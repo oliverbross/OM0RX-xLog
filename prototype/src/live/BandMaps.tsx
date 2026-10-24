@@ -599,6 +599,10 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
         hidden={index < firstBand || index >= firstBand + capacity} modeSettings={activeFocusedBand ? { modes, availableModes: allowedContestModes, setModes } : undefined} contestPresentation={contestPresentation} contestBandPlan={contestBandPlan} />)}
     </div>
     <footer className="band-maps-quick-controls" aria-label="Band map view controls">
+      {contestPresentation&&<div className="contest-band-map-legend" aria-label="Contest spot colors">
+        <span className="is-double">Double multiplier</span><span className="is-single">Single multiplier</span>
+        <span className="is-qso">Valid QSO</span><span className="is-dupe">Dupe / non-workable</span>
+      </div>}
       {activeFocusedBand && typeof observedReceiveBandwidthHz === "number" && Number.isFinite(observedReceiveBandwidthHz) && observedReceiveBandwidthHz > 0 &&
         <output aria-label="Observed receive-filter bandwidth">RX filter {new Intl.NumberFormat("en-US").format(observedReceiveBandwidthHz)} Hz</output>}
       {activeFocusedBand && <label>Band<select aria-label="Band" value={activeFocusedBand} onChange={event => onFocusedBandChange ? onFocusedBandChange(event.target.value) : setContestBand(event.target.value)}>{availableContestBands.map(band => <option key={band}>{band}</option>)}</select></label>}

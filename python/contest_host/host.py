@@ -1422,10 +1422,8 @@ class Host:
                 require(params["referenceID"] == state["reference"]["id"],
                         "The contest CTY reference differs from this session", "reference_mismatch")
                 additions = self.countries(deepcopy(params["countries"]))
-                for call, country in additions.items():
-                    current = state["reference"]["countries"].get(call)
-                    require(current is None or current == country,
-                            "Pinned country resolution changed", "reference_conflict")
+                additions = {call: country for call, country in additions.items()
+                             if call not in state["reference"]["countries"]}
             store.conn.execute("BEGIN")
             try:
                 current = store.state(session_id)
@@ -2204,9 +2202,10 @@ class Host:
                 legacy_summary = self.import_legacy(store, state, params)
             desk = Desk(store, state, self.commit)
             if method == "draft_apply":
+                previous_call = desk.callsign.text().strip().upper()
                 self.apply_fields(desk, params)
-                self.prefill(desk)
                 self.clear_received_fields_after_vfo_change(desk, params)
+                self.prefill(desk, reset_cq_ww_zone=(desk.callsign.text().strip().upper() != previous_call))
             elif method == "focus":
                 require(params.get("field") in INPUTS, "Unknown field")
                 desk.current_widget = params["field"]
@@ -3009,8 +3008,11 @@ class Host:
             additions = self.countries(deepcopy(params["countries"]))
             current = desk.state["reference"]["countries"]
             for call, country in additions.items():
-                require(call not in current or current[call] == country, "Pinned country resolution changed", "reference_conflict")
-            current.update(additions)
+                # The session reference is immutable once a call is pinned. A
+                # newer live resolver may disagree during a long contest, but
+                # that must not block draft updates or hide authoritative dupes.
+                if call not in current:
+                    current[call] = country
         fields = params.get("fields", {})
         require(isinstance(fields, dict) and set(fields) <= set(INPUTS), "Unknown draft field")
         serial_field = "sent" if desk.state["pluginID"] in SENT_FIELD_SERIAL_PLUGINS else "other_1"
@@ -3036,10 +3038,15 @@ class Host:
                     getattr(desk, serial_field).setText(reserved_sent_exchange(desk.state, desk.current_sn))
 
     @staticmethod
-    def prefill(desk):
+    def prefill(desk, reset_cq_ww_zone=False):
         country = desk.cty_lookup(desk.callsign.text())
         zone_kind = "itu" if desk.state["pluginID"] == "iaru_hf" else "cq"
         desk.contact["ZN"] = next(iter(country.values()))[zone_kind] if country else ""
+        if reset_cq_ww_zone and desk.state["pluginID"] == "cq_ww_ssb":
+            # A new callsign owns a new received exchange. The pinned plugin only
+            # fills an empty field, so explicitly discard the preceding call's
+            # zone before its normal prefill/history sequence runs.
+            desk.other_2.setText(str(desk.contact["ZN"]))
         if desk.state["pluginID"] == "trans_tasman":
             desk.contact["Band"] = desk.contest_band(desk.state["draft"]["frequencyHz"])
         desk.contest.prefill(desk)
@@ -3061,6 +3068,12 @@ class Host:
                                  (desk.other_1, desk.field3), (desk.other_2, desk.field4)):
             if container.visible and field.enabled and not field.read_only:
                 field.setText("")
+        spotted = params.get("observedSpotCallsign", "")
+        require(isinstance(spotted, str) and (not spotted or
+                re.fullmatch(r"[A-Z0-9/]{3,32}", spotted) is not None),
+                "Observed spot callsign is invalid")
+        if spotted:
+            desk.callsign.setText(spotted)
 
     @staticmethod
     def validate_exchange(desk, fields):

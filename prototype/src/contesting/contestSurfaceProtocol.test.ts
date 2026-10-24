@@ -114,6 +114,10 @@ const valid = [
   { panelID: "logbook", action: "log_export_cabrillo", params: {} },
   { panelID: "logbook", action: "log_export_adif", params: {} },
   { panelID: "logbook", action: "log_export_edi", params: {} },
+  { panelID: "logbook", action: "log_import_adif", params: { sourceName:"n1mm.adi", records:[{
+    qsoID:"11111111-1111-4111-8111-111111111111",timestamp:"2026-10-24 01:02:03",frequencyHz:7_175_000,mode:"SSB",
+    fields:{callsign:"LZ9W",sent:"59",receive:"59",other_1:"15",other_2:"20"},
+  }] } },
   { panelID: "logbook", action: "log_recalculate", params: { expectedSessionRevision: 6 } },
   { panelID: "logbook", action: "log_edit_begin", params: qso },
   { panelID: "logbook", action: "log_edit_begin_delete", params: qso },

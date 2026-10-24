@@ -34,6 +34,7 @@ export type ContestSurfaceAction =
   | { action: "assistance_download" | "assistance_refresh"; params: DraftRevision }
   | { action: "assistance_select"; params: DraftRevision & { kind: "scp" | "history" | "log" | "cluster"; candidateID: string } }
   | { action: "log_export_cabrillo" | "log_export_adif" | "log_export_edi"; params: Record<string, never> }
+  | { action: "log_import_adif"; params: { sourceName: string; records: ContestADIFImportRecord[] } }
   | { action: "log_recalculate"; params: { expectedSessionRevision: Revision } }
   | { action: "log_page"; params: { offset: number; limit: number } }
   | { action: "log_edit_begin" | "log_edit_begin_delete" | "log_edit_cancel"; params: { qsoID: string } }
@@ -48,6 +49,9 @@ export type ContestSurfaceAction =
   | { action: "score_configure"; params: { service: "hamscore" | "contestonlinescore"; username: string;
       password: string; intervalMinutes: number; enabled: boolean } }
   | { action: "score_send_now"; params: Record<string, never> };
+
+export type ContestADIFImportRecord = { qsoID: string; timestamp: string; frequencyHz: number; mode: "SSB";
+  fields: { callsign: string; sent: string; receive: string; other_1: string; other_2: string } };
 
 export type ContestSurfaceActionEnvelope = ContestSurfaceAction & {
   operatingContext: string;
@@ -604,6 +608,12 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "assistance_select") return draft(params, ["kind", "candidateID"]) &&
     oneOf(params.kind, ["scp", "history", "log", "cluster"]) && text(params.candidateID, 160);
   if (action === "log_export_cabrillo" || action === "log_export_adif" || action === "log_export_edi") return exact(params, []);
+  if (action === "log_import_adif") return exact(params, ["sourceName", "records"]) && text(params.sourceName, 255) &&
+    Array.isArray(params.records) && params.records.length > 0 && params.records.length <= 20 && params.records.every(item =>
+      record(item) && exact(item, ["qsoID", "timestamp", "frequencyHz", "mode", "fields"]) && validContestSurfaceUUID(item.qsoID) &&
+      text(item.timestamp, 19) && uint(item.frequencyHz, 100_000_000_000) && item.mode === "SSB" && record(item.fields) &&
+      exact(item.fields, ["callsign", "sent", "receive", "other_1", "other_2"]) && text(item.fields.callsign, 32) &&
+      text(item.fields.sent, 16) && text(item.fields.receive, 16) && text(item.fields.other_1, 32) && text(item.fields.other_2, 16));
   if (action === "log_recalculate") return exact(params, ["expectedSessionRevision"]) && uint(params.expectedSessionRevision);
   if (action === "log_page") return exact(params, ["offset", "limit"]) && uint(params.offset, 1_000_000) &&
     uint(params.limit, 20) && (params.limit as number) > 0;

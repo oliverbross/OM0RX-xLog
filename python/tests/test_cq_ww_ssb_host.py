@@ -40,6 +40,10 @@ class CQWWSSBHostTests(unittest.TestCase):
                 **deepcopy(fixtures.CTY),
                 "OM0A": {"entity": "Slovak Republic", "continent": "EU", "cq": 15,
                          "itu": 28, "primary_pfx": "OM"},
+                "LZ9W": {"entity": "Bulgaria", "continent": "EU", "cq": 20,
+                          "itu": 28, "primary_pfx": "LZ"},
+                "ED5D": {"entity": "Spain", "continent": "EU", "cq": 14,
+                          "itu": 37, "primary_pfx": "EA"},
             }},
         }
         self.call("session_create", self.create)
@@ -132,6 +136,50 @@ class CQWWSSBHostTests(unittest.TestCase):
         overridden = self.mutate("draft_apply", fields={"other_2": "14"})["projection"]
         overridden_fields = {field["id"]: field["value"] for field in overridden["fields"]}
         self.assertEqual(overridden_fields["other_2"], "14")
+
+        changed_call = self.mutate("draft_apply", fields={"callsign": "LZ9W", "other_2": "14"})["projection"]
+        changed_fields = {field["id"]: field["value"] for field in changed_call["fields"]}
+        self.assertEqual(changed_fields["other_2"], "20")
+
+    def test_pinned_reference_disagreement_does_not_hide_an_authoritative_band_dupe(self):
+        self.log("ED5D", "14", frequency=7145000)
+        changed = self.mutate(
+            "draft_apply", frequencyHz=7097200,
+            fields={"callsign": "ED5D", "other_2": "14"},
+            referenceID="test-cty-v1",
+            countries={"ED5D": {"entity": "Resolver changed Spain", "continent": "EU", "cq": 14,
+                                  "itu": 37, "primary_pfx": "EA"}},
+        )["projection"]
+        self.assertTrue(changed["dupe"])
+        self.assertEqual(changed["callContext"]["country"], "Spain")
+        preview = self.read(
+            "spot_points_preview", workspaceGeneration=self.workspace, expectedRevision=self.revision,
+            referenceID="test-cty-v1",
+            countries={"ED5D": {"entity": "Another resolver value", "continent": "EU", "cq": 14,
+                                  "itu": 37, "primary_pfx": "EA"}},
+            spots=[{"spotID": "ed5d", "callsign": "ED5D", "frequencyHz": 7097200, "mode": "SSB"}],
+        )
+        self.assertTrue(preview["spots"][0]["dupe"])
+
+    def test_observed_vfo_change_clears_departed_call_and_loads_nearby_spot(self):
+        setup = self.read("setup_get")["setup"]
+        setup["preferences"]["clearOnVFOChange"] = True
+        self.mutate("setup_save", setup=setup)
+        self.mutate("draft_apply", fields={"callsign": "OM0A", "other_2": "15"})
+
+        tuned = self.mutate(
+            "draft_apply", frequencyHz=7125000, observedVFOChange=True,
+            observedSpotCallsign="LZ9W", fields={"callsign": "OM0A", "other_2": "15"},
+        )["projection"]
+        tuned_fields = {field["id"]: field["value"] for field in tuned["fields"]}
+        self.assertEqual((tuned_fields["callsign"], tuned_fields["other_2"]), ("LZ9W", "20"))
+
+        departed = self.mutate(
+            "draft_apply", frequencyHz=7127000, observedVFOChange=True,
+            fields={"callsign": "LZ9W", "other_2": "20"},
+        )["projection"]
+        departed_fields = {field["id"]: field["value"] for field in departed["fields"]}
+        self.assertEqual((departed_fields["callsign"], departed_fields["other_2"]), ("", ""))
 
     def test_original_scoring_country_zone_multipliers_and_band_dupes(self):
         self.log()

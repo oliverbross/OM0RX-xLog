@@ -4,7 +4,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import userEvent from "@testing-library/user-event";
 import { compactContestSpotWorkflow, contestSpotWorkflowMaxBytes, contestSpotWorkflowMaxEntries, contestSpotWorkflowStorageKey,
   contestSpotWorkflowTTLms, decodeContestSpotWorkflow, encodeContestSpotWorkflow, Not1MMContestWorkspace, persistContestSpotWorkflow,
-  projectContestSpotWorkflow, updateContestSpotWorkflow, authoritativeChangeRevision, rtcConfigurationRequired, rtcReportState, storedPendingClientMutation } from "./Not1MMContestWorkspace";
+  projectContestSpotWorkflow, updateContestSpotWorkflow, authoritativeChangeRevision, observedContestSpot,
+  rtcConfigurationRequired, rtcReportState, storedPendingClientMutation } from "./Not1MMContestWorkspace";
 import { ContestScoreSummary } from "./ContestPresentation";
 import { ContestMutationUncertain } from "./client";
 import { contestSurfacePanelIDs, validContestSurfaceProjection } from "./contestSurfaceProtocol";
@@ -44,6 +45,15 @@ it("reports RTC success and failure before the next scheduled attempt",()=>{
   expect(rtcReportState({...status,last_attempt:null})).toBe("scheduled");
   expect(rtcConfigurationRequired("same","same",status)).toBe(false);
   expect(rtcConfigurationRequired("same","same",{...status,configured:false})).toBe(true);
+});
+it("selects only the nearest contest spot inside N1MM's 300 Hz tuning tolerance",()=>{
+  const spots=[
+    {id:"far",callsign:"FAR",frequencyKHz:14_025.301,receivedAt:30},
+    {id:"older",callsign:"OLD",frequencyKHz:14_025.200,receivedAt:10},
+    {id:"newer",callsign:"NEW",frequencyKHz:14_024.800,receivedAt:20},
+  ] as any[];
+  expect(observedContestSpot(spots,14_025_000)?.callsign).toBe("NEW");
+  expect(observedContestSpot([spots[0]],14_025_000)).toBeNull();
 });
 vi.mock("../live/useSharedCW", () => ({ useSharedCW: () => ({
   controller: { refresh: vi.fn(async () => {}), arm: vi.fn(async () => {}), stop: nativeCW.stop, send: vi.fn(async () => {}), executeContest: nativeCW.execute },
@@ -2433,13 +2443,79 @@ it("marks only a fresh observed VFO transition for authoritative S&P clearing", 
     if (!result) throw new Error(method);
     return {id:crypto.randomUUID(),ok:true,result};
   });
-  const view = render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  const liveSpots=[{id:"near",callsign:"DL1ABC",frequencyKHz:14026.2,band:"20m",mode:"CW",receivedAt:20}];
+  const view = render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={liveSpots as any}/>);
   await createContestThroughSetup();
   await waitFor(() => expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));
   expect(observedApply).toBeUndefined();
 
-  view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} radioFrequencyHz={14_026_000}/>);
-  await waitFor(() => expect(observedApply).toMatchObject({frequencyHz:14_026_000, observedVFOChange:true}));
+  view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={liveSpots as any} radioFrequencyHz={14_026_000}/>);
+  await waitFor(() => expect(observedApply).toMatchObject({frequencyHz:14_026_000, observedVFOChange:true, observedSpotCallsign:"DL1ABC"}));
+});
+
+it("wipes the entry with one mutation while keeping committed auxiliary panels mounted",async()=>{
+  let current=projection(1,{callsign:"RG6G",other_2:"16"});
+  const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    let result:any=method==="contest_catalog"?{plugins:[]}:method==="contest_sessions"?{sessions:[]}:
+      method==="contest_create"?{projection:current}:method==="contest_log_page"?{rows:[],total:0}:
+      method==="contest_score"?{sessionID:current.sessionID,revision:current.revision,score:current.score,matrices:{}}:
+      method==="contest_rates"?{sessionID:current.sessionID,revision:current.revision,rows:[]}:null;
+    if(method==="contest_draft_apply"){
+      current={...current,revision:current.revision+1,fields:current.fields.map(field=>({
+        ...field,value:params.fields?.[String(field.id)]??field.value}))};
+      result={projection:current,actions:[],messages:[]};
+    }
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();
+  await waitFor(()=>expect(surfaceOwner.current.projections.propagation.status).toBe("ready"));
+  const entry=surfaceOwner.current.projections["active-qso"],before=request.mock.calls.filter(([method])=>method==="contest_draft_apply").length;
+  await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"active-qso",projectionRevision:entry.draft.revision,requestID:crypto.randomUUID(),action:"entry_clear",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision}}));
+  expect(request.mock.calls.filter(([method])=>method==="contest_draft_apply")).toHaveLength(before+1);
+  expect(surfaceOwner.current.projections["active-qso"].draft.callsign).toBe("");
+  expect(surfaceOwner.current.projections.propagation.status).toBe("ready");
+});
+
+it("imports bounded CQ WW SSB ADIF batches through the normal commit path and restores the live draft",async()=>{
+  let current={...projection(1,{callsign:"LIVE",sent:"59",receive:"59",other_1:"15",other_2:"15"}),
+    pluginID:"cq_ww_ssb",mode:"SSB",band:14,frequencyHz:14_250_000,
+    ruleIdentity:{id:"cq-ww-ssb",version:"26.10.11",edition:"not1mm-python",sourceRevision:"test"}};
+  const committed:Record<string,any>[]=[];
+  const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    let result:any=method==="contest_catalog"?{plugins:[]}:method==="contest_sessions"?{sessions:[]}:
+      method==="contest_create"?{projection:current}:method==="contest_log_page"?{rows:[],total:0}:
+      method==="contest_score"?{sessionID:current.sessionID,revision:current.revision,score:current.score,matrices:{}}:
+      method==="contest_rates"?{sessionID:current.sessionID,revision:current.revision,rows:[]}:null;
+    if(method==="contest_qso_commit"){
+      committed.push(params);current={...current,revision:current.revision+1};result={projection:current,actions:[],messages:[]};
+    }else if(method==="contest_draft_apply"){
+      current={...current,revision:current.revision+1,frequencyHz:params.frequencyHz,
+        fields:current.fields.map(field=>({...field,value:params.fields?.[String(field.id)]??field.value}))};
+      result={projection:current,actions:[],messages:[]};
+    }
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();await waitFor(()=>expect(surfaceOwner.current.projections.logbook.status).toBe("ready"));
+  const log=surfaceOwner.current.projections.logbook,originalFrequency=current.frequencyHz;
+  await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"logbook",projectionRevision:log.sessionRevision,requestID:crypto.randomUUID(),action:"log_import_adif",params:{sourceName:"n1mm.adi",records:[
+      {qsoID:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",timestamp:"2026-10-24 01:02:03",frequencyHz:14_250_000,mode:"SSB",
+        fields:{callsign:"LZ9W",sent:"59",receive:"59",other_1:"15",other_2:"20"}},
+      {qsoID:"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",timestamp:"2026-10-24 01:03:04",frequencyHz:14_251_000,mode:"SSB",
+        fields:{callsign:"ED5D",sent:"59",receive:"59",other_1:"15",other_2:"14"}},
+    ]}}));
+  expect(committed.map(item=>item.qsoID)).toEqual(["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"]);
+  expect(committed[0]).toMatchObject({timestamp:"2026-10-24 01:02:03",frequencyHz:14_250_000,fields:{callsign:"LZ9W",other_2:"20"}});
+  expect(Object.fromEntries(current.fields.map(field=>[field.id,field.value]))).toMatchObject({callsign:"LIVE",sent:"59",receive:"59",other_1:"15",other_2:"15"});
+  expect(current.frequencyHz).toBe(originalFrequency);
 });
 
 it.each([

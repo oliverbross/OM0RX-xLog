@@ -435,6 +435,7 @@ fn complete_after_admission(
     receipt.projection_revision = projection_revision;
     let value = receipt_value(request_id, receipt);
     state.focused_actions.remove(request_id);
+    if outcome == "applied" { state.diagnostics.clear(); }
     debug_assert!(!panel_id.is_empty());
     Ok(value)
 }
@@ -860,6 +861,27 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
         }
         "log_export_cabrillo" | "log_export_adif" | "log_export_edi" => {
             exact(params, &[], "contest export params")?
+        }
+        "log_import_adif" => {
+            exact(params, &["sourceName", "records"], "contest ADIF import params")?;
+            text_value(&params["sourceName"], 255, false, "ADIF source name")?;
+            let records = array(&params["records"], 20, "ADIF contacts")?;
+            if records.is_empty() { return Err("The ADIF contact batch is empty.".into()); }
+            for value in records {
+                let record = object(value, "ADIF contact")?;
+                exact(record, &["qsoID", "timestamp", "frequencyHz", "mode", "fields"], "ADIF contact")?;
+                canonical_uuid_value(&record["qsoID"], "ADIF contact identity")?;
+                text_value(&record["timestamp"], 19, false, "ADIF UTC timestamp")?;
+                uint_value(&record["frequencyHz"], 100_000_000_000, "ADIF frequency")?;
+                enum_value(&record["mode"], &["SSB"], "ADIF mode")?;
+                let fields = object(&record["fields"], "ADIF contest fields")?;
+                exact(fields, &["callsign", "sent", "receive", "other_1", "other_2"], "ADIF contest fields")?;
+                text_value(&fields["callsign"], 32, false, "ADIF callsign")?;
+                text_value(&fields["sent"], 16, false, "ADIF sent report")?;
+                text_value(&fields["receive"], 16, false, "ADIF received report")?;
+                text_value(&fields["other_1"], 32, false, "ADIF sent exchange")?;
+                text_value(&fields["other_2"], 16, false, "ADIF received exchange")?;
+            }
         }
         "log_recalculate" => {
             exact(params, &["expectedSessionRevision"], "log recalculation params")?;
@@ -2939,6 +2961,15 @@ mod tests {
             "log_export_edi",
             "logbook",
             json!({})
+        ))
+        .is_ok());
+        assert!(validate_action_envelope(&action(
+            "log_import_adif",
+            "logbook",
+            json!({"sourceName":"n1mm.adi","records":[{
+                "qsoID":"11111111-1111-4111-8111-111111111111","timestamp":"2026-10-24 01:02:03",
+                "frequencyHz":7_175_000,"mode":"SSB","fields":{"callsign":"LZ9W","sent":"59",
+                "receive":"59","other_1":"15","other_2":"20"}}]})
         ))
         .is_ok());
         assert!(validate_action_envelope(&action(

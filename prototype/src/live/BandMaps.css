@@ -98,6 +98,13 @@
 .band-maps-contest .band-map-panel-foot { min-height: 24px; }
 .band-maps-contest .band-maps-quick-controls { flex-wrap: wrap; gap: 4px 8px; min-height: 32px; overflow: visible; }
 .band-maps-contest .band-maps-quick-controls output { flex: 1 1 100%; color: #35c8f5; white-space: nowrap; }
+.contest-band-map-legend { display: flex; flex: 1 1 100%; flex-wrap: wrap; gap: 3px 10px; color: var(--secondary); font: 10px ui-monospace, SFMono-Regular, monospace; }
+.contest-band-map-legend span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.contest-band-map-legend span::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: currentColor; }
+.contest-band-map-legend .is-double { color: #00e51b; }
+.contest-band-map-legend .is-single { color: #ff5267; }
+.contest-band-map-legend .is-qso { color: #3da5f4; }
+.contest-band-map-legend .is-dupe { color: #aeb5b7; }
 .band-maps-contest .band-maps-quick-controls label { flex: 1 1 112px; min-width: 0; }
 .band-maps-contest .band-maps-quick-controls select { min-width: 0; width: 100%; }
 @container band-map-contest (max-width: 340px) {

@@ -499,6 +499,13 @@ function contestSurfaceSpots(spots: BandMapSpot[]) {
   });
 }
 
+export function observedContestSpot(spots: BandMapSpot[], frequencyHz: number, toleranceHz = 300) {
+  if (!Number.isSafeInteger(frequencyHz) || frequencyHz < 0 || !Number.isFinite(toleranceHz) || toleranceHz < 0) return null;
+  return spots.map(spot => ({ spot, distance:Math.abs(Math.round(Number(spot.frequencyKHz) * 1_000) - frequencyHz) }))
+    .filter(item => Number.isFinite(item.distance) && item.distance <= toleranceHz)
+    .sort((left, right) => left.distance - right.distance || Number(right.spot.receivedAt ?? 0) - Number(left.spot.receivedAt ?? 0))[0]?.spot ?? null;
+}
+
 type SpotPointsPreview = { sessionID:string; workspaceGeneration:string; revision:number;
   spots:{spotID:string;points:number|null;dupe:boolean|null;multiplierCount:number|null;countryMultiplier:boolean|null;zoneMultiplier:boolean|null;
     reason:"unresolved_callsign"|"unsupported_band"|"exchange_required"|"scoring_unavailable"|null}[] };
@@ -1597,11 +1604,20 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       previous.frequencyHz !== observedFrequencyHz;
     observedFrequencyRef.current = { sessionID: projection.sessionID, frequencyHz: observedFrequencyHz };
     if (!freshObservedChange && projection.frequencyHz === observedFrequencyHz) return;
+    const tunedSpot = freshObservedChange && !projection.run && setup.preferences.clearOnVFOChange === true
+      ? observedContestSpot(visibleWorkflowSpots, observedFrequencyHz) : null;
     void runMutation(base => mutate("contest_draft_apply", base, {
       fields: fieldsRef.current, frequencyHz: observedFrequencyHz,
       ...(freshObservedChange ? { observedVFOChange: true } : {}),
-    }), false, false, true);
-  }, [observedFrequencyHz, projection?.sessionID, projection?.frequencyHz, busy, retiring]);
+      ...(tunedSpot ? { observedSpotCallsign:tunedSpot.callsign } : {}),
+    }), false, false, true).then(next => {
+      if (!next || !tunedSpot) return;
+      const spotID=String(tunedSpot.id);
+      spotCursorRef.current = { ...spotCursorRef.current, context:spotSelectionContext, spotID };
+      onSelectedSpot?.(spotID);
+    });
+  }, [observedFrequencyHz, projection?.sessionID, projection?.frequencyHz, projection?.run, busy, retiring,
+    setup.preferences.clearOnVFOChange, visibleWorkflowSpots, spotSelectionContext, onSelectedSpot]);
 
   const createSession = async (document: ContestSetupDocument) => {
     const contestCall = String(document.station.Call || stationCall).trim().toUpperCase();
@@ -2285,7 +2301,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         const cleared = clearedContestFields(active, active.mode);
         fieldsRef.current = cleared; setFields(cleared); editVersionRef.current += 1;
         await runMutation(base => mutate("contest_draft_apply", base, { fields: cleared,
-          frequencyHz: operationFrequencyHz ?? base.frequencyHz }), false, true, true, true);
+          frequencyHz: operationFrequencyHz ?? base.frequencyHz }), false, false, true, true);
         return;
       }
       case "entry_spot": {
@@ -2446,6 +2462,41 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       }
       case "score_send_now": {
         const status=await request("contest_rtc_send_now");setRTCStatus(status as RTCStatus);return;
+      }
+      case "log_import_adif": {
+        if(active.pluginID!=="cq_ww_ssb"||active.mode!=="SSB")throw new Error("ADIF import is currently available only for CQ WW SSB sessions.");
+        const existing=new Set<string>();
+        for(let offset=0;;offset+=100){
+          const page=await result<Data>("contest_log_page",{sessionID:active.sessionID,expectedRevision:active.revision,offset,limit:100});
+          const pageRows=Array.isArray(page.rows)?page.rows:[];
+          for(const row of pageRows)if(typeof row.ID==="string")existing.add(row.ID);
+          if(offset+pageRows.length>=Number(page.total??0)||pageRows.length===0)break;
+        }
+        const records=action.params.records.filter(record=>!existing.has(record.qsoID));
+        if(records.length===0)return;
+        for(const record of records){
+          if(record.mode!=="SSB"||contestFrequency(record.frequencyHz,activeSupportedBands,bandDefinitions)===null)
+            throw new Error(`${record.fields.callsign} is outside this CQ WW SSB session's configured bands.`);
+          if(!/^\d{1,2}$/.test(record.fields.other_2)||Number(record.fields.other_2)<1||Number(record.fields.other_2)>40)
+            throw new Error(`${record.fields.callsign} has an invalid CQ zone.`);
+        }
+        await runMutation(async base=>{
+          const originalFields=projectionFields(base),originalFrequency=base.frequencyHz;
+          let latest:MutationResult={projection:base};
+          try{
+            for(const record of records)latest=await mutate("contest_qso_commit",latest.projection,{qsoID:record.qsoID,
+              timestamp:record.timestamp,frequencyHz:record.frequencyHz,fields:record.fields});
+            return await mutate("contest_draft_apply",latest.projection,{fields:originalFields,frequencyHz:originalFrequency});
+          }catch(cause){
+            if(latest.projection.revision!==base.revision){
+              try{const restored=await mutate("contest_draft_apply",latest.projection,{fields:originalFields,frequencyHz:originalFrequency});
+                acceptProjection(restored.projection);await refresh(restored.projection.sessionID,restored.projection);}
+              catch{/* Preserve the original import failure; the normal refresh path will reconcile the draft. */}
+            }
+            throw cause;
+          }
+        },true,true,false,true);
+        return;
       }
       case "log_export_cabrillo": return exportLog("cabrillo", true, { operatingContext:action.operatingContext, sessionID:action.sessionID,
         workspaceGeneration:action.workspaceGeneration, requestID:action.requestID, projectionRevision:action.projectionRevision });

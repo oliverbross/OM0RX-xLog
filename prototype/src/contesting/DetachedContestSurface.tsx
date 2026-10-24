@@ -20,6 +20,7 @@ import { requestViaSession } from "../live/DetachedClusterBridge";
 import { connectMonitorContext, observedReceiveBandwidthHz, type MonitorContext } from "../live/monitorContext";
 import "./DetachedContestSurface.css";
 import { ContestQRZDetailsSurface } from "./DetachedContestQRZDetailsSurface";
+import { contestADIFImport, type ContestADIFImportRecord } from "./contestAdifImport";
 
 const WorldMap = lazy(() => import("../Map"));
 
@@ -224,7 +225,7 @@ function Surface({ context }: { context: Context }) {
         ? <ContactEditor projection={projection as Extract<typeof projection, { page: unknown }>} disabled={projection.busy} sending={sending}
             projectionRevision={snapshot.projectionRevision} receipts={snapshot.receipts} send={send}/>
         : <Log projection={projection as Extract<typeof projection, { page: unknown }>} disabled={projection.busy} sending={sending}
-            projectionRevision={snapshot.projectionRevision} send={send} openEditor={async(qsoID,deleteIntent=false)=>{
+            projectionRevision={snapshot.projectionRevision} send={send} reportDiagnostic={reportDiagnostic} openEditor={async(qsoID,deleteIntent=false)=>{
               try { const result=await send({action:deleteIntent?"log_edit_begin_delete":"log_edit_begin",params:{qsoID}},snapshot.projectionRevision);
                 if(!result.applied||result.projectionRevision===null)return;
                 await openContestContactEditorWindow(context); }
@@ -506,10 +507,10 @@ function useEntryIntents(projection:any,projectionRevision:number,send:Send){
     scheduled.current=window.setTimeout(()=>{scheduled.current=null;void flush();},entryIntentDebounceMs);},[flush]);
   useEffect(()=>()=>{if(scheduled.current!==null)window.clearTimeout(scheduled.current);},[]);
   const capture=useCallback(()=>({...valuesRef.current}),[]);
-  const matches=useCallback((draft:any,intended:Record<EntryIntentKey,string>)=>draft?.draftID===identityRef.current&&
+  const matches=useCallback((draft:any,intended:Record<EntryIntentKey,string>,acceptCallsignPrefill=false)=>draft?.draftID===identityRef.current&&
     draft.callsign.trim().toUpperCase()===intended.callsign.trim().toUpperCase()&&draft.sentReport===intended.sentReport&&draft.receivedReport===intended.receivedReport&&
     draft.frequencyText===intended.frequency&&Array.isArray(draft.receivedFields)&&draft.receivedFields.length===projection.draft.receivedFields.length&&
-    draft.receivedFields.every((field:any)=>intended[`exchange:${field.id}`]===field.value),[projection.draft.receivedFields.length]);
+    (acceptCallsignPrefill||draft.receivedFields.every((field:any)=>intended[`exchange:${field.id}`]===field.value)),[projection.draft.receivedFields.length]);
   return {values,change,flush,capture,matches};
 }
 function EntryIntentInput({label,accessibleLabel,intentKey,value,maximumUTF8Bytes,disabled,operatorField,inputRef,onFocus,onChange}:{
@@ -582,7 +583,7 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
     void (async()=>{let lastLocalProjectionRevision:number|null=null,focusProjectionRevision:number|null=null;if(key!=="Escape"){const flushed=await intents.flush();if(!flushed.ok)return;
       lastLocalProjectionRevision=flushed.lastAppliedProjectionRevision;focusProjectionRevision=await focusPending.current;await settle();}const current=await refresh();const currentProjection=current?.projection as any;
       if(!current||current.panelID!=="active-qso"||currentProjection?.status!=="ready"||currentProjection.draft?.draftID!==base.draftID)return;
-      if(key!=="Escape"&&(!intents.matches(currentProjection.draft,intended)||
+      if(key!=="Escape"&&(!intents.matches(currentProjection.draft,intended,focusedField==="callsign")||
           current.projectionRevision<Math.max(projectionRevision,lastLocalProjectionRevision??0,focusProjectionRevision??0)||currentProjection.draft.band!==intentContext.band||
           currentProjection.draft.mode!==intentContext.mode||currentProjection.draft.reservedSerial!==intentContext.reservedSerial||
           currentProjection.operator?.armed!==intentContext.armed||currentProjection.operator?.style!==intentContext.style)){
@@ -631,7 +632,7 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
     void (async()=>{const flushed=await intents.flush();if(!flushed.ok)return;const focusProjectionRevision=await focusPending.current;await settle();
       const current=await refresh(),currentProjection=current?.projection as any;
       if(!current||current.panelID!=="active-qso"||currentProjection?.status!=="ready"||currentProjection.draft?.draftID!==base.draftID)return;
-      if(!intents.matches(currentProjection.draft,intended)||current.projectionRevision!==Math.max(projectionRevision,
+      if(!intents.matches(currentProjection.draft,intended,action==="LOG_NOW"&&focusedField==="callsign")||current.projectionRevision!==Math.max(projectionRevision,
           flushed.lastAppliedProjectionRevision??0,focusProjectionRevision??0)){
         reportConflict("The shared contest entry changed before this key action. Review it and press the key again.");return;}
       const params={draftID:base.draftID,expectedDraftRevision:currentProjection.draft.revision};
@@ -1039,10 +1040,12 @@ function ContactEditor({projection,disabled,sending,projectionRevision,receipts,
       <button disabled={disabled||sending||!!editing.frequencyError||!!editing.receiveFrequencyError||!!editing.powerError||!editing.correctionReason.trim()} onClick={()=>void finish({action:"log_edit_save",params:{qsoID:editing.qsoID,expectedSessionRevision:projection.sessionRevision}})}>OK</button></footer>
   </section>;
 }
-function Log({projection,disabled,sending,projectionRevision,send,openEditor}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;send:Send;
-    openEditor:(qsoID:string,deleteIntent?:boolean)=>Promise<void>}) {
+function Log({projection,disabled,sending,projectionRevision,send,openEditor,reportDiagnostic}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;send:Send;
+    openEditor:(qsoID:string,deleteIntent?:boolean)=>Promise<void>;reportDiagnostic:(kind:"error"|"notice",text:string)=>void}) {
   const partialRows=projection.partialRows??[], pluginPartialRows=projection.pluginPartialRows??[], [inline,setInline]=useState<InlineLogCell|null>(null);
   const [deleteMenu,setDeleteMenu]=useState<{qsoID:string;callsign:string;x:number;y:number}|null>(null);
+  const importInput=useRef<HTMLInputElement|null>(null),[importReview,setImportReview]=useState<{sourceName:string;records:ContestADIFImportRecord[]}|null>(null),
+    [importing,setImporting]=useState(false);
   const pluginColumns:string[]=projection.exchangeLayout==="plugin"?projection.pluginColumns:[],columnSignature=pluginColumns.join("\u001f"),
     [columnLayout,setColumnLayout]=useState(()=>({signature:columnSignature,widths:readLogColumnWidths(pluginColumns)}));
   const columnWidths=columnLayout.signature===columnSignature?columnLayout.widths:readLogColumnWidths(pluginColumns);
@@ -1091,11 +1094,34 @@ function Log({projection,disabled,sending,projectionRevision,send,openEditor}:{p
     <button type="button" aria-label={`Cancel ${inlineLabel}`} title="Cancel" disabled={disabled||sending} onClick={()=>void cancelInline()}>×</button></span>:null;
   const openDeleteMenu=(qsoID:string,callsign:string,event:ReactMouseEvent<HTMLElement>)=>setDeleteMenu({qsoID,callsign,
     x:Math.max(4,Math.min(event.clientX,window.innerWidth-176)),y:Math.max(4,Math.min(event.clientY,window.innerHeight-80))});
+  const chooseImport=async(file:File|undefined)=>{
+    if(!file)return;
+    try{setImportReview({sourceName:file.name,records:await contestADIFImport(await file.arrayBuffer())});}
+    catch(cause){setImportReview(null);reportDiagnostic("error",message(cause));}
+    finally{if(importInput.current)importInput.current.value="";}
+  };
+  const commitImport=async()=>{
+    if(!importReview||importing)return;
+    setImporting(true);
+    try{
+      for(let offset=0;offset<importReview.records.length;offset+=20){
+        const outcome=await send({action:"log_import_adif",params:{sourceName:importReview.sourceName,
+          records:importReview.records.slice(offset,offset+20)}},projectionRevision,{safePresentation:true});
+        if(!outcome.applied)return;
+      }
+      setImportReview(null);
+    }finally{setImporting(false);}
+  };
   return <section className="contest-surface-log"><header><h1>Log Display</h1>
   <details className="contest-surface-log-tools"><summary>Log tools</summary><div className="contest-surface-log-actions">{projection.canExportCabrillo&&<button disabled={disabled||sending} onClick={()=>void send({action:"log_export_cabrillo",params:{}},projectionRevision)}>Export Cabrillo…</button>}
+  <input ref={importInput} type="file" accept=".adi,.adif" hidden onChange={event=>void chooseImport(event.target.files?.[0])}/>
+  <button disabled={disabled||sending||importing} onClick={()=>importInput.current?.click()}>Import ADIF…</button>
   <button disabled={disabled||sending||projection.canExportAdif!==true} onClick={()=>void send({action:"log_export_adif",params:{}},projectionRevision)}>Export ADIF…</button>
   {projection.canExportEdi===true&&<button disabled={disabled||sending} onClick={()=>void send({action:"log_export_edi",params:{}},projectionRevision)}>Export EDI…</button>}
-  <button disabled={disabled||sending} onClick={()=>void send({action:"log_recalculate",params:{expectedSessionRevision:projection.sessionRevision}},projectionRevision)}>Recalculate</button></div></details></header>
+  <button disabled={disabled||sending} onClick={()=>void send({action:"log_recalculate",params:{expectedSessionRevision:projection.sessionRevision}},projectionRevision)}>Recalculate</button></div>
+  {importReview&&<div className="contest-surface-import-confirm" role="group" aria-label="Confirm ADIF import"><span>{importReview.sourceName}: {importReview.records.length} contacts</span>
+    <button disabled={disabled||sending||importing} onClick={()=>setImportReview(null)}>Cancel</button>
+    <button disabled={disabled||sending||importing} onClick={()=>void commitImport()}>{importing?"Importing…":`Import ${importReview.records.length} contacts`}</button></div>}</details></header>
   <div className="contest-surface-log-panes">{projection.exchangeLayout==="plugin" ? <>
     <section ref={primaryPane} className="contest-surface-log-pane-primary"><h2>Chronological log</h2><PluginLogTable columns={projection.pluginColumns} rows={projection.pluginRows} columnWidths={columnWidths} onColumnWidths={setColumnWidths} disabled={disabled} label="Contest log" emptyMessage={projection.busy?"Loading…":undefined} inline={inline} inlineInput={inlineInput}
       onInlineEdit={(qsoID,columnIndex,edit)=>void beginInline(qsoID,columnIndex,edit,"Contest log")} onEdit={qsoID=>{setInline(null);void openEditor(qsoID);}} onDeleteMenu={openDeleteMenu}/></section>
