@@ -703,7 +703,7 @@ it("preserves authoritative CQ WW SSB dupe and country-zone multiplier classific
 it("reclassifies a newly logged CQ WW spot as grey and republishes its radio replacement",async()=>{
   const setup=newContestSetup("OM0RX");setup.pluginID="cq_ww_ssb";setup.preferences.bands=["40m"];
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(setup));
-  let current:any={...projection(1,{callsign:"DL1AAA"}),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",
+  let current:any={...projection(1,{callsign:"DL1AAA"}),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
     supportedModes:["SSB"],supportedBands:["160m","80m","40m","20m","15m","10m"]};
   const base=operationalRequest(()=>current,()=>current.revision===1?3:0,()=>current.revision===1
     ?{dupe:false,multiplierCount:2,countryMultiplier:true,zoneMultiplier:true}
@@ -717,7 +717,7 @@ it("reclassifies a newly logged CQ WW spot as grey and republishes its radio rep
   });
   const serviceRequest=vi.fn(async(method:string,params:Record<string,unknown>={})=>method==="cluster_contest_radio_spots_publish"
     ?{accepted:1,removed:0,unchanged:0,filtered:0,rejected:0,stale:false}:request(method,params));
-  render(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps}
+  render(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps} radioFrequencyHz={7_125_000}
     spots={[{id:"worked-after-save",callsign:"DL1AAA",frequencyKHz:7125,band:"40m",mode:"LSB",score:80}] as any}/>);
   await createContestThroughSetup();
   await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots[0]).toMatchObject({
@@ -792,6 +792,21 @@ it("projects only the configured mode and bands into Cluster and Band Map even w
   view.unmount();
   await waitFor(()=>expect(serviceRequest).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
     publication_sequence:3,action:"clear",spots:[]})));
+});
+
+it("clears contest radio spots when the active radio band is outside the configured contest bands",async()=>{
+  const current:any={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
+    supportedModes:["SSB"],supportedBands:["160m","80m","40m","20m","15m","10m"]};
+  const setup=newContestSetup("OM0RX");setup.pluginID="cq_ww_ssb";setup.preferences.bands=["20m"];
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(setup));
+  const request=operationalRequest(()=>current,()=>3);
+  const serviceRequest=vi.fn(async(method:string,params:Record<string,unknown>={})=>method==="cluster_contest_radio_spots_publish"
+    ?{accepted:0,removed:1,unchanged:0,filtered:0,rejected:0,stale:false}:request(method,params));
+  render(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps}
+    spots={[{id:"twenty",callsign:"DL1ABC",frequencyKHz:14215,band:"20m",mode:"USB",score:42}] as any}/>);
+  await createContestThroughSetup();
+  await waitFor(()=>expect(serviceRequest).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
+    action:"replace",configured_bands:["20m"],allowed_mode_groups:["phone"],spots:[]})));
 });
 
 it("retains the last spot classification until a newer draft revision preview swaps atomically",async()=>{

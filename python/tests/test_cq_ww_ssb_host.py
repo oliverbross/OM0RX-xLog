@@ -172,6 +172,34 @@ class CQWWSSBHostTests(unittest.TestCase):
         row = self.read("log", offset=0, limit=1)["rows"][0]
         self.assertEqual(row["CountryPrefix"], "OE")
 
+    def test_same_endpoint_country_reconcile_repairs_existing_scoring_identity(self):
+        qso = self.log("OE8DDX", "15", frequency=7110000)
+        self.assertEqual(self.read("log", offset=0, limit=1)["rows"][0]["CountryPrefix"], "*4U1V")
+        retained = self.log("K1ABC", "5", minute=1, frequency=7112000)
+        corrected = {"entity": "AUSTRIA", "continent": "EU", "cq": 15,
+                     "itu": 28, "primary_pfx": "OE"}
+        repaired = self.mutate(
+            "country_reconcile", workspaceGeneration=self.workspace, referenceID="test-cty-v1",
+            repairs=[{"qsoID": qso, "callsign": "OE8DDX", "country": corrected},
+                     {"qsoID": retained, "callsign": "K1ABC",
+                      "country": {"entity": "GERMANY", "continent": "EU", "cq": 14,
+                                  "itu": 28, "primary_pfx": "DL"}}],
+        )
+        self.assertEqual(repaired["revision"], 4)
+        row = self.read("log", offset=0, limit=2)["rows"][1]
+        self.assertEqual(row["CountryPrefix"], "OE")
+        matrices = self.read("score")["matrices"]
+        self.assertEqual({item["value"] for item in matrices["countries"]}, {"K", "OE"})
+        store = self.host.database(self.session)
+        identity = store.exec_sql("SELECT country FROM xlog_qso_identity WHERE id=?", (qso,))
+        self.assertEqual(json.loads(identity["country"])["primary_pfx"], "OE")
+        retained_identity = store.exec_sql("SELECT country FROM xlog_qso_identity WHERE id=?", (retained,))
+        self.assertEqual(json.loads(retained_identity["country"])["primary_pfx"], "K")
+        audit = store.exec_sql(
+            "SELECT kind,reason FROM xlog_qso_audit WHERE qso_id=? ORDER BY sequence DESC LIMIT 1", (qso,))
+        self.assertEqual((audit["kind"], audit["reason"]),
+                         ("reference_reconcile", "Bundled CTY primary-prefix correction"))
+
     def test_observed_vfo_change_clears_departed_call_and_loads_nearby_spot(self):
         setup = self.read("setup_get")["setup"]
         setup["preferences"]["clearOnVFOChange"] = False

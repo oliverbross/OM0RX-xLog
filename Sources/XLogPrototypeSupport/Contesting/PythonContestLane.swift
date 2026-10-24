@@ -105,6 +105,11 @@ actor PythonContestLane {
                 }
             }
             var result = try await perform(method: method, params: effectiveParams)
+            if ["contest_session_open", "contest_open"].contains(method),
+               let projection = result["projection"] as? [String: Any],
+               let reconciled = try await reconcileCountryPrefixes(projection: projection) {
+                result["projection"] = reconciled
+            }
             if method == "contest_log" || method == "contest_log_page" || method == "contest_check_partial" {
                 canonicalizeCountryPrefixes(in: &result)
             }
@@ -415,13 +420,71 @@ actor PythonContestLane {
                 "cq": country.cqZone, "itu": country.ituZone, "primary_pfx": resolved.primaryPrefix]
     }
 
+    private func reconcileCountryPrefixes(projection: [String: Any]) async throws -> [String: Any]? {
+        guard projection["pluginID"] as? String == "cq_ww_ssb",
+              let sessionID = projection["sessionID"] as? String,
+              let workspaceGeneration = projection["workspaceGeneration"] as? String,
+              let referenceID = projection["referenceID"] as? String,
+              let revision = (projection["revision"] as? NSNumber)?.intValue else { return nil }
+        var repairs: [[String: Any]] = []
+        var offset = 0
+        while true {
+            let page = try await perform(method: "contest_log", params: [
+                "sessionID": sessionID, "expectedRevision": revision, "offset": offset, "limit": 100,
+            ])
+            let rows = page["rows"] as? [[String: Any]] ?? []
+            for row in rows {
+                guard let qsoID = row["ID"] as? String,
+                      let call = row["Call"] as? String,
+                      let current = row["CountryPrefix"] as? String,
+                      let storedCountry = row["country_identity"] as? [String: Any],
+                      let country = countryWire(call),
+                      sameCountryEndpoint(storedCountry, country),
+                      let corrected = country["primary_pfx"] as? String,
+                      !corrected.isEmpty,
+                      current.uppercased() != corrected.uppercased() else { continue }
+                repairs.append(["qsoID": qsoID, "callsign": call.uppercased(), "country": country])
+            }
+            offset += rows.count
+            let total = (page["total"] as? NSNumber)?.intValue ?? offset
+            if rows.isEmpty || offset >= total { break }
+        }
+        guard !repairs.isEmpty else { return nil }
+        var currentProjection = projection
+        var expectedRevision = revision
+        for start in stride(from: 0, to: repairs.count, by: 100) {
+            let end = min(start + 100, repairs.count)
+            let result = try await perform(method: "contest_country_reconcile", params: [
+                "sessionID": sessionID, "workspaceGeneration": workspaceGeneration,
+                "operationID": UUID().uuidString.lowercased(), "expectedRevision": expectedRevision,
+                "referenceID": referenceID, "repairs": Array(repairs[start..<end]),
+            ])
+            if let next = result["projection"] as? [String: Any] {
+                currentProjection = next
+                expectedRevision = (next["revision"] as? NSNumber)?.intValue ?? expectedRevision + 1
+            }
+        }
+        return currentProjection
+    }
+
+    private func sameCountryEndpoint(_ lhs: [String: Any], _ rhs: [String: Any]) -> Bool {
+        guard let lhsEntity = lhs["entity"] as? String, let rhsEntity = rhs["entity"] as? String,
+              let lhsContinent = lhs["continent"] as? String, let rhsContinent = rhs["continent"] as? String,
+              let lhsCQ = lhs["cq"] as? NSNumber, let rhsCQ = rhs["cq"] as? NSNumber,
+              let lhsITU = lhs["itu"] as? NSNumber, let rhsITU = rhs["itu"] as? NSNumber else { return false }
+        return lhsEntity.caseInsensitiveCompare(rhsEntity) == .orderedSame
+            && lhsContinent.caseInsensitiveCompare(rhsContinent) == .orderedSame
+            && lhsCQ.intValue == rhsCQ.intValue && lhsITU.intValue == rhsITU.intValue
+    }
+
     private func canonicalizeCountryPrefixes(in result: inout [String: Any]) {
         guard var rows = result["rows"] as? [[String: Any]] else { return }
         for index in rows.indices {
             guard let call = rows[index]["Call"] as? String,
-                  let resolved = reference.resolver.resolveCountryEndpointWithPrimaryPrefix(call),
-                  !resolved.primaryPrefix.isEmpty else { continue }
-            rows[index]["CountryPrefix"] = resolved.primaryPrefix
+                  let storedCountry = rows[index]["country_identity"] as? [String: Any],
+                  let country = countryWire(call), sameCountryEndpoint(storedCountry, country),
+                  let corrected = country["primary_pfx"] as? String, !corrected.isEmpty else { continue }
+            rows[index]["CountryPrefix"] = corrected
         }
         result["rows"] = rows
     }

@@ -1068,9 +1068,9 @@ class Desk:
 
 
 class Host:
-    MUTATIONS = {"session_create", "legacy_import", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "digital_ingest", "qso_correct", "qso_delete", "setup_save", "rover_location", "recalculate", "multi_contact_apply", "multi_replica_apply"}
+    MUTATIONS = {"session_create", "legacy_import", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "digital_ingest", "qso_correct", "qso_delete", "setup_save", "rover_location", "recalculate", "country_reconcile", "multi_contact_apply", "multi_replica_apply"}
     REPLICA_BLOCKED = {"legacy_import", "esm", "function_key", "qso_commit", "digital_ingest",
-                       "qso_correct", "qso_delete", "recalculate", "setup_save", "rover_location",
+                       "qso_correct", "qso_delete", "recalculate", "country_reconcile", "setup_save", "rover_location",
                        "multi_contact_apply"}
 
     def __init__(self, data_root):
@@ -1390,7 +1390,7 @@ class Host:
                     f"SELECT count(*) AS n FROM DXLOG AS d WHERE {predicate} AND d.ContestNR=?", match
                 )["n"]
                 rows = store.exec_sql_mult(
-                    "SELECT d.*,i.raw_fields,coalesce((SELECT max(a.revision) "
+                    "SELECT d.*,i.raw_fields,i.country AS country_identity,coalesce((SELECT max(a.revision) "
                     "FROM xlog_qso_audit AS a WHERE a.qso_id=d.ID),0) AS change_revision" + duplicate_projection + " " +
                     "FROM DXLOG AS d "
                     "LEFT JOIN xlog_qso_identity AS i ON i.id=d.ID "
@@ -1400,6 +1400,7 @@ class Host:
                 )
                 for row in rows:
                     row["raw_fields"] = json.loads(row["raw_fields"]) if row["raw_fields"] else {}
+                    row["country_identity"] = json.loads(row["country_identity"]) if row["country_identity"] else None
                     self.add_legacy_provenance(store, row)
                 return {"sessionID": session_id, "revision": state["revision"], "query": query,
                         "limit": limit, "total": total, "rows": rows}
@@ -1579,7 +1580,7 @@ class Host:
             require(expected is None or expected == state["revision"], "Contest changed before the next log page", "stale_revision")
             duplicate_projection = cq_ww_duplicate_projection(state["pluginID"])
             rows = store.exec_sql_mult(
-                "SELECT d.*,i.raw_fields,coalesce((SELECT max(a.revision) "
+                "SELECT d.*,i.raw_fields,i.country AS country_identity,coalesce((SELECT max(a.revision) "
                 "FROM xlog_qso_audit AS a WHERE a.qso_id=d.ID),0) AS change_revision" + duplicate_projection + " " +
                 "FROM DXLOG AS d "
                 "LEFT JOIN xlog_qso_identity AS i ON i.id=d.ID "
@@ -1588,6 +1589,7 @@ class Host:
             )
             for row in rows:
                 row["raw_fields"] = json.loads(row["raw_fields"]) if row["raw_fields"] else {}
+                row["country_identity"] = json.loads(row["country_identity"]) if row["country_identity"] else None
                 self.add_legacy_provenance(store, row)
             return {"sessionID": session_id, "revision": state["revision"], "offset": offset, "limit": limit,
                     "total": store.exec_sql("SELECT count(*) AS n FROM DXLOG")["n"],
@@ -2173,7 +2175,7 @@ class Host:
             else:
                 require(state is not None, "Session does not exist", "not_found")
                 self.verify_engine(state)
-                if method in {"digital_ingest", "multi_contact_apply", "multi_replica_apply"}:
+                if method in {"digital_ingest", "country_reconcile", "multi_contact_apply", "multi_replica_apply"}:
                     require(params.get("workspaceGeneration") == workspace_generation(state),
                             "Contact destination belongs to another workspace", "stale_context")
                 if method == "digital_ingest":
@@ -2386,6 +2388,62 @@ class Host:
                 self.rebuild(desk)
                 for name, value in fields.items():
                     getattr(desk, name).setText(value)
+            elif method == "country_reconcile":
+                require(state["pluginID"] == "cq_ww_ssb",
+                        "Country reconciliation is available only for CQ WW SSB", "unsupported")
+                require(params.get("referenceID") == state["reference"]["id"],
+                        "The contest CTY reference differs from this session", "reference_mismatch")
+                repairs = params.get("repairs")
+                require(isinstance(repairs, list) and 1 <= len(repairs) <= 100,
+                        "A bounded country repair list is required")
+                seen, changed = set(), False
+                for repair in repairs:
+                    require(isinstance(repair, dict) and set(repair) == {"qsoID", "callsign", "country"},
+                            "Country repair fields are invalid")
+                    qso_id = identifier(repair["qsoID"])
+                    require(qso_id not in seen, "Country repair identities must be unique")
+                    seen.add(qso_id)
+                    call = text(repair["callsign"], 32).strip().upper()
+                    require(bool(call), "Country repair callsign is required")
+                    country = self.countries({call: deepcopy(repair["country"])})[call]
+                    row = store.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
+                    identity = store.exec_sql(
+                        "SELECT raw_fields,country,deleted FROM xlog_qso_identity WHERE id=?", (qso_id,))
+                    require(bool(row) and str(row["Call"]).strip().upper() == call,
+                            "Country repair contact does not match", "contact_conflict")
+                    require(bool(identity) and not identity["deleted"] and identity["country"],
+                            "Country repair identity is unavailable", "contact_conflict")
+                    before_identity = json.loads(identity["country"])
+                    same_endpoint = (
+                        str(before_identity.get("entity", "")).upper() == str(country["entity"]).upper()
+                        and all(before_identity.get(key) == country[key] for key in ("continent", "cq", "itu"))
+                    )
+                    # A session may legitimately retain an older CTY endpoint.
+                    # Never let that disagreement block opening the contest and
+                    # never rewrite it: only primary-prefix-only matches proceed.
+                    if not same_endpoint:
+                        continue
+                    if str(before_identity.get("primary_pfx", "")).upper() == str(country["primary_pfx"]).upper():
+                        continue
+                    before = dict(row)
+                    after_identity = deepcopy(country)
+                    state["reference"]["countries"][call] = after_identity
+                    store.conn.execute("UPDATE DXLOG SET CountryPrefix=? WHERE ID=?",
+                                       (after_identity["primary_pfx"], qso_id))
+                    store.conn.execute("UPDATE xlog_qso_identity SET country=? WHERE id=?",
+                                       (canonical(after_identity), qso_id))
+                    after = dict(before)
+                    after["CountryPrefix"] = after_identity["primary_pfx"]
+                    self.audit(store, qso_id, "reference_reconcile", before, after,
+                               reason="Bundled CTY primary-prefix correction",
+                               revision=state["revision"] + 1,
+                               before_identity=before_identity, after_identity=after_identity)
+                    changed = True
+                if changed:
+                    fields = desk.values()
+                    self.rebuild(desk)
+                    for name, value in fields.items():
+                        getattr(desk, name).setText(value)
             elif method == "esm":
                 if "fields" in params or "mode" in params:
                     self.apply_fields(desk, params)

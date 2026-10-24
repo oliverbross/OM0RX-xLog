@@ -871,8 +871,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   },[projection?.sessionID,projection?.workspaceGeneration,projection?.revision,request,visibleSpotSignature,spotPointIdentity,spotPointRetryTick]);
   const contestRadioPublication=useMemo(()=>{
     if(!projection||spotPointPreview.identity!==spotPointIdentity||spotPointPreview.revision!==projection.revision||spotPointPreview.rows.size===0)return null;
-    const activeBand=bandLabels[String(projection.band)]??String(projection.band),radioBands=configuredBands.includes(activeBand)?[activeBand]:configuredBands;
-    const rows=visibleWorkflowSpots.filter(spot=>radioBands.includes(spot.band)).slice(0,500).flatMap(spot=>{
+    const activeBand=bandLabels[String(projection.band)]??String(projection.band),activeBandConfigured=configuredBands.includes(activeBand),
+      radioBands=activeBandConfigured?[activeBand]:configuredBands;
+    const rows=(activeBandConfigured?visibleWorkflowSpots:[]).filter(spot=>radioBands.includes(spot.band)).slice(0,500).flatMap(spot=>{
       const preview=spotPointPreview.rows.get(spot.id),frequencyHz=Math.round(spot.frequencyKHz*1_000);
       if(!preview||!Number.isSafeInteger(frequencyHz))return [];
       return [{spot_id:spot.id,callsign:spot.callsign,frequency_hz:frequencyHz,band:spot.band,

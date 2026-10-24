@@ -421,12 +421,25 @@ for line in sys.stdin:
             .appendingPathComponent("xlog-python-country-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: temporary) }
         let dataRoot = temporary.appendingPathComponent("Contesting/Python", isDirectory: true)
-        let lane = try PythonContestLane(configuration: PythonContestHostConfiguration(
+        let configuration = PythonContestHostConfiguration(
             executableURL: try python312(), launcherURL: root.appendingPathComponent("python/contest_host/launcher.py"),
-            dataRootURL: dataRoot))
+            dataRootURL: dataRoot)
+        let bundled = try ContestReferenceData.bundled()
+        try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
+        let badCSV = temporary.appendingPathComponent("legacy-shared-adif.csv")
+        try """
+        OM,Slovak Republic,504,EU,15,28,48.67,-19.50,-1.0,OM;
+        *4U1V,Austria,206,EU,15,28,47.33,-13.33,-1.0,OE;
+        """.write(to: badCSV, atomically: true, encoding: .utf8)
+        let legacyReference = ContestReferenceData(
+            resolver: try CTYResolver(csvURL: badCSV), version: bundled.version,
+            primaryPrefixes: bundled.primaryPrefixes, entityNames: bundled.entityNames,
+            entityNamesByPrefix: bundled.entityNamesByPrefix, countryReference: bundled.countryReference)
+        let lane = try PythonContestLane(configuration: configuration, reference: legacyReference)
         let session = UUID().uuidString.lowercased()
+        let workspace = UUID().uuidString.lowercased()
         let created = try await lane.handle(method: "contest_session_create", params: [
-            "sessionID": session, "workspaceGeneration": UUID().uuidString.lowercased(),
+            "sessionID": session, "workspaceGeneration": workspace,
             "operationID": UUID().uuidString.lowercased(), "expectedRevision": 0,
             "pluginID": "cq_ww_ssb", "frequencyHz": 7_110_000,
             "station": ["Call": "OM0RX", "CQZone": "15"], "settings": ["SentExchange": "15"],
@@ -440,9 +453,22 @@ for line in sys.stdin:
         let log = try await lane.handle(method: "contest_log", params: [
             "sessionID": session, "offset": 0, "limit": 10,
         ])
-        let row = try XCTUnwrap((log["rows"] as? [[String: Any]])?.first)
-        XCTAssertEqual(row["CountryPrefix"] as? String, "OE")
+        XCTAssertEqual(try XCTUnwrap((log["rows"] as? [[String: Any]])?.first)["CountryPrefix"] as? String, "*4U1V")
         await lane.shutdown()
+
+        let repairedLane = try PythonContestLane(configuration: configuration, reference: bundled)
+        let opened = try await repairedLane.handle(method: "contest_session_open", params: ["sessionID": session])
+        let repairedProjection = try XCTUnwrap(opened["projection"] as? [String: Any])
+        XCTAssertEqual(repairedProjection["revision"] as? Int, 3)
+        let repairedLog = try await repairedLane.handle(method: "contest_log", params: [
+            "sessionID": session, "offset": 0, "limit": 10,
+        ])
+        XCTAssertEqual(try XCTUnwrap((repairedLog["rows"] as? [[String: Any]])?.first)["CountryPrefix"] as? String, "OE")
+        let score = try await repairedLane.handle(method: "contest_score", params: ["sessionID": session])
+        let matrices = try XCTUnwrap(score["matrices"] as? [String: Any])
+        let countries = try XCTUnwrap(matrices["countries"] as? [[String: Any]])
+        XCTAssertEqual(countries.map { $0["value"] as? String }, ["OE"])
+        await repairedLane.shutdown()
     }
 
     func testCallHistoryActivationSerializesHostTrafficAndNormalizesSQLiteLookupCall() async throws {
