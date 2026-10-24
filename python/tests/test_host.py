@@ -926,10 +926,10 @@ class HostTests(unittest.TestCase):
             "SELECT before_json,after_json FROM xlog_qso_audit WHERE qso_id=? AND kind='correct'", (qso,))
         self.assertEqual(json.loads(audit["before_json"]),
                          {key: value for key, value in before.items()
-                          if key not in {"raw_fields", "change_revision", "is_dupe"}})
+                           if key not in {"raw_fields", "change_revision", "is_dupe", "country_identity"}})
         self.assertEqual(json.loads(audit["after_json"]),
                          {key: value for key, value in after.items()
-                          if key not in {"raw_fields", "change_revision", "is_dupe"}})
+                           if key not in {"raw_fields", "change_revision", "is_dupe", "country_identity"}})
 
     def test_correction_updates_contact_metadata_and_preserves_it_on_unchanged_save(self):
         qso = self.log()
