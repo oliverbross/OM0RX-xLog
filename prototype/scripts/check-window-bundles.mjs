@@ -61,8 +61,8 @@ for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "Calls
   // less than 0.03% to the shared Logbook graph. Node 22 and Node 24 currently
   // differ by 20 emitted bytes, so retain a bounded 150-byte allowance above
   // the larger verified graph instead of making the gate toolchain-dependent.
-  // Analytics adds a lazy route and its preload descriptors (220 bytes in the
-  // measured Logbook graph); the analytics UI/worker stay outside startup.
+  // Analytics adds a lazy route and preload descriptors. The measured Logbook
+  // graph is 402,470 bytes; the analytics UI/worker stay outside startup.
   const budget = name === "Settings" ? 408_000 : name === "QSO" ? 407_000 : name === "Logbook" ? 402_750 : 401_000;
   console.log(JSON.stringify({ window: name, bytes, gzip, files }));
   assert(bytes <= budget, `${name} startup JavaScript exceeds the ${budget / 1_000} kB budget: ${bytes}`);
