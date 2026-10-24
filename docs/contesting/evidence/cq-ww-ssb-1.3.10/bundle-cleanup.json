@@ -1,0 +1,35 @@
+{
+  "retainedApplication": "/Applications/OM0RX-xLog.app",
+  "retainedRollback": "/Applications/OM0RX-xLog-previous-20261024T172312Z-69869.app",
+  "removedBundles": [
+    {
+      "path": "/Applications/OM0RX-xLog-previous-20261024T110027Z-31431.app",
+      "sourceCommit": "b70ba7f92d4e8598b0d4ad2f790cf28e324cda85",
+      "removed": true
+    },
+    {
+      "path": "/Applications/OM0RX-xLog-previous-20261024T122655Z-59562.app",
+      "sourceCommit": "b70ba7f92d4e8598b0d4ad2f790cf28e324cda85",
+      "removed": true
+    },
+    {
+      "path": "/Applications/OM0RX-xLog-previous-20261024T133310Z-97608.app",
+      "sourceCommit": "9d55b44daf830aa52cf910e67034c1dd640bf4a8",
+      "removed": true
+    },
+    {
+      "path": "/Applications/OM0RX-xLog-previous-20261024T141831Z-16713.app",
+      "sourceCommit": "db1a9bc58c395b2631e235805f5f6d4195a057f5",
+      "removed": true
+    },
+    {
+      "path": "/Applications/OM0RX-xLog-previous-20261024T163919Z-46795.app",
+      "sourceCommit": "c6dbd34b7716caac0d3424750e2926763b725799",
+      "removed": true
+    }
+  ],
+  "workspaceBundleInventory": [
+    "prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app"
+  ],
+  "dataAndSettings": "Untouched; original recovery folders and backups retained."
+}

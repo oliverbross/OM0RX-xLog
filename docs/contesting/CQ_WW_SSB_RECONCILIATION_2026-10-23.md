@@ -1,5 +1,71 @@
 # CQ WW SSB macOS reconciliation — 23 October 2026
 
+## 1.3.10 classification, Band Map and zone-prefill acceptance — 25 October 2026
+
+**READY WITH LIMITATIONS** for the existing macOS CQ WW SSB 40 m workflow.
+Version **1.3.10** is installed and running. The operator explicitly confirmed:
+**“Yes, improved and Flex spots visible”** when asked about classification speed,
+steadier ordering and continued Flex/Maestro delivery. This closes this bounded
+batch; it is not a claim of complete N1MM/Not1MM feature parity.
+
+| Gate | Concrete result |
+| --- | --- |
+| Installed source | `/Applications/OM0RX-xLog.app`, `1.3.10`, exact embedded commit `b4381149b9b3f5dbd8be1826fbd9a44cc5a82516` |
+| Package identity and signing | Deep/strict signature checks passed; packaged and installed executable, worker and Python receipt hashes match; [exact receipt](evidence/cq-ww-ssb-1.3.10/installed-source.json) |
+| Actual packaged Python lane | [26/26 CQ WW tests passed](evidence/cq-ww-ssb-1.3.10/packaged-cqww-tests.json), using bundled Python and packaged host/store/Not1MM imports in disposable storage; includes entry, DUPE, correction, persistence and export checks |
+| Installed native UI | [All native acceptance checks passed](evidence/cq-ww-ssb-1.3.10/installed-acceptance.json), isolated namespace, `station_io=false`; separate from the actual Python-lane evidence above |
+| Production reopen | Same session `4ac63449-bb24-4370-b159-e2b671321618`, 252 QSOs, 77 multipliers and score 24,178 reopened; blank entry ready for operation |
+| Installed manual lookup | Typed MX0KBS without logging: CQ zone became 14; footer displayed `299° Hdg · LP 119° / distance 1,449 km`; map displayed MX0KBS path and the same bearings/distance. Wipe then cleared the verification draft, with no test QSO saved |
+| Performance | Same 237-QSO disposable snapshot: eight spot classifications median **221.49 → 23.39 ms**, identical classification responses. These are host timings, not guaranteed end-to-end UI times; [samples and comparison](evidence/cq-ww-ssb-1.3.10/classification-performance.json) |
+| Independent review | Backend, single-flight scheduling, Band Map geometry and observed-call prefill reviewed independently; no remaining blocking finding |
+| Backup | `/Users/oliver/Documents/Backups/OM0RX-xLog-1.3.10-before-install-20261024T172308Z`, 252 contacts, SQLite `quick_check=ok`, settings/services copied |
+| Rollback app | `/Applications/OM0RX-xLog-previous-20261024T172312Z-69869.app`, verified preceding version 1.3.9 |
+
+### What changed and why
+
+- A prior-contact lookup index removes repeated scans during authoritative
+  multiplier calculations. Candidate previews reuse a request-local country map
+  through defensive lookup copies. Existing scoring and rollback semantics remain.
+- Incoming updates share one classification request in flight. A burst regression
+  previously admitted six overlapping requests; it now queues each candidate once,
+  retains valid completed results and rejects results from before a QSO change.
+- Equal-time Cluster rows no longer inherit changing snapshot order. Newer spots
+  still obey the selected sort, and worked rows still leave a Needed-only view.
+- Contest Band Map calls use separated vertical positions with coloured leaders
+  anchored to their exact frequencies, following the supplied N1MM manual page 272.
+  A crowded 430px fixture was visually checked. Normal Band Map placement was not
+  changed; colours, worked visibility, resolution and click handlers are preserved.
+- Entry headings and distance display whole degrees/kilometres, keeping internal
+  precision. Radio-follow now resolves `observedSpotCallsign` before Python adopts
+  the call and prefills its CQ zone. A native MX0KBS regression failed before this
+  fix and passed afterward; manually entered zone overrides remain preserved.
+
+Validation includes 168 workspace tests plus three targeted radio-follow tests,
+205 detached/cluster/filter tests, 52 Band Map/style tests, 12 native Python bridge
+tests, TypeScript, packaging gates and the installed/package checks above.
+The broader Python suite passed 327/330: two older country-identity expectations
+and one Stew Perry power-field error also fail against installed 1.3.9. They are
+documented baseline failures, not represented as passing tests or expanded here.
+
+### Remaining limitations and cleanup
+
+- Operator confirmation establishes current Flex/Maestro visibility and improvement;
+  it does not prove uninterrupted delivery for the entire remaining contest.
+- The map's path annotation can still show a grouped Hz number labelled MHz
+  (observed `7.142.400 MHz`), although the target button correctly reads
+  `7.142400 MHz`. This presentation-only follow-up was not used to trigger another
+  package. The newly requested entry headings/distance are correctly rounded.
+- Recorded voice files, output routing, PTT and actual transmitter audio remain
+  separate, untested optional acceptance items. No test tuning, PTT, rotor action,
+  audio playback or RF transmission was performed. Macro substitution does not
+  establish recorded-voice acceptance. No Windows or Linux acceptance is claimed.
+- Five older verified application bundles were removed after confirming their
+  source commits exist in `origin/main`; current 1.3.10 and the 1.3.9 rollback are
+  retained. The canonical work directory contains one current app bundle.
+  [Cleanup inventory](evidence/cq-ww-ssb-1.3.10/bundle-cleanup.json). Original data
+  recovery folders and backups remain untouched. Older rollback paths in historical
+  sections below are historical evidence; use the 1.3.9 rollback listed above.
+
 ## 1.3.9 installed recovery and latency evidence — 25 October 2026
 
 **READY WITH LIMITATIONS** for continuing the preserved macOS CQ WW SSB

@@ -1,0 +1,29 @@
+{
+  "source_commit": "b4381149b9b3f5dbd8be1826fbd9a44cc5a82516",
+  "version": "1.3.10",
+  "bundle": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app",
+  "runtime": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/Frameworks/Python.framework/Versions/3.12/bin/python3.12",
+  "imports": {
+    "contest_host.host": {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/Resources/Not1MM/python/contest_host/host.py",
+      "sha256": "58d3badb82131e182f0b42fc6c002dbc1539e9f6d085f78f8ceb95033f431b16"
+    },
+    "contest_host.store": {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/Resources/Not1MM/python/contest_host/store.py",
+      "sha256": "6086f6b1df3f15d8290aa47d6a3560cfd82a4ebc57da472e47afb79366160ec0"
+    }
+  },
+  "vendor": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/Resources/Not1MM/python/vendor/not1mm/upstream",
+  "disposable_test_root": "/private/tmp/xlog-packaged-cqww-ejdd7pff",
+  "result": {
+    "tests": 26,
+    "failures": 0,
+    "errors": 0,
+    "successful": true,
+    "duration_seconds": 4.527
+  },
+  "recorded_at_utc": "2026-10-24T17:22:26.479451+00:00",
+  "suite": "test_cq_ww_ssb_host.CQWWSSBHostTests",
+  "scope": "Existing 26 tests, packaged host/store/vendor and bundled interpreter, isolated disposable storage; no production writes or RF.",
+  "disposable_test_root_removed": true
+}
