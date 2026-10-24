@@ -44,6 +44,17 @@ describe("DXpedition catalogue and configured-cluster join", () => {
     expect(filterDXpeditionOperations(operations, "active", "40m", "vk9x2")).toHaveLength(0);
   });
 
+  it("does not inherit an exact callsign observation from another dated occurrence", () => {
+    const future = { ...catalogue[0], id: "adxo:future", starts_at: "2026-10-27T00:00:00.000Z", ends_at: "2026-10-30T23:59:59.999Z" };
+    const operations = buildDXpeditionOperations([catalogue[0], future], [{
+      id: "s1", callsign: "VK9X1", frequencyKHz: 14_025, band: "20m", mode: "CW",
+      receivedAt: "2026-10-24T00:00:00.000Z",
+    }], now);
+    expect(operations.find(value => value.id === catalogue[0].id)?.observations).toHaveLength(1);
+    expect(operations.find(value => value.id === future.id)?.observations).toHaveLength(0);
+    expect(operations.find(value => value.id === future.id)?.status).toBe("upcoming");
+  });
+
   it("uses exact 45-minute, 6-hour and 48-hour recency boundaries", () => {
     const operation = (age: number) => ({ startsAt: null, endsAt: null,
       observations: [{ reportedAt: new Date(now.getTime() - age) }] }) as never;

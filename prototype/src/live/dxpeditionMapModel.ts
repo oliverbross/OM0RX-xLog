@@ -144,10 +144,12 @@ export function buildDXpeditionOperations(catalogue: readonly DXpeditionCatalogu
     const primaryCall = cleanCall(item.callsign);
     if (!primaryCall || typeof item.id !== "string" || !item.id) return [];
     const aliases = [...new Set([primaryCall, ...(item.aliases ?? []).map(cleanCall)].filter(Boolean))];
-    const aliasSet = new Set(aliases);
-    const matched = observations.filter(spot => aliasSet.has(spot.callsign))
-      .sort((a, b) => b.reportedAt.getTime() - a.reportedAt.getTime()).slice(0, 15);
     const startsAt = date(item.starts_at), endsAt = date(item.ends_at);
+    const aliasSet = new Set(aliases);
+    const matched = observations.filter(spot => aliasSet.has(spot.callsign)
+      && (!startsAt || spot.reportedAt.getTime() >= startsAt.getTime())
+      && (!endsAt || spot.reportedAt.getTime() <= endsAt.getTime()))
+      .sort((a, b) => b.reportedAt.getTime() - a.reportedAt.getTime()).slice(0, 15);
     const currentOrUpcoming = !!startsAt && startsAt.getTime() <= horizon && (!endsAt || endsAt.getTime() >= today.getTime());
     const recentlyObserved = matched.some(spot => now.getTime() - spot.reportedAt.getTime() <= 48 * 3_600_000);
     if (!currentOrUpcoming && !recentlyObserved) return [];

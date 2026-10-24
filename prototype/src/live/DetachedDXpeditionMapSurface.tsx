@@ -25,11 +25,23 @@ const text = {
   en: { title: "DXpedition Map", all: "All", live: "Live", active: "Active", recent: "Recent", upcoming: "Upcoming",
     search: "Search callsign, alias or entity", refresh: "Refresh sources", details: "Operation details", observations: "Recent frequencies",
     noResults: "No expeditions match these filters.", loading: "Loading expedition catalogue and configured-cluster observations…",
-    outside: "Outside current filters", tune: "Tune & load", load: "Load callsign", unknown: "Unavailable", close: "Close details" },
+    outside: "Outside current filters", tune: "Tune & load", load: "Load callsign", unknown: "Unavailable", close: "Close details",
+    onAir: "On air", idle: "Idle", entityUnavailable: "Entity unavailable", aliases: "Aliases", utcDates: "UTC dates", qsl: "QSL",
+    radioTarget: "Radio target", position: "Position", clubLogTotal: "Club Log QSO total", qsoRate: "QSO/h", watchers: "Watchers",
+    observedBands: "Observed band / mode", source: "Source", cluster: "Cluster", stale: "stale/unavailable", retained: "retained observations",
+    shown: "shown", currentUpcoming: "current / upcoming", unmapped: "unmapped", noRadio: "No selected radio", selectedReceiver: "selected receiver",
+    list: "DXpedition list", map: "Expedition map", statusFilter: "Status filter", bandFilter: "Observed band filter", inspect: "Inspect expedition", locations: "Catalogue and configured-cluster positions",
+    currentSource: "current", staleSource: "stale", unavailableSource: "unavailable", publishedPosition: "Published catalogue position", clusterPosition: "Latest configured-cluster report", noPosition: "No published coordinates" },
   it: { title: "Mappa DXpedition", all: "Tutte", live: "Live", active: "Attive", recent: "Recenti", upcoming: "Future",
     search: "Cerca nominativo, alias o entità", refresh: "Aggiorna fonti", details: "Dettagli operazione", observations: "Frequenze recenti",
     noResults: "Nessuna spedizione corrisponde ai filtri.", loading: "Caricamento catalogo e osservazioni cluster configurate…",
-    outside: "Fuori dai filtri correnti", tune: "Sintonizza e carica", load: "Carica nominativo", unknown: "Non disponibile", close: "Chiudi dettagli" },
+    outside: "Fuori dai filtri correnti", tune: "Sintonizza e carica", load: "Carica nominativo", unknown: "Non disponibile", close: "Chiudi dettagli",
+    onAir: "In aria", idle: "Inattiva", entityUnavailable: "Entità non disponibile", aliases: "Alias", utcDates: "Date UTC", qsl: "QSL",
+    radioTarget: "Radio selezionata", position: "Posizione", clubLogTotal: "QSO totali Club Log", qsoRate: "QSO/ora", watchers: "Osservatori",
+    observedBands: "Banda / modo osservati", source: "Fonte", cluster: "Cluster", stale: "obsoleto/non disponibile", retained: "osservazioni conservate",
+    shown: "mostrate", currentUpcoming: "correnti / future", unmapped: "senza mappa", noRadio: "Nessuna radio selezionata", selectedReceiver: "ricevitore selezionato",
+    list: "Elenco DXpedition", map: "Mappa spedizioni", statusFilter: "Filtro stato", bandFilter: "Filtro banda osservata", inspect: "Esamina spedizione", locations: "Posizioni da catalogo e cluster configurato",
+    currentSource: "corrente", staleSource: "obsoleta", unavailableSource: "non disponibile", publishedPosition: "Posizione pubblicata nel catalogo", clusterPosition: "Ultima segnalazione del cluster configurato", noPosition: "Coordinate non pubblicate" },
 } as const;
 const statusFilters: DXpeditionStatusFilter[] = ["all", "live", "active", "recent", "upcoming"];
 
@@ -64,19 +76,37 @@ function fmtAge(value: Date, now: Date, locale: Locale) {
   return locale === "it" ? `${Math.floor(seconds / 86400)} g fa` : `${Math.floor(seconds / 86400)}d ago`;
 }
 
-function radioTarget(context: ReturnType<typeof useMapContext>["context"]) {
+function statusLabel(status: DXpeditionOperation["status"], locale: Locale) {
+  const t = text[locale];
+  return status === "on_air" ? t.onAir : status === "idle" ? t.idle : t[status];
+}
+
+function sourceLabel(state: string, locale: Locale) {
+  const t = text[locale];
+  return state === "current" ? t.currentSource : state === "stale" ? t.staleSource : t.unavailableSource;
+}
+
+function positionLabel(source: string, locale: Locale) {
+  const t = text[locale];
+  return source === "Published catalogue position" ? t.publishedPosition
+    : source === "Latest configured-cluster report" ? t.clusterPosition : t.noPosition;
+}
+
+function radioTarget(context: ReturnType<typeof useMapContext>["context"], locale: Locale) {
+  const t = text[locale];
   const selection = context?.selection;
-  if (!selection || typeof selection !== "object") return "No selected radio";
-  const provider = typeof selection.provider === "string" ? selection.provider.replaceAll("_", " ") : "radio unavailable";
-  const id = typeof selection.radio_id === "string" ? selection.radio_id : typeof selection.selection_id === "string" ? selection.selection_id : "selected receiver";
+  if (!selection || typeof selection !== "object") return t.noRadio;
+  const provider = typeof selection.provider === "string" ? selection.provider.replaceAll("_", " ") : t.unknown;
+  const id = typeof selection.radio_id === "string" ? selection.radio_id : typeof selection.selection_id === "string" ? selection.selection_id : t.selectedReceiver;
   return `${id} · ${provider}`;
 }
 
 function OperationCard({ operation, selected, now, locale, onSelect }: { operation: DXpeditionOperation; selected: boolean; now: Date; locale: Locale; onSelect: () => void }) {
   const latest = operation.observations[0];
+  const t = text[locale];
   return <button type="button" className={`dxp-card status-${operation.status}${selected ? " is-selected" : ""}`} onClick={onSelect} aria-pressed={selected}>
-    <span className="dxp-card-head"><strong>{operation.primaryCall}</strong><span>{operation.status.replace("_", " ")}</span></span>
-    <span className="dxp-entity">{operation.entity || "Entity unavailable"}</span>
+    <span className="dxp-card-head"><strong>{operation.primaryCall}</strong><span>{statusLabel(operation.status, locale)}</span></span>
+    <span className="dxp-entity">{operation.entity || t.entityUnavailable}</span>
     {operation.aliases.length > 1 && <span className="dxp-aliases">{operation.aliases.slice(1).join(" · ")}</span>}
     <span className="dxp-card-foot">{latest ? `${(latest.frequencyHz / 1_000_000).toFixed(4)} MHz · ${latest.mode || "?"} · ${fmtAge(latest.reportedAt, now, locale)}` : `${fmtDate(operation.startsAt, locale)} – ${fmtDate(operation.endsAt, locale)}`}</span>
   </button>;
@@ -94,14 +124,14 @@ function Detail({ operation, shown, now, locale, radio, onClose, onTune, onLoad,
   return <aside className="dxp-detail" aria-label={t.details}>
     <button type="button" className="dxp-close" onClick={onClose} aria-label={t.close}>×</button>
     {!shown && <p className="dxp-outside">{t.outside}</p>}
-    <p className={`dxp-status status-${operation.status}`}>{operation.status.replace("_", " ")}</p>
+    <p className={`dxp-status status-${operation.status}`}>{statusLabel(operation.status, locale)}</p>
     <h2>{operation.primaryCall}</h2>
     <p className="dxp-detail-entity">{operation.entity || t.unknown}</p>
-    {operation.aliases.length > 1 && <p><b>Aliases</b><span>{operation.aliases.slice(1).join(", ")}</span></p>}
-    <div className="dxp-facts"><p><b>UTC dates</b><span>{fmtDate(operation.startsAt, locale)} – {fmtDate(operation.endsAt, locale)}</span></p>
-      <p><b>QSL</b><span>{operation.qslRoute || t.unknown}</span></p><p><b>Radio target</b><span>{radio}</span></p>
-      <p><b>Position</b><span>{operation.locationSource}</span></p><p><b>Club Log QSO total</b><span>{t.unknown}</span></p>
-      <p><b>QSO/h</b><span>{t.unknown}</span></p><p><b>Watchers</b><span>{t.unknown}</span></p></div>
+    {operation.aliases.length > 1 && <p><b>{t.aliases}</b><span>{operation.aliases.slice(1).join(", ")}</span></p>}
+    <div className="dxp-facts"><p><b>{t.utcDates}</b><span>{fmtDate(operation.startsAt, locale)} – {fmtDate(operation.endsAt, locale)}</span></p>
+      <p><b>{t.qsl}</b><span>{operation.qslRoute || t.unknown}</span></p><p><b>{t.radioTarget}</b><span>{radio}</span></p>
+      <p><b>{t.position}</b><span>{positionLabel(operation.locationSource, locale)}</span></p><p><b>{t.clubLogTotal}</b><span>{t.unknown}</span></p>
+      <p><b>{t.qsoRate}</b><span>{t.unknown}</span></p><p><b>{t.watchers}</b><span>{t.unknown}</span></p></div>
     {operation.notes && <p className="dxp-notes">{operation.notes}</p>}
     <h3>{t.observations}</h3>
     <div className="dxp-observations">{operation.observations.slice(0, 8).map((spot, index) => <div key={spot.id} className={index === 0 ? "is-latest" : ""}>
@@ -110,19 +140,19 @@ function Detail({ operation, shown, now, locale, radio, onClose, onTune, onLoad,
       <button type="button" disabled={tuning || !spot.activation} onClick={() => onTune(spot)}>{t.tune}</button>
     </div>)}</div>
     {!operation.observations.length && <button type="button" className="dxp-load-call" disabled={loading || !operation.activation} onClick={onLoad}>{t.load}</button>}
-    <h3>Observed band / mode</h3><div className="dxp-band-grid">{["160m", "80m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m"].map(band => <span key={band}><b>{band}</b>{[...(operation.bands.get(band) ?? [])].join(" · ") || "—"}</span>)}</div>
-    <div className="dxp-links">{links.map(([label, href]) => <a key={label} href={href} target="_blank" rel="noreferrer">{label}</a>)}{sourceURL && <a href={sourceURL} target="_blank" rel="noreferrer">Source</a>}</div>
+    <h3>{t.observedBands}</h3><div className="dxp-band-grid">{["160m", "80m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m"].map(band => <span key={band}><b>{band}</b>{[...(operation.bands.get(band) ?? [])].join(" · ") || "—"}</span>)}</div>
+    <div className="dxp-links">{links.map(([label, href]) => <a key={label} href={href} target="_blank" rel="noreferrer">{label}</a>)}{sourceURL && <a href={sourceURL} target="_blank" rel="noreferrer">{t.source}</a>}</div>
   </aside>;
 }
 
 export function DetachedDXpeditionMapSurface() {
   const [snapshot, setSnapshot] = useState<DXpeditionSnapshot | null>(null), [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false), [clock, setClock] = useState(() => new Date());
-  const [status, setStatus] = useState<DXpeditionStatusFilter>(() => (localStorage.getItem("xlog.dxpedition-map.status") as DXpeditionStatusFilter) || "all");
-  const [band, setBand] = useState(() => localStorage.getItem("xlog.dxpedition-map.band") || "all");
+  const [status, setStatus] = useState<DXpeditionStatusFilter>(() => { const value = localStorage.getItem("xlog.dxpedition-map.status"); return statusFilters.includes(value as DXpeditionStatusFilter) ? value as DXpeditionStatusFilter : "all"; });
+  const [band, setBand] = useState(() => { const value = localStorage.getItem("xlog.dxpedition-map.band"); return value === "all" || baselineDXpeditionBands.includes(value as typeof baselineDXpeditionBands[number]) ? value! : "all"; });
   const [query, setQuery] = useState(""), [selectedID, setSelectedID] = useState<string | null>(null);
   const [locale, setLocale] = useState<Locale>(() => localStorage.getItem("xlog.dxpedition-map.locale") === "it" ? "it" : "en");
-  const sequence = useRef(0), active = useRef(true), map = useMapContext();
+  const sequence = useRef(0), active = useRef(true), refreshingRef = useRef(false), map = useMapContext();
   const tune = useSpotActivation(), loadCall = useSpotActivation("activate_opportunity");
   const read = async () => {
     const order = ++sequence.current;
@@ -130,12 +160,12 @@ export function DetachedDXpeditionMapSurface() {
     catch (cause) { if (active.current && order === sequence.current) setError(cause instanceof Error ? cause.message : "DXpedition Map is unavailable."); }
   };
   const refresh = async (automatic = false) => {
-    if (refreshing && !automatic) return;
-    if (!automatic) setRefreshing(true);
+    if (refreshingRef.current && !automatic) return;
+    if (!automatic) { refreshingRef.current = true; setRefreshing(true); }
     const order = ++sequence.current;
     try { const value = await requestDXpeditionMap("opportunities_dxpedition_refresh", { source: "all", automatic }); if (active.current && order === sequence.current) { setSnapshot(value); setError(""); } }
     catch (cause) { if (active.current && order === sequence.current) setError(cause instanceof Error ? cause.message : "Sources could not be refreshed; retained data remains visible."); }
-    finally { if (active.current && !automatic) setRefreshing(false); }
+    finally { if (!automatic) { refreshingRef.current = false; if (active.current) setRefreshing(false); } }
   };
   useEffect(() => {
     active.current = true; void read(); void refresh(true);
@@ -156,21 +186,21 @@ export function DetachedDXpeditionMapSurface() {
   const sourceState = snapshot?.sources.filter(source => ["adxo", "425dxn"].includes(source.source)) ?? [];
   return <div className="app live dxp-app"><main aria-label="DXpedition Map">
     <header className="dxp-header"><div><span className="dxp-kicker">OM0RX-xLog</span><h1>{t.title}</h1></div>
-      <div className="dxp-counts"><span><b>{counts.live}</b> Live</span><span><b>{counts.active}</b> Active</span><span><b>{counts.dx}</b> DX</span></div>
+      <div className="dxp-counts"><span><b>{counts.live}</b> {t.live}</span><span><b>{counts.active}</b> {t.active}</span><span><b>{counts.dx}</b> DX</span></div>
       <label className="dxp-search"><span className="sr-only">{t.search}</span><input type="search" placeholder={t.search} value={query} onChange={event => setQuery(event.target.value)} /></label>
       <button type="button" onClick={() => setLocale(value => value === "en" ? "it" : "en")}>{locale === "en" ? "IT" : "EN"}</button>
       <button type="button" onClick={() => void refresh(false)} disabled={refreshing}>{refreshing ? "…" : "↻"}<span className="sr-only">{t.refresh}</span></button></header>
-    <div className="dxp-source-strip">{sourceState.map(source => <span key={source.source} className={`state-${source.state}`} title={source.safe_error || ""}>{source.source.toUpperCase()} · {source.state} · {source.count}</span>)}
-      <span>Cluster · {map.stale ? "stale/unavailable" : `${rawSpots.length} retained observations`}</span></div>
-    <div className="dxp-toolbar"><div role="tablist" aria-label="Status filter">{statusFilters.map(value => <button type="button" role="tab" aria-selected={status === value} key={value} onClick={() => setStatus(value)}>{t[value]}</button>)}</div>
-      <div className="dxp-bands" aria-label="Observed band filter"><button className={band === "all" ? "is-active" : ""} onClick={() => setBand("all")}>{t.all}</button>{baselineDXpeditionBands.map(value => <button key={value} className={band === value ? "is-active" : ""} onClick={() => setBand(value)}>{value.replace("m", "")}</button>)}</div></div>
-    <div className="dxp-body"><section className="dxp-list" aria-label="DXpedition list"><p className="dxp-results">{filtered.length} shown · {operations.length} current / upcoming{operations.filter(item => item.latitude === null).length ? ` · ${operations.filter(item => item.latitude === null).length} unmapped` : ""}</p>
+    <div className="dxp-source-strip">{sourceState.map(source => <span key={source.source} className={`state-${source.state}`} title={source.safe_error || ""}>{source.source.toUpperCase()} · {sourceLabel(source.state, locale)} · {source.count}</span>)}
+      <span>{t.cluster} · {map.stale ? t.stale : `${rawSpots.length} ${t.retained}`}</span></div>
+    <div className="dxp-toolbar"><div role="tablist" aria-label={t.statusFilter}>{statusFilters.map(value => <button type="button" role="tab" aria-selected={status === value} key={value} onClick={() => setStatus(value)}>{t[value]}</button>)}</div>
+      <div className="dxp-bands" aria-label={t.bandFilter}><button className={band === "all" ? "is-active" : ""} onClick={() => setBand("all")}>{t.all}</button>{baselineDXpeditionBands.map(value => <button key={value} className={band === value ? "is-active" : ""} onClick={() => setBand(value)}>{value.replace("m", "")}</button>)}</div></div>
+    <div className="dxp-body"><section className="dxp-list" aria-label={t.list}><p className="dxp-results">{filtered.length} {t.shown} · {operations.length} {t.currentUpcoming}{operations.filter(item => item.latitude === null).length ? ` · ${operations.filter(item => item.latitude === null).length} ${t.unmapped}` : ""}</p>
       {!snapshot && !error && <p className="dxp-empty">{t.loading}</p>}{snapshot && !filtered.length && <p className="dxp-empty">{t.noResults}</p>}
       {filtered.map(operation => <OperationCard key={operation.id} operation={operation} selected={operation.id === selectedID} now={clock} locale={locale} onSelect={() => setSelectedID(operation.id)} />)}</section>
-      <section className="dxp-map" aria-label="Expedition map"><WorldMap data={dxpeditionMapSpots(filtered)} selected={selectedID} onSpot={spot => setSelectedID(spot.id)}
+      <section className="dxp-map" aria-label={t.map}><WorldMap data={dxpeditionMapSpots(filtered)} selected={selectedID} onSpot={spot => setSelectedID(spot.id)}
         compact persistenceKey="dxpedition-map" spotColorMode="status" fitToDataKey={selectedID ?? `${status}:${band}:${query}`}
-        spotActionLabel="Inspect expedition" locationLabel="Catalogue and configured-cluster positions" /></section>
-      {selected && <Detail operation={selected} shown={shown} now={clock} locale={locale} radio={radioTarget(map.context)} onClose={() => setSelectedID(null)}
+        spotActionLabel={t.inspect} locationLabel={t.locations} /></section>
+      {selected && <Detail operation={selected} shown={shown} now={clock} locale={locale} radio={radioTarget(map.context, locale)} onClose={() => setSelectedID(null)}
         tuning={tune.requesting} loading={loadCall.requesting}
         onTune={spot => { setError(""); if (map.stale || !spot.activation) { setError("This retained observation is stale or no longer has native activation authority."); return; }
           void tune.activate({ id: spot.id, activation: spot.activation }).catch(cause => setError(cause instanceof Error ? cause.message : "Tune & load could not be verified.")); }}

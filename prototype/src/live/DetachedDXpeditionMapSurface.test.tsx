@@ -61,3 +61,15 @@ it("uses the catalogue token for callsign-only draft loading and never emits a Q
   await waitFor(() => expect(api.load).toHaveBeenCalledWith({ id: "adxo:p5", activation }));
   expect(api.worker.mock.calls.some(([method]) => /contact|qso|draft_apply/.test(method))).toBe(false);
 });
+
+it("recovers invalid saved filters and switches the complete navigation shell to Italian", async () => {
+  localStorage.setItem("xlog.dxpedition-map.status", "invalid"); localStorage.setItem("xlog.dxpedition-map.band", "2m");
+  api.worker.mockResolvedValue({ result: snapshot });
+  render(<DetachedDXpeditionMapSurface />);
+  expect(await screen.findByText("VK9X1")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "IT" }));
+  expect(screen.getByRole("heading", { name: "Mappa DXpedition" })).toBeTruthy();
+  expect(screen.getByRole("tablist", { name: "Filtro stato" })).toBeTruthy();
+  expect(screen.getByRole("region", { name: "Elenco DXpedition" })).toBeTruthy();
+  expect(screen.getByRole("region", { name: "Mappa spedizioni" })).toBeTruthy();
+});
