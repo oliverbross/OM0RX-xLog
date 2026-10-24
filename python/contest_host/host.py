@@ -3795,7 +3795,10 @@ class Host:
             require(type(receive_frequency) is int and 0 <= receive_frequency <= 100_000_000_000,
                     "RX frequency must be integer Hz")
             power = text(params.get("power", str(before.get("Power", ""))), 8)
-            require(not power or power.isdigit(), "Power must contain digits only")
+            # Validate a newly supplied numeric power without rejecting historical
+            # plugin-owned categories (for example Stew Perry's LOW/HIGH/QRP).
+            if "power" in params:
+                require(not power or power.isdigit(), "Power must contain digits only")
             if desk.state["pluginID"] == "darc_schwaben" and BAND_LABELS[desk.band(frequency)] in {"2m", "70cm"}:
                 require(bool(desk.contest.parse_exchange(updated["other_2"])[1]),
                         "DARC Schwaben VHF exchange requires a locator")

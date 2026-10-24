@@ -171,6 +171,7 @@ class SecondRemainingPluginTests(unittest.TestCase):
                     after = next(row for row in self.read(host, session, "log")["rows"] if row["ID"] == first)
                     self.assertEqual(after["SentNr"], before["SentNr"])
                     self.assertEqual(after["MiscText"], before["MiscText"])
+                    self.assertEqual(after["Power"], before["Power"])
                     if plugin_id == "raem":
                         setup = self.read(host, session, "setup_get")["setup"]
                         setup["settings"]["SentExchange"] = "33N117W"
