@@ -1183,6 +1183,15 @@ fn enters_contest_desk(label: &str, method: &str) -> bool {
     label == CONTEST_SETUP_WINDOW && matches!(method, "contest_create" | "contest_session_create" | "contest_open")
 }
 
+fn schedule_contest_desk_presentation<F>(present: F)
+where F: FnOnce() -> Result<(), String> + Send + 'static {
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Err(error) = present() {
+            eprintln!("Could not present the restored Contest desk: {error}");
+        }
+    });
+}
+
 fn present_contest_desk(app: &tauri::AppHandle,
     context: &contest_window_context::ContestWindowContext, attempt: u64) -> Result<(), String> {
     // A contest transition may take several seconds. Clear the prior reopen
@@ -2402,16 +2411,20 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     if let (Some(ticket), Ok(response)) = (contest_window_ticket, result.as_ref()) {
         if response["ok"] == true {
             let context = contest_window_context::complete(ticket, response)?;
+            contest_surface::register_context(&context);
+            // The opened session must reach its renderer owner before waiting
+            // for macOS to construct every restored WebView. A slow or failed
+            // window presentation cannot turn a successful host open into an
+            // error and strand all detached panels without their projection.
             let runtime_app = app.clone();
-            tauri::async_runtime::spawn_blocking(move || {
-                let attempt = workspace_window_runtime::contest_context_changed_and_refresh(&runtime_app, context.clone())?;
-                present_contest_desk(&runtime_app, &context, attempt)?;
+            schedule_contest_desk_presentation(move || {
+                let presented = workspace_window_runtime::contest_context_changed_and_refresh(&runtime_app, context.clone())
+                    .and_then(|attempt| present_contest_desk(&runtime_app, &context, attempt));
                 if let Err(error) = fulfill_module_restart_intent(&runtime_app) {
                     eprintln!("Could not open the retained Contest destination: {error}");
                 }
-                Ok::<(), String>(())
-            })
-                .await.map_err(|_| "Contest window context task failed".to_string())??;
+                presented
+            });
         }
     }
     drop(module_admission);
@@ -3948,6 +3961,29 @@ fn main() {
 
 #[cfg(test)]
 mod workspace_layout_tests {
+    #[test]
+    fn successful_contest_open_does_not_wait_for_or_fail_with_window_presentation() {
+        let (started, saw_start) = std::sync::mpsc::channel();
+        let (release, wait_for_release) = std::sync::mpsc::channel();
+        let (completed, saw_completion) = std::sync::mpsc::channel();
+        let response = serde_json::json!({"ok":true,"result":{"projection":{"revision":3831}}});
+        let expected = response.clone();
+        // Model the IPC's successful response path while native WebViews take
+        // longer than the presentation deadline to construct.
+        super::schedule_contest_desk_presentation(move || {
+            started.send(()).unwrap();
+            wait_for_release.recv().unwrap();
+            completed.send(()).unwrap();
+            Err("The contest desk did not finish opening".into())
+        });
+        saw_start.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
+        assert_eq!(response, expected, "presentation must not replace the successful open response");
+        assert!(saw_completion.try_recv().is_err(), "IPC return must not wait for presentation");
+        release.send(()).unwrap();
+        saw_completion.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
+        assert_eq!(response["ok"], true);
+    }
+
     use super::{WorkspaceLayout, DraftWake, HostActiveContest, NativeForeground, contest_desk_focus_label, contest_desk_is_open, contest_desk_window, contest_setup_route, enters_contest_desk, foreground_presentation_guard, hide_normal_workspace_during_contest, host_active_contest, main_workspace_menu_action, native_foreground, normal_workspace_window, recover_presentation_hint, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
     use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, is_raw_owned_station_lifecycle, station_session_changes_state, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_snapshot, validate_follow_set, validate_follow_settlement, validate_rotor_stop, contest_history_manager_worker_params, contest_history_preview_worker_params, AutomaticRotorCommands};
     use serde_json::json;

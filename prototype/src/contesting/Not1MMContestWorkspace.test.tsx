@@ -3734,6 +3734,32 @@ it("strict native cold start opens only the supplied host-active contest without
   expect(localStorage.getItem("xlog.contesting.not1mm.active-session.v1")).toBe(current.sessionID);
 });
 
+it("shows a failed cold-start open and retries the same preserved contest", async () => {
+  const current = projection();
+  let opens = 0;
+  const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+    const support = workspaceSupport(method, params, current); if (support) return support;
+    if (method === "contest_scp_status") return unavailableSCP();
+    if (method === "contest_history_status") return unavailableHistory();
+    if (method === "contest_open" && ++opens === 1) throw new Error("Contest could not open during startup");
+    const result = method === "contest_catalog" ? {plugins:[{id:current.pluginID,name:"CQ WW CW"}]}
+      : method === "contest_open" ? {projection:current}
+      : method === "contest_log_page" ? {rows:[],offset:0,limit:20,total:187}
+      : method === "contest_score" ? {sessionID:current.sessionID,revision:current.revision,score:current.score,matrices:{countries:[],zones:[]}}
+      : null;
+    if (!result) throw new Error(`Unexpected ${method}`);
+    return {id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}
+    strictHostActive={{sessionID:current.sessionID,workspaceGeneration:current.workspaceGeneration}}/>);
+  expect((await screen.findByRole("alert")).textContent).toContain("Contest could not open during startup");
+  fireEvent.click(screen.getByRole("button", {name:"Retry opening contest"}));
+  await waitFor(() => expect(localStorage.getItem("xlog.contesting.not1mm.active-session.v1")).toBe(current.sessionID));
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(request.mock.calls.filter(([method]) => method === "contest_open").map(([,params]) => params))
+    .toEqual([1,2].map(() => ({sessionID:current.sessionID,workspaceGeneration:current.workspaceGeneration})));
+});
+
 it("strict native cold start resumes the supplied contest even when the catalog is unavailable", async () => {
   const current = projection();
   const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {

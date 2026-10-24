@@ -688,6 +688,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const [partial, setPartial] = useState<{sessionID:string;revision:number;query:string;rows:Data[]} | null>(null);
   const [manager, setManager] = useState(true), [busy, setBusy] = useState(false), busyRef = useRef(false);
   const [startupPending, setStartupPending] = useState(true);
+  const [startupOpenError, setStartupOpenError] = useState("");
   const [catalogReady, setCatalogReady] = useState(false), [catalogLoadError, setCatalogLoadError] = useState("");
   const [catalogLoadAttempt, setCatalogLoadAttempt] = useState(0);
   const [retiring, setRetiring] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
@@ -1200,7 +1201,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const timer = window.setInterval(() => { void poll(); }, 1_000);
     return () => { cancelled = true; window.clearInterval(timer); };
   }, [projection?.sessionID, projection?.workspaceGeneration, logOffset, request]);
-  const openSession = async (session: Pick<Session, "sessionID" | "workspaceGeneration">) => {
+  const openSession = async (session: Pick<Session, "sessionID" | "workspaceGeneration">, startup = false) => {
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setError("");
     try {
@@ -1216,6 +1217,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         current.workspaceGeneration === opened.projection.workspaceGeneration && current.revision > opened.projection.revision
         ? current : opened.projection;
       acceptSessionProjection(admitted); phoneSimulationRecoveryRef.current = null;
+      if (startup) setStartupOpenError("");
       setSessions(existing => existing.some(item => item.sessionID === admitted.sessionID) ? existing : [...existing, {
         sessionID: admitted.sessionID, workspaceGeneration: admitted.workspaceGeneration,
         name: admitted.pluginName ?? admitted.pluginID, pluginID: admitted.pluginID,
@@ -1224,7 +1226,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       rememberSetup(setupResult.setup); await refresh(session.sessionID, admitted);
       localStorage.setItem(activeSessionKey, session.sessionID); if (!setupOnly) setManager(false); setEditing(null);
       await cw.controller.refresh();
-    } catch (cause) { setError(errorMessage(cause)); }
+    } catch (cause) {
+      const message = errorMessage(cause);
+      setError(message);
+      if (startup) setStartupOpenError(message);
+    }
     finally { busyRef.current = false; setBusy(false); }
   };
 
@@ -1235,7 +1241,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       try {
         if (strictHostActive) {
           const catalog = result<Data>("contest_catalog");
-          await openSession(strictHostActive);
+          await openSession(strictHostActive, true);
           try {
             const available = await catalog;
             if (!active) return;
@@ -2901,6 +2907,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const showSetup = setupOnly || manager;
   return <main className={`contest-workspace${setupOnly ? " is-setup-only" : ""}`}>
     {setupOnly && <h1 className="contest-visually-hidden">Contest Setup</h1>}
+    {setupOnly && !projection && startupOpenError && <section className="contest-alert is-error" role="alert">
+      <p>{startupOpenError}</p>
+      <button type="button" disabled={busy || retiring} onClick={() => setCatalogLoadAttempt(attempt => attempt + 1)}>
+        Retry opening contest
+      </button>
+    </section>}
     {!setupOnly && <header className="contest-header"><div><h1>Contest Manager / Desk</h1><p>{projection
       ? `${sessions.find(session => session.sessionID === projection.sessionID)?.name ?? projection.pluginID} · actual Not1MM Python plugin · xLog station services`
       : "Actual Not1MM Python plugins · xLog station services"}</p></div><div className="contest-header-actions">{projection && <button type="button" disabled={busy} onClick={() => {
