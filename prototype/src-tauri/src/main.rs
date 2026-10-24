@@ -832,12 +832,23 @@ fn ensure_main_workspace(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow,
 fn show_main_workspace(app: &tauri::AppHandle) -> Result<(), String> {
     let _presentation = foreground_presentation_guard();
     main_workspace(app)?;
-    MAIN_WORKSPACE_REOPENED.store(true, Ordering::Release);
-    if let Err(error) = present_active_workspace(app) {
-        MAIN_WORKSPACE_REOPENED.store(false, Ordering::Release);
+    present_requested_main_workspace(&MAIN_WORKSPACE_REOPENED, || present_active_workspace(app))
+}
+
+fn present_requested_main_workspace(reopened: &AtomicBool,
+    present: impl FnOnce() -> Result<(), String>) -> Result<(), String> {
+    reopened.store(true, Ordering::Release);
+    if let Err(error) = present() {
+        reopened.store(false, Ordering::Release);
         return Err(error);
     }
     Ok(())
+}
+
+fn present_main_navigation(navigation: &workspace_navigation::WorkspaceNavigation,
+    screen: &str, reopened: &AtomicBool, present: impl FnOnce() -> Result<(), String>) -> Result<(), String> {
+    navigation.request(screen)?;
+    present_requested_main_workspace(reopened, present)
 }
 
 fn main_workspace_menu_action(selected: &str) -> Result<(), String> {
@@ -880,12 +891,19 @@ async fn navigate_workspace(app: tauri::AppHandle, screen: String) -> Result<(),
         }).await.map_err(|_| "Workspace mode could not be checked.".to_string()).unwrap_or(Ok(false))?;
         if direct { return open_detached_workspace(app, screen).await; }
     }
-    app.state::<workspace_navigation::WorkspaceNavigation>().request(&screen)?;
     // The event is only a wake-up. The main view reads the native state and
     // acknowledges a revision, so pre-listener clicks and old acks are safe.
     tauri::async_runtime::spawn_blocking(move || {
-        ensure_main_workspace(&app)?;
-        app.emit_to("main", "xlog:workspace-navigation", ()).map_err(|error| error.to_string())
+        // An explicit Settings/Radio menu destination must reveal the main
+        // renderer even while Contest remains the active operating module.
+        // ensure_main_workspace presents the active contest and hides main.
+        let _presentation = foreground_presentation_guard();
+        present_main_navigation(&app.state::<workspace_navigation::WorkspaceNavigation>(),
+            &screen, &MAIN_WORKSPACE_REOPENED, || {
+                main_workspace(&app)?;
+                present_active_workspace(&app)?;
+                app.emit_to("main", "xlog:workspace-navigation", ()).map_err(|error| error.to_string())
+            })
     }).await.map_err(|_| "Main workspace task failed".to_string())?
 }
 
@@ -934,24 +952,31 @@ fn contest_setup_route(acceptance: bool, host_active: Option<&HostActiveContest>
     route
 }
 
+fn contest_setup_window_config(foreground: bool, acceptance: bool,
+    host_active: Option<&HostActiveContest>) -> tauri::utils::config::WindowConfig {
+    tauri::utils::config::WindowConfig {
+        label: CONTEST_SETUP_WINDOW.into(),
+        url: tauri::WebviewUrl::App(contest_setup_route(acceptance, host_active).into()),
+        title: "OM0RX-xLog Contest — Setup".into(),
+        width: 600.0, height: 360.0, min_width: Some(520.0), min_height: Some(320.0),
+        visible: foreground, focus: foreground, skip_taskbar: !foreground,
+        always_on_top: false, incognito: acceptance,
+        // This hidden renderer owns the live contest actions and projections.
+        // WKWebView's default suspension would stop the entire contest desk.
+        background_throttling: Some(tauri::utils::config::BackgroundThrottlingPolicy::Disabled),
+        ..Default::default()
+    }
+}
+
 fn ensure_contest_setup_window_for(app: &tauri::AppHandle, foreground: bool,
     host_active: Option<&HostActiveContest>, query_missing: bool) -> Result<(), String> {
     let window = recover_singleton(&CONTEST_SETUP_CREATION, || app.get_webview_window("contest-setup"), || {
         let queried = if query_missing { query_host_active_contest()? } else { None };
         let effective_active = if query_missing { queried.as_ref() } else { host_active };
         let acceptance = app.state::<acceptance::Acceptance>().path.is_some();
-        let mut builder = tauri::WebviewWindowBuilder::new(app, "contest-setup",
-            tauri::WebviewUrl::App(contest_setup_route(acceptance, effective_active).into()))
-            .title("OM0RX-xLog Contest — Setup")
-            .inner_size(600.0, 360.0)
-            .min_inner_size(520.0, 320.0)
-            // Direct child-dialog menu items still need the mounted setup
-            // authority, but must not surface an unsolicited Setup window.
-            .visible(foreground)
-            .focused(foreground)
-            .skip_taskbar(!foreground)
-            .always_on_top(false)
-            .incognito(app.state::<acceptance::Acceptance>().path.is_some());
+        let config = contest_setup_window_config(foreground, acceptance, effective_active);
+        let mut builder = tauri::WebviewWindowBuilder::from_config(app, &config)
+            .map_err(|error| error.to_string())?;
         if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? {
             builder = builder.data_directory(directory);
         }
@@ -4113,6 +4138,47 @@ mod workspace_layout_tests {
         assert_eq!(native_foreground(&[
             "main".into(), "contest--active-qso".into(), "contest--dx-cluster".into(),
         ], true, true), NativeForeground::Main);
+    }
+
+    #[test]
+    fn settings_navigation_reveals_main_while_contest_remains_active() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let navigation = crate::workspace_navigation::WorkspaceNavigation::default();
+        let reopened = AtomicBool::new(false);
+        let windows = vec!["main".into(), "contest-setup".into(), "contest--active-qso".into()];
+        let contesting = true;
+        assert!(matches!(native_foreground(&windows, contesting, false), NativeForeground::Contest(_)));
+        super::present_main_navigation(&navigation, "settings", &reopened, || {
+            assert_eq!(native_foreground(&windows, contesting, reopened.load(Ordering::Acquire)), NativeForeground::Main);
+            assert_eq!(navigation.snapshot("main")?.unwrap().screen, "settings");
+            assert!(navigation.snapshot("contest-setup")?.is_none());
+            Ok(())
+        }).unwrap();
+        assert!(reopened.load(Ordering::Acquire));
+        // Failed presentation retains the route for retry, but must not leave
+        // a false foreground hint which hides the working contest desk.
+        assert!(super::present_main_navigation(&navigation, "radio1-settings", &reopened,
+            || Err("window creation failed".into())).is_err());
+        assert!(!reopened.load(Ordering::Acquire));
+        assert_eq!(navigation.snapshot("main").unwrap().unwrap().screen, "radio1-settings");
+    }
+
+    #[test]
+    fn hidden_contest_owner_disables_webview_suspension_without_becoming_visible() {
+        use tauri::utils::config::BackgroundThrottlingPolicy;
+        for foreground in [false, true] {
+            let config = super::contest_setup_window_config(foreground, false, None);
+            assert_eq!(config.label, "contest-setup");
+            assert_eq!(config.background_throttling, Some(BackgroundThrottlingPolicy::Disabled));
+            assert_eq!(config.visible, foreground);
+            assert_eq!(config.focus, foreground);
+            assert_eq!(config.skip_taskbar, !foreground);
+            assert!(!config.incognito);
+            assert_eq!(config.url, tauri::WebviewUrl::App("index.html?view=contest-setup".into()));
+        }
+        let isolated = super::contest_setup_window_config(false, true, None);
+        assert!(isolated.incognito);
+        assert_eq!(isolated.url, tauri::WebviewUrl::App("index.html?view=contest-setup&acceptance=local".into()));
     }
 
     #[test]
