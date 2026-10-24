@@ -1,5 +1,40 @@
 # CQ WW SSB macOS reconciliation — 23 October 2026
 
+## 1.3.8 preserved-contest cold-start addendum — 25 October 2026
+
+**READY WITH LIMITATIONS** for continuing the preserved CQ WW SSB 40 m
+contest on Apple Silicon macOS. The installed 1.3.8 application now opens the
+existing contest session and its old log. This is a narrow cold-start repair;
+it does not start another parity, macro or cosmetic batch.
+
+| Final gate | Concrete result |
+| --- | --- |
+| Installed source | `/Applications/OM0RX-xLog.app`, version/build `1.3.8`, packaged from `c6dbd34b7716caac0d3424750e2926763b725799` |
+| Embedded source receipt | `sourceCommit` exactly `c6dbd34b7716caac0d3424750e2926763b725799`; `sourceChanges` is absent (`null` when queried); the packaging checkout was clean and synchronized before the build |
+| Signature and identity | Packaged and installed bundles pass deep/strict signature verification; packaged and installed executable SHA-256 `cbd22e4fcf7b8d4e4956b0c532fe414efbc3a7b03b04d446c5895fd3bf73f327`; worker SHA-256 `7e9ea4d5390f599a6c1b537587ae1d4bbe58f60b45c8ff1b1dba8291d1818d95` |
+| Embedded Python receipt | Installed `python-runtime.json` SHA-256 `69fc90ebe6a0560ae21f8267b7202e8d0fb3c4b9c7a55c5280d4290da5d4f34f` |
+| Packaged native acceptance | 35/35 PASS; `scope: integrated-local-ui`; `production_singleton: false`; `station_io: false`; report SHA-256 `bfc87911b31eeb8873ffff2b57e8c2f87bf2b28bb6aa879eff80123ceb282fac` |
+| Installed native acceptance | 35/35 PASS; `scope: integrated-local-ui`; `production_singleton: false`; `station_io: false`; report SHA-256 `5ea30c444aaa6063168dfcc0b95c4fa55a87107e058af5304771c4dcd0e427c7` |
+| Real preserved-session check | PASS: installed PID `17184` was mapped from the installed 1.3.8 executable; Main Logging loaded session `4ac63449-bb24-4370-b159-e2b671321618` as CQ WW SSB with `209/68` and score `17340`; Log Display showed `1–11 of 209` and a visible DUPE row |
+| Production-data preservation | No QSO was created, edited or deleted. The production `contest.sqlite` remained at mtime `1792841948` and size `19255296` bytes before and after the checks |
+| Rollback | `/Applications/OM0RX-xLog-previous-20261024T141831Z-16713.app`, signed version `1.3.7`, embedded source `db1a9bc58c395b2631e235805f5f6d4195a057f5` |
+
+The cold-start failure was caused by two distinct conditions. First, a
+successful `contest_open` was coupled to slow restored-window presentation;
+1.3.8 now admits the host projection before best-effort presentation. Second,
+the installer tried to terminate `OM0RX-xLog` although the actual executable is
+`xlog-prototype`, so macOS reused the already-running 1.3.7 process after bundle
+replacement. Terminating that stale process and launching the installed bundle
+loaded the preserved contest immediately. The installer now resolves and stops
+the exact bundle executable path; that script-only follow-up is committed and
+pushed at `9c0361628ab7593b67ea0296708eefd142f49def` and passed its process-matching,
+TERM-refusal, inventory-failure and shell-syntax checks.
+
+No radio tune, FLEX/Maestro publication, PTT, recorded-phone playback, audio
+routing, rotor movement or RF transmission was performed. Those remain
+operator-controlled checks and do not block manual contest logging. The 1.3.8
+Main Logging window was left open with the callsign field ready for entry.
+
 ## 1.3.4 installed candidate addendum — 24 October 2026
 
 **READY WITH LIMITATIONS** for the requested CQ WW SSB 40 m workflow on
