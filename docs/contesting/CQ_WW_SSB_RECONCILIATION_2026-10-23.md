@@ -1,5 +1,75 @@
 # CQ WW SSB macOS reconciliation — 23 October 2026
 
+## 1.3.3 installed candidate addendum — 24 October 2026
+
+**READY WITH LIMITATIONS** for the requested CQ WW SSB 40 m workflow on
+Apple Silicon macOS. This is the frozen candidate. It supersedes 1.3.2 and
+closes the demonstrated CTY primary-prefix, contest spot-publication and
+worked-spot refresh blockers without reopening broad Not1MM/N1MM parity work.
+
+| Final gate | Concrete result |
+| --- | --- |
+| Canonical source | `b70ba7f92d4e8598b0d4ad2f790cf28e324cda85`, clean, committed and pushed to `origin/main` (`0 0` ahead/behind before packaging) |
+| Installed application | `/Applications/OM0RX-xLog.app`, version/build `1.3.3` |
+| Embedded source receipt | `sourceCommit` exactly `b70ba7f92d4e8598b0d4ad2f790cf28e324cda85`; `sourceChanges: []`; installed Python receipt SHA-256 `63bcfa0a0f0cf9507bc62a6d95ba6fb52bd9eb893c30297fe3107b5ac6754345` |
+| Signature and identity | Developer ID deep/strict verification PASS for packaged and installed bundles; packaged and installed executable SHA-256 `3a7556a74d3d3f4dda2f952d5ed34f1bd0a574e60d276b289a8281a6586db37d`; worker SHA-256 `9b4fa506517b17b9abc9a0618ec85e957f0f617ac9bd467601ffd6607abfabc4` |
+| Packaged native acceptance | 35/35 PASS; `scope: integrated-local-ui`; `production_singleton: false`; `station_io: false`; report SHA-256 `ac9a2520ed558a8ea2f949cc42a7a91e5ac1f949039ca34cc7ef1c26fe8746bf` |
+| Installed native acceptance | 35/35 PASS; `scope: integrated-local-ui`; `production_singleton: false`; `station_io: false`; report SHA-256 `5cb2e742e7679ed4f0f5422326cded03bb55f02dd78f2a4aa928def869ddbfe6` |
+| Installed CQ WW SSB lane | The installed bundle's embedded Python 3.12 and embedded Not1MM source passed 24/24 disposable host tests: Run/S&P entry, invalid-zone feedback, correction/delete, DUPE and multiplier classification, ADIF/Cabrillo export, reopen, VFO clear/spot load and OE8DDX country reconciliation |
+| Focused regression | 387 affected CQ WW, detached-surface, Band Map and owner tests PASS; final TypeScript/Vite production build PASS; focused Swift CTY/publication suites PASS |
+| Independent review | Three narrow review passes completed; the final review returned no findings |
+| Rollback | `/Applications/OM0RX-xLog-previous-20261024T091558Z-94455.app`, signed version 1.3.2 with clean source receipt `0d3209e4fc6983050d59b3766459d8c82dba2156` |
+
+### Demonstrated fixes in 1.3.3
+
+- CTY matches now use the matched row's primary prefix instead of another
+  entity that shares the same ADIF number. `OE8DDX` therefore displays and
+  scores as Austria / `OE`, not `*4U1V`.
+- On session open, an existing CQ WW SSB row is reconciled only when the stored
+  identity and current CTY result refer to the same entity endpoint. The
+  mutation is revision-, workspace- and reference-fenced, is audited as
+  `reference_reconcile`, and rebuilds points and multiplier matrices. Endpoint
+  conflicts are left untouched rather than guessed.
+- Contest spot publication now follows the configured active contest band. If
+  the radio leaves configured contest bands, the app sends a valid scoped empty
+  replacement so stale contest spots are cleared from FLEX/Maestro instead of
+  silently retaining them.
+- Immediate worked filtering, Wipe reconciliation, entry feedback, Band Map
+  presentation, country identity in log/check-partial projections, and the
+  1.3.3 version/lockfile identity are included in the same combined candidate.
+
+The installed-path trial used only isolated temporary workspaces and synthetic
+contacts. It did not create, edit or delete a production QSO and did not tune a
+radio, publish to a physical radio, assert PTT, play audio, move a rotor or
+transmit RF.
+
+### Remaining operator-controlled checks and explicit limits
+
+- The application-side FLEX/Maestro replacement contract is covered, including
+  active-band publication and stale-spot clearing. Actual coloured spots on the
+  physical Maestro display still require the operator's live session
+  observation; a software receipt is not physical-device proof.
+- Live CAT frequency following, spot selection/readback against the operator's
+  active radio, authenticated QRZ lookup and visual inspection of the installed
+  contest window arrangement remain operator-controlled checks.
+- Recorded voice is separate from macro substitution. Recording presence,
+  output routing, PTT release and actual transmitter audio remain unaccepted;
+  voice is optional and does not block manual-microphone logging.
+- Windows/Linux, notarization, multi-Mac behavior and broad all-contest parity
+  remain outside this macOS CQ WW SSB freeze.
+
+### Cleanup and rollback
+
+The signed 1.3.2 bundle above is the single retained rollback. The superseded
+1.3.1 bundle was moved recoverably to
+`/Users/oliver/.Trash/OM0RX-xLog-previous-20261024T071349Z-57988.app`.
+Settings, backups, contest data and production QSOs were not removed or
+altered. Durable acceptance reports are in
+`docs/contesting/evidence/cq-ww-ssb-b70ba7f9/`.
+
+No further compatibility, macro-expansion or parity batch starts from this
+report.
+
 ## 1.3.2 installed candidate addendum — 24 October 2026
 
 **READY WITH LIMITATIONS** for the requested CQ WW SSB 40 m workflow on
