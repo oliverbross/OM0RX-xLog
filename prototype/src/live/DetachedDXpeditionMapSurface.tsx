@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import WorldMap from "../Map";
 import { workerRequest } from "../worker";
 import { SpotActivationStatus } from "./SpotActivationStatus";
@@ -112,7 +112,7 @@ function OperationCard({ operation, selected, now, locale, onSelect }: { operati
   </button>;
 }
 
-function Detail({ operation, shown, now, locale, radio, onClose, onTune, onLoad, tuning, loading }: { operation: DXpeditionOperation; shown: boolean; now: Date; locale: Locale; radio: string; onClose: () => void; onTune: (spot: DXpeditionOperation["observations"][number]) => void; onLoad: () => void; tuning: boolean; loading: boolean }) {
+function Detail({ operation, shown, now, locale, radio, closeButtonRef, onClose, onTune, onLoad, tuning, loading }: { operation: DXpeditionOperation; shown: boolean; now: Date; locale: Locale; radio: string; closeButtonRef: RefObject<HTMLButtonElement | null>; onClose: () => void; onTune: (spot: DXpeditionOperation["observations"][number]) => void; onLoad: () => void; tuning: boolean; loading: boolean }) {
   const t = text[locale];
   const encoded = encodeURIComponent(operation.primaryCall);
   const links = [
@@ -121,8 +121,8 @@ function Detail({ operation, shown, now, locale, radio, onClose, onTune, onLoad,
     ["DXWatch", `https://www.dxwatch.com/dxsd1/dxsd1.php?f=0&c=${encoded}`],
   ];
   const sourceURL = safeExternalURL(operation.sourceURL);
-  return <aside className="dxp-detail" aria-label={t.details}>
-    <button type="button" className="dxp-close" onClick={onClose} aria-label={t.close}>×</button>
+  return <aside className="dxp-detail" role="dialog" aria-label={`${t.details}: ${operation.primaryCall}`}>
+    <button ref={closeButtonRef} type="button" className="dxp-close" onClick={onClose} aria-label={t.close}>×</button>
     {!shown && <p className="dxp-outside">{t.outside}</p>}
     <p className={`dxp-status status-${operation.status}`}>{statusLabel(operation.status, locale)}</p>
     <h2>{operation.primaryCall}</h2>
@@ -153,7 +153,12 @@ export function DetachedDXpeditionMapSurface() {
   const [query, setQuery] = useState(""), [selectedID, setSelectedID] = useState<string | null>(null);
   const [locale, setLocale] = useState<Locale>(() => localStorage.getItem("xlog.dxpedition-map.locale") === "it" ? "it" : "en");
   const sequence = useRef(0), active = useRef(true), refreshingRef = useRef(false), map = useMapContext();
+  const searchRef = useRef<HTMLInputElement>(null), detailCloseRef = useRef<HTMLButtonElement>(null), selectionTriggerRef = useRef<HTMLElement | null>(null);
   const tune = useSpotActivation(), loadCall = useSpotActivation("activate_opportunity");
+  const closeDetail = () => {
+    setSelectedID(null);
+    window.setTimeout(() => (selectionTriggerRef.current?.isConnected ? selectionTriggerRef.current : searchRef.current)?.focus(), 0);
+  };
   const read = async () => {
     const order = ++sequence.current;
     try { const value = await requestDXpeditionMap("opportunities_dxpedition_snapshot"); if (active.current && order === sequence.current) { setSnapshot(value); setError(""); } }
@@ -176,6 +181,13 @@ export function DetachedDXpeditionMapSurface() {
     return () => { active.current = false; sequence.current++; clearInterval(ages); clearInterval(sources); window.removeEventListener("focus", focus); };
   }, []);
   useEffect(() => { localStorage.setItem("xlog.dxpedition-map.status", status); localStorage.setItem("xlog.dxpedition-map.band", band); localStorage.setItem("xlog.dxpedition-map.locale", locale); }, [status, band, locale]);
+  useEffect(() => {
+    if (!selectedID) return;
+    detailCloseRef.current?.focus();
+    const key = (event: KeyboardEvent) => { if (event.key === "Escape") { event.preventDefault(); closeDetail(); } };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [selectedID]);
   const rawSpots = (map.context?.cluster.response?.contest_spots ?? []) as DXpeditionClusterSpot[];
   const operations = useMemo(() => buildDXpeditionOperations(snapshot?.items ?? [], rawSpots, clock), [snapshot, rawSpots, clock]);
   const filtered = useMemo(() => filterDXpeditionOperations(operations, status, band, query), [operations, status, band, query]);
@@ -184,10 +196,14 @@ export function DetachedDXpeditionMapSurface() {
   const counts = { live: operations.filter(item => item.status === "live").length, active: operations.filter(item => ["live", "active"].includes(item.status)).length,
     dx: operations.filter(item => item.status !== "upcoming").length };
   const sourceState = snapshot?.sources.filter(source => ["adxo", "425dxn"].includes(source.source)) ?? [];
+  const selectOperation = (id: string) => {
+    selectionTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSelectedID(id);
+  };
   return <div className="app live dxp-app"><main aria-label="DXpedition Map">
     <header className="dxp-header"><div><span className="dxp-kicker">OM0RX-xLog</span><h1>{t.title}</h1></div>
       <div className="dxp-counts"><span><b>{counts.live}</b> {t.live}</span><span><b>{counts.active}</b> {t.active}</span><span><b>{counts.dx}</b> DX</span></div>
-      <label className="dxp-search"><span className="sr-only">{t.search}</span><input type="search" placeholder={t.search} value={query} onChange={event => setQuery(event.target.value)} /></label>
+      <label className="dxp-search"><span className="sr-only">{t.search}</span><input ref={searchRef} type="search" placeholder={t.search} value={query} onChange={event => setQuery(event.target.value)} /></label>
       <button type="button" onClick={() => setLocale(value => value === "en" ? "it" : "en")}>{locale === "en" ? "IT" : "EN"}</button>
       <button type="button" onClick={() => void refresh(false)} disabled={refreshing}>{refreshing ? "…" : "↻"}<span className="sr-only">{t.refresh}</span></button></header>
     <div className="dxp-source-strip">{sourceState.map(source => <span key={source.source} className={`state-${source.state}`} title={source.safe_error || ""}>{source.source.toUpperCase()} · {sourceLabel(source.state, locale)} · {source.count}</span>)}
@@ -196,11 +212,11 @@ export function DetachedDXpeditionMapSurface() {
       <div className="dxp-bands" role="group" aria-label={t.bandFilter}><button type="button" aria-pressed={band === "all"} className={band === "all" ? "is-active" : ""} onClick={() => setBand("all")}>{t.all}</button>{baselineDXpeditionBands.map(value => <button type="button" aria-pressed={band === value} key={value} className={band === value ? "is-active" : ""} onClick={() => setBand(value)}>{value.replace("m", "")}</button>)}</div></div>
     <div className="dxp-body"><section className="dxp-list" aria-label={t.list}><p className="dxp-results">{filtered.length} {t.shown} · {operations.length} {t.currentUpcoming}{operations.filter(item => item.latitude === null).length ? ` · ${operations.filter(item => item.latitude === null).length} ${t.unmapped}` : ""}</p>
       {!snapshot && !error && <p className="dxp-empty">{t.loading}</p>}{!snapshot && error && <p className="dxp-empty">{t.unavailable}</p>}{snapshot && !filtered.length && <p className="dxp-empty">{t.noResults}</p>}
-      {filtered.map(operation => <OperationCard key={operation.id} operation={operation} selected={operation.id === selectedID} now={clock} locale={locale} onSelect={() => setSelectedID(operation.id)} />)}</section>
-      <section className="dxp-map" aria-label={t.map}><WorldMap data={dxpeditionMapSpots(filtered)} selected={selectedID} onSpot={spot => setSelectedID(spot.id)}
+      {filtered.map(operation => <OperationCard key={operation.id} operation={operation} selected={operation.id === selectedID} now={clock} locale={locale} onSelect={() => selectOperation(operation.id)} />)}</section>
+      <section className="dxp-map" aria-label={t.map}><WorldMap data={dxpeditionMapSpots(filtered)} selected={selectedID} onSpot={spot => selectOperation(spot.id)}
         compact persistenceKey="dxpedition-map" spotColorMode="status" fitToDataKey={selectedID ?? `${status}:${band}:${query}`}
         spotActionLabel={t.inspect} locationLabel={t.locations} /></section>
-      {selected && <Detail operation={selected} shown={shown} now={clock} locale={locale} radio={radioTarget(map.context, locale)} onClose={() => setSelectedID(null)}
+      {selected && <Detail operation={selected} shown={shown} now={clock} locale={locale} radio={radioTarget(map.context, locale)} closeButtonRef={detailCloseRef} onClose={closeDetail}
         tuning={tune.requesting} loading={loadCall.requesting}
         onTune={spot => { setError(""); if (map.stale || !spot.activation) { setError("This retained observation is stale or no longer has native activation authority."); return; }
           void tune.activate({ id: spot.id, activation: spot.activation }).catch(cause => setError(cause instanceof Error ? cause.message : "Tune & load could not be verified.")); }}

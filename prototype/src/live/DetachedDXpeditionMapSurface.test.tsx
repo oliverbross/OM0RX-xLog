@@ -62,6 +62,17 @@ it("uses the catalogue token for callsign-only draft loading and never emits a Q
   expect(api.worker.mock.calls.some(([method]) => /contact|qso|draft_apply/.test(method))).toBe(false);
 });
 
+it("moves keyboard focus into details and restores it when Escape closes the drawer", async () => {
+  api.worker.mockResolvedValue({ result: snapshot });
+  render(<DetachedDXpeditionMapSurface />);
+  const card = (await screen.findByText("VK9X1")).closest("button")!;
+  card.focus(); fireEvent.click(card);
+  await waitFor(() => expect(screen.getByRole("button", { name: "Close details" })).toBe(document.activeElement));
+  fireEvent.keyDown(window, { key: "Escape" });
+  await waitFor(() => expect(card).toBe(document.activeElement));
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
 it("recovers invalid saved filters and switches the complete navigation shell to Italian", async () => {
   localStorage.setItem("xlog.dxpedition-map.status", "invalid"); localStorage.setItem("xlog.dxpedition-map.band", "2m");
   api.worker.mockResolvedValue({ result: snapshot });
