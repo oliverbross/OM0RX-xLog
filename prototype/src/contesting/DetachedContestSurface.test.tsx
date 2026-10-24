@@ -90,6 +90,21 @@ it("limits the contest map to the operating band and reuses the normal map home 
   });
 });
 
+it("uses a typed unspotted callsign's resolved coordinates and home grid without a cluster report",()=>{
+  const context=syntheticMapContext();
+  context.metadata.home={call:"OM0RX",grid:"JN98",lat:48.5,lon:19};
+  const entry={...sharedSpot,id:"contest-entry:typed-draft",callsign:"F4JTP",country:"France",adif:227,
+    band:"40m",mode:"SSB",frequencyKHz:7100.6,latitude:46,longitude:2,
+    comment:"Current contest entry",source:"Contest entry",contestDupe:false,contestMultiplierCount:0,
+    contestCountryMultiplier:false,contestZoneMultiplier:false};
+  const view=contestMapView({schemaVersion:2,status:"ready",draftID:"typed-draft",draftRevision:1,
+    radioFrequencyHz:7_100_600,selectedSpotID:entry.id,supportedBands:["40m"],spots:[entry]} as any,[],context);
+  expect(view.home).toEqual({call:"OM0RX",grid:"JN98",lat:48.5,lon:19});
+  expect(view.target).toMatchObject({call:"F4JTP",lat:46,lon:2,country:"France"});
+  expect(view.spots).toEqual([expect.objectContaining({id:entry.id,call:"F4JTP",statusHex:"#3da5f4"})]);
+  expect(view.selected).toBe(entry.id);
+});
+
 it("renders the current-band contest map with the normal home path and selects a clicked spot",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=world-map"));
   const spot={...sharedSpot,id:"forty",callsign:"DL1ABC",frequencyKHz:7125,frequencyText:"7125.0",band:"40m",mode:"SSB",

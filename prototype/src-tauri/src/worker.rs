@@ -37,7 +37,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
         else { Err("Contest methods are available only in the detached Contest Setup owner window.".into()) };
     }
     if label == "contest-setup" {
-        return if matches!(request["method"].as_str(), Some("health" | "workspace_status" | "settings_load" | "station_snapshot" | "cluster_snapshot" | "cluster_contest_radio_spots_publish")) {
+        return if matches!(request["method"].as_str(), Some("health" | "workspace_status" | "settings_load" | "station_snapshot" | "cluster_snapshot" | "cluster_contest_radio_spots_publish" | "lookup_call")) {
             Ok(())
         } else if matches!(request["method"].as_str(), Some("wsjtx_snapshot" | "wsjtx_configure" | "wsjtx_start" | "wsjtx_stop"
             | "fldigi_snapshot" | "fldigi_configure" | "fldigi_start" | "fldigi_stop" | "fldigi_send")) {
@@ -1805,6 +1805,23 @@ mod tests {
             assert!(validate_surface("settings", &request).is_err(), "{method}");
         }
     }
+    #[test]
+    fn contest_owner_can_resolve_typed_unspotted_calls_without_logbook_mutation_authority() {
+        // Main logging derives the map target and Hdg/LP/distance from this
+        // shared lookup even when no cluster report exists for the callsign.
+        let request = json!({"id":"typed-call", "method":"lookup_call", "params":{"call":"F4JTP"}});
+        assert!(validate_surface("contest-setup", &request).is_ok());
+        assert!(crate::operating_module::worker_module(&request).is_none());
+        assert!(!crate::operating_module::shared_worker_mutation(&request));
+        assert!(request_is_non_retiring_read(&request));
+        for method in ["logbook_operator_draft_apply", "logbook_contact_apply", "settings_save"] {
+            assert!(validate_surface("contest-setup", &json!({"id":"mutation", "method":method, "params":{}})).is_err());
+        }
+        for label in ["contest--world-map", "contest--active-qso", "contest--band-maps"] {
+            assert!(validate_surface(label, &request).is_err());
+        }
+    }
+
     #[test]
     fn contest_log_transfer_routes_are_explicit_and_only_status_is_a_passive_read() {
         for method in ["contest_log_transfer_prepare", "contest_log_transfer_commit", "contest_log_transfer_status"] {
