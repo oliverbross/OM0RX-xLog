@@ -375,7 +375,7 @@ class HostTests(unittest.TestCase):
         rows = {row["ID"]: row for row in self.read("log")["rows"]}
         self.assertEqual(
             {key: value for key, value in rows[qso].items()
-             if key not in {"raw_fields", "change_revision", "is_dupe"}},
+             if key not in {"raw_fields", "change_revision", "is_dupe", "country_identity"}},
             before,
         )
         self.assertEqual(rows[qso]["raw_fields"]["other_2"], "5")
@@ -920,7 +920,7 @@ class HostTests(unittest.TestCase):
             self.assertEqual(after[key], value, key)
         allowed = {"TS", "Call", "Freq", "Band", "Operator", "SNT", "RCV", "SentNr", "ZN", "NR",
                    "CountryPrefix", "Continent", "WPXPrefix", "Points", "IsMultiplier1", "IsMultiplier2",
-                   "isMultiplier3", "Dirty", "raw_fields", "change_revision"}
+                   "isMultiplier3", "Dirty", "raw_fields", "change_revision", "country_identity"}
         self.assertLessEqual({key for key in before if before[key] != after[key]}, allowed)
         audit = store.exec_sql(
             "SELECT before_json,after_json FROM xlog_qso_audit WHERE qso_id=? AND kind='correct'", (qso,))
