@@ -1,5 +1,47 @@
 # CQ WW SSB macOS reconciliation — 23 October 2026
 
+## 1.3.11 installed verification and operator follow-up — 25 October 2026
+
+**NOT READY for the complete requested workflow:** the operator confirmed stable
+spot clicks and refocusing, but subsequently reported disappearing Flex/Maestro
+spots, FT8 reports incorrectly admitted as SSB, and conflicting worked filters.
+The narrow follow-up is recorded above this section when accepted. The earlier
+1.3.10 result below is historical, not a claim that these new issues are closed.
+
+| Gate | Concrete result |
+| --- | --- |
+| Exact installed source | `1.3.11`, `/Applications/OM0RX-xLog.app`, embedded clean commit `1657270430e6f50bfdda3d8a7bd17e1b811879e9` |
+| Package and installed identity | Developer ID deep/strict signature passed, 92 Python Mach-O hashes verified; package and installed component hashes agree; [receipt](evidence/cq-ww-ssb-1.3.11/installed-source.json) |
+| Packaged Python lane | [27/27 passed](evidence/cq-ww-ssb-1.3.11/packaged-verification.json), packaged interpreter/host/vendor in disposable storage; installed bundle separately verified byte-identical |
+| Native installed UI | [35/35 passed](evidence/cq-ww-ssb-1.3.11/installed-acceptance.json), isolated namespace, `production_singleton=false`, `station_io=false` |
+| Frontend combined regression | [625/625 passed](evidence/cq-ww-ssb-1.3.11/frontend-tests.json); TypeScript and focused Swift/Python/native checks also passed |
+| Production reopen | Original session restored with 282 contacts, 81 multipliers, score 29,160 and existing OZ11A draft/CQ14; no synthetic contact added |
+| Operator confirmation | “yes, its stable now” for spot clicks and refocusing without jumping or false Heard spots; subsequent Flex failure remains open |
+| Preserved backup | `/Users/oliver/Documents/Backups/OM0RX-xLog-1.3.11-before-install-20261024T184002Z`, 282 contacts, SQLite `quick_check=ok`; settings and services preserved |
+| Immediate rollback | `/Applications/OM0RX-xLog-previous-20261024T184123Z-89290.app`, preceding 1.3.10 |
+
+This version adds stable incremental spot classification/display, separate
+pending classification styling, frequency-anchored Band Map leaders, navigation
+and optional N1MM keyboard bindings, log column/divider controls, multiplier
+filters, hourly Rates/goal display, SCP pane controls, and exchange advisories.
+Tune acknowledgement ordering and typed-call provenance prevent clicked or
+auto-loaded calls from becoming false Heard spots. Navigation handles delayed
+and skipped telemetry. The map frequency annotation now uses MHz correctly.
+Independent review and narrow/wide synthetic layout checks were completed.
+
+The apparent three-spot `SH/DX/100` result was not a lost response: the persisted
+18:44:23 UTC burst contains 100 reports across all bands, six 40 m SSB reports,
+five distinct calls, three already worked. EA6Y and W2UD plus a newer live BD8ABR
+report explain the three displayed rows. EA6Y was subsequently logged by the
+operator at 18:53:55 UTC. [Read-only observations](evidence/cq-ww-ssb-1.3.11/operator-observation.json).
+
+Existing erroneous Heard overlays were not silently deleted: they cannot be
+reliably distinguished from genuine manual observations and will age out or can
+be removed by the operator. Recorded files, audio routing, PTT and transmitter
+audio remain separate optional, untested results; macro substitution is not
+voice acceptance. No test radio tuning, PTT, rotor, audio or RF action occurred.
+No Windows/Linux acceptance or complete N1MM/Not1MM parity is claimed.
+
 ## 1.3.10 classification, Band Map and zone-prefill acceptance — 25 October 2026
 
 **READY WITH LIMITATIONS** for the existing macOS CQ WW SSB 40 m workflow.
