@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from contest_host.host import Desk, Host, HostError
 from contest_host.upstream import VENDOR, load_plugin
@@ -359,6 +360,54 @@ class CQWWSSBHostTests(unittest.TestCase):
             ("dupe", True, 0, False, False), ("qso-only", False, 0, False, False),
             ("single-mult", False, 1, False, True), ("double-mult", False, 2, True, True),
         ])
+
+    def test_spot_preview_country_reads_are_isolated_and_next_revision_rechecks_dupes(self):
+        store = self.host.database(self.session)
+        before = store.state(self.session)
+        original_lookup = Desk.cty_lookup
+        lookup_count = 0
+
+        def mutating_lookup(desk, call):
+            nonlocal lookup_count
+            result = original_lookup(desk, call)
+            if result:
+                country = next(iter(result.values()))
+                self.assertNotIn("preview_only", country)
+                country["preview_only"] = True
+                lookup_count += 1
+            return result
+
+        spots = [{"spotID": str(index), "callsign": "K1ABC", "frequencyHz": 7125000, "mode": "SSB"}
+                 for index in range(8)]
+        with patch.object(Desk, "cty_lookup", mutating_lookup):
+            preview = self.read("spot_points_preview", workspaceGeneration=self.workspace,
+                                expectedRevision=self.revision, spots=spots)
+        self.assertGreater(lookup_count, len(spots))
+        self.assertTrue(all(not row["dupe"] and row["multiplierCount"] == 2 for row in preview["spots"]))
+        self.assertEqual(store.state(self.session), before)
+        self.assertEqual(self.read("log")["total"], 0)
+        self.log("K1ABC", "5", frequency=7125000)
+        updated = self.read("spot_points_preview", workspaceGeneration=self.workspace,
+                            expectedRevision=self.revision, spots=spots)
+        self.assertTrue(all(row["dupe"] and row["multiplierCount"] == 0 for row in updated["spots"]))
+
+    def test_multiplier_lookup_index_repairs_existing_store_without_changing_scores(self):
+        self.log("K1ABC", "5", frequency=7125000)
+        self.log("K1ABC", "4", minute=1, frequency=7125000)
+        self.log("DL1ABC", "14", minute=2, frequency=7125000)
+        store = self.host.database(self.session)
+        store.conn.execute("DROP INDEX xlog_dxlog_contest_call_band")
+        store.conn.commit()
+        before = self.read("score")
+        self.host.close()
+        self.host = Host(self.root)
+        after = self.read("score")
+        self.assertEqual(after, before)
+        store = self.host.database(self.session)
+        plan = store.exec_sql_mult("EXPLAIN QUERY PLAN SELECT 1 FROM DXLOG AS prior "
+                                  "WHERE ContestNR=? AND Call=? AND Band=? AND rowid<?", (1, "K1ABC", 7, 3))
+        self.assertTrue(any("xlog_dxlog_contest_call_band" in row["detail"] for row in plan))
+        self.assertEqual(self.read("log")["total"], 3)
 
     def test_unresolved_contacts_do_not_create_cq_ww_multipliers(self):
         self.log("XX1TEST", "10")

@@ -1431,6 +1431,10 @@ class Host:
                 self.verify_engine(current)
                 require(current["revision"] == expected, "Contest changed before spot points preview", "stale_revision")
                 results = []
+                # Candidate desks only read CTY entries through cty_lookup(),
+                # which returns a defensive copy. Share this request-local map
+                # instead of deep-copying every known country for every spot.
+                preview_countries = {**current["reference"]["countries"], **additions}
                 for candidate in candidates:
                     require(isinstance(candidate, dict)
                             and set(candidate) == {"spotID", "callsign", "frequencyHz", "mode"},
@@ -1443,8 +1447,7 @@ class Host:
                             and type(frequency) is int and 100_000 <= frequency <= 100_000_000_000
                             and mode in PLUGIN_REGISTRY[current["pluginID"]].modes,
                             "Invalid spot points preview item")
-                    preview = deepcopy(current)
-                    preview["reference"]["countries"].update(additions)
+                    preview = deepcopy(current, {id(current["reference"]["countries"]): preview_countries})
                     preview["operatingMode"] = mode
                     preview["draft"]["frequencyHz"] = frequency
                     desk = Desk(store, preview, self.commit)

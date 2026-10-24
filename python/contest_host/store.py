@@ -44,6 +44,7 @@ class Store(DataBase):
         super().__init__(str(path), VENDOR / "not1mm/data", 1)
         self.conn.executescript("""
             CREATE UNIQUE INDEX IF NOT EXISTS xlog_dxlog_identity ON DXLOG(ID);
+            CREATE INDEX IF NOT EXISTS xlog_dxlog_contest_call_band ON DXLOG(ContestNR,Call,Band);
             CREATE TABLE IF NOT EXISTS xlog_session(id TEXT PRIMARY KEY, state TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_operation(operation_id TEXT PRIMARY KEY, payload TEXT NOT NULL, result TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_output_claim(operation_id TEXT PRIMARY KEY);

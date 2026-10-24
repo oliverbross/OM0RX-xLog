@@ -1,0 +1,126 @@
+{
+  "recorded_at_utc": "2026-10-24T16:59:13.464170+00:00",
+  "candidate_version": "1.3.10",
+  "baseline_installed_version": "1.3.9",
+  "baseline_source_commit": "e161d52fe3d5dfe0177a533a8ffe5459644c53dc",
+  "candidate_source_commit": null,
+  "candidate_source_note": "Uncommitted backend candidate at measurement; exact file hashes below.",
+  "runtime": "Installed application bundled CPython 3.12; isolated mode -I -B",
+  "measurement": {
+    "method": "contest_spot_points_preview",
+    "batch_size": 8,
+    "contact_count": 237,
+    "snapshot": "Same disposable SQLite backup for both variants; copied anew per process.",
+    "execution": "Sequential baseline then candidate, one profiled warm-up excluded, seven timed dispatches each.",
+    "data_scope": "Eight existing 40m SSB candidates; no contact records or callsigns retained in this evidence.",
+    "timing_scope": "Python host dispatch only; excludes Swift bridge, frontend queue/rendering, RF and installation.",
+    "response_parity": true,
+    "response_sha256": "8aa7b263227c4d28c6e1b6f6b5866a2dbae73c53d61839f7ae469142f79220c7",
+    "variants": [
+      {
+        "variant": "installed",
+        "samples_ms": [
+          325.4658,
+          217.9445,
+          245.6714,
+          276.1059,
+          221.4878,
+          199.396,
+          204.023
+        ],
+        "sample_count": 7,
+        "median_ms": 221.49,
+        "min_ms": 199.4,
+        "max_ms": 325.47,
+        "source_sha256": {
+          "host.py": "62adec5783327adf4ee866c9cdd66f2577d38cdf9bbab4e2ca407359748ca948",
+          "store.py": "cfdd3e34f6fb9e53f23db4fe14ddcf6400a0e0cf3fd20ef9e237952315546b85"
+        }
+      },
+      {
+        "variant": "optimized",
+        "samples_ms": [
+          22.9647,
+          27.8113,
+          42.4174,
+          32.4803,
+          22.9496,
+          23.3871,
+          21.0888
+        ],
+        "sample_count": 7,
+        "median_ms": 23.39,
+        "min_ms": 21.09,
+        "max_ms": 42.42,
+        "source_sha256": {
+          "host.py": "58d3badb82131e182f0b42fc6c002dbc1539e9f6d085f78f8ceb95033f431b16",
+          "store.py": "6086f6b1df3f15d8290aa47d6a3560cfd82a4ebc57da472e47afb79366160ec0"
+        }
+      }
+    ]
+  },
+  "earlier_sequential_comparison": {
+    "samples_per_variant": 7,
+    "baseline_median_ms": 308.12,
+    "baseline_min_ms": 240.28,
+    "baseline_max_ms": 389.03,
+    "candidate_median_ms": 38.69,
+    "candidate_min_ms": 34.05,
+    "candidate_max_ms": 60.38,
+    "exact_response_parity": true,
+    "individual_samples_retained": false
+  },
+  "implementation": [
+    "Add DXLOG(ContestNR,Call,Band) index for unchanged prior-contact queries.",
+    "Share request-local country map between preview desks; cty_lookup retains defensive copies.",
+    "Retain current revision checks, original plugin scoring, temporary insertion and rollback. No cross-request score cache."
+  ],
+  "validation": {
+    "focused": {
+      "suite": "test_cq_ww_ssb_host.py",
+      "tests": 26,
+      "passed": 26,
+      "seconds": 5.201
+    },
+    "full": {
+      "command": "PYTHONPATH=python <bundled-python> -B -m unittest discover -s python/tests",
+      "tests": 330,
+      "passed": 327,
+      "failures": 2,
+      "errors": 1,
+      "seconds": 178.338
+    },
+    "baseline_recheck": {
+      "module_source": "Installed 1.3.9 application Python modules",
+      "tests": 3,
+      "failures": 2,
+      "errors": 1,
+      "seconds": 2.045,
+      "same_failures_reproduced": true,
+      "cases": [
+        {
+          "test": "test_host.HostTests.test_correction_updates_operator_fields_without_changing_historical_run_metadata",
+          "outcome": "failure",
+          "reason": "Expected changed-field allowlist omits country_identity."
+        },
+        {
+          "test": "test_host.HostTests.test_setup_applies_contest_configuration_and_effective_macros_after_reopen",
+          "outcome": "failure",
+          "reason": "Expected contact record omits returned country_identity."
+        },
+        {
+          "test": "test_second_remaining_plugins_host.SecondRemainingPluginTests.test_all_eight_lifecycle_score_history_exports_and_restart",
+          "subtest": "stew_perry_topband",
+          "outcome": "error",
+          "reason": "Power must contain digits only during qso_correct."
+        }
+      ]
+    },
+    "diff_check": "passed"
+  },
+  "limits": [
+    "Host-only measurements; no end-to-end UI or radio acceptance claimed.",
+    "Shared workstation load varied. Recorded individual samples show observed range.",
+    "All benchmark mutations and migrations occurred in disposable copies; production database and installation unchanged."
+  ]
+}
