@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { compactContestSpotWorkflow, contestSpotWorkflowMaxBytes, contestSpotWorkflowMaxEntries, contestSpotWorkflowStorageKey,
   contestSpotWorkflowTTLms, decodeContestSpotWorkflow, encodeContestSpotWorkflow, Not1MMContestWorkspace, persistContestSpotWorkflow,
   projectContestSpotWorkflow, updateContestSpotWorkflow, authoritativeChangeRevision, observedContestSpot, localContestHeardSpot,
-  rtcConfigurationRequired, rtcReportState, storedPendingClientMutation } from "./Not1MMContestWorkspace";
+  contestPathMetrics, rtcConfigurationRequired, rtcReportState, storedPendingClientMutation } from "./Not1MMContestWorkspace";
 import { ContestScoreSummary } from "./ContestPresentation";
 import { ContestMutationUncertain } from "./client";
 import { contestSurfacePanelIDs, validContestSurfaceProjection } from "./contestSurfaceProtocol";
@@ -21,6 +21,7 @@ const groupChat = vi.hoisted(() => ({ configure: vi.fn(async () => ({})), open: 
   publish: vi.fn(async () => {}), acknowledgements: vi.fn(async () => [] as string[]) }));
 const setupDialogOwner = vi.hoisted(() => ({ current: null as any }));
 const nativeVoice = vi.hoisted(() => ({ play: vi.fn(async () => {}), stop: vi.fn(async () => {}) }));
+const mapContext = vi.hoisted(() => ({ changed:null as ((value:any)=>void)|null, refresh:vi.fn(), dispose:vi.fn() }));
 
 vi.mock("./useContestSurfaceOwner", () => ({ useContestSurfaceOwner: (owner: unknown) => {
   surfaceOwner.current = owner; return surfaceOwner.waitForPublication;
@@ -36,7 +37,15 @@ vi.mock("../live/BandMaps", () => ({
   default: () => <div>Shared bandmap</div>,
   deduplicateBandMapSpots: <T,>(spots: T[]) => spots,
 }));
+vi.mock("../live/mapContext",()=>({connectMapContext:(changed:(value:any)=>void)=>{
+  mapContext.changed=changed;return{refresh:mapContext.refresh,dispose:mapContext.dispose};}}));
 vi.mock("../live/ClusterPanel", () => ({ default: () => <div>Shared cluster</div> }));
+
+it("calculates the main logger route from the same home and target coordinates as the map",()=>{
+  expect(contestPathMetrics({call:"OM0RX",grid:"JN98",lat:48.15,lon:17.12},{latitude:41.38,longitude:2.17}))
+    .toEqual(expect.objectContaining({headingDegrees:expect.any(Number),longPathHeadingDegrees:expect.any(Number),distanceKm:expect.any(Number)}));
+  expect(contestPathMetrics(null,{latitude:41.38,longitude:2.17})).toBeNull();
+});
 
 it("reports RTC success and failure before the next scheduled attempt",()=>{
   const status={configured:true,enabled:true,service:"hamscore",username:"OM0RX",interval_minutes:2,posting:false,
@@ -3258,10 +3267,12 @@ it("applies detached Entry mutations and commit through the Python session owner
   expect(stationControl.speed).toHaveBeenCalledExactlyOnceWith(26);
   expect(surfaceOwner.current.projections["active-qso"].manual.cwSpeedWpm).toBe(26);
   entry = surfaceOwner.current.projections["active-qso"];
-  await expect(surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,
+  await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,
     workspaceGeneration,panelID:"callsign-intelligence",projectionRevision:1,requestID:crypto.randomUUID(),action:"assistance_query",
-    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision-1,inputCallsign:"STALE"}})).rejects.toThrow(/changed/);
-  expect(request.mock.calls.some(([method])=>method==="contest_draft_apply")).toBe(false);
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision-1,inputCallsign:"STALE"}}));
+  expect(request.mock.calls.some(([method])=>method==="contest_draft_apply")).toBe(true);
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].draft.callsign).toBe("STALE"));
+  entry = surfaceOwner.current.projections["active-qso"];
   await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,
     workspaceGeneration,panelID:"active-qso",projectionRevision:1,requestID:crypto.randomUUID(),action:"entry_set_text",
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,field:"callsign",value:"k1abc"}}));

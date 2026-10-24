@@ -190,7 +190,7 @@
 .contest-surface-check-columns h2 { text-align:center; border-bottom:1px solid var(--border); padding:4px; }
 .contest-surface-check-columns .contest-surface-results { display:grid; flex:1 1 0; grid-template-columns:minmax(0,1fr); align-content:start; min-height:0; gap:0; overflow:visible; }
 .contest-surface-check-columns button { width:100%; min-width:0; overflow:hidden; text-overflow:ellipsis; text-align:left; border:0; border-radius:0; padding:4px; min-height:24px; }
-.contest-check-exact { color:var(--cyan); font-weight:800; }
+.contest-check-exact { color:var(--teal); font-size:1.12em; font-weight:800; line-height:1; }
 .contest-check-match { color:var(--cyan); font-weight:700; }
 .contest-check-changed { color:var(--error); }
 .contest-check-extra { color:var(--teal); }

@@ -86,7 +86,7 @@ it("limits the contest map to the operating band and reuses the normal map home 
   expect(contestMapView({...projection,radioFrequencyHz:null} as any,shared,context).spots).toEqual([]);
   const worked={...forty,contestDupe:true,contestMultiplierCount:0,contestCountryMultiplier:false,contestZoneMultiplier:false};
   expect(contestMapView({...projection,spots:[worked],selectedSpotID:"forty"} as any,shared,context)).toMatchObject({
-    spots:[],selected:null,target:null,
+    spots:[],selected:null,target:{call:"DL1ABC",lat:51,lon:13,country:"Germany",locationSource:"Selected contest spot"},
   });
 });
 
@@ -1563,7 +1563,34 @@ it("shows saved only after a confirmed commit advances to a new draft",async()=>
   render(<DetachedContestSurface/>);
   fireEvent.click(await screen.findByRole("button",{name:/^Log It/}));
   expect((await screen.findByText("QSO saved")).getAttribute("role")).toBe("status");
-  expect(screen.getByLabelText("Callsign")).toHaveProperty("value","");
+  const callsign=screen.getByLabelText("Callsign");
+  expect(callsign).toHaveProperty("value","");
+  fireEvent.change(callsign,{target:{value:"K1ABC"}});
+  expect(screen.queryByText("QSO saved")).toBeNull();
+});
+
+it("clears saved feedback when a selected spot fills the next callsign",async()=>{
+  const operator={output:"xlog-native",outputAvailable:false,outputUnavailableReason:"Optional voice is not configured.",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+    functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  let current:any={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14_250_000,frequencyText:"14250000",frequencyError:"",mode:"SSB",sentReport:"59",receivedReport:"59"},
+    descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_action"){
+      current={...current,projectionRevision:7,projection:{...current.projection,
+        draft:{...current.projection.draft,draftID:"draft-2",revision:6,callsign:"",dupe:{state:"unchecked",reason:""}}}};
+      return{requestID:args.requestID,status:"applied"};
+    }
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);
+  fireEvent.click(await screen.findByRole("button",{name:/^Log It/}));
+  await screen.findByText("QSO saved");
+  current={...current,projectionRevision:8,projection:{...current.projection,
+    draft:{...current.projection.draft,revision:7,callsign:"PJ4G",dupe:{state:"clear",reason:""}}}};
+  await act(async()=>{native.wake!();});
+  await waitFor(()=>expect(screen.queryByText("QSO saved")).toBeNull());
+  expect(screen.getByLabelText("Callsign")).toHaveProperty("value","PJ4G");
 });
 
 it.each([{available:false},{available:true}])("keeps original RTTY macros visible with truthful fldigi availability ($available)",async({available})=>{

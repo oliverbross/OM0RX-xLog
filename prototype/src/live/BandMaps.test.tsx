@@ -21,6 +21,7 @@ describe("native band-map parity", () => {
     const newest = { ...spot("new", 14023.7), callsign: "ok2buh", receivedAt: appleNow };
     const qsy = { ...spot("qsy", 14025), callsign: "OK2BUH", receivedAt: appleNow - 20 };
     expect(deduplicateBandMapSpots([old, newest, qsy]).map(item => item.id)).toEqual(["new", "qsy"]);
+    expect(deduplicateBandMapSpots([old, newest, qsy], true).map(item => item.id)).toEqual(["new"]);
   });
 
   it("resolves equal-time duplicate updates deterministically", () => {
@@ -167,7 +168,7 @@ describe("native band-map parity", () => {
     expect(screen.queryByRole("button", { name: /DATA40 ·/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /EXPLICITCW ·/ })).toBeNull();
     expect(screen.getByRole("button", { name: /PHONE40 ·/ })).toBeTruthy();
-    expect(screen.getByText("7.100–7.300 MHz")).toBeTruthy();
+    expect(screen.getByText("7.050–7.200 MHz")).toBeTruthy();
   });
   it("uses explicit CQ WW SSB bands and phone mode even when a stale saved mode is disallowed", () => {
     localStorage.setItem("xlog.integration.bandMaps.contest.session-a.modes", JSON.stringify(["cw"]));
@@ -185,7 +186,7 @@ describe("native band-map parity", () => {
     expect(screen.queryByRole("button", { name: /EXPLICITCW ·/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /PHONE20 ·/ })).toBeNull();
     expect(screen.getByRole("button", { name: /PHONE40 ·/ })).toBeTruthy();
-    expect(screen.getByText("7.100–7.300 MHz")).toBeTruthy();
+    expect(screen.getByText("7.050–7.200 MHz")).toBeTruthy();
     fireEvent.click(screen.getByLabelText("40m mode visibility settings"));
     expect(screen.getByRole("checkbox", { name: "SSB / Phone" })).toBeTruthy();
     expect(screen.queryByRole("checkbox", { name: "CW" })).toBeNull();
@@ -197,9 +198,9 @@ describe("native band-map parity", () => {
     const { rerender } = render(<BandMaps {...props} radioFrequencyHz={7_150_000}/>);
     const marker = screen.getByRole("img", { name:"Current VFO 7.150000 MHz" });
     expect(marker.classList.contains("band-map-vfo-marker")).toBe(true);
-    expect(marker.style.top).toBe("25%");
+    expect(Number.parseFloat(marker.style.top)).toBeCloseTo(66.67,1);
     rerender(<BandMaps {...props} radioFrequencyHz={7_200_000}/>);
-    expect(screen.getByRole("img", { name:"Current VFO 7.200000 MHz" }).style.top).toBe("50%");
+    expect(screen.getByRole("img", { name:"Current VFO 7.200000 MHz" }).style.top).toBe("100%");
     rerender(<BandMaps {...props} radioFrequencyHz={7_020_000}/>);
     expect(screen.queryByRole("img", { name:/Current VFO/ })).toBeNull();
     rerender(<BandMaps {...props} radioFrequencyHz={undefined}/>);

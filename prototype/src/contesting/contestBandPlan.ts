@@ -15,6 +15,9 @@ const modeName: Record<ContestBandMode, BandAllocation["name"]> = {
 function defaultRange(band: string, mode: ContestBandMode) {
   const full = BAND_RANGES[band];
   const allocation = full?.allocations.find(item => item.name === modeName[mode]);
+  // CQ WW SSB activity in Region 1 routinely extends below the normal 7.100
+  // MHz phone guide. Contest plans remain operator-editable in Setup > Bands.
+  if (band === "40m" && mode === "phone") return { low: 7050, high: 7200 };
   return allocation ? { low: allocation.low, high: allocation.high } : { low: full?.low ?? 0, high: full?.low ?? 0 };
 }
 
@@ -46,7 +49,15 @@ export function decodeContestBandPlan(value: unknown, bands: readonly string[] =
           validRange(entry.cw, entry.band) && validRange(entry.data, entry.band) && validRange(entry.phone, entry.band)) saved.set(entry.band, entry);
     } catch { /* A malformed saved row falls back to the known band defaults. */ }
   }
-  return defaultContestBandPlan(bands).map(fallback => saved.get(fallback.band) ?? fallback);
+  return defaultContestBandPlan(bands).map(fallback => {
+    const entry = saved.get(fallback.band);
+    if (!entry) return fallback;
+    // Migrate only the former generated 40 m phone guide. Any operator-defined
+    // range remains untouched.
+    if (entry.band === "40m" && entry.phone.low === 7100 && entry.phone.high === 7300)
+      return { ...entry, phone:{...fallback.phone} };
+    return entry;
+  });
 }
 
 export function visibleContestBandRange(entry: ContestBandPlanEntry | undefined, modes: readonly ContestBandMode[]) {

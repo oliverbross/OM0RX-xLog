@@ -62,17 +62,18 @@ export function filterRecentBandMapSpots(spots: BandMapSpot[], ageMinutes: numbe
   });
 }
 
-export function deduplicateBandMapSpots<T extends BandMapSpot>(spots: T[]): T[] {
+export function deduplicateBandMapSpots<T extends BandMapSpot>(spots: T[], latestCallOnly = false): T[] {
   const groups = new Map<string, { rows: Array<{ spot: T; timestamp: number; index: number; tie: string }>; index: number }>();
   spots.forEach((spot, index) => {
     const callsign = text(spot.callsign).trim().toUpperCase();
     const frequency = finite(spot.frequencyKHz);
     const mode = text(spot.mode).trim().toUpperCase();
-    // Cluster and WSJT-X projections can report the same observation through
-    // more than one feed with sub-display-frequency rounding differences.
-    // Match the 100 Hz precision shown to the operator while preserving a real
-    // QSY by the same callsign elsewhere in the band.
-    const key = callsign && frequency !== null ? `${callsign}\u0000${mode}\u0000${Math.round(frequency * 10)}` : `unkeyed\u0000${index}`;
+    // Contest band maps keep only the latest report for a callsign on a band;
+    // normal maps retain a real QSY and merge only the displayed 100 Hz slot.
+    const band = text(spot.band).trim().toUpperCase();
+    const key = callsign && frequency !== null ? latestCallOnly
+      ? `${callsign}\u0000${mode}\u0000${band}`
+      : `${callsign}\u0000${mode}\u0000${Math.round(frequency * 10)}` : `unkeyed\u0000${index}`;
     const timestamp = receivedAtMilliseconds(spot.receivedAt) ?? -Infinity;
     const tie = text(spot.id);
     const match = groups.get(key);
@@ -570,7 +571,8 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
     const mode = !entry || frequency === null ? modeGroup(text(spot.mode)) : contestModeForSpot(entry,frequency,allowedContestModes,spot.comment);
     return { ...spot, mode: contestModeLabel(mode) };
   }) : spots, [allowedContestModes,contestBandPlan, contestPresentation, spots]);
-  const recentUnique = useMemo(() => deduplicateBandMapSpots(filterRecentBandMapSpots(classifiedSpots, spotAgeMinutes, ageClock)), [classifiedSpots, spotAgeMinutes, ageClock]);
+  const recentUnique = useMemo(() => deduplicateBandMapSpots(filterRecentBandMapSpots(classifiedSpots, spotAgeMinutes, ageClock),contestPresentation),
+    [classifiedSpots,spotAgeMinutes,ageClock,contestPresentation]);
   const contestVisible=useMemo(()=>contestPresentation&&!showWorked?recentUnique.filter(spot=>!contestBandMapSpotWorked(spot)):recentUnique,
     [contestPresentation,recentUnique,showWorked]);
   const filtered = useMemo(() => contestVisible.filter((spot) => {

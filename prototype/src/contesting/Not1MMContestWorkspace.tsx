@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type
 import { BookOpen, Download, Radio, Trophy } from "lucide-react";
 import BandMaps, { deduplicateBandMapSpots, type BandMapSpot } from "../live/BandMaps";
 import ClusterPanel from "../live/ClusterPanel";
+import { bearingAndDistance } from "../MapGeography";
+import { connectMapContext, type MapContext } from "../live/mapContext";
 import { useSharedCW } from "../live/useSharedCW";
 import { ContestAssistancePanel, type ContestSCPPanelSurface, type SCPSelectionScope } from "./ContestAssistancePanel";
 import { ContestSetupPanel, newContestSetup, restoredESMPreferences, type ContestSetupCatalogEntry, type ContestSetupDocument, type ContestSetupMacro, type SetupView } from "./ContestSetupPanel";
@@ -142,6 +144,14 @@ type Projection = {
 type ContestPathContext = { callsign: string; country: string | null; cqZone: number | null; ituZone: number | null;
   latitude: number | null; longitude: number | null; headingDegrees: number | null;
   longPathHeadingDegrees: number | null; distanceKm: number | null };
+type ContestPathTarget = Pick<ContestPathContext, "latitude" | "longitude">;
+export function contestPathMetrics(home: MapContext["metadata"]["home"], target: ContestPathTarget | null) {
+  if (!home || !target || target.latitude === null || target.longitude === null ||
+      !Number.isFinite(target.latitude) || !Number.isFinite(target.longitude)) return null;
+  const route = bearingAndDistance([home.lon, home.lat], [target.longitude, target.latitude]);
+  return { headingDegrees:Math.round(route.shortBearing), longPathHeadingDegrees:Math.round(route.longBearing),
+    distanceKm:Math.round(route.distanceKm) };
+}
 type Session = { sessionID: string; workspaceGeneration: string; name: string; pluginID: string; sourceRevision: string; revision: number };
 type MutationResult = { operationID?: string; revision?: number; projection: Projection; actions?: Data[]; messages?: string[]; replayed?: boolean; outputError?: string; effectiveMacros?: ContestSetupMacro[] };
 type PhoneIntentOrigin = Pick<Projection, "sessionID" | "workspaceGeneration" | "draftID" | "revision" | "sourceRevision">;
@@ -719,6 +729,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     contestSurfaceRequestID?: string) => Promise<unknown>>(async () => null);
   const [manualFrequencyMHz, setManualFrequencyMHz] = useState("");
   const [lookupPathContext, setLookupPathContext] = useState<ContestPathContext | null>(null);
+  const [mapHome,setMapHome]=useState<MapContext["metadata"]["home"]>(null);
   const [editing, setEditing] = useState<Data | null>(null), [editCall, setEditCall] = useState(""), [editZone, setEditZone] = useState("");
   const [editTimestamp, setEditTimestamp] = useState(""), [editFrequencyMHz, setEditFrequencyMHz] = useState("");
   const [editReceiveFrequencyHz, setEditReceiveFrequencyHz] = useState("0"), [editPower, setEditPower] = useState("0");
@@ -823,6 +834,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       comment:"Current contest entry",source:"Contest entry",marked:false}:null;
   },[projection?.draftID,projection?.mode,projection?.callContext,operationFrequencyHz,fields.callsign,visibleWorkflowSpots,
     lookupPathContext,stationCall,bandDefinitions]);
+  useEffect(()=>{const connection=connectMapContext(value=>setMapHome(current=>{
+    const next=value.metadata.home;
+    return current?.lat===next?.lat&&current?.lon===next?.lon&&current?.call===next?.call&&current?.grid===next?.grid?current:next;
+  }),()=>{});return()=>connection.dispose();},[]);
+  const entryPathMetrics=useMemo(()=>contestPathMetrics(mapHome,currentEntryMapSpot?{
+    latitude:currentEntryMapSpot.latitude??null,longitude:currentEntryMapSpot.longitude??null}:lookupPathContext),
+    [mapHome,currentEntryMapSpot?.latitude,currentEntryMapSpot?.longitude,lookupPathContext]);
   const previewWorkflowSpots=useMemo(()=>currentEntryMapSpot&&
     !visibleWorkflowSpots.some(spot=>spot.id===currentEntryMapSpot.id)?[...visibleWorkflowSpots,currentEntryMapSpot]:visibleWorkflowSpots,
     [visibleWorkflowSpots,currentEntryMapSpot]);
@@ -853,7 +871,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   },[projection?.sessionID,projection?.workspaceGeneration,projection?.revision,request,visibleSpotSignature,spotPointIdentity,spotPointRetryTick]);
   const contestRadioPublication=useMemo(()=>{
     if(!projection||spotPointPreview.identity!==spotPointIdentity||spotPointPreview.revision!==projection.revision||spotPointPreview.rows.size===0)return null;
-    const rows=visibleWorkflowSpots.slice(0,500).flatMap(spot=>{
+    const activeBand=bandLabels[String(projection.band)]??String(projection.band),radioBands=configuredBands.includes(activeBand)?[activeBand]:configuredBands;
+    const rows=visibleWorkflowSpots.filter(spot=>radioBands.includes(spot.band)).slice(0,500).flatMap(spot=>{
       const preview=spotPointPreview.rows.get(spot.id),frequencyHz=Math.round(spot.frequencyKHz*1_000);
       if(!preview||!Number.isSafeInteger(frequencyHz))return [];
       return [{spot_id:spot.id,callsign:spot.callsign,frequency_hz:frequencyHz,band:spot.band,
@@ -862,9 +881,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         country_multiplier:preview.countryMultiplier,zone_multiplier:preview.zoneMultiplier}];
     });
     return {session_id:projection.sessionID,workspace_generation:projection.workspaceGeneration,revision:projection.revision,
-      configured_bands:configuredBands,allowed_mode_groups:allowedModeGroups,spots:rows};
+      configured_bands:radioBands,allowed_mode_groups:allowedModeGroups,spots:rows};
   },[projection?.sessionID,projection?.workspaceGeneration,projection?.revision,spotPointPreview,spotPointIdentity,
-    visibleWorkflowSpots,configuredBands,allowedModeGroups]);
+    visibleWorkflowSpots,configuredBands,allowedModeGroups,bandLabels]);
   const contestRadioPreviewPending=Boolean(projection&&previewWorkflowSpots.length&&spotPointPreview.identity===spotPointIdentity&&
     spotPointPreview.revision!==projection.revision);
   const enqueueContestRadioPublication=(action:"replace"|"clear",base:NonNullable<typeof contestRadioPublication>)=>{
@@ -2029,9 +2048,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         cwSpeedStepWpm:Number.isInteger(setup.preferences.cwSpeedStep) && Number(setup.preferences.cwSpeedStep) >= 1 && Number(setup.preferences.cwSpeedStep) <= 10 ? Number(setup.preferences.cwSpeedStep) : 1,
         country:pathContext?.country ?? callContext?.country ?? null, cqZone:pathContext?.cqZone ?? callContext?.cqZone ?? null,
         ituZone:pathContext?.ituZone ?? callContext?.ituZone ?? null,
-        headingDegrees:pathContext?.headingDegrees ?? callContext?.headingDegrees ?? null,
-        longPathHeadingDegrees:pathContext?.longPathHeadingDegrees ?? callContext?.longPathHeadingDegrees ?? null,
-        distanceKm:pathContext?.distanceKm ?? callContext?.distanceKm ?? null, qsos:projection.score.qsos,
+        headingDegrees:entryPathMetrics?.headingDegrees ?? pathContext?.headingDegrees ?? callContext?.headingDegrees ?? null,
+        longPathHeadingDegrees:entryPathMetrics?.longPathHeadingDegrees ?? pathContext?.longPathHeadingDegrees ?? callContext?.longPathHeadingDegrees ?? null,
+        distanceKm:entryPathMetrics?.distanceKm ?? pathContext?.distanceKm ?? callContext?.distanceKm ?? null, qsos:projection.score.qsos,
         multipliers:projection.score.multipliers ?? projection.score.countries + projection.score.zones, total:projection.score.total},
       session: { name: activeSessionName, ruleName: projection.pluginName ?? projection.pluginID, mode: projection.mode },
       draft: {
@@ -2278,8 +2297,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     }
     if (busyRef.current || retiring) throw new Error("The contest owner is busy.");
     if (action.action.startsWith("entry_") || action.action.startsWith("assistance_") || action.action.startsWith("spot_")) {
+      const rebasablePresentationAction = ["entry_set_text","entry_set_exchange","entry_set_frequency_text","entry_set_band","entry_set_mode",
+        "assistance_query","assistance_download","assistance_refresh"].includes(action.action);
       if (!("draftID" in action.params) || action.params.draftID !== active.draftID ||
-          action.params.expectedDraftRevision !== active.revision)
+          !rebasablePresentationAction && action.params.expectedDraftRevision !== active.revision)
         throw new Error("The contest entry changed before this action reached the owner.");
     }
     const persistFields = async (fieldID: string, value: string) => {

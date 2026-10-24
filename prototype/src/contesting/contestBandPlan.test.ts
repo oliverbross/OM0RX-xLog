@@ -3,6 +3,12 @@ import { contestModeForFrequency, contestModeForSpot, decodeContestBandPlan, def
   explicitContestMode, visibleContestBandRange } from "./contestBandPlan";
 
 describe("contest band plan", () => {
+  it("uses the CQ WW 40 m phone operating range and migrates the old generated guide", () => {
+    expect(defaultContestBandPlan(["40m"])[0].phone).toEqual({ low:7050, high:7200 });
+    const legacy = JSON.stringify({band:"40m",cw:{low:7000,high:7040},data:{low:7040,high:7100},phone:{low:7100,high:7300}});
+    expect(decodeContestBandPlan([legacy],["40m"])[0].phone).toEqual({ low:7050, high:7200 });
+  });
+
   it("round-trips contest-specific per-band mode segments", () => {
     const plan = defaultContestBandPlan(["40m"]);
     plan[0].cw.high = 7100;
@@ -11,7 +17,7 @@ describe("contest band plan", () => {
 
   it("falls back safely when a saved segment escapes its amateur band", () => {
     const invalid = [{ ...defaultContestBandPlan(["40m"])[0], phone: { low: 6900, high: 7300 } }];
-    expect(decodeContestBandPlan(encodeContestBandPlan(invalid), ["40m"])[0].phone).toEqual({ low: 7100, high: 7300 });
+    expect(decodeContestBandPlan(encodeContestBandPlan(invalid), ["40m"])[0].phone).toEqual({ low: 7050, high: 7200 });
   });
 
   it("uses digital then CW precedence and phone for the remaining spectrum", () => {
@@ -25,7 +31,7 @@ describe("contest band plan", () => {
 
   it("constrains a phone-only contest map to the configured phone segment", () => {
     const entry = defaultContestBandPlan(["40m"])[0];
-    expect(visibleContestBandRange(entry, ["phone"])).toMatchObject({ low: 7100, high: 7300 });
+    expect(visibleContestBandRange(entry, ["phone"])).toMatchObject({ low: 7050, high: 7200 });
   });
 
   it("lets explicit spot comments override inferred mode", () => {

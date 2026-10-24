@@ -105,6 +105,7 @@ function Surface({ context }: { context: Context }) {
   const { snapshot, error, refresh } = useContestSurface(context), [sending, setSending] = useState(false),
     [entryFeedback,setEntryFeedback]=useState<EntryFeedback|null>(null);
   const snapshotRef=useRef(snapshot),queueRef=useRef<Promise<void>>(Promise.resolve()),pendingCount=useRef(0);
+  const lastEntryCall=useRef("");
   const receiptWaiters=useRef(new Map<string,{resolve:(receipt:ContestSurfaceTerminalReceipt|null)=>void;timer:number}>());
   snapshotRef.current=snapshot;
   const reportDiagnostic=useCallback((kind:"error"|"notice",text:string)=>{
@@ -117,6 +118,10 @@ function Surface({ context }: { context: Context }) {
     window.clearTimeout(waiter.timer);receiptWaiters.current.delete(receipt.requestID);waiter.resolve(receipt);}},[snapshot]);
   useEffect(()=>()=>{for(const waiter of receiptWaiters.current.values()){window.clearTimeout(waiter.timer);waiter.resolve(null);}receiptWaiters.current.clear();},[]);
   const latest = snapshot?.receipts.at(-1);
+  const projectedEntryCall=snapshot?.panelID==="active-qso"&&snapshot.projection.status==="ready"
+    ?String((snapshot.projection as any).draft?.callsign??"").trim().toUpperCase():"";
+  useEffect(()=>{if(projectedEntryCall&&projectedEntryCall!==lastEntryCall.current)setEntryFeedback(null);
+    lastEntryCall.current=projectedEntryCall;},[projectedEntryCall]);
   const send = useCallback((action: ContestSurfaceAction, requestedProjectionRevision:number,
       options:{requestID?:string;safePresentation?:boolean;bypassQueue?:boolean;quietOwnerBusy?:boolean}={}) => {
     const requestID=options.requestID??crypto.randomUUID();
@@ -213,7 +218,7 @@ function Surface({ context }: { context: Context }) {
       : (() => { throw new Error(`No shared contest renderer owns ${context.panelID}.`); })()
       : snapshot.panelID === "active-qso" ? <Entry projection={projection as Extract<typeof projection, { draft: unknown }>} disabled={projection.busy} sending={sending}
           context={context} projectionRevision={snapshot.projectionRevision} send={send} refresh={refresh} settle={()=>queueRef.current}
-          feedback={entryFeedback} reportConflict={text=>reportDiagnostic("error",text)}/>
+          feedback={entryFeedback} clearFeedback={()=>setEntryFeedback(null)} reportConflict={text=>reportDiagnostic("error",text)}/>
       : snapshot.panelID === "callsign-intelligence" ? <Check projection={projection as Extract<typeof projection, { scp: unknown }>} disabled={projection.busy}
           projectionRevision={snapshot.projectionRevision} receipts={snapshot.receipts} send={send}/>
       : snapshot.panelID === "propagation" ? <Statistics projection={projection as ContestStatisticsSurfaceProjection}/>
@@ -319,8 +324,10 @@ export function contestMapView(projection:ContestSpotSurfaceProjection,sharedSpo
       ?observedBand:configuredBands.length===1?configuredBands[0]:null,
     spots=currentBand===null?[]:contestMapSpots(projection.spots.filter(spot=>spot.band===currentBand&&spot.contestDupe!==true),sharedSpots),
     selected=projection.selectedSpotID===null?null:spots.find(spot=>spot.id===projection.selectedSpotID)??null,
-    target=selected&&Number.isFinite(selected.lat)&&Number.isFinite(selected.lon)
-      ?{call:selected.call,lat:selected.lat,lon:selected.lon,country:selected.country,locationSource:"Selected contest spot"}:null;
+    selectedProjection=projection.selectedSpotID===null?null:projection.spots.find(spot=>spot.id===projection.selectedSpotID)??null,
+    targetSpot=selected??(selectedProjection?contestMapSpots([selectedProjection],sharedSpots)[0]??null:null),
+    target=targetSpot&&Number.isFinite(targetSpot.lat)&&Number.isFinite(targetSpot.lon)
+      ?{call:targetSpot.call,lat:targetSpot.lat,lon:targetSpot.lon,country:targetSpot.country,locationSource:"Selected contest spot"}:null;
   return{currentBand,spots,selected: selected?.id??null,home:context?.metadata.home??null,
     dxccStatuses:context?.metadata.dxccStatuses??null,target};
 }
@@ -539,10 +546,10 @@ function EntryIntentInput({label,accessibleLabel,intentKey,value,maximumUTF8Byte
     value={value} disabled={disabled} onChange={event=>{const next=event.target.value;if(new TextEncoder().encode(next).length<=maximumUTF8Bytes)
       onChange(intentKey,next);}}/></div>;
 }
-function Entry({ projection, disabled, sending, context, projectionRevision, send, refresh, settle, feedback, reportConflict }: { projection: any; disabled: boolean; sending:boolean;
+function Entry({ projection, disabled, sending, context, projectionRevision, send, refresh, settle, feedback, clearFeedback, reportConflict }: { projection: any; disabled: boolean; sending:boolean;
   context:ContestSurfaceContext;
   projectionRevision:number;send:Send;refresh:()=>Promise<ContestSurfaceSnapshot|null>;
-  settle:()=>Promise<void>;feedback:EntryFeedback|null;reportConflict:(message:string)=>void }) {
+  settle:()=>Promise<void>;feedback:EntryFeedback|null;clearFeedback:()=>void;reportConflict:(message:string)=>void }) {
   const base = { draftID: projection.draft.draftID, expectedDraftRevision: projection.draft.revision };
   const fieldRefs=useRef<Partial<Record<ContestInputFieldID,HTMLInputElement|null>>>({});
   const cwInputRef=useRef<HTMLInputElement|null>(null);
@@ -757,7 +764,7 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
     <div className="contest-surface-main-fields" style={{"--contest-entry-field-columns":entryFieldColumns} as CSSProperties}>
     <EntryIntentInput label="Callsign" intentKey="callsign" value={intents.values.callsign} maximumUTF8Bytes={32} disabled={entryBufferDisabled}
       className={duplicateState==="duplicate"?"is-duplicate":undefined} operatorField="callsign" inputRef={setFieldRef("callsign")}
-      onFocus={()=>focusField("callsign")} onChange={(key,value)=>intents.change(key,value,actionFor(key))}/>
+      onFocus={()=>focusField("callsign")} onChange={(key,value)=>{clearFeedback();intents.change(key,value,actionFor(key));}}/>
     {(reportFields??(reportsVisible?[{id:"sent",label:"SNT",value:intents.values.sentReport,enabled:true,readOnly:false,maximumUTF8Bytes:160},
       {id:"receive",label:"RCV",value:intents.values.receivedReport,enabled:true,readOnly:false,maximumUTF8Bytes:160}]:[])).map((field:any)=>{
         const key=(field.id==="sent"?"sentReport":"receivedReport") as EntryIntentKey,
