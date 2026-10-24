@@ -26,6 +26,7 @@ actor LiveReferenceMethods {
         let fileNumber: UInt64
     }
     private var cachedDirectory: (path: String, files: [ActivationReferenceKind: FileIdentity], value: ActivationReferenceDirectory)?
+    private let logReviewReferences = LogReviewReferences()
 
     init(logbook: LiveLogbookMethods = .shared, session: URLSession = .shared,
          scheduleOperation: (@Sendable () async throws -> Void)? = nil) {
@@ -106,6 +107,8 @@ actor LiveReferenceMethods {
         }
         let directory = try logbook.referenceDirectoryURL()
         switch method {
+        case "reference_log_review":
+            return try logReviewReferences.review(params: params, directory: directory)
         case "reference_configure":
             guard Set(params.keys).isSubset(of: ["enabled", "only_if_unset"]),
                   let enabled = params["enabled"] as? NSNumber, CFGetTypeID(enabled) == CFBooleanGetTypeID(),

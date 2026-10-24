@@ -1,0 +1,36 @@
+.contest-log-review{box-sizing:border-box;min-height:100vh;background:#071321;color:#dce6ef;padding:22px;font:14px/1.5 system-ui,sans-serif}
+.contest-log-review *{box-sizing:border-box}
+.contest-log-review header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.contest-log-review header>div{flex:1;min-width:260px}
+.contest-log-review h1{font-size:25px;margin:0}
+.contest-log-review h2{font-size:18px;margin:0 0 12px}
+.contest-log-review p{margin:8px 0}
+.contest-log-review button,.contest-log-review input,.contest-log-review select{font:inherit;color:inherit;border:1px solid #34536b;background:#10263a;border-radius:5px;padding:7px 10px}
+.contest-log-review button{cursor:pointer}
+.contest-log-review button:hover{border-color:#38c5ec}
+.contest-log-review :focus-visible{outline:2px solid #38c5ec;outline-offset:2px}
+.contest-log-review button:disabled{opacity:.5;cursor:default}
+.contest-log-review .review-hint{color:#a9bbcc;max-width:1000px;margin:12px 0 18px}
+.contest-log-review fieldset{border:1px solid #294055;border-radius:6px;display:flex;gap:20px;flex-wrap:wrap;padding:12px}
+.contest-log-review label{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.contest-log-review input{width:80px}
+.contest-log-review [role=alert]{background:#4a2733;color:#ffb6b3;padding:10px;border-radius:4px}
+.contest-log-review [role=status]{color:#64d6e7}
+.review-summary{display:grid;gap:5px;padding:16px 0;color:#a9bbcc}
+.review-summary strong{color:#45dcb4;font-size:18px}
+.review-toolbar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.review-toolbar>button{margin-left:auto}
+.review-results{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+.review-table-scroll{max-height:420px;overflow:auto;border:1px solid #294055}
+.contest-log-review table{width:100%;border-collapse:collapse;text-align:left;font-variant-numeric:tabular-nums}
+.contest-log-review th{position:sticky;top:0;background:#10263a;white-space:nowrap}
+.contest-log-review th,.contest-log-review td{padding:8px;border-bottom:1px solid #294055}
+.contest-log-review td button{color:#43d7f4;font-weight:650;background:transparent;border:0;padding:0}
+.contest-log-review tr.selected{background:#153a51}
+.contest-log-review aside{border:1px solid #34536b;border-radius:6px;padding:16px;min-width:0}
+.contest-log-review article{padding:12px 0;border-bottom:1px solid #294055}
+.contest-log-review article strong{color:#f6c16b}
+.contest-log-review pre{white-space:pre-wrap;overflow-wrap:anywhere;color:#b8d4e4}
+.review-decisions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.review-empty{padding:28px 0;color:#a9bbcc}
+@media(min-width:1250px){.review-results{grid-template-columns:minmax(500px,1.25fr) minmax(380px,1fr)}.review-table-scroll{max-height:65vh}}

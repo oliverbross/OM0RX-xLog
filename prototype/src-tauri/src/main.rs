@@ -60,6 +60,7 @@ mod contest_setup_dialogs;
 mod contest_group_chat;
 mod contest_group_replica;
 mod contest_log_transfer;
+mod contest_log_review;
 mod contest_voice;
 
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
@@ -676,6 +677,8 @@ fn append_contesting_menu(app: &tauri::AppHandle, menu: &Menu<tauri::Wry>) -> ta
     contesting.append(&PredefinedMenuItem::separator(app)?)?;
     contesting.append(&MenuItem::with_id(app, contest_log_transfer::MENU_ID,
         "Import or Transfer Log…", true, None::<&str>)?)?;
+    contesting.append(&MenuItem::with_id(app, contest_log_review::MENU_ID,
+        "Log Review…", true, None::<&str>)?)?;
     contesting.append(&PredefinedMenuItem::separator(app)?)?;
     for (route, title) in workspace_navigation::CONTEST_MENU_ITEMS {
         contesting.append(&MenuItem::with_id(app, format!("contest_menu_{route}"),
@@ -995,6 +998,23 @@ fn ensure_contest_setup_window_for(app: &tauri::AppHandle, foreground: bool,
 
 fn ensure_contest_setup_window(app: &tauri::AppHandle, foreground: bool) -> Result<(), String> {
     ensure_contest_setup_window_for(app, foreground, None, true)
+}
+
+fn ensure_contest_log_review_window(app: &tauri::AppHandle) -> Result<(), String> {
+    let window = recover_singleton(&MAIN_CREATION, || app.get_webview_window(contest_log_review::WINDOW), || {
+        let mut builder = tauri::WebviewWindowBuilder::new(app, contest_log_review::WINDOW,
+            tauri::WebviewUrl::App("index.html?view=contest-log-review&scope=contesting".into()))
+            .title("OM0RX-xLog Contest — Log Review")
+            .inner_size(1040.0, 720.0).min_inner_size(640.0, 480.0).focused(true)
+            .incognito(app.state::<acceptance::Acceptance>().path.is_some());
+        if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? { builder = builder.data_directory(directory); }
+        let window = builder.build().map_err(|error| error.to_string())?;
+        if app.state::<acceptance::Acceptance>().path.is_none() { detached_geometry::install(&window); }
+        Ok(window)
+    })?;
+    window.unminimize().map_err(|error| error.to_string())?;
+    window.show().map_err(|error| error.to_string())?;
+    window.set_focus().map_err(|error| error.to_string())
 }
 
 fn ensure_contest_log_transfer_window(app: &tauri::AppHandle) -> Result<(), String> {
@@ -3689,6 +3709,12 @@ fn main() {
                 });
                 return;
             }
+            if event.id().0 == contest_log_review::MENU_ID {
+                if let Err(error) = ensure_contest_log_review_window(app) {
+                    eprintln!("Could not open contest log review: {error}");
+                }
+                return;
+            }
             if event.id().0 == contest_log_transfer::MENU_ID {
                 let app = app.clone();
                 tauri::async_runtime::spawn_blocking(move || {
@@ -3925,6 +3951,8 @@ fn main() {
             operator_draft_follow_snapshot, operator_draft_follow_set, operator_draft_follow_settled,
             auto_rotor_snapshot, auto_rotor_set,
             workspace_windows_status, workspace_windows_reconcile, contest_window_open, contest_window_toggle, contest_contact_editor_open, contest_contact_editor_close, contest_surface_context_close, contest_setup_service_open,
+            contest_log_review::contest_log_review_read,
+            contest_log_review::contest_log_review_open_log,
             contest_log_transfer::contest_log_transfer_context, contest_log_transfer::contest_log_transfer_request,
             contest_log_transfer::contest_legacy_choose_preview, contest_log_transfer::contest_legacy_import,
             contest_setup_dialog_open, contest_setup_dialog_request,

@@ -1,9 +1,9 @@
 # Backlog: Contest Log Review
 
-Status: **planned only; not part of 1.3.12**.
-Requested by the operator on 25 October 2026 after discussing post-contest
-comparison against received Cluster reports. No implementation is authorized
-by this backlog entry alone; scheduling and detailed design remain follow-up work.
+Status: **implemented for the next candidate; not part of installed 1.3.12**.
+The operator authorized implementation on 25 October 2026, including available
+local callsign/country references. See [Log Review guide](CONTEST_LOG_REVIEW.md)
+for the implemented scope, validation and limitations.
 
 ## First version
 
@@ -35,7 +35,7 @@ database. Do not add scans or network lookups to the live entry/DUPE/save path.
 - Retain raw received data and provenance; use a derived index for comparisons.
   Review existing spot-history retention before promising complete-contest coverage.
 
-## Acceptance outline for the future task
+## Acceptance outline
 
 Use disposable fixtures for exact matches, near-call typos, multiple stations on
 one frequency, station QSY, midnight boundaries, clock drift, mode/band mismatch,

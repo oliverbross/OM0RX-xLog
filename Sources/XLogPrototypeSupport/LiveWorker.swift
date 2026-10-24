@@ -777,7 +777,7 @@ public actor LiveWorker {
     }
 
     private static func testProfileAllows(_ method: String) -> Bool {
-        ["health", "parse_adif", "self_test", "integration_self_test", "cluster_classify"].contains(method)
+        ["health", "parse_adif", "self_test", "integration_self_test", "cluster_classify", "reference_log_review"].contains(method)
             || method.hasPrefix("workspace_") || method.hasPrefix("logbook_")
             || method.hasPrefix("settings_") || method.hasPrefix("backup_")
             || method.hasPrefix("contest_") && method != "contest_scp_download"
