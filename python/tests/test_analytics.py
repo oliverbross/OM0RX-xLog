@@ -62,3 +62,23 @@ class AnalyticsHostTests(unittest.TestCase):
         self.assertEqual([row["multiplierEligible"] for row in page["rows"]], [True, False])
         self.assertEqual([row["points"] for row in page["rows"]], [0, 0])
         self.assertEqual(meta["score"]["multipliers"], 2)
+
+    def test_backdated_entry_and_correction_preserve_host_duplicate_order_in_copy(self):
+        original = self.log("K1ABC", "5", minute=10)
+        duplicate = self.log("K1ABC", "5", minute=0)
+        meta = self.read("analytics", workspaceGeneration=self.workspace, action="prepare")
+        page = self.read("analytics", workspaceGeneration=self.workspace, action="page",
+                         snapshotID=meta["snapshotID"], offset=0, limit=500)
+        self.assertEqual([row["id"] for row in page["rows"]], [duplicate, original])
+        self.assertGreater(page["rows"][0]["sourceOrder"], page["rows"][1]["sourceOrder"])
+        self.assertEqual([row["multiplierEligible"] for row in page["rows"]], [False, True])
+        self.mutate("qso_correct", qsoID=duplicate, timestamp="2026-10-20 08:05:00",
+                    reason="Correct duplicate timestamp")
+        corrected = self.read("analytics", workspaceGeneration=self.workspace, action="prepare")
+        corrected_page = self.read("analytics", workspaceGeneration=self.workspace, action="page",
+                                   snapshotID=corrected["snapshotID"], offset=0, limit=500)
+        # Recalculation may rewrite rowids. Export the current host order, never
+        # an order inferred in the renderer from the editable timestamps.
+        stored = self.host.database(self.session).exec_sql_mult("SELECT ID,rowid AS ordering FROM DXLOG ORDER BY TS,rowid")
+        self.assertEqual([(row["id"], row["sourceOrder"]) for row in corrected_page["rows"]],
+                         [(row["ID"], row["ordering"]) for row in stored])

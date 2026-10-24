@@ -1,6 +1,6 @@
 /** Pure analysis of an immutable host copy. No log, station, network or scoring writes. */
 export type AnalyticsRow = {
-  id:string;call:string;utc:string;band:string;frequencyKHz:number|null;mode:string;operator:string;
+  id:string;sourceOrder:number;call:string;utc:string;band:string;frequencyKHz:number|null;mode:string;operator:string;
   style:string;country:string;countryName:string;continent:string;zone:string;prefix:string;
   points:number|null;inCategory:boolean;multiplierEligible:boolean|null;
 };
@@ -46,12 +46,18 @@ export function prepareAnalytics(meta:AnalyticsMeta,rows:AnalyticsRow[]):Analyti
     if(qso.style==="Unknown")qso.issues.push("Unattributed operating style");
     if(qso.operator==="Unknown")qso.issues.push("Unattributed operator");
     if(meta.cqWW&&qso.zone==="Unknown")qso.issues.push("Unresolved CQ zone");
+  }
+  // Match the host's stored row order for duplicate ownership, including
+  // backdated entries. Only the displayed timeline is chronological.
+  for(const qso of [...contacts].sort((a,b)=>a.sourceOrder-b.sourceOrder)){
     const call=qso.call.trim().toUpperCase();
     const key=meta.dupeType===1?call:meta.dupeType===2?`${call}|${qso.band}`:meta.dupeType===3?`${call}|${qso.band}|${modeGroup(qso.mode)}`:null;
     if(meta.dupeType===4)qso.dupe=false;
-    else if(key&&qso.time!==null&&!qso.issues.includes("Invalid callsign")&&qso.band!=="Unknown"){
+    else if(key&&!qso.issues.includes("Invalid callsign")&&qso.band!=="Unknown"){
       qso.dupe=seen.has(key);seen.add(key);
     }
+  }
+  for(const qso of contacts){
     if(!qso.inCategory)continue;
     const before=points*multipliers.size;
     points+=qso.points??0;
@@ -148,6 +154,9 @@ export function readAnalyticsReport(text:string):AnalyticsDataset {
   if(report?.format!=="xlog-contest-analytics-v1"||!Array.isArray(report.rows)||report.rows.length>50000||report.rows.length!==report.meta?.total)throw new Error("Choose a complete xLog analytics JSON report.");
   const strings=["id","call","utc","band","mode","operator","style","country","countryName","continent","zone","prefix"];
   if(report.rows.some((row:AnalyticsRow)=>!row||strings.some(key=>typeof row[key as keyof AnalyticsRow]!=="string"||String(row[key as keyof AnalyticsRow]).length>256)||typeof row.inCategory!=="boolean"||(row.multiplierEligible!==null&&typeof row.multiplierEligible!=="boolean")||(row.points!==null&&!Number.isFinite(row.points))||(row.frequencyKHz!==null&&!Number.isFinite(row.frequencyKHz)))||new Set(report.rows.map((row:AnalyticsRow)=>row.id)).size!==report.rows.length)throw new Error("The reference report contains invalid contact data.");
+  if(report.rows.some((row:AnalyticsRow)=>!Number.isSafeInteger(row.sourceOrder)||row.sourceOrder<1)
+    ||new Set(report.rows.map((row:AnalyticsRow)=>row.sourceOrder)).size!==report.rows.length)
+    throw new Error("The reference report lacks valid stored contact order. Export a fresh analytics report.");
   const meta=report.meta;
   if(!meta||!["sessionID","workspaceGeneration","snapshotID","identity","pluginID","name","stationCall","referenceID","capturedAt"].every(key=>typeof meta[key]==="string"&&meta[key].length<=256)||!meta.settings||typeof meta.settings!=="object"||Array.isArray(meta.settings)||typeof meta.cqWW!=="boolean"||!Number.isInteger(meta.dupeType)||!meta.score||!["qsos","points","multipliers","total"].every(key=>Number.isFinite(meta.score[key])))throw new Error("The reference report metadata is invalid.");
   // Never trust capabilities supplied by an imported file.

@@ -19,6 +19,19 @@ describe("contest analytical semantics",()=>{
     const filtered=selectContacts(data(),{...defaultAnalyticsFilters,from:"2026-10-25T01:00"});
     expect(filtered).toHaveLength(1);expect(filtered[0].newKeys).toEqual(["CQ zone 4 · 20m"]);
   });
+  it("keeps host duplicate ownership after a timestamp correction and report round-trip",()=>{
+    const original={...analyticsFixtureRows[0],sourceOrder:1,utc:"2026-10-25 12:10:00"};
+    const duplicate={...analyticsFixtureRows[2],sourceOrder:2,utc:"2026-10-25 12:00:00"};
+    const dataset=prepareAnalytics({...analyticsFixtureMeta,total:2,score:{qsos:2,points:3,multipliers:2,total:6}},[duplicate,original]);
+    expect(dataset.contacts.map(q=>[q.id,q.dupe])).toEqual([["c",true],["a",false]]);
+    expect(dataset.scoreHistory).toBe(true);
+    const selected=selectContacts(dataset,{...defaultAnalyticsFilters,basis:"nondupe"});
+    expect(selected.map(q=>q.id)).toEqual(["a"]);expect(aggregate(selected).points).toBe(3);
+    const restored=readAnalyticsReport(JSON.stringify(analyticsReport(dataset,defaultAnalyticsFilters)));
+    expect(restored.contacts.map(q=>[q.id,q.dupe])).toEqual([["c",true],["a",false]]);
+    const oldReport=analyticsReport(dataset,defaultAnalyticsFilters);
+    expect(()=>readAnalyticsReport(JSON.stringify({...oldReport,rows:oldReport.rows.map(({sourceOrder,...row})=>row)}))).toThrow("stored contact order");
+  });
   it("preserves unknown style and operator; distinct totals are nonadditive",()=>{
     const dataset=data();expect(aggregate(dataset.contacts)).toMatchObject({qsos:4,calls:3,nondupe:3,duplicates:1});
     const mixed=prepareAnalytics({...analyticsFixtureMeta,score:{...analyticsFixtureMeta.score,total:0}},[analyticsFixtureRows[0],{...analyticsFixtureRows[0],id:"other",band:"40m"}]);

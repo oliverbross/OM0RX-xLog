@@ -33,7 +33,7 @@ def contact(row, band_labels, score_band, cq_ww):
     band = finite(row.get("Band"))
     style = str(row.get("IsRunQSO", "")).strip()
     zone = finite(row.get("ZN"))
-    return {"id": row["ID"], "call": row["Call"], "utc": row["TS"],
+    return {"id": row["ID"], "sourceOrder": row["source_order"], "call": row["Call"], "utc": row["TS"],
             "band": band_labels.get(band, "Unknown"), "frequencyKHz": finite(row.get("Freq")),
             "mode": str(row.get("Mode") or "Unknown"), "operator": str(row.get("Operator") or "Unknown"),
             "style": "Run" if style == "1" else "S&P" if style == "0" else "Unknown",
