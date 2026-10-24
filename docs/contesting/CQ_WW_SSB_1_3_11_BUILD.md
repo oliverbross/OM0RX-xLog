@@ -78,6 +78,8 @@ source receipts, component hashes and code signatures. Record packaged and
 installed hashes separately, then run the installed native isolated acceptance
 CLI (`--acceptance-report` with a new absolute JSON path).
 
-Packaged verification: **PENDING**. Installed verification: **PENDING**.
+Packaged and installed verification completed; see the historical 1.3.11 section
+of [the acceptance record](CQ_WW_SSB_RECONCILIATION_2026-10-23.md) for exact
+source and results. Subsequent operator findings required the 1.3.12 correction.
 Physical radio, PTT, audio and rotor behavior are outside these source/disposable
 checks. No production contact or station operation is needed for this verification.

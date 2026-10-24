@@ -1,5 +1,66 @@
 # CQ WW SSB macOS reconciliation — 23 October 2026
 
+## 1.3.12 installed Cluster/Flex correction — 25 October 2026
+
+**READY WITH LIMITATIONS** for the bounded macOS CQ WW SSB workflow. The installed
+candidate is **1.3.12**, clean source **`4bc7d4f4159cf190f953da02bd8a8fb3bc957a4c`**.
+Physical Flex/Maestro visibility and the operator's worked-filter trial remain
+pending confirmation for this version; successful delivery inventory is not a
+claim of physical display acceptance or uninterrupted operation.
+
+| Gate | Concrete result |
+| --- | --- |
+| Exact installed application | `/Applications/OM0RX-xLog.app`; Developer ID deep/strict signature passed, 92 bundled Python Mach-O hashes verified, candidate/installed component hashes identical; [receipt](evidence/cq-ww-ssb-1.3.12/installed-verification.json) |
+| Actual Python CQ WW lane | 27/27 passed in the [packaged bundle](evidence/cq-ww-ssb-1.3.12/packaged-verification.json) and 27/27 in the installed bundle, using its Python interpreter, host and Not1MM vendor code in disposable stores; entry, DUPE, invalid exchange, correction, export and reopen covered |
+| Installed native acceptance | [35/35 passed](evidence/cq-ww-ssb-1.3.12/installed-acceptance.json), isolated namespace, `production_singleton=false`, `station_io=false`; separate from Python-lane evidence |
+| Focused regression | [452/452 frontend tests passed](evidence/cq-ww-ssb-1.3.12/frontend-tests.json), TypeScript passed; [18/18 native Cluster tests passed](evidence/cq-ww-ssb-1.3.12/native-cluster-tests.txt), including the delivery-receipt failure reproduced before the fix |
+| Independent review | Native receipt, mode/range and worked-filter changes independently reviewed; no remaining blocking findings in this bounded diff |
+| Restored production session | Original session `4ac63449-bb24-4370-b159-e2b671321618` reopened; backup had 288 contacts. Read-only UI observation after the operator resumed showed 293 QSOs, 82 multipliers, score 30,422, live 7.102 MHz and ready-for-callsign state. No test QSO was added to production |
+| Running spot output | [Read-only observation](evidence/cq-ww-ssb-1.3.12/live-observation.json): 42 entries in forwarded-radio inventory at 19:21:02 UTC, inventory updated at 19:21:00. Band Map showed live VFO and classified green/blue calls within 7.050–7.200 MHz |
+| Backup | `/Users/oliver/Documents/Backups/OM0RX-xLog-1.3.12-before-install-20261024T191500Z`; 288 contacts, SQLite quick check OK, 30 databases and 55 files; [summary](evidence/cq-ww-ssb-1.3.12/backup.json) |
+| Rollback | `/Applications/OM0RX-xLog-previous-20261024T191454Z-2517.app`, verified signed 1.3.11. Preserve the current live database when rolling back the app; restoring the pre-install database would discard newer operator QSOs |
+
+### Changes and practical limits
+
+The native Cluster session treated a successful radio publication receipt as a
+new full spot snapshot. Because a receipt has no spot array, successful delivery
+could invalidate the Cluster state and lead to later empty output. Publication
+receipts now retain the valid snapshot and activation identities. Regression
+cases cover completed, pending, stale, rejected-delivery and clear receipts.
+
+Contest phone-range inference also overwrote upstream FT8 classification at
+7.074 MHz. Existing digital modes now remain digital; explicit mode comments
+and SSB below 7.100 MHz remain supported. Configured phone frequency edges apply
+to the supplied CQ WW stream. Contest Filters now use contest-dupe status and
+coordinate with Show worked, rather than combining normal-log worked history
+with a conflicting contest checkbox.
+
+Cluster and Band Map can still differ when their age, source, band, worked,
+viewport or other filters differ. SH/DX/100 requests 100 reports across all
+bands, not 100 eligible unworked 40 m SSB calls; the prior small result was
+verified from persisted reports. Compare like-for-like filters using the
+[operator checklist](CQ_WW_SSB_OPERATOR_CHECKLIST_1_3_12.md). That checklist also
+documents the approved N1MM-inspired improvements and where to exercise them;
+complete N1MM/Not1MM parity is not claimed.
+
+Old false Heard overlays are not automatically purged because genuine manual
+observations cannot be distinguished reliably. Recorded voice files, routing,
+PTT and actual transmitter audio remain four separate optional, untested results;
+macro substitution is not recorded-voice acceptance. No test tuning, RF, PTT,
+rotor or audio actions were performed. Windows/Linux remain outside this release.
+
+The older 1.3.9 and 1.3.10 Applications bundles were removed after source ancestry
+and resource inspection; current 1.3.12 and immediate signed 1.3.11 rollback remain.
+The old 1.3.9 signature discrepancy was added Python bytecode caches, not unique
+source work. [Cleanup receipt](evidence/cq-ww-ssb-1.3.12/cleanup.json).
+The canonical candidate remains in the canonical checkout; settings and data
+backups were retained. No cosmetic rebuild was performed for this record.
+
+**Future work only:** [Contest → Log Review backlog](CONTEST_LOG_REVIEW_BACKLOG.md)
+records the operator-approved discussion: on-demand possible-typo and
+frequency/time comparison against independent received reports, with Reviewed
+filtering and no automatic log edits. It is not implemented in 1.3.12.
+
 ## 1.3.11 installed verification and operator follow-up — 25 October 2026
 
 **NOT READY for the complete requested workflow:** the operator confirmed stable

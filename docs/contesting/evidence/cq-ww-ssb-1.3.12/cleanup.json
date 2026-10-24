@@ -1,0 +1,24 @@
+{
+  "removedOlderBundles": [
+    {
+      "path": "/Applications/OM0RX-xLog-previous-20261024T172312Z-69869.app",
+      "version": "1.3.9",
+      "sourceCommit": "e161d52fe3d5dfe0177a533a8ffe5459644c53dc",
+      "ancestorOfOriginMain": true,
+      "signatureVerified": false,
+      "signatureDiagnostic": "/Applications/OM0RX-xLog-previous-20261024T172312Z-69869.app: a sealed resource is missing or invalid\nIn subcomponent: /Applications/OM0RX-xLog-previous-20261024T172312Z-69869.app/Contents/Frameworks/Python.framework",
+      "removed": true
+    },
+    {
+      "path": "/Applications/OM0RX-xLog-previous-20261024T184123Z-89290.app",
+      "version": "1.3.10",
+      "sourceCommit": "b4381149b9b3f5dbd8be1826fbd9a44cc5a82516",
+      "ancestorOfOriginMain": true,
+      "signatureVerified": true,
+      "signatureDiagnostic": "",
+      "removed": true
+    }
+  ],
+  "retainedRollback": "/Applications/OM0RX-xLog-previous-20261024T191454Z-2517.app",
+  "productionSettingsAndDatabases": "untouched"
+}

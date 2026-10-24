@@ -1,0 +1,27 @@
+
+running 18 tests
+test cluster_session::tests::cached_reads_still_validate_parameters_and_failed_snapshots_retain_last_good_data ... ok
+test cluster_session::tests::commands_publish_without_a_main_renderer_and_are_never_retried ... ok
+test cluster_session::tests::failed_cluster_reads_still_sample_passive_activity_each_cycle ... ok
+test cluster_session::tests::contest_setup_posts_one_bounded_dx_command_and_test_profile_never_reaches_transport ... ok
+test cluster_session::tests::a_slow_command_cannot_accumulate_pollers_or_be_replayed_during_shutdown ... ok
+test cluster_session::tests::invalid_command_snapshot_cannot_leave_the_previous_projection_marked_live ... ok
+test cluster_session::tests::contest_connection_actions_and_renderers_reuse_one_serialized_owner ... ok
+test cluster_session::tests::first_direct_reply_has_native_tokens_and_old_worker_payload_is_never_relabelled ... ok
+test cluster_session::tests::replacement_worker_is_resumed_once_per_generation_with_exact_resume_request ... ok
+test cluster_session::tests::shutdown_rejects_requests_and_late_results ... ok
+test cluster_session::tests::qsy_transaction_fence_vetoes_a_new_cluster_selection_until_release ... ok
+test cluster_session::tests::selection_is_only_a_known_spot_not_a_radio_command ... ok
+test cluster_session::tests::startup_resumes_once_and_periodic_refreshes_are_passive_snapshots ... ok
+test cluster_session::tests::startup_resume_initialization_busy_is_rejected_before_transport_then_confirms ... ok
+test cluster_session::tests::multiple_renderers_reuse_one_verified_snapshot ... ok
+test cluster_session::tests::contest_radio_publication_receipts_preserve_the_cluster_projection ... ok
+test cluster_session::tests::surface_capabilities_are_explicit ... ok
+test cluster_session::tests::start_is_idempotent_and_does_not_depend_on_a_renderer_timer ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 814 filtered out; finished in 1.01s
+
+
+   Compiling xlog-prototype v1.3.11 (/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.35s
+     Running unittests src/main.rs (/Users/oliver/.local/share/lean-ctx/build-cache/cargo-target/debug/deps/xlog_prototype-5f01fd5fbfec2b0b)

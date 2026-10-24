@@ -1,0 +1,75 @@
+{
+  "createdUTC": "2026-10-24T19:12:33.943683+00:00",
+  "runtime": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/Frameworks/Python.framework/Versions/3.12/bin/python3.12",
+  "packaged": {
+    "bundle": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app",
+    "version": "1.3.12",
+    "sourceCommit": "4bc7d4f4159cf190f953da02bd8a8fb3bc957a4c",
+    "bundleIdentifier": "com.oliverbross.xlog.integration",
+    "sourceChanges": [],
+    "files": {
+      "executable": {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+        "sha256": "7668371f022a6682f23eff398669a6a82ad3213251ace2cc19a218aa3ed997e6"
+      },
+      "worker": {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+        "sha256": "91c26fbe6c908f09d8202eb32e6877ab4ac032860e3be9225e45eb2374a4d743"
+      },
+      "pythonReceipt": {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/Resources/Not1MM/python-runtime.json",
+        "sha256": "e503e6443692e5a77d529cc0859679415fde72bd16e7d144bde3a2d6bbab4e01"
+      },
+      "distributionReceipt": {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/Resources/DistributionMetadata/components.json",
+        "sha256": "130ea6a0b682b8e4d696d6c1d9426de4cb54ab7e9466885ce55937ce7c813ff5"
+      },
+      "pythonExecutable": {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/Frameworks/Python.framework/Versions/3.12/bin/python3.12",
+        "sha256": "5db5dc9981d7d7f769dbbd901e1a3bdd3b6bcea203745166cb2193313d6aefc7"
+      }
+    },
+    "verifiedPythonMachOCount": 92,
+    "caBundleSHA256": "9dae8d76e55cb08991f2b672d58999ea15560d910759c16b544f843bdffbb994",
+    "signatureVerification": "--prepared:/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/rigctld\n--validated:/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/rigctld\n--prepared:/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/rotctld\n--validated:/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/rotctld\n--prepared:/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/Frameworks/Python.framework/Versions/Current/.\n--prepared:/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker\n--validated:/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker\n--validated:/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/Frameworks/Python.framework/Versions/Current/.\n/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app: valid on disk\n/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app: satisfies its Designated Requirement",
+    "signatureIdentity": "Executable=/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/xlog-prototype\nIdentifier=com.oliverbross.xlog.integration\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20500 size=52044 flags=0x10000(runtime) hashes=1619+3 location=embedded\nVersionPlatform=1\nVersionMin=917504\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=9d0704564d6c2e827d37142cba5a269eb1c2226e\nCandidateCDHashFull sha256=9d0704564d6c2e827d37142cba5a269eb1c2226e54047c590ecf2d7a222e136a\nHash choices=sha256\nCMSDigest=9d0704564d6c2e827d37142cba5a269eb1c2226e54047c590ecf2d7a222e136a\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=18219008\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=9d0704564d6c2e827d37142cba5a269eb1c2226e\nSignature size=8975\nAuthority=Developer ID Application: Oliver Bross (4WCMQ4U946)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=25 Oct 2026 at 04:42:10\nInfo.plist entries=16\nTeamIdentifier=4WCMQ4U946\nRuntime Version=27.0.0\nSealed Resources version=2 rules=13 files=767\nInternal requirements count=1 size=192\nTotal signatures=1\nChosen signature=1"
+  },
+  "imports": {
+    "contest_host.host": {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/Resources/Not1MM/python/contest_host/host.py",
+      "sha256": "a65270d3abb05aa4540e7f4d03da547083626597ae82fbf15d4653a14a8b54bd"
+    },
+    "contest_host.store": {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/Resources/Not1MM/python/contest_host/store.py",
+      "sha256": "6086f6b1df3f15d8290aa47d6a3560cfd82a4ebc57da472e47afb79366160ec0"
+    },
+    "contest_host.rates": {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/Resources/Not1MM/python/contest_host/rates.py",
+      "sha256": "b7cad792fe2c56dab0bee9687c94b261265141507d53dfad0cf325e2584f3c26"
+    },
+    "contest_host.upstream": {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/Resources/Not1MM/python/contest_host/upstream.py",
+      "sha256": "c2edb3cd5ce9811ea9538d86244d1f6428871bf44a896833afbce6e02741713c"
+    },
+    "test_host": {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/Resources/Not1MM/python/tests/test_host.py",
+      "sha256": "194b396e268ff6ed421ace2c9bc367e3895c6a0488336102d203d136ccd10952"
+    },
+    "test_cq_ww_ssb_host": {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/Resources/Not1MM/python/tests/test_cq_ww_ssb_host.py",
+      "sha256": "7e81467ae685c5d390d8f2157197b58ae5e4c9f1b1f1b3cf54f4cb6a465fdac2"
+    }
+  },
+  "vendor": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/Resources/Not1MM/python/vendor/not1mm/upstream",
+  "pluginSHA256": "9ec3762986761232042389f0334b4887271772d18025f3dd0fdc820782105b3b",
+  "disposableRoot": "/private/tmp/xlog-1312-packaged-cqww-mxnnhf_2",
+  "result": {
+    "tests": 27,
+    "failures": 0,
+    "errors": 0,
+    "successful": true,
+    "durationSeconds": 5.942
+  },
+  "disposableRootRemoved": true,
+  "scope": "27 existing CQWW tests, packaged host/tests/vendor/runtime; disposable databases; no app launch or RF."
+}
