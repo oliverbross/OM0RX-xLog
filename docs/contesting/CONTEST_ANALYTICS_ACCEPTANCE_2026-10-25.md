@@ -1,6 +1,6 @@
 # Contest Analytics source acceptance — 25 October 2026
 
-Application source: `eb90c71953627c5a3c0f67a38aa444e58bbacbb5`, canonical `main` in `/Users/oliver/Documents/Projects/OM0RX-xLog`, pushed to origin. This record changes documentation and a bundle-gate explanatory comment only; the application implementation remains that source commit.
+Initial source acceptance: `eb90c71953627c5a3c0f67a38aa444e58bbacbb5`, canonical `main` in `/Users/oliver/Documents/Projects/OM0RX-xLog`, pushed to origin. The initial evidence below describes that source stage. The combined 1.3.13 release update at the end records subsequent fixes and completed installed acceptance separately.
 
 Related pushed commits: `aac7c332` (wall-clock Rates/UTC boundaries/unknown attribution); `29cb8346` and `b68fbf01` (existing host-test expectation drift after `b70ba7f9` added hydrated country identity). The full host suite passes after those expectation repairs, preserving direct stored-row and audit comparisons.
 
@@ -33,6 +33,90 @@ Screenshots are synthetic evidence, not Oliver's real contest result:
 
 ## Release boundary
 
-No version bump, package, signature, installation or production log mutation was performed. The user-confirmed working 1.3.12 installation remains the operating build. Native menu/window IPC in an installed candidate, actual CSV/JSON downloads in that webview, native print/PDF, Log Review's installed path and existing Flex spot visibility still require the coordinated versioned candidate acceptance.
+At the initial source-acceptance stage, no version bump, package, signature, installation or production log mutation was performed. That historical stage did not replace the user-confirmed 1.3.12 build. Subsequent candidate installation exposed the export failure described below; installed acceptance cannot be inferred from the source checks above.
 
 The remaining design stages are explicitly deferred: spot-based conditional opportunity ranking, raw Cabrillo/ADIF reference import, official LCR/UBN adjudication, comparative geography and measured operating/radio/antenna intervals. No source test or screenshot establishes those capabilities or real station/RF/provider outcomes.
+
+## Combined 1.3.13 release evidence — READY WITH LIMITATIONS
+
+Final application source is `d728e593f034bd4f1bda76cf24e6961dc2f56e6b`.
+The first candidate, `de8f91c6b9303d9e63799da194b0de446a40fe12`, passed signing and
+disposable packaged-runtime checks but was **rejected** after installed Analytics
+JSON export hung in WebKit's Blob download path. The replacement uses a native Save
+dialog, bounded admission, explicit cancellation/error feedback and atomic file
+replacement. Candidate `bea0467218292f3835e6042710b336bcc675836c` passed installed native Save checks,
+but its webview print call did nothing. The final source adds native printing;
+signed packaging, installation and final installed native preview/Save as PDF passed.
+
+| Evidence | Result and scope |
+|---|---|
+| `/tmp/xlog-1313-frontend.log` | 289 files / 4,263 frontend tests passed before the export replacement. |
+| `/tmp/xlog-1313-python-final.log` | 339 tests passed after correcting plugin-owned power-category preservation; the initial failed run is retained separately. |
+| `/tmp/xlog-1313-rust.log` | 836 native tests passed before the export replacement. |
+| `/tmp/xlog-1313-swift.log` | Full portable Swift run passed; portable coverage does not establish hardware behavior. |
+| `/tmp/xlog-1313-build-gate.log` | TypeScript, Vite and production window-bundle gates passed for the earlier candidate. |
+| Final native export/print focused run | Five tests passed, as reported by the release owner/review agent. Earlier four-export-test archive: `810280b9029c4812`. |
+| Final export/print frontend review | Fourteen tests passed, as reported by the release owner/review agent; no separate log path was supplied. |
+| `/tmp/xlog-1313-packaged-verification.json` and `/tmp/xlog-1313-installed-verification.json` | Each records 32 passing disposable packaged Python tests (27 CQ WW and five Analytics), correct signatures/runtime receipts and source **de8f91c6**. These are rejected-candidate evidence, not corrected-build acceptance. |
+
+No raw production contact rows are reproduced in this record. Broad suites and
+focused post-fix tests remain distinguished; no full-suite rerun after the final
+export/print changes is implied.
+
+Final-source receipts `/tmp/xlog-1313-r3-packaged-verification.json` and
+`/tmp/xlog-1313-r3-installed-verification.json` each record 32 passing disposable
+Python tests (27 CQ WW plus five Analytics), valid deep/strict signatures, matching
+component hashes and exact source `d728e593f034bd4f1bda76cf24e6961dc2f56e6b`.
+The [sanitized durable receipt](evidence/cq-ww-ssb-1.3.13/release-verification.json)
+preserves only bounded metadata, check results, counts and hashes.
+
+The preceding native-Save candidate `bea0467218292f3835e6042710b336bcc675836c`
+passed 35 isolated native checks in `/tmp/xlog-1313-r2-native-acceptance.json`,
+including contact log/readback, edit/delete/undo, ADIF roundtrip, settings and layout
+persistence. These checks are reused because the last application change only
+fixes print; the 35-check suite is not claimed as rerun on the final source.
+
+Direct installed UI checks by the release owner on that preceding candidate:
+
+- Analytics displayed 313 contacts; native JSON Save produced 313 rows and filtered
+  CSV Save produced eight rows. Cancellation left the window responsive.
+- Log Review checked 313 contacts and displayed 106 suggestions, 117 corroborated
+  and 93 without corroboration; 33,907 eligible and 143 excluded archive spots.
+  The archive warned of unknown loss. CTY and LoTW were available; Club Log was
+  missing. The Possible typo filter displayed one result. These findings are
+  advisory, not adjudication of contact validity.
+
+Independent read-only preservation check `/tmp/xlog-1313-preservation.json` passed:
+all 313 production contact rows, including every column and rowid, match the
+pre-install backup. QSO identity and audit tables also match exactly. Both backup
+copies agree and SQLite quick checks passed. This point-in-time check does not
+claim equality of every production settings/service file.
+
+Final installed Print/PDF passed: the native macOS preview showed two pages;
+Save as PDF produced a valid A4, unencrypted, two-page PDF (52,517 bytes), and the
+application remained responsive. No physical printing was performed. Physical Flex/Maestro,
+RF, PTT, transmitter audio and rotor behavior remain outside these checks.
+
+Final-source direct installed checks by the release owner also confirmed Analytics
+opened 313 rows; Main Logging retained 313 contacts, 88 multipliers and claimed
+score 35,288, along with its existing draft. Bearing, long-path bearing and distance
+were displayed. No draft callsign or raw production contacts are copied here.
+The local acceptance PDF is `/Users/oliver/Documents/xlog-1313-acceptance-analytics.pdf`;
+it is not included in repository evidence because it contains the operator's report.
+
+**READY WITH LIMITATIONS:** Club Log data was unavailable and spot-archive loss
+was unknown; these limitations remain visible in Log Review. Physical Flex/Maestro
+behavior was not retested, recorded voice remains untested, and the retained unique
+branches need an operator scope decision. Deferred Analytics capabilities remain
+outside the delivered scope. No physical printer, RF, PTT, audio or rotor test is
+claimed.
+
+Backup: `/Users/oliver/Documents/Backups/OM0RX-xLog-1.3.13-before-install-20261025T064500`.
+Rollback: `/Applications/OM0RX-xLog-previous-1.3.12-20261025.app`.
+See the [build record](CQ_WW_SSB_1_3_13_BUILD.md) and
+[reconciliation](CQ_WW_SSB_RECONCILIATION_2026-10-23.md) for consolidation boundaries.
+
+Final-source follow-up: JSON export after Print/PDF saved successfully and read back
+313 rows with 313 unique IDs. Contest Cluster showed ShackCQ connected and live SSB
+spots. Main Logging was left focused. The two superseded 1.3.13 candidate bundles
+were removed; the signed 1.3.12 rollback remains.

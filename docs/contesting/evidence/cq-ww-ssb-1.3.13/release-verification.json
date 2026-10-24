@@ -1,0 +1,239 @@
+{
+  "schemaVersion": 1,
+  "preparedUTC": "2026-10-24T21:45:30.526878+00:00",
+  "status": "READY_WITH_LIMITATIONS",
+  "sourceCommit": "d728e593f034bd4f1bda76cf24e6961dc2f56e6b",
+  "version": "1.3.13",
+  "packaged": {
+    "receiptSHA256": "86d1ca71bdc2e38a06a1b9a762e4e42ffce9e941a81bdb055925b8a489e3b270",
+    "createdUTC": "2026-10-24T21:43:42.078114+00:00",
+    "sourceCommit": "d728e593f034bd4f1bda76cf24e6961dc2f56e6b",
+    "version": "1.3.13",
+    "sourceChanges": [],
+    "signatureVerified": true,
+    "verifiedPythonMachOCount": 92,
+    "componentSHA256": {
+      "executable": "cf565cd531561d02f664af22a9885f6343cd9d7fb501065d6d3b50d206d0a8a7",
+      "worker": "10b96ae419aa4463cbded6973be14eddb2809fe6dad7918b6cf87670605dee55",
+      "pythonReceipt": "3b2f524a41f0e3b2ab55deaa447b2149f528814a92d1d70846e1876d3756f5fa",
+      "distributionReceipt": "d89054b0682cc22dfd5c81603d0c14ecfafe2058cba36bb4b71d87b7392df719",
+      "pythonExecutable": "2683e6d9ba8cdab12849ab95165c0eaa0e89096ab9c1a3ce44b1191b41c7c5a7"
+    },
+    "pythonTests": {
+      "tests": 32,
+      "failures": 0,
+      "errors": 0,
+      "successful": true,
+      "durationSeconds": 5.635
+    },
+    "disposableRootRemoved": true,
+    "scope": "27 CQWW and 5 Analytics tests, packaged host/tests/vendor/runtime; disposable databases; no app launch or RF."
+  },
+  "installed": {
+    "receiptSHA256": "83754d43f33e32ef5f709f349e26a8c16e2e99d8646637796c78c69fd8553e47",
+    "createdUTC": "2026-10-24T21:44:35.251299+00:00",
+    "sourceCommit": "d728e593f034bd4f1bda76cf24e6961dc2f56e6b",
+    "version": "1.3.13",
+    "sourceChanges": [],
+    "signatureVerified": true,
+    "verifiedPythonMachOCount": 92,
+    "componentSHA256": {
+      "executable": "cf565cd531561d02f664af22a9885f6343cd9d7fb501065d6d3b50d206d0a8a7",
+      "worker": "10b96ae419aa4463cbded6973be14eddb2809fe6dad7918b6cf87670605dee55",
+      "pythonReceipt": "3b2f524a41f0e3b2ab55deaa447b2149f528814a92d1d70846e1876d3756f5fa",
+      "distributionReceipt": "d89054b0682cc22dfd5c81603d0c14ecfafe2058cba36bb4b71d87b7392df719",
+      "pythonExecutable": "2683e6d9ba8cdab12849ab95165c0eaa0e89096ab9c1a3ce44b1191b41c7c5a7"
+    },
+    "pythonTests": {
+      "tests": 32,
+      "failures": 0,
+      "errors": 0,
+      "successful": true,
+      "durationSeconds": 5.993
+    },
+    "disposableRootRemoved": true,
+    "scope": "27 CQWW and 5 Analytics tests, packaged host/tests/vendor/runtime; disposable databases; no app launch or RF.",
+    "installedMatchesPackagedComponents": true
+  },
+  "sourceValidation": {
+    "broadSuitesBeforeExportPrintFixes": {
+      "frontendTests": 4263,
+      "pythonTests": 339,
+      "rustTests": 836,
+      "portableSwift": "passed",
+      "typeScriptViteBundleGates": "passed"
+    },
+    "focusedFinalFixes": {
+      "nativeTests": 5,
+      "frontendTests": 14,
+      "attribution": "reported by release owner and review agents"
+    }
+  },
+  "isolatedNativeAcceptance": {
+    "sourceCommit": "bea0467218292f3835e6042710b336bcc675836c",
+    "checks": {
+      "adif_transfer_roundtrip": true,
+      "awards_loaded": true,
+      "contact_delete_undo": true,
+      "contact_edit": true,
+      "desk_map_logbook": true,
+      "detached_awards": true,
+      "detached_awards_lifecycle": true,
+      "detached_logbook": true,
+      "detached_logbook_lifecycle": true,
+      "detached_projection": true,
+      "detached_spot_history": true,
+      "empty_workspace": true,
+      "final_desk": true,
+      "isolated_worker": true,
+      "keyboard_clear": true,
+      "keyboard_editor": true,
+      "keyboard_focus": true,
+      "keyboard_log": true,
+      "logbook_readback": true,
+      "map_loaded": true,
+      "native_menu_routes": true,
+      "settings_save_readback": true,
+      "settings_sections": true,
+      "spot_history_archive": true,
+      "spot_history_dock_recovery": true,
+      "spot_history_main_absent": true,
+      "worker_integration_self_test": true,
+      "worker_parse_adif": true,
+      "worker_self_test": true,
+      "workspace_canvas_controls": true,
+      "workspace_created": true,
+      "workspace_feedback_overlay": true,
+      "workspace_layout_roundtrip": true,
+      "workspace_native_windows": true,
+      "workspace_settings_presets": true
+    },
+    "passed": true,
+    "scope": "35 checks on r2, reused because the final application change only fixes print. Not rerun on r3.",
+    "receiptSHA256": "78f50f48371b360bf54699d6d4054618c7f76e7738bc78b6bb0301f48eff674e"
+  },
+  "installedUI": {
+    "sourceCommit": "bea0467218292f3835e6042710b336bcc675836c",
+    "attribution": "release owner direct installed UI checks",
+    "analytics": {
+      "contacts": 313,
+      "jsonExportRows": 313,
+      "filteredCSVRows": 8,
+      "saveCancellationResponsive": true
+    },
+    "logReview": {
+      "checked": 313,
+      "suggestions": 106,
+      "corroborated": 117,
+      "withoutCorroboration": 93,
+      "eligibleArchiveSpots": 33907,
+      "excludedArchiveSpots": 143,
+      "archiveLoss": "unknown",
+      "ctyAvailable": true,
+      "lotwAvailable": true,
+      "clubLogAvailable": false,
+      "possibleTypoFilterShown": 1
+    },
+    "finalSourcePrint": {
+      "sourceCommit": "d728e593f034bd4f1bda76cf24e6961dc2f56e6b",
+      "attribution": "release owner direct installed UI check and pdfinfo validation",
+      "nativeMacOSPreviewOpened": true,
+      "previewPages": 2,
+      "saveAsPDFPassed": true,
+      "pdfPages": 2,
+      "pdfBytes": 52517,
+      "paper": "A4",
+      "encrypted": false,
+      "responsiveAfterSave": true,
+      "physicalPrintingTested": false
+    }
+  },
+  "productionPreservation": {
+    "checkedUTC": "2026-10-24T21:40:46.575774+00:00",
+    "passed": true,
+    "method": "SQLite URI mode=ro; query_only; explicit read transaction; all columns and rowid ordered by rowid; canonical JSON SHA-256. No SQL writes, migrations, checkpoints or settings changes.",
+    "scope": "Production contest QSO rows, stable QSO identities and audit rows versus the pre-install backup. No raw contacts included. This is a point-in-time comparison, not a claim about all production files.",
+    "backupTreeCopyMatchesTopLevel": true,
+    "backupQuickCheck": "ok",
+    "currentQuickCheck": "ok",
+    "tableMatches": {
+      "DXLOG": true,
+      "xlog_qso_identity": true,
+      "xlog_qso_audit": true
+    },
+    "backupTables": {
+      "DXLOG": {
+        "rows": 313,
+        "columnCount": 45,
+        "sha256": "e548ff04f3f592df30dbe5fe3c762c3b72643e877e1b742ecf1037a53fa8699d"
+      },
+      "xlog_qso_identity": {
+        "rows": 322,
+        "columnCount": 5,
+        "sha256": "82ca002a5aa152a376baf5d17a7ede2934c15c58bc20473b82df5aafa13c64b2"
+      },
+      "xlog_qso_audit": {
+        "rows": 382,
+        "columnCount": 11,
+        "sha256": "bc7b3551cf913aa92b05dcac8f6be4e0a7697103f3cc35a4cb4d4d377a7e32bc"
+      }
+    },
+    "currentTables": {
+      "DXLOG": {
+        "rows": 313,
+        "columnCount": 45,
+        "sha256": "e548ff04f3f592df30dbe5fe3c762c3b72643e877e1b742ecf1037a53fa8699d"
+      },
+      "xlog_qso_identity": {
+        "rows": 322,
+        "columnCount": 5,
+        "sha256": "82ca002a5aa152a376baf5d17a7ede2934c15c58bc20473b82df5aafa13c64b2"
+      },
+      "xlog_qso_audit": {
+        "rows": 382,
+        "columnCount": 11,
+        "sha256": "bc7b3551cf913aa92b05dcac8f6be4e0a7697103f3cc35a4cb4d4d377a7e32bc"
+      }
+    }
+  },
+  "branchCleanup": {
+    "localDeleted": 120,
+    "remoteDeleted": 120,
+    "localRetained": 18,
+    "remoteRetained": 18,
+    "uniqueFeatureScope": "pending operator decision"
+  },
+  "limitations": [
+    "No raw contacts or credentials included.",
+    "No RF, PTT, transmitter audio or rotor validation.",
+    "Source suites and synthetic checks are not installed hardware acceptance.",
+    "Native 35-check suite and export/Log Review UI checks are attributed to r2, not rerun on r3.",
+    "Production comparison is point-in-time, not a claim about every settings or service file.",
+    "Deferred Analytics capabilities and unique branch work remain outside this release.",
+    "Club Log reference data unavailable; spot archive loss unknown.",
+    "Physical Flex/Maestro not retested; recorded voice untested.",
+    "Native preview and PDF save tested; physical printing not tested."
+  ],
+  "finalizedUTC": "2026-10-24T21:48:02.131436+00:00",
+  "finalSourceInstalledUI": {
+    "sourceCommit": "d728e593f034bd4f1bda76cf24e6961dc2f56e6b",
+    "attribution": "release owner direct installed UI check",
+    "analyticsRows": 313,
+    "mainLoggingContacts": 313,
+    "mainLoggingMultipliers": 88,
+    "claimedScore": 35288,
+    "existingDraftPreserved": true,
+    "bearingLongPathAndDistanceDisplayed": true,
+    "jsonExportAfterPrint": {
+      "saved": true,
+      "rows": 313,
+      "uniqueIDs": 313
+    },
+    "cluster": {
+      "connected": true,
+      "service": "ShackCQ",
+      "liveSSBSpotsVisible": true,
+      "physicalFlexConfirmed": false
+    }
+  }
+}

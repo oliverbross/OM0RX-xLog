@@ -764,7 +764,10 @@ The retained signed rollback is
 rollback both pass deep/strict signature verification. Logbook and installation
 backup directories were retained and were not part of cleanup.
 
-## 25 October: Log Review source acceptance, installation deferred
+## 25 October: initial Log Review source acceptance, installation deferred at that stage
+
+This historical source-only stage is superseded by the combined 1.3.13 installed
+acceptance below; its test and ownership boundaries are retained for provenance.
 
 Feature source `0b468867aa3740a9f7ac6d0ecfddd0ebfb5bfc11` is committed and pushed
 to canonical `main`. This adds **Contest → Log Review**, using the existing
@@ -791,3 +794,50 @@ an invalid contact. Source freshness/availability, archive gaps and acquisition
 limits are visible. Club Log membership and SCP membership checks are not included.
 Review never automatically corrects QSOs. Existing production backup and rollback
 locations are unchanged by this source-only addition.
+
+## 25 October: combined 1.3.13 — READY WITH LIMITATIONS
+
+The combined Analytics/Log Review release now targets canonical source
+`d728e593f034bd4f1bda76cf24e6961dc2f56e6b`. Initial installed candidate
+`de8f91c6b9303d9e63799da194b0de446a40fe12` was rejected because Analytics Blob
+export hung in WebKit. The corrected source uses native JSON/CSV Save with
+cancellation/error feedback and atomic replacement. A subsequent installed check
+found the webview print call ineffective; the final source adds native printing.
+Final packaging and installation passed signatures, matching component hashes and
+32 disposable Python tests each. Installed native preview and Save as PDF passed:
+two A4 pages, 52,517 bytes, valid unencrypted PDF; the application stayed responsive.
+No physical printing was performed.
+
+The [acceptance record](CONTEST_ANALYTICS_ACCEPTANCE_2026-10-25.md) separates the
+4,263 frontend / 339 Python / 836 Rust and portable Swift checks from the later
+five native and fourteen frontend export/print regressions. The preceding native-Save
+candidate passed 35 isolated native checks and direct Analytics JSON (313 rows),
+filtered CSV (eight rows), cancellation and Log Review checks. These are reused
+across the final print-only change, not claimed as rerun on the final source.
+Read-only preservation verified all 313 QSO rows, stable identities and audit rows
+unchanged from backup. Physical radio outcomes remain untested. Durable sanitized
+evidence is [recorded here](evidence/cq-ww-ssb-1.3.13/release-verification.json).
+
+Current release backup:
+`/Users/oliver/Documents/Backups/OM0RX-xLog-1.3.13-before-install-20261025T064500`.
+Current retained 1.3.12 rollback:
+`/Applications/OM0RX-xLog-previous-1.3.12-20261025.app`.
+These locations supersede the earlier rollback reference for this candidate.
+
+Consolidation preserved all committed refs in
+`/Users/oliver/Documents/Backups/OM0RX-xLog-main-consolidation-20261025/all-refs.bundle`
+(SHA-256 `1685bf4a311b9675e333c165a2f9ef0ffa03f0e0b045a6204828310845903b5d`).
+Uncommitted settings-safety changes and their untracked test were preserved
+separately. Verified cleanup deleted 120 local and 120 remote merged branches;
+18 local and 18 remote branches remain, including checked-out and unmerged work.
+The deletion manifest is `/tmp/xlog-1313-branch-cleanup.json`. Unique DXpedition,
+settings and other historical work still needs the operator's scope decision;
+this release does not silently merge it or claim a branch-free repository.
+
+Final-source installed Analytics reopened 313 rows. Main Logging retained 313
+contacts, 88 multipliers, score 35,288 and the existing draft; bearing/long-path
+bearing/distance were displayed. The release is **READY WITH LIMITATIONS**:
+Club Log unavailable, archive loss unknown, physical Flex/Maestro not retested,
+recorded voice untested, and unique branch consolidation awaiting operator scope.
+The final native Print/PDF check saved a valid document and left the app responsive;
+physical printing and RF/PTT/audio/rotor were not tested.
