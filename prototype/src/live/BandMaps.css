@@ -58,6 +58,9 @@
 .band-map-vfo-marker { position: absolute; z-index: 6; width: 0; height: 0; transform: translateY(-50%); border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 11px solid #00e51b; filter: drop-shadow(0 1px 2px #000); pointer-events: none; }
 .band-map-spot-anchor { position: absolute; z-index: 2; height: 1px; border-top: 1px solid currentColor; opacity: .42; pointer-events: none; }
 .band-map-spot-anchor::before { content: ""; position: absolute; left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+.band-map-spot-leaders { position: absolute; inset: 0; z-index: 2; overflow: visible; pointer-events: none; }
+.band-map-spot-leaders path { fill: none; stroke: currentColor; stroke-width: 1; opacity: .7; }
+.band-map-spot-leaders circle { fill: currentColor; }
 .band-map-spot { position: absolute; z-index: 4; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: space-between; gap: 4px; height: calc(22px * var(--band-font-scale)); min-height: calc(22px * var(--band-font-scale)) !important; padding: 1px 4px; border: 1px solid currentColor !important; border-radius: 4px; background: color-mix(in srgb, currentColor 16%, #0b1728 84%) !important; text-shadow: 0 1px 2px #000, 0 0 5px #07111f; text-align: left; font: calc(10px * var(--band-font-scale)) ui-monospace, SFMono-Regular, monospace; overflow: hidden; }
 .band-map-spot strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .band-map-spot b { flex: none; font-size: .86em; white-space: nowrap; }

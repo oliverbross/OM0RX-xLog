@@ -299,20 +299,37 @@ describe("native band-map parity", () => {
     expect(retained.getAttribute("aria-label")).toContain("duplicate · grey");
     expect(retained.style.color).toBe("rgb(174, 181, 183)");
   });
-  it("keeps complete contest callsigns in separate lanes without visible classification suffixes",()=>{
+  it("stacks nearby contest calls with leaders to their exact frequencies and preserves selection",()=>{
     const contestSpot=(id:string,callsign:string)=>({...spot(callsign,21258,"15m","New Call","New Country"),id,mode:"SSB",
       callsign,contestPoints:3,contestDupe:false,contestMultiplierCount:2,contestCountryMultiplier:true,contestZoneMultiplier:true}),
       marked={...contestSpot("a","IE9/DJ4EL"),marked:true};
-    render(<BandMaps compact contestPresentation storageNamespace="contest-full-calls" contestBands={["15m"]}
+    const select=vi.fn();
+    const view=render(<BandMaps compact contestPresentation storageNamespace="contest-full-calls" contestBands={["15m"]}
       contestAllowedModes={["phone"]} spots={[marked,contestSpot("b","SM2/UT0CZ")]}
-      onSelect={vi.fn()} radioFrequencyHz={21_258_000}/>);
+      onSelect={select} radioFrequencyHz={21_258_000}/>);
     const first=screen.getByRole("button",{name:/^IE9\/DJ4EL /}) as HTMLButtonElement,
       second=screen.getByRole("button",{name:/^SM2\/UT0CZ /}) as HTMLButtonElement;
     expect(first.textContent).toBe("IE9/DJ4EL");expect(second.textContent).toBe("SM2/UT0CZ");
     expect(first.getAttribute("aria-label")).toContain("Marked");
     expect(first.querySelector("b")).toBeNull();expect(second.querySelector("b")).toBeNull();
-    expect(Math.abs(parseFloat(first.style.left)-parseFloat(second.style.left))).toBeGreaterThanOrEqual(parseFloat(first.style.width));
+    expect(first.style.left).toBe(second.style.left);
+    expect(Math.abs(parseFloat(first.style.top)-parseFloat(second.style.top))).toBeGreaterThanOrEqual(25);
+    const leaders=Array.from(view.container.querySelectorAll<SVGPathElement>(".band-map-spot-leaders path"));
+    expect(leaders).toHaveLength(2);
+    for(const [button,id] of [[first,"a"],[second,"b"]] as const){
+      const path=leaders.find(item=>item.dataset.spotId===id)!;
+      expect(path.getAttribute("d")).toContain(`L ${parseFloat(button.style.left)-parseFloat(button.style.width)/2} ${parseFloat(button.style.top)}`);
+    }
+    expect(leaders[0].getAttribute("d")!.split(" L ")[0]).toBe(leaders[1].getAttribute("d")!.split(" L ")[0]);
+    fireEvent.click(first);expect(select).toHaveBeenCalledWith(expect.objectContaining({id:"a"}));
     expect(first.getAttribute("aria-label")).toContain("country and CQ zone multipliers · green");
+  });
+  it("anchors crowded contest leaders to the full frequency scale even with an overflow notice",()=>{
+    const spots=Array.from({length:30},(_,index)=>({...spot(`DL${index}A`,7110+index,"40m","New Call","New Country"),id:`c-${index}`}));
+    const layout=placeSpots(spots,{low:7050,high:7200},240,100,1,90,true);
+    expect(layout.hidden).toBeGreaterThan(0);
+    for(const item of layout.placed)expect(item.anchorTop).toBeCloseTo((item.spot.frequencyKHz-7050)/150*100,8);
+    expect(new Set(layout.placed.map(item=>`${item.lane}:${item.top}`)).size).toBe(layout.placed.length);
   });
   it("puts optional Undock immediately beside Add band map, preserves Dock back and removes redundant subtitle", () => {
     const undock = vi.fn(), dock = vi.fn(), select = vi.fn();

@@ -247,7 +247,7 @@ export function bandMapSpotWidth(spots: BandMapSpot[], laneWidth: number, fontSc
 
 // Fixed-size lanes guarantee non-overlapping labels even when many spots share one frequency.
 export function placeSpots(spots: BandMapSpot[], view: ViewRange, width: number, height: number, fontScale = 1,
-    minimumLaneWidth?:number): { placed: PlacedSpot[]; hidden: number } {
+    minimumLaneWidth?:number, contestPresentation = false): { placed: PlacedSpot[]; hidden: number } {
   const { laneCount } = bandMapLaneGeometry(width, fontScale, minimumLaneWidth);
   const slotHeight = Math.max(25, 23 * fontScale);
   const slotsIn = (available: number) => Math.max(0, Math.floor(Math.min(available, Math.max(100, available - 8)) / slotHeight));
@@ -260,19 +260,23 @@ export function placeSpots(spots: BandMapSpot[], view: ViewRange, width: number,
   let hidden = 0;
   for (const [index, spot] of ordered.entries()) {
     const fraction = (spot.frequencyKHz - view.low) / Math.max(1, view.high - view.low);
-    const desired = Math.max(0, Math.min(slotCount - 1, Math.round(fraction * (slotCount - 1))));
+    const desired = Math.max(0, Math.min(slotCount - 1, Math.round(contestPresentation
+      ? fraction * height / slotHeight - 0.5 : fraction * (slotCount - 1))));
     let best: { lane: number; slot: number; cost: number } | null = null;
     for (let lane = 0; lane < laneCount; lane++) {
       for (let slot = 0; slot < slotCount; slot++) {
         if (occupied[lane].has(slot)) continue;
-        const cost = Math.abs(slot - desired) * 10 + lane;
+        // In contest view, stack nearby calls vertically before spilling into
+        // another column; their leaders retain the precise frequency anchor.
+        const cost = Math.abs(slot - desired) * 10 + lane * (contestPresentation ? 30 : 1);
         if (!best || cost < best.cost) best = { lane, slot, cost };
       }
     }
     if (!best) { hidden++; continue; }
     occupied[best.lane].add(best.slot);
     placed.push({ spot, lane: best.lane, top: (best.slot + 0.5) * slotHeight,
-      anchorTop: Math.max(1, Math.min(Math.max(1, usableHeight - 1), fraction * usableHeight)),
+      anchorTop: contestPresentation ? Math.max(0, Math.min(height, fraction * height))
+        : Math.max(1, Math.min(Math.max(1, usableHeight - 1), fraction * usableHeight)),
       key: `${text(spot.id) || text(spot.callsign)}-${index}` });
   }
   return { placed, hidden };
@@ -343,7 +347,7 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
   }, [full, onManualView]);
   const visible = useMemo(() => normalizeSpots(spots, band, view), [spots, band, view]);
   const contestSpotWidth=contestPresentation?bandMapSpotWidth(visible,Number.POSITIVE_INFINITY,fontScale,true):undefined;
-  const { placed, hidden } = useMemo(() => placeSpots(visible, view, width, chartHeight, fontScale,contestSpotWidth), [visible, view, width, chartHeight, fontScale,contestSpotWidth]);
+  const { placed, hidden } = useMemo(() => placeSpots(visible, view, width, chartHeight, fontScale,contestSpotWidth,contestPresentation), [visible, view, width, chartHeight, fontScale,contestSpotWidth,contestPresentation]);
   const { axis, laneWidth } = bandMapLaneGeometry(width, fontScale,contestSpotWidth);
   const spotWidth = bandMapSpotWidth(visible, laneWidth, fontScale,contestPresentation);
   // Allocation captions can use the chart's right gutter only if a complete
@@ -418,12 +422,21 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
         aria-label={`Current VFO ${(visibleRadioFrequency / 1000).toFixed(6)} MHz`}
         title={`Current VFO ${(visibleRadioFrequency / 1000).toFixed(6)} MHz`}
         style={{ top: `${((visibleRadioFrequency - view.low) / (view.high - view.low)) * 100}%`, left: axis - 5 }} />}
+      {contestPresentation && <svg className="band-map-spot-leaders" aria-hidden="true" width={width} height={chartHeight}>
+        {placed.map(({spot,lane,top,anchorTop,key}) => {
+          const left=axis+laneWidth*(lane+0.5)-spotWidth/2;
+          return <g key={key} style={{color:contestBandMapSpotColor(spot)}}>
+            <path data-spot-id={String(spot.id)} d={`M ${axis} ${anchorTop} L ${left} ${top}`} />
+            <circle cx={axis} cy={anchorTop} r={2} />
+          </g>;
+        })}
+      </svg>}
       {placed.map(({ spot, lane, top, anchorTop, key }) => {
         const color = contestPresentation?contestBandMapSpotColor(spot):bandMapSpotColor(spot);
         const code = contestPresentation ? "" : opportunityCode(spot);
         const tooltip = `${text(spot.callsign)} · ${(spot.frequencyKHz / 1000).toFixed(6)} MHz · ${text(spot.mode)} · ${text(spot.callStatus)} · ${text(spot.dxccStatus)}${contestPresentation?` · ${contestPointDescription(spot)}`:""}${spot.country ? ` · ${countryDisplay(spot.country)}` : ""}${spot.comment ? ` · ${text(spot.comment)}` : ""}`;
         const centre = axis + laneWidth * (lane + 0.5);
-        return <Fragment key={key}><span className="band-map-spot-anchor" aria-hidden="true" style={{ top: anchorTop, left: axis - 4, width: Math.max(8, centre - axis + 4), color }} />
+        return <Fragment key={key}>{!contestPresentation && <span className="band-map-spot-anchor" aria-hidden="true" style={{ top: anchorTop, left: axis - 4, width: Math.max(8, centre - axis + 4), color }} />}
           <button type="button" className={`band-map-spot${contestPresentation && contestBandMapSpotWorked(spot) ? " is-worked" : ""}${spot.marked ? " is-marked" : ""}${selectedSpotId === String(spot.id) ? " is-selected" : ""}`}
             style={{ top, left: centre, width: spotWidth, color }} title={tooltip} aria-label={`${tooltip}${spot.marked ? " · Marked" : ""}`}
             aria-current={selectedSpotId === String(spot.id) ? "true" : undefined} onClick={() => onSelect(spot)}
