@@ -484,7 +484,8 @@ actor LiveStationSession {
                   let comment = Self.spotText(payload["comment"], maximum: 96, required: false),
                   let color = payload["color_hex"] as? String,
                   color.range(of: #"^#[0-9A-Fa-f]{6}$"#, options: .regularExpression) != nil,
-                  let spot = try? FlexSpot(frequencyHz: frequency, callsign: callsign, mode: mode,
+                  let spot = try? FlexSpot(frequencyHz: frequency, callsign: callsign,
+                                           mode: Self.radioMode(mode, frequencyHz: frequency),
                                            source: source, spotter: spotter, comment: comment,
                                            timestamp: timestamp, lifetimeSeconds: Int(lifetime),
                                            priority: Int(priority), colorHex: color) else { throw Self.invalidParams() }
@@ -1195,7 +1196,7 @@ actor LiveStationSession {
         return text
     }
 
-    private static func radioMode(_ mode: String, frequencyHz: Int64) -> String {
+    static func radioMode(_ mode: String, frequencyHz: Int64) -> String {
         switch mode {
         case "SSB": frequencyHz < 10_000_000 ? "LSB" : "USB"
         case "FT8", "FT4", "FT2", "RTTY", "JTTY", "PSK", "DIGI": "DIGU"

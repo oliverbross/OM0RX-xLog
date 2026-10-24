@@ -5,6 +5,12 @@ import XCatIntegrationCore
 
 final class LiveStationMethodsTests: XCTestCase {
     #if os(macOS)
+    func testRadioSpotModesUseConcreteFlexSidebands() {
+        XCTAssertEqual(LiveStationSession.radioMode("SSB", frequencyHz: 7_125_000), "LSB")
+        XCTAssertEqual(LiveStationSession.radioMode("SSB", frequencyHz: 14_250_000), "USB")
+        XCTAssertEqual(LiveStationSession.radioMode("CW", frequencyHz: 7_025_000), "CW")
+    }
+
     func testAgentCredentialCacheReadsAStoredTokenOnlyOncePerWorker() throws {
         var cache = StationAgentCredentialCache()
         var reads = 0
