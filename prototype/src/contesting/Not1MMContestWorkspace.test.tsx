@@ -806,12 +806,12 @@ it("keeps publishing live contest spots when an older full-list preview is overt
     supportedModes:["SSB"],supportedBands:["160m","80m","40m","20m","15m","10m"]};
   const setup=newContestSetup("OM0RX");setup.pluginID="cq_ww_ssb";setup.preferences.bands=["40m"];
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(setup));
-  const base=operationalRequest(()=>current,()=>3);let previewAttempt=0;
+  const base=operationalRequest(()=>current,()=>3);let previewAttempt=0,release:(()=>void)|undefined;
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
     if(method!=="contest_spot_points_preview")return base(method,params);
-    previewAttempt+=1;const ids=(params.spots as {spotID:string}[]).map(spot=>spot.spotID);
-    if(previewAttempt===2||previewAttempt>=3&&ids.includes("spot-0"))return new Promise(()=>{});
-    return base(method,params);
+    const reply=await base(method,params);
+    if(++previewAttempt===2)return new Promise(resolve=>{release=()=>resolve(reply);});
+    return reply;
   }),serviceRequest=vi.fn(async(method:string,params:Record<string,unknown>={})=>
     method==="cluster_contest_radio_spots_publish"
       ?{accepted:(params.spots as unknown[]).length,removed:0,unchanged:0,filtered:0,rejected:0,stale:false}
@@ -828,13 +828,15 @@ it("keeps publishing live contest spots when an older full-list preview is overt
 
   view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps}
     radioFrequencyHz={7_125_000} spots={[newest,...first] as any}/>);
+  expect(previewAttempt).toBe(2);
+  await act(async()=>release?.());
   await waitFor(()=>expect(serviceRequest).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
     publication_sequence:1,action:"replace",revision:current.revision,spots:expect.arrayContaining([
       expect.objectContaining({spot_id:"spot-0"}),expect.objectContaining({spot_id:"spot-8"}),
       expect.objectContaining({spot_id:"newest",callsign:"K1ABC"})])})));
   const previewCalls=request.mock.calls.filter(([method])=>method==="contest_spot_points_preview");
   const latestPreview=previewCalls.at(-1)?.[1];expect(latestPreview).toMatchObject({spots:expect.arrayContaining([
-    expect.objectContaining({spotID:"spot-8"}),expect.objectContaining({spotID:"newest"})])});
+    expect.objectContaining({spotID:"newest"})])});
   expect(((latestPreview?.spots??[]) as {spotID:string}[]).map(spot=>spot.spotID)).not.toContain("spot-0");
 });
 
@@ -877,6 +879,57 @@ it("finishes in-flight classification across passive draft edits and classifies 
   expect(last).toMatchObject({expectedRevision:2,spots:[expect.objectContaining({spotID:"newest"})]});
 });
 
+it("coalesces burst spot arrivals behind one in-flight preview without duplicate candidates",async()=>{
+  const current=projection(),base=operationalRequest(()=>current,()=>3);
+  let release:(()=>void)|undefined,inFlight=0,maximumInFlight=0;
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    if(method!=="contest_spot_points_preview")return base(method,params);
+    maximumInFlight=Math.max(maximumInFlight,++inFlight);
+    try{const reply=await base(method,params);
+      if(!release)await new Promise<void>(resolve=>{release=resolve;});
+      return reply;
+    }finally{inFlight-=1;}
+  });
+  const first=Array.from({length:9},(_,index)=>({id:`spot-${index}`,callsign:`DL1A${index}`,frequencyKHz:14025+index,band:"20m",mode:"CW",score:42}));
+  const view=render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={first as any}/>);
+  await createContestThroughSetup();await waitFor(()=>expect(release).toBeTypeOf("function"));
+  const arrivals=Array.from({length:4},(_,index)=>({...first[0],id:`new-${index}`,callsign:`OK5D${index}`,frequencyKHz:14040+index}));
+  for(let count=1;count<=arrivals.length;count+=1)await act(async()=>{
+    view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={[...first,...arrivals.slice(0,count)] as any}/>);
+  });
+  expect(request.mock.calls.filter(([method])=>method==="contest_spot_points_preview")).toHaveLength(1);
+  await act(async()=>release?.());
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots.every((spot:any)=>spot.contestPoints===3)).toBe(true));
+  const batches=request.mock.calls.filter(([method])=>method==="contest_spot_points_preview").map(([,params])=>params?.spots as {spotID:string}[]);
+  expect(maximumInFlight).toBe(1);expect(batches.map(batch=>batch.length)).toEqual([8,5]);
+  const ids=batches.flatMap(batch=>batch.map(spot=>spot.spotID));expect(new Set(ids).size).toBe(ids.length);
+});
+
+it("discards an in-flight pre-QSO classification and drains the new scoring revision",async()=>{
+  let current=projection();
+  const base=operationalRequest(()=>current,()=>current.revision===1?3:1),releases:(()=>void)[]=[];
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    if(method==="contest_qso_commit"){
+      current={...current,revision:current.revision+1,draftID:crypto.randomUUID(),score:{...current.score,qsos:1}};
+      return{id:crypto.randomUUID(),ok:true,result:{projection:current,actions:[],messages:[]}};
+    }
+    const reply=await base(method,params);
+    return method==="contest_spot_points_preview"?new Promise(resolve=>releases.push(()=>resolve(reply))):reply;
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}
+    spots={[{id:"one",callsign:"DL1ABC",frequencyKHz:14025,band:"20m",mode:"CW",score:42}] as any}/>);
+  await createContestThroughSetup();await waitFor(()=>expect(releases).toHaveLength(1));
+  await act(async()=>surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,
+    action:"entry_commit",params:{draftID:current.draftID,expectedDraftRevision:current.revision}}));
+  expect(releases).toHaveLength(1);
+  await act(async()=>releases[0]());
+  await waitFor(()=>expect(releases).toHaveLength(2));
+  expect(surfaceOwner.current.projections["band-maps"].spots[0].contestPoints).toBeNull();
+  expect(request.mock.calls.filter(([method])=>method==="contest_spot_points_preview").map(([,params])=>params?.expectedRevision)).toEqual([1,2]);
+  await act(async()=>releases[1]());
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots[0].contestPoints).toBe(1));
+});
+
 it("retains completed classifications when new spots supersede an in-flight list",async()=>{
   const current=projection(),base=operationalRequest(()=>current,()=>3),releases:(()=>void)[]=[];
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
@@ -888,8 +941,9 @@ it("retains completed classifications when new spots supersede an in-flight list
   const view=render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={[old] as any}/>);
   await createContestThroughSetup();await waitFor(()=>expect(releases).toHaveLength(1));
   view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={[newest,old] as any}/>);
-  await waitFor(()=>expect(releases).toHaveLength(2));
+  expect(releases).toHaveLength(1);
   await act(async()=>releases[0]());
+  await waitFor(()=>expect(releases).toHaveLength(2));
   await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots.find((spot:any)=>spot.id==="old"))
     .toMatchObject({contestPoints:3}));
   expect(surfaceOwner.current.projections["band-maps"].spots.find((spot:any)=>spot.id==="newest").contestPoints).toBeNull();

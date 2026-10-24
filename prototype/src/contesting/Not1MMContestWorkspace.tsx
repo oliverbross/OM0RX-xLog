@@ -816,6 +816,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const [spotPointPreview,setSpotPointPreview]=useState<{identity:string;revision:number;rows:Map<string,{inputSignature:string;points:number|null;dupe:boolean|null;multiplierCount:number|null;countryMultiplier:boolean|null;zoneMultiplier:boolean|null}>}>({identity:"",revision:0,rows:new Map()});
   const [spotPointRetryTick,setSpotPointRetryTick]=useState(0);
   const spotPointPreviewRef=useRef(spotPointPreview);spotPointPreviewRef.current=spotPointPreview;
+  const spotPreviewRunRef=useRef<Promise<void>>(Promise.resolve());
   const spotPointIdentity=projection?`${projection.sessionID}/${projection.workspaceGeneration}`:"";
   const spotScoreRevision=projection?.spotScoreRevision??projection?.revision??0;
   const spotWorkflowScope=useMemo<SpotWorkflowScope>(()=>({operatingContext,workspaceGeneration,
@@ -864,15 +865,24 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   }),[visibleSpotSignature]);
   const previewCandidatesRef=useRef(previewCandidates);previewCandidatesRef.current=previewCandidates;
   useEffect(()=>{
-    if(!projection||!previewWorkflowSpots.length){setSpotPointPreview({identity:spotPointIdentity,revision:spotScoreRevision,rows:new Map()});return;}
+    const updatePreview=(update:typeof spotPointPreview|((previous:typeof spotPointPreview)=>typeof spotPointPreview))=>{
+      const next=typeof update==="function"?update(spotPointPreviewRef.current):update;
+      spotPointPreviewRef.current=next;setSpotPointPreview(next);
+    };
+    if(!projection||!previewWorkflowSpots.length){updatePreview({identity:spotPointIdentity,revision:spotScoreRevision,rows:new Map()});return;}
     const candidates=previewCandidates;
     const candidateSignatures=new Map(candidates.map(candidate=>[candidate.spotID,candidate.inputSignature]));
-    let current=true,retryTimer:number|undefined;(async()=>{const previous=spotPointPreviewRef.current,
+    let current=true,retryTimer:number|undefined;
+    const preceding=spotPreviewRunRef.current;
+    // Coalesce changing snapshots behind the one admitted host request. Obsolete
+    // effects retire without adding duplicate batches to the serialized worker.
+    const run=(async()=>{await preceding;if(!current)return;
+      const previous=spotPointPreviewRef.current,
       rows=new Map<string,{inputSignature:string;points:number|null;dupe:boolean|null;multiplierCount:number|null;countryMultiplier:boolean|null;zoneMultiplier:boolean|null}>(
         previous.identity===spotPointIdentity&&previous.revision===spotScoreRevision
           ?[...previous.rows].filter(([id,row])=>candidateSignatures.get(id)===row.inputSignature):[]),
       pending=candidates.filter(candidate=>!rows.has(candidate.spotID));
-      if(!pending.length){if(current)setSpotPointPreview({identity:spotPointIdentity,revision:spotScoreRevision,rows:new Map(rows)});return;}
+      if(!pending.length){if(current)updatePreview({identity:spotPointIdentity,revision:spotScoreRevision,rows:new Map(rows)});return;}
       // Preview shares the serialized Python lane with typing and QSO saves.
       // Keep each non-preemptible request short enough for interactive entry.
       const previewBatchSize=8;
@@ -897,16 +907,20 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         // A newly arrived spot can supersede this list while its batch runs.
         // Retain completed rows that still describe current candidates and the
         // same scoring basis; never let an obsolete list replace newer rows.
-        setSpotPointPreview(previous=>{
+        updatePreview(previous=>{
           const liveInputs=new Map(previewCandidatesRef.current.map(candidate=>[candidate.spotID,candidate.inputSignature]));
           const merged=new Map(previous.identity===spotPointIdentity&&previous.revision===spotScoreRevision
             ?[...previous.rows].filter(([id,row])=>liveInputs.get(id)===row.inputSignature):[]);
           for(const [id,row] of rows)if(liveInputs.get(id)===row.inputSignature)merged.set(id,row);
           return {identity:spotPointIdentity,revision:spotScoreRevision,rows:merged};
         });
+        // Let typing/logging and newly arrived snapshots run between batches.
+        await new Promise<void>(resolve=>window.setTimeout(resolve,0));
       }
-    })().catch(()=>{if(current){setSpotPointPreview(previous=>previous.identity===spotPointIdentity?previous:{identity:spotPointIdentity,revision:spotScoreRevision,rows:new Map()});
-      retryTimer=window.setTimeout(()=>setSpotPointRetryTick(value=>value+1),1_000);}});return()=>{current=false;if(retryTimer!==undefined)window.clearTimeout(retryTimer);};
+    })().catch(()=>{if(current){updatePreview(previous=>previous.identity===spotPointIdentity?previous:{identity:spotPointIdentity,revision:spotScoreRevision,rows:new Map()});
+      retryTimer=window.setTimeout(()=>setSpotPointRetryTick(value=>value+1),1_000);}});
+    spotPreviewRunRef.current=run;
+    return()=>{current=false;if(retryTimer!==undefined)window.clearTimeout(retryTimer);};
   },[projection?.sessionID,projection?.workspaceGeneration,spotScoreRevision,request,visibleSpotSignature,spotPointIdentity,spotPointRetryTick]);
   const contestRadioPreviewComplete=Boolean(projection&&spotPointPreview.identity===spotPointIdentity&&
     spotPointPreview.revision===spotScoreRevision&&visibleWorkflowSpots.every(spot=>{
