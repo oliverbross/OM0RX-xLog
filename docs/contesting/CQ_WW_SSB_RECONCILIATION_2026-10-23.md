@@ -247,7 +247,7 @@ report and supplies the next priorities.
 ## Rollback
 
 The retained signed rollback is
-`/Applications/OM0RX-xLog-previous-20261023T073741Z-76815.app` from source
-`09d8ec37ba523ccbcf28dfb1c1ad7699da1da27f`. The final installed candidate and
+`/Applications/OM0RX-xLog-previous-20261024T041656Z-59790.app` from source
+`8f89e860e3839803b2d359894bec225bc96f75a0`. The final installed candidate and
 rollback both pass deep/strict signature verification. Logbook and installation
 backup directories were retained and were not part of cleanup.
