@@ -2202,6 +2202,61 @@ it("cancels an owner-busy entry retry when Wipe supersedes it",async()=>{
   expect(screen.queryByText("The contest owner is busy.")).toBeNull();
 });
 
+it("drains a new edit started while a discarded owner-busy flush is still backing off",async()=>{
+  const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+    functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  let current:any={...snapshot,projection:{...projection,schemaVersion:2,
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}},busyAttempts=0;
+  const actions:Record<string,any>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_action"){
+      actions.push(args);
+      if(args.action==="entry_set_text"&&args.params.value==="K1ABC"&&busyAttempts<4){busyAttempts+=1;
+        current={...current,receipts:[{requestID:args.requestID,status:"rejected",message:"The contest owner is busy.",projectionRevision:current.projectionRevision}]};
+        return {requestID:args.requestID,status:"rejected"};}
+      const callsign=args.action==="entry_clear"?"":args.params.value,currentRevision=current.projectionRevision+1;
+      current={...current,projectionRevision:currentRevision,receipts:[{requestID:args.requestID,status:"applied",message:null,projectionRevision:currentRevision}],
+        projection:{...current.projection,draft:{...current.projection.draft,revision:current.projection.draft.revision+1,callsign}}};
+      return {requestID:args.requestID,status:"applied",projectionRevision:currentRevision};
+    }
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign");fireEvent.change(callsign,{target:{value:"K1ABC"}});
+  await waitFor(()=>expect(actions).toHaveLength(4),{timeout:3000});
+  await waitFor(()=>expect(screen.getByRole("button",{name:"Wipe"})).toHaveProperty("disabled",false));
+  fireEvent.click(screen.getByRole("button",{name:"Wipe"}));
+  await waitFor(()=>expect(actions.at(-1)?.action).toBe("entry_clear"));
+  fireEvent.change(screen.getByLabelText("Callsign"),{target:{value:"N2NEW"}});
+  await waitFor(()=>expect(actions.at(-1)).toMatchObject({action:"entry_set_text",params:{value:"N2NEW"}}),{timeout:3000});
+  expect(actions.map(action=>action.action)).toEqual(["entry_set_text","entry_set_text","entry_set_text","entry_set_text","entry_clear","entry_set_text"]);
+});
+
+it("restores the authoritative draft when Wipe is rejected before a later Enter",async()=>{
+  const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+    functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  let current:any={...snapshot,projection:{...projection,schemaVersion:2,session:{name:"CQ WW SSB",ruleName:"CQ WW SSB",mode:"SSB"},
+    draft:{...projection.draft,callsign:"OM0RX",sentReport:"59",receivedReport:"59",mode:"SSB",frequencyError:""},
+    descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+  const actions:Record<string,any>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_action"){
+      actions.push(args);
+      if(args.action==="entry_clear"){current={...current,receipts:[{requestID:args.requestID,status:"rejected",message:"The contest draft could not be cleared.",projectionRevision:current.projectionRevision}]};
+        return {requestID:args.requestID,status:"rejected"};}
+      return {requestID:args.requestID,status:"applied",projectionRevision:current.projectionRevision};
+    }
+    if(command==="contest_surface_diagnostic_report")return;
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign");fireEvent.change(callsign,{target:{value:"K1ABC"}});
+  fireEvent.click(screen.getByRole("button",{name:"Wipe"}));
+  await waitFor(()=>expect(callsign).toHaveProperty("value","OM0RX"));expect(await screen.findByRole("alert")).toHaveProperty("textContent","The contest draft could not be cleared.");
+  fireEvent.keyDown(callsign,{key:"Enter"});await waitFor(()=>expect(actions.map(action=>action.action)).toEqual(["entry_clear","entry_commit"]));
+  expect(actions.some(action=>action.action==="entry_set_text")).toBe(false);
+});
+
 it("retries a transient owner-busy callsign edit without leaving the entry unresolved",async()=>{
   let current:any=structuredClone(snapshot),attempts=0;
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{

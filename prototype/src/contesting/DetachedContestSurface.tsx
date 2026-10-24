@@ -475,16 +475,17 @@ type EntryIntentKey = "callsign"|"sentReport"|"receivedReport"|"frequency"|`exch
 type EntryIntent = { value:string; action:(value:string)=>ContestSurfaceAction };
 type EntryFlushResult = { ok:boolean;lastAppliedProjectionRevision:number|null };
 const entryIntentDebounceMs=120;
+const entryIntentValues=(draft:any)=>Object.fromEntries([
+  ["callsign",draft.callsign],["sentReport",draft.sentReport],["receivedReport",draft.receivedReport],["frequency",draft.frequencyText],
+  ...draft.receivedFields.map((field:any)=>[`exchange:${field.id}`,field.value]),
+]) as Record<EntryIntentKey,string>;
 function useEntryIntents(projection:any,projectionRevision:number,send:Send){
-  const authoritative=useMemo(()=>Object.fromEntries([
-    ["callsign",projection.draft.callsign],["sentReport",projection.draft.sentReport],
-    ["receivedReport",projection.draft.receivedReport],["frequency",projection.draft.frequencyText],
-    ...projection.draft.receivedFields.map((field:any)=>[`exchange:${field.id}`,field.value]),
-  ]) as Record<EntryIntentKey,string>,[projection.draft.callsign,projection.draft.sentReport,projection.draft.receivedReport,
+  const authoritative=useMemo(()=>entryIntentValues(projection.draft),[projection.draft.callsign,projection.draft.sentReport,projection.draft.receivedReport,
     projection.draft.frequencyText,projection.draft.receivedFields]);
   const [values,setValues]=useState(authoritative),[,setUnresolved]=useState<Set<EntryIntentKey>>(new Set());
   const identity=projection.draft.draftID,identityRef=useRef(identity),authoritativeRef=useRef(authoritative),valuesRef=useRef(values),
-    dirty=useRef(new Map<EntryIntentKey,EntryIntent>()),inFlight=useRef(new Set<EntryIntentKey>()),running=useRef<Promise<EntryFlushResult>|null>(null),generation=useRef(0),
+    dirty=useRef(new Map<EntryIntentKey,EntryIntent>()),inFlight=useRef(new Set<EntryIntentKey>()),
+    running=useRef<{generation:number;promise:Promise<EntryFlushResult>}|null>(null),generation=useRef(0),
     scheduled=useRef<number|null>(null);
   authoritativeRef.current=authoritative;valuesRef.current=values;
   useEffect(()=>{if(identityRef.current===identity)return;identityRef.current=identity;generation.current+=1;dirty.current.clear();inFlight.current.clear();running.current=null;
@@ -494,7 +495,7 @@ function useEntryIntents(projection:any,projectionRevision:number,send:Send){
       if(!dirty.current.has(key)&&!inFlight.current.has(key)&&next[key]!==value){next[key]=value;changed=true;}return changed?next:previous;});},[authoritative]);
   const flush=useCallback(async():Promise<EntryFlushResult>=>{
     if(scheduled.current!==null){window.clearTimeout(scheduled.current);scheduled.current=null;}
-    if(running.current)return running.current;
+    if(running.current?.generation===generation.current)return running.current.promise;
     const runGeneration=generation.current,operation=(async()=>{let lastAppliedProjectionRevision:number|null=null,ownerBusyAttempts=0;while(runGeneration===generation.current&&dirty.current.size){const [key,intent]=dirty.current.entries().next().value as [EntryIntentKey,EntryIntent];
       dirty.current.delete(key);inFlight.current.add(key);setUnresolved(previous=>{const next=new Set(previous);next.delete(key);return next;});
       const result=await send(intent.action(intent.value),projectionRevision,{safePresentation:true,quietOwnerBusy:ownerBusyAttempts<12});inFlight.current.delete(key);
@@ -506,21 +507,24 @@ function useEntryIntents(projection:any,projectionRevision:number,send:Send){
       }
       if(!result.applied){if(!dirty.current.has(key))dirty.current.set(key,intent);setUnresolved(previous=>new Set(previous).add(key));return {ok:false,lastAppliedProjectionRevision};}
       ownerBusyAttempts=0;lastAppliedProjectionRevision=result.projectionRevision;
-    }return {ok:true,lastAppliedProjectionRevision};})();running.current=operation;try{return await operation;}finally{if(running.current===operation)running.current=null;}} ,
+    }return {ok:true,lastAppliedProjectionRevision};})(),tracked={generation:runGeneration,promise:operation};running.current=tracked;
+    try{return await operation;}finally{if(running.current===tracked)running.current=null;}} ,
     [projectionRevision,send]);
   const change=useCallback((key:EntryIntentKey,value:string,action:(value:string)=>ContestSurfaceAction)=>{
     valuesRef.current={...valuesRef.current,[key]:value};setValues(valuesRef.current);dirty.current.set(key,{value,action});
     if(scheduled.current!==null)window.clearTimeout(scheduled.current);
     scheduled.current=window.setTimeout(()=>{scheduled.current=null;void flush();},entryIntentDebounceMs);},[flush]);
   useEffect(()=>()=>{generation.current+=1;if(scheduled.current!==null)window.clearTimeout(scheduled.current);},[]);
-  const discard=useCallback(()=>{generation.current+=1;dirty.current.clear();setUnresolved(new Set());
+  const discard=useCallback(()=>{generation.current+=1;running.current=null;dirty.current.clear();setUnresolved(new Set());
     if(scheduled.current!==null){window.clearTimeout(scheduled.current);scheduled.current=null;}},[]);
+  const reset=useCallback((draft:any)=>{discard();inFlight.current.clear();identityRef.current=draft.draftID;
+    const next=entryIntentValues(draft);authoritativeRef.current=next;valuesRef.current=next;setValues(next);},[discard]);
   const capture=useCallback(()=>({...valuesRef.current}),[]);
   const matches=useCallback((draft:any,intended:Record<EntryIntentKey,string>,acceptCallsignPrefill=false)=>draft?.draftID===identityRef.current&&
     draft.callsign.trim().toUpperCase()===intended.callsign.trim().toUpperCase()&&draft.sentReport===intended.sentReport&&draft.receivedReport===intended.receivedReport&&
     draft.frequencyText===intended.frequency&&Array.isArray(draft.receivedFields)&&draft.receivedFields.length===projection.draft.receivedFields.length&&
     (acceptCallsignPrefill||draft.receivedFields.every((field:any)=>intended[`exchange:${field.id}`]===field.value)),[projection.draft.receivedFields.length]);
-  return {values,change,flush,discard,capture,matches};
+  return {values,change,flush,discard,reset,capture,matches};
 }
 function EntryIntentInput({label,accessibleLabel,intentKey,value,maximumUTF8Bytes,disabled,operatorField,inputRef,onFocus,onChange,className}:{
   label:string;accessibleLabel?:string;intentKey:EntryIntentKey;value:string;maximumUTF8Bytes:number;disabled:boolean;operatorField?:ContestInputFieldID;
@@ -645,7 +649,9 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
       intents.discard();
       void(async()=>{await settle();const current=await refresh(),currentProjection=current?.projection as any;
         if(!current||current.panelID!=="active-qso"||currentProjection?.status!=="ready"||currentProjection.draft?.draftID!==base.draftID)return;
-        await send({action:"entry_clear",params:{draftID:base.draftID,expectedDraftRevision:currentProjection.draft.revision}},current.projectionRevision);})();return;
+        const result=await send({action:"entry_clear",params:{draftID:base.draftID,expectedDraftRevision:currentProjection.draft.revision}},current.projectionRevision);
+        if(!result.applied){const reconciled=await refresh(),reconciledProjection=reconciled?.projection as any;
+          if(reconciled?.panelID==="active-qso"&&reconciledProjection?.status==="ready")intents.reset(reconciledProjection.draft);}})();return;
     }
     if(action==="LOG_NOW"&&commitPending.current)return;
     if(action==="LOG_NOW")commitPending.current=true;
