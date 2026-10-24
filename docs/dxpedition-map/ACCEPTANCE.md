@@ -8,10 +8,10 @@ Status for the independent `codex/dxpedition-map` source branch. A packaged/inst
 - Focused DX Map model/component/style suite: 13 tests pass; the shared Map/MapSpot regression set brings the focused frontend pass to 46 tests.
 - `OpportunityFeedTests`, including ADXO aliases/QSL/UTC date bounds and a valid empty out-of-horizon catalogue: 6 tests pass.
 - Portable opportunity owner (11 tests), including the two-provider DX refresh boundary, and bounded-download (5 tests) suites: pass.
-- Full portable Swift suite: pass.
+- Full native Swift suite: 311 tests pass.
+- Full portable Swift suite: pass. One TCI websocket timing case failed while native and portable SwiftPM runs competed for the same build directory; that exact case and the complete portable suite then passed sequentially.
 - Full native Rust suite: 852 tests pass.
-- Full sharded frontend suite after rebasing onto published `main` `69b170d9`: 283 files / 4,145 tests pass.
-- Production TypeScript/Vite build and detached-window bundle/CSS graph gate: pass.
+- Full sharded frontend suite after rebasing onto Not1mm source head `0d3209e4`: 283 files / 4,156 tests pass.
 - Rendered browser QA at 1440×900 and 480×800: full-width root layout, visible source/filter controls, readable empty/error states, and complete EN/IT surface navigation verified; browser mode cannot establish native-service behaviour.
 
 ## Master-plan acceptance mapping
