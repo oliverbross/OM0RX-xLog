@@ -173,7 +173,7 @@ function representativePoint(feature: DXCCFeature): Coordinate | null {
     (Math.min(...latitudes) + Math.max(...latitudes)) / 2];
 }
 
-export default function WorldMap({
+export default function WorldMap<T extends MapSpot = MapSpot>({
   selected,
   onSpot,
   data = [],
@@ -193,8 +193,8 @@ export default function WorldMap({
   spotLegend,
 }: {
   selected: string | null;
-  onSpot?: (spot: MapSpot) => void;
-  data?: MapSpot[];
+  onSpot?: (spot: T) => void;
+  data?: T[];
   fixture?: boolean;
   home?: MapPoint | null;
   target?: MapPoint | null;

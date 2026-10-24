@@ -24,7 +24,7 @@ export const dxpeditionMapMethods = ["opportunities_dxpedition_snapshot", "oppor
 const text = {
   en: { title: "DXpedition Map", all: "All", live: "Live", active: "Active", recent: "Recent", upcoming: "Upcoming",
     search: "Search callsign, alias or entity", refresh: "Refresh sources", details: "Operation details", observations: "Recent frequencies",
-    noResults: "No expeditions match these filters.", loading: "Loading expedition catalogue and configured-cluster observations…",
+    noResults: "No expeditions match these filters.", loading: "Loading expedition catalogue and configured-cluster observations…", unavailable: "The expedition catalogue is unavailable. Refresh to try again.",
     outside: "Outside current filters", tune: "Tune & load", load: "Load callsign", unknown: "Unavailable", close: "Close details",
     onAir: "On air", idle: "Idle", entityUnavailable: "Entity unavailable", aliases: "Aliases", utcDates: "UTC dates", qsl: "QSL",
     radioTarget: "Radio target", position: "Position", clubLogTotal: "Club Log QSO total", qsoRate: "QSO/h", watchers: "Watchers",
@@ -34,7 +34,7 @@ const text = {
     currentSource: "current", staleSource: "stale", unavailableSource: "unavailable", publishedPosition: "Published catalogue position", clusterPosition: "Latest configured-cluster report", noPosition: "No published coordinates" },
   it: { title: "Mappa DXpedition", all: "Tutte", live: "Live", active: "Attive", recent: "Recenti", upcoming: "Future",
     search: "Cerca nominativo, alias o entità", refresh: "Aggiorna fonti", details: "Dettagli operazione", observations: "Frequenze recenti",
-    noResults: "Nessuna spedizione corrisponde ai filtri.", loading: "Caricamento catalogo e osservazioni cluster configurate…",
+    noResults: "Nessuna spedizione corrisponde ai filtri.", loading: "Caricamento catalogo e osservazioni cluster configurate…", unavailable: "Il catalogo delle spedizioni non è disponibile. Aggiorna per riprovare.",
     outside: "Fuori dai filtri correnti", tune: "Sintonizza e carica", load: "Carica nominativo", unknown: "Non disponibile", close: "Chiudi dettagli",
     onAir: "In aria", idle: "Inattiva", entityUnavailable: "Entità non disponibile", aliases: "Alias", utcDates: "Date UTC", qsl: "QSL",
     radioTarget: "Radio selezionata", position: "Posizione", clubLogTotal: "QSO totali Club Log", qsoRate: "QSO/ora", watchers: "Osservatori",
@@ -192,10 +192,10 @@ export function DetachedDXpeditionMapSurface() {
       <button type="button" onClick={() => void refresh(false)} disabled={refreshing}>{refreshing ? "…" : "↻"}<span className="sr-only">{t.refresh}</span></button></header>
     <div className="dxp-source-strip">{sourceState.map(source => <span key={source.source} className={`state-${source.state}`} title={source.safe_error || ""}>{source.source.toUpperCase()} · {sourceLabel(source.state, locale)} · {source.count}</span>)}
       <span>{t.cluster} · {map.stale ? t.stale : `${rawSpots.length} ${t.retained}`}</span></div>
-    <div className="dxp-toolbar"><div role="tablist" aria-label={t.statusFilter}>{statusFilters.map(value => <button type="button" role="tab" aria-selected={status === value} key={value} onClick={() => setStatus(value)}>{t[value]}</button>)}</div>
-      <div className="dxp-bands" aria-label={t.bandFilter}><button className={band === "all" ? "is-active" : ""} onClick={() => setBand("all")}>{t.all}</button>{baselineDXpeditionBands.map(value => <button key={value} className={band === value ? "is-active" : ""} onClick={() => setBand(value)}>{value.replace("m", "")}</button>)}</div></div>
+    <div className="dxp-toolbar"><div role="group" aria-label={t.statusFilter}>{statusFilters.map(value => <button type="button" aria-pressed={status === value} key={value} onClick={() => setStatus(value)}>{t[value]}</button>)}</div>
+      <div className="dxp-bands" role="group" aria-label={t.bandFilter}><button type="button" aria-pressed={band === "all"} className={band === "all" ? "is-active" : ""} onClick={() => setBand("all")}>{t.all}</button>{baselineDXpeditionBands.map(value => <button type="button" aria-pressed={band === value} key={value} className={band === value ? "is-active" : ""} onClick={() => setBand(value)}>{value.replace("m", "")}</button>)}</div></div>
     <div className="dxp-body"><section className="dxp-list" aria-label={t.list}><p className="dxp-results">{filtered.length} {t.shown} · {operations.length} {t.currentUpcoming}{operations.filter(item => item.latitude === null).length ? ` · ${operations.filter(item => item.latitude === null).length} ${t.unmapped}` : ""}</p>
-      {!snapshot && !error && <p className="dxp-empty">{t.loading}</p>}{snapshot && !filtered.length && <p className="dxp-empty">{t.noResults}</p>}
+      {!snapshot && !error && <p className="dxp-empty">{t.loading}</p>}{!snapshot && error && <p className="dxp-empty">{t.unavailable}</p>}{snapshot && !filtered.length && <p className="dxp-empty">{t.noResults}</p>}
       {filtered.map(operation => <OperationCard key={operation.id} operation={operation} selected={operation.id === selectedID} now={clock} locale={locale} onSelect={() => setSelectedID(operation.id)} />)}</section>
       <section className="dxp-map" aria-label={t.map}><WorldMap data={dxpeditionMapSpots(filtered)} selected={selectedID} onSpot={spot => setSelectedID(spot.id)}
         compact persistenceKey="dxpedition-map" spotColorMode="status" fitToDataKey={selectedID ?? `${status}:${band}:${query}`}

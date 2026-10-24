@@ -64,11 +64,11 @@ describe("DXpedition catalogue and configured-cluster join", () => {
     expect(dxpeditionStatus(operation(48 * 3_600_000), now)).toBe("idle");
   });
 
-  it("adapts map-only presentation without changing the operation's exact mode", () => {
+  it("retains the exact observed mode in both operation and map presentation", () => {
     const operations = buildDXpeditionOperations(catalogue, [{
       id: "s1", callsign: "VK9X1", frequencyKHz: 18_100, band: "17m", mode: "RTTY", receivedAt: now.toISOString(),
     }], now);
     expect(operations[0].observations[0].mode).toBe("RTTY");
-    expect(dxpeditionMapSpots(operations)[0]).toMatchObject({ mode: "SSB", callStatus: "live", statusHex: "#3ee58d" });
+    expect(dxpeditionMapSpots(operations)[0]).toMatchObject({ mode: "RTTY", callStatus: "live", statusHex: "#3ee58d" });
   });
 });

@@ -78,4 +78,12 @@ struct OpportunityFeedTests {
         #expect(values[0].startsAt == ISO8601DateFormatter().date(from: "2026-10-20T00:00:00Z"))
         #expect(values[0].endsAt == ISO8601DateFormatter().date(from: "2026-11-02T23:59:59Z")?.addingTimeInterval(0.999))
     }
+
+    @Test("ADXO valid catalogue outside the 30-day horizon is a healthy empty response")
+    func adxoValidEmpty() throws {
+        let body = Data(#"<p>Jan 1 - Jan 2, 2025</p><p>DXCC: Old</p><p>Callsign: OLD1A</p>"#.utf8)
+        let now = ISO8601DateFormatter().date(from: "2026-10-24T12:00:00Z")!
+        let values = try OpportunityFeedParser.parse(body, source: "adxo", observedAt: now)
+        #expect(values.isEmpty)
+    }
 }

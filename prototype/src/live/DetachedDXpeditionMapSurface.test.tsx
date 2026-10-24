@@ -69,7 +69,7 @@ it("recovers invalid saved filters and switches the complete navigation shell to
   expect(await screen.findByText("VK9X1")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "IT" }));
   expect(screen.getByRole("heading", { name: "Mappa DXpedition" })).toBeTruthy();
-  expect(screen.getByRole("tablist", { name: "Filtro stato" })).toBeTruthy();
+  expect(screen.getByRole("group", { name: "Filtro stato" })).toBeTruthy();
   expect(screen.getByRole("region", { name: "Elenco DXpedition" })).toBeTruthy();
   expect(screen.getByRole("region", { name: "Mappa spedizioni" })).toBeTruthy();
 });

@@ -210,11 +210,6 @@ const statusColor: Record<DXpeditionStatus, string> = {
   live: "#3ee58d", active: "#ffd166", recent: "#ff9f43", on_air: "#45d4ff", upcoming: "#b891ff", idle: "#83909d",
 };
 
-function mapMode(value: string | undefined): MapSpot["mode"] {
-  if (value === "CW" || value === "FT8") return value;
-  return "SSB";
-}
-
 export function dxpeditionMapSpots(operations: readonly DXpeditionOperation[]): MapSpot[] {
   return operations.filter(operation => operation.latitude !== null && operation.longitude !== null).map(operation => {
     const latest = operation.observations[0];
@@ -223,7 +218,7 @@ export function dxpeditionMapSpots(operations: readonly DXpeditionOperation[]): 
       call: operation.primaryCall,
       receivedAt: latest?.reportedAt.getTime(),
       mhz: latest ? latest.frequencyHz / 1_000_000 : 0,
-      mode: mapMode(latest?.mode),
+      mode: latest?.mode || "Unknown",
       band: latest?.band || "",
       country: operation.entity,
       grid: "",

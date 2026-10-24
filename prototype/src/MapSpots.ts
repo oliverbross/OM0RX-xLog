@@ -1,6 +1,6 @@
 import type { Spot } from "./model";
 
-export type MapSpot = Spot & { receivedAt?: number; locationOnly?: boolean };
+export type MapSpot = Omit<Spot, "mode"> & { mode: string; receivedAt?: number; locationOnly?: boolean };
 
 export const normalizedMapCall = (value: unknown): string =>
   typeof value === "string" ? value.trim().toUpperCase() : "";

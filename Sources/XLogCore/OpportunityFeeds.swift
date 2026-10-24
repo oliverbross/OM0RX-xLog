@@ -137,6 +137,7 @@ public enum OpportunityFeedParser {
         formatter.timeZone = TimeZone(secondsFromGMT: 0); formatter.dateFormat = "MMM d yyyy"
         var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         var rows: [PublicOpportunity] = []
+        var recognizedRows = 0
         var index = 0
         while index < lines.count {
             let line = lines[index], range = NSRange(line.startIndex..<line.endIndex, in: line)
@@ -168,6 +169,7 @@ public enum OpportunityFeedParser {
                 let call = String(upperCall[value]); return validCall(call) ? call : nil
             }
             guard let call = aliases.first else { continue }
+            recognizedRows += 1
             let endOfDay = end.addingTimeInterval(86_400 - 0.001)
             let horizon = calendar.date(byAdding: .day, value: 30, to: calendar.startOfDay(for: observedAt))!
             guard endOfDay >= calendar.startOfDay(for: observedAt), start <= horizon else { continue }
@@ -177,7 +179,7 @@ public enum OpportunityFeedParser {
                 expiresAt: endOfDay, source: "NG3K ADXO", sourceURL: sourceURL("adxo"), comment: fields["Info"] ?? "",
                 startsAt: start, endsAt: endOfDay, callsigns: aliases, qslRoute: fields["QSL"]))
         }
-        guard !rows.isEmpty else { throw OpportunityFeedError.noUsableRows }
+        guard recognizedRows > 0 else { throw OpportunityFeedError.noUsableRows }
         return Array(rows.prefix(500))
     }
 
