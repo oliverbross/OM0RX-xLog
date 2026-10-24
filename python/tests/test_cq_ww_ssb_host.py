@@ -163,7 +163,7 @@ class CQWWSSBHostTests(unittest.TestCase):
 
     def test_observed_vfo_change_clears_departed_call_and_loads_nearby_spot(self):
         setup = self.read("setup_get")["setup"]
-        setup["preferences"]["clearOnVFOChange"] = True
+        setup["preferences"]["clearOnVFOChange"] = False
         self.mutate("setup_save", setup=setup)
         self.mutate("draft_apply", fields={"callsign": "OM0A", "other_2": "15"})
 

@@ -1604,7 +1604,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       previous.frequencyHz !== observedFrequencyHz;
     observedFrequencyRef.current = { sessionID: projection.sessionID, frequencyHz: observedFrequencyHz };
     if (!freshObservedChange && projection.frequencyHz === observedFrequencyHz) return;
-    const tunedSpot = freshObservedChange && !projection.run && setup.preferences.clearOnVFOChange === true
+    const tunedSpot = freshObservedChange && !projection.run &&
+      (projection.pluginID === "cq_ww_ssb" || setup.preferences.clearOnVFOChange === true)
       ? observedContestSpot(visibleWorkflowSpots, observedFrequencyHz) : null;
     void runMutation(base => mutate("contest_draft_apply", base, {
       fields: fieldsRef.current, frequencyHz: observedFrequencyHz,
@@ -1981,7 +1982,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
           : {state:"unchecked" as const,reason:"Awaiting the authoritative group duplicate check."}
           : { state: projection.dupe ? "duplicate" : "clear", reason: projection.dupe
           ? projection.dupeExplanation ?? "Worked on this band." : "Clear for this contest." },
-        validation: { errors: [], warnings: projection.countryResolved ? [] : ["Country is unresolved; scoring credit may be zero."] },
+        validation: { errors: [], warnings: !(currentFields.callsign ?? "").trim() || projection.countryResolved
+          ? [] : ["Country is unresolved; scoring credit may be zero."] },
         reservedSerial,
       },
       descriptor: {
@@ -2141,7 +2143,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       ...(notice ? [{ kind:"notice" as const, text:notice }] : []),
       ...(operationFrequencyHz === null ? [{ kind:"error" as const, text:"Enter a frequency on a band supported by this contest." }] : []),
       ...(projection.dupe ? [{ kind:"notice" as const, text:projection.dupeExplanation ?? "Duplicate: worked on this band." }] : []),
-      ...(!projection.countryResolved ? [{ kind:"notice" as const, text:"Country is unresolved; scoring credit may be zero." }] : []),
+      ...((currentFields.callsign ?? "").trim() && !projection.countryResolved
+        ? [{ kind:"notice" as const, text:"Country is unresolved; scoring credit may be zero." }] : []),
       ...(scpSurface?.error ? [{ kind:"error" as const, text:scpSurface.error }] : []),
       ...(scpSurface?.notice ? [{ kind:"notice" as const, text:scpSurface.notice }] : []),
       ...connections.filter(connection => connection.error).map(connection => ({kind:"error" as const,

@@ -3059,8 +3059,9 @@ class Host:
         if "observedVFOChange" not in params:
             return
         require(type(params["observedVFOChange"]) is bool, "Observed VFO change flag must be boolean")
-        if (not params["observedVFOChange"] or desk.state["run"]
-                or desk.state.get("setup", {}).get("preferences", {}).get("clearOnVFOChange") is not True):
+        clear_enabled = (desk.state["pluginID"] == "cq_ww_ssb"
+                         or desk.state.get("setup", {}).get("preferences", {}).get("clearOnVFOChange") is True)
+        if not params["observedVFOChange"] or desk.state["run"] or not clear_enabled:
             return
         # Reports remain at their contest defaults (59/599); only the call and
         # editable plugin exchange inputs belong to the next station worked.
