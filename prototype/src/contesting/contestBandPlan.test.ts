@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contestModeForFrequency, decodeContestBandPlan, defaultContestBandPlan, encodeContestBandPlan,
+import { contestModeForFrequency, contestModeForSpot, decodeContestBandPlan, defaultContestBandPlan, encodeContestBandPlan,
   explicitContestMode, visibleContestBandRange } from "./contestBandPlan";
 
 describe("contest band plan", () => {
@@ -33,5 +33,13 @@ describe("contest band plan", () => {
     expect(explicitContestMode("UP 1 CW")).toBe("cw");
     expect(explicitContestMode("strong SSB signal")).toBe("phone");
     expect(explicitContestMode("CQ DX")).toBeNull();
+  });
+
+  it("admits an unannotated spot inside a customized single-mode contest segment", () => {
+    const entry = defaultContestBandPlan(["40m"])[0];
+    entry.phone = { low: 7050, high: 7200 };
+    expect(contestModeForSpot(entry, 7060, ["phone"], "CQ TEST")).toBe("phone");
+    expect(contestModeForSpot(entry, 7060, ["phone"], "CQ RTTY TEST")).toBe("data");
+    expect(contestModeForSpot(entry, 7045, ["phone"], "CQ TEST")).toBe("data");
   });
 });

@@ -6,7 +6,7 @@ import { clusterBandColors, clusterStatusCode, clusterStatusColors, paletteColor
 import { countryDisplay } from "./countryDisplay";
 import { BAND_ORDER, BAND_RANGES, bandForRadio } from "./band";
 export { BAND_ORDER, BAND_RANGES, bandForRadio } from "./band";
-import { contestModeForFrequency, explicitContestMode, visibleContestBandRange, type ContestBandMode, type ContestBandPlanEntry } from "../contesting/contestBandPlan";
+import { contestModeForSpot, visibleContestBandRange, type ContestBandMode, type ContestBandPlanEntry } from "../contesting/contestBandPlan";
 import "./BandMaps.css";
 
 export type BandMapSpot = Record<string, any> & { id?: unknown };
@@ -558,9 +558,9 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
   const classifiedSpots = useMemo(() => contestPresentation ? spots.map(spot => {
     const entry = contestBandPlan?.find(item => item.band === spot.band);
     const frequency = finite(spot.frequencyKHz);
-    const mode = explicitContestMode(spot.comment) ?? (!entry || frequency === null ? modeGroup(text(spot.mode)) : contestModeForFrequency(entry, frequency));
+    const mode = !entry || frequency === null ? modeGroup(text(spot.mode)) : contestModeForSpot(entry,frequency,allowedContestModes,spot.comment);
     return { ...spot, mode: contestModeLabel(mode) };
-  }) : spots, [contestBandPlan, contestPresentation, spots]);
+  }) : spots, [allowedContestModes,contestBandPlan, contestPresentation, spots]);
   const recentUnique = useMemo(() => deduplicateBandMapSpots(filterRecentBandMapSpots(classifiedSpots, spotAgeMinutes, ageClock)), [classifiedSpots, spotAgeMinutes, ageClock]);
   const contestVisible=useMemo(()=>contestPresentation&&!showWorked?recentUnique.filter(spot=>!contestBandMapSpotWorked(spot)):recentUnique,
     [contestPresentation,recentUnique,showWorked]);

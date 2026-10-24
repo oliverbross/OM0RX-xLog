@@ -69,6 +69,17 @@ export function contestModeForFrequency(entry: ContestBandPlanEntry | undefined,
   return "phone";
 }
 
+export function contestModeForSpot(entry: ContestBandPlanEntry | undefined, frequencyKHz: number,
+    allowedModes: readonly ContestBandMode[], comment: unknown): ContestBandMode {
+  const explicit = explicitContestMode(comment);
+  if (explicit) return explicit;
+  if (entry && allowedModes.length === 1) {
+    const mode = allowedModes[0], range = entry[mode];
+    if (range.high > range.low && frequencyKHz >= range.low && frequencyKHz <= range.high) return mode;
+  }
+  return contestModeForFrequency(entry, frequencyKHz);
+}
+
 export function explicitContestMode(comment: unknown): ContestBandMode | null {
   const value = typeof comment === "string" ? comment.toUpperCase() : "";
   if (/\b(?:RTTY|FT8|FT4|PSK(?:31|63|125)?|DIGI(?:TAL)?|DATA)\b/.test(value)) return "data";

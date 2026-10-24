@@ -19,7 +19,7 @@ import { openContestCallHistoryWindow, openContestSurfaceWindow } from "./contes
 import { openContestSetupService } from "./contestSetupServices";
 import { openContestSetupDialog, useContestSetupDialogs, type ContestDigitalSave, type ContestDigitalSnapshot } from "./contestSetupDialogs";
 import { defaultContestKeyBindings, encodeContestKeyBindings, readContestKeyBindings, validateContestKeyBindings } from "./contestKeyBindings";
-import { contestModeForFrequency, decodeContestBandPlan, encodeContestBandPlan, explicitContestMode,
+import { contestModeForSpot, decodeContestBandPlan, encodeContestBandPlan,
   type ContestBandMode } from "./contestBandPlan";
 import { setContestCWSpeed } from "./contestStationControl";
 import { configureContestGroupChat, openContestGroupChatWindow, publishContestGroupContact,
@@ -786,10 +786,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     .map(contestBandMode))],[projection?.pluginID,projection?.supportedModes,projection?.mode]);
   const classifiedSharedSpots=useMemo(()=>deduplicateBandMapSpots(sharedSpots.map(spot=>{
     const entry=contestBandPlan.find(item=>item.band===spot.band),frequency=Number(spot.frequencyKHz);
-    const group=explicitContestMode(spot.comment)??(entry&&Number.isFinite(frequency)
-      ?contestModeForFrequency(entry,frequency):contestBandMode(spot.mode));
+    const group=entry&&Number.isFinite(frequency)
+      ?contestModeForSpot(entry,frequency,allowedModeGroups,spot.comment):contestBandMode(spot.mode);
     return {...spot,mode:contestBandModeLabel(group)};
-  })),[contestBandPlan,sharedSpots]);
+  })),[allowedModeGroups,contestBandPlan,sharedSpots]);
   const [spotPointPreview,setSpotPointPreview]=useState<{identity:string;revision:number;rows:Map<string,{points:number|null;dupe:boolean|null;multiplierCount:number|null;countryMultiplier:boolean|null;zoneMultiplier:boolean|null}>}>({identity:"",revision:0,rows:new Map()});
   const [spotPointRetryTick,setSpotPointRetryTick]=useState(0);
   const spotPointPreviewRef=useRef(spotPointPreview);spotPointPreviewRef.current=spotPointPreview;
