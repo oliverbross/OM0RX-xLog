@@ -284,6 +284,35 @@ it.each(["band-maps","dx-cluster"] as const)("offers accessible Not1MM spot life
   }
 });
 
+it("keeps equal-time cluster rows and DOM nodes stable through classification refreshes",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=dx-cluster"));
+  const first={...sharedSpot,id:"a",callsign:"DL1ABC"},second={...sharedSpot,id:"b",callsign:"OK5D"};
+  let current:any={...snapshot,panelID:"dx-cluster",projection:{schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,
+    radioFrequencyHz:14_025_000,connectedClusters:1,loadedSpots:2,selectedSpotID:null,configuredClusters:[],connections:[],markedOnly:false,
+    spots:[first,second],busy:false}};
+  native.invoke.mockImplementation(async command=>command==="contest_surface_snapshot"?current:{});
+  render(<DetachedContestSurface/>);
+  const row=await screen.findByLabelText("DL1ABC spot");row.focus();
+  const order=()=>screen.getAllByRole("row").filter(item=>item.hasAttribute("aria-label")).map(item=>item.getAttribute("aria-label"));
+  expect(order()).toEqual(["DL1ABC spot","OK5D spot"]);
+  const classified=[{...second,contestPoints:3,contestDupe:false,contestCountryMultiplier:true,contestZoneMultiplier:true},
+    {...first,contestPoints:1,contestDupe:false,contestCountryMultiplier:false,contestZoneMultiplier:false}];
+  current={...current,projectionRevision:7,projection:{...current.projection,spots:classified}};
+  await act(async()=>native.wake?.());
+  await waitFor(()=>expect(screen.getByLabelText("OK5D spot").textContent).toContain("C+Z"));
+  expect(order()).toEqual(["DL1ABC spot","OK5D spot"]);
+  expect(screen.getByLabelText("DL1ABC spot")).toBe(row);expect(document.activeElement).toBe(row);
+  const newer={...first,id:"newer",callsign:"JA1ABC",receivedAt:first.receivedAt+1};
+  current={...current,projectionRevision:8,projection:{...current.projection,spots:[...classified,newer]}};
+  await act(async()=>native.wake?.());
+  await waitFor(()=>expect(order()).toEqual(["JA1ABC spot","DL1ABC spot","OK5D spot"]));
+  current={...current,projectionRevision:9,projection:{...current.projection,spots:[newer,{...classified[1],contestDupe:true},classified[0]]}};
+  await act(async()=>native.wake?.());
+  await waitFor(()=>expect(screen.queryByLabelText("DL1ABC spot")).toBeNull());
+  fireEvent.click(screen.getByRole("checkbox",{name:"Show worked"}));
+  expect(order()).toEqual(["JA1ABC spot","DL1ABC spot","OK5D spot"]);
+});
+
 it.each(["band-maps","dx-cluster"] as const)("reuses desktop Filters locally in the detached contest %s window",async panelID=>{
   window.history.replaceState({},"",search.replace("view=active-qso",`view=${panelID}`));
   const other={...sharedSpot,id:"spot-2",callsign:"VK8XYZ",country:"Australia",continent:"OC",frequencyKHz:14030,frequencyText:"14030.0"};

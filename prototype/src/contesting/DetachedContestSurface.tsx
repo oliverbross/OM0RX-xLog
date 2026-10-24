@@ -394,7 +394,12 @@ function ContestSpots({panelID,context,projection,projectionRevision,send}:{pane
     setMenu({spotID:String(spot.id),x:requestedX,y:requestedY,requestedX,requestedY,origin});
   };
   const target=menu&&projection.spots.find(spot=>spot.id===menu.spotID);
-  const filteredSpots=useMemo(()=>filterClusterSpots(projection.spots,filter),[projection.spots,filter]);
+  const filteredSpots=useMemo(()=>{
+    // Stable sort ties must not inherit changing snapshot order as classifications
+    // arrive. The chosen newest/frequency/callsign/score sort remains primary.
+    const spots=panelID==="dx-cluster"?[...projection.spots].sort((left,right)=>left.id.localeCompare(right.id)):projection.spots;
+    return filterClusterSpots(spots,filter);
+  },[projection.spots,filter,panelID]);
   const specialChoices=useMemo(()=>["RBN",...new Set(projection.spots.flatMap(spot=>spot.specialTags)
     .filter(tag=>tag.toUpperCase()!=="RBN"))],[projection.spots]);
   useLayoutEffect(()=>{if(!menu)return;const clamp=()=>{const rect=menuRef.current?.getBoundingClientRect(),margin=8,
