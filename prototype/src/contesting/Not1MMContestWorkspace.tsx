@@ -873,13 +873,16 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
           ?[...previous.rows].filter(([id,row])=>candidateSignatures.get(id)===row.inputSignature):[]),
       pending=candidates.filter(candidate=>!rows.has(candidate.spotID));
       if(!pending.length){if(current)setSpotPointPreview({identity:spotPointIdentity,revision:spotScoreRevision,rows:new Map(rows)});return;}
-      for(let offset=0;offset<pending.length;offset+=32){
+      // Preview shares the serialized Python lane with typing and QSO saves.
+      // Keep each non-preemptible request short enough for interactive entry.
+      const previewBatchSize=8;
+      for(let offset=0;offset<pending.length;offset+=previewBatchSize){
         // A superseded list must not keep filling the serialized host queue.
         if(!current)return;
         const active=projectionRef.current;
         if(!active||active.sessionID!==projection.sessionID||active.workspaceGeneration!==projection.workspaceGeneration||
             (active.spotScoreRevision??active.revision)!==spotScoreRevision)return;
-        const batch=pending.slice(offset,offset+32);
+        const batch=pending.slice(offset,offset+previewBatchSize);
         const value=unwrap<unknown>(await request("contest_spot_points_preview",{sessionID:active.sessionID,
           workspaceGeneration:active.workspaceGeneration,expectedRevision:active.revision,
           spots:batch.map(({inputSignature:_,...candidate})=>candidate)}));
@@ -2051,7 +2054,17 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       }finally{authorityBusyRef.current=false;}
     }
     const next=await runMutation(base=>mutate("contest_qso_commit",base,{fields:fieldsRef.current,frequencyHz:base.frequencyHz}),
-      true,true,false,true);if(next)retainCommittedSpot();return next;
+      false,true,false,true);
+    if(next){
+      retainCommittedSpot();
+      // The durable commit is complete. Auxiliary views have their own revision
+      // fences and retries; they must not hold the saved receipt or entry busy.
+      void refresh(next.sessionID,next);
+      await new Promise<void>(resolve=>window.setTimeout(resolve,0));
+      // A failed view publication cannot undo or reject a persisted contact.
+      await waitForSurfacePublication().catch(cause=>setError(errorMessage(cause)));
+    }
+    return next;
   };
 
   const scoreView = scoreSummary(score, projection?.pluginID);

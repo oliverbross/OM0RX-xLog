@@ -1,0 +1,14 @@
+{
+  "scope": "installed 1.3.8 embedded Python/Not1MM cq_ww_ssb host; disposable read-only SQLite backup",
+  "sourceContactCount": 225,
+  "productionWrites": false,
+  "radioActions": false,
+  "units": "milliseconds",
+  "draftDupeMedianRange": [14, 16],
+  "commitMedianRange": [14, 19],
+  "spotPreviewBatchMedians": {"1": 26, "4": 102.83, "8": 215.57, "32": 895.56},
+  "spotPreview8Maximum": 248.23,
+  "spotPreview32Maximum": 911.00,
+  "previewSamplesPerSize": 3,
+  "interpretation": "The shared serialized host lane can delay foreground input behind large spot batches. These are host timings, not end-to-end UI timings. Candidate 1.3.9 uses eight-spot batches and completes the save receipt before auxiliary view reads."
+}
