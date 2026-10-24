@@ -755,6 +755,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const [spotWorkflow,setSpotWorkflow]=useState<SpotWorkflow>(()=>emptySpotWorkflow());
   const editVersionRef = useRef(0);
   const observedFrequencyRef = useRef<{ sessionID: string; frequencyHz: number | null }>({ sessionID: "", frequencyHz: null });
+  const observedFrequencySyncRef=useRef("");
   const observedFrequencyHzRef=useRef<number|null>(null),lastCQFrequencyRef=useRef<{
     sessionID:string;workspaceGeneration:string;frequencyHz:number;mode:string}|null>(null);
   const pendingRadioTuneRef = useRef<{ sessionID: string; sourceHz: number; targetHz: number } | null>(null);
@@ -803,7 +804,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       ?contestModeForSpot(entry,frequency,allowedModeGroups,spot.comment):contestBandMode(spot.mode);
     return {...spot,mode:contestBandModeLabel(group)};
   })),[allowedModeGroups,contestBandPlan,sharedSpots]);
-  const [spotPointPreview,setSpotPointPreview]=useState<{identity:string;revision:number;rows:Map<string,{points:number|null;dupe:boolean|null;multiplierCount:number|null;countryMultiplier:boolean|null;zoneMultiplier:boolean|null}>}>({identity:"",revision:0,rows:new Map()});
+  const [spotPointPreview,setSpotPointPreview]=useState<{identity:string;revision:number;rows:Map<string,{inputSignature:string;points:number|null;dupe:boolean|null;multiplierCount:number|null;countryMultiplier:boolean|null;zoneMultiplier:boolean|null}>}>({identity:"",revision:0,rows:new Map()});
   const [spotPointRetryTick,setSpotPointRetryTick]=useState(0);
   const spotPointPreviewRef=useRef(spotPointPreview);spotPointPreviewRef.current=spotPointPreview;
   const spotPointIdentity=projection?`${projection.sessionID}/${projection.workspaceGeneration}`:"";
@@ -852,27 +853,40 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     if(!projection||!previewWorkflowSpots.length){setSpotPointPreview({identity:spotPointIdentity,revision:projection?.revision??0,rows:new Map()});return;}
     const candidates=previewWorkflowSpots.flatMap(spot=>{
       const mode=canonicalContestSurfaceMode(spot.mode),frequencyHz=Math.round(spot.frequencyKHz*1_000);
-      return mode&&Number.isSafeInteger(frequencyHz)?[{spotID:spot.id,callsign:spot.callsign,frequencyHz,mode}]:[];
+      return mode&&Number.isSafeInteger(frequencyHz)?[{spotID:spot.id,callsign:spot.callsign,frequencyHz,mode,
+        inputSignature:`${spot.callsign.trim().toUpperCase()}\u001f${frequencyHz}\u001f${mode}`}]:[];
     });
-    const candidateIDs=new Set(candidates.map(candidate=>candidate.spotID));
+    const candidateSignatures=new Map(candidates.map(candidate=>[candidate.spotID,candidate.inputSignature]));
     let current=true,retryTimer:number|undefined;(async()=>{const previous=spotPointPreviewRef.current,
-      rows=new Map<string,{points:number|null;dupe:boolean|null;multiplierCount:number|null;countryMultiplier:boolean|null;zoneMultiplier:boolean|null}>(
-        previous.identity===spotPointIdentity?[...previous.rows].filter(([id])=>candidateIDs.has(id)):[]);
-      for(let offset=0;offset<candidates.length;offset+=32){
+      rows=new Map<string,{inputSignature:string;points:number|null;dupe:boolean|null;multiplierCount:number|null;countryMultiplier:boolean|null;zoneMultiplier:boolean|null}>(
+        previous.identity===spotPointIdentity&&previous.revision===projection.revision
+          ?[...previous.rows].filter(([id,row])=>candidateSignatures.get(id)===row.inputSignature):[]),
+      pending=candidates.filter(candidate=>!rows.has(candidate.spotID));
+      if(!pending.length){if(current)setSpotPointPreview({identity:spotPointIdentity,revision:projection.revision,rows:new Map(rows)});return;}
+      for(let offset=0;offset<pending.length;offset+=32){
+        const batch=pending.slice(offset,offset+32);
         const value=unwrap<unknown>(await request("contest_spot_points_preview",{sessionID:projection.sessionID,
-          workspaceGeneration:projection.workspaceGeneration,expectedRevision:projection.revision,spots:candidates.slice(offset,offset+32)}));
+          workspaceGeneration:projection.workspaceGeneration,expectedRevision:projection.revision,
+          spots:batch.map(({inputSignature:_,...candidate})=>candidate)}));
         if(!validSpotPointsPreview(value,projection.sessionID,projection.workspaceGeneration,projection.revision))
           throw new Error("The contest host returned an invalid spot points preview.");
-        for(const item of value.spots)rows.set(item.spotID,{points:item.points,dupe:item.dupe,multiplierCount:item.multiplierCount,
-          countryMultiplier:item.countryMultiplier,zoneMultiplier:item.zoneMultiplier});
+        for(const item of value.spots){const inputSignature=candidateSignatures.get(item.spotID);if(inputSignature)rows.set(item.spotID,{inputSignature,
+          points:item.points,dupe:item.dupe,multiplierCount:item.multiplierCount,
+          countryMultiplier:item.countryMultiplier,zoneMultiplier:item.zoneMultiplier});}
         if(current)setSpotPointPreview({identity:spotPointIdentity,
-          revision:offset+32>=candidates.length?projection.revision:previous.revision,rows:new Map(rows)});
+          revision:projection.revision,rows:new Map(rows)});
       }
     })().catch(()=>{if(current){setSpotPointPreview(previous=>previous.identity===spotPointIdentity?previous:{identity:spotPointIdentity,revision:projection.revision,rows:new Map()});
       retryTimer=window.setTimeout(()=>setSpotPointRetryTick(value=>value+1),1_000);}});return()=>{current=false;if(retryTimer!==undefined)window.clearTimeout(retryTimer);};
   },[projection?.sessionID,projection?.workspaceGeneration,projection?.revision,request,visibleSpotSignature,spotPointIdentity,spotPointRetryTick]);
+  const contestRadioPreviewComplete=Boolean(projection&&spotPointPreview.identity===spotPointIdentity&&
+    spotPointPreview.revision===projection.revision&&visibleWorkflowSpots.every(spot=>{
+      const mode=canonicalContestSurfaceMode(spot.mode),frequencyHz=Math.round(spot.frequencyKHz*1_000),row=spotPointPreview.rows.get(spot.id);
+      return mode!==null&&Number.isSafeInteger(frequencyHz)&&row?.inputSignature===
+        `${spot.callsign.trim().toUpperCase()}\u001f${frequencyHz}\u001f${mode}`;
+    }));
   const contestRadioPublication=useMemo(()=>{
-    if(!projection||spotPointPreview.identity!==spotPointIdentity||spotPointPreview.revision!==projection.revision||spotPointPreview.rows.size===0)return null;
+    if(!projection||!contestRadioPreviewComplete||spotPointPreview.rows.size===0)return null;
     const activeBand=bandLabels[String(projection.band)]??String(projection.band),activeBandConfigured=configuredBands.includes(activeBand),
       radioBands=activeBandConfigured?[activeBand]:configuredBands;
     const rows=(activeBandConfigured?visibleWorkflowSpots:[]).filter(spot=>radioBands.includes(spot.band)).slice(0,500).flatMap(spot=>{
@@ -885,10 +899,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     });
     return {session_id:projection.sessionID,workspace_generation:projection.workspaceGeneration,revision:projection.revision,
       configured_bands:radioBands,allowed_mode_groups:allowedModeGroups,spots:rows};
-  },[projection?.sessionID,projection?.workspaceGeneration,projection?.revision,spotPointPreview,spotPointIdentity,
+  },[projection?.sessionID,projection?.workspaceGeneration,projection?.revision,spotPointPreview,contestRadioPreviewComplete,
     visibleWorkflowSpots,configuredBands,allowedModeGroups,bandLabels,effectiveSpotWorkflow.showWorked]);
-  const contestRadioPreviewPending=Boolean(projection&&previewWorkflowSpots.length&&spotPointPreview.identity===spotPointIdentity&&
-    spotPointPreview.revision!==projection.revision);
+  const contestRadioPreviewPending=Boolean(projection&&visibleWorkflowSpots.length&&!contestRadioPreviewComplete);
   const enqueueContestRadioPublication=(action:"replace"|"clear",base:NonNullable<typeof contestRadioPublication>)=>{
     const state=contestRadioPublicationRef.current,sequence=++state.sequence,
       spots=action==="clear"?[]:base.spots,chunkCount=Math.max(1,Math.ceil(spots.length/64));
@@ -1679,10 +1692,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     }
     const freshObservedChange = previous.sessionID === projection.sessionID && previous.frequencyHz !== null
       ? previous.frequencyHz !== observedFrequencyHz : projection.frequencyHz !== observedFrequencyHz;
-    const operatorRetune=previous.sessionID===projection.sessionID&&
-      (previous.frequencyHz!==null?previous.frequencyHz!==observedFrequencyHz:projection.frequencyHz!==observedFrequencyHz);
+    const operatorRetune=previous.sessionID===projection.sessionID&&previous.frequencyHz!==null&&previous.frequencyHz!==observedFrequencyHz;
     observedFrequencyRef.current = { sessionID: projection.sessionID, frequencyHz: observedFrequencyHz };
     if (!freshObservedChange && projection.frequencyHz === observedFrequencyHz) return;
+    const syncKey=`${projection.sessionID}:${observedFrequencyHz}`;
+    if(observedFrequencySyncRef.current===syncKey)return;
     if (freshObservedChange && !projection.run && previous.sessionID === projection.sessionID && previous.frequencyHz !== null) {
       const heardCall = (fieldsRef.current.callsign ?? "").trim().toUpperCase();
       const existing = allWorkflowSpots.find(spot => spot.callsign.trim().toUpperCase() === heardCall &&
@@ -1697,21 +1711,27 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         sameSpotWorkflowScope(current,spotWorkflowScope)?current:effectiveSpotWorkflow,
         [...allWorkflowSpots.filter(item=>item.id!==heard.id),heard], heard.id, "mark", true));
     }
-    const tunedSpot = operatorRetune && !projection.run &&
+    const tunedSpot = operatorRetune &&
       (projection.pluginID === "cq_ww_ssb" || setup.preferences.clearOnVFOChange === true)
       ? observedContestSpot(visibleWorkflowSpots, observedFrequencyHz) : null;
     const observedFields=operatorRetune?{...fieldsRef.current,callsign:""}:fieldsRef.current;
     if(operatorRetune){fieldsRef.current=observedFields;setFields(observedFields);}
-    void runMutation(base => mutate("contest_draft_apply", base, {
-      fields: observedFields, frequencyHz: observedFrequencyHz,
-      ...(operatorRetune ? { observedVFOChange: true } : {}),
-      ...(tunedSpot ? { observedSpotCallsign:tunedSpot.callsign } : {}),
-    }), false, false, true).then(next => {
+    observedFrequencySyncRef.current=syncKey;
+    void (async()=>{
+      if(operatorRetune&&projection.run){
+        const switched=await runMutation(base=>mutate("contest_run_state",base,{run:false}),false,true,false,true);
+        if(!switched)return;
+      }
+      const next=await runMutation(base => mutate("contest_draft_apply", base, {
+        fields: observedFields, frequencyHz: observedFrequencyHz,
+        ...(operatorRetune ? { observedVFOChange: true } : {}),
+        ...(tunedSpot ? { observedSpotCallsign:tunedSpot.callsign } : {}),
+      }), false, false, true);
       if (!next || !tunedSpot) return;
       const spotID=String(tunedSpot.id);
       spotCursorRef.current = { ...spotCursorRef.current, context:spotSelectionContext, spotID };
       onSelectedSpot?.(spotID);
-    });
+    })().finally(()=>{if(observedFrequencySyncRef.current===syncKey)observedFrequencySyncRef.current="";});
   }, [observedFrequencyHz, projection?.sessionID, projection?.frequencyHz, projection?.run, busy, retiring,
     projection?.mode,projection?.callContext,setup.preferences.clearOnVFOChange,visibleWorkflowSpots,allWorkflowSpots,lookupPathContext,
     spotWorkflowScope,effectiveSpotWorkflow,stationCall,bandDefinitions,spotSelectionContext,onSelectedSpot]);

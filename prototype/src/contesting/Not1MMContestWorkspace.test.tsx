@@ -798,6 +798,43 @@ it("projects only the configured mode and bands into Cluster and Band Map even w
     publication_sequence:3,action:"clear",spots:[]})));
 });
 
+it("keeps publishing live contest spots when an older full-list preview is overtaken",async()=>{
+  const current:any={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
+    supportedModes:["SSB"],supportedBands:["160m","80m","40m","20m","15m","10m"]};
+  const setup=newContestSetup("OM0RX");setup.pluginID="cq_ww_ssb";setup.preferences.bands=["40m"];
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(setup));
+  const base=operationalRequest(()=>current,()=>3);let previewAttempt=0;
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    if(method!=="contest_spot_points_preview")return base(method,params);
+    previewAttempt+=1;const ids=(params.spots as {spotID:string}[]).map(spot=>spot.spotID);
+    if(previewAttempt===2||previewAttempt>=3&&ids.includes("spot-0"))return new Promise(()=>{});
+    return base(method,params);
+  }),serviceRequest=vi.fn(async(method:string,params:Record<string,unknown>={})=>
+    method==="cluster_contest_radio_spots_publish"
+      ?{accepted:(params.spots as unknown[]).length,removed:0,unchanged:0,filtered:0,rejected:0,stale:false}
+      :request(method,params));
+  const first=Array.from({length:33},(_,index)=>({id:`spot-${index}`,callsign:`DL1A${String(index).padStart(2,"0")}`,
+    frequencyKHz:7100+index,band:"40m",mode:"LSB",score:42}));
+  const newest={id:"newest",callsign:"K1ABC",frequencyKHz:7199,band:"40m",mode:"LSB",score:80};
+  const view=render(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps}
+    radioFrequencyHz={7_125_000} spots={first as any}/>);
+  await createContestThroughSetup();
+  await waitFor(()=>expect(previewAttempt).toBe(2));
+  await act(async()=>{await Promise.resolve();});
+  expect(serviceRequest.mock.calls.filter(([method])=>method==="cluster_contest_radio_spots_publish")).toHaveLength(0);
+
+  view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps}
+    radioFrequencyHz={7_125_000} spots={[newest,...first] as any}/>);
+  await waitFor(()=>expect(serviceRequest).toHaveBeenCalledWith("cluster_contest_radio_spots_publish",expect.objectContaining({
+    publication_sequence:1,action:"replace",revision:current.revision,spots:expect.arrayContaining([
+      expect.objectContaining({spot_id:"spot-0"}),expect.objectContaining({spot_id:"spot-32"}),
+      expect.objectContaining({spot_id:"newest",callsign:"K1ABC"})])})));
+  const previewCalls=request.mock.calls.filter(([method])=>method==="contest_spot_points_preview");
+  const latestPreview=previewCalls.at(-1)?.[1];expect(latestPreview).toMatchObject({spots:expect.arrayContaining([
+    expect.objectContaining({spotID:"spot-32"}),expect.objectContaining({spotID:"newest"})])});
+  expect(((latestPreview?.spots??[]) as {spotID:string}[]).map(spot=>spot.spotID)).not.toContain("spot-0");
+});
+
 it("clears contest radio spots when the active radio band is outside the configured contest bands",async()=>{
   const current:any={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
     supportedModes:["SSB"],supportedBands:["160m","80m","40m","20m","15m","10m"]};
@@ -2519,13 +2556,13 @@ it("marks only a fresh observed VFO transition for authoritative S&P clearing", 
   await waitFor(() => expect(observedApply).toMatchObject({frequencyHz:14_026_000, observedVFOChange:true, observedSpotCallsign:"DL1ABC"}));
 });
 
-it("always clears or loads a nearby CQ WW SSB spot on a fresh S&P VFO transition", async () => {
+it("leaving a CQ WW SSB Run frequency switches to S&P and loads a nearby spot", async () => {
   const saved = newContestSetup("OM0RX");
   saved.pluginID = "cq_ww_ssb"; saved.name = "CQ WW SSB"; saved.settings.ModeCategory = "SSB";
   saved.preferences.clearOnVFOChange = false; saved.preferences.bands = ["40m"];
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1", JSON.stringify(saved));
-  let current:any = {...projection(1,{callsign:"OLD1",other_2:"14"}),pluginID:"cq_ww_ssb",mode:"SSB",band:7,frequencyHz:7_175_000};
-  let observedApply:Record<string,unknown>|undefined;
+  let current:any = {...projection(1,{callsign:"OLD1",other_2:"14"}),pluginID:"cq_ww_ssb",mode:"SSB",band:7,frequencyHz:7_175_000,run:true};
+  let observedApply:Record<string,unknown>|undefined,runChange:Record<string,unknown>|undefined;
   const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
     const support=workspaceSupport(method,params,current);if(support)return support;
     if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
@@ -2536,15 +2573,63 @@ it("always clears or loads a nearby CQ WW SSB spot on a fresh S&P VFO transition
       observedApply=params;current={...current,revision:current.revision+1,frequencyHz:Number(params.frequencyHz)};
       result={projection:current,actions:[],messages:[]};
     }
+    if(method==="contest_run_state"){
+      runChange=params;current={...current,revision:current.revision+1,run:Boolean(params.run)};
+      result={projection:current,actions:[],messages:[]};
+    }
     if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
   });
   const liveSpots=[{id:"pj4g",callsign:"PJ4G",frequencyKHz:7181.4,band:"40m",mode:"SSB",receivedAt:20}];
   const view=render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={liveSpots as any} radioFrequencyHz={7_175_000}/>);
   await createContestThroughSetup();await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));
   view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={liveSpots as any} radioFrequencyHz={7_181_400}/>);
+  await waitFor(()=>expect(runChange).toMatchObject({run:false}));
   await waitFor(()=>expect(observedApply).toMatchObject({frequencyHz:7_181_400,observedVFOChange:true,observedSpotCallsign:"PJ4G"}));
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].operator.style).toBe("search-and-pounce"));
   await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"]).toMatchObject({radioFrequencyHz:7_181_400,
-    spots:expect.arrayContaining([expect.objectContaining({id:"contest-heard:7175000:OLD1",callsign:"OLD1",frequencyKHz:7175,marked:true})])}));
+    spots:expect.arrayContaining([expect.objectContaining({id:"pj4g",callsign:"PJ4G",frequencyKHz:7181.4})])}));
+  expect(surfaceOwner.current.projections["band-maps"].spots).not.toEqual(expect.arrayContaining([
+    expect.objectContaining({id:"contest-heard:7175000:OLD1"})]));
+});
+
+it("keeps Run state and entry intact when CAT reconnects at a frequency", async () => {
+  const saved = newContestSetup("OM0RX");
+  saved.pluginID = "cq_ww_ssb"; saved.name = "CQ WW SSB"; saved.settings.ModeCategory = "SSB";
+  saved.preferences.clearOnVFOChange = false; saved.preferences.bands = ["40m"];
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1", JSON.stringify(saved));
+  let current:any = {...projection(1,{callsign:"CQ9A",other_2:"33"}),pluginID:"cq_ww_ssb",mode:"SSB",band:7,
+    frequencyHz:7_158_000,run:true};
+  const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    let result:any=method==="contest_catalog"?{plugins:[{id:"cq_ww_ssb",name:"CQ WW SSB"}]}:
+      method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
+      method==="contest_log_page"?{rows:[],total:0}:method==="contest_score"?{score:current.score}:null;
+    if(method==="contest_draft_apply"){
+      current={...current,revision:current.revision+1,frequencyHz:Number(params.frequencyHz)};
+      result={projection:current,actions:[],messages:[]};
+    }
+    if(method==="contest_run_state"){
+      current={...current,revision:current.revision+1,run:Boolean(params.run)};
+      result={projection:current,actions:[],messages:[]};
+    }
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  const view=render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}
+    radioFrequencyHz={7_158_000}/>);
+  await createContestThroughSetup();
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));
+  view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}
+    radioFrequencyHz={undefined}/>);
+  await act(async()=>{await Promise.resolve();});
+  view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}
+    radioFrequencyHz={7_181_400}/>);
+  await waitFor(()=>expect(request).toHaveBeenCalledWith("contest_draft_apply",expect.objectContaining({frequencyHz:7_181_400})));
+  expect(request.mock.calls.filter(([method])=>method==="contest_run_state")).toHaveLength(0);
+  const reconnectApply=request.mock.calls.filter(([method])=>method==="contest_draft_apply").at(-1)?.[1];
+  expect(reconnectApply).not.toHaveProperty("observedVFOChange");
+  expect(surfaceOwner.current.projections["active-qso"].operator.style).toBe("run");
+  expect(surfaceOwner.current.projections["active-qso"].draft.callsign).toBe("CQ9A");
 });
 
 it("wipes the entry with one mutation while keeping committed auxiliary panels mounted",async()=>{
