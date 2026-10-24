@@ -2,6 +2,7 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd)"
+source "$root/prototype/scripts/macos-app-process.sh"
 source_bundle="${1:-$root/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app}"
 destination="${2:-/Applications/OM0RX-xLog.app}"
 
@@ -31,16 +32,9 @@ source_worker_hash="$(shasum -a 256 "$source_bundle/Contents/MacOS/xlog-prototyp
 staged_worker_hash="$(shasum -a 256 "$staged/Contents/MacOS/xlog-prototype-worker" | awk '{print $1}')"
 test "$source_worker_hash" = "$staged_worker_hash"
 
-if pgrep -x OM0RX-xLog >/dev/null 2>&1; then
-  pkill -TERM -x OM0RX-xLog
-  for _ in {1..50}; do
-    pgrep -x OM0RX-xLog >/dev/null 2>&1 || break
-    sleep 0.1
-  done
-  if pgrep -x OM0RX-xLog >/dev/null 2>&1; then
-    printf 'OM0RX-xLog is still running; installation stopped before replacement.\n' >&2
-    exit 1
-  fi
+if [[ -d "$destination" ]]; then
+  installed_executable="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$destination/Contents/Info.plist")"
+  stop_macos_app "$destination/Contents/MacOS/$installed_executable"
 fi
 
 if [[ -e "$destination" ]]; then
