@@ -1,5 +1,82 @@
 # CQ WW SSB macOS reconciliation — 23 October 2026
 
+## 1.3.4 installed candidate addendum — 24 October 2026
+
+**READY WITH LIMITATIONS** for the requested CQ WW SSB 40 m workflow on
+Apple Silicon macOS. This is the frozen candidate. It supersedes 1.3.3 and
+closes the demonstrated live FLEX/Maestro spot-publication, Run-frequency
+transition and requested contest-window presentation issues without starting
+another broad Not1MM/N1MM parity batch.
+
+| Final gate | Concrete result |
+| --- | --- |
+| Canonical source | `ecffef4f32fdd3e9a2441d293dbf21a80fd7d2ce`, clean, committed and pushed to `origin/main` (`0 0` ahead/behind before packaging) |
+| Installed application | `/Applications/OM0RX-xLog.app`, version/build `1.3.4` |
+| Embedded source receipt | `sourceCommit` exactly `ecffef4f32fdd3e9a2441d293dbf21a80fd7d2ce`; `sourceChanges: []`; installed Python receipt SHA-256 `d491635753462e2e687aab305d2d9bea9f368262249fc0fd82a2f30979f42847` |
+| Signature and identity | Developer ID deep/strict verification PASS for packaged and installed bundles; packaged and installed executable SHA-256 `83d5a5969ef17294be8a5a0f569e35168b1b2fedc5fb86c930fdfe723257f720`; worker SHA-256 `705ee22e02dc315cc7b28392c803486f2aec7286aa7ce73c2af2678c93f42c43` |
+| Packaged native acceptance | 35/35 PASS; `scope: integrated-local-ui`; `production_singleton: false`; `station_io: false`; report SHA-256 `18e7fd763ceaa03302c132fd15756706270dcfd570ca9e06c93cde64b5058064` |
+| Installed native acceptance | 35/35 PASS; `scope: integrated-local-ui`; `production_singleton: false`; `station_io: false`; report SHA-256 `db135d2e0aeb2101dded7ed6fa2712958de14bed08a9e6a0842397aa3c743105` |
+| Installed CQ WW SSB lane | The installed bundle's embedded Python 3.12 and embedded Not1MM source passed 24/24 disposable host tests: Run/S&P entry, invalid-zone feedback, correction/delete, DUPE and multiplier classification, ADIF/Cabrillo export, reopen, VFO clear/spot load and country reconciliation |
+| Focused regression | 326 affected CQ WW workspace, detached-surface and filter tests PASS; TypeScript/Vite production build PASS; six macOS packaging checks PASS |
+| Independent review | The final narrow review of live publication and VFO transition behavior returned no findings |
+| Rollback | `/Applications/OM0RX-xLog-previous-20261024T110027Z-31431.app`, signed version 1.3.3 with clean source receipt `b70ba7f92d4e8598b0d4ad2f790cf28e324cda85` |
+
+### Demonstrated fixes in 1.3.4
+
+- Contest spot classification is cached by exact spot input and contest
+  revision. Incoming spots after startup therefore continue to produce complete,
+  ordered FLEX/Maestro replacement publications instead of being starved by an
+  overtaken full-list preview. An incomplete preview never publishes a partial
+  replacement set.
+- Leaving an established Run calling frequency is treated as an operator retune:
+  the contest switches to S&P, clears the departed entry and loads a nearby
+  contest spot when present. CAT reconnect from an unknown frequency preserves
+  Run and the current entry instead of impersonating an operator retune.
+- The contest Band Map and Cluster now expose the same reusable local Filters
+  dialog as the desktop cluster. Filtering changes presentation only and does
+  not mutate the worker's contest or cluster connection state.
+- Rates now shows large centred UTC and local clocks in an isolated child so the
+  one-second clock tick does not refresh the rate table or other contest panes.
+- The combined candidate also includes the 1.3.4 path-metric and worked-spot
+  lifecycle corrections: typed or selected calls can drive map/path context;
+  manually heard/logged stations participate in Band Map state; worked spots
+  disappear immediately unless Show worked is enabled; and Show worked controls
+  the set published to the radio.
+
+The installed-path trial used only isolated temporary workspaces and synthetic
+contacts. It did not create, edit or delete a production QSO and did not tune a
+radio, publish to a physical radio, assert PTT, play audio, move a rotor or
+transmit RF.
+
+### Remaining operator-controlled checks and explicit limits
+
+- Application-side live FLEX/Maestro replacements are regression-covered,
+  including a new spot arriving after the initial publication. Actual coloured
+  spots continuing to appear on the physical Maestro display require the
+  operator's live station observation; a software receipt is not device proof.
+- Live CAT frequency following, the Run-to-S&P transition against the operator's
+  active radio, authenticated QRZ lookup and visual inspection of the installed
+  filter dialogs, rate clocks and window arrangement remain operator-controlled
+  checks.
+- Recorded voice is separate from macro substitution. Recording presence,
+  output routing, PTT release and actual transmitter audio remain unaccepted;
+  voice is optional and does not block manual-microphone logging.
+- Windows/Linux, notarization, multi-Mac behavior and broad all-contest parity
+  remain outside this macOS CQ WW SSB freeze.
+
+### Cleanup and rollback
+
+The signed 1.3.3 bundle above is the single retained rollback. The superseded
+1.3.2 bundle was moved recoverably to
+`/Users/oliver/.Trash/OM0RX-xLog-previous-20261024T091558Z-94455.app`.
+No older application bundle remained in the canonical work directory; its only
+bundle is the current signed 1.3.4 package. Settings, backups, contest data and
+production QSOs were not removed or altered. Durable acceptance reports are in
+`docs/contesting/evidence/cq-ww-ssb-ecffef4f/`.
+
+No further compatibility, macro-expansion or parity batch starts from this
+report.
+
 ## 1.3.3 installed candidate addendum — 24 October 2026
 
 **READY WITH LIMITATIONS** for the requested CQ WW SSB 40 m workflow on
