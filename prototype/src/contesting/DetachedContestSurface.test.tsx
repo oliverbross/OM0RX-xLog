@@ -2089,7 +2089,8 @@ it("flushes true multi-keystroke callsign and exchange intent before detached En
   render(<DetachedContestSurface/>);const call=await screen.findByLabelText("Callsign"),exchange=screen.getByLabelText("Power");
   fireEvent.change(call,{target:{value:"K"}});await waitFor(()=>expect(actions).toHaveLength(1));
   fireEvent.change(call,{target:{value:"K1"}});fireEvent.change(call,{target:{value:"K1ABC"}});
-  fireEvent.change(exchange,{target:{value:"14"}});fireEvent.change(exchange,{target:{value:"15"}});fireEvent.keyDown(exchange,{key:"Enter"});
+  fireEvent.change(exchange,{target:{value:"14"}});fireEvent.change(exchange,{target:{value:"15"}});
+  fireEvent.keyDown(exchange,{key:"Enter"});fireEvent.keyDown(exchange,{key:"Enter"});
   expect(actions).toHaveLength(1);
   expect(actions[0]).toMatchObject({action:"entry_set_text",params:{value:"K"}});
   for(const status of ["queued","uncertain"]){current={...current,receipts:[{requestID:actions[0].requestID,status,message:null,projectionRevision:6}]};
@@ -2153,6 +2154,54 @@ it("coalesces synchronous rapid Entry typing into one full-value action",async()
   expect(actions[0]).toMatchObject({projectionRevision:6,action:"entry_set_text",params:{value:"K1A"}});
 });
 
+it("lets Wipe discard an unsent entry intent instead of persisting it first",async()=>{
+  const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+    functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  let current:any={...snapshot,projection:{...projection,schemaVersion:2,
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+  const actions:Record<string,any>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_action"){
+      actions.push(args);
+      if(args.action==="entry_clear")current={...current,projectionRevision:7,
+        projection:{...current.projection,draft:{...current.projection.draft,revision:6,callsign:""}}};
+      return {requestID:args.requestID,status:"applied",projectionRevision:current.projectionRevision};
+    }
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign");
+  fireEvent.change(callsign,{target:{value:"K1ABC"}});fireEvent.click(screen.getByRole("button",{name:"Wipe"}));
+  await waitFor(()=>expect(actions).toHaveLength(1));expect(actions[0]).toMatchObject({action:"entry_clear",params:{draftID:"draft-1",expectedDraftRevision:5}});
+  await act(async()=>{await new Promise(resolve=>window.setTimeout(resolve,150));});
+  expect(actions).toHaveLength(1);expect(actions.some(action=>action.action==="entry_set_text")).toBe(false);
+});
+
+it("cancels an owner-busy entry retry when Wipe supersedes it",async()=>{
+  const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+    functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  let current:any={...snapshot,projection:{...projection,schemaVersion:2,
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+  const actions:Record<string,any>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_action"){
+      actions.push(args);
+      if(args.action==="entry_set_text"){current={...current,receipts:[{requestID:args.requestID,status:"rejected",
+        message:"The contest owner is busy.",projectionRevision:current.projectionRevision}]};return {requestID:args.requestID,status:"rejected"};}
+      current={...current,projectionRevision:7,receipts:[{requestID:args.requestID,status:"applied",message:null,projectionRevision:7}],
+        projection:{...current.projection,draft:{...current.projection.draft,revision:6,callsign:""}}};
+      return {requestID:args.requestID,status:"applied",projectionRevision:7};
+    }
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign");fireEvent.change(callsign,{target:{value:"K1ABC"}});
+  await waitFor(()=>expect(actions).toHaveLength(1));fireEvent.click(screen.getByRole("button",{name:"Wipe"}));
+  await waitFor(()=>expect(actions.map(action=>action.action)).toEqual(["entry_set_text","entry_clear"]));
+  await act(async()=>{await new Promise(resolve=>window.setTimeout(resolve,300));});expect(actions).toHaveLength(2);
+  expect(screen.queryByText("The contest owner is busy.")).toBeNull();
+});
+
 it("retries a transient owner-busy callsign edit without leaving the entry unresolved",async()=>{
   let current:any=structuredClone(snapshot),attempts=0;
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
@@ -2174,6 +2223,46 @@ it("retries a transient owner-busy callsign edit without leaving the entry unres
   await waitFor(()=>expect(current.projection.draft.callsign).toBe("LN8W"));
   expect((callsign as HTMLInputElement).value).toBe("LN8W");
   expect(screen.queryByText("The contest owner is busy.")).toBeNull();
+});
+
+it("shows the owner validation rejection from the first detached Enter",async()=>{
+  const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+    functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  let current:any={...snapshot,projection:{...projection,schemaVersion:2,session:{name:"CQ WW SSB",ruleName:"CQ WW SSB",mode:"SSB"},
+    draft:{...projection.draft,callsign:"",sentReport:"59",receivedReport:"59",mode:"SSB",frequencyError:""},
+    descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+  const actions:Record<string,any>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_action"){
+      actions.push(args);current={...current,receipts:[{requestID:args.requestID,status:"rejected",
+        message:"Enter a callsign before logging.",projectionRevision:current.projectionRevision}]};
+      return {requestID:args.requestID,status:"rejected"};
+    }
+    if(command==="contest_surface_diagnostic_report")return;
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign");fireEvent.keyDown(callsign,{key:"Enter"});
+  expect(await screen.findByRole("alert")).toHaveProperty("textContent","Enter a callsign before logging.");
+  expect(actions).toHaveLength(1);expect(actions[0]).toMatchObject({action:"entry_commit",params:{draftID:"draft-1",expectedDraftRevision:5}});
+});
+
+it.each([
+  ["Callsign","callsign"],["SNT","sent"],["RCV","receive"],["Received exchange 1","other_2"],
+] as const)("submits one acknowledged Enter from %s",async(label,focusedField)=>{
+  const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField,...tabMaps,
+    functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  const current:any={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyError:"",
+    receivedFields:[{id:"other_2",label:"CQ Zone",value:"14",required:true,maximumUTF8Bytes:2}]},
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+  const actions:Record<string,any>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_action"){actions.push(args);return {requestID:args.requestID,status:"applied",projectionRevision:6};}
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);fireEvent.keyDown(await screen.findByLabelText(label),{key:"Enter"});
+  await waitFor(()=>expect(actions).toHaveLength(1));expect(actions[0]).toMatchObject({action:"entry_operator_key",params:{key:"Enter",focusedField}});
 });
 
 it("reconciles a queued callsign receipt that settles before its wake and restores DUPE actions",async()=>{

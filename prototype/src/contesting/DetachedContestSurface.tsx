@@ -512,13 +512,15 @@ function useEntryIntents(projection:any,projectionRevision:number,send:Send){
     valuesRef.current={...valuesRef.current,[key]:value};setValues(valuesRef.current);dirty.current.set(key,{value,action});
     if(scheduled.current!==null)window.clearTimeout(scheduled.current);
     scheduled.current=window.setTimeout(()=>{scheduled.current=null;void flush();},entryIntentDebounceMs);},[flush]);
-  useEffect(()=>()=>{if(scheduled.current!==null)window.clearTimeout(scheduled.current);},[]);
+  useEffect(()=>()=>{generation.current+=1;if(scheduled.current!==null)window.clearTimeout(scheduled.current);},[]);
+  const discard=useCallback(()=>{generation.current+=1;dirty.current.clear();setUnresolved(new Set());
+    if(scheduled.current!==null){window.clearTimeout(scheduled.current);scheduled.current=null;}},[]);
   const capture=useCallback(()=>({...valuesRef.current}),[]);
   const matches=useCallback((draft:any,intended:Record<EntryIntentKey,string>,acceptCallsignPrefill=false)=>draft?.draftID===identityRef.current&&
     draft.callsign.trim().toUpperCase()===intended.callsign.trim().toUpperCase()&&draft.sentReport===intended.sentReport&&draft.receivedReport===intended.receivedReport&&
     draft.frequencyText===intended.frequency&&Array.isArray(draft.receivedFields)&&draft.receivedFields.length===projection.draft.receivedFields.length&&
     (acceptCallsignPrefill||draft.receivedFields.every((field:any)=>intended[`exchange:${field.id}`]===field.value)),[projection.draft.receivedFields.length]);
-  return {values,change,flush,capture,matches};
+  return {values,change,flush,discard,capture,matches};
 }
 function EntryIntentInput({label,accessibleLabel,intentKey,value,maximumUTF8Bytes,disabled,operatorField,inputRef,onFocus,onChange,className}:{
   label:string;accessibleLabel?:string;intentKey:EntryIntentKey;value:string;maximumUTF8Bytes:number;disabled:boolean;operatorField?:ContestInputFieldID;
@@ -538,6 +540,7 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
   const cwInputBindingContext=useRef<ContestKeyBindingContext>("*");
   const [cwInputOpen,setCWInputOpen]=useState(false),[cwInput,setCWInput]=useState(""),[macrosOpen,setMacrosOpen]=useState(true);
   const focusPending=useRef<Promise<number|null>>(Promise.resolve(null)),desiredFocus=useRef<ContestInputFieldID|null>(null),
+    commitPending=useRef(false),
     focusDraft=useRef(base.draftID);
   const operator=projection.schemaVersion===2?projection.operator:null;
   const closeCWInput=()=>{setCWInputOpen(false);queueMicrotask(()=>{
@@ -584,10 +587,12 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
     for(let index=0;index<contestInputFieldIDs.length;index+=1){candidate=operator?.[direction]?.[candidate];if(!candidate)return null;
       const element=fieldRefs.current[candidate];if(element&&!element.disabled&&!element.readOnly)return candidate;if(candidate===from)return null;}return null;};
   const operatorKey=(key:string,focusedField:ContestInputFieldID|null,shifted=false)=>{if(!operator||operator.status==="uncertain"||!/^F(?:[1-9]|1[0-2])$|^Enter$|^Escape$/.test(key)||shifted&&key!=="F1")return false;
+    if(key==="Enter"&&commitPending.current)return true;
+    if(key==="Enter")commitPending.current=true;
     if(phoneMode&&!operator.outputAvailable&&/^F(?:[1-9]|1[0-2])$/.test(key))return true;
     const intended=intents.capture(),intentContext={band:projection.draft.band,mode:projection.draft.mode,reservedSerial:projection.draft.reservedSerial,
       armed:operator.armed,style:operator.style};
-    void (async()=>{let lastLocalProjectionRevision:number|null=null,focusProjectionRevision:number|null=null;if(key!=="Escape"){const flushed=await intents.flush();if(!flushed.ok)return;
+    void (async()=>{try{let lastLocalProjectionRevision:number|null=null,focusProjectionRevision:number|null=null;if(key!=="Escape"){const flushed=await intents.flush();if(!flushed.ok)return;
       lastLocalProjectionRevision=flushed.lastAppliedProjectionRevision;focusProjectionRevision=await focusPending.current;await settle();}const current=await refresh();const currentProjection=current?.projection as any;
       if(!current||current.panelID!=="active-qso"||currentProjection?.status!=="ready"||currentProjection.draft?.draftID!==base.draftID)return;
       if(key!=="Escape"&&key!=="Enter"&&(!intents.matches(currentProjection.draft,intended)||
@@ -596,7 +601,8 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
           currentProjection.operator?.armed!==intentContext.armed||currentProjection.operator?.style!==intentContext.style)){
         reportConflict("The shared contest entry changed before this operator action. Review it and press the key again.");return;}
       await send({action:"entry_operator_key",params:{draftID:base.draftID,expectedDraftRevision:currentProjection.draft.revision,
-        key:key as any,focusedField,...(shifted?{shifted:true}:{})}},current.projectionRevision,{bypassQueue:key==="Escape"});})();return true;};
+        key:key as any,focusedField,...(shifted?{shifted:true}:{})}},current.projectionRevision,{bypassQueue:key==="Escape"});
+      }finally{if(key==="Enter")commitPending.current=false;}})();return true;};
   const bindingContext=(field:ContestInputFieldID|null):ContestKeyBindingContext=>field==="callsign"?"Callsign":field==="sent"||field==="receive"?"Report":
     field==="other_1"?"Other 1":field==="other_2"?"Other 2":"*";
   const runBoundAction=(action:ContestKeyBindingAction,focusedField:ContestInputFieldID|null)=>{
@@ -635,8 +641,16 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
       WIN_RATE:"monitor",WIN_STATS:"propagation",WIN_VFO:"station-control"} as const)[action as
         "WIN_BAND"|"WIN_CHECK"|"WIN_LOG"|"WIN_RATE"|"WIN_STATS"|"WIN_VFO"];
     if(windowPanel){void toggleContestSurfaceWindow(context,windowPanel).catch(cause=>reportConflict(message(cause)));return;}
+    if(action==="CLEAR_INPUTS"){
+      intents.discard();
+      void(async()=>{await settle();const current=await refresh(),currentProjection=current?.projection as any;
+        if(!current||current.panelID!=="active-qso"||currentProjection?.status!=="ready"||currentProjection.draft?.draftID!==base.draftID)return;
+        await send({action:"entry_clear",params:{draftID:base.draftID,expectedDraftRevision:currentProjection.draft.revision}},current.projectionRevision);})();return;
+    }
+    if(action==="LOG_NOW"&&commitPending.current)return;
+    if(action==="LOG_NOW")commitPending.current=true;
     const intended=intents.capture();
-    void (async()=>{const flushed=await intents.flush();if(!flushed.ok)return;const focusProjectionRevision=await focusPending.current;await settle();
+    void (async()=>{try{const flushed=await intents.flush();if(!flushed.ok)return;const focusProjectionRevision=await focusPending.current;await settle();
       const current=await refresh(),currentProjection=current?.projection as any;
       if(!current||current.panelID!=="active-qso"||currentProjection?.status!=="ready"||currentProjection.draft?.draftID!==base.draftID)return;
       if(action!=="LOG_NOW"&&(!intents.matches(currentProjection.draft,intended)||current.projectionRevision!==Math.max(projectionRevision,
@@ -646,7 +660,6 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
       if(action==="TOGGLE_RUN"||action==="SET_RUN"||action==="SET_S_AND_P")await send({action:"entry_operator_style",params:{...params,
         value:action==="SET_RUN"?"run":action==="SET_S_AND_P"?"search-and-pounce":currentProjection.operator?.style==="run"?"search-and-pounce":"run"}},current.projectionRevision);
       else if(action==="LOG_NOW")await send({action:"entry_commit",params},current.projectionRevision);
-      else if(action==="CLEAR_INPUTS")await send({action:"entry_clear",params},current.projectionRevision);
       else if(action==="PREV_SPOT"||action==="NEXT_SPOT")await send({action:"entry_step_spot",params:{...params,direction:action==="PREV_SPOT"?"previous":"next"}},current.projectionRevision);
       else if(action==="VFO_UP"||action==="VFO_DOWN")await send({action:"entry_step_vfo",params:{...params,direction:action==="VFO_UP"?"up":"down"}},current.projectionRevision);
       else if(action==="RETURN_CQ_FREQUENCY")await send({action:"entry_return_cq_frequency",params},current.projectionRevision);
@@ -657,7 +670,7 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
         const step=currentProjection.manual?.cwSpeedStepWpm??1;
         const value=action==="CW_SPEED_UP"?Math.min(100,speed+step):Math.max(5,speed-step);
         if(value!==speed)await send({action:"entry_set_cw_speed",params:{...params,value}},current.projectionRevision);}
-    })();};
+      }finally{if(action==="LOG_NOW")commitPending.current=false;}})();};
   const sendCWInput=(event:FormEvent)=>{event.preventDefault();const value=cwInput.trim();if(!value)return;
     const intended=intents.capture();void(async()=>{const flushed=await intents.flush();if(!flushed.ok)return;
       const focusProjectionRevision=await focusPending.current;await settle();const current=await refresh(),currentProjection=current?.projection as any;
