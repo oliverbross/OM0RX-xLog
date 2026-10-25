@@ -1458,7 +1458,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 let restorePreferences = params["restore_preferences"] as? Bool ?? false
                 let restoreReference = params["restore_reference_data"] as? Bool ?? true
                 let package = try existingBackup(named: params["name"])
-                let manager = XLogBackupManager()
+                let manager = XLogBackupManager(fileManager: fileManager)
                 let preview = try manager.inspect(at: package)
                 if restoreReference, preview.manifest.includesReferenceData {
                     try manager.preflightReferenceDataInstallation(from: package)
@@ -1501,18 +1501,26 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 // Invalidate old clients durably before any database replacement.
                 // This sidecar is outside the backup payload and survives restart.
                 _ = try editGeneration(rotate: true)
+                // A crash or failed rollback must not reopen a mixture of old and
+                // restored components on the next request/process launch.
+                let restoreMarker = workspaceURL.appendingPathComponent(".restore-incomplete")
+                try Data(rollbackName.utf8).write(to: restoreMarker, options: .atomic)
                 db.close()
                 database = nil
                 ctyResolverCache = nil
+                clusterClassificationCache = nil
+                var replacements: [(live: URL, previous: URL?)] = []
                 do {
-                    _ = try manager.installDatabase(from: package, to: workspaceURL.appendingPathComponent("OM0RX-xLog.sqlite"))
-                    _ = try manager.installContestingData(from: package, to: contestingDataURL)
-                    if restoreReference, preview.manifest.includesReferenceData {
-                        _ = try manager.installReferenceData(from: package, to: reference)
+                    let liveDatabase = workspaceURL.appendingPathComponent("OM0RX-xLog.sqlite")
+                    let previousDatabase = try manager.installDatabase(from: package, to: liveDatabase)
+                    replacements.append((liveDatabase, previousDatabase))
+                    if preview.manifest.includesContestingData == true {
+                        let previous = try manager.installContestingData(from: package, to: contestingDataURL)
+                        replacements.append((contestingDataURL, previous))
                     }
-                    if restorePreferences, let preferences = preview.preferences,
-                       let defaults = workspace?.makeDefaults() {
-                        applyBackupPreferences(preferences, to: defaults)
+                    if restoreReference, preview.manifest.includesReferenceData {
+                        let previous = try manager.installReferenceData(from: package, to: reference)
+                        replacements.append((reference, previous))
                     }
                     database = try LogbookDatabase(url: workspaceURL.appendingPathComponent("OM0RX-xLog.sqlite"))
                     if let retainedLayouts {
@@ -1540,12 +1548,39 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                     try validateWorkspaceLocation()
                     workspace = try IntegrationWorkspaceBootstrap.open(at: workspaceURL,
                         expectedIdentityPrefix: runtimeProfile.identityPrefix)
-                    return ["restored": true, "qso_count": try database.count(),
+                    let count = try database.count()
+                    try fileManager.removeItem(at: restoreMarker)
+                    // Preferences have no throwing writes. Publish them only after
+                    // every fallible component and database operation succeeded.
+                    if restorePreferences, let preferences = preview.preferences,
+                       let defaults = workspace?.makeDefaults() {
+                        applyBackupPreferences(preferences, to: defaults)
+                    }
+                    return ["restored": true, "qso_count": count,
                             "recovery_backup": rollbackName, "preferences_restored": restorePreferences,
                             "automatic_sync": false]
                 } catch {
-                    database = try? LogbookDatabase(url: workspaceURL.appendingPathComponent("OM0RX-xLog.sqlite"))
-                    throw error
+                    let restoreError = error
+                    database?.close()
+                    database = nil
+                    do {
+                        try rollbackRestore(replacements)
+                        if let failure = restoreError as? XLogBackupError, case .rollbackFailed = failure {
+                            throw failure
+                        }
+                        try validateWorkspaceLocation()
+                        let recovered = try IntegrationWorkspaceBootstrap.open(at: workspaceURL,
+                            expectedIdentityPrefix: runtimeProfile.identityPrefix)
+                        database = try LogbookDatabase(url: recovered.databaseURL)
+                        workspace = recovered
+                        try fileManager.removeItem(at: restoreMarker)
+                    } catch {
+                        database?.close()
+                        database = nil
+                        throw WorkerFailure("restore_recovery_required",
+                            "Restore could not finish or recover every original component. The workspace is blocked. Recover the pre-restore backup in Recovery/\(rollbackName) before continuing.")
+                    }
+                    throw restoreError
                 }
             default:
                 throw WorkerFailure("method_not_allowed", "Unknown live logbook method.")
@@ -1717,7 +1752,30 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         return object
     }
 
+    private func rollbackRestore(_ replacements: [(live: URL, previous: URL?)]) throws {
+        var failure: Error?
+        for replacement in replacements.reversed() {
+            do {
+                // Retain the failed candidate for diagnosis; never overwrite an
+                // original or destroy a component whose rollback has failed.
+                if fileManager.fileExists(atPath: replacement.live.path) {
+                    let failed = replacement.live.deletingLastPathComponent()
+                        .appendingPathComponent(".failed-restore-\(UUID().uuidString)-\(replacement.live.lastPathComponent)")
+                    try fileManager.moveItem(at: replacement.live, to: failed)
+                }
+                if let previous = replacement.previous {
+                    try fileManager.moveItem(at: previous, to: replacement.live)
+                }
+            } catch { failure = failure ?? error }
+        }
+        if let failure { throw failure }
+    }
+
     private func loadWorkspace() throws {
+        guard !fileManager.fileExists(atPath: workspaceURL.appendingPathComponent(".restore-incomplete").path) else {
+            throw WorkerFailure("restore_recovery_required",
+                "An interrupted restore needs recovery from the pre-restore backup in the workspace Recovery folder before continuing.")
+        }
         if database != nil {
             try validateWorkspaceLocation()
             return

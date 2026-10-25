@@ -16,6 +16,7 @@ public enum XLogBackupError: Error, LocalizedError {
     case checksumMismatch
     case integrityFailed(String)
     case restoreFailed(String)
+    case rollbackFailed
 
     public var errorDescription: String? {
         switch self {
@@ -29,6 +30,8 @@ public enum XLogBackupError: Error, LocalizedError {
             return "The backup database failed SQLite verification: \(message)"
         case let .restoreFailed(message):
             return "The xLog database could not be restored: \(message)"
+        case .rollbackFailed:
+            return "Restore failed and an original component could not be put back. Recover the pre-restore backup before continuing."
         }
     }
 }
@@ -355,7 +358,8 @@ public final class XLogBackupManager: @unchecked Sendable {
             if let preservedURL,
                !fileManager.fileExists(atPath: liveURL.path),
                fileManager.fileExists(atPath: preservedURL.path) {
-                try? fileManager.moveItem(at: preservedURL, to: liveURL)
+                do { try fileManager.moveItem(at: preservedURL, to: liveURL) }
+                catch { throw XLogBackupError.rollbackFailed }
             }
             throw XLogBackupError.restoreFailed(error.localizedDescription)
         }
@@ -387,7 +391,10 @@ public final class XLogBackupManager: @unchecked Sendable {
             try fileManager.moveItem(at: staging, to: liveURL)
             return preserved
         } catch {
-            if !fileManager.fileExists(atPath: liveURL.path), let preserved { try? fileManager.moveItem(at: preserved, to: liveURL) }
+            if !fileManager.fileExists(atPath: liveURL.path), let preserved {
+                do { try fileManager.moveItem(at: preserved, to: liveURL) }
+                catch { throw XLogBackupError.rollbackFailed }
+            }
             throw XLogBackupError.restoreFailed("Contesting/Python: \(error.localizedDescription)")
         }
     }
@@ -433,7 +440,8 @@ public final class XLogBackupManager: @unchecked Sendable {
             try? fileManager.removeItem(at: staging)
             if !fileManager.fileExists(atPath: liveURL.path),
                fileManager.fileExists(atPath: rollback.path) {
-                try? fileManager.moveItem(at: rollback, to: liveURL)
+                do { try fileManager.moveItem(at: rollback, to: liveURL) }
+                catch { throw XLogBackupError.rollbackFailed }
             }
             throw XLogBackupError.restoreFailed("Reference Data: \(error.localizedDescription)")
         }
