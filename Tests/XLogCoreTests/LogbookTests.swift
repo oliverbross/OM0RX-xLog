@@ -161,13 +161,21 @@ private final class WavelogPatchURLProtocol: URLProtocol {
             {"data":{"id":42,"station_id":1,"call":"K1ABC","band":"20m","mode":"MFSK","submode":"FT4","freq":14080000,"freq_rx":14082000,"band_rx":"20m","qso_date":"2023-11-14 22:13:20","comment":"portable","prop_mode":"SAT","sat_name":"QO-100","sat_mode":"U/V"}}
             """.data(using: .utf8)!
         } else if isADIFRequest(request) {
-            let record = ADIFRecord(fields: [
+            var record = ADIFRecord(fields: [
                 "CALL": "K1ABC", "QSO_DATE": "20231114", "TIME_ON": "221320",
                 "QSO_DATE_OFF": "20231114", "TIME_OFF": "221820", "BAND": "20m",
                 "MODE": "MFSK", "SUBMODE": "FT4", "FREQ": "14.080000", "FREQ_RX": "14.082000",
                 "BAND_RX": "20m", "COMMENT": "portable", "PROP_MODE": "SAT",
                 "SAT_NAME": "QO-100", "SAT_MODE": "U/V",
             ])
+            if URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.contains(where: { $0.name == "since_id" }) == true,
+               let body = Self.patchBody(host: host),
+               let patch = try? JSONSerialization.jsonObject(with: body) as? [String: Any] {
+                record.fields["QSO_DATE"] = (patch["qso_date"] as? String)?.replacingOccurrences(of: "-", with: "") ?? record["QSO_DATE"]
+                record.fields["QSO_DATE_OFF"] = record["QSO_DATE"]
+                record.fields["TIME_ON"] = patch["time_on"] as? String ?? record["TIME_ON"]
+                record.fields["TIME_OFF"] = patch["time_off"] as? String ?? record["TIME_OFF"]
+            }
             body = try! JSONEncoder().encode(WavelogADIFPage(
                 data: WavelogADIFData(exported: 1, lastFetchedID: 42, adif: record.adifDocument),
                 meta: WavelogListMeta(page: 1, perPage: 1000, count: 1, total: 1, totalPages: 1, hasMore: false)

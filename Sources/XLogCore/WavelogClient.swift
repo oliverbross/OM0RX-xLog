@@ -72,6 +72,7 @@ public struct WavelogQSO: Codable, Equatable, Sendable {
     public let receiveFrequency: String?
     public let receiveBand: String?
     public let qsoDate: String
+    public let timeOff: String?
     public let rstSent: String?
     public let rstReceived: String?
     public let gridSquare: String?
@@ -104,6 +105,7 @@ public struct WavelogQSO: Codable, Equatable, Sendable {
         case receiveFrequency = "freq_rx"
         case receiveBand = "band_rx"
         case qsoDate = "qso_date"
+        case timeOff = "time_off"
         case rstSent = "rst_sent"
         case rstReceived = "rst_rcvd"
         case gridSquare = "gridsquare"
@@ -132,6 +134,7 @@ public struct WavelogQSO: Codable, Equatable, Sendable {
         receiveFrequency = try container.decodeFlexibleStringIfPresent(forKey: .receiveFrequency)
         receiveBand = try container.decodeIfPresent(String.self, forKey: .receiveBand)
         qsoDate = try container.decode(String.self, forKey: .qsoDate)
+        timeOff = try container.decodeIfPresent(String.self, forKey: .timeOff)
         rstSent = try container.decodeIfPresent(String.self, forKey: .rstSent)
         rstReceived = try container.decodeIfPresent(String.self, forKey: .rstReceived)
         gridSquare = try container.decodeIfPresent(String.self, forKey: .gridSquare)

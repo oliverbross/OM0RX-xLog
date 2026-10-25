@@ -331,9 +331,7 @@ public actor SyncEngine {
                 if !fields.isEmpty {
                     try validateForNetwork(run)
                     let updated = try await client.updateQSO(id: remoteID, fields: fields)
-                    guard fields.isRepresented(by: updated) else {
-                        throw WavelogClientError.writeVerificationFailed(id: remoteID)
-                    }
+                    try await verifyUpdate(fields, response: updated, id: remoteID, run: run)
                 }
                 try validateSyncRun()
                 try database.withSyncDatabaseLock(run) { try database.acknowledgeSynced(current) }
@@ -438,9 +436,7 @@ public actor SyncEngine {
                     if !fields.isEmpty {
                         try validateForNetwork(run)
                         let remote = try await client.updateQSO(id: remoteID, fields: fields)
-                        guard fields.isRepresented(by: remote) else {
-                            throw WavelogClientError.writeVerificationFailed(id: remoteID)
-                        }
+                        try await verifyUpdate(fields, response: remote, id: remoteID, run: run)
                     }
                     try validateSyncRun()
                     try database.withSyncDatabaseLock(run) { try database.acknowledgeSynced(qso) }
@@ -468,6 +464,37 @@ public actor SyncEngine {
         }
 
         return report
+    }
+
+    private func verifyUpdate(_ fields: WavelogQSOUpdate, response: WavelogQSO,
+                              id: Int, run: SyncDatabaseRun) async throws {
+        guard id > 0, response.id == id else { throw WavelogClientError.writeVerificationFailed(id: id) }
+        var verifiedTimeOff: String?
+        if fields.timeOff != nil && !response.presentFields.contains("time_off") {
+            // Older JSON serializers omit TIME_OFF. An exact one-row ADIF
+            // boundary supplies evidence without rescanning the whole logbook.
+            try validateForNetwork(run)
+            let page = try await client.exportADIF(page: 1, perPage: 1, sinceID: id - 1)
+            let records = ADIFParser().records(in: page.data.adif)
+            guard page.meta.page == 1, page.meta.count == 1, page.data.exported == 1,
+                  page.data.lastFetchedID == id, records.count == 1,
+                  records[0]["TIME_OFF"] != nil,
+                  let observed = QSO(adif: records[0]), let identity = QSO(wavelog: response),
+                  historyIdentity(observed) == historyIdentity(identity), let end = observed.end else {
+                throw WavelogClientError.writeVerificationFailed(id: id)
+            }
+            var utc = Calendar(identifier: .gregorian)
+            utc.timeZone = TimeZone(secondsFromGMT: 0)!
+            guard utc.isDate(observed.start, inSameDayAs: end) else {
+                throw WavelogClientError.writeVerificationFailed(id: id)
+            }
+            let time = DateFormatter()
+            time.locale = Locale(identifier: "en_US_POSIX"); time.timeZone = utc.timeZone; time.dateFormat = "HHmmss"
+            verifiedTimeOff = time.string(from: end)
+        }
+        guard fields.isRepresented(by: response, verifiedTimeOff: verifiedTimeOff) else {
+            throw WavelogClientError.writeVerificationFailed(id: id)
+        }
     }
 
     private func validateSyncRun() throws {
@@ -834,7 +861,7 @@ extension WavelogQSOUpdate {
         assign(adif["SAT_MODE"] ?? "", priorADIF["SAT_MODE"] ?? "", field: .satelliteMode, keyPath: \.satelliteMode) { $0.uppercased() }
     }
 
-    func isRepresented(by remote: WavelogQSO) -> Bool {
+    func isRepresented(by remote: WavelogQSO, verifiedTimeOff: String? = nil) -> Bool {
         func exposed(_ field: Field) -> Bool { remote.presentFields.contains(field.rawValue) }
         func text(
             _ expected: String?,
@@ -869,6 +896,10 @@ extension WavelogQSOUpdate {
             let padded = (digits + "000000").prefix(6)
             let expected = "\(qsoDate) \(padded.prefix(2)):\(padded.dropFirst(2).prefix(2)):\(padded.suffix(2))"
             guard remote.qsoDate == expected else { return false }
+        }
+        if let timeOff {
+            let returned = remote.presentFields.contains("time_off") ? remote.timeOff : verifiedTimeOff
+            guard let returned, returned.replacingOccurrences(of: ":", with: "") == timeOff else { return false }
         }
         if !number(frequency, remote.frequency, field: .frequency) { return false }
         if !number(receiveFrequency, remote.receiveFrequency, field: .receiveFrequency) { return false }
