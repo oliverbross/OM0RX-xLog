@@ -10,4 +10,4 @@ Targeted source evidence is in [ACCEPTANCE.md](ACCEPTANCE.md) and [evidence](evi
 
 Physical acceptance remains **NOT READY**: Oliver confirmed audio is disconnected. Actual signed-app input permission, source content/channel attribution, separate listening/VOX route, unplug/format/clock trials, and the bounded real-time source soak remain external acceptance. No direct TCI/Flex/DAX or independent dual-device transport is included.
 
-The active 1.3.18 application, its rollback bundles, station data and original recorder checkpoint remain preserved. Candidate identity, hashes, signature, fixture results and preservation readback will be added to the final receipt after packaging.
+The active 1.3.18 application, rollback bundles, station data and original recorder checkpoint remain preserved. This rejected attempt has no accepted delivery receipt. See [the verified 1.3.20 successor](CANDIDATE_1_3_20.md) for the final candidate identity and results.

@@ -1,0 +1,1 @@
+{"ok": true, "version": "1.3.20", "sourceCommit": "5e48489f6a1d2408920ed0a29d4d7da173a295d4", "checks": 13, "bundle": "/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.20-recorder/OM0RX-xLog.app", "receipt": "/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.20-recorder/candidate-receipt.json"}

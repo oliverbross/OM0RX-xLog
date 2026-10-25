@@ -1,0 +1,11 @@
+{
+  "version": "1.3.20",
+  "source": "5e48489f6a1d2408920ed0a29d4d7da173a295d4",
+  "permission": "authorized",
+  "captureStarted": false,
+  "outputStarted": false,
+  "deviceCount": 19,
+  "inputDeviceCount": 15,
+  "outputDeviceCount": 9,
+  "physicalRouteVerified": false
+}

@@ -1,0 +1,60 @@
+{
+  "version": "1.3.20",
+  "sourceCommit": "5e48489f6a1d2408920ed0a29d4d7da173a295d4",
+  "bundle": "/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.20-recorder/OM0RX-xLog.app",
+  "signatureIdentity": "Executable=/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.20-recorder/OM0RX-xLog.app/Contents/MacOS/xlog-prototype\nIdentifier=com.oliverbross.xlog.integration\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20500 size=54892 flags=0x10000(runtime) hashes=1704+7 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=ea1e7a58f3c5ba5fea8e299885be0032ad72e434\nCandidateCDHashFull sha256=ea1e7a58f3c5ba5fea8e299885be0032ad72e434fd81008440132a53b00aede8\nHash choices=sha256\nCMSDigest=ea1e7a58f3c5ba5fea8e299885be0032ad72e434fd81008440132a53b00aede8\nCMSDigestType=2\nCDHash=ea1e7a58f3c5ba5fea8e299885be0032ad72e434\nSignature size=8974\nAuthority=Developer ID Application: Oliver Bross (4WCMQ4U946)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=25 Oct 2026 at 14:19:47\nInfo.plist entries=16\nTeamIdentifier=4WCMQ4U946\nRuntime Version=27.0.0\nSealed Resources version=2 rules=13 files=780\nInternal requirements count=1 size=192\nTotal signatures=1\nChosen signature=1\n",
+  "signatureVerification": "--prepared:/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.20-recorder/OM0RX-xLog.app/Contents/MacOS/rigctld\n--validated:/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.20-recorder/OM0RX-xLog.app/Contents/MacOS/rigctld\n--prepared:/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.20-recorder/OM0RX-xLog.app/Contents/MacOS/rotctld\n--validated:/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.20-recorder/OM0RX-xLog.app/Contents/MacOS/rotctld\n--prepared:/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.20-recorder/OM0RX-xLog.app/Contents/Frameworks/Python.framework/Versions/Current/.\n--prepared:/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.20-recorder/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker\n--validated:/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.20-recorder/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker\n--validated:/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.20-recorder/OM0RX-xLog.app/Contents/Frameworks/Python.framework/Versions/Current/.\n/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.20-recorder/OM0RX-xLog.app: valid on disk\n/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.20-recorder/OM0RX-xLog.app: satisfies its Designated Requirement\n",
+  "entitlements": {
+    "com.apple.security.device.audio-input": true
+  },
+  "microphonePurpose": "OM0RX-xLog records an operator-selected contest audio input and optional local voice-keyer messages.",
+  "files": {
+    "executable": {
+      "path": "/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.20-recorder/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+      "sha256": "8f880d0ca2009b135467e23622a3648da33a1ad76ba6141f62da15e4a45054e1"
+    },
+    "worker": {
+      "path": "/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.20-recorder/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+      "sha256": "1bc8bc2f8cdf88aa68d24d3c9b4fdd3474076595a352d906a289b2c1333b37c1"
+    },
+    "info": {
+      "path": "/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.20-recorder/OM0RX-xLog.app/Contents/Info.plist",
+      "sha256": "6b65b6f847b3fef89ef051453908e47d1059ab50fc80050b4d465b687bcfc59c"
+    },
+    "pythonReceipt": {
+      "path": "/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.20-recorder/OM0RX-xLog.app/Contents/Resources/Not1MM/python-runtime.json",
+      "sha256": "f00305b33f166528fdcb795b19b7350c599886bab124ed695c1890a09857242d"
+    },
+    "distributionReceipt": {
+      "path": "/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.20-recorder/OM0RX-xLog.app/Contents/Resources/DistributionMetadata/components.json",
+      "sha256": "a3b319518bb68a973a229c636ee273ff78dbb7bd14519f09828fbe57ce18eaa8"
+    },
+    "python": {
+      "path": "/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.20-recorder/OM0RX-xLog.app/Contents/Frameworks/Python.framework/Versions/3.12/bin/python3.12",
+      "sha256": "abbe2b0f5e34ad90b28039f7a349bbd3617d2bfcf411511d1d2e644dfbf1de9d"
+    }
+  },
+  "fixtureChecks": {
+    "analyticsContactIdentity": true,
+    "callbackSamples": true,
+    "crashTailRecovery": true,
+    "frozenReplay": true,
+    "immutableOriginals": true,
+    "independentExportDecode": true,
+    "noStationOwnerConstructed": true,
+    "realPythonCommit": true,
+    "restart": true,
+    "retryIdempotency": true,
+    "segmentContinuity": true,
+    "stableCorrectionAnchor": true,
+    "tombstonePreservesAudio": true
+  },
+  "fixtureElapsedMs": 2186,
+  "verificationElapsedSeconds": 4.375,
+  "captureOpened": false,
+  "outputOpened": false,
+  "productionDataOpened": false,
+  "installed": false,
+  "physicalAcceptance": "NOT READY: audio disconnected; signed-app TCC, physical route and real-time soak pending",
+  "notarization": "Not claimed"
+}

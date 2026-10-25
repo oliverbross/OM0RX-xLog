@@ -1,0 +1,27 @@
+{
+  "checkedUTC": "2026-10-25T04:50:43.445944+00:00",
+  "installedVersion": "1.3.18",
+  "installedSourceCommit": "78a294206216e490699716f5088acd25707f5eed",
+  "installedAppUnchanged": true,
+  "fileSHA256": {
+    "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype": "e1f1296ed65ec932ec728289c389dba9be9d7b8caaf1884713a5c378ea563360",
+    "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker": "46fdfbd11676f5c5bf9ffdc5bbc7e1e819cc5dbec70165aacaccbc2b5e3b9afb",
+    "/Applications/OM0RX-xLog.app/Contents/Info.plist": "cc28293881039c161200deacd36df6edfefd76a974afa34d78fc9d80a6b5ca9d"
+  },
+  "rollbackBundlesPresent": [
+    "/Applications/OM0RX-xLog-previous-20261024T191454Z-2517.app",
+    "/Applications/OM0RX-xLog-previous-1.3.17-20261025.app",
+    "/Applications/OM0RX-xLog-previous-1.3.16-20261025.app",
+    "/Applications/OM0RX-xLog-previous-1.3.13-20261025.app",
+    "/Applications/OM0RX-xLog-previous-1.3.14-20261025.app",
+    "/Applications/OM0RX-xLog-previous-1.3.15-20261025.app",
+    "/Applications/OM0RX-xLog-previous-1.3.12-20261025.app"
+  ],
+  "recorderCheckpointPreserved": true,
+  "checkpointCommit": "a7c3dfa7f36f67589a9f84fa87405ecbc91dfee3",
+  "productionDataOpenedByFixture": false,
+  "captureOpened": false,
+  "outputOpened": false,
+  "stationActions": false,
+  "installed": false
+}

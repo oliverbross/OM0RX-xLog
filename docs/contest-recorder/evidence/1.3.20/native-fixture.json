@@ -1,0 +1,33 @@
+{
+  "audioEvidence": "Generated input traversed the native callback queue and archive; no physical device opened",
+  "captureOpened": false,
+  "checks": {
+    "analyticsContactIdentity": true,
+    "callbackSamples": true,
+    "crashTailRecovery": true,
+    "frozenReplay": true,
+    "immutableOriginals": true,
+    "independentExportDecode": true,
+    "noStationOwnerConstructed": true,
+    "realPythonCommit": true,
+    "restart": true,
+    "retryIdempotency": true,
+    "segmentContinuity": true,
+    "stableCorrectionAnchor": true,
+    "tombstonePreservesAudio": true
+  },
+  "decoded": {
+    "channels": 2,
+    "decodedFrames": 8000,
+    "exactSamples": true
+  },
+  "elapsedMs": 2186,
+  "engine": "not1mm-python",
+  "ok": true,
+  "outputOpened": false,
+  "physicalAcceptance": "Pending \u2014 operator audio disconnected",
+  "productionDataOpened": false,
+  "schema": 1,
+  "sourceCommit": "5e48489f6a1d2408920ed0a29d4d7da173a295d4",
+  "version": "1.3.20"
+}

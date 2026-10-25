@@ -1,8 +1,8 @@
 # REC acceptance ledger
 
-Verdict pending candidate checks: **NOT READY for live audio acceptance**. The operator confirmed that the station audio route is disconnected. Fixture results below establish software behavior only; the final candidate receipt records exact version/source/signing separately.
+Delivered candidate **1.3.20** / source **`5e48489f6a1d2408920ed0a29d4d7da173a295d4`** passes its software/package checks. Verdict: **NOT READY for live audio acceptance**. The operator confirmed that the station audio route is disconnected. Fixture results below establish software behavior only; the final candidate receipt records exact version/source/signing separately.
 
-Evidence sources: native `contest_recorder*` tests; real Python `test_recorder`, `test_analytics`, CQ WW SSB host tests; focused React/key/owner tests; explicit signed-bundle `--recorder-acceptance` fixture (to be run after packaging). The fixture opens no Core Audio device, station owner, production log/settings or app singleton. UI preview screenshots use labelled generated data and establish layout only.
+Evidence sources: native `contest_recorder*` tests; real Python `test_recorder`, `test_analytics`, CQ WW SSB host tests; focused React/key/owner tests; explicit signed-bundle `--recorder-acceptance` fixture (**13/13 passed**, [exact candidate receipt](CANDIDATE_1_3_20.md)). The fixture opens no Core Audio device, station owner, production log/settings or app singleton. UI preview screenshots use labelled generated data and establish layout only.
 
 | REC | Software evidence / boundary | Physical acceptance |
 |---|---|---|
@@ -12,7 +12,7 @@ Evidence sources: native `contest_recorder*` tests; real Python `test_recorder`,
 | 04 | Frozen native prefix checked while writer advances; 5/10/30 commands scoped to one capture | Audible replay while Core Audio capture continues pending |
 | 05 | Callback generation cancellation, delayed callbacks, pause/seek; Escape does not consume existing handlers | Signed-app cancellation/device latency pending |
 | 06 | Exact IDs; system/known TX output rejection; no default fallback; native player has no station-write capability | Physical headset/mixer/VOX route unverified |
-| 07 | Actual `not1mm-python` committed audit → native idempotent bookmark with admission marker | Packaged fixture pending receipt; live source pending |
+| 07 | Actual `not1mm-python` committed audit → native idempotent bookmark with admission marker | Packaged actual-path fixture passed; real source pending |
 | 08 | Rejected commit emits no event; receipt retry/read-only pages; durable cursor/link replay | No new hardware dependency |
 | 09 | Real correction/deletion audit updates current label/tombstone; original samples/anchor retained | No post-contest correction workflow added |
 | 10 | Full durable log/QSO lookup; wrong log unavailable; overlapping captures ambiguous | No active-log fallback |
@@ -23,12 +23,12 @@ Evidence sources: native `contest_recorder*` tests; real Python `test_recorder`,
 | 15 | Reserve refusal preserves other files; replaced volume/directory rejected; blocked writer lacks fresh-health proof | Actual full-disk/blocked-device stress pending |
 | 16 | Native lifetime owns capture; window opens do not arm input/output; explicit stop/app shutdown | Signed recorder window close/reopen during real capture pending |
 | 17 | Manual sample/notes survive restart; full index search/paging | No contact mutation involved |
-| 18 | Exact Analytics dataset ID/contact ID/UTC interval; read-only prepare action | Packaged identity fixture pending receipt; audible playback pending |
+| 18 | Exact Analytics dataset ID/contact ID/UTC interval; read-only prepare action | Packaged exact-identity fixture passed; audible playback pending |
 | 19 | Independent Python WAV decoding matches every sample; hashes/order/gaps; completion manifest last and cancellable | Multi-GB removable-volume export pending |
 | 20 | Catalog IDs only, native folder chooser, bounded parameters, symlink/hardlink/path and scope checks | No arbitrary UI file-read API |
 | 21 | Distinct deterministic L/R samples and explicit receiver labels preserved | Actual R1/R2/ear attribution pending |
 | 22 | Accelerated 48-hour/2,880-segment index fixture, u64 frame/RIFF bounds; fixed callback queue and bounded playback/index cache | No 30-minute physical-source soak or measured live latency/memory claim |
-| 23 | Hardened Runtime input entitlement/purpose and canonical signed candidate to be checked in receipt | Actual signed-app input permission/routing pending |
+| 23 | Developer ID Hardened Runtime, input entitlement/purpose, three matching source receipts and relocated bundle signature verified | Actual signed-app input permission/routing pending |
 | 24 | Read-only rule reminder and listening preparation; no ASR/correction/scoring path | Applicable event/year rule not certified |
 | 25 | Existing entry, owner/checking recovery, Analytics, Python scoring and packaging gates included | Current active app is not replaced by this task |
 

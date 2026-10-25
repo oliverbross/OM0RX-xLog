@@ -47,4 +47,6 @@ Post-contest listening is read-only. Check the selected event's applicable curre
 
 ## This delivery's boundary
 
-Oliver confirmed that audio is disconnected. Actual signed-app permission, input content, listening routing, RF/VOX separation and the bounded real-time source soak remain pending. The candidate is not installed over the active contest application. Direct Flex/DAX/TCI/remote PCM and independent dual-input synchronization are deferred M5 work.
+Delivered software candidate: **1.3.20**, source **`5e48489f6a1d2408920ed0a29d4d7da173a295d4`**, at `/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.20-recorder/OM0RX-xLog.app`. See [candidate receipt](CANDIDATE_1_3_20.md) and [REC checklist](ACCEPTANCE.md). The installed app remains **1.3.18**; these recorder controls are in the candidate. Arrange any later launch/replacement and connected-route test with the operator, using disposable contest data.
+
+Oliver confirmed that audio is disconnected. Read-only permission status was `authorized`; no input or listening stream was opened. Actual signed-app permission behavior, input content, listening routing, RF/VOX separation and the bounded real-time source soak remain pending. The candidate is not installed over the active contest application. Direct Flex/DAX/TCI/remote PCM and independent dual-input synchronization are deferred M5 work.
