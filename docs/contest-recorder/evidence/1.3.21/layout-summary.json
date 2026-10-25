@@ -1,0 +1,23 @@
+{
+  "sourceCommit": "d2d9c90f5932b7ed6ce845e87986b739909301c1",
+  "renderer": "Chromium isolated static fixture; actual React strip rendered with production styles",
+  "widths": [
+    980,
+    700,
+    540
+  ],
+  "states": [
+    "input present",
+    "input silent",
+    "starting",
+    "interrupted",
+    "health unavailable",
+    "stopped"
+  ],
+  "cases": 18,
+  "stripHeightPx": 39,
+  "callsignLabelOffsetPx": 53,
+  "allControlsOnSingleRow": true,
+  "horizontalOverflow": false,
+  "installedAppTest": false
+}

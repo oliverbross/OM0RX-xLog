@@ -1,0 +1,46 @@
+{
+  "version": "1.3.21",
+  "sourceCommit": "d2d9c90f5932b7ed6ce845e87986b739909301c1",
+  "bundle": "/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.21-recorder-strip/OM0RX-xLog.app",
+  "verifiedAt": "2026-10-25T16:30:12.794848+09:30",
+  "buildCommand": "CARGO_BUILD_JOBS=2 nice -n 10 bash prototype/scripts/package-macos.sh",
+  "canonicalBuild": true,
+  "signatureIdentity": "Executable=/Users/oliver/Documents/Builds/OM0RX-xLog-1.3.21-recorder-strip/OM0RX-xLog.app/Contents/MacOS/xlog-prototype\nIdentifier=com.oliverbross.xlog.integration\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20500 size=54892 flags=0x10000(runtime) hashes=1704+7 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=849ce80e27aecf8ba0926894ae976146cc8e8072\nCandidateCDHashFull sha256=849ce80e27aecf8ba0926894ae976146cc8e8072503fb15cc58861f5f86f1319\nHash choices=sha256\nCMSDigest=849ce80e27aecf8ba0926894ae976146cc8e8072503fb15cc58861f5f86f1319\nCMSDigestType=2\nCDHash=849ce80e27aecf8ba0926894ae976146cc8e8072\nSignature size=8975\nAuthority=Developer ID Application: Oliver Bross (4WCMQ4U946)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=25 Oct 2026 at 16:29:17\nInfo.plist entries=16\nTeamIdentifier=4WCMQ4U946\nRuntime Version=27.0.0\nSealed Resources version=2 rules=13 files=780\nInternal requirements count=1 size=192\nTotal signatures=1\nChosen signature=1\n",
+  "deepStrictSignatureVerified": true,
+  "files": {
+    "Contents/Info.plist": "5d37c405a11502490f0834fa3b1b889121c515fd0614c8ffb84c8ed1217117cc",
+    "Contents/MacOS/xlog-prototype": "ccf9fda06b2e245dbc6bf8ea842541765ef897f5dc3670007e71cb518ce359e5",
+    "Contents/MacOS/xlog-prototype-worker": "aa8f81a74e120dd6108bc1cfff26500c9dee9c38db7cb836484d58700088941f",
+    "Contents/Resources/DistributionMetadata/components.json": "a59fc7f58ba3c4baf24784539eb700eb172f26fa3b7308dc738606a3934c7991",
+    "Contents/Resources/Not1MM/python-runtime.json": "8f53cb7b9844040337b578c3a6f23f7bc5950c09035ed6dff89bb2b1dc087c03"
+  },
+  "checks": {
+    "focusedTests": 189,
+    "packagingChecks": 6,
+    "typescriptAndFrontendBuild": true,
+    "layoutCases": 18,
+    "layoutHeightPx": 39,
+    "callsignOffsetPx": 53
+  },
+  "installedBundleBefore": {
+    "version": "1.3.20",
+    "hashes": {
+      "Contents/Info.plist": "6b65b6f847b3fef89ef051453908e47d1059ab50fc80050b4d465b687bcfc59c",
+      "Contents/MacOS/xlog-prototype": "8f880d0ca2009b135467e23622a3648da33a1ad76ba6141f62da15e4a45054e1",
+      "Contents/MacOS/xlog-prototype-worker": "1bc8bc2f8cdf88aa68d24d3c9b4fdd3474076595a352d906a289b2c1333b37c1"
+    }
+  },
+  "installedBundleAfter": {
+    "version": "1.3.20",
+    "hashes": {
+      "Contents/Info.plist": "6b65b6f847b3fef89ef051453908e47d1059ab50fc80050b4d465b687bcfc59c",
+      "Contents/MacOS/xlog-prototype": "8f880d0ca2009b135467e23622a3648da33a1ad76ba6141f62da15e4a45054e1",
+      "Contents/MacOS/xlog-prototype-worker": "1bc8bc2f8cdf88aa68d24d3c9b4fdd3474076595a352d906a289b2c1333b37c1"
+    }
+  },
+  "installed": false,
+  "candidateLaunched": false,
+  "audioOrStationActions": false,
+  "notarization": "Not claimed",
+  "cdHash": "849ce80e27aecf8ba0926894ae976146cc8e8072"
+}
