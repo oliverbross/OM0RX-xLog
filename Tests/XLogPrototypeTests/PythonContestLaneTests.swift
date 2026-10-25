@@ -8,6 +8,49 @@ import XLogPortableCore
 @testable import XLogPrototypeSupport
 
 final class PythonContestLaneTests: XCTestCase {
+    func testSCPRecoversActiveSessionAfterWorkerRestartWithoutReopeningContest() async throws {
+        let temporary = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
+            .appendingPathComponent("xlog-scp-restart-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let configuration = try PythonContestHostConfiguration(executableURL: python312(),
+            launcherURL: repositoryRoot().appendingPathComponent("python/contest_host/launcher.py"),
+            dataRootURL: temporary.appendingPathComponent("Contesting/Python"))
+        let initial = try PythonContestLane(configuration: configuration)
+        let session = UUID().uuidString.lowercased(), generation = UUID().uuidString.lowercased()
+        _ = try await initial.handle(method: "contest_session_create", params: [
+            "sessionID": session, "workspaceGeneration": generation,
+            "operationID": UUID().uuidString.lowercased(), "expectedRevision": 0,
+            "pluginID": "cq_ww_ssb", "frequencyHz": 7_100_000,
+            "station": ["Call": "OM0RX", "CQZone": "15"], "settings": ["SentExchange": "15"],
+        ])
+        let source = temporary.appendingPathComponent("MASTER.SCP")
+        try Data("K1ABC\nK1ABD\nDL1ABC\n".utf8).write(to: source)
+        _ = try await initial.handleAssistance(method: "contest_scp_import_private", params: [
+            "path": source.path, "sourceName": "MASTER.SCP",
+        ])
+        await initial.shutdown()
+
+        let restarted = try PythonContestLane(configuration: configuration)
+        do {
+            let matches = try await restarted.handleAssistance(method: "contest_scp_query", params: [
+                "sessionID": session, "workspaceGeneration": generation,
+                "requestID": UUID().uuidString.lowercased(), "query": "K1AB",
+            ])
+            XCTAssertFalse((matches["matches"] as? [[String: Any]] ?? []).isEmpty)
+            do {
+                _ = try await restarted.handleAssistance(method: "contest_scp_query", params: [
+                    "sessionID": session, "workspaceGeneration": UUID().uuidString.lowercased(),
+                    "requestID": UUID().uuidString.lowercased(), "query": "K1AB",
+                ])
+                XCTFail("Recovery must retain the workspace fence")
+            } catch let error as ContestLaneError { XCTAssertEqual(error.code, "stale_context") }
+        } catch {
+            await restarted.shutdown()
+            throw error
+        }
+        await restarted.shutdown()
+    }
+
     func testRecorderAcceptanceUsesActualPythonCommitAuditAndAnalytics() async throws {
         let result = try await ContestRecorderAcceptance.run(configuration: { root in
             XCTAssertFalse(root.path.hasPrefix("/var/"), "Foundation normalization must not reintroduce the macOS /var symlink")

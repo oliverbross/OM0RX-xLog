@@ -131,6 +131,16 @@ actor PythonContestLane {
                 let projection = activeProjection
                 activeSessionID = projection?["sessionID"] as? String
                 activeWorkspaceGeneration = projection?["workspaceGeneration"] as? String
+            } else if method == "contest_sessions", activeSessionID == nil,
+                      let sessionID = result["activeSessionID"] as? String,
+                      let sessions = result["sessions"] as? [[String: Any]],
+                      let active = sessions.first(where: { $0["sessionID"] as? String == sessionID }),
+                      let generation = active["workspaceGeneration"] as? String {
+                // A replacement worker has no native scope even though Python
+                // retained the active contest. Recover from the host's own
+                // discovery result, never from a suggestion's requested scope.
+                activeSessionID = sessionID
+                activeWorkspaceGeneration = generation
             }
             if Self.createsSession(method) || ["contest_session_open", "contest_open"].contains(method),
                let lane = try? callHistory(),
@@ -237,6 +247,11 @@ actor PythonContestLane {
     func handleAssistance(method: String, params: [String: Any]) async throws -> [String: Any] {
         guard !terminalShutdown else {
             throw ContestLaneError.confirmed("worker_stopping", "The contest host is shutting down.")
+        }
+        if activeSessionID == nil {
+            // Use the serialized bridge so recovery cannot collide with a
+            // draft operation or an explicit contest switch already in flight.
+            _ = try await handle(method: "contest_sessions", params: [:])
         }
         let lane: PythonContestAssistanceLane
         if let assistanceLane { lane = assistanceLane }

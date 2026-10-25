@@ -919,8 +919,11 @@ function Check({ projection, disabled, projectionRevision, receipts, send }: { p
       <section>{availability!=="ready"&&<p>{unavailableMessage}</p>}</section>
       <div><button type="button" disabled={disabled} onClick={()=>assistance("assistance_download")}>Download latest</button>
         <button type="button" disabled={disabled} onClick={()=>assistance("assistance_refresh")}>Refresh</button>
-        {projection.scp.error&&<button type="button" disabled={disabled} onClick={()=>assistance(availability==="status_unavailable"?"assistance_refresh":"assistance_download")}>Retry</button>}</div>
+        {projection.scp.error&&<button type="button" disabled={disabled} onClick={()=>assistance(availability==="ready"||availability==="status_unavailable"?"assistance_refresh":"assistance_download")}>Retry</button>}</div>
     </div></details>
+    {projection.scp.error&&<p role="alert">{projection.scp.error}</p>}
+    {projection.scp.notice&&<p role="status">{projection.scp.notice}</p>}
+    {projection.busy&&<p role="status">Checking callsign suggestions…</p>}
     <details className="contest-surface-pane-controls"><summary>Panes</summary><div role="group" aria-label="Check Partial panes">{paneChoices.map(pane=><label key={pane.key}>
       <input type="checkbox" checked={shownPanes.includes(pane.key)} onChange={event=>setShownPanes(current=>event.target.checked?[...current,pane.key]:current.filter(key=>key!==pane.key))}/>{pane.title}</label>)}</div></details>
     {panes.length===0&&<p>No panes are visible. Choose panes above.</p>}<div className="contest-surface-check-columns" data-pane-count={panes.length}>

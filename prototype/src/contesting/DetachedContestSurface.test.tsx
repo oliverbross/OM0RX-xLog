@@ -1161,6 +1161,7 @@ it("routes missing-corpus download, refresh, and retry through the contest owner
     {...snapshot,panelID:"callsign-intelligence",projection:view}:{requestID:args.requestID,status:"applied",projectionRevision:7});
   render(<DetachedContestSurface/>);
   expect(await screen.findByText(/saved local MASTER\.SCP index is invalid/)).toBeTruthy();
+  expect(screen.getByRole("alert").textContent).toContain("The previous download failed.");
   expect(screen.getAllByRole("heading",{level:2}).map(node=>node.textContent)).toEqual(["Log","Master"]);
   fireEvent.click(screen.getByRole("button",{name:"Download latest"}));
   fireEvent.click(screen.getByRole("button",{name:"Refresh"}));
@@ -1170,6 +1171,21 @@ it("routes missing-corpus download, refresh, and retry through the contest owner
   for(const [,args] of native.invoke.mock.calls.filter(([command])=>command==="contest_surface_action"))
     expect(args).toMatchObject({panelID:"callsign-intelligence",projectionRevision:6,
       params:{draftID:"draft-1",expectedDraftRevision:5}});
+});
+
+it("shows an active-corpus query error and retries locally without redownloading MASTER.SCP",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=callsign-intelligence"));
+  const view={schemaVersion:1,status:"ready",draftID:"draft-1",draftRevision:5,inputCallsign:"DL1",
+    scp:{source:"MASTER.SCP",candidates:[],availability:"ready",notice:null,
+      error:"The callsign suggestion belongs to another contest context."},
+    history:{source:null,rows:[]},busy:false};
+  native.invoke.mockImplementation(async(command,args)=>command==="contest_surface_snapshot"?
+    {...snapshot,panelID:"callsign-intelligence",projection:view}:{requestID:args.requestID,status:"applied",projectionRevision:7});
+  render(<DetachedContestSurface/>);
+  expect((await screen.findByRole("alert")).textContent).toContain("another contest context");
+  fireEvent.click(screen.getByRole("button",{name:"Retry"}));
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command])=>command==="contest_surface_action")?.[1].action)
+    .toBe("assistance_refresh"));
 });
 
 it.each(["log", "scp", "cluster", "history"])("selects the %s Check Partial candidate with exact owner revisions",async kind=>{
