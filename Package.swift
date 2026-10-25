@@ -76,6 +76,7 @@ portableTargets.append(contentsOf: [
     .target(name: "CPlatformVault", linkerSettings: [.linkedLibrary("Advapi32", .when(platforms: [.windows]))]),
     .target(name: "XClusterIntegrationCore", dependencies: ["CClusterSocket"]),
     .target(name: "XStationIntegrationCore"),
+    .target(name: "XCWCore"),
     .target(name: "XContestCore", resources: [
         .copy("Resources/ContestDefinitions"), .copy("Resources/CountryReferences"),
     ]),
@@ -87,6 +88,7 @@ portableTargets.append(contentsOf: [
     .testTarget(name: "XClusterIntegrationTests", dependencies: ["XClusterIntegrationCore", "CClusterSocket", "CClusterSocketTestSupport"]),
     .testTarget(name: "XCatIntegrationTests", dependencies: ["XCatIntegrationCore"]),
     .testTarget(name: "XStationIntegrationTests", dependencies: ["XStationIntegrationCore"]),
+    .testTarget(name: "XCWCoreTests", dependencies: ["XCWCore"]),
     .testTarget(name: "XContestCoreTests", dependencies: ["XContestCore"], exclude: ["SourceFixtures"]),
     .testTarget(name: "XContestStoreTests", dependencies: ["XContestStore", "XContestCore", "CSQLitePrototype"]),
 ])
