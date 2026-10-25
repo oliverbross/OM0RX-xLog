@@ -118,7 +118,8 @@ it("TCI child follows saved selection and exposes only explicit receive tuning",
     throw new Error(`Unexpected authority: ${command}`);
   });
   render(<DetachedStationControlSurface />); await act(async () => {});
-  expect(screen.getByLabelText("Shared TCI endpoint")).toBeTruthy();
+  expect(screen.queryByLabelText("Shared TCI endpoint")).toBeNull();
+  expect(screen.getByText(/Configure both radios in Settings/)).toBeTruthy();
   expect(screen.getByText("TCI permits explicit receive-frequency and mode tuning only. Transmit controls remain unavailable.")).toBeTruthy();
   expect(screen.getByLabelText("Simplex frequency MHz")).toBeTruthy();
   expect(screen.getByLabelText("Simplex mode")).toBeTruthy();
@@ -221,6 +222,11 @@ it("keeps exact Stop available through stale telemetry and Goto recovery without
   expect(native.invoke.mock.calls.filter(([command]) => command === "monitor_rotor_stop")).toHaveLength(1);
 });
 
+// Retain regressions for the reusable lifecycle primitive. Production detached
+// controls now link to the single Radios settings page; that contract is tested above.
+function LegacyStationSetupFixture() {
+  return <StationControlSurface configuration={context => <AgentConnectionSetup radioId="radio1" connections providers followSelection compact receiveContext={context} />} />;
+}
 function sharedAgent(loseConnect = false, loseSelection = false, provider = "direct_agent") {
   let observation = syntheticMonitorContext();
   let state: StationSession = { radio_id: "radio1", active_radio: "radio1", tx_owner: null, generation: "shared-setup", revision: 4, base_url: "https://station.example", last_receipt: null,
@@ -252,7 +258,7 @@ function sharedAgent(loseConnect = false, loseSelection = false, provider = "dir
   return { actions, wake: () => subscribers.get("xlog:station-session")?.forEach(handler => handler()), observeWake: () => subscribers.get("xlog:station-telemetry")?.forEach(handler => handler()), state: () => state, observe: (next: MonitorContext) => { observation = next; } };
 }
 it("independent child mounts passively and sends exact Agent lifecycle actions through the shared owner", async () => {
-  const owner = sharedAgent(); render(<DetachedStationControlSurface />); await act(async () => {});
+  const owner = sharedAgent(); render(<LegacyStationSetupFixture />); await act(async () => {});
   expect(owner.actions).toHaveLength(0); expect(native.worker).not.toHaveBeenCalled();
   expect(screen.queryByRole("button", { name: /Refresh observations|Dock back/ })).toBeNull();
   expect(screen.queryByText(/independent of Desk|Saved Agent endpoint is shared|Saved Agent setup and connection tests/)).toBeNull();
@@ -270,10 +276,10 @@ it("independent child mounts passively and sends exact Agent lifecycle actions t
   expect(native.worker).not.toHaveBeenCalled();
 });
 it("child lost replies survive remount and receipt inspection never resends the operation", async () => {
-  const owner = sharedAgent(true); const view = render(<DetachedStationControlSurface />); await act(async () => {});
+  const owner = sharedAgent(true); const view = render(<LegacyStationSetupFixture />); await act(async () => {});
   fireEvent.click(screen.getByRole("button", { name: "Connect saved Agent" })); await act(async () => {});
   const id = owner.actions[0].operation_id;
-  view.unmount(); render(<DetachedStationControlSurface />); await act(async () => {});
+  view.unmount(); render(<LegacyStationSetupFixture />); await act(async () => {});
   expect(screen.getByRole("button", { name: "Connect saved Agent" }).hasAttribute("disabled")).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Check connection setup receipt" })); await act(async () => {});
   expect(native.invoke).toHaveBeenLastCalledWith("station_session_request", { params: { action: "receipt", operation_id: id, radio_id: "radio1" } });
@@ -282,7 +288,7 @@ it("child lost replies survive remount and receipt inspection never resends the 
 });
 it("Desk and child converge on shared revisions and a matching completed receipt clears local pending state", async () => {
   const owner = sharedAgent();
-  render(<><section aria-label="Desk setup"><AgentConnectionSetup radioId="radio1" connections /></section><DetachedStationControlSurface /></>);
+  render(<><section aria-label="Desk setup"><AgentConnectionSetup radioId="radio1" connections /></section><LegacyStationSetupFixture /></>);
   await act(async () => {});
   const desk = within(screen.getByRole("region", { name: "Desk setup" }));
   const child = within(screen.getByRole("main", { name: "Detached Station Control" }));
@@ -301,7 +307,7 @@ it("Desk and child converge on shared revisions and a matching completed receipt
   expect(native.worker).not.toHaveBeenCalled();
 });
 it("child selection uses exact current identities across Agent to Hamlib to Agent without connection effects", async () => {
-  const owner = sharedAgent(); render(<DetachedStationControlSurface />); await act(async () => {});
+  const owner = sharedAgent(); render(<LegacyStationSetupFixture />); await act(async () => {});
   expect(owner.actions).toHaveLength(0);
   fireEvent.change(screen.getByLabelText("Shared radio provider"), { target: { value: "hamlib" } });
   const apply = screen.getByRole("button", { name: "Apply shared radio selection" });
@@ -324,11 +330,11 @@ it("Desk provider-only apply uses the same journaled selector without exposing c
   expect(native.worker).not.toHaveBeenCalled();
 });
 it("lost provider-selection replies recover on child remount and never replay retirement", async () => {
-  const owner = sharedAgent(false, true); const view = render(<DetachedStationControlSurface />); await act(async () => {});
+  const owner = sharedAgent(false, true); const view = render(<LegacyStationSetupFixture />); await act(async () => {});
   fireEvent.change(screen.getByLabelText("Shared radio provider"), { target: { value: "hamlib" } });
   fireEvent.click(screen.getByRole("button", { name: "Apply shared radio selection" })); await act(async () => {});
   const operation = owner.actions[0].operation_id;
-  view.unmount(); render(<DetachedStationControlSurface />); await act(async () => {});
+  view.unmount(); render(<LegacyStationSetupFixture />); await act(async () => {});
   expect((screen.getByLabelText("Shared radio provider") as HTMLSelectElement).value).toBe("hamlib");
   expect(screen.getByRole("button", { name: "Apply shared radio selection" }).hasAttribute("disabled")).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Check connection setup receipt" })); await act(async () => {});
@@ -338,7 +344,7 @@ it("lost provider-selection replies recover on child remount and never replay re
 });
 it("Desk and independent child share Hamlib setup and explicitly connect with the current exact selection", async () => {
   const owner = sharedAgent(false, false, "hamlib");
-  render(<><section aria-label="Desk Hamlib setup"><AgentConnectionSetup radioId="radio1" hamlib /></section><DetachedStationControlSurface /></>); await act(async () => {});
+  render(<><section aria-label="Desk Hamlib setup"><AgentConnectionSetup radioId="radio1" hamlib /></section><LegacyStationSetupFixture /></>); await act(async () => {});
   const desk = within(screen.getByRole("region", { name: "Desk Hamlib setup" }));
   const child = within(screen.getByRole("main", { name: "Detached Station Control" }));
   expect(owner.actions).toHaveLength(0); expect(native.worker).not.toHaveBeenCalled();
@@ -356,7 +362,7 @@ it("Desk and independent child share Hamlib setup and explicitly connect with th
 });
 it("child exposes shared FLEX setup and hides Agent and Hamlib setup and lifecycle controls", async () => {
   const owner = sharedAgent(false, false, "direct_flex_lan");
-  render(<DetachedStationControlSurface />); await act(async () => {});
+  render(<LegacyStationSetupFixture />); await act(async () => {});
   expect(screen.getByLabelText("Shared FLEX private IP")).toBeTruthy();
   expect((screen.getByLabelText("Shared radio provider") as HTMLSelectElement).value).toBe("direct_flex_lan");
   expect(screen.getByRole("button", { name: "Apply shared radio selection" })).toBeTruthy();
@@ -368,7 +374,7 @@ it("child exposes shared FLEX setup and hides Agent and Hamlib setup and lifecyc
 });
 it("Desk and child share FLEX configuration, then explicitly connect, replace and disconnect through one owner", async () => {
   const owner = sharedAgent(false, false, "direct_flex_lan");
-  render(<><section aria-label="Desk FLEX setup"><AgentConnectionSetup radioId="radio1" flex /></section><DetachedStationControlSurface /></>); await act(async () => {});
+  render(<><section aria-label="Desk FLEX setup"><AgentConnectionSetup radioId="radio1" flex /></section><LegacyStationSetupFixture /></>); await act(async () => {});
   const desk = within(screen.getByRole("region", { name: "Desk FLEX setup" }));
   const child = within(screen.getByRole("main", { name: "Detached Station Control" }));
   expect(owner.actions).toHaveLength(0);
@@ -390,17 +396,17 @@ it("Desk and child share FLEX configuration, then explicitly connect, replace an
   expect(native.worker).not.toHaveBeenCalled();
 });
 it("lost FLEX reconnect acknowledgement survives child remount without replay", async () => {
-  const owner = sharedAgent(true, false, "direct_flex_lan"); const view = render(<DetachedStationControlSurface />); await act(async () => {});
+  const owner = sharedAgent(true, false, "direct_flex_lan"); const view = render(<LegacyStationSetupFixture />); await act(async () => {});
   fireEvent.click(screen.getByRole("button", { name: "Reconnect saved FLEX radio" })); await act(async () => {});
   const operation = owner.actions[0].operation_id;
-  view.unmount(); render(<DetachedStationControlSurface />); await act(async () => {});
+  view.unmount(); render(<LegacyStationSetupFixture />); await act(async () => {});
   expect(screen.getByRole("button", { name: "Reconnect saved FLEX radio" }).hasAttribute("disabled")).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Check connection setup receipt" })); await act(async () => {});
   expect(native.invoke).toHaveBeenLastCalledWith("station_session_request", { params: { action: "receipt", operation_id: operation, radio_id: "radio1" } });
   expect(owner.actions).toHaveLength(1); expect(screen.getByText(/Connection outcome is unknown/)).toBeTruthy();
 });
 it("independent child explicitly browses radio models and selection edits only the shared setup draft", async () => {
-  const owner = sharedAgent(false, false, "hamlib"); render(<DetachedStationControlSurface />); await act(async () => {});
+  const owner = sharedAgent(false, false, "hamlib"); render(<LegacyStationSetupFixture />); await act(async () => {});
   expect(native.invoke.mock.calls.every(([command, args]) => command === "monitor_context_snapshot" || args?.params.action === "snapshot")).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Load radio model catalogue" })); await act(async () => {});
   expect(native.invoke).toHaveBeenLastCalledWith("station_session_request", { params: { action: "hamlib_catalogue", radio_id: "radio1" } });
@@ -441,7 +447,7 @@ function hamlibReceiveContext(): MonitorContext {
 it("child exposes exact Agent receive controls from Agent capabilities and preserves the provider fence", async () => {
   const owner = sharedAgent(), context = agentReceiveContext();
   owner.state().selection.selection_id = context.selection!.selection_id; owner.observe(context);
-  render(<DetachedStationControlSurface />); await act(async () => {});
+  render(<LegacyStationSetupFixture />); await act(async () => {});
   fireEvent.change(screen.getByLabelText("Child receive frequency MHz"), { target: { value: "14.0762" } });
   fireEvent.click(screen.getByRole("button", { name: "Set receive VFO A frequency" })); await act(async () => {});
   expect(owner.actions[0]).toMatchObject({ action: "receive_frequency", provider: "direct_agent", frequency_hz: 14076200,
@@ -458,7 +464,7 @@ it("child disables only the Agent receive control not advertised by the current 
   const owner = sharedAgent(), context = agentReceiveContext();
   owner.state().selection.selection_id = context.selection!.selection_id;
   context.radio.snapshot.station.supported_commands = ["set_frequency_hz"];
-  owner.observe(context); render(<DetachedStationControlSurface />); await act(async () => {});
+  owner.observe(context); render(<LegacyStationSetupFixture />); await act(async () => {});
   fireEvent.change(screen.getByLabelText("Child receive frequency MHz"), { target: { value: "14.075" } });
   expect(screen.getByRole("button", { name: "Set receive VFO A frequency" }).hasAttribute("disabled")).toBe(false);
   expect(screen.getByRole("button", { name: "Set receive VFO A mode" }).hasAttribute("disabled")).toBe(true);
@@ -466,7 +472,7 @@ it("child disables only the Agent receive control not advertised by the current 
 it("child journals exact Hamlib VFO-A receive controls without exposing general radio authority", async () => {
   const owner = sharedAgent(false, false, "hamlib"), context = hamlibReceiveContext();
   owner.state().selection.selection_id = context.selection!.selection_id; owner.observe(context);
-  render(<DetachedStationControlSurface />); await act(async () => {});
+  render(<LegacyStationSetupFixture />); await act(async () => {});
   fireEvent.change(screen.getByLabelText("Child receive frequency MHz"), { target: { value: "14.077" } });
   fireEvent.click(screen.getByRole("button", { name: "Set receive VFO A frequency" })); await act(async () => {});
   expect(owner.actions[0]).toMatchObject({ action: "receive_frequency", provider: "hamlib", frequency_hz: 14077000,
@@ -482,7 +488,7 @@ it("child journals exact Hamlib VFO-A receive controls without exposing general 
 it("child sends only explicit exact VFO-A receive controls and waits for a new observation", async () => {
   const owner = sharedAgent(false, false, "direct_flex_lan"), context = flexReceiveContext();
   owner.state().selection.selection_id = context.selection!.selection_id; owner.observe(context);
-  render(<DetachedStationControlSurface />); await act(async () => {});
+  render(<LegacyStationSetupFixture />); await act(async () => {});
   expect(owner.actions).toHaveLength(0);
   expect(screen.queryByRole("button", { name: /PTT|Send CW|Tune carrier/ })).toBeNull();
   const frequency = screen.getByRole("button", { name: "Set receive VFO A frequency" });
@@ -510,11 +516,11 @@ it("child sends only explicit exact VFO-A receive controls and waits for a new o
 it("unknown receive reply survives child remount and checks the original receipt without replay", async () => {
   const owner = sharedAgent(true, false, "direct_flex_lan"), context = flexReceiveContext();
   owner.state().selection.selection_id = context.selection!.selection_id; owner.observe(context);
-  const view = render(<DetachedStationControlSurface />); await act(async () => {});
+  const view = render(<LegacyStationSetupFixture />); await act(async () => {});
   fireEvent.change(screen.getByLabelText("Child receive frequency MHz"), { target: { value: "14.075" } });
   fireEvent.click(screen.getByRole("button", { name: "Set receive VFO A frequency" })); await act(async () => {});
   const operation = owner.actions[0].operation_id;
-  view.unmount(); render(<DetachedStationControlSurface />); await act(async () => {});
+  view.unmount(); render(<LegacyStationSetupFixture />); await act(async () => {});
   expect(screen.getByRole("button", { name: "Set receive VFO A frequency" }).hasAttribute("disabled")).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Check connection setup receipt" })); await act(async () => {});
   expect(native.invoke).toHaveBeenLastCalledWith("station_session_request", { params: { action: "receipt", operation_id: operation, radio_id: "radio1" } });
@@ -531,7 +537,7 @@ it.each(["stale", "old radio observation", "transmitting", "unknown PTT", "VFO B
   if (reason === "VFO B") context.radio.snapshot.radio.receive_vfo = "B";
   if (reason === "unsupported") context.radio.snapshot.capabilities.supported_commands = [];
   if (reason === "generation unknown") delete context.radio.snapshot.generation;
-  owner.observe(context); render(<DetachedStationControlSurface />); await act(async () => {});
+  owner.observe(context); render(<LegacyStationSetupFixture />); await act(async () => {});
   if (reason === "stale") {
     expect(screen.queryByLabelText("Child receive frequency MHz")).toBeNull();
     expect(owner.actions).toHaveLength(0); expect(native.worker).not.toHaveBeenCalled();

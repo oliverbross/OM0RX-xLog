@@ -5,6 +5,36 @@ import XCatIntegrationCore
 @testable import XLogPrototypeSupport
 
 final class LiveTCISessionTests: XCTestCase {
+    func testFlexAndTCIReceiveSlotsStayIndependentAndTCIDisconnectDoesNotReleaseFlex() async throws {
+        let box = FlexFixtureBox()
+        let flex = LiveFlexSession(readbackTimeout: .milliseconds(250)) { _, onState, onSnapshot in
+            let radio = FakeFlexRadio(snapshot: RadioSnapshot(frequencyHz: 14_074_000), onState: onState, onSnapshot: onSnapshot)
+            box.store(radio); return radio
+        }
+        let socket = TCIFixtureSocket(), tci = fixture(TCIFixtureConnector([socket]))
+        _ = try await flex.handle("station_connect", params: ["provider":"direct_flex_lan", "host":"192.168.1.20", "station_name":"xLog", "allow_transmit":false])
+        _ = try await tci.handle("station_connect", params: connect)
+        await socket.enqueue(.text(Self.discovery + "trx:0,false;ready;"))
+        let tciReady = try await wait(tci) { $0["available"] as? Bool == true }
+        XCTAssertEqual(tciReady["allow_transmit"] as? Bool, false)
+        var flexReady: [String:Any] = [:]
+        for _ in 0..<100 {
+            flexReady = try await flex.handle("station_snapshot", params:["provider":"direct_flex_lan"])
+            if flexReady["available"] as? Bool == true { break }
+            await Task.yield()
+        }
+        XCTAssertEqual(flexReady["available"] as? Bool, true)
+        XCTAssertEqual((flexReady["radio"] as? [String:Any])?["frequency_hz"] as? Int64, 14_074_000)
+        _ = try await tci.handle("station_disconnect", params:minimal)
+        let after = try await flex.handle("station_snapshot", params:["provider":"direct_flex_lan"])
+        XCTAssertEqual(after["available"] as? Bool, true)
+        let radio = try XCTUnwrap(box.get()), commands = await radio.commandLog()
+        XCTAssertTrue(commands.isEmpty, "The other slot's disconnect wrote to FLEX: \(commands)")
+        let sent = await socket.sentTexts(); XCTAssertTrue(sent.isEmpty)
+        _ = try await flex.handle("station_disconnect", params:["provider":"direct_flex_lan"])
+        let released = await radio.commandLog(); XCTAssertEqual(released, ["stop_transport"])
+        await tci.terminate()
+    }
     private let minimal: [String: Any] = ["provider": "direct_tci"]
     private let connect: [String: Any] = ["provider": "direct_tci", "endpoint": "ws://127.0.0.1:40001", "trx": 0, "channel": 0]
 

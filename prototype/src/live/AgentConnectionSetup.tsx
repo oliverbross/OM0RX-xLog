@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { RefreshCw } from "lucide-react";
-import { loadStationSession, stationSessionRequest, validTCIConfiguration, type RadioID, type TCIConfiguration, type FlexConfiguration, type HamlibConfiguration, type StationReceipt, type StationSession } from "./stationSession";
+import { loadStationSession, radioLabel, stationSessionRequest, validTCIConfiguration, type RadioID, type RadioProfile, type TCIConfiguration, type FlexConfiguration, type HamlibConfiguration, type StationReceipt, type StationSession } from "./stationSession";
+import { RadioConnectionForm, type RadioSetupAction } from "./RadioConnectionForm";
 import type { StationProvider } from "../worker";
 import { SharedHamlibModelBrowser } from "./HamlibModelPicker";
 import type { MonitorContext } from "./monitorContext";
@@ -19,22 +20,25 @@ const notice = (receipt: StationReceipt) => receipt.request.action === "select"
   : "Connection outcome is unknown. Check observed station state before issuing another connection request.";
 
 /** Desk and child share one native radio setup, lifecycle and receipt owner. */
-export function AgentConnectionSetup({ radioId, connections = false, legacyEndpoint = "", providers = false, onlySelection = false, selectionTarget, activeProvider, hamlib: hamlibSetup = false, flex: flexSetup = false, followSelection = false, compact = false, receiveContext, onSession }: {
-  radioId: RadioID; connections?: boolean; legacyEndpoint?: string; providers?: boolean; onlySelection?: boolean; selectionTarget?: StationProvider; activeProvider?: StationProvider; hamlib?: boolean; flex?: boolean; followSelection?: boolean; compact?: boolean; receiveContext?: MonitorContext | null; onSession?: (value: StationSession) => void;
+export function AgentConnectionSetup({ radioId, connections = false, legacyEndpoint = "", providers = false, onlySelection = false, selectionTarget, activeProvider, hamlib: hamlibSetup = false, flex: flexSetup = false, followSelection = false, compact = false, radioForm = false, receiveContext, onSession, onDraftState }: {
+  radioId: RadioID; connections?: boolean; legacyEndpoint?: string; providers?: boolean; onlySelection?: boolean; selectionTarget?: StationProvider; activeProvider?: StationProvider; hamlib?: boolean; flex?: boolean; followSelection?: boolean; compact?: boolean; radioForm?: boolean; receiveContext?: MonitorContext | null; onSession?: (value: StationSession) => void; onDraftState?: (blocked: boolean) => void;
 }) {
   const journalKey = `xlog.station-session.${radioId}.pending`;
   const reviewedKey = `xlog.station-session.${radioId}.reviewed`;
   const [state, setState] = useState<StationSession | null>(null), [url, setURL] = useState("");
-  const hamlib = hamlibSetup || followSelection && state?.selection.provider === "hamlib";
-  const flex = flexSetup || followSelection && state?.selection.provider === "direct_flex_lan";
-  const tci = followSelection && state?.selection.provider === "direct_tci";
-  const [config, setConfig] = useState<HamlibConfiguration>({ mode: "managed", model: undefined, path: "", baud: 9600 });
+  const [profile, setProfile] = useState<RadioProfile>({ manufacturer: "", model: "", nickname: "", provider: "direct_agent", enabled: true });
+  const hamlib = radioForm ? profile.provider === "hamlib" : hamlibSetup || followSelection && state?.selection.provider === "hamlib";
+  const flex = radioForm ? profile.provider === "direct_flex_lan" : flexSetup || followSelection && state?.selection.provider === "direct_flex_lan";
+  const tci = radioForm ? profile.provider === "direct_tci" : followSelection && state?.selection.provider === "direct_tci";
+  const [config, setConfig] = useState<HamlibConfiguration>({ mode: "managed", model: undefined, path: "", baud: radioForm ? undefined : 9600 });
   const [flexConfig, setFlexConfig] = useState<FlexConfiguration>({ host: "", port: 4992, station_name: "OM0RX-xLog" });
   const [tciConfig, setTCIConfig] = useState<TCIConfiguration>({ endpoint: "", trx: 0, channel: 0 });
-  const [token, setToken] = useState(""), [transmit, setTransmit] = useState(true);
+  const [token, setToken] = useState(""), [transmit, setTransmit] = useState(!radioForm);
   const [agentTransmit, setAgentTransmit] = useState(true);
   const [receiveMHz, setReceiveMHz] = useState(""), [receiveMode, setReceiveMode] = useState("USB"), [consumedObservation, setConsumedObservation] = useState("");
   const [busy, setBusy] = useState(false), [message, setMessage] = useState(""), [error, setError] = useState("");
+  const [sequenceBusy, setSequenceBusy] = useState(false);
+  const coordinating = useRef(false);
   const saveToast = useSettingsSaveToast();
   const [pending, setPending] = useState(() => sessionStorage.getItem(journalKey));
   const [conflict, setConflict] = useState(false);
@@ -48,28 +52,34 @@ export function AgentConnectionSetup({ radioId, connections = false, legacyEndpo
       const next = await loadStationSession(radioId);
       if (!active.current || sequence !== readSequence.current) return;
       if (next.generation !== current.current?.generation || next.revision !== current.current?.revision
-        || next.selection.selection_id !== current.current?.selection.selection_id) setTransmit(true);
+        || next.selection.selection_id !== current.current?.selection.selection_id) { if (!radioForm) setTransmit(true); }
       onSession?.(next);
       if (adopt || !dirty.current) {
         const hint = !adopt && !current.current && !next.base_url && next.revision === 0 && !next.last_receipt ? legacyEndpoint : "";
         current.current = next; setState(next); setURL(hint || next.base_url); dirty.current = !!hint; setConflict(false);
-        setConfig(next.hamlib ?? { mode: "managed", path: "", baud: 9600 });
+        setConfig(next.hamlib ?? { mode: "managed", path: "", baud: radioForm ? undefined : 9600 });
         setFlexConfig(next.flex ?? { host: "", port: 4992, station_name: "OM0RX-xLog" });
         setTCIConfig(next.tci ?? { endpoint: "", trx: 0, channel: 0 });
+        if (radioForm) {
+          const provider = next.profile?.provider ?? next.selection.provider as StationProvider | null ?? "direct_agent";
+          setProfile(next.profile ?? { manufacturer: provider === "direct_flex_lan" ? "FlexRadio" : provider === "direct_tci" ? "Expert Electronics" : "", model: "", nickname: "", provider, enabled: true });
+        }
         setLegacyHint(!!hint);
       } else if (next.generation !== current.current?.generation || next.revision !== current.current?.revision) {
         setConflict(true);
       } else { current.current = next; setState(next); }
-      if (next.last_receipt && ["pending", "unknown"].includes(next.last_receipt.status)
-        && sessionStorage.getItem(reviewedKey) !== next.last_receipt.operation_id) {
-        sessionStorage.setItem(journalKey, next.last_receipt.operation_id); setPending(next.last_receipt.operation_id);
-        setMessage(notice(next.last_receipt));
+      const unresolved = radioForm ? next.pending_setup_receipt ?? next.last_receipt : next.last_receipt;
+      if (unresolved && ["pending", "unknown"].includes(unresolved.status)
+        && sessionStorage.getItem(reviewedKey) !== unresolved.operation_id) {
+        sessionStorage.setItem(journalKey, unresolved.operation_id); setPending(unresolved.operation_id);
+        setMessage(radioForm ? "The last operation outcome is uncertain. Check it before trying again." : notice(unresolved));
       }
       if (next.last_receipt && ["saved", "acknowledged"].includes(next.last_receipt.status)
         && sessionStorage.getItem(journalKey) === next.last_receipt.operation_id) {
-        sessionStorage.removeItem(journalKey); setPending(null); setMessage(notice(next.last_receipt));
+        sessionStorage.removeItem(journalKey); setPending(null); setMessage(radioForm ? next.last_receipt.status === "saved" ? "Radio setup saved." : "Connection request completed. Check current radio status." : notice(next.last_receipt));
       }
       setError("");
+      return next;
     } catch { if (active.current && sequence === readSequence.current) setError("Shared station setup is unavailable. Refresh before making changes."); }
   };
   useEffect(() => {
@@ -84,7 +94,9 @@ export function AgentConnectionSetup({ radioId, connections = false, legacyEndpo
     });
     return () => { active.current = false; readSequence.current++; stops.forEach(stop => stop()); window.removeEventListener("focus", focused); };
   }, []);
-  const target = selectionTarget ?? providerTarget ?? (state?.selection.provider as StationProvider | null) ?? "direct_agent";
+  useEffect(() => { onDraftState?.(dirty.current || busy || sequenceBusy || !!pending); });
+  useEffect(() => () => onDraftState?.(false), []);
+  const target = radioForm ? profile.provider : selectionTarget ?? providerTarget ?? (state?.selection.provider as StationProvider | null) ?? "direct_agent";
   const observation = receiveContext ? `${receiveContext.selection?.selection_id}:${receiveContext.selection?.control_revision}:${receiveContext.radio.received_at_ms}` : "";
   const receiveHz = receiveMHz.trim() && Number.isFinite(Number(receiveMHz)) ? Math.round(Number(receiveMHz) * 1e6) : 0;
   const receiveReady = (control: "frequency" | "mode") => observation !== consumedObservation && stationReceiveAvailable(receiveContext ?? null, control)
@@ -93,6 +105,11 @@ export function AgentConnectionSetup({ radioId, connections = false, legacyEndpo
   const execute = async (action: "save" | "connect" | "reconnect" | "disconnect" | "forget" | "select" | "receive_frequency" | "receive_mode") => {
     const base = current.current;
     if (!base || inFlight.current || pending) return;
+    // Disconnect always addresses the live route, even while another setup is drafted.
+    const route = radioForm ? action === "disconnect" ? base.selection.provider : profile.provider : null;
+    const tci = radioForm ? route === "direct_tci" : followSelection && base.selection.provider === "direct_tci";
+    const flex = radioForm ? route === "direct_flex_lan" : flexSetup || followSelection && base.selection.provider === "direct_flex_lan";
+    const hamlib = radioForm ? route === "hamlib" : hamlibSetup || followSelection && base.selection.provider === "hamlib";
     if (tci && (action === "save" && !validTCIConfiguration(tciConfig) || !["save", "select", "connect", "disconnect"].includes(action))) return;
     const receive = action.startsWith("receive_");
     const receiveControl = action === "receive_mode" ? "mode" : "frequency";
@@ -108,16 +125,18 @@ export function AgentConnectionSetup({ radioId, connections = false, legacyEndpo
         control_revision: receiveContext!.selection!.control_revision, connection_generation: receiveContext!.radio.snapshot.generation,
         ...(action === "receive_frequency" ? { frequency_hz: receiveHz } : { mode: receiveMode }) }
         : { action: action !== "select" && (tci || hamlib || flex) ? `${action}_${tci ? "tci" : flex ? "flex" : "hamlib"}` : action, operation_id: id, generation: base.generation, revision: base.revision,
-        ...(action === "save" ? tci ? { configuration: { ...tciConfig, endpoint: tciConfig.endpoint.trim() } } : flex ? { configuration: { ...flexConfig, host: flexConfig.host.trim(), station_name: flexConfig.station_name.trim() } } : hamlib ? { configuration: config } : { base_url: url.trim() } : { selection_generation: base.selection.generation, selection_id: base.selection.selection_id,
-          ...(action === "select" ? { provider: target } : tci ? {} : { allow_transmit: ["connect", "reconnect"].includes(action) && (hamlib || flex ? transmit : agentTransmit) }), ...(!tci && !hamlib && !flex && action === "connect" && token ? { token } : {}) }) });
+        ...(action === "save" ? { ...(tci ? { configuration: { ...tciConfig, endpoint: tciConfig.endpoint.trim() } } : flex ? { configuration: { ...flexConfig, host: flexConfig.host.trim(), station_name: flexConfig.station_name.trim() } } : hamlib ? { configuration: config } : { base_url: url.trim() }), ...(radioForm ? { profile } : {}) } : { selection_generation: base.selection.generation, selection_id: base.selection.selection_id,
+          ...(action === "select" ? { provider: target } : tci ? {} : { allow_transmit: ["connect", "reconnect"].includes(action) && (radioForm || hamlib || flex ? transmit : agentTransmit) }), ...(!tci && !hamlib && !flex && action === "connect" && token ? { token } : {}) }) });
       if (!active.current) return;
-      setToken("");
-      if (receipt.status === "saved") saveToast.show(notice(receipt));
-      else setMessage(notice(receipt));
+      if (action === "connect") setToken("");
+      if (!radioForm && receipt.status === "saved") saveToast.show(notice(receipt));
+      else setMessage(radioForm ? receipt.status === "saved" ? "Radio setup saved." : receipt.status === "acknowledged" ? "Connection request completed. Waiting for current radio status." : "The operation outcome is uncertain. Check it before trying again." : notice(receipt));
       if (receipt.status === "saved" || receipt.status === "acknowledged") {
-        sessionStorage.removeItem(journalKey); setPending(null); await refresh(action === "save");
+        sessionStorage.removeItem(journalKey); setPending(null);
+        const next = await refresh(action === "save");
+        return !!next && !(radioForm && next.pending_setup_receipt && ["pending", "unknown"].includes(next.pending_setup_receipt.status));
       }
-    } catch { if (active.current) setError("No outcome was confirmed. Check this operation's receipt before trying another request."); }
+    } catch (cause) { if (active.current) setError(radioForm ? `${typeof cause === "string" ? cause : cause instanceof Error ? cause.message : "No outcome was confirmed."} Check the operation before trying again.` : "No outcome was confirmed. Check this operation's receipt before trying another request."); }
     finally { inFlight.current = false; if (active.current) setBusy(false); }
   };
   const check = async () => {
@@ -139,6 +158,55 @@ export function AgentConnectionSetup({ radioId, connections = false, legacyEndpo
   const selected = state?.selection.provider === (tci ? "direct_tci" : flex ? "direct_flex_lan" : hamlib ? "hamlib" : "direct_agent") && !!state.selection.selection_id;
   const displayedProvider = activeProvider ?? state?.selection.provider as StationProvider | null | undefined;
   const updateConfig = (next: HamlibConfiguration) => { dirty.current = true; setConfig(next); };
+  const review = async () => {
+    if (!pending || inFlight.current) return;
+    inFlight.current = true; setBusy(true);
+    try {
+      const receipt = await stationSessionRequest<StationReceipt | null>(radioId, { action: "receipt", operation_id: pending });
+      if (!receipt || receipt.status !== "unknown") throw new Error("Check the operation first. Only an uncertain outcome can be marked reviewed.");
+      const reviewed = await stationSessionRequest<StationReceipt>(radioId, { action: "review", operation_id: pending, reviewed_action: receipt.request.action });
+      if (reviewed.status !== "reviewed") throw new Error("The review was not saved. Check the operation again.");
+      sessionStorage.removeItem(journalKey); setPending(null);
+      await refresh(); setMessage("Outcome marked reviewed; this does not confirm a connection or transmission. A new action requires your explicit request.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "The review could not be saved. Check the operation again."); }
+    finally { inFlight.current = false; if (active.current) setBusy(false); }
+  };
+  const setupAction = async (action: RadioSetupAction) => {
+    if (coordinating.current || inFlight.current || pending || conflict || !current.current) return;
+    const base = current.current;
+    const replace = action !== "save" && (base.radio?.snapshot?.radio?.connected === true || base.tx_owner === radioId) && action !== "disconnect";
+    if ((replace || action === "save_disconnect") && !window.confirm(`${radioLabel(radioId)} will release its current controls and disconnect before applying this setup. Continue?`)) return;
+    coordinating.current = true; setSequenceBusy(true);
+    const matchesDraft = () => {
+      const next = current.current;
+      if (!next?.profile || !Object.entries(profile).every(([key, value]) => next.profile?.[key as keyof RadioProfile] === value)) return false;
+      if (profile.provider === "direct_flex_lan") return next.flex?.host === flexConfig.host.trim() && next.flex?.port === flexConfig.port && next.flex?.station_name === flexConfig.station_name.trim();
+      if (profile.provider === "direct_tci") return next.tci?.endpoint === new URL(tciConfig.endpoint.trim()).href && next.tci?.trx === tciConfig.trx && next.tci?.channel === tciConfig.channel;
+      if (profile.provider === "hamlib") return Object.entries(config).every(([key, value]) => key === "serial"
+        ? Object.entries(value ?? {}).every(([name, setting]) => next.hamlib?.serial?.[name] === setting) && Object.keys(next.hamlib?.serial ?? {}).length === Object.keys(value ?? {}).length
+        : next.hamlib?.[key as keyof HamlibConfiguration] === value);
+      return next.base_url.replace(/\/$/, "") === url.trim().replace(/\/$/, "");
+    };
+    try {
+      // One explicit gesture, existing scoped operations, fresh revision after every step.
+      if (["save", "save_connect", "save_disconnect"].includes(action) && !await execute("save")) return;
+      if (action === "save") return;
+      if (action === "disconnect" || action === "save_disconnect") { await execute("disconnect"); return; }
+      if (!matchesDraft()) { setError("The saved setup changed while connecting. Your connection was not started; review and try again explicitly."); return; }
+      if (replace && !await execute("disconnect")) return;
+      if (current.current?.selection.provider !== profile.provider && !await execute("select")) return;
+      if (!matchesDraft()) { setError("The saved setup changed during handover. Review it before connecting."); return; }
+      if (current.current?.selection.provider !== profile.provider) { setError("The requested radio route was not confirmed. Refresh before connecting."); return; }
+      await execute("connect");
+    } finally { coordinating.current = false; if (active.current) setSequenceBusy(false); }
+  };
+  if (radioForm) return <RadioConnectionForm radioId={radioId} state={state} profile={profile}
+    setProfile={(value, edited = true) => { if (edited) dirty.current = true; setProfile(value); }}
+    config={config} setConfig={updateConfig} flex={flexConfig} setFlex={value => { dirty.current = true; setFlexConfig(value); }}
+    tci={tciConfig} setTCI={value => { dirty.current = true; setTCIConfig(value); }}
+    url={url} setURL={value => { dirty.current = true; setURL(value); }} token={token} setToken={setToken}
+    transmit={transmit} setTransmit={setTransmit} dirty={dirty.current} busy={busy || sequenceBusy} pending={pending} conflict={conflict} message={message} error={error}
+    onAction={action => void setupAction(action)} onRevert={() => void refresh(true)} onCheck={() => void (pending ? check() : refresh())} onReview={() => void review()} />;
   return <div className={`live-station-connect${onlySelection ? " is-selection-only" : ""}`} aria-label={onlySelection ? "Shared radio selection" : tci ? "Shared TCI connection setup" : flex ? "Shared FLEX connection setup" : hamlib ? "Shared Hamlib connection setup" : "Shared Agent connection setup"}>
     {tci && !onlySelection && <><h3>Direct TCI connection · read only</h3>
       <p>Save a credential-free ws/wss endpoint and receiver selection, then connect explicitly. TCI permits explicit receive-frequency and mode tuning only. Saving does not connect; interrupted connections require an explicit new connection.</p>

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { connectMonitorContext, monitorRadioFresh, monitorStation, type MonitorContext } from "./monitorContext";
-import { AgentConnectionSetup } from "./AgentConnectionSetup";
+import { RadioOperatingSelector } from "./RadioOperatingSelector";
 import { ManualSimplexTune } from "./ManualSimplexTune";
 import { TCISplitObservation } from "./TCISplitObservation";
 import { ManualRotorControl, ManualRotorStatus } from "./ManualRotorControl";
@@ -11,14 +11,14 @@ import "./StationPanel.css";
 import "./DetachedStationControlSurface.css";
 
 type Connection = { refresh: () => void; dispose: () => void };
-type Props = { connect?: (changed: (value: MonitorContext) => void, failed: (message: string) => void) => Connection; configuration?: ReactNode | ((context: MonitorContext | null) => ReactNode); configurationLabel?: string; rotorControls?: boolean; rotorSession?: ManualRotorGotoSession; contestRemoteVfo?: boolean };
+type Props = { connect?: (changed: (value: MonitorContext) => void, failed: (message: string) => void) => Connection; configuration?: ReactNode | ((context: MonitorContext | null) => ReactNode); configurationLabel?: string; rotorControls?: boolean; rotorSession?: ManualRotorGotoSession; contestRemoteVfo?: boolean; operatingSelector?: ReactNode };
 const frequency = (hz: unknown) => typeof hz === "number" && Number.isFinite(hz) ? `${(hz / 1e6).toFixed(6)} MHz` : "Unavailable";
 const value = (input: unknown) => input == null || input === "" ? "Unavailable" : String(input);
 const providers = { direct_agent: "Remote Station Agent", direct_flex_lan: "Direct FLEX LAN", direct_tci: "Direct TCI · receive control", hamlib: "Local Hamlib" };
 
 /** Retained observations and optional shared radio connection controls. Mounting never
  * reads credentials, selects a provider, connects a device or sends an action. */
-export function StationControlSurface({ connect = connectMonitorContext, configuration, configurationLabel = "Radio connections", rotorControls = false, rotorSession = manualRotorGotoSession(), contestRemoteVfo = false }: Props) {
+export function StationControlSurface({ connect = connectMonitorContext, configuration, configurationLabel = "Radio connections", rotorControls = false, rotorSession = manualRotorGotoSession(), contestRemoteVfo = false, operatingSelector }: Props) {
   const [context, setContext] = useState<MonitorContext | null>(null);
   const [error, setError] = useState(""), [clock, setClock] = useState(Date.now());
   useEffect(() => {
@@ -35,6 +35,7 @@ export function StationControlSurface({ connect = connectMonitorContext, configu
   if (contestRemoteVfo) return <div className="app live detached-station-control-app contest-remote-vfo-app"><main aria-label="Remote VFO">
     <section className="contest-remote-vfo" aria-label="Remote VFO observations">
       <header><h2>Remote VFO</h2><span className={`contest-remote-vfo-status ${fresh ? "is-live" : ""}`}>{fresh ? "Observed live" : "Retained / unavailable"}</span></header>
+      {operatingSelector}
       {error && <p className="live-station-error" role="alert">{error}</p>}
       {!context && <p role="status">Loading retained native station observations…</p>}
       {context?.acceptance && <p role="status">Synthetic isolated observation · read only</p>}
@@ -89,6 +90,6 @@ export function DetachedStationControlSurface() {
     void listen("xlog:station-session", refresh).then(dispose => { if (active) { stop = dispose; refresh(); } else dispose(); }).catch(() => {});
     return () => { active = false; stop?.(); };
   }, [localAcceptance]);
-  return <StationControlSurface contestRemoteVfo={contestRemoteVFO} rotorControls={!contestRemoteVFO} configurationLabel={contestRemoteVFO ? "Remote VFO controls" : undefined} configuration={localAcceptance ? undefined : context => radioId ? <>{!contestRemoteVFO && <AgentConnectionSetup key={`${radioId}-setup`} radioId={radioId} connections providers followSelection compact receiveContext={context} />}
+  return <StationControlSurface contestRemoteVfo={contestRemoteVFO} operatingSelector={contestRemoteVFO && !localAcceptance ? <RadioOperatingSelector /> : undefined} rotorControls={!contestRemoteVFO} configurationLabel={contestRemoteVFO ? "Remote VFO controls" : undefined} configuration={localAcceptance ? undefined : context => radioId ? <>{!contestRemoteVFO && <><RadioOperatingSelector /><p>Configure both radios in Settings → Radios. This window controls the active radio.</p></>}
     {context?.selection?.provider && <ManualSimplexTune key={`${radioId}-tune`} radioId={radioId} provider={context.selection.provider} context={context} />}</> : <p role="status">Loading active radio routing…</p>} />;
 }

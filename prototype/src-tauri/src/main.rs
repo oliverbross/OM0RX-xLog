@@ -2064,7 +2064,7 @@ async fn station_selection_snapshot(window: tauri::WebviewWindow, app: tauri::Ap
 }
 
 fn station_session_changes_state(action: &str) -> bool {
-    !matches!(action, "snapshot" | "receipt" | "review" | "hamlib_catalogue")
+    !matches!(action, "snapshot" | "receipt" | "review" | "hamlib_catalogue" | "serial_ports")
 }
 
 fn contest_remote_vfo_url_context(label: &str, url: &tauri::Url) -> Result<Option<contest_window_context::ContestWindowContext>, String> {
@@ -2102,7 +2102,8 @@ fn validate_station_session_review_request(params: &serde_json::Value) -> Result
         value.len() == required.len() && required.iter().all(|key| value.contains_key(*key))
     }) && params["action"] == "review"
         && params["operation_id"].as_str().is_some_and(|value| uuid::Uuid::parse_str(value).is_ok())
-        && matches!(params["reviewed_action"].as_str(), Some("manual_tune" | "tci_receive_filter"));
+        && params["reviewed_action"] != "manual_rotor_goto"
+        && params["reviewed_action"].as_str().is_some_and(station_session::reviewable);
     if valid { Ok(()) } else { Err("Invalid exact manual operation review request.".into()) }
 }
 
@@ -2182,7 +2183,7 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
     let action = params["action"].as_str().unwrap_or("").to_owned();
     admit_contest_remote_vfo(&window)?;
     station_session::validate_live(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire), &action)?;
-    if action == "hamlib_catalogue" {
+    if matches!(action.as_str(), "hamlib_catalogue" | "serial_ports") {
         return tauri::async_runtime::spawn_blocking(move || station_session::hamlib_catalogue(&params, hamlib::request))
             .await.map_err(|_| "Radio model catalogue task failed.".to_string())?;
     }
@@ -2245,9 +2246,14 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
             return selection.receive_control(request, generation, identity, params["control_revision"].as_u64().ok_or("Missing radio control revision.")?,
                 || telemetry.receive_control(generation, identity, connection, &control));
         }
-        if let Some(owner) = cw_session_backend::existing() { owner.revoke()?; let _ = owner.stop(); }
-        auto_rotor::revoke();
-        let _auto_change = auto_rotor::canonical_will_change();
+        // A standby receiver's lifecycle cannot revoke the operating radio's
+        // CW/automatic-rotor context. Each selection/telemetry owner is scoped.
+        let affects_operating_radio = radio_slots::active(&app)? == routed_radio_id;
+        if affects_operating_radio {
+            if let Some(owner) = cw_session_backend::existing() { owner.revoke()?; let _ = owner.stop(); }
+            auto_rotor::revoke();
+        }
+        let _auto_change = affects_operating_radio.then(auto_rotor::canonical_will_change);
         if request["method"] == "station_selection_apply" {
             let _fence = telemetry.control()?;
             let result = selection.handover_checked(generation, identity, request["params"]["provider"].as_str().ok_or("Unknown radio provider.")?);

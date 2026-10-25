@@ -1,45 +1,40 @@
 .radio-settings { max-width: 980px; }
-.radio-settings > header { margin-bottom: 18px; }
+.radio-settings > header { margin-bottom: 14px; }
 .radio-settings > header h2 { margin: 0 0 5px; font-size: 18px; }
 .radio-settings > header p { margin: 0; }
-.radio-settings-tabs { display: inline-flex; gap: 3px; padding: 3px; margin-bottom: 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--canvas); }
-.radio-settings-tabs button { min-width: 112px; border-color: transparent; background: transparent; }
-.radio-settings-tabs button[aria-selected="true"] { color: var(--cyan); border-color: var(--border); background: #123247; }
-.radio-settings-tabs button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
-.radio-settings-summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 0 16px; border-bottom: 1px solid var(--border); }
-.radio-settings-summary > div { display: flex; align-items: center; gap: 10px; }
-.radio-settings-summary svg { color: var(--cyan); }
-.radio-settings-summary > div > span { display: flex; flex-direction: column; gap: 2px; }
-.radio-settings-summary small { color: var(--secondary); }
-.radio-settings-routing { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border); }
-.radio-settings-routing > div { display: flex; flex-direction: column; gap: 2px; }
-.radio-settings-routing span { color: var(--secondary); font-size: 12px; }
-.radio-settings-routing p { margin: 0; color: var(--secondary); }
-.radio-settings-section { padding-block: 20px; }
-.radio-settings-section-head h2 { margin: 0 0 5px; font-size: 14px; }
-.radio-settings-section-head p { margin: 0 0 16px; }
-.radio-settings-section .live-station-connect { max-width: 760px; }
-.radio-settings-disclosure { border-top: 1px solid var(--border); padding-block: 15px; }
+.radio-settings-tabs { display: flex; gap: 3px; padding: 3px; border: 1px solid var(--border); border-radius: 8px; background: var(--canvas); }
+.radio-settings-tabs button { flex: 1; min-width: 0; white-space: normal; border-color: transparent; background: transparent; }
+.radio-settings-tabs button[aria-selected="true"] { color: var(--cyan); border-color: var(--border); background: var(--panel); }
+.radio-settings button:focus-visible, .radio-settings input:focus-visible, .radio-settings select:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.radio-settings-summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 14px; }
+.radio-settings-summary > div { display: flex; flex-direction: column; gap: 2px; }
+.radio-settings-summary small, .radio-operating-state, .radio-form-grid p, .radio-settings-disclosure p { color: var(--secondary); }
+.radio-operating-state { margin: 8px 0 14px; }
+.radio-form-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 26px; padding: 0; margin: 0; border: 0; }
+.radio-form-grid section { min-width: 0; }
+.radio-form-grid h3 { margin: 0 0 12px; font-size: 14px; }
+.radio-form-grid label, .radio-settings-disclosure fieldset > label { display: grid; gap: 5px; margin-bottom: 10px; font-size: 13px; }
+.radio-form-grid input, .radio-form-grid select, .radio-settings-disclosure input, .radio-settings-disclosure select { min-width: 0; width: 100%; box-sizing: border-box; }
+.radio-form-grid p { margin: 8px 0; font-size: 12px; line-height: 1.5; }
+.radio-form-grid .live-station-helper { margin-top: -3px; }
+.radio-settings label.radio-inline-check { display: flex; align-items: center; gap: 8px; }
+.radio-inline-check input { width: auto; }
+.radio-action-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 12px 0 16px; }
+.radio-action-row .primary { background: var(--teal); color: var(--canvas); border-color: var(--teal); }
+.radio-settings button:disabled { opacity: .5; cursor: default; }
+.radio-settings-disclosure { border-top: 1px solid var(--border); padding: 12px 0; }
 .radio-settings-disclosure summary { cursor: pointer; color: var(--text); font-weight: 650; }
 .radio-settings-disclosure summary::marker { color: var(--cyan); }
-.radio-settings-readiness { padding-top: 15px; max-width: 760px; }
-.radio-settings-readiness > div { display: flex; align-items: flex-start; gap: 10px; }
-.radio-settings-readiness > div svg { color: var(--teal); flex: none; margin-top: 2px; }
-.radio-settings-readiness > div p { display: flex; flex-direction: column; margin: 0 0 14px; }
-.radio-settings-readiness > div span { color: var(--secondary); }
-.radio-settings-readiness dl { display: grid; grid-template-columns: minmax(130px, 180px) minmax(0, 1fr); gap: 8px 18px; margin: 0 0 14px; }
-.radio-settings-readiness dt { color: var(--secondary); }
-.radio-settings-readiness dd { margin: 0; overflow-wrap: anywhere; }
-.radio-settings-local-refresh { display: flex; align-items: center; justify-content: space-between; gap: 24px; border-top: 1px solid var(--border); padding-block: 18px; max-width: 760px; }
-.radio-settings-local-refresh h2 { margin: 0 0 5px; font-size: 14px; }
-.radio-settings-local-refresh p { margin: 0; color: var(--secondary); }
-.radio-settings-local-refresh button { flex: none; display: inline-flex; align-items: center; gap: 7px; }
+.radio-settings-disclosure fieldset { border: 0; padding: 14px 0 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+.radio-settings-disclosure fieldset p { grid-column: 1 / -1; }
+.radio-settings-disclosure dl { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 8px 18px; }
+.radio-settings-disclosure dt { color: var(--secondary); }
+.radio-settings-disclosure dd { margin: 0; overflow-wrap: anywhere; }
+.radio-operator-form > [role="alert"] { color: var(--coral, var(--text)); }
 @media (max-width: 680px) {
-  .radio-settings-tabs { display: flex; }
-  .radio-settings-tabs button { flex: 1; min-width: 0; }
-  .radio-settings-summary { align-items: flex-start; flex-direction: column; }
-  .radio-settings-routing { align-items: flex-start; flex-direction: column; }
-  .radio-settings-local-refresh { align-items: flex-start; flex-direction: column; gap: 12px; }
-  .radio-settings-readiness dl { grid-template-columns: 1fr; gap: 3px; }
-  .radio-settings-readiness dd { margin-bottom: 8px; }
+  .radio-form-grid { grid-template-columns: 1fr; gap: 18px; }
+  .radio-settings-summary { align-items: flex-start; }
+  .radio-settings-disclosure fieldset { grid-template-columns: 1fr; }
+  .radio-settings-disclosure dl { grid-template-columns: 1fr; gap: 3px; }
+  .radio-settings-disclosure dd { margin-bottom: 8px; }
 }

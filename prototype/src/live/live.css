@@ -5,6 +5,10 @@
 .main-station-rail .brand img { flex: none; }
 .main-station-rail .rail-frequency { font-size: 16px; font-weight: 750; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .main-station-rail .rail-cluster-count { font-size: 11px; }
+.radio-operating-selector { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.radio-operating-selector button[aria-pressed="true"] { color: var(--cyan); border-color: var(--cyan); }
+.sidebar .radio-operating-selector { padding: 8px 0; }
+.sidebar .radio-operating-selector button { width: 100%; text-align: left; overflow-wrap: anywhere; }
 .live .sidebar { min-width: 0; overflow: hidden; }
 .live .sidebar nav button { min-height: 31px; font-size: 13px; width: 100%; }
 .live .sidebar nav .nav-group { padding: 8px 6px 4px; text-transform: none; }

@@ -4,14 +4,14 @@ import XCTest
 @testable import XCatIntegrationCore
 @testable import XLogPrototypeSupport
 
-private final class FlexFixtureBox: @unchecked Sendable {
+final class FlexFixtureBox: @unchecked Sendable {
     private let lock = NSLock()
     private var stored: FakeFlexRadio?
     func store(_ value: FakeFlexRadio) { lock.withLock { stored = value } }
     func get() -> FakeFlexRadio? { lock.withLock { stored } }
 }
 
-private actor FakeFlexRadio: FlexSessionRadio {
+actor FakeFlexRadio: FlexSessionRadio {
     private var value: RadioSnapshot
     private let onSnapshot: FlexRadioClient.SnapshotHandler
     private let onState: FlexRadioClient.StateHandler

@@ -28,6 +28,8 @@ struct Saved {
     flex: Option<Value>,
     #[serde(default)]
     tci: Option<Value>,
+    #[serde(default)]
+    profile: Option<Value>,
     receipts: Vec<Receipt>,
 }
 pub struct Session {
@@ -42,12 +44,13 @@ pub struct Session {
 pub fn validate(label: &str, isolated: bool, action: &str) -> Result<(), String> {
     if isolated || !(matches!(label, "main" | "station-control")
         || matches!(label, "contest-setup" | "contest--station-control")
-            && matches!(action, "snapshot" | "receipt" | "manual_tune" | "review")) {
+            && matches!(action, "snapshot" | "receipt" | "manual_tune" | "review")
+        || label == "contest--station-control" && action == "set_active_radio") {
         return Err("This window cannot perform that Station Control operation.".into());
     }
     if !matches!(
         action,
-        "snapshot" | "receipt" | "hamlib_catalogue" | "set_active_radio" | "save" | "connect" | "disconnect" | "forget" | "select"
+        "snapshot" | "receipt" | "hamlib_catalogue" | "serial_ports" | "set_active_radio" | "save" | "connect" | "disconnect" | "forget" | "select"
             | "save_hamlib" | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib"
             | "save_flex" | "connect_flex" | "reconnect_flex" | "disconnect_flex"
             | "save_tci" | "connect_tci" | "disconnect_tci"
@@ -79,16 +82,52 @@ pub fn validate_live(label: &str, isolated: bool, exiting: bool, action: &str) -
 /// An explicit catalogue read has fixed radio-only arguments and cannot become
 /// a device scan, capability probe, lifecycle operation or arbitrary request.
 pub fn hamlib_catalogue(params: &Value, dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
-    if params.as_object().is_none_or(|object| object.len() != 1) || params["action"] != "hamlib_catalogue" {
+    let action = params["action"].as_str().unwrap_or("");
+    if params.as_object().is_none_or(|object| object.keys().any(|key| !matches!(key.as_str(), "action" | "radio_id")))
+        || !matches!(action, "hamlib_catalogue" | "serial_ports")
+        || params.get("radio_id").is_some_and(|id| id.as_str().is_none_or(|id| !crate::radio_slots::valid(id))) {
         return Err("Invalid radio model catalogue request.".into());
     }
     let id = uuid::Uuid::new_v4().to_string();
-    let response = dispatch(json!({"id":id,"method":"hamlib_models","params":{"device":"radio"}}))
+    let field = if action == "serial_ports" { "ports" } else { "models" };
+    let response = dispatch(json!({"id":id,"method":if action == "serial_ports" { "hamlib_serial_ports" } else { "hamlib_models" },"params":{"device":"radio"}}))
         .map_err(|_| "Bundled radio model catalogue is unavailable.")?;
-    if response["id"] != id || response["ok"] != true || !response["result"]["models"].is_array() {
+    if response["id"] != id || response["ok"] != true || !response["result"][field].is_array() {
         return Err("Bundled radio model catalogue is unavailable.".into());
     }
-    Ok(json!({"models":response["result"]["models"]}))
+    Ok(json!({field:response["result"][field]}))
+}
+
+// Passive labels and desired route; never used as a device identity or TX opt-in.
+fn radio_profile(value: &Value, action: &str) -> Result<Value, String> {
+    let object = value.as_object().ok_or("Invalid radio display settings.")?;
+    if object.len() != 5 || object.keys().any(|key| !matches!(key.as_str(), "manufacturer" | "model" | "nickname" | "provider" | "enabled"))
+        || !value["enabled"].is_boolean() {
+        return Err("Invalid radio display settings.".into());
+    }
+    for key in ["manufacturer", "model", "nickname"] {
+        if value[key].as_str().is_none_or(|text| text.len() > 128 || text.chars().any(char::is_control)) {
+            return Err("Radio labels must be at most 128 bytes and contain no control characters.".into());
+        }
+    }
+    let provider = match action { "save_flex" => "direct_flex_lan", "save_tci" => "direct_tci", "save_hamlib" => "hamlib", "save" => "direct_agent", _ => return Err("Invalid radio profile save.".into()) };
+    if value["provider"] != provider { return Err("Radio profile does not match its connection settings.".into()); }
+    Ok(value.clone())
+}
+
+fn reconnect_required(state: &Saved) -> bool {
+    let Some((index, connection)) = state.receipts.iter().enumerate().rev().find(|(_, receipt)| receipt.status == "acknowledged"
+        && matches!(receipt.request["action"].as_str(), Some("connect" | "connect_flex" | "reconnect_flex" | "connect_tci" | "connect_hamlib" | "reconnect_hamlib"))) else { return false; };
+    let (provider, save_action, configuration) = match connection.request["action"].as_str() {
+        Some("connect_flex" | "reconnect_flex") => ("direct_flex_lan", "save_flex", state.flex.clone().unwrap_or(Value::Null)),
+        Some("connect_tci") => ("direct_tci", "save_tci", state.tci.clone().unwrap_or(Value::Null)),
+        Some("connect_hamlib" | "reconnect_hamlib") => ("hamlib", "save_hamlib", state.hamlib.clone().unwrap_or(Value::Null)),
+        _ => ("direct_agent", "save", json!(state.base_url)),
+    };
+    if state.profile.as_ref().is_some_and(|profile| profile["provider"] != provider) { return true; }
+    let field = if save_action == "save" { "base_url" } else { "configuration" };
+    state.receipts[..index].iter().rev().find(|receipt| receipt.request["action"] == save_action)
+        .is_none_or(|saved| saved.request[field] != configuration)
 }
 fn endpoint(value: &str) -> Result<String, String> {
     if value.is_empty() {
@@ -110,6 +149,11 @@ fn endpoint(value: &str) -> Result<String, String> {
     Ok(url.to_string().trim_end_matches('/').into())
 }
 fn is_save(action: &str) -> bool { matches!(action, "save" | "save_hamlib" | "save_flex" | "save_tci") }
+pub fn reviewable(action: &str) -> bool {
+    matches!(action, "manual_tune" | "tci_receive_filter" | "manual_rotor_goto" | "connect" | "disconnect" | "forget" | "select"
+        | "connect_flex" | "reconnect_flex" | "disconnect_flex" | "connect_tci" | "disconnect_tci"
+        | "connect_hamlib" | "reconnect_hamlib" | "disconnect_hamlib")
+}
 fn is_receive(action: &str) -> bool { matches!(action, "receive_frequency" | "receive_mode") }
 fn is_credential_rejection(action: &str, id: &str, response: &Value) -> bool {
     action == "connect"
@@ -229,6 +273,7 @@ impl Session {
                 hamlib: None,
                 flex: None,
                 tci: None,
+                profile: None,
                 receipts: vec![],
             },
         };
@@ -266,6 +311,10 @@ impl Session {
             || saved.flex.as_ref().is_some_and(|value| flex_configuration(value).is_err())
             || saved.tci.as_ref().is_some_and(|value| {
                 !tci_configuration(value).is_ok_and(|canonical| canonical == *value)
+            })
+            || saved.profile.as_ref().is_some_and(|value| {
+                let action = match value["provider"].as_str() { Some("direct_flex_lan") => "save_flex", Some("direct_tci") => "save_tci", Some("hamlib") => "save_hamlib", _ => "save" };
+                radio_profile(value, action).is_err()
             })
         {
             return Err(
@@ -311,6 +360,10 @@ impl Session {
                 ]
             };
             if action != "manual_rotor_goto" && (strict_radio_id || receipt.request.get("radio_id").is_some()) { keys.push("radio_id"); }
+            if is_save(action) && receipt.request.get("profile").is_some() {
+                radio_profile(&receipt.request["profile"], action)?;
+                keys.push("profile");
+            }
             if uuid::Uuid::parse_str(&receipt.operation_id).is_err()
                 || !identities.insert(&receipt.operation_id)
                 || !matches!(
@@ -328,7 +381,7 @@ impl Session {
                 || is_save(action) != (receipt.status == "saved")
                 || receipt.status == "rejected" && action != "connect"
                 || receipt.status == "confirmed" && !matches!(action, "manual_tune" | "tci_receive_filter")
-                || receipt.status == "reviewed" && !matches!(action, "manual_tune" | "tci_receive_filter" | "manual_rotor_goto")
+                || receipt.status == "reviewed" && !reviewable(action)
                 || receipt.request["generation"] != saved.generation
                 || action != "manual_rotor_goto" && strict_radio_id && receipt.request["radio_id"] != radio_id
                 || receipt.request["revision"]
@@ -441,7 +494,9 @@ impl Session {
             .lock()
             .map_err(|_| "Station Control state is unavailable.")?;
         Ok(
-            json!({"radio_id":self.radio_id,"generation":state.generation,"revision":state.revision,"base_url":state.base_url,"hamlib":state.hamlib,"flex":state.flex,"tci":state.tci,
+            json!({"radio_id":self.radio_id,"generation":state.generation,"revision":state.revision,"base_url":state.base_url,"hamlib":state.hamlib,"flex":state.flex,"tci":state.tci,"profile":state.profile,
+            "reconnect_required":reconnect_required(&state),
+            "pending_setup_receipt":state.receipts.iter().rev().find(|r| matches!(r.status.as_str(), "pending" | "unknown") && reviewable(r.request["action"].as_str().unwrap_or("")) && !matches!(r.request["action"].as_str(), Some("manual_tune" | "tci_receive_filter" | "manual_rotor_goto"))),
             "last_receipt":state.receipts.last(),"remaining_operations":MAX_RECEIPTS-state.receipts.len()}),
         )
     }
@@ -470,7 +525,7 @@ impl Session {
     }
     pub fn review(&self, id: &str, action: &str) -> Result<Value, String> {
         let _operation = self.operation.try_lock().map_err(|_| "Another Station Control operation is in progress.")?;
-        if !matches!(action, "manual_tune" | "tci_receive_filter" | "manual_rotor_goto") || uuid::Uuid::parse_str(id).is_err() {
+        if !reviewable(action) || uuid::Uuid::parse_str(id).is_err() {
             return Err("Invalid exact manual operation review.".into());
         }
         let mut state = self.state.lock().map_err(|_| "Station Control state is unavailable.")?;
@@ -519,6 +574,7 @@ impl Session {
             Some("connect" | "disconnect" | "forget")
         ));
         if state.base_url.is_empty()
+            || state.profile.as_ref().is_some_and(|profile| profile["enabled"] == false)
             || last_lifecycle.is_some_and(|receipt| {
                 receipt.request["action"] != "connect" || receipt.status == "rejected"
             }) {
@@ -590,6 +646,7 @@ impl Session {
                 vec!["action", "operation_id", "generation", "revision", "selection_generation", "selection_id"]
             };
             if params.get("radio_id").is_some() { keys.push("radio_id"); }
+            if action == "save_tci" && params.get("profile").is_some() { keys.push("profile"); }
             if params.as_object().is_none_or(|object| {
                 object.len() != keys.len() || object.keys().any(|key| !keys.contains(&key.as_str()))
             }) {
@@ -615,6 +672,9 @@ impl Session {
             .filter(|value| *value <= MAX_REVISION)
             .ok_or("Invalid Station Control revision.")?;
         let mut descriptor = json!({"action":action,"generation":generation,"revision":revision});
+        if is_save(action) {
+            if let Some(profile) = params.get("profile") { descriptor["profile"] = radio_profile(profile, action)?; }
+        }
         if params.get("radio_id").is_some() { descriptor["radio_id"] = json!(self.radio_id); }
         if action == "save" {
             descriptor["base_url"] = json!(endpoint(
@@ -680,11 +740,19 @@ impl Session {
                     .into(),
             );
         }
+        if matches!(action, "connect" | "connect_flex" | "reconnect_flex" | "connect_tci" | "connect_hamlib" | "reconnect_hamlib")
+            && state.profile.as_ref().is_some_and(|profile| profile["enabled"] == false) {
+            return Err("This radio is disabled. Enable and save its setup before connecting.".into());
+        }
         if matches!(action, "manual_tune" | "tci_receive_filter" | "manual_rotor_goto") && state.receipts.iter().any(|receipt|
             receipt.request["action"] == action && matches!(receipt.status.as_str(), "pending" | "unknown")) {
             return Err("Review the unresolved manual operation before starting another one; no action was sent.".into());
         }
         let mut next = state.clone();
+        if is_save(action) && descriptor.get("profile").is_some() && state.profile.as_ref() != descriptor.get("profile") {
+            next.profile = Some(descriptor["profile"].clone());
+            next.revision = next.revision.checked_add(1).filter(|value| *value <= MAX_REVISION).ok_or("Station Control revision exhausted.")?;
+        }
         if next.receipts.len() == MAX_RECEIPTS {
             let lifecycle = next.receipts.iter().rposition(|receipt| matches!(receipt.request["action"].as_str(),
                 Some("connect" | "disconnect" | "forget" | "connect_tci" | "disconnect_tci")));
@@ -910,15 +978,130 @@ pub fn reject_duplicate_configuration(app: &tauri::AppHandle, radio_id: &str, pa
 mod tests {
     use super::*;
     #[test]
+    fn slot_labels_save_atomically_without_transport_and_preserve_legacy_configuration_and_receipts() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("radio2.json");
+        let generation = uuid::Uuid::new_v4().to_string();
+        let operation = uuid::Uuid::new_v4().to_string();
+        let selection = uuid::Uuid::new_v4().to_string();
+        let legacy = json!({"version":2,"generation":generation,"revision":1,"base_url":"https://station.example:8443",
+            "hamlib":{"mode":"managed","model":987654,"path":"/dev/cu.missing","baud":19200,"serial":{"stop_bits":2}},
+            "flex":{"host":"192.168.1.50","port":4992,"station_name":"Kept"},"tci":{"endpoint":"wss://example.test/tci/","trx":2,"channel":3},
+            "receipts":[{"operation_id":operation,"request":{"action":"connect_tci","generation":generation,"revision":0,
+                "selection_generation":1,"selection_id":selection,"radio_id":"radio2"},"status":"unknown"}]});
+        std::fs::write(&path, legacy.to_string()).unwrap();
+        let session = Session::new_for(path.clone(), "radio2", None).unwrap();
+        assert!(session.snapshot().unwrap()["profile"].is_null());
+        let profile = json!({"manufacturer":"Expert Electronics","model":"SunSDR2 DX","nickname":"Desk SDR","provider":"direct_tci","enabled":true});
+        let saved = session.apply(&json!({"action":"save_tci","radio_id":"radio2","operation_id":uuid::Uuid::new_v4().to_string(),
+            "generation":generation,"revision":1,"configuration":legacy["tci"],"profile":profile}), passive).unwrap();
+        assert_eq!(saved["status"], "saved");
+        let restored = Session::new_for(path, "radio2", None).unwrap();
+        let snapshot = restored.snapshot().unwrap();
+        assert_eq!(snapshot["profile"], profile);
+        for key in ["base_url", "hamlib", "flex", "tci"] { assert_eq!(snapshot[key], legacy[key]); }
+        assert_eq!(restored.receipt(&operation).unwrap()["status"], "unknown");
+        assert_eq!(restored.receipt(&operation).unwrap()["request"], legacy["receipts"][0]["request"]);
+        let mut invalid = profile; invalid["provider"] = json!("direct_flex_lan");
+        assert!(restored.apply(&json!({"action":"save_tci","radio_id":"radio2","operation_id":uuid::Uuid::new_v4().to_string(),
+            "generation":generation,"revision":snapshot["revision"],"configuration":legacy["tci"],"profile":invalid}), passive).is_err());
+    }
+
+    #[test]
+    fn disabled_profile_never_autoconnects_or_changes_transmit_intent() {
+        let (_directory, session, mut save) = setup();
+        save["profile"] = json!({"manufacturer":"Icom","model":"IC-7300","nickname":"Kept","provider":"direct_agent","enabled":false});
+        session.apply(&save, passive).unwrap();
+        assert!(session.resume_saved_agent(&startup_selection(), passive).unwrap().is_none());
+        let state = session.snapshot().unwrap();
+        assert!(session.apply(&json!({"action":"connect","operation_id":uuid::Uuid::new_v4().to_string(),"generation":state["generation"],
+            "revision":state["revision"],"selection_generation":0,"selection_id":uuid::Uuid::new_v4().to_string(),"allow_transmit":true}), passive).is_err());
+        assert!(session.snapshot().unwrap()["profile"]["enabled"] == false);
+    }
+
+    #[test]
+    fn setup_uncertainty_survives_later_saves_and_review_is_durable_without_confirming_or_replaying() {
+        let (directory, session, mut save) = setup();
+        let operation_id = uuid::Uuid::new_v4().to_string();
+        let selection = json!({"action":"select","operation_id":operation_id,"generation":save["generation"],"revision":0,
+            "selection_generation":0,"selection_id":uuid::Uuid::new_v4().to_string(),"provider":"direct_tci"});
+        assert_eq!(session.apply(&selection, |_,_,_| Err("lost".into())).unwrap()["status"], "unknown");
+        save["revision"] = json!(1); session.apply(&save, passive).unwrap();
+        assert_eq!(session.snapshot().unwrap()["pending_setup_receipt"]["operation_id"], operation_id);
+        assert!(session.review(&operation_id, "connect_tci").is_err());
+        assert_eq!(session.review(&operation_id, "select").unwrap()["status"], "reviewed");
+        let restored = Session::new(directory.path().join("session.json")).unwrap();
+        assert!(restored.snapshot().unwrap()["pending_setup_receipt"].is_null());
+        assert_eq!(restored.apply(&selection, passive).unwrap()["status"], "reviewed");
+    }
+
+    #[test]
+    fn exact_slot_passive_lists_cannot_turn_into_device_or_lifecycle_requests() {
+        for (action, method, field) in [("hamlib_catalogue", "hamlib_models", "models"), ("serial_ports", "hamlib_serial_ports", "ports")] {
+            let listed = hamlib_catalogue(&json!({"action":action,"radio_id":"radio2"}), |request| {
+                assert_eq!(request["method"], method); assert_eq!(request["params"], json!({"device":"radio"}));
+                Ok(json!({"id":request["id"],"ok":true,"result":{field:[]}}))
+            }).unwrap();
+            assert!(listed[field].is_array());
+            for extra in ["path", "provider", "allow_transmit", "host"] {
+                let mut request = json!({"action":action,"radio_id":"radio2"}); request[extra] = json!("injected");
+                assert!(hamlib_catalogue(&request, |_| panic!("not inventory")).is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn opt_in_two_slot_saved_profiles_connect_real_bundled_dummy_receivers_independently() {
+        if std::env::var("XLOG_TEST_RIGCTLD").is_err() { return; }
+        let directory = tempfile::tempdir().unwrap();
+        let mut sessions = Vec::new();
+        for radio in ["radio1", "radio2"] {
+            let session = Session::new_for(directory.path().join(format!("{radio}.json")), radio, None).unwrap();
+            let snapshot = session.snapshot().unwrap();
+            session.apply(&json!({"action":"save_hamlib","operation_id":uuid::Uuid::new_v4().to_string(),"radio_id":radio,
+                "generation":snapshot["generation"],"revision":0,"configuration":{"mode":"managed","model":1,"path":format!("/test-only/{radio}")},
+                "profile":{"manufacturer":"Hamlib","model":"Dummy","nickname":radio,"provider":"hamlib","enabled":true}}), passive).unwrap();
+            let snapshot = session.snapshot().unwrap();
+            let receipt = session.apply(&json!({"action":"connect_hamlib","operation_id":uuid::Uuid::new_v4().to_string(),"radio_id":radio,
+                "generation":snapshot["generation"],"revision":snapshot["revision"],"selection_generation":0,
+                "selection_id":uuid::Uuid::new_v4().to_string(),"allow_transmit":false}), |request,_,_| {
+                    assert_eq!(request["params"]["radio_id"], radio);
+                    let response = crate::hamlib::request(request)?;
+                    assert_eq!(response["ok"], true, "dummy {radio}: {response}"); Ok(response)
+                }).unwrap();
+            assert_eq!(receipt["status"], "acknowledged");
+            sessions.push(session);
+        }
+        let call = |radio: &str, method: &str, extra: Value| {
+            let mut params = extra; params["radio_id"] = json!(radio); params["device"] = json!("radio");
+            crate::hamlib::request(json!({"id":uuid::Uuid::new_v4().to_string(),"method":method,"params":params})).unwrap()
+        };
+        for radio in ["radio1", "radio2"] { assert_eq!(call(radio, "hamlib_status", json!({}))["result"]["connected"], true); }
+        let tuned = call("radio2", "hamlib_control", json!({"action":"frequency","hz":14074000}));
+        assert_eq!(tuned["ok"], true);
+        assert_eq!(call("radio1", "hamlib_snapshot", json!({}))["result"]["fields"]["frequency"]["Frequency"], "145000000");
+        assert_eq!(call("radio2", "hamlib_snapshot", json!({}))["result"]["fields"]["frequency"]["Frequency"], "14074000");
+        assert_eq!(call("radio2", "hamlib_control", json!({"action":"ptt","on":true}))["ok"], false);
+        assert_eq!(call("radio2", "hamlib_disconnect", json!({}))["ok"], true);
+        assert_eq!(call("radio1", "hamlib_status", json!({}))["result"]["connected"], true);
+        assert_eq!(call("radio1", "hamlib_disconnect", json!({}))["ok"], true);
+        for (index, radio) in ["radio1", "radio2"].iter().enumerate() {
+            let restored = Session::new_for(directory.path().join(format!("{radio}.json")), radio, None).unwrap();
+            assert_eq!(restored.snapshot().unwrap()["profile"], sessions[index].snapshot().unwrap()["profile"]);
+        }
+    }
+    #[test]
     fn contest_windows_admit_only_durable_manual_tune_operations() {
         for label in ["contest-setup", "contest--station-control"] {
             for action in ["snapshot", "receipt", "manual_tune", "review"] {
                 assert!(validate(label, false, action).is_ok(), "{label} {action}");
             }
-            for action in ["save", "connect", "disconnect", "select", "set_active_radio", "receive_frequency", "tci_receive_filter"] {
+            for action in ["save", "connect", "disconnect", "select", "receive_frequency", "tci_receive_filter"] {
                 assert!(validate(label, false, action).is_err(), "{label} {action}");
             }
             assert!(validate(label, true, "manual_tune").is_err());
+            assert_eq!(validate(label, false, "set_active_radio").is_ok(), label == "contest--station-control");
+            assert!(validate(label, true, "set_active_radio").is_err());
         }
         let tune = json!({"request":{"action":"manual_tune"}});
         let filter = json!({"request":{"action":"tci_receive_filter"}});

@@ -66,6 +66,7 @@ import SyncPanel from "./live/SyncPanel";
 import { watchSyncCompletion } from "./live/syncCompletion";
 import ServiceSettings from "./live/ServiceSettings";
 import RadioSettings from "./live/RadioSettings";
+import { RadioOperatingSelector } from "./live/RadioOperatingSelector";
 import { SettingsSession, readSettingsJournal, settingsDraftIsDirty } from "./live/settingsSession";
 import { connectSettingsChanges, requestSettings } from "./live/settingsTransport";
 import { clearLegacyRotorConfiguration, legacyRotorConfiguration, readRotorConfigurationJournal,
@@ -226,6 +227,7 @@ function MainLiveApp() {
   type MenuSettingsTab = "Station" | "Radio" | "Logbook" | "Wavelog" | "Sync" | "QRZ" | "Online logs" | "Reference data" | "CW" | "Cluster" | "Integrations";
   const [settingsTabRequest, setSettingsTabRequest] = useState<{ tab: MenuSettingsTab; revision: number }>({ tab: "Station", revision: 0 });
   const [radioSettingsRequest, setRadioSettingsRequest] = useState<{ radioId: RadioID; revision: number }>({ radioId: "radio1", revision: 0 });
+  const radioSettingsBlocked = useRef<Partial<Record<RadioID, boolean>>>({});
   const [workspace, setWorkspace] = useState<Data | null>(null);
   const workspaceRef = useRef(workspace); workspaceRef.current = workspace;
   const [workspacePending, setWorkspacePending] = useState(true);
@@ -335,6 +337,7 @@ function MainLiveApp() {
       }
       return true;
     }
+    if (Object.values(radioSettingsBlocked.current).some(Boolean)) { setError("Save or Revert the radio setup changes and check any pending connection operation before leaving Settings. Your edits are retained."); return false; }
     if (logbookWorkingRef.current) { setError("Wait for the logbook operation to finish before changing views."); return false; }
     // Shared sessions keep their safety fences across page changes. Navigation
     // only waits for local text or a presentation operation that would be interrupted.
@@ -448,7 +451,7 @@ function MainLiveApp() {
   const spotActivation = useSpotActivation();
   const canChangeMode = (ownTransition = false) => {
     const current = draftSession.getSnapshot(), contact = contactSession.getSnapshot(), mutation = logbookMutations.getSnapshot();
-    return !readingRadio.current && !readOperation.current && !busyRef.current && !logbookWorkingRef.current && !editorBufferPending.current && !mainClosing.current && (ownTransition || !layoutChanging.current) && !editorTransition.current &&
+    return !Object.values(radioSettingsBlocked.current).some(Boolean) && !readingRadio.current && !readOperation.current && !busyRef.current && !logbookWorkingRef.current && !editorBufferPending.current && !mainClosing.current && (ownTransition || !layoutChanging.current) && !editorTransition.current &&
       !workspaceModeEditorBusy() && !draftSession.dirty && !contact.draft && !mutation.pending && !mutation.busy &&
       draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput() && !current.pending && !contact.pending &&
       !current.conflict && !contact.conflict && !current.workspaceChanged && !contact.workspaceChanged &&
@@ -503,7 +506,7 @@ function MainLiveApp() {
   const acceptsInput = useCallback(() => !moduleTransitioning.current && !readingRadio.current && !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookWorkingRef.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput(), [draftSession, contactSession]);
   const normalTransitionBlocked = useCallback(() => {
     const current = draftSession.getSnapshot(), contact = contactSession.getSnapshot(), mutation = logbookMutations.getSnapshot();
-    return readingRadio.current || !!readOperation.current || busyRef.current || logbookWorkingRef.current || layoutChanging.current || editorBufferPending.current || draftSession.dirty || !!contact.draft || !!mutation.pending || mutation.busy ||
+    return Object.values(radioSettingsBlocked.current).some(Boolean) || readingRadio.current || !!readOperation.current || busyRef.current || logbookWorkingRef.current || layoutChanging.current || editorBufferPending.current || draftSession.dirty || !!contact.draft || !!mutation.pending || mutation.busy ||
       current.activationFrozen || contact.activationFrozen || current.locked || contact.locked || !!current.pending || !!contact.pending ||
       !!current.conflict || contact.conflict || current.workspaceChanged || contact.workspaceChanged;
   }, [draftSession, contactSession, logbookMutations]);
@@ -1328,12 +1331,14 @@ function MainLiveApp() {
   return <div className="app live">
     <header className="station-rail main-station-rail"><strong className="brand teal"><img src={appLogo} alt="" width={32} height={32} />OM0RX-xLog</strong><strong className="cyan rail-frequency">{frequency(station?.radio?.frequency_hz)} MHz · {station?.radio?.mode || "Radio offline"}</strong>
       <span className={station?.radio?.connected && station.radio.observed ? "teal" : "amber"}>{radioConnectionLabel}</span>
+      {displayedSeparateWindows && nativeStationSelection() && <RadioOperatingSelector onSettings={id => setView(id === "radio1" ? "Radio 1 Settings" : "Radio 2 Settings")} />}
       <span className="rail-cluster-count">{cluster?.snapshot?.connectedClusters || 0} clusters · {liveSpots.length} spots</span>
       <SpotActivationStatus inline status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} />
       {workspace?.workspace_exists && <SharedPropagationConditions compact includeWeather={false} />}
     </header>
     <aside className="sidebar" style={displayedSeparateWindows ? { display: "none" } : undefined}>
       <nav>{navigation.map(([name, Icon, group], i) => <div key={name}>{(i === 0 || navigation[i - 1][2] !== group) && <div className="nav-group">{group === "Logbook" ? "Station log" : group === "View" ? "Explore" : group === "Station" ? "Services" : "Application"}</div>}<button aria-current={view === name ? "page" : undefined} onClick={() => void setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
+      {nativeStationSelection() && <RadioOperatingSelector onSettings={id => setView(id === "radio1" ? "Radio 1 Settings" : "Radio 2 Settings")} />}
       <SidebarStation snapshot={stationWithRotor} provider={stationProvider} busy={busy} onAction={action => {
         if(nativeStationSelection())void amplifierTransitionSession().transition(action as "operate"|"standby").catch(cause => setError(String(cause)));
         else void run(async()=>{await request("station_action",{action});});
@@ -1382,7 +1387,7 @@ function MainLiveApp() {
         {view === "Settings" && <section className="service-settings" aria-label="Settings recovery">
           <h2>Settings</h2>
           <p>Radio connection setup is available below. Logbook settings will be available after your workspace reconnects.</p>
-          {activeRadio ? <AgentConnectionSetup key={activeRadio} radioId={activeRadio} providers connections followSelection /> : <p role="status">Loading active radio routing…</p>}
+          <RadioSettings onDraftState={(id, blocked) => { radioSettingsBlocked.current[id] = blocked; }} requestedRadioId={radioSettingsRequest.radioId} requestedRadioRevision={radioSettingsRequest.revision} />
         </section>}
         <WorkspaceGate workspace={workspace} pending={workspacePending} busy={busy}
           retry={() => void run(reload)} create={mode => void run(async () => { await request("workspace_create", { mode }); await reload(); })} />
@@ -1446,7 +1451,7 @@ function MainLiveApp() {
         onReconcile={async () => { try { await settingsSession.reconcile(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Settings receipt could not be checked."); } }}
         onRetry={async () => { try { await settingsSession.retry(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Settings save could not be retried."); } }}
         onUseSaved={() => { try { settingsSession.useSaved(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Saved Settings could not be restored."); } }}
-        requestedTab={settingsTabRequest.tab} requestedTabRevision={settingsTabRequest.revision} radioSettings={<RadioSettings requestedRadioId={radioSettingsRequest.radioId} requestedRadioRevision={radioSettingsRequest.revision} onRefreshLocalState={refreshLocalRadioState} />} syncSettings={settings.logbookMode === "local" ? <p>Integrated-only mode. Wavelog synchronization is disabled. Choose Integrated logbook + Wavelog synchronization in Settings → Logbook to enable it.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />} onExternalContact={() => setRefresh(n => n + 1)} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} configurationSession={rotorConfigurationSession} automaticRotorArmed={autoRotor} automaticRotorAvailable={!!nativeAutoRotor.state && !nativeAutoRotor.error && rotorProjection(rotorState).connected === true} automaticRotorError={nativeAutoRotor.error} onAutomaticRotorChange={setAutomaticRotor} />} clusterSettings={<ClusterPanel settingsOnly snapshot={null} onRequest={request} onSelect={() => {}} />} workspaceSettings={<WorkspaceSettings {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} requiredRotor={deskKind === "rotor" && !!rotorState?.owner} available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "chaser-dx", "spot-history", ...(deskKind === "none" ? [] : [deskKind] as ("rotor" | "antenna")[])]} />} dataRequest={dataManagementRequest} dataWorkspaceGeneration={settingsState.snapshot?.generation ?? settingsState.base?.generation} onDataChanged={() => { setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
+        requestedTab={settingsTabRequest.tab} requestedTabRevision={settingsTabRequest.revision} radioSettings={<RadioSettings onDraftState={(id, blocked) => { radioSettingsBlocked.current[id] = blocked; }} requestedRadioId={radioSettingsRequest.radioId} requestedRadioRevision={radioSettingsRequest.revision} onRefreshLocalState={refreshLocalRadioState} />} syncSettings={settings.logbookMode === "local" ? <p>Integrated-only mode. Wavelog synchronization is disabled. Choose Integrated logbook + Wavelog synchronization in Settings → Logbook to enable it.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />} onExternalContact={() => setRefresh(n => n + 1)} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} configurationSession={rotorConfigurationSession} automaticRotorArmed={autoRotor} automaticRotorAvailable={!!nativeAutoRotor.state && !nativeAutoRotor.error && rotorProjection(rotorState).connected === true} automaticRotorError={nativeAutoRotor.error} onAutomaticRotorChange={setAutomaticRotor} />} clusterSettings={<ClusterPanel settingsOnly snapshot={null} onRequest={request} onSelect={() => {}} />} workspaceSettings={<WorkspaceSettings {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} requiredRotor={deskKind === "rotor" && !!rotorState?.owner} available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "chaser-dx", "spot-history", ...(deskKind === "none" ? [] : [deskKind] as ("rotor" | "antenna")[])]} />} dataRequest={dataManagementRequest} dataWorkspaceGeneration={settingsState.snapshot?.generation ?? settingsState.base?.generation} onDataChanged={() => { setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
       </>}
       </>
       </WorkspaceModeSurface>
