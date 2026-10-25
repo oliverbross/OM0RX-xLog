@@ -112,6 +112,7 @@
     ]
   },
   "limitations": [
+    "Operator reports missing Flex/Maestro markers; inventory sample contains pre-process retained receipts and does not prove fresh delivery",
     "The exact live incident cause was not captured in an IPC trace",
     "Physical Flex/Maestro display not reconfirmed for 1.3.17; unchanged delivery code reuses 1.3.16 operator acceptance",
     "No production test QSO, radio tune, PTT, audio, CW or rotor action",

@@ -40,3 +40,16 @@ and `/Users/oliver/Documents/Backups/OM0RX-xLog-recorder-checkpoint-20261025`.
 No unfinished recorder code was included in this candidate.
 
 [Installed source evidence](evidence/cq-ww-ssb-1.3.17/release-verification.json).
+
+## Follow-up observations
+
+Installed Contest → Analytics… was present and opened successfully with the
+operator's 351-contact CQ WW SSB log and host score 52,002. No menu entry was
+removed by this release.
+
+The operator subsequently reported missing Flex/Maestro markers. The inventory
+sample above contains retained receipts: its newest acceptance predates the new
+worker process. It is not evidence of fresh delivery after installation. This
+candidate is not accepted for the required Flex forwarding workflow pending the
+separate cleanup/publication blocker investigation. The log and Checking recovery
+evidence remain valid; no new transmit or production-QSO test was performed.
