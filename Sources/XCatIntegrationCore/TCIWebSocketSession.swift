@@ -27,7 +27,7 @@ public final class NativeTCIWebSocketConnector: TCIWebSocketConnecting, @uncheck
     private let session: URLSession
     private let maximumMessageBytes: Int
 
-    public init(session: URLSession = .shared, maximumMessageBytes: Int = 65_536) {
+    public init(session: URLSession = .shared, maximumMessageBytes: Int = TCIIQFrame.maximumBytes) {
         self.session = session
         self.maximumMessageBytes = max(1, maximumMessageBytes)
     }
@@ -250,14 +250,33 @@ public actor TCIReadOnlyWebSocketSession {
     private var commandInFlight = false
     private var filterEvidenceSequence: UInt64 = 0
     private var continuations: [UUID: AsyncStream<TCIReadOnlySessionObservation>.Continuation] = [:]
+    private struct IQLease {
+        let id: UUID
+        let receiver: Int
+        let rate: Int
+        let continuation: AsyncThrowingStream<TCIIQBlock, Error>.Continuation
+        let startedNS: UInt64
+        var lastDataNS: UInt64?
+        var capture: TCIIQCapture?
+        var nextSequence: UInt64 = 0
+        var nextSample: UInt64 = 0
+        var readyAfterNS: UInt64 = 0
+    }
+    private var iqLeases: [Int: IQLease] = [:]
+    private var iqEpoch: UInt64 = 0
+    private var iqTimer: Task<Void, Never>?
+    private var iqMutationInFlight = false
+    private var iqCleanupInFlight = false
+    private let monotonicClock: @Sendable () -> UInt64
 
     public init(
         endpoint: URL,
         configuredAddress: TCIReceiverAddress,
         connector: any TCIWebSocketConnecting = NativeTCIWebSocketConnector(),
         limits: TCIProtocolLimits = .default,
-        maximumBinaryMessageBytes: Int = 65_536,
-        clock: @escaping @Sendable () -> Date = { Date() }
+        maximumBinaryMessageBytes: Int = TCIIQFrame.maximumBytes,
+        clock: @escaping @Sendable () -> Date = { Date() },
+        monotonicClock: @escaping @Sendable () -> UInt64 = { DispatchTime.now().uptimeNanoseconds }
     ) {
         self.endpoint = endpoint
         self.configuredAddress = configuredAddress
@@ -265,6 +284,7 @@ public actor TCIReadOnlyWebSocketSession {
         self.limits = limits
         self.maximumBinaryMessageBytes = max(1, maximumBinaryMessageBytes)
         self.clock = clock
+        self.monotonicClock = monotonicClock
         decoder = TCITextDecoder(limits: limits)
         reducer = TCIStateReducer(limits: limits)
         observationValue = TCIReadOnlySessionObservation(
@@ -278,6 +298,8 @@ public actor TCIReadOnlyWebSocketSession {
 
     deinit {
         receiveTask?.cancel()
+        iqTimer?.cancel()
+        for lease in iqLeases.values { lease.continuation.finish(throwing: TCIIQSubscriptionError.stopped) }
         for continuation in continuations.values { continuation.finish() }
         if let connection {
             Task.detached(priority: .utility) { await connection.close() }
@@ -698,6 +720,7 @@ public actor TCIReadOnlyWebSocketSession {
                     if command.name == "SPLIT_ENABLE" { splitEvidenceReceivedAt = receivedAt }
                 }
             }
+            refreshIQCaptures()
             if let snapshot = reducer.authoritativeSnapshot(for: configuredAddress) {
                 if hasConfiguredEvidence { evidenceReceivedAt = receivedAt }
                 publish(availability: .available, snapshot: snapshot, failure: nil)
@@ -708,9 +731,8 @@ public actor TCIReadOnlyWebSocketSession {
             return true
 
         case let .binary(value):
-            // ExpertSDR can send unsolicited line-output audio to every client.
-            // This read-only state session deliberately ignores bounded binary
-            // payloads; they do not enter the text decoder or publish state.
+            // Audio and TX_CHRONO never enter the IQ path and never generate a
+            // transmitter response. IQ faults retire only owned receive leases.
             guard value.count <= maximumBinaryMessageBytes else {
                 await fail(
                     .binaryMessageTooLarge,
@@ -721,6 +743,7 @@ public actor TCIReadOnlyWebSocketSession {
                 )
                 return false
             }
+            await processIQ(value)
             return true
         }
     }
@@ -748,6 +771,7 @@ public actor TCIReadOnlyWebSocketSession {
     }
 
     private func resetProtocolState() {
+        finishIQ(.connectionChanged)
         decoder = TCITextDecoder(limits: limits)
         reducer = TCIStateReducer(limits: limits)
         evidenceReceivedAt = nil
@@ -836,5 +860,172 @@ public actor TCIReadOnlyWebSocketSession {
              .invalidArguments, .outOfBounds, .unknownCommand:
             false
         }
+    }
+}
+
+extension TCIReadOnlyWebSocketSession {
+    /// The supervisor rechecks this token before publishing asynchronous model
+    /// output. TX, retune and Stop invalidate it before another IQ block arrives.
+    public func currentIQCapture(leaseID:UUID) -> TCIIQCapture? {
+        guard let lease=iqLeases.values.first(where:{$0.id == leaseID}), monotonicClock()>=lease.readyAfterNS else { return nil }
+        return lease.capture
+    }
+
+    /// Leases only IQ on the existing control connection. Does not enable RX2,
+    /// move DDS/VFO, select a radio or acquire transmit permissions.
+    public func startIQ(receiver: Int, sampleRate: Int, expectedGeneration: UInt64) async throws -> TCIIQSubscription {
+        guard !iqMutationInFlight, !iqCleanupInFlight, iqLeases[receiver] == nil else { throw TCIIQSubscriptionError.occupied }
+        guard [48_000,96_000,192_000,384_000].contains(sampleRate),
+              generation == expectedGeneration, observationValue.availability == .available,
+              let active = connection, let id = connectionID,
+              reducer.state.ready, let count = reducer.state.trxCount,
+              receiver >= 0, receiver < min(count,2), reducer.state.ddsFrequencies[receiver] != nil,
+              reducer.state.ifLimits != nil, reducer.state.transceivers[receiver]?.receiveEnabled == true,
+              reducer.state.serverRunning != false else { throw TCIIQSubscriptionError.unavailable }
+        guard let version = reducer.state.protocolAnnouncement.flatMap({ TCIVersion($0.version) }),
+              version >= TCIVersion("1.8")!, version <= TCIVersion("2.1")! else { throw TCIIQSubscriptionError.unsupportedVersion }
+        guard iqLeases.values.allSatisfy({$0.rate == sampleRate}) else { throw TCIIQSubscriptionError.rateConflict }
+        let pair = AsyncThrowingStream<TCIIQBlock, Error>.makeStream(bufferingPolicy: .bufferingOldest(2))
+        let leaseID = UUID()
+        pair.continuation.onTermination = { [weak self] _ in
+            Task { await self?.stopIQ(leaseID: leaseID) }
+        }
+        iqLeases[receiver] = IQLease(id:leaseID,receiver:receiver,rate:sampleRate,continuation:pair.continuation,
+                                     startedNS:monotonicClock())
+        iqMutationInFlight = true
+        defer { iqMutationInFlight = false }
+        do {
+            if iqLeases.count == 1 { try await active.send(text:"iq_samplerate:\(sampleRate);") }
+            guard connectionID == id, generation == expectedGeneration, iqLeases[receiver]?.id == leaseID else {
+                throw TCIIQSubscriptionError.connectionChanged
+            }
+            try await active.send(text:"iq_start:\(receiver);")
+            guard connectionID == id, generation == expectedGeneration, iqLeases[receiver]?.id == leaseID else {
+                throw TCIIQSubscriptionError.connectionChanged
+            }
+            refreshIQCaptures()
+            if iqTimer == nil {
+                iqTimer = Task { [weak self] in
+                    while !Task.isCancelled {
+                        try? await Task.sleep(nanoseconds:250_000_000)
+                        if Task.isCancelled { return }
+                        await self?.checkIQTimeouts()
+                    }
+                }
+            }
+            return TCIIQSubscription(leaseID:leaseID,receiver:receiver,blocks:pair.stream)
+        } catch {
+            if iqLeases[receiver]?.id == leaseID {
+                iqLeases.removeValue(forKey:receiver)?.continuation.finish(throwing:TCIIQSubscriptionError.connectionChanged)
+                if connectionID == id { try? await active.send(text:"iq_stop:\(receiver);") }
+            }
+            throw error
+        }
+    }
+
+    public func stopIQ(leaseID: UUID) async {
+        guard let receiver=iqLeases.first(where:{$0.value.id == leaseID})?.key else { return }
+        let lease=iqLeases.removeValue(forKey:receiver)
+        lease?.continuation.finish()
+        if iqLeases.isEmpty { iqTimer?.cancel(); iqTimer=nil }
+        // The transport belongs to CAT; Stop releases only this IQ receiver.
+        try? await connection?.send(text:"iq_stop:\(receiver);")
+    }
+
+    private func finishIQ(_ error: TCIIQSubscriptionError) {
+        iqTimer?.cancel(); iqTimer=nil
+        let old=iqLeases; iqLeases.removeAll()
+        for lease in old.values { lease.continuation.finish(throwing:error) }
+    }
+
+    private func refreshIQCaptures() {
+        let now=monotonicClock(), state=reducer.state
+        let rigRX: Bool = state.trxCount.map { count in
+            (0..<count).allSatisfy{state.transceivers[$0]?.transmitting == false && state.transceivers[$0]?.tuning == false}
+        } ?? false
+        for receiver in Array(iqLeases.keys) {
+            guard var lease=iqLeases[receiver] else { continue }
+            guard state.ready, rigRX, state.serverRunning != false,
+                  state.transceivers[receiver]?.receiveEnabled == true,
+                  let centre=state.ddsFrequencies[receiver], let limits=state.ifLimits,
+                  let device=state.device, let protocolVersion=state.protocolAnnouncement?.version else {
+                lease.capture=nil; lease.readyAfterNS=now+500_000_000; iqLeases[receiver]=lease; continue
+            }
+            let lower=max(limits.lower,-Double(lease.rate)/2), upper=min(limits.upper,Double(lease.rate)/2)
+            guard lower < upper else { lease.capture=nil; iqLeases[receiver]=lease; continue }
+            let old=lease.capture
+            if old?.centreHz != centre || old?.sampleRate != lease.rate || old?.lowerOffsetHz != lower || old?.upperOffsetHz != upper ||
+                old?.device != device || old?.protocolVersion != protocolVersion {
+                guard iqEpoch < UInt64.max else { finishIQ(.connectionChanged); return }
+                iqEpoch += 1
+                lease.capture=TCIIQCapture(streamToken:UUID(),epoch:iqEpoch,connectionGeneration:generation,
+                    receiver:receiver,device:device,protocolVersion:protocolVersion,centreHz:centre,sampleRate:lease.rate,
+                    lowerOffsetHz:lower,upperOffsetHz:upper)
+                lease.nextSample=0; lease.nextSequence=0; lease.readyAfterNS=now+500_000_000
+                iqLeases[receiver]=lease
+            }
+        }
+    }
+
+    private func processIQ(_ bytes: Data) async {
+        guard !iqLeases.isEmpty else { return }
+        let frame: TCIIQFrame
+        do {
+            guard let parsed=try TCIIQFrame.parse(bytes,protocolVersion:reducer.state.protocolAnnouncement.flatMap{TCIVersion($0.version)}) else { return }
+            frame=parsed
+        } catch {
+            // A malformed IQ frame has no trustworthy receiver identity. Retire
+            // the selected IQ leases without affecting the text/control owner.
+            await retireIQ(.invalidFrame); return
+        }
+        guard var lease=iqLeases[frame.receiver] else { return }
+        let now=monotonicClock()
+        lease.lastDataNS=now; iqLeases[frame.receiver]=lease
+        guard frame.sampleRate == lease.rate, frame.complexSampleCount <= lease.rate/8 else {
+            await retireIQ(.invalidFrame,receiver:frame.receiver); return
+        }
+        guard let capture=lease.capture, now>=lease.readyAfterNS else { return }
+        guard lease.nextSequence < UInt64.max, UInt64(frame.complexSampleCount) <= UInt64.max-lease.nextSample else {
+            await retireIQ(.invalidFrame,receiver:frame.receiver); return
+        }
+        let block=TCIIQBlock(capture:capture,sequence:lease.nextSequence,firstSample:lease.nextSample,
+                             receivedMonotonicNS:now,frame:frame)
+        lease.nextSequence += 1; lease.nextSample += UInt64(frame.complexSampleCount)
+        iqLeases[frame.receiver]=lease
+        switch lease.continuation.yield(block) {
+        case .dropped: await retireIQ(.overflow,receiver:frame.receiver)
+        case .terminated: await stopIQ(leaseID:lease.id)
+        case .enqueued: break
+        @unknown default: await retireIQ(.overflow,receiver:frame.receiver)
+        }
+    }
+
+    private func retireIQ(_ error:TCIIQSubscriptionError,receiver:Int? = nil) async {
+        let receivers=receiver.map{[$0]} ?? Array(iqLeases.keys), active=connection, id=connectionID
+        for receiver in receivers { iqLeases.removeValue(forKey:receiver)?.continuation.finish(throwing:error) }
+        if iqLeases.isEmpty { iqTimer?.cancel(); iqTimer=nil }
+        iqCleanupInFlight=true
+        defer { iqCleanupInFlight=false }
+        for receiver in receivers {
+            guard connectionID == id else { return }
+            try? await active?.send(text:"iq_stop:\(receiver);")
+        }
+    }
+
+    private func checkIQTimeouts() async {
+        let active=connection, id=connectionID
+        for receiver in Array(iqLeases.keys) {
+            guard connectionID == id else { return }
+            let now=monotonicClock()
+            guard let lease=iqLeases[receiver] else { continue }
+            let last=lease.lastDataNS ?? lease.startedNS
+            let budget:UInt64=lease.lastDataNS == nil ? 5_000_000_000 : 2_000_000_000
+            guard now<last || now-last>budget else { continue }
+            iqLeases.removeValue(forKey:receiver)?.continuation.finish(throwing:lease.lastDataNS == nil ?
+                TCIIQSubscriptionError.noData : TCIIQSubscriptionError.stalled)
+            guard connectionID == id else { return }
+            try? await active?.send(text:"iq_stop:\(receiver);")
+        }
+        if iqLeases.isEmpty { iqTimer?.cancel(); iqTimer=nil }
     }
 }

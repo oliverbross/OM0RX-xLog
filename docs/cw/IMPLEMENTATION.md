@@ -32,6 +32,10 @@ supervisor. Main and detached views will share that owner.
 | CW-006 native features | NumPy oracle, silence/random/edge impulse, tolerance 2e-6 | Broader gain/edge/rate corpus |
 | CW-007 native inference spike | Native arm64 CPU; silence empty, 20/30 WPM CQ OM0RX | Full logits parity, package and held-out quality |
 | CW-008 protocol spike | Finite binary framing, token/epoch/sample identity, fatal malformed input | Parent supervision, bounded nonblocking queue and restart |
+| CW-003/026/028/029 contracts/policy | Fixture-tested RF/epoch/sample fences, aligned transcript agreement, distinct self-ID occurrence counting, production quality gate | G4 whole-call calibration; live orchestration and destinations |
+| CW-012/017 IQ parsers | Fixture-tested strict VITA and TCI 1.8/2.0/2.1 float32 contracts | Captured production packets and real RF orientation |
+| CW-016/018 TCI receive leases | Existing owner, DDS/IF coverage, rig-wide TX, quarantine, startup/stall/overflow bounds, per-receiver stop | Worker-facing orchestration, sleep/wake/reconnect and real Sun acceptance |
+| CW-021/022 DSP primitives | Native signed carrier detection; independent Kaiser FIR/mixer and rational 3.2-kHz conversion; 24/48/96/192-kHz gain/delay and 30-dB stronger neighbour at 300 Hz checks | Temporal keyed-carrier/tracking, real corpus, full response/alias tests and measured capacity |
 
 This ledger distinguishes implementation from qualification. Automatic local
 spots must remain disabled until G4 quality and RF mapping are qualified. The
@@ -72,7 +76,7 @@ cmake -S native/cw-worker -B .build/cw-native \
   -DCMAKE_PREFIX_PATH=/opt/homebrew/opt/onnxruntime -DCMAKE_BUILD_TYPE=Release
 cmake --build .build/cw-native -j 4
 ctest --test-dir .build/cw-native --output-on-failure
-python3 tests/fixtures/cw/generate.py .build/cw-fixtures
+python3 Tests/fixtures/cw/generate.py .build/cw-fixtures
 python3 -m venv .build/cw-python
 .build/cw-python/bin/pip install numpy==2.0.2
 .build/cw-python/bin/python native/cw-worker/verify_features.py .build/cw-native/xlog-cw-worker
@@ -85,3 +89,36 @@ currently links Homebrew ORT 1.30.0; this is explicit **development** provenance
 not an accepted redistribution/runtime manifest. Package staging must copy and
 hash the exact runtime/notices, fix loader paths, sign nested code, verify offline
 loading and advance the app version through the coordinated packaging owner.
+
+## Current TCI ownership and qualification boundary
+
+The same `TCIReadOnlyWebSocketSession` owns CAT and IQ. Explicit `startIQ` requires
+READY, an advertised receiver, a known DDS centre, an enabled receiver, accepted
+protocol version and a common per-connection rate. It never enables RX2, changes
+VFO/DDS, sends TX audio or changes operating-radio selection. Receiving IQ does
+not manufacture a CAT readiness or TX permission receipt.
+
+Each capture has a fresh token and epoch on DDS/IF coverage/device/version
+changes or return from rig-wide TX/unknown state. VFO-only changes preserve the
+span centre. A 500-ms transition quarantine is an **unqualified engineering
+default**, not measured sample-boundary proof. Capture RF qualification remains
+false. The current IQ path intentionally stays unavailable if either announced
+receiver lacks explicit settled RX/tune-off evidence.
+
+At most two queued blocks, each at most 125 ms, bound pending IQ to 250 ms.
+Overflow retires that receiver's lease and sends its owned IQ_STOP; another
+receiver and CAT remain alive. Unattributable malformed IQ retires all selected
+IQ leases. Startup with no IQ fails after five seconds; an established input
+stalls after two seconds. Neither failure reconnects the shared socket or
+replays radio controls. Stop is idempotent and scoped to the lease UUID.
+
+The historical TCI close failure did not reproduce in the current regression
+suite, including dropping the last session reference during receive. No
+speculative close rewrite was made. Real Sun server close/sleep/wake evidence
+remains part of G2T.
+
+Focused source validation (26 October 2026): 8 parser, 95 TCI protocol, 58
+existing TCI session, 5 new IQ lease and 7 CW contract/policy tests passed: **173
+executed tests**, zero failures. Tests of other suites filtered to zero are not
+counted. Native CTest also passes its synthetic decode, carrier and filter
+checks. These counts establish source/fixture evidence only.

@@ -837,6 +837,9 @@ public struct TCIProtocolState: Equatable, Sendable {
     public internal(set) var serverRunning: Bool?
     public internal(set) var ready = false
     public internal(set) var frequencies: [TCIReceiverAddress: Int64] = [:]
+    /// Panorama centre, deliberately distinct from per-channel VFO frequency.
+    public internal(set) var ddsFrequencies: [Int: Int64] = [:]
+    public internal(set) var iqSampleRate: Int?
     public internal(set) var serverTransmitFrequency: TCIServerTransmitFrequencyObservation?
     public internal(set) var lastRXSpotClick: TCIRXSpotClickObservation?
     public internal(set) var lastLegacySpotClick: TCILegacySpotClickObservation?
@@ -902,6 +905,16 @@ public struct TCIStateReducer: Sendable {
         case "READY":
             if acceptsNoArguments(command) { state.ready = true }
         case "VFO": applyVFO(command)
+        case "DDS":
+            guard command.arguments.count == 2, let receiver = validTRX(command.arguments[0]),
+                  let frequency = TCIValueParser.integer64(command.arguments[1]), frequency >= 0,
+                  frequency <= limits.maximumFrequencyHz,
+                  state.vfoLimits?.contains(Double(frequency)) ?? true else { reject(command); break }
+            state.ddsFrequencies[receiver] = frequency
+        case "IQ_SAMPLERATE":
+            guard command.arguments.count == 1, let rate = TCIValueParser.integer(command.arguments[0]),
+                  [48_000,96_000,192_000,384_000].contains(rate) else { reject(command); break }
+            state.iqSampleRate = rate
         case "TX_FREQUENCY": applyTXFrequency(command, receivedAt: receivedAt)
         case "RX_CLICKED_ON_SPOT": applyRXSpotClick(command, receivedAt: receivedAt)
         case "CLICKED_ON_SPOT": applyLegacySpotClick(command, receivedAt: receivedAt)
