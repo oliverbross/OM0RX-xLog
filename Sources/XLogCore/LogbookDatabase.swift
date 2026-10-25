@@ -2374,8 +2374,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 ORDER BY qso_start DESC;
                 """) { statement in
                 bind(base, to: 1, in: statement); bind(prefix, to: 2, in: statement)
-                let matches: [QSO] = try decodeRows(statement).filter { NormalLogCallsignIdentity.matches($0.call, call) }
-                return Array(matches.prefix(max(0, limit)))
+                return try matchingCallRows(statement, call: call, limit: max(0, limit))
             }
         }
     }
@@ -2398,10 +2397,29 @@ public final class LogbookDatabase: @unchecked Sendable {
                 bind(base, to: 1, in: statement); bind(prefix, to: 2, in: statement)
                 bind(band, to: 3, in: statement); bind(mode, to: 4, in: statement)
                 bind(excludingID?.uuidString, to: 5, in: statement); bind(excludingID?.uuidString, to: 6, in: statement)
-                let candidates: [QSO] = try decodeRows(statement)
-                return candidates.first { NormalLogCallsignIdentity.matches($0.call, call) }
+                return try matchingCallRows(statement, call: call, limit: 1).first
             }
         }
+    }
+
+    /// The SQL prefix also admits location variants such as CALL/4. Stream until
+    /// enough true base-call matches are found; a SQL LIMIT before that check
+    /// would hide older portable contacts, while decoding all rows holds up Save.
+    private func matchingCallRows(_ statement: OpaquePointer?, call: String, limit: Int) throws -> [QSO] {
+        guard limit > 0 else { return [] }
+        var values: [QSO] = []
+        var step = sqlite3_step(statement)
+        while step == SQLITE_ROW {
+            guard let bytes = sqlite3_column_blob(statement, 0) else { throw LogbookDatabaseError.corruptRecord }
+            let value = try decoder.decode(QSO.self, from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+            if NormalLogCallsignIdentity.matches(value.call, call) {
+                values.append(value)
+                if values.count == limit { return values }
+            }
+            step = sqlite3_step(statement)
+        }
+        guard step == SQLITE_DONE else { throw error() }
+        return values
     }
 
     public func stats() throws -> LogbookStats {
