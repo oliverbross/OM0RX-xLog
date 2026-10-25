@@ -1,0 +1,146 @@
+{
+  "version": "1.3.18",
+  "status": "READY WITH LIMITATIONS",
+  "sourceCommit": "78a294206216e490699716f5088acd25707f5eed",
+  "packaged": {
+    "bundle": "/Applications/OM0RX-xLog.app",
+    "version": "1.3.18",
+    "sourceCommit": "78a294206216e490699716f5088acd25707f5eed",
+    "bundleIdentifier": "com.oliverbross.xlog.integration",
+    "sourceChanges": [],
+    "files": {
+      "executable": {
+        "path": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+        "sha256": "e1f1296ed65ec932ec728289c389dba9be9d7b8caaf1884713a5c378ea563360"
+      },
+      "worker": {
+        "path": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+        "sha256": "46fdfbd11676f5c5bf9ffdc5bbc7e1e819cc5dbec70165aacaccbc2b5e3b9afb"
+      },
+      "pythonReceipt": {
+        "path": "/Applications/OM0RX-xLog.app/Contents/Resources/Not1MM/python-runtime.json",
+        "sha256": "d4661e07d609fdb067ba7b9ed320f6649055fed097f4dc1108920ab7480a776f"
+      },
+      "distributionReceipt": {
+        "path": "/Applications/OM0RX-xLog.app/Contents/Resources/DistributionMetadata/components.json",
+        "sha256": "e947acbfeb3aea044ac4b670a27838b6bae1106389aac76c2a486ee905166370"
+      },
+      "pythonExecutable": {
+        "path": "/Applications/OM0RX-xLog.app/Contents/Frameworks/Python.framework/Versions/3.12/bin/python3.12",
+        "sha256": "f7fcc30bf4087ed5590bba774e15c89e0a2f67f496ae4b648ea75ada3be57609"
+      }
+    },
+    "verifiedPythonMachOCount": 92,
+    "caBundleSHA256": "9dae8d76e55cb08991f2b672d58999ea15560d910759c16b544f843bdffbb994",
+    "signatureVerification": "--prepared:/Applications/OM0RX-xLog.app/Contents/MacOS/rigctld\n--validated:/Applications/OM0RX-xLog.app/Contents/MacOS/rigctld\n--prepared:/Applications/OM0RX-xLog.app/Contents/MacOS/rotctld\n--validated:/Applications/OM0RX-xLog.app/Contents/MacOS/rotctld\n--prepared:/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker\n--validated:/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker\n--prepared:/Applications/OM0RX-xLog.app/Contents/Frameworks/Python.framework/Versions/Current/.\n--validated:/Applications/OM0RX-xLog.app/Contents/Frameworks/Python.framework/Versions/Current/.\n/Applications/OM0RX-xLog.app: valid on disk\n/Applications/OM0RX-xLog.app: satisfies its Designated Requirement",
+    "signatureIdentity": "Executable=/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype\nIdentifier=com.oliverbross.xlog.integration\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20500 size=52780 flags=0x10000(runtime) hashes=1642+3 location=embedded\nVersionPlatform=1\nVersionMin=917504\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=23c3378fabc469d97498026f9fc3cef812aaa964\nCandidateCDHashFull sha256=23c3378fabc469d97498026f9fc3cef812aaa96498288cb77c67bc824ada28da\nHash choices=sha256\nCMSDigest=23c3378fabc469d97498026f9fc3cef812aaa96498288cb77c67bc824ada28da\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=18464768\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=23c3378fabc469d97498026f9fc3cef812aaa964\nSignature size=8975\nAuthority=Developer ID Application: Oliver Bross (4WCMQ4U946)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=25 Oct 2026 at 13:41:14\nInfo.plist entries=16\nTeamIdentifier=4WCMQ4U946\nRuntime Version=27.0.0\nSealed Resources version=2 rules=13 files=769\nInternal requirements count=1 size=192\nTotal signatures=1\nChosen signature=1"
+  },
+  "installedMatchesCandidate": true,
+  "candidateTests": {
+    "tests": 35,
+    "failures": 0,
+    "errors": 0,
+    "successful": true,
+    "durationSeconds": 7.054
+  },
+  "installedTests": {
+    "tests": 35,
+    "failures": 0,
+    "errors": 0,
+    "successful": true,
+    "durationSeconds": 5.634
+  },
+  "focusedTests": {
+    "spotCleanupAndBroker": 50,
+    "independentReview": "clear after two race corrections"
+  },
+  "nativeAcceptance": {
+    "status": "passed",
+    "checks": {
+      "adif_transfer_roundtrip": true,
+      "awards_loaded": true,
+      "contact_delete_undo": true,
+      "contact_edit": true,
+      "desk_map_logbook": true,
+      "detached_awards": true,
+      "detached_awards_lifecycle": true,
+      "detached_logbook": true,
+      "detached_logbook_lifecycle": true,
+      "detached_projection": true,
+      "detached_spot_history": true,
+      "empty_workspace": true,
+      "final_desk": true,
+      "isolated_worker": true,
+      "keyboard_clear": true,
+      "keyboard_editor": true,
+      "keyboard_focus": true,
+      "keyboard_log": true,
+      "logbook_readback": true,
+      "map_loaded": true,
+      "native_menu_routes": true,
+      "settings_save_readback": true,
+      "settings_sections": true,
+      "spot_history_archive": true,
+      "spot_history_dock_recovery": true,
+      "spot_history_main_absent": true,
+      "worker_integration_self_test": true,
+      "worker_parse_adif": true,
+      "worker_self_test": true,
+      "workspace_canvas_controls": true,
+      "workspace_created": true,
+      "workspace_feedback_overlay": true,
+      "workspace_layout_roundtrip": true,
+      "workspace_native_windows": true,
+      "workspace_settings_presets": true
+    },
+    "stationIO": false,
+    "initialAttempt": {
+      "status": "failed",
+      "completedChecks": 20,
+      "failure": "Timeout waiting for isolated Detached Logbook editor",
+      "sameCandidateRerun": true
+    }
+  },
+  "preservation": {
+    "contactCount": 361,
+    "tableMatches": {
+      "DXLOG": true,
+      "xlog_qso_identity": true,
+      "xlog_qso_audit": true
+    },
+    "passed": true
+  },
+  "backup": "/Users/oliver/Documents/Backups/OM0RX-xLog-1.3.18-before-install-20261025",
+  "rollback": "/Applications/OM0RX-xLog-previous-1.3.17-20261025.app",
+  "freshRadioDeliverySamples": [
+    {
+      "sampledAt": 1792901823.766238,
+      "processLaunchRequestedAt": 1792901791.188283,
+      "inventoryCount": 79,
+      "acceptedSinceLaunch": 9,
+      "newestAcceptedAt": 1792901808.682396,
+      "providers": [
+        "direct_agent"
+      ]
+    },
+    {
+      "sampledAt": 1792902015.096834,
+      "processLaunchRequestedAt": 1792901791.188283,
+      "inventoryCount": 60,
+      "acceptedSinceLaunch": 10,
+      "newestAcceptedAt": 1792901956.291069,
+      "providers": [
+        "direct_agent"
+      ]
+    }
+  ],
+  "firstSampleSecondsAfterLaunchRequest": 32.578,
+  "analytics": "Installed 1.3.17 Contest menu contained Analytics and opened the 351-contact log; unchanged in 1.3.18",
+  "limitations": [
+    "Physical Flex/Maestro marker display awaits operator confirmation for 1.3.18",
+    "No long-duration delivery soak claimed",
+    "No production test QSO, radio tune, PTT, audio, CW or rotor action",
+    "Notarization not claimed",
+    "Recorder hardware acceptance remains separate and pending"
+  ]
+}
