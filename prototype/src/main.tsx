@@ -14,6 +14,10 @@ import "./live/live.css";
 import "./style.css";
 import "maplibre-gl/dist/maplibre-gl.css";
 
+// Listening cancellation accompanies the existing window-specific emergency
+// stop handlers. It never consumes Escape or starts the recorder/backend.
+window.addEventListener("keydown",event=>{if(event.key==="Escape"&&isTauri())void invoke("contest_recorder_stop_replay").catch(()=>{});},true);
+
 async function mount() {
   // Normal launches do not wait for an IPC round trip. A query string alone
   // cannot enable acceptance: the native CLI gate must confirm it first.

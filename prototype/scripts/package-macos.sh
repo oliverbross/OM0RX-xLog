@@ -3,6 +3,11 @@ set -euo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$root"
+test "$(git branch --show-current)" = main
+git diff --quiet
+git diff --cached --quiet
+test -z "$(git ls-files --others --exclude-standard)"
+export XLOG_SOURCE_COMMIT="$(git rev-parse HEAD)"
 node --test prototype/scripts/mac-worker-packaging.check.mjs
 bash prototype/scripts/build-worker.sh
 node prototype/scripts/stage-worker.mjs
@@ -21,7 +26,7 @@ npx tauri build --bundles app
 # separate acceptance step, never inferred from a valid code signature.
 bundle="$root/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app"
 test "$(plutil -extract NSMicrophoneUsageDescription raw "$bundle/Contents/Info.plist")" = \
-  "OM0RX-xLog records operator-selected contest voice messages for local F1–F12 phone macros."
+  "OM0RX-xLog records an operator-selected contest audio input and optional local voice-keyer messages."
 bash "$root/prototype/scripts/stage-contest-python-macos.sh" "$bundle"
 binary_dir="$(XLOG_PORTABLE_ONLY=1 swift build --build-system xcode --package-path "$root" --scratch-path "$root/.build/prototype-worker" -c release --show-bin-path)"
 rm -rf "$bundle/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle" "$bundle/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle"
@@ -64,9 +69,9 @@ sign_component "$bundle/Contents/MacOS/xlog-prototype-worker" "com.oliverbross.x
 sign_component "$bundle/Contents/MacOS/rigctld" "com.oliverbross.xlog.integration.rigctld"
 sign_component "$bundle/Contents/MacOS/rotctld" "com.oliverbross.xlog.integration.rotctld"
 if [ "$signing_identity" = - ]; then
-  codesign --force --sign - --timestamp=none "$bundle"
+  codesign --force --entitlements "$root/prototype/src-tauri/Recorder.entitlements" --sign - --timestamp=none "$bundle"
 else
-  codesign --force --options runtime --timestamp --sign "$signing_identity" "$bundle"
+  codesign --force --options runtime --entitlements "$root/prototype/src-tauri/Recorder.entitlements" --timestamp --sign "$signing_identity" "$bundle"
 fi
 codesign --verify --deep --strict "$bundle"
 printf 'OM0RX-xLog bundle verified (notarization separate): %s\n' "$bundle"

@@ -1,0 +1,222 @@
+Test Suite 'Selected tests' started at 2026-10-25 13:24:38.221.
+Test Suite 'XStationIntegrationTests.xctest' started at 2026-10-25 13:24:38.225.
+Test Suite 'XStationIntegrationTests.xctest' passed at 2026-10-25 13:24:38.225.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-25 13:24:38.225.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.003) seconds
+Test Suite 'Selected tests' started at 2026-10-25 13:24:38.310.
+Test Suite 'XLogPrototypeTests.xctest' started at 2026-10-25 13:24:38.311.
+Test Suite 'PythonContestLaneTests' started at 2026-10-25 13:24:38.311.
+Test Case '-[XLogPrototypeTests.PythonContestLaneTests testAnalyticsSnapshotThroughRealPythonBridgeKeepsDraftAndLogSeparate]' started.
+Test Case '-[XLogPrototypeTests.PythonContestLaneTests testAnalyticsSnapshotThroughRealPythonBridgeKeepsDraftAndLogSeparate]' passed (0.582 seconds).
+Test Suite 'PythonContestLaneTests' passed at 2026-10-25 13:24:38.894.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.582 (0.583) seconds
+Test Suite 'XLogPrototypeTests.xctest' passed at 2026-10-25 13:24:38.894.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.582 (0.583) seconds
+Test Suite 'Selected tests' passed at 2026-10-25 13:24:38.894.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.582 (0.584) seconds
+Test Suite 'Selected tests' started at 2026-10-25 13:24:39.009.
+Test Suite 'XContestStoreTests.xctest' started at 2026-10-25 13:24:39.011.
+Test Suite 'XContestStoreTests.xctest' passed at 2026-10-25 13:24:39.011.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-25 13:24:39.011.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-25 13:24:39.118.
+Test Suite 'XContestCoreTests.xctest' started at 2026-10-25 13:24:39.120.
+Test Suite 'XContestCoreTests.xctest' passed at 2026-10-25 13:24:39.120.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-25 13:24:39.120.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+Test Suite 'Selected tests' started at 2026-10-25 13:24:39.225.
+Test Suite 'XClusterIntegrationTests.xctest' started at 2026-10-25 13:24:39.227.
+Test Suite 'XClusterIntegrationTests.xctest' passed at 2026-10-25 13:24:39.227.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-25 13:24:39.227.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+Test Suite 'Selected tests' started at 2026-10-25 13:24:39.339.
+Test Suite 'XCatIntegrationTests.xctest' started at 2026-10-25 13:24:39.341.
+Test Suite 'XCatIntegrationTests.xctest' passed at 2026-10-25 13:24:39.341.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-25 13:24:39.341.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+
+Building for debugging...
+[Computing dependencies]
+[Pre-planning 1 / 651]
+[Planning deferred tasks]
+[64 / 340] XContestStore
+[154 / 340] OM0RXXLogPrototype_XLogCore
+[165 / 340]
+[169 / 340]
+[172 / 345] XContestCore
+[173 / 394]
+[174 / 399] XCatIntegrationCore
+[175 / 408]
+[175 / 420]
+[177 / 420]
+[178 / 420]
+[182 / 429]
+[186 / 429] CCurlBackup
+[187 / 438] CCurlBackup
+[190 / 442]
+[194 / 442]
+[196 / 442]
+[200 / 442]
+[207 / 442]
+[208 / 442] CClusterSocketTestSupport
+[211 / 442]
+[215 / 442]
+[219 / 442] CPlatformVault
+[224 / 443]
+[226 / 443]
+[229 / 443]
+[232 / 443]
+[234 / 443] CClusterSocketTestSupport
+[236 / 443] CCurlBackup
+[240 / 443]
+[241 / 443]
+[243 / 443] XStationIntegrationCore
+[246 / 443] XClusterIntegrationCore
+[255 / 443] XContestCore
+[267 / 443] XStationIntegrationCore
+[267 / 443] XLogCore
+[280 / 443] XStationIntegrationCore
+[281 / 443] XStationIntegrationTests-product
+[282 / 443] XStationIntegrationTests-product
+[284 / 443] XLogCore
+[287 / 443] XLogCore
+[288 / 443] XLogCore
+[289 / 443] XLogCore
+[290 / 443] XLogCore
+[291 / 443] XLogCore
+[292 / 443] XContestCore
+[293 / 443] XContestCore
+[295 / 443] XContestCore
+[296 / 443] XContestCore
+[297 / 443] XContestStore
+[298 / 443] XContestCore
+[300 / 443] XContestCore
+[301 / 443] XClusterIntegrationCore
+[302 / 443] XClusterIntegrationCore
+[303 / 443] XClusterIntegrationCore
+[305 / 443] XClusterIntegrationCore
+[306 / 443] XClusterIntegrationTests-product
+[307 / 443] XClusterIntegrationCore
+[309 / 443] XClusterIntegrationCore
+[311 / 443] XCatIntegrationCore
+[313 / 443] XCatIntegrationCore
+[314 / 443] XCatIntegrationTests-product
+[315 / 443] XCatIntegrationTests-product
+[317 / 443] XCatIntegrationCore
+[318 / 443]
+[320 / 443] XLogCore
+[330 / 443] XCatIntegrationTests-product
+[331 / 444]
+[333 / 449] XStationIntegrationCore
+[336 / 449] XContestStore
+[343 / 449] XContestStore
+[347 / 450] XContestStore
+[351 / 451]
+[353 / 488]
+[354 / 488] XLogPrototypeSupport
+[358 / 498]
+[360 / 498]
+[361 / 498]
+[364 / 498]
+[366 / 498]
+[367 / 498]
+[370 / 498]
+[371 / 498]
+[373 / 498]
+[376 / 498]
+[378 / 498]
+[379 / 498]
+[380 / 498]
+[381 / 498]
+[382 / 498]
+[387 / 499] XContestCoreTests-product
+[388 / 509] XContestStore
+[395 / 511] XClusterIntegrationTests-product
+[395 / 520] XClusterIntegrationTests-product
+[398 / 530] XClusterIntegrationTests-product
+[401 / 531] XCatIntegrationTests-product
+[401 / 536]
+[402 / 536]
+[404 / 536]
+[405 / 536] XLogPrototypeSupport
+/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift:43:70: [1;33mwarning: [1;39mconverting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races[0;0m
+ [0;36m41 |[0;0m          validatePrivateRoot: @escaping @Sendable () throws -> Void,
+ [0;36m42 |[0;0m          beforeReplacementPublish: @escaping @Sendable () async -> Void = {},
+ [0;36m43 |[0;0m          providerFetch: @escaping ProviderFetch = ContestSCPProvider.fetchLatest,
+    [0;36m|[0;0m                                                                      `- [1;33mwarning: [1;39mconverting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races[0;0m
+ [0;36m44 |[0;0m          writeAtomically: @escaping AtomicWriter = { data, url in try data.write(to: url, options: [.atomic]) },
+ [0;36m45 |[0;0m          validateScope: @escaping ScopeValidator) throws {
+[407 / 536]
+[409 / 536] XStationIntegrationTests-product
+[421 / 536] XContestCoreTests-product
+[422 / 536] XContestStoreTests-product
+[432 / 536] XClusterIntegrationTests-product
+[434 / 536] XClusterIntegrationTests-product
+[444 / 536] XLogPrototypeSupport
+[445 / 536] XStationIntegrationTests-product
+[446 / 536] XStationIntegrationTests-product
+[447 / 536] XStationIntegrationTests-product
+[448 / 536] XLogPrototypeSupport
+[450 / 536] XLogPrototypeSupport
+[452 / 536] XLogPrototypeSupport
+/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift:43:70: [1;33mwarning: [1;39mconverting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races[0;0m
+ [0;36m41 |[0;0m          validatePrivateRoot: @escaping @Sendable () throws -> Void,
+ [0;36m42 |[0;0m          beforeReplacementPublish: @escaping @Sendable () async -> Void = {},
+ [0;36m43 |[0;0m          providerFetch: @escaping ProviderFetch = ContestSCPProvider.fetchLatest,
+    [0;36m|[0;0m                                                                      `- [1;33mwarning: [1;39mconverting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races[0;0m
+ [0;36m44 |[0;0m          writeAtomically: @escaping AtomicWriter = { data, url in try data.write(to: url, options: [.atomic]) },
+ [0;36m45 |[0;0m          validateScope: @escaping ScopeValidator) throws {
+[454 / 536] XLogPrototypeSupport
+[455 / 536] XContestStoreTests-product
+[456 / 536] XContestStoreTests-product
+[457 / 536] XLogPrototypeSupport
+[461 / 536] XContestStoreTests-product
+[462 / 536] XContestStoreTests-product
+[463 / 536] XContestStoreTests-product
+[464 / 536] XContestCoreTests-product
+[465 / 536] XContestCoreTests-product
+[467 / 536] XContestCoreTests-product
+[469 / 536] XContestCoreTests-product
+[469 / 536] XContestStoreTests-product
+[470 / 536] XContestCoreTests-product
+[472 / 536] XContestCoreTests-product
+[473 / 536] XContestCoreTests-product
+[474 / 536] XClusterIntegrationTests-product
+[475 / 536] XClusterIntegrationTests-product
+[478 / 536] XContestCoreTests-product
+[479 / 536] XClusterIntegrationTests-product
+[481 / 536] XClusterIntegrationTests-product
+[482 / 536] XClusterIntegrationTests-product
+[484 / 536] XCatIntegrationTests-product
+[484 / 536] XClusterIntegrationTests-product
+[485 / 536] XCatIntegrationTests-product
+[487 / 536] XCatIntegrationTests-product
+[489 / 536] XCatIntegrationTests-product
+[490 / 536] XLogPrototypeSupport
+[498 / 536] XClusterIntegrationTests-product
+[499 / 537] XStationIntegrationTests-product
+[501 / 537] XContestStoreTests-product
+[503 / 539] XLogPrototypeSupport
+[508 / 539] XStationIntegrationTests-product
+[514 / 539] XCatIntegrationTests-product
+[517 / 540] XLogPrototypeTests-product
+[521 / 540] XContestCoreTests-product
+[522 / 540]
+[527 / 540] XCatIntegrationTests-product
+[529 / 540] XLogPrototypeTests-product
+[531 / 549] XLogPrototypeTests-product
+[532 / 549] XLogPrototypeTests-product
+[533 / 549] XLogPrototypeTests-product
+[535 / 549] XLogPrototypeTests-product
+[540 / 549] XLogPrototypeTests-product
+[541 / 549] XLogPrototypeTests-product
+[542 / 549] XLogPrototypeTests-product
+[543 / 549] XLogPrototypeTests-product
+[545 / 549] XLogPrototypeTests-product
+[547 / 549] XLogPrototypeTests-product
+Build complete! (345.96 sec.)

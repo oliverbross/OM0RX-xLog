@@ -67,6 +67,16 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
     output.write(Data([10]))
     let object = try? JSONSerialization.jsonObject(with: response) as? [String: Any]
     exit(object?["ok"] as? Bool == true ? 0 : 1)
+} else if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--recorder-acceptance" {
+    do {
+        let result = try await ContestRecorderAcceptance.run()
+        output.write(try JSONSerialization.data(withJSONObject: ["ok": true, "result": result], options: [.sortedKeys]))
+        output.write(Data([10]))
+        exit(0)
+    } catch {
+        output.write(Data("{\"ok\":false,\"error\":\"Isolated recorder Python fixture failed\"}\n".utf8))
+        exit(1)
+    }
 } else if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--local-logbook-self-test" {
     do {
         let result = try LocalLogbookSelfTest.run()

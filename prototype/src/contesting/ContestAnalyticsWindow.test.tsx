@@ -8,6 +8,7 @@ import { saveAnalyticsFile } from "./contestAnalyticsExport";
 
 const native=vi.hoisted(()=>({invoke:vi.fn(),isTauri:vi.fn(()=>true)}));
 vi.mock("@tauri-apps/api/core",()=>native);
+vi.mock("./contestRecorder",async importOriginal=>({...await importOriginal<typeof import("./contestRecorder")>(),recorderRequest:vi.fn(async()=>({}))}));
 
 class AnalysisWorker {
   onmessage:((event:{data:unknown})=>void)|null=null;onerror:(()=>void)|null=null;dataset:AnalyticsDataset|null=null;terminated=false;

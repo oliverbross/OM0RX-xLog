@@ -262,6 +262,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "contest_spot_points_preview",
         "contest_rates",
         "contest_analytics",
+        "contest_recorder_changes",
         "contest_check_partial",
         "contest_setup_get",
         "contest_setup_save",
@@ -1060,9 +1061,13 @@ fn request_using(request: Value, session: impl FnOnce() -> Result<Arc<Session>, 
     let _slot = RequestSlot { blocks_module_transition };
     let session = session()?;
     let identity = crate::station_identity::begin(&request, session.generation);
+    if request_can_change_station_state(&request) { crate::contest_recorder::stop_replay(); }
+    crate::contest_recorder::admission(&request);
+    let recorder_request = crate::contest_recorder::observes(&request).then(|| request.clone());
     let timeout = request_timeout(&request);
     let response = request_in_session(&session, request, timeout);
     crate::station_identity::finish(identity, &response);
+    if let Some(request) = recorder_request { crate::contest_recorder::confirmed(&request, &response); }
     response
 }
 
@@ -1078,7 +1083,7 @@ fn request_blocks_module_transition(request: &Value) -> bool {
         "contest_catalog" | "contest_sessions" | "contest_draft_get" |
         "contest_qso_get" | "contest_operation_receipt" | "contest_log_page" |
         "contest_log_transfer_status" | "contest_score" | "contest_spot_points_preview" |
-        "contest_rates" | "contest_analytics" | "contest_check_partial" | "contest_setup_get" |
+        "contest_rates" | "contest_analytics" | "contest_recorder_changes" | "contest_check_partial" | "contest_setup_get" |
         "contest_statistics" | "contest_export_read" |
         "contest_scp_status" | "contest_scp_query" |
         "contest_history_status" | "contest_history_preview_page" | "contest_history_query"
@@ -1182,7 +1187,7 @@ fn request_is_non_retiring_read(request: &Value) -> bool {
         "contest_scp_status" | "contest_scp_query" | "contest_scp_cancel" | "contest_scp_select" |
         "contest_history_status" | "contest_history_preview_page" | "contest_history_preview_cancel" |
         "contest_history_query" | "contest_history_query_cancel" | "contest_history_select" |
-        "contest_log_page" | "contest_analytics" | "spot_history_status" | "spot_history_query" | "spot_history_detail" | "reference_log_review"
+        "contest_log_page" | "contest_analytics" | "contest_recorder_changes" | "spot_history_status" | "spot_history_query" | "spot_history_detail" | "reference_log_review"
     ))
 }
 

@@ -7,6 +7,7 @@ import { AnalyticsDrilldown, AnalyticsMultipliers, AnalyticsPerformance, Analyti
 import { useAnalyticsExport } from "./contestAnalyticsExport";
 import { AnalyticsCompare } from "./ContestAnalyticsCompare";
 import "./ContestAnalyticsWindow.css";
+import { listenToAudio } from "./contestRecorder";
 
 const tabs=[{id:"overview",label:"Overview",icon:Activity},{id:"explorer",label:"Timeline & Explorer",icon:BarChart3},{id:"multipliers",label:"Multipliers",icon:Target},{id:"performance",label:"Operating Performance",icon:Users},{id:"compare",label:"Compare",icon:Layers},{id:"quality",label:"Quality & Review",icon:ListChecks}] as const;
 type Tab=typeof tabs[number]["id"];
@@ -92,7 +93,8 @@ export function ContestAnalyticsWindow({read=readAnalytics,initialSnapshot}:{rea
       {tab==="performance"&&<AnalyticsPerformance dataset={dataset} result={result} filters={filters} onDrill={onDrill}/>}
       {tab==="compare"&&<AnalyticsCompare dataset={dataset} filters={filters} onDrill={onDrill}/>}
       {tab==="quality"&&<AnalyticsQuality dataset={dataset} result={result} onDrill={onDrill}/>}
-      {drill&&<div ref={drillRef as React.RefObject<HTMLDivElement>}><AnalyticsDrilldown title={drill.title} contacts={selectedContacts} exportState={exportState} onClose={()=>setDrill(null)}/></div>}
+      <section className="analytics-section"><header><div><h2>Listen to this UTC interval</h2><p>Uses this dataset’s durable log identity and displayed time extent. Capture gaps and unmatched reference logs remain unavailable.</p></div><button disabled={locked||!result.buckets.length} onClick={()=>{const first=result.buckets[0],last=result.buckets.at(-1);if(first&&last)void listenToAudio({logId:dataset.meta.sessionID,fromUtcMs:first.start,toUtcMs:last.end}).catch(cause=>setError(errorText(cause)));}}>Listen to interval…</button></header></section>
+      {drill&&<div ref={drillRef as React.RefObject<HTMLDivElement>}><AnalyticsDrilldown logId={dataset.meta.sessionID} title={drill.title} contacts={selectedContacts} exportState={exportState} onClose={()=>setDrill(null)}/></div>}
       <footer className="analytics-footer"><span>Revision {dataset.meta.revision} · {dataset.meta.referenceID} · Corrected claimed log</span><button onClick={()=>{setTab("quality");setDrill(null);}}>View calculation basis & coverage</button></footer>
       </>}
     </>}

@@ -431,6 +431,12 @@ pub fn retained_snapshot() -> Result<Value, String> {
     let owner = OWNERS.get().and_then(|owners| owners.lock().ok()?.first()?.clone());
     retained(owner.as_deref(), STOPPED.load(Ordering::Acquire))
 }
+/// Read every existing slot without creating an owner or issuing a station request.
+pub fn retained_snapshots() -> Vec<Value> {
+    if STOPPED.load(Ordering::Acquire) { return vec![]; }
+    let owners = OWNERS.get().and_then(|owners| owners.lock().ok().map(|v| v.clone()));
+    owners.into_iter().flatten().flatten().filter_map(|owner| owner.snapshot().ok()).collect()
+}
 pub fn owner_for(app: &tauri::AppHandle, radio_id: &str) -> Result<Arc<StationTelemetry>, String> {
     if STOPPED.load(Ordering::Acquire) {
         return Err("Radio telemetry has stopped.".into());

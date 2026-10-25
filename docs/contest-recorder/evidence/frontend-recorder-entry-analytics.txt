@@ -1,0 +1,39 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.3 [39m[90m/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/prototype[39m
+
+ [32m✓[39m src/contesting/DetachedContestSurface.test.tsx [2m([22m[2m184 tests[22m[2m)[22m[33m 18712[2mms[22m[39m
+   [33m[2m✓[22m[39m reuses desktop Filters locally in the detached contest dx-cluster window[33m 362[2mms[22m[39m
+   [33m[2m✓[22m[39m uses contest dupes for Worked filters and reconciles the Cluster Show worked toggle without changing normal history or radio preferences[33m 1590[2mms[22m[39m
+   [33m[2m✓[22m[39m requests the owner Show worked preference when Band Map Filters explicitly includes worked contest stations[33m 728[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps original RTTY macros visible with truthful fldigi availability (true)[33m 338[2mms[22m[39m
+   [33m[2m✓[22m[39m cancels an owner-busy entry retry when Wipe supersedes it[33m 580[2mms[22m[39m
+   [33m[2m✓[22m[39m drains a new edit started while a discarded owner-busy flush is still backing off[33m 879[2mms[22m[39m
+   [33m[2m✓[22m[39m refreshes a pending callsign receipt after both projection and completion wakes are lost[33m 643[2mms[22m[39m
+   [33m[2m✓[22m[39m carries delayed multi-field typing through the real owner drain before one Enter intent[33m 469[2mms[22m[39m
+   [33m[2m✓[22m[39m sorts displayed log rows numerically and persists column order and pane size without changing inline edit targets[33m 399[2mms[22m[39m
+ [32m✓[39m src/contesting/ContestAnalyticsWindow.test.tsx [2m([22m[2m14 tests[22m[2m)[22m[33m 7062[2mms[22m[39m
+   [32m✓[39m Contest Analytics interaction [2m(14)[22m
+     [33m[2m✓[22m[39m opens native Print/PDF once and blocks overlapping exports while pending[33m 773[2mms[22m[39m
+     [33m[2m✓[22m[39m reports native print errors and allows retry[33m 397[2mms[22m[39m
+     [33m[2m✓[22m[39m saves JSON and displayed CSV through the native chooser without browser downloads[33m 630[2mms[22m[39m
+     [33m[2m✓[22m[39m prevents duplicate exports while the chooser is open and reports cancellation[33m 443[2mms[22m[39m
+     [33m[2m✓[22m[39m reports native save errors and permits retry without discarding analytics[33m 495[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps filters and drilldown on one copied log without invoking station or log actions[33m 1169[2mms[22m[39m
+     [33m[2m✓[22m[39m shows unsupported duration/radio attribution and explicit quality evidence[33m 420[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps the range controls usable after an invalid interval[33m 501[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps UTC controls available when an initial distant timestamp exceeds the timeline limit[33m 370[2mms[22m[39m
+     [33m[2m✓[22m[39m ignores a rejected old snapshot check after a manual refresh installs a new snapshot[33m 693[2mms[22m[39m
+     [33m[2m✓[22m[39m contains invalid UTC ranges while a comparison report is loaded and permits reset[33m 924[2mms[22m[39m
+ [32m✓[39m src/contesting/ContestRecorderWindow.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 1056[2mms[22m[39m
+   [32m✓[39m recorder operator controls [2m(2)[22m
+     [33m[2m✓[22m[39m opening and polling cannot start capture, request permission or produce output[33m 843[2mms[22m[39m
+ [32m✓[39m src/contesting/contestKeyBindings.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/contesting/contestRecorder.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m5 passed[39m[22m[90m (5)[39m
+[2m      Tests [22m [1m[32m211 passed[39m[22m[90m (211)[39m
+[2m   Start at [22m 13:40:48
+[2m   Duration [22m 34.71s[2m (tests 80%, environment 10%, transform 5%, import 5%)[22m
+
+[2m    Isolate [22m [33m5 workers spawned[39m[2m · ~889ms startup each (spawn + environment, per file)[22m
+[2m            [22m [2mat least ~3.55s faster with [22m[33misolate: false[39m[2m — reuses workers across files instead of one per file[22m

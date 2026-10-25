@@ -1436,6 +1436,7 @@ fn validate_entry_descriptor(value: &Value) -> Result<BTreeSet<String>, String> 
             "TOGGLE_CW_INPUT", "RST_INCR", "RST_DECR", "EXCH_INCR", "EXCH_DECR",
             "SPOT_DX", "MARK_SPOT", "TUNE_SPOT", "WIN_BAND", "WIN_CHECK", "WIN_LOG", "WIN_RATE", "WIN_STATS", "WIN_VFO",
             "VFO_UP", "VFO_DOWN", "RETURN_CQ_FREQUENCY",
+            "REPLAY_5", "REPLAY_10", "REPLAY_30", "STOP_REPLAY", "BOOKMARK_NOW", "OPEN_RECORDER",
             "SEND_F1", "SEND_F2", "SEND_F3", "SEND_F4", "SEND_F5", "SEND_F6", "SEND_F7", "SEND_F8", "SEND_F9",
             "SEND_F10", "SEND_F11", "SEND_F12"],
             "entry key action")?;

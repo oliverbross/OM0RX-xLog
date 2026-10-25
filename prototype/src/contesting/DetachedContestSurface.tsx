@@ -22,6 +22,10 @@ import { requestViaSession } from "../live/DetachedClusterBridge";
 import { connectMonitorContext, observedReceiveBandwidthHz, type MonitorContext } from "../live/monitorContext";
 import "./DetachedContestSurface.css";
 import { ContestQRZDetailsSurface } from "./DetachedContestQRZDetailsSurface";
+import { ContestRecorderStrip } from "./ContestRecorderStrip";
+import { RecorderAudioAction, RecorderAudioProvider } from "./RecorderAudioAction";
+import { listenToAudio, recorderKeyAction } from "./contestRecorder";
+import "./ContestRecorderWindow.css";
 import { Rates, Matrix } from "./ContestSecondaryPanels";
 import { contestADIFImport, type ContestADIFImportRecord } from "./contestAdifImport";
 import { moveContestLogColumn, persistContestLogView, readContestLogView, readPanelNumber, type ContestLogView } from "./contestPanelPreferences";
@@ -243,7 +247,7 @@ function Surface({ context }: { context: Context }) {
       : snapshot.panelID === "logbook" ? editorOnly
         ? <ContactEditor projection={projection as Extract<typeof projection, { page: unknown }>} disabled={projection.busy} sending={sending}
             projectionRevision={snapshot.projectionRevision} receipts={snapshot.receipts} send={send}/>
-        : <Log projection={projection as Extract<typeof projection, { page: unknown }>} disabled={projection.busy} sending={sending}
+        : <Log logId={context.sessionID} projection={projection as Extract<typeof projection, { page: unknown }>} disabled={projection.busy} sending={sending}
             projectionRevision={snapshot.projectionRevision} send={send} reportDiagnostic={reportDiagnostic} openEditor={async(qsoID,deleteIntent=false)=>{
               try { const result=await send({action:deleteIntent?"log_edit_begin_delete":"log_edit_begin",params:{qsoID}},snapshot.projectionRevision);
                 if(!result.applied||result.projectionRevision===null)return;
@@ -670,6 +674,9 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
   const bindingContext=(field:ContestInputFieldID|null):ContestKeyBindingContext=>field==="callsign"?"Callsign":field==="sent"||field==="receive"?"Report":
     field==="other_1"?"Other 1":field==="other_2"?"Other 2":"*";
   const runBoundAction=(action:ContestKeyBindingAction,focusedField:ContestInputFieldID|null)=>{
+    if(["REPLAY_5","REPLAY_10","REPLAY_30","STOP_REPLAY","BOOKMARK_NOW","OPEN_RECORDER"].includes(action)){
+      void recorderKeyAction(action).catch(cause=>reportConflict(message(cause)));return;
+    }
     const functionKey=functionKeyForContestAction(action);
     if(functionKey){operatorKey(functionKey,focusedField);return;}
     if(action==="FOCUS_CALLSIGN"||action==="FOCUS_NEXT"||action==="FOCUS_PREVIOUS"){
@@ -797,6 +804,7 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
   return <section className="contest-surface-entry" aria-label="Main Logging" onKeyDown={onKeyDown}><header>
     <div className="contest-surface-radio"><output aria-label="Current frequency">{projection.draft.frequencyHz == null ? "—" : (projection.draft.frequencyHz / 1_000).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<small> kHz</small></output>
       <strong>{projection.draft.mode}</strong></div><span aria-label={projection.manual?.operator?"Current operator":"Current operator unavailable"}>OP {projection.manual?.operator||"—"}</span><h1>{projection.session.name}</h1></header>
+    <ContestRecorderStrip/>
     {cwInputOpen&&<form className="contest-surface-cw-input" role="dialog" aria-label="Free-form CW input" onSubmit={sendCWInput}
       onKeyDown={onCWInputKeyDown}>
       <label>Send CW text<input ref={cwInputRef} value={cwInput} maxLength={80} disabled={disabled||sending||!operator?.outputAvailable||operator.status==="uncertain"}
@@ -953,7 +961,7 @@ function ManualLogTable({rows,disabled,onEdit,onDeleteMenu,label,emptyMessage}:{
     : rows.map(row=><tr key={row.qsoID} onDoubleClick={event=>{if(!disabled&&!(event.target as Element).closest("button"))onEdit(row.qsoID);}}
       onContextMenu={event=>{event.preventDefault();if(!disabled)onEdit(row.qsoID);}}>
     <td>{row.TS??new Date(row.workedAt).toISOString().slice(0,19).replace("T"," ")}</td><td onContextMenu={event=>{event.preventDefault();event.stopPropagation();
-      if(!disabled)onDeleteMenu(row.qsoID,String(row.Call??row.callsign??"Contact"),event);}}><button disabled={disabled} onDoubleClick={event=>event.stopPropagation()} onClick={()=>onEdit(row.qsoID)}>{row.Call??row.callsign}</button></td>
+      if(!disabled)onDeleteMenu(row.qsoID,String(row.Call??row.callsign??"Contact"),event);}}><button disabled={disabled} onDoubleClick={event=>event.stopPropagation()} onClick={()=>onEdit(row.qsoID)}>{row.Call??row.callsign}</button><RecorderAudioAction qsoId={row.qsoID}/></td>
     <td>{row.Freq??"—"}</td><td>{row.SNT??"—"}</td><td>{row.RCV??"—"}</td>
     <td>{row.M1??""}</td><td>{row.ZN??"—"}</td><td>{row.M2??""}</td><td>{row.prefix??"—"}</td><td>{row.Points??row.points}</td></tr>)}</tbody></table></div>;
 }
@@ -1035,7 +1043,7 @@ function PluginLogTable({columns,rows,columnWidths,onColumnWidths,view,onView,di
             onContextMenu={event=>{if(index!==callIndex)return;event.preventDefault();event.stopPropagation();
               if(!disabled)onDeleteMenu(row.qsoID,String(row.values[callIndex]??"Contact"),event);}}
             onDoubleClick={event=>{event.preventDefault();event.stopPropagation();if(!disabled&&edit)onInlineEdit(row.qsoID,index,edit);}}>
-            {isEditing?inlineInput:index===callIndex&&!edit?<button disabled={disabled} onClick={()=>onEdit(row.qsoID)}>{content}</button>:content}</td>;})}</tr>)}</tbody></table></div>;
+            {isEditing?inlineInput:index===callIndex&&!edit?<button disabled={disabled} onClick={()=>onEdit(row.qsoID)}>{content}</button>:content}{index===callIndex&&label==="Contest log"&&<RecorderAudioAction qsoId={row.qsoID}/>}</td>;})}</tr>)}</tbody></table></div>;
 }
 function ReadOnlyContactField({label,value,wide=false}:{label:string;value:string;wide?:boolean}) {
   return <div className={`contest-surface-readonly${wide?" contest-surface-editor-wide":""}`}><span>{label}</span><output>{value}</output></div>;
@@ -1095,7 +1103,7 @@ function ContactEditor({projection,disabled,sending,projectionRevision,receipts,
       <button disabled={disabled||sending||!!editing.frequencyError||!!editing.receiveFrequencyError||!!editing.powerError||!editing.correctionReason.trim()} onClick={()=>void finish({action:"log_edit_save",params:{qsoID:editing.qsoID,expectedSessionRevision:projection.sessionRevision}})}>OK</button></footer>
   </section>;
 }
-function Log({projection,disabled,sending,projectionRevision,send,openEditor,reportDiagnostic}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;send:Send;
+function Log({logId,projection,disabled,sending,projectionRevision,send,openEditor,reportDiagnostic}:{logId:string;projection:any;disabled:boolean;sending:boolean;projectionRevision:number;send:Send;
     openEditor:(qsoID:string,deleteIntent?:boolean)=>Promise<void>;reportDiagnostic:(kind:"error"|"notice",text:string)=>void}) {
   const partialRows=projection.partialRows??[], pluginPartialRows=projection.pluginPartialRows??[], [inline,setInline]=useState<InlineLogCell|null>(null);
   const [deleteMenu,setDeleteMenu]=useState<{qsoID:string;callsign:string;x:number;y:number}|null>(null);
@@ -1178,7 +1186,7 @@ function Log({projection,disabled,sending,projectionRevision,send,openEditor,rep
       setImportReview(null);
     }finally{setImporting(false);}
   };
-  return <section className="contest-surface-log"><header><h1>Log Display</h1>
+  return <RecorderAudioProvider logId={logId} ids={[...new Set<string>([...(projection.pluginRows??[]),...(projection.manualRows??projection.page.rows??[]),...pluginPartialRows,...partialRows].map((r:any)=>r.qsoID))]}><section className="contest-surface-log"><header><h1>Log Display</h1>
   <details className="contest-surface-log-tools"><summary>Log tools</summary><div className="contest-surface-log-actions">{projection.canExportCabrillo&&<button disabled={disabled||sending} onClick={()=>void send({action:"log_export_cabrillo",params:{}},projectionRevision)}>Export Cabrillo…</button>}
   <input ref={importInput} type="file" accept=".adi,.adif" hidden onChange={event=>void chooseImport(event.target.files?.[0])}/>
   <button disabled={disabled||sending||importing} onClick={()=>importInput.current?.click()}>Import ADIF…</button>
@@ -1198,10 +1206,11 @@ function Log({projection,disabled,sending,projectionRevision,send,openEditor,rep
   {deleteMenu&&<div className="contest-spot-menu" role="menu" aria-label={`Contact actions for ${deleteMenu.callsign}`} style={{left:deleteMenu.x,top:deleteMenu.y}}
       onKeyDown={event=>{if(event.key==="Escape"){event.preventDefault();setDeleteMenu(null);}}}>
     <button type="button" role="menuitem" autoFocus onClick={()=>{const target=deleteMenu;setDeleteMenu(null);setInline(null);void openEditor(target.qsoID,true);}}>Delete contact…</button>
+    <button type="button" role="menuitem" onClick={()=>{const target=deleteMenu;setDeleteMenu(null);void listenToAudio({logId,qsoId:target.qsoID}).catch(cause=>reportDiagnostic("notice",message(cause)));}}>Listen to contact audio…</button>
     <button type="button" role="menuitem" onClick={()=>setDeleteMenu(null)}>Cancel</button></div>}
   <footer><button disabled={disabled||projection.page.offset===0} onClick={()=>void send({action:"log_page",params:{offset:Math.max(0,projection.page.offset-projection.page.limit),limit:projection.page.limit}},projectionRevision)}>Previous</button>
     <span>{projection.page.total?`${projection.page.offset+1}–${projection.page.offset+projection.page.rows.length} of ${projection.page.total}`:projection.busy?"Loading…":"No contacts"}</span>
-    <button disabled={disabled||projection.page.offset+projection.page.rows.length>=projection.page.total} onClick={()=>void send({action:"log_page",params:{offset:projection.page.offset+projection.page.limit,limit:projection.page.limit}},projectionRevision)}>Next</button></footer></section>; }
+    <button disabled={disabled||projection.page.offset+projection.page.rows.length>=projection.page.total} onClick={()=>void send({action:"log_page",params:{offset:projection.page.offset+projection.page.limit,limit:projection.page.limit}},projectionRevision)}>Next</button></footer></section></RecorderAudioProvider>; }
 
 function SharedContestSurface() {
   const context = useMemo(() => contestSurfaceContextFromSearch(window.location.search), []);

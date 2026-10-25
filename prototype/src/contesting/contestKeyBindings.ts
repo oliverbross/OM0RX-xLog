@@ -9,6 +9,7 @@ export const contestKeyBindingActions = ["TOGGLE_RUN", "SET_RUN", "SET_S_AND_P",
   "PREV_SPOT", "NEXT_SPOT", "PREV_MULTIPLIER", "NEXT_MULTIPLIER", "QUICK_EDIT", "SPOT_DX", "MARK_SPOT", "TUNE_SPOT", "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN",
   "TOGGLE_CW_INPUT", "RST_INCR", "RST_DECR", "EXCH_INCR", "EXCH_DECR",
   "WIN_BAND", "WIN_CHECK", "WIN_LOG", "WIN_RATE", "WIN_STATS", "WIN_VFO", "VFO_UP", "VFO_DOWN", "RETURN_CQ_FREQUENCY",
+  "REPLAY_5", "REPLAY_10", "REPLAY_30", "STOP_REPLAY", "BOOKMARK_NOW", "OPEN_RECORDER",
   ...contestFunctionKeyActions] as const;
 export type ContestKeyBindingAction = typeof contestKeyBindingActions[number];
 
@@ -19,6 +20,12 @@ export type ContestKeyBinding = {
 };
 
 export const contestKeyBindingDescriptions: Record<ContestKeyBindingAction, string> = {
+  REPLAY_5: "Replay the last 5 captured seconds",
+  REPLAY_10: "Replay the last 10 captured seconds",
+  REPLAY_30: "Replay the last 30 captured seconds",
+  STOP_REPLAY: "Stop listening replay only",
+  BOOKMARK_NOW: "Bookmark the current captured audio point",
+  OPEN_RECORDER: "Open Contest Recorder",
   TOGGLE_RUN: "Toggle between RUN and S&P",
   SET_RUN: "Switch to RUN",
   SET_S_AND_P: "Switch to S&P",
@@ -81,7 +88,7 @@ const previousCoreDefaultContestKeyBindings: ContestKeyBinding[] = [
   { context: "*", key: "PgDown", action: "CW_SPEED_DOWN" },
   { context: "*", key: "Ctrl+W", action: "CLEAR_INPUTS" },
 ];
-export const defaultContestKeyBindings: ContestKeyBinding[] = [
+const previousWindowDefaultContestKeyBindings: ContestKeyBinding[] = [
   ...previousCoreDefaultContestKeyBindings,
   { context: "*", key: "Alt+B", action: "WIN_BAND" },
   { context: "*", key: "Alt+C", action: "WIN_CHECK" },
@@ -93,6 +100,11 @@ export const defaultContestKeyBindings: ContestKeyBinding[] = [
   { context: "*", key: "Alt+,", action: "VFO_DOWN" },
   { context: "*", key: "Ctrl+Shift+K", action: "TOGGLE_CW_INPUT" },
   { context: "*", key: "Ctrl+Q", action: "RETURN_CQ_FREQUENCY" },
+];
+
+export const defaultContestKeyBindings:ContestKeyBinding[]=[...previousWindowDefaultContestKeyBindings,
+  {context:"*",key:"Ctrl+Alt+1",action:"REPLAY_10"},
+  {context:"*",key:"Alt+A",action:"OPEN_RECORDER"},
 ];
 
 export function functionKeyForContestAction(action: ContestKeyBindingAction): `F${number}` | null {
@@ -191,7 +203,8 @@ export function readContestKeyBindings(value: unknown): ContestKeyBinding[] {
       (legacyTune&&row.action==="TUNE_SPOT"?row.key==="Ctrl+T"&&item.key==="Ctrl+G":item.key===row.key);
   });
   const previousDefaults = exactDefaults(previousCoreDefaultContestKeyBindings, false) || exactDefaults(previousCoreDefaultContestKeyBindings, true) ||
-    exactDefaults(defaultContestKeyBindings.slice(0, -2), false) || exactDefaults(defaultContestKeyBindings.slice(0, -2), true);
+    exactDefaults(previousWindowDefaultContestKeyBindings, false) || exactDefaults(previousWindowDefaultContestKeyBindings, true) ||
+    exactDefaults(previousWindowDefaultContestKeyBindings.slice(0, -2), false) || exactDefaults(previousWindowDefaultContestKeyBindings.slice(0, -2), true);
   const legacyDefaults = exactDefaults(defaultContestKeyBindings, true);
   const migrated = previousDefaults ? structuredClone(defaultContestKeyBindings) : legacyDefaults
     ? rows.map(row => row.action === "TUNE_SPOT" && row.key === "Ctrl+T" ? { ...row, key: "Ctrl+G" } : row) : rows;

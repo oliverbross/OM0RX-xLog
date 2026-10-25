@@ -1352,6 +1352,9 @@ class Host:
         state = store.state(session_id)
         require(state is not None, "Session does not exist", "not_found")
         self.verify_engine(state)
+        if method == "recorder_changes":
+            from .recorder import changes
+            return changes(store, state, params, require)
         if method == "analytics":
             require(params.get("workspaceGeneration") == workspace_generation(state),
                     "Analytics workspace changed", "stale_context")

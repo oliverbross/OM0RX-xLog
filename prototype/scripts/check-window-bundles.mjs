@@ -65,10 +65,16 @@ for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "Calls
   // Analytics and DXpedition Map add lazy routes and preload descriptors.
   // The measured Logbook graph is 402,807 bytes; their UI stays outside startup.
   // Keep the route allowance bounded and local to the tight Logbook budget.
-  const budget = name === "Settings" ? 408_000 : name === "QSO" ? 407_000 : name === "Logbook" ? 402_950 : 401_000;
+  // Recorder adds a lazy route descriptor and the global listening-only Escape hook.
+  // Measured Logbook graph: 403,015 bytes; keep its route allowance bounded.
+  const budget = name === "Settings" ? 408_000 : name === "QSO" ? 407_000 : name === "Logbook" ? 403_150 : 401_000;
   console.log(JSON.stringify({ window: name, bytes, gzip, files }));
   assert(bytes <= budget, `${name} startup JavaScript exceeds the ${budget / 1_000} kB budget: ${bytes}`);
 }
+const recorderEntry = "src/contesting/ContestRecorderWindow.tsx";
+assert(manifest[recorderEntry], "Contest Recorder lazy entry is missing");
+assert(!eagerGraph.has(recorderEntry), "Recorder UI is loaded by ordinary window startup");
+assert(!closure(recorderEntry).has(main), "Recorder imports the live station controller");
 const analyticsEntry = "src/contesting/ContestAnalyticsWindow.tsx";
 assert(manifest[analyticsEntry], "Contest Analytics lazy entry is missing");
 assert(!eagerGraph.has(analyticsEntry), "Contest Analytics is loaded by ordinary window startup");

@@ -1,0 +1,25 @@
+
+running 17 tests
+test station_telemetry::tests::monitor_cancel_remains_possible_during_stale_disconnected_or_inflight_observation ... ok
+test station_telemetry::tests::direct_agent_spot_tune_ignores_current_band_and_accepts_atomic_or_legacy_capability ... ok
+test station_telemetry::tests::command_fence_blocks_polling_until_all_controls_finish ... ok
+test station_telemetry::tests::reads_are_passive_and_startup_cannot_reverse_handover ... ok
+test station_telemetry::tests::native_monitor_admission_checks_freshness_identity_policy_and_transmit_permission_without_io ... ok
+test station_telemetry::tests::same_provider_new_selection_identity_retires_observation_and_stale_bootstrap_cannot_undo_it ... ok
+test station_telemetry::tests::scopes_and_providers_are_explicit ... ok
+test station_telemetry::tests::cw_speed_admission_rechecks_current_idle_connection_and_capability_under_its_lock ... ok
+test station_telemetry::tests::status_retained_reads_never_create_start_select_or_refresh_a_poller ... ok
+test station_telemetry::tests::write_classification_excludes_readbacks_and_rotor ... ok
+test station_telemetry::tests::exact_receive_admission_requires_fresh_known_receive_vfo_connection_and_capability_without_io ... ok
+test station_telemetry::tests::retained_radio_snapshot_keeps_the_worker_that_produced_it_after_read_failure ... ok
+test station_telemetry::tests::failure_retains_display_data_and_stopped_owner_cannot_restart ... ok
+test station_telemetry::tests::shutdown_rejects_inflight_reads_and_never_publishes_them ... ok
+test station_telemetry::tests::late_pre_command_and_pre_handover_reads_are_discarded ... ok
+test station_telemetry::tests::spot_tune_waits_for_post_control_telemetry_refresh ... ok
+test station_telemetry::tests::repeated_start_owns_one_loop_and_snapshot_reads_do_not_poll ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 852 filtered out; finished in 0.07s
+
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.10s
+     Running unittests src/main.rs (/Users/oliver/.local/share/lean-ctx/build-cache/cargo-target/debug/deps/xlog_prototype-307394e88fa661c3)

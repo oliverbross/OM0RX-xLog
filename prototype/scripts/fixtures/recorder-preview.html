@@ -1,0 +1,14 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Recorder UI fixture — no native devices</title><div id="root"></div>
+<script type="module">
+import React from "react";
+import {createRoot} from "react-dom/client";
+import {ContestRecorderWindow} from "/src/contesting/ContestRecorderWindow.tsx";
+import "/src/style.css";
+const logId="00000000-0000-4000-8000-000000000001",captureId="00000000-0000-4000-8000-000000000002";
+const config={inputId:"fixture-input",outputId:"fixture-listening",channels:2,rate:48000,mapping:"Custom channel mapping",roles:["Radio 1 RX — fixture","Radio 2 RX — fixture"],routeVerified:true,preSeconds:45,postSeconds:10,reserveBytes:1073741824,warningBytes:5368709120};
+const state={context:{logId,workspaceGeneration:"fixture"},config,root:"/Fixture only/Contesting/Recordings",freeBytes:80*1073741824,permission:"UI fixture — no input opened",error:"",stationState:"Station state unknown; verify the physical headset route",captures:[{logId,captureId}],active:null,playback:null,selection:null,
+selected:{manifest:{logId,captureId,status:"stopped",frames:48000*600,startUtcMs:1792886400000,config,gaps:[{reason:"Fixture: operator pause; duration unknown",utcMs:1792887000000,afterFrame:48000*600}],segments:[{id:0,firstFrame:0,frames:48000*60}],timeBasis:"Local callback arrival; radio hardware latency unverified"},bookmarkCount:2,bookmarks:[{id:"fixture-contact",qsoId:"fixture-contact",frame:48000*120,anchorUtcMs:1792886520000,basis:"Local operation admission / sample watermark",current:{Call:"K1ABC"},note:"",deleted:false,coverage:"available"},{id:"fixture-note",qsoId:null,frame:48000*500,anchorUtcMs:1792886900000,basis:"Captured sample watermark",current:null,note:"Check receiver 2 audio",deleted:false,coverage:"available"}]}};
+window.recorderPreviewCalls=[];
+const read=async request=>{window.recorderPreviewCalls.push(request.action);if(request.action==="status")return structuredClone(state);if(request.action==="bookmarks")return {rows:state.selected.bookmarks,total:2};if(request.action==="devices")return[{id:"fixture-input",name:"Fixture stereo input",knownTx:false,inputRate:48000,inputs:[{channels:2,minRate:48000,maxRate:48000,format:"F32"}],outputs:[]},{id:"fixture-listening",name:"Fixture headphones",knownTx:false,outputRate:48000,inputs:[],outputs:[{channels:2,minRate:48000,maxRate:48000,format:"F32"}]}];if(request.action==="configure"){state.config=request.config;return{saved:true};}if(request.action==="export")return{cancelled:true};if(request.action==="stop_replay")return{stopped:true};throw new Error("Preview fixture: native action intentionally unavailable");};
+createRoot(document.getElementById("root")).render(React.createElement(ContestRecorderWindow,{read}));
+</script></html>

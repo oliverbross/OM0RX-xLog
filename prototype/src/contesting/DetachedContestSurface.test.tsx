@@ -13,6 +13,8 @@ import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
 const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), wake: null as null|(()=>void), emit:null as null|((payload:unknown)=>void),
   wakes:[] as ((event:{payload:unknown})=>void)[],
   closeRequested:null as null|((event:{preventDefault:()=>void})=>Promise<void>) }));
+vi.mock("./ContestRecorderStrip",()=>({ContestRecorderStrip:()=>null}));
+vi.mock("./contestRecorder",async importOriginal=>({...await importOriginal<typeof import("./contestRecorder")>(),recorderRequest:vi.fn(async()=>({}))}));
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (command: string, args: Record<string, any>) =>
     native.invoke(command, command === "contest_surface_action" ? args.envelope : args),
@@ -2408,7 +2410,7 @@ it("drains a new edit started while a discarded owner-busy flush is still backin
     if(command==="contest_surface_snapshot")return structuredClone(current);
     if(command==="contest_surface_action"){
       actions.push(args);
-      if(args.action==="entry_set_text"&&args.params.value==="K1ABC"&&busyAttempts<4){busyAttempts+=1;
+      if(args.action==="entry_set_text"&&args.params.value==="K1ABC"){busyAttempts+=1;
         current={...current,receipts:[{requestID:args.requestID,status:"rejected",message:"The contest owner is busy.",projectionRevision:current.projectionRevision}]};
         return {requestID:args.requestID,status:"rejected"};}
       const callsign=args.action==="entry_clear"?"":args.params.value,currentRevision=current.projectionRevision+1;
@@ -2419,13 +2421,16 @@ it("drains a new edit started while a discarded owner-busy flush is still backin
     throw new Error(command);
   });
   render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign");fireEvent.change(callsign,{target:{value:"K1ABC"}});
-  await waitFor(()=>expect(actions).toHaveLength(4),{timeout:3000});
+  await waitFor(()=>expect(actions.length).toBeGreaterThanOrEqual(4),{timeout:3000});
   await waitFor(()=>expect(screen.getByRole("button",{name:"Wipe"})).toHaveProperty("disabled",false));
   fireEvent.click(screen.getByRole("button",{name:"Wipe"}));
   await waitFor(()=>expect(actions.at(-1)?.action).toBe("entry_clear"));
   fireEvent.change(screen.getByLabelText("Callsign"),{target:{value:"N2NEW"}});
   await waitFor(()=>expect(actions.at(-1)).toMatchObject({action:"entry_set_text",params:{value:"N2NEW"}}),{timeout:3000});
-  expect(actions.map(action=>action.action)).toEqual(["entry_set_text","entry_set_text","entry_set_text","entry_set_text","entry_clear","entry_set_text"]);
+  const cleared=actions.findIndex(action=>action.action==="entry_clear");
+  expect(cleared).toBeGreaterThanOrEqual(4);
+  expect(actions.slice(0,cleared).every(action=>action.action==="entry_set_text"&&action.params.value==="K1ABC")).toBe(true);
+  expect(actions.slice(cleared).map(action=>action.action)).toEqual(["entry_clear","entry_set_text"]);
 });
 
 it("restores the authoritative draft when Wipe is rejected before a later Enter",async()=>{

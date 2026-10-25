@@ -1,0 +1,14 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.3 [39m[90m/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/prototype[39m
+
+ [32m✓[39m src/contesting/useContestSurfaceOwner.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[33m 1807[2mms[22m[39m
+   [33m[2m✓[22m[39m drains an admitted entry edit when its native wake is lost, without replaying it[33m 1037[2mms[22m[39m
+ [32m✓[39m src/contesting/sessionOwner.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[32m26 passed[39m[22m[90m (26)[39m
+[2m   Start at [22m 13:42:36
+[2m   Duration [22m 3.83s[2m (tests 52%, environment 32%, transform 9%, import 6%, worker 1%)[22m
+
+[2m    Isolate [22m [33m2 workers spawned[39m[2m · ~708ms startup each (spawn + environment, per file)[22m
+[2m            [22m [2mat least ~708ms faster with [22m[33misolate: false[39m[2m — reuses workers across files instead of one per file[22m

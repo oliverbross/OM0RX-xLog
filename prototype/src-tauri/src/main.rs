@@ -63,6 +63,12 @@ mod contest_log_transfer;
 mod contest_log_review;
 mod contest_analytics;
 mod contest_voice;
+mod contest_recorder;
+mod contest_recorder_store;
+#[cfg(target_os = "macos")]
+mod contest_recorder_audio;
+#[cfg(target_os = "macos")]
+mod contest_recorder_acceptance;
 
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::{Emitter, LogicalSize, Manager};
@@ -682,6 +688,8 @@ fn append_contesting_menu(app: &tauri::AppHandle, menu: &Menu<tauri::Wry>) -> ta
         "Log Review…", true, None::<&str>)?)?;
     contesting.append(&MenuItem::with_id(app, contest_analytics::MENU_ID,
         "Analytics…", true, None::<&str>)?)?;
+    contesting.append(&MenuItem::with_id(app, contest_recorder::MENU_ID,
+        "Recorder…", true, None::<&str>)?)?;
     contesting.append(&PredefinedMenuItem::separator(app)?)?;
     for (route, title) in workspace_navigation::CONTEST_MENU_ITEMS {
         contesting.append(&MenuItem::with_id(app, format!("contest_menu_{route}"),
@@ -1019,6 +1027,22 @@ fn ensure_contest_analytics_window(app: &tauri::AppHandle) -> Result<(), String>
     window.show().map_err(|error| error.to_string())?;
     window.set_focus().map_err(|error| error.to_string())
 }
+
+fn ensure_contest_recorder_window(app: &tauri::AppHandle) -> Result<(), String> {
+    let window = recover_singleton(&MAIN_CREATION, || app.get_webview_window(contest_recorder::WINDOW), || {
+        let window = tauri::WebviewWindowBuilder::new(app, contest_recorder::WINDOW,
+            tauri::WebviewUrl::App("index.html?view=contest-recorder&scope=contesting".into()))
+            .title("OM0RX-xLog Contest — Recorder").inner_size(1000.0, 760.0).min_inner_size(620.0, 480.0)
+            .build().map_err(|e| e.to_string())?;
+        detached_geometry::install(&window); Ok(window)
+    })?;
+    window.unminimize().map_err(|e| e.to_string())?;
+    window.show().map_err(|e| e.to_string())?;
+    window.set_focus().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn open_contest_recorder(app: tauri::AppHandle) -> Result<(), String> { ensure_contest_recorder_window(&app) }
 
 fn ensure_contest_log_review_window(app: &tauri::AppHandle) -> Result<(), String> {
     let window = recover_singleton(&MAIN_CREATION, || app.get_webview_window(contest_log_review::WINDOW), || {
@@ -3605,6 +3629,22 @@ async fn close_logbook_window(window: tauri::WebviewWindow) -> Result<(), String
 }
 
 fn main() {
+    #[cfg(target_os = "macos")]
+    if std::env::args().collect::<Vec<_>>().get(1).is_some_and(|a| a == "--recorder-acceptance") {
+        match contest_recorder_acceptance::run() {
+            Ok(report) => println!("{report}"),
+            Err(error) => {eprintln!("{error}");std::process::exit(1);}
+        }
+        return;
+    }
+    #[cfg(target_os = "macos")]
+    if std::env::args().collect::<Vec<_>>().get(1).is_some_and(|a| a == "--recorder-audio-devices") {
+        match contest_recorder_audio::devices() {
+            Ok(devices) => println!("{}", serde_json::json!({"version":env!("CARGO_PKG_VERSION"),"source":option_env!("XLOG_SOURCE_COMMIT"),"permission":contest_recorder_audio::permission(),"devices":devices,"captureStarted":false,"outputStarted":false})),
+            Err(error) => {eprintln!("{error}");std::process::exit(1);}
+        }
+        return;
+    }
     let path = acceptance::report_path(std::env::args()).unwrap_or_else(|error| {
         eprintln!("{error}");
         std::process::exit(2);
@@ -3733,6 +3773,10 @@ fn main() {
                 if let Err(error) = ensure_contest_analytics_window(app) {
                     eprintln!("Could not open contest analytics: {error}");
                 }
+                return;
+            }
+            if event.id().0 == contest_recorder::MENU_ID {
+                if let Err(error) = ensure_contest_recorder_window(app) { eprintln!("Could not open contest recorder: {error}"); }
                 return;
             }
             if event.id().0 == contest_log_review::MENU_ID {
@@ -3981,6 +4025,7 @@ fn main() {
             contest_analytics::contest_analytics_read,
             contest_analytics::contest_analytics_export,
             contest_analytics::contest_analytics_print,
+            open_contest_recorder, contest_recorder::contest_recorder_request, contest_recorder::contest_recorder_stop_replay,
             contest_log_review::contest_log_review_open_log,
             contest_log_transfer::contest_log_transfer_context, contest_log_transfer::contest_log_transfer_request,
             contest_log_transfer::contest_legacy_choose_preview, contest_log_transfer::contest_legacy_import,
@@ -4005,6 +4050,7 @@ fn main() {
         .expect("Application failed to start")
         .run(|app, event| {
             if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
+                contest_recorder::shutdown();
                 if contest_voice::needs_shutdown_barrier() {
                     if let Err(error) = contest_voice::shutdown(app) {
                         eprintln!("Contest voice PTT application-exit release remains uncertain: {error}");

@@ -1,14 +1,14 @@
 # Contest recorder implementation / acceptance
 
-Source reconciled: canonical `main` at `369703cd` (1.3.16), clean and fast-forward current on 2026-10-25. The supplied plan reviewed `ec981e72`; all subsequent spot/recovery work is retained.
+Source reconciled: initial canonical `369703cd` (1.3.16), then fast-forwarded to `1516211e` after the separately authorized 1.3.17 hotfix. The Checking fix `362ee467` and installed source `1f15a88d` are retained. The supplied plan reviewed `ec981e72`; newer and unrelated work is preserved. Development uses the managed recorder branch; packaging uses clean canonical `main` only.
 
 | Milestone | State | Evidence / boundary |
 |---|---|---|
 | M0 | Done | Native Tauri owns PCM; CPAL 0.18.2 Core Audio stable device IDs, rtrb preallocated SPSC queue; no capture-rate Python/React traffic. |
-| M1 | Implementing | Explicit one-device mono/stereo capture; independent native listening output. |
-| M2 | Implementing | Python `xlog_qso_audit` after commit, persistent session ID + QSO ID; native admission marker keyed by existing operation ID. |
-| M3 | Implementing | Existing detached Log Display, binding registry and Analytics. |
-| M4 | Pending | Unique canonical candidate; no production install or real recording authorized. |
+| M1 | Implemented; physical acceptance pending | Native continuous one-device mono/stereo capture, fixed callback queue, segmented PCM16 originals; explicit separate native listening output and cancellation fence. |
+| M2 | Implemented; software fixtures pass | Actual Python `xlog_qso_audit` after commit; persistent log/QSO IDs; durable operation admission markers, revision/tombstone reconciliation across capture epochs, recovery and independent export. |
+| M3 | Implemented; software/UI fixtures pass | Existing detached Log Display, configurable binding registry and Analytics exact-dataset playback; no scoring or station-write dependency. |
+| M4 | Hardening / candidate checks | Combined review findings fixed; physical REC cases externally blocked by disconnected audio. Unique canonical signed candidate and exact-source receipt follow. |
 | M5 | Deferred | Independent inputs, direct TCI/Flex/DAX/remote audio require separate scope. |
 
 ## Integration map

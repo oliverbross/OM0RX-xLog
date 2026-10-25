@@ -1,0 +1,14 @@
+✔ Mac staging selects the same Xcode build system as the resource-bearing worker (3.390792ms)
+✔ worker build and bin-path discovery both use the Mac-only build-system wrapper (3.442292ms)
+✔ Mac packaging resolves Xcode products and retains the strict-signing resource layout (9.138334ms)
+✔ Mac installation verifies the staged and installed resource/signature layout before launch (1.373791ms)
+✔ isolated contest packaging stages and signs the complete Python lane (2.406042ms)
+✔ contest Python staging is application-relative and relocation-checked (0.408541ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 149.405791

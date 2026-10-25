@@ -3,6 +3,6 @@
 <plist version="1.0">
 <dict>
   <key>NSMicrophoneUsageDescription</key>
-  <string>OM0RX-xLog records operator-selected contest voice messages for local F1–F12 phone macros.</string>
+  <string>OM0RX-xLog records an operator-selected contest audio input and optional local voice-keyer messages.</string>
 </dict>
 </plist>
