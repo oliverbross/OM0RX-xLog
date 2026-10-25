@@ -1,0 +1,193 @@
+{
+  "version": "1.3.14",
+  "sourceCommit": "0c2b564868cc7999f7674b65b1643b56c10a18c0",
+  "sourceChanges": [],
+  "createdUTC": "2026-10-24T23:59:15.828274+00:00",
+  "signature": "Developer ID; deep strict verification passed; notarization separate",
+  "componentHashes": {
+    "executable": "a76471b36d52f618d0d3f4689e630a0ceb02046568d0cb2d6b40ffe088bebc93",
+    "worker": "826ba219c25ab5d9c53e6857743ef90298e050d31bf55ccae9a1711f7575551d",
+    "pythonReceipt": "548f3020e9c15a87616172c28a88d0b28502e07fc7b2967504f12abeebdede25",
+    "distributionReceipt": "5f514199bbffa520f6dfa4ac96332cff76e423538b83663b222956003698e81b",
+    "pythonExecutable": "c3fb370075c2a318ba986e011e23c4dd8876f01a5d80266f0a4fdb1d8fcc2cbb"
+  },
+  "packagedPython": {
+    "tests": 32,
+    "failures": 0,
+    "errors": 0,
+    "successful": true,
+    "durationSeconds": 5.602
+  },
+  "packagedPythonMachOCount": 92,
+  "nativeAcceptance": {
+    "status": "passed",
+    "checks": {
+      "adif_transfer_roundtrip": true,
+      "awards_loaded": true,
+      "contact_delete_undo": true,
+      "contact_edit": true,
+      "desk_map_logbook": true,
+      "detached_awards": true,
+      "detached_awards_lifecycle": true,
+      "detached_logbook": true,
+      "detached_logbook_lifecycle": true,
+      "detached_projection": true,
+      "detached_spot_history": true,
+      "empty_workspace": true,
+      "final_desk": true,
+      "isolated_worker": true,
+      "keyboard_clear": true,
+      "keyboard_editor": true,
+      "keyboard_focus": true,
+      "keyboard_log": true,
+      "logbook_readback": true,
+      "map_loaded": true,
+      "native_menu_routes": true,
+      "settings_save_readback": true,
+      "settings_sections": true,
+      "spot_history_archive": true,
+      "spot_history_dock_recovery": true,
+      "spot_history_main_absent": true,
+      "worker_integration_self_test": true,
+      "worker_parse_adif": true,
+      "worker_self_test": true,
+      "workspace_canvas_controls": true,
+      "workspace_created": true,
+      "workspace_feedback_overlay": true,
+      "workspace_layout_roundtrip": true,
+      "workspace_native_windows": true,
+      "workspace_settings_presets": true
+    },
+    "stationIO": false,
+    "productionSingleton": false
+  },
+  "preservation": {
+    "contactCount": 323,
+    "tableMatches": {
+      "DXLOG": true,
+      "xlog_qso_identity": true,
+      "xlog_qso_audit": true
+    },
+    "passed": true
+  },
+  "forwarding": {
+    "review": "clear after queue and chunk corrections",
+    "focusedTestsPassed": 15,
+    "initialSuite": {
+      "passed": 195,
+      "timedOut": 2,
+      "timedOutTestsPassedIsolatedRerun": 2
+    },
+    "typecheck": "passed",
+    "acceptedInventoryAfterRestart": [
+      10,
+      33
+    ],
+    "operatorConfirmedMaestroVisible": true,
+    "physicalRenewalBeyond600Seconds": "not observed in this release check"
+  },
+  "dxpeditionEvidence": {
+    "schemaVersion": 1,
+    "releaseCandidate": "1.3.14",
+    "status": "SOURCE_VALIDATED_INSTALLED_ACCEPTANCE_PENDING",
+    "scope": "DXpedition integration and read-only consolidation audit; not the final combined package receipt",
+    "dxIntegrationSource": "06b37201ab045cf59436ce7f32d8c3aa39c895ea",
+    "validation": {
+      "rust": {
+        "passed": 847,
+        "failed": 0,
+        "log": "/tmp/xlog-dxmap-native-tests.log",
+        "exitStatus": 0,
+        "scope": "Full native Rust suite, including separate opportunity token pools, prefilter cluster identities, scoped admission and non-retiring catalogue timeouts"
+      },
+      "frontend": {
+        "passed": 97,
+        "failed": 0,
+        "files": 6,
+        "log": "/tmp/xlog-dxmap-integration-tests.log",
+        "scope": "DX model, surface, styles, shared Map/MapSpots and workspace registry; includes cached display during refresh, focus-read coexistence and stale-read rejection"
+      },
+      "productionBuild": {
+        "typeScript": "passed",
+        "vite": "passed",
+        "windowBundleGates": "passed",
+        "log": "/tmp/xlog-dxmap-build-final.log",
+        "logbookGraphBytes": 402807,
+        "logbookBudgetBytes": 402950,
+        "ordinaryWindowsExcludeDXpeditionUI": true
+      },
+      "swift": {
+        "providerParserTestsPassed": 8,
+        "opportunityProjectionAndDownloadTestsPassed": 16,
+        "heldFeedConcurrencyTestsPassed": 1,
+        "concurrencyArchive": "0e7066098aead5d7",
+        "attribution": "Swift integration agent and release owner reported results",
+        "concurrencyScope": "A logbook statistics request completed through the same LiveWorker while an ADXO response was held; disposable log remained empty"
+      },
+      "liveProviderParse": {
+        "adxoOperations": 43,
+        "dx425Operations": 37,
+        "specialEvents425": 33,
+        "attribution": "Release owner reported live-download parser diagnostic",
+        "scope": "Parsing actual downloaded provider data; not installed UI, full provider parity or physical radio acceptance"
+      }
+    },
+    "behaviorBoundaries": {
+      "cardsAndPinsArePassive": true,
+      "catalogueRefreshDoesNotRetireSharedWorkerOnTimeout": true,
+      "ordinaryAndDXCatalogueTokensAreIndependent": true,
+      "visibleAndPrefilterClusterRowsShareVerifiedIdentity": true,
+      "ambiguousClusterIdentitiesFailClosed": true,
+      "browsingDuringContestingDoesNotSwitchModule": true,
+      "explicitTuneAndLoadRetainNormalLoggingGuard": true,
+      "installedMenuAndProviderAcceptance": "pending",
+      "physicalRadioAcceptance": "not performed",
+      "rfPttAudioRotorActions": "not performed"
+    },
+    "consolidationAudit": {
+      "auditedMain": "06b37201ab045cf59436ce7f32d8c3aa39c895ea",
+      "localBranches": 18,
+      "liveRemoteHeads": 18,
+      "auxiliaryWorktrees": 14,
+      "cleanAuxiliaryWorktrees": 13,
+      "cleanAuxiliaryWithIgnoredFiles": 11,
+      "cleanAuxiliaryWithoutIgnoredFiles": 2,
+      "dirtySettingsWorktrees": 1,
+      "mergedUnattachedLocalCleanupCandidates": 0,
+      "mergedArchivedRemoteNonMainCleanupCandidates": 5,
+      "previouslyDeletedLocalBranches": 120,
+      "previouslyDeletedRemoteBranches": 120,
+      "bundleVerification": "passed",
+      "originalAllRefsBundleSHA256": "1685bf4a311b9675e333c165a2f9ef0ffa03f0e0b045a6204828310845903b5d",
+      "retainedNonMainLocalTipsMatchArchive": true,
+      "currentMainIsNewerThanOriginalBundle": true,
+      "settingsPreservation": {
+        "currentBinaryDiffMatchesArchivedPatch": true,
+        "patchSHA256": "cfdf6cdf987231c39b81fbf15b0b84af2445f495446b0d7a483678bd9083b8ff",
+        "currentUntrackedTestMatchesArchivedTest": true,
+        "testSHA256": "a435c522324d5a6dfe6b7d00936d0566d9b6d556f58007b31e388109be37ab22",
+        "scope": "Uncommitted settings work is preserved separately; it is not contained in the Git bundle or integrated merely because its branch base is merged"
+      },
+      "limitations": [
+        "No refs, worktrees or production data were mutated during this final audit.",
+        "Clean worktree status does not establish that its chat or build is inactive.",
+        "Preserve unique ignored release and test evidence before archiving worktrees.",
+        "The adapted DXpedition feature is integrated, while its archived branch remains ancestry-unmerged.",
+        "Legacy rate, isolation, rover and historical review branches still require explicit integration or archival disposition.",
+        "Create a new dated complete bundle after final main commits; retain the original verified bundle and settings patch/test archive.",
+        "Neither branch-free consolidation nor integration of every historical feature is claimed."
+      ],
+      "inventory": "/tmp/xlog-final-consolidation-audit.json",
+      "recommendations": "/tmp/xlog-final-consolidation-recommendations.md"
+    },
+    "privacy": "Contains only source identity, aggregate validation counts, hashes and scope boundaries; no production identifiers, callsigns, credentials or raw contacts",
+    "finalPackageSource": null,
+    "packagedVerification": "pending",
+    "installedVerification": "pending"
+  },
+  "limitations": [
+    "DXpedition installed window visual check deferred to avoid interrupting active operator; focused frontend/native/provider checks passed.",
+    "Recorded voice, audio routing, PTT, RF and rotor not tested.",
+    "Remaining legacy branches/worktrees preserved in verified archive; cleanup not complete."
+  ]
+}

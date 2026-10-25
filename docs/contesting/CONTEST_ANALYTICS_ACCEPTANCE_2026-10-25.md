@@ -120,3 +120,32 @@ Final-source follow-up: JSON export after Print/PDF saved successfully and read 
 313 rows with 313 unique IDs. Contest Cluster showed ShackCQ connected and live SSB
 spots. Main Logging was left focused. The two superseded 1.3.13 candidate bundles
 were removed; the signed 1.3.12 rollback remains.
+
+## 1.3.14 follow-up — DXpedition Map and Flex delivery
+
+**READY WITH LIMITATIONS.** Installed source is
+`0c2b564868cc7999f7674b65b1643b56c10a18c0`, version 1.3.14. The user reported
+missing Flex spots in 1.3.13; that earlier unverified result is superseded by the
+1.3.14 operator confirmation: “Yes, spots are visible.” The accepted radio
+inventory grew from 10 to 33 after restart, demonstrating ongoing arrivals.
+
+The release adds the reviewed DXpedition Map (Window → DXpedition Map), fixes
+classification starvation and coalesces queued radio publications without
+interrupting valid chunk transactions. Independent review cleared the final
+forwarding delta. All 15 focused forwarding tests, typecheck, 32 packaged Python
+tests and 35 isolated native acceptance checks passed. The broader workspace
+run had 195 passes and two timeouts; both timed-out voice simulations passed
+isolated reruns. No physical voice/audio/PTT/RF/rotor check is claimed.
+
+Fresh preservation verified all 323 QSO rows, stable identities and audit rows
+unchanged before relaunch. Existing contest windows and connected ShackCQ cluster
+returned. Settings remain in the original namespace. The old settings-safety
+patch was deferred because its second settings store conflicts with the integrated
+schema; its unique work is preserved. DXpedition's installed visual check is
+deferred while the operator is actively contesting. Long-duration physical marker
+renewal and remaining legacy branch cleanup are not claimed complete.
+
+Full [1.3.14 build and acceptance record](CQ_WW_SSB_1_3_14_BUILD.md), with
+[sanitized exact-source evidence](evidence/cq-ww-ssb-1.3.14/release-verification.json).
+Backup: `/Users/oliver/Documents/Backups/OM0RX-xLog-1.3.14-before-install-20261025T093000`.
+Rollback: `/Applications/OM0RX-xLog-previous-1.3.13-20261025.app`.
