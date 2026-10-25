@@ -336,8 +336,10 @@ function MainLiveApp() {
       return true;
     }
     if (logbookWorkingRef.current) { setError("Wait for the logbook operation to finish before changing views."); return false; }
-    if (readingRadio.current || editorBufferPending.current || mainClosing.current || layoutChanging.current || editorTransition.current || !draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput()) {
-      setError("Finish the buffered draft fields and check any pending activation before changing views. Your text is retained."); return false;
+    // Shared sessions keep their safety fences across page changes. Navigation
+    // only waits for local text or a presentation operation that would be interrupted.
+    if (readingRadio.current || editorBufferPending.current || mainClosing.current || layoutChanging.current || editorTransition.current) {
+      setError("Finish the buffered QSO fields or the current editor operation before changing views. Your text is retained."); return false;
     }
     viewRef.current = next; writeView(next);
     if (radioSettingsRoute) {
@@ -345,7 +347,7 @@ function MainLiveApp() {
       setRadioSettingsRequest(previous => ({ radioId: requestedRadioId, revision: previous.revision + 1 }));
     }
     return true;
-  }, [draftSession, contactSession]);
+  }, []);
   const [draftUpdateHealth] = useState(() => ownDraftUpdateWarnings(setError));
   const menuSettings = useRef(settings); menuSettings.current = settings;
   const showSyncSettings = useCallback(() => {

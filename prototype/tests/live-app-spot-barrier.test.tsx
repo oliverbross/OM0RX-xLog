@@ -8,6 +8,7 @@ import { contactEditFixture } from "./contact-edit-fixture";
 const host = vi.hoisted(() => ({ request: vi.fn(), activate: vi.fn(), customCanvas: false,
   nativeEditor: false, followEnabled: true, activationReady: true, invoke: vi.fn(), follow: vi.fn(), reconcile: vi.fn(),
   readiness: null as null | ((snapshot: any) => { ready: boolean }),
+  editorParticipants: [] as any[],
   navigate: undefined as undefined | ((title: string) => void),
   dock: undefined as undefined | ((kind: string) => void),
   telemetry: undefined as undefined | ((value: any) => void),
@@ -21,6 +22,7 @@ vi.mock("../src/live/useSpotEditor", async () => {
   const { useEffect } = await import("react");
   return { nativeSpotEditor: () => host.nativeEditor, useSpotEditor: (participants: any[], readiness: (snapshot: any) => { ready: boolean }) => {
     host.readiness = readiness;
+    host.editorParticipants = participants;
     useEffect(() => { if (host.nativeEditor) participants.forEach(item => item.setSpotEditorRegistered(true)); }, []);
     host.reconcile.mockImplementation(async () => { for (const item of participants) await item.refresh(); return true; });
     return { status: null, error: "", reconcile: host.reconcile };
@@ -55,7 +57,7 @@ vi.mock("../src/live/OperatorCanvas", () => ({ default: ({ panels, traditional }
 beforeEach(() => {
   localStorage.clear(); host.request.mockReset(); host.activate.mockReset(); host.customCanvas = false;
   host.nativeEditor = false; host.followEnabled = true; host.activationReady = true; host.invoke.mockReset(); host.follow.mockReset(); host.follow.mockResolvedValue(undefined); host.reconcile.mockReset();
-  host.navigate = undefined; host.dock = undefined; host.close = undefined; host.telemetry = undefined;
+  host.navigate = undefined; host.dock = undefined; host.close = undefined; host.telemetry = undefined; host.editorParticipants = [];
   const initial = { id: "draft", call: "", start: "2026-10-12T00:00:00Z", frequencyHz: 14074000, mode: "FT8", band: "20m" };
   const draft = operatorDraftFixture(initial);
   const contact = contactEditFixture({ ...initial, id: "historical", call: "K1ABC" });
@@ -222,12 +224,39 @@ it("vetoes native Read radio when a workspace changes during the draft flush", a
   expect(localStorage.getItem("xlog.integration.operatorDraft.main.v1.readRadio")).toBeNull();
 });
 
-function sidebar(title: string) { fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: title })); }
+function sidebar(title: string) { fireEvent.click(within(screen.getAllByRole("navigation")[0]).getByRole("button", { name: title })); }
 async function openEditor(full: boolean) {
   render(<LiveApp />); await screen.findByLabelText("Desk Frequency MHz");
   if (full) sidebar("Log QSO");
   return screen.findByLabelText(full ? "Frequency MHz" : "Desk Frequency MHz") as Promise<HTMLInputElement>;
 }
+
+it.each(["registration lost", "activation pending"])("can leave Settings with QSO %s without unlocking the editor", async reason => {
+  await openEditor(false);
+  sidebar("Settings");
+  expect(screen.getByRole("main", { name: "Settings" })).toBeTruthy();
+  await act(async () => {
+    for (const participant of host.editorParticipants) {
+      if (reason === "registration lost") participant.setSpotEditorRegistered(false);
+      else participant.freezeSpotActivation(crypto.randomUUID());
+    }
+  });
+  sidebar("Logbook");
+  expect(screen.getByRole("main", { name: "Logbook" })).toBeTruthy();
+  await act(async () => { host.navigate?.("Settings"); });
+  expect(screen.getByRole("main", { name: "Settings" })).toBeTruthy();
+  await act(async () => { host.navigate?.("Log QSO"); });
+  const call = await screen.findByLabelText("Callsign") as HTMLInputElement;
+  fireEvent.change(call, { target: { value: "IGNORED" } });
+  expect(call.value).toBe("");
+  expect(host.close?.blocked()).toBe(true);
+  expect(host.editorParticipants.every(item => !item.canAcceptLocalInput())).toBe(true);
+  sidebar("Logbook");
+  expect(screen.getByRole("main", { name: "Logbook" })).toBeTruthy();
+  expect(host.editorParticipants.every(item => !item.canAcceptLocalInput())).toBe(true);
+  expect(host.activate).not.toHaveBeenCalled();
+  expect(screen.queryByText(/Finish the buffered draft fields and check any pending activation before changing views/)).toBeNull();
+});
 
 for (const full of [false, true]) {
   it.each(["sidebar", "native menu", "dock"])(`retains invalid ${full ? "full editor" : "Desk"} text when %s requests another view`, async route => {
