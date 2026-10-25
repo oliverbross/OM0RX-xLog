@@ -618,6 +618,11 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
   const intendedCall=intents.values.callsign.trim(),authoritativeCall=projection.draft.callsign.trim(),
     duplicatePending=intendedCall.toLocaleUpperCase()!==authoritativeCall.toLocaleUpperCase(),
     duplicateState=duplicatePending?"unchecked":projection.draft.dupe.state;
+  const multiplierPending=projection.draft.receivedFields.some((field:any)=>field.id==="other_2"&&
+    String(intents.values[`exchange:${field.id}`]??"").trim()!==field.value.trim()) ||
+    intents.values.frequency!==projection.draft.frequencyText;
+  const multiplierLabel=({"new-zone-and-country":"New zone and country","new-zone":"New zone",
+    "new-country":"New country","no-new-multiplier":"No new multiplier"} as Record<string,string>)[projection.draft.multiplierStatus];
   const actionFor=(key:EntryIntentKey)=>(value:string):ContestSurfaceAction=>key==="callsign"||key==="sentReport"||key==="receivedReport"
     ?{action:"entry_set_text",params:{...base,field:key,value}}
     :key==="frequency"?{action:"entry_set_frequency_text",params:{...base,value}}
@@ -823,6 +828,8 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
       {intendedCall===""?<span>Ready for callsign</span>:duplicatePending?<span>Checking — {intendedCall}</span>:duplicateState==="duplicate"
         ?<strong>DUPE — {authoritativeCall} already worked on {projection.draft.band}</strong>
         :duplicateState==="unchecked"?<span>{projection.draft.dupe.reason||"Checking duplicate…"}</span>
+        :multiplierLabel&&multiplierPending?<span>Checking multipliers — {authoritativeCall} on {projection.draft.band}</span>
+        :multiplierLabel?<span>{multiplierLabel} — {authoritativeCall} on {projection.draft.band}</span>
         :<span>Clear — {authoritativeCall} not worked on {projection.draft.band}</span>}
       {!duplicatePending&&duplicateState==="duplicate"&&projection.draft.dupe.reason&&<small>{projection.draft.dupe.reason}</small>}
     </div>

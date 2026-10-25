@@ -72,6 +72,17 @@ class HostTests(unittest.TestCase):
                     fields={"callsign": call, "other_2": zone})
         return qso
 
+    def test_cw_entry_multiplier_status_uses_current_received_zone_on_each_band(self):
+        self.log("OM1ABC", "15")
+        for call, zone, expected in [("OM0RX", "14", "new-zone"), ("DL1ABC", "15", "new-country"),
+                                     ("K1ABC", "5", "new-zone-and-country"), ("OM0RX", "15", "no-new-multiplier")]:
+            with self.subTest(call=call, zone=zone):
+                view = self.mutate("draft_apply", fields={"callsign": call, "other_2": zone})["projection"]
+                self.assertEqual(view["entryMultiplierStatus"], expected)
+        view = self.mutate("draft_apply", frequencyHz=7025000)["projection"]
+        self.assertEqual(view["entryMultiplierStatus"], "new-zone-and-country")
+        self.assertEqual(self.read("log")["total"], 1)
+
     def test_actual_plugin_layout_tab_order_and_partial_input(self):
         view = self.read("session_open")["projection"]
         self.assertEqual(view["tabNext"], {"callsign": "sent", "sent": "receive", "receive": "other_2", "other_1": "callsign", "other_2": "callsign"})

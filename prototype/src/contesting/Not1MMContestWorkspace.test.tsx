@@ -661,7 +661,7 @@ it("projects the expected country universe, classified opportunities, hourly tim
   const warnings=[{fieldID:"other_2",kind:"mismatch",message:"Received zone 9 differs from suggested zone 14."},
     {fieldID:"other_2",kind:"conflict",message:"Previous contacts used zone 14."}];
   const current:any={...projection(1,{callsign:"DL1ABC",other_2:"9"}),columns:["Call","CQ Zone","PTS"],
-    exchangeWarnings:warnings,callContext:{callsign:"DL1ABC",country:"Germany",cqZone:14,ituZone:28},
+    exchangeWarnings:warnings,entryMultiplierStatus:"new-zone",callContext:{callsign:"DL1ABC",country:"Germany",cqZone:14,ituZone:28},
     score:{qsos:1,points:3,countries:1,zones:1,total:6}};
   const base=operationalRequest(()=>current,()=>3,()=>({dupe:false,multiplierCount:2,countryMultiplier:true,zoneMultiplier:true}));
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
@@ -684,12 +684,40 @@ it("projects the expected country universe, classified opportunities, hourly tim
     expect.objectContaining({label:"VK",continent:"OC",total:0,availableSpots:{"40m":[expect.objectContaining({spotID:"vk",contestDupe:false,contestMultiplierCount:2})]}}),
   ])));
   expect(surfaceOwner.current.projections.awards).toMatchObject({current:{dxcc:"DL"},total:1,draftID:current.draftID});
-  expect(surfaceOwner.current.projections["active-qso"].draft).toMatchObject({exchangeWarnings:warnings,
+  expect(surfaceOwner.current.projections["active-qso"].draft).toMatchObject({exchangeWarnings:warnings,multiplierStatus:"new-zone",
     receivedFields:expect.arrayContaining([expect.objectContaining({id:"other_2",value:"9"})])});
   expect(surfaceOwner.current.projections.logbook.pluginRows[0]).toMatchObject({exchangeWarnings:warnings});
   expect(surfaceOwner.current.projections.monitor).toMatchObject({hourly:[{hourUTC:"2026-10-25T00:00:00.000Z",qsos:1}],lastQsoAt:"2026-10-25T00:01:00.000Z"});
   for(const panel of ["active-qso","logbook","monitor","awards","chaser-dx"] as const)
     expect(validContestSurfaceProjection(panel,surfaceOwner.current.projections[panel])).toBe(true);
+});
+
+it.each(["callsign","other_2"])("suppresses entry multiplier status while owner %s edits await the worker",async(fieldID)=>{
+  const current:any={...projection(1,{callsign:"DL1ABC",other_2:"14"}),entryMultiplierStatus:"new-zone-and-country"};
+  const base=operationalRequest(()=>current);
+  let finish!:()=>void;
+  const held=new Promise<void>(resolve=>{finish=resolve;});
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    if(method==="contest_draft_apply"){
+      await held;
+      const next={...current,revision:2,fields:current.fields.map((field:any)=>({...field,value:(params.fields as any)[field.id]??field.value})),
+        entryMultiplierStatus:"new-country"};
+      return{id:crypto.randomUUID(),ok:true,result:{operationID:params.operationID,projection:next}};
+    }
+    return base(method,params);
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].draft.multiplierStatus).toBe("new-zone-and-country"));
+  const entry=surfaceOwner.current.projections["active-qso"];
+  let pending!:Promise<unknown>;
+  await act(async()=>{pending=surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"active-qso",projectionRevision:1,requestID:crypto.randomUUID(),
+    ...(fieldID==="callsign"?{action:"entry_set_text",params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,field:"callsign",value:"K1ABC"}}
+      :{action:"entry_set_exchange",params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,fieldID:"other_2",value:"5"}})});});
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].draft.multiplierStatus).toBeUndefined());
+  await act(async()=>{finish();await pending;});
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].draft.multiplierStatus).toBe("new-country"));
 });
 
 it("does not report an unresolved country for an empty draft",async()=>{

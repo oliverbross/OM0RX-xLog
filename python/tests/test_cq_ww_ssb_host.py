@@ -248,6 +248,59 @@ class CQWWSSBHostTests(unittest.TestCase):
             (14, 0), (14, 1), (7, 0),
         ])
 
+    def test_entry_multiplier_status_uses_received_zone_and_credited_band_log_without_writes(self):
+        self.assertNotIn("entryMultiplierStatus", self.read("projection")["projection"])
+        self.log("OM1ABC", "15")
+        # A duplicate with another exchange never supplies multiplier credit.
+        self.log("OM1ABC", "14", minute=1)
+        for call, zone, expected in [
+            ("OM0RX", "14", "new-zone"),  # CTY says 15; entered zone wins.
+            ("DL1ABC", "15", "new-country"),
+            ("K1ABC", "5", "new-zone-and-country"),
+            ("OM0A", "015", "no-new-multiplier"),
+            ("OM0A", "15", "no-new-multiplier"),
+        ]:
+            with self.subTest(call=call, zone=zone):
+                self.mutate("draft_apply", fields={"callsign": call})
+                view = self.mutate("draft_apply", fields={"other_2": zone})["projection"]
+                self.assertEqual(view.get("entryMultiplierStatus"), expected)
+        before_log, before_score, before_revision = self.read("log"), self.read("score"), self.revision
+        for _ in range(3):
+            self.assertEqual(self.read("projection")["projection"]["entryMultiplierStatus"], "no-new-multiplier")
+        self.assertEqual(self.read("log"), before_log)
+        self.assertEqual(self.read("score"), before_score)
+        self.assertEqual(self.revision, before_revision)
+        view = self.mutate("draft_apply", frequencyHz=7125000)["projection"]
+        self.assertEqual(view["entryMultiplierStatus"], "new-zone-and-country")
+        duplicate = self.mutate("draft_apply", frequencyHz=14250000,
+                                fields={"callsign": "OM1ABC", "other_2": "14"})["projection"]
+        self.assertTrue(duplicate["dupe"])
+        self.assertNotIn("entryMultiplierStatus", duplicate)
+
+    def test_entry_multiplier_status_tracks_deletion_and_omits_unknown_or_invalid_inputs(self):
+        first = self.log("OM1ABC", "15")
+        self.mutate("draft_apply", fields={"callsign": "OM0A", "other_2": "15"})
+        self.assertEqual(self.read("projection")["projection"]["entryMultiplierStatus"], "no-new-multiplier")
+        view = self.mutate("qso_delete", qsoID=first, reason="Disposable multiplier test")["projection"]
+        self.assertEqual(view["entryMultiplierStatus"], "new-zone-and-country")
+        for call, zone in [("ZZ0ZZ", "15"), ("OM0A", "41"), ("OM0A", "?"), ("", "15")]:
+            with self.subTest(call=call, zone=zone):
+                self.mutate("draft_apply", fields={"callsign": call})
+                view = self.mutate("draft_apply", fields={"other_2": zone})["projection"]
+                self.assertNotIn("entryMultiplierStatus", view)
+
+    def test_entry_multiplier_status_does_not_guess_missing_zone_or_other_contest_rules(self):
+        self.mutate("draft_apply", fields={"callsign": "OM0A"})
+        store = self.host.database(self.session)
+        desk = Desk(store, store.state(self.session), self.host.commit)
+        desk.other_2.setText("")
+        self.assertNotIn("entryMultiplierStatus", desk.projection())
+        desk.other_2.setText("15")
+        self.assertEqual(desk.projection()["entryMultiplierStatus"], "new-zone-and-country")
+        # Same resolved input has no meaning under unrelated contest rules.
+        desk.state["pluginID"] = "cq_wpx_ssb"
+        self.assertIsNone(desk.entry_multiplier_status("OM0A", 14, {"primary_pfx": "OM"}, False))
+
     def test_cq_ww_multiplier_slots_are_zone_then_country_for_asymmetric_contacts(self):
         first = self.log("OM1ABC", "15")
         zone_only = self.log("OM0RX", "14", minute=1)

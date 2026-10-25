@@ -1317,9 +1317,14 @@ fn validate_entry_projection_body(value: &Map<String, Value>) -> Result<(), Stri
             "validation",
             "reservedSerial",
         ],
-        &["exchangeWarnings"],
+        &["exchangeWarnings", "multiplierStatus"],
         "entry draft",
     )?;
+    if let Some(status) = draft.get("multiplierStatus") {
+        if !matches!(status.as_str(), Some("new-zone-and-country" | "new-zone" | "new-country" | "no-new-multiplier")) {
+            return Err("Invalid entry multiplier status".into());
+        }
+    }
     if let Some(warnings) = draft.get("exchangeWarnings") {
         validate_exchange_warnings(warnings)?;
     }
@@ -3494,6 +3499,20 @@ mod tests {
         let mut malformed_zone_matrix = zone_matrix;
         malformed_zone_matrix["zoneSystem"] = Value::Null;
         assert!(validate_projection("chaser-dx", &malformed_zone_matrix).is_err());
+    }
+
+    #[test]
+    fn entry_multiplier_status_is_optional_and_finite() {
+        let mut entry = entry_v2();
+        assert!(validate_projection("active-qso", &entry).is_ok());
+        for status in ["new-zone-and-country", "new-zone", "new-country", "no-new-multiplier"] {
+            entry["draft"]["multiplierStatus"] = json!(status);
+            assert!(validate_projection("active-qso", &entry).is_ok());
+        }
+        for invalid in [Value::Null, json!(true), json!("new-prefix"), json!({"zone": true})] {
+            entry["draft"]["multiplierStatus"] = invalid;
+            assert!(validate_projection("active-qso", &entry).is_err());
+        }
     }
 
     #[test]

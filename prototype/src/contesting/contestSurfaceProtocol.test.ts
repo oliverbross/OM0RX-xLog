@@ -275,6 +275,13 @@ describe("contest native surface projection v1", () => {
     expect(validContestSurfaceProjection("logbook", entryProjection)).toBe(false);
   });
 
+  it("accepts only the optional finite entry multiplier status", () => {
+    for(const multiplierStatus of ["new-zone-and-country","new-zone","new-country","no-new-multiplier"])
+      expect(validContestSurfaceProjection("active-qso", {...entryProjectionV2,draft:{...entryProjectionV2.draft,multiplierStatus}})).toBe(true);
+    for(const multiplierStatus of [null,true,"new-prefix",{zone:true}])
+      expect(validContestSurfaceProjection("active-qso", {...entryProjectionV2,draft:{...entryProjectionV2.draft,multiplierStatus}})).toBe(false);
+  });
+
   it("admits bounded source-backed Edit Contact details and rejects non-text metadata", () => {
     const details={rxFrequency:"",contest:"CQWW",country:"K",stationCall:"OM0RX",name:"ALICE",qth:"BOSTON",comment:"Original",
       receivedNumber:"14",sentNumber:"15",points:"3",power:"100",zone:"5",section:"CT",check:"67",precedence:"A",

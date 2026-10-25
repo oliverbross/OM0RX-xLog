@@ -605,6 +605,38 @@ it("keeps Trans Tasman duplicates loggable and presents the original period expl
   expect(screen.getByLabelText("Current band and mode").textContent).toBe("CW1608040");
 });
 
+it.each([
+  ["new-zone-and-country","New zone and country"], ["new-zone","New zone"], ["new-country","New country"],
+  ["no-new-multiplier","No new multiplier"], [undefined,"Clear"],
+])("shows authoritative entry multiplier status %s with legacy fallback",async(multiplierStatus,label)=>{
+  const view={...projection,draft:{...projection.draft,frequencyError:"",...(multiplierStatus?{multiplierStatus}:{})}};
+  native.invoke.mockResolvedValue({...snapshot,projection:view});render(<DetachedContestSurface/>);
+  expect(await screen.findByText(multiplierStatus?`${label} — OM0RX on 20m`:"Clear — OM0RX not worked on 20m")).toBeTruthy();
+});
+
+it("keeps DUPE ahead of a multiplier status",async()=>{
+  const view={...projection,draft:{...projection.draft,frequencyError:"",multiplierStatus:"new-zone-and-country",
+    dupe:{state:"duplicate",reason:"Worked on this band."}}};
+  native.invoke.mockResolvedValue({...snapshot,projection:view});render(<DetachedContestSurface/>);
+  expect(await screen.findByText("DUPE — OM0RX already worked on 20m")).toBeTruthy();
+  expect(screen.queryByText(/New zone and country/)).toBeNull();
+});
+
+it.each(["Callsign","Received exchange 1"])("hides stale multiplier status while %s is locally changed",async(label)=>{
+  const view={...projection,draft:{...projection.draft,frequencyHz:14025000,frequencyText:"14025000",frequencyError:"",
+    multiplierStatus:"new-zone-and-country",receivedFields:[{id:"other_2",label:"CQ Zone",value:"15",required:true,maximumUTF8Bytes:128}]}};
+  native.invoke.mockImplementation(async(command:string)=>{
+    if(command==="contest_surface_snapshot")return{...snapshot,projection:view};
+    if(command==="contest_surface_action")return new Promise(()=>{});
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);
+  expect(await screen.findByText("New zone and country — OM0RX on 20m")).toBeTruthy();
+  fireEvent.change(screen.getByLabelText(label),{target:{value:label==="Callsign"?"K1ABC":"14"}});
+  expect(await screen.findByText(label==="Callsign"?"Checking — K1ABC":"Checking multipliers — OM0RX on 20m")).toBeTruthy();
+  expect(screen.queryByText(/New zone and country/)).toBeNull();
+});
+
 it("shows Checking instead of attaching a stale DUPE result to locally typed callsign text",async()=>{
   const view={...projection,draft:{...projection.draft,callsign:"OM0A",frequencyError:"",dupe:{state:"duplicate",reason:"Worked at 09:43 UTC."}}};
   native.invoke.mockImplementation(async(command:string)=>{

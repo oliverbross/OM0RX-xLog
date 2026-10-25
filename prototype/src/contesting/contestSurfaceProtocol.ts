@@ -81,13 +81,15 @@ export type ContestPluginLogRow = { qsoID: string; values: string[]; isDupe?: bo
   inlineEdits?: (ContestLogInlineEdit | null)[] };
 export type ContestManualContext = { operator: string; cwSpeedWpm: number | null; cwSpeedStepWpm: number; country: string | null; cqZone: number | null; ituZone: number | null;
   headingDegrees: number | null; longPathHeadingDegrees: number | null; distanceKm: number | null; qsos: number; multipliers: number; total: number };
+export type ContestEntryMultiplierStatus = "new-zone-and-country" | "new-zone" | "new-country" | "no-new-multiplier";
 export type ContestEntrySurfaceProjection = { schemaVersion: 1; status: "ready";
   manual?: ContestManualContext;
   session: { name: string; ruleName: string; mode: string };
   draft: { draftID: string; revision: number; callsign: string; sentReport: string; receivedReport: string;
     receivedFields: ContestSurfaceReceivedField[]; frequencyHz: number | null; frequencyText: string; frequencyError: string;
     band: string; mode: string; dupe: { state: "unchecked" | "clear" | "duplicate"; reason: string };
-    validation: { errors: string[]; warnings: string[] }; reservedSerial: number | null; exchangeWarnings?:ContestExchangeWarning[] };
+    validation: { errors: string[]; warnings: string[] }; reservedSerial: number | null; exchangeWarnings?:ContestExchangeWarning[];
+    multiplierStatus?: ContestEntryMultiplierStatus };
   busy: boolean; dirty: boolean; uncertain: boolean };
 export type ContestEntrySurfaceProjectionV2 = Omit<ContestEntrySurfaceProjection, "schemaVersion"> & { schemaVersion: 2;
   descriptor: { reportsVisible?: boolean; bands: string[]; modes: ("CW" | "SSB" | "RTTY" | "AM" | "FM")[];
@@ -252,7 +254,8 @@ function validEntryProjection(value: Record<string, unknown>) {
   return optionalKeys(value, ["schemaVersion", "status", "session", "draft", "busy", "dirty", "uncertain"], ["manual"]) &&
     (!("manual" in value) || manualContextValid(value.manual)) &&
     !!session && exact(session, ["name", "ruleName", "mode"]) && text(session.name, 128) && text(session.ruleName, 128) && text(session.mode, 16) &&
-    !!draftValue && optionalKeys(draftValue, ["draftID", "revision", "callsign", "sentReport", "receivedReport", "receivedFields", "frequencyHz", "frequencyText", "frequencyError", "band", "mode", "dupe", "validation", "reservedSerial"],["exchangeWarnings"]) &&
+    !!draftValue && optionalKeys(draftValue, ["draftID", "revision", "callsign", "sentReport", "receivedReport", "receivedFields", "frequencyHz", "frequencyText", "frequencyError", "band", "mode", "dupe", "validation", "reservedSerial"],["exchangeWarnings", "multiplierStatus"]) &&
+    (draftValue.multiplierStatus===undefined||oneOf(draftValue.multiplierStatus,["new-zone-and-country","new-zone","new-country","no-new-multiplier"]))&&
     (draftValue.exchangeWarnings===undefined||exchangeWarningsValid(draftValue.exchangeWarnings))&&
     text(draftValue.draftID, 160) && uint(draftValue.revision) && text(draftValue.callsign, 32, true) && text(draftValue.sentReport, 160, true) &&
     text(draftValue.receivedReport, 160, true) && validReceivedFields(draftValue.receivedFields) && optionalFrequency(draftValue.frequencyHz) &&

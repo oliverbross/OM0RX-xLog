@@ -906,6 +906,25 @@ class Desk:
             "SELECT DISTINCT ZN FROM DXLOG WHERE ContestNR=? AND Call=?", (self.database.current_contest, call)) if call else []
         return Host.exchange_warnings(self.other_2.text(), country, [row["ZN"] for row in prior])
 
+    def entry_multiplier_status(self, call, band, country, duplicate):
+        """Read CQ WW credit from the same eligible log rows as the score."""
+        if self.state["pluginID"] not in CQ_WW_STATION_ZONE_PLUGINS or not call or duplicate:
+            return None
+        prefix = str(country.get("primary_pfx", "")).strip().upper()
+        zone = self.other_2.text().strip()
+        if (not prefix or not re.fullmatch(r"[0-9]+", zone) or not 1 <= int(zone) <= 40
+                or not band or self.database.score_band not in (None, band)):
+            return None
+        counts = self.database.exec_sql(
+            "SELECT count(CASE WHEN q.CountryPrefix=? THEN 1 END) AS countries, "
+            "count(CASE WHEN q.ZN=? THEN 1 END) AS zones FROM DXLOG AS q "
+            "WHERE q.ContestNR=? AND q.Band=? AND " + self.database.cq_ww_multiplier_filter(),
+            (prefix, int(zone), self.database.current_contest, band),
+        )
+        new_country, new_zone = counts["countries"] == 0, counts["zones"] == 0
+        return ("new-zone-and-country" if new_country and new_zone else "new-country" if new_country
+                else "new-zone" if new_zone else "no-new-multiplier")
+
     def projection(self):
         if (self.state.get("setup", {}).get("preferences", {}).get("callHistory", True) is not False
                 and hasattr(self.contest, "populate_history_info_line")):
@@ -927,6 +946,11 @@ class Desk:
                            "readOnly": field.read_only, "enabled": field.enabled})
         band = self.band(self.state["draft"]["frequencyHz"])
         country = self.state["reference"]["countries"].get(call, {})
+        duplicate = bool(call and self.is_dupe(
+            call, band, mode=("LSB" if self.state["draft"]["frequencyHz"] < 10000000 else "USB")
+            if operating_mode(self.state) == "SSB" else operating_mode(self.state),
+        ))
+        multiplier_status = self.entry_multiplier_status(call, band, country, duplicate)
         speed = self.state.get("setup", {}).get("preferences", {}).get("cwSpeed")
         if type(speed) not in {int, float} or not 1 <= speed <= 100:
             speed = None
@@ -979,11 +1003,8 @@ class Desk:
                 ) if enabled],
                 "run": self.pref["run_state"], "functionKeys": [{"id": f"F{i}", "highlighted": f"F{i}" in self.highlights,
                     **self.cw_macros[("R" if self.pref["run_state"] else "S", f"F{i}")]} for i in range(1, 13)],
-                "dupe": bool(call and self.is_dupe(
-                    call, band, mode=("LSB" if self.state["draft"]["frequencyHz"] < 10000000 else "USB")
-                    if operating_mode(self.state) == "SSB"
-                    else operating_mode(self.state),
-                )),
+                "dupe": duplicate,
+                **({"entryMultiplierStatus": multiplier_status} if multiplier_status is not None else {}),
                 "dupeExplanation": ("Worked on this band and mode within the preceding three hours."
                                     if self.state["pluginID"] == "wia_remembrance" else
                                     "Worked on this band and mode in this 2-hour UTC block (08–10, 10–12, 12–14)."

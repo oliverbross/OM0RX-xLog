@@ -129,6 +129,7 @@ type Projection = {
   workspaceGeneration: string; revision: number; spotScoreRevision?: number; draftID: string; fields: Field[]; frequencyHz: number; mode: string; band: number;
   focus: string; tabNext: Record<string, string>; tabPrevious: Record<string, string>; advanceOnSpace?: string[]; run: boolean;
   functionKeys: Array<{ id: string; highlighted: boolean; label?: string; template?: string }>; dupe: boolean; dupeExplanation?: string; countryResolved: boolean;
+  entryMultiplierStatus?: import("./contestSurfaceProtocol").ContestEntryMultiplierStatus;
   matrixTrackers?: Array<"countries" | "zones">;
   exportFormats?: PythonContestExportFormat[];
   ruleIdentity?: { id: string; version: string; edition: string; sourceRevision: string };
@@ -2285,6 +2286,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const ratesRead = auxiliaryReads.rates?.startsWith(auxiliarySessionPrefix) === true;
     const currentFields = fields;
     const frequencyHz = operationFrequencyHz;
+    const scoredFields = projectionFields(projection);
+    const entryMultiplierCurrent = !configuredClient && frequencyHz === projection.frequencyHz &&
+      ["callsign", "other_2"].every(id => (currentFields[id] ?? "").trim().toUpperCase() === (scoredFields[id] ?? "").trim().toUpperCase());
     const reservedSerial = projection.reservedSerial ?? null;
     const visibleHostFields = projection.fields.filter(field => field.visible);
     const reportFields = visibleHostFields.filter(field => field.id === "sent" || field.id === "receive");
@@ -2339,6 +2343,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         validation: { errors: [], warnings: !(currentFields.callsign ?? "").trim() || projection.countryResolved
           ? [] : ["Country is unresolved; scoring credit may be zero."] },
         reservedSerial,exchangeWarnings:projection.exchangeWarnings??[],
+        ...(entryMultiplierCurrent && projection.entryMultiplierStatus ? {multiplierStatus:projection.entryMultiplierStatus} : {}),
       },
       descriptor: {
         bands: configuredBands, modes: contestSurfaceModes(projection.supportedModes ?? [], projection.mode), reportsVisible,
