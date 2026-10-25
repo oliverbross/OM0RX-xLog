@@ -10,7 +10,7 @@ find_package(Python3 COMPONENTS Interpreter REQUIRED)
 set(MODEL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../vendor/deepcw-engine")
 execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate_contract.py"
   "${MODEL_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/model_contract.h" COMMAND_ERROR_IS_FATAL ANY)
-add_library(cw_engine engine.cpp)
+add_library(cw_engine engine.cpp dsp.cpp)
 target_include_directories(cw_engine PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}" "${ONNXRUNTIME_INCLUDE_DIR}")
 target_link_libraries(cw_engine PUBLIC "${ONNXRUNTIME_LIBRARY}")
 target_compile_options(cw_engine PRIVATE -Wall -Wextra -Werror)
