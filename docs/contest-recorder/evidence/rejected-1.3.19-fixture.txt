@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.impeccable/review/verify-recorder-candidate.py", line 22, in <module>
+    began=time.monotonic();fixture=json.loads(run([exe,"--recorder-acceptance"])[0])
+  File "/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.impeccable/review/verify-recorder-candidate.py", line 9, in run
+    if r.returncode:raise RuntimeError(f"{args[0]} failed: {r.stderr[-2000:]} {r.stdout[-2000:]}")
+RuntimeError: /Users/oliver/Documents/Builds/OM0RX-xLog-1.3.19-recorder/OM0RX-xLog.app/Contents/MacOS/xlog-prototype failed: Isolated recorder fixture failed (exit status: 1)

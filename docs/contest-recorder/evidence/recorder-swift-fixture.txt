@@ -1,0 +1,137 @@
+Test Suite 'Selected tests' started at 2026-10-25 14:12:42.461.
+Test Suite 'XStationIntegrationTests.xctest' started at 2026-10-25 14:12:42.463.
+Test Suite 'XStationIntegrationTests.xctest' passed at 2026-10-25 14:12:42.463.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-25 14:12:42.463.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-25 14:12:42.539.
+Test Suite 'XLogPrototypeTests.xctest' started at 2026-10-25 14:12:42.540.
+Test Suite 'PythonContestLaneTests' started at 2026-10-25 14:12:42.540.
+Test Case '-[XLogPrototypeTests.PythonContestLaneTests testRecorderAcceptanceUsesActualPythonCommitAuditAndAnalytics]' started.
+Test Case '-[XLogPrototypeTests.PythonContestLaneTests testRecorderAcceptanceUsesActualPythonCommitAuditAndAnalytics]' passed (0.457 seconds).
+Test Suite 'PythonContestLaneTests' passed at 2026-10-25 14:12:42.998.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.457 (0.458) seconds
+Test Suite 'XLogPrototypeTests.xctest' passed at 2026-10-25 14:12:42.998.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.457 (0.458) seconds
+Test Suite 'Selected tests' passed at 2026-10-25 14:12:42.998.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.457 (0.459) seconds
+Test Suite 'Selected tests' started at 2026-10-25 14:12:43.101.
+Test Suite 'XContestStoreTests.xctest' started at 2026-10-25 14:12:43.103.
+Test Suite 'XContestStoreTests.xctest' passed at 2026-10-25 14:12:43.103.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-25 14:12:43.103.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-25 14:12:43.198.
+Test Suite 'XContestCoreTests.xctest' started at 2026-10-25 14:12:43.199.
+Test Suite 'XContestCoreTests.xctest' passed at 2026-10-25 14:12:43.199.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-25 14:12:43.199.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-25 14:12:43.295.
+Test Suite 'XClusterIntegrationTests.xctest' started at 2026-10-25 14:12:43.297.
+Test Suite 'XClusterIntegrationTests.xctest' passed at 2026-10-25 14:12:43.297.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-25 14:12:43.297.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-25 14:12:43.398.
+Test Suite 'XCatIntegrationTests.xctest' started at 2026-10-25 14:12:43.399.
+Test Suite 'XCatIntegrationTests.xctest' passed at 2026-10-25 14:12:43.399.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-25 14:12:43.399.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+
+0%: Compute target dependency graph
+Building targets in dependency order
+Target dependency graph (24 targets)
+0%: Gather provisioning inputs
+0%: Create build description
+0%: Build stat cache for /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk
+30%: Planning Swift module XLogPrototypeSupport (x86_64)
+30%: Planning Swift module XLogPrototypeSupport (arm64)
+41%: Emitting module for XLogPrototypeSupport
+41%: Compiling ContestRecorderAcceptance.swift
+41%: Emitting module for XLogPrototypeSupport
+41%: Compiling ContestRecorderAcceptance.swift
+41%: Compile ContestRecorderAcceptance.swift
+58%: Discovering Swift tasks after 'Compiling ContestRecorderAcceptance.swift'
+58%: Compile ContestRecorderAcceptance.swift
+58%: Discovering Swift tasks after 'Compiling ContestRecorderAcceptance.swift'
+58%: Compile
+converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift:43:70: warning: converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+ 41 |          validatePrivateRoot: @escaping @Sendable () throws -> Void,
+ 42 |          beforeReplacementPublish: @escaping @Sendable () async -> Void = {},
+ 43 |          providerFetch: @escaping ProviderFetch = ContestSCPProvider.fetchLatest,
+    |                                                                      `- warning: converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+ 44 |          writeAtomically: @escaping AtomicWriter = { data, url in try data.write(to: url, options: [.atomic]) },
+ 45 |          validateScope: @escaping ScopeValidator) throws {
+
+58%: Compile
+converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift:43:70: warning: converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+ 41 |          validatePrivateRoot: @escaping @Sendable () throws -> Void,
+ 42 |          beforeReplacementPublish: @escaping @Sendable () async -> Void = {},
+ 43 |          providerFetch: @escaping ProviderFetch = ContestSCPProvider.fetchLatest,
+    |                                                                      `- warning: converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+ 44 |          writeAtomically: @escaping AtomicWriter = { data, url in try data.write(to: url, options: [.atomic]) },
+ 45 |          validateScope: @escaping ScopeValidator) throws {
+
+58%: Compile XLogPrototypeSupport_Module (arm64)
+58%: Compile XLogPrototypeSupport_Module (x86_64)
+58%: Discovering Swift tasks after 'Emitting module for XLogPrototypeSupport'
+58%: Discovering Swift tasks after 'Emitting module for XLogPrototypeSupport'
+58%: Unblock downstream dependents of XLogPrototypeSupport_Module (x86_64)
+58%: Unblock downstream dependents of XLogPrototypeSupport_Module (arm64)
+58%: Copy XLogPrototypeSupport.abi.json (x86_64)
+58%: Copy XLogPrototypeSupport.abi.json (arm64)
+58%: Copy XLogPrototypeSupport.swiftsourceinfo (x86_64)
+58%: Copy XLogPrototypeSupport.swiftsourceinfo (arm64)
+58%: Link XLogPrototypeSupport_Module.o (x86_64)
+58%: Link XLogPrototypeSupport_Module.o (arm64)
+87%: Create universal binary XLogPrototypeSupport_Module.o
+87%: Extract app intents metadata
+2026-10-25 14:12:33.048 appintentsmetadataprocessor[95741:43041410] Starting appintentsmetadataprocessor export
+2026-10-25 14:12:33.126 appintentsmetadataprocessor[95741:43041410] Extracted no relevant App Intents symbols, skipping writing output
+
+96%: Planning Swift module XLogPrototypeTests (arm64)
+96%: Planning Swift module XLogPrototypeTests (x86_64)
+96%: Link xlog-prototype-worker (arm64)
+75%: Link xlog-prototype-worker (x86_64)
+76%: Create universal binary xlog-prototype-worker
+79%: Emitting module for XLogPrototypeTests
+79%: Emitting module for XLogPrototypeTests
+79%: Compiling PythonContestLaneTests.swift
+79%: Compiling PythonContestLaneTests.swift
+79%: Compile PythonContestLaneTests.swift
+81%: Discovering Swift tasks after 'Compiling PythonContestLaneTests.swift'
+81%: Compile PythonContestLaneTests.swift
+81%: Discovering Swift tasks after 'Compiling PythonContestLaneTests.swift'
+81%: Compile
+81%: Compile XLogPrototypeTests (x86_64)
+81%: Compile
+81%: Discovering Swift tasks after 'Emitting module for XLogPrototypeTests'
+81%: Unblock downstream dependents of XLogPrototypeTests (arm64)
+81%: Compile XLogPrototypeTests (arm64)
+81%: Copy XLogPrototypeTests.swiftsourceinfo (arm64)
+81%: Discovering Swift tasks after 'Emitting module for XLogPrototypeTests'
+81%: Copy XLogPrototypeTests.abi.json (arm64)
+81%: Unblock downstream dependents of XLogPrototypeTests (x86_64)
+81%: Copy XLogPrototypeTests.abi.json (x86_64)
+81%: Copy XLogPrototypeTests.swiftsourceinfo (x86_64)
+81%: Link XLogPrototypeTests (x86_64)
+81%: Link XLogPrototypeTests (arm64)
+90%: Create universal binary XLogPrototypeTests
+92%: Copy Swift standard libraries into XLogPrototypeTests.xctest
+92%: Extract app intents metadata
+2026-10-25 14:12:40.309 appintentsmetadataprocessor[95759:43041897] Starting appintentsmetadataprocessor export
+2026-10-25 14:12:40.312 appintentsmetadataprocessor[95759:43041897] warning: Metadata extraction skipped, no AppIntents.framework dependency found
+
+Ignoring --strip-bitcode because --sign was not passed
+
+92%: Register execution policy exception for xlog-prototype-worker
+100%: Prune stale explicit modules at /Users/oliver/Documents/Projects/OM0RX-xLog/.build/apple/Intermediates.noindex/SwiftExplicitPrecompiledModules
+100%: Prune stale explicit modules at /Users/oliver/Documents/Projects/OM0RX-xLog/.build/apple/Intermediates.noindex/ExplicitPrecompiledModules
+100%: Prune stale explicit modules at /Users/oliver/Documents/Projects/OM0RX-xLog/.build/apple/SDKExplicitPrecompiledModules
+100%: Build succeeded
+Build complete!
+warning: '--build-system xcode' has been deprecated and will be removed in a future release; please report an issue at https://github.com/swiftlang/swift-package-manager/issues if you are unable to adopt the default build system.

@@ -8,6 +8,19 @@ import XLogPortableCore
 @testable import XLogPrototypeSupport
 
 final class PythonContestLaneTests: XCTestCase {
+    func testRecorderAcceptanceUsesActualPythonCommitAuditAndAnalytics() async throws {
+        let result = try await ContestRecorderAcceptance.run(configuration: { root in
+            XCTAssertFalse(root.path.hasPrefix("/var/"), "Foundation normalization must not reintroduce the macOS /var symlink")
+            return PythonContestHostConfiguration(executableURL: try python312(),
+                launcherURL: repositoryRoot().appendingPathComponent("python/contest_host/launcher.py"),
+                dataRootURL: root.appendingPathComponent("Contesting/Python"))
+        })
+        XCTAssertEqual(result["engine"] as? String, "not1mm-python")
+        let commit = try XCTUnwrap(result["commit"] as? [String:Any])
+        XCTAssertEqual((commit["events"] as? [[String:Any]])?.count,1)
+        XCTAssertEqual(result["captureOpened"] as? Bool,false)
+    }
+
     func testAnalyticsSnapshotThroughRealPythonBridgeKeepsDraftAndLogSeparate() async throws {
         let root = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
             .appendingPathComponent("xlog-analytics-\(UUID().uuidString)", isDirectory: true)

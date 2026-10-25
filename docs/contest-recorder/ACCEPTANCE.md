@@ -40,12 +40,14 @@ Retained command output is in [evidence](evidence). This is targeted software ac
 - Retained telemetry: **17 passed**, including passive-read/no-owner-creation and command fencing.
 - Frontend: **237 passed** across recorder, key bindings, detached Entry/Log Display, Analytics and owner suites. The owner retry test asserts cancellation ordering independently of elapsed retry count.
 - Python: **38 passed** across recorder, Analytics and actual CQ WW SSB host.
-- Swift: actual Python Analytics bridge test passed; new isolated acceptance worker compiled. After reconciling 1.3.18, another **28 Swift spot-delivery tests passed** on the combined source.
+- Swift: actual Python Analytics bridge test and the complete recorder commit/audit/Analytics fixture passed; the latter asserts that macOS `/var` symlink normalization cannot reappear. After reconciling 1.3.18, another **28 Swift spot-delivery tests passed** on the combined source.
 - Packaging checks: **6 passed**. TypeScript/Vite and detached-window graph checks passed. Recorder remains lazy; the global Escape hook plus lazy route adds 208 measured shared-startup bytes. The tight Logbook allowance increased by 200 bytes, with a separate Recorder lazy-boundary assertion.
 - Independent combined source/layout review: five findings fixed and rechecked (cancellation admission, both retained radio slots, historical reconciliation, integrity-aware availability, recovery publication retry). No remaining material finding at that review scope.
 - Browser fixtures: 1280 px and 620 px, including full page, no horizontal overflow. Preview uses generated data and cannot start native capture/output. Screenshots are layout evidence only.
 
 The first broad frontend run exposed a time-sensitive retry-count assertion; its ordering assertion was stabilized and the complete affected suite passed. A native regression caught missing live admission-map updates; journaled admissions now update the live map and all 21 recorder tests pass. No failed gate is counted as a pass.
+
+Candidate 1.3.19 was rejected after signing because its disposable Swift fixture used a `/var` root rejected by the host. Foundation also removed `/private` when resolving that path. The fixture now uses `/private/tmp` on macOS and passes the actual Python regression. Host path validation is unchanged. A new version is required for the corrected candidate; 1.3.19 is not delivered as accepted.
 
 Historical reconciliation checks the active and selected captures plus two catalog captures per turn, at most one bounded 200-event page per capture. Large catalogs or audit backlogs can delay historical labels; source media and original journal admissions remain durable. The native media safety monitor runs separately from audit catch-up. Integrity hashing on first access after restart can take disk time, outside the capture writer lock.
 

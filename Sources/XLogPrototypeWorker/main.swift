@@ -74,7 +74,10 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
         output.write(Data([10]))
         exit(0)
     } catch {
-        output.write(Data("{\"ok\":false,\"error\":\"Isolated recorder Python fixture failed\"}\n".utf8))
+        // This flag owns only disposable fixture data; keep diagnostics bounded.
+        let diagnostic = String(describing: error)
+        output.write((try? JSONSerialization.data(withJSONObject: ["ok":false,"error":String(diagnostic.prefix(512))])) ?? Data())
+        output.write(Data([10]))
         exit(1)
     }
 } else if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--local-logbook-self-test" {
