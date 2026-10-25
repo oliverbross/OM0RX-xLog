@@ -1041,21 +1041,31 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       if(!isQueuedCurrent()||!isAdmittedCurrent())return;
       // Skipped queue entries consume no native sequence: a new publisher must
       // start at one. Every chunk/retry of an admitted snapshot shares its number.
-      const sequence=++state.sequence;
+      let sequence=++state.sequence,readmitting=false;
       for(let chunkIndex=0;chunkIndex<chunkCount;chunkIndex++){
         // Finish an admitted chunk set across harmless typing/additions, but
         // never finish or retry it after scoring, selection or its inputs change.
         if(!isAdmittedCurrent())return;
-        const params={publisher_id:state.publisherID,publisher_started_at:state.publisherStartedAt,publication_sequence:sequence,action,
-          session_id:base.session_id,workspace_generation:base.workspace_generation,revision:base.revision,
-          configured_bands:base.configured_bands,allowed_mode_groups:base.allowed_mode_groups,
-          chunk_index:chunkIndex,chunk_count:chunkCount,spots:spots.slice(chunkIndex*64,(chunkIndex+1)*64)};
         let delivered=false;
         for(let attempt=0;attempt<3&&!delivered;attempt++){
           if(!isAdmittedCurrent())return;
+          const params={publisher_id:state.publisherID,publisher_started_at:state.publisherStartedAt,publication_sequence:sequence,action,
+            session_id:base.session_id,workspace_generation:base.workspace_generation,revision:base.revision,
+            configured_bands:base.configured_bands,allowed_mode_groups:base.allowed_mode_groups,
+            chunk_index:chunkIndex,chunk_count:chunkCount,spots:spots.slice(chunkIndex*64,(chunkIndex+1)*64)};
           try{
             const result=await contestRadioServiceRef.current("cluster_contest_radio_spots_publish",params) as {stale?:boolean;rejected?:number};
-            if(result?.stale===true||!(Number(result?.rejected??0)>0)){delivered=true;break;}
+            if(result?.stale===true){
+              // Startup cleanup can fail before native learns this publisher,
+              // or the worker can restart. Retry admission once with the same
+              // identity and timestamp; retired/superseded owners remain fenced.
+              if(action==="replace"&&chunkIndex===0&&sequence>1&&!readmitting){sequence=1;readmitting=true;continue;}
+              return;
+            }
+            // A non-stale receipt admits the publisher even if delivery is
+            // rejected and must retry. Stale receipts never reset the counter.
+            if(readmitting&&result?.stale===false)state.sequence=sequence;
+            if(!(Number(result?.rejected??0)>0)){delivered=true;break;}
           }catch{/* A bounded retry preserves ordering without surfacing optional radio output in the logging window. */}
           if(!delivered)await new Promise(resolve=>setTimeout(resolve,50*(attempt+1)));
         }

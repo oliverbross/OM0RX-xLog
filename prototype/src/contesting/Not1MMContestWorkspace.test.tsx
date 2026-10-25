@@ -1095,6 +1095,74 @@ it("stops a superseded classification list before issuing its remaining batches"
   expect(previews).toBe(1);
 });
 
+it.each(["startup failure","delivery rejection","worker restart"])("recovers native radio publication after %s without changing owner",async(failure)=>{
+  const current=projection(),request=operationalRequest(()=>current,()=>3);
+  let registered=false,attempts=0,accepted=0,renew:(()=>void)|undefined;
+  const original=window.setInterval.bind(window);
+  vi.spyOn(window,"setInterval").mockImplementation(((handler:TimerHandler,timeout?:number,...args:any[])=>{
+    if(timeout===60_000&&typeof handler==="function")renew=handler as ()=>void;
+    return original(handler,timeout,...args);
+  }) as typeof window.setInterval);
+  const serviceRequest=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    if(method!=="cluster_contest_radio_spots_publish")return request(method,params);
+    attempts+=1;
+    // Native startup cleanup runs before publisher admission. A transport error
+    // here leaves the publisher unknown even after the frontend's bounded retry.
+    if(failure==="startup failure"&&attempts<=3)throw new Error("Remote Station Agent is reconnecting");
+    if(!registered&&params.publication_sequence!==1)return{accepted:0,rejected:0,stale:true};
+    registered=true;
+    if(failure==="delivery rejection"&&attempts<=3)return{accepted:0,rejected:1,stale:false};
+    accepted+=1;return{accepted:1,rejected:0,stale:false};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps}
+    spots={[{id:"one",callsign:"DL1ABC",frequencyKHz:14025,band:"20m",mode:"CW",score:42}] as any}/>);
+  await createContestThroughSetup();
+  await waitFor(()=>expect(accepted).toBe(1),{timeout:3_000});
+  const publications=()=>serviceRequest.mock.calls.filter(([method])=>method==="cluster_contest_radio_spots_publish");
+  const first=publications()[0]?.[1];
+  expect(publications().every(([,params])=>params?.publisher_id===first?.publisher_id&&
+    params?.publisher_started_at===first?.publisher_started_at)).toBe(true);
+  expect(publications().map(([,params])=>params?.publication_sequence)).toEqual(
+    failure==="startup failure"?[1,1,1,2,1]:failure==="delivery rejection"?[1,1,1,2]:[1]);
+  if(failure==="worker restart")registered=false;
+  await act(async()=>renew?.());
+  await waitFor(()=>expect(accepted).toBe(2));
+  expect(publications().at(-1)?.[1]?.publication_sequence).toBe(failure==="startup failure"?2:failure==="delivery rejection"?3:1);
+  if(failure==="worker restart"){
+    await act(async()=>renew?.());
+    await waitFor(()=>expect(accepted).toBe(3));
+    expect(publications().at(-1)?.[1]?.publication_sequence).toBe(2);
+  }
+  expect(publications().every(([,params])=>params?.publisher_id===first?.publisher_id&&
+    params?.publisher_started_at===first?.publisher_started_at)).toBe(true);
+});
+
+it("does not rotate or repeatedly retry a natively retired radio publisher",async()=>{
+  const current=projection(),request=operationalRequest(()=>current,()=>3);
+  let renew:(()=>void)|undefined;
+  const original=window.setInterval.bind(window);
+  vi.spyOn(window,"setInterval").mockImplementation(((handler:TimerHandler,timeout?:number,...args:any[])=>{
+    if(timeout===60_000&&typeof handler==="function")renew=handler as ()=>void;
+    return original(handler,timeout,...args);
+  }) as typeof window.setInterval);
+  const serviceRequest=vi.fn(async(method:string,params:Record<string,unknown>={})=>
+    method==="cluster_contest_radio_spots_publish"?{accepted:0,rejected:0,stale:true}:request(method,params));
+  render(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps}
+    spots={[{id:"one",callsign:"DL1ABC",frequencyKHz:14025,band:"20m",mode:"CW",score:42}] as any}/>);
+  await createContestThroughSetup();
+  const publications=()=>serviceRequest.mock.calls.filter(([method])=>method==="cluster_contest_radio_spots_publish");
+  await waitFor(()=>expect(publications()).toHaveLength(1));
+  await act(async()=>renew?.());
+  await waitFor(()=>expect(publications()).toHaveLength(3));
+  expect(publications().map(([,params])=>params?.publication_sequence)).toEqual([1,2,1]);
+  await act(async()=>renew?.());
+  await waitFor(()=>expect(publications()).toHaveLength(5));
+  expect(publications().map(([,params])=>params?.publication_sequence)).toEqual([1,2,1,3,1]);
+  const first=publications()[0]?.[1];
+  expect(publications().every(([,params])=>params?.publisher_id===first?.publisher_id&&
+    params?.publisher_started_at===first?.publisher_started_at)).toBe(true);
+});
+
 it.each(["20m","40m"])("renews ready active-band radio spots while a new %s classification is pending",async(pendingBand)=>{
   const original=window.setInterval.bind(window);let renew:(()=>void)|undefined;
   vi.spyOn(window,"setInterval").mockImplementation(((handler:TimerHandler,timeout?:number,...args:any[])=>{
