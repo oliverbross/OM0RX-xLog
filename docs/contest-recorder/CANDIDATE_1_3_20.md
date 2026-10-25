@@ -1,5 +1,7 @@
 # macOS 1.3.20 recorder candidate
 
+Subsequent operator-authorized [installation completed](INSTALLATION_1_3_20.md) on 25 October 2026. The exact candidate below is installed, recording off, with 376 QSOs/settings and 1.3.18 rollback preserved. The application was left closed; no audio test or station control ran during installation. The original package-only receipt below records the earlier delivery boundary.
+
 Package only; no installation, recording, playback or station action is authorized by this receipt.
 
 Composition: recorder implementation `18ff24d2`, preserved current 1.3.18 source/receipts through `f751ae05`, and the tested acceptance-root fix `1553574f041dd4e3349a16cbc4ad92c966891088`. The final clean release commit compiled into this candidate will be recorded after signing in the exact-source receipt. Version 1.3.19 / source `9dfde2be` was rejected for a disposable fixture path error; it is not the delivery candidate.

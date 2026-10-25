@@ -8,7 +8,7 @@ Source reconciled: initial canonical `369703cd` (1.3.16), then fast-forwarded to
 | M1 | Implemented; physical acceptance pending | Native continuous one-device mono/stereo capture, fixed callback queue, segmented PCM16 originals; explicit separate native listening output and cancellation fence. |
 | M2 | Implemented; software fixtures pass | Actual Python `xlog_qso_audit` after commit; persistent log/QSO IDs; durable operation admission markers, revision/tombstone reconciliation across capture epochs, recovery and independent export. |
 | M3 | Implemented; software/UI fixtures pass | Existing detached Log Display, configurable binding registry and Analytics exact-dataset playback; no scoring or station-write dependency. |
-| M4 | Delivered software candidate; external audio acceptance pending | Reviewed, signed canonical **1.3.20** / `5e48489f6a1d2408920ed0a29d4d7da173a295d4`; 13/13 packaged actual-path/sample checks pass. [Receipt](CANDIDATE_1_3_20.md). Physical verdict remains **NOT READY** because audio is disconnected. |
+| M4 | Installed, recording off; external audio acceptance pending | Reviewed, signed canonical **1.3.20** / `5e48489f6a1d2408920ed0a29d4d7da173a295d4`; 13/13 packaged actual-path/sample checks pass. [Receipt](CANDIDATE_1_3_20.md). Physical verdict remains **NOT READY** because audio is disconnected. |
 | M5 | Deferred | Independent inputs, direct TCI/Flex/DAX/remote audio require separate scope. |
 
 ## Integration map
@@ -23,4 +23,4 @@ Source reconciled: initial canonical `369703cd` (1.3.16), then fast-forwarded to
 
 Real capture/output, OS permission prompts, station actions and replacing an active app require explicit operator authorization. Controlled software sample fixtures are independent evidence. Until actual signed-app source/routing acceptance is completed, verdict is **NOT READY**. Do not infer hardware acceptance from unit tests, device names or signing.
 
-Operator update: a controlled test was authorized, then Oliver confirmed that the audio is **not connected**. No real capture or playback can be accepted in this session; implementation and isolated software/candidate checks continue. No station actions or installation were authorized.
+Operator update: audio remains **not connected** and physical acceptance is pending. The operator subsequently authorized **installation of 1.3.20 only**, preserving the current log/settings/rollback and leaving recording off, with no audio tests or station actions. [Installation completed](INSTALLATION_1_3_20.md): 376 QSOs and settings preserved byte-for-byte, verified 1.3.18 rollback retained, application left closed. No audio test or station control ran during installation.

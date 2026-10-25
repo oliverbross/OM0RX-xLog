@@ -30,7 +30,7 @@ Evidence sources: native `contest_recorder*` tests; real Python `test_recorder`,
 | 22 | Accelerated 48-hour/2,880-segment index fixture, u64 frame/RIFF bounds; fixed callback queue and bounded playback/index cache | No 30-minute physical-source soak or measured live latency/memory claim |
 | 23 | Developer ID Hardened Runtime, input entitlement/purpose, three matching source receipts and relocated bundle signature verified | Actual signed-app input permission/routing pending |
 | 24 | Read-only rule reminder and listening preparation; no ASR/correction/scoring path | Applicable event/year rule not certified |
-| 25 | Existing entry, owner/checking recovery, Analytics, Python scoring and packaging gates included | Current active app is not replaced by this task |
+| 25 | Existing entry, owner/checking recovery, Analytics, Python scoring and packaging gates included | Subsequent operator-authorized installation completed; 376 QSOs/settings preserved, app left closed and recording off |
 
 ## Demonstrated software gates
 
@@ -55,7 +55,7 @@ Historical reconciliation checks the active and selected captures plus two catal
 
 Initial clean canonical source: `369703cd` / 1.3.16, newer than the supplied plan's `ec981e72`. Concurrent Checking recovery `362ee467` and installed 1.3.17 source `1f15a88d` / receipt `1516211e` were preserved. Work resumed on a managed development branch at `1516211e`; packaging remains canonical-only.
 
-Before the urgent 1.3.17 install, all unfinished recorder work was preserved in stash `a7c3dfa7f36f67589a9f84fa87405ecbc91dfee3` plus `/Users/oliver/Documents/Backups/OM0RX-xLog-recorder-checkpoint-20261025/{tracked.patch,untracked.tar}`. Those backups remain. A final reconciliation also preserves 1.3.18 spot-delivery fix `2dc0e617` and release `78a29420`, installed by the separately authorized hotfix task. This recorder delivery does not replace that active app, mutate production logs/settings, or claim earlier hotfix data snapshots as a new live verification.
+Before the urgent 1.3.17 install, all unfinished recorder work was preserved in stash `a7c3dfa7f36f67589a9f84fa87405ecbc91dfee3` plus `/Users/oliver/Documents/Backups/OM0RX-xLog-recorder-checkpoint-20261025/{tracked.patch,untracked.tar}`. Those backups remain. A final reconciliation also preserves 1.3.18 spot-delivery fix `2dc0e617` and release `78a29420`, installed by the separately authorized hotfix task. The initial candidate delivery preserved that active app without installation. The subsequent [operator-authorized 1.3.20 installation](INSTALLATION_1_3_20.md) preserved 376 QSOs/settings byte-for-byte and retained the verified 1.3.18 bundle for rollback. It performed no audio test or station control and left the app closed. Earlier hotfix data snapshots are not substituted for this fresh preservation check.
 
 ## Required operator follow-up
 

@@ -1,0 +1,58 @@
+{
+  "version": "1.3.20",
+  "sourceCommit": "5e48489f6a1d2408920ed0a29d4d7da173a295d4",
+  "installedPath": "/Applications/OM0RX-xLog.app",
+  "installedFilesMatchCandidate": true,
+  "files": {
+    "executable": {
+      "path": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+      "sha256": "8f880d0ca2009b135467e23622a3648da33a1ad76ba6141f62da15e4a45054e1"
+    },
+    "worker": {
+      "path": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+      "sha256": "1bc8bc2f8cdf88aa68d24d3c9b4fdd3474076595a352d906a289b2c1333b37c1"
+    },
+    "info": {
+      "path": "/Applications/OM0RX-xLog.app/Contents/Info.plist",
+      "sha256": "6b65b6f847b3fef89ef051453908e47d1059ab50fc80050b4d465b687bcfc59c"
+    },
+    "pythonReceipt": {
+      "path": "/Applications/OM0RX-xLog.app/Contents/Resources/Not1MM/python-runtime.json",
+      "sha256": "f00305b33f166528fdcb795b19b7350c599886bab124ed695c1890a09857242d"
+    },
+    "distributionReceipt": {
+      "path": "/Applications/OM0RX-xLog.app/Contents/Resources/DistributionMetadata/components.json",
+      "sha256": "a3b319518bb68a973a229c636ee273ff78dbb7bd14519f09828fbe57ce18eaa8"
+    },
+    "python": {
+      "path": "/Applications/OM0RX-xLog.app/Contents/Frameworks/Python.framework/Versions/3.12/bin/python3.12",
+      "sha256": "abbe2b0f5e34ad90b28039f7a349bbd3617d2bfcf411511d1d2e644dfbf1de9d"
+    }
+  },
+  "signature": "Developer ID; deep/strict passed",
+  "cdHash": "ea1e7a58f3c5ba5fea8e299885be0032ad72e434",
+  "rollback": "/Applications/OM0RX-xLog-previous-20261025T053812Z-12663.app",
+  "rollbackVersion": "1.3.18",
+  "rollbackMatchesPreviousApp": true,
+  "backup": "/Users/oliver/Documents/Backups/OM0RX-xLog-1.3.20-before-install-20261025T150739+0930",
+  "recording": "off; application not launched",
+  "audioTestsRun": false,
+  "stationActions": false,
+  "checkedAt": "2026-10-25T15:08:52.710273+09:30",
+  "preservation": {
+    "dataAndSettingsByteIdentical": true,
+    "activeContestTableCounts": {
+      "DXLOG": 376,
+      "xlog_qso_identity": 385,
+      "xlog_qso_audit": 446,
+      "xlog_session": 1,
+      "xlog_operation": 6954
+    },
+    "integrityCheck": "ok on preserved closed-app contest database",
+    "existingRollbacksPreserved": true,
+    "fullPrivateManifest": "Stored locally in the backup folder; no contact data published"
+  },
+  "applicationLaunched": false,
+  "installed": true,
+  "verificationScope": "Offline hashes, metadata, signatures and data preservation only; no audio tests or station controls"
+}
