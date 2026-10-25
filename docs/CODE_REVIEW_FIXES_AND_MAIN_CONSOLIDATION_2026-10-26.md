@@ -27,7 +27,7 @@ Local debug/test measurements, with fixtures independent of station data:
 
 The durable spot benchmark excludes the one-time legacy import from steady-state timing and asserts that acceptance leaves the legacy JSON unchanged. Tests enforce bounded work and correct results rather than machine-dependent latency thresholds.
 
-Validation: default Swift suite; portable Swift affected suites; 4,338 frontend tests across 296 files; 349 Python tests; 895 Rust tests; TypeScript, Vite and detached-window startup bundle budgets. A full portable rerun is recorded in the completion entry below. The initial broad run also exposed an outdated JSON-inspection assertion (updated to SQLite) and a catalogue-start timing failure that passed in the targeted rerun.
+Validation: full default and portable Swift suites; 4,338 frontend tests across 296 files; 349 Python tests; 895 Rust tests; TypeScript, Vite and detached-window startup bundle budgets. The initial broad run also exposed an outdated JSON-inspection assertion (updated to SQLite) and a catalogue-start timing failure addressed below.
 
 ## Retired history
 
@@ -51,4 +51,9 @@ This task does not package or install a new candidate. The fixes are source chan
 
 ## Completion
 
-Final portable validation, retired checkout/branch removal and temporary consolidation-artifact removal are recorded after their verification.
+- Final `XLOG_PORTABLE_ONLY=1 swift test --scratch-path .build/prototype-tests` passed, including 513 Swift Testing tests in 69 suites, the separate eight contest-core Swift Testing tests, and all XCTest targets. Existing opt-in tests remained skipped.
+- `0a402469` gives the catalogue fixture ten seconds to start under parallel fixture contention. The actual concurrency assertion still requires a logbook read to finish within two seconds while the download remains held. The full-suite test passed.
+- Removed all 15 retired worktrees after retaining their committed history in main and preserving the unrelated settings draft and unique ignored review evidence in the local stashes listed above.
+- Removed 18 retired local branches and 18 retired remote branches. Remote deletion checked each branch's expected SHA and used atomic, lease-checked deletion. Main is the sole local branch and remote head.
+- Permanently removed the 11 older application copies and the temporary consolidation archive, including the temporary Git bundle. No recovery archive remains from this task.
+- Final filesystem/Git verification confirms one canonical checkout, one xLog application in `/Applications`, main synchronized with GitHub, and the installed 1.3.23 executable unchanged.
