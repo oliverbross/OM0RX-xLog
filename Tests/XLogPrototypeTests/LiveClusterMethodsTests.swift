@@ -245,8 +245,8 @@ struct LiveClusterMethodsTests {
             if (snapshot["forwarding"] as? [String: Any])?["prior_spot_cleanup_pending"] as? Bool == false { break }
             try await Task.sleep(for: .milliseconds(5))
         }
-        let saved = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: inventoryURL)) as? [String: Any])
-        let rows = try #require(saved["spots"] as? [[String: Any]])
+        let inventory = try SpotInventoryStore(url: inventoryURL.appendingPathExtension("sqlite"))
+        let rows = try inventory.rows().map { try #require(JSONSerialization.jsonObject(with: $0) as? [String: Any]) }
         #expect(rows.count == 1)
         #expect(rows.first?["callsign"] as? String == "DL1AAA")
         #expect(rows.first?["acceptedAt"] as? Double == clock.now().timeIntervalSince1970)
