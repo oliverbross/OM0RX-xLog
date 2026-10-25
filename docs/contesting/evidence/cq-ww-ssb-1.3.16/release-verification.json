@@ -1,0 +1,135 @@
+{
+  "version": "1.3.16",
+  "status": "READY WITH LIMITATIONS",
+  "sourceCommit": "ec981e72a896ddb0a26e48f43ecd6822f9d7bf9d",
+  "packaged": {
+    "bundle": "/Applications/OM0RX-xLog.app",
+    "version": "1.3.16",
+    "sourceCommit": "ec981e72a896ddb0a26e48f43ecd6822f9d7bf9d",
+    "bundleIdentifier": "com.oliverbross.xlog.integration",
+    "sourceChanges": [],
+    "files": {
+      "executable": {
+        "path": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+        "sha256": "6721b256c53d9b4eac97832502bacbf00838565e9b59940e671e256ec18cc4a0"
+      },
+      "worker": {
+        "path": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+        "sha256": "3d572657f6b752f81852e7ac0f32f2a3f5a07cc0ec2e6f05fb705cd9eb1d90d0"
+      },
+      "pythonReceipt": {
+        "path": "/Applications/OM0RX-xLog.app/Contents/Resources/Not1MM/python-runtime.json",
+        "sha256": "e79e896855763aa3b796e7a2948fb0c5992dff395bd8fa759d523b8ce29ef724"
+      },
+      "distributionReceipt": {
+        "path": "/Applications/OM0RX-xLog.app/Contents/Resources/DistributionMetadata/components.json",
+        "sha256": "442e74e5f7d96c94031172f3731abcfce101376b27c2d371c126b57668399414"
+      },
+      "pythonExecutable": {
+        "path": "/Applications/OM0RX-xLog.app/Contents/Frameworks/Python.framework/Versions/3.12/bin/python3.12",
+        "sha256": "5dd08db8f19b4a970df639a9839d4c0597832f4b41a49fad4f8f0b935c7fb433"
+      }
+    },
+    "verifiedPythonMachOCount": 92,
+    "caBundleSHA256": "9dae8d76e55cb08991f2b672d58999ea15560d910759c16b544f843bdffbb994",
+    "signatureVerification": "--prepared:/Applications/OM0RX-xLog.app/Contents/MacOS/rotctld\n--validated:/Applications/OM0RX-xLog.app/Contents/MacOS/rotctld\n--prepared:/Applications/OM0RX-xLog.app/Contents/MacOS/rigctld\n--validated:/Applications/OM0RX-xLog.app/Contents/MacOS/rigctld\n--prepared:/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker\n--validated:/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker\n--prepared:/Applications/OM0RX-xLog.app/Contents/Frameworks/Python.framework/Versions/Current/.\n--validated:/Applications/OM0RX-xLog.app/Contents/Frameworks/Python.framework/Versions/Current/.\n/Applications/OM0RX-xLog.app: valid on disk\n/Applications/OM0RX-xLog.app: satisfies its Designated Requirement",
+    "signatureIdentity": "Executable=/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype\nIdentifier=com.oliverbross.xlog.integration\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20500 size=52716 flags=0x10000(runtime) hashes=1640+3 location=embedded\nVersionPlatform=1\nVersionMin=917504\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=478e84fdba3467bc8cb582c4e4379a2d130d346e\nCandidateCDHashFull sha256=478e84fdba3467bc8cb582c4e4379a2d130d346ea1b68102b074341e2b2f2e5a\nHash choices=sha256\nCMSDigest=478e84fdba3467bc8cb582c4e4379a2d130d346ea1b68102b074341e2b2f2e5a\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=18464768\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=478e84fdba3467bc8cb582c4e4379a2d130d346e\nSignature size=8974\nAuthority=Developer ID Application: Oliver Bross (4WCMQ4U946)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=25 Oct 2026 at 12:14:42\nInfo.plist entries=16\nTeamIdentifier=4WCMQ4U946\nRuntime Version=27.0.0\nSealed Resources version=2 rules=13 files=769\nInternal requirements count=1 size=192\nTotal signatures=1\nChosen signature=1"
+  },
+  "installedMatchesCandidate": true,
+  "candidateTests": {
+    "tests": 35,
+    "failures": 0,
+    "errors": 0,
+    "successful": true,
+    "durationSeconds": 5.205
+  },
+  "installedTests": {
+    "tests": 35,
+    "failures": 0,
+    "errors": 0,
+    "successful": true,
+    "durationSeconds": 6.745
+  },
+  "nativeAcceptance": {
+    "status": "passed",
+    "checks": {
+      "adif_transfer_roundtrip": true,
+      "awards_loaded": true,
+      "contact_delete_undo": true,
+      "contact_edit": true,
+      "desk_map_logbook": true,
+      "detached_awards": true,
+      "detached_awards_lifecycle": true,
+      "detached_logbook": true,
+      "detached_logbook_lifecycle": true,
+      "detached_projection": true,
+      "detached_spot_history": true,
+      "empty_workspace": true,
+      "final_desk": true,
+      "isolated_worker": true,
+      "keyboard_clear": true,
+      "keyboard_editor": true,
+      "keyboard_focus": true,
+      "keyboard_log": true,
+      "logbook_readback": true,
+      "map_loaded": true,
+      "native_menu_routes": true,
+      "settings_save_readback": true,
+      "settings_sections": true,
+      "spot_history_archive": true,
+      "spot_history_dock_recovery": true,
+      "spot_history_main_absent": true,
+      "worker_integration_self_test": true,
+      "worker_parse_adif": true,
+      "worker_self_test": true,
+      "workspace_canvas_controls": true,
+      "workspace_created": true,
+      "workspace_feedback_overlay": true,
+      "workspace_layout_roundtrip": true,
+      "workspace_native_windows": true,
+      "workspace_settings_presets": true
+    },
+    "stationIO": false,
+    "productionSingleton": false
+  },
+  "preservation": {
+    "contactCount": 342,
+    "tableMatches": {
+      "DXLOG": true,
+      "xlog_qso_identity": true,
+      "xlog_qso_audit": true
+    },
+    "passed": true
+  },
+  "backup": "/Users/oliver/Documents/Backups/OM0RX-xLog-1.3.16-before-install-20261025",
+  "rollback": "/Applications/OM0RX-xLog-previous-1.3.15-20261025.app",
+  "radioDeliverySamples": [
+    {
+      "count": 32,
+      "acceptedAtMin": 1792896475.463984,
+      "acceptedAtMax": 1792896577.252219,
+      "providers": [
+        "direct_agent"
+      ]
+    },
+    {
+      "count": 41,
+      "acceptedAtMin": 1792896476.0645409,
+      "acceptedAtMax": 1792896659.653095,
+      "providers": [
+        "direct_agent"
+      ]
+    }
+  ],
+  "observations": [
+    "ShackCQ reconnected with classified 40m spots",
+    "Compact cluster frequency visible, including 7.173.4 MHz",
+    "Accepted direct_agent inventory grew after startup"
+  ],
+  "limitations": [
+    "Physical Flex/Maestro display awaits operator confirmation",
+    "Long-term delivery beyond the prior failure interval is not yet observed",
+    "No test QSO, tuning, CW keying, PTT, audio or rotor commands performed",
+    "Notarization not claimed"
+  ]
+}
