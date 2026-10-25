@@ -67,6 +67,15 @@ MIXED_MODE_PLUGINS |= {"rda_contest", "rdxc", "rsgb_iota", "ukeidx", "wia_rememb
 GRID4_EXCHANGE_PLUGINS = frozenset({"cq_ww_vhf", "labre_rs_digi", "vhf_sprint"})
 SERIAL_GRID6_PLUGINS = frozenset({"darc_vhf", "nac_vhf", "ta_vhf_uhf_contest"})
 FINAL_VHF_PLUGINS = GRID4_EXCHANGE_PLUGINS | SERIAL_GRID6_PLUGINS | frozenset({"john_moyle_field_day"})
+# These pinned callbacks assign multipliers from earlier rows. A chronological
+# append cannot change an existing row; corrections and tied/older inserts can.
+APPEND_RECALCULATION_PLUGINS = frozenset({
+    "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb", *AADX_PLUGINS,
+    *CQ_160_PLUGINS, *ESTONIAN_PLUGINS, *EUROPEAN_DX_PLUGINS,
+    *CENTRAL_EUROPEAN_PLUGINS, *EUROPEAN_HF_PLUGINS, *QSO_PARTY_PLUGINS,
+    "ca_qso_party", "canada_day", "cqws", "winter_field_day", "agcw_qrp",
+    "rda_contest", "rdxc", *FINAL_VHF_PLUGINS,
+})
 ESTONIAN_REGIONS = frozenset({
     "HM", "HR", "IV", "JG", "JR", "LN", "LV", "PL",
     "PU", "RP", "SR", "TA", "TL", "VC", "VO", "VP",
@@ -3692,6 +3701,8 @@ class Host:
             require(datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S") == timestamp, "Timestamp must be UTC YYYY-MM-DD HH:MM:SS")
         except (ValueError, TypeError) as error:
             raise HostError("invalid_request", "Invalid UTC timestamp") from error
+        previous = desk.database.exec_sql("SELECT TS FROM DXLOG ORDER BY TS DESC LIMIT 1")
+        chronological_append = not previous or previous["TS"] < timestamp
         contact = desk.contact_for(fields, qso_id, timestamp,
                                    frequency or desk.state["draft"]["frequencyHz"], base=base, operator=operator)
         if desk.state["pluginID"] == "cq_ww_ssb":
@@ -3715,13 +3726,11 @@ class Host:
             raise HostError("qso_collision", "QSO identity or timestamp/call already exists") from error
         country = desk.state["reference"]["countries"].get(contact["Call"])
         desk.database.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,0)", (qso_id, canonical(fields), canonical(country)))
-        if desk.state["pluginID"] in {"trans_tasman", "oceania_dx_cw", "oceania_dx_ssb",
-                                       *AADX_PLUGINS, *CQ_160_PLUGINS, *ESTONIAN_PLUGINS,
-                                        *EUROPEAN_DX_PLUGINS, *CENTRAL_EUROPEAN_PLUGINS,
-                                         *EUROPEAN_HF_PLUGINS, *QSO_PARTY_PLUGINS,
-                                         "ca_qso_party", "canada_day", "cqws", "winter_field_day",
-                                          "agcw_qrp", "rda_contest", "rdxc", *FINAL_VHF_PLUGINS}:
-            self.rebuild(desk)
+        if desk.state["pluginID"] in APPEND_RECALCULATION_PLUGINS:
+            if chronological_append:
+                self.recalculate_append(desk, contact)
+            else:
+                self.rebuild(desk)
             contact = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
         identity_after = {"rawFields": fields, "country": country, "deleted": False}
         self.audit(desk.database, qso_id, "commit", None, contact,
@@ -3729,6 +3738,57 @@ class Host:
         if self._n1mm_events is not None:
             self._n1mm_events.append(("contact", deepcopy(contact)))
         self.advance_draft(desk)
+
+    @staticmethod
+    def recalculate_append(desk, contact):
+        """Apply pinned multiplier rules to one new row with full SQL history.
+
+        The two callbacks with local `seen` sets need an explicit prior-row
+        query. Distance/bonus-only callbacks need no replay: contact_for already
+        scored this contact against the historical grid and existing log.
+        """
+        store, plugin_id = desk.database, desk.state["pluginID"]
+        if plugin_id in {"nac_vhf", "darc_vhf"}:
+            return
+        if plugin_id in SSA_MT_PLUGINS:
+            square = str(contact.get("Exchange1", ""))[:4].upper()
+            previous = store.exec_sql(
+                "SELECT 1 AS found FROM DXLOG WHERE ContestNR=? AND Band=? "
+                "AND upper(substr(Exchange1,1,4))=? AND ID<>? LIMIT 1",
+                (store.current_contest, contact["Band"], square, contact["ID"]),
+            )
+            contact["IsMultiplier1"] = int(len(square) == 4 and not previous)
+            store.change_contact(contact)
+            return
+        if plugin_id == "ca_qso_party":
+            exchange = str(contact.get("Exchange1", "")).upper()
+            previous = store.exec_sql(
+                "SELECT 1 AS found FROM DXLOG WHERE ContestNR=? AND upper(Exchange1)=? AND ID<>? LIMIT 1",
+                (store.current_contest, exchange, contact["ID"]),
+            )
+            contact["IsMultiplier1"] = int(bool(exchange) and exchange != "DX" and not previous)
+            store.change_contact(contact)
+            return
+
+        class AppendRows:
+            # Only the callback's replay enumeration is bounded. Its SQL queries
+            # and writes still use the complete store and the same transaction.
+            def fetch_all_contacts_asc(self):
+                return [contact]
+
+            def __getattr__(self, name):
+                return getattr(store, name)
+
+        points, duplicate = contact["Points"], desk.contact_is_dupe
+        desk.database = AppendRows()
+        try:
+            desk.contest.recalculate_mults(desk)
+        finally:
+            desk.database = store
+            desk.contact_is_dupe = duplicate
+        # Match rebuild's ordered duplicate/points authority: some original
+        # callbacks reset the shared duplicate flag or recalculate points.
+        store.conn.execute("UPDATE DXLOG SET Points=? WHERE ID=?", (points, contact["ID"]))
 
     def change(self, desk, method, params):
         qso_id = identifier(params.get("qsoID"))
