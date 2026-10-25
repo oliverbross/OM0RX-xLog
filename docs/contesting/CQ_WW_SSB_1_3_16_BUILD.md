@@ -37,8 +37,9 @@ contest restored and ShackCQ reconnected with classified 40m spots. Compact
 frequency labels were observed in the installed cluster. The operator resumed,
 so no test draft, QSO or radio tune was performed. The previously empty accepted
 radio inventory grew after startup; the receipt records samples across a renewal
-interval. Accepted agent delivery remains distinct from physical Maestro display
-and long-term renewal beyond the previous failure interval.
+interval. On 25 October 2026, the operator confirmed: “Yes, spots are visible”
+on Flex/Maestro. Physical marker display is therefore operator-confirmed for
+1.3.16. Long-term renewal beyond the previous failure interval remains unobserved.
 
 Backup: `/Users/oliver/Documents/Backups/OM0RX-xLog-1.3.16-before-install-20261025`.
 Rollback: `/Applications/OM0RX-xLog-previous-1.3.15-20261025.app`.

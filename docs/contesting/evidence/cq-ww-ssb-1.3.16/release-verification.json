@@ -124,10 +124,10 @@
   "observations": [
     "ShackCQ reconnected with classified 40m spots",
     "Compact cluster frequency visible, including 7.173.4 MHz",
-    "Accepted direct_agent inventory grew after startup"
+    "Accepted direct_agent inventory grew after startup",
+    "Operator confirmed physical Flex/Maestro spots visible on 2026-10-25: Yes, spots are visible"
   ],
   "limitations": [
-    "Physical Flex/Maestro display awaits operator confirmation",
     "Long-term delivery beyond the prior failure interval is not yet observed",
     "No test QSO, tuning, CW keying, PTT, audio or rotor commands performed",
     "Notarization not claimed"
