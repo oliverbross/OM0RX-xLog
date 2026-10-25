@@ -6,6 +6,74 @@ import XCTest
 @testable import XLogPrototypeSupport
 
 final class LiveSpotBridgeTests: XCTestCase {
+    func testInventoryMigrationIsOnceOnlyAndKeepsIndependentWorkerReceipts() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent("spots.json")
+        let legacy = Data("{\"version\":1,\"spots\":[]}".utf8)
+        try legacy.write(to: url)
+        func broker() -> SpotForwardBroker {
+            SpotForwardBroker(inventoryURL: url, targetedDeliver: { _, _, _ in "radio2" }, targetedRemove: { _, _, _ in })
+        }
+        let first = broker(), second = broker()
+        _ = try await first.forward(spot())
+        _ = try await second.forward(spot(source: "xLog Contest"), replacingExisting: true)
+        // A stale legacy file must never resurrect withdrawn receipts.
+        XCTAssertEqual(try Data(contentsOf: url), legacy)
+        let removed = try await second.withdrawContestForwardedSpots()
+        XCTAssertEqual(removed, 1)
+        let afterRestart = try await broker().withdrawContestForwardedSpots()
+        XCTAssertEqual(afterRestart, 0)
+        _ = try await first.forward(spot(priority: 5))
+        XCTAssertEqual((try storedInventory(at: url)?["spots"] as? [[String: Any]])?.count, 1)
+    }
+
+    func testInvalidLegacyInventoryDoesNotMarkMigrationComplete() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent("spots.json")
+        try Data("invalid".utf8).write(to: url)
+        let broker = SpotForwardBroker(inventoryURL: url, targetedDeliver: { _, _, _ in "radio1" }, targetedRemove: { _, _, _ in })
+        do { _ = try await broker.forward(spot()); XCTFail("Invalid migration must fail closed") }
+        catch let error as WorkerFailure { XCTAssertEqual(error.code, "spot_inventory_invalid") }
+        try Data("{\"version\":1,\"spots\":[]}".utf8).write(to: url)
+        let accepted = try await broker.forward(spot())
+        XCTAssertTrue(accepted)
+        XCTAssertEqual((try storedInventory(at: url)?["spots"] as? [[String: Any]])?.count, 1)
+    }
+
+    func testDurableSpotAppendAtInventoryCapacity() async throws {
+        for count in [0, 1_000, 4_096] {
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let url = directory.appendingPathComponent("spots.json"), now = Date()
+            let rows: [[String: Any]] = (0..<count).map { ["provider": "direct_agent", "radioID": "radio1", "callsign": "K\($0)ZZ",
+                "frequencyHz": 14_074_000, "owner": "normal_logging", "acceptedAt": now.timeIntervalSince1970 - 1] }
+            let legacy = try JSONSerialization.data(withJSONObject: ["version": 1, "spots": rows])
+            try legacy.write(to: url)
+            let broker = SpotForwardBroker(inventoryURL: url, targetedDeliver: { _, _, _ in "radio1" }, targetedRemove: { _, _, _ in })
+            // Initialize/migrate before measuring steady-state delivery.
+            _ = try await broker.withdrawContestForwardedSpots()
+            let start = Date()
+            for index in 0..<100 {
+                let value = try FlexSpot(frequencyHz: 14_075_000, callsign: "DL\(index)AA", mode: "CW", source: "test",
+                    spotter: "", comment: "", timestamp: Int64(now.timeIntervalSince1970), lifetimeSeconds: 600, priority: 1, colorHex: "#AEB5B7")
+                _ = try await broker.forward(value)
+            }
+            print("SPOT_BENCHMARK inventory=\(count) deliveries=100 elapsed_ms=\(Date().timeIntervalSince(start) * 1_000)")
+            XCTAssertEqual(try Data(contentsOf: url), legacy, "No full inventory rewrite on acceptance")
+            XCTAssertEqual((try storedInventory(at: url)?["spots"] as? [[String: Any]])?.count, min(4_096, count + 100))
+        }
+    }
+
+    private func storedInventory(at legacyURL: URL) throws -> [String: Any]? {
+        let store = try SpotInventoryStore(url: legacyURL.appendingPathExtension("sqlite"))
+        return ["version": 1, "spots": try store.rows().map { try JSONSerialization.jsonObject(with: $0) }]
+    }
+
     func testIngressBoundsTasksBeforeActorAndRejectsOversizedPayloads() {
         let gate = SpotIngressGate(limit: 2)
         XCTAssertFalse(gate.admit(bytes: 0))
@@ -257,7 +325,7 @@ final class LiveSpotBridgeTests: XCTestCase {
         XCTAssertEqual(withdrawn, 1)
         let events = await routing.events()
         XCTAssertEqual(events, [])
-        let saved = try JSONSerialization.jsonObject(with: Data(contentsOf: inventoryURL)) as? [String: Any]
+        let saved = try storedInventory(at: inventoryURL)
         XCTAssertEqual((saved?["spots"] as? [[String: Any]])?.count, 0)
     }
 
@@ -278,7 +346,7 @@ final class LiveSpotBridgeTests: XCTestCase {
         XCTAssertEqual(removed, 0)
         let events = await routing.events()
         XCTAssertEqual(events.filter { $0.hasPrefix("remove:") }, [])
-        let saved = try JSONSerialization.jsonObject(with: Data(contentsOf: inventoryURL)) as? [String: Any]
+        let saved = try storedInventory(at: inventoryURL)
         XCTAssertEqual((saved?["spots"] as? [[String: Any]])?.first?["acceptedAt"] as? Double, cutoff.timeIntervalSince1970)
     }
 
@@ -304,7 +372,7 @@ final class LiveSpotBridgeTests: XCTestCase {
         await removal.release()
         let removed = try await cleanup.value
         XCTAssertEqual(removed, 1)
-        let saved = try JSONSerialization.jsonObject(with: Data(contentsOf: inventoryURL)) as? [String: Any]
+        let saved = try storedInventory(at: inventoryURL)
         XCTAssertEqual((saved?["spots"] as? [[String: Any]])?.compactMap { $0["callsign"] as? String }, ["K2XYZ"])
     }
 
@@ -335,7 +403,7 @@ final class LiveSpotBridgeTests: XCTestCase {
         XCTAssertEqual(retry, 0)
         let events = await routing.events()
         XCTAssertEqual(events.map { $0.components(separatedBy: ":")[0] }, ["add", "remove", "add"])
-        let saved = try JSONSerialization.jsonObject(with: Data(contentsOf: inventoryURL)) as? [String: Any]
+        let saved = try storedInventory(at: inventoryURL)
         XCTAssertEqual((saved?["spots"] as? [[String: Any]])?.first?["acceptedAt"] as? Double, cutoff.timeIntervalSince1970)
     }
 
@@ -361,7 +429,7 @@ final class LiveSpotBridgeTests: XCTestCase {
         XCTAssertEqual(events.filter { $0.hasPrefix("remove:") }, [])
         let duplicate = try await broker.forward(fresh, provider: "direct_tci", now: cutoff.addingTimeInterval(1))
         XCTAssertFalse(duplicate, "Cleanup must preserve the fresh sibling's acknowledgement cache")
-        let saved = try JSONSerialization.jsonObject(with: Data(contentsOf: inventoryURL)) as? [String: Any]
+        let saved = try storedInventory(at: inventoryURL)
         let rows = saved?["spots"] as? [[String: Any]]
         XCTAssertEqual(rows?.count, 1)
         XCTAssertEqual(rows?.first?["frequencyHz"] as? Int, 7_125_000)
@@ -415,13 +483,13 @@ final class LiveSpotBridgeTests: XCTestCase {
             await routing.setRadio1Available(true)
             let current = broker()
             _ = try await current.forward(value, now: cutoff, replacingExisting: true)
-            let before = try JSONSerialization.jsonObject(with: Data(contentsOf: inventoryURL)) as? [String: Any]
+            let before = try storedInventory(at: inventoryURL)
             XCTAssertEqual((before?["spots"] as? [[String: Any]])?.count, 2)
             let retired = try await current.withdrawContestForwardedSpots(acceptedBefore: cutoff)
             XCTAssertEqual(retired, 1)
             let duplicate = try await current.forward(value, now: cutoff.addingTimeInterval(1))
             XCTAssertFalse(duplicate, "Retiring radio2 must not erase the radio1 cache")
-            let saved = try JSONSerialization.jsonObject(with: Data(contentsOf: inventoryURL)) as? [String: Any]
+            let saved = try storedInventory(at: inventoryURL)
             let rows = saved?["spots"] as? [[String: Any]]
             XCTAssertEqual(rows?.count, 1)
             XCTAssertEqual(rows?.first?["radioID"] as? String, "radio1")

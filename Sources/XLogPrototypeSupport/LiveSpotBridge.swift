@@ -95,6 +95,7 @@ actor SpotForwardBroker {
     private let deliver: @Sendable (FlexSpot, String, String?) async throws -> String?
     private let removeDelivery: @Sendable (FlexSpot, String, String?) async throws -> Void
     private let inventoryURL: URL?
+    private var inventoryStore: SpotInventoryStore?
     private var accepted: [String: (at: Date, priority: Int, radioID: String?)] = [:]
     private var recentRemovalTargets: [String: (radioID: String, at: Date)] = [:]
     private var pending: Set<String> = []
@@ -219,7 +220,7 @@ actor SpotForwardBroker {
     }
 
     private func withdrawForwardedSpots(owner: String, acceptedBefore cutoff: Date) async throws -> Int {
-        var document = try loadInventory()
+        let document = try loadInventory()
         let owned = document.spots.filter { $0.owner == owner && $0.acceptedAt < cutoff.timeIntervalSince1970 }
         guard !owned.isEmpty else { return 0 }
         // Radio spots are published with a ten-minute lifetime. Do not make a
@@ -229,14 +230,12 @@ actor SpotForwardBroker {
         let expirationCutoff = Date().timeIntervalSince1970 - 600
         let expired = owned.filter { $0.acceptedAt <= expirationCutoff }
         if !expired.isEmpty {
-            let expiredKeys = Set(expired.map(\.key))
-            document.spots.removeAll { expiredKeys.contains($0.key) }
             for entry in expired {
+                try removeReceipt(entry)
                 removeCachedAcceptance(matching: entry)
             }
-            try saveInventory(document)
         }
-        let activeOwned = document.spots.filter { $0.owner == owner && $0.acceptedAt < cutoff.timeIntervalSince1970 }
+        let activeOwned = owned.filter { $0.acceptedAt > expirationCutoff }
         guard !activeOwned.isEmpty else { return expired.count }
         var removed = 0, firstFailure: Error?
         for entry in activeOwned {
@@ -255,7 +254,7 @@ actor SpotForwardBroker {
                 defer { finishPending(key) }
                 // An earlier await may have allowed a fresh repaint. Only the
                 // exact retained receipt is eligible for this removal attempt.
-                var current = try loadInventory()
+                let current = try loadInventory()
                 guard current.spots.contains(entry) else { continue }
                 // TCI deletes by callsign, not frequency. A current sibling on
                 // this radio supersedes the old receipt; deleting it remotely
@@ -264,8 +263,7 @@ actor SpotForwardBroker {
                     $0.provider == entry.provider && $0.radioID == entry.radioID && $0.callsign == entry.callsign &&
                     $0.acceptedAt >= cutoff.timeIntervalSince1970
                 }) {
-                    current.spots.removeAll { $0 == entry }
-                    try saveInventory(current)
+                    try removeReceipt(entry)
                     removeCachedAcceptance(matching: entry)
                     removed += 1
                     continue
@@ -277,9 +275,7 @@ actor SpotForwardBroker {
                 try await removeDelivery(spot, entry.provider, entry.radioID)
                 // Never save the snapshot loaded before the remote await: a
                 // different spot may have been acknowledged in the meantime.
-                var latest = try loadInventory()
-                latest.spots.removeAll { $0 == entry }
-                try saveInventory(latest)
+                try removeReceipt(entry)
                 removed += 1
                 removeCachedAcceptance(matching: entry)
             } catch {
@@ -309,6 +305,22 @@ actor SpotForwardBroker {
     }
 
     private func loadInventory() throws -> InventoryDocument {
+        guard let store = try durableInventory() else { return InventoryDocument(version: 1, spots: []) }
+        return InventoryDocument(version: 1, spots: try store.rows().map { try JSONDecoder().decode(InventoryEntry.self, from: $0) })
+    }
+
+    private func durableInventory() throws -> SpotInventoryStore? {
+        guard let inventoryURL else { return nil }
+        if let inventoryStore { return inventoryStore }
+        let store = try SpotInventoryStore(url: inventoryURL.appendingPathExtension("sqlite"))
+        try store.migrate {
+            try loadLegacyInventory().spots.map { ($0.key, try receiptData($0), $0.acceptedAt) }
+        }
+        inventoryStore = store
+        return store
+    }
+
+    private func loadLegacyInventory() throws -> InventoryDocument {
         guard let inventoryURL else { return InventoryDocument(version: 1, spots: []) }
         let data: Data
         do { data = try Data(contentsOf: inventoryURL, options: [.mappedIfSafe]) }
@@ -329,27 +341,22 @@ actor SpotForwardBroker {
         return document
     }
 
-    private func saveInventory(_ document: InventoryDocument) throws {
-        guard let inventoryURL else { return }
-        try FileManager.default.createDirectory(at: inventoryURL.deletingLastPathComponent(),
-                                                withIntermediateDirectories: true)
-        try JSONEncoder().encode(document).write(to: inventoryURL, options: [.atomic])
+    private func receiptData(_ entry: InventoryEntry) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return try encoder.encode(entry)
+    }
+
+    private func removeReceipt(_ entry: InventoryEntry) throws {
+        try durableInventory()?.remove(key: entry.key, payload: receiptData(entry))
     }
 
     private func persistAccepted(_ spot: FlexSpot, provider: String, radioID: String, acceptedAt: Date) throws {
-        var document = try loadInventory()
         let owner = spot.source == "xLog Contest" ? "contesting" : "normal_logging"
         let entry = InventoryEntry(provider: provider, radioID: radioID, callsign: spot.callsign,
                                    frequencyHz: spot.frequencyHz, owner: owner,
                                    acceptedAt: acceptedAt.timeIntervalSince1970)
-        document.spots.removeAll { $0.provider == provider && $0.radioID == radioID &&
-            $0.callsign == spot.callsign && $0.frequencyHz == spot.frequencyHz }
-        document.spots.append(entry)
-        if document.spots.count > 4_096 {
-            document.spots.sort { $0.acceptedAt < $1.acceptedAt }
-            document.spots.removeFirst(document.spots.count - 4_096)
-        }
-        try saveInventory(document)
+        try durableInventory()?.accept(key: entry.key, payload: receiptData(entry), date: entry.acceptedAt)
     }
 
     private func persistedRadioID(for spot: FlexSpot, provider: String) throws -> String? {
@@ -358,10 +365,7 @@ actor SpotForwardBroker {
     }
 
     private func removePersisted(_ spot: FlexSpot, provider: String, radioID: String) throws {
-        var document = try loadInventory()
-        document.spots.removeAll { $0.provider == provider && $0.radioID == radioID
-            && $0.callsign == spot.callsign && $0.frequencyHz == spot.frequencyHz }
-        try saveInventory(document)
+        try durableInventory()?.remove(key: "\(provider)|\(radioID)|\(spot.callsign)|\(spot.frequencyHz)")
     }
 
     func cacheSizeForTesting() -> Int { accepted.count }
