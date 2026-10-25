@@ -2368,6 +2368,39 @@ it("coalesces synchronous rapid Entry typing into one full-value action",async()
   expect(actions[0]).toMatchObject({projectionRevision:6,action:"entry_set_text",params:{value:"K1A"}});
 });
 
+it.each(["Callsign","Power"])("preserves the %s caret and selection when a delayed save uppercases the same text",async label=>{
+  let current:any=structuredClone(snapshot);const actions:Record<string,any>[]=[];
+  const typed=label==="Callsign"?"om0arx":"a1b";
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_action"){actions.push(args);return {requestID:args.requestID,status:"queued"};}
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const input=await screen.findByLabelText(label) as HTMLInputElement;
+  input.focus();fireEvent.change(input,{target:{value:typed,selectionStart:2,selectionEnd:2}});
+  await waitFor(()=>expect(actions).toHaveLength(1));
+  // The operator may move the selection again while the saved value is in flight.
+  input.setSelectionRange(1,2,"backward");fireEvent.select(input);
+  const draft={...current.projection.draft,revision:6};
+  if(label==="Callsign")draft.callsign=typed.toUpperCase();
+  else draft.receivedFields=[{...draft.receivedFields[0],value:typed.toUpperCase()}];
+  current={...current,projectionRevision:7,projection:{...current.projection,draft},
+    receipts:[{requestID:actions[0].requestID,status:"applied",message:null,projectionRevision:7}]};
+  await act(async()=>{native.wake!();});
+  current={...current,projectionRevision:8};await act(async()=>{native.wake!();});
+  await waitFor(()=>expect(input.value).toBe(typed.toUpperCase()));
+  expect(document.activeElement).toBe(input);
+  expect([input.selectionStart,input.selectionEnd,input.selectionDirection]).toEqual([1,2,"backward"]);
+  // A genuinely different shared value must still replace the field normally.
+  const replacement={...current.projection.draft,revision:7};
+  if(label==="Callsign")replacement.callsign="K1ABC";
+  else replacement.receivedFields=[{...replacement.receivedFields[0],value:"999"}];
+  current={...current,projectionRevision:9,projection:{...current.projection,draft:replacement}};
+  await act(async()=>{native.wake!();});
+  await waitFor(()=>expect(input.value).toBe(label==="Callsign"?"K1ABC":"999"));
+  expect(input.selectionStart).toBe(input.value.length);
+});
+
 it("lets Wipe discard an unsent entry intent instead of persisting it first",async()=>{
   const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
     functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};

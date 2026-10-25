@@ -587,9 +587,25 @@ function useEntryIntents(projection:any,projectionRevision:number,send:Send){
 function EntryIntentInput({label,accessibleLabel,intentKey,value,maximumUTF8Bytes,disabled,operatorField,inputRef,onFocus,onChange,className,warning}:{
   label:string;accessibleLabel?:string;intentKey:EntryIntentKey;value:string;maximumUTF8Bytes:number;disabled:boolean;operatorField?:ContestInputFieldID;
   inputRef?:Ref<HTMLInputElement>;onFocus?:()=>void;onChange:(key:EntryIntentKey,value:string)=>void;className?:string;warning?:string}){
+  const element=useRef<HTMLInputElement|null>(null);
+  const selection=useRef<{value:string;start:number;end:number;direction:"forward"|"backward"|"none"|null}|null>(null);
+  const rememberSelection=(input:HTMLInputElement)=>{if(input.selectionStart!==null&&input.selectionEnd!==null)
+    selection.current={value:input.value,start:input.selectionStart,end:input.selectionEnd,direction:input.selectionDirection};};
+  useLayoutEffect(()=>{
+    const input=element.current,saved=selection.current;
+    if(!input||!saved||saved.value===value)return;
+    // The owner uppercases saved callsigns/exchanges asynchronously. Preserve
+    // the operator's latest selection when that reply changes only letter case.
+    if(document.activeElement===input&&saved.value.length===value.length&&saved.value.toUpperCase()===value.toUpperCase()){
+      input.setSelectionRange(saved.start,saved.end,saved.direction??undefined);
+      selection.current={...saved,value};
+    }else selection.current=null;
+  },[value]);
   const warningID=`contest-advisory-${intentKey.replace(/[^a-z0-9]/gi,"-")}`;
-  return <div className={`contest-surface-intent${className?` ${className}`:""}`}><ContestTextField label={label} aria-label={accessibleLabel} inputRef={inputRef} data-contest-field-id={operatorField} onFocus={onFocus}
-    value={value} disabled={disabled} aria-describedby={warning?warningID:undefined} onChange={event=>{const next=event.target.value;if(new TextEncoder().encode(next).length<=maximumUTF8Bytes)
+  return <div className={`contest-surface-intent${className?` ${className}`:""}`}><ContestTextField label={label} aria-label={accessibleLabel} inputRef={node=>{
+      element.current=node;if(typeof inputRef==="function")inputRef(node);else if(inputRef)inputRef.current=node;
+    }} data-contest-field-id={operatorField} onFocus={onFocus} onSelect={event=>rememberSelection(event.currentTarget)}
+    value={value} disabled={disabled} aria-describedby={warning?warningID:undefined} onChange={event=>{rememberSelection(event.currentTarget);const next=event.target.value;if(new TextEncoder().encode(next).length<=maximumUTF8Bytes)
       onChange(intentKey,next);}}/>{warning&&<small id={warningID} className="contest-exchange-advisory" role="status" title={warning}><span aria-hidden="true">Check exchange</span><span className="contest-advisory-description">{warning}</span></small>}</div>;
 }
 function Entry({ projection, disabled, sending, context, projectionRevision, send, refresh, settle, feedback, clearFeedback, reportConflict }: { projection: any; disabled: boolean; sending:boolean;
