@@ -1,0 +1,75 @@
+{
+  "installedVersion": "1.3.21",
+  "sourceCommit": "d2d9c90f5932b7ed6ce845e87986b739909301c1",
+  "candidateFilesMatch": true,
+  "dataSettingsAndRecordingsUnchangedBeforeLaunch": true,
+  "verifiedFiles": 844,
+  "rollback": "/Applications/OM0RX-xLog-previous-20261025T071037Z-30555.app",
+  "rollbackMatchesPreviousApp": true,
+  "existingRollbacksPreserved": true,
+  "backup": "/Users/oliver/Documents/Backups/OM0RX-xLog-1.3.21-before-install-20261025T164006+0930",
+  "checkedAt": "2026-10-25T16:44:54.687689+09:30",
+  "installed": true,
+  "applicationReopened": true,
+  "normalSavedStartupAuthorized": true,
+  "manualStationCommandsIssuedByThisTask": false,
+  "playbackStarted": false,
+  "restoration": {
+    "preInstallQsoCount": 443,
+    "currentQsoCount": 447,
+    "allPreInstallContactsIdentityAndAuditRowsPreserved": {
+      "DXLOG": true,
+      "xlog_qso_identity": true,
+      "xlog_qso_audit": true
+    },
+    "coreSettingsUnchanged": true,
+    "recorderSettingsUnchanged": true,
+    "recordingOriginalsPreserved": 64,
+    "allOriginalAudioHashesMatch": true,
+    "previousRecordingBookmarksPreserved": 62,
+    "previousArchiveStatus": "recovered",
+    "previousArchiveFrames": 182662144,
+    "previousArchiveSeconds": 3805.461333333333,
+    "previousArchiveSegments": 64,
+    "recoveredTailSegments": 1,
+    "recoveredPcmMatchesOriginalPartial": true,
+    "interruptionGaps": [
+      {
+        "afterFrame": 182662144,
+        "end": "unknown",
+        "reason": "Application interruption; explicit Start required, unknown missing interval",
+        "utcMs": 1792912264120
+      }
+    ],
+    "recordingResumedOnOperatorRequest": true,
+    "newCaptureId": "7ee48fe9-f10a-4118-aeea-9c5c81815fcd",
+    "newCaptureStatus": "recording",
+    "newCaptureSyncedSeconds": 41.12,
+    "newCaptureGaps": [],
+    "recentCaptureAudio": [
+      {
+        "channel": 1,
+        "frames": 240000,
+        "peakPercent": 33.084,
+        "nonzeroPercent": 95.127
+      },
+      {
+        "channel": 2,
+        "frames": 240000,
+        "peakPercent": 33.255,
+        "nonzeroPercent": 95.078
+      }
+    ],
+    "windowsRestored": [
+      "Main Logging",
+      "Band Map",
+      "Callsign Details",
+      "Check Partial",
+      "Cluster",
+      "Log Display",
+      "Rates",
+      "Spots Map",
+      "Stats"
+    ]
+  }
+}
