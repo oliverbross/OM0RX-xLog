@@ -1,0 +1,120 @@
+{
+  "version": "1.3.17",
+  "status": "READY WITH LIMITATIONS",
+  "sourceCommit": "1f15a88dd076f50ff77e0a08d1db350d489eb348",
+  "packaged": {
+    "bundle": "/Applications/OM0RX-xLog.app",
+    "version": "1.3.17",
+    "sourceCommit": "1f15a88dd076f50ff77e0a08d1db350d489eb348",
+    "bundleIdentifier": "com.oliverbross.xlog.integration",
+    "sourceChanges": [],
+    "files": {
+      "executable": {
+        "path": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+        "sha256": "cd3ea360c7d46a233bf0b3649528d4a15547beaef8144aa04593f9fae0985da6"
+      },
+      "worker": {
+        "path": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+        "sha256": "44a67ee7ff9130ca7b81c5a48dc4ddf5e09e53c7db3aa1eb55b9fc6b1201120b"
+      },
+      "pythonReceipt": {
+        "path": "/Applications/OM0RX-xLog.app/Contents/Resources/Not1MM/python-runtime.json",
+        "sha256": "7e987e413e235d3989af28ca7484bf9617679f58633aa1a1364fd0a2575c139e"
+      },
+      "distributionReceipt": {
+        "path": "/Applications/OM0RX-xLog.app/Contents/Resources/DistributionMetadata/components.json",
+        "sha256": "2e80dcfa207fa2cec59bd669ac6281c890581219d8424debe7178c4edb2b648e"
+      },
+      "pythonExecutable": {
+        "path": "/Applications/OM0RX-xLog.app/Contents/Frameworks/Python.framework/Versions/3.12/bin/python3.12",
+        "sha256": "695fc3cf121b0d8978a32c3f8a3084eb26ab6c14971053d0b63c38901bb220e5"
+      }
+    },
+    "verifiedPythonMachOCount": 92,
+    "caBundleSHA256": "9dae8d76e55cb08991f2b672d58999ea15560d910759c16b544f843bdffbb994",
+    "signatureVerification": "--prepared:/Applications/OM0RX-xLog.app/Contents/MacOS/rigctld\n--validated:/Applications/OM0RX-xLog.app/Contents/MacOS/rigctld\n--prepared:/Applications/OM0RX-xLog.app/Contents/MacOS/rotctld\n--validated:/Applications/OM0RX-xLog.app/Contents/MacOS/rotctld\n--prepared:/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker\n--validated:/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker\n--prepared:/Applications/OM0RX-xLog.app/Contents/Frameworks/Python.framework/Versions/Current/.\n--validated:/Applications/OM0RX-xLog.app/Contents/Frameworks/Python.framework/Versions/Current/.\n/Applications/OM0RX-xLog.app: valid on disk\n/Applications/OM0RX-xLog.app: satisfies its Designated Requirement",
+    "signatureIdentity": "Executable=/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype\nIdentifier=com.oliverbross.xlog.integration\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20500 size=52780 flags=0x10000(runtime) hashes=1642+3 location=embedded\nVersionPlatform=1\nVersionMin=917504\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=8d5ff0f278d63d915d9304deeda77d066bd14262\nCandidateCDHashFull sha256=8d5ff0f278d63d915d9304deeda77d066bd142626fc232b6b0bf7d3d837b3ca1\nHash choices=sha256\nCMSDigest=8d5ff0f278d63d915d9304deeda77d066bd142626fc232b6b0bf7d3d837b3ca1\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=18464768\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=8d5ff0f278d63d915d9304deeda77d066bd14262\nSignature size=8975\nAuthority=Developer ID Application: Oliver Bross (4WCMQ4U946)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=25 Oct 2026 at 13:08:36\nInfo.plist entries=16\nTeamIdentifier=4WCMQ4U946\nRuntime Version=27.0.0\nSealed Resources version=2 rules=13 files=769\nInternal requirements count=1 size=192\nTotal signatures=1\nChosen signature=1"
+  },
+  "installedMatchesCandidate": true,
+  "candidateTests": {
+    "tests": 35,
+    "failures": 0,
+    "errors": 0,
+    "successful": true,
+    "durationSeconds": 5.755
+  },
+  "installedTests": {
+    "tests": 35,
+    "failures": 0,
+    "errors": 0,
+    "successful": true,
+    "durationSeconds": 7.865
+  },
+  "nativeAcceptance": {
+    "status": "passed",
+    "checks": {
+      "adif_transfer_roundtrip": true,
+      "awards_loaded": true,
+      "contact_delete_undo": true,
+      "contact_edit": true,
+      "desk_map_logbook": true,
+      "detached_awards": true,
+      "detached_awards_lifecycle": true,
+      "detached_logbook": true,
+      "detached_logbook_lifecycle": true,
+      "detached_projection": true,
+      "detached_spot_history": true,
+      "empty_workspace": true,
+      "final_desk": true,
+      "isolated_worker": true,
+      "keyboard_clear": true,
+      "keyboard_editor": true,
+      "keyboard_focus": true,
+      "keyboard_log": true,
+      "logbook_readback": true,
+      "map_loaded": true,
+      "native_menu_routes": true,
+      "settings_save_readback": true,
+      "settings_sections": true,
+      "spot_history_archive": true,
+      "spot_history_dock_recovery": true,
+      "spot_history_main_absent": true,
+      "worker_integration_self_test": true,
+      "worker_parse_adif": true,
+      "worker_self_test": true,
+      "workspace_canvas_controls": true,
+      "workspace_created": true,
+      "workspace_feedback_overlay": true,
+      "workspace_layout_roundtrip": true,
+      "workspace_native_windows": true,
+      "workspace_settings_presets": true
+    },
+    "stationIO": false,
+    "productionSingleton": false
+  },
+  "preservation": {
+    "contactCount": 351,
+    "tableMatches": {
+      "DXLOG": true,
+      "xlog_qso_identity": true,
+      "xlog_qso_audit": true
+    },
+    "passed": true
+  },
+  "backup": "/Users/oliver/Documents/Backups/OM0RX-xLog-1.3.17-before-install-20261025",
+  "rollback": "/Applications/OM0RX-xLog-previous-1.3.16-20261025.app",
+  "recorderCheckpoint": "a7c3dfa7f36f67589a9f84fa87405ecbc91dfee3",
+  "radioDeliverySample": {
+    "count": 18,
+    "acceptedAtMax": 1792899600.556144,
+    "providers": [
+      "direct_agent"
+    ]
+  },
+  "limitations": [
+    "The exact live incident cause was not captured in an IPC trace",
+    "Physical Flex/Maestro display not reconfirmed for 1.3.17; unchanged delivery code reuses 1.3.16 operator acceptance",
+    "No production test QSO, radio tune, PTT, audio, CW or rotor action",
+    "Notarization not claimed"
+  ]
+}
