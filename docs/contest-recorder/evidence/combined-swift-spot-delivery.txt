@@ -1,0 +1,2184 @@
+Test Suite 'Selected tests' started at 2026-10-25 13:50:41.338.
+Test Suite 'XStationIntegrationTests.xctest' started at 2026-10-25 13:50:41.344.
+Test Suite 'XStationIntegrationTests.xctest' passed at 2026-10-25 13:50:41.344.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-25 13:50:41.344.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.006) seconds
+Test Suite 'Selected tests' started at 2026-10-25 13:50:41.466.
+Test Suite 'XLogPrototypeTests.xctest' started at 2026-10-25 13:50:41.469.
+Test Suite 'LiveSpotBridgeTests' started at 2026-10-25 13:50:41.469.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testAcceptedDedupeCacheIsBoundedUnderManyDistinctSpots]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testAcceptedDedupeCacheIsBoundedUnderManyDistinctSpots]' passed (0.816 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testActualLoopbackPortCollisionAndDualPortRollback]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testActualLoopbackPortCollisionAndDualPortRollback]' passed (0.013 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testBrokerRoutesSameSpotIndependentlyToFlexAndTCI]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testBrokerRoutesSameSpotIndependentlyToFlexAndTCI]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testConfigurationRejectsUnknownStyleAndPortCollisionWithoutBinding]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testConfigurationRejectsUnknownStyleAndPortCollisionWithoutBinding]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testContestClassificationCanRepaintAnAcceptedSpot]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testContestClassificationCanRepaintAnAcceptedSpot]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testContestTransitionWithdrawsOnlyPersistedNormalSpotsBeforePublishing]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testContestTransitionWithdrawsOnlyPersistedNormalSpotsBeforePublishing]' passed (0.002 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testDTORejectsBooleanAndFractionalNumbers]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testDTORejectsBooleanAndFractionalNumbers]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testIngressBoundsTasksBeforeActorAndRejectsOversizedPayloads]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testIngressBoundsTasksBeforeActorAndRejectsOversizedPayloads]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testMatchingRemoteAgentAckIsRequired]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testMatchingRemoteAgentAckIsRequired]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testNativeParserPreservesCategoryStyleAndSourceIdentity]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testNativeParserPreservesCategoryStyleAndSourceIdentity]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testOptInDualPortLifecycleWithoutOpeningSockets]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testOptInDualPortLifecycleWithoutOpeningSockets]' passed (0.002 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testParserRejectsHugeFiniteFrequencyWithoutIntegerTrap]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testParserRejectsHugeFiniteFrequencyWithoutIntegerTrap]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testPartialBindFailureStopsBothInjectedReceivers]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testPartialBindFailureStopsBothInjectedReceivers]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testPriorCleanupExcludesFreshReceiptAtExactCreationCutoff]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testPriorCleanupExcludesFreshReceiptAtExactCreationCutoff]' passed (0.002 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testPriorCleanupMergesConcurrentDifferentSpotReceipt]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testPriorCleanupMergesConcurrentDifferentSpotReceipt]' passed (0.002 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testPriorCleanupSerializesSameSpotRepaintAndCannotRemoveItOnRetry]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testPriorCleanupSerializesSameSpotRepaintAndCannotRemoveItOnRetry]' passed (0.027 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testPriorRadioReceiptSurvivesNewRadioAcceptanceUntilTargetedCleanup]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testPriorRadioReceiptSurvivesNewRadioAcceptanceUntilTargetedCleanup]' passed (0.007 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testRejectedDeliveryCanRetryWithoutFalseSuccess]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testRejectedDeliveryCanRetryWithoutFalseSuccess]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testRemovalWaitsForPendingDeliveryAndUsesTheSameIdentity]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testRemovalWaitsForPendingDeliveryAndUsesTheSameIdentity]' passed (0.026 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testRepaintRemovesAndReaddsOnTheRadioThatAcceptedTheOriginalSpot]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testRepaintRemovesAndReaddsOnTheRadioThatAcceptedTheOriginalSpot]' passed (0.002 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testReplacementContestWorkerRetiresExpiredReceiptsWithoutBlockingOnRadioRemoval]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testReplacementContestWorkerRetiresExpiredReceiptsWithoutBlockingOnRadioRemoval]' passed (0.002 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testReplacementContestWorkerRetriesPersistedContestWithdrawal]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testReplacementContestWorkerRetriesPersistedContestWithdrawal]' passed (0.002 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testReplacementWaitsForPendingDeliveryAndCannotLoseTheNewClassification]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testReplacementWaitsForPendingDeliveryAndCannotLoseTheNewClassification]' passed (0.021 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testReplacementWorkerShutdownRetiresContestInventoryWithoutPublication]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testReplacementWorkerShutdownRetiresContestInventoryWithoutPublication]' passed (0.002 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testSharedBrokerDeduplicatesAcrossFeedSourcesAndAllowsPriorityUpgrade]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testSharedBrokerDeduplicatesAcrossFeedSourcesAndAllowsPriorityUpgrade]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testStoppedReceiverCallbackCannotForwardIntoRestartedGeneration]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testStoppedReceiverCallbackCannotForwardIntoRestartedGeneration]' passed (0.054 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testTCICallsignReservationSerializesDifferentFrequencyAddBehindPriorRemoval]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testTCICallsignReservationSerializesDifferentFrequencyAddBehindPriorRemoval]' passed (0.028 seconds).
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testTCIPriorCleanupRetiresOldReceiptWithoutDeletingFreshCallsignSibling]' started.
+Test Case '-[XLogPrototypeTests.LiveSpotBridgeTests testTCIPriorCleanupRetiresOldReceiptWithoutDeletingFreshCallsignSibling]' passed (0.002 seconds).
+Test Suite 'LiveSpotBridgeTests' passed at 2026-10-25 13:50:42.487.
+	 Executed 28 tests, with 0 failures (0 unexpected) in 1.015 (1.018) seconds
+Test Suite 'XLogPrototypeTests.xctest' passed at 2026-10-25 13:50:42.487.
+	 Executed 28 tests, with 0 failures (0 unexpected) in 1.015 (1.018) seconds
+Test Suite 'Selected tests' passed at 2026-10-25 13:50:42.487.
+	 Executed 28 tests, with 0 failures (0 unexpected) in 1.015 (1.021) seconds
+Test Suite 'Selected tests' started at 2026-10-25 13:50:42.593.
+Test Suite 'XContestStoreTests.xctest' started at 2026-10-25 13:50:42.595.
+Test Suite 'XContestStoreTests.xctest' passed at 2026-10-25 13:50:42.595.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-25 13:50:42.595.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-25 13:50:42.699.
+Test Suite 'XContestCoreTests.xctest' started at 2026-10-25 13:50:42.700.
+Test Suite 'XContestCoreTests.xctest' passed at 2026-10-25 13:50:42.700.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-25 13:50:42.700.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-25 13:50:42.802.
+Test Suite 'XClusterIntegrationTests.xctest' started at 2026-10-25 13:50:42.803.
+Test Suite 'XClusterIntegrationTests.xctest' passed at 2026-10-25 13:50:42.803.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-25 13:50:42.803.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-25 13:50:42.900.
+Test Suite 'XCatIntegrationTests.xctest' started at 2026-10-25 13:50:42.901.
+Test Suite 'XCatIntegrationTests.xctest' passed at 2026-10-25 13:50:42.902.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-25 13:50:42.902.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+
+0%: Compute target dependency graph
+Building targets in dependency order
+Target dependency graph (24 targets)
+0%: Gather provisioning inputs
+0%: Create build description
+0%: Discovering version info for swiftc
+0%: Discovering version info for clang
+0%: Discovering version info for clang
+0%: Discovering version info for ld
+0%: Discovering version info for clang
+Build description signature: be94dee0c2e9528285e673017ae2a05e
+
+Build description path: /Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/XCBuildData/be94dee0c2e9528285e673017ae2a05e.xcbuilddata
+
+0%: Create build directory $(DERIVED_DATA_DIR)
+0%: Build stat cache for /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk
+0%: Create build directory $(DERIVED_DATA_DIR)/SDKExplicitPrecompiledModules
+0%: Create build directory $(TARGET_BUILD_DIR)
+0%: Create build directory $(DERIVED_DATA_DIR)/ModuleCache.noindex
+0%: Create build directory $(OBJROOT)
+0%: Create build directory $(DERIVED_DATA_DIR)/CompilationCache.noindex
+0%: Create build directory $(OBJROOT)/SwiftExplicitPrecompiledModules
+0%: Create build directory $(OBJROOT)/ExplicitPrecompiledModules
+0%: Create build directory $(OBJROOT)/EagerLinkingTBDs/Debug
+0%: Create build directory $(TARGET_BUILD_DIR)/Debug
+0%: Write xlog-prototype-worker.DependencyMetadataFileList
+0%: Write xlog-prototype-worker.DependencyStaticMetadataFileList
+0%: Write xlog-prototype-worker_const_extract_protocols.json (x86_64)
+0%: Write xlog-prototype-worker.SwiftFileList (x86_64)
+0%: Write xlog-prototype-worker.LinkFileList (x86_64)
+0%: Write xlog-prototype-worker-OutputFileMap.json (x86_64)
+0%: Write xlog-prototype-worker_const_extract_protocols.json (arm64)
+0%: Write xlog-prototype-worker.SwiftFileList (arm64)
+0%: Write xlog-prototype-worker.LinkFileList (arm64)
+0%: Write xlog-prototype-worker-OutputFileMap.json (arm64)
+0%: Write XStationIntegrationTests.DependencyStaticMetadataFileList
+0%: Write XStationIntegrationTests.DependencyMetadataFileList
+0%: Write empty-XStationIntegrationTests.plist
+0%: Write XStationIntegrationTests_const_extract_protocols.json (x86_64)
+0%: Write XStationIntegrationTests.SwiftFileList (x86_64)
+0%: Write XStationIntegrationTests.SwiftConstValuesFileList
+0%: Write XStationIntegrationTests.LinkFileList (x86_64)
+0%: Write XStationIntegrationTests-OutputFileMap.json (x86_64)
+0%: Write XStationIntegrationTests_const_extract_protocols.json (arm64)
+0%: Write XStationIntegrationTests.SwiftFileList (arm64)
+0%: Write XStationIntegrationTests.SwiftConstValuesFileList
+0%: Write XStationIntegrationTests.LinkFileList (arm64)
+0%: Write XStationIntegrationTests-OutputFileMap.json (arm64)
+0%: Write XStationIntegrationCore_Module.DependencyStaticMetadataFileList
+0%: Write XStationIntegrationCore_Module.DependencyMetadataFileList
+0%: Write XStationIntegrationCore.modulemap
+0%: Write XStationIntegrationCore_Module_const_extract_protocols.json (x86_64)
+0%: Write XStationIntegrationCore_Module.SwiftFileList (x86_64)
+0%: Write XStationIntegrationCore_Module.SwiftConstValuesFileList
+0%: Write XStationIntegrationCore_Module.LinkFileList (x86_64)
+0%: Write XStationIntegrationCore_Module-OutputFileMap.json (x86_64)
+0%: Write XStationIntegrationCore_Module_const_extract_protocols.json (arm64)
+0%: Write XStationIntegrationCore_Module.SwiftFileList (arm64)
+0%: Write XStationIntegrationCore_Module.SwiftConstValuesFileList
+0%: Write XStationIntegrationCore_Module.LinkFileList (arm64)
+0%: Write XStationIntegrationCore_Module-OutputFileMap.json (arm64)
+0%: Copy XStationIntegrationCore.modulemap
+0%: Write empty-XLogPrototypeTests.plist
+0%: Write XLogPrototypeTests.DependencyStaticMetadataFileList
+0%: Write XLogPrototypeTests.DependencyMetadataFileList
+0%: Write XLogPrototypeTests_const_extract_protocols.json (x86_64)
+0%: Write XLogPrototypeTests.SwiftFileList (x86_64)
+0%: Write XLogPrototypeTests.SwiftConstValuesFileList
+0%: Write XLogPrototypeTests.LinkFileList (x86_64)
+0%: Write XLogPrototypeTests-OutputFileMap.json (x86_64)
+0%: Write XLogPrototypeTests.SwiftFileList (arm64)
+0%: Write XLogPrototypeTests_const_extract_protocols.json (arm64)
+0%: Write XLogPrototypeTests.SwiftConstValuesFileList
+0%: Write XLogPrototypeTests.LinkFileList (arm64)
+0%: Write XLogPrototypeTests-OutputFileMap.json (arm64)
+0%: Write XLogPrototypeSupport_Module.DependencyStaticMetadataFileList
+0%: Write XLogPrototypeSupport_Module.DependencyMetadataFileList
+0%: Write XLogPrototypeSupport.modulemap
+0%: Write XLogPrototypeSupport_Module_const_extract_protocols.json (x86_64)
+0%: Write XLogPrototypeSupport_Module.SwiftFileList (x86_64)
+0%: Write XLogPrototypeSupport_Module.SwiftConstValuesFileList
+0%: Write XLogPrototypeSupport_Module.LinkFileList (x86_64)
+0%: Write XLogPrototypeSupport_Module-OutputFileMap.json (x86_64)
+0%: Write XLogPrototypeSupport_Module_const_extract_protocols.json (arm64)
+0%: Write XLogPrototypeSupport_Module.SwiftFileList (arm64)
+0%: Write XLogPrototypeSupport_Module.SwiftConstValuesFileList
+0%: Write XLogPrototypeSupport_Module.LinkFileList (arm64)
+0%: Write XLogPrototypeSupport_Module-OutputFileMap.json (arm64)
+0%: Copy XLogPrototypeSupport.modulemap
+0%: Write XLogCore_Module.DependencyStaticMetadataFileList
+0%: Write XLogCore_Module.DependencyMetadataFileList
+0%: Write XLogCore.modulemap
+0%: Write XLogCore_Module_const_extract_protocols.json (x86_64)
+0%: Write XLogCore_Module.SwiftFileList (x86_64)
+0%: Write XLogCore_Module.SwiftConstValuesFileList
+0%: Write XLogCore_Module.LinkFileList (x86_64)
+0%: Write XLogCore_Module-OutputFileMap.json (x86_64)
+0%: Write XLogCore_Module.SwiftFileList (arm64)
+0%: Write XLogCore_Module_const_extract_protocols.json (arm64)
+0%: Write XLogCore_Module.SwiftConstValuesFileList
+0%: Write XLogCore_Module.LinkFileList (arm64)
+0%: Write XLogCore_Module-OutputFileMap.json (arm64)
+0%: Write resource_bundle_accessor.swift
+0%: Copy XLogCore.modulemap
+0%: Create directory Contents
+0%: Create directory MacOS
+0%: Create directory XStationIntegrationTests.xctest
+0%: Create directory MacOS
+0%: Create directory Resources
+0%: Create directory Contents
+0%: Create directory XLogPrototypeTests.xctest
+0%: Write empty-XContestStoreTests.plist
+0%: Write XContestStoreTests.DependencyStaticMetadataFileList
+0%: Write XContestStoreTests.DependencyMetadataFileList
+0%: Write XContestStoreTests_const_extract_protocols.json (x86_64)
+0%: Write XContestStoreTests.SwiftFileList (x86_64)
+0%: Write XContestStoreTests.SwiftConstValuesFileList
+0%: Write XContestStoreTests.LinkFileList (x86_64)
+0%: Write XContestStoreTests-OutputFileMap.json (x86_64)
+0%: Write XContestStoreTests_const_extract_protocols.json (arm64)
+0%: Write XContestStoreTests.SwiftFileList (arm64)
+0%: Write XContestStoreTests.SwiftConstValuesFileList
+0%: Write XContestStoreTests.LinkFileList (arm64)
+0%: Write XContestStoreTests-OutputFileMap.json (arm64)
+0%: Write XContestStore_Module.DependencyStaticMetadataFileList
+0%: Write XContestStore_Module.DependencyMetadataFileList
+0%: Write XContestStore.modulemap
+0%: Write XContestStore_Module_const_extract_protocols.json (x86_64)
+0%: Write XContestStore_Module.SwiftFileList (x86_64)
+0%: Write XContestStore_Module.SwiftConstValuesFileList
+0%: Write XContestStore_Module.LinkFileList (x86_64)
+0%: Write XContestStore_Module-OutputFileMap.json (x86_64)
+0%: Write XContestStore_Module_const_extract_protocols.json (arm64)
+0%: Write XContestStore_Module.SwiftFileList (arm64)
+0%: Write XContestStore_Module.SwiftConstValuesFileList
+0%: Write XContestStore_Module.LinkFileList (arm64)
+0%: Write XContestStore_Module-OutputFileMap.json (arm64)
+0%: Copy XContestStore.modulemap
+0%: Write empty-XContestCoreTests.plist
+0%: Write XContestCoreTests.DependencyStaticMetadataFileList
+0%: Write XContestCoreTests.DependencyMetadataFileList
+0%: Write XContestCoreTests_const_extract_protocols.json (x86_64)
+0%: Write XContestCoreTests.SwiftFileList (x86_64)
+0%: Write XContestCoreTests.SwiftConstValuesFileList
+0%: Write XContestCoreTests.LinkFileList (x86_64)
+0%: Write XContestCoreTests-OutputFileMap.json (x86_64)
+0%: Write XContestCoreTests_const_extract_protocols.json (arm64)
+0%: Write XContestCoreTests.SwiftFileList (arm64)
+0%: Write XContestCoreTests.SwiftConstValuesFileList
+0%: Write XContestCoreTests.LinkFileList (arm64)
+0%: Write XContestCoreTests-OutputFileMap.json (arm64)
+0%: Write XContestCore_Module.DependencyStaticMetadataFileList
+0%: Write XContestCore_Module.DependencyMetadataFileList
+0%: Write XContestCore.modulemap
+0%: Write XContestCore_Module_const_extract_protocols.json (x86_64)
+0%: Write XContestCore_Module.SwiftFileList (x86_64)
+0%: Write XContestCore_Module.SwiftConstValuesFileList
+0%: Write XContestCore_Module.LinkFileList (x86_64)
+0%: Write XContestCore_Module-OutputFileMap.json (x86_64)
+0%: Write XContestCore_Module.SwiftFileList (arm64)
+0%: Write XContestCore_Module_const_extract_protocols.json (arm64)
+0%: Write XContestCore_Module.SwiftConstValuesFileList
+0%: Write XContestCore_Module.LinkFileList (arm64)
+0%: Write XContestCore_Module-OutputFileMap.json (arm64)
+0%: Write resource_bundle_accessor.swift
+0%: Copy XContestCore.modulemap
+0%: Write empty-XClusterIntegrationTests.plist
+0%: Write XClusterIntegrationTests.DependencyStaticMetadataFileList
+0%: Write XClusterIntegrationTests.DependencyMetadataFileList
+0%: Write XClusterIntegrationTests.SwiftFileList (x86_64)
+0%: Write XClusterIntegrationTests_const_extract_protocols.json (x86_64)
+0%: Write XClusterIntegrationTests.SwiftConstValuesFileList
+0%: Write XClusterIntegrationTests.LinkFileList (x86_64)
+0%: Write XClusterIntegrationTests-OutputFileMap.json (x86_64)
+0%: Write XClusterIntegrationTests_const_extract_protocols.json (arm64)
+0%: Write XClusterIntegrationTests.SwiftFileList (arm64)
+0%: Write XClusterIntegrationTests.SwiftConstValuesFileList
+0%: Write XClusterIntegrationTests.LinkFileList (arm64)
+28%: Write XClusterIntegrationTests-OutputFileMap.json (arm64)
+28%: Write XClusterIntegrationCore_Module.DependencyStaticMetadataFileList
+28%: Write XClusterIntegrationCore_Module.DependencyMetadataFileList
+28%: Write XClusterIntegrationCore.modulemap
+28%: Write XClusterIntegrationCore_Module_const_extract_protocols.json (x86_64)
+28%: Write XClusterIntegrationCore_Module.SwiftFileList (x86_64)
+28%: Write XClusterIntegrationCore_Module.SwiftConstValuesFileList
+28%: Write XClusterIntegrationCore_Module.LinkFileList (x86_64)
+28%: Write XClusterIntegrationCore_Module-OutputFileMap.json (x86_64)
+28%: Write XClusterIntegrationCore_Module_const_extract_protocols.json (arm64)
+28%: Write XClusterIntegrationCore_Module.SwiftFileList (arm64)
+28%: Write XClusterIntegrationCore_Module.SwiftConstValuesFileList
+28%: Write XClusterIntegrationCore_Module.LinkFileList (arm64)
+28%: Write XClusterIntegrationCore_Module-OutputFileMap.json (arm64)
+28%: Copy XClusterIntegrationCore.modulemap
+28%: Write empty-XCatIntegrationTests.plist
+28%: Write XCatIntegrationTests.DependencyStaticMetadataFileList
+28%: Write XCatIntegrationTests.DependencyMetadataFileList
+28%: Write XCatIntegrationTests_const_extract_protocols.json (x86_64)
+28%: Write XCatIntegrationTests.SwiftFileList (x86_64)
+28%: Write XCatIntegrationTests.SwiftConstValuesFileList
+28%: Write XCatIntegrationTests.LinkFileList (x86_64)
+28%: Write XCatIntegrationTests-OutputFileMap.json (x86_64)
+28%: Write XCatIntegrationTests_const_extract_protocols.json (arm64)
+28%: Write XCatIntegrationTests.SwiftFileList (arm64)
+28%: Write XCatIntegrationTests.SwiftConstValuesFileList
+28%: Write XCatIntegrationTests.LinkFileList (arm64)
+28%: Write XCatIntegrationTests-OutputFileMap.json (arm64)
+28%: Write XCatIntegrationCore_Module.DependencyStaticMetadataFileList
+28%: Write XCatIntegrationCore_Module.DependencyMetadataFileList
+28%: Write XCatIntegrationCore.modulemap
+28%: Write XCatIntegrationCore_Module_const_extract_protocols.json (x86_64)
+28%: Write XCatIntegrationCore_Module.SwiftFileList (x86_64)
+28%: Write XCatIntegrationCore_Module.SwiftConstValuesFileList
+28%: Write XCatIntegrationCore_Module.LinkFileList (x86_64)
+28%: Write XCatIntegrationCore_Module-OutputFileMap.json (x86_64)
+28%: Write XCatIntegrationCore_Module_const_extract_protocols.json (arm64)
+28%: Write XCatIntegrationCore_Module.SwiftFileList (arm64)
+28%: Write XCatIntegrationCore_Module.SwiftConstValuesFileList
+28%: Write XCatIntegrationCore_Module.LinkFileList (arm64)
+28%: Write XCatIntegrationCore_Module-OutputFileMap.json (arm64)
+28%: Copy XCatIntegrationCore.modulemap
+28%: Create directory Resources
+28%: Create directory MacOS
+28%: Create directory Contents
+28%: Create directory XContestStoreTests.xctest
+28%: Create directory Resources
+28%: Create directory MacOS
+28%: Create directory Contents
+28%: Create directory XContestCoreTests.xctest
+28%: Create directory Contents
+28%: Create directory MacOS
+28%: Create directory XClusterIntegrationTests.xctest
+28%: Create directory MacOS
+28%: Create directory Contents
+28%: Create directory XCatIntegrationTests.xctest
+28%: Write empty-OM0RXXLogPrototype_XLogCore.plist
+28%: Write OM0RXXLogPrototype_XLogCore.DependencyStaticMetadataFileList
+28%: Write OM0RXXLogPrototype_XLogCore.DependencyMetadataFileList
+28%: Write OM0RXXLogPrototype_XContestCore.DependencyStaticMetadataFileList
+28%: Write empty-OM0RXXLogPrototype_XContestCore.plist
+28%: Write OM0RXXLogPrototype_XContestCore.DependencyMetadataFileList
+28%: Create directory Resources
+28%: Create directory Contents
+28%: Create directory OM0RXXLogPrototype_XLogCore.bundle
+28%: Create directory Resources
+28%: Create directory Contents
+28%: Create directory OM0RXXLogPrototype_XContestCore.bundle
+28%: Write 7187679823f38a2a940e0043cdf9d637-common-args.resp (x86_64)
+28%: Write CPlatformVault_Module.LinkFileList (x86_64)
+28%: Write CPlatformVault_Module.LinkFileList (arm64)
+28%: Write 7187679823f38a2a940e0043cdf9d637-common-args.resp (arm64)
+28%: Write CPlatformVault_Module.DependencyStaticMetadataFileList
+28%: Write CPlatformVault_Module.DependencyMetadataFileList
+-fmodules -gmodules '-fmodules-cache-path=/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/ModuleCache.noindex' '-fmodule-name=CPlatformVault' -fpascal-strings -O0 -DSWIFT_PACKAGE '-DDEBUG=1' -fasm-blocks -g -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Products/Debug/include -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/Sources/CPlatformVault/include -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CPlatformVault_Module.build/DerivedSources-normal/x86_64 -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CPlatformVault_Module.build/DerivedSources/x86_64 -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CPlatformVault_Module.build/DerivedSources -F/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Products/Debug -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -fPIC -g
+28%: Write CPlatformVault.modulemap
+28%: Write CCurlBackup_Module.LinkFileList (x86_64)
+28%: Write 7187679823f38a2a940e0043cdf9d637-common-args.resp (x86_64)
+-fmodules -gmodules '-fmodules-cache-path=/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/ModuleCache.noindex' '-fmodule-name=CPlatformVault' -fpascal-strings -O0 -DSWIFT_PACKAGE '-DDEBUG=1' -g -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Products/Debug/include -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/Sources/CPlatformVault/include -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CPlatformVault_Module.build/DerivedSources-normal/arm64 -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CPlatformVault_Module.build/DerivedSources/arm64 -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CPlatformVault_Module.build/DerivedSources -F/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Products/Debug -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -fPIC -g
+28%: Write 7187679823f38a2a940e0043cdf9d637-common-args.resp (arm64)
+28%: Write CCurlBackup_Module.LinkFileList (arm64)
+28%: Write CCurlBackup_Module.DependencyStaticMetadataFileList
+28%: Write CCurlBackup_Module.DependencyMetadataFileList
+28%: Copy CPlatformVault.modulemap
+-fmodules -gmodules '-fmodules-cache-path=/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/ModuleCache.noindex' '-fmodule-name=CCurlBackup' -fpascal-strings -O0 -DSWIFT_PACKAGE '-DDEBUG=1' -fasm-blocks -g -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Products/Debug/include -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/Sources/CCurlBackup/include -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CCurlBackup_Module.build/DerivedSources-normal/x86_64 -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CCurlBackup_Module.build/DerivedSources/x86_64 -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CCurlBackup_Module.build/DerivedSources -F/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Products/Debug -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -fPIC -g
+28%: Write CCurlBackup.modulemap
+28%: Write CClusterSocketTestSupport_Module.LinkFileList (x86_64)
+-fmodules -gmodules '-fmodules-cache-path=/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/ModuleCache.noindex' '-fmodule-name=CCurlBackup' -fpascal-strings -O0 -DSWIFT_PACKAGE '-DDEBUG=1' -g -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Products/Debug/include -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/Sources/CCurlBackup/include -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CCurlBackup_Module.build/DerivedSources-normal/arm64 -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CCurlBackup_Module.build/DerivedSources/arm64 -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CCurlBackup_Module.build/DerivedSources -F/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Products/Debug -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -fPIC -g
+28%: Write 7187679823f38a2a940e0043cdf9d637-common-args.resp (x86_64)
+28%: Write CClusterSocketTestSupport_Module.LinkFileList (arm64)
+28%: Write 7187679823f38a2a940e0043cdf9d637-common-args.resp (arm64)
+28%: Write CClusterSocketTestSupport_Module.DependencyStaticMetadataFileList
+28%: Copy CCurlBackup.modulemap
+-fmodules -gmodules '-fmodules-cache-path=/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/ModuleCache.noindex' '-fmodule-name=CClusterSocketTestSupport' -fpascal-strings -O0 -DSWIFT_PACKAGE '-DDEBUG=1' -fasm-blocks -g -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Products/Debug/include -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/Tests/CClusterSocketTestSupport/include -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/Sources/CClusterSocket/include -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CClusterSocketTestSupport_Module.build/DerivedSources-normal/x86_64 -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CClusterSocketTestSupport_Module.build/DerivedSources/x86_64 -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CClusterSocketTestSupport_Module.build/DerivedSources -F/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Products/Debug -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -fPIC -g '-fmodule-map-file=/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/GeneratedModuleMaps/macosx/CClusterSocket.modulemap'
+28%: Write CClusterSocketTestSupport_Module.DependencyMetadataFileList
+-fmodules -gmodules '-fmodules-cache-path=/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/ModuleCache.noindex' '-fmodule-name=CClusterSocketTestSupport' -fpascal-strings -O0 -DSWIFT_PACKAGE '-DDEBUG=1' -g -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Products/Debug/include -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/Tests/CClusterSocketTestSupport/include -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/Sources/CClusterSocket/include -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CClusterSocketTestSupport_Module.build/DerivedSources-normal/arm64 -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CClusterSocketTestSupport_Module.build/DerivedSources/arm64 -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CClusterSocketTestSupport_Module.build/DerivedSources -F/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Products/Debug -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -fPIC -g '-fmodule-map-file=/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/GeneratedModuleMaps/macosx/CClusterSocket.modulemap'
+28%: Write CClusterSocketTestSupport.modulemap
+28%: Copy CClusterSocketTestSupport.modulemap
+28%: Write 7187679823f38a2a940e0043cdf9d637-common-args.resp (x86_64)
+28%: Write CClusterSocket_Module.LinkFileList (x86_64)
+28%: Write CClusterSocket_Module.LinkFileList (arm64)
+28%: Write 7187679823f38a2a940e0043cdf9d637-common-args.resp (arm64)
+28%: Write CClusterSocket_Module.DependencyStaticMetadataFileList
+28%: Write CClusterSocket_Module.DependencyMetadataFileList
+-fmodules -gmodules '-fmodules-cache-path=/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/ModuleCache.noindex' '-fmodule-name=CClusterSocket' -fpascal-strings -O0 -DSWIFT_PACKAGE '-DDEBUG=1' -g -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Products/Debug/include -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/Sources/CClusterSocket/include -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CClusterSocket_Module.build/DerivedSources-normal/arm64 -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CClusterSocket_Module.build/DerivedSources/arm64 -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CClusterSocket_Module.build/DerivedSources -F/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Products/Debug -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -fPIC -g
+28%: Write CClusterSocket.modulemap
+-fmodules -gmodules '-fmodules-cache-path=/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/ModuleCache.noindex' '-fmodule-name=CClusterSocket' -fpascal-strings -O0 -DSWIFT_PACKAGE '-DDEBUG=1' -fasm-blocks -g -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Products/Debug/include -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/Sources/CClusterSocket/include -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CClusterSocket_Module.build/DerivedSources-normal/x86_64 -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CClusterSocket_Module.build/DerivedSources/x86_64 -I/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/OM0RXXLogPrototype.build/Debug/CClusterSocket_Module.build/DerivedSources -F/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Products/Debug -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -fPIC -g
+28%: Copy CClusterSocket.modulemap
+28%: Create build directory $(TARGET_BUILD_DIR)/Debug/PackageFrameworks
+28%: Process empty-OM0RXXLogPrototype_XLogCore.plist
+28%: Copy ham-awards-registry-NOTICE.md
+28%: Copy ham-award-wcsa-schools.json
+28%: Copy ham-award-tools-LICENSE.md
+28%: Copy ham-award-research-registry.json
+28%: Copy ham-award-jarl-prefectures.json
+28%: Copy ham-award-jarl-entities.json
+28%: Copy dxcc-boundaries.geojson
+28%: Copy cty.csv
+28%: Copy DXCC_BOUNDARIES_SOURCE.md
+28%: Process empty-OM0RXXLogPrototype_XContestCore.plist
+28%: Copy CountryReferences
+28%: Copy ContestDefinitions
+28%: Register execution policy exception for OM0RXXLogPrototype_XLogCore.bundle
+28%: Register execution policy exception for OM0RXXLogPrototype_XContestCore.bundle
+49%: Touch OM0RXXLogPrototype_XLogCore.bundle
+49%: Touch OM0RXXLogPrototype_XContestCore.bundle
+49%: Scan dependencies of PlatformVault.c
+49%: Scan dependencies of CCurlBackup.c
+49%: Scan dependencies of TestSocket.c
+49%: Scan dependencies of ClusterSocket.c
+49%: Scan dependencies of ClusterSocket.c
+49%: Scan dependencies of CCurlBackup.c
+49%: Scan dependencies of TestSocket.c
+49%: Scan dependencies of PlatformVault.c
+49%: Planning Swift module XStationIntegrationCore (x86_64)
+49%: Planning Swift module XStationIntegrationCore (arm64)
+48%: Planning Swift module XLogCore (x86_64)
+48%: Planning Swift module XLogCore (arm64)
+48%: Planning Swift module XContestCore (x86_64)
+48%: Planning Swift module XContestCore (arm64)
+48%: Planning Swift module XClusterIntegrationCore (x86_64)
+48%: Planning Swift module XClusterIntegrationCore (arm64)
+48%: Planning Swift module XCatIntegrationCore (x86_64)
+48%: Planning Swift module XCatIntegrationCore (arm64)
+45%: Compiling Clang module SwiftShims
+45%: Compiling Clang module _Builtin_stddef
+45%: Compiling Clang module ptrcheck
+45%: Compiling Clang module _Builtin_stdarg
+42%: Compiling Clang module _Builtin_float
+42%: Compiling Clang module _SwiftConcurrencyShims
+42%: Compiling Clang module _AvailabilityInternal
+42%: Compiling Clang module ptrauth
+42%: Compiling Clang module _Builtin_float
+42%: Compiling Clang module _Builtin_stdbool
+42%: Compiling Clang module _AvailabilityInternal
+42%: Compiling Clang module _Builtin_stdbool
+42%: Compiling Clang module _Builtin_stdarg
+41%: Compiling Clang module _SwiftConcurrencyShims
+41%: Compiling Clang module _DarwinFoundation1
+41%: Compiling Clang module ptrauth
+41%: Compiling Clang module SwiftShims
+41%: Compiling Clang module _Builtin_stddef
+42%: Compiling Clang module ptrcheck
+42%: Compiling Clang module ptrcheck
+42%: Compiling Clang module _Builtin_stdbool
+42%: Compiling Clang module _Builtin_stdbool
+42%: Compiling Clang module SQLite3
+42%: Compiling Clang module _Builtin_limits
+42%: Compiling Clang module _DarwinFoundation2
+42%: Compiling Clang module _AvailabilityInternal
+42%: Compiling Clang module _Builtin_stdarg
+42%: Compiling Clang module _Builtin_stdarg
+42%: Compiling Clang module ptrcheck
+42%: Compiling Clang module _DarwinFoundation1
+42%: Compiling Clang module _AvailabilityInternal
+42%: Compiling Clang module _Builtin_stddef
+42%: Compiling Clang module _Builtin_stddef
+42%: Compiling Clang module _Builtin_float
+43%: Compiling Clang module _Builtin_float
+43%: Compiling Clang module _DarwinFoundation1
+43%: Compiling Clang module _DarwinFoundation1
+43%: Compiling Clang module _Builtin_limits
+43%: Compiling Clang module _DarwinFoundation2
+43%: Compiling Clang module SQLite3
+44%: Compiling Clang module sys_types
+44%: Compiling Clang module _Builtin_stdint
+44%: Compiling Clang module string_h
+44%: Compiling Clang module _Builtin_limits
+44%: Compiling Clang module _DarwinFoundation2
+44%: Compiling Clang module _Builtin_limits
+44%: Compiling Clang module _DarwinFoundation2
+44%: Compiling Clang module _Builtin_stdatomic
+44%: Compiling Clang module CClusterSocket
+44%: Compiling Clang module libDER
+44%: Compiling Clang module CCurlBackup
+44%: Compiling Clang module _DarwinFoundation3
+44%: Compiling Clang module sys_types
+44%: Compiling Clang module string_h
+44%: Compiling Clang module _Builtin_stdint
+45%: Compiling Clang module _Builtin_stdint
+45%: Compiling Clang module _Builtin_stdint
+45%: Compiling Clang module _Builtin_stdatomic
+45%: Compiling Clang module _DarwinFoundation3
+45%: Compiling Clang module _Builtin_stdatomic
+45%: Compiling Clang module _DarwinFoundation3
+46%: Compiling Clang module _DarwinFoundation3
+46%: Compiling Clang module _Builtin_stdatomic
+46%: Compiling Clang module CCurlBackup
+46%: Compiling Clang module libDER
+46%: Compiling Clang module CClusterSocket
+46%: Compile PlatformVault.c (x86_64)
+46%: Compiling Clang module _Builtin_inttypes
+46%: Compile PlatformVault.c (arm64)
+46%: Compiling Clang module _Builtin_inttypes
+47%: Compiling Clang module _Builtin_intrinsics
+47%: Compiling Clang module zlib
+47%: Compiling Clang module Darwin
+47%: Compiling Clang module _Builtin_inttypes
+47%: Link CPlatformVault_Module.o (x86_64)
+47%: Link CPlatformVault_Module.o (arm64)
+47%: Compiling Clang module Darwin
+47%: Create universal binary CPlatformVault_Module.o
+47%: Compiling Clang module Darwin
+47%: Compiling Clang module _Builtin_inttypes
+47%: Compiling Clang module zlib
+48%: Compiling Clang module Darwin
+49%: Compile CCurlBackup.c (x86_64)
+49%: Compile TestSocket.c (x86_64)
+49%: Compile ClusterSocket.c (x86_64)
+49%: Link CCurlBackup_Module.o (x86_64)
+49%: Link CClusterSocket_Module.o (x86_64)
+49%: Compile CCurlBackup.c (arm64)
+49%: Compile TestSocket.c (arm64)
+49%: Compile ClusterSocket.c (arm64)
+50%: Link CClusterSocket_Module.o (arm64)
+50%: Link CCurlBackup_Module.o (arm64)
+50%: Create universal binary CClusterSocket_Module.o
+50%: Create universal binary CCurlBackup_Module.o
+50%: Link CClusterSocketTestSupport_Module.o (arm64)
+50%: Link CClusterSocketTestSupport_Module.o (x86_64)
+50%: Create universal binary CClusterSocketTestSupport_Module.o
+50%: Compiling Clang module launch
+50%: Compiling Clang module MachO
+50%: Compiling Clang module libkern
+51%: Compiling Clang module ObjectiveC
+51%: Compiling Clang module MachO
+51%: Compiling Clang module launch
+51%: Compiling Clang module libkern
+51%: Compiling Clang module ObjectiveC
+52%: Compiling Clang module os_object
+52%: Compiling Clang module os_workgroup
+52%: Compiling Clang module os_object
+52%: Compiling Clang module Dispatch
+52%: Compiling Clang module os_workgroup
+52%: Compiling Clang module XPC
+52%: Compiling Clang module CoreFoundation
+52%: Compiling Clang module dnssd
+52%: Compiling Clang module Dispatch
+53%: Compiling Clang module os
+53%: Compiling Clang module XPC
+53%: Compiling Clang module dnssd
+53%: Compiling Clang module CoreFoundation
+53%: Compiling Clang module Security
+53%: Compiling Clang module IOKit
+53%: Compiling Clang module CFNetwork
+54%: Compiling Clang module os
+54%: Compiling Clang module CFNetwork
+54%: Compiling Clang module IOKit
+54%: Compiling Clang module Security
+54%: Compiling Clang module DiskArbitration
+54%: Compiling Clang module CoreServices
+55%: Compiling Clang module DiskArbitration
+55%: Compiling Clang module CoreServices
+55%: Compiling Clang module Foundation
+55%: Compiling Clang module Foundation
+55%: Compiling Clang module LocalAuthentication
+55%: Compiling Clang module Network
+55%: Emitting module for XContestCore
+55%: Emitting module for XStationIntegrationCore
+55%: Compiling ContestRateStatistics.swift, ContestSubmissionProjection.swift, DeclarativeContestRule.swift, JIDXRules.swift
+55%: Compiling StationContracts.swift
+55%: Compiling StationContractDiagnostics.swift
+56%: Compiling TuneCoordinator.swift
+56%: Emitting module for XLogCore
+56%: Emitting module for XClusterIntegrationCore
+56%: Compile
+56%: Emitting module for XStationIntegrationCore
+56%: Discovering Swift tasks after 'Emitting module for XStationIntegrationCore'
+56%: Compile StationContractDiagnostics.swift
+56%: Unblock downstream dependents of XStationIntegrationCore_Module (x86_64)
+56%: Discovering Swift tasks after 'Compiling StationContractDiagnostics.swift'
+56%: Emitting module for XContestCore
+56%: Compile TuneCoordinator.swift
+56%: Copy XStationIntegrationCore.swiftmodule (x86_64)
+57%: Discovering Swift tasks after 'Compiling TuneCoordinator.swift'
+57%: Copy XStationIntegrationCore.swiftdoc (x86_64)
+57%: Copy XStationIntegrationCore.abi.json (x86_64)
+57%: Copy XStationIntegrationCore.swiftsourceinfo (x86_64)
+57%: Emitting module for XCatIntegrationCore
+57%: Compile
+57%: Compiling Clang module LocalAuthentication
+57%: Discovering Swift tasks after 'Emitting module for XClusterIntegrationCore'
+57%: Unblock downstream dependents of XClusterIntegrationCore_Module (x86_64)
+57%: Emitting module for XLogCore
+57%: Compile
+58%: Discovering Swift tasks after 'Emitting module for XStationIntegrationCore'
+58%: Copy XClusterIntegrationCore.swiftmodule (x86_64)
+58%: Unblock downstream dependents of XStationIntegrationCore_Module (arm64)
+58%: Copy XClusterIntegrationCore.swiftdoc (x86_64)
+58%: Merge Objective-C generated interface headers
+58%: Copy XStationIntegrationCore.swiftmodule (arm64)
+58%: Copy XStationIntegrationCore.swiftdoc (arm64)
+58%: Copy XStationIntegrationCore.abi.json (arm64)
+58%: Copy XStationIntegrationCore.swiftsourceinfo (arm64)
+58%: Copy XClusterIntegrationCore.abi.json (x86_64)
+58%: Copy XClusterIntegrationCore.swiftsourceinfo (x86_64)
+58%: Compiling Clang module Network
+58%: Compiling StationContracts.swift
+59%: Compile
+59%: Emitting module for XClusterIntegrationCore
+59%: Discovering Swift tasks after 'Emitting module for XContestCore'
+59%: Compile StationContracts.swift
+59%: Unblock downstream dependents of XContestCore_Module (x86_64)
+59%: Discovering Swift tasks after 'Compiling StationContracts.swift'
+59%: Emitting module for XCatIntegrationCore
+59%: Compile
+60%: Discovering Swift tasks after 'Emitting module for XCatIntegrationCore'
+60%: Copy XContestCore.swiftmodule (x86_64)
+60%: Copy XContestCore.swiftdoc (x86_64)
+60%: Copy XContestCore.abi.json (x86_64)
+60%: Copy XContestCore.swiftsourceinfo (x86_64)
+60%: Unblock downstream dependents of XCatIntegrationCore_Module (x86_64)
+60%: Compiling StationContractDiagnostics.swift
+60%: Compile
+60%: Compile
+60%: Copy XCatIntegrationCore.swiftdoc (x86_64)
+60%: Copy XCatIntegrationCore.swiftmodule (x86_64)
+60%: Discovering Swift tasks after 'Emitting module for XClusterIntegrationCore'
+60%: Discovering Swift tasks after 'Emitting module for XContestCore'
+60%: Unblock downstream dependents of XContestCore_Module (arm64)
+60%: Unblock downstream dependents of XClusterIntegrationCore_Module (arm64)
+60%: Copy XCatIntegrationCore.abi.json (x86_64)
+60%: Merge Objective-C generated interface headers
+60%: Copy XContestCore.swiftmodule (arm64)
+60%: Copy XContestCore.swiftdoc (arm64)
+60%: Copy XContestCore.abi.json (arm64)
+60%: Copy XContestCore.swiftsourceinfo (arm64)
+60%: Merge Objective-C generated interface headers
+60%: Copy XClusterIntegrationCore.swiftmodule (arm64)
+60%: Copy XClusterIntegrationCore.swiftdoc (arm64)
+60%: Copy XClusterIntegrationCore.abi.json (arm64)
+60%: Copy XClusterIntegrationCore.swiftsourceinfo (arm64)
+60%: Copy XCatIntegrationCore.swiftsourceinfo (x86_64)
+60%: Compiling ConnectionDoctor.swift
+60%: Compiling TuneCoordinator.swift
+60%: Compile StationContractDiagnostics.swift
+60%: Compiling ConnectionDoctor.swift
+63%: Discovering Swift tasks after 'Compiling StationContractDiagnostics.swift'
+63%: Compile ConnectionDoctor.swift
+63%: Compiling resource_bundle_accessor.swift, ADIF.swift, ActivationReferenceDirectory.swift, AwardCatalog.swift, AwardReferences.swift, AwardRegistry.swift, BackupEnvelope.swift, BackupManager.swift
+63%: Discovering Swift tasks after 'Compiling ConnectionDoctor.swift'
+63%: Compile TuneCoordinator.swift
+63%: Discovering Swift tasks after 'Compiling TuneCoordinator.swift'
+63%: Compile XStationIntegrationCore_Module (x86_64)
+63%: Compiling QRZClient.swift, QSOADIF.swift, ReferenceDataUpdater.swift, RemoteBackupAuthorization.swift, RemoteBackupHostDriver.swift, RemoteBackupLocalAdapters.swift, RemoteBackupOwner.swift, RemoteBackupPlanning.swift
+63%: Compile StationContracts.swift
+63%: Compiling LoTWConfirmationReport.swift, LoTWConfirmationTransport.swift, LocalFilePath.swift, LocalFilePermissions.swift, LogbookContact.swift, LogbookDatabase.swift, Models.swift, OneDriveBackupHTTPClient.swift
+63%: Discovering Swift tasks after 'Compiling StationContracts.swift'
+63%: Compile
+63%: Compiling OneDriveBackupTransport.swift, OnlineLogDelivery.swift, OperatingSupport.swift, OperatorDraft.swift, OperatorDraftPower.swift, OperatorIntelligence.swift, OpportunityFeeds.swift, QRPDXCCPreflight.swift
+63%: Discovering Swift tasks after 'Emitting module for XCatIntegrationCore'
+63%: Compile ConnectionDoctor.swift
+63%: Unblock downstream dependents of XCatIntegrationCore_Module (arm64)
+63%: Discovering Swift tasks after 'Compiling ConnectionDoctor.swift'
+63%: Compile XStationIntegrationCore_Module (arm64)
+63%: Merge Objective-C generated interface headers
+63%: Copy XCatIntegrationCore.swiftmodule (arm64)
+63%: Copy XCatIntegrationCore.swiftdoc (arm64)
+63%: Copy XCatIntegrationCore.abi.json (arm64)
+63%: Copy XCatIntegrationCore.swiftsourceinfo (arm64)
+63%: Compiling CTYResolver.swift, CWProfile.swift, ClusterSpotFeed.swift, ContestLogTransfer.swift, DXCCBoundaries.swift, DropboxBackupHTTPClient.swift, DropboxBackupTransport.swift, FTPBackupConfiguration.swift
+63%: Compile
+63%: Compiling FTPBackupTransport.swift, FlexSpotForwarder.swift, Geo.swift, GoogleDriveBackupHTTPClient.swift, GoogleDriveBackupTransport.swift, IntegrationWorkspace.swift, LoTWConfirmationDownload.swift, LoTWConfirmationPreview.swift
+64%: Discovering Swift tasks after 'Emitting module for XLogCore'
+64%: Compile
+64%: Unblock downstream dependents of XLogCore_Module (x86_64)
+65%: Discovering Swift tasks after 'Emitting module for XLogCore'
+65%: Unblock downstream dependents of XLogCore_Module (arm64)
+65%: Copy XLogCore.swiftmodule (x86_64)
+65%: Merge Objective-C generated interface headers
+65%: Copy XLogCore.swiftdoc (x86_64)
+65%: Copy XLogCore.abi.json (x86_64)
+65%: Copy XLogCore.swiftmodule (arm64)
+65%: Copy XLogCore.swiftdoc (arm64)
+65%: Copy XLogCore.abi.json (arm64)
+65%: Copy XLogCore.swiftsourceinfo (x86_64)
+65%: Copy XLogCore.swiftsourceinfo (arm64)
+65%: Compiling OneDriveBackupTransport.swift, OnlineLogDelivery.swift, OperatingSupport.swift, OperatorDraft.swift, OperatorDraftPower.swift, OperatorIntelligence.swift, OpportunityFeeds.swift, QRPDXCCPreflight.swift
+65%: Compile ContestRateStatistics.swift
+65%: Compile ContestSubmissionProjection.swift
+65%: Compile DeclarativeContestRule.swift
+65%: Compile JIDXRules.swift
+65%: Compiling CTYResolver.swift, CWProfile.swift, ClusterSpotFeed.swift, ContestLogTransfer.swift, DXCCBoundaries.swift, DropboxBackupHTTPClient.swift, DropboxBackupTransport.swift, FTPBackupConfiguration.swift
+66%: Discovering Swift tasks after 'Compiling ContestRateStatistics.swift, ContestSubmissionProjection.swift, DeclarativeContestRule.swift, JIDXRules.swift'
+66%: Compile CTYResolver.swift
+66%: Compile CWProfile.swift
+66%: Compile ClusterSpotFeed.swift
+66%: Compile ContestLogTransfer.swift
+66%: Compile DXCCBoundaries.swift
+66%: Compile DropboxBackupHTTPClient.swift
+66%: Compile DropboxBackupTransport.swift
+66%: Compile FTPBackupConfiguration.swift
+66%: Compiling QRZClient.swift, QSOADIF.swift, ReferenceDataUpdater.swift, RemoteBackupAuthorization.swift, RemoteBackupHostDriver.swift, RemoteBackupLocalAdapters.swift, RemoteBackupOwner.swift, RemoteBackupPlanning.swift
+66%: Discovering Swift tasks after 'Compiling CTYResolver.swift, CWProfile.swift, ClusterSpotFeed.swift, ContestLogTransfer.swift, DXCCBoundaries.swift, DropboxBackupHTTPClient.swift, DropboxBackupTransport.swift, FTPBackupConfiguration.swift'
+66%: Compile FTPBackupTransport.swift
+66%: Compile FlexSpotForwarder.swift
+66%: Compile Geo.swift
+66%: Compile GoogleDriveBackupHTTPClient.swift
+66%: Compile GoogleDriveBackupTransport.swift
+66%: Compile IntegrationWorkspace.swift
+66%: Compile LoTWConfirmationDownload.swift
+66%: Compile LoTWConfirmationPreview.swift
+66%: Discovering Swift tasks after 'Compiling FTPBackupTransport.swift, FlexSpotForwarder.swift, Geo.swift, GoogleDriveBackupHTTPClient.swift, GoogleDriveBackupTransport.swift, IntegrationWorkspace.swift, LoTWConfirmationDownload.swift, LoTWConfirmationPreview.swift'
+66%: Compiling FTPBackupTransport.swift, FlexSpotForwarder.swift, Geo.swift, GoogleDriveBackupHTTPClient.swift, GoogleDriveBackupTransport.swift, IntegrationWorkspace.swift, LoTWConfirmationDownload.swift, LoTWConfirmationPreview.swift
+66%: Compile QRZClient.swift
+66%: Compile QSOADIF.swift
+66%: Compile ReferenceDataUpdater.swift
+66%: Compile RemoteBackupAuthorization.swift
+66%: Compile RemoteBackupHostDriver.swift
+66%: Compile RemoteBackupLocalAdapters.swift
+66%: Compile RemoteBackupOwner.swift
+66%: Compile RemoteBackupPlanning.swift
+66%: Compiling RemoteBackupRetentionReview.swift, RemoteBackupScheduler.swift, SFTPBackupConfiguration.swift, SecretStore.swift, SemanticQSOIdentity.swift, Settings.swift, Solar.swift, SpotDraftActivation.swift
+67%: Discovering Swift tasks after 'Compiling QRZClient.swift, QSOADIF.swift, ReferenceDataUpdater.swift, RemoteBackupAuthorization.swift, RemoteBackupHostDriver.swift, RemoteBackupLocalAdapters.swift, RemoteBackupOwner.swift, RemoteBackupPlanning.swift'
+67%: Compile CTYResolver.swift
+67%: Compile CWProfile.swift
+67%: Compile ClusterSpotFeed.swift
+67%: Compile ContestLogTransfer.swift
+67%: Compile DXCCBoundaries.swift
+67%: Compile DropboxBackupHTTPClient.swift
+67%: Compile DropboxBackupTransport.swift
+67%: Compile FTPBackupConfiguration.swift
+67%: Compiling SpotHistoryDatabase.swift, SyncEngine.swift, TransmitPowerCapture.swift, WavelogClient.swift, WeatherClient.swift, WorkspaceLayout.swift, XCatClient.swift
+67%: Discovering Swift tasks after 'Compiling CTYResolver.swift, CWProfile.swift, ClusterSpotFeed.swift, ContestLogTransfer.swift, DXCCBoundaries.swift, DropboxBackupHTTPClient.swift, DropboxBackupTransport.swift, FTPBackupConfiguration.swift'
+67%: Compile resource_bundle_accessor.swift
+67%: Compile ADIF.swift
+67%: Compile ActivationReferenceDirectory.swift
+67%: Compile AwardCatalog.swift
+67%: Compile AwardReferences.swift
+67%: Compile AwardRegistry.swift
+67%: Compile BackupEnvelope.swift
+67%: Compile BackupManager.swift
+67%: Compiling RemoteBackupRetentionReview.swift, RemoteBackupScheduler.swift, SFTPBackupConfiguration.swift, SecretStore.swift, SemanticQSOIdentity.swift, Settings.swift, Solar.swift, SpotDraftActivation.swift
+67%: Discovering Swift tasks after 'Compiling resource_bundle_accessor.swift, ADIF.swift, ActivationReferenceDirectory.swift, AwardCatalog.swift, AwardReferences.swift, AwardRegistry.swift, BackupEnvelope.swift, BackupManager.swift'
+67%: Compile OneDriveBackupTransport.swift
+67%: Compile OnlineLogDelivery.swift
+67%: Compile OperatingSupport.swift
+67%: Compile OperatorDraft.swift
+67%: Compile OperatorDraftPower.swift
+67%: Compile OperatorIntelligence.swift
+67%: Compile OpportunityFeeds.swift
+67%: Compile QRPDXCCPreflight.swift
+67%: Compiling resource_bundle_accessor.swift, ADIF.swift, ActivationReferenceDirectory.swift, AwardCatalog.swift, AwardReferences.swift, AwardRegistry.swift, BackupEnvelope.swift, BackupManager.swift
+67%: Discovering Swift tasks after 'Compiling OneDriveBackupTransport.swift, OnlineLogDelivery.swift, OperatingSupport.swift, OperatorDraft.swift, OperatorDraftPower.swift, OperatorIntelligence.swift, OpportunityFeeds.swift, QRPDXCCPreflight.swift'
+67%: Compile FTPBackupTransport.swift
+67%: Compile FlexSpotForwarder.swift
+67%: Compile Geo.swift
+67%: Compile GoogleDriveBackupHTTPClient.swift
+67%: Compile GoogleDriveBackupTransport.swift
+67%: Compile IntegrationWorkspace.swift
+67%: Compile LoTWConfirmationDownload.swift
+67%: Compile LoTWConfirmationPreview.swift
+67%: Compiling SpotHistoryDatabase.swift, SyncEngine.swift, TransmitPowerCapture.swift, WavelogClient.swift, WeatherClient.swift, WorkspaceLayout.swift, XCatClient.swift
+67%: Discovering Swift tasks after 'Compiling FTPBackupTransport.swift, FlexSpotForwarder.swift, Geo.swift, GoogleDriveBackupHTTPClient.swift, GoogleDriveBackupTransport.swift, IntegrationWorkspace.swift, LoTWConfirmationDownload.swift, LoTWConfirmationPreview.swift'
+67%: Compile OneDriveBackupTransport.swift
+67%: Compile OnlineLogDelivery.swift
+67%: Compile OperatingSupport.swift
+67%: Compile OperatorDraft.swift
+67%: Compile OperatorDraftPower.swift
+67%: Compile OperatorIntelligence.swift
+67%: Compile OpportunityFeeds.swift
+67%: Compile QRPDXCCPreflight.swift
+67%: Compiling LoTWConfirmationReport.swift, LoTWConfirmationTransport.swift, LocalFilePath.swift, LocalFilePermissions.swift, LogbookContact.swift, LogbookDatabase.swift, Models.swift, OneDriveBackupHTTPClient.swift
+67%: Discovering Swift tasks after 'Compiling OneDriveBackupTransport.swift, OnlineLogDelivery.swift, OperatingSupport.swift, OperatorDraft.swift, OperatorDraftPower.swift, OperatorIntelligence.swift, OpportunityFeeds.swift, QRPDXCCPreflight.swift'
+67%: Compile LoTWConfirmationReport.swift
+67%: Compile LoTWConfirmationTransport.swift
+67%: Compile LocalFilePath.swift
+67%: Compile LocalFilePermissions.swift
+67%: Compile LogbookContact.swift
+67%: Compile LogbookDatabase.swift
+67%: Compile Models.swift
+67%: Compile OneDriveBackupHTTPClient.swift
+67%: Compiling ContestExportInput.swift, ContestOperatorCapability.swift, ContestPackagedCountryReferenceLoader.swift, ContestPackagedDefinitionLoader.swift
+67%: Discovering Swift tasks after 'Compiling LoTWConfirmationReport.swift, LoTWConfirmationTransport.swift, LocalFilePath.swift, LocalFilePermissions.swift, LogbookContact.swift, LogbookDatabase.swift, Models.swift, OneDriveBackupHTTPClient.swift'
+67%: Compile RemoteBackupRetentionReview.swift
+67%: Compile RemoteBackupScheduler.swift
+67%: Compile SFTPBackupConfiguration.swift
+67%: Compile SecretStore.swift
+67%: Compile SemanticQSOIdentity.swift
+67%: Compile Settings.swift
+67%: Compile Solar.swift
+67%: Compile SpotDraftActivation.swift
+67%: Compiling Models.swift, NAQPRules.swift, OceaniaRules.swift
+67%: Discovering Swift tasks after 'Compiling RemoteBackupRetentionReview.swift, RemoteBackupScheduler.swift, SFTPBackupConfiguration.swift, SecretStore.swift, SemanticQSOIdentity.swift, Settings.swift, Solar.swift, SpotDraftActivation.swift'
+67%: Compile QRZClient.swift
+67%: Compile QSOADIF.swift
+67%: Compile ReferenceDataUpdater.swift
+67%: Compile RemoteBackupAuthorization.swift
+67%: Compile RemoteBackupHostDriver.swift
+67%: Compile RemoteBackupLocalAdapters.swift
+67%: Compile RemoteBackupOwner.swift
+67%: Compile RemoteBackupPlanning.swift
+67%: Discovering Swift tasks after 'Compiling QRZClient.swift, QSOADIF.swift, ReferenceDataUpdater.swift, RemoteBackupAuthorization.swift, RemoteBackupHostDriver.swift, RemoteBackupLocalAdapters.swift, RemoteBackupOwner.swift, RemoteBackupPlanning.swift'
+67%: Compiling ContestCallHistoryProjection.swift, ContestCallsignAssistance.swift, ContestCountryMultiplierReference.swift, ContestDeclarativeCatalog.swift
+67%: Compile RemoteBackupRetentionReview.swift
+67%: Compile RemoteBackupScheduler.swift
+67%: Compile SFTPBackupConfiguration.swift
+67%: Compile SecretStore.swift
+67%: Compile SemanticQSOIdentity.swift
+67%: Compile Settings.swift
+67%: Compile Solar.swift
+67%: Compile SpotDraftActivation.swift
+67%: Discovering Swift tasks after 'Compiling RemoteBackupRetentionReview.swift, RemoteBackupScheduler.swift, SFTPBackupConfiguration.swift, SecretStore.swift, SemanticQSOIdentity.swift, Settings.swift, Solar.swift, SpotDraftActivation.swift'
+67%: Compiling SACRules.swift, SSTDeclarativeDefinition.swift, TenTenDeclarativeDefinitions.swift
+67%: Compile SACRules.swift
+67%: Compile SSTDeclarativeDefinition.swift
+67%: Compile TenTenDeclarativeDefinitions.swift
+68%: Discovering Swift tasks after 'Compiling SACRules.swift, SSTDeclarativeDefinition.swift, TenTenDeclarativeDefinitions.swift'
+68%: Compiling resource_bundle_accessor.swift, ARRLDXRules.swift, ARRLRTTYRoundupRule.swift, ARRLVHFDeclarativeDefinitions.swift
+68%: Compile Models.swift
+68%: Compile NAQPRules.swift
+68%: Compile OceaniaRules.swift
+68%: Discovering Swift tasks after 'Compiling Models.swift, NAQPRules.swift, OceaniaRules.swift'
+68%: Compiling ContestExportInput.swift, ContestOperatorCapability.swift, ContestPackagedCountryReferenceLoader.swift, ContestPackagedDefinitionLoader.swift
+68%: Compile ContestExportInput.swift
+68%: Compile ContestOperatorCapability.swift
+68%: Compile ContestPackagedCountryReferenceLoader.swift
+68%: Compile ContestPackagedDefinitionLoader.swift
+68%: Compiling Models.swift, NAQPRules.swift, OceaniaRules.swift
+68%: Discovering Swift tasks after 'Compiling ContestExportInput.swift, ContestOperatorCapability.swift, ContestPackagedCountryReferenceLoader.swift, ContestPackagedDefinitionLoader.swift'
+68%: Compile resource_bundle_accessor.swift
+68%: Compile ARRLDXRules.swift
+68%: Compile ARRLRTTYRoundupRule.swift
+68%: Compile ARRLVHFDeclarativeDefinitions.swift
+68%: Compiling SACRules.swift, SSTDeclarativeDefinition.swift, TenTenDeclarativeDefinitions.swift
+68%: Discovering Swift tasks after 'Compiling resource_bundle_accessor.swift, ARRLDXRules.swift, ARRLRTTYRoundupRule.swift, ARRLVHFDeclarativeDefinitions.swift'
+68%: Compile ContestCallHistoryProjection.swift
+68%: Compile ContestCallsignAssistance.swift
+68%: Compile ContestCountryMultiplierReference.swift
+68%: Compile ContestDeclarativeCatalog.swift
+68%: Compiling PersistenceContracts.swift, PilotRules.swift, RuleEngine.swift
+68%: Discovering Swift tasks after 'Compiling ContestCallHistoryProjection.swift, ContestCallsignAssistance.swift, ContestCountryMultiplierReference.swift, ContestDeclarativeCatalog.swift'
+68%: Compile SACRules.swift
+68%: Compile SSTDeclarativeDefinition.swift
+68%: Compile TenTenDeclarativeDefinitions.swift
+68%: Compiling ContestRateStatistics.swift, ContestSubmissionProjection.swift, DeclarativeContestRule.swift, JIDXRules.swift
+68%: Discovering Swift tasks after 'Compiling SACRules.swift, SSTDeclarativeDefinition.swift, TenTenDeclarativeDefinitions.swift'
+68%: Compile ContestExportInput.swift
+68%: Compile ContestOperatorCapability.swift
+68%: Compile ContestPackagedCountryReferenceLoader.swift
+68%: Compile ContestPackagedDefinitionLoader.swift
+68%: Compiling CWUniqueCallDeclarativeDefinitions.swift, Cabrillo.swift, ContestBandPlan.swift, ContestCallHistory.swift
+69%: Discovering Swift tasks after 'Compiling ContestExportInput.swift, ContestOperatorCapability.swift, ContestPackagedCountryReferenceLoader.swift, ContestPackagedDefinitionLoader.swift'
+69%: Compile Models.swift
+69%: Compile NAQPRules.swift
+69%: Compile OceaniaRules.swift
+69%: Compiling PersistenceContracts.swift, PilotRules.swift, RuleEngine.swift
+69%: Discovering Swift tasks after 'Compiling Models.swift, NAQPRules.swift, OceaniaRules.swift'
+69%: Compile resource_bundle_accessor.swift
+69%: Compile ADIF.swift
+69%: Compile ActivationReferenceDirectory.swift
+69%: Compile AwardCatalog.swift
+69%: Compile AwardReferences.swift
+69%: Compile AwardRegistry.swift
+69%: Compile BackupEnvelope.swift
+69%: Compile BackupManager.swift
+69%: Compiling resource_bundle_accessor.swift, ARRLDXRules.swift, ARRLRTTYRoundupRule.swift, ARRLVHFDeclarativeDefinitions.swift
+69%: Discovering Swift tasks after 'Compiling resource_bundle_accessor.swift, ADIF.swift, ActivationReferenceDirectory.swift, AwardCatalog.swift, AwardReferences.swift, AwardRegistry.swift, BackupEnvelope.swift, BackupManager.swift'
+69%: Compile SpotHistoryDatabase.swift
+69%: Compile SyncEngine.swift
+69%: Compile TransmitPowerCapture.swift
+69%: Compile WavelogClient.swift
+69%: Compile WeatherClient.swift
+69%: Compile WorkspaceLayout.swift
+69%: Compile XCatClient.swift
+69%: Compiling CWUniqueCallDeclarativeDefinitions.swift, Cabrillo.swift, ContestBandPlan.swift, ContestCallHistory.swift
+69%: Discovering Swift tasks after 'Compiling SpotHistoryDatabase.swift, SyncEngine.swift, TransmitPowerCapture.swift, WavelogClient.swift, WeatherClient.swift, WorkspaceLayout.swift, XCatClient.swift'
+69%: Compile resource_bundle_accessor.swift
+69%: Compile ARRLDXRules.swift
+69%: Compile ARRLRTTYRoundupRule.swift
+69%: Compile ARRLVHFDeclarativeDefinitions.swift
+69%: Discovering Swift tasks after 'Compiling resource_bundle_accessor.swift, ARRLDXRules.swift, ARRLRTTYRoundupRule.swift, ARRLVHFDeclarativeDefinitions.swift'
+69%: Compile XLogCore_Module (arm64)
+69%: Compiling ContestCallHistoryProjection.swift, ContestCallsignAssistance.swift, ContestCountryMultiplierReference.swift, ContestDeclarativeCatalog.swift
+69%: Compile PersistenceContracts.swift
+69%: Compile PilotRules.swift
+69%: Compile RuleEngine.swift
+69%: Compiling ClusterAddressResolver.swift, ClusterClassificationIndex.swift
+69%: Discovering Swift tasks after 'Compiling PersistenceContracts.swift, PilotRules.swift, RuleEngine.swift'
+69%: Compile CWUniqueCallDeclarativeDefinitions.swift
+69%: Compile Cabrillo.swift
+69%: Compile ContestBandPlan.swift
+69%: Compile ContestCallHistory.swift
+69%: Compiling SpecialRule.swift
+69%: Discovering Swift tasks after 'Compiling CWUniqueCallDeclarativeDefinitions.swift, Cabrillo.swift, ContestBandPlan.swift, ContestCallHistory.swift'
+69%: Compile SpecialRule.swift
+69%: Compiling ClusterCountryDirectory.swift, ClusterPortableConnection.swift
+70%: Discovering Swift tasks after 'Compiling SpecialRule.swift'
+70%: Compile ClusterAddressResolver.swift
+70%: Compile ClusterClassificationIndex.swift
+70%: Compiling SpotLogic.swift
+70%: Discovering Swift tasks after 'Compiling ClusterAddressResolver.swift, ClusterClassificationIndex.swift'
+70%: Compile PersistenceContracts.swift
+70%: Compile PilotRules.swift
+70%: Compile RuleEngine.swift
+70%: Compiling SpotLogic.swift
+70%: Discovering Swift tasks after 'Compiling PersistenceContracts.swift, PilotRules.swift, RuleEngine.swift'
+70%: Compile SpotLogic.swift
+70%: Compiling ClusterSpotObservation.swift
+70%: Discovering Swift tasks after 'Compiling SpotLogic.swift'
+70%: Compile CWUniqueCallDeclarativeDefinitions.swift
+70%: Compile Cabrillo.swift
+70%: Compile ContestBandPlan.swift
+70%: Compile ContestCallHistory.swift
+70%: Compiling SpecialRule.swift
+70%: Discovering Swift tasks after 'Compiling CWUniqueCallDeclarativeDefinitions.swift, Cabrillo.swift, ContestBandPlan.swift, ContestCallHistory.swift'
+70%: Compile ClusterCountryDirectory.swift
+70%: Compile ClusterPortableConnection.swift
+70%: Discovering Swift tasks after 'Compiling ClusterCountryDirectory.swift, ClusterPortableConnection.swift'
+70%: Compiling ClusterSessionService.swift
+70%: Compile SpecialRule.swift
+70%: Discovering Swift tasks after 'Compiling SpecialRule.swift'
+70%: Compiling ClusterAddressResolver.swift, ClusterClassificationIndex.swift
+70%: Compile ContestRateStatistics.swift
+70%: Compile ContestSubmissionProjection.swift
+70%: Compile DeclarativeContestRule.swift
+70%: Compile JIDXRules.swift
+70%: Discovering Swift tasks after 'Compiling ContestRateStatistics.swift, ContestSubmissionProjection.swift, DeclarativeContestRule.swift, JIDXRules.swift'
+70%: Compiling Models.swift
+70%: Compile ClusterSpotObservation.swift
+71%: Compile XContestCore_Module (arm64)
+71%: Discovering Swift tasks after 'Compiling ClusterSpotObservation.swift'
+71%: Compile SpotLogic.swift
+71%: Compiling ClusterSpotObservation.swift
+71%: Discovering Swift tasks after 'Compiling SpotLogic.swift'
+71%: Compiling Models.swift
+71%: Compile SpotHistoryDatabase.swift
+71%: Compile SyncEngine.swift
+71%: Compile TransmitPowerCapture.swift
+71%: Compile WavelogClient.swift
+71%: Compile WeatherClient.swift
+71%: Compile WorkspaceLayout.swift
+71%: Compile XCatClient.swift
+71%: Compiling ClusterTCPTransport.swift
+71%: Discovering Swift tasks after 'Compiling SpotHistoryDatabase.swift, SyncEngine.swift, TransmitPowerCapture.swift, WavelogClient.swift, WeatherClient.swift, WorkspaceLayout.swift, XCatClient.swift'
+71%: Compile ContestCallHistoryProjection.swift
+71%: Compile ContestCallsignAssistance.swift
+71%: Compile ContestCountryMultiplierReference.swift
+71%: Compile ContestDeclarativeCatalog.swift
+71%: Compiling ClusterSessionService.swift
+71%: Discovering Swift tasks after 'Compiling ContestCallHistoryProjection.swift, ContestCallsignAssistance.swift, ContestCountryMultiplierReference.swift, ContestDeclarativeCatalog.swift'
+71%: Compile Models.swift
+71%: Discovering Swift tasks after 'Compiling Models.swift'
+71%: Compile XContestCore_Module (x86_64)
+71%: Compiling ClusterCountryDirectory.swift, ClusterPortableConnection.swift
+71%: Compile LoTWConfirmationReport.swift
+71%: Compile LoTWConfirmationTransport.swift
+71%: Compile LocalFilePath.swift
+71%: Compile LocalFilePermissions.swift
+71%: Compile LogbookContact.swift
+71%: Compile LogbookDatabase.swift
+71%: Compile Models.swift
+71%: Compile OneDriveBackupHTTPClient.swift
+71%: Compiling ClusterTCPTransport.swift
+71%: Discovering Swift tasks after 'Compiling LoTWConfirmationReport.swift, LoTWConfirmationTransport.swift, LocalFilePath.swift, LocalFilePermissions.swift, LogbookContact.swift, LogbookDatabase.swift, Models.swift, OneDriveBackupHTTPClient.swift'
+71%: Compile ClusterAddressResolver.swift
+71%: Compile ClusterClassificationIndex.swift
+71%: Compile XLogCore_Module (x86_64)
+72%: Discovering Swift tasks after 'Compiling ClusterAddressResolver.swift, ClusterClassificationIndex.swift'
+72%: Compile Models.swift
+72%: Compiling TCIProtocol.swift, TCIWebSocketSession.swift
+72%: Compiling CATCommandProcessor.swift, DXSpot.swift, FlexRadioClient.swift
+72%: Discovering Swift tasks after 'Compiling Models.swift'
+72%: Compile ClusterTCPTransport.swift
+72%: Compiling TCPCommandServer.swift, XCatError.swift
+72%: Discovering Swift tasks after 'Compiling ClusterTCPTransport.swift'
+72%: Compile ClusterSpotObservation.swift
+72%: Compiling RemoteAgentAuth.swift, RemoteAgentClient.swift, RemoteAgentModels.swift
+72%: Discovering Swift tasks after 'Compiling ClusterSpotObservation.swift'
+72%: Compile ClusterTCPTransport.swift
+72%: Compiling TCIProtocol.swift, TCIWebSocketSession.swift
+72%: Discovering Swift tasks after 'Compiling ClusterTCPTransport.swift'
+72%: Compile TCPCommandServer.swift
+72%: Compile XCatError.swift
+72%: Compiling SmartLinkBroker.swift, SmartLinkRadioClient.swift
+72%: Discovering Swift tasks after 'Compiling TCPCommandServer.swift, XCatError.swift'
+72%: Compile ClusterCountryDirectory.swift
+72%: Compile ClusterPortableConnection.swift
+72%: Discovering Swift tasks after 'Compiling ClusterCountryDirectory.swift, ClusterPortableConnection.swift'
+72%: Compiling SmartLinkBroker.swift, SmartLinkRadioClient.swift
+72%: Compile ClusterSessionService.swift
+73%: Discovering Swift tasks after 'Compiling ClusterSessionService.swift'
+73%: Compiling CATCommandProcessor.swift, DXSpot.swift, FlexRadioClient.swift
+73%: Compile ClusterSessionService.swift
+73%: Compile XClusterIntegrationCore_Module (x86_64)
+73%: Discovering Swift tasks after 'Compiling ClusterSessionService.swift'
+73%: Compiling SimulatedRadio.swift, SmartLinkAuth.swift
+73%: Compile SmartLinkBroker.swift
+73%: Compile SmartLinkRadioClient.swift
+73%: Compile XClusterIntegrationCore_Module (arm64)
+73%: Discovering Swift tasks after 'Compiling SmartLinkBroker.swift, SmartLinkRadioClient.swift'
+73%: Compiling RemoteAgentAuth.swift, RemoteAgentClient.swift, RemoteAgentModels.swift
+73%: Compile SmartLinkBroker.swift
+73%: Compile SmartLinkRadioClient.swift
+73%: Compiling LegacyXCATClient.swift, Models.swift, PropagationConditions.swift
+73%: Discovering Swift tasks after 'Compiling SmartLinkBroker.swift, SmartLinkRadioClient.swift'
+73%: Compile SimulatedRadio.swift
+73%: Compile SmartLinkAuth.swift
+73%: Compiling SimulatedRadio.swift, SmartLinkAuth.swift
+73%: Discovering Swift tasks after 'Compiling SimulatedRadio.swift, SmartLinkAuth.swift'
+73%: Compile CATCommandProcessor.swift
+73%: Compile DXSpot.swift
+73%: Compile FlexRadioClient.swift
+74%: Compiling TCPCommandServer.swift, XCatError.swift
+74%: Discovering Swift tasks after 'Compiling CATCommandProcessor.swift, DXSpot.swift, FlexRadioClient.swift'
+74%: Compile SimulatedRadio.swift
+74%: Compile SmartLinkAuth.swift
+74%: Compiling LegacyXCATClient.swift, Models.swift, PropagationConditions.swift
+74%: Discovering Swift tasks after 'Compiling SimulatedRadio.swift, SmartLinkAuth.swift'
+74%: Compile RemoteAgentAuth.swift
+74%: Compile RemoteAgentClient.swift
+74%: Compile RemoteAgentModels.swift
+74%: Discovering Swift tasks after 'Compiling RemoteAgentAuth.swift, RemoteAgentClient.swift, RemoteAgentModels.swift'
+74%: Compiling RemoteStationConfiguration.swift, RigCtlCommandProcessor.swift, Rotator.swift
+74%: Compile TCPCommandServer.swift
+74%: Compile XCatError.swift
+74%: Compiling RemoteStationConfiguration.swift, RigCtlCommandProcessor.swift, Rotator.swift
+74%: Discovering Swift tasks after 'Compiling TCPCommandServer.swift, XCatError.swift'
+74%: Compile TCIProtocol.swift
+74%: Compile TCIWebSocketSession.swift
+74%: Discovering Swift tasks after 'Compiling TCIProtocol.swift, TCIWebSocketSession.swift'
+74%: Link XStationIntegrationCore_Module.o (x86_64)
+74%: Compile LegacyXCATClient.swift
+74%: Compile Models.swift
+74%: Compile PropagationConditions.swift
+74%: Discovering Swift tasks after 'Compiling LegacyXCATClient.swift, Models.swift, PropagationConditions.swift'
+74%: Link XStationIntegrationCore_Module.o (arm64)
+74%: Link XLogCore_Module.o (x86_64)
+74%: Link XLogCore_Module.o (arm64)
+75%: Create universal binary XStationIntegrationCore_Module.o
+75%: Link XContestCore_Module.o (x86_64)
+75%: Link XContestCore_Module.o (arm64)
+75%: Compile TCIProtocol.swift
+75%: Compile TCIWebSocketSession.swift
+75%: Create universal binary XLogCore_Module.o
+75%: Discovering Swift tasks after 'Compiling TCIProtocol.swift, TCIWebSocketSession.swift'
+75%: Link XClusterIntegrationCore_Module.o (arm64)
+75%: Link XClusterIntegrationCore_Module.o (x86_64)
+75%: Create universal binary XContestCore_Module.o
+75%: Extract app intents metadata
+75%: Extract app intents metadata
+75%: Create universal binary XClusterIntegrationCore_Module.o
+75%: Compile CATCommandProcessor.swift
+75%: Compile DXSpot.swift
+75%: Compile FlexRadioClient.swift
+75%: Discovering Swift tasks after 'Compiling CATCommandProcessor.swift, DXSpot.swift, FlexRadioClient.swift'
+75%: Extract app intents metadata
+76%: Planning Swift module XStationIntegrationTests (x86_64)
+2026-10-25 13:47:52.822 appintentsmetadataprocessor[82986:42913984] Starting appintentsmetadataprocessor export
+2026-10-25 13:47:53.371 appintentsmetadataprocessor[82986:42913984] Extracted no relevant App Intents symbols, skipping writing output
+
+76%: Planning Swift module XStationIntegrationTests (arm64)
+2026-10-25 13:47:52.823 appintentsmetadataprocessor[82989:42913988] Starting appintentsmetadataprocessor export
+2026-10-25 13:47:53.376 appintentsmetadataprocessor[82989:42913988] Extracted no relevant App Intents symbols, skipping writing output
+
+76%: Extract app intents metadata
+2026-10-25 13:47:52.827 appintentsmetadataprocessor[82987:42913985] Starting appintentsmetadataprocessor export
+2026-10-25 13:47:53.413 appintentsmetadataprocessor[82987:42913985] Extracted no relevant App Intents symbols, skipping writing output
+
+76%: Planning Swift module XContestStore (x86_64)
+2026-10-25 13:47:53.539 appintentsmetadataprocessor[82990:42914051] Starting appintentsmetadataprocessor export
+2026-10-25 13:47:53.825 appintentsmetadataprocessor[82990:42914051] Extracted no relevant App Intents symbols, skipping writing output
+
+76%: Planning Swift module XContestStore (arm64)
+76%: Compiling Clang module CSQLitePrototype
+76%: Compiling Clang module CSQLitePrototype
+76%: Emitting module for XContestStore
+76%: Emitting module for XContestStore
+76%: Compile LegacyXCATClient.swift
+76%: Compile Models.swift
+76%: Compile PropagationConditions.swift
+76%: Discovering Swift tasks after 'Compiling LegacyXCATClient.swift, Models.swift, PropagationConditions.swift'
+76%: Compiling SQLiteContestStore.swift
+76%: Compile RemoteAgentAuth.swift
+76%: Compile RemoteAgentClient.swift
+76%: Compile RemoteAgentModels.swift
+76%: Compiling StoreModels.swift
+76%: Discovering Swift tasks after 'Compiling RemoteAgentAuth.swift, RemoteAgentClient.swift, RemoteAgentModels.swift'
+76%: Compiling StoreModels.swift
+76%: Compiling Clang module IOSurface
+76%: Compile
+76%: Compiling Clang module ColorSync
+76%: Discovering Swift tasks after 'Emitting module for XContestStore'
+76%: Compile
+76%: Unblock downstream dependents of XContestStore_Module (x86_64)
+70%: Discovering Swift tasks after 'Emitting module for XContestStore'
+70%: Unblock downstream dependents of XContestStore_Module (arm64)
+70%: Compiling Clang module _Builtin_intrinsics
+70%: Merge Objective-C generated interface headers
+71%: Copy XContestStore.swiftmodule (x86_64)
+71%: Copy XContestStore.swiftdoc (x86_64)
+71%: Copy XContestStore.abi.json (x86_64)
+71%: Copy XContestStore.swiftmodule (arm64)
+71%: Copy XContestStore.swiftdoc (arm64)
+71%: Copy XContestStore.abi.json (arm64)
+71%: Copy XContestStore.swiftsourceinfo (x86_64)
+71%: Copy XContestStore.swiftsourceinfo (arm64)
+71%: Compiling Clang module CUPS
+71%: Compiling Clang module CoreGraphics
+71%: Compiling Clang module CoreTransferable
+72%: Compile RemoteStationConfiguration.swift
+72%: Compile RigCtlCommandProcessor.swift
+72%: Compile Rotator.swift
+72%: Compiling Clang module CoreTransferable
+72%: Discovering Swift tasks after 'Compiling RemoteStationConfiguration.swift, RigCtlCommandProcessor.swift, Rotator.swift'
+72%: Compiling Clang module Symbols
+72%: Compiling Clang module Accessibility
+72%: Compile RemoteStationConfiguration.swift
+72%: Compile RigCtlCommandProcessor.swift
+72%: Compile Rotator.swift
+72%: Compiling Clang module CUPS
+72%: Discovering Swift tasks after 'Compiling RemoteStationConfiguration.swift, RigCtlCommandProcessor.swift, Rotator.swift'
+72%: Compiling Clang module CoreData
+72%: Compiling Clang module OpenGL
+72%: Compiling Clang module ImageIO
+73%: Compiling Clang module DeveloperToolsSupport
+73%: Compiling Clang module DataDetection
+73%: Compiling Clang module IOSurface
+73%: Compiling Clang module UniformTypeIdentifiers
+73%: Compiling Clang module _Builtin_tgmath
+73%: Compiling Clang module OSLog
+73%: Compiling Clang module Metal
+73%: Compiling Clang module CoreGraphics
+73%: Compiling Clang module simd
+73%: Compiling Clang module DeveloperToolsSupport
+74%: Compiling Clang module Symbols
+74%: Compiling Clang module OpenGL
+74%: Compiling Clang module OSLog
+74%: Compiling Clang module Accessibility
+74%: Compiling Clang module ImageIO
+74%: Compiling Clang module CoreText
+74%: Compiling Clang module UniformTypeIdentifiers
+75%: Compiling Clang module Metal
+75%: Compiling Clang module CoreText
+75%: Compiling Clang module CoreData
+75%: Compiling Clang module CoreVideo
+75%: Compiling Clang module DataDetection
+75%: Compiling Clang module ApplicationServices
+75%: Compiling Clang module ColorSync
+75%: Compiling Clang module QuartzCore
+76%: Compiling Clang module CoreImage
+76%: Compiling Clang module ApplicationServices
+76%: Compiling Clang module CoreVideo
+76%: Compiling Clang module _Builtin_tgmath
+76%: Compiling Clang module Spatial
+76%: Compiling Clang module simd
+76%: Compiling Clang module SwiftUICore
+76%: Compiling Clang module CoreImage
+77%: Compiling Clang module QuartzCore
+77%: Compiling Clang module AppKit
+77%: Compiling ContestDatabaseSnapshot.swift
+77%: Compiling ContestDatabaseSnapshot.swift
+77%: Compiling Swift module SwiftUICore
+77%: Compiling Clang module AppKit
+77%: Compile StoreModels.swift
+77%: Compiling Clang module Spatial
+77%: Discovering Swift tasks after 'Compiling StoreModels.swift'
+77%: Compiling Clang module SwiftUICore
+78%: Compile StoreModels.swift
+78%: Discovering Swift tasks after 'Compiling StoreModels.swift'
+78%: Compiling SQLiteContestStore.swift
+78%: Compiling Clang module XCUIAutomation
+78%: Compiling Swift module SwiftUICore
+78%: Compiling Clang module XCTest
+78%: Compile XCatIntegrationCore_Module (x86_64)
+78%: Compile XCatIntegrationCore_Module (arm64)
+78%: Link XCatIntegrationCore_Module.o (x86_64)
+78%: Compile SQLiteContestStore.swift
+78%: Link XCatIntegrationCore_Module.o (arm64)
+78%: Discovering Swift tasks after 'Compiling SQLiteContestStore.swift'
+78%: Create universal binary XCatIntegrationCore_Module.o
+78%: Planning Swift module XContestCoreTests (arm64)
+78%: Planning Swift module XContestCoreTests (x86_64)
+78%: Compile ContestDatabaseSnapshot.swift
+79%: Discovering Swift tasks after 'Compiling ContestDatabaseSnapshot.swift'
+79%: Compile XContestStore_Module (arm64)
+79%: Extract app intents metadata
+79%: Compiling Clang module XCUIAutomation
+79%: Compiling Clang module XCTest
+2026-10-25 13:48:05.194 appintentsmetadataprocessor[83065:42915194] Starting appintentsmetadataprocessor export
+2026-10-25 13:48:05.579 appintentsmetadataprocessor[83065:42915194] Extracted no relevant App Intents symbols, skipping writing output
+
+79%: Planning Swift module XLogPrototypeSupport (x86_64)
+79%: Compile ContestDatabaseSnapshot.swift
+79%: Planning Swift module XLogPrototypeSupport (arm64)
+79%: Discovering Swift tasks after 'Compiling ContestDatabaseSnapshot.swift'
+79%: Process empty-XStationIntegrationTests.plist
+79%: Planning Swift module XClusterIntegrationTests (x86_64)
+79%: Planning Swift module XContestStoreTests (arm64)
+79%: Planning Swift module XContestStoreTests (x86_64)
+79%: Planning Swift module XClusterIntegrationTests (arm64)
+77%: Planning Swift module XCatIntegrationTests (x86_64)
+77%: Planning Swift module XCatIntegrationTests (arm64)
+75%: Compiling Clang module CPlatformVault
+75%: Compiling Swift module Testing
+75%: Compiling Clang module CPlatformVault
+74%: Compiling Clang module CClusterSocketTestSupport
+74%: Compiling Swift module Testing
+74%: Link XContestStore_Module.o (arm64)
+74%: Copy OM0RXXLogPrototype_XContestCore.bundle
+74%: Process empty-XContestCoreTests.plist
+74%: Process empty-XClusterIntegrationTests.plist
+74%: Process empty-XCatIntegrationTests.plist
+74%: Compiling Clang module CClusterSocketTestSupport
+74%: Compiling Swift module _Testing_Foundation
+74%: Compiling Swift module _Testing_Foundation
+74%: Compile SQLiteContestStore.swift
+74%: Discovering Swift tasks after 'Compiling SQLiteContestStore.swift'
+74%: Compile XContestStore_Module (x86_64)
+74%: Link XContestStore_Module.o (x86_64)
+74%: Create universal binary XContestStore_Module.o
+74%: Extract app intents metadata
+2026-10-25 13:48:13.068 appintentsmetadataprocessor[83084:42916411] Starting appintentsmetadataprocessor export
+2026-10-25 13:48:13.222 appintentsmetadataprocessor[83084:42916411] Extracted no relevant App Intents symbols, skipping writing output
+
+74%: Copy OM0RXXLogPrototype_XContestCore.bundle
+74%: Process empty-XContestStoreTests.plist
+74%: Compiling Swift module AppKit
+74%: Compiling Swift module AppKit
+74%: Compiling Swift module XCUIAutomation
+74%: Emitting module for XLogPrototypeSupport
+74%: Compiling PythonContestLane.swift, EmbeddedCATServers.swift, IntegrationMethods.swift, LiveClusterMethods.swift, LiveConnectionDoctorMethods.swift, LiveDropboxBackupAccountOwner.swift, LiveDropboxBackupCredentials.swift, LiveFTPBackupPresentation.swift
+74%: Compiling ContestExportService.swift, ContestLane.swift, ContestLogTransferService.swift, ContestRecorderAcceptance.swift, ContestSCPProvider.swift, ContestSCPService.swift, PythonContestAssistanceLane.swift, PythonContestCallHistoryLane.swift
+74%: Compiling ReferenceRefreshLease.swift, RotorObservation.swift, SelfTest.swift, SyncAuthorization.swift, WSJTXActivity.swift, WorkerProtocol.swift, WorkspaceCredentialStore.swift
+74%: Compiling AppRuntimeProfile.swift, CallsignEnrichment.swift, CQWWCountryReferenceMaterializer.swift, ContestADIFExport.swift, ContestAssistanceLane.swift, ContestCallHistoryService.swift, ContestExportArtifactCache.swift, ContestExportLane.swift
+74%: Compiling LiveStationSession.swift, LiveTCISession.swift, LiveWSJTXBridge.swift, LiveWorker.swift, LocalAcceptanceSession.swift, LocalContactHistory.swift, LocalLogbookSelfTest.swift
+74%: Compiling LiveRemoteBackupCommands.swift, LiveRemoteBackupPresentation.swift, LiveRemoteBackupService.swift, LiveRotorSession.swift, LiveServiceMethods.swift, LiveSpotBridge.swift, LiveSpotHistoryMethods.swift, LiveStationMethods.swift
+75%: Compiling Swift module XCTest
+75%: Emitting module for XLogPrototypeSupport
+75%: Compile ReferenceRefreshLease.swift
+75%: Compile RotorObservation.swift
+75%: Compile SelfTest.swift
+75%: Compile SyncAuthorization.swift
+75%: Compile WSJTXActivity.swift
+75%: Compile WorkerProtocol.swift
+75%: Compile WorkspaceCredentialStore.swift
+75%: Emitting module for XStationIntegrationTests
+75%: Discovering Swift tasks after 'Compiling ReferenceRefreshLease.swift, RotorObservation.swift, SelfTest.swift, SyncAuthorization.swift, WSJTXActivity.swift, WorkerProtocol.swift, WorkspaceCredentialStore.swift'
+75%: Compile
+converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift:43:70: warning: converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+ 41 |          validatePrivateRoot: @escaping @Sendable () throws -> Void,
+ 42 |          beforeReplacementPublish: @escaping @Sendable () async -> Void = {},
+ 43 |          providerFetch: @escaping ProviderFetch = ContestSCPProvider.fetchLatest,
+    |                                                                      `- warning: converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+ 44 |          writeAtomically: @escaping AtomicWriter = { data, url in try data.write(to: url, options: [.atomic]) },
+ 45 |          validateScope: @escaping ScopeValidator) throws {
+
+75%: Emitting module for XContestStoreTests
+75%: Discovering Swift tasks after 'Emitting module for XLogPrototypeSupport'
+75%: Compile
+75%: Unblock downstream dependents of XLogPrototypeSupport_Module (arm64)
+75%: Discovering Swift tasks after 'Emitting module for XStationIntegrationTests'
+75%: Unblock downstream dependents of XStationIntegrationTests (arm64)
+75%: Emitting module for XContestCoreTests
+75%: Compile
+converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift:43:70: warning: converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+ 41 |          validatePrivateRoot: @escaping @Sendable () throws -> Void,
+ 42 |          beforeReplacementPublish: @escaping @Sendable () async -> Void = {},
+ 43 |          providerFetch: @escaping ProviderFetch = ContestSCPProvider.fetchLatest,
+    |                                                                      `- warning: converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+ 44 |          writeAtomically: @escaping AtomicWriter = { data, url in try data.write(to: url, options: [.atomic]) },
+ 45 |          validateScope: @escaping ScopeValidator) throws {
+
+75%: Copy XStationIntegrationTests.swiftmodule (arm64)
+76%: Discovering Swift tasks after 'Emitting module for XLogPrototypeSupport'
+76%: Copy XStationIntegrationTests.swiftdoc (arm64)
+76%: Copy XStationIntegrationTests.abi.json (arm64)
+76%: Copy XStationIntegrationTests.swiftsourceinfo (arm64)
+76%: Unblock downstream dependents of XLogPrototypeSupport_Module (x86_64)
+76%: Copy XLogPrototypeSupport.swiftmodule (arm64)
+76%: Merge Objective-C generated interface headers
+76%: Copy XLogPrototypeSupport.swiftmodule (x86_64)
+76%: Copy XLogPrototypeSupport.swiftdoc (x86_64)
+76%: Copy XLogPrototypeSupport.abi.json (x86_64)
+76%: Copy XLogPrototypeSupport.swiftdoc (arm64)
+76%: Copy XLogPrototypeSupport.abi.json (arm64)
+76%: Copy XLogPrototypeSupport.swiftsourceinfo (x86_64)
+76%: Copy XLogPrototypeSupport.swiftsourceinfo (arm64)
+76%: Emitting module for XClusterIntegrationTests
+76%: Compile
+76%: Emitting module for XCatIntegrationTests
+77%: Discovering Swift tasks after 'Emitting module for XContestStoreTests'
+77%: Compile
+78%: Unblock downstream dependents of XContestStoreTests (arm64)
+78%: Discovering Swift tasks after 'Emitting module for XClusterIntegrationTests'
+78%: Unblock downstream dependents of XClusterIntegrationTests (arm64)
+78%: Copy XContestStoreTests.swiftmodule (arm64)
+78%: Copy XContestStoreTests.swiftdoc (arm64)
+78%: Copy XContestStoreTests.abi.json (arm64)
+78%: Copy XContestStoreTests.swiftsourceinfo (arm64)
+78%: Copy XClusterIntegrationTests.swiftmodule (arm64)
+78%: Copy XClusterIntegrationTests.swiftdoc (arm64)
+78%: Copy XClusterIntegrationTests.abi.json (arm64)
+78%: Copy XClusterIntegrationTests.swiftsourceinfo (arm64)
+78%: Compiling Swift module XCUIAutomation
+78%: Compile
+78%: Compiling StationIntegrationTests.swift
+79%: Discovering Swift tasks after 'Emitting module for XCatIntegrationTests'
+79%: Unblock downstream dependents of XCatIntegrationTests (arm64)
+79%: Compiling Swift module XCTest
+79%: Compile AppRuntimeProfile.swift
+79%: Compile CallsignEnrichment.swift
+79%: Compile CQWWCountryReferenceMaterializer.swift
+79%: Compile ContestADIFExport.swift
+79%: Compile ContestAssistanceLane.swift
+79%: Compile ContestCallHistoryService.swift
+79%: Compile ContestExportArtifactCache.swift
+79%: Compile ContestExportLane.swift
+79%: Discovering Swift tasks after 'Compiling AppRuntimeProfile.swift, CallsignEnrichment.swift, CQWWCountryReferenceMaterializer.swift, ContestADIFExport.swift, ContestAssistanceLane.swift, ContestCallHistoryService.swift, ContestExportArtifactCache.swift, ContestExportLane.swift'
+79%: Copy XCatIntegrationTests.swiftmodule (arm64)
+79%: Copy XCatIntegrationTests.swiftdoc (arm64)
+79%: Copy XCatIntegrationTests.abi.json (arm64)
+79%: Copy XCatIntegrationTests.swiftsourceinfo (arm64)
+79%: Compiling ConnectionDoctorTests.swift
+79%: Compile
+79%: Compiling ReferenceRefreshLease.swift, RotorObservation.swift, SelfTest.swift, SyncAuthorization.swift, WSJTXActivity.swift, WorkerProtocol.swift, WorkspaceCredentialStore.swift
+79%: Discovering Swift tasks after 'Emitting module for XContestCoreTests'
+79%: Unblock downstream dependents of XContestCoreTests (arm64)
+80%: Emitting module for XStationIntegrationTests
+80%: Compile
+80%: Emitting module for XContestStoreTests
+80%: Discovering Swift tasks after 'Emitting module for XStationIntegrationTests'
+80%: Compile ConnectionDoctorTests.swift
+80%: Unblock downstream dependents of XStationIntegrationTests (x86_64)
+80%: Discovering Swift tasks after 'Compiling ConnectionDoctorTests.swift'
+80%: Emitting module for XContestCoreTests
+80%: Compile StationIntegrationTests.swift
+80%: Copy XStationIntegrationTests.swiftmodule (x86_64)
+80%: Discovering Swift tasks after 'Compiling StationIntegrationTests.swift'
+80%: Copy XStationIntegrationTests.swiftdoc (x86_64)
+80%: Copy XStationIntegrationTests.abi.json (x86_64)
+80%: Copy XStationIntegrationTests.swiftsourceinfo (x86_64)
+80%: Copy XContestCoreTests.swiftmodule (arm64)
+80%: Copy XContestCoreTests.swiftdoc (arm64)
+80%: Copy XContestCoreTests.abi.json (arm64)
+80%: Copy XContestCoreTests.swiftsourceinfo (arm64)
+80%: Emitting module for XClusterIntegrationTests
+80%: Compile
+80%: Emitting module for XCatIntegrationTests
+81%: Discovering Swift tasks after 'Emitting module for XClusterIntegrationTests'
+81%: Compile
+81%: Unblock downstream dependents of XClusterIntegrationTests (x86_64)
+81%: Discovering Swift tasks after 'Emitting module for XContestStoreTests'
+81%: Compiling StationIntegrationTests.swift
+81%: Compile
+81%: Unblock downstream dependents of XContestStoreTests (x86_64)
+81%: Discovering Swift tasks after 'Emitting module for XCatIntegrationTests'
+81%: Copy XClusterIntegrationTests.swiftmodule (x86_64)
+81%: Copy XContestStoreTests.swiftmodule (x86_64)
+81%: Copy XContestStoreTests.swiftdoc (x86_64)
+81%: Copy XContestStoreTests.abi.json (x86_64)
+81%: Copy XContestStoreTests.swiftsourceinfo (x86_64)
+81%: Copy XClusterIntegrationTests.swiftdoc (x86_64)
+81%: Copy XClusterIntegrationTests.abi.json (x86_64)
+81%: Copy XClusterIntegrationTests.swiftsourceinfo (x86_64)
+81%: Unblock downstream dependents of XCatIntegrationTests (x86_64)
+81%: Compile XStationIntegrationTests (arm64)
+81%: Copy XCatIntegrationTests.swiftmodule (x86_64)
+81%: Link XStationIntegrationTests (arm64)
+81%: Compile
+81%: Copy XCatIntegrationTests.swiftdoc (x86_64)
+83%: Discovering Swift tasks after 'Emitting module for XContestCoreTests'
+83%: Unblock downstream dependents of XContestCoreTests (x86_64)
+83%: Copy XCatIntegrationTests.abi.json (x86_64)
+83%: Copy XContestCoreTests.swiftmodule (x86_64)
+83%: Copy XContestCoreTests.swiftdoc (x86_64)
+83%: Copy XContestCoreTests.abi.json (x86_64)
+83%: Copy XContestCoreTests.swiftsourceinfo (x86_64)
+83%: Copy XCatIntegrationTests.swiftsourceinfo (x86_64)
+83%: Compiling ConnectionDoctorTests.swift
+83%: Compiling ContestExportService.swift, ContestLane.swift, ContestLogTransferService.swift, ContestRecorderAcceptance.swift, ContestSCPProvider.swift, ContestSCPService.swift, PythonContestAssistanceLane.swift, PythonContestCallHistoryLane.swift
+83%: Compile ReferenceRefreshLease.swift
+83%: Compile RotorObservation.swift
+83%: Compile SelfTest.swift
+83%: Compile SyncAuthorization.swift
+83%: Compile WSJTXActivity.swift
+83%: Compile WorkerProtocol.swift
+83%: Compile WorkspaceCredentialStore.swift
+84%: Compiling LiveRemoteBackupCommands.swift, LiveRemoteBackupPresentation.swift, LiveRemoteBackupService.swift, LiveRotorSession.swift, LiveServiceMethods.swift, LiveSpotBridge.swift, LiveSpotHistoryMethods.swift, LiveStationMethods.swift
+84%: Discovering Swift tasks after 'Compiling ReferenceRefreshLease.swift, RotorObservation.swift, SelfTest.swift, SyncAuthorization.swift, WSJTXActivity.swift, WorkerProtocol.swift, WorkspaceCredentialStore.swift'
+84%: Compile StationIntegrationTests.swift
+84%: Compiling AppRuntimeProfile.swift, CallsignEnrichment.swift, CQWWCountryReferenceMaterializer.swift, ContestADIFExport.swift, ContestAssistanceLane.swift, ContestCallHistoryService.swift, ContestExportArtifactCache.swift, ContestExportLane.swift
+84%: Discovering Swift tasks after 'Compiling StationIntegrationTests.swift'
+84%: Compile ConnectionDoctorTests.swift
+84%: Discovering Swift tasks after 'Compiling ConnectionDoctorTests.swift'
+84%: Compiling LogReviewReferences.swift, NativeCredentialStore.swift, NativeDraftPowerGate.swift, OperatingGoals.swift, OpportunityDownload.swift, RTCScoreReportingService.swift, ReferenceCheckPlan.swift
+84%: Compile PythonContestLane.swift
+84%: Compile EmbeddedCATServers.swift
+84%: Compile IntegrationMethods.swift
+84%: Compile LiveClusterMethods.swift
+84%: Compile LiveConnectionDoctorMethods.swift
+84%: Compile LiveDropboxBackupAccountOwner.swift
+84%: Compile LiveDropboxBackupCredentials.swift
+84%: Compile LiveFTPBackupPresentation.swift
+84%: Discovering Swift tasks after 'Compiling PythonContestLane.swift, EmbeddedCATServers.swift, IntegrationMethods.swift, LiveClusterMethods.swift, LiveConnectionDoctorMethods.swift, LiveDropboxBackupAccountOwner.swift, LiveDropboxBackupCredentials.swift, LiveFTPBackupPresentation.swift'
+84%: Compile XStationIntegrationTests (x86_64)
+84%: Compiling LiveFldigiBridge.swift, LiveFlexSession.swift, LiveLogbookMethods.swift, LiveOnlineLogDeliveryService.swift, LiveOperatingGoalMethods.swift, LiveOpportunitiesMethods.swift, LivePublicServiceMethods.swift, LiveReferenceMethods.swift
+84%: Compile LogReviewReferences.swift
+84%: Compile NativeCredentialStore.swift
+84%: Compile NativeDraftPowerGate.swift
+84%: Compile OperatingGoals.swift
+84%: Compile OpportunityDownload.swift
+84%: Compile RTCScoreReportingService.swift
+84%: Compile ReferenceCheckPlan.swift
+84%: Link XStationIntegrationTests (x86_64)
+84%: Discovering Swift tasks after 'Compiling LogReviewReferences.swift, NativeCredentialStore.swift, NativeDraftPowerGate.swift, OperatingGoals.swift, OpportunityDownload.swift, RTCScoreReportingService.swift, ReferenceCheckPlan.swift'
+84%: Compile AppRuntimeProfile.swift
+84%: Compile CallsignEnrichment.swift
+84%: Compile CQWWCountryReferenceMaterializer.swift
+84%: Compile ContestADIFExport.swift
+84%: Compile ContestAssistanceLane.swift
+84%: Compile ContestCallHistoryService.swift
+84%: Compile ContestExportArtifactCache.swift
+84%: Compile ContestExportLane.swift
+84%: Discovering Swift tasks after 'Compiling AppRuntimeProfile.swift, CallsignEnrichment.swift, CQWWCountryReferenceMaterializer.swift, ContestADIFExport.swift, ContestAssistanceLane.swift, ContestCallHistoryService.swift, ContestExportArtifactCache.swift, ContestExportLane.swift'
+84%: Compiling LiveStationSession.swift, LiveTCISession.swift, LiveWSJTXBridge.swift, LiveWorker.swift, LocalAcceptanceSession.swift, LocalContactHistory.swift, LocalLogbookSelfTest.swift
+84%: Compiling LiveFldigiBridge.swift, LiveFlexSession.swift, LiveLogbookMethods.swift, LiveOnlineLogDeliveryService.swift, LiveOperatingGoalMethods.swift, LiveOpportunitiesMethods.swift, LivePublicServiceMethods.swift, LiveReferenceMethods.swift
+84%: Compile LiveRemoteBackupCommands.swift
+84%: Compile LiveRemoteBackupPresentation.swift
+84%: Compile LiveRemoteBackupService.swift
+84%: Compile LiveRotorSession.swift
+84%: Compile LiveServiceMethods.swift
+84%: Compile LiveSpotBridge.swift
+84%: Compile LiveSpotHistoryMethods.swift
+84%: Compile LiveStationMethods.swift
+84%: Create universal binary XStationIntegrationTests
+85%: Discovering Swift tasks after 'Compiling LiveRemoteBackupCommands.swift, LiveRemoteBackupPresentation.swift, LiveRemoteBackupService.swift, LiveRotorSession.swift, LiveServiceMethods.swift, LiveSpotBridge.swift, LiveSpotHistoryMethods.swift, LiveStationMethods.swift'
+85%: Compiling PythonContestLane.swift, EmbeddedCATServers.swift, IntegrationMethods.swift, LiveClusterMethods.swift, LiveConnectionDoctorMethods.swift, LiveDropboxBackupAccountOwner.swift, LiveDropboxBackupCredentials.swift, LiveFTPBackupPresentation.swift
+85%: Compile ContestExportService.swift
+85%: Compile ContestLane.swift
+85%: Compile ContestLogTransferService.swift
+85%: Compile ContestRecorderAcceptance.swift
+85%: Compile ContestSCPProvider.swift
+85%: Compile ContestSCPService.swift
+converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+85%: Compile PythonContestAssistanceLane.swift
+85%: Compile PythonContestCallHistoryLane.swift
+/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift:43:70: warning: converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+ 41 |          validatePrivateRoot: @escaping @Sendable () throws -> Void,
+ 42 |          beforeReplacementPublish: @escaping @Sendable () async -> Void = {},
+ 43 |          providerFetch: @escaping ProviderFetch = ContestSCPProvider.fetchLatest,
+    |                                                                      `- warning: converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+ 44 |          writeAtomically: @escaping AtomicWriter = { data, url in try data.write(to: url, options: [.atomic]) },
+ 45 |          validateScope: @escaping ScopeValidator) throws {
+
+85%: Discovering Swift tasks after 'Compiling ContestExportService.swift, ContestLane.swift, ContestLogTransferService.swift, ContestRecorderAcceptance.swift, ContestSCPProvider.swift, ContestSCPService.swift, PythonContestAssistanceLane.swift, PythonContestCallHistoryLane.swift'
+85%: Compiling LogReviewReferences.swift, NativeCredentialStore.swift, NativeDraftPowerGate.swift, OperatingGoals.swift, OpportunityDownload.swift, RTCScoreReportingService.swift, ReferenceCheckPlan.swift
+85%: Compile LiveStationSession.swift
+85%: Compile LiveTCISession.swift
+85%: Compile LiveWSJTXBridge.swift
+85%: Compile LiveWorker.swift
+85%: Compile LocalAcceptanceSession.swift
+85%: Compile LocalContactHistory.swift
+85%: Compile LocalLogbookSelfTest.swift
+85%: Compiling ContestCWUniqueCallDeclarativeStoreTests.swift, ContestDatabaseSnapshotTests.swift
+85%: Discovering Swift tasks after 'Compiling LiveStationSession.swift, LiveTCISession.swift, LiveWSJTXBridge.swift, LiveWorker.swift, LocalAcceptanceSession.swift, LocalContactHistory.swift, LocalLogbookSelfTest.swift'
+85%: Compile LogReviewReferences.swift
+85%: Compile NativeCredentialStore.swift
+85%: Compile NativeDraftPowerGate.swift
+85%: Compile OperatingGoals.swift
+85%: Compile OpportunityDownload.swift
+85%: Compile RTCScoreReportingService.swift
+85%: Compile ReferenceCheckPlan.swift
+85%: Compiling ContestNAQPStoreTests.swift, ContestOceaniaStoreTests.swift
+85%: Discovering Swift tasks after 'Compiling LogReviewReferences.swift, NativeCredentialStore.swift, NativeDraftPowerGate.swift, OperatingGoals.swift, OpportunityDownload.swift, RTCScoreReportingService.swift, ReferenceCheckPlan.swift'
+85%: Compile ContestNAQPStoreTests.swift
+85%: Compile ContestOceaniaStoreTests.swift
+85%: Compiling ContestStoreTests.swift
+85%: Discovering Swift tasks after 'Compiling ContestNAQPStoreTests.swift, ContestOceaniaStoreTests.swift'
+85%: Compile LiveRemoteBackupCommands.swift
+85%: Compile LiveRemoteBackupPresentation.swift
+85%: Compile LiveRemoteBackupService.swift
+85%: Compile LiveRotorSession.swift
+85%: Compile LiveServiceMethods.swift
+85%: Compile LiveSpotBridge.swift
+85%: Compile LiveSpotHistoryMethods.swift
+85%: Compile LiveStationMethods.swift
+85%: Discovering Swift tasks after 'Compiling LiveRemoteBackupCommands.swift, LiveRemoteBackupPresentation.swift, LiveRemoteBackupService.swift, LiveRotorSession.swift, LiveServiceMethods.swift, LiveSpotBridge.swift, LiveSpotHistoryMethods.swift, LiveStationMethods.swift'
+85%: Compiling ContestStoreTests.swift
+85%: Compile ContestCWUniqueCallDeclarativeStoreTests.swift
+85%: Compile ContestDatabaseSnapshotTests.swift
+85%: Compiling ContestStructuredExchangeStoreTests.swift
+85%: Discovering Swift tasks after 'Compiling ContestCWUniqueCallDeclarativeStoreTests.swift, ContestDatabaseSnapshotTests.swift'
+85%: Compile ContestExportService.swift
+85%: Compile ContestLane.swift
+85%: Compile ContestLogTransferService.swift
+85%: Compile ContestRecorderAcceptance.swift
+85%: Compile ContestSCPProvider.swift
+85%: Compile ContestSCPService.swift
+converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+85%: Compile PythonContestAssistanceLane.swift
+85%: Compile PythonContestCallHistoryLane.swift
+/Users/oliver/.codex/worktrees/a533/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift:43:70: warning: converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+ 41 |          validatePrivateRoot: @escaping @Sendable () throws -> Void,
+ 42 |          beforeReplacementPublish: @escaping @Sendable () async -> Void = {},
+ 43 |          providerFetch: @escaping ProviderFetch = ContestSCPProvider.fetchLatest,
+    |                                                                      `- warning: converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+ 44 |          writeAtomically: @escaping AtomicWriter = { data, url in try data.write(to: url, options: [.atomic]) },
+ 45 |          validateScope: @escaping ScopeValidator) throws {
+
+85%: Compiling ContestStructuredExchangeStoreTests.swift
+86%: Discovering Swift tasks after 'Compiling ContestExportService.swift, ContestLane.swift, ContestLogTransferService.swift, ContestRecorderAcceptance.swift, ContestSCPProvider.swift, ContestSCPService.swift, PythonContestAssistanceLane.swift, PythonContestCallHistoryLane.swift'
+86%: Compile ContestStructuredExchangeStoreTests.swift
+86%: Compiling ContestNAQPStoreTests.swift, ContestOceaniaStoreTests.swift
+86%: Discovering Swift tasks after 'Compiling ContestStructuredExchangeStoreTests.swift'
+86%: Compile ContestStructuredExchangeStoreTests.swift
+86%: Compiling ContestARRLDXStoreTests.swift, ContestARRLRTTYRoundupStoreTests.swift
+86%: Discovering Swift tasks after 'Compiling ContestStructuredExchangeStoreTests.swift'
+86%: Compile PythonContestLane.swift
+86%: Compile EmbeddedCATServers.swift
+86%: Compile IntegrationMethods.swift
+86%: Compile LiveClusterMethods.swift
+86%: Compile LiveConnectionDoctorMethods.swift
+86%: Compile LiveDropboxBackupAccountOwner.swift
+86%: Compile LiveDropboxBackupCredentials.swift
+86%: Compile LiveFTPBackupPresentation.swift
+86%: Compiling ContestSSBStoreTests.swift
+86%: Discovering Swift tasks after 'Compiling PythonContestLane.swift, EmbeddedCATServers.swift, IntegrationMethods.swift, LiveClusterMethods.swift, LiveConnectionDoctorMethods.swift, LiveDropboxBackupAccountOwner.swift, LiveDropboxBackupCredentials.swift, LiveFTPBackupPresentation.swift'
+86%: Compile ContestNAQPStoreTests.swift
+86%: Compile ContestOceaniaStoreTests.swift
+86%: Compiling ContestSACStoreTests.swift
+86%: Discovering Swift tasks after 'Compiling ContestNAQPStoreTests.swift, ContestOceaniaStoreTests.swift'
+86%: Compile ContestSSBStoreTests.swift
+86%: Compiling ContestDeclarativeRuleStoreTests.swift, ContestJIDXStoreTests.swift
+86%: Discovering Swift tasks after 'Compiling ContestSSBStoreTests.swift'
+86%: Compile ContestSACStoreTests.swift
+86%: Compiling ContestCWUniqueCallDeclarativeStoreTests.swift, ContestDatabaseSnapshotTests.swift
+86%: Discovering Swift tasks after 'Compiling ContestSACStoreTests.swift'
+86%: Compile ContestStoreTests.swift
+86%: Compiling ContestDeclarativeRuleStoreTests.swift, ContestJIDXStoreTests.swift
+86%: Discovering Swift tasks after 'Compiling ContestStoreTests.swift'
+86%: Compile ContestStoreTests.swift
+86%: Compiling ContestARRLDXStoreTests.swift, ContestARRLRTTYRoundupStoreTests.swift
+86%: Discovering Swift tasks after 'Compiling ContestStoreTests.swift'
+86%: Compile ContestARRLDXStoreTests.swift
+86%: Compile ContestARRLRTTYRoundupStoreTests.swift
+86%: Discovering Swift tasks after 'Compiling ContestARRLDXStoreTests.swift, ContestARRLRTTYRoundupStoreTests.swift'
+86%: Compiling ContestSACStoreTests.swift
+86%: Compile ContestDeclarativeRuleStoreTests.swift
+86%: Compile ContestJIDXStoreTests.swift
+87%: Compiling ContestSSBStoreTests.swift
+87%: Discovering Swift tasks after 'Compiling ContestDeclarativeRuleStoreTests.swift, ContestJIDXStoreTests.swift'
+87%: Compile ContestSACStoreTests.swift
+87%: Compiling ContestPackagedDefinitionLoaderTests.swift, ContestQSOOperatorStyleCodingTests.swift, ContestRateStatisticsTests.swift, ContestSACTests.swift
+87%: Discovering Swift tasks after 'Compiling ContestSACStoreTests.swift'
+87%: Compile LiveStationSession.swift
+87%: Compile LiveTCISession.swift
+87%: Compile LiveWSJTXBridge.swift
+87%: Compile LiveWorker.swift
+87%: Compile LocalAcceptanceSession.swift
+87%: Compile LocalContactHistory.swift
+87%: Compile LocalLogbookSelfTest.swift
+87%: Compile XContestStoreTests (arm64)
+87%: Discovering Swift tasks after 'Compiling LiveStationSession.swift, LiveTCISession.swift, LiveWSJTXBridge.swift, LiveWorker.swift, LocalAcceptanceSession.swift, LocalContactHistory.swift, LocalLogbookSelfTest.swift'
+87%: Compiling ContestCQWWCompleteCountryReferenceTests.swift, ContestCQWWCountryReferenceTests.swift, ContestCWUniqueCallDeclarativeRuleTests.swift, ContestCallHistoryProjectionTests.swift, ContestCallHistoryTests.swift
+87%: Compile ContestSSBStoreTests.swift
+87%: Link XContestStoreTests (arm64)
+87%: Discovering Swift tasks after 'Compiling ContestSSBStoreTests.swift'
+87%: Compile ContestCWUniqueCallDeclarativeStoreTests.swift
+87%: Compile ContestDatabaseSnapshotTests.swift
+87%: Compiling ContestCallsignAssistanceTests.swift, ContestCoreTests.swift, ContestDeclarativeBandGridTests.swift, ContestDeclarativeCatalogTests.swift
+87%: Discovering Swift tasks after 'Compiling ContestCWUniqueCallDeclarativeStoreTests.swift, ContestDatabaseSnapshotTests.swift'
+87%: Compile ContestDeclarativeRuleStoreTests.swift
+87%: Compile ContestJIDXStoreTests.swift
+87%: Compiling ContestDeclarativeExportTests.swift, ContestDeclarativeOperatorPolicyTests.swift, ContestDeclarativeRuleTests.swift, ContestDefinitionAuthoringBridgeTests.swift
+87%: Discovering Swift tasks after 'Compiling ContestDeclarativeRuleStoreTests.swift, ContestJIDXStoreTests.swift'
+87%: Compiling ContestExportTests.swift, ContestGeographicMultiplierTests.swift, ContestJIDXExportTests.swift, ContestJIDXTests.swift
+87%: Compile LiveFldigiBridge.swift
+87%: Compile LiveFlexSession.swift
+87%: Compile LiveLogbookMethods.swift
+87%: Compile LiveOnlineLogDeliveryService.swift
+87%: Compile LiveOperatingGoalMethods.swift
+87%: Compile LiveOpportunitiesMethods.swift
+87%: Compile LivePublicServiceMethods.swift
+87%: Compile LiveReferenceMethods.swift
+87%: Compiling ContestSSBTests.swift, ContestSSTDeclarativeDefinitionTests.swift, ContestStructuredExchangeTests.swift, ContestSubmissionProjectionTests.swift
+87%: Discovering Swift tasks after 'Compiling LiveFldigiBridge.swift, LiveFlexSession.swift, LiveLogbookMethods.swift, LiveOnlineLogDeliveryService.swift, LiveOperatingGoalMethods.swift, LiveOpportunitiesMethods.swift, LivePublicServiceMethods.swift, LiveReferenceMethods.swift'
+87%: Compile ContestCallsignAssistanceTests.swift
+87%: Compile ContestCoreTests.swift
+87%: Compile ContestDeclarativeBandGridTests.swift
+87%: Compile ContestDeclarativeCatalogTests.swift
+87%: Discovering Swift tasks after 'Compiling ContestCallsignAssistanceTests.swift, ContestCoreTests.swift, ContestDeclarativeBandGridTests.swift, ContestDeclarativeCatalogTests.swift'
+87%: Compile XLogPrototypeSupport_Module (arm64)
+87%: Compiling ContestNAQPExportTests.swift, ContestNAQPTests.swift, ContestOceaniaTests.swift, ContestOperatorCapabilityTests.swift
+87%: Compile LiveFldigiBridge.swift
+87%: Compile LiveFlexSession.swift
+87%: Compile LiveLogbookMethods.swift
+87%: Compile LiveOnlineLogDeliveryService.swift
+87%: Compile LiveOperatingGoalMethods.swift
+87%: Compile LiveOpportunitiesMethods.swift
+87%: Compile LivePublicServiceMethods.swift
+87%: Compile LiveReferenceMethods.swift
+87%: Compiling ContestExportTests.swift, ContestGeographicMultiplierTests.swift, ContestJIDXExportTests.swift, ContestJIDXTests.swift
+87%: Discovering Swift tasks after 'Compiling LiveFldigiBridge.swift, LiveFlexSession.swift, LiveLogbookMethods.swift, LiveOnlineLogDeliveryService.swift, LiveOperatingGoalMethods.swift, LiveOpportunitiesMethods.swift, LivePublicServiceMethods.swift, LiveReferenceMethods.swift'
+87%: Compile ContestCQWWCompleteCountryReferenceTests.swift
+87%: Compile ContestCQWWCountryReferenceTests.swift
+87%: Compile ContestCWUniqueCallDeclarativeRuleTests.swift
+87%: Compile ContestCallHistoryProjectionTests.swift
+87%: Compile ContestCallHistoryTests.swift
+88%: Discovering Swift tasks after 'Compiling ContestCQWWCompleteCountryReferenceTests.swift, ContestCQWWCountryReferenceTests.swift, ContestCWUniqueCallDeclarativeRuleTests.swift, ContestCallHistoryProjectionTests.swift, ContestCallHistoryTests.swift'
+88%: Compile XLogPrototypeSupport_Module (x86_64)
+88%: Compiling ContestDeclarativeExportTests.swift, ContestDeclarativeOperatorPolicyTests.swift, ContestDeclarativeRuleTests.swift, ContestDefinitionAuthoringBridgeTests.swift
+88%: Compile ContestARRLDXStoreTests.swift
+88%: Compile ContestARRLRTTYRoundupStoreTests.swift
+88%: Compiling ContestARRLDXExportTests.swift, ContestARRLDXTests.swift, ContestARRLRTTYRoundupExportTests.swift, ContestARRLRTTYRoundupTests.swift, ContestARRLVHFDeclarativeTests.swift
+88%: Discovering Swift tasks after 'Compiling ContestARRLDXStoreTests.swift, ContestARRLRTTYRoundupStoreTests.swift'
+88%: Compile ContestPackagedDefinitionLoaderTests.swift
+88%: Compile ContestQSOOperatorStyleCodingTests.swift
+88%: Compile ContestRateStatisticsTests.swift
+88%: Compile ContestSACTests.swift
+88%: Compile XContestStoreTests (x86_64)
+88%: Discovering Swift tasks after 'Compiling ContestPackagedDefinitionLoaderTests.swift, ContestQSOOperatorStyleCodingTests.swift, ContestRateStatisticsTests.swift, ContestSACTests.swift'
+88%: Compiling ContestARRLDXExportTests.swift, ContestARRLDXTests.swift, ContestARRLRTTYRoundupExportTests.swift, ContestARRLRTTYRoundupTests.swift, ContestARRLVHFDeclarativeTests.swift
+88%: Compile ContestDeclarativeExportTests.swift
+88%: Compile ContestDeclarativeOperatorPolicyTests.swift
+88%: Compile ContestDeclarativeRuleTests.swift
+88%: Compile ContestDefinitionAuthoringBridgeTests.swift
+88%: Link XContestStoreTests (x86_64)
+88%: Discovering Swift tasks after 'Compiling ContestDeclarativeExportTests.swift, ContestDeclarativeOperatorPolicyTests.swift, ContestDeclarativeRuleTests.swift, ContestDefinitionAuthoringBridgeTests.swift'
+88%: Compiling ContestCallsignAssistanceTests.swift, ContestCoreTests.swift, ContestDeclarativeBandGridTests.swift, ContestDeclarativeCatalogTests.swift
+88%: Compile ContestExportTests.swift
+88%: Compile ContestGeographicMultiplierTests.swift
+88%: Compile ContestJIDXExportTests.swift
+88%: Compile ContestJIDXTests.swift
+88%: Create universal binary XContestStoreTests
+88%: Discovering Swift tasks after 'Compiling ContestExportTests.swift, ContestGeographicMultiplierTests.swift, ContestJIDXExportTests.swift, ContestJIDXTests.swift'
+88%: Compiling ContestCQWWCompleteCountryReferenceTests.swift, ContestCQWWCountryReferenceTests.swift, ContestCWUniqueCallDeclarativeRuleTests.swift, ContestCallHistoryProjectionTests.swift, ContestCallHistoryTests.swift
+88%: Compile ContestNAQPExportTests.swift
+88%: Compile ContestNAQPTests.swift
+88%: Compile ContestOceaniaTests.swift
+88%: Compile ContestOperatorCapabilityTests.swift
+89%: Discovering Swift tasks after 'Compiling ContestNAQPExportTests.swift, ContestNAQPTests.swift, ContestOceaniaTests.swift, ContestOperatorCapabilityTests.swift'
+89%: Compiling ContestSSBTests.swift, ContestSSTDeclarativeDefinitionTests.swift, ContestStructuredExchangeTests.swift, ContestSubmissionProjectionTests.swift
+89%: Compile ContestSSBTests.swift
+89%: Compile ContestSSTDeclarativeDefinitionTests.swift
+89%: Compile ContestStructuredExchangeTests.swift
+89%: Compile ContestSubmissionProjectionTests.swift
+89%: Compiling ContestPackagedDefinitionLoaderTests.swift, ContestQSOOperatorStyleCodingTests.swift, ContestRateStatisticsTests.swift, ContestSACTests.swift
+89%: Discovering Swift tasks after 'Compiling ContestSSBTests.swift, ContestSSTDeclarativeDefinitionTests.swift, ContestStructuredExchangeTests.swift, ContestSubmissionProjectionTests.swift'
+89%: Compile ContestExportTests.swift
+89%: Compile ContestGeographicMultiplierTests.swift
+89%: Compile ContestJIDXExportTests.swift
+89%: Compile ContestJIDXTests.swift
+89%: Compiling ContestNAQPExportTests.swift, ContestNAQPTests.swift, ContestOceaniaTests.swift, ContestOperatorCapabilityTests.swift
+89%: Discovering Swift tasks after 'Compiling ContestExportTests.swift, ContestGeographicMultiplierTests.swift, ContestJIDXExportTests.swift, ContestJIDXTests.swift'
+89%: Compile ContestDeclarativeExportTests.swift
+89%: Compile ContestDeclarativeOperatorPolicyTests.swift
+89%: Compile ContestDeclarativeRuleTests.swift
+89%: Compile ContestDefinitionAuthoringBridgeTests.swift
+89%: Compiling ClusterCountryDirectoryTests.swift
+89%: Discovering Swift tasks after 'Compiling ContestDeclarativeExportTests.swift, ContestDeclarativeOperatorPolicyTests.swift, ContestDeclarativeRuleTests.swift, ContestDefinitionAuthoringBridgeTests.swift'
+89%: Compile ContestCallsignAssistanceTests.swift
+89%: Compile ContestCoreTests.swift
+89%: Compile ContestDeclarativeBandGridTests.swift
+89%: Compile ContestDeclarativeCatalogTests.swift
+89%: Compiling ClusterAddressResolverTests.swift
+89%: Discovering Swift tasks after 'Compiling ContestCallsignAssistanceTests.swift, ContestCoreTests.swift, ContestDeclarativeBandGridTests.swift, ContestDeclarativeCatalogTests.swift'
+89%: Compile ClusterCountryDirectoryTests.swift
+89%: Compiling ClusterClassificationTests.swift
+89%: Discovering Swift tasks after 'Compiling ClusterCountryDirectoryTests.swift'
+89%: Compile ContestCQWWCompleteCountryReferenceTests.swift
+89%: Compile ContestCQWWCountryReferenceTests.swift
+89%: Compile ContestCWUniqueCallDeclarativeRuleTests.swift
+89%: Compile ContestCallHistoryProjectionTests.swift
+89%: Compile ContestCallHistoryTests.swift
+89%: Compiling ClusterSessionServiceTests.swift
+89%: Discovering Swift tasks after 'Compiling ContestCQWWCompleteCountryReferenceTests.swift, ContestCQWWCountryReferenceTests.swift, ContestCWUniqueCallDeclarativeRuleTests.swift, ContestCallHistoryProjectionTests.swift, ContestCallHistoryTests.swift'
+89%: Compile ClusterClassificationTests.swift
+89%: Compiling ClusterSpotObservationTests.swift
+89%: Discovering Swift tasks after 'Compiling ClusterClassificationTests.swift'
+89%: Compile ClusterAddressResolverTests.swift
+89%: Compiling ClusterParserBoundaryTests.swift
+89%: Discovering Swift tasks after 'Compiling ClusterAddressResolverTests.swift'
+89%: Compile ContestARRLDXExportTests.swift
+89%: Compile ContestARRLDXTests.swift
+89%: Compile ContestARRLRTTYRoundupExportTests.swift
+89%: Compile ContestARRLRTTYRoundupTests.swift
+89%: Compile ContestARRLVHFDeclarativeTests.swift
+89%: Compiling ClusterCountryDirectoryTests.swift
+89%: Discovering Swift tasks after 'Compiling ContestARRLDXExportTests.swift, ContestARRLDXTests.swift, ContestARRLRTTYRoundupExportTests.swift, ContestARRLRTTYRoundupTests.swift, ContestARRLVHFDeclarativeTests.swift'
+89%: Compile ClusterCountryDirectoryTests.swift
+90%: Compiling ClusterPortableTransportTests.swift
+90%: Discovering Swift tasks after 'Compiling ClusterCountryDirectoryTests.swift'
+90%: Compile ClusterParserBoundaryTests.swift
+90%: Compiling ImportedSpotLogicTests.swift
+90%: Discovering Swift tasks after 'Compiling ClusterParserBoundaryTests.swift'
+90%: Compile ContestARRLDXExportTests.swift
+90%: Compile ContestARRLDXTests.swift
+90%: Compile ContestARRLRTTYRoundupExportTests.swift
+90%: Compile ContestARRLRTTYRoundupTests.swift
+90%: Compile ContestARRLVHFDeclarativeTests.swift
+90%: Compiling ClusterClassificationTests.swift
+90%: Discovering Swift tasks after 'Compiling ContestARRLDXExportTests.swift, ContestARRLDXTests.swift, ContestARRLRTTYRoundupExportTests.swift, ContestARRLRTTYRoundupTests.swift, ContestARRLVHFDeclarativeTests.swift'
+90%: Compile ImportedSpotLogicTests.swift
+90%: Compiling ClusterParserBoundaryTests.swift
+90%: Discovering Swift tasks after 'Compiling ImportedSpotLogicTests.swift'
+90%: Compile ClusterSpotObservationTests.swift
+90%: Compiling ImportedSpotLogicTests.swift
+90%: Discovering Swift tasks after 'Compiling ClusterSpotObservationTests.swift'
+90%: Compile ContestSSBTests.swift
+90%: Compile ContestSSTDeclarativeDefinitionTests.swift
+90%: Compile ContestStructuredExchangeTests.swift
+90%: Compile ContestSubmissionProjectionTests.swift
+90%: Compiling ClusterPortableTransportTests.swift
+90%: Discovering Swift tasks after 'Compiling ContestSSBTests.swift, ContestSSTDeclarativeDefinitionTests.swift, ContestStructuredExchangeTests.swift, ContestSubmissionProjectionTests.swift'
+90%: Compile ContestNAQPExportTests.swift
+90%: Compile ContestNAQPTests.swift
+90%: Compile ContestOceaniaTests.swift
+90%: Compile ContestOperatorCapabilityTests.swift
+90%: Compiling ClusterSessionServiceTests.swift
+90%: Discovering Swift tasks after 'Compiling ContestNAQPExportTests.swift, ContestNAQPTests.swift, ContestOceaniaTests.swift, ContestOperatorCapabilityTests.swift'
+90%: Compile ClusterClassificationTests.swift
+90%: Discovering Swift tasks after 'Compiling ClusterClassificationTests.swift'
+90%: Compile XContestCoreTests (arm64)
+90%: Compiling ClusterAddressResolverTests.swift
+90%: Compile ClusterParserBoundaryTests.swift
+91%: Discovering Swift tasks after 'Compiling ClusterParserBoundaryTests.swift'
+91%: Link XContestCoreTests (arm64)
+91%: Compile ImportedSpotLogicTests.swift
+91%: Compiling ClusterSpotObservationTests.swift
+91%: Discovering Swift tasks after 'Compiling ImportedSpotLogicTests.swift'
+91%: Compile ClusterPortableTransportTests.swift
+91%: Compiling TCIProtocolTests.swift
+91%: Discovering Swift tasks after 'Compiling ClusterPortableTransportTests.swift'
+91%: Compiling TCIWebSocketSessionTests.swift
+91%: Compile ContestPackagedDefinitionLoaderTests.swift
+91%: Compile ContestQSOOperatorStyleCodingTests.swift
+91%: Compile ContestRateStatisticsTests.swift
+91%: Compile ContestSACTests.swift
+91%: Compiling TCIWebSocketSessionTests.swift
+91%: Discovering Swift tasks after 'Compiling ContestPackagedDefinitionLoaderTests.swift, ContestQSOOperatorStyleCodingTests.swift, ContestRateStatisticsTests.swift, ContestSACTests.swift'
+91%: Compile ClusterAddressResolverTests.swift
+91%: Discovering Swift tasks after 'Compiling ClusterAddressResolverTests.swift'
+91%: Compile XContestCoreTests (x86_64)
+91%: Compiling TCIProtocolTests.swift
+91%: Compile ClusterSessionServiceTests.swift
+91%: Discovering Swift tasks after 'Compiling ClusterSessionServiceTests.swift'
+91%: Link XContestCoreTests (x86_64)
+92%: Compile XClusterIntegrationTests (arm64)
+92%: Create universal binary XContestCoreTests
+92%: Link XClusterIntegrationTests (arm64)
+92%: Compile ClusterSpotObservationTests.swift
+92%: Discovering Swift tasks after 'Compiling ClusterSpotObservationTests.swift'
+92%: Compiling TCICommandEncoderTests.swift
+92%: Compiling TCICommandEncoderTests.swift
+92%: Compile ClusterPortableTransportTests.swift
+92%: Discovering Swift tasks after 'Compiling ClusterPortableTransportTests.swift'
+92%: Link XLogPrototypeSupport_Module.o (x86_64)
+92%: Link XLogPrototypeSupport_Module.o (arm64)
+92%: Extract app intents metadata
+2026-10-25 13:49:00.664 appintentsmetadataprocessor[83243:42919563] Starting appintentsmetadataprocessor export
+2026-10-25 13:49:00.672 appintentsmetadataprocessor[83243:42919563] warning: Metadata extraction skipped, no AppIntents.framework dependency found
+
+92%: Create universal binary XLogPrototypeSupport_Module.o
+92%: Copy Swift standard libraries into XStationIntegrationTests.xctest
+Ignoring --strip-bitcode because --sign was not passed
+
+93%: Extract app intents metadata
+2026-10-25 13:49:00.865 appintentsmetadataprocessor[83245:42919581] Starting appintentsmetadataprocessor export
+2026-10-25 13:49:00.876 appintentsmetadataprocessor[83245:42919581] warning: Metadata extraction skipped, no AppIntents.framework dependency found
+
+93%: Copy Swift standard libraries into XContestStoreTests.xctest
+93%: Compile TCICommandEncoderTests.swift
+93%: Extract app intents metadata
+93%: Discovering Swift tasks after 'Compiling TCICommandEncoderTests.swift'
+Ignoring --strip-bitcode because --sign was not passed
+
+93%: Copy Swift standard libraries into XContestCoreTests.xctest
+93%: Compile TCICommandEncoderTests.swift
+93%: Discovering Swift tasks after 'Compiling TCICommandEncoderTests.swift'
+93%: Extract app intents metadata
+Ignoring --strip-bitcode because --sign was not passed
+
+93%: Planning Swift module XLogPrototypeWorker (x86_64)
+2026-10-25 13:49:00.991 appintentsmetadataprocessor[83246:42919590] Starting appintentsmetadataprocessor export
+2026-10-25 13:49:01.000 appintentsmetadataprocessor[83246:42919590] warning: Metadata extraction skipped, no AppIntents.framework dependency found
+
+93%: Planning Swift module XLogPrototypeWorker (arm64)
+2026-10-25 13:49:01.015 appintentsmetadataprocessor[83247:42919593] Starting appintentsmetadataprocessor export
+2026-10-25 13:49:01.273 appintentsmetadataprocessor[83247:42919593] Extracted no relevant App Intents symbols, skipping writing output
+
+93%: Planning Swift module XLogPrototypeTests (x86_64)
+93%: Compile ClusterSessionServiceTests.swift
+93%: Planning Swift module XLogPrototypeTests (arm64)
+93%: Discovering Swift tasks after 'Compiling ClusterSessionServiceTests.swift'
+93%: Register execution policy exception for XStationIntegrationTests.xctest
+93%: Emitting module for XLogPrototypeWorker
+93%: Emitting module for XLogPrototypeWorker
+93%: Compile
+93%: Compiling main.swift
+93%: Discovering Swift tasks after 'Emitting module for XLogPrototypeWorker'
+93%: Compile
+93%: Unblock downstream dependents of xlog-prototype-worker (arm64)
+93%: Discovering Swift tasks after 'Emitting module for XLogPrototypeWorker'
+93%: Unblock downstream dependents of xlog-prototype-worker (x86_64)
+93%: Copy XLogPrototypeWorker.swiftmodule (arm64)
+93%: Copy XLogPrototypeWorker.swiftmodule (x86_64)
+93%: Copy XLogPrototypeWorker.swiftdoc (x86_64)
+93%: Copy XLogPrototypeWorker.abi.json (x86_64)
+93%: Copy XLogPrototypeWorker.swiftdoc (arm64)
+93%: Copy XLogPrototypeWorker.abi.json (arm64)
+93%: Copy XLogPrototypeWorker.swiftsourceinfo (x86_64)
+93%: Copy XLogPrototypeWorker.swiftsourceinfo (arm64)
+93%: Compiling main.swift
+94%: Compile XClusterIntegrationTests (x86_64)
+94%: Emitting module for XLogPrototypeTests
+94%: Link XClusterIntegrationTests (x86_64)
+94%: Compile main.swift
+94%: Emitting module for XLogPrototypeTests
+94%: Discovering Swift tasks after 'Compiling main.swift'
+94%: Compile main.swift
+94%: Compiling ContestSSTWorkerAcceptanceTests.swift, ContestingLaneTests.swift, CredentialCachingTests.swift, DXpeditionConcurrencyTests.swift, DropboxBackupTransportPortableTests.swift, DuplicateContactTests.swift, EmbeddedCATServersTests.swift, GeneratedPerformanceTests.swift, GoogleDriveBackupTransportPortableTests.swift, ImportIndexTests.swift, IndependentRotorTests.swift, IntegrationWorkerTests.swift, LiveClusterHistoryTests.swift, LiveClusterMethodsTests.swift, LiveConnectionDoctorMethodsTests.swift, LiveDraftPowerServiceTests.swift, LiveDropboxBackupAccountOwnerTests.swift
+93%: Discovering Swift tasks after 'Compiling main.swift'
+93%: Compile TCIProtocolTests.swift
+93%: Compile xlog-prototype-worker (x86_64)
+93%: Discovering Swift tasks after 'Compiling TCIProtocolTests.swift'
+93%: Compile xlog-prototype-worker (arm64)
+93%: Compiling ContestARRLVHFADIFExportTests.swift, ContestAssistanceLaneTests.swift, ContestCQWWCountryActivationTests.swift, ContestCallHistoryServiceTests.swift, ContestCallHistoryWorkerTests.swift, ContestDeclarativeActivationTests.swift, ContestDeclarativeExportServiceTests.swift, ContestExportLaneTests.swift, ContestExportServiceTests.swift, ContestExportWorkerWireTests.swift, ContestJIDXADIFExportTests.swift, ContestJIDXWorkerWireTests.swift, ContestLogTransferTests.swift, ContestNAQPADIFExportTests.swift, ContestOperatorBrowserAcceptanceTests.swift, ContestSCPProviderTests.swift, ContestSCPWorkerIntegrationTests.swift
+93%: Compiling LiveWSJTXBridgeTests.swift, LoTWConfirmationApplyTests.swift, LocalAcceptanceSessionTests.swift, LocalAcceptanceSpotHistoryTests.swift, LocalFilePathTests.swift, LocalLogbookSelfTestTests.swift, LogReviewReferencesTests.swift, LogbookContactTests.swift, LogbookCorrectionPreviewRouteTests.swift, MeasuredTransmitPowerObservationTests.swift, NativeCredentialStoreTests.swift, NativeDraftPowerAdmissionTests.swift, NativeDraftPowerCaptureTests.swift, NativePowerSelectionTests.swift, OneDriveBackupTransportPortableTests.swift, OnlineLogFollowUpRouteTests.swift
+93%: Compile TCIProtocolTests.swift
+93%: Create universal binary XClusterIntegrationTests
+93%: Discovering Swift tasks after 'Compiling TCIProtocolTests.swift'
+93%: Compiling ADIFTransferTests.swift, AggregateCacheTests.swift, AppRuntimeProfileTests.swift, AutomaticReferenceTests.swift, AutomaticSyncTests.swift, BackupEnvelopePortableTests.swift, BandMapPreferencesTests.swift, BoundedRemoteMergeContentionBenchmarkTests.swift, BoundedSyncReconciliationTests.swift, CATConnectionSessionTests.swift, CQWWCountryReferenceMaterializerTests.swift, CTYCorrectionPreviewTests.swift, CallsignEnrichmentTests.swift, ContestADIFExportTests.swift, ContestARRLDXADIFExportTests.swift, ContestARRLDXWorkerWireTests.swift, ContestARRLRTTYADIFExportTests.swift
+94%: Compile TCIWebSocketSessionTests.swift
+94%: Compiling RemoteAgentObservedSnapshotTests.swift, RemoteAgentSplitSafetyProjectionTests.swift, RemoteBackupAuthorizationPortableTests.swift, RemoteBackupExecutionPortableTests.swift, RemoteBackupLocalAdapterPortableTests.swift, RemoteBackupOwnerPortableTests.swift, RemoteBackupPortablePlanningTests.swift, RemoteBackupRetentionReviewPortableTests.swift, RemoteBackupSchedulerPortableTests.swift, RemoteConfigurationPreservationTests.swift, RemoteHistoryReadOnlyProbeTests.swift, RemoteIdentityTests.swift, RemoteMergeContentionBenchmarkTests.swift, RemoteMergeNoOpTests.swift, RotorConfigurationSafetyTests.swift, RotorObservationTests.swift
+94%: Discovering Swift tasks after 'Compiling TCIWebSocketSessionTests.swift'
+94%: Compile TCIWebSocketSessionTests.swift
+94%: Compiling SFTPBackupConfigurationPortableTests.swift, SavedLogbookFiltersTests.swift, SettingsMutationTestSupport.swift, SettingsSessionSafetyTests.swift, SpotDraftActivationTests.swift, SpotHistoryDatabaseTests.swift, StandaloneModeTests.swift, SyncIdentityJoinAuditTests.swift, SyncMutationOwnerTests.swift, SyncSummaryTests.swift, WSJTXActivityTests.swift, WorkerStartupTests.swift, WorkerTerminalShutdownTests.swift, WorkerTests.swift, WorkspaceEditGenerationTests.swift, WorkspaceLayoutTests.swift
+94%: Discovering Swift tasks after 'Compiling TCIWebSocketSessionTests.swift'
+94%: Compile
+94%: Compiling LiveFTPBackupPresentationTests.swift, LiveFldigiBridgeTests.swift, LiveFlexSessionTests.swift, LiveLogbookMethodsTests.swift, LiveOnlineLogDeliveryServiceTests.swift, LiveOperatingGoalMethodsTests.swift, LiveOpportunitiesMethodsTests.swift, LivePublicServiceMethodsTests.swift, LiveReferenceMethodsTests.swift, LiveRemoteBackupPresentationTests.swift, LiveRemoteBackupRetentionTests.swift, LiveRemoteBackupServiceTests.swift, LiveSpotBridgeTests.swift, LiveSpotHistoryTests.swift, LiveStationMethodsTests.swift, LiveSyncConflictTests.swift, LiveTCISessionTests.swift
+94%: Discovering Swift tasks after 'Emitting module for XLogPrototypeTests'
+94%: Compile
+94%: Unblock downstream dependents of XLogPrototypeTests (x86_64)
+94%: Discovering Swift tasks after 'Emitting module for XLogPrototypeTests'
+94%: Unblock downstream dependents of XLogPrototypeTests (arm64)
+94%: Copy XLogPrototypeTests.swiftmodule (x86_64)
+94%: Copy XLogPrototypeTests.swiftdoc (x86_64)
+94%: Copy XLogPrototypeTests.abi.json (x86_64)
+94%: Copy XLogPrototypeTests.swiftmodule (arm64)
+94%: Copy XLogPrototypeTests.swiftdoc (arm64)
+94%: Copy XLogPrototypeTests.abi.json (arm64)
+94%: Copy XLogPrototypeTests.swiftsourceinfo (x86_64)
+94%: Copy XLogPrototypeTests.swiftsourceinfo (arm64)
+94%: Compiling OperatingGoalTests.swift, OperatorDraftPowerDatabaseTests.swift, OperatorDraftPowerTests.swift, OperatorDraftQSYClearTests.swift, OperatorDraftRadioFollowTests.swift, OperatorDraftRadioReadTests.swift, OperatorDraftTests.swift, OpportunityDownloadTests.swift, PostCommitContactRefreshTests.swift, PythonContestCallHistoryLaneTests.swift, PythonContestLaneTests.swift, QRZProfileTests.swift, QSODataQualityRouteTests.swift, RTCScoreReportingServiceTests.swift, ReferenceCheckPlanTests.swift, ReferenceScheduleRevisionTests.swift
+94%: Compile LiveWSJTXBridgeTests.swift
+94%: Compile LoTWConfirmationApplyTests.swift
+94%: Compile LocalAcceptanceSessionTests.swift
+94%: Compile LocalAcceptanceSpotHistoryTests.swift
+94%: Compile LocalFilePathTests.swift
+94%: Compile LocalLogbookSelfTestTests.swift
+94%: Compile LogReviewReferencesTests.swift
+94%: Compile LogbookContactTests.swift
+94%: Compile LogbookCorrectionPreviewRouteTests.swift
+94%: Compile MeasuredTransmitPowerObservationTests.swift
+94%: Compile NativeCredentialStoreTests.swift
+94%: Compile NativeDraftPowerAdmissionTests.swift
+94%: Compile NativeDraftPowerCaptureTests.swift
+94%: Compile NativePowerSelectionTests.swift
+94%: Compile OneDriveBackupTransportPortableTests.swift
+94%: Compile OnlineLogFollowUpRouteTests.swift
+95%: Discovering Swift tasks after 'Compiling LiveWSJTXBridgeTests.swift, LoTWConfirmationApplyTests.swift, LocalAcceptanceSessionTests.swift, LocalAcceptanceSpotHistoryTests.swift, LocalFilePathTests.swift, LocalLogbookSelfTestTests.swift, LogReviewReferencesTests.swift, LogbookContactTests.swift, LogbookCorrectionPreviewRouteTests.swift, MeasuredTransmitPowerObservationTests.swift, NativeCredentialStoreTests.swift, NativeDraftPowerAdmissionTests.swift, NativeDraftPowerCaptureTests.swift, NativePowerSelectionTests.swift, OneDriveBackupTransportPortableTests.swift, OnlineLogFollowUpRouteTests.swift'
+95%: Compiling LiveFTPBackupPresentationTests.swift, LiveFldigiBridgeTests.swift, LiveFlexSessionTests.swift, LiveLogbookMethodsTests.swift, LiveOnlineLogDeliveryServiceTests.swift, LiveOperatingGoalMethodsTests.swift, LiveOpportunitiesMethodsTests.swift, LivePublicServiceMethodsTests.swift, LiveReferenceMethodsTests.swift, LiveRemoteBackupPresentationTests.swift, LiveRemoteBackupRetentionTests.swift, LiveRemoteBackupServiceTests.swift, LiveSpotBridgeTests.swift, LiveSpotHistoryTests.swift, LiveStationMethodsTests.swift, LiveSyncConflictTests.swift, LiveTCISessionTests.swift
+95%: Compile ADIFTransferTests.swift
+95%: Compile AggregateCacheTests.swift
+95%: Compile AppRuntimeProfileTests.swift
+95%: Compile AutomaticReferenceTests.swift
+95%: Compile AutomaticSyncTests.swift
+95%: Compile BackupEnvelopePortableTests.swift
+95%: Compile BandMapPreferencesTests.swift
+95%: Compile BoundedRemoteMergeContentionBenchmarkTests.swift
+95%: Compile BoundedSyncReconciliationTests.swift
+95%: Compile CATConnectionSessionTests.swift
+95%: Compile CQWWCountryReferenceMaterializerTests.swift
+95%: Compile CTYCorrectionPreviewTests.swift
+95%: Compile CallsignEnrichmentTests.swift
+95%: Compile ContestADIFExportTests.swift
+95%: Compile ContestARRLDXADIFExportTests.swift
+95%: Compile ContestARRLDXWorkerWireTests.swift
+95%: Compile ContestARRLRTTYADIFExportTests.swift
+95%: Compiling ADIFTransferTests.swift, AggregateCacheTests.swift, AppRuntimeProfileTests.swift, AutomaticReferenceTests.swift, AutomaticSyncTests.swift, BackupEnvelopePortableTests.swift, BandMapPreferencesTests.swift, BoundedRemoteMergeContentionBenchmarkTests.swift, BoundedSyncReconciliationTests.swift, CATConnectionSessionTests.swift, CQWWCountryReferenceMaterializerTests.swift, CTYCorrectionPreviewTests.swift, CallsignEnrichmentTests.swift, ContestADIFExportTests.swift, ContestARRLDXADIFExportTests.swift, ContestARRLDXWorkerWireTests.swift, ContestARRLRTTYADIFExportTests.swift
+95%: Discovering Swift tasks after 'Compiling ADIFTransferTests.swift, AggregateCacheTests.swift, AppRuntimeProfileTests.swift, AutomaticReferenceTests.swift, AutomaticSyncTests.swift, BackupEnvelopePortableTests.swift, BandMapPreferencesTests.swift, BoundedRemoteMergeContentionBenchmarkTests.swift, BoundedSyncReconciliationTests.swift, CATConnectionSessionTests.swift, CQWWCountryReferenceMaterializerTests.swift, CTYCorrectionPreviewTests.swift, CallsignEnrichmentTests.swift, ContestADIFExportTests.swift, ContestARRLDXADIFExportTests.swift, ContestARRLDXWorkerWireTests.swift, ContestARRLRTTYADIFExportTests.swift'
+95%: Compile RemoteAgentObservedSnapshotTests.swift
+95%: Compile RemoteAgentSplitSafetyProjectionTests.swift
+95%: Compile RemoteBackupAuthorizationPortableTests.swift
+95%: Compile RemoteBackupExecutionPortableTests.swift
+95%: Compile RemoteBackupLocalAdapterPortableTests.swift
+95%: Compile RemoteBackupOwnerPortableTests.swift
+95%: Compile RemoteBackupPortablePlanningTests.swift
+95%: Compile RemoteBackupRetentionReviewPortableTests.swift
+95%: Compile RemoteBackupSchedulerPortableTests.swift
+95%: Compile RemoteConfigurationPreservationTests.swift
+95%: Compile RemoteHistoryReadOnlyProbeTests.swift
+95%: Compile RemoteIdentityTests.swift
+95%: Compile RemoteMergeContentionBenchmarkTests.swift
+95%: Compile RemoteMergeNoOpTests.swift
+95%: Compile RotorConfigurationSafetyTests.swift
+95%: Compile RotorObservationTests.swift
+95%: Compiling OperatingGoalTests.swift, OperatorDraftPowerDatabaseTests.swift, OperatorDraftPowerTests.swift, OperatorDraftQSYClearTests.swift, OperatorDraftRadioFollowTests.swift, OperatorDraftRadioReadTests.swift, OperatorDraftTests.swift, OpportunityDownloadTests.swift, PostCommitContactRefreshTests.swift, PythonContestCallHistoryLaneTests.swift, PythonContestLaneTests.swift, QRZProfileTests.swift, QSODataQualityRouteTests.swift, RTCScoreReportingServiceTests.swift, ReferenceCheckPlanTests.swift, ReferenceScheduleRevisionTests.swift
+95%: Discovering Swift tasks after 'Compiling RemoteAgentObservedSnapshotTests.swift, RemoteAgentSplitSafetyProjectionTests.swift, RemoteBackupAuthorizationPortableTests.swift, RemoteBackupExecutionPortableTests.swift, RemoteBackupLocalAdapterPortableTests.swift, RemoteBackupOwnerPortableTests.swift, RemoteBackupPortablePlanningTests.swift, RemoteBackupRetentionReviewPortableTests.swift, RemoteBackupSchedulerPortableTests.swift, RemoteConfigurationPreservationTests.swift, RemoteHistoryReadOnlyProbeTests.swift, RemoteIdentityTests.swift, RemoteMergeContentionBenchmarkTests.swift, RemoteMergeNoOpTests.swift, RotorConfigurationSafetyTests.swift, RotorObservationTests.swift'
+95%: Compile ContestARRLVHFADIFExportTests.swift
+95%: Compile ContestAssistanceLaneTests.swift
+95%: Compile ContestCQWWCountryActivationTests.swift
+95%: Compile ContestCallHistoryServiceTests.swift
+95%: Compile ContestCallHistoryWorkerTests.swift
+95%: Compile ContestDeclarativeActivationTests.swift
+95%: Compile ContestDeclarativeExportServiceTests.swift
+95%: Compile ContestExportLaneTests.swift
+95%: Compile ContestExportServiceTests.swift
+95%: Compile ContestExportWorkerWireTests.swift
+95%: Compile ContestJIDXADIFExportTests.swift
+95%: Compile ContestJIDXWorkerWireTests.swift
+95%: Compile ContestLogTransferTests.swift
+95%: Compile ContestNAQPADIFExportTests.swift
+95%: Compile ContestOperatorBrowserAcceptanceTests.swift
+95%: Compile ContestSCPProviderTests.swift
+95%: Compile ContestSCPWorkerIntegrationTests.swift
+95%: Compiling SFTPBackupConfigurationPortableTests.swift, SavedLogbookFiltersTests.swift, SettingsMutationTestSupport.swift, SettingsSessionSafetyTests.swift, SpotDraftActivationTests.swift, SpotHistoryDatabaseTests.swift, StandaloneModeTests.swift, SyncIdentityJoinAuditTests.swift, SyncMutationOwnerTests.swift, SyncSummaryTests.swift, WSJTXActivityTests.swift, WorkerStartupTests.swift, WorkerTerminalShutdownTests.swift, WorkerTests.swift, WorkspaceEditGenerationTests.swift, WorkspaceLayoutTests.swift
+95%: Discovering Swift tasks after 'Compiling ContestARRLVHFADIFExportTests.swift, ContestAssistanceLaneTests.swift, ContestCQWWCountryActivationTests.swift, ContestCallHistoryServiceTests.swift, ContestCallHistoryWorkerTests.swift, ContestDeclarativeActivationTests.swift, ContestDeclarativeExportServiceTests.swift, ContestExportLaneTests.swift, ContestExportServiceTests.swift, ContestExportWorkerWireTests.swift, ContestJIDXADIFExportTests.swift, ContestJIDXWorkerWireTests.swift, ContestLogTransferTests.swift, ContestNAQPADIFExportTests.swift, ContestOperatorBrowserAcceptanceTests.swift, ContestSCPProviderTests.swift, ContestSCPWorkerIntegrationTests.swift'
+95%: Compile SFTPBackupConfigurationPortableTests.swift
+95%: Compile SavedLogbookFiltersTests.swift
+95%: Compile SettingsMutationTestSupport.swift
+95%: Compile SettingsSessionSafetyTests.swift
+95%: Compile SpotDraftActivationTests.swift
+95%: Compile SpotHistoryDatabaseTests.swift
+95%: Compile StandaloneModeTests.swift
+95%: Compile SyncIdentityJoinAuditTests.swift
+95%: Compile SyncMutationOwnerTests.swift
+95%: Compile SyncSummaryTests.swift
+95%: Compile WSJTXActivityTests.swift
+95%: Compile WorkerStartupTests.swift
+95%: Compile WorkerTerminalShutdownTests.swift
+95%: Compile WorkerTests.swift
+95%: Compile WorkspaceEditGenerationTests.swift
+95%: Compile WorkspaceLayoutTests.swift
+95%: Compiling RemoteAgentObservedSnapshotTests.swift, RemoteAgentSplitSafetyProjectionTests.swift, RemoteBackupAuthorizationPortableTests.swift, RemoteBackupExecutionPortableTests.swift, RemoteBackupLocalAdapterPortableTests.swift, RemoteBackupOwnerPortableTests.swift, RemoteBackupPortablePlanningTests.swift, RemoteBackupRetentionReviewPortableTests.swift, RemoteBackupSchedulerPortableTests.swift, RemoteConfigurationPreservationTests.swift, RemoteHistoryReadOnlyProbeTests.swift, RemoteIdentityTests.swift, RemoteMergeContentionBenchmarkTests.swift, RemoteMergeNoOpTests.swift, RotorConfigurationSafetyTests.swift, RotorObservationTests.swift
+95%: Discovering Swift tasks after 'Compiling SFTPBackupConfigurationPortableTests.swift, SavedLogbookFiltersTests.swift, SettingsMutationTestSupport.swift, SettingsSessionSafetyTests.swift, SpotDraftActivationTests.swift, SpotHistoryDatabaseTests.swift, StandaloneModeTests.swift, SyncIdentityJoinAuditTests.swift, SyncMutationOwnerTests.swift, SyncSummaryTests.swift, WSJTXActivityTests.swift, WorkerStartupTests.swift, WorkerTerminalShutdownTests.swift, WorkerTests.swift, WorkspaceEditGenerationTests.swift, WorkspaceLayoutTests.swift'
+95%: Compile ADIFTransferTests.swift
+95%: Compile AggregateCacheTests.swift
+95%: Compile AppRuntimeProfileTests.swift
+95%: Compile AutomaticReferenceTests.swift
+95%: Compile AutomaticSyncTests.swift
+95%: Compile BackupEnvelopePortableTests.swift
+95%: Compile BandMapPreferencesTests.swift
+95%: Compile BoundedRemoteMergeContentionBenchmarkTests.swift
+95%: Compile BoundedSyncReconciliationTests.swift
+95%: Compile CATConnectionSessionTests.swift
+95%: Compile CQWWCountryReferenceMaterializerTests.swift
+95%: Compile CTYCorrectionPreviewTests.swift
+95%: Compile CallsignEnrichmentTests.swift
+95%: Compile ContestADIFExportTests.swift
+95%: Compile ContestARRLDXADIFExportTests.swift
+95%: Compile ContestARRLDXWorkerWireTests.swift
+95%: Compile ContestARRLRTTYADIFExportTests.swift
+96%: Compiling LiveWSJTXBridgeTests.swift, LoTWConfirmationApplyTests.swift, LocalAcceptanceSessionTests.swift, LocalAcceptanceSpotHistoryTests.swift, LocalFilePathTests.swift, LocalLogbookSelfTestTests.swift, LogReviewReferencesTests.swift, LogbookContactTests.swift, LogbookCorrectionPreviewRouteTests.swift, MeasuredTransmitPowerObservationTests.swift, NativeCredentialStoreTests.swift, NativeDraftPowerAdmissionTests.swift, NativeDraftPowerCaptureTests.swift, NativePowerSelectionTests.swift, OneDriveBackupTransportPortableTests.swift, OnlineLogFollowUpRouteTests.swift
+96%: Discovering Swift tasks after 'Compiling ADIFTransferTests.swift, AggregateCacheTests.swift, AppRuntimeProfileTests.swift, AutomaticReferenceTests.swift, AutomaticSyncTests.swift, BackupEnvelopePortableTests.swift, BandMapPreferencesTests.swift, BoundedRemoteMergeContentionBenchmarkTests.swift, BoundedSyncReconciliationTests.swift, CATConnectionSessionTests.swift, CQWWCountryReferenceMaterializerTests.swift, CTYCorrectionPreviewTests.swift, CallsignEnrichmentTests.swift, ContestADIFExportTests.swift, ContestARRLDXADIFExportTests.swift, ContestARRLDXWorkerWireTests.swift, ContestARRLRTTYADIFExportTests.swift'
+96%: Compile OperatingGoalTests.swift
+96%: Compile OperatorDraftPowerDatabaseTests.swift
+96%: Compile OperatorDraftPowerTests.swift
+96%: Compile OperatorDraftQSYClearTests.swift
+96%: Compile OperatorDraftRadioFollowTests.swift
+96%: Compile OperatorDraftRadioReadTests.swift
+96%: Compile OperatorDraftTests.swift
+96%: Compile OpportunityDownloadTests.swift
+96%: Compile PostCommitContactRefreshTests.swift
+96%: Compile PythonContestCallHistoryLaneTests.swift
+96%: Compile PythonContestLaneTests.swift
+96%: Compile QRZProfileTests.swift
+96%: Compile QSODataQualityRouteTests.swift
+96%: Compile RTCScoreReportingServiceTests.swift
+96%: Compile ReferenceCheckPlanTests.swift
+96%: Compile ReferenceScheduleRevisionTests.swift
+96%: Compiling ContestSSTWorkerAcceptanceTests.swift, ContestingLaneTests.swift, CredentialCachingTests.swift, DXpeditionConcurrencyTests.swift, DropboxBackupTransportPortableTests.swift, DuplicateContactTests.swift, EmbeddedCATServersTests.swift, GeneratedPerformanceTests.swift, GoogleDriveBackupTransportPortableTests.swift, ImportIndexTests.swift, IndependentRotorTests.swift, IntegrationWorkerTests.swift, LiveClusterHistoryTests.swift, LiveClusterMethodsTests.swift, LiveConnectionDoctorMethodsTests.swift, LiveDraftPowerServiceTests.swift, LiveDropboxBackupAccountOwnerTests.swift
+96%: Discovering Swift tasks after 'Compiling OperatingGoalTests.swift, OperatorDraftPowerDatabaseTests.swift, OperatorDraftPowerTests.swift, OperatorDraftQSYClearTests.swift, OperatorDraftRadioFollowTests.swift, OperatorDraftRadioReadTests.swift, OperatorDraftTests.swift, OpportunityDownloadTests.swift, PostCommitContactRefreshTests.swift, PythonContestCallHistoryLaneTests.swift, PythonContestLaneTests.swift, QRZProfileTests.swift, QSODataQualityRouteTests.swift, RTCScoreReportingServiceTests.swift, ReferenceCheckPlanTests.swift, ReferenceScheduleRevisionTests.swift'
+96%: Compile ContestSSTWorkerAcceptanceTests.swift
+96%: Compile ContestingLaneTests.swift
+96%: Compile CredentialCachingTests.swift
+96%: Compile DXpeditionConcurrencyTests.swift
+96%: Compile DropboxBackupTransportPortableTests.swift
+96%: Compile DuplicateContactTests.swift
+96%: Compile EmbeddedCATServersTests.swift
+96%: Compile GeneratedPerformanceTests.swift
+96%: Compile GoogleDriveBackupTransportPortableTests.swift
+96%: Compile ImportIndexTests.swift
+96%: Compile IndependentRotorTests.swift
+96%: Compile IntegrationWorkerTests.swift
+96%: Compile LiveClusterHistoryTests.swift
+96%: Compile LiveClusterMethodsTests.swift
+96%: Compile LiveConnectionDoctorMethodsTests.swift
+96%: Compile LiveDraftPowerServiceTests.swift
+96%: Compile LiveDropboxBackupAccountOwnerTests.swift
+96%: Compiling ContestARRLVHFADIFExportTests.swift, ContestAssistanceLaneTests.swift, ContestCQWWCountryActivationTests.swift, ContestCallHistoryServiceTests.swift, ContestCallHistoryWorkerTests.swift, ContestDeclarativeActivationTests.swift, ContestDeclarativeExportServiceTests.swift, ContestExportLaneTests.swift, ContestExportServiceTests.swift, ContestExportWorkerWireTests.swift, ContestJIDXADIFExportTests.swift, ContestJIDXWorkerWireTests.swift, ContestLogTransferTests.swift, ContestNAQPADIFExportTests.swift, ContestOperatorBrowserAcceptanceTests.swift, ContestSCPProviderTests.swift, ContestSCPWorkerIntegrationTests.swift
+96%: Discovering Swift tasks after 'Compiling ContestSSTWorkerAcceptanceTests.swift, ContestingLaneTests.swift, CredentialCachingTests.swift, DXpeditionConcurrencyTests.swift, DropboxBackupTransportPortableTests.swift, DuplicateContactTests.swift, EmbeddedCATServersTests.swift, GeneratedPerformanceTests.swift, GoogleDriveBackupTransportPortableTests.swift, ImportIndexTests.swift, IndependentRotorTests.swift, IntegrationWorkerTests.swift, LiveClusterHistoryTests.swift, LiveClusterMethodsTests.swift, LiveConnectionDoctorMethodsTests.swift, LiveDraftPowerServiceTests.swift, LiveDropboxBackupAccountOwnerTests.swift'
+96%: Compile RemoteAgentObservedSnapshotTests.swift
+96%: Compile RemoteAgentSplitSafetyProjectionTests.swift
+96%: Compile RemoteBackupAuthorizationPortableTests.swift
+96%: Compile RemoteBackupExecutionPortableTests.swift
+96%: Compile RemoteBackupLocalAdapterPortableTests.swift
+96%: Compile RemoteBackupOwnerPortableTests.swift
+96%: Compile RemoteBackupPortablePlanningTests.swift
+96%: Compile RemoteBackupRetentionReviewPortableTests.swift
+96%: Compile RemoteBackupSchedulerPortableTests.swift
+96%: Compile RemoteConfigurationPreservationTests.swift
+96%: Compile RemoteHistoryReadOnlyProbeTests.swift
+96%: Compile RemoteIdentityTests.swift
+96%: Compile RemoteMergeContentionBenchmarkTests.swift
+96%: Compile RemoteMergeNoOpTests.swift
+96%: Compile RotorConfigurationSafetyTests.swift
+96%: Compile RotorObservationTests.swift
+96%: Discovering Swift tasks after 'Compiling RemoteAgentObservedSnapshotTests.swift, RemoteAgentSplitSafetyProjectionTests.swift, RemoteBackupAuthorizationPortableTests.swift, RemoteBackupExecutionPortableTests.swift, RemoteBackupLocalAdapterPortableTests.swift, RemoteBackupOwnerPortableTests.swift, RemoteBackupPortablePlanningTests.swift, RemoteBackupRetentionReviewPortableTests.swift, RemoteBackupSchedulerPortableTests.swift, RemoteConfigurationPreservationTests.swift, RemoteHistoryReadOnlyProbeTests.swift, RemoteIdentityTests.swift, RemoteMergeContentionBenchmarkTests.swift, RemoteMergeNoOpTests.swift, RotorConfigurationSafetyTests.swift, RotorObservationTests.swift'
+96%: Compile XCatIntegrationTests (x86_64)
+96%: Compile XCatIntegrationTests (arm64)
+96%: Link XCatIntegrationTests (x86_64)
+96%: Link XCatIntegrationTests (arm64)
+96%: Create universal binary XCatIntegrationTests
+96%: Extract app intents metadata
+2026-10-25 13:50:09.910 appintentsmetadataprocessor[83302:42924472] Starting appintentsmetadataprocessor export
+2026-10-25 13:50:09.922 appintentsmetadataprocessor[83302:42924472] warning: Metadata extraction skipped, no AppIntents.framework dependency found
+
+96%: Copy Swift standard libraries into XClusterIntegrationTests.xctest
+Ignoring --strip-bitcode because --sign was not passed
+
+97%: Touch XStationIntegrationTests.xctest
+97%: Extract app intents metadata
+2026-10-25 13:50:10.021 appintentsmetadataprocessor[83304:42924487] Starting appintentsmetadataprocessor export
+2026-10-25 13:50:10.025 appintentsmetadataprocessor[83304:42924487] warning: Metadata extraction skipped, no AppIntents.framework dependency found
+
+97%: Copy Swift standard libraries into XCatIntegrationTests.xctest
+Ignoring --strip-bitcode because --sign was not passed
+
+97%: Register execution policy exception for XContestStoreTests.xctest
+97%: Touch XContestStoreTests.xctest
+97%: Link xlog-prototype-worker (x86_64)
+97%: Link xlog-prototype-worker (arm64)
+97%: Copy OM0RXXLogPrototype_XLogCore.bundle
+97%: Create universal binary xlog-prototype-worker
+97%: Copy OM0RXXLogPrototype_XContestCore.bundle
+98%: Process empty-XLogPrototypeTests.plist
+98%: Register execution policy exception for XContestCoreTests.xctest
+98%: Touch XContestCoreTests.xctest
+98%: Register execution policy exception for xlog-prototype-worker
+98%: Register execution policy exception for XClusterIntegrationTests.xctest
+98%: Touch XClusterIntegrationTests.xctest
+98%: Register execution policy exception for XCatIntegrationTests.xctest
+98%: Touch XCatIntegrationTests.xctest
+98%: Compile SFTPBackupConfigurationPortableTests.swift
+98%: Compile SavedLogbookFiltersTests.swift
+98%: Compile SettingsMutationTestSupport.swift
+98%: Compile SettingsSessionSafetyTests.swift
+98%: Compile SpotDraftActivationTests.swift
+98%: Compile SpotHistoryDatabaseTests.swift
+98%: Compile StandaloneModeTests.swift
+98%: Compile SyncIdentityJoinAuditTests.swift
+98%: Compile SyncMutationOwnerTests.swift
+98%: Compile SyncSummaryTests.swift
+98%: Compile WSJTXActivityTests.swift
+98%: Compile WorkerStartupTests.swift
+98%: Compile WorkerTerminalShutdownTests.swift
+98%: Compile WorkerTests.swift
+98%: Compile WorkspaceEditGenerationTests.swift
+98%: Compile WorkspaceLayoutTests.swift
+98%: Discovering Swift tasks after 'Compiling SFTPBackupConfigurationPortableTests.swift, SavedLogbookFiltersTests.swift, SettingsMutationTestSupport.swift, SettingsSessionSafetyTests.swift, SpotDraftActivationTests.swift, SpotHistoryDatabaseTests.swift, StandaloneModeTests.swift, SyncIdentityJoinAuditTests.swift, SyncMutationOwnerTests.swift, SyncSummaryTests.swift, WSJTXActivityTests.swift, WorkerStartupTests.swift, WorkerTerminalShutdownTests.swift, WorkerTests.swift, WorkspaceEditGenerationTests.swift, WorkspaceLayoutTests.swift'
+98%: Compile LiveFTPBackupPresentationTests.swift
+98%: Compile LiveFldigiBridgeTests.swift
+98%: Compile LiveFlexSessionTests.swift
+98%: Compile LiveLogbookMethodsTests.swift
+98%: Compile LiveOnlineLogDeliveryServiceTests.swift
+98%: Compile LiveOperatingGoalMethodsTests.swift
+98%: Compile LiveOpportunitiesMethodsTests.swift
+98%: Compile LivePublicServiceMethodsTests.swift
+98%: Compile LiveReferenceMethodsTests.swift
+98%: Compile LiveRemoteBackupPresentationTests.swift
+98%: Compile LiveRemoteBackupRetentionTests.swift
+98%: Compile LiveRemoteBackupServiceTests.swift
+98%: Compile LiveSpotBridgeTests.swift
+98%: Compile LiveSpotHistoryTests.swift
+98%: Compile LiveStationMethodsTests.swift
+98%: Compile LiveSyncConflictTests.swift
+98%: Compile LiveTCISessionTests.swift
+98%: Discovering Swift tasks after 'Compiling LiveFTPBackupPresentationTests.swift, LiveFldigiBridgeTests.swift, LiveFlexSessionTests.swift, LiveLogbookMethodsTests.swift, LiveOnlineLogDeliveryServiceTests.swift, LiveOperatingGoalMethodsTests.swift, LiveOpportunitiesMethodsTests.swift, LivePublicServiceMethodsTests.swift, LiveReferenceMethodsTests.swift, LiveRemoteBackupPresentationTests.swift, LiveRemoteBackupRetentionTests.swift, LiveRemoteBackupServiceTests.swift, LiveSpotBridgeTests.swift, LiveSpotHistoryTests.swift, LiveStationMethodsTests.swift, LiveSyncConflictTests.swift, LiveTCISessionTests.swift'
+98%: Compile OperatingGoalTests.swift
+98%: Compile OperatorDraftPowerDatabaseTests.swift
+98%: Compile OperatorDraftPowerTests.swift
+98%: Compile OperatorDraftQSYClearTests.swift
+98%: Compile OperatorDraftRadioFollowTests.swift
+98%: Compile OperatorDraftRadioReadTests.swift
+98%: Compile OperatorDraftTests.swift
+98%: Compile OpportunityDownloadTests.swift
+98%: Compile PostCommitContactRefreshTests.swift
+98%: Compile PythonContestCallHistoryLaneTests.swift
+98%: Compile PythonContestLaneTests.swift
+98%: Compile QRZProfileTests.swift
+98%: Compile QSODataQualityRouteTests.swift
+98%: Compile RTCScoreReportingServiceTests.swift
+98%: Compile ReferenceCheckPlanTests.swift
+98%: Compile ReferenceScheduleRevisionTests.swift
+99%: Discovering Swift tasks after 'Compiling OperatingGoalTests.swift, OperatorDraftPowerDatabaseTests.swift, OperatorDraftPowerTests.swift, OperatorDraftQSYClearTests.swift, OperatorDraftRadioFollowTests.swift, OperatorDraftRadioReadTests.swift, OperatorDraftTests.swift, OpportunityDownloadTests.swift, PostCommitContactRefreshTests.swift, PythonContestCallHistoryLaneTests.swift, PythonContestLaneTests.swift, QRZProfileTests.swift, QSODataQualityRouteTests.swift, RTCScoreReportingServiceTests.swift, ReferenceCheckPlanTests.swift, ReferenceScheduleRevisionTests.swift'
+99%: Compile LiveWSJTXBridgeTests.swift
+99%: Compile LoTWConfirmationApplyTests.swift
+99%: Compile LocalAcceptanceSessionTests.swift
+99%: Compile LocalAcceptanceSpotHistoryTests.swift
+99%: Compile LocalFilePathTests.swift
+99%: Compile LocalLogbookSelfTestTests.swift
+99%: Compile LogReviewReferencesTests.swift
+99%: Compile LogbookContactTests.swift
+99%: Compile LogbookCorrectionPreviewRouteTests.swift
+99%: Compile MeasuredTransmitPowerObservationTests.swift
+99%: Compile NativeCredentialStoreTests.swift
+99%: Compile NativeDraftPowerAdmissionTests.swift
+99%: Compile NativeDraftPowerCaptureTests.swift
+99%: Compile NativePowerSelectionTests.swift
+99%: Compile OneDriveBackupTransportPortableTests.swift
+99%: Compile OnlineLogFollowUpRouteTests.swift
+99%: Discovering Swift tasks after 'Compiling LiveWSJTXBridgeTests.swift, LoTWConfirmationApplyTests.swift, LocalAcceptanceSessionTests.swift, LocalAcceptanceSpotHistoryTests.swift, LocalFilePathTests.swift, LocalLogbookSelfTestTests.swift, LogReviewReferencesTests.swift, LogbookContactTests.swift, LogbookCorrectionPreviewRouteTests.swift, MeasuredTransmitPowerObservationTests.swift, NativeCredentialStoreTests.swift, NativeDraftPowerAdmissionTests.swift, NativeDraftPowerCaptureTests.swift, NativePowerSelectionTests.swift, OneDriveBackupTransportPortableTests.swift, OnlineLogFollowUpRouteTests.swift'
+99%: Compile XLogPrototypeTests (x86_64)
+99%: Link XLogPrototypeTests (x86_64)
+99%: Compile LiveFTPBackupPresentationTests.swift
+99%: Compile LiveFldigiBridgeTests.swift
+99%: Compile LiveFlexSessionTests.swift
+99%: Compile LiveLogbookMethodsTests.swift
+99%: Compile LiveOnlineLogDeliveryServiceTests.swift
+99%: Compile LiveOperatingGoalMethodsTests.swift
+99%: Compile LiveOpportunitiesMethodsTests.swift
+99%: Compile LivePublicServiceMethodsTests.swift
+99%: Compile LiveReferenceMethodsTests.swift
+99%: Compile LiveRemoteBackupPresentationTests.swift
+99%: Compile LiveRemoteBackupRetentionTests.swift
+99%: Compile LiveRemoteBackupServiceTests.swift
+99%: Compile LiveSpotBridgeTests.swift
+99%: Compile LiveSpotHistoryTests.swift
+99%: Compile LiveStationMethodsTests.swift
+99%: Compile LiveSyncConflictTests.swift
+99%: Compile LiveTCISessionTests.swift
+99%: Discovering Swift tasks after 'Compiling LiveFTPBackupPresentationTests.swift, LiveFldigiBridgeTests.swift, LiveFlexSessionTests.swift, LiveLogbookMethodsTests.swift, LiveOnlineLogDeliveryServiceTests.swift, LiveOperatingGoalMethodsTests.swift, LiveOpportunitiesMethodsTests.swift, LivePublicServiceMethodsTests.swift, LiveReferenceMethodsTests.swift, LiveRemoteBackupPresentationTests.swift, LiveRemoteBackupRetentionTests.swift, LiveRemoteBackupServiceTests.swift, LiveSpotBridgeTests.swift, LiveSpotHistoryTests.swift, LiveStationMethodsTests.swift, LiveSyncConflictTests.swift, LiveTCISessionTests.swift'
+99%: Compile ContestARRLVHFADIFExportTests.swift
+99%: Compile ContestAssistanceLaneTests.swift
+99%: Compile ContestCQWWCountryActivationTests.swift
+99%: Compile ContestCallHistoryServiceTests.swift
+99%: Compile ContestCallHistoryWorkerTests.swift
+99%: Compile ContestDeclarativeActivationTests.swift
+99%: Compile ContestDeclarativeExportServiceTests.swift
+99%: Compile ContestExportLaneTests.swift
+99%: Compile ContestExportServiceTests.swift
+99%: Compile ContestExportWorkerWireTests.swift
+99%: Compile ContestJIDXADIFExportTests.swift
+99%: Compile ContestJIDXWorkerWireTests.swift
+99%: Compile ContestLogTransferTests.swift
+99%: Compile ContestNAQPADIFExportTests.swift
+99%: Compile ContestOperatorBrowserAcceptanceTests.swift
+99%: Compile ContestSCPProviderTests.swift
+99%: Compile ContestSCPWorkerIntegrationTests.swift
+99%: Discovering Swift tasks after 'Compiling ContestARRLVHFADIFExportTests.swift, ContestAssistanceLaneTests.swift, ContestCQWWCountryActivationTests.swift, ContestCallHistoryServiceTests.swift, ContestCallHistoryWorkerTests.swift, ContestDeclarativeActivationTests.swift, ContestDeclarativeExportServiceTests.swift, ContestExportLaneTests.swift, ContestExportServiceTests.swift, ContestExportWorkerWireTests.swift, ContestJIDXADIFExportTests.swift, ContestJIDXWorkerWireTests.swift, ContestLogTransferTests.swift, ContestNAQPADIFExportTests.swift, ContestOperatorBrowserAcceptanceTests.swift, ContestSCPProviderTests.swift, ContestSCPWorkerIntegrationTests.swift'
+99%: Compile ContestSSTWorkerAcceptanceTests.swift
+99%: Compile ContestingLaneTests.swift
+99%: Compile CredentialCachingTests.swift
+99%: Compile DXpeditionConcurrencyTests.swift
+99%: Compile DropboxBackupTransportPortableTests.swift
+99%: Compile DuplicateContactTests.swift
+99%: Compile EmbeddedCATServersTests.swift
+99%: Compile GeneratedPerformanceTests.swift
+99%: Compile GoogleDriveBackupTransportPortableTests.swift
+99%: Compile ImportIndexTests.swift
+99%: Compile IndependentRotorTests.swift
+99%: Compile IntegrationWorkerTests.swift
+99%: Compile LiveClusterHistoryTests.swift
+99%: Compile LiveClusterMethodsTests.swift
+99%: Compile LiveConnectionDoctorMethodsTests.swift
+99%: Compile LiveDraftPowerServiceTests.swift
+99%: Compile LiveDropboxBackupAccountOwnerTests.swift
+99%: Discovering Swift tasks after 'Compiling ContestSSTWorkerAcceptanceTests.swift, ContestingLaneTests.swift, CredentialCachingTests.swift, DXpeditionConcurrencyTests.swift, DropboxBackupTransportPortableTests.swift, DuplicateContactTests.swift, EmbeddedCATServersTests.swift, GeneratedPerformanceTests.swift, GoogleDriveBackupTransportPortableTests.swift, ImportIndexTests.swift, IndependentRotorTests.swift, IntegrationWorkerTests.swift, LiveClusterHistoryTests.swift, LiveClusterMethodsTests.swift, LiveConnectionDoctorMethodsTests.swift, LiveDraftPowerServiceTests.swift, LiveDropboxBackupAccountOwnerTests.swift'
+99%: Compile XLogPrototypeTests (arm64)
+99%: Link XLogPrototypeTests (arm64)
+99%: Create universal binary XLogPrototypeTests
+99%: Extract app intents metadata
+99%: Copy Swift standard libraries into XLogPrototypeTests.xctest
+2026-10-25 13:50:33.731 appintentsmetadataprocessor[83326:42925996] Starting appintentsmetadataprocessor export
+2026-10-25 13:50:33.734 appintentsmetadataprocessor[83326:42925996] warning: Metadata extraction skipped, no AppIntents.framework dependency found
+
+Ignoring --strip-bitcode because --sign was not passed
+
+99%: Register execution policy exception for XLogPrototypeTests.xctest
+99%: Touch XLogPrototypeTests.xctest
+99%: Prune stale explicit modules at /Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/SwiftExplicitPrecompiledModules
+99%: Prune stale explicit modules at /Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/SDKExplicitPrecompiledModules
+99%: Prune stale explicit modules at /Users/oliver/.codex/worktrees/a533/OM0RX-xLog/.build/apple/Intermediates.noindex/ExplicitPrecompiledModules
+100%: Build succeeded
+Build complete!
+warning: '--build-system xcode' has been deprecated and will be removed in a future release; please report an issue at https://github.com/swiftlang/swift-package-manager/issues if you are unable to adopt the default build system.

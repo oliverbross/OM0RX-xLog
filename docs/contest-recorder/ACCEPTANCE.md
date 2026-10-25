@@ -40,7 +40,7 @@ Retained command output is in [evidence](evidence). This is targeted software ac
 - Retained telemetry: **17 passed**, including passive-read/no-owner-creation and command fencing.
 - Frontend: **237 passed** across recorder, key bindings, detached Entry/Log Display, Analytics and owner suites. The owner retry test asserts cancellation ordering independently of elapsed retry count.
 - Python: **38 passed** across recorder, Analytics and actual CQ WW SSB host.
-- Swift: actual Python Analytics bridge test passed; new isolated acceptance worker compiled.
+- Swift: actual Python Analytics bridge test passed; new isolated acceptance worker compiled. After reconciling 1.3.18, another **28 Swift spot-delivery tests passed** on the combined source.
 - Packaging checks: **6 passed**. TypeScript/Vite and detached-window graph checks passed. Recorder remains lazy; the global Escape hook plus lazy route adds 208 measured shared-startup bytes. The tight Logbook allowance increased by 200 bytes, with a separate Recorder lazy-boundary assertion.
 - Independent combined source/layout review: five findings fixed and rechecked (cancellation admission, both retained radio slots, historical reconciliation, integrity-aware availability, recovery publication retry). No remaining material finding at that review scope.
 - Browser fixtures: 1280 px and 620 px, including full page, no horizontal overflow. Preview uses generated data and cannot start native capture/output. Screenshots are layout evidence only.
