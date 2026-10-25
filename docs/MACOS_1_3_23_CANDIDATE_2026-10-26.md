@@ -1,5 +1,7 @@
 # macOS 1.3.23 candidate — callsign cursor and SCP recovery
 
+Subsequent operator-authorized [installation and session restoration completed](MACOS_1_3_23_INSTALLED_2026-10-26.md). The build-only observations below describe the earlier candidate verification.
+
 The operator requested a new build to prepare for replacing the running app later. This task builds and verifies the candidate only; it does not install, launch or replace the active application.
 
 Application change source: `71a2d5c05040bc61590a4eb68ad1faaa910f0b30`.
