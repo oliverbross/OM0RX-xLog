@@ -182,7 +182,14 @@ function Surface({ context }: { context: Context }) {
           if(terminal){
             const waiter=receiptWaiters.current.get(requestID);
             if(waiter){window.clearTimeout(waiter.timer);receiptWaiters.current.delete(requestID);waiter.resolve(terminal);}
-          }else terminal=await pending;
+          }else {
+            // A completed action is durable even if both wake events are lost.
+            // Poll only while this receipt is pending; never resubmit it.
+            let polling=false;
+            const pollTimer=window.setInterval(()=>{if(polling)return;polling=true;
+              void refresh().finally(()=>{polling=false;});},500);
+            try{terminal=await pending;}finally{window.clearInterval(pollTimer);}
+          }
         }
         if(terminal?.status==="applied")return appliedResult(terminal.projectionRevision);
         const terminalMessage=!terminal?"The action is still being reconciled.":terminal.message||"The contest action could not be applied.";

@@ -2599,6 +2599,27 @@ it("reconciles a queued callsign receipt that settles before its wake and restor
   expect(screen.getByRole("button",{name:/^Log It/})).toHaveProperty("disabled",false);
 });
 
+it("refreshes a pending callsign receipt after both projection and completion wakes are lost",async()=>{
+  let current:any=structuredClone(snapshot);
+  const actions:Record<string,any>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_action"){
+      actions.push(args);
+      window.setTimeout(()=>{current={...current,projectionRevision:7,
+        receipts:[{requestID:args.requestID,status:"applied",message:null,projectionRevision:7}],
+        projection:{...current.projection,draft:{...current.projection.draft,revision:6,callsign:args.params.value,
+          dupe:{state:"duplicate",reason:"Worked on this band."}}}};},100);
+      return {requestID:args.requestID,status:"queued"};
+    }
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);
+  fireEvent.change(await screen.findByLabelText("Callsign"),{target:{value:"VP2MAA"}});
+  expect(await screen.findByText("DUPE — VP2MAA already worked on 20m",{},{timeout:2000})).toBeTruthy();
+  expect(actions).toHaveLength(1);
+});
+
 it("submits Escape outside a blocked edit queue without replaying either action",async()=>{
   const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
     functionKeys:[{key:"F1",macro:"CQ",highlighted:false}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};

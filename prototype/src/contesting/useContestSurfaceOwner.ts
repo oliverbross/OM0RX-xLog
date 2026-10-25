@@ -150,7 +150,11 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
     };
     void onContestSurfaceWake(() => void drain()).then(value => { if (active) { stop = value; void drain(); } else value(); })
       .catch(cause => { if (active) report(boundedMessage(cause)); });
-    return () => { active = false; stop?.(); void closeContestSurfaceContext({ ...context, ownerEpoch }).catch(() => {}); };
+    // Wakes are hints, not durable delivery. A dropped wake must not strand a
+    // queued callsign edit until restart. Native next-action admission owns
+    // consumption, so this fallback never resubmits or replays an operation.
+    const recoveryTimer = window.setInterval(() => { if (!draining) void drain(); }, 1_000);
+    return () => { active = false; window.clearInterval(recoveryTimer); stop?.(); void closeContestSurfaceContext({ ...context, ownerEpoch }).catch(() => {}); };
   }, [context?.operatingContext, context?.sessionID, context?.workspaceGeneration, report]);
 
   useEffect(() => {

@@ -20,6 +20,25 @@ beforeEach(()=>{vi.resetAllMocks();native.wake=null;native.wakes=[];native.liste
   native.wake=()=>native.wakes.forEach(wake=>wake());return()=>{native.wakes=native.wakes.filter(wake=>wake!==callback);};});});
 afterEach(cleanup);
 
+it("drains an admitted entry edit when its native wake is lost, without replaying it",async()=>{
+  const queue:ContestSurfaceActionEnvelope[]=[],handle=vi.fn(async()=>{}),completed:string[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_owner_claim")return {ownerEpoch:args.ownerEpoch,projectionRevision:0};
+    if(command==="contest_surface_action_next")return queue.shift()??null;
+    if(command==="contest_surface_escape_next")return null;
+    if(command==="contest_surface_action_complete")completed.push(args.requestID);
+  });
+  render(<Harness projections={{...unavailable(),"active-qso":entry}} handle={handle}/>);
+  await waitFor(()=>expect(native.invoke).toHaveBeenCalledWith("contest_surface_action_next",expect.anything()));
+  const edit={...action(1),action:"entry_set_text" as const,params:{draftID:"draft-1",expectedDraftRevision:5,
+    field:"callsign" as const,value:"VP2MAA"}};
+  queue.push(edit); // Deliberately deliver no native wake.
+  await waitFor(()=>expect(handle).toHaveBeenCalledWith(edit),{timeout:2500});
+  await waitFor(()=>expect(completed).toEqual([edit.requestID]));
+  await act(async()=>{native.wake!();});
+  expect(handle).toHaveBeenCalledTimes(1);
+});
+
 it("keeps semantic draft authority stable across passive revisions and object ordering",()=>{
   const content:ContestDraftContent={...context,draftID:"draft-1",fields:{callsign:"MX0KBS",other_2:"14"},
     frequencyHz:7125000,mode:"SSB",operator:"OM0RX",run:false,reservedSerial:null,
