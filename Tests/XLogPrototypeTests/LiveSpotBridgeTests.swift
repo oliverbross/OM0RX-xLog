@@ -261,6 +261,177 @@ final class LiveSpotBridgeTests: XCTestCase {
         XCTAssertEqual((saved?["spots"] as? [[String: Any]])?.count, 0)
     }
 
+    func testPriorCleanupExcludesFreshReceiptAtExactCreationCutoff() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let inventoryURL = directory.appendingPathComponent("spots.json"), cutoff = Date()
+        let routing = TargetedSpotRouting(radio1Available: true)
+        let broker = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { spot, provider, preferred in
+            try await routing.add(spot: spot, provider: provider, preferred: preferred)
+        }, targetedRemove: { spot, provider, radioID in
+            try await routing.remove(spot: spot, provider: provider, radioID: radioID)
+        })
+        let value = try spot(source: "xLog Contest")
+        _ = try await broker.forward(value, now: cutoff.addingTimeInterval(-1), replacingExisting: true)
+        _ = try await broker.forward(value, now: cutoff, replacingExisting: true)
+        let removed = try await broker.withdrawContestForwardedSpots(acceptedBefore: cutoff)
+        XCTAssertEqual(removed, 0)
+        let events = await routing.events()
+        XCTAssertEqual(events.filter { $0.hasPrefix("remove:") }, [])
+        let saved = try JSONSerialization.jsonObject(with: Data(contentsOf: inventoryURL)) as? [String: Any]
+        XCTAssertEqual((saved?["spots"] as? [[String: Any]])?.first?["acceptedAt"] as? Double, cutoff.timeIntervalSince1970)
+    }
+
+    func testPriorCleanupMergesConcurrentDifferentSpotReceipt() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let inventoryURL = directory.appendingPathComponent("spots.json"), cutoff = Date()
+        let routing = TargetedSpotRouting(radio1Available: true), removal = GatedDelivery()
+        let broker = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { spot, provider, preferred in
+            try await routing.add(spot: spot, provider: provider, preferred: preferred)
+        }, targetedRemove: { spot, provider, radioID in
+            await removal.deliver()
+            try await routing.remove(spot: spot, provider: provider, radioID: radioID)
+        })
+        let old = try spot(source: "xLog Contest")
+        _ = try await broker.forward(old, now: cutoff.addingTimeInterval(-1), replacingExisting: true)
+        let cleanup = Task { try await broker.withdrawContestForwardedSpots(acceptedBefore: cutoff) }
+        await removal.waitStarted()
+        let fresh = try FlexSpot(frequencyHz: 14_075_000, callsign: "K2XYZ", mode: old.mode,
+            source: old.source, spotter: old.spotter, comment: old.comment, timestamp: old.timestamp,
+            lifetimeSeconds: old.lifetimeSeconds, priority: old.priority, colorHex: old.colorHex)
+        _ = try await broker.forward(fresh, now: cutoff, replacingExisting: true)
+        await removal.release()
+        let removed = try await cleanup.value
+        XCTAssertEqual(removed, 1)
+        let saved = try JSONSerialization.jsonObject(with: Data(contentsOf: inventoryURL)) as? [String: Any]
+        XCTAssertEqual((saved?["spots"] as? [[String: Any]])?.compactMap { $0["callsign"] as? String }, ["K2XYZ"])
+    }
+
+    func testPriorCleanupSerializesSameSpotRepaintAndCannotRemoveItOnRetry() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let inventoryURL = directory.appendingPathComponent("spots.json"), cutoff = Date()
+        let routing = TargetedSpotRouting(radio1Available: true), removal = GatedDelivery()
+        let broker = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { spot, provider, preferred in
+            try await routing.add(spot: spot, provider: provider, preferred: preferred)
+        }, targetedRemove: { spot, provider, radioID in
+            await removal.deliver()
+            try await routing.remove(spot: spot, provider: provider, radioID: radioID)
+        })
+        let value = try spot(source: "xLog Contest")
+        _ = try await broker.forward(value, now: cutoff.addingTimeInterval(-1), replacingExisting: true)
+        let cleanup = Task { try await broker.withdrawContestForwardedSpots(acceptedBefore: cutoff) }
+        await removal.waitStarted()
+        let repaint = Task { try await broker.forward(value, now: cutoff, replacingExisting: true) }
+        try await Task.sleep(for: .milliseconds(20))
+        let heldEvents = await routing.events()
+        XCTAssertEqual(heldEvents.filter { $0.hasPrefix("add:") }.count, 1)
+        await removal.release()
+        let removed = try await cleanup.value, repainted = try await repaint.value
+        XCTAssertEqual(removed, 1)
+        XCTAssertTrue(repainted)
+        let retry = try await broker.withdrawContestForwardedSpots(acceptedBefore: cutoff)
+        XCTAssertEqual(retry, 0)
+        let events = await routing.events()
+        XCTAssertEqual(events.map { $0.components(separatedBy: ":")[0] }, ["add", "remove", "add"])
+        let saved = try JSONSerialization.jsonObject(with: Data(contentsOf: inventoryURL)) as? [String: Any]
+        XCTAssertEqual((saved?["spots"] as? [[String: Any]])?.first?["acceptedAt"] as? Double, cutoff.timeIntervalSince1970)
+    }
+
+    func testTCIPriorCleanupRetiresOldReceiptWithoutDeletingFreshCallsignSibling() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let inventoryURL = directory.appendingPathComponent("spots.json"), cutoff = Date()
+        let routing = TargetedSpotRouting(radio1Available: true)
+        let broker = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { spot, provider, preferred in
+            try await routing.add(spot: spot, provider: provider, preferred: preferred)
+        }, targetedRemove: { spot, provider, radioID in
+            try await routing.remove(spot: spot, provider: provider, radioID: radioID)
+        })
+        let old = try spot(source: "xLog Contest")
+        let fresh = try FlexSpot(frequencyHz: 7_125_000, callsign: old.callsign, mode: "SSB", source: old.source,
+            spotter: old.spotter, comment: old.comment, timestamp: old.timestamp,
+            lifetimeSeconds: old.lifetimeSeconds, priority: 5, colorHex: old.colorHex)
+        _ = try await broker.forward(old, provider: "direct_tci", now: cutoff.addingTimeInterval(-1), replacingExisting: true)
+        _ = try await broker.forward(fresh, provider: "direct_tci", now: cutoff, replacingExisting: true)
+        let retired = try await broker.withdrawContestForwardedSpots(acceptedBefore: cutoff)
+        XCTAssertEqual(retired, 1)
+        let events = await routing.events()
+        XCTAssertEqual(events.filter { $0.hasPrefix("remove:") }, [])
+        let duplicate = try await broker.forward(fresh, provider: "direct_tci", now: cutoff.addingTimeInterval(1))
+        XCTAssertFalse(duplicate, "Cleanup must preserve the fresh sibling's acknowledgement cache")
+        let saved = try JSONSerialization.jsonObject(with: Data(contentsOf: inventoryURL)) as? [String: Any]
+        let rows = saved?["spots"] as? [[String: Any]]
+        XCTAssertEqual(rows?.count, 1)
+        XCTAssertEqual(rows?.first?["frequencyHz"] as? Int, 7_125_000)
+    }
+
+    func testTCICallsignReservationSerializesDifferentFrequencyAddBehindPriorRemoval() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let inventoryURL = directory.appendingPathComponent("spots.json"), cutoff = Date()
+        let routing = TargetedSpotRouting(radio1Available: true), removal = GatedDelivery()
+        let broker = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { spot, provider, preferred in
+            try await routing.add(spot: spot, provider: provider, preferred: preferred)
+        }, targetedRemove: { spot, provider, radioID in
+            await removal.deliver()
+            try await routing.remove(spot: spot, provider: provider, radioID: radioID)
+        })
+        let old = try spot(source: "xLog Contest")
+        let fresh = try FlexSpot(frequencyHz: 7_125_000, callsign: old.callsign, mode: "SSB", source: old.source,
+            spotter: old.spotter, comment: old.comment, timestamp: old.timestamp,
+            lifetimeSeconds: old.lifetimeSeconds, priority: 5, colorHex: old.colorHex)
+        _ = try await broker.forward(old, provider: "direct_tci", now: cutoff.addingTimeInterval(-1), replacingExisting: true)
+        let cleanup = Task { try await broker.withdrawContestForwardedSpots(acceptedBefore: cutoff) }
+        await removal.waitStarted()
+        let repaint = Task { try await broker.forward(fresh, provider: "direct_tci", now: cutoff, replacingExisting: true) }
+        try await Task.sleep(for: .milliseconds(20))
+        let heldEvents = await routing.events()
+        XCTAssertEqual(heldEvents.filter { $0.hasPrefix("add:") }.count, 1)
+        await removal.release()
+        let removed = try await cleanup.value, repainted = try await repaint.value
+        XCTAssertEqual(removed, 1)
+        XCTAssertTrue(repainted)
+        let events = await routing.events()
+        XCTAssertEqual(events.map { $0.components(separatedBy: ":")[0] }, ["add", "remove", "add"])
+    }
+
+    func testPriorRadioReceiptSurvivesNewRadioAcceptanceUntilTargetedCleanup() async throws {
+        for oldAge: TimeInterval in [1, 601] {
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let inventoryURL = directory.appendingPathComponent("spots.json"), cutoff = Date()
+            let routing = TargetedSpotRouting(radio1Available: false)
+            func broker() -> SpotForwardBroker {
+                SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { spot, provider, preferred in
+                    try await routing.add(spot: spot, provider: provider, preferred: preferred)
+                }, targetedRemove: { spot, provider, radioID in
+                    try await routing.remove(spot: spot, provider: provider, radioID: radioID)
+                })
+            }
+            let value = try spot(priority: 5, source: "xLog Contest")
+            _ = try await broker().forward(value, now: cutoff.addingTimeInterval(-oldAge), replacingExisting: true)
+            await routing.setRadio1Available(true)
+            let current = broker()
+            _ = try await current.forward(value, now: cutoff, replacingExisting: true)
+            let before = try JSONSerialization.jsonObject(with: Data(contentsOf: inventoryURL)) as? [String: Any]
+            XCTAssertEqual((before?["spots"] as? [[String: Any]])?.count, 2)
+            let retired = try await current.withdrawContestForwardedSpots(acceptedBefore: cutoff)
+            XCTAssertEqual(retired, 1)
+            let duplicate = try await current.forward(value, now: cutoff.addingTimeInterval(1))
+            XCTAssertFalse(duplicate, "Retiring radio2 must not erase the radio1 cache")
+            let saved = try JSONSerialization.jsonObject(with: Data(contentsOf: inventoryURL)) as? [String: Any]
+            let rows = saved?["spots"] as? [[String: Any]]
+            XCTAssertEqual(rows?.count, 1)
+            XCTAssertEqual(rows?.first?["radioID"] as? String, "radio1")
+            XCTAssertEqual(rows?.first?["acceptedAt"] as? Double, cutoff.timeIntervalSince1970)
+            let events = await routing.events()
+            XCTAssertEqual(events.filter { $0.hasPrefix("remove:") },
+                           oldAge < 600 ? ["remove:direct_agent:radio2:K1ABC:14074000"] : [])
+        }
+    }
+
     func testReplacementWorkerShutdownRetiresContestInventoryWithoutPublication() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-contest-shutdown-recovery-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: directory) }

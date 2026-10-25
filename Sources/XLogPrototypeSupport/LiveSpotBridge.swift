@@ -129,6 +129,7 @@ actor SpotForwardBroker {
     func forward(_ spot: FlexSpot, provider: String = "direct_agent", now: Date = Date(),
                  replacingExisting: Bool = false) async throws -> Bool {
         let key = "\(provider)|\(spot.callsign)|\(spot.frequencyHz)"
+        let pendingKey = reservationKey(provider: provider, callsign: spot.callsign, frequencyHz: spot.frequencyHz)
         accepted = accepted.filter { now.timeIntervalSince($0.value.at) < 180 }
         if accepted.count >= 4_096 {
             for old in accepted.sorted(by: { $0.value.at < $1.value.at }).prefix(1_024) {
@@ -144,8 +145,8 @@ actor SpotForwardBroker {
             now.timeIntervalSince($0.at) < 30 ? $0.radioID : nil
         }
         if replacingExisting {
-            while pending.contains(key) {
-                await withCheckedContinuation { pendingWaiters[key, default: []].append($0) }
+            while pending.contains(pendingKey) {
+                await withCheckedContinuation { pendingWaiters[pendingKey, default: []].append($0) }
             }
             preferredRadioID = accepted[key]?.radioID ?? preferredRadioID
             accepted.removeValue(forKey: key)
@@ -158,8 +159,8 @@ actor SpotForwardBroker {
         // A higher-priority copy arriving while this exact callsign/frequency
         // is in flight is deliberately suppressed, never reported as accepted.
         // A repeated higher-priority spot after ACK replaces the lower style.
-        guard pending.insert(key).inserted else { return false }
-        defer { finishPending(key) }
+        guard pending.insert(pendingKey).inserted else { return false }
+        defer { finishPending(pendingKey) }
         let radioID = try await deliver(spot, provider, preferredRadioID)
         accepted[key] = (now, spot.priority, radioID)
         if let radioID {
@@ -180,14 +181,15 @@ actor SpotForwardBroker {
 
     func remove(_ spot: FlexSpot, provider: String = "direct_agent") async throws -> Bool {
         let key = "\(provider)|\(spot.callsign)|\(spot.frequencyHz)"
-        while pending.contains(key) {
-            await withCheckedContinuation { pendingWaiters[key, default: []].append($0) }
+        let pendingKey = reservationKey(provider: provider, callsign: spot.callsign, frequencyHz: spot.frequencyHz)
+        while pending.contains(pendingKey) {
+            await withCheckedContinuation { pendingWaiters[pendingKey, default: []].append($0) }
         }
         guard pending.count < 256 else {
             throw WorkerFailure("spot_broker_busy", "Spot forwarding is busy; retry after the current deliveries settle.")
         }
-        guard pending.insert(key).inserted else { return false }
-        defer { finishPending(key) }
+        guard pending.insert(pendingKey).inserted else { return false }
+        defer { finishPending(pendingKey) }
         let radioID: String?
         if let acceptedRadioID = accepted[key]?.radioID { radioID = acceptedRadioID }
         else { radioID = try persistedRadioID(for: spot, provider: provider) }
@@ -205,20 +207,20 @@ actor SpotForwardBroker {
     /// snapshot. Only exact spots previously accepted from xLog's Normal
     /// Logging owner are withdrawn; third-party and contest-owned spots are not
     /// addressed.
-    func withdrawNormalForwardedSpots() async throws -> Int {
-        try await withdrawForwardedSpots(owner: "normal_logging")
+    func withdrawNormalForwardedSpots(acceptedBefore cutoff: Date = .distantFuture) async throws -> Int {
+        try await withdrawForwardedSpots(owner: "normal_logging", acceptedBefore: cutoff)
     }
 
     /// A replacement Contest worker invokes this before publishing its first
     /// authoritative snapshot so spots retained after a failed prior shutdown
     /// are removed using their durable radio identities.
-    func withdrawContestForwardedSpots() async throws -> Int {
-        try await withdrawForwardedSpots(owner: "contesting")
+    func withdrawContestForwardedSpots(acceptedBefore cutoff: Date = .distantFuture) async throws -> Int {
+        try await withdrawForwardedSpots(owner: "contesting", acceptedBefore: cutoff)
     }
 
-    private func withdrawForwardedSpots(owner: String) async throws -> Int {
+    private func withdrawForwardedSpots(owner: String, acceptedBefore cutoff: Date) async throws -> Int {
         var document = try loadInventory()
-        let owned = document.spots.filter { $0.owner == owner }
+        let owned = document.spots.filter { $0.owner == owner && $0.acceptedAt < cutoff.timeIntervalSince1970 }
         guard !owned.isEmpty else { return 0 }
         // Radio spots are published with a ten-minute lifetime. Do not make a
         // replacement worker replay hours-old remove commands before it can
@@ -230,38 +232,80 @@ actor SpotForwardBroker {
             let expiredKeys = Set(expired.map(\.key))
             document.spots.removeAll { expiredKeys.contains($0.key) }
             for entry in expired {
-                accepted.removeValue(forKey: "\(entry.provider)|\(entry.callsign)|\(entry.frequencyHz)")
+                removeCachedAcceptance(matching: entry)
             }
             try saveInventory(document)
         }
-        let activeOwned = document.spots.filter { $0.owner == owner }
+        let activeOwned = document.spots.filter { $0.owner == owner && $0.acceptedAt < cutoff.timeIntervalSince1970 }
         guard !activeOwned.isEmpty else { return expired.count }
-        var removedKeys = Set<String>(), firstFailure: Error?
+        var removed = 0, firstFailure: Error?
         for entry in activeOwned {
             do {
+                let key = reservationKey(provider: entry.provider, callsign: entry.callsign, frequencyHz: entry.frequencyHz)
+                while pending.contains(key) {
+                    // Unlike a publication, background cleanup must be promptly
+                    // cancellable even while a delivery owns this key.
+                    try await Task.sleep(for: .milliseconds(10))
+                }
+                try Task.checkCancellation()
+                guard pending.count < 256 else {
+                    throw WorkerFailure("spot_broker_busy", "Spot forwarding is busy; prior cleanup will retry.")
+                }
+                pending.insert(key)
+                defer { finishPending(key) }
+                // An earlier await may have allowed a fresh repaint. Only the
+                // exact retained receipt is eligible for this removal attempt.
+                var current = try loadInventory()
+                guard current.spots.contains(entry) else { continue }
+                // TCI deletes by callsign, not frequency. A current sibling on
+                // this radio supersedes the old receipt; deleting it remotely
+                // would also erase the newly accepted spot.
+                if entry.provider == "direct_tci", current.spots.contains(where: {
+                    $0.provider == entry.provider && $0.radioID == entry.radioID && $0.callsign == entry.callsign &&
+                    $0.acceptedAt >= cutoff.timeIntervalSince1970
+                }) {
+                    current.spots.removeAll { $0 == entry }
+                    try saveInventory(current)
+                    removeCachedAcceptance(matching: entry)
+                    removed += 1
+                    continue
+                }
                 let spot = try FlexSpot(frequencyHz: entry.frequencyHz, callsign: entry.callsign, mode: "CW",
                                         source: "xLog module transition", spotter: "", comment: "",
                                         timestamp: Int64(Date().timeIntervalSince1970), lifetimeSeconds: 600,
                                         priority: 1, colorHex: "#AEB5B7")
                 try await removeDelivery(spot, entry.provider, entry.radioID)
-                removedKeys.insert(entry.key)
-                accepted.removeValue(forKey: "\(entry.provider)|\(entry.callsign)|\(entry.frequencyHz)")
+                // Never save the snapshot loaded before the remote await: a
+                // different spot may have been acknowledged in the meantime.
+                var latest = try loadInventory()
+                latest.spots.removeAll { $0 == entry }
+                try saveInventory(latest)
+                removed += 1
+                removeCachedAcceptance(matching: entry)
             } catch {
                 if firstFailure == nil { firstFailure = error }
+                if Task.isCancelled { break }
             }
         }
-        if !removedKeys.isEmpty {
-            document.spots.removeAll { removedKeys.contains($0.key) }
-            try saveInventory(document)
-        }
         if let firstFailure { throw firstFailure }
-        return expired.count + removedKeys.count
+        return expired.count + removed
     }
 
     private func finishPending(_ key: String) {
         pending.remove(key)
         let waiters = pendingWaiters.removeValue(forKey: key) ?? []
         for waiter in waiters { waiter.resume() }
+    }
+
+    private func reservationKey(provider: String, callsign: String, frequencyHz: Int64) -> String {
+        provider == "direct_tci" ? "\(provider)|\(callsign)" : "\(provider)|\(callsign)|\(frequencyHz)"
+    }
+
+    private func removeCachedAcceptance(matching entry: InventoryEntry) {
+        let key = "\(entry.provider)|\(entry.callsign)|\(entry.frequencyHz)"
+        guard let current = accepted[key], current.radioID == entry.radioID,
+              current.at.timeIntervalSince1970 == entry.acceptedAt else { return }
+        accepted.removeValue(forKey: key)
     }
 
     private func loadInventory() throws -> InventoryDocument {
@@ -298,7 +342,8 @@ actor SpotForwardBroker {
         let entry = InventoryEntry(provider: provider, radioID: radioID, callsign: spot.callsign,
                                    frequencyHz: spot.frequencyHz, owner: owner,
                                    acceptedAt: acceptedAt.timeIntervalSince1970)
-        document.spots.removeAll { $0.provider == provider && $0.callsign == spot.callsign && $0.frequencyHz == spot.frequencyHz }
+        document.spots.removeAll { $0.provider == provider && $0.radioID == radioID &&
+            $0.callsign == spot.callsign && $0.frequencyHz == spot.frequencyHz }
         document.spots.append(entry)
         if document.spots.count > 4_096 {
             document.spots.sort { $0.acceptedAt < $1.acceptedAt }

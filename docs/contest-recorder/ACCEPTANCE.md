@@ -53,7 +53,7 @@ Historical reconciliation checks the active and selected captures plus two catal
 
 Initial clean canonical source: `369703cd` / 1.3.16, newer than the supplied plan's `ec981e72`. Concurrent Checking recovery `362ee467` and installed 1.3.17 source `1f15a88d` / receipt `1516211e` were preserved. Work resumed on a managed development branch at `1516211e`; packaging remains canonical-only.
 
-Before the urgent 1.3.17 install, all unfinished recorder work was preserved in stash `a7c3dfa7f36f67589a9f84fa87405ecbc91dfee3` plus `/Users/oliver/Documents/Backups/OM0RX-xLog-recorder-checkpoint-20261025/{tracked.patch,untracked.tar}`. Those backups remain. This recorder delivery does not replace the active 1.3.17 app, mutate production logs/settings, or claim the earlier hotfix's data snapshot as a new live verification.
+Before the urgent 1.3.17 install, all unfinished recorder work was preserved in stash `a7c3dfa7f36f67589a9f84fa87405ecbc91dfee3` plus `/Users/oliver/Documents/Backups/OM0RX-xLog-recorder-checkpoint-20261025/{tracked.patch,untracked.tar}`. Those backups remain. A final reconciliation also preserves 1.3.18 spot-delivery fix `2dc0e617` and release `78a29420`, installed by the separately authorized hotfix task. This recorder delivery does not replace that active app, mutate production logs/settings, or claim earlier hotfix data snapshots as a new live verification.
 
 ## Required operator follow-up
 

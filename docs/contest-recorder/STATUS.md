@@ -1,6 +1,6 @@
 # Contest recorder implementation / acceptance
 
-Source reconciled: initial canonical `369703cd` (1.3.16), then fast-forwarded to `1516211e` after the separately authorized 1.3.17 hotfix. The Checking fix `362ee467` and installed source `1f15a88d` are retained. The supplied plan reviewed `ec981e72`; newer and unrelated work is preserved. Development uses the managed recorder branch; packaging uses clean canonical `main` only.
+Source reconciled: initial canonical `369703cd` (1.3.16), then fast-forwarded to `1516211e` after the separately authorized 1.3.17 hotfix. The Checking fix `362ee467` and installed source `1f15a88d` are retained. The supplied plan reviewed `ec981e72`; newer and unrelated work is preserved. Final reconciliation also preserves the 1.3.18 nonblocking spot-delivery fix `2dc0e617` / release `78a29420` and its installed application. Development uses the managed recorder branch; packaging uses clean canonical `main` only.
 
 | Milestone | State | Evidence / boundary |
 |---|---|---|
