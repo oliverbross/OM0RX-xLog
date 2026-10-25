@@ -94,6 +94,36 @@ describe("logbook read recovery", () => {
     expect(screen.queryByText("Logbook unavailable")).toBeNull();
   });
 
+  it("clears earlier search results and offers retry when the new query fails", async () => {
+    vi.useFakeTimers();
+    let failing = true;
+    const request = vi.fn(async (_method: string, params?: Record<string, unknown>) => {
+      if (params?.search === "VK8AA") {
+        if (failing) throw new Error("Operation failed");
+        return page([second]);
+      }
+      return page([first]);
+    });
+    const edit = vi.fn();
+    render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={edit} refreshKey={0} />);
+    await act(async () => {});
+    fireEvent.click(screen.getByText("OM0RX").closest("tr")!);
+    edit.mockClear();
+    fireEvent.change(screen.getByRole("textbox", { name: "Search logbook" }), { target: { value: "VK8AA" } });
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Search", exact: true })); });
+    expect(screen.queryByText("OM0RX")).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(7_850); });
+    expect(screen.getByRole("alert").textContent).toContain("did not finish loading");
+    expect((screen.getByRole("button", { name: "Edit", exact: true }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Delete", exact: true }) as HTMLButtonElement).disabled).toBe(true);
+    failing = false;
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Retry logbook" })); });
+    expect(screen.getByText("VK8AA")).toBeTruthy();
+    expect(screen.queryByText("OM0RX")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(edit).not.toHaveBeenCalled();
+  });
+
   it("retires the previous retry when a refreshed read succeeds", async () => {
     vi.useFakeTimers();
     const request = vi.fn(async () => page());

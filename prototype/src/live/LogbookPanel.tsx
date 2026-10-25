@@ -147,6 +147,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   useEffect(() => { onBusyChange?.(busy); }, [busy, onBusyChange]);
   const [error, setError] = useState("");
   const [readRetry, setReadRetry] = useState(0);
+  const loadedPage = useRef<{ search: string; request: Request } | null>(null);
   const [notice, setNotice] = useState("");
   const [importReview, setImportReview] = useState<{ name: string; encoding: ADIFImportEncoding; batches: string[]; fieldMetadata: (ADIFFieldMetadata | null)[][]; records: number; duplicates: number; generation: string; token: string } | null>(null);
   const [importEncoding, setImportEncoding] = useState<ADIFImportEncoding>("utf-8");
@@ -203,6 +204,9 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
 
   useEffect(() => {
     let cancelled = false;
+    const retained = loadedPage.current;
+    const sameQuery = retained?.search === search && retained.request === onRequest;
+    if (!sameQuery) { setPage(null); setSelectedID(null); }
     setExportSelection([]);
     setLoading(true);
     setError("");
@@ -212,15 +216,16 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
           if (offset > 0 && offset >= response.total) setOffset(Math.max(0, Math.floor((response.total - 1) / pageSize) * pageSize));
           else {
             setPage(result<LogbookPage>(response));
+            loadedPage.current = { search, request: onRequest };
             setSelectedID(current => response.qsos.some(qso => qso.id === current) ? current : null);
           }
         }
       })
       .catch((cause) => {
         if (cancelled) return;
-        // Keep the last good page during a refresh. Initial load contention is
-        // retried silently; only a sustained terminal failure gets feedback.
-        if (!page) setError(startupReadFailureMessage(cause, "The logbook"));
+        // A passive refresh may retain its page. A changed query must
+        // never pass earlier rows off as its results after retries are exhausted.
+        if (!sameQuery || !page) setError(startupReadFailureMessage(cause, "The logbook"));
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     void load();
@@ -233,7 +238,10 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
     if (response.total > 0 && pageOffset >= response.total) {
       setOffset(Math.floor((response.total - 1) / pageSize) * pageSize);
     } else if (!response.total && pageOffset > 0) setOffset(0);
-    else setPage(response);
+    else {
+      setPage(response);
+      loadedPage.current = { search, request: onRequest };
+    }
   }
 
   function submitSearch(event: FormEvent) {
