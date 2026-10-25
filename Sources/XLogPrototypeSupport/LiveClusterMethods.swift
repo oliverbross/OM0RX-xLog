@@ -143,9 +143,12 @@ public actor LiveClusterMethods {
     private let spotForward: @Sendable (ClusterRadioSpotPayload, String, Bool) async throws -> Bool
     private let spotRemove: @Sendable (ClusterRadioSpotPayload, String) async throws -> Bool
     private let contestRadioClock: @Sendable () -> Date
-    private let beforeContestSpotPublication: @Sendable () async throws -> Void
+    private let beforeContestSpotPublication: @Sendable (Date) async throws -> Void
     private let retirePersistedContestSpots: (@Sendable () async throws -> Void)?
     private var withdrewPriorRadioSpots = false
+    private var priorRadioSpotCleanupTask: Task<Void, Never>?
+    private var priorRadioSpotCleanupPending = false
+    private var priorRadioSpotCutoff: Date?
     private var contestPublisherID: String?
     private var contestPublisherStartedAt = 0
     private var contestPublisherSequence = 0
@@ -191,7 +194,8 @@ public actor LiveClusterMethods {
              #else
              return false
              #endif
-         }, beforeContestSpotPublication: (@Sendable () async throws -> Void)? = nil,
+          }, beforeContestSpotPublication: (@Sendable () async throws -> Void)? = nil,
+           priorRadioSpotCleanup: (@Sendable (Date) async throws -> Void)? = nil,
           retirePersistedContestSpots: (@Sendable () async throws -> Void)? = nil,
           contestRadioClock: @escaping @Sendable () -> Date = { Date() }) {
         self.logbook = logbook
@@ -202,17 +206,24 @@ public actor LiveClusterMethods {
         self.spotForward = spotForward
         self.spotRemove = spotRemove
         self.contestRadioClock = contestRadioClock
-        if let beforeContestSpotPublication {
-            self.beforeContestSpotPublication = beforeContestSpotPublication
+        if let priorRadioSpotCleanup {
+            self.beforeContestSpotPublication = priorRadioSpotCleanup
+        } else if let beforeContestSpotPublication {
+            self.beforeContestSpotPublication = { _ in try await beforeContestSpotPublication() }
         } else if logbook === LiveLogbookMethods.shared {
-            self.beforeContestSpotPublication = {
+            self.beforeContestSpotPublication = { priorReceiptCutoff in
                 #if os(macOS)
-                _ = try await SpotForwardBroker.shared.withdrawNormalForwardedSpots()
-                _ = try await SpotForwardBroker.shared.withdrawContestForwardedSpots()
+                var failure: Error?
+                do { _ = try await SpotForwardBroker.shared.withdrawNormalForwardedSpots(acceptedBefore: priorReceiptCutoff) }
+                catch { failure = error }
+                try Task.checkCancellation()
+                do { _ = try await SpotForwardBroker.shared.withdrawContestForwardedSpots(acceptedBefore: priorReceiptCutoff) }
+                catch { if failure == nil { failure = error } }
+                if let failure { throw failure }
                 #endif
             }
         } else {
-            self.beforeContestSpotPublication = {}
+            self.beforeContestSpotPublication = { _ in }
         }
         if let retirePersistedContestSpots {
             self.retirePersistedContestSpots = retirePersistedContestSpots
@@ -235,6 +246,9 @@ public actor LiveClusterMethods {
 
     @discardableResult func terminate() async -> Bool {
         terminated = true
+        let cleanup = priorRadioSpotCleanupTask
+        cleanup?.cancel()
+        await cleanup?.value
         contactRefreshRevision &+= 1
         var contestSpotsRetired = true
         if let publication = contestPublication, !contestForwardedSpots.isEmpty {
@@ -451,8 +465,10 @@ public actor LiveClusterMethods {
                 "contact_refresh_error": contactRefreshError as Any? ?? NSNull(),
                 "password_servers": try currentConfiguration().servers.filter { try vault.load($0.id) != nil }.map { $0.id.uuidString },
                 "forwarding": ["accepted_count": forwardAcceptedCount,
-                               "status": "FLEX: \(flexForwardStatus) · TCI: \(tciForwardStatus)",
-                               "flex_status": flexForwardStatus, "tci_status": tciForwardStatus]]
+                               "status": "FLEX: \(flexForwardStatus) · TCI: \(tciForwardStatus)\(priorRadioSpotCleanupNotice)",
+                               "flex_status": flexForwardStatus + (configuration?.forwardSpotsToFlex == true ? priorRadioSpotCleanupNotice : ""),
+                               "tci_status": tciForwardStatus + (configuration?.forwardSpotsToTCI == true ? priorRadioSpotCleanupNotice : ""),
+                               "prior_spot_cleanup_pending": priorRadioSpotCleanupPending]]
     }
 
     private func resolvedPasswords() throws -> [UUID: String] {
@@ -710,11 +726,6 @@ public actor LiveClusterMethods {
               let spots = try? JSONDecoder().decode([ContestRadioSpotInput].self, from: data),
               action == "replace" || chunkCount == 1 && chunkIndex == 0 && spots.isEmpty else { throw invalid() }
 
-        if !withdrewPriorRadioSpots {
-            try await beforeContestSpotPublication()
-            withdrewPriorRadioSpots = true
-        }
-
         if retiredContestPublisherIDs.contains(publisherID) {
             return Self.staleContestPublication(revision: revision, workspaceGeneration: workspaceGeneration)
         }
@@ -781,12 +792,50 @@ public actor LiveClusterMethods {
         contestForwardRevision = sameIdentity ? max(contestForwardRevision, revision) : revision
         let identityChanged = contestAppliedIdentity != nil
             && (contestAppliedIdentity?.sessionID != sessionID || contestAppliedIdentity?.workspaceGeneration != workspaceGeneration)
-        let result = try await reconcileContestRadioSpots(orderedSpots, publication: publication,
+        // The service may have spent hours in Normal Logging. Freeze the
+        // boundary at first admitted contest delivery, never at service creation
+        // or after current spots have been accepted.
+        if priorRadioSpotCutoff == nil { priorRadioSpotCutoff = contestRadioClock() }
+        var result = try await reconcileContestRadioSpots(orderedSpots, publication: publication,
                                                           forceReplaceAll: identityChanged)
         if result["rejected"] as? Int == 0 {
             contestAppliedIdentity = action == "clear" ? nil : incomingIdentity
         }
+        schedulePriorRadioSpotCleanup()
+        result["prior_spot_cleanup_pending"] = priorRadioSpotCleanupPending
         return result
+    }
+
+    private var priorRadioSpotCleanupNotice: String {
+        priorRadioSpotCleanupPending ? " Prior radio spot cleanup pending; current spot delivery remains enabled." : ""
+    }
+
+    private func schedulePriorRadioSpotCleanup() {
+        guard !terminated, !withdrewPriorRadioSpots, priorRadioSpotCleanupTask == nil,
+              let cutoff = priorRadioSpotCutoff else { return }
+        priorRadioSpotCleanupPending = true
+        // Cleanup belongs to this service, but never holds up an admitted
+        // current publication. Failed receipts remain available for a later try.
+        priorRadioSpotCleanupTask = Task { [weak self] in
+            guard let self else { return }
+            await self.cleanupPriorRadioSpots(acceptedBefore: cutoff)
+        }
+    }
+
+    private func cleanupPriorRadioSpots(acceptedBefore cutoff: Date) async {
+        defer { priorRadioSpotCleanupTask = nil }
+        do {
+            try Task.checkCancellation()
+            try await beforeContestSpotPublication(cutoff)
+            try Task.checkCancellation()
+            guard !terminated else { return }
+            withdrewPriorRadioSpots = true
+            priorRadioSpotCleanupPending = false
+        } catch {
+            // The next complete, admitted publication retries. Keep this
+            // separate from the current add/ack status shown to the operator.
+            priorRadioSpotCleanupPending = true
+        }
     }
 
     private func reconcileContestRadioSpots(_ spots: [ContestRadioSpotInput],

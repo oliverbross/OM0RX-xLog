@@ -47,6 +47,7 @@ private actor ClusterRadioSpotRecorder {
     private var lifecycle: [String] = []
     private var removalAccepted = true
     private var forwardAccepted = true
+    private var cleanupAccepted = true
     private func key(_ payload: ClusterRadioSpotPayload, provider: String) -> String {
         "\(provider)|\(payload.callsign)|\(payload.frequencyHz)"
     }
@@ -72,6 +73,11 @@ private actor ClusterRadioSpotRecorder {
     func removed() -> [(ClusterRadioSpotPayload, String)] { removals }
     func activeSnapshot() -> [(ClusterRadioSpotPayload, String)] { Array(active.values) }
     func recordCleanup() { lifecycle.append("cleanup") }
+    func cleanup() throws {
+        lifecycle.append("cleanup")
+        if !cleanupAccepted { throw WorkerFailure("station_rejected", "Prior spot removal is unavailable.") }
+    }
+    func setCleanupAccepted(_ accepted: Bool) { cleanupAccepted = accepted }
     func lifecycleSnapshot() -> [String] { lifecycle }
     func setRemovalAccepted(_ accepted: Bool) { removalAccepted = accepted }
     func setForwardAccepted(_ accepted: Bool) { forwardAccepted = accepted }
@@ -84,11 +90,167 @@ private final class ContestSpotTestClock: @unchecked Sendable {
     func advance(_ seconds: TimeInterval) { lock.withLock { value.addTimeInterval(seconds) } }
 }
 
+private actor SlowPriorSpotCleanup {
+    private(set) var starts = 0
+    private(set) var cancelled = false
+    func run() async throws {
+        starts += 1
+        do { try await Task.sleep(for: .seconds(60)) }
+        catch { cancelled = Task.isCancelled; throw error }
+    }
+}
+
 @Suite("Portable live cluster worker bridge")
 struct LiveClusterMethodsTests {
     private func request(_ worker: LiveWorker, _ method: String, _ params: [String: Any] = [:]) async throws -> [String: Any] {
         let data = try JSONSerialization.data(withJSONObject: ["id": method, "method": method, "params": params])
         return try #require(JSONSerialization.jsonObject(with: await worker.response(to: data)) as? [String: Any])
+    }
+
+    @Test("Failed prior-worker cleanup cannot block fresh admitted contest spots")
+    func pendingPriorCleanupDoesNotBlockFreshPublication() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let configurationURL = root.appendingPathComponent("cluster.json")
+        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [], forwardSpotsToFlex: true)).write(to: configurationURL)
+        let recorder = ClusterRadioSpotRecorder()
+        await recorder.setCleanupAccepted(false)
+        let cluster = LiveClusterMethods(
+            logbook: LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false),
+            configurationURL: configurationURL, vault: UnavailableClusterTestVault(),
+            forwardClassifiedIngressSpots: false,
+            spotForward: { payload, provider, replacing in await recorder.forward(payload, provider: provider, replacing: replacing) },
+            spotRemove: { payload, provider in await recorder.remove(payload, provider: provider) },
+            beforeContestSpotPublication: { try await recorder.cleanup() })
+        var publication: [String: Any] = [
+            "publisher_id": UUID().uuidString, "publisher_started_at": 2, "publication_sequence": 1,
+            "action": "replace", "session_id": UUID().uuidString, "workspace_generation": UUID().uuidString,
+            "revision": 1, "configured_bands": ["40m"], "allowed_mode_groups": ["phone"],
+            "chunk_index": 0, "chunk_count": 1, "spots": [[
+                "spot_id": "fresh", "callsign": "DL1AAA", "frequency_hz": 7_125_000, "band": "40m", "mode": "SSB",
+                "spotter": "W1AW", "comment": "CQ TEST", "timestamp": Date().timeIntervalSinceReferenceDate,
+                "points": 3, "dupe": false, "multiplier_count": 0, "country_multiplier": false, "zone_multiplier": false]]]
+        let first = try await cluster.handle(method: "cluster_contest_radio_spots_publish", params: publication)
+        #expect(first["accepted"] as? Int == 1)
+        #expect(first["prior_spot_cleanup_pending"] as? Bool == true)
+        for _ in 0..<100 {
+            if await recorder.lifecycleSnapshot().contains("cleanup") { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(await recorder.lifecycleSnapshot() == ["forward", "cleanup"])
+        let pendingSnapshot = try await cluster.handle(method: "cluster_snapshot", params: [:])
+        let pendingStatus = pendingSnapshot["forwarding"] as? [String: Any]
+        #expect((pendingStatus?["flex_status"] as? String)?.contains("Contest spots accepted") == true)
+        #expect((pendingStatus?["flex_status"] as? String)?.contains("cleanup pending") == true)
+        var retired = publication
+        retired["publisher_id"] = UUID().uuidString
+        retired["publisher_started_at"] = 1
+        let stale = try await cluster.handle(method: "cluster_contest_radio_spots_publish", params: retired)
+        #expect(stale["stale"] as? Bool == true)
+        #expect(await recorder.lifecycleSnapshot() == ["forward", "cleanup"])
+        await recorder.setCleanupAccepted(true)
+        publication["publication_sequence"] = 2
+        let second = try await cluster.handle(method: "cluster_contest_radio_spots_publish", params: publication)
+        #expect(second["unchanged"] as? Int == 1)
+        for _ in 0..<100 {
+            let snapshot = try await cluster.handle(method: "cluster_snapshot", params: [:])
+            if (snapshot["forwarding"] as? [String: Any])?["prior_spot_cleanup_pending"] as? Bool == false { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(await recorder.lifecycleSnapshot() == ["forward", "cleanup", "cleanup"])
+        let settled = try await cluster.handle(method: "cluster_snapshot", params: [:])
+        #expect((settled["forwarding"] as? [String: Any])?["prior_spot_cleanup_pending"] as? Bool == false)
+        #expect(await cluster.terminate())
+    }
+
+    @Test("One slow prior cleanup never holds publication acknowledgements and is cancelled at shutdown")
+    func slowPriorCleanupIsOwnedAndNonblocking() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let configurationURL = root.appendingPathComponent("cluster.json")
+        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [], forwardSpotsToFlex: true)).write(to: configurationURL)
+        let cleanup = SlowPriorSpotCleanup(), recorder = ClusterRadioSpotRecorder()
+        let cluster = LiveClusterMethods(
+            logbook: LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false),
+            configurationURL: configurationURL, vault: UnavailableClusterTestVault(),
+            forwardClassifiedIngressSpots: false,
+            spotForward: { payload, provider, replacing in await recorder.forward(payload, provider: provider, replacing: replacing) },
+            spotRemove: { payload, provider in await recorder.remove(payload, provider: provider) },
+            beforeContestSpotPublication: { try await cleanup.run() })
+        var publication: [String: Any] = [
+            "publisher_id": UUID().uuidString, "publisher_started_at": 2, "publication_sequence": 1,
+            "action": "replace", "session_id": UUID().uuidString, "workspace_generation": UUID().uuidString,
+            "revision": 1, "configured_bands": ["40m"], "allowed_mode_groups": ["phone"],
+            "chunk_index": 0, "chunk_count": 1, "spots": [[
+                "spot_id": "fresh", "callsign": "DL1AAA", "frequency_hz": 7_125_000, "band": "40m", "mode": "SSB",
+                "spotter": "W1AW", "comment": "CQ TEST", "timestamp": Date().timeIntervalSinceReferenceDate,
+                "points": 3, "dupe": false, "multiplier_count": 0, "country_multiplier": false, "zone_multiplier": false]]]
+        let first = try await cluster.handle(method: "cluster_contest_radio_spots_publish", params: publication)
+        #expect(first["accepted"] as? Int == 1)
+        for _ in 0..<100 {
+            if await cleanup.starts == 1 { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        for sequence in 2...4 {
+            publication["publication_sequence"] = sequence
+            let next = try await cluster.handle(method: "cluster_contest_radio_spots_publish", params: publication)
+            #expect(next["unchanged"] as? Int == 1)
+        }
+        #expect(await cleanup.starts == 1)
+        #expect(await cluster.terminate())
+        #expect(await cleanup.cancelled)
+        #expect(await cleanup.starts == 1)
+    }
+
+    @Test("Prior cutoff includes Normal Logging receipts accepted after service creation but excludes same-clock contest delivery")
+    func priorCleanupCutoffStartsAtFirstContestAdmission() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let configurationURL = root.appendingPathComponent("cluster.json"), inventoryURL = root.appendingPathComponent("spots.json")
+        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [], forwardSpotsToFlex: true)).write(to: configurationURL)
+        let clock = ContestSpotTestClock()
+        let broker = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { _, _, _ in "radio1" },
+                                       targetedRemove: { _, _, _ in })
+        let cluster = LiveClusterMethods(
+            logbook: LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false),
+            configurationURL: configurationURL, vault: UnavailableClusterTestVault(),
+            forwardClassifiedIngressSpots: false,
+            spotForward: { payload, provider, replacing in
+                try await broker.forward(payload.flexSpot(), provider: provider, now: clock.now(), replacingExisting: replacing)
+            }, spotRemove: { payload, provider in try await broker.remove(payload.flexSpot(), provider: provider) },
+            priorRadioSpotCleanup: { cutoff in
+                _ = try await broker.withdrawNormalForwardedSpots(acceptedBefore: cutoff)
+                _ = try await broker.withdrawContestForwardedSpots(acceptedBefore: cutoff)
+            }, contestRadioClock: { clock.now() })
+        clock.advance(5)
+        let old = ClusterRadioSpotPayload(frequencyHz: 7_126_000, callsign: "K1OLD", mode: "SSB", source: "xLog xCluster",
+            spotter: "W1AW", comment: "", timestamp: Int64(clock.now().timeIntervalSince1970), lifetimeSeconds: 600,
+            priority: 3, colorHex: "#3DA5F4")
+        _ = try await broker.forward(old.flexSpot(), now: clock.now())
+        clock.advance(5)
+        let result = try await cluster.handle(method: "cluster_contest_radio_spots_publish", params: [
+            "publisher_id": UUID().uuidString, "publisher_started_at": 2, "publication_sequence": 1,
+            "action": "replace", "session_id": UUID().uuidString, "workspace_generation": UUID().uuidString,
+            "revision": 1, "configured_bands": ["40m"], "allowed_mode_groups": ["phone"],
+            "chunk_index": 0, "chunk_count": 1, "spots": [[
+                "spot_id": "fresh", "callsign": "DL1AAA", "frequency_hz": 7_125_000, "band": "40m", "mode": "SSB",
+                "spotter": "W1AW", "comment": "CQ TEST", "timestamp": clock.now().timeIntervalSinceReferenceDate,
+                "points": 3, "dupe": false, "multiplier_count": 0, "country_multiplier": false, "zone_multiplier": false]]])
+        #expect(result["accepted"] as? Int == 1)
+        for _ in 0..<100 {
+            let snapshot = try await cluster.handle(method: "cluster_snapshot", params: [:])
+            if (snapshot["forwarding"] as? [String: Any])?["prior_spot_cleanup_pending"] as? Bool == false { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        let saved = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: inventoryURL)) as? [String: Any])
+        let rows = try #require(saved["spots"] as? [[String: Any]])
+        #expect(rows.count == 1)
+        #expect(rows.first?["callsign"] as? String == "DL1AAA")
+        #expect(rows.first?["acceptedAt"] as? Double == clock.now().timeIntervalSince1970)
+        #expect(await cluster.terminate())
     }
 
     @Test("Contest radio spots are scoped and carry the authoritative four-colour classification")
@@ -149,7 +311,7 @@ struct LiveClusterMethodsTests {
             "DL1AAA": "#00E51B", "K1BBB": "#FF5267", "VK1CCC": "#3DA5F4", "JA1DDD": "#AEB5B7"])
         #expect(delivered.allSatisfy { $0.1 == "direct_agent" && $0.2 })
         #expect(delivered.allSatisfy { $0.0.source == "xLog Contest" && $0.0.timestamp > 1_700_000_000 })
-        #expect(Array((await recorder.lifecycleSnapshot()).prefix(2)) == ["cleanup", "forward"])
+        #expect((await recorder.lifecycleSnapshot()).first == "forward")
 
         let delayedOldPublisher = try await cluster.handle(method: "cluster_contest_radio_spots_publish", params: [
             "publisher_id": UUID().uuidString, "publisher_started_at": 1_700_000_000_000,
