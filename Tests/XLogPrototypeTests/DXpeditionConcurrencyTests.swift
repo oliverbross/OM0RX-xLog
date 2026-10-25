@@ -23,7 +23,10 @@ struct DXpeditionConcurrencyTests {
         let refresh = Task {
             await worker.response(to: Data(#"{"id":"slow-dx","method":"opportunities_dxpedition_refresh","params":{"source":"adxo"}}"#.utf8))
         }
-        let started = await XCTWaiter.fulfillment(of: [HeldDXpeditionFeed.gate.started], timeout: 2)
+        // Startup competes with hundreds of independent fixtures in the full
+        // suite. The concurrency contract is the two-second logbook read below,
+        // measured only after the feed is demonstrably held.
+        let started = await XCTWaiter.fulfillment(of: [HeldDXpeditionFeed.gate.started], timeout: 10)
         #expect(started == .completed)
         let readFinished = XCTestExpectation(description: "independent logging read completed")
         let read = Task {
