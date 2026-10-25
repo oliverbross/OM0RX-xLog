@@ -147,7 +147,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   useEffect(() => { onBusyChange?.(busy); }, [busy, onBusyChange]);
   const [error, setError] = useState("");
   const [readRetry, setReadRetry] = useState(0);
-  const loadedPage = useRef<{ search: string; request: Request } | null>(null);
+  const loadedPage = useRef<readonly [string, Request] | null>(null);
   const [notice, setNotice] = useState("");
   const [importReview, setImportReview] = useState<{ name: string; encoding: ADIFImportEncoding; batches: string[]; fieldMetadata: (ADIFFieldMetadata | null)[][]; records: number; duplicates: number; generation: string; token: string } | null>(null);
   const [importEncoding, setImportEncoding] = useState<ADIFImportEncoding>("utf-8");
@@ -205,7 +205,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   useEffect(() => {
     let cancelled = false;
     const retained = loadedPage.current;
-    const sameQuery = retained?.search === search && retained.request === onRequest;
+    const sameQuery = retained?.[0] === search && retained[1] === onRequest;
     if (!sameQuery) { setPage(null); setSelectedID(null); }
     setExportSelection([]);
     setLoading(true);
@@ -216,7 +216,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
           if (offset > 0 && offset >= response.total) setOffset(Math.max(0, Math.floor((response.total - 1) / pageSize) * pageSize));
           else {
             setPage(result<LogbookPage>(response));
-            loadedPage.current = { search, request: onRequest };
+            loadedPage.current = [search, onRequest];
             setSelectedID(current => response.qsos.some(qso => qso.id === current) ? current : null);
           }
         }
@@ -240,7 +240,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
     } else if (!response.total && pageOffset > 0) setOffset(0);
     else {
       setPage(response);
-      loadedPage.current = { search, request: onRequest };
+      loadedPage.current = [search, onRequest];
     }
   }
 

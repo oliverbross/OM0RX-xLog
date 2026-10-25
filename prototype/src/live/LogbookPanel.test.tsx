@@ -110,12 +110,12 @@ describe("logbook read recovery", () => {
     fireEvent.click(screen.getByText("OM0RX").closest("tr")!);
     edit.mockClear();
     fireEvent.change(screen.getByRole("textbox", { name: "Search logbook" }), { target: { value: "VK8AA" } });
-    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Search", exact: true })); });
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: /^Search$/ })); });
     expect(screen.queryByText("OM0RX")).toBeNull();
     await act(async () => { await vi.advanceTimersByTimeAsync(7_850); });
     expect(screen.getByRole("alert").textContent).toContain("did not finish loading");
-    expect((screen.getByRole("button", { name: "Edit", exact: true }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole("button", { name: "Delete", exact: true }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: /^Edit$/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: /^Delete$/ }) as HTMLButtonElement).disabled).toBe(true);
     failing = false;
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Retry logbook" })); });
     expect(screen.getByText("VK8AA")).toBeTruthy();
