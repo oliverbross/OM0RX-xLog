@@ -40,8 +40,11 @@ count only acceptance timestamps after this launch request. The first sample had
 32.578 seconds after launch request; the
 later sample had 10 fresh receipts and an advancing
 acceptance timestamp after more than one minute. This confirms fresh agent
-acceptance rather than merely the presence of old persisted receipts. Physical
-Maestro marker display and long-duration behavior remain separate observations.
+acceptance rather than merely the presence of old persisted receipts. On
+2026-10-25 the operator explicitly confirmed the installed 1.3.18 Flex/Maestro
+markers: **“Yes, visible now.”** This is operator-reported physical display
+acceptance, not an agent observation. Long-duration delivery behavior remains
+unverified; recorder audio acceptance is separate and pending.
 
 Backup: `/Users/oliver/Documents/Backups/OM0RX-xLog-1.3.18-before-install-20261025`.
 Rollback: `/Applications/OM0RX-xLog-previous-1.3.17-20261025.app`.

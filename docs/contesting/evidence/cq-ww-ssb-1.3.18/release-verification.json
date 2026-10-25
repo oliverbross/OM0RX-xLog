@@ -137,10 +137,16 @@
   "firstSampleSecondsAfterLaunchRequest": 32.578,
   "analytics": "Installed 1.3.17 Contest menu contained Analytics and opened the 351-contact log; unchanged in 1.3.18",
   "limitations": [
-    "Physical Flex/Maestro marker display awaits operator confirmation for 1.3.18",
     "No long-duration delivery soak claimed",
     "No production test QSO, radio tune, PTT, audio, CW or rotor action",
     "Notarization not claimed",
     "Recorder hardware acceptance remains separate and pending"
-  ]
+  ],
+  "physicalDisplay": {
+    "status": "operator_confirmed",
+    "confirmedDate": "2026-10-25",
+    "operatorReply": "Yes, visible now",
+    "scope": "Installed1.3.18 Flex/Maestro markers",
+    "agentPhysicalObservation": false
+  }
 }
