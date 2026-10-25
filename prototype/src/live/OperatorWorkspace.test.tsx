@@ -91,7 +91,7 @@ describe("operator workspace", () => {
     expect(age.classList.contains("live-cluster-age-strip")).toBe(true);
     expect((age as HTMLElement).style.backgroundColor).toBe("rgb(22, 101, 52)");
     view.rerender(<OperatorWorkspace map={<div>Existing map</div>} bandMaps={<div>Existing band maps</div>} cluster={projection(1)} selectedSpotId="feed-0" onSelect={vi.fn()} />);
-    expect(screen.getByRole("row", { name: "Select VK8NSB at 14.025000 MHz" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("row", { name: "Select VK8NSB at 14.025.0 MHz" }).getAttribute("aria-selected")).toBe("true");
     expect((screen.getByText("Now") as HTMLElement).style.backgroundColor).toBe("rgb(22, 101, 52)");
   });
   it("retains map and band-map local state across tab switches, with accessible keyboard tabs", () => {
@@ -118,7 +118,7 @@ describe("operator workspace", () => {
   });
   it("selects only real spots by explicit activation, never hover/focus, and keeps palette/status evidence", () => {
     const { onSelect } = mount(); clusterTab();
-    const row = screen.getByRole("row", { name: "Select VK8NSB at 14.025000 MHz" });
+    const row = screen.getByRole("row", { name: "Select VK8NSB at 14.025.0 MHz" });
     const rowMarkup = row.innerHTML;
     fireEvent.mouseEnter(row); expect(row.innerHTML).toBe(rowMarkup); fireEvent.focus(row); expect(onSelect).not.toHaveBeenCalled();
     expect((within(row).getByText("20m") as HTMLElement).style.color).toBe("rgb(18, 52, 86)");

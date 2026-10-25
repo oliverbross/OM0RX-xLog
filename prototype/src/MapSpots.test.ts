@@ -55,6 +55,6 @@ describe("map spot identity", () => {
   });
 
   it("shows frequency, classification, source and note as plain detail text", () => {
-    expect(mapSpotDetails(spot())).toEqual(["14.074000 MHz · 20m · FT8", "United States · needed", "Reported by OM0RX", "CQ"]);
+    expect(mapSpotDetails(spot())).toEqual(["14.074.0 MHz · 20m · FT8", "United States · needed", "Reported by OM0RX", "CQ"]);
   });
 });

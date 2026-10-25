@@ -1,3 +1,4 @@
+import { formatSpotFrequency } from "./spotFrequency";
 import type { Spot } from "./model";
 
 export type MapSpot = Omit<Spot, "mode"> & { mode: string; receivedAt?: number; locationOnly?: boolean };
@@ -31,7 +32,7 @@ export function dxccPrefixLabel(value: unknown): string {
 
 export function mapSpotDetails(spot: MapSpot): string[] {
   return [
-    spot.locationOnly ? "Scheduled operation · frequency not supplied" : `${spot.mhz.toFixed(6)} MHz · ${spot.band} · ${spot.mode}`,
+    spot.locationOnly ? "Scheduled operation · frequency not supplied" : `${formatSpotFrequency(spot.mhz * 1_000_000)} MHz · ${spot.band} · ${spot.mode}`,
     [spot.country, spot.callStatus ?? spot.state].filter(Boolean).join(" · "),
     ...(spot.reporter ? [`Reported by ${spot.reporter}`] : []),
     ...(spot.note ? [spot.note] : []),

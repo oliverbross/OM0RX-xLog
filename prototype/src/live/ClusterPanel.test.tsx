@@ -685,3 +685,17 @@ describe("cluster toolbar panels", () => {
     expect(dock).toHaveBeenCalledOnce(); expect(onRequest).not.toHaveBeenCalled();
   });
 });
+
+ it("displays compact spot frequencies while selecting the original exact frequency",()=>{
+  const data=response(),onSelect=vi.fn();
+  data.snapshot.spots=[{id:"compact",receivedAt:812000000,clusterName:"ShackCQ",spotter:"K1ABC",frequencyKHz:7150.349,
+    frequencyText:"7150.349",callsign:"K1ABC",comment:"CQ WW",band:"40m",mode:"SSB",country:"USA",continent:"NA",cqZone:5,
+    callStatus:"New Call",dxccStatus:"New Band",specialTags:[],score:80,scoreReasons:[],aggregateCount:1,aggregateSpotters:[],
+    source:"cluster",statusHex:"",bandHex:"",modeHex:"",contestPoints:3,contestDupe:false,contestMultiplierCount:0}] as any;
+  render(<ClusterPanel passive presentationOnly contestPresentation taskOnly snapshot={data} onRequest={vi.fn()} onSelect={onSelect}/>);
+  const row=screen.getByRole("row",{name:"K1ABC spot"});
+  expect(within(row).getByText("7.150.3")).toBeTruthy();
+  fireEvent.click(row);
+  expect(onSelect.mock.calls[0][0].frequencyKHz).toBe(7150.349);
+  expect(screen.getByText("7.150.3 MHz")).toBeTruthy();
+});

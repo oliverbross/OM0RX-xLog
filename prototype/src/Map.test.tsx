@@ -371,9 +371,9 @@ describe("map spot inspection", () => {
     const map = harness.maps[0];
     expect(screen.getByLabelText("Home station OM0RX").textContent).toBe("OM0RX");
     expect(screen.getByLabelText("Target K1ABC").textContent).toBe("K1ABC");
-    const annotation = screen.getByRole("note", { name: /Short path.*14\.250010 MHz/ });
+    const annotation = screen.getByRole("note", { name: /Short path.*14\.250\.0 MHz/ });
     expect(annotation.querySelector(".map-route-distance")?.textContent).toMatch(/^SP · [\d,]+ km$/);
-    expect(annotation.querySelector(".map-route-frequency")?.textContent).toBe("14.250010 MHz");
+    expect(annotation.querySelector(".map-route-frequency")?.textContent).toBe("14.250.0 MHz");
     expect(annotation.querySelector(".map-route-distance")?.nextElementSibling?.className).toBe("map-route-label-gap");
     fireEvent.click(screen.getByRole("button", { name: "Short path" }));
     expect(screen.getByRole("note", { name: /Long path/ }).querySelector(".map-route-distance")?.textContent).toMatch(/^LP · [\d,]+ km$/);
@@ -397,7 +397,7 @@ describe("map spot inspection", () => {
     expect(screen.getByRole("note", { name: /Short path/ }).querySelector(".map-route-frequency")).toBeNull();
     expect(routeFrequencyLabel(undefined)).toBeNull();
     expect(routeFrequencyLabel(14_250_000.5)).toBeNull();
-    expect(routeFrequencyLabel(14_250_000)).toBe("14.250000 MHz");
+    expect(routeFrequencyLabel(14_250_000)).toBe("14.250.0 MHz");
   });
 
   it("places a route annotation near its arc midpoint without crossing a date-line seam", () => {
@@ -547,7 +547,7 @@ describe("map spot inspection", () => {
     fireEvent.mouseLeave(marker);
     expect(screen.queryByRole("tooltip")).toBeNull();
     fireEvent.focus(marker);
-    expect(screen.getByRole("tooltip").textContent).toContain("14.074000 MHz");
+    expect(screen.getByRole("tooltip").textContent).toContain("14.074.0 MHz");
     expect(tune).not.toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled();
     fireEvent.keyDown(marker, { key: "Escape" });
@@ -560,7 +560,7 @@ describe("map spot inspection", () => {
     const original = screen.getByRole("button", { name: /K1ABC.*Activate to tune/ });
     const latest = spot({ id: "feed-2", receivedAt: 2, mhz: 7.074, band: "40m" });
     rerender(<WorldMap data={[spot(), latest]} selected="feed-1" fixture onSpot={tune} />);
-    const refreshed = screen.getByRole("button", { name: /K1ABC.*7.074000/ });
+    const refreshed = screen.getByRole("button", { name: /K1ABC.*7\.074\.0/ });
     expect(refreshed).toBe(original);
     expect(screen.getByText("1 mapped")).toBeTruthy();
     expect(refreshed.getAttribute("aria-current")).toBe("true");

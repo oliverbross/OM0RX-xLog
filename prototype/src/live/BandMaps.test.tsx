@@ -54,7 +54,7 @@ it("keeps the zoomed range and exact clicked spot frequency when the observed VF
   view.rerender(<BandMaps {...props} spots={[{...sx,contestMultiplierCount:0},other]} radioFrequencyHz={7147000} selectedSpotId="SX5P"/>);
   expect(screen.getByLabelText(/^40m spectrum,/)).toBe(before);
   expect(before.getAttribute("aria-label")).toBe(range);
-  expect(screen.getByRole("img",{name:"Current VFO 7.147000 MHz"})).toBeTruthy();
+  expect(screen.getByRole("img",{name:"Current VFO 7.147.0 MHz"})).toBeTruthy();
 });
 
 it("explains only locally observed filtering counts without inventing upstream received totals",()=>{
@@ -133,9 +133,9 @@ describe("native band-map parity", () => {
     expect(filterRecentBandMapSpots([recent, old, legacy], 30, now).map(item => item.id)).toEqual(["recent", "legacy"]);
   });
 
-  it("formats the scale in compact kHz notation", () => {
-    expect(formatBandMapFrequency(7000)).toBe("7,000");
-    expect(formatBandMapFrequency(14023.7)).toBe("14,023.7");
+  it("formats the scale in compact grouped notation", () => {
+    expect(formatBandMapFrequency(7000)).toBe("7.000.0");
+    expect(formatBandMapFrequency(14023.7)).toBe("14.023.7");
     expect(bandMapFrequencyTicks({ low: 14000, high: 14350 })).toEqual([14000, 14050, 14100, 14150, 14200, 14250, 14300, 14350]);
     expect(bandMapFrequencyTicks({ low: 7000, high: 7200 }, 1000)).toEqual(Array.from({ length: 41 }, (_, index) => 7000 + index * 5));
   });
@@ -146,7 +146,7 @@ describe("native band-map parity", () => {
     const old = { ...spot("old", 14023.7), callsign: "OK2BUH", receivedAt: appleNow - 100 };
     const newest = { ...spot("new", 14023.7), callsign: "OK2BUH", receivedAt: appleNow };
     render(<BandMaps spots={[old, newest]} onSelect={onSelect} />);
-    const markers = screen.getAllByRole("button", { name: /OK2BUH.*14\.023700 MHz/ });
+    const markers = screen.getAllByRole("button", { name: /OK2BUH.*14\.023\.7 MHz/ });
     expect(markers).toHaveLength(1);
     fireEvent.click(markers[0]);
     expect(onSelect).toHaveBeenCalledWith(newest);
@@ -159,8 +159,8 @@ describe("native band-map parity", () => {
     const qsy = { ...spot("qsy", 14025), callsign: "OK2BUH", receivedAt: appleNow + 2 };
     render(<BandMaps spots={[first, firstCopy, qsy]} onSelect={vi.fn()} />);
     expect(screen.getAllByRole("button", { name: /OK2BUH/ })).toHaveLength(2);
-    expect(screen.getByRole("button", { name: /14\.023700 MHz/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /14\.025000 MHz/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /14\.023\.7 MHz/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /14\.025\.0 MHz/ })).toBeTruthy();
   });
 
   it("offers compact bottom controls for band, resolution and spot age", () => {
@@ -171,9 +171,9 @@ describe("native band-map parity", () => {
     expect(changeBand).toHaveBeenCalledWith("20m");
     fireEvent.change(screen.getByLabelText("Band map resolution"), { target: { value: "5" } });
     expect((screen.getByLabelText("Band map resolution") as HTMLSelectElement).value).toBe("5");
-    expect(screen.getByLabelText("40m spectrum, 7.098–7.202 MHz")).toBeTruthy();
+    expect(screen.getByLabelText("40m spectrum, 7.098.0–7.202.0 MHz")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Band map resolution"), { target: { value: "10" } });
-    expect(screen.getByLabelText("40m spectrum, 7.124–7.176 MHz")).toBeTruthy();
+    expect(screen.getByLabelText("40m spectrum, 7.124.0–7.176.0 MHz")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Spot age"), { target: { value: "45" } });
     expect((screen.getByLabelText("Spot age") as HTMLSelectElement).value).toBe("45");
   });
@@ -232,7 +232,7 @@ describe("native band-map parity", () => {
     expect(screen.queryByRole("button", { name: /DATA40 ·/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /EXPLICITCW ·/ })).toBeNull();
     expect(screen.getByRole("button", { name: /PHONE40 ·/ })).toBeTruthy();
-    expect(screen.getByText("7.050–7.200 MHz")).toBeTruthy();
+    expect(screen.getByText("7.050.0–7.200.0 MHz")).toBeTruthy();
   });
   it("does not reclassify shared FT8 reports as phone in the overlapping CQ WW range",()=>{
     const plan=defaultContestBandPlan(["40m"]);
@@ -259,7 +259,7 @@ describe("native band-map parity", () => {
     expect(screen.queryByRole("button", { name: /EXPLICITCW ·/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /PHONE20 ·/ })).toBeNull();
     expect(screen.getByRole("button", { name: /PHONE40 ·/ })).toBeTruthy();
-    expect(screen.getByText("7.050–7.200 MHz")).toBeTruthy();
+    expect(screen.getByText("7.050.0–7.200.0 MHz")).toBeTruthy();
     fireEvent.click(screen.getByLabelText("40m mode visibility settings"));
     expect(screen.getByRole("checkbox", { name: "SSB / Phone" })).toBeTruthy();
     expect(screen.queryByRole("checkbox", { name: "CW" })).toBeNull();
@@ -269,11 +269,11 @@ describe("native band-map parity", () => {
     const props = { compact:true, contestPresentation:true, storageNamespace:"contest.vfo", contestBandPlan:plan,
       contestBands:["40m"], contestAllowedModes:["phone" as const], spots:[], onSelect:vi.fn() };
     const { rerender } = render(<BandMaps {...props} radioFrequencyHz={7_150_000}/>);
-    const marker = screen.getByRole("img", { name:"Current VFO 7.150000 MHz" });
+    const marker = screen.getByRole("img", { name:"Current VFO 7.150.0 MHz" });
     expect(marker.classList.contains("band-map-vfo-marker")).toBe(true);
     expect(Number.parseFloat(marker.style.top)).toBeCloseTo(66.67,1);
     rerender(<BandMaps {...props} radioFrequencyHz={7_200_000}/>);
-    expect(screen.getByRole("img", { name:"Current VFO 7.200000 MHz" }).style.top).toBe("100%");
+    expect(screen.getByRole("img", { name:"Current VFO 7.200.0 MHz" }).style.top).toBe("100%");
     rerender(<BandMaps {...props} radioFrequencyHz={7_020_000}/>);
     expect(screen.queryByRole("img", { name:/Current VFO/ })).toBeNull();
     rerender(<BandMaps {...props} radioFrequencyHz={undefined}/>);
@@ -716,7 +716,7 @@ describe("native band-map parity", () => {
     const realSpot = { ...spot("OM0RX", 14070), country: "SLOVAK REPUBLIC" };
     render(<BandMaps spots={[realSpot]} onSelect={onSelect} />);
     const panel = screen.getByRole("region", { name: "20m band map" });
-    const marker = within(panel).getByRole("button", { name: /OM0RX.*14\.070000 MHz/ });
+    const marker = within(panel).getByRole("button", { name: /OM0RX.*14\.070\.0 MHz/ });
     expect(marker.getAttribute("aria-label")).toContain("Slovak Republic");
     expect(marker.textContent).toBe("OM0RXNC");
     fireEvent.click(marker);
@@ -728,12 +728,12 @@ describe("native band-map parity", () => {
     render(<BandMaps spots={[spot("OM0RX", 14070)]} onSelect={vi.fn()} />);
     const panel = screen.getByRole("region", { name: "20m band map" });
     fireEvent.change(within(panel).getByLabelText("20m allocation"), { target: { value: "CW portion" } });
-    expect(within(panel).getByText("14.000–14.070 MHz")).toBeTruthy();
+    expect(within(panel).getByText("14.000.0–14.070.0 MHz")).toBeTruthy();
     fireEvent.click(within(panel).getByRole("button", { name: "Zoom 20m in" }));
-    expect(within(panel).queryByText("14.000–14.070 MHz")).toBeNull();
+    expect(within(panel).queryByText("14.000.0–14.070.0 MHz")).toBeNull();
     fireEvent.click(within(panel).getByRole("button", { name: "Pan 20m higher" }));
     fireEvent.click(within(panel).getByRole("button", { name: "Reset 20m range" }));
-    expect(within(panel).getByText("14.000–14.350 MHz")).toBeTruthy();
+    expect(within(panel).getByText("14.000.0–14.350.0 MHz")).toBeTruthy();
   });
 
   it("places crowded labels in unique lanes and reports overflow", () => {

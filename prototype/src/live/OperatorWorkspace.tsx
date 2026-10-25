@@ -1,3 +1,4 @@
+import { formatSpotFrequency } from "../spotFrequency";
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { clusterRowTint, clusterSpotTags, type ClusterPalette, type LiveClusterSpot } from "./ClusterPanel";
 import { defaultClusterFilter, normalizeClusterFilter, type ClusterFilter } from "./clusterFilters";
@@ -19,7 +20,7 @@ const spotTags = (spot: LiveClusterSpot): string[] => clusterSpotTags(spot);
 function spotText(column: CompactColumn, spot: LiveClusterSpot, now: number): string {
   switch (column) {
     case "time": return formatSpotAge(spot.receivedAt, now);
-    case "frequency": return (spot.frequencyKHz / 1000).toFixed(6);
+    case "frequency": return formatSpotFrequency(spot.frequencyKHz * 1000);
     case "cq": return String(spot.cqZone ?? "—");
     case "country": return countryDisplay(spot.country);
     case "spotter": return `${spot.spotter}${spot.aggregateCount > 1 ? ` +${spot.aggregateCount - 1}` : ""}`;
@@ -155,7 +156,7 @@ export function OperatorWorkspace({ map, bandMaps, cluster, onSelect, onRequest,
                 if (value != null) { event.preventDefault(); setColumnWidth(column, value); } }}
               onPointerDown={event => { if (event.button !== 0) return; event.preventDefault(); drag.current = { kind: column, startX: event.clientX, startWidth: preferences.widths[column], total: totalWidth, pixels: event.currentTarget.closest("table")?.getBoundingClientRect().width || 1 }; event.currentTarget.setPointerCapture?.(event.pointerId); }}
               onPointerMove={event => move(event.clientX)} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }} /></th>; })}</tr></thead>
-          <tbody>{spots.slice(offset, offset + rows).map(spot => <tr key={spot.id} tabIndex={0} aria-selected={selectedSpotId === spot.id} aria-label={`Select ${spot.callsign} at ${(spot.frequencyKHz / 1000).toFixed(6)} MHz`} style={{ backgroundColor: selectedSpotId === spot.id ? undefined : clusterRowTint(spot.dxccStatus, colors?.status) }}
+          <tbody>{spots.slice(offset, offset + rows).map(spot => <tr key={spot.id} tabIndex={0} aria-selected={selectedSpotId === spot.id} aria-label={`Select ${spot.callsign} at ${formatSpotFrequency(spot.frequencyKHz * 1000)} MHz`} style={{ backgroundColor: selectedSpotId === spot.id ? undefined : clusterRowTint(spot.dxccStatus, colors?.status) }}
             onClick={() => onSelect(spot)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect(spot); } }}>
             {preferences.columns.map(column => <td key={column} title={spotText(column, spot, ageClock)} className={column === "frequency" ? "cyan mono" : column === "callsign" ? "live-cluster-call" : column === "callStatus" || column === "dxccStatus" ? "live-cluster-status-column" : ""}>{cell(column, spot, ageClock, colors)}</td>)}</tr>)}</tbody></table>
           {!spots.length && <p className="operator-cluster-empty">{projection?.snapshot ? "No spots in the current live cluster view." : "Awaiting live cluster state."}</p>}

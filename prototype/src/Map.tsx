@@ -1,3 +1,4 @@
+import { formatSpotFrequency } from "./spotFrequency";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
@@ -140,7 +141,7 @@ export function routeLabelPosition(sections: Coordinate[][]): { point: Coordinat
 
 export function routeFrequencyLabel(frequencyHz?: number): string | null {
   if (typeof frequencyHz !== "number" || !Number.isSafeInteger(frequencyHz) || frequencyHz <= 0) return null;
-  const mhz = (frequencyHz / 1_000_000).toFixed(6);
+  const mhz = formatSpotFrequency(frequencyHz);
   return `${mhz} MHz`;
 }
 

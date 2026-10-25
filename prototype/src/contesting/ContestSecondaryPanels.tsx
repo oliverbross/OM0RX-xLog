@@ -1,3 +1,4 @@
+import { formatSpotFrequency } from "../spotFrequency";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ContestRatesSurfaceProjection, ContestMatrixSurfaceProjection, ContestMatrixSurfaceProjectionV4 } from "./contestSurfaceProtocol";
 import { contestBandMapSpotColor } from "../live/BandMaps";
@@ -91,7 +92,7 @@ export function Matrix({ projection,preferenceScope,onSelectSpot }: { projection
           ref={element => { if (element) rows.current.set(key, element); else rows.current.delete(key); }} aria-current={current ? "true" : undefined}>
           <th scope="row">{row.label}</th>{visibleBands.map(band => <td key={band} className={row.counts[band] > 0 ? "contest-surface-worked" : undefined}>
            {(row.counts[band]??0).toLocaleString()}<span className="contest-matrix-spots">{(row.availableSpots?.[band]??[]).map(spot=><button type="button" key={spot.spotID}
-             disabled={projection.busy||!onSelectSpot} style={{color:contestBandMapSpotColor(spot)}} title={`${spot.callsign} · ${(spot.frequencyKHz/1000).toFixed(6)} MHz · ${spot.mode}`}
+             disabled={projection.busy||!onSelectSpot} style={{color:contestBandMapSpotColor(spot)}} title={`${spot.callsign} · ${formatSpotFrequency(spot.frequencyKHz * 1000)} MHz · ${spot.mode}`}
              aria-label={`Select ${spot.callsign} for ${row.label} on ${band}`} onClick={()=>onSelectSpot?.(spot.spotID)}>{spot.callsign}</button>)}</span></td>)}<td>{visibleTotal.toLocaleString()}</td></tr>; })}
       </tbody></table>)}</div></div>
   </section>;

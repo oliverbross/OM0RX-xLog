@@ -1,3 +1,4 @@
+import { formatSpotFrequency } from "../spotFrequency";
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
 import { clusterBandColors, clusterModeColors, clusterStatusCode, clusterStatusColors, paletteColor, specialTagColors } from "./clusterPalette";
 import { boundColumnWidth, compactClusterColumns, compactClusterHeader, defaultWorkspacePreferences, readWorkspacePreferences, type CompactColumn } from "./operatorWorkspacePreferences";
@@ -559,7 +560,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
         case "age":return <td key={id} className="mono live-cluster-age" title={`Received ${formatDate(spot.receivedAt)}`}>{formatSpotAge(spot.receivedAt,ageClock)}</td>;
         case "points":return <td key={id}><span className="live-cluster-score">{spot.contestPoints??"—"}</span></td>;
         case "band":return <td key={id}>{spot.band}</td>;
-        case "frequency":return <td key={id} className="cyan mono">{spot.id===currentVfoSpot&&<span className="contest-vfo-indicator" aria-label="Current VFO">▶ </span>}{(spot.frequencyKHz/1000).toFixed(6)}</td>;
+        case "frequency":return <td key={id} className="cyan mono">{spot.id===currentVfoSpot&&<span className="contest-vfo-indicator" aria-label="Current VFO">▶ </span>}{formatSpotFrequency(spot.frequencyKHz * 1000)}</td>;
         case "callsign":return <td key={id} className="contest-col-callsign"><span className={`live-cluster-call${contestBandMapSpotPending(spot)?" is-pending":""}`} title={contestBandMapSpotPending(spot)?"Classification pending":undefined} style={{color:contestBandMapSpotColor(spot)}}>{spot.marked&&<span className="live-cluster-mark" aria-label="Marked">★ </span>}{spot.callsign}</span></td>;
         case "mode":return <td key={id}>{spot.mode}</td>;
         case "country":return <td key={id} className="contest-col-country" title={countryDisplay(spot.country)}>{countryDisplay(spot.country)}</td>;
@@ -594,7 +595,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
         style={{ backgroundColor: presentationOnly ? undefined : spotAgeColor(spot.receivedAt, ageClock) }} title={`Received ${formatDate(spot.receivedAt)}`}>{formatSpotAge(spot.receivedAt, ageClock)}</td>
       <td hidden={!visibleColumns.has("score")}><span className={`live-cluster-score ${(displayedScore??0) >= 80 ? "priority" : (displayedScore??0) >= 55 ? "high" : (displayedScore??0) >= 30 ? "medium" : "low"}`}>{displayedScore??"—"}</span></td>
       <td hidden={!visibleColumns.has("band")}><span className="live-cluster-category" style={{ color: paletteColor(spot.band, configuration?.palette.band, clusterBandColors) }}>{spot.band}</span></td>
-      <td hidden={!visibleColumns.has("frequency")} className="cyan mono">{(spot.frequencyKHz / 1000).toFixed(6)}</td>
+      <td hidden={!visibleColumns.has("frequency")} className="cyan mono">{formatSpotFrequency(spot.frequencyKHz * 1000)}</td>
       <td hidden={!visibleColumns.has("callsign")}>{presentationOnly ? <span className="live-cluster-call">{spot.marked && <span className="live-cluster-mark" aria-label="Marked">★ </span>}{spot.callsign}</span>
         : <button type="button" className="call-button live-cluster-call" onClick={(event) => { event.stopPropagation(); void openHistory(spot); }} title="Show previous QSOs">{spot.callsign}</button>}</td>
       <td hidden={!visibleColumns.has("mode")}><span className="live-cluster-category" style={{ color: paletteColor(spot.mode, configuration?.palette.mode, clusterModeColors) }}>{spot.mode}</span></td>
@@ -618,7 +619,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
     </footer>}
     {selectedSpot && <div className="live-cluster-inspector" aria-label="Selected spot details">
       <div><strong>{selectedSpot.callsign}</strong><span>{countryDisplay(selectedSpot.country)}</span></div>
-      <div><small>Frequency</small><span>{(selectedSpot.frequencyKHz / 1000).toFixed(6)} MHz</span></div>
+      <div><small>Frequency</small><span>{formatSpotFrequency(selectedSpot.frequencyKHz * 1000)} MHz</span></div>
       <div><small>Path</small><span>{selectedSpot.spotter} · {selectedSpot.clusterName}</span></div>
       <div><small>Priority</small><span>{selectedSpot.score} · {selectedSpot.scoreReasons.join(", ") || "No score reasons"}</span></div>
       <div><small>Comment</small><span>{selectedSpot.comment || "No cluster comment"}</span></div>

@@ -1,3 +1,4 @@
+import { formatSpotFrequency } from "../spotFrequency";
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
@@ -102,7 +103,7 @@ export function deduplicateBandMapSpots<T extends BandMapSpot>(spots: T[], lates
 }
 
 export function formatBandMapFrequency(frequencyKHz: number): string {
-  return new Intl.NumberFormat("en-US", { minimumFractionDigits: Number.isInteger(frequencyKHz) ? 0 : 1, maximumFractionDigits: 1 }).format(frequencyKHz);
+  return formatSpotFrequency(frequencyKHz * 1000);
 }
 
 export function bandMapFrequencyTicks(view: ViewRange, chartHeight = 208, fontScale = 1): number[] {
@@ -385,7 +386,7 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
   const allBandCount = spots.filter((spot) => spot.band === band && finite(spot.frequencyKHz) !== null).length;
   const selectedSegment = full.allocations.find((part) => part.low === view.low && part.high === view.high);
   const segmentName = selectedSegment ? `${selectedSegment.name} portion` : view.low === full.low && view.high === full.high ? "Full band" : "Custom range";
-  const rangeLabel = `${(view.low / 1000).toFixed(3)}–${(view.high / 1000).toFixed(3)} MHz`;
+  const rangeLabel = `${formatSpotFrequency(view.low * 1000)}–${formatSpotFrequency(view.high * 1000)} MHz`;
   const observedRadioFrequency = finite(radioFrequencyKHz);
   const visibleRadioFrequency = contestPresentation && observedRadioFrequency !== null
     && observedRadioFrequency >= view.low && observedRadioFrequency <= view.high
@@ -451,8 +452,8 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
         return <div key={frequency} className="band-map-gridline" data-edge={index === 0 ? "upper" : index === ticks.length - 1 ? "lower" : undefined} style={{ top: `${fraction * 100}%` }} aria-hidden="true"><span>{formatBandMapFrequency(frequency)}</span></div>;
       })}
       {visibleRadioFrequency !== null && <span className="band-map-vfo-marker" role="img"
-        aria-label={`Current VFO ${(visibleRadioFrequency / 1000).toFixed(6)} MHz`}
-        title={`Current VFO ${(visibleRadioFrequency / 1000).toFixed(6)} MHz`}
+        aria-label={`Current VFO ${formatSpotFrequency(visibleRadioFrequency * 1000)} MHz`}
+        title={`Current VFO ${formatSpotFrequency(visibleRadioFrequency * 1000)} MHz`}
         style={{ top: `${((visibleRadioFrequency - view.low) / (view.high - view.low)) * 100}%`, left: axis - 5 }} />}
       {contestPresentation && <svg className="band-map-spot-leaders" aria-hidden="true" width={width} height={chartHeight}>
         {placed.map(({spot,lane,top,anchorTop,key}) => {
@@ -466,7 +467,7 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
       {placed.map(({ spot, lane, top, anchorTop, key }) => {
         const color = contestPresentation?contestBandMapSpotColor(spot):bandMapSpotColor(spot);
         const code = contestPresentation ? "" : opportunityCode(spot);
-        const tooltip = `${text(spot.callsign)} · ${(spot.frequencyKHz / 1000).toFixed(6)} MHz · ${text(spot.mode)} · ${text(spot.callStatus)} · ${text(spot.dxccStatus)}${contestPresentation?` · ${contestPointDescription(spot)}`:""}${spot.country ? ` · ${countryDisplay(spot.country)}` : ""}${spot.comment ? ` · ${text(spot.comment)}` : ""}`;
+        const tooltip = `${text(spot.callsign)} · ${formatSpotFrequency(spot.frequencyKHz * 1000)} MHz · ${text(spot.mode)} · ${text(spot.callStatus)} · ${text(spot.dxccStatus)}${contestPresentation?` · ${contestPointDescription(spot)}`:""}${spot.country ? ` · ${countryDisplay(spot.country)}` : ""}${spot.comment ? ` · ${text(spot.comment)}` : ""}`;
         const centre = axis + laneWidth * (lane + 0.5);
         return <Fragment key={key}>{!contestPresentation && <span className="band-map-spot-anchor" aria-hidden="true" style={{ top: anchorTop, left: axis - 4, width: Math.max(8, centre - axis + 4), color }} />}
           <button type="button" className={`band-map-spot${contestPresentation && contestBandMapSpotWorked(spot) ? " is-worked" : ""}${contestPresentation&&contestBandMapSpotPending(spot)?" is-pending":""}${spot.marked ? " is-marked" : ""}${selectedSpotId === String(spot.id) ? " is-selected" : ""}`}
