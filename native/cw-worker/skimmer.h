@@ -14,6 +14,7 @@ struct SkimmerEvent {
   uint64_t source_first_sample=0;
   double filter_delay_seconds=0;
   bool replay=false;
+  uint64_t track_revision=0;
 };
 struct SkimmerMetrics { size_t sources,tracks,pending,in_flight; uint64_t coalesced,dropped_events; };
 /// One instance owns two spans and a fixed shared CPU inference pool. Radio

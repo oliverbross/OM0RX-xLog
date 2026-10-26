@@ -111,6 +111,7 @@ struct Skimmer::Impl {
   void emit(SkimmerEvent event,const std::shared_ptr<Track>& track={},std::optional<uint64_t> revision={}) {
     if(track) { event.source_first_sample=track->origin; event.filter_delay_seconds=track->channel.group_delay_seconds(); event.replay=track->replay; }
     QueuedEvent item{std::move(event),track,revision.value_or(track?track->revision.load():0)};
+    item.event.track_revision=item.revision;
     std::lock_guard<std::mutex> lock(events_mutex);
     // Coalesce superseded derived copy, not transmitted occurrence identities.
     if(item.event.kind=="decode") {

@@ -75,6 +75,7 @@ struct Engine::Impl {
   }
 };
 Engine::Engine(const std::string& path):impl(std::make_unique<Impl>(path)) {}
+std::string Engine::runtime_version() { return OrtGetApiBase()->GetVersionString(); }
 Engine::~Engine()=default;
 Decode Engine::decode(const std::vector<float>& audio,uint64_t first) {
   if (audio.size()<16000 || audio.size()>32000 || first>UINT64_MAX-audio.size()) throw std::invalid_argument("Inference requires 5..10 seconds and a valid sample range");
