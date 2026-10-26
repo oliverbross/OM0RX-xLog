@@ -17,6 +17,10 @@ capabilities, so the two observations are not atomic. An omitted observation is
 unknown, not receive confirmation. This diagnostic does not weaken acquisition
 checks or issue additional commands. `readAt` is the inspector's read time,
 not the timestamp of the radio's interlock status or proof of its age.
+IQ capabilities can also include `interlockEvidence`: whether the latest IQ
+parser saw no state field, one field or multiple fields, a single bounded ASCII
+state token when valid, and that parser's existing receive acceptance result.
+This is refusal attribution, not an additional receive-state authority.
 
 Offline preparation:
 

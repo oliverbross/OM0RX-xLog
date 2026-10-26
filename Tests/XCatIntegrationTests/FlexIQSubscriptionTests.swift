@@ -34,6 +34,29 @@ final class FlexIQSubscriptionTests:XCTestCase {
         XCTAssertFalse(commands.contains{$0.hasPrefix("stream ") || $0.hasPrefix("client udpport")})
         await wire.stop()
     }
+    func testInterlockRefusalDiagnosticsAreBoundedAndCannotAuthorizeMissingOrAmbiguousState() async throws {
+        let (radio,wire)=try await setup()
+        for (body,fields,raw,accepted) in [
+            ("interlock state=READY","single","READY",true),
+            ("interlock tx_allowed=1","none",nil,false),
+            ("interlock state=TRANSMITTING state=READY","multiple",nil,false),
+            ("interlock state=ready","single","ready",false),
+            ("interlock state=PTT_REQUESTED","single","PTT_REQUESTED",false),
+            ("interlock state="+String(repeating:"X",count:100),"single",nil,false)
+        ] as [(String,String,String?,Bool)] {
+            await radio.iqConsumeStatus(body)
+            let value=await radio.iqCapabilities()
+            XCTAssertEqual(value.interlockEvidence?.stateFields,fields)
+            XCTAssertEqual(value.interlockEvidence?.rawState,raw)
+            XCTAssertEqual(value.interlockEvidence?.acceptedReceive,accepted)
+            XCTAssertEqual(value.transmitStateKnownOff,accepted)
+        }
+        let commands=await wire.commands
+        XCTAssertFalse(commands.contains{$0.hasPrefix("stream ")||$0.hasPrefix("client udpport")})
+        await radio.stopTransportOnly()
+        let closed=await radio.iqCapabilities();XCTAssertNil(closed.interlockEvidence)
+        await wire.stop()
+    }
     private func next(_ subscription:FlexIQSubscription) async throws -> FlexIQBlock {
         try await withThrowingTaskGroup(of:FlexIQBlock.self) {group in
             group.addTask {var iterator=subscription.blocks.makeAsyncIterator();guard let block=try await iterator.next() else{throw FlexIQSubscriptionError.stopped};return block}

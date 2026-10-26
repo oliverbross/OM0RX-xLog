@@ -17,6 +17,7 @@ struct FlexIQState {
     var preparing=false
     var identity:FlexIQIdentity?
     var receiveKnown=false
+    var interlockEvidence:FlexIQReceiveEvidence?
     var stationMatches:Set<UInt32>=[]
     var handoffs:[UInt32:FlexIQHandoff]=[:]
     var receiver:FlexIQDatagramReceiver?
@@ -56,7 +57,8 @@ extension FlexRadioClient {
             identity:iqState.identity,stationHandle:context?.stationHandle,
             panadapters:iqState.inventory.pans.values.sorted{$0.id<$1.id},requestableSampleRates:[48000,96000,192000],
             transmitStateKnownOff:context?.knownReceive ?? false,
-            handoffPanadapters:iqState.handoffs.filter{$0.value.expiresNS>now}.keys.map(FlexIQResourceInventory.identifier).sorted())
+            handoffPanadapters:iqState.handoffs.filter{$0.value.expiresNS>now}.keys.map(FlexIQResourceInventory.identifier).sorted(),
+            interlockEvidence:iqState.interlockEvidence)
     }
     /// Called only by the product's explicit handoff action after the operator
     /// releases other DAX consumers. Merely opening a window never grants this.
@@ -151,6 +153,12 @@ extension FlexRadioClient {
         if words.first=="interlock" {
             let states=words.dropFirst().filter{$0.hasPrefix("state=")}
             iqState.receiveKnown=states.count==1 && ["state=READY","state=RECEIVE"].contains(String(states[0]))
+            let raw=states.count==1 ? String(states[0].dropFirst(6)):nil
+            let safe=raw.flatMap{value in (1...32).contains(value.utf8.count) && value.utf8.allSatisfy({
+                (65...90).contains($0)||(97...122).contains($0)||(48...57).contains($0)||$0==95
+            }) ? value:nil}
+            iqState.interlockEvidence=FlexIQReceiveEvidence(stateFields:states.isEmpty ? "none":states.count==1 ? "single":"multiple",
+                rawState:safe,acceptedReceive:iqState.receiveKnown)
             iqRevalidate()
         }
         if iqState.inventory.consume(body){iqResolveCreatedStreams();iqRevalidate()}

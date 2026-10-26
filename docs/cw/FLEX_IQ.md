@@ -48,3 +48,22 @@ ZIP SHA-256 `60978db51dac6ea781899dd80832ad4e7876ce96ed72532b57106376fc26463f`.
 Reviewed `Discovery.cs`, `DAXIQStream.cs`, `Radio.cs`, `Panadapter.cs` and the VITA
 packet definitions as wire-format references only. No manufacturer implementation
 is copied, linked or redistributed. See [protocol source register](PROTOCOL_SOURCES.md).
+
+## Passive receive-state refusal diagnostics
+
+The coordinated hardware inventory found a normal control RX observation while
+the separate IQ receive gate remained false. No acquisition followed that
+discrepancy. `interlockEvidence` now exposes the latest IQ parser's state-field
+shape (`none`, `single`, `multiple`), a single ASCII alphanumeric/underscore
+token of at most 32 bytes when valid, and the existing acceptance result.
+Missing/duplicate/unknown states retain their existing refusal behavior. This
+diagnostic does not grant receive state, repair malformed evidence, add radio
+commands or change the acquisition predicate.
+
+The [manufacturer's interlock status specification](https://github.com/flexradio/smartsdr-api-docs/wiki/SmartSDR-Status-Responses#interlock--ptt-status)
+describes the state as always present. A missing field will therefore not be
+treated as an implicit receive confirmation. Eleven loopback IQ subscription
+tests pass, including bounded diagnostics, missing/duplicate/lowercase/transitional
+state refusal, lifecycle reset and the passive command allowlist. The developer
+inspector rebuilt and passed its no-network parser self-test. This is source and
+fixture evidence; the new diagnostic still awaits a coordinated hardware read.

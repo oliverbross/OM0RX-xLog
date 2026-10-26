@@ -86,3 +86,28 @@ was not executed or rerouted, and no additional allowlist entry was added.
 The human was asked to confirm the VPN and radio availability before another
 separately coordinated connection attempt. No cause of the connection failure
 is inferred from this run.
+
+## Coordinated v2 retry: control RX, IQ state unknown
+
+The human explicitly confirmed `VPN connected and Flex awake`. After a new
+readiness-owner live-window acknowledgement, one further 12-second passive run
+connected successfully. At `2026-10-26T11:14:11Z`, it again observed
+`OM0RX-WIN10 (SmartSDR-Win)`, Station handle `123016563` and owned panadapter
+`40000000` / DAX IQ 1 / ANT1, centred at 7.074000 MHz. Readiness was true,
+connection generation 1 and inventory revision `1`. VFO A was separately listed
+at 7.081800 MHz. Path metadata remained loopa/loopb/wide `0`, pre `+16dB` and an
+empty transverter field.
+
+The optional control-owner transmit observation was present: connected true,
+transmitting false, revision `3`, read at the same reported UTC second. The IQ
+capability's `transmitStateKnownOff` remained false. These are separate reads;
+their timestamps describe inspector reads, not the radio's event time. Neither
+the control observation nor the Station inventory overrides the IQ gate.
+
+Handoff and IQ acquisition stayed false. The inspector closed its transport,
+released the live window and did not automatically retry. This establishes
+restored point-in-time TCP reachability and a control/IQ evidence discrepancy;
+it does not identify the parser condition responsible or prove physical
+discovery, RF mapping or acquisition readiness. An offline bounded diagnostic
+was then prepared to expose the existing IQ interlock parser's refusal without
+changing its receive-state rule.

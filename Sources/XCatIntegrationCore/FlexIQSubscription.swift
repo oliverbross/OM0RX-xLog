@@ -54,6 +54,12 @@ public struct FlexIQSubscription:Sendable {
     public let leaseID:UUID
     public let blocks:AsyncThrowingStream<FlexIQBlock,Error>
 }
+/// Latest IQ interlock parser result. Diagnostic only; it cannot grant RX.
+public struct FlexIQReceiveEvidence:Encodable,Sendable {
+    public let stateFields:String
+    public let rawState:String?
+    public let acceptedReceive:Bool
+}
 public struct FlexIQCapabilities:Encodable,Sendable {
     public let connectionGeneration:Int
     public let inventoryRevision:String
@@ -64,6 +70,7 @@ public struct FlexIQCapabilities:Encodable,Sendable {
     public let requestableSampleRates:[Int]
     public let transmitStateKnownOff:Bool
     public let handoffPanadapters:[String]
+    public var interlockEvidence:FlexIQReceiveEvidence?=nil
 }
 /// Explicit operator permission is bound to the exact metadata shown at handoff.
 /// It cannot override a known competitor and is never persisted or auto-renewed.
