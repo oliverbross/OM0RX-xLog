@@ -863,6 +863,9 @@ fn start() -> Result<Arc<Session>, String> {
         LOCAL_ACCEPTANCE.get() == Some(&true),
         CONTESTING_TEST.get() == Some(&true),
     ));
+    if let Some(root) = crate::runtime_profile::offline_root() {
+        command.arg(format!("--offline-contest-acceptance={}", root.display()));
+    }
     let child = command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -882,7 +885,7 @@ fn announce_session(session: &Arc<Session>) {
     // would invalidate the launch Arm reserved before this worker is started.
     // Replacement workers still retire every permit from the previous child.
     if replaces_worker_generation(session.generation) { crate::auto_rotor::revoke(); }
-    if LOCAL_ACCEPTANCE.get() != Some(&true) && CONTESTING_TEST.get() != Some(&true) {
+    if LOCAL_ACCEPTANCE.get() != Some(&true) && CONTESTING_TEST.get() != Some(&true) && crate::runtime_profile::offline_root().is_none() {
         let exact_session = session.clone();
         crate::station_selection::worker_generation_started(
             session.generation,

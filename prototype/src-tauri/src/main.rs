@@ -830,7 +830,7 @@ fn main_workspace(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow, String
         if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? {
             builder = builder.data_directory(directory);
         }
-        let main = builder.build().map_err(|error| error.to_string())?;
+        let main = runtime_profile::offline_webview(builder).build().map_err(|error| error.to_string())?;
         if app.state::<acceptance::Acceptance>().path.is_none() { detached_geometry::install(&main); }
         Ok(main)
     })?;
@@ -996,7 +996,7 @@ fn ensure_contest_setup_window_for(app: &tauri::AppHandle, foreground: bool,
         if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? {
             builder = builder.data_directory(directory);
         }
-        let window = builder.build().map_err(|error| error.to_string())?;
+        let window = runtime_profile::offline_webview(builder).build().map_err(|error| error.to_string())?;
         if app.state::<acceptance::Acceptance>().path.is_none() { detached_geometry::install(&window); }
         Ok(window)
     })?;
@@ -1021,7 +1021,7 @@ fn ensure_contest_analytics_window(app: &tauri::AppHandle) -> Result<(), String>
             .inner_size(1280.0, 860.0).min_inner_size(640.0, 480.0).focused(true)
             .incognito(app.state::<acceptance::Acceptance>().path.is_some());
         if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? { builder = builder.data_directory(directory); }
-        let window = builder.build().map_err(|error| error.to_string())?;
+        let window = runtime_profile::offline_webview(builder).build().map_err(|error| error.to_string())?;
         if app.state::<acceptance::Acceptance>().path.is_none() { detached_geometry::install(&window); }
         Ok(window)
     })?;
@@ -1054,7 +1054,7 @@ fn ensure_contest_log_review_window(app: &tauri::AppHandle) -> Result<(), String
             .inner_size(1040.0, 720.0).min_inner_size(640.0, 480.0).focused(true)
             .incognito(app.state::<acceptance::Acceptance>().path.is_some());
         if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? { builder = builder.data_directory(directory); }
-        let window = builder.build().map_err(|error| error.to_string())?;
+        let window = runtime_profile::offline_webview(builder).build().map_err(|error| error.to_string())?;
         if app.state::<acceptance::Acceptance>().path.is_none() { detached_geometry::install(&window); }
         Ok(window)
     })?;
@@ -1072,7 +1072,7 @@ fn ensure_contest_log_transfer_window(app: &tauri::AppHandle) -> Result<(), Stri
             .inner_size(720.0, 560.0).min_inner_size(520.0, 380.0).focused(true)
             .incognito(app.state::<acceptance::Acceptance>().path.is_some());
         if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? { builder = builder.data_directory(directory); }
-        let window = builder.build().map_err(|error| error.to_string())?;
+        let window = runtime_profile::offline_webview(builder).build().map_err(|error| error.to_string())?;
         if app.state::<acceptance::Acceptance>().path.is_none() { detached_geometry::install(&window); }
         Ok(window)
     })?;
@@ -2948,7 +2948,7 @@ async fn contest_setup_dialog_open(window: tauri::WebviewWindow, app: tauri::App
             .inner_size(width, height).min_inner_size(minimum_width, minimum_height).focused(true)
             .incognito(app.state::<acceptance::Acceptance>().path.is_some());
         if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? { builder = builder.data_directory(directory); }
-        let dialog = builder.build().map_err(|error| error.to_string())?;
+    let dialog = runtime_profile::offline_webview(builder).build().map_err(|error| error.to_string())?;
         if app.state::<acceptance::Acceptance>().path.is_none() { detached_geometry::install(&dialog); }
         Ok(dialog)
     })?;
@@ -3048,7 +3048,7 @@ fn ensure_workspace_window(app: &tauri::AppHandle, kind: &str, focus: bool,
         builder = builder.data_directory(directory);
     }
     if kind == "cw" { if let Some(owner) = cw_session_backend::existing() { owner.allow_window(kind)?; } }
-    let detached = builder.build().map_err(|e| e.to_string())?;
+    let detached = runtime_profile::offline_webview(builder).build().map_err(|e| e.to_string())?;
     workspace_window_runtime::created(&detached);
     if app.state::<acceptance::Acceptance>().path.is_none() {
         detached_geometry::install(&detached);
@@ -3134,7 +3134,7 @@ async fn contest_contact_editor_open(window: tauri::WebviewWindow, app: tauri::A
             .always_on_top(false)
             .incognito(app.state::<acceptance::Acceptance>().path.is_some());
         if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? { builder = builder.data_directory(directory); }
-        let editor = builder.build().map_err(|error| error.to_string())?;
+    let editor = runtime_profile::offline_webview(builder).build().map_err(|error| error.to_string())?;
         workspace_window_runtime::created(&editor);
         if app.state::<acceptance::Acceptance>().path.is_none() { detached_geometry::install(&editor); }
         Ok(editor)
@@ -3714,6 +3714,9 @@ fn main() {
         eprintln!("{error}");
         std::process::exit(2);
     });
+    runtime_profile::configure_offline(std::env::args().collect(), context.config_mut()).unwrap_or_else(|error| {
+        eprintln!("{error}");std::process::exit(2);
+    });
     worker::configure_local_acceptance(path.is_some()).unwrap_or_else(|error| {
         eprintln!("{error}");
         std::process::exit(2);
@@ -3723,7 +3726,7 @@ fn main() {
         std::process::exit(2);
     });
     acceptance::isolate_browser_storage(context.config_mut(), path.is_some());
-    let isolated = path.is_some() || runtime_profile::CONTESTING_TEST;
+    let isolated = runtime_profile::isolated(path.is_some());
     let builder = tauri::Builder::default()
         .menu(workspace_menu)
         .on_window_event(|window, event| {
@@ -3968,7 +3971,8 @@ fn main() {
         .manage(contest_group_chat::GroupChat::default())
         .manage(contest_log_transfer::LegacySourceLease::default())
         .setup(|app| {
-            let module_path = app.path().app_data_dir().map_err(std::io::Error::other)?;
+            let module_path = if let Some(root) = runtime_profile::offline_root() { root.join("native") }
+                else { app.path().app_data_dir().map_err(std::io::Error::other)? };
             operating_module::install(module_path).map_err(std::io::Error::other)?;
             let normal_module = operating_module::owner().and_then(|owner| owner.snapshot()).map_err(std::io::Error::other)?["selected"] == "normal_logging";
             acceptance::start_watchdog(app.handle().clone());
@@ -3977,7 +3981,7 @@ fn main() {
             // not fail merely because hardware/session startup is suppressed.
             let activation = activation_owner(app.handle());
             radio_follow::install(app.handle(), activation.editors.clone());
-            let production = app.state::<acceptance::Acceptance>().path.is_none() && !runtime_profile::CONTESTING_TEST;
+            let production = !runtime_profile::isolated(app.state::<acceptance::Acceptance>().path.is_some());
             if production {
                 if normal_module {
                     qsy_clear::install(app.handle(), activation.editors.clone());

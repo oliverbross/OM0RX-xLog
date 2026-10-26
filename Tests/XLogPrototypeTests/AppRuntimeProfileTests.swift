@@ -8,6 +8,25 @@ import XCTest
 #endif
 
 final class AppRuntimeProfileTests: XCTestCase {
+    func testOfflineCandidateRequiresPrivateMarkedTemporaryRootAndDisablesExternalIO() throws {
+        let (bundleRoot, executable) = try bundledExecutable(identifier: "com.oliverbross.xlog.integration")
+        let root = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
+            .appendingPathComponent("xlog-wave1-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: bundleRoot) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+        let argument = AppRuntimeProfile.offlineAcceptancePrefix + root.path
+        XCTAssertThrowsError(try AppRuntimeProfile.resolve(arguments: [argument], executableURL: executable))
+        let marker = root.appendingPathComponent(".xlog-offline-acceptance.json")
+        try JSONSerialization.data(withJSONObject: ["schema":1,"id":UUID().uuidString]).write(to: marker)
+        let profile = try AppRuntimeProfile.resolve(arguments: [argument], executableURL: executable)
+        XCTAssertEqual(profile.supportDirectory, root.appendingPathComponent("worker", isDirectory: true))
+        XCTAssertFalse(profile.externalIOAllowed)
+        XCTAssertFalse(profile.contestN1MMUDPAllowed)
+        XCTAssertEqual(AppRuntimeProfile.workerServiceLocalAcceptance(arguments: [argument]), false)
+        XCTAssertThrowsError(try AppRuntimeProfile.resolve(arguments: [argument, argument], executableURL: executable))
+        try FileManager.default.setAttributes([.posixPermissions:0o755], ofItemAtPath:root.path)
+        XCTAssertThrowsError(try AppRuntimeProfile.resolve(arguments: [argument], executableURL: executable))
+    }
     private func bundledExecutable(identifier: String) throws -> (URL, URL) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-bundle-\(UUID().uuidString)")
         let contents = root.appendingPathComponent("Test.app/Contents", isDirectory: true)

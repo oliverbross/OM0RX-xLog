@@ -7,6 +7,7 @@ public enum AppRuntimeProfile: Equatable, Sendable {
     static let contestingBundleIdentifier = "com.oliverbross.xlog.contesting-test"
     public static let contestingArgument = "--runtime-profile=contesting-test"
     public static let localAcceptanceArgument = "--local-ui-acceptance"
+    public static let offlineAcceptancePrefix = "--offline-contest-acceptance="
     static let contestingIdentityPrefix = "com.oliverbross.OM0RXXLog.ContestingTest.Integration."
 
     private static let lock = NSLock()
@@ -33,6 +34,28 @@ public enum AppRuntimeProfile: Equatable, Sendable {
             (try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])?["CFBundleIdentifier"] as? String
         }
         let testBundle = bundleIdentifier == contestingBundleIdentifier
+        if arguments.contains(where: { $0.hasPrefix(offlineAcceptancePrefix) }) {
+            guard arguments.count == 1, bundleIdentifier == "com.oliverbross.xlog.integration" else {
+                throw WorkerFailure("runtime_profile_unbound", "Offline acceptance requires one production-candidate launch coordinate.")
+            }
+            let root = URL(fileURLWithPath: String(arguments[0].dropFirst(offlineAcceptancePrefix.count)), isDirectory: true)
+            let resolved = root.standardizedFileURL.resolvingSymlinksInPath()
+            let parents = [fileManager.temporaryDirectory, URL(fileURLWithPath: "/tmp", isDirectory: true)].map { $0.resolvingSymlinksInPath().standardizedFileURL.path }
+            let attributes = try fileManager.attributesOfItem(atPath: root.path)
+            let marker = root.appendingPathComponent(".xlog-offline-acceptance.json")
+            let markerAttributes = try fileManager.attributesOfItem(atPath: marker.path)
+            guard root.path == resolved.path, root.lastPathComponent.hasPrefix("xlog-wave1-"),
+                  parents.contains(root.deletingLastPathComponent().path),
+                  attributes[.type] as? FileAttributeType == .typeDirectory,
+                  ((attributes[.posixPermissions] as? NSNumber)?.intValue ?? 0) & 0o077 == 0,
+                  markerAttributes[.type] as? FileAttributeType == .typeRegular,
+                  let bytes = fileManager.contents(atPath: marker.path), bytes.count <= 1024,
+                  let value = try JSONSerialization.jsonObject(with: bytes) as? [String: Any], value["schema"] as? Int == 1,
+                  let id = value["id"] as? String, UUID(uuidString: id) != nil else {
+                throw WorkerFailure("runtime_profile_invalid", "Offline acceptance requires private marked disposable temporary storage.")
+            }
+            return .contestingTest(supportRoot: root.appendingPathComponent("worker", isDirectory: true))
+        }
         guard profileArguments.first == contestingArgument else {
             if profileArguments.isEmpty, !testBundle { return .production }
             throw WorkerFailure("runtime_profile_invalid", "Runtime profile is invalid.")
@@ -48,6 +71,7 @@ public enum AppRuntimeProfile: Equatable, Sendable {
     /// Exact worker service modes. Unknown, duplicated, or reordered arguments
     /// remain fail-closed instead of silently acquiring acceptance authority.
     public static func workerServiceLocalAcceptance(arguments: [String]) -> Bool? {
+        if arguments.count == 1, arguments[0].hasPrefix(offlineAcceptancePrefix) { return false }
         if arguments.isEmpty || arguments == [contestingArgument] { return false }
         if arguments == [localAcceptanceArgument]
             || arguments == [contestingArgument, localAcceptanceArgument] { return true }
