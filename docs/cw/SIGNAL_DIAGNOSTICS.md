@@ -17,6 +17,11 @@ to a mean estimate. A noise estimate determined by the numerical floor produces
 no SNR value. These estimates require hardware calibration before acceptance.
 Both estimates are copied into each immutable inference job. Missing estimates
 remain absent through the strict native wire parser and appear as a dash in UI.
+Metadata-only events retain estimates for the same capture and track revision;
+they do not renew their two-second lifetime. Ambiguity, changed capture/revision
+and a new decode with no measurement clear them. Passive snapshots also expire
+old estimates without waiting for another model result. Thirteen focused session
+cases pass, including metadata retention, passive expiry and ambiguity clearing.
 
 The channelizer has an Apple Accelerate FIR implementation and a scalar fallback;
 tests compare both at 24/48/96/192 ksample/s. Channel creation is limited to one new

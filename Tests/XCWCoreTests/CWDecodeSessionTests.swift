@@ -145,7 +145,35 @@ final class CWDecodeSessionTests: XCTestCase {
         catch {XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
         await session.stop()
     }
-    private func selectionFixture(qualified:Bool=false) async throws -> (CWDecodeSession,CWSessionTestProvider,CWSessionTestCompute,CWSessionTestClock,CWSourceConfiguration,CWStreamDescriptor) {
+    func testSignalEstimatesSurviveMetadataOnlyUpdatesAndExpireWithoutAnotherDecode() async throws {
+        let (session,_,compute,clock,_,capture)=try await selectionFixture(measured:true)
+        let initial=await session.snapshot(),view=try XCTUnwrap(initial.tracks.first)
+        XCTAssertEqual(view.estimatedWPM,24);XCTAssertEqual(view.estimatedSNRDB,12)
+        let metadata=CWNativeTrack(kind:"track",streamToken:capture.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased(),
+            epoch:1,trackID:view.trackID,revision:0,state:"acquiring",firstSample:3200,endSample:22400,sourceFirstSample:0,
+            filterDelaySeconds:0.02,offsetHz:601,ambiguous:false,replay:false)
+        await compute.emit(.track(metadata))
+        try await wait{await session.snapshot().tracks.first?.offsetHz==601}
+        let retained=await session.snapshot();XCTAssertEqual(retained.tracks.first?.estimatedWPM,24)
+        XCTAssertEqual(retained.tracks.first?.estimatedSNRDB,12);XCTAssertEqual(retained.tracks.first?.snrReferenceHz,2500)
+        clock.advance(2_000_000_001)
+        let expired=await session.snapshot();XCTAssertNil(expired.tracks.first?.estimatedWPM)
+        XCTAssertNil(expired.tracks.first?.estimatedSNRDB);XCTAssertNil(expired.tracks.first?.snrReferenceHz)
+        await session.stop()
+    }
+    func testAmbiguityClearsMeasuredEstimates() async throws {
+        let (session,_,compute,_,_,capture)=try await selectionFixture(measured:true)
+        let initial=await session.snapshot(),view=try XCTUnwrap(initial.tracks.first)
+        let metadata=CWNativeTrack(kind:"track",streamToken:capture.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased(),
+            epoch:1,trackID:view.trackID,revision:0,state:"ambiguous",firstSample:3200,endSample:22400,sourceFirstSample:0,
+            filterDelaySeconds:0.02,offsetHz:600,ambiguous:true,replay:false)
+        await compute.emit(.track(metadata))
+        try await wait{await session.snapshot().tracks.first?.ambiguous==true}
+        let ambiguous=await session.snapshot();XCTAssertNil(ambiguous.tracks.first?.estimatedWPM)
+        XCTAssertNil(ambiguous.tracks.first?.estimatedSNRDB);XCTAssertNil(ambiguous.tracks.first?.selection)
+        await session.stop()
+    }
+    private func selectionFixture(qualified:Bool=false,measured:Bool=false) async throws -> (CWDecodeSession,CWSessionTestProvider,CWSessionTestCompute,CWSessionTestClock,CWSourceConfiguration,CWStreamDescriptor) {
         let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),clock=CWSessionTestClock(),source=try source()
         let session=CWDecodeSession(provider:provider,compute:compute,clock:{clock.now()})
         try await session.start(configuration:CWDecodeConfiguration(sources:[source]),resources:resources)
@@ -161,7 +189,8 @@ final class CWDecodeSessionTests: XCTestCase {
             let metadata=CWNativeTrack(kind:"decode",streamToken:capture.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased(),
                 epoch:1,trackID:id,revision:0,state:"provisional",firstSample:first,endSample:end,sourceFirstSample:0,
                 filterDelaySeconds:0.02,offsetHz:600,ambiguous:false,replay:false)
-            await compute.emit(.decode(CWNativeDecode(track:metadata,text:"CQ K1ABC K1ABC ",tokens:tokens,inferenceMilliseconds:10)))
+            await compute.emit(.decode(CWNativeDecode(track:metadata,text:"CQ K1ABC K1ABC ",tokens:tokens,inferenceMilliseconds:10,
+                estimatedWPM:measured ? 24:nil,estimatedSNRDB:measured ? 12:nil,snrReferenceHz:measured ? 2500:nil)))
         }
         try await wait{await session.snapshot().tracks.first?.selection != nil}
         return(session,provider,compute,clock,source,capture)

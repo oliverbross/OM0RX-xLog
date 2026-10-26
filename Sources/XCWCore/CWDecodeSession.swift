@@ -68,6 +68,7 @@ public actor CWDecodeSession {
         var view: CWDecodeTrackSnapshot
         var transcript = CWTranscriptReconciler()
         var selectionUpdatedNS:UInt64=0
+        var metricsUpdatedNS:UInt64=0
     }
     private let provider: any CWIQSourceProviding
     private let compute: any CWComputeControlling
@@ -96,9 +97,16 @@ public actor CWDecodeSession {
     }
     deinit{spotOutput.finish()}
     public func snapshot() -> CWDecodeSessionSnapshot {
-        CWDecodeSessionSnapshot(sessionID:intent,state:state,failure:failure,
+        let now=clock()
+        return CWDecodeSessionSnapshot(sessionID:intent,state:state,failure:failure,
             sources:sources.values.map(\.view).sorted{$0.configuration.id.uuidString<$1.configuration.id.uuidString},
-            tracks:tracks.values.map(\.view).sorted{$0.trackID<$1.trackID},automaticSpotsQualified:spotPolicy.isQualityQualified,
+            tracks:tracks.values.map{track in
+                var view=track.view
+                if now<track.metricsUpdatedNS || now-track.metricsUpdatedNS>2_000_000_000 {
+                    view.estimatedWPM=nil;view.estimatedSNRDB=nil;view.snrReferenceHz=nil
+                }
+                return view
+            }.sorted{$0.trackID<$1.trackID},automaticSpotsQualified:spotPolicy.isQualityQualified,
             spotDeliveryDrops:spotDeliveryDrops)
     }
     /// Recheck both the provider and actor state after suspension. An RF target
@@ -305,7 +313,7 @@ public actor CWDecodeSession {
         }
         guard !retiredTracks.contains(key),tracks[key].map({UInt64($0.view.revision).map{$0<=value.revision} ?? false}) ?? true else {return}
         var track=tracks[key]
-        if track?.view.revision != String(value.revision) {track=nil}
+        if track?.view.revision != String(value.revision) || track?.view.descriptor != descriptor {track=nil}
         var reconciler=track?.transcript ?? CWTranscriptReconciler()
         var committed=track?.view.committed ?? "",provisional=track?.view.provisional ?? "",ambiguous=value.ambiguous
         var occurrences:[CWIdentityOccurrence]=[]
@@ -355,13 +363,19 @@ public actor CWDecodeSession {
                 }
             }
         }
+        let preserveMetrics=decode==nil && !ambiguous
         let view=CWDecodeTrackSnapshot(sourceID:descriptor.sourceID,trackID:key,descriptor:descriptor,
             revision:String(value.revision),offsetHz:value.offsetHz,
             frequencyHz:frequency,committed:committed,provisional:provisional,ambiguous:ambiguous,
             inferenceMilliseconds:decode?.inferenceMilliseconds,spotRejection:rejection,
-            estimatedWPM:decode?.estimatedWPM,estimatedSNRDB:decode?.estimatedSNRDB,snrReferenceHz:decode?.snrReferenceHz,
+            estimatedWPM:ambiguous ? nil:(preserveMetrics ? track?.view.estimatedWPM:decode?.estimatedWPM),
+            estimatedSNRDB:ambiguous ? nil:(preserveMetrics ? track?.view.estimatedSNRDB:decode?.estimatedSNRDB),
+            snrReferenceHz:ambiguous ? nil:(preserveMetrics ? track?.view.snrReferenceHz:decode?.snrReferenceHz),
             selection:selection)
-        if tracks[key] != nil || tracks.count<32 {tracks[key]=Track(view:view,transcript:reconciler,selectionUpdatedNS:selectionUpdatedNS)}
+        if tracks[key] != nil || tracks.count<32 {
+            tracks[key]=Track(view:view,transcript:reconciler,selectionUpdatedNS:selectionUpdatedNS,
+                metricsUpdatedNS:decode != nil ? clock():(track?.metricsUpdatedNS ?? 0))
+        }
     }
 }
 #endif
