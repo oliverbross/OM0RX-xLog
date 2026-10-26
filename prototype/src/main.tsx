@@ -11,6 +11,7 @@ import "./live/DetachedMapSurface.css";
 import "./live/HFPropagationLive.css";
 import "./live/HFPropagationCanvas.css";
 import "./live/live.css";
+import "./live/CWDecodePanel.css";
 import "./style.css";
 import "maplibre-gl/dist/maplibre-gl.css";
 

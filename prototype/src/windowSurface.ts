@@ -4,6 +4,7 @@ import type { ComponentType } from "react";
  * station controller as an intermediate screen or as a failed-child fallback. */
 export async function loadWindowSurface(search: string): Promise<ComponentType> {
   const query = new URLSearchParams(search), view = query.get("view");
+  if (view === "cw-decode") return (await import("./live/DetachedCWDecodeSurface")).DetachedCWDecodeSurface;
   if (view === "station-control")
     return (await import("./live/DetachedStationControlSurface")).DetachedStationControlSurface;
   if (view?.startsWith("contest-setup") || view === "contest-log-transfer" || query.get("scope") === "contesting")

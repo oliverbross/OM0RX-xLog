@@ -37,12 +37,13 @@ for (const name of ["WorldMap", "DXpeditionMap", "BandMaps", "Monitor"]) {
   assert(bytes <= (name === "BandMaps" ? 400_000 : 1_600_000), `${name} startup JavaScript budget exceeded: ${bytes}`);
   console.log(JSON.stringify({ window: name, bytes, gzip: data.reduce((sum, item) => sum + gzipSync(item).length, 0), files }));
 }
-for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "CallsignIntelligence", "PreviousQSOs", "OperatingGoals", "Settings", "Opportunities", "HFPropagationLive", "StationControl", "CW", "Rotor", "StationStatus", "Propagation", "StationIdentity", "Alerts", "Antenna"]) {
+for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "CallsignIntelligence", "PreviousQSOs", "OperatingGoals", "Settings", "Opportunities", "HFPropagationLive", "StationControl", "CW", "CWDecode", "Rotor", "StationStatus", "Propagation", "StationIdentity", "Alerts", "Antenna"]) {
   const entry = `src/live/Detached${name}Surface.tsx`;
   const graph = closure(entry, closure("index.html"));
   assert(!graph.has(main), `${name} imports the main station workspace`);
   assert(!graph.has("src/Map.tsx"), `${name} imports the map UI`);
   assert(!graph.has("src/live/DetachedDXpeditionMapSurface.tsx"), `${name} imports the DXpedition Map UI`);
+  if (name !== "CWDecode") assert(![...graph].some(key => manifest[key].file.includes("CWDecodePanel")), `${name} imports the IQ decoding UI`);
   const lateCss = [...graph].flatMap(key => manifest[key].css ?? []).filter(file => !eagerCss.has(file));
   assert.equal(lateCss.length, 0, `${name} loads late CSS after shared overrides: ${lateCss.join(", ")}`);
   const files = [...new Set([...graph].map(key => manifest[key].file))];
@@ -67,7 +68,10 @@ for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "Calls
   // Keep the route allowance bounded and local to the tight Logbook budget.
   // Recorder adds a lazy route descriptor and the global listening-only Escape hook.
   // Measured Logbook graph: 403,015 bytes; keep its route allowance bounded.
-  const budget = name === "Settings" ? 408_000 : name === "QSO" ? 407_000 : name === "Logbook" ? 403_150 : 401_000;
+  // CW Decode adds another lazy-route/preload descriptor. Its panel remains
+  // outside all unrelated startup graphs (asserted above); measured Logbook
+  // startup is 403,557 bytes before the shared eager CSS descriptor.
+  const budget = name === "Settings" ? 408_000 : name === "QSO" ? 407_000 : name === "Logbook" ? 403_800 : 401_000;
   console.log(JSON.stringify({ window: name, bytes, gzip, files }));
   assert(bytes <= budget, `${name} startup JavaScript exceeds the ${budget / 1_000} kB budget: ${bytes}`);
 }
