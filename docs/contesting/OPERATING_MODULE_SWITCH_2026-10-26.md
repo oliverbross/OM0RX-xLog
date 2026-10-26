@@ -91,3 +91,146 @@ tests pass, including paused-read overlap cases that allow the mode transition,
 paused real-mutation cases that keep it blocked until release, and RTC timeout
 recovery without worker retirement. Installed acceptance of this source fix and
 both mode directions still follows in a new uniquely versioned candidate.
+
+## Installed bidirectional acceptance on 1.3.32
+
+The final installed source is `fc8a5e0b329f3380201fc9e3b58b42b8aeea02fa`, with
+the mode classifier files unchanged from `9bf18416`. The signed 1.3.32 candidate
+also includes the separately qualified recorder playback fix. The
+[installed handover receipt](../MACOS_1_3_32_RELEASE_2026-10-26.md) was pushed as
+`9f5c891b`; it records source/component/signature checks and private evidence.
+
+Both live menu directions passed in one guarded attempt each. Return to Normal
+automatically restarted, closed all ten outgoing contest windows including
+Cluster and Recorder, and opened a usable Traditional Normal desk. The reciprocal
+Switch to Contesting automatically restarted into the same reviewed session and
+workspace with a new context and all nine saved core windows. Recorder stayed
+closed as intended for an explicitly opened utility outside the saved core
+registry. Fresh passive checks showed radio, rotor and cluster connected, 0 W
+output and rotor stopped. No manual restart, guard bypass, RF or rotor command
+was used. The app was left in Contest Main Logging with blank entry and recording
+stopped.
+
+The original Clear was not repeated. Normal activation legitimately seeded the
+blank draft and settled at revision 2917 without a pending action. Contest core
+fingerprints retained the human-reviewed 775 QSOs, 785 identities and 850 audit
+rows, with 957 points, 116 multipliers and score 111,012.
+
+The normal log retained every prior row identity with no deletions, but gained
+three clean remote-linked contacts and metadata/baseline updates on 120 existing
+contacts during Normal activation. Read-only checks verified the existing explicit
+one-minute Wavelog automatic-sync authorization against all source fences. Source
+scheduling, timestamps and row metadata support background catch-up as an
+inference; this version does not retain a durable historical automatic-run report,
+so exact run/upload totals are not asserted and strict normal-table equality is
+not claimed. The current additions/enrichment were preserved.
+
+The Return to Normal pre-probe had zero retained spot receipts. Twenty fresh
+Normal-owned receipts existed before the reciprocal switch, and Normal-owned
+receipts remained afterward. No withdrawal was inferred from their count or age.
+The functional mode acceptance does not establish fresh contest-owned spot
+retirement or the cause of the earlier 1.3.29 worker failure; its guards and the
+new precise diagnostics remain intact.
+
+## Cosmetic spot cleanup must not prevent a requested switch
+
+The human subsequently reproduced the fresh contest-spot case on installed
+1.3.32: retirement could not confirm marker removal, so the operating module
+stayed unchanged and required a restart. The earlier two-direction acceptance
+did not exercise this condition and does not establish its resolution.
+
+Worker shutdown now seals the outgoing publisher and retains accepted spot
+receipts and unresolved delivery intents for later cleanup. It does not start
+remote marker removal, wait for prior cosmetic cleanup, or require an unavailable
+radio to acknowledge removal before releasing station ownership. A deferred
+cosmetic cleanup outcome permits the worker to exit successfully. Missing
+accepted replies, malformed replies, online-log recovery failures, real control
+operations and active output retain their existing retirement protections.
+
+Delivery intent is stored before the remote add and atomically promoted to an
+accepted receipt after acknowledgement. If promotion fails, the uncertainty is
+retained; marker compensation is also deferred. Unknown delivery intents are
+bounded and are not discarded using the accepted-marker expiry rule. TCI cleanup
+continues to protect another publisher's receipt for the same callsign.
+
+Regression checks cover fresh retained spots with no reachable remover, stalled
+prior cleanup, delayed admitted add acknowledgements and storage faults. The
+real worker process fixture now requires exit zero and an unchanged durable
+receipt for both fresh and expired contest-owned spots. These isolated checks
+use disposable homes and disable external I/O. The separately recorded new
+release acceptance supplies source identity and installed observations.
+
+Validation before the release: 39 broker XCTest cases, 26 cluster/shutdown
+Swift Testing cases, all 80 native worker tests and all eight real worker
+process cases passed. The post-acknowledgement storage-fault case proves that
+neither publication settlement nor deferred shutdown calls the gated remover.
+
+## Keep the requested switch while admitted background work finishes
+
+Installed 1.3.33 passed startup and data checks, but the first live Return to
+Normal attempt stopped before retirement with the generic current-operating-
+action guard. Sixteen fresh contest-owned radio receipts were present. The
+workspace and worker processes remained usable and no retry was performed.
+This does not exercise 1.3.33's deferred cosmetic cleanup boundary; the exact
+blocked native admission was not exposed in the installed UI.
+
+The preflight owner previously required its active count to be zero at the
+instant of the menu request. A legitimate overlapping publication or workspace
+operation could therefore reject the user's request. The explicit switch now
+records its transition first, prevents new admissions, and waits for already
+admitted work to finish. The native worker gate likewise seals while retaining
+its existing in-flight count and drains it before retirement. Both waits are
+bounded at 30 seconds; a genuinely unfinished operation retains its count and
+data/control protections, cancels the uncommitted transition and restores
+admission. No shutdown or preference commit happens ahead of accepted work.
+
+Regression cases hold an operation open, request a switch, prove new work and
+early commit are refused, release the original operation and require the same
+request to complete. Competing switches cannot clear another request's seal;
+timeout preserves pending counts and returns a usable workspace.
+
+Validation: all 888 native cases passed. After the final post-wake context check
+and cancellation notification, all 15 operating-module cases passed again.
+
+## Installed 1.3.34: both requested switches complete
+
+The signed installed source is `db1641a2d2245951700604f98733308fbd2259df`,
+including deferred cosmetic cleanup `c20b0066` and queued transition `ba53ca7d`.
+Exact component/source/signature checks and a fresh protected five-root backup
+passed before reopening; see the
+[1.3.34 release receipt](../MACOS_1_3_34_RELEASE_2026-10-26.md).
+
+One Return to Normal succeeded with **22 fresh contest-owned Radio 1 Agent
+receipts**, aged 101–329.7 seconds immediately before dispatch. The automatic
+restart was observed about 6.157 seconds after dispatch; this is an external
+observation, not an internal retirement timer. All ten outgoing contest windows,
+including Cluster and the explicitly opened stopped Recorder, closed. The
+destination Window menu contained only the Normal main window. The saved
+Traditional Normal desk was usable with blank entry and connected passive radio,
+rotor and cluster state. The 22 contest receipts remained recorded, alongside new
+Normal receipts; their removal was not required or claimed.
+
+After its blank draft settled, one reciprocal Switch to Contesting succeeded.
+Contest Setup opening was observed about 15.722 seconds after dispatch. The same
+CQ WW session and workspace returned with a new context and Swift/Python workers.
+Main Logging showed blank callsign/CQ Zone, 59/59, Ready for callsign, recording
+stopped and the reviewed 775 QSOs / 116 multipliers / 111,012 score. The receipt
+inventory retained its 22 contest and 14 Normal receipts across that action.
+Neither direction used a repeated click, manual restart or guard bypass.
+
+Normal activation legitimately seeded the current radio values and advanced
+the settled blank draft to revision 2918; the original Clear was not repeated.
+Protected core comparisons after startup and Return to Normal matched the fresh
+backup: 68,563 normal contacts, 775 contest rows, 785 identities and 850 audit
+rows. Final reciprocal window/data observations are recorded in the release
+receipt. No synthetic marker or RF, rotor, network configuration or audio
+operation was used to force acceptance.
+
+The final reciprocal audit passed as well: all protected normal/contest contact,
+revision, identity and audit tables matched the fresh backup, and the blank
+Normal journal remained settled at 2918. The outgoing Normal window closed and
+all nine saved core contest windows returned; Recorder stayed closed as an
+explicit utility. Fresh passive connections were restored at 0 W with the rotor
+stopped. Stats retained 19 dupes / 957 points / 111,012 score. The detailed
+installed acceptance was committed and pushed as `89dc5782`. Final focus was
+Contest Main Logging, blank 59/59, Ready for callsign and recording stopped.

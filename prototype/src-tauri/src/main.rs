@@ -2844,7 +2844,7 @@ fn switch_operating_module(app: &tauri::AppHandle, target: &str, context: &str,
         Err(error) => return Ok(rejected(format!("Operating module was not changed. {error}"))),
     };
     drop(preparation_guard);
-    let target = match owner.begin_restart(target, context) {
+    let target = match owner.begin_restart_when_idle(target, context, Duration::from_secs(30)) {
         Ok(target) => target,
         Err(error) => {
             finish_module_transition_preparation(app, &prepared, true);

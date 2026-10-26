@@ -1290,6 +1290,115 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// Bounded run provenance is separate from contact revisions and mutation consent.
+    public func beginSyncRun(automatic: Bool) throws -> SyncRunReceipt {
+        try withDatabaseLock {
+            let receipt = SyncRunReceipt(automatic: automatic)
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                try writeSyncRun(receipt)
+                try execute("DELETE FROM xlog_sync_runs WHERE run_id NOT IN (SELECT run_id FROM xlog_sync_runs ORDER BY started_at DESC,rowid DESC LIMIT 100);")
+                try execute("COMMIT;")
+                return receipt
+            } catch { try? execute("ROLLBACK;"); throw error }
+        }
+    }
+
+    public func syncRunReceipts() throws -> [SyncRunReceipt] {
+        try withDatabaseLock {
+            try withStatement("SELECT payload FROM xlog_sync_runs ORDER BY started_at DESC,rowid DESC LIMIT 100;") { statement in
+                var receipts: [SyncRunReceipt] = []
+                while true {
+                    let step = sqlite3_step(statement)
+                    if step == SQLITE_DONE { return receipts }
+                    guard step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0),
+                          (1...16_384).contains(Int(sqlite3_column_bytes(statement, 0))) else { throw LogbookDatabaseError.corruptRecord }
+                    let receipt = try decoder.decode(SyncRunReceipt.self,
+                        from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+                    try validateSyncRunReceipt(receipt)
+                    receipts.append(receipt)
+                }
+            }
+        }
+    }
+
+    public func trackSyncRunUploads(_ id: UUID) throws {
+        try updateSyncRun(id) { $0.uploadTracking = true }
+    }
+
+    /// Persist before dispatch; a lost acknowledgement must remain unknown.
+    public func recordSyncRunUpload(_ id: UUID, confirmed kind: String?) throws {
+        try updateSyncRun(id) { receipt in
+            guard receipt.uploadTracking else { throw LogbookDatabaseError.corruptRecord }
+            if let kind {
+                guard receipt.confirmedCreates + receipt.confirmedUpdates + receipt.confirmedDeletes < receipt.uploadAttempts else {
+                    throw LogbookDatabaseError.corruptRecord
+                }
+                switch kind {
+                case "create": receipt.confirmedCreates += 1
+                case "update": receipt.confirmedUpdates += 1
+                case "delete": receipt.confirmedDeletes += 1
+                default: throw LogbookDatabaseError.corruptRecord
+                }
+            } else { receipt.uploadAttempts += 1 }
+        }
+    }
+
+    public func finishSyncRun(_ id: UUID, outcome: String, report: SyncReport?, safeErrorCode: String?) throws {
+        guard ["completed", "completed_with_failures", "failed", "cancelled"].contains(outcome),
+              safeErrorCode == nil || safeErrorCode!.range(of: "^[a-z0-9_]{1,64}$", options: .regularExpression) != nil else {
+            throw LogbookDatabaseError.corruptRecord
+        }
+        try updateSyncRun(id) { receipt in
+            receipt.finishedAt = Date(); receipt.outcome = outcome; receipt.safeErrorCode = safeErrorCode
+            if let report {
+                receipt.reportCounts = ["acknowledged_contacts": report.pushed, "remote_contacts_processed": report.pulled,
+                    "deletions_reconciled": report.deleted, "conflicts": report.conflicts, "failures": report.failed, "held": report.held]
+            }
+        }
+    }
+
+    private func updateSyncRun(_ id: UUID, change: (inout SyncRunReceipt) throws -> Void) throws {
+        try withDatabaseLock {
+            var receipt = try withStatement("SELECT payload FROM xlog_sync_runs WHERE run_id=?;") { statement in
+                bind(id.uuidString, to: 1, in: statement)
+                guard sqlite3_step(statement) == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0),
+                      (1...16_384).contains(Int(sqlite3_column_bytes(statement, 0))) else { throw LogbookDatabaseError.corruptRecord }
+                return try decoder.decode(SyncRunReceipt.self,
+                    from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+            }
+            try validateSyncRunReceipt(receipt)
+            guard receipt.id == id, receipt.outcome == "running" else { throw LogbookDatabaseError.corruptRecord }
+            try change(&receipt)
+            try writeSyncRun(receipt)
+        }
+    }
+
+    private func validateSyncRunReceipt(_ receipt: SyncRunReceipt) throws {
+        let counts = [receipt.uploadAttempts, receipt.confirmedCreates, receipt.confirmedUpdates, receipt.confirmedDeletes]
+        guard counts.allSatisfy({ (0...1_000_000_000).contains($0) }),
+              receipt.confirmedCreates + receipt.confirmedUpdates + receipt.confirmedDeletes <= receipt.uploadAttempts,
+              receipt.uploadTracking || counts.allSatisfy({ $0 == 0 }),
+              ["running", "completed", "completed_with_failures", "failed", "cancelled"].contains(receipt.outcome),
+              (receipt.outcome == "running") == (receipt.finishedAt == nil),
+              receipt.safeErrorCode == nil || receipt.safeErrorCode!.range(of: "^[a-z0-9_]{1,64}$", options: .regularExpression) != nil,
+              receipt.reportCounts?.values.allSatisfy({ (0...1_000_000_000).contains($0) }) != false else {
+            throw LogbookDatabaseError.corruptRecord
+        }
+    }
+
+    private func writeSyncRun(_ receipt: SyncRunReceipt) throws {
+        try validateSyncRunReceipt(receipt)
+        let payload = try encoder.encode(receipt)
+        guard payload.count <= 16_384 else { throw LogbookDatabaseError.corruptRecord }
+        try withStatement("INSERT INTO xlog_sync_runs(run_id,started_at,payload) VALUES(?,?,?) ON CONFLICT(run_id) DO UPDATE SET payload=excluded.payload;") { statement in
+            bind(receipt.id.uuidString, to: 1, in: statement)
+            sqlite3_bind_double(statement, 2, receipt.startedAt.timeIntervalSince1970)
+            _ = payload.withUnsafeBytes { sqlite3_bind_blob(statement, 3, $0.baseAddress, Int32($0.count), Self.transient) }
+            try stepDone(statement)
+        }
+    }
+
     public func remoteBackupCommandJournal() throws -> Data? {
         try withDatabaseLock {
             try withStatement("SELECT payload FROM xlog_remote_backup_commands WHERE singleton=1;") { statement in
@@ -3527,6 +3636,11 @@ public final class LogbookDatabase: @unchecked Sendable {
         );
         CREATE TABLE IF NOT EXISTS xlog_sync_mutation_owner(
           singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+          payload BLOB NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS xlog_sync_runs(
+          run_id TEXT PRIMARY KEY,
+          started_at REAL NOT NULL,
           payload BLOB NOT NULL
         );
         CREATE TABLE IF NOT EXISTS xlog_remote_backup_commands(

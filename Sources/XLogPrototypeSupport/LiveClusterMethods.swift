@@ -146,6 +146,7 @@ public actor LiveClusterMethods {
     private let contestRadioClock: @Sendable () -> Date
     private let beforeContestSpotPublication: @Sendable (Date) async throws -> Void
     private let retirePersistedContestSpots: (@Sendable () async throws -> Void)?
+    private let deferPersistedContestSpots: (@Sendable () async throws -> Int)?
     private var withdrewPriorRadioSpots = false
     private var priorRadioSpotCleanupTask: Task<Void, Never>?
     private var priorRadioSpotCleanupPending = false
@@ -198,6 +199,7 @@ public actor LiveClusterMethods {
           }, beforeContestSpotPublication: (@Sendable () async throws -> Void)? = nil,
            priorRadioSpotCleanup: (@Sendable (Date) async throws -> Void)? = nil,
           retirePersistedContestSpots: (@Sendable () async throws -> Void)? = nil,
+           deferPersistedContestSpots: (@Sendable () async throws -> Int)? = nil,
           contestRadioClock: @escaping @Sendable () -> Date = { Date() }) {
         self.logbook = logbook
         self.vault = CachedClusterCredentialStore(base: vault)
@@ -231,7 +233,7 @@ public actor LiveClusterMethods {
         } else if logbook === LiveLogbookMethods.shared {
             #if os(macOS)
             self.retirePersistedContestSpots = {
-                _ = try await SpotForwardBroker.shared.withdrawContestForwardedSpots()
+                _ = try await SpotForwardBroker.shared.retireContestForwardedSpots()
             }
             #else
             self.retirePersistedContestSpots = nil
@@ -243,14 +245,39 @@ public actor LiveClusterMethods {
             ? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                 .appendingPathComponent("OM0RX-xLog Integration Services/cluster.json")
             : logbook.workspaceDirectoryURL.appendingPathComponent("Cluster/cluster.json"))
+        if let deferPersistedContestSpots {
+            self.deferPersistedContestSpots = deferPersistedContestSpots
+        } else if logbook === LiveLogbookMethods.shared {
+            #if os(macOS)
+            self.deferPersistedContestSpots = {
+                try await SpotForwardBroker.shared.deferContestForwardedSpotsForShutdown()
+            }
+            #else
+            self.deferPersistedContestSpots = nil
+            #endif
+        } else {
+            self.deferPersistedContestSpots = nil
+        }
     }
 
-    @discardableResult func terminate() async -> Bool {
+    @discardableResult func terminate(deferRadioSpotCleanup: Bool = false) async -> Bool {
         terminated = true
         let cleanup = priorRadioSpotCleanupTask
         cleanup?.cancel()
-        await cleanup?.value
+        if !deferRadioSpotCleanup { await cleanup?.value }
         contactRefreshRevision &+= 1
+        if deferRadioSpotCleanup {
+            // Stop the publisher and retain durable marker cleanup for a later
+            // worker. Remote cosmetic removal must never delay the mode switch.
+            var cleanupComplete = contestForwardedSpots.isEmpty
+            if let deferPersistedContestSpots {
+                do { cleanupComplete = try await deferPersistedContestSpots() == 0 }
+                catch { cleanupComplete = false }
+            }
+            await service?.terminate()
+            await history?.stop()
+            return cleanupComplete
+        }
         var contestSpotsRetired = true
         if let publication = contestPublication, !contestForwardedSpots.isEmpty {
             do {
@@ -966,6 +993,9 @@ public actor LiveClusterMethods {
             guard let provider = key.split(separator: "|").first.map(String.init) else { rejected += 1; continue }
             do {
                 if try await spotForward(next.payload, provider, true) {
+                    // Terminal retirement drains the broker's accepted receipt;
+                    // a delayed publication must not recreate in-memory state.
+                    guard !terminated else { throw WorkerFailure("worker_stopping", "The contest spot publisher has shut down.") }
                     contestForwardedSpots[key] = ContestForwardedRadioSpot(
                         spotID: next.spotID, payload: next.payload, signature: next.signature,
                         forwardedAt: contestRadioClock())

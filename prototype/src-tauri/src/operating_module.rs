@@ -4,7 +4,8 @@ use std::{
     fs,
     io::Write,
     path::PathBuf,
-    sync::{Mutex, OnceLock},
+    sync::{Condvar, Mutex, OnceLock},
+    time::Duration,
 };
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -45,6 +46,7 @@ struct State {
 pub struct Owner {
     path: PathBuf,
     state: Mutex<State>,
+    drained: Condvar,
 }
 static OWNER: OnceLock<Owner> = OnceLock::new();
 
@@ -80,6 +82,7 @@ impl Drop for Admission<'_> {
     fn drop(&mut self) {
         if let Ok(mut state) = self.owner.state.lock() {
             state.active = state.active.saturating_sub(1);
+            self.owner.drained.notify_all();
         }
     }
 }
@@ -115,6 +118,7 @@ impl Owner {
         };
         Ok(Self {
             path,
+            drained: Condvar::new(),
             state: Mutex::new(State {
                 selected,
                 context: uuid::Uuid::new_v4().to_string(),
@@ -128,6 +132,7 @@ impl Owner {
     pub fn memory(selected: OperatingModule) -> Self {
         Self {
             path: PathBuf::new(),
+            drained: Condvar::new(),
             state: Mutex::new(State {
                 selected,
                 context: uuid::Uuid::new_v4().to_string(),
@@ -202,16 +207,34 @@ impl Owner {
     }
 
     pub fn begin(&self, target: &str, context: &str) -> Result<OperatingModule, String> {
-        self.begin_transition(target, context, false)
+        self.begin_transition(target, context, false, false)
     }
 
     /// Explicit mode-menu requests also rebuild an already selected workspace.
     /// The same admission, context, retirement and persistence fences still apply.
     pub fn begin_restart(&self, target: &str, context: &str) -> Result<OperatingModule, String> {
-        self.begin_transition(target, context, true)
+        self.begin_transition(target, context, true, false)
     }
 
-    fn begin_transition(&self, target: &str, context: &str, restart: bool) -> Result<OperatingModule, String> {
+    /// Retain the user's switch request before draining already admitted work.
+    /// Sealing first prevents recurring background work from winning the idle race.
+    pub fn begin_restart_when_idle(&self, target: &str, context: &str, timeout: Duration) -> Result<OperatingModule, String> {
+        let target = self.begin_transition(target, context, true, true)?;
+        let state = self.state.lock().map_err(|_| "Operating module authority unavailable")?;
+        let (mut state, _) = self.drained.wait_timeout_while(state, timeout,
+            |state| state.transition == Some(target) && state.context == context && state.active != 0)
+            .map_err(|_| "Operating module authority unavailable")?;
+        if state.transition != Some(target) || state.context != context {
+            return Err("The requested workspace switch was cancelled.".into());
+        }
+        if state.active != 0 {
+            state.transition = None;
+            return Err("An earlier operating action did not finish. The workspace remains available; its outcome must settle before switching.".into());
+        }
+        Ok(target)
+    }
+
+    fn begin_transition(&self, target: &str, context: &str, restart: bool, drain_active: bool) -> Result<OperatingModule, String> {
         let target = OperatingModule::parse(target)?;
         let mut state = self
             .state
@@ -226,7 +249,7 @@ impl Owner {
         if state.selected == target && !restart {
             return Err("That operating module is already active.".into());
         }
-        if state.active != 0 {
+        if state.active != 0 && !drain_active {
             return Err(
                 "Wait for the current operating action to finish before changing module.".into(),
             );
@@ -238,6 +261,7 @@ impl Owner {
     pub fn cancel(&self) {
         if let Ok(mut state) = self.state.lock() {
             state.transition = None;
+            self.drained.notify_all();
         }
     }
 
@@ -593,6 +617,53 @@ mod tests {
         assert!(owner.begin("contesting", &context).is_err());
         drop(admission);
         assert!(owner.begin("contesting", &context).is_ok());
+    }
+
+    #[test]
+    fn requested_restart_seals_new_work_and_finishes_after_admitted_work_drains() {
+        let owner = std::sync::Arc::new(Owner::memory(OperatingModule::Contesting));
+        let context = owner.snapshot().unwrap()["context"].as_str().unwrap().to_owned();
+        let active = owner.admit_current().unwrap();
+        let (done, result) = std::sync::mpsc::channel();
+        let switch = std::thread::spawn({
+            let owner = owner.clone(); let context = context.clone();
+            move || { done.send(owner.begin_restart_when_idle("normal_logging", &context, Duration::from_secs(2))).unwrap(); }
+        });
+        let deadline = std::time::Instant::now() + Duration::from_secs(1);
+        while owner.snapshot().unwrap()["transitioning"] != true {
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::yield_now();
+        }
+        assert!(owner.admit_current().is_err());
+        assert!(owner.admit_selected(OperatingModule::Contesting).is_err());
+        assert!(owner.commit(OperatingModule::NormalLogging).is_err());
+        assert!(result.try_recv().is_err());
+        // A second request must not cancel the first request's sealed intent.
+        assert!(owner.begin_restart_when_idle("normal_logging", &context, Duration::ZERO).is_err());
+        assert_eq!(owner.snapshot().unwrap()["transitioning"], true);
+        drop(active);
+        let target = result.recv_timeout(Duration::from_secs(1)).unwrap().unwrap();
+        switch.join().unwrap();
+        owner.commit(target).unwrap();
+        assert_eq!(owner.snapshot().unwrap()["selected"], "normal_logging");
+        assert_ne!(owner.snapshot().unwrap()["context"], context);
+    }
+
+    #[test]
+    fn queued_restart_timeout_preserves_live_work_and_reopens_admission() {
+        let owner = Owner::memory(OperatingModule::NormalLogging);
+        let original = owner.snapshot().unwrap();
+        let context = original["context"].as_str().unwrap();
+        let active = owner.admit_current().unwrap();
+        assert!(owner.begin_restart_when_idle("contesting", context, Duration::ZERO).is_err());
+        assert_eq!(owner.snapshot().unwrap(), original);
+        assert!(owner.admit_current().is_ok());
+        assert!(owner.commit(OperatingModule::Contesting).is_err());
+        // Timeout did not discard the original in-flight admission.
+        assert!(owner.begin("contesting", context).is_err());
+        drop(active);
+        let target = owner.begin_restart_when_idle("contesting", context, Duration::ZERO).unwrap();
+        owner.commit(target).unwrap();
     }
 
     #[test]

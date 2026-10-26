@@ -54,6 +54,14 @@ actor SpotForwardBroker {
         let version: Int
         var spots: [InventoryEntry]
     }
+    private struct PendingDelivery: Codable {
+        let id: UUID
+        let provider: String
+        let callsign: String
+        let frequencyHz: Int64
+        let owner: String
+        var radioID: String?
+    }
 
     private static let defaultInventoryURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("OM0RX-xLog Integration Services", isDirectory: true)
@@ -99,7 +107,10 @@ actor SpotForwardBroker {
     private var accepted: [String: (at: Date, priority: Int, radioID: String?)] = [:]
     private var recentRemovalTargets: [String: (radioID: String, at: Date)] = [:]
     private var pending: Set<String> = []
-    private var pendingWaiters: [String: [CheckedContinuation<Void, Never>]] = [:]
+    private var pendingAcceptances: [String: (owner: String, at: Date)] = [:]
+    private var unresolvedDeliveries: [UUID: PendingDelivery] = [:]
+    private var retiringOwners: Set<String> = []
+    private var pendingWaiters: [String: [UUID: CheckedContinuation<Void, Error>]] = [:]
 
     init(deliver: @escaping @Sendable (FlexSpot, String) async throws -> Void,
          remove: @escaping @Sendable (FlexSpot, String) async throws -> Void = { _, _ in
@@ -129,6 +140,10 @@ actor SpotForwardBroker {
     /// Returns false for a duplicate or an already-pending matching spot.
     func forward(_ spot: FlexSpot, provider: String = "direct_agent", now: Date = Date(),
                  replacingExisting: Bool = false) async throws -> Bool {
+        let owner = spot.source == "xLog Contest" ? "contesting" : "normal_logging"
+        guard !retiringOwners.contains(owner) else {
+            throw WorkerFailure("worker_stopping", "This radio spot publisher is retiring; no new spot was sent.")
+        }
         let key = "\(provider)|\(spot.callsign)|\(spot.frequencyHz)"
         let pendingKey = reservationKey(provider: provider, callsign: spot.callsign, frequencyHz: spot.frequencyHz)
         accepted = accepted.filter { now.timeIntervalSince($0.value.at) < 180 }
@@ -146,14 +161,17 @@ actor SpotForwardBroker {
             now.timeIntervalSince($0.at) < 30 ? $0.radioID : nil
         }
         if replacingExisting {
-            while pending.contains(pendingKey) {
-                await withCheckedContinuation { pendingWaiters[pendingKey, default: []].append($0) }
-            }
+            try await awaitPending(pendingKey)
             preferredRadioID = accepted[key]?.radioID ?? preferredRadioID
             accepted.removeValue(forKey: key)
         }
         if let prior = accepted[key], prior.priority >= spot.priority { return false }
         preferredRadioID = accepted[key]?.radioID ?? preferredRadioID
+        // A repaint may have waited for a previous delivery while terminal
+        // retirement sealed this owner. It must not begin a new remote add.
+        guard !retiringOwners.contains(owner) else {
+            throw WorkerFailure("worker_stopping", "This radio spot publisher is retiring; no new spot was sent.")
+        }
         guard pending.count < 256 else {
             throw WorkerFailure("spot_broker_busy", "Spot forwarding is busy; retry after the current deliveries settle.")
         }
@@ -161,14 +179,34 @@ actor SpotForwardBroker {
         // is in flight is deliberately suppressed, never reported as accepted.
         // A repeated higher-priority spot after ACK replaces the lower style.
         guard pending.insert(pendingKey).inserted else { return false }
+        pendingAcceptances[pendingKey] = (owner, now)
         defer { finishPending(pendingKey) }
+        var intent: PendingDelivery?
+        if let store = try durableInventory() {
+            let value = PendingDelivery(id: UUID(), provider: provider, callsign: spot.callsign,
+                frequencyHz: spot.frequencyHz, owner: owner, radioID: nil)
+            try store.beginDelivery(value.id.uuidString, payload: JSONEncoder().encode(value))
+            unresolvedDeliveries[value.id] = value
+            intent = value
+        }
         let radioID = try await deliver(spot, provider, preferredRadioID)
         accepted[key] = (now, spot.priority, radioID)
         if let radioID {
-            do { try persistAccepted(spot, provider: provider, radioID: radioID, acceptedAt: now) }
+            intent?.radioID = radioID
+            if let intent { unresolvedDeliveries[intent.id] = intent }
+            do {
+                try persistAccepted(spot, provider: provider, radioID: radioID, acceptedAt: now,
+                                    finishingDelivery: intent?.id.uuidString)
+                if let intent { unresolvedDeliveries.removeValue(forKey: intent.id) }
+            }
             catch {
                 accepted.removeValue(forKey: key)
-                try? await removeDelivery(spot, provider, radioID)
+                // A failed accepted-receipt write must not erase the pre-wire
+                // uncertainty. Retain the ACK's exact radio when storage works.
+                if let intent { try? durableInventory()?.retainDelivery(intent.id.uuidString, payload: JSONEncoder().encode(intent)) }
+                // Cosmetic compensation is deferred too: an inline remove
+                // could stall this add's settlement and the module switch.
+                // Later exact cleanup owns the retained intent and its ACK.
                 throw error
             }
         }
@@ -183,9 +221,7 @@ actor SpotForwardBroker {
     func remove(_ spot: FlexSpot, provider: String = "direct_agent") async throws -> Bool {
         let key = "\(provider)|\(spot.callsign)|\(spot.frequencyHz)"
         let pendingKey = reservationKey(provider: provider, callsign: spot.callsign, frequencyHz: spot.frequencyHz)
-        while pending.contains(pendingKey) {
-            await withCheckedContinuation { pendingWaiters[pendingKey, default: []].append($0) }
-        }
+        try await awaitPending(pendingKey)
         guard pending.count < 256 else {
             throw WorkerFailure("spot_broker_busy", "Spot forwarding is busy; retry after the current deliveries settle.")
         }
@@ -194,6 +230,10 @@ actor SpotForwardBroker {
         let radioID: String?
         if let acceptedRadioID = accepted[key]?.radioID { radioID = acceptedRadioID }
         else { radioID = try persistedRadioID(for: spot, provider: provider) }
+        if let radioID {
+            try requireOwnerScopedTCIRemoval(provider: provider, radioID: radioID, callsign: spot.callsign,
+                                            owner: spot.source == "xLog Contest" ? "contesting" : "normal_logging")
+        }
         try await removeDelivery(spot, provider, radioID)
         accepted.removeValue(forKey: key)
         if let radioID {
@@ -219,10 +259,59 @@ actor SpotForwardBroker {
         try await withdrawForwardedSpots(owner: "contesting", acceptedBefore: cutoff)
     }
 
+    /// Terminal worker retirement seals this publisher before draining adds.
+    /// A failed or unknown removal retains both the seal and durable receipts;
+    /// a replacement worker can retry through a new broker instance.
+    func retireContestForwardedSpots() async throws -> Int {
+        retiringOwners.insert("contesting")
+        return try await withdrawForwardedSpots(owner: "contesting", acceptedBefore: .distantFuture)
+    }
+
+    /// Cosmetic spots must not put a remove RPC on the module-switch deadline.
+    /// Retain every owned receipt/uncertainty for later exact cleanup; this count
+    /// reports deferral, never a successful remote withdrawal.
+    func deferContestForwardedSpotsForShutdown() async throws -> Int {
+        retiringOwners.insert("contesting")
+        try await drainPendingAcceptances(owner: "contesting", acceptedBefore: .distantFuture)
+        return try loadInventory().spots.filter { $0.owner == "contesting" }.count
+            + pendingDeliveryInventory().values.filter { $0.owner == "contesting" }.count
+    }
+
+    private func drainPendingAcceptances(owner: String, acceptedBefore cutoff: Date) async throws {
+        while let key = pendingAcceptances.first(where: { $0.value.owner == owner && $0.value.at < cutoff })?.key {
+            try await awaitPending(key)
+        }
+        try Task.checkCancellation()
+    }
+
     private func withdrawForwardedSpots(owner: String, acceptedBefore cutoff: Date) async throws -> Int {
+        // A remote add may be acknowledged after shutdown begins. Snapshotting
+        // the inventory before that admitted delivery settles would miss its
+        // fresh receipt and falsely report successful retirement.
+        try await drainPendingAcceptances(owner: owner, acceptedBefore: cutoff)
+        var removed = 0, firstFailure: Error?
+        for intent in try pendingDeliveryInventory().values.filter({ $0.owner == owner }) {
+            do {
+                guard let radioID = intent.radioID else {
+                    throw WorkerFailure("spot_delivery_unknown", "A prior spot delivery has no confirmed radio identity; its cleanup remains unresolved.")
+                }
+                let key = reservationKey(provider: intent.provider, callsign: intent.callsign, frequencyHz: intent.frequencyHz)
+                try await awaitPending(key)
+                pending.insert(key)
+                defer { finishPending(key) }
+                try requireOwnerScopedTCIRemoval(provider: intent.provider, radioID: radioID, callsign: intent.callsign, owner: owner)
+                let spot = try FlexSpot(frequencyHz: intent.frequencyHz, callsign: intent.callsign, mode: "CW",
+                    source: "xLog module transition", spotter: "", comment: "", timestamp: Int64(Date().timeIntervalSince1970),
+                    lifetimeSeconds: 600, priority: 1, colorHex: "#AEB5B7")
+                try await removeDelivery(spot, intent.provider, radioID)
+                try durableInventory()?.removeDelivery(intent.id.uuidString)
+                unresolvedDeliveries.removeValue(forKey: intent.id)
+                removed += 1
+            } catch { if firstFailure == nil { firstFailure = error } }
+        }
         let document = try loadInventory()
         let owned = document.spots.filter { $0.owner == owner && $0.acceptedAt < cutoff.timeIntervalSince1970 }
-        guard !owned.isEmpty else { return 0 }
+        guard !owned.isEmpty else { if let firstFailure { throw firstFailure }; return removed }
         // Radio spots are published with a ten-minute lifetime. Do not make a
         // replacement worker replay hours-old remove commands before it can
         // publish the current contest snapshot; retire those expired receipts
@@ -236,16 +325,11 @@ actor SpotForwardBroker {
             }
         }
         let activeOwned = owned.filter { $0.acceptedAt > expirationCutoff }
-        guard !activeOwned.isEmpty else { return expired.count }
-        var removed = 0, firstFailure: Error?
+        guard !activeOwned.isEmpty else { if let firstFailure { throw firstFailure }; return expired.count + removed }
         for entry in activeOwned {
             do {
                 let key = reservationKey(provider: entry.provider, callsign: entry.callsign, frequencyHz: entry.frequencyHz)
-                while pending.contains(key) {
-                    // Unlike a publication, background cleanup must be promptly
-                    // cancellable even while a delivery owns this key.
-                    try await Task.sleep(for: .milliseconds(10))
-                }
+                try await awaitPending(key)
                 try Task.checkCancellation()
                 guard pending.count < 256 else {
                     throw WorkerFailure("spot_broker_busy", "Spot forwarding is busy; prior cleanup will retry.")
@@ -256,6 +340,8 @@ actor SpotForwardBroker {
                 // exact retained receipt is eligible for this removal attempt.
                 let current = try loadInventory()
                 guard current.spots.contains(entry) else { continue }
+                try requireOwnerScopedTCIRemoval(provider: entry.provider, radioID: entry.radioID,
+                                                callsign: entry.callsign, owner: owner)
                 // TCI deletes by callsign, not frequency. A current sibling on
                 // this radio supersedes the old receipt; deleting it remotely
                 // would also erase the newly accepted spot.
@@ -287,10 +373,64 @@ actor SpotForwardBroker {
         return expired.count + removed
     }
 
+    private func awaitPending(_ key: String) async throws {
+        while pending.contains(key) {
+            let waiterID = UUID()
+            try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                    // Completion/cancellation can precede registration while
+                    // this actor resumes. Do not retain an unwakeable waiter.
+                    if Task.isCancelled { continuation.resume(throwing: CancellationError()) }
+                    else if !pending.contains(key) { continuation.resume(returning: ()) }
+                    else { pendingWaiters[key, default: [:]][waiterID] = continuation }
+                }
+            } onCancel: {
+                Task { await self.cancelPendingWaiter(key, waiterID: waiterID) }
+            }
+        }
+        try Task.checkCancellation()
+    }
+
+    private func cancelPendingWaiter(_ key: String, waiterID: UUID) {
+        guard let waiter = pendingWaiters[key]?.removeValue(forKey: waiterID) else { return }
+        if pendingWaiters[key]?.isEmpty == true { pendingWaiters.removeValue(forKey: key) }
+        waiter.resume(throwing: CancellationError())
+    }
+
     private func finishPending(_ key: String) {
         pending.remove(key)
-        let waiters = pendingWaiters.removeValue(forKey: key) ?? []
-        for waiter in waiters { waiter.resume() }
+        pendingAcceptances.removeValue(forKey: key)
+        let waiters = pendingWaiters.removeValue(forKey: key) ?? [:]
+        for waiter in waiters.values { waiter.resume(returning: ()) }
+    }
+
+    private func pendingDeliveryInventory() throws -> [UUID: PendingDelivery] {
+        var result = unresolvedDeliveries
+        for payload in try durableInventory()?.pendingDeliveries() ?? [] {
+            let value = try JSONDecoder().decode(PendingDelivery.self, from: payload)
+            guard ["direct_agent", "direct_tci"].contains(value.provider),
+                  ["normal_logging", "contesting"].contains(value.owner),
+                  value.radioID == nil || ["radio1", "radio2"].contains(value.radioID!),
+                  !value.callsign.isEmpty, value.callsign.utf8.count <= 32,
+                  (100_000...60_000_000).contains(value.frequencyHz) else {
+                throw WorkerFailure("spot_inventory_invalid", "The pending radio spot inventory is invalid; no cleanup was acknowledged.")
+            }
+            if result[value.id] == nil { result[value.id] = value }
+        }
+        return result
+    }
+
+    private func requireOwnerScopedTCIRemoval(provider: String, radioID: String, callsign: String, owner: String) throws {
+        guard provider == "direct_tci" else { return }
+        let acceptedConflict = try loadInventory().spots.contains {
+            $0.provider == provider && $0.radioID == radioID && $0.callsign == callsign && $0.owner != owner
+        }
+        let pendingConflict = try pendingDeliveryInventory().values.contains {
+            $0.provider == provider && ($0.radioID == nil || $0.radioID == radioID) && $0.callsign == callsign && $0.owner != owner
+        }
+        guard !acceptedConflict, !pendingConflict else {
+            throw WorkerFailure("spot_owner_conflict", "TCI deletes every spot for this callsign; another publisher's retained spot prevents owner-scoped cleanup.")
+        }
     }
 
     private func reservationKey(provider: String, callsign: String, frequencyHz: Int64) -> String {
@@ -351,12 +491,14 @@ actor SpotForwardBroker {
         try durableInventory()?.remove(key: entry.key, payload: receiptData(entry))
     }
 
-    private func persistAccepted(_ spot: FlexSpot, provider: String, radioID: String, acceptedAt: Date) throws {
+    private func persistAccepted(_ spot: FlexSpot, provider: String, radioID: String, acceptedAt: Date,
+                                 finishingDelivery: String? = nil) throws {
         let owner = spot.source == "xLog Contest" ? "contesting" : "normal_logging"
         let entry = InventoryEntry(provider: provider, radioID: radioID, callsign: spot.callsign,
                                    frequencyHz: spot.frequencyHz, owner: owner,
                                    acceptedAt: acceptedAt.timeIntervalSince1970)
-        try durableInventory()?.accept(key: entry.key, payload: receiptData(entry), date: entry.acceptedAt)
+        try durableInventory()?.accept(key: entry.key, payload: receiptData(entry), date: entry.acceptedAt,
+                                      finishingDelivery: finishingDelivery)
     }
 
     private func persistedRadioID(for spot: FlexSpot, provider: String) throws -> String? {

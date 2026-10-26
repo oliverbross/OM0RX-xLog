@@ -19,6 +19,7 @@ actor LiveServiceMethods {
     static let shared = LiveServiceMethods()
     private let logbook: LiveLogbookMethods
     private var syncTask: Task<Void, Never>?
+    private var activeRunID: UUID?
     private var syncState: [String: Any] = ["running": false, "status": "Not started"]
     private var automaticTask: Task<Void, Never>?
     private var nextAttempt: Date?
@@ -269,7 +270,7 @@ actor LiveServiceMethods {
             let settings = try logbook.currentSettings()
             let database = try logbook.openedDatabase()
             var result: [String: Any] = [:]
-            for key in ["running", "status", "completion_id", "finished_at", "pushed", "pulled", "deleted", "conflicts_count", "failed", "held", "held_groups", "error_code", "error_phase", "http_status"] {
+            for key in ["running", "status", "completion_id", "finished_at", "pushed", "pulled", "deleted", "conflicts_count", "failed", "held", "held_groups", "error_code", "error_phase", "http_status", "run_receipt_error"] {
                 result[key] = syncState[key]
             }
             result["automatic_sync"] = settings.automaticSync
@@ -278,6 +279,7 @@ actor LiveServiceMethods {
             result["mode"] = settings.logbookMode.rawValue
             result["sync_available"] = settings.logbookMode == .wavelog
             result["logbook_revision"] = try database.currentRevision()
+            try addSyncRunHistory(to: &result, database: database)
             if settings.logbookMode == .local {
                 result["running"] = false
                 result["status"] = "Local logbook · Wavelog sync disabled"
@@ -294,6 +296,7 @@ actor LiveServiceMethods {
             result["next_attempt"] = settings.automaticSync ? nextAttempt.map { ISO8601DateFormatter().string(from: $0) } as Any? ?? NSNull() : NSNull()
             result["mode"] = mode.rawValue
             result["sync_available"] = mode == .wavelog
+            try addSyncRunHistory(to: &result, database: database)
             if mode == .local {
                 result["running"] = false
                 result["status"] = "Local logbook · Wavelog sync disabled"
@@ -546,12 +549,16 @@ actor LiveServiceMethods {
         }
         let lease = try logbook.beginManualSync(expected: settings, automatic: automatic)
         let owner = logbook
+        let receipt: SyncRunReceipt
+        do { receipt = try lease.database.beginSyncRun(automatic: automatic) }
+        catch { _ = owner.endManualSync(lease); throw error }
+        activeRunID = receipt.id
         let run: SyncOperation
         if let operation { run = operation } else {
             guard let configuration else { _ = owner.endManualSync(lease); throw invalid() }
             run = { database, _ in
                 try await SyncEngine(database: database, configuration: configuration,
-                    validateRun: { try owner.validateManualSync(lease) }).synchronize()
+                    validateRun: { try owner.validateManualSync(lease) }, receiptID: receipt.id).synchronize()
             }
         }
         syncState = ["running": true, "status": "Synchronizing"]
@@ -567,10 +574,11 @@ actor LiveServiceMethods {
                         ["identity": group.identity, "remote_ids": group.remoteIDs,
                          "differing_fields": group.differingFields, "value_shapes": group.valueShapes] as [String: Any]
                     }], failed: report.failed > 0, interval: settings.syncIntervalMinutes,
-                    automaticRun: automatic, lease: lease)
+                    automaticRun: automatic, lease: lease, receiptID: receipt.id, report: report)
             } catch {
                 self.finish(Self.syncFailure(error, phase: "run"), failed: true,
-                            interval: settings.syncIntervalMinutes, automaticRun: automatic, lease: lease)
+                            interval: settings.syncIntervalMinutes, automaticRun: automatic, lease: lease,
+                            receiptID: receipt.id, report: nil)
             }
         }
     }
@@ -657,10 +665,17 @@ actor LiveServiceMethods {
     }
 
     private func finish(_ state: [String: Any], failed: Bool, interval: Int,
-                        automaticRun: Bool, lease: LiveLogbookSyncLease) {
+                        automaticRun: Bool, lease: LiveLogbookSyncLease, receiptID: UUID, report: SyncReport?) {
+        let code = state["error_code"] as? String
+        let outcome = code == "cancelled" ? "cancelled" : report != nil ? (failed ? "completed_with_failures" : "completed") : "failed"
+        var persistenceFailed = false
+        do { try lease.database.finishSyncRun(receiptID, outcome: outcome, report: report, safeErrorCode: code) }
+        catch { persistenceFailed = true }
+        activeRunID = nil
         guard logbook.endManualSync(lease) else { return }
         syncState = state; syncState["finished_at"] = ISO8601DateFormatter().string(from: Date()); syncTask = nil
         syncState["completion_id"] = UUID().uuidString
+        if persistenceFailed { syncState["run_receipt_error"] = "Completion could not be saved; the retained run outcome is unknown." }
         if !failed {
             failures = 0
             nextAttempt = Date().addingTimeInterval(Double(max(1, interval) * 60))
@@ -671,6 +686,30 @@ actor LiveServiceMethods {
             )
         }
         if !stopped, logbook === LiveLogbookMethods.shared { Task { try? await LiveClusterMethods.shared.refreshContacts() } }
+    }
+
+    private func addSyncRunHistory(to result: inout [String: Any], database: LogbookDatabase) throws {
+        let receipts = try database.syncRunReceipts().map { receipt -> [String: Any] in
+            let confirmed = receipt.confirmedCreates + receipt.confirmedUpdates + receipt.confirmedDeletes
+            let unknown = receipt.uploadAttempts - confirmed
+            let outcome = receipt.outcome == "running" && receipt.id != activeRunID ? "interrupted" : receipt.outcome
+            return ["run_id": receipt.id.uuidString, "trigger": receipt.automatic ? "automatic" : "manual",
+                "directions": ["local_changes_to_wavelog", "wavelog_history_to_local"],
+                "started_at": ISO8601DateFormatter().string(from: receipt.startedAt),
+                "finished_at": receipt.finishedAt.map { ISO8601DateFormatter().string(from: $0) } as Any? ?? NSNull(),
+                "outcome": outcome, "report_counts": receipt.reportCounts as Any? ?? NSNull(),
+                "error_code": receipt.safeErrorCode as Any? ?? NSNull(),
+                "upload_tracking": receipt.uploadTracking, "upload_attempts": receipt.uploadTracking ? receipt.uploadAttempts as Any : NSNull(),
+                "confirmed_creates": receipt.uploadTracking ? receipt.confirmedCreates as Any : NSNull(),
+                "confirmed_updates": receipt.uploadTracking ? receipt.confirmedUpdates as Any : NSNull(),
+                "confirmed_deletes": receipt.uploadTracking ? receipt.confirmedDeletes as Any : NSNull(),
+                "unknown_writes": receipt.uploadTracking ? unknown as Any : NSNull(),
+                "upload_counts_complete": receipt.finishedAt != nil && outcome != "running" && outcome != "interrupted"
+                    && receipt.uploadTracking && unknown == 0]
+        }
+        result["recent_runs"] = receipts
+        result["last_run"] = receipts.first as Any? ?? NSNull()
+        result["run_history_limit"] = 100
     }
     private func workspaceSecrets() throws -> WorkspaceCredentialStore {
         WorkspaceCredentialStore(service: try logbook.currentKeychainService())

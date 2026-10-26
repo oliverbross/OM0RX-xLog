@@ -100,6 +100,20 @@ private actor SlowPriorSpotCleanup {
     }
 }
 
+private actor FreshContestDeliveryGate {
+    private var entered = false
+    private var retired = false
+    private var continuation: CheckedContinuation<Void, Never>?
+    func waitForAcceptance() async {
+        entered = true
+        await withCheckedContinuation { continuation = $0 }
+    }
+    func started() -> Bool { entered }
+    func release() { continuation?.resume(); continuation = nil }
+    func markRetired() { retired = true }
+    func retirementCompleted() -> Bool { retired }
+}
+
 @Suite("Portable live cluster worker bridge")
 struct LiveClusterMethodsTests {
     @Test("CW classification reads only a current existing projection and never starts a transport")
@@ -225,6 +239,53 @@ struct LiveClusterMethodsTests {
         #expect(await cluster.terminate())
         #expect(await cleanup.cancelled)
         #expect(await cleanup.starts == 1)
+    }
+
+    @Test("Workspace shutdown never waits for stalled cosmetic cleanup or starts removal")
+    func workspaceShutdownDoesNotWaitForCosmeticNetwork() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let configurationURL = root.appendingPathComponent("cluster.json")
+        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [], forwardSpotsToFlex: true)).write(to: configurationURL)
+        let cleanup = FreshContestDeliveryGate(), removal = FreshContestDeliveryGate()
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let cluster = LiveClusterMethods(logbook: logbook, configurationURL: configurationURL,
+            vault: UnavailableClusterTestVault(), forwardClassifiedIngressSpots: false,
+            spotForward: { _, _, _ in true }, spotRemove: { _, _ in
+                await removal.waitForAcceptance(); return false
+            }, beforeContestSpotPublication: { await cleanup.waitForAcceptance() },
+            deferPersistedContestSpots: { 1 })
+        _ = try await cluster.handle(method: "cluster_contest_radio_spots_publish", params: [
+            "publisher_id": UUID().uuidString, "publisher_started_at": 2, "publication_sequence": 1,
+            "action": "replace", "session_id": UUID().uuidString, "workspace_generation": UUID().uuidString,
+            "revision": 1, "configured_bands": ["40m"], "allowed_mode_groups": ["phone"],
+            "chunk_index": 0, "chunk_count": 1, "spots": [["spot_id": "fresh", "callsign": "DL1FRESH",
+                "frequency_hz": 7_125_000, "band": "40m", "mode": "SSB", "spotter": "W1AW", "comment": "",
+                "timestamp": Date().timeIntervalSinceReferenceDate, "points": 3, "dupe": false,
+                "multiplier_count": 0, "country_multiplier": false, "zone_multiplier": false]]])
+        for _ in 0..<200 {
+            if await cleanup.started() { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(await cleanup.started())
+        let worker = LiveWorker(logbook: logbook, localAcceptance: true, cluster: cluster)
+        let shutdown = Task {
+            let outcome = await worker.shutdownOutcome()
+            await cleanup.markRetired()
+            return outcome
+        }
+        for _ in 0..<200 {
+            if await cleanup.retirementCompleted() { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        let completedWithoutNetwork = await cleanup.retirementCompleted()
+        let attemptedRemoval = await removal.started()
+        await cleanup.release()
+        await removal.release()
+        #expect(completedWithoutNetwork)
+        #expect(!attemptedRemoval)
+        #expect(await shutdown.value == .contestSpotCleanupDeferred)
     }
 
     @Test("Prior cutoff includes Normal Logging receipts accepted after service creation but excludes same-clock contest delivery")
@@ -483,7 +544,7 @@ struct LiveClusterMethodsTests {
         #expect((await recorder.activeSnapshot()).isEmpty)
     }
 
-    @Test("Contest shutdown fails closed and retains retry state when radio spot withdrawal is rejected")
+    @Test("Contest shutdown permits restart and retains cosmetic cleanup without calling removal")
     func contestShutdownRetainsRejectedWithdrawal() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -513,12 +574,104 @@ struct LiveClusterMethodsTests {
         #expect(published["accepted"] as? Int == 1)
         await recorder.setRemovalAccepted(false)
         let worker = LiveWorker(logbook: logbook, localAcceptance: true, cluster: cluster)
-        #expect(await worker.shutdownOutcome() == .contestSpotWithdrawalFailed)
+        #expect(await worker.shutdownOutcome() == .contestSpotCleanupDeferred)
         #expect((await recorder.activeSnapshot()).count == 1)
+        #expect((await recorder.removed()).isEmpty)
 
         await recorder.setRemovalAccepted(true)
         #expect(await cluster.terminate() == true)
         #expect((await recorder.activeSnapshot()).isEmpty)
+    }
+
+    @Test("Worker retirement defers fresh persisted spots without removal or loading cluster configuration")
+    func freshPersistedContestRetirementWithoutClusterConfiguration() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let inventoryURL = root.appendingPathComponent("spots.json")
+        let recorder = ClusterRadioSpotRecorder()
+        let broker = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { _, _, _ in "radio2" },
+            targetedRemove: { spot, provider, radioID in
+                #expect(provider == "direct_agent")
+                #expect(radioID == "radio2")
+                let payload = ClusterRadioSpotPayload(frequencyHz: spot.frequencyHz, callsign: spot.callsign,
+                    mode: spot.mode, source: spot.source, spotter: spot.spotter, comment: spot.comment,
+                    timestamp: spot.timestamp, lifetimeSeconds: spot.lifetimeSeconds, priority: spot.priority, colorHex: spot.colorHex)
+                _ = await recorder.remove(payload, provider: provider)
+            })
+        let payload = ClusterRadioSpotPayload(frequencyHz: 7_125_000, callsign: "DL1FRESH", mode: "SSB", source: "xLog Contest",
+            spotter: "W1AW", comment: "", timestamp: Int64(Date().timeIntervalSince1970), lifetimeSeconds: 600,
+            priority: 3, colorHex: "#3DA5F4")
+        _ = try await broker.forward(payload.flexSpot(), replacingExisting: true)
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let cluster = LiveClusterMethods(logbook: logbook, configurationURL: root.appendingPathComponent("absent-cluster.json"),
+            vault: UnavailableClusterTestVault(), forwardClassifiedIngressSpots: false,
+            retirePersistedContestSpots: { _ = try await broker.retireContestForwardedSpots() },
+            deferPersistedContestSpots: { try await broker.deferContestForwardedSpotsForShutdown() })
+        let worker = LiveWorker(logbook: logbook, localAcceptance: true, cluster: cluster)
+        #expect(await worker.shutdownOutcome() == .contestSpotCleanupDeferred)
+        #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("absent-cluster.json").path))
+        #expect((await recorder.removed()).isEmpty)
+        let inventory = try SpotInventoryStore(url: inventoryURL.appendingPathExtension("sqlite"))
+        #expect(try inventory.rows().count == 1)
+        #expect(await cluster.terminate())
+        #expect((await recorder.removed()).map(\.0.callsign) == ["DL1FRESH"])
+        #expect(try inventory.rows().isEmpty)
+    }
+
+    @Test("Worker retirement drains a delayed acceptance and retains it without remote removal")
+    func retirementDrainsDelayedFreshContestAcceptance() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let configurationURL = root.appendingPathComponent("cluster.json"), inventoryURL = root.appendingPathComponent("spots.json")
+        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [], forwardSpotsToFlex: true)).write(to: configurationURL)
+        let gate = FreshContestDeliveryGate(), recorder = ClusterRadioSpotRecorder()
+        let broker = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { _, _, _ in
+            await gate.waitForAcceptance(); return "radio2"
+        }, targetedRemove: { spot, provider, radioID in
+            #expect(provider == "direct_agent" && radioID == "radio2")
+            let payload = ClusterRadioSpotPayload(frequencyHz: spot.frequencyHz, callsign: spot.callsign,
+                mode: spot.mode, source: spot.source, spotter: spot.spotter, comment: spot.comment,
+                timestamp: spot.timestamp, lifetimeSeconds: spot.lifetimeSeconds, priority: spot.priority, colorHex: spot.colorHex)
+            _ = await recorder.remove(payload, provider: provider)
+        })
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let cluster = LiveClusterMethods(logbook: logbook, configurationURL: configurationURL,
+            vault: UnavailableClusterTestVault(), forwardClassifiedIngressSpots: false,
+            spotForward: { payload, provider, replacing in
+                try await broker.forward(payload.flexSpot(), provider: provider, replacingExisting: replacing)
+            }, spotRemove: { payload, provider in try await broker.remove(payload.flexSpot(), provider: provider) },
+            retirePersistedContestSpots: { _ = try await broker.retireContestForwardedSpots() },
+            deferPersistedContestSpots: { try await broker.deferContestForwardedSpotsForShutdown() })
+        let publication = Task { try await cluster.handle(method: "cluster_contest_radio_spots_publish", params: [
+            "publisher_id": UUID().uuidString, "publisher_started_at": 2, "publication_sequence": 1,
+            "action": "replace", "session_id": UUID().uuidString, "workspace_generation": UUID().uuidString,
+            "revision": 1, "configured_bands": ["40m"], "allowed_mode_groups": ["phone"],
+            "chunk_index": 0, "chunk_count": 1, "spots": [["spot_id": "fresh", "callsign": "DL1FRESH",
+                "frequency_hz": 7_125_000, "band": "40m", "mode": "SSB", "spotter": "W1AW", "comment": "",
+                "timestamp": Date().timeIntervalSinceReferenceDate, "points": 3, "dupe": false,
+                "multiplier_count": 0, "country_multiplier": false, "zone_multiplier": false]]]) }
+        for _ in 0..<200 {
+            if await gate.started() { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(await gate.started())
+        let worker = LiveWorker(logbook: logbook, localAcceptance: true, cluster: cluster)
+        let retirement = Task {
+            let outcome = await worker.shutdownOutcome()
+            await gate.markRetired()
+            return outcome
+        }
+        try await Task.sleep(for: .milliseconds(40))
+        #expect(!(await gate.retirementCompleted()))
+        await gate.release()
+        #expect(await retirement.value == .contestSpotCleanupDeferred)
+        let result = try await publication.value
+        #expect(result["accepted"] as? Int == 0)
+        #expect(result["rejected"] as? Int == 1)
+        #expect((await recorder.removed()).isEmpty)
+        let inventory = try SpotInventoryStore(url: inventoryURL.appendingPathExtension("sqlite"))
+        #expect(try inventory.rows().count == 1)
     }
 
     @Test("Contest module suppresses the unfiltered ingress radio publisher")
