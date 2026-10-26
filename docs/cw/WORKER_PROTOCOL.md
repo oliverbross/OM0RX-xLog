@@ -50,6 +50,15 @@ independent of IQ ingress. A supervisor must drain stdout/stderr independently,
 bound its own queues and kill/reap a stalled child on its shutdown deadline.
 This process boundary is not an OS sandbox.
 
+The macOS spawn primitive in `Sources/CCWProcess` uses
+`POSIX_SPAWN_CLOEXEC_DEFAULT`, explicit stdin/stdout/stderr dup actions and a
+fixed PATH/LANG/LC_ALL environment. All original pipe descriptors are
+close-on-exec and closed in the child. A native probe deliberately opens an
+unrelated inheritable parent FD and a test environment value; it verifies neither
+crosses the spawn boundary and checks separate output/error pipes, reap, spawn
+failure cleanup and invalid-PID guards. The Swift lifecycle owner still needs to
+use this primitive with its bounded transport and shutdown watchdog.
+
 The ABI does not yet carry a cross-process monotonic timestamp. The supervisor
 must retain producer receipt/source-sample mapping and enforce the 250-ms input
 queue budget before transport. Measuring full queue age and adding a negotiated
