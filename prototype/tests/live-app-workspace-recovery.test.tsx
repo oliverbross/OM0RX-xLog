@@ -6,7 +6,8 @@ import LiveApp from "../src/LiveApp";
 import { operatorDraftFixture, testPreferenceSnapshot, testWorkspaceGeneration } from "./operator-draft-fixture";
 import { defaultRotorConfiguration } from "../src/live/rotorConfigurationSession";
 
-const api = vi.hoisted(() => ({ request: vi.fn(), present: vi.fn(), layout: null as any }));
+const api = vi.hoisted(() => ({ request: vi.fn(), present: vi.fn(), layout: null as any, normalActive: true }));
+vi.mock("../src/live/normalLoggingAccess", () => ({ useNormalLoggingAccess: () => ({ active: api.normalActive, error: "" }) }));
 vi.mock("../src/worker", async original => ({ ...await original<typeof import("../src/worker")>(), workerRequest: api.request, openMonitor: vi.fn() }));
 vi.mock("../src/live/operatorDraftTransport", () => ({ requestOperatorDraft: async (method: string, params: any = {}) => (await api.request(method, params)).result }));
 vi.mock("../src/live/useWorkspaceLayout", () => ({ useWorkspaceLayout: () => api.layout }));
@@ -15,6 +16,7 @@ vi.mock("../src/Map", () => ({ default: () => <div>Map fixture</div> }));
 let draft: ReturnType<typeof operatorDraftFixture>, radioFrequency: number;
 beforeEach(() => {
   localStorage.clear(); vi.useFakeTimers(); api.request.mockReset(); api.present.mockReset().mockResolvedValue(undefined);
+  api.normalActive = true;
   radioFrequency = 14_025_000;
   draft = operatorDraftFixture({ id: "draft", call: "K1ABC", start: "2026-10-12T00:00:00Z", band: "20m", mode: "CW", frequencyHz: radioFrequency });
   api.layout = { state: { snapshot: { revision: 1, generation: testWorkspaceGeneration,
@@ -38,6 +40,42 @@ beforeEach(() => {
   });
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); localStorage.clear(); });
+
+it("keeps the normal blank draft passive while Contesting owns mutations, then seeds only after normal admission", async () => {
+  api.normalActive = false;
+  draft = operatorDraftFixture({ id: "draft", call: "", start: "2026-10-12T00:00:00Z", band: "20m", mode: "SSB" });
+  const before = structuredClone(draft("logbook_operator_draft")!.draft!);
+  let view!: ReturnType<typeof render>;
+  await act(async () => { view = render(<LiveApp />); await vi.advanceTimersByTimeAsync(1_200); });
+  expect(api.request.mock.calls.some(([method]) => method === "station_snapshot")).toBe(true);
+  expect(api.request.mock.calls.some(([method]) => method === "logbook_operator_draft_apply")).toBe(false);
+  expect(draft("logbook_operator_draft")!.draft!).toEqual(before);
+  const retained = JSON.parse(localStorage.getItem("xlog.integration.operatorDraft.main.v1")!);
+  expect(retained.pending).toBeNull();
+  expect(retained.draft.call).toBe("");
+  api.normalActive = true;
+  await act(async () => { view.rerender(<LiveApp />); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(800); });
+  expect(api.request.mock.calls.some(([method]) => method === "logbook_operator_draft_apply")).toBe(true);
+  expect(draft("logbook_operator_draft")!.draft!.qso.frequencyHz).toBe(radioFrequency);
+});
+
+it("reconciles the original completed Clear receipt while inactive without queuing a replacement or clearing again", async () => {
+  api.normalActive = false;
+  const base = structuredClone(draft("logbook_operator_draft")!.draft!);
+  const pending = { operationID: "01234567-89ab-4cde-8123-456789abcdef", generation: base.generation,
+    draftID: base.qso.id, expectedRevision: base.revision, action: "clear" };
+  draft("logbook_operator_draft_apply", pending);
+  localStorage.setItem("xlog.integration.operatorDraft.main.v1", JSON.stringify({ base, draft: base.qso, pending }));
+  await act(async () => { render(<LiveApp />); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(1_200); });
+  expect(api.request.mock.calls.some(([method]) => method === "logbook_operator_draft_receipt")).toBe(true);
+  expect(api.request.mock.calls.some(([method]) => method === "logbook_operator_draft_apply")).toBe(false);
+  const retained = JSON.parse(localStorage.getItem("xlog.integration.operatorDraft.main.v1")!);
+  expect(retained.pending).toBeNull();
+  expect(retained.draft.call).toBe("");
+  expect(retained.base.revision).toBe(base.revision + 1);
+});
 
 it("keeps Separate Windows hidden through radio-follow draft edits and their autosave", async () => {
   await act(async () => { render(<LiveApp />); });

@@ -39,3 +39,11 @@ Installed acceptance reached the normal-editor preparation guard. Read-only insp
 This is protected pending work, not evidence of an empty contest draft being rejected. Returning to Normal Logging remains blocked until the operator decides whether to retain the normal draft or complete the original Clear. Its inactive normal-window bootstrap also prevents reaching that review through the current UI; that recovery deadlock remains an acceptance limitation, not a reason to silently clear or replay the operation.
 
 The guard now reports its specific pending-operation, unsaved-field, conflict, activation or radio-setup reason and uses direction-neutral wording. All original veto conditions remain in place. A software replacement may preserve this state, but must preserve the WebKit journal along with the database; replacement does not count as successful bidirectional handover acceptance.
+
+## Passive incoming normal draft
+
+After the original Clear receives its durable receipt, the normal draft becomes blank. A separate source-level failure path could then seed that blank from radio telemetry and queue a normal draft autosave while Contesting still owned mutation admission. The rejected autosave would manufacture a new pending Replace and block handover again.
+
+The main renderer now verifies native operating-module authority before normal QSO editing, radio seeding, power editing or draft autosave. Contesting keeps that incoming normal draft passive; shared station observations and settings remain available. Receipt reconciliation still runs, so the original completed Clear can settle without another Clear or a replacement write. No existing pending-operation or station-output guard is relaxed.
+
+Validation: 23 focused tests pass, including both inactive-radio seeding prevention and the exact completed-Clear receipt recovery without a second mutation; TypeScript, Vite and all detached-window bundle graph gates pass through `npm run build`. The original Clear recovery helper was separately rehearsed on a database copy through `XLogCore.LogbookDatabase.applyOperatorDraft`: the original operation advances 2915 to 2916 once, its repeat returns the same receipt, and all 24 tables were compared with only draft and receipt tables changed.

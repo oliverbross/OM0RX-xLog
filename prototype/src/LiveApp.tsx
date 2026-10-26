@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { nativeSpotEditor, useSpotEditor } from "./live/useSpotEditor";
+import { useNormalLoggingAccess } from "./live/normalLoggingAccess";
 import { activationDisablesFollow, validSpotActivationSnapshot } from "./live/spotActivation";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -214,6 +215,8 @@ export default function LiveApp() {
 }
 
 function MainLiveApp() {
+  const normalAccess = useNormalLoggingAccess();
+  const normalActive = useRef(normalAccess.active); normalActive.current = normalAccess.active;
   const [view, writeView] = useState<string>("Operator Desk");
   const viewRef = useRef(view); viewRef.current = view;
   const editorBufferPending = useRef(false), mainClosing = useRef(false), layoutChanging = useRef(false), editorTransition = useRef(false);
@@ -291,10 +294,10 @@ function MainLiveApp() {
   editing.current = !!contactEdit.draft;
   const [legacyDraft, setLegacyDraft] = useState(legacyDraftValue);
   const draft = contactEdit.draft ?? sharedDraft.draft;
-  const editorLocked = radioBusy || sharedDraft.activationFrozen || contactEdit.activationFrozen || sharedDraft.locked || contactEdit.locked || sharedDraft.workspaceChanged || contactEdit.workspaceChanged || !!contactEdit.draft && (logbookMutation.busy || !!logbookMutation.pending || logbookMutation.workspaceChanged || logbookMutation.conflict);
+  const editorLocked = !normalAccess.active || radioBusy || sharedDraft.activationFrozen || contactEdit.activationFrozen || sharedDraft.locked || contactEdit.locked || sharedDraft.workspaceChanged || contactEdit.workspaceChanged || !!contactEdit.draft && (logbookMutation.busy || !!logbookMutation.pending || logbookMutation.workspaceChanged || logbookMutation.conflict);
   const editorBlocked = editorLocked || !!sharedDraft.conflict || contactEdit.conflict;
   const setDraft = useCallback((next: Data | null | ((current: Data | null) => Data | null)) => {
-    if (moduleTransitioning.current || mainClosing.current || layoutChanging.current || editorTransition.current || readingRadio.current) return;
+    if (!normalActive.current || moduleTransitioning.current || mainClosing.current || layoutChanging.current || editorTransition.current || readingRadio.current) return;
     if (!draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput()) return;
     if (draftSession.getSnapshot().locked || draftSession.getSnapshot().workspaceChanged || contactSession.getSnapshot().locked || contactSession.getSnapshot().workspaceChanged) return;
     const contact = contactSession.getSnapshot().draft;
@@ -306,6 +309,7 @@ function MainLiveApp() {
   }, [draftSession, contactSession]);
   const setOperatorDraft = setDraft;
   const setManualDraftPower = useCallback((value: string) => {
+    if (!normalActive.current) return;
     if (contactSession.getSnapshot().draft) return;
     try { draftSession.setManualPower(value); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "The manual power edit could not be saved."); }
@@ -320,6 +324,7 @@ function MainLiveApp() {
   const [message, setMessage] = useState("");
   const loggedFeedback = useQSOLoggedToast();
   const [error, setError] = useState("");
+  useEffect(() => { if (normalAccess.error) setError(normalAccess.error); }, [normalAccess.error]);
   const presentationError = useRef("");
   useEffect(() => connectSettingsChanges(() => { void settingsSession.load(); }, setError), [settingsSession]);
   useEffect(() => connectRotorConfigurationChanges(() => { void rotorConfigurationSession.load(); }, setError), [rotorConfigurationSession]);
@@ -504,7 +509,7 @@ function MainLiveApp() {
       });
   }, [deskLayout.state.snapshot, deskLayout.state.pending, deskLayout.state.saving,
       deskLayout.state.conflict, deskLayout.state.workspaceChanged, separateWindows, workspace]);
-  const acceptsInput = useCallback(() => !moduleTransitioning.current && !readingRadio.current && !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookWorkingRef.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput(), [draftSession, contactSession]);
+  const acceptsInput = useCallback(() => normalActive.current && !moduleTransitioning.current && !readingRadio.current && !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookWorkingRef.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput(), [draftSession, contactSession]);
   const normalTransitionBlockReason = useCallback(() => {
     const current = draftSession.getSnapshot(), contact = contactSession.getSnapshot(), mutation = logbookMutations.getSnapshot();
     if (Object.values(radioSettingsBlocked.current).some(Boolean)) return "Save or Revert the normal window's radio setup and check its pending connection operation.";
@@ -542,7 +547,7 @@ function MainLiveApp() {
   const pendingTune = useRef(false);
   useEffect(()=>{
     const snapshot=draftSession.getSnapshot(),candidate=snapshot.draft;
-    if(!candidate||normalizedCall(candidate.call)||draftSession.dirty||editing.current||seededRadioDraft.current===candidate.id||
+    if(!normalActive.current||!candidate||normalizedCall(candidate.call)||draftSession.dirty||editing.current||seededRadioDraft.current===candidate.id||
         !station?.radio?.connected||!station.radio.observed||!draftSession.canAcceptBackgroundUpdate())return;
     setDraft(current=>{
       if(!current||current.id!==candidate.id)return current;
@@ -551,7 +556,7 @@ function MainLiveApp() {
       const followed=followedLogMode(station.radio.mode,current.mode||"",current.submode||"");
       return{...current,frequencyHz:station.radio.frequency_hz,band,...followed};
     });
-  },[station,sharedDraft.draft?.id,sharedDraft.draft?.call,sharedDraft.base?.revision,draftSession,setDraft]);
+  },[normalAccess.active,station,sharedDraft.draft?.id,sharedDraft.draft?.call,sharedDraft.base?.revision,draftSession,setDraft]);
   const providerTransition = useRef(false);
   const providerGeneration = useRef(-1);
   const providerReadyRef = useRef(!nativeStationSelection());
@@ -934,7 +939,7 @@ function MainLiveApp() {
     return watchSyncCompletion(request, () => setRefresh(value => value + 1));
   }, [request, workspace?.workspace_exists]);
   useEffect(() => {
-    if (!workspace?.workspace_exists || sharedDraft.activationFrozen || sharedDraft.workspaceChanged || sharedDraft.locked || sharedDraft.pending || sharedDraft.conflict || !draftSession.dirty) return;
+    if (!normalAccess.active || !workspace?.workspace_exists || sharedDraft.activationFrozen || sharedDraft.workspaceChanged || sharedDraft.locked || sharedDraft.pending || sharedDraft.conflict || !draftSession.dirty) return;
     const timer = setTimeout(() => { void draftSession.flush().catch(cause => {
       const pending = draftSession.getSnapshot().pending;
       if (pending) {
@@ -944,7 +949,7 @@ function MainLiveApp() {
       setError(cause instanceof Error ? cause.message : "Draft could not be saved.");
     }); }, 350);
     return () => clearTimeout(timer);
-  }, [workspace?.workspace_exists, sharedDraft, draftSession, recoverPendingDraft]);
+  }, [normalAccess.active, workspace?.workspace_exists, sharedDraft, draftSession, recoverPendingDraft]);
   useEffect(() => {
     if (!workspace?.workspace_exists) return;
     return connectOperatorDraftChanges(() => draftSession.refresh(), draftUpdateHealth.failed, draftUpdateHealth.recovered, draftUpdateHealth.subscribed);
