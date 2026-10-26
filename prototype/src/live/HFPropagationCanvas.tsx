@@ -39,6 +39,10 @@ export default function HFPropagationCanvas({ panels, layout, arranging, disable
   }, [onCompactChange]);
   const update = (panel: HFPropagationPanelLayout) => onChange({ ...layout, panels: layout.panels.map(item => item.id === panel.id ? panel : item) });
   const reset = () => onChange(defaultHFPropagationCanvasLayout(layout.density));
+  // Keep the full editing canvas available while arranging; ordinary viewing
+  // ends at the last visible panel without rescaling saved panel coordinates.
+  const canvasHeight = arranging ? hfPropagationCanvasHeight : Math.max(1,
+    ...layout.panels.filter(panel => panels.some(item => item.id === panel.id)).map(panel => panel.rect.y + panel.rect.height));
   return <div className="hf-prop-canvas-shell">
     {arranging && !compact && <div className="hf-prop-canvas-toolbar" aria-label="HF propagation panel arrangement">
       <span>Drag a panel title to move it or drag any edge or corner to resize. Arrow keys also work.</span>
@@ -48,17 +52,17 @@ export default function HFPropagationCanvas({ panels, layout, arranging, disable
       <button type="button" disabled={disabled} onClick={reset}><RotateCcw size={14} aria-hidden="true" />Reset layout</button>
     </div>}
     <div ref={root} className={`hf-prop-canvas${arranging && !compact ? " is-arranging" : ""}${compact ? " is-compact" : ""}`}
-      style={compact ? undefined : { aspectRatio: `${hfPropagationCanvasWidth} / ${hfPropagationCanvasHeight}` }}>
+      style={compact ? undefined : { aspectRatio: `${hfPropagationCanvasWidth} / ${canvasHeight}` }}>
       {panels.map(item => {
         const panel = layout.panels.find(candidate => candidate.id === item.id);
         return panel ? <HFPropagationCanvasFrame key={item.id} item={item} panel={panel} layout={layout} root={root}
-          arranging={arranging && !compact} disabled={disabled} compact={compact} onChange={update} /> : null;
+          arranging={arranging && !compact} disabled={disabled} compact={compact} canvasHeight={canvasHeight} onChange={update} /> : null;
       })}
     </div>
   </div>;
 }
 
-function HFPropagationCanvasFrame({ item, panel, layout, root, arranging, disabled, compact, onChange }: {
+function HFPropagationCanvasFrame({ item, panel, layout, root, arranging, disabled, compact, canvasHeight, onChange }: {
   item: HFPropagationCanvasPanel;
   panel: HFPropagationPanelLayout;
   layout: HFPropagationCanvasLayout;
@@ -66,6 +70,7 @@ function HFPropagationCanvasFrame({ item, panel, layout, root, arranging, disabl
   arranging: boolean;
   disabled: boolean;
   compact: boolean;
+  canvasHeight: number;
   onChange: (panel: HFPropagationPanelLayout) => void;
 }) {
   const instructions = useId();
@@ -106,8 +111,8 @@ function HFPropagationCanvasFrame({ item, panel, layout, root, arranging, disabl
     onBlur: () => { if (!drag.current) commit(); },
   });
   const style: CSSProperties | undefined = compact ? undefined : {
-    left: `${geometry.x / hfPropagationCanvasWidth * 100}%`, top: `${geometry.y / hfPropagationCanvasHeight * 100}%`,
-    width: `${geometry.width / hfPropagationCanvasWidth * 100}%`, height: `${geometry.height / hfPropagationCanvasHeight * 100}%`, zIndex: (preview ?? panel).z,
+    left: `${geometry.x / hfPropagationCanvasWidth * 100}%`, top: `${geometry.y / canvasHeight * 100}%`,
+    width: `${geometry.width / hfPropagationCanvasWidth * 100}%`, height: `${geometry.height / canvasHeight * 100}%`, zIndex: (preview ?? panel).z,
   };
   const edgeNames: Record<HFPropagationResizeEdge, string> = {
     n: "top edge", ne: "top right corner", e: "right edge", se: "bottom right corner",
