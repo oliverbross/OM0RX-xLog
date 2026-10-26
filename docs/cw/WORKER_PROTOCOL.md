@@ -56,7 +56,9 @@ fixed PATH/LANG/LC_ALL environment. All original pipe descriptors are
 close-on-exec and closed in the child. A native probe deliberately opens an
 unrelated inheritable parent FD and a test environment value; it verifies neither
 crosses the spawn boundary and checks separate output/error pipes, reap, spawn
-failure cleanup and invalid-PID guards. The Swift lifecycle owner still needs to
+failure cleanup and invalid-PID guards. The parent input FD also sets
+`F_SETNOSIGPIPE`; writing after the probe exits returns EPIPE without terminating
+the parent. The Swift lifecycle owner still needs to
 use this primitive with its bounded transport and shutdown watchdog.
 
 The ABI does not yet carry a cross-process monotonic timestamp. The supervisor

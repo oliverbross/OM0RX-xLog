@@ -31,12 +31,14 @@ int main(int argc,char** argv) {
     const int unrelated=open("/dev/null",O_RDONLY); // deliberately no CLOEXEC
     XCWChild child;
     if(xcw_spawn(argv[1],"/probe",&child)) throw std::runtime_error("Spawn failed");
-    close(child.input_fd);
     const auto output=read_pipe(child.output_fd),error=read_pipe(child.error_fd);
     close(unrelated);
     int status=-1,result=0;
     for(int i=0;i<200 && result==0;++i) { result=xcw_poll(child.pid,&status); std::this_thread::sleep_for(std::chrono::milliseconds(5)); }
     if(result!=1 || status!=0 || output!="XCW_FD_OK\n" || error!="isolated-probe\n") throw std::runtime_error("Child isolation/reap check failed: "+error);
+    errno=0;
+    if(write(child.input_fd,"x",1)!=-1 || errno!=EPIPE) throw std::runtime_error("Closed child pipe must report EPIPE without killing parent");
+    close(child.input_fd);
     if(xcw_spawn("/definitely/missing/xlog-cw-worker","/probe",&child)!=ENOENT || child.pid!=-1) throw std::runtime_error("Spawn failure leaked child state");
     if(xcw_terminate(-1,1)!=EINVAL || xcw_poll(-1,&status)!=-EINVAL) throw std::runtime_error("Invalid PID guard");
     std::cout<<"Explicit FD/environment inheritance and child reap checks passed\n";

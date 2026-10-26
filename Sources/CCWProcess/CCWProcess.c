@@ -34,6 +34,8 @@ int xcw_spawn(const char *executable, const char *model, XCWChild *child) {
 #if defined(__APPLE__) && defined(POSIX_SPAWN_CLOEXEC_DEFAULT)
     int pipes[3][2]={{-1,-1},{-1,-1},{-1,-1}}, result=0;
     for (int i=0;i<3;++i) { result=make_pipe(pipes[i]); if(result) goto done; }
+    // A crashed decoder must never deliver SIGPIPE to the logging process.
+    if(fcntl(pipes[0][1],F_SETNOSIGPIPE,1)<0) { result=errno; goto done; }
     posix_spawn_file_actions_t actions;
     posix_spawnattr_t attributes;
     result=posix_spawn_file_actions_init(&actions);
