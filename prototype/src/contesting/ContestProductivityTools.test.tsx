@@ -23,6 +23,31 @@ function startNote(text: string) {
 }
 afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); });
 
+it("preserves malformed note recovery and blocks overwrite until explicitly archived despite successful notes reads", async () => {
+  const raw = '{"text":"original recovery fragment"';
+  localStorage.setItem(journalKey, raw);
+  const notes = deferred<ContestWorkerResponse<{rows:never[];total:number}>>();
+  const request = vi.fn(() => notes.promise) as unknown as ContestRequest;
+  const onSave = vi.fn(async () => {}), props = {...noteProps(onSave),request};
+  const mounted = render(<ContestNotesPanel {...props}/>);
+  await act(async () => { notes.resolve({id:"notes",ok:true,result:{rows:[],total:0}});await notes.promise; });
+  mounted.rerender(<ContestNotesPanel {...props} scope={{...scope,revision:8,draftID:"later-draft"}}/>);
+  await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Saved note recovery data is unreadable"));
+  for(const name of ["Note current","Note last QSO"]) {
+    const button=screen.getByRole("button",{name}) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);fireEvent.click(button);
+  }
+  expect(screen.queryByRole("textbox",{name:"Operator note"})).toBeNull();
+  expect(onSave).not.toHaveBeenCalled();expect(localStorage.getItem(journalKey)).toBe(raw);
+  mounted.unmount();render(<ContestNotesPanel {...props}/>);
+  expect((screen.getByRole("button",{name:"Note current"}) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button",{name:"Archive unreadable recovery record"}));
+  const archive=Object.keys(localStorage).find(key=>key.startsWith(`${journalKey}/unreadable/`));
+  expect(archive).toBeTruthy();expect(localStorage.getItem(archive!)).toBe(raw);
+  expect(localStorage.getItem(journalKey)).toBeNull();
+  expect((screen.getByRole("button",{name:"Note current"}) as HTMLButtonElement).disabled).toBe(false);
+});
+
 it("journals before sending and recovers the same uncertain note identity after remount", async () => {
   const onSave = vi.fn(async (target: NoteTarget, text: string, noteID: string) => {
     expect(JSON.parse(localStorage.getItem(journalKey)!)).toEqual({ target, text, noteID });

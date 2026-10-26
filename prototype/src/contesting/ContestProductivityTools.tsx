@@ -15,32 +15,45 @@ export function ContestNotesPanel({scope,request,disabled,onSave,onLast}:{scope:
   const [target,setTarget]=useState<{identity:NoteTarget;label:string;sessionID:string}|null>(null),[text,setText]=useState("");
   const [notes,setNotes]=useState<Note[]>([]),[offset,setOffset]=useState(0),[total,setTotal]=useState(0),[error,setError]=useState("");
   const [saving,setSaving]=useState(false),[uncertain,setUncertain]=useState(false);
+  const [recoveryFailure,setRecoveryFailure]=useState<{message:string;raw:string|null}|null>(null);
   const pending=useRef<{target:NoteTarget;text:string;noteID:string}|null>(null),ticket=useRef(0);
   const identity=`${scope.sessionID}/${scope.workspaceGeneration}`;
   const recoveryKey=`xlog.contest.note-editor.v1/${identity}`;
-  useEffect(()=>{setTarget(null);setText("");pending.current=null;setUncertain(false);setOffset(0);
-    try{const raw=localStorage.getItem(recoveryKey);if(!raw)return;const saved=JSON.parse(raw);
+  const readRecovery=()=>{setTarget(null);setText("");pending.current=null;setUncertain(false);setRecoveryFailure(null);
+    let raw:string|null=null;
+    try{raw=localStorage.getItem(recoveryKey);if(raw===null)return;const saved=JSON.parse(raw);
       if(typeof saved.noteID!=="string"||typeof saved.text!=="string"||!saved.target||
         !(typeof saved.target.draftID==="string"||typeof saved.target.qsoID==="string"))throw new Error("Invalid saved note identity.");
       pending.current=saved;setTarget({identity:saved.target,label:`Recovered ${saved.target.qsoID?"QSO":"draft"} note`,sessionID:scope.sessionID});setText(saved.text);setUncertain(true);
-    }catch{setError("Saved note recovery data is unreadable. It has been preserved; review recovery before writing another note.");}
-  },[identity]);
+    }catch{setRecoveryFailure({message:"Saved note recovery data is unreadable. It has been preserved; resolve recovery before writing another note.",raw});}
+  };
+  useEffect(()=>{readRecovery();setOffset(0);},[identity]);
+  const archiveRecovery=()=>{if(!recoveryFailure||recoveryFailure.raw===null)return;
+    try{const raw=recoveryFailure.raw;if(localStorage.getItem(recoveryKey)!==raw)throw Error("Saved recovery changed. Retry reading it before resolving recovery.");
+      const archiveKey=`${recoveryKey}/unreadable/${crypto.randomUUID()}`;
+      localStorage.setItem(archiveKey,raw);
+      if(localStorage.getItem(archiveKey)!==raw||localStorage.getItem(recoveryKey)!==raw)throw Error("Recovery archive could not be verified. The original record is retained.");
+      localStorage.removeItem(recoveryKey);setRecoveryFailure(null);setError("Unreadable recovery record archived on this device; its original content is retained.");
+    }catch(cause){setRecoveryFailure({...recoveryFailure,message:message(cause)});}
+  };
   useEffect(()=>{const current=++ticket.current;setError("");void read<{rows:Note[];total:number}>(request,"contest_notes",{
     sessionID:scope.sessionID,workspaceGeneration:scope.workspaceGeneration,expectedRevision:scope.revision,offset,limit:50,
   }).then(value=>{if(ticket.current===current){setNotes(value.rows);setTotal(value.total);}},cause=>{if(ticket.current===current)setError(message(cause));});
     return()=>{ticket.current++;};},[identity,scope.revision,offset,request]);
-  const save=async()=>{if(!target||target.sessionID!==scope.sessionID)return;setSaving(true);setError("");
+  const save=async()=>{if(recoveryFailure||!target||target.sessionID!==scope.sessionID)return;setSaving(true);setError("");
     const operation=pending.current??{target:target.identity,text,noteID:crypto.randomUUID()};pending.current=operation;
     try{localStorage.setItem(recoveryKey,JSON.stringify(operation));await onSave(operation.target,operation.text,operation.noteID);
       localStorage.removeItem(recoveryKey);pending.current=null;setUncertain(false);setTarget(null);setText("");}
     catch(cause){const confirmed=cause instanceof ContestServerError&&cause.outcome!=="uncertain";
       if(confirmed){pending.current=null;localStorage.removeItem(recoveryKey);}setUncertain(!confirmed);setError(message(cause));}finally{setSaving(false);}};
   return <section className="contest-productivity-section" aria-label="Contest notes"><h2>Notes</h2>
-    <div className="contest-productivity-actions"><button disabled={disabled||saving||uncertain} onClick={()=>setTarget({identity:{draftID:scope.draftID},label:`Current draft ${scope.draftID.slice(0,8)}`,sessionID:scope.sessionID})}>Note current</button>
-      <button disabled={disabled||saving||uncertain} onClick={()=>{const sessionID=scope.sessionID;void onLast().then(row=>setTarget({identity:{qsoID:row.qsoID},label:`Last QSO ${row.callsign}`,sessionID})).catch(cause=>setError(message(cause)));}}>Note last QSO</button></div>
+    {recoveryFailure&&<div role="alert"><p>{recoveryFailure.message}</p><button onClick={readRecovery}>Retry saved recovery</button>
+      <button disabled={recoveryFailure.raw===null} onClick={archiveRecovery}>Archive unreadable recovery record</button></div>}
+    <div className="contest-productivity-actions"><button disabled={disabled||saving||uncertain||!!recoveryFailure} onClick={()=>setTarget({identity:{draftID:scope.draftID},label:`Current draft ${scope.draftID.slice(0,8)}`,sessionID:scope.sessionID})}>Note current</button>
+      <button disabled={disabled||saving||uncertain||!!recoveryFailure} onClick={()=>{const sessionID=scope.sessionID;void onLast().then(row=>setTarget({identity:{qsoID:row.qsoID},label:`Last QSO ${row.callsign}`,sessionID})).catch(cause=>setError(message(cause)));}}>Note last QSO</button></div>
     {target&&<div className="contest-note-editor"><p>Bound to {target.label}. A later entry cannot take this note.</p>
       <label>Operator note<textarea aria-label="Operator note" value={text} disabled={saving||uncertain} maxLength={4096} onChange={event=>setText(event.target.value)}/></label>
-      <button disabled={disabled||saving||!text.trim()} onClick={()=>void save()}>{uncertain?"Reconcile same note":"Save note"}</button>
+      <button disabled={disabled||saving||!!recoveryFailure||!text.trim()} onClick={()=>void save()}>{uncertain?"Reconcile same note":"Save note"}</button>
       {!uncertain&&<button disabled={saving} onClick={()=>{setTarget(null);setText("");}}>Cancel note</button>}</div>}
     {error&&<p role="alert">{error}</p>}
     <ul aria-label="Saved contest notes">{notes.map(note=><li key={note.id}><strong>{note.callsign||`Draft ${note.draft_id?.slice(0,8)}`}</strong> <time>{note.created_utc}</time><p>{note.body}</p></li>)}</ul>
