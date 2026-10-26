@@ -3813,6 +3813,8 @@ it("defers a native contest window command until the saved session is fully rest
     expect.objectContaining({enabled:false,multicastGroup:"239.1.1.1",multicastPort:2239,interface:"0.0.0.0"})));
   await expect(route!("contest-window-qrz-details")).resolves.toBe(true);
   expect(surfaceWindow.open).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}),"qrz-details");
+  await expect(route!("contest-window-cw-decode")).resolves.toBe(true);
+  expect(surfaceWindow.open).toHaveBeenLastCalledWith(expect.objectContaining({sessionID:current.sessionID}),"cw-decode");
 });
 
 it("does not open Main Logging until its ready projection is published", async () => {

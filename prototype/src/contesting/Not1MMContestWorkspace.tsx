@@ -3155,6 +3155,14 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         await openContestGroupChatWindow(surfaceContext);
         return true;
       }
+      if (route === "contest-window-cw-decode") {
+        if (startupPending) return false;
+        if (!projectionRef.current || !detachedAvailable || !surfaceContext) {
+          setManager(true); setError("Open a contest session before opening CW Decode."); return true;
+        }
+        await openContestSurfaceWindow(surfaceContext, "cw-decode");
+        return true;
+      }
       const panelID = route.startsWith("contest-window-") ? route.slice("contest-window-".length) as ContestSurfacePanelID : null;
       if (!panelID || !contestSurfacePanelIDs.includes(panelID)) return false;
       if (startupPending) return false;

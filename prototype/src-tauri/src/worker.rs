@@ -21,10 +21,10 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     let label = crate::workspace_windows::surface_role(label);
     validate_request(request)?;
     if request["method"].as_str().is_some_and(|method| method.starts_with("cw_decode_")) {
-        return if matches!(label, "main" | "cw-decode") { Ok(()) }
+        return if matches!(label, "main" | "cw-decode" | "contest--cw-decode") { Ok(()) }
         else { Err("CW Decode requests belong to the main or CW Decode window.".into()) };
     }
-    if label == "cw-decode" { return Err("CW Decode can only use its receive-only decoder service.".into()); }
+    if matches!(label,"cw-decode" | "contest--cw-decode") { return Err("CW Decode can only use its receive-only decoder service.".into()); }
     if request["method"].as_str().is_some_and(|method| method.starts_with("contest_multi_")) {
         return Err("Use the native group-authority or replica-sync owner for multi-operator requests.".into());
     }
@@ -1243,7 +1243,7 @@ mod tests {
         for method in ["cw_decode_snapshot", "cw_decode_resolve_selection", "cw_decode_configuration_save", "cw_decode_start", "cw_decode_stop", "cw_decode_listener_start", "cw_decode_listener_stop", "cw_decode_flex_handoff", "cw_decode_track_mute"] {
             let request = serde_json::json!({"id":"cw-read","method":method,"params":{}});
             assert!(super::validate_request(&request).is_ok());
-            for label in ["main", "cw-decode"] { assert!(super::validate_surface(label, &request).is_ok(), "{label}:{method}"); }
+            for label in ["main", "cw-decode", "contest--cw-decode"] { assert!(super::validate_surface(label, &request).is_ok(), "{label}:{method}"); }
             for label in ["cw", "monitor", "settings", "station-control", "spot-history", "contest-setup", "unknown"] {
                 assert!(super::validate_surface(label, &request).is_err(), "{label}:{method}");
             }
@@ -1253,6 +1253,7 @@ mod tests {
         }
         for method in ["station_action", "winkeyer_control", "logbook_operator_draft_apply", "secret_save", "cluster_connect"] {
             assert!(super::validate_surface("cw-decode", &serde_json::json!({"id":"denied","method":method,"params":{}})).is_err(), "{method}");
+            assert!(super::validate_surface("contest--cw-decode", &serde_json::json!({"id":"denied","method":method,"params":{}})).is_err(), "{method}");
         }
         assert!(super::validate_request(&serde_json::json!({"id":"denied","method":"cw_decode_set_quality_qualified","params":{}})).is_err());
     }

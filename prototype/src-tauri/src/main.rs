@@ -2427,6 +2427,9 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     // This explicit role gate precedes every native special dispatcher too.
     if method.starts_with("cw_decode_") {
         worker::validate_surface(window.label(), &request)?;
+        if let Some(context)=contest_cw_decode_url_context(window.label(),&window.url().map_err(|error|error.to_string())?)? {
+            contest_window_context::admit(&context)?;
+        }
         let task_admission = module_admission.clone();
         return tauri::async_runtime::spawn_blocking(move || {
             let _module_admission = task_admission;
@@ -2618,6 +2621,7 @@ fn exact_contest_recent_spots_command(request: &serde_json::Value) -> bool {
 }
 
 fn validate_worker_request_caller(label: &str, request: &serde_json::Value) -> Result<(), String> {
+    if label=="contest--cw-decode" {return worker::validate_surface(label,request);}
     if label.starts_with(workspace_windows::CONTEST_LABEL_PREFIX) {
         let cluster_control = workspace_windows::WorkspaceWindowIdentity::parse_native_label(label).ok()
             .is_some_and(|identity| identity.scope == workspace_windows::WorkspaceWindowScope::Contesting
@@ -2628,6 +2632,19 @@ fn validate_worker_request_caller(label: &str, request: &serde_json::Value) -> R
         return Err("Contest native windows use the contest surface action owner.".into());
     }
     Ok(())
+}
+
+fn contest_cw_decode_url_context(label:&str,url:&tauri::Url)->Result<Option<contest_window_context::ContestWindowContext>,String> {
+    if label!="contest--cw-decode" {return Ok(None);}
+    let mut query=std::collections::BTreeMap::<String,Vec<String>>::new();
+    for (key,value) in url.query_pairs(){query.entry(key.into_owned()).or_default().push(value.into_owned());}
+    let single=|key:&str|query.get(key).filter(|values|values.len()==1).map(|values|values[0].as_str());
+    if single("view")!=Some("cw-decode") || single("scope")!=Some("contesting") {return Err("CW Decode contest context is invalid.".into());}
+    Ok(Some(contest_window_context::ContestWindowContext{
+        operating_context:single("operatingContext").ok_or("CW Decode operating context is missing.")?.into(),
+        session_id:single("sessionID").ok_or("CW Decode session context is missing.")?.into(),
+        workspace_generation:single("workspaceGeneration").ok_or("CW Decode workspace context is missing.")?.into(),
+    }))
 }
 
 fn workspace_layout_refresh_scope(method: &str, request: &serde_json::Value) -> workspace_windows::WorkspaceWindowScope {
@@ -4362,6 +4379,7 @@ mod workspace_layout_tests {
 
     #[test]
     fn contest_window_open_is_setup_owner_only_and_bounded_to_connected_tools() {
+        assert!(super::validate_contest_window_open("contest-setup","cw-decode").is_ok());
         for panel in ["active-qso", "call-history", "qrz-details", "group-chat", "callsign-intelligence", "propagation", "monitor", "score-reporting", "messages", "logbook", "band-maps", "world-map", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"] {
             assert!(super::validate_contest_window_open("contest-setup", panel).is_ok());
             for label in ["main", "contest--active-qso", "contest--logbook", "logbook", "settings", ""] {
@@ -4370,6 +4388,20 @@ mod workspace_layout_tests {
         }
         for panel in ["alerts", "cw", "settings", "contest--logbook", ""] {
             assert!(super::validate_contest_window_open("contest-setup", panel).is_err());
+        }
+    }
+    #[test]
+    fn contest_cw_decode_checks_exact_native_url_context_and_receive_only_role() {
+        let url=tauri::Url::parse("tauri://localhost/index.html?view=cw-decode&scope=contesting&operatingContext=op&sessionID=session&workspaceGeneration=workspace").unwrap();
+        let context=super::contest_cw_decode_url_context("contest--cw-decode",&url).unwrap().unwrap();
+        assert_eq!(context.operating_context,"op");assert_eq!(context.session_id,"session");assert_eq!(context.workspace_generation,"workspace");
+        assert!(super::contest_cw_decode_url_context("cw-decode",&url).unwrap().is_none());
+        for suffix in ["&view=cw-decode","&scope=normal_logging","&sessionID=another"] {
+            assert!(super::contest_cw_decode_url_context("contest--cw-decode",&tauri::Url::parse(&format!("{url}{suffix}")).unwrap()).is_err());
+        }
+        assert!(super::validate_worker_request_caller("contest--cw-decode",&serde_json::json!({"id":"read","method":"cw_decode_snapshot","params":{}})).is_ok());
+        for method in ["station_snapshot","contest_session","logbook_operator_draft","station_action","winkeyer_control"] {
+            assert!(super::validate_worker_request_caller("contest--cw-decode",&serde_json::json!({"id":"denied","method":method,"params":{}})).is_err());
         }
     }
 
