@@ -4,13 +4,24 @@ export type AnalyticsRow = {
   style:string;country:string;countryName:string;continent:string;zone:string;prefix:string;
   points:number|null;inCategory:boolean;multiplierEligible:boolean|null;
   section?:string;state?:string;ituZone?:string;hq?:string;grid?:string;creditedKeys?:string[];
+  hostDupe?:boolean|null;claimedScore?:number|null;
 };
+export type AnalyticsFeature={status:"PASS"|"FAIL"|"UNVERIFIED"|"NOT APPLICABLE";reason:string};
+export type AnalyticsNeededView=AnalyticsFeature&{id:string;label:string;scope?:string;referenceID?:string;remainingCreditSlots?:number;
+  universeSize?:number|null;universeComplete?:boolean;universeScope?:string;universeReference?:Record<string,string>;
+  category?:{band?:unknown;mode?:unknown};rows:{scope:string;worked:string[];needed:string[]}[]};
+export type AnalyticsMetaScore={qsos:number;points:number;multipliers:number;total:number;countries?:number;zones?:number;
+  scoringComplete?:boolean;scoringLimitations?:string[];multiplierSummaryLabels?:string[]};
 export type AnalyticsMeta = {
   sessionID:string;workspaceGeneration:string;snapshotID:string;identity:string;revision:number;total:number;
   pluginID:string;name:string;stationCall:string;settings:Record<string,unknown>;referenceID:string;
-  sourceRevision:string;capturedAt:string;cqWW:boolean;dupeType:number;
+  sourceRevision:string;capturedAt:string;cqWW:boolean;dupeType:number;referenceIdentity?:string;
   multiplierAdapter?:boolean;
-  score:{qsos:number;points:number;multipliers:number;total:number;countries?:number;zones?:number};
+  multiplierSupportBasis?:"stored-credit-flags"|"eligible-identities";
+  multiplierUniverseReference?:{schema:number;referenceID:string;source:string;sourceSHA256:string;entriesSHA256:string;compatible:boolean;coordinateSource?:"session"|"verified-request"};
+  hostEvidence?:boolean;scoreHistory?:AnalyticsFeature&{model:string|null;factor?:number;initialScore?:number;constantBonus?:number;identityCap?:number};
+  analyticsCapabilities?:Record<string,AnalyticsFeature>;neededViews?:AnalyticsNeededView[];
+  score:AnalyticsMetaScore;
 };
 export type AnalyticsContact = AnalyticsRow & {time:number|null;dupe:boolean|null;newKeys:string[];supportKeys:string[];scoreGain:number|null;issues:string[]};
 export type AnalyticsDataset = {meta:AnalyticsMeta;contacts:AnalyticsContact[];scoreHistory:boolean;scoreHistoryReason:string};
@@ -20,7 +31,23 @@ export type AnalyticsFilters = {band:string;mode:string;operator:string;style:st
 export const defaultAnalyticsFilters:AnalyticsFilters={band:"all",mode:"all",operator:"all",style:"all",continent:"all",scope:"all",basis:"logged",from:"",to:"",minutes:60,row:"hour",column:"band",measure:"qsos"};
 export const dimensions:Dimension[]=["hour","band","mode","country","continent","zone","operator","style","prefix","section","state","ituZone","hq","grid"];
 export const dimensionLabels:Record<Dimension,string>={hour:"UTC hour",band:"Band",mode:"Mode",country:"Country prefix",continent:"Continent",zone:"CQ zone",operator:"Operator",style:"Run / S&P",prefix:"WPX prefix",section:"Section / SPC",state:"State / VE area",ituZone:"ITU zone",hq:"IARU HQ",grid:"Grid square"};
-export const hasMultiplierAdapter=(meta:AnalyticsMeta)=>meta.cqWW||meta.multiplierAdapter===true;
+export const hasMultiplierAdapter=(meta:AnalyticsMeta)=>meta.hostEvidence?meta.multiplierAdapter===true:meta.cqWW||meta.multiplierAdapter===true;
+export function conditionalContactGain(meta:AnalyticsMeta,points:number,multipliers:number):number|null{
+  if(!Number.isFinite(points)||points<0||!Number.isSafeInteger(multipliers)||multipliers<0)return null;
+  if(meta.hostEvidence&&(meta.scoreHistory?.status!=="PASS"||meta.score.scoringComplete===false))return null;
+  const model=meta.hostEvidence?meta.scoreHistory?.model:meta.cqWW?"points-times-credited-identities":null;
+  const factor=meta.hostEvidence?(meta.scoreHistory?.factor??1):1;
+  if(!Number.isFinite(factor)||factor<=0)return null;
+  const value=(p:number,count:number)=>model==="points-times-credited-identities"?p*count*factor:
+    model==="points-times-capped-identities"&&Number.isSafeInteger(meta.scoreHistory?.identityCap)?p*Math.min(count,meta.scoreHistory!.identityCap!)*factor:
+    model==="points-times-identities-plus-one"?p*(count+1)*factor:
+    model==="points-plus-seniority-times-identities-plus-one"?(p+(meta.scoreHistory?.constantBonus??0))*(count+1):
+    model==="points-times-at-least-one-identity"?p*Math.max(1,count)*factor:
+    model==="stored-points"||model==="station-latitude-factor"?p*factor:null;
+  const before=value(meta.score.points,meta.score.multipliers),after=value(meta.score.points+points,meta.score.multipliers+multipliers);
+  if(before===null||Math.abs(before-meta.score.total)>1e-8||after===null||["stored-points","station-latitude-factor"].includes(model??"")&&multipliers!==0)return null;
+  return after-meta.score.total;
+}
 export const numberText=(value:number|null|undefined,maximumFractionDigits=0)=>value===null||value===undefined?"—":value.toLocaleString(undefined,{maximumFractionDigits});
 export const utcText=(time:number)=>new Date(time).toISOString().replace("T"," ").slice(0,16);
 
@@ -53,6 +80,7 @@ export function prepareAnalytics(meta:AnalyticsMeta,rows:AnalyticsRow[]):Analyti
   // Match the host's stored row order for duplicate ownership, including
   // backdated entries. Only the displayed timeline is chronological.
   for(const qso of [...contacts].sort((a,b)=>a.sourceOrder-b.sourceOrder)){
+    if(meta.hostEvidence){qso.dupe=typeof qso.hostDupe==="boolean"?qso.hostDupe:null;continue;}
     const call=qso.call.trim().toUpperCase();
     const key=meta.dupeType===1?call:meta.dupeType===2?`${call}|${qso.band}`:meta.dupeType===3?`${call}|${qso.band}|${modeGroup(qso.mode)}`:null;
     if(meta.dupeType===4)qso.dupe=false;
@@ -65,12 +93,12 @@ export function prepareAnalytics(meta:AnalyticsMeta,rows:AnalyticsRow[]):Analyti
     const before=points*multipliers.size;
     points+=qso.points??0;
     // Only CQ WW CW/SSB has a verified country-band + received-zone-band adapter.
-    if(meta.cqWW&&qso.multiplierEligible===true){
+    if(meta.cqWW&&!meta.hostEvidence&&qso.multiplierEligible===true){
       if(qso.country!=="Unknown")qso.supportKeys.push(`Country ${qso.country} · ${qso.band}`);
       if(qso.zone!=="Unknown")qso.supportKeys.push(`CQ zone ${qso.zone} · ${qso.band}`);
       for(const mult of qso.supportKeys)if(!multipliers.has(mult)){multipliers.add(mult);qso.newKeys.push(mult);}
     }
-    if(!meta.cqWW&&meta.multiplierAdapter){
+    if((!meta.cqWW||meta.hostEvidence)&&meta.multiplierAdapter){
       qso.supportKeys=[...(qso.creditedKeys??[])];
       for(const mult of qso.supportKeys)if(!multipliers.has(mult)){multipliers.add(mult);qso.newKeys.push(mult);}
     }
@@ -78,9 +106,15 @@ export function prepareAnalytics(meta:AnalyticsMeta,rows:AnalyticsRow[]):Analyti
   }
   const complete=contacts.filter(q=>q.inCategory).every(q=>q.time!==null&&q.points!==null&&q.dupe!==null&&q.country!=="Unknown"&&q.zone!=="Unknown"&&q.multiplierEligible===!q.dupe);
   const familyComplete=contacts.filter(q=>q.inCategory).every(q=>q.time!==null&&q.points!==null&&q.dupe!==null&&Array.isArray(q.creditedKeys));
-  const reconciled=hasMultiplierAdapter(meta)&&(meta.cqWW?complete:familyComplete)&&points===meta.score.points&&multipliers.size===meta.score.multipliers&&points*multipliers.size===meta.score.total;
+  let reconciled=hasMultiplierAdapter(meta)&&(meta.cqWW?complete:familyComplete)&&points===meta.score.points&&multipliers.size===meta.score.multipliers&&points*multipliers.size===meta.score.total;
+  if(meta.hostEvidence){
+    const category=contacts.filter(q=>q.inCategory);
+    reconciled=meta.score.scoringComplete!==false&&meta.scoreHistory?.status==="PASS"&&category.every(q=>q.time!==null&&typeof q.claimedScore==="number"&&Number.isFinite(q.claimedScore))&&points===meta.score.points&&(category.at(-1)?.claimedScore??meta.scoreHistory?.initialScore??0)===meta.score.total;
+    let previous=meta.scoreHistory?.initialScore??0;
+    for(const qso of category){qso.scoreGain=reconciled?qso.claimedScore!-previous:null;previous=qso.claimedScore??previous;}
+  }
   if(!reconciled)for(const qso of contacts)qso.scoreGain=null;
-  return {meta,contacts,scoreHistory:reconciled,scoreHistoryReason:reconciled?"Reconstructed from the corrected category log; reconciles with the host score.":hasMultiplierAdapter(meta)?"Score history unavailable: complete category data must reconcile with the host score.":"Historical score and credited multiplier keys need a contest-specific adapter. Current claimed score comes from the host."};
+  return {meta,contacts,scoreHistory:reconciled,scoreHistoryReason:meta.hostEvidence?(!reconciled&&meta.scoreHistory?.status==="PASS"?"Score history unavailable: host events do not reconcile with the copied rows and current score.":meta.scoreHistory?.reason??"Host score-history evidence is unavailable."):reconciled?"Reconstructed from the corrected category log; reconciles with the host score.":hasMultiplierAdapter(meta)?"Score history unavailable: complete category data must reconcile with the host score.":"Historical score and credited multiplier keys need a contest-specific adapter. Current claimed score comes from the host."};
 }
 
 export type Aggregate = {qsos:number;calls:number;points:number;unknownPoints:number;nondupe:number;duplicates:number;unknownDupe:number;multipliers:number;countries:number;zones:number;ids:string[]};
@@ -170,5 +204,6 @@ export function readAnalyticsReport(text:string):AnalyticsDataset {
   const meta=report.meta;
   if(!meta||!["sessionID","workspaceGeneration","snapshotID","identity","pluginID","name","stationCall","referenceID","capturedAt"].every(key=>typeof meta[key]==="string"&&meta[key].length<=256)||!meta.settings||typeof meta.settings!=="object"||Array.isArray(meta.settings)||typeof meta.cqWW!=="boolean"||!Number.isInteger(meta.dupeType)||!meta.score||!["qsos","points","multipliers","total"].every(key=>Number.isFinite(meta.score[key])))throw new Error("The reference report metadata is invalid.");
   // Never trust capabilities supplied by an imported file.
-  return prepareAnalytics({...meta,cqWW:["cq_ww_cw","cq_ww_ssb"].includes(meta.pluginID),multiplierAdapter:false},report.rows);
+  return prepareAnalytics({...meta,cqWW:["cq_ww_cw","cq_ww_ssb"].includes(meta.pluginID),multiplierAdapter:false,
+    hostEvidence:false,scoreHistory:undefined,analyticsCapabilities:undefined,neededViews:undefined,multiplierSupportBasis:undefined,multiplierUniverseReference:undefined},report.rows);
 }

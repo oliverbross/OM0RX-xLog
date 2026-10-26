@@ -1,5 +1,10 @@
 import Foundation
 import XContestCore
+#if canImport(CryptoKit)
+import CryptoKit
+#else
+import Crypto
+#endif
 #if os(macOS)
 import XLogCore
 #else
@@ -405,12 +410,30 @@ actor PythonContestLane {
 
     private func referencedParams(method: String, params: [String: Any]) throws -> [String: Any] {
         var result = params
+        if method == "contest_analytics" {
+            // Analytics reference context is native-authored after the caller's
+            // strict boundary. It is never accepted from a frontend request.
+            guard result["multiplierUniverse"] == nil else {
+                throw ContestLaneError.confirmed("invalid_params", "Analytics reference context is native-owned.")
+            }
+            if result["action"] as? String == "prepare", let csv = try? CTYResolver.bundledCSV(),
+               let universe = Self.multiplierUniverse(reference: reference, csv: csv) {
+                result["multiplierUniverse"] = universe
+            }
+        }
         if Self.createsSession(method), result["reference"] == nil,
            let station = result["station"] as? [String: Any], let call = station["Call"] as? String {
             guard let country = countryWire(call) else {
                 throw ContestLaneError.confirmed("station_country_unresolved", "Resolve the station country before creating this contest.")
             }
             result["reference"] = ["id": reference.version, "countries": [call.uppercased(): country]]
+            if ["contest_session_create", "contest_create"].contains(method),
+               let csv = try? CTYResolver.bundledCSV(),
+               let universe = Self.multiplierUniverse(reference: reference, csv: csv),
+               var coordinate = result["reference"] as? [String: Any] {
+                coordinate["multiplierUniverse"] = universe
+                result["reference"] = coordinate
+            }
         }
         let fields = result["fields"] as? [String: Any]
         if result["countries"] == nil {
@@ -441,6 +464,37 @@ actor PythonContestLane {
             result["referenceID"] = reference.version
         }
         return result
+    }
+
+    /// Complete primary CTY rows for new sessions only. Existing session state
+    /// is never hydrated or upgraded when it reopens. ADIF-collapsed maps and
+    /// the per-call lookup cache cannot establish this universe.
+    static func multiplierUniverse(reference: ContestReferenceData, csv: String) -> [String: Any]? {
+        func digest(_ data: Data) -> String {
+            SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        }
+        let sourceDigest = "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d"
+        let entriesDigest = "7c2fddb7f9d508b114f040d4d4a8f187f49c3d59394bb50cf225ac1c1cc5eeee"
+        guard reference.version == "bundled-cty-fnv64-cf9c48a44d4b5e66",
+              digest(Data(csv.utf8)) == sourceDigest,
+              reference.entityNamesByPrefix.count == 346 else { return nil }
+        var entries: [[String: String]] = []
+        var canonical = Data()
+        for prefix in reference.entityNamesByPrefix.keys.sorted() {
+            guard let label = reference.entityNamesByPrefix[prefix],
+                  let continent = reference.countryContinentsByPrefix[prefix] else { return nil }
+            let entry = ["value": prefix, "label": label, "continent": continent]
+            for value in [prefix, label, continent] {
+                canonical.append(Data("\(value.utf8.count):".utf8))
+                canonical.append(Data(value.utf8))
+            }
+            canonical.append(0x0a)
+            entries.append(entry)
+        }
+        guard digest(canonical) == entriesDigest else { return nil }
+        return ["schema": 1, "referenceID": reference.version,
+                "source": "bundled-cty-primary-prefixes", "sourceSHA256": sourceDigest,
+                "entriesSHA256": entriesDigest, "entries": entries]
     }
 
     private func countryWire(_ rawCallsign: String) -> [String: Any]? {

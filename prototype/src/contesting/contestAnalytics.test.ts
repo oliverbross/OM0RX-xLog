@@ -1,9 +1,54 @@
 import { describe,expect,it } from "vitest";
-import { aggregate,analyzeAnalytics,analyticsReport,analyticsTime,bestIntervals,comparisonFilters,defaultAnalyticsFilters,pivot,prepareAnalytics,readAnalyticsReport,selectContacts,timeline } from "./contestAnalytics";
+import { aggregate,analyzeAnalytics,analyticsReport,analyticsTime,bestIntervals,comparisonFilters,conditionalContactGain,defaultAnalyticsFilters,pivot,prepareAnalytics,readAnalyticsReport,selectContacts,timeline } from "./contestAnalytics";
 import { analyticsFixtureMeta,analyticsFixtureRows } from "./contestAnalytics.fixtures";
 
 const data=()=>prepareAnalytics(analyticsFixtureMeta,analyticsFixtureRows);
 describe("contest analytical semantics",()=>{
+  it("withholds conditional gains for unreconciled history or explicit incomplete scoring even when terminal arithmetic matches",()=>{
+    const meta={...analyticsFixtureMeta,hostEvidence:true,score:{qsos:1,points:2,multipliers:1,total:2},
+      scoreHistory:{status:"UNVERIFIED" as const,reason:"Pinned prefix rebuild changes earlier points",model:"points-times-credited-identities"}};
+    expect(conditionalContactGain(meta,3,1)).toBeNull();
+    const incomplete={...meta,score:{...meta.score,scoringComplete:false},scoreHistory:{...meta.scoreHistory,status:"PASS" as const}};
+    expect(conditionalContactGain(incomplete,3,1)).toBeNull();
+    const dataset=prepareAnalytics(incomplete,[{...analyticsFixtureRows[0],points:2,claimedScore:2,hostDupe:false}]);
+    expect(dataset.scoreHistory).toBe(false);
+    expect(dataset.contacts[0].scoreGain).toBeNull();
+    expect(conditionalContactGain({...meta,hostEvidence:false,cqWW:true},3,1)).toBe(8);
+  });
+  it("uses host additive/bonus events and initial score without substituting a product",()=>{
+    const meta={...analyticsFixtureMeta,cqWW:false,pluginID:"es_manual_key",hostEvidence:true,multiplierAdapter:true,total:2,
+      scoreHistory:{status:"PASS" as const,reason:"Corrected log; station seniority bonus.",model:"points-plus-seniority-times-identities-plus-one",factor:1,initialScore:15,constantBonus:15},
+      score:{qsos:2,points:30,multipliers:0,total:45}};
+    const rows=[{...analyticsFixtureRows[0],points:25,claimedScore:40,hostDupe:false,creditedKeys:[]},
+      {...analyticsFixtureRows[1],points:5,claimedScore:45,hostDupe:false,creditedKeys:[]}];
+    const dataset=prepareAnalytics(meta,rows);
+    expect(dataset.scoreHistory).toBe(true);expect(dataset.contacts.map(q=>q.scoreGain)).toEqual([25,5]);
+    expect(conditionalContactGain(meta,10,0)).toBe(10);expect(conditionalContactGain(meta,0,1)).toBe(45);
+    expect(prepareAnalytics({...meta,score:{...meta.score,total:46}},rows).scoreHistory).toBe(false);
+    expect(conditionalContactGain({...meta,score:{...meta.score,total:46}},10,0)).toBeNull();
+  });
+  it("reconciles configured factors and keeps unknown score growth null",()=>{
+    const meta={...analyticsFixtureMeta,cqWW:false,pluginID:"winter_field_day",hostEvidence:true,
+      scoreHistory:{status:"PASS" as const,reason:"Verified configured factor",model:"points-times-credited-identities",factor:2},
+      score:{qsos:4,points:10,multipliers:2,total:40}};
+    expect(conditionalContactGain(meta,3,1)).toBe(38);
+    expect(conditionalContactGain({...meta,score:{qsos:4,points:10,multipliers:58,total:580},scoreHistory:{...meta.scoreHistory,model:"points-times-capped-identities",factor:1,identityCap:58}},3,1)).toBe(174);
+    const unknown=prepareAnalytics({...meta,scoreHistory:{status:"UNVERIFIED",reason:"Backdated owner",model:"points-times-credited-identities"}},analyticsFixtureRows);
+    expect(unknown.scoreHistory).toBe(false);expect(unknown.contacts.every(q=>q.scoreGain===null)).toBe(true);
+    expect(timeline(unknown.contacts,defaultAnalyticsFilters,Date.parse(meta.capturedAt),false).every(row=>row.score===null)).toBe(true);
+  });
+  it("uses authoritative timed duplicate evidence and strips imported host capabilities",()=>{
+    const meta={...analyticsFixtureMeta,cqWW:false,pluginID:"trans_tasman",hostEvidence:true,dupeType:5,total:2,
+      multiplierAdapter:false,scoreHistory:{status:"PASS" as const,reason:"Block products",model:"sum-of-utc-block-products"},
+      neededViews:[{id:"prefix",label:"Prefixes",status:"NOT APPLICABLE" as const,reason:"Open-ended universe",rows:[]}],
+      score:{qsos:2,points:2,multipliers:1,total:2}};
+    const rows=[{...analyticsFixtureRows[0],points:1,claimedScore:1,hostDupe:false},
+      {...analyticsFixtureRows[1],points:1,claimedScore:2,hostDupe:false}];
+    const dataset=prepareAnalytics(meta,rows);expect(dataset.scoreHistory).toBe(true);expect(dataset.contacts.map(row=>row.dupe)).toEqual([false,false]);
+    const imported=readAnalyticsReport(JSON.stringify(analyticsReport(dataset,defaultAnalyticsFilters)));
+    expect(imported.meta.hostEvidence).toBe(false);expect(imported.meta.neededViews).toBeUndefined();expect(imported.scoreHistory).toBe(false);
+    expect(imported.contacts.every(row=>row.dupe===null)).toBe(true);
+  });
   it("uses global family keys across bands and withholds unreconciled histories",()=>{
     const meta={...analyticsFixtureMeta,cqWW:false,pluginID:"cq_wpx_cw",multiplierAdapter:true,total:2,score:{qsos:2,points:6,multipliers:1,total:6}};
     const rows=[{...analyticsFixtureRows[0],mode:"CW",zone:"Unknown",creditedKeys:["WPX prefixes K1 · Contest"],multiplierEligible:null},

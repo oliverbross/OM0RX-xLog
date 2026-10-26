@@ -36,7 +36,8 @@ from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, ARRL_VHF_PLUGINS, CENTRAL_E
                       TYPE4_UTILITY_PLUGINS)
 from .statistics import calculate_statistics
 from .statistics_dupes import duplicate_flags
-from .multipliers import dimensions as multiplier_definitions, project as multiplier_dimensions, view_status as multiplier_view_status
+from .multipliers import (dimensions as multiplier_definitions, project as multiplier_dimensions,
+                          view_status as multiplier_view_status, validate_multiplier_universe)
 from .upstream import (CQWS_UF_LIMITATION, adapt_cw_template, cqws_multiplier_counts,
                        jidx_exchange_limit, load_plugin, load_cw_macros, pinned_band_definitions,
                        split_macro_template, verify_source)
@@ -2999,6 +3000,9 @@ class Host:
                 and isinstance(state["station"].get("Call"), str)
                 and "SentExchange" in state["settings"],
                 "Incomplete persisted session state", "invalid_session")
+        # Optional analytical reference coordinates never gate the core log.
+        # Creation validates them strictly; an old/incompatible coordinate is
+        # retained and makes finite Needed unavailable without a migration.
         require(operating_mode(state) in PLUGIN_REGISTRY[state["pluginID"]].modes,
                 "Invalid persisted operating mode", "invalid_session")
         rover_location = state.get("roverLocation", "")
@@ -3034,6 +3038,7 @@ class Host:
         station["Call"] = call
         require(isinstance(reference.get("id"), str) and reference["id"], "Reference ID required")
         countries = self.countries(reference.get("countries"))
+        multiplier_universe = validate_multiplier_universe(reference.get("multiplierUniverse"), reference["id"], require)
         require(call in countries, "Resolve the station country before creating this contest", "station_country_unresolved")
         settings = deepcopy(params.get("settings", {}))
         require(isinstance(settings, dict), "Settings must be an object")
@@ -3167,7 +3172,8 @@ class Host:
                 "scoringRevision": scoring_revision,
                 "operatingMode": live_mode,
                 "roverLocation": "",
-                "operator": text(params.get("operator", call), 32), "reference": {"id": text(reference["id"]), "countries": countries},
+                "operator": text(params.get("operator", call), 32), "reference": {"id": text(reference["id"]), "countries": countries,
+                    **({"multiplierUniverse": multiplier_universe} if multiplier_universe is not None else {})},
                 "run": False, "focus": "callsign", "draft": {"id": str(uuid.uuid4()), "frequencyHz": frequency,
                 "fields": dict(zip(INPUTS, ("", report, received_report,
                     str(settings["SentExchange"]) if (plugin_id in CQ_WW_PLUGINS and plugin_id != "cq_ww_rtty")

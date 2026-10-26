@@ -19,6 +19,31 @@ beforeEach(()=>{vi.stubGlobal("Worker",AnalysisWorker);native.invoke.mockReset()
 afterEach(()=>{cleanup();vi.unstubAllGlobals();vi.restoreAllMocks();vi.useRealTimers();});
 const snapshot={meta:analyticsFixtureMeta,rows:analyticsFixtureRows};
 describe("Contest Analytics interaction",()=>{
+  it("shows the host nonproduct score and separately labelled points and multiplier values",async()=>{
+    const nonproduct={meta:{...analyticsFixtureMeta,cqWW:false,pluginID:"es_manual_key",hostEvidence:true,multiplierAdapter:true,total:1,
+      score:{qsos:1,points:30,multipliers:0,total:45},
+      scoreHistory:{status:"PASS" as const,reason:"Station seniority plus stored points",model:"points-plus-seniority-times-identities-plus-one",initialScore:15,constantBonus:15}},
+      rows:[{...analyticsFixtureRows[0],points:30,claimedScore:45,hostDupe:false,creditedKeys:[]}]};
+    render(<ContestAnalyticsWindow initialSnapshot={nonproduct}/>);
+    const metrics=await screen.findByRole("region",{name:"Contest metrics"});
+    expect(within(metrics).getByText("45")).toBeTruthy();
+    expect(within(metrics).getByText("Stored QSO points: 30 · Host multiplier / bonus value: 0 · Host plugin total")).toBeTruthy();
+    expect(metrics.textContent).not.toContain("×");
+  });
+  it("labels an incomplete CQWS score as a lower bound and shows the host limitation",async()=>{
+    const partial={meta:{...analyticsFixtureMeta,cqWW:false,pluginID:"cqws",hostEvidence:true,multiplierAdapter:true,total:1,
+      score:{qsos:1,points:2,multipliers:1,total:2,scoringComplete:false,scoringLimitations:["Brazilian federal-unit evidence is missing."]},
+      scoreHistory:{status:"UNVERIFIED" as const,reason:"Incomplete scoring",model:"points-times-credited-identities"}},
+      rows:[{...analyticsFixtureRows[0],points:2,claimedScore:null,hostDupe:false,creditedKeys:[]}]};
+    render(<ContestAnalyticsWindow initialSnapshot={partial}/>);
+    const note=await screen.findByRole("note",{name:"Partial host score"});
+    expect(within(note).getByText(/PARTIAL score · lower bound/)).toBeTruthy();
+    expect(within(note).getByText("Brazilian federal-unit evidence is missing.")).toBeTruthy();
+    expect(screen.getByText("Known score · host · PARTIAL")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button",{name:"Multipliers"}));
+    expect(screen.getByText(/Conditional growth is unavailable/)).toBeTruthy();
+    expect(screen.queryByLabelText("Candidate stored QSO points")).toBeNull();
+  });
   it("opens native Print/PDF once and blocks overlapping exports while pending",async()=>{
     let finish!:()=>void;
     native.invoke.mockImplementation(()=>new Promise<void>(resolve=>{finish=resolve;}));
