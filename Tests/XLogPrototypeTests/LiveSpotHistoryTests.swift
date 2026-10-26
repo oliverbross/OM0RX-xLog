@@ -1,6 +1,7 @@
 import Foundation
 import XCTest
 import XClusterIntegrationCore
+@testable import XCWCore
 #if canImport(XLogCore)
 import XLogCore
 #else
@@ -32,6 +33,26 @@ private final class HistoryTransport: ClusterConnectionTransport, @unchecked Sen
 }
 
 final class LiveSpotHistoryTests: XCTestCase {
+    func testLocalCWProvenanceSurvivesArchiveReopen() async throws {
+        let root=try temporary();defer{try? FileManager.default.removeItem(at:root)}
+        let url=root.appendingPathComponent("local-history.sqlite"),recorder=LiveSpotHistoryMethods(url:root.appendingPathComponent("local-history.sqlite"))
+        let service=ClusterSessionService(configuration:.init(servers:[]),onObservation:{recorder.observe($0)},onHistoryConnection:{recorder.connection($0)})
+        let spot=CWConfirmedSpot(id:UUID(),sessionID:UUID(),sourceID:UUID(),radioID:"radio2",provider:.tciIQ,receiverID:"1",streamToken:UUID(),
+            epoch:"12",trackID:UUID(),callsign:"K1ABC/P",frequencyHz:14025123,observedAt:Date(),occurrenceRanges:["0:100","200:300"],
+            policyVersion:1,originInstanceID:UUID(),modelSHA256:CWSpotPolicy.modelSHA256)
+        let accepted=try await service.ingestLocalCW(spot,stationCallsign:"VK8RX")
+        XCTAssertTrue(accepted)
+        await service.terminate();await recorder.stop()
+        let database=try SpotHistoryDatabase(url:url);defer{database.close()}
+        let rows=try database.query(.init()).rows,row=try XCTUnwrap(rows.first)
+        XCTAssertEqual(rows.count,1);XCTAssertEqual(row.id,spot.id);XCTAssertEqual(row.source,"local_cw")
+        XCTAssertEqual(row.reportedAt,spot.observedAt);XCTAssertEqual(row.recordKind,"local_cw")
+        let object=try XCTUnwrap(JSONSerialization.jsonObject(with:Data(row.classificationJSON.utf8)) as? [String:Any])
+        let classified=try XCTUnwrap(object["classified"] as? [String:Any]),provenance=try XCTUnwrap(classified["localCW"] as? [String:Any])
+        XCTAssertEqual(provenance["streamToken"] as? String,spot.streamToken.uuidString)
+        XCTAssertEqual(provenance["sourceID"] as? String,spot.sourceID.uuidString)
+        XCTAssertEqual(provenance["modelSHA256"] as? String,CWSpotPolicy.modelSHA256)
+    }
     private func temporary() throws -> URL {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-history-\(UUID())")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)

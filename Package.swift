@@ -78,7 +78,7 @@ portableTargets.append(contentsOf: [
     .systemLibrary(name: "CSQLitePrototype", pkgConfig: sqlitePkgConfig, providers: [.apt(["libsqlite3-dev"])]),
     .target(name: "CClusterSocket", linkerSettings: [.linkedLibrary("ws2_32", .when(platforms: [.windows]))]),
     .target(name: "CPlatformVault", linkerSettings: [.linkedLibrary("Advapi32", .when(platforms: [.windows]))]),
-    .target(name: "XClusterIntegrationCore", dependencies: ["CClusterSocket"]),
+    .target(name: "XClusterIntegrationCore", dependencies: ["CClusterSocket", "XCWCore"]),
     .target(name: "XStationIntegrationCore"),
     .target(name: "XCWCore", dependencies: cwProcessDependencies),
     .target(name: "XContestCore", resources: [

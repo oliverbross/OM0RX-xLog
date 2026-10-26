@@ -9,12 +9,12 @@ export const clusterFilterChoices = {
   spotterContinents: ["AF", "AN", "AS", "EU", "NA", "OC", "SA"],
   callStatuses: ["New Call", "New Band", "New Mode", "New Band+Mode", "Worked", "Confirmed", "Unknown"],
   dxccStatuses: ["ATNO", "C/New Band", "C/New Mode", "C/New Band+Mode", "W/New Band", "W/New Mode", "W/New Band+Mode", "Worked", "Confirmed", "Unknown"],
-  sources: ["cluster", "rbl"],
+  sources: ["cluster", "rbl", "local_cw"],
   worked: ["Worked before", "Not worked"],
 };
 
 export const defaultClusterFilter = (): ClusterFilter => ({ query: "", bands: [], modes: [], continents: [], spotterContinents: [], callStatuses: [], dxccStatuses: [],
-  specials: [], excludedSpecials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" });
+  specials: [], excludedSpecials: [], sources: ["cluster", "rbl", "local_cw"], worked: [], sort: "newest" });
 
 export function normalizeClusterFilter(value?: Partial<ClusterFilter> | null): ClusterFilter {
   const defaults = defaultClusterFilter();
@@ -48,7 +48,8 @@ export function filterClusterSpots<T extends ClusterFilterSpot>(spots: readonly 
   const query = filter.query.toLocaleLowerCase();
   const visible = spots.filter(spot => {
     const rbn = ["rbl", "rbn"].includes(spot.source.trim().toLocaleLowerCase());
-    const source = rbn ? "rbl" : "cluster", specialTags = rbn ? [...spot.specialTags, "RBN"] : spot.specialTags;
+    const source = rbn ? "rbl" : spot.source.trim().toLocaleLowerCase() === "local_cw" ? "local_cw" : "cluster";
+    const specialTags = rbn ? [...spot.specialTags, "RBN"] : spot.specialTags;
     return (!query || [spot.callsign, spot.country, spot.comment].some(value => value.toLocaleLowerCase().includes(query))) &&
       (!filter.bands.length || filter.bands.includes(spot.band)) &&
       (!filter.modes.length || filter.modes.includes(spot.mode)) &&

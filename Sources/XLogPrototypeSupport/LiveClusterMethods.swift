@@ -5,6 +5,7 @@ import Security
 import XCatIntegrationCore
 #endif
 import XClusterIntegrationCore
+import XCWCore
 #if canImport(XLogCore)
 import XLogCore
 #else
@@ -626,6 +627,15 @@ public actor LiveClusterMethods {
         return created
     }
 
+    /// Native CW acceptance enters the same classification/history owner;
+    /// callers never publish through a loopback connection or a renderer RPC.
+    func ingestLocalCW(_ spot: XCWCore.CWConfirmedSpot,stationCallsign:String) async throws -> Bool {
+        try requireRunning()
+        let service=try await readyService()
+        try requireRunning()
+        return try await service.ingestLocalCW(spot,stationCallsign:stationCallsign)
+    }
+
     private func validateConfigurationPath() throws {
         for url in [configurationURL.deletingLastPathComponent(), configurationURL] {
             if FileManager.default.fileExists(atPath: url.path),
@@ -1103,7 +1113,7 @@ public actor LiveClusterMethods {
               value.callStatuses.isSubset(of: ["New Call", "New Band", "New Mode", "New Band+Mode", "Worked", "Confirmed", "Unknown"]),
               value.dxccStatuses.isSubset(of: ["ATNO", "C/New Band", "C/New Mode", "C/New Band+Mode",
                                            "W/New Band", "W/New Mode", "W/New Band+Mode", "Worked", "Confirmed", "Unknown"]),
-              value.sources.isSubset(of: ["cluster", "rbl"]),
+              value.sources.isSubset(of: ["cluster", "rbl", "local_cw"]),
               value.worked.isSubset(of: ["Worked before", "Not worked"]) else { throw invalid() }
     }
 

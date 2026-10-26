@@ -1,4 +1,5 @@
 import Foundation
+import XCWCore
 
 /// Synchronous transport callbacks must reach the actor in wire order. Separate
 /// unstructured Tasks can otherwise reorder a disconnect or consecutive spots.
@@ -60,7 +61,7 @@ public struct ClusterSpotFilter: Codable, Equatable, Sendable {
     public var dxccStatuses: Set<String> = []
     public var specials: Set<String> = []
     public var excludedSpecials: Set<String> = []
-    public var sources: Set<String> = ["cluster", "rbl"]
+    public var sources: Set<String> = ["cluster", "rbl", "local_cw"]
     public var worked: Set<String> = []
     public var sort: ClusterSpotSort = .newest
 
@@ -81,7 +82,7 @@ public struct ClusterSpotFilter: Codable, Equatable, Sendable {
         dxccStatuses = try values.decodeIfPresent(Set<String>.self, forKey: .dxccStatuses) ?? []
         specials = try values.decodeIfPresent(Set<String>.self, forKey: .specials) ?? []
         excludedSpecials = try values.decodeIfPresent(Set<String>.self, forKey: .excludedSpecials) ?? []
-        sources = try values.decodeIfPresent(Set<String>.self, forKey: .sources) ?? ["cluster", "rbl"]
+        sources = try values.decodeIfPresent(Set<String>.self, forKey: .sources) ?? ["cluster", "rbl", "local_cw"]
         worked = try values.decodeIfPresent(Set<String>.self, forKey: .worked) ?? []
         sort = try values.decodeIfPresent(ClusterSpotSort.self, forKey: .sort) ?? .newest
     }
@@ -282,11 +283,13 @@ public struct ClassifiedClusterSpot: Codable, Hashable, Identifiable, Sendable {
     public var statusHex: String
     public var bandHex: String
     public var modeHex: String
+    public var localCW: CWConfirmedSpot? = nil
 
     /// Refresh only the live derived mode. Historical observations retain the
     /// classification captured when they were received.
     @discardableResult
     mutating func refreshInferredMode(palette: ClusterPalette) -> Bool {
+        guard localCW==nil else {return false}
         let inferred = SpotLogic.mode(comment: comment, band: band, khz: frequencyKHz)
         guard inferred != mode else { return false }
         mode = inferred
@@ -344,9 +347,22 @@ public typealias ClusterTransportFactory = @Sendable (
 ) -> any ClusterConnectionTransport
 
 public actor ClusterSessionService {
+    private struct ObservationOrigin {
+        let id: UUID
+        let name: String
+        let host: String
+        let port: Int
+        let local: Bool
+        init(server: ClusterServerConfiguration) {
+            id=server.id;name=server.name;host=server.host;port=server.port;local=false
+        }
+        init(local spot: CWConfirmedSpot) {
+            id=spot.originInstanceID;name="Local CW";host="";port=0;local=true
+        }
+    }
     private struct HistorySegment {
         let id = UUID()
-        let server: ClusterServerConfiguration
+        let origin: ObservationOrigin
         let generation: UUID
         var sequence: Int64 = 0
     }
@@ -361,6 +377,7 @@ public actor ClusterSessionService {
     private var connectionGeneration = UUID()
     private var transportGenerations: [UUID: UUID] = [:]
     private var historySegments: [UUID: HistorySegment] = [:]
+    private var localSpotIDs: [(UUID,Date)] = []
     private var contactCounts: [String: Int] = [:]
     private var contactRevision = 0
     private var contactPublicationRevision: UInt64 = 0
@@ -490,7 +507,9 @@ public actor ClusterSessionService {
     public func disconnect() {
         connectionGeneration = UUID()
         let stoppedAt = Date()
-        for id in Array(historySegments.keys) { closeHistorySegment(serverID: id, at: stoppedAt, phase: .disconnected) }
+        for (id,segment) in historySegments where !segment.origin.local || terminated {
+            closeHistorySegment(serverID: id, at: stoppedAt, phase: .disconnected)
+        }
         transportGenerations.removeAll()
         for transport in transports.values { transport.stop() }
         transports.removeAll()
@@ -657,23 +676,46 @@ public actor ClusterSessionService {
               let server = configuration.servers.first(where: { $0.id == serverID }) else { return }
         guard line.utf8.count <= ClusterLineParser.maximumLineBytes else { return }
         if let raw = ClusterLineParser.parse(line, clusterID: serverID, clusterName: server.name, at: arrivedAt) {
-            addSpot(raw, line: line, server: server, generation: generation, arrivedAt: arrivedAt)
+            addSpot(raw, line: line, origin: ObservationOrigin(server:server), generation: generation, arrivedAt: arrivedAt)
         } else {
             appendConsole(source: server.name, text: line, isCommand: false)
         }
         publish()
     }
 
-    private func addSpot(_ raw: RawSpot, line: String, server: ClusterServerConfiguration, generation: UUID, arrivedAt: Date) {
+    /// Trusted native admission only; no renderer or network command accepts a
+    /// CWConfirmedSpot. The source owner rechecks its capture before calling.
+    @discardableResult
+    public func ingestLocalCW(_ value: CWConfirmedSpot,stationCallsign:String,arrivedAt:Date=Date()) throws -> Bool {
+        guard !terminated else {throw ClusterSessionError.terminated}
+        try value.validateProvenance()
+        guard arrivedAt.timeIntervalSince(value.observedAt)>=0,arrivedAt.timeIntervalSince(value.observedAt)<=120 else {return false}
+        let line=try CWSpotWire.line(value,stationCallsign:stationCallsign)
+        localSpotIDs.removeAll{arrivedAt.timeIntervalSince($0.1)>900}
+        guard !localSpotIDs.contains(where:{$0.0==value.id}) else {return false}
+        if localSpotIDs.count>=4096 {localSpotIDs.removeFirst()}
+        localSpotIDs.append((value.id,arrivedAt))
+        let origin=ObservationOrigin(local:value)
+        let raw=RawSpot(clusterID:origin.id,clusterName:origin.name,spotter:try CWSpotWire.reporter(stationCallsign),
+            frequencyKHz:Double(value.frequencyHz)/1000,frequencyText:String(format:"%.3f",locale:Locale(identifier:"en_US_POSIX"),Double(value.frequencyHz)/1000),
+            callsign:value.callsign,comment:"CW Local",receivedAt:value.observedAt)
+        if let previous=historySegments[origin.id],previous.generation != value.sessionID {
+            closeHistorySegment(serverID:origin.id,at:arrivedAt,phase:.disconnected)
+        }
+        addSpot(raw,line:line,origin:origin,generation:value.sessionID,arrivedAt:arrivedAt,localCW:value)
+        publish();return true
+    }
+
+    private func addSpot(_ raw: RawSpot, line: String, origin: ObservationOrigin, generation: UUID, arrivedAt: Date,localCW:CWConfirmedSpot?=nil) {
         guard raw.callsign.utf8.count <= 32, raw.spotter.utf8.count <= 64 else { return }
         guard !configuration.hideWSPRSpots
                 || !SpotLogic.isWSPR(clusterName: raw.clusterName, spotter: raw.spotter, comment: raw.comment) else { return }
         let country = countries.resolve(raw.callsign)
         let spotterCountry = countries.resolve(raw.spotter)
         let band = SpotLogic.band(for: raw.frequencyKHz)
-        let mode = SpotLogic.mode(comment: raw.comment, band: band, khz: raw.frequencyKHz)
+        let mode = localCW==nil ? SpotLogic.mode(comment: raw.comment, band: band, khz: raw.frequencyKHz):"CW"
         let classification = classify(call: raw.callsign, band: band, mode: mode, adif: country?.adif)
-        let source = SpotLogic.source(spotter: raw.spotter, comment: raw.comment)
+        let source = localCW==nil ? SpotLogic.source(spotter: raw.spotter, comment: raw.comment):"local_cw"
         let specials = specialTags(comment: raw.comment, source: source)
         let displayComment = source == "rbl" && !raw.comment.uppercased().hasPrefix("RBN")
             ? (raw.comment.isEmpty ? "RBN" : "RBN · \(raw.comment)")
@@ -696,25 +738,29 @@ public actor ClusterSessionService {
             bandHex: configuration.palette.band[band] ?? "#B0B0B0",
             modeHex: configuration.palette.mode[mode] ?? "#B0B0B0"
         )
+        spot.localCW=localCW
         if onObservation != nil {
-            if historySegments[server.id] == nil {
-                openHistorySegment(server: server, generation: generation, at: arrivedAt,
-                                   phase: statuses[server.id]?.phase ?? .connecting)
+            if historySegments[origin.id] == nil {
+                openHistorySegment(origin:origin, generation: generation, at: arrivedAt,
+                                   phase: origin.local ? .connected:(statuses[origin.id]?.phase ?? .connecting))
             }
-            if var segment = historySegments[server.id] {
+            if var segment = historySegments[origin.id] {
                 segment.sequence += 1
-                historySegments[server.id] = segment
-                let (reportedAt, timeBasis, recordKind) = ClusterSpotObservation.reportTime(line: line, raw: raw, arrivedAt: arrivedAt)
-                onObservation?(.init(sessionID: segment.id, sequence: segment.sequence,
-                    clusterID: server.id, clusterName: raw.clusterName, clusterHost: segment.server.host,
-                    clusterPort: segment.server.port, transportGeneration: generation,
+                historySegments[origin.id] = segment
+                let (reportedAt, timeBasis, recordKind) = localCW.map{(Optional($0.observedAt),"capture_host_receipt","local_cw")}
+                    ?? ClusterSpotObservation.reportTime(line: line, raw: raw, arrivedAt: arrivedAt)
+                onObservation?(.init(id:localCW?.id ?? UUID(),sessionID: segment.id, sequence: segment.sequence,
+                    clusterID: origin.id, clusterName: raw.clusterName, clusterHost: segment.origin.host,
+                    clusterPort: segment.origin.port, transportGeneration: generation,
                     arrivedAt: arrivedAt, reportedAt: reportedAt, timeBasis: timeBasis,
                     recordKind: recordKind, rawLine: line, raw: raw, classified: spot,
                     contactRevision: contactRevision))
             }
         }
         spot.comment = String(decoding: Data(displayComment.utf8.prefix(512)), as: UTF8.self)
-        if let index = spots.firstIndex(where: { $0.callsign == spot.callsign && abs($0.frequencyKHz - spot.frequencyKHz) <= 0.1
+        if let index = spots.firstIndex(where: { $0.callsign == spot.callsign && $0.source==spot.source
+            && $0.localCW?.sourceID==spot.localCW?.sourceID && $0.localCW?.originInstanceID==spot.localCW?.originInstanceID
+            && abs($0.frequencyKHz - spot.frequencyKHz) <= 0.1
             && raw.receivedAt.timeIntervalSince($0.receivedAt) < 180 }) {
             spot.aggregateCount = spots[index].aggregateCount + 1
             spot.aggregateSpotters = Array(Set(spots[index].aggregateSpotters + [raw.spotter])).sorted().prefix(32).map { $0 }
@@ -727,9 +773,12 @@ public actor ClusterSessionService {
     }
 
     private func openHistorySegment(server: ClusterServerConfiguration, generation: UUID, at date: Date, phase: ClusterConnectionPhase) {
+        openHistorySegment(origin:ObservationOrigin(server:server),generation:generation,at:date,phase:phase)
+    }
+    private func openHistorySegment(origin: ObservationOrigin, generation: UUID, at date: Date, phase: ClusterConnectionPhase) {
         guard onObservation != nil || onHistoryConnection != nil else { return }
-        let segment = HistorySegment(server: server, generation: generation)
-        historySegments[server.id] = segment
+        let segment = HistorySegment(origin:origin, generation: generation)
+        historySegments[origin.id] = segment
         publishHistoryConnection(segment, at: date, phase: phase)
     }
 
@@ -739,8 +788,8 @@ public actor ClusterSessionService {
     }
 
     private func publishHistoryConnection(_ segment: HistorySegment, at date: Date, phase: ClusterConnectionPhase) {
-        onHistoryConnection?(.init(sessionID: segment.id, clusterID: segment.server.id,
-            clusterName: segment.server.name, clusterHost: segment.server.host, clusterPort: segment.server.port,
+        onHistoryConnection?(.init(sessionID: segment.id, clusterID: segment.origin.id,
+            clusterName: segment.origin.name, clusterHost: segment.origin.host, clusterPort: segment.origin.port,
             transportGeneration: segment.generation, occurredAt: date, phase: phase))
     }
 

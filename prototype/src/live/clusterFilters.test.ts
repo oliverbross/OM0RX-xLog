@@ -36,4 +36,11 @@ describe("filterClusterSpots", () => {
     expect(filterClusterSpots(spots, { ...defaultClusterFilter(), sort:"frequency" }).map(spot => spot.callsign)).toEqual(["VK8OLD", "DL1ABC"]);
     expect(filterClusterSpots(spots, { ...defaultClusterFilter(), sort:"callsign" }).map(spot => spot.callsign)).toEqual(["DL1ABC", "VK8OLD"]);
   });
+  it("keeps Local CW separate from network and RBN sources", () => {
+    const local = { ...spots[0], source: "local_cw", callsign: "K1LOCAL" };
+    expect(filterClusterSpots([...spots, local], { ...defaultClusterFilter(), sources: ["local_cw"] }).map(spot => spot.callsign)).toEqual(["K1LOCAL"]);
+    expect(filterClusterSpots([local], { ...defaultClusterFilter(), sources: ["cluster", "rbl"] })).toEqual([]);
+    expect(normalizeClusterFilter({ sources: [] }).sources).toEqual([]);
+    expect(normalizeClusterFilter().sources).toContain("local_cw");
+  });
 });

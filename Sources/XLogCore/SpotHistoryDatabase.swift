@@ -250,7 +250,8 @@ public final class SpotHistoryDatabase: @unchecked Sendable {
                       observation.rawLine.utf8.count <= 4096, observation.comment.utf8.count <= 4096,
                       observation.classificationJSON.utf8.count <= 8192, observation.specialTags.count <= 64,
                       [observation.callsign, observation.spotter, observation.band, observation.mode, observation.source, observation.country].allSatisfy({ !$0.contains("\0") }),
-                      ["live", "historical_reply", "import"].contains(observation.recordKind) else {
+                      ["live", "historical_reply", "import", "local_cw"].contains(observation.recordKind),
+                      observation.recordKind != "local_cw" || observation.source=="local_cw" else {
                     throw SpotHistoryDatabaseError.invalidInput("observation exceeds field bounds")
                 }
                 _ = try microseconds(observation.arrivedAt)

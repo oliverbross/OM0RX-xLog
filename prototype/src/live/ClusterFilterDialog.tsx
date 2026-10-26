@@ -34,7 +34,7 @@ export function ClusterFilterDialog({ filter, specialChoices, error = "", dialog
             : values.length ? <div>{values.map(option => <label key={option}><input type="checkbox" checked={selected.includes(option)} onChange={event => {
               const next = event.target.checked ? [...selected, option] : selected.filter(value => value !== option);
               onChange({ ...filter, [key]: next });
-            }} />{key==="worked"&&contestWorked?(option==="Worked before"?"Worked in this contest":"Not worked in this contest"):option === "rbl" ? "RBN / Skimmer" : option === "cluster" ? "DX Cluster" : option}</label>)}</div>
+            }} />{key==="worked"&&contestWorked?(option==="Worked before"?"Worked in this contest":"Not worked in this contest"):option === "rbl" ? "RBN / Skimmer" : option === "cluster" ? "DX Cluster" : option === "local_cw" ? "Local CW" : option}</label>)}</div>
             : <p>No configured choices.</p>}
         </fieldset>;
       })}</div>
