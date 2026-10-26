@@ -45,14 +45,15 @@ public struct CWTranscriptReconciler: Sendable {
             let delta = a.firstSample > b.firstSample ? a.firstSample-b.firstSample : b.firstSample-a.firstSample
             return a.symbol == b.symbol && delta <= 480
         }
-        for old in committed where old.firstSample >= firstSample + 640 && old.endSample < cutoff {
+        for old in committed where old.firstSample >= firstSample && old.firstSample-firstSample >= 640 && old.endSample < cutoff {
             if !tokens.contains(where:{ aligned(old,$0) }) { ambiguous=true }
         }
         var fresh: [CWAlignedToken] = []
         let committedEnd = committed.last?.endSample ?? 0
         var previousIndex = 0
         for token in tokens where token.firstSample >= committedEnd && token.endSample <= cutoff {
-            while previousIndex < previous.count && previous[previousIndex].endSample+480 < token.firstSample { previousIndex += 1 }
+            while previousIndex < previous.count && token.firstSample > previous[previousIndex].endSample &&
+                token.firstSample-previous[previousIndex].endSample > 480 { previousIndex += 1 }
             guard previousIndex < previous.count, aligned(token,previous[previousIndex]) else { break }
             fresh.append(token); previousIndex += 1
         }
