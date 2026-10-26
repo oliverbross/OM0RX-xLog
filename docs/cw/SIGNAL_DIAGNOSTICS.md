@@ -174,3 +174,33 @@ These internal clocks leave the existing wire output, inference inputs/windows,
 thread count, queue bounds and strict stability predicate unchanged. Native
 CTest 2/2 and the real-child Swift supervisor/wire harness 15/15 pass. No new
 capacity result is implied by building this instrumentation.
+
+### Attributed paced replay
+
+After the readiness and Cluster owners confirmed no current build/test hold,
+the readiness owner paused for a single approximately twenty-second window.
+Pushed source `b304bb14` ran the same `16 15 4` profile, with the existing pinned
+model and Release build. No radio, network, UI, settings or installed application
+action occurred; the CPU window was released immediately afterward. Unrelated
+host/background activity was not excluded or measured.
+
+It delivered all 15 seconds, inferred all 32 tracks and produced 275 decode
+events in 15.5959 wall seconds. Maximum input lateness was 15.1898 ms; P95 decode
+age was 1,387.73 ms. Maximum pending jobs remained 32; **13 jobs coalesced**, with
+zero dropped events. CPU time was 36.8237 s, DSP ingress wall time 3,272.01 ms,
+signal generation 211.095 ms and peak RSS 321.125 MiB. Strict stability remains
+**false**. The lower coalescing count than previous runs does not establish a
+capacity improvement from instrumentation.
+
+| Serviced-job wall timing (275 jobs) | Sum | Mean | P95 | Maximum |
+| --- | ---: | ---: | ---: | ---: |
+| Model Run | 33,695.2 ms | 122.528 ms | 159.645 ms | 208.740 ms |
+| Feature extraction | 678.021 ms | 2.466 ms | 3.775 ms | 6.263 ms |
+| CTC projection | 7.442 ms | 0.027 ms | 0.053 ms | 0.128 ms |
+| Queue wait | 128,479 ms | 467.196 ms | 992.745 ms | 1,245.790 ms |
+
+Model execution dominates measured serviced-job processing time. These overlapping
+wall clocks do not measure per-component CPU or prove why a specific job was
+coalesced. The data does not justify changing the model, thread budget, windows,
+stride or qualification threshold without a separately measured and validated
+change. Full application responsiveness, source/RF quality and soaks remain open.
