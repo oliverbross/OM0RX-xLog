@@ -151,8 +151,13 @@ provenance agrees. The [release record](../MACOS_1_3_35_RELEASE_2026-10-26.md)
 contains exact hashes, signature, the independently resolved transient-checkout
 incident and the 175-file clean-source frontend reproduction.
 
-This candidate remains uninstalled while a separately requested Classic/Modern
-cluster setting is prepared for the next version. One protected replacement is
-planned after that combined candidate qualifies, preserving the current draft.
-Until the later installation receipt exists, installed evidence remains specifically
-1.3.34. Physical hardware, notarization and 1.3.35 live acceptance are not claimed.
+Candidate 1.3.35 remains uninstalled. The separately requested Classic/Modern
+setting was integrated in `28f69e5d`, with all 188 detached-surface cases passing
+on canonical source. Combined **1.3.36** is now signed and qualified from
+`079570505b06f0a5aba403aa6105909148652c91`, with all eight bundled-worker and
+44 packaged Python cases passing again. Its
+[release receipt](../MACOS_1_3_36_RELEASE_2026-10-26.md) records all component
+hashes, matching 4,075 retained entries and disabled-CW provenance.
+One protected replacement is pending the fresh current-draft check. Until its
+installation receipt exists, installed evidence remains specifically 1.3.34.
+Physical hardware, notarization and 1.3.35 live acceptance are not claimed.
