@@ -104,8 +104,29 @@ before changing module.” The app and workers remained usable. This preflight v
 did not exercise the new retirement diagnostics and does not establish a causal
 fix or either live mode direction. Follow-up remains active with the mode owner.
 
+The corrective **1.3.31** candidate was built from
+`507ab9aed623641e24179e6db644b68501ca0873`, including passive-poll admission fix
+`9bf18416`. All 883 native tests passed, with delayed-read versus mutation overlap
+regressions, and independent source review retained the digital routing and real
+mutation fences. The [artifact and protected installation record](../MACOS_1_3_31_RELEASE_2026-10-26.md)
+records CDHash `7e14f15b872f30c1a9e6a9fe8b9bc096c88ff989`, all component hashes
+and installation receipt `db0ae81d`. Installation/startup and data preservation
+passed after the human finished a live Log Review correction. The new authoritative
+baseline is 775 QSOs, 785 identities, **850 audit rows**, 957 points, 116 multipliers
+and score **111,012**, with 68,560 normal QSOs. The completed correction was
+preserved; older score/audit fingerprints were not restored. The original normal
+Clear remains settled at blank revision 2916.
+
+No 1.3.31 mode attempt had been made when that receipt was recorded: an unexpected
+single CQ Zone character in an otherwise empty contest entry required a separate
+human input-intent clarification. Both installed directions remain **UNVERIFIED**
+pending that answer and the guarded attempt. This is distinct from the already
+completed original Clear. The optional direct-FLEX IQ VPN does not establish the
+state of the separate Agent/Tailscale connection; fresh passive evidence and spot
+receipt ages must accompany any eventual handover acceptance.
+
 CW Decode remains disabled. Packaging ownership transferred from the CW chat to
-the mode-switch chat for 1.3.30; the Rates chat remains the exclusive protected
+the mode-switch chat for 1.3.30 and 1.3.31; the Rates chat remains the exclusive protected
 installation/UI owner. Provenance, signatures and component hashes refer to the
 exact handed-over bundles. No notarization or Intel-app acceptance is claimed.
 
