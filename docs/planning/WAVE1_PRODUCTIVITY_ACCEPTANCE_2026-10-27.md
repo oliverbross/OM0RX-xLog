@@ -1,0 +1,56 @@
+# Wave 1 — Productivity source acceptance
+
+27 October 2026, Australia/Darwin. This record closes the selected **source implementation** checkpoint and retains the unperformed delivery/physical gates. Wave 2 has not started.
+
+## Identity and ownership
+
+- Canonical checkout: `/Users/oliver/Documents/Projects/OM0RX-xLog`, branch `main`.
+- Initial clean baseline fast-forwarded from `4fa19682` to `c9579b3cdbab3af51fbd1a225990bdc47bf56239` with `git fetch origin main` and `git pull --ff-only origin main`.
+- Implementation source: **`0a1da4ceb69d40eee11a63fd8f21553753e2065e`**, committed and pushed to `origin/main`; the following evidence commit only changes planning documentation.
+- Root owned the Python host/store, native routing, canonical workspace integration and W06/W08. Three parallel `gpt-6.1-sol` workers owned W01 setup/practice, W02 stack, and W03 assistance in separate files; root serialized integration, commits and pushes. The session offered four concurrent slots including root.
+- NL overlaps: NL-01/05/23/33 under W01, NL-05/25 under W03, NL-23/25 under W06, and NL-05/23 under W08. These are retained owners, not additional completed projects. CQWS UF scoring, existing analytics gaps, hardware/account gates and disabled CW receive qualification remain unchanged.
+
+## Delivered behavior and scoped acceptance
+
+The native **Contest Setup** owner now has a **Productivity desk** view. Its Entry & stack, Check, Log & notes and Submission tabs reuse the existing Python/SQLite session, revision, serial, mutation receipt and detached-window publication owners. It is not a second log, rules engine or station client. Existing detached windows remain available.
+
+| Scope | Delivered and verified source behavior | Remaining boundary |
+| --- | --- | --- |
+| W01, A01–A03 | Existing 94-definition matrix drives capability/readiness presentation, distinct limited/unverified states and exchange examples. Explicit Practice copy creates a new session/draft with independent contacts/serials and source scoring/reference policy. Host/native restrictions reject CW/output claims, fldigi transmit and current/retired-source score reporting; setup saves cannot reactivate posting. | Current sponsor/category/rule verification remains unverified. Exact installed presentation, physical permissions and backup/provider receipts are separate. |
+| W02, A04–A07 | Manual FIFO, select/promote/remove, optional On Deck, explicit swap/park/discard, heard fragments and `?` assistance. Serial reservation stays in the host. Log-and-next journals the same operation before I/O, confirms durable save, then loads/pop once. Ordinary logging/messages are blocked while its journal is unresolved. Lost replies/restart and later operator edits are covered on actual Python-backed WPX sessions. | Local authoritative desk only. Multi-op client transitions and late-bound macro/ESM queue actions are retained later scope. |
+| W03, A08–A10 | Reverse call fragments plus registry-declared NAQP name/state and ARRL VHF Jan/Jun/Sep/CQ WW VHF locator fields. Literal prefix/contains, original source/date or explicit date absence, bounded pages/work budget and obsolete-response rejection. Visible Dupesheet queries the whole contest and calls existing plugin duplicate authority for band/mode/grid/timed scopes. | Additional exchange roles need explicit declarations and fixtures. SQL work is bounded; UI cancellation discards obsolete replies rather than adding a separate transport interrupt. |
+| W06, A18–A20 | Whole-log SQL sort/filter with numeric/time semantics, bounded pages and stable ID ties for explicit ordering. Legacy latest-contact same-second ordering is preserved. Current/last-QSO notes bind stable draft/QSO IDs; delayed notes resolve to the original committed QSO. External/digital contacts cannot claim the operator draft's notes. Notes reuse transaction/operation receipts, including uncertain-note restart reconciliation. Existing correction/raw-field behavior is retained. | Paper-log entry/timestamp adjustment remains explicit later scope. Notes are independent operator annotations, not plugin exchange warnings or inferred corrections. |
+| W08, A26–A27 selected preflight | Read-only entrant/category/exchange/count/UTC/band/partial-score review. Manifest records session/log revision, pinned plugin source, scoring/reference coordinates and exact export length/SHA-256. Reviewed saving rejects changed revisions or changed bytes. Existing prepared export bytes remain immutable after later commits. Export is always `not-submitted`; no organizer receipt is invented. | A24–A25 general-import extensions, combined final archive/recording index, native N1MM migration and organizer/provider submission are not closed. Manifest is visible/copyable; this wave does not claim a durable combined submission archive. |
+| Relevant W21/W22/W24 | Labelled controls, semantic text states, keyboard focus and incumbent styling/bindings. Real UI-to-Python success, delayed completion, lost reply, restart and a 20,000-row local load probe. | Named operator profiles remain later W21 scope. Native compact/expanded graphical QA, exact-package save/reopen rehearsal and optional workload combinations remain open. |
+
+## Verification
+
+Final regression results below apply to the implementation source above. Counts are distinct suite scopes and must not be added to historical consolidation counts.
+
+- **337 Vitest cases passed in 10 selected files**, 0 failures, 114.78 seconds: `contestReadiness.test.tsx`, `contestCallStack.test.ts`, `ContestCallStackPanel.test.tsx`, `ContestCallStackOwner.test.tsx`, `ContestReverseAssistance.test.tsx`, `ContestProductivityTools.test.tsx`, `Not1MMContestWorkspace.test.tsx`, `AllContestsPythonDesk.test.tsx`, `Wave1PythonDesk.test.tsx`, `Wave1StackRecovery.test.tsx`. Run from `prototype` using `npx vitest run` with these paths and `--maxWorkers=2`. This includes the existing all-catalogue actual Python-backed desk cases and the new real-host lost-reply/restart journeys.
+- **422 Python cases passed**, 0 failures, 186.196 seconds: `PYTHONPATH=python /opt/local/bin/python3.12 -m unittest discover -s python/tests`. This includes the new 20,000-contact probe, real Practice isolation, reverse/duplicate scopes, numeric whole-log queries, delayed-note/external-contact binding and immutable export cases.
+- **TypeScript passed**: `npx tsc --noEmit` from `prototype`, exit 0, including all new source/test files. `git diff --check` passed.
+- Native Practice boundary: `XLOG_PORTABLE_ONLY=1 swift test --filter PythonContestLaneTests/testPracticeNativeOutputFencesRejectCurrentAndRetiredSourceContexts` — 1 actual Python-backed Swift test passed, 0 failures. An initial invocation against the default manifest ran zero matching cases and is not counted as acceptance; the corrected portable invocation built the intended target and executed the case.
+- Worker boundary: `cargo test --manifest-path prototype/src-tauri/Cargo.toml --bin xlog-prototype worker::tests` — 82 passed, 0 failed. Initial command used nonexistent target `om0rx-xlog`, failed before executing tests, then was corrected.
+- The first full Python regression run executed 420 cases and exposed two regressions: ordinary session listings gained a redundant `practice:false`, and implicit same-second log ordering changed. Both were fixed while retaining explicit stable whole-log sorting. A focused retry initially omitted `python/tests` from `PYTHONPATH` and failed to import an existing test helper; the corrected six-case retry passed. Failed-run history is retained here rather than relabelled a clean first pass.
+- A test-only TypeScript callback narrowing error was corrected; the final typecheck is the authoritative result. The existing workspace suite emits an `act` warning in its ESM test; no test failure is concealed by that warning.
+
+## Measured local rehearsal
+
+`python/tests/test_productivity_load.py` uses a disposable real Store/Host with 20,000 synthetic copied WPX contacts and stable UUID identities. It verifies numeric/deep-page queries, literal filtering, read-only revisions, unchanged original rows, and one real append/readback to 20,001 contacts. SQL bulk fixture setup is not claimed as 20,000 live logging transactions.
+
+Observed on macOS 27.0.1 arm64, Python 3.12.4, SQLite 3.46.0: received-serial sort **33.473 ms**, sent-serial deep page **28.245 ms**, frequency deep page **52.183 ms**, callsign filter **5.849 ms**, durable commit **17.445 ms**, readback **3.564 ms**. These are single local synthetic observations, not performance guarantees or RF/WAN measurements.
+
+The final probe ran while the broader Python/Vitest regression jobs shared the workstation: sort **244.274 ms**, sent-serial deep page **635.681 ms**, frequency deep page **251.315 ms**, filter **9.375 ms**, commit **25.200 ms**, readback **4.071 ms**. Both runs passed the same correctness/preservation assertions. The spread is retained rather than reporting only the faster isolated observation.
+
+The actual React/Python WPX journey independently checked serials 1 then 2, next caller loading, delayed note ownership and exact Cabrillo digest. A focused run recorded cumulative open **439 ms**, log-and-next **705 ms**, delayed note plus second contact **1,068 ms**, complete **1,207 ms**. This is a test-process desk observation with fake station/public-output boundaries, not native input-to-photon latency. Station queue time and optional recorder/analytics/decoder loads were not exercised.
+
+The final concurrent regression run recorded the same journey at **1,117 / 1,445 / 1,834 / 2,001 ms** respectively. No claim of a fixed latency target follows from either observation.
+
+## Delivery, preservation and next checkpoint
+
+No distribution candidate was packaged, signed, versioned or installed. Test executables are test builds, not release candidates. Accepted installed **1.3.36** and its recorded implementation source `079570505b06f0a5aba403aa6105909148652c91` remain the deployment baseline. Installed/recovery bundles, production databases/completed CQ WW log, normal logbook, recordings, radio settings, credentials, stashes/recovery refs and preserved CW worktree were not changed by this work. All mutations/restarts/load tests used disposable storage and fake output boundaries. CW decoding was not enabled; no RF/PTT, rotor, capture/playback or live account action was performed.
+
+No existing disposable graphical preview exposes this native Setup owner without its service/window dependencies. A new mock application harness was not introduced solely for screenshots. Native compact/expanded, mixed-DPI and accessibility inspection therefore remain **unexercised**, and exact package/native save-dialog acceptance is not inferred from jsdom or native unit tests.
+
+Wave 1's selected source features and current Python-backed rehearsal are delivered. W24 retains the graphical/package/installed acceptance and broader optional-workload checks above; the full W01/W08/W21 packages and all unrelated NL obligations remain scoped as described. Stop here and report these boundaries before any Wave 2 work. A future authorized release must use a new visible version and exact source/build provenance from canonical clean `main`.
