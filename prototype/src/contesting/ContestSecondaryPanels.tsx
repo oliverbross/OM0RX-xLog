@@ -9,7 +9,7 @@ const twoDigit=(value:number)=>String(value).padStart(2,"0");
 const clockText=(date:Date,utc:boolean)=>utc
   ?`${twoDigit(date.getUTCHours())}:${twoDigit(date.getUTCMinutes())}:${twoDigit(date.getUTCSeconds())}`
   :`${twoDigit(date.getHours())}:${twoDigit(date.getMinutes())}:${twoDigit(date.getSeconds())}`;
-function RatesClock({lastQsoAt,contestStartAt,contestEndAt}:Pick<ContestRatesSurfaceProjection,"lastQsoAt"|"contestStartAt"|"contestEndAt">) {
+function RatesClock({lastQsoAt,contestStartAt,contestEndAt,contestScheduleSource}:Pick<ContestRatesSurfaceProjection,"lastQsoAt"|"contestStartAt"|"contestEndAt"|"contestScheduleSource">) {
   const [now,setNow]=useState(()=>new Date());
   useEffect(()=>{const timer=window.setInterval(()=>setNow(new Date()),1_000);return()=>window.clearInterval(timer);},[]);
   const utc=clockText(now,true),local=clockText(now,false),last=lastQsoAt?Date.parse(lastQsoAt):NaN,
@@ -21,7 +21,8 @@ function RatesClock({lastQsoAt,contestStartAt,contestEndAt}:Pick<ContestRatesSur
     <time className="contest-surface-rate-clock-utc" dateTime={now.toISOString()} aria-label={`UTC time ${utc}`}><strong>{utc}</strong><span>UTC</span></time>
     <time className="contest-surface-rate-clock-local" dateTime={now.toISOString()} aria-label={`Local time ${local}`}><strong>{local}</strong><span>Local</span></time>
     <output className="contest-surface-rate-clock-remaining" aria-label="Contest time remaining"><strong>{scheduled?durationText((end-Math.max(start,now.getTime()))/1000):"—"}</strong><span>{finished?"Finished":beforeStart?"Not started":"Remaining"}</span></output>
-    <div className="contest-surface-rate-finish">{scheduled?<><span>Ends</span> <time dateTime={contestEndAt!}>{contestEndAt!.slice(0,19).replace("T"," ")} UTC</time></>:"Set End UTC in contest settings"}</div>
+    <div className="contest-surface-rate-finish">{scheduled?<><span>Ends</span> <time dateTime={contestEndAt!}>{contestEndAt!.slice(0,19).replace("T"," ")} UTC</time>
+      <span> · {contestScheduleSource==="cq-ww-calendar"?`CQ WW ${contestStartAt!.slice(0,4)} organizer calendar`:"Contest settings"}</span></>:"Set End UTC in contest settings"}</div>
     <output className="contest-surface-last-qso" aria-label="Time since last QSO" style={{color:qsoIdleColor(elapsed)}}><strong>{elapsed===null?"—":durationText(elapsed)}</strong><span>Since last QSO</span></output>
   </div>;
 }
@@ -33,7 +34,7 @@ export function Rates({ projection,preferenceScope="default" }: { projection: Co
     ["100-contact pace", projection.last100QsoPerHour,"hundred"]] as const;
   const sinceLabel = `Since ${String(projection.sinceHourUTC).padStart(2, "0")}:00:00z`;
   return <section aria-label="Contest Rates" aria-busy={projection.busy} className="contest-surface-rates"><h1>Rates</h1>
-    <p className="contest-surface-rate-scope" title="Last 60 min uses a fixed 60-minute denominator. Contact pace uses N contacts across N−1 intercontact intervals. Invalid timestamps are excluded; missing style is unclassified.">All bands · All modes · Fixed 60-min window</p><RatesClock lastQsoAt={projection.lastQsoAt} contestStartAt={projection.contestStartAt} contestEndAt={projection.contestEndAt}/><dl>{rates.map(([label, value,kind]) => <div key={label} className={`contest-surface-rate-${kind}`}><dt>{label}:</dt><dd>{value === null ? <span aria-label="Not enough contacts">—</span> : value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>Q/h</small></dd></div>)}
+    <p className="contest-surface-rate-scope" title="Last 60 min uses a fixed 60-minute denominator. Contact pace uses N contacts across N−1 intercontact intervals. Invalid timestamps are excluded; missing style is unclassified.">All bands · All modes · Fixed 60-min window</p><RatesClock lastQsoAt={projection.lastQsoAt} contestStartAt={projection.contestStartAt} contestEndAt={projection.contestEndAt} contestScheduleSource={projection.contestScheduleSource}/><dl>{rates.map(([label, value,kind]) => <div key={label} className={`contest-surface-rate-${kind}`}><dt>{label}:</dt><dd>{value === null ? <span aria-label="Not enough contacts">—</span> : value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>Q/h</small></dd></div>)}
       <div className="contest-surface-rate-since"><dt>{sinceLabel}:</dt><dd>{projection.sinceHourQso.toLocaleString()} <small>QSO</small></dd></div></dl>
     <table aria-label="Run and Search & Pounce QSOs"><tbody>{[["Run QSO",projection.runQso],["S&P QSO",projection.searchAndPounceQso],
       ["Hour Run QSO",projection.hourRunQso],["Hour S&P QSO",projection.hourSearchAndPounceQso]].map(([label,value])=><tr key={label} className={String(label).includes("S&P")?"contest-surface-rate-search":"contest-surface-rate-run"}><th scope="row">{label}:</th><td>{value.toLocaleString()}</td></tr>)}</tbody></table>

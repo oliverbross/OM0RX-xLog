@@ -2534,7 +2534,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       hourSearchAndPounceQso: Number(rates.hourSearchAndPounceQso),
       hourly:(rates.hourly??[]).map((item:Data)=>({hourUTC:new Date(item.hourUTC).toISOString(),qsos:item.qsos})),
       lastQsoAt:rates.lastQsoAt?new Date(rates.lastQsoAt).toISOString():null,
-      ...contestSchedule(setup.pluginID,setup.settings), busy: busy || retiring };
+      ...contestSchedule(setup.pluginID,setup.settings,rates.lastQsoAt), busy: busy || retiring };
     const rtcService=setup.preferences.rtcURL==="https://contestonlinescore.com/post/"?"contestonlinescore":"hamscore";
     const rtcOutcome=rtcStatus?.last_outcome??"Score reporting is disabled.";
     const reportState=rtcReportState(rtcStatus);
