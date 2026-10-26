@@ -240,7 +240,31 @@ def source_definition(plugin):
     return {"path": str(path.relative_to(ROOT)), "sha256": sha(path), "callbacks": definitions}
 
 
-def optional_features(plugin, row):
+ANALYTICS_FEATURES = {
+    "analyticsMultiplierAcquisition": "multiplierAcquisition",
+    "analyticsScoreHistory": "scoreHistory",
+    "analyticsFiniteNeeded": "neededUniverse",
+    "analyticsCandidateNeeded": "candidateNeeded",
+}
+
+
+def analytics_details(row):
+    snapshot = row.get("analyticsCapabilities", {})
+    return {
+        "declaredCapabilities": deepcopy(snapshot.get("analyticsCapabilities", {})),
+        "historyModel": deepcopy(snapshot.get("scoreHistory", {})),
+        "multiplierUniverseReference": deepcopy(snapshot.get("multiplierUniverseReference")),
+        "neededDimensions": [{**{key: deepcopy(view[key]) for key in (
+            "id", "label", "status", "reason", "provenance", "scope", "referenceID", "category",
+            "universeCount", "universeSize", "universeComplete", "universeScope", "universeReference",
+            "sourceID", "sourceSHA256", "mappingDigest", "remainingCreditSlots") if key in view},
+            "scopes": [{"scope": item.get("scope"), "workedCount": len(item.get("worked", [])),
+                        "neededCount": len(item.get("needed", []))} for item in view.get("rows", [])]}
+            for view in snapshot.get("neededViews", [])],
+    }
+
+
+def optional_features(plugin, row, analytics_verified=False, analytics_evidence=None):
     utility = plugin in UTILITY
     matrices = row.get("multiplierViewStatus", {})
     supported = [key for key, value in matrices.items() if value == "supported"]
@@ -259,13 +283,31 @@ def optional_features(plugin, row):
         "digitalOutput": status("UNVERIFIED" if row["catalogue"].get("digitalLoggingSupported") else "NOT APPLICABLE",
             "Digital logging capability does not certify an external modem or transport."
             if row["catalogue"].get("digitalLoggingSupported") else "No digital output capability advertised by catalogue."),
-        "recorder": status("UNVERIFIED", "Shared recorder fixtures exist; catalogue tests do not record audio or accept station playback."),
+        "recorder": status("UNVERIFIED", "Per-plugin recording acceptance was not performed. Shared installed playback audibility has a separate scoped receipt in MACOS_1_3_32_RELEASE_2026-10-26.md."),
         "multiOperator": status("UNVERIFIED", "Shared replication fixtures are separate; no live per-plugin network acceptance."),
-        "hardwareAcceptance": status("UNVERIFIED", "No installed-app, radio, RF/PTT, audio route or station-setting operation performed."),
+        "hardwareAcceptance": status("UNVERIFIED", "Source transport/dummy tests and installed workspace observations are separate from physical transmitter, keyer, voice/digital output and rotor acceptance; those are not certified per plugin."),
         "currentSponsorRules": status("NOT APPLICABLE" if utility else "UNVERIFIED",
             "Utility definition; no sponsor submission certification required." if utility else
             "Pinned integration and explicit fixture arithmetic do not certify the current organizer edition."),
     }
+    evidence = analytics_evidence if analytics_evidence is not None else analytics_details(row)
+    declared = evidence["declaredCapabilities"]
+    for target, source in ANALYTICS_FEATURES.items():
+        item = declared.get(source, {})
+        if analytics_verified and item.get("status") in {"PASS", "FAIL", "UNVERIFIED", "NOT APPLICABLE"} and item.get("reason"):
+            features[target] = status(item["status"], item["reason"] + " This is the saved fixture/configuration scope; runtime reconciliation and reference guards still apply.")
+        else:
+            features[target] = status("UNVERIFIED", "The saved catalogue/prefix-rebuild analytics gate or this fixture's explicit capability evidence is unavailable.")
+    # A partial finite view must not certify all dimensions via an umbrella PASS.
+    scoped = {key: features[key] for key in ANALYTICS_FEATURES if key != "analyticsCandidateNeeded"}
+    dimensions = evidence["neededDimensions"]
+    for index, dimension in enumerate(dimensions):
+        if dimension.get("status") in {"FAIL", "UNVERIFIED"}:
+            scoped[f"neededDimension{index}"] = status(dimension["status"], dimension.get("reason", "Unavailable dimension."))
+    values = [item["status"] for item in scoped.values()]
+    summary = "NOT APPLICABLE" if values and all(value == "NOT APPLICABLE" for value in values) else aggregate(scoped)
+    features["advancedAnalytics"] = status(summary,
+        "Aggregate of the stated acquisition, corrected-log score history and finite Needed dimensions only. Inspect their individual statuses and reference/configuration limits; candidate ranking and other future advanced views are not certified by this aggregate.")
     if plugin in TEMPLATES:
         features["currentSponsorRules"] = status("NOT APPLICABLE", "Generic QSO-party template; choose and verify the actual sponsor's rules independently.")
     if plugin == "cqws":
@@ -293,13 +335,19 @@ def render(options):
                       "registeredWithoutVendoredModule": sorted(set(PLUGIN_REGISTRY) - vendor_ids)}
     assert reconciliation["setsEqual"] and not reconciliation["registeredWithoutVendoredModule"], reconciliation
     ui = json.loads(options.ui.read_text()) if options.ui.exists() else {}
+    ui_retry = json.loads(options.ui_retry.read_text()) if options.ui_retry and options.ui_retry.exists() else {}
     ui_results = {item["title"].split("current React desk commits ", 1)[-1].split(" through ")[0]: item
-                  for suite in ui.get("testResults", []) for item in suite.get("assertionResults", [])}
+                  for result in (ui, ui_retry) for suite in result.get("testResults", [])
+                  for item in suite.get("assertionResults", [])}
     native = options.native.read_text() if options.native.exists() else ""
     native_pass = "PythonCatalogueReadinessTests testEveryRegisteredFixtureCommitsThroughTheNativePythonLane]' passed" in native
     python_suite = options.python_suite.read_text() if options.python_suite.exists() else ""
     python_suite_counts = re.findall(r"Ran (\d+) tests?", python_suite)
     python_suite_passed = bool(re.search(r"^OK(?:\s|$)", python_suite, re.M)) and not bool(re.search(r"^FAILED", python_suite, re.M))
+    analytics_suite = options.analytics_suite.read_text() if options.analytics_suite.exists() else ""
+    analytics_verified = (bool(re.search(r"^OK(?:\s|$)", analytics_suite, re.M))
+        and not bool(re.search(r"^FAILED", analytics_suite, re.M))
+        and "ANALYTICS multiplierAcquisition" in analytics_suite)
     append = options.append.read_text() if options.append.exists() else ""
     append_line = next((line for line in append.splitlines() if line.startswith("APPEND_EQUIVALENCE ")), "")
     covered = dict(re.findall(r"([a-z0-9_-]+)=(\d+)", append_line))
@@ -311,6 +359,14 @@ def render(options):
                for path, digest in raw["sourceFilesSHA256"].items()
                if not (ROOT / path).exists() or sha(ROOT / path) != digest}
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    inventory = json.loads(options.analytics_inventory.read_text()) if options.analytics_inventory.exists() else {}
+    inventory_rows = {item["pluginID"]: item for item in inventory.get("plugins", [])}
+    inventory_commit, inventory_checks = verify_committed_source(head, inventory.get("sourceFilesSHA256", {}))
+    inventory_verified = (analytics_verified and inventory_commit is not None
+        and set(inventory_rows) == set(PLUGIN_REGISTRY)
+        and len(inventory.get("plugins", [])) == inventory.get("catalogueCount") == len(PLUGIN_REGISTRY)
+        and all(item["workingFileMatchesTested"] for item in inventory_checks.values()))
+    analytics_verified = bool(inventory_verified)
     verified_commit, committed_checks = verify_committed_source(head, raw["sourceFilesSHA256"])
     report = {"schemaVersion": 1, "date": "2026-10-26", "scope": "Disposable source qualification; no installed-app or hardware acceptance",
               "sourceCommit": raw["source"], "renderedAtCommit": head, "engine": raw["engine"], "runtime": raw["runtime"],
@@ -325,11 +381,21 @@ def render(options):
                            "react": {"path": str(options.ui), "sha256": sha(options.ui) if options.ui.exists() else None,
                                      "passed": ui.get("numPassedTests"), "failed": ui.get("numFailedTests"),
                                      "scope": "94 registered-desk fixtures plus any separately named regression cases in the saved JSON"},
+                           "reactAffectedFileRetry": {"path": str(options.ui_retry) if options.ui_retry else None,
+                                     "sha256": sha(options.ui_retry) if options.ui_retry and options.ui_retry.exists() else None,
+                                     "passed": ui_retry.get("numPassedTests"), "failed": ui_retry.get("numFailedTests"),
+                                     "scope": "Later affected-file run takes precedence only for matching named cases; original broad failures remain recorded."},
                            "native": {"path": str(options.native), "sha256": sha(options.native) if options.native.exists() else None,
                                       "testPassed": native_pass, "scope": "One XCTest loops all fixture IDs through PythonContestLane"},
                            "sourceGatePython": {"path": str(options.python_suite), "sha256": sha(options.python_suite) if options.python_suite.exists() else None,
                                                 "testsRun": int(python_suite_counts[-1]) if python_suite_counts else None,
                                                 "passed": python_suite_passed, "scope": "Full Python source suite; synthetic test storage, separate from per-plugin lifecycle counts"},
+                           "analytics": {"path": str(options.analytics_suite), "sha256": sha(options.analytics_suite) if options.analytics_suite.exists() else None,
+                                         "passed": analytics_verified, "scope": "Dedicated all-catalogue capability and chronological-prefix/full-rebuild equivalence fixtures; configuration-specific guards remain",
+                                         "inventoryPath": str(options.analytics_inventory), "inventorySHA256": sha(options.analytics_inventory) if options.analytics_inventory.exists() else None,
+                                         "recordedSource": inventory.get("source"), "verifiedSourceCommit": inventory_commit,
+                                         "sourceVerification": inventory_checks, "referenceContext": inventory.get("referenceContext"),
+                                         "inventoryScope": inventory.get("scope")},
                            "append": {"path": str(options.append), "sha256": sha(options.append) if options.append.exists() else None,
                                       "optimizedPluginsCovered": len(covered), "familyTestsRun": int(append_suite_count[-1]) if append_suite_count else None,
                                       "familyTestsPassed": append_suite_passed,
@@ -353,7 +419,14 @@ def render(options):
             "All-fixture XCTest creates, commits, reads and reopens through the actual Swift PythonContestLane; no GUI launch.")
         if plugin == "cqws":
             checks["brazilUFIdentity"] = status("UNVERIFIED", "Brazil UF is counted only when explicitly established. Automatic received-UF acquisition is absent; affected contacts expose scoringComplete=false, partial-score UI and Cabrillo SOAPBOX limitation. RTC/manual or automatic score payloads refuse scoring_incomplete. Operator UF review remains required.")
-        optional = optional_features(plugin, row)
+        dedicated = inventory_rows.get(plugin, {})
+        analytics_evidence = {"declaredCapabilities": deepcopy(dedicated.get("features", {})),
+            "historyModel": deepcopy(dedicated.get("scoreHistory", {})),
+            "neededDimensions": deepcopy(dedicated.get("neededDimensions", [])),
+            "fixture": dedicated.get("fixture"), "referenceContext": inventory.get("referenceContext"),
+            "source": "dedicated verified-reference analytics inventory",
+            "verified": analytics_verified}
+        optional = optional_features(plugin, row, analytics_verified, analytics_evidence)
         serial = "conditional; entrant/configuration determines allocation" if definition.conditional_serial else "allocated serial" if definition.serial else "no allocated serial"
         exchanges = [{"id": field["id"], "label": field["label"], "visible": field["visible"],
                       "readOnly": field["readOnly"], "example": row["fields"].get(field["id"], "")}
@@ -380,7 +453,8 @@ def render(options):
                 "Admitted to append optimization but no saved comparison evidence is available." if plugin in append_admitted else
                 "John Moyle uses full rebuild because earlier multiplier assignments can differ." if plugin == "john_moyle_field_day" else
                 "Not admitted to the generic chronological-append fast path; existing scoring owner retained."),
-            "optionalFeatures": optional})
+            "optionalFeatures": optional, "analyticsEvidence": analytics_evidence,
+            "coreFixtureAnalyticsEvidence": analytics_details(row)})
     options.json.parent.mkdir(parents=True, exist_ok=True)
     options.json.write_text(json.dumps(compact_report(report), ensure_ascii=False, separators=(",", ":")) + "\n")
     lines = ["# All-contest readiness and operator setup", "", "Qualification date: 26 October 2026. Generated companion: [ALL_CONTESTS_READINESS.json](ALL_CONTESTS_READINESS.json).", "",
@@ -394,7 +468,7 @@ def render(options):
         "`PASS` means the named check ran successfully in its stated fixture scope. `FAIL` is an observed failed check. `UNVERIFIED` means the claimed capability/edition was not established by this evidence. `NOT APPLICABLE` states why that feature is outside the definition. A core PASS may coexist with optional UNVERIFIED features; these are separate decisions.", "",
         "The lifecycle checks configure a session, verify generated fields, commit and inspect raw/stored fields, assert explicit first-contact score constants, reject invalid input atomically, classify/repeat a contact, commit a distinct call with a repeated exchange, page analytics, read every advertised export, correct/delete contacts and restart the host. Repeated-multiplier, domestic/DX, mixed-mode, category, rover and timed behavior additionally use the named existing family fixtures. The matrix does not imply an exhaustive Cartesian product of all configurations.", "",
         "The React tests use the current `Not1MMContestWorkspace` and `DetachedContestSurface`, real Python JSONL and disposable storage for each ID; native windows, output, recorder, SCP and network services are simulated/unavailable. The native test loops every registered fixture through the actual Swift `PythonContestLane`. Neither is a live installed-app rehearsal. The lifecycle runner dispatches the same real host implementation directly for detailed SQLite/export assertions; the JSONL and native checks separately establish the transport path.", "",
-        f"Saved React results: {ui.get('numPassedTests', 'unavailable')} passed / {ui.get('numFailedTests', 'unavailable')} failed. Native all-ID XCTest: {'PASS' if native_pass else 'UNVERIFIED'}. Family runner in this lifecycle report: {raw['familyTestsRun']} tests, success={raw['familyTestsPassed']}; zero means the committed fixture inputs were reused and that family suite was not rerun by this invocation. Counts from overlapping suites must not be added.", "",
+        f"Saved broad React results: {ui.get('numPassedTests', 'unavailable')} passed / {ui.get('numFailedTests', 'unavailable')} failed. Later affected-file retry: {ui_retry.get('numPassedTests', 'unavailable')} passed / {ui_retry.get('numFailedTests', 'unavailable')} failed. Matching named retry cases determine their current status; this does not turn the original broad invocation green. Native all-ID XCTest: {'PASS' if native_pass else 'UNVERIFIED'}. Family runner in this lifecycle report: {raw['familyTestsRun']} tests, success={raw['familyTestsPassed']}; zero means the committed fixture inputs were reused and that family suite was not rerun by this invocation. Counts from overlapping suites must not be added.", "",
         f"Full Python source suite: {python_suite_counts[-1] if python_suite_counts else 'unavailable'} tests; saved result {'PASS' if python_suite_passed else 'UNVERIFIED/FAIL'}. Its log hash is captured separately from the lifecycle and append runs. This is source/test evidence; final packaging and installed-app acceptance remain separate.", "",
         f"Append equivalence reports {len(covered)} fast-path IDs with comparisons out of {len(append_admitted)} currently admitted; uncovered admitted IDs: {', '.join(append_missing) or 'none'}. The saved harness ran {append_suite_count[-1] if append_suite_count else 'unknown'} family tests; overall suite outcome: {'PASS' if append_suite_passed else 'UNVERIFIED/FAIL (inspect saved log)'}. Each optimized append is compared with a rolled-back full rebuild, including score components and contact point/multiplier assignments. Tied/backdated/correction/deletion cases remain covered by the family fixtures. John Moyle stays on full rebuild because prior multiplier assignments can change. See [shared consistency evidence](CROSS_CONTEST_CONSISTENCY_2026-10-26.md).", "",
         "Export PASS validates actual downloaded bytes, not just a marker. The checker verifies ADIF IDs, plugin, raw/exchange fields, date/time, frequency, station and mode; Cabrillo contact rows, identifiers, available categories and exchange oracles; and EDI records as implemented. Each actual export has a SHA-256 and a bounded sample in JSON. Sponsor submission acceptance and every optional header are not implied.", "",
@@ -411,8 +485,8 @@ def render(options):
         lines.append(f"| [`{row['id']}`](#{row['id']}) — {row['name']} | {row['kind']} / {row['family']} | {row['coreStatus']} | {rows[row['id']]['mode']}; {row['serialPolicy']} | {', '.join(row['supportedExports'])} |")
     lines += ["", "## Feature interpretation and remaining acceptance", "",
         "All definitions have individual core and optional statuses with reasons in JSON. Utilities require their advertised ADIF lifecycle, not contest scoring or Cabrillo. QSO Party RST/SN are templates and are not certified sponsor definitions. Their fixture scoring is integration evidence only.", "",
-        "Basic analytics counts/snapshot/paging are checked for every ID. Advanced credited multiplier/history adapters, finite Needed universes and retrospective duplicate annotations vary by family; unavailable dimensions remain unknown rather than zero. The shared consistency document identifies the tested CQ WW, WPX, Sweepstakes, NAQP/SST, unique-call, ARRL DX, IARU and RTTY adapters. A host descriptor advertising a matrix does not certify every detailed view for every configuration.", "",
-        "Recorded voice, CW output, digital engines/transports, recorder playback, multi-operator networking and hardware acceptance remain per-plugin UNVERIFIED where applicable. Existing simulated family tests can support macros/ESM and shared fixture audio supports recorder behavior; the catalogue run does not open RF/PTT/audio outputs or create local recording links for imported contacts. No output transport, station authority or safety owner was bypassed.", "",
+        "Basic analytics counts/snapshot/paging are checked for every ID. The separate acquisition, corrected-log history, finite Needed and candidate Needed statuses below use the dedicated all-catalogue inventory with its verified complete bundled reference context, only after its prefix/rebuild suite and committed source hashes pass. The core lifecycle's smaller synthetic reference remains separate evidence in JSON. An aggregate PASS covers only those stated applicable snapshot dimensions, not every proposed advanced view. Open-ended identities, missing eligible lists, incompatible references, incomplete scoring and unreconciled/backdated scoring ownership retain explicit reasons; unavailable values are not zero. JSON preserves each Needed dimension and provenance. A supported configuration does not certify every entrant/category/reference.", "",
+        "Recorded voice, CW output, external digital engines, recording, multi-operator networking and physical hardware acceptance remain per-plugin UNVERIFIED where applicable. Shared current UI/native transport tests and actual bundled Hamlib Dummy receivers establish software behavior only. Human-confirmed playback on installed 1.3.32 is a separate device/recording-specific receipt in [the release record](../MACOS_1_3_32_RELEASE_2026-10-26.md); it does not certify a voice-keyer/transmitter chain or every plugin. The catalogue run does not open RF/PTT/audio outputs or create recording links for imported contacts.", "",
         "## Per-definition setup and fixture appendix", "",
         "Each definition below includes the exact successful source fixture. JSON retains all captured family test IDs, multiplier/bonus dimensions and scopes, and exact source callback line references for points, multipliers and total calculation. Host compatibility and sponsor-rule overlays are recorded in `python/vendor/not1mm/PATCHES.md`; the immutable pinned plugin bytes are separately hashed."]
     for row in report["plugins"]:
@@ -427,13 +501,19 @@ def render(options):
             f"Duplicate scope: {row['duplicateScope']} (plugin type {row['duplicateType']}). Multiplier/bonus scope: {row['multiplierDimensionsAndScope']} First-contact fixture: points={score.get('points')}, multipliers={score.get('multipliers')}, total={score.get('total')}; exact callbacks are linked in JSON. Exports: {', '.join(row['supportedExports'])}.", "",
             f"Fixture: `{row['fixture']}`. Append: {row['appendEquivalence']['status']} — {row['appendEquivalence']['reason']}.", "",
             f"Multiplier view: {row['optionalFeatures']['multiplierTracker']['status']} — {row['optionalFeatures']['multiplierTracker']['reason']} Sponsor edition: {row['optionalFeatures']['currentSponsorRules']['status']} — {row['optionalFeatures']['currentSponsorRules']['reason']}"]
+        lines += ["", "Analytics fixture: " + "; ".join(f"{label}: **{row['optionalFeatures'][key]['status']}**"
+            for key, label in (("analyticsMultiplierAcquisition", "credited acquisition"), ("analyticsScoreHistory", "corrected-log score history"),
+                               ("analyticsFiniteNeeded", "available finite Needed dimensions"), ("analyticsCandidateNeeded", "candidate Needed")))
+            + ". Per-dimension scope, provenance and unavailable reasons are retained in JSON."]
         if row["id"] == "wia_remembrance":
             lines += ["", "Operator setup: enter the literal number of years licensed as the sent exchange (for example `25` for an operator licensed for 25 years). The `#` appearing in this synthetic fixture is legacy compatibility evidence only; do not use it as the operating exchange. The additional literal-25 host lifecycle (`test_wia_literal_years_never_allocate_or_renumber_a_sent_serial`) and current React desk case verify that normal setup without reserving or renumbering a serial; see the acceptance record for their runs."]
         if row["id"] in {"jidx_cw", "jidx_ph"}:
             lines += ["", "Operator setup for new marked sessions: Japanese land stations send their prefecture/island number (1–50); DX and maritime-mobile stations send their CQ zone (1–40). Enter the received value for the counterpart's role. These bounds apply to setup, commits and corrections; historical unmarked-session compatibility remains separate."]
     lines += ["", "## Reproduce and refresh", "", "Run only against synthetic disposable storage:", "", "```sh",
-        "/opt/local/bin/python3.12 tools/check_all_contests_readiness.py --family-tests --output .build/all-contests-readiness.json",
-        "cd prototype && XLOG_CONTEST_PYTHON=/opt/local/bin/python3.12 npm exec vitest -- run src/contesting/AllContestsPythonDesk.test.tsx --reporter=json --outputFile=/tmp/xlog-all-contests-ui-final-accepted-results.json",
+        "/opt/local/bin/python3.12 tools/check_all_contests_readiness.py --family-tests --output .build/all-contests-readiness-limits-final.json",
+        "PYTHONPATH=python:python/tests /opt/local/bin/python3.12 -m unittest discover -s python/tests > /tmp/xlog-python-limits-final.log 2>&1",
+        "XLOG_ANALYTICS_INVENTORY=/tmp/xlog-analytics-inventory-limits-final.json PYTHONPATH=python:python/tests /opt/local/bin/python3.12 -m unittest test_analytics test_cross_contest_consistency test_analytics_catalogue > /tmp/xlog-analytics-limits-final.log 2>&1",
+        "cd prototype && XLOG_CONTEST_PYTHON=/opt/local/bin/python3.12 npm exec vitest -- run --maxWorkers=2 --testTimeout=15000 --reporter=json --outputFile=/tmp/xlog-frontend-limits-final-results.json",
         "# Run PythonCatalogueReadinessTests with the repository's native prototype test command.",
         "# Run tools/check_contest_append_equivalence.py and save its bounded result log.",
         "cd .. && /opt/local/bin/python3.12 tools/render_all_contests_readiness.py", "```", "",
@@ -444,11 +524,14 @@ def render(options):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", type=Path, default=ROOT / ".build/all-contests-readiness.json")
-    parser.add_argument("--ui", type=Path, default=Path("/tmp/xlog-all-contests-ui-final-accepted-results.json"))
-    parser.add_argument("--native", type=Path, default=Path("/tmp/xlog-native-catalogue-final.log"))
-    parser.add_argument("--python-suite", type=Path, default=Path("/tmp/xlog-python-final-accepted.log"))
-    parser.add_argument("--append", type=Path, default=Path("/tmp/xlog-append-final-accepted.log"))
+    parser.add_argument("--input", type=Path, default=ROOT / ".build/all-contests-readiness-limits-final.json")
+    parser.add_argument("--ui", type=Path, default=Path("/tmp/xlog-frontend-limits-final-results.json"))
+    parser.add_argument("--ui-retry", type=Path, default=Path("/tmp/xlog-frontend-limits-affected-results.json"))
+    parser.add_argument("--native", type=Path, default=Path("/tmp/xlog-native-catalogue-limits-final.log"))
+    parser.add_argument("--python-suite", type=Path, default=Path("/tmp/xlog-python-limits-final.log"))
+    parser.add_argument("--analytics-suite", type=Path, default=Path("/tmp/xlog-analytics-limits-final.log"))
+    parser.add_argument("--analytics-inventory", type=Path, default=Path("/tmp/xlog-analytics-inventory-limits-final.json"))
+    parser.add_argument("--append", type=Path, default=Path("/tmp/xlog-append-limits-final.log"))
     parser.add_argument("--markdown", type=Path, default=ROOT / "docs/contesting/ALL_CONTESTS_READINESS.md")
     parser.add_argument("--json", type=Path, default=ROOT / "docs/contesting/ALL_CONTESTS_READINESS.json")
     render(parser.parse_args())
