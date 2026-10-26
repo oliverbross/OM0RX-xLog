@@ -6,9 +6,9 @@ The live registry contains **94 definitions**: 89 named contests, three utility 
 
 Registry, live catalogue API and source-manifest registered-ID sets match exactly (94 each). There are 94 vendored Python plugin modules excluding `__init__`. Unregistered vendored modules outside this catalogue: none. No registered plugin lacks its vendored module.
 
-Lifecycle source HEAD: `75f735484bbb2acde5c9ee2d11f50747995eba5e`. Report rendered at `b17ad0f4b9dcc4703b10c0947d4238a4efafefc2`. Pinned Not1MM revision: `7c8b499225a73f7f8f792246881bd7aefc05452f`. Python runtime: `3.12.4 (main, Jun  8 2024, 04:51:36) [Clang 15.0.0 (clang-1500.1.0.2.5)]`. Exact tested source hashes, plugin bytes, export hashes, field descriptors and per-feature reasons are in the JSON companion.
+Lifecycle source HEAD: `75f735484bbb2acde5c9ee2d11f50747995eba5e`. Report rendered at `28f69e5d08acb784661ba7f8e8906b60b13fe0ce`. Pinned Not1MM revision: `7c8b499225a73f7f8f792246881bd7aefc05452f`. Python runtime: `3.12.4 (main, Jun  8 2024, 04:51:36) [Clang 15.0.0 (clang-1500.1.0.2.5)]`. Exact tested source hashes, plugin bytes, export hashes, field descriptors and per-feature reasons are in the JSON companion.
 
-Verified source commit for every recorded lifecycle source path: `b17ad0f4b9dcc4703b10c0947d4238a4efafefc2`. Each committed Git object matches the recorded tested SHA-256; this mapping is limited to the listed source paths.
+Verified source commit for every recorded lifecycle source path: `28f69e5d08acb784661ba7f8e8906b60b13fe0ce`. Each committed Git object matches the recorded tested SHA-256; this mapping is limited to the listed source paths.
 
 The lifecycle source hashes match the files present when this report was generated.
 
