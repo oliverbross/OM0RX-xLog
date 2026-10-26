@@ -9,6 +9,7 @@ import { boundColumnWidth, compactClusterColumns, compactClusterHeader, defaultW
   type CompactColumn, type WorkspacePreferences } from "./operatorWorkspacePreferences";
 import { formatSpotAge, spotAgeColor, useSpotAgeClock } from "./spotAge";
 import { countryDisplay } from "./countryDisplay";
+import { useClusterAppearancePreference } from "./clusterAppearance";
 import "./OperatorWorkspace.css";
 
 export type OperatorWorkspaceProps = { map: ReactNode; bandMaps: ReactNode; cluster: unknown;
@@ -29,16 +30,18 @@ function spotText(column: CompactColumn, spot: LiveClusterSpot, now: number): st
     default: return String(spot[column] || "—");
   }
 }
-function cell(column: CompactColumn, spot: LiveClusterSpot, now: number, palette?: ClusterPalette): ReactNode {
-  if (column === "time") return <span className="live-cluster-age live-cluster-age-strip" style={{ backgroundColor: spotAgeColor(spot.receivedAt, now) }}>{spotText(column, spot, now)}</span>;
+function cell(column: CompactColumn, spot: LiveClusterSpot, now: number, palette?: ClusterPalette, classic = false): ReactNode {
+  if (column === "time") return <span className="live-cluster-age live-cluster-age-strip" style={{ backgroundColor: classic ? undefined : spotAgeColor(spot.receivedAt, now) }}>{spotText(column, spot, now)}</span>;
   if (column === "band" || column === "mode") return <span className="live-cluster-category" style={{ color: paletteColor(spot[column], palette?.[column], column === "band" ? clusterBandColors : clusterModeColors) }}>{spot[column]}</span>;
   if (column === "callStatus" || column === "dxccStatus") return <span className="live-cluster-status" style={{ color: paletteColor(spot[column], palette?.status, clusterStatusColors) }}>{clusterStatusCode(spot[column])}</span>;
   if (column === "score") return <span className={`live-cluster-score ${spot.score >= 80 ? "priority" : spot.score >= 55 ? "high" : spot.score >= 30 ? "medium" : "low"}`}>{spot.score}</span>;
-  if (column === "special") return spotTags(spot).length ? spotTags(spot).slice(0, 2).map(tag => <span key={tag} className="live-cluster-special-tag" style={specialTagColors(tag)}>{tag}</span>) : "—";
+  if (column === "special") return spotTags(spot).length ? spotTags(spot).slice(0, 2).map(tag => <span key={tag} className="live-cluster-special-tag" style={{ ...specialTagColors(tag), ...(classic ? { backgroundColor: "transparent" } : {}) }}>{tag}</span>) : "—";
   return spotText(column, spot, now);
 }
 
 export function OperatorWorkspace({ map, bandMaps, cluster, onSelect, onRequest, selectedSpotId, palette }: OperatorWorkspaceProps) {
+  const { appearance } = useClusterAppearancePreference();
+  const classic = appearance === "classic";
   const ageClock = useSpotAgeClock();
   const [preferences, setPreferences] = useState<WorkspacePreferences>(() => {
     try { return readWorkspacePreferences(window.localStorage.getItem(operatorWorkspaceKey)); } catch { return defaultWorkspacePreferences(); }
@@ -70,7 +73,7 @@ export function OperatorWorkspace({ map, bandMaps, cluster, onSelect, onRequest,
   const remoteFilter = projection?.configuration?.filter;
   const spots = Array.isArray(projection?.snapshot?.spots) ? projection.snapshot.spots : [];
   const colors = palette ?? projection?.configuration?.palette;
-  const rows = Math.max(1, Math.min(50, Math.floor((clusterHeight - 68) / 28) || 1));
+  const rows = Math.max(1, Math.min(50, Math.floor((clusterHeight - 68) / (classic ? 22 : 28)) || 1));
   const columnRows = Math.max(1, Math.min(7, Math.floor((clusterHeight - 93) / 26) || 1)), columnPageSize = columnRows * 2;
   const columnPages = Math.ceil(compactClusterColumns.length / columnPageSize), currentColumnPage = Math.min(columnPage, columnPages - 1);
   const pages = Math.max(1, Math.ceil(spots.length / rows)), currentPage = Math.min(page, pages - 1), offset = currentPage * rows;
@@ -136,7 +139,7 @@ export function OperatorWorkspace({ map, bandMaps, cluster, onSelect, onRequest,
       {filtersOpen && <ClusterFilterDialog dialogID={`${id}-filters`} filter={filter} specialChoices={specialChoices} error={filterError}
         onChange={changeFilter} onClose={closeFilters} />}
       <div id={`${id}-band-maps`} role="tabpanel" aria-labelledby={`${id}-band-maps-tab`} className="operator-tool-content" hidden={preferences.activeTab !== "band-maps"}><BandMapsToolbarContext.Provider value={bandToolbarHost}>{bandMaps}</BandMapsToolbarContext.Provider></div>
-      <div id={`${id}-cluster`} role="tabpanel" aria-labelledby={`${id}-cluster-tab`} className="operator-tool-content operator-compact-cluster" ref={clusterPane} hidden={preferences.activeTab !== "cluster"}>
+      <div id={`${id}-cluster`} role="tabpanel" aria-labelledby={`${id}-cluster-tab`} className={`operator-tool-content operator-compact-cluster${classic ? " is-classic" : ""}`} ref={clusterPane} hidden={preferences.activeTab !== "cluster"}>
         <div id={`${id}-columns`} className="operator-column-settings" hidden={!columnsOpen}>
           <p>Preferred widths scale to fit. Drag a header edge or use its arrow keys.</p>
           <div>{compactClusterColumns.slice(currentColumnPage * columnPageSize, (currentColumnPage + 1) * columnPageSize).map(([column, label]) => <label key={column}><input type="checkbox" aria-label={`Show ${label} column`} checked={preferences.columns.includes(column)} disabled={preferences.columns.length === 1 && preferences.columns.includes(column)}
@@ -156,9 +159,9 @@ export function OperatorWorkspace({ map, bandMaps, cluster, onSelect, onRequest,
                 if (value != null) { event.preventDefault(); setColumnWidth(column, value); } }}
               onPointerDown={event => { if (event.button !== 0) return; event.preventDefault(); drag.current = { kind: column, startX: event.clientX, startWidth: preferences.widths[column], total: totalWidth, pixels: event.currentTarget.closest("table")?.getBoundingClientRect().width || 1 }; event.currentTarget.setPointerCapture?.(event.pointerId); }}
               onPointerMove={event => move(event.clientX)} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }} /></th>; })}</tr></thead>
-          <tbody>{spots.slice(offset, offset + rows).map(spot => <tr key={spot.id} tabIndex={0} aria-selected={selectedSpotId === spot.id} aria-label={`Select ${spot.callsign} at ${formatSpotFrequency(spot.frequencyKHz * 1000)} MHz`} style={{ backgroundColor: selectedSpotId === spot.id ? undefined : clusterRowTint(spot.dxccStatus, colors?.status) }}
+          <tbody>{spots.slice(offset, offset + rows).map(spot => <tr key={spot.id} tabIndex={0} aria-selected={selectedSpotId === spot.id} aria-label={`Select ${spot.callsign} at ${formatSpotFrequency(spot.frequencyKHz * 1000)} MHz`} style={{ backgroundColor: classic || selectedSpotId === spot.id ? undefined : clusterRowTint(spot.dxccStatus, colors?.status) }}
             onClick={() => onSelect(spot)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect(spot); } }}>
-            {preferences.columns.map(column => <td key={column} title={spotText(column, spot, ageClock)} className={column === "frequency" ? "cyan mono" : column === "callsign" ? "live-cluster-call" : column === "callStatus" || column === "dxccStatus" ? "live-cluster-status-column" : ""}>{cell(column, spot, ageClock, colors)}</td>)}</tr>)}</tbody></table>
+            {preferences.columns.map(column => <td key={column} title={spotText(column, spot, ageClock)} className={column === "frequency" ? "cyan mono" : column === "callsign" ? "live-cluster-call" : column === "callStatus" || column === "dxccStatus" ? "live-cluster-status-column" : ""}>{cell(column, spot, ageClock, colors, classic)}</td>)}</tr>)}</tbody></table>
           {!spots.length && <p className="operator-cluster-empty">{projection?.snapshot ? "No spots in the current live cluster view." : "Awaiting live cluster state."}</p>}
         </div>
         <footer hidden={columnsOpen}><button type="button" aria-label="Previous spots page" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>‹</button>

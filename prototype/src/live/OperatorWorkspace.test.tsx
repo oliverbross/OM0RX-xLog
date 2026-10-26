@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { OperatorWorkspace } from "./OperatorWorkspace";
+import { clusterAppearanceKey, useClusterAppearancePreference } from "./clusterAppearance";
 import { BandMaps } from "./BandMaps";
 import { type LiveClusterSpot } from "./ClusterPanel";
 import { defaultClusterFilter, type ClusterFilter } from "./clusterFilters";
@@ -49,6 +50,27 @@ describe("operator workspace preferences", () => {
   });
 });
 describe("operator workspace", () => {
+  it("switches the shared desk to compact Classic without changing spot selection or filters", () => {
+    const preferences = defaultWorkspacePreferences();
+    localStorage.setItem(operatorWorkspaceKey, JSON.stringify({ ...preferences, columns: ["time", ...preferences.columns] }));
+    const request = vi.fn(async () => ({})), onSelect = vi.fn();
+    function StyleControl() { const style = useClusterAppearancePreference(); return <button onClick={() => style.save("classic")}>Use Classic</button>; }
+    render(<><StyleControl /><OperatorWorkspace map={<div>Map</div>} bandMaps={<div>Band maps</div>}
+      cluster={projection()} onSelect={onSelect} onRequest={request} /></>);
+    clusterTab();
+    expect(screen.getByText("1–7 of 12")).toBeTruthy();
+    fireEvent.click(screen.getByText("Use Classic"));
+    const table = screen.getByRole("table", { name: "Compact live cluster" });
+    expect(table.closest(".is-classic")).toBeTruthy();
+    expect(screen.getByText("1–10 of 12")).toBeTruthy();
+    const row = screen.getByRole("row", { name: "Select VK8NSB at 14.025.0 MHz" });
+    expect(row.style.backgroundColor).toBe("");
+    expect((row.querySelector(".live-cluster-age-strip") as HTMLElement).style.backgroundColor).toBe("");
+    fireEvent.keyDown(row, { key: "Enter" });
+    expect(onSelect).toHaveBeenCalledWith(spot());
+    expect(request).not.toHaveBeenCalled();
+    expect(localStorage.getItem(clusterAppearanceKey)).toBe("classic");
+  });
   it("centres compact CS and DS columns while retaining full accessible names and configured colours", () => {
     const preferences = defaultWorkspacePreferences();
     window.localStorage.setItem(operatorWorkspaceKey, JSON.stringify({ ...preferences, activeTab: "cluster", columns: ["callStatus", "dxccStatus"] }));
