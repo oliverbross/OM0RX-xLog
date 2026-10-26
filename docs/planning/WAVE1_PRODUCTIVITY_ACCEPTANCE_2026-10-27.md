@@ -1,4 +1,4 @@
-# Wave 1 — Productivity source acceptance
+# Wave 1 — Productivity source and candidate acceptance
 
 ## Authorized candidate delivery follow-up — 27 October 2026
 
@@ -7,8 +7,45 @@ The user subsequently authorized finishing native delivery/acceptance, without r
 - Note-recovery correction: `d84d2698`. Unreadable data has a distinct blocking error; ordinary notes reads cannot clear it. Raw data is retained until an explicit archive action has copied and verified the exact bytes. One focused malformed-record regression was added; the five notes/submission tests passed.
 - Native persistent rehearsal boundary: `388787379d835930f0634625830dc1ebc8111a20`. The shipping app accepts an explicit `--offline-contest-acceptance=<canonical-private-temp-root>` coordinate with a versioned UUID marker. It uses separate persistent WK storage/native identity and the existing restricted Swift runtime with the real bundled Python lane. Station/provider/CW output and startup are blocked; no mock shell or production preferences are used. Fifteen Swift profile tests and 890 Rust unit tests passed. An initial Rust fixture had nonprivate directory permissions and was corrected; the production guard was retained.
 - Unique candidate version: **1.3.37**, based on the exact implementation source above. Build only from the clean canonical `main` version commit containing this entry: `XLOG_CW_EXPERIMENTAL=0 CARGO_BUILD_JOBS=2 bash prototype/scripts/package-macos.sh`. The packager embeds that exact version-commit HEAD in native/distribution/Python/CW metadata. The post-build receipt will record the full packaging commit, signature and hashes before delivery is accepted.
-- Native graphical, Save-dialog, restart and combined-workload results are pending the single signed candidate. The production installation and 1.3.36 rollback remain untouched; Wave 2 is stopped.
+- The single signed candidate was built and retained below. Its persistent offline worker launch failed before data access. Native desk, Save-dialog and queue/note restart acceptance therefore remain **blocked**, not passed. The production installation and 1.3.36 rollback remain untouched; Wave 2 is stopped.
 - Relevant source gates for this batch: 890 Rust unit tests and 15 Swift runtime-profile tests passed; Python application sources are unchanged from the accepted 422-case checkpoint. In the 338-case selected Vitest run, nine files passed all 144 cases, while the workspace file had 29 cascading failures after a timeout/publication wait. The unchanged workspace file then passed all 194 cases in isolation (`--maxWorkers=1`); its existing async-`act` warning remains recorded. These separate outcomes are not described as a clean first combined pass.
+
+## Candidate result — BLOCKED; not ready for installation
+
+Canonical HEAD was reconciled once at `b775713260044caf85af6c39fddf5fd457bdc7e3`: clean, already current after fetch/fast-forward-only pull, preserving accepted source `0a1da4ceb69d40eee11a63fd8f21553753e2065e`. The recovery fix, isolated launch boundary and version/provenance commits were each pushed immediately. Exactly **one** candidate was packaged, from clean canonical `main` at **`e59980a20a61859dbd3866f2f7f29f8d74070235`**, version **1.3.37**, with the command recorded above. Packaging exited zero.
+
+The new offline launch boundary contained a macOS path mismatch: Rust canonicalizes `/tmp` to `/private/tmp`, while Foundation's `resolvingSymlinksInPath()` presents the shorter alias. The signed Swift worker rejected the Rust-canonical coordinate at runtime-profile validation, before opening a workspace. The first seed attempt exited 2; an attempted separate `TMPDIR` did not change Foundation's temporary-directory selection and also failed closed. The source correction **`3e68e1a0b2de1c61976b7bd1439d8cb7f9b6e019`** now uses filesystem `realpath` consistently and rejects alias coordinates. All **16** `AppRuntimeProfileTests` passed, including an explicit `/private/tmp` regression. That correction is committed/pushed but **is not inside candidate 1.3.37**. The retained bundle was not patched, resigned or reused, and no second candidate was built.
+
+| Requested acceptance | Demonstrated result / remaining gate |
+| --- | --- |
+| Malformed note recovery | PASS at source `d84d2698`: five notes/submission tests, including the single new malformed-recovery regression. Persistent independent error blocks new notes/saves across successful reads, revision changes and remount; explicit verified archival preserves the exact raw record before unlocking. |
+| Native Productivity desk and detached Main Logging; compact/expanded, focus, resizing, discoverability, shared session | BLOCKED before reaching the desk. The real retained app was opened with the isolated coordinate; its window title was **OM0RX-xLog — disposable offline acceptance**, and its native WebKit UI visibly reported **Logbook connection unavailable** and disabled external services. The native Contest menu was inspected and Contest Setup attempted; no usable session opened. Screenshot/log retained, then the disposable candidate was quit normally. None of the requested desk/window/focus cases is inferred passed. |
+| Practice, Call Stack/Log-and-next, reverse lookup, Dupesheet, whole-log sorting, notes in the native Python-backed candidate | NOT RUN: fixture seeding stopped at worker profile validation. The accepted source/Python-backed tests remain evidence for source behavior, not graphical acceptance. |
+| Native Save-dialog exports against reviewed digest | NOT RUN. No native export/digest claim. |
+| Native queue, notes and saved-state restart/recovery | NOT RUN. The source restart/lost-reply tests remain accepted; fake-audio restart below is a different boundary. |
+| Bounded combined workload | PARTIAL PASS: **1,024 synthetic spots**, 16 batches through the exact signed Swift worker's existing disposable `--local-ui-acceptance` classification route, concurrent with the exact signed native `--recorder-acceptance` fixture. Total **3,885.882 ms**; first classification including startup **1,621.765 ms**, later batches **4.015–11.227 ms**. The fake-audio fixture used real bundled Python commit/Analytics identities, generated native callback samples, exact independent decoding of **8,000 stereo frames**, immutable segments, retry, correction/tombstone, restart and crash-tail recovery; all checks passed in **3,159 ms**. No physical device opened. This did **not** exercise graphical Analytics, a visible Cluster feed or live logging under combined load; those remain open. A preceding standalone run passed in **3,186 ms**. |
+
+### Exact candidate and release gates
+
+Retained unchanged at `.build/releases/1.3.37/OM0RX-xLog.app`. All **4,084** staged entries matched retained content, modes and symlinks. Developer ID deep/strict verification passed before and after the rehearsal: team **4WCMQ4U946**, Hardened Runtime, CDHash **`3538eadf5c8cb2e93962f94adf1c3ede817531eb`**. The native fake-audio receipt, distribution metadata, Python runtime manifest and CW provenance all identify the exact packaging source above. CW `experimentalEnabled` and `fixtureOnly` remain false.
+
+| Component | SHA-256 |
+| --- | --- |
+| Native executable | `819e876811f23d967b0b6cc44c90bcd408bb46de5bb60d476455c88b8e5b9662` |
+| Swift worker | `1965a0e0d2ad05d3e0341d8c1d1b315d528bdba7b36aba924fb91347dd1ed2d9` |
+| Info.plist | `da94bbb59312dca69ef719b5a266180f0fc5ad9c4662350acce209588dfc057f` |
+
+The coherent-batch gates were 890 Rust cases, 15 then 16 Swift profile cases, and the Vitest outcomes reported above; counts overlap and are not added together. Packaging also passed the worker packaging check, universal Swift worker build/self-test, TypeScript, Vite, all **24** window bundle graphs, nine Python relocation tests, bundled Python 3.12.4/92 Mach-O validation, CW offline payload verification and final signing. The accepted 422-case Python source suite was reused because Python application code was unchanged. A new full source suite or rebuild was not substituted for the blocked graphical checks. Notarization, Intel application execution and physical station acceptance remain separate unclaimed gates.
+
+Local evidence is retained in `.build/releases/1.3.37/WAVE1_CANDIDATE_RECEIPT.json` and `.build/releases/1.3.37/wave1-acceptance-evidence/` (packaging log/exit, focused test log, native failure screenshot/log, failed seed log, standalone and combined fake-audio receipts, scripts and protection receipt). The receipt explicitly marks `BLOCKED_NATIVE_ACCEPTANCE` and identifies the later source correction as excluded from the bundle.
+
+Production `/Applications/OM0RX-xLog.app` and immutable 1.3.36 rollback Info.plist/native-executable hashes still match the initial receipt, as do all nine recovery refs. No installer, production database/settings/recording operation, provider write, radio/PTT/RF, rotor or physical capture/playback action was performed. No production-data preservation claim is inferred from a full private data scan; those paths were not used for this work.
+
+**Remaining blocker:** a newly versioned signed candidate containing `3e68e1a0`, followed by the native desk/detached-window, Save-dialog digest and queue/note/saved-state restart checks listed above. Version 1.3.37 must not be presented as accepted or reused for that different source. Stopped under the one-candidate constraint; production installation remains 1.3.36. **Wave 2 has not started.**
+
+## Historical accepted source checkpoint
+
+The sections below record the earlier source-only acceptance, before the authorized candidate follow-up above. Their unperformed delivery statements describe that earlier checkpoint.
 
 27 October 2026, Australia/Darwin. This record closes the selected **source implementation** checkpoint and retains the unperformed delivery/physical gates. Wave 2 has not started.
 
