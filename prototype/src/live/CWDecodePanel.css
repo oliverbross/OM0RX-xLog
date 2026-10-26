@@ -40,6 +40,8 @@
 .cw-decode-detail dl { margin:0; font-size:12px; }
 .cw-decode-detail dl>div { display:flex; justify-content:space-between; gap:12px; padding:4px 0; }
 .cw-decode-detail dt { color:var(--secondary,#92a7bf); }.cw-decode-detail dd { margin:0; text-align:right; }
+.cw-decode-evidence dd { overflow-wrap:anywhere; min-width:0; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+.cw-decode-detail summary { cursor:pointer; font-size:12px; }
 .cw-decode-detail label { display:flex; flex-direction:column; align-items:stretch; text-align:left; gap:5px; }
 .cw-decode textarea { resize:vertical; width:100%; font-size:13px; line-height:1.6; color:var(--text,#e6edf6); background:#101f34; border:1px solid var(--border,#243a55); border-radius:6px; padding:8px; caret-color:var(--cyan,#35c8f5); }
 .cw-decode-settings { display:flex; flex-direction:column; gap:14px; padding:14px; background:#101f34; border-radius:8px; }

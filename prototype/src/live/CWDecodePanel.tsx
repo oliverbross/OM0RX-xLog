@@ -15,6 +15,7 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
 }) {
   const { snapshot, error, busy, refresh, command } = useCWDecode(request);
   const [editor, setEditor] = useState<CWDecodeConfiguration | null>(null), [selected, setSelected] = useState<string | null>(null), [sourceFilter, setSourceFilter] = useState("all");
+  const [copyNotice, setCopyNotice] = useState("");
   const tracks = useMemo(() => [...(snapshot?.tracks ?? [])].filter(track => sourceFilter === "all" || track.sourceID === sourceFilter)
     .sort((a, b) => a.descriptor.radioID.localeCompare(b.descriptor.radioID) || a.sourceID.localeCompare(b.sourceID) ||
       (a.frequencyHz !== undefined && b.frequencyHz !== undefined ? a.frequencyHz - b.frequencyHz : a.offsetHz - b.offsetHz)), [snapshot?.tracks, sourceFilter]);
@@ -80,6 +81,19 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
             <div><dt>RF mapping</dt><dd>{signal.descriptor.mappingQualified ? "Qualified" : "Unqualified"}</dd></div><div><dt>Model time</dt><dd>{signal.inferenceMilliseconds === undefined ? "Unavailable" : `${signal.inferenceMilliseconds.toFixed(0)} ms`}</dd></div></dl>
           <label>Committed text<textarea readOnly value={signal.committed} rows={5} /></label>
           <label>Provisional tail<textarea readOnly value={signal.provisional} rows={3} /></label>
+          <button type="button" disabled={!signal.committed} onClick={() => {
+            void navigator.clipboard.writeText(signal.committed).then(() => setCopyNotice("Committed text copied.")).catch(() => setCopyNotice("Could not copy text. Select the committed text and copy it manually."));
+          }}>Copy committed text</button>
+          {copyNotice && <p role="status">{copyNotice}</p>}
+          <details><summary>Show evidence</summary><dl className="cw-decode-evidence">
+            <div><dt>Session</dt><dd>{signal.descriptor.sessionID}</dd></div>
+            <div><dt>Source</dt><dd>{signal.sourceID}</dd></div>
+            <div><dt>Stream</dt><dd>{signal.descriptor.streamToken}</dd></div>
+            <div><dt>Track</dt><dd>{signal.trackID}</dd></div>
+            <div><dt>Revision</dt><dd>{signal.revision}</dd></div>
+            <div><dt>Sample rate</dt><dd>{signal.descriptor.sampleRate} Hz</dd></div>
+            <div><dt>Call evidence</dt><dd>{signal.selection?.callsign ?? "No unambiguous committed identity"}</dd></div>
+          </dl></details>
           <p className="cw-decode-quality">Provisional text can change. Automatic spots require committed station identification and qualified live evidence.</p>
           {signal.spotRejection && <small>Spot withheld: {signal.spotRejection.replaceAll("_", " ")}</small>}
         </aside>}
