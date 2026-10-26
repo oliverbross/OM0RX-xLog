@@ -38,6 +38,8 @@ public actor CWLocalClusterServer {
     }
     private struct Report {let id:UUID;let line:Data;let observed:Date}
     private let queue=DispatchQueue(label:"com.oliverbross.xlog.cw.local-cluster",qos:.utility)
+    private let endpointOwner=UUID(),instanceID=UUID()
+    private let endpointGuard:CWLocalEndpointGuard
     private var admission=CWClientAdmission()
     private var listener:NWListener?,identity:UUID?
     private var clients:[UUID:Client]=[:]
@@ -47,10 +49,13 @@ public actor CWLocalClusterServer {
     private let clock:@Sendable ()->UInt64
     private let wallClock:@Sendable ()->Date
     public init(clock:@escaping @Sendable ()->UInt64={DispatchTime.now().uptimeNanoseconds},
-                wallClock:@escaping @Sendable ()->Date={Date()}) {self.clock=clock;self.wallClock=wallClock}
+                wallClock:@escaping @Sendable ()->Date={Date()},endpointGuard:CWLocalEndpointGuard = .shared) {
+        self.clock=clock;self.wallClock=wallClock;self.endpointGuard=endpointGuard
+    }
     deinit {
         watchdog?.cancel();listener?.cancel()
         for client in clients.values {client.connection.cancel()}
+        endpointGuard.releaseListener(owner:endpointOwner)
     }
     public func snapshot()->CWLocalClusterSnapshot {
         prune()
@@ -63,11 +68,15 @@ public actor CWLocalClusterServer {
     /// require an explicit non-privileged port. The actual IPv4 endpoint is shown.
     public func start(port:Int) throws {
         guard identity==nil,(0...65535).contains(port),let endpoint=NWEndpoint.Port(rawValue:UInt16(port)) else {throw CWContractError.invalidConfiguration}
+        do {try endpointGuard.reserveListener(owner:endpointOwner,port:port,instance:instanceID)} catch {
+            state="loop_blocked";self.port=port;throw error
+        }
         let parameters=NWParameters.tcp
         parameters.allowLocalEndpointReuse=false
         parameters.requiredLocalEndpoint = .hostPort(host:.ipv4(.loopback),port:endpoint)
         let created:NWListener
         do {created=try NWListener(using:parameters)} catch {
+            endpointGuard.releaseListener(owner:endpointOwner)
             if let network=error as? NWError,case .posix(.EADDRINUSE)=network {state="occupied"} else {state="failed"}
             self.port=port;throw error
         }
@@ -93,6 +102,7 @@ public actor CWLocalClusterServer {
         }
     }
     public func stop() {
+        endpointGuard.releaseListener(owner:endpointOwner)
         identity=nil;watchdog?.cancel();watchdog=nil;listener?.cancel();listener=nil
         for id in Array(clients.keys){close(id)}
         state="off";port=nil
@@ -100,10 +110,18 @@ public actor CWLocalClusterServer {
     private func listenerState(_ value:NWListener.State,actual:UInt16?,id:UUID) {
         guard identity==id else {return}
         switch value {
-        case .ready:state="listening";if let actual{port=Int(actual)}
+        case .ready:
+            if let actual {
+                do {try endpointGuard.reserveListener(owner:endpointOwner,port:Int(actual),instance:instanceID)} catch {
+                    stop();state="loop_blocked";port=Int(actual);return
+                }
+                port=Int(actual)
+            }
+            state="listening"
         case .failed(let error):
             if case .posix(.EADDRINUSE)=error {state="occupied"} else {state="failed"}
             listener?.cancel();listener=nil;identity=nil;watchdog?.cancel();watchdog=nil
+            endpointGuard.releaseListener(owner:endpointOwner)
             for id in Array(clients.keys){close(id)}
         default:break
         }
@@ -119,7 +137,7 @@ public actor CWLocalClusterServer {
             }
         }
         connection.start(queue:queue)
-        enqueue(CWClusterClientProtocol.greeting,to:clientID)
+        enqueue(Data("# OM0RX-xLog Local CW instance=\(instanceID.uuidString)\r\nlogin: ".utf8),to:clientID)
         receive(clientID,id:id)
     }
     private func disconnected(_ client:UUID,id:UUID) {guard identity==id else{return};close(client)}

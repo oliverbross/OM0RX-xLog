@@ -4,6 +4,25 @@ import XCTest
 @testable import XClusterIntegrationCore
 
 final class LocalCWIngressTests:XCTestCase {
+    func testOwnInstanceGreetingStopsInboundBeforeFollowingSpots() async throws {
+        let owner=UUID(),instance=UUID(),guardOwner=CWLocalEndpointGuard.shared
+        try guardOwner.reserveListener(owner:owner,port:49112,instance:instance)
+        defer{guardOwner.releaseListener(owner:owner)}
+        let transport=LocalCWLoopTransport(),server=ClusterServerConfiguration(name:"Fixture",host:"fixture.invalid",port:49112,callsign:"VK8RX")
+        let service=ClusterSessionService(configuration:.init(servers:[server],requestRecentSpotsOnConnect:false),
+            transportFactory:{_,_,_,_,state,line in transport.configure(state:state,line:line);return transport})
+        try await service.connect()
+        transport.emit("# OM0RX-xLog Local CW instance=\(instance)")
+        transport.emit("DX de VK8RX-#: 14025.123 K1ABC CW Local 0100Z")
+        for _ in 0..<100 {
+            if await service.snapshot().connections.first?.phase == .failed{break}
+            try await Task.sleep(nanoseconds:1_000_000)
+        }
+        let snapshot=await service.snapshot()
+        XCTAssertEqual(snapshot.connections.first?.phase,.failed);XCTAssertEqual(snapshot.loadedSpots,0)
+        XCTAssertTrue(transport.stopped)
+        await service.terminate()
+    }
     private func spot(id:UUID=UUID(),source:UUID=UUID(),origin:UUID=UUID(),session:UUID=UUID(),at:Date=Date(),call:String="K1ABC/P") -> CWConfirmedSpot {
         CWConfirmedSpot(id:id,sessionID:session,sourceID:source,radioID:"radio1",provider:.tciIQ,receiverID:"0",streamToken:UUID(),
             epoch:"7",trackID:UUID(),callsign:call,frequencyHz:14025123,observedAt:at,occurrenceRanges:["0:100","200:300"],
@@ -90,4 +109,15 @@ private final class LocalCWNoTransport:ClusterConnectionTransport,@unchecked Sen
     func start(){XCTFail("Unexpected connection")}
     func send(_ command:String){XCTFail("Unexpected command")}
     func stop(){}
+}
+private final class LocalCWLoopTransport:ClusterConnectionTransport,@unchecked Sendable {
+    private let lock=NSLock();private var state:(@Sendable(ClusterConnectionPhase,String?)->Void)?,line:(@Sendable(String)->Void)?,didStop=false
+    func configure(state:@escaping @Sendable(ClusterConnectionPhase,String?)->Void,line:@escaping @Sendable(String)->Void){
+        lock.lock();self.state=state;self.line=line;lock.unlock()
+    }
+    func start(){lock.lock();let callback=state;lock.unlock();callback?(.connected,nil)}
+    func send(_ command:String){}
+    func stop(){lock.lock();didStop=true;lock.unlock()}
+    func emit(_ value:String){lock.lock();let callback=line;lock.unlock();callback?(value)}
+    var stopped:Bool{lock.lock();defer{lock.unlock()};return didStop}
 }

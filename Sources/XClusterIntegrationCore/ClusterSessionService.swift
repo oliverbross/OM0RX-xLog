@@ -383,6 +383,7 @@ public actor ClusterSessionService {
     private var contactPublicationRevision: UInt64 = 0
     private var hasContactSnapshot = false
     private var terminated = false
+    private let endpointOwner=UUID()
     private let transportFactory: ClusterTransportFactory
     private let onUpdate: (@Sendable (ClusterSessionSnapshot) -> Void)?
     private let onSpot: (@Sendable (ClassifiedClusterSpot, UUID) -> Void)?
@@ -405,6 +406,7 @@ public actor ClusterSessionService {
         self.onHistoryConnection = onHistoryConnection
         self.transportFactory = transportFactory
     }
+    deinit {CWLocalEndpointGuard.shared.removeInbound(owner:endpointOwner)}
 
     /// Display edits never disturb sockets or received history. Resolve credentials
     /// only for replacement connections, before touching any running transport.
@@ -412,6 +414,7 @@ public actor ClusterSessionService {
                           password: @Sendable (UUID) throws -> String = { _ in "" }) throws {
         guard !terminated else { throw ClusterSessionError.terminated }
         try validate(value)
+        try guardGeneratedEndpoint(value)
         let wasRunning = !transports.isEmpty
         let enabled = value.servers.filter(\.enabled)
         let retained = Set(enabled.compactMap { next -> UUID? in
@@ -460,6 +463,7 @@ public actor ClusterSessionService {
         guard !enabled.isEmpty else { throw ClusterSessionError.invalidConfiguration("Configure and enable a cluster server first.") }
         guard transports.isEmpty else { return }
         try validate(configuration)
+        try guardGeneratedEndpoint(configuration)
         for server in enabled { try validatePassword(passwords[server.id] ?? "") }
         connectionGeneration = UUID()
         for server in enabled { start(server, password: passwords[server.id] ?? "") }
@@ -479,6 +483,19 @@ public actor ClusterSessionService {
         guard Set(enabled.map(\.id)).count == enabled.count else {
             throw ClusterSessionError.invalidConfiguration("Cluster server IDs must be unique.")
         }
+    }
+
+    private func guardGeneratedEndpoint(_ value:ClusterSessionConfiguration) throws {
+        do {
+            try CWLocalEndpointGuard.shared.setInbound(owner:endpointOwner,
+                endpoints:value.servers.filter(\.enabled).map{CWInboundEndpoint(host:$0.host,port:$0.port)})
+        } catch {
+            throw ClusterSessionError.invalidConfiguration("The generated Local CW endpoint cannot be an inbound cluster source.")
+        }
+    }
+    public func prepareLocalCWListener() throws {
+        guard !terminated else {throw ClusterSessionError.terminated}
+        try guardGeneratedEndpoint(configuration)
     }
 
     private func validatePassword(_ password: String) throws {
@@ -522,6 +539,7 @@ public actor ClusterSessionService {
     public func terminate() {
         terminated = true
         disconnect()
+        CWLocalEndpointGuard.shared.removeInbound(owner:endpointOwner)
     }
 
     @discardableResult
@@ -674,6 +692,14 @@ public actor ClusterSessionService {
     private func receiveLine(_ line: String, serverID: UUID, generation: UUID, arrivedAt: Date) {
         guard generation == transportGenerations[serverID], transports[serverID] != nil,
               let server = configuration.servers.first(where: { $0.id == serverID }) else { return }
+        if CWLocalEndpointGuard.shared.isOwnGreeting(line) {
+            transportGenerations.removeValue(forKey:serverID)
+            transports.removeValue(forKey:serverID)?.stop()
+            closeHistorySegment(serverID:serverID,at:arrivedAt,phase:.failed)
+            statuses[serverID]?.phase = .failed
+            statuses[serverID]?.error = "Local CW self-loop rejected. Choose an external cluster source."
+            publish();return
+        }
         guard line.utf8.count <= ClusterLineParser.maximumLineBytes else { return }
         if let raw = ClusterLineParser.parse(line, clusterID: serverID, clusterName: server.name, at: arrivedAt) {
             addSpot(raw, line: line, origin: ObservationOrigin(server:server), generation: generation, arrivedAt: arrivedAt)
