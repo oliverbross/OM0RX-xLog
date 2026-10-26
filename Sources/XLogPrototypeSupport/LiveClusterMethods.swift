@@ -635,6 +635,11 @@ public actor LiveClusterMethods {
         try requireRunning()
         return try await service.ingestLocalCW(spot,stationCallsign:stationCallsign)
     }
+    func prepareLocalCWListener() async throws {
+        let service=try await readyService(refreshInitialContacts:false)
+        try requireRunning()
+        try await service.prepareLocalCWListener()
+    }
 
     private func validateConfigurationPath() throws {
         for url in [configurationURL.deletingLastPathComponent(), configurationURL] {

@@ -234,12 +234,14 @@ public actor LiveWorker {
             backgroundOwnershipAllowed: { operatingModule == .normalLogging })
         #if os(macOS)
         references = LiveReferenceMethods(logbook: logbook)
-        cwDecode = LiveCWDecodeMethods(logbook: logbook)
         #endif
         let cluster = cluster ?? (logbook === LiveLogbookMethods.shared && operatingModule == .normalLogging
             ? .shared : LiveClusterMethods(logbook: logbook,
                                            forwardClassifiedIngressSpots: operatingModule == .normalLogging))
         self.cluster = cluster
+        #if os(macOS)
+        cwDecode = LiveCWDecodeMethods(logbook:logbook,prepareListener:{try await cluster.prepareLocalCWListener()})
+        #endif
         self.contactRefresher = contactRefresher ?? { try await cluster.refreshContacts() }
         let opportunityMethods = opportunityMethods ?? LiveOpportunitiesMethods(logbook: logbook, clusterSpots: { await cluster.currentSpotRowsIfStarted() })
         opportunities = opportunityMethods
@@ -677,7 +679,7 @@ public actor LiveWorker {
             } else {
                 #if os(macOS)
                 if method.hasPrefix("cw_decode_") {
-                    guard method != "cw_decode_start" || ownsProcessSessions else {
+                    guard !["cw_decode_start","cw_decode_listener_start"].contains(method) || ownsProcessSessions else {
                         throw WorkerFailure("cw_owner_required", "CW Decode requires the application worker owner.")
                     }
                     result = try await cwDecode.handle(method: method, params: params)

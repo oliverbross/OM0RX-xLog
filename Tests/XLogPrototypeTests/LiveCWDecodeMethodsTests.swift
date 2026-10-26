@@ -4,6 +4,27 @@ import XCWCore
 @testable import XLogPrototypeSupport
 #if os(macOS)
 final class LiveCWDecodeMethodsTests:XCTestCase {
+    func testListenerPreferencesArePassiveAndStopCancelsPreparedStartWithoutModel() async throws {
+        let gate=CWListenerPrepareGate(),provider=CWMethodsTestProvider()
+        let owner=LiveCWDecodeMethods(configurationURL:file(),provider:provider,
+            resources:{throw CWComputeError.resourceValidation},prepareListener:{await gate.prepare()})
+        let initial=try await owner.handle(method:"cw_decode_snapshot",params:[:]),before=try configuration(initial)
+        let next=try CWDecodeConfiguration(listenerEnabled:true,listenerPort:49193)
+        let saved=try await save(owner,next,previous:before)
+        XCTAssertEqual((saved["listener"] as? [String:Any])?["state"] as? String,"off")
+        XCTAssertEqual(saved["resourcesAvailable"] as? Bool,false)
+        let starting=Task{try await owner.handle(method:"cw_decode_listener_start",params:["expected_revision":next.revision.uuidString])}
+        for _ in 0..<1000 {if await gate.entered(){break};try await Task.sleep(nanoseconds:1_000_000)}
+        let prepared=await gate.entered();XCTAssertTrue(prepared)
+        _ = try await owner.handle(method:"cw_decode_listener_stop",params:[:])
+        await gate.release()
+        do {_ = try await starting.value;XCTFail("A stopped pending listener must not bind later")}
+        catch {XCTAssertEqual((error as? WorkerFailure)?.code,"cw_cancelled")}
+        let snapshot=try await owner.handle(method:"cw_decode_snapshot",params:[:]),acquisitions=await provider.acquisitions()
+        XCTAssertEqual((snapshot["listener"] as? [String:Any])?["state"] as? String,"off")
+        XCTAssertEqual(acquisitions,0)
+        await owner.terminate()
+    }
     private func file() -> URL {
         let directory=FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".cache/cw-methods-\(UUID())")
         addTeardownBlock{try? FileManager.default.removeItem(at:directory)}
@@ -81,5 +102,11 @@ private actor CWMethodsTestProvider:CWIQSourceProviding {
     }
     func current(_ source:CWSourceConfiguration,sessionID:UUID,leaseID:UUID)->CWStreamDescriptor?{nil}
     func release(_ source:CWSourceConfiguration,leaseID:UUID){}
+}
+private actor CWListenerPrepareGate {
+    private var started=false,waiter:CheckedContinuation<Void,Never>?
+    func prepare() async {started=true;await withCheckedContinuation{waiter=$0}}
+    func entered()->Bool{started}
+    func release(){waiter?.resume();waiter=nil}
 }
 #endif
