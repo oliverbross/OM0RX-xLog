@@ -24,6 +24,7 @@ mod spot_identity;
 mod spot_editor_barrier;
 mod spot_activation;
 mod spot_activation_backend;
+mod cw_track_selection;
 mod qsy_clear;
 mod radio_read;
 mod manual_tune;
@@ -2406,7 +2407,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         let task_admission = module_admission.clone();
         return tauri::async_runtime::spawn_blocking(move || {
             let _module_admission = task_admission;
-            worker::request_existing(request)
+            if request["method"]=="cw_decode_snapshot" {cw_track_selection::snapshot(request)} else {worker::request_existing(request)}
         }).await.map_err(|_| "CW Decode request failed".to_string())?;
     }
     if matches!(workspace_windows::surface_role(window.label()), "monitor" | "log-qso" | "spot-history" | "world-map" | "dxpedition-map" | "band-maps" | "callsign-intelligence" | "previous-qsos" | "operating-goals" | "station-control" | "cw" | "rotor" | "station-status" | "propagation" | "station-identity" | "alerts" | "antenna") { worker::validate_surface(window.label(), &request)?; }

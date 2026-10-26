@@ -33,6 +33,10 @@ describe("native CW Decode projection", () => {
       streamToken: track.descriptor.streamToken, epoch: track.descriptor.epoch, trackID: track.trackID,
       revision: track.revision, selectionID: "60000000-0000-0000-0000-000000000001" } };
     expect(parseCWDecodeSnapshot(fixture).tracks[0].selection?.callsign).toBe("K1ABC");
+    track.selection.activation = { sourceEpoch: "80000000-0000-0000-0000-000000000001", spotVersion: "90000000-0000-0000-0000-000000000001" };
+    expect(parseCWDecodeSnapshot(fixture).tracks[0].selection?.activation).toEqual(track.selection.activation);
+    const badActivation = structuredClone(fixture); badActivation.tracks[0].selection!.activation!.spotVersion = "unknown";
+    expect(() => parseCWDecodeSnapshot(badActivation)).toThrow();
     for (const [key, value] of [["streamToken", "70000000-0000-0000-0000-000000000001"], ["revision", "2"], ["epoch", "13"]] as const) {
       const changed = structuredClone(fixture); changed.tracks[0].selection!.reference[key] = value;
       expect(() => parseCWDecodeSnapshot(changed)).toThrow();

@@ -72,3 +72,19 @@ All seventeen activation/reservation tests passed, including two new cases for
 field preservation, station-effect refusal and malformed/mixed CW payloads.
 Native window action admission and the shared editor barrier integration are
 still required before exposing this command as an operator action.
+
+## Native window identity retention
+
+CW snapshots now receive native activation tokens from a bounded 32-row pool.
+Equal evidence keeps its token; a worker generation change, changed evidence or
+removed track retires it. All rows are validated before the pool/reply changes.
+Ambiguous identities, duplicate tracks, malformed provenance and unqualified RF
+are rejected. The reader uses only the existing worker generation and never
+starts a service to satisfy a passive snapshot.
+
+Resolution sends only the retained reference back to the same live worker and
+compares its full reply with the retained native target. It rechecks the pool and
+worker again after readback, then produces the callsign-only command without RF
+fields. It grants no draft mutation; the explicit window action is still pending.
+Three focused native retention/readback cases and four frontend projection cases
+passed. TypeScript validation accompanies this boundary.

@@ -5,7 +5,7 @@ export type CWDecodeConfiguration = { version: 1; revision: string; sources: CWI
 export type CWDescriptor = { sessionID: string; sourceID: string; radioID: string; receiverID: string; streamToken: string; epoch: string;
   provider: string; centreHz: number; sampleRate: number; mappingQualified: boolean; replay: boolean };
 export type CWTrackReference = { sessionID: string; sourceID: string; streamToken: string; epoch: string; trackID: string; revision: string; selectionID: string };
-export type CWTrackSelection = { reference: CWTrackReference; callsign: string };
+export type CWTrackSelection = { reference: CWTrackReference; callsign: string; activation?: { sourceEpoch: string; spotVersion: string } };
 export type CWDecodeTrack = { sourceID: string; trackID: string; descriptor: CWDescriptor; revision: string; offsetHz: number; frequencyHz?: number;
   committed: string; provisional: string; ambiguous: boolean; inferenceMilliseconds?: number; spotRejection?: string;
   estimatedWPM?: number; estimatedSNRDB?: number; snrReferenceHz?: number; selection?: CWTrackSelection };
@@ -41,7 +41,9 @@ const trackSelection = (track: Record<string, any>): boolean => {
     ["sessionID", "sourceID", "streamToken"].every(key => reference[key].toLowerCase() === track.descriptor[key].toLowerCase()) &&
     reference.trackID.toLowerCase() === track.trackID.toLowerCase() && reference.epoch === track.descriptor.epoch && reference.revision === track.revision &&
     typeof selection.callsign === "string" && selection.callsign.length >= 3 && selection.callsign.length <= 20 &&
-    /^(?=.*[A-Z])(?=.*[0-9])[A-Z0-9]+(?:\/[A-Z0-9]+)*$/.test(selection.callsign);
+    /^(?=.*[A-Z])(?=.*[0-9])[A-Z0-9]+(?:\/[A-Z0-9]+)*$/.test(selection.callsign) &&
+    (selection.activation === undefined || object(selection.activation) && Object.keys(selection.activation).length === 2 &&
+      ["sourceEpoch", "spotVersion"].every(key => typeof selection.activation[key] === "string" && uuid.test(selection.activation[key])));
 };
 
 export function parseCWDecodeSnapshot(value: unknown): CWDecodeSnapshot {
