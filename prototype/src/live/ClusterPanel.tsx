@@ -495,7 +495,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
         const excludedCount = key === "specials" ? (filter.excludedSpecials ?? []).length : 0;
         return <button type="button" key={key} data-filter={key} aria-expanded={activePicker === key}
           onClick={() => setActivePicker(activePicker === key ? null : key)}>
-          {filterLabels[key]}{key === "specials" && (values.length || excludedCount) ? ` · +${values.length} / −${excludedCount}`
+          {filterLabels[key]}{key === "specials" ? (excludedCount ? ` · ${excludedCount} hidden` : "")
             : values.length && !(key === "sources" && values.length === 2) ? ` · ${values.length}` : ""}
         </button>;
       })}

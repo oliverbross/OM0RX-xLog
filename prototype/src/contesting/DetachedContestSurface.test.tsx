@@ -329,7 +329,7 @@ it.each(["band-maps","dx-cluster"] as const)("reuses desktop Filters locally in 
   expect(trigger.closest(".contest-spot-toolbar>div")).toBeTruthy();
   fireEvent.click(trigger);
   const dialog=screen.getByRole("dialog",{name:"Cluster filters"});
-  expect(within(dialog).getByRole("checkbox",{name:"Show only RBN"})).toBeTruthy();
+    expect(within(dialog).getByRole("combobox",{name:"Show RBN"})).toBeTruthy();
   fireEvent.change(within(dialog).getByPlaceholderText("Callsign, country or note"),{target:{value:"DL1"}});
   expect(screen.getByText("DL1ABC")).toBeTruthy();expect(screen.queryByText("VK8XYZ")).toBeNull();
   expect(native.invoke.mock.calls.some(([command])=>command==="worker_request"||command==="contest_surface_action")).toBe(false);

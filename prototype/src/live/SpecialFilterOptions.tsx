@@ -1,17 +1,18 @@
-import { setSpecialFilterState, type ClusterFilter } from "./clusterFilters";
+import { setSpecialShown, type ClusterFilter } from "./clusterFilters";
 
 export default function SpecialFilterOptions({ filter, options, onChange }: {
   filter: ClusterFilter; options: readonly string[]; onChange: (next: ClusterFilter) => void;
 }) {
   const excluded = filter.excludedSpecials ?? [];
   return <div className="special-filter-options">
-    <div className="special-filter-header"><span>Station type</span><span>Show only</span><span>Hide</span></div>
+    <p className="special-filter-help">Yes allows this type. No hides it. Other types are unaffected; band, mode and source filters still apply.</p>
+    <div className="special-filter-header"><span>Station type</span><span>Show</span></div>
     {options.map(option => <div className="special-filter-option" key={option}>
       <strong>{option}</strong>
-      <label><input type="checkbox" aria-label={`Show only ${option}`} checked={filter.specials.includes(option)}
-        onChange={event => onChange(setSpecialFilterState(filter, option, event.target.checked ? "include" : "neutral"))} />Yes</label>
-      <label><input type="checkbox" aria-label={`Hide ${option}`} checked={excluded.includes(option)}
-        onChange={event => onChange(setSpecialFilterState(filter, option, event.target.checked ? "exclude" : "neutral"))} />No</label>
+      <select aria-label={`Show ${option}`} value={excluded.includes(option) ? "no" : "yes"}
+        onChange={event => onChange(setSpecialShown(filter, option, event.target.value === "yes"))}>
+        <option value="yes">Yes</option><option value="no">No</option>
+      </select>
     </div>)}
   </div>;
 }

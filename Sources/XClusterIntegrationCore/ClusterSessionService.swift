@@ -59,6 +59,7 @@ public struct ClusterSpotFilter: Codable, Equatable, Sendable {
     public var spotterContinents: Set<String> = []
     public var callStatuses: Set<String> = []
     public var dxccStatuses: Set<String> = []
+    /// Legacy wire field; special visibility now uses exclusions only.
     public var specials: Set<String> = []
     public var excludedSpecials: Set<String> = []
     public var sources: Set<String> = ["cluster", "rbl", "local_cw"]
@@ -80,7 +81,9 @@ public struct ClusterSpotFilter: Codable, Equatable, Sendable {
         spotterContinents = try values.decodeIfPresent(Set<String>.self, forKey: .spotterContinents) ?? []
         callStatuses = try values.decodeIfPresent(Set<String>.self, forKey: .callStatuses) ?? []
         dxccStatuses = try values.decodeIfPresent(Set<String>.self, forKey: .dxccStatuses) ?? []
-        specials = try values.decodeIfPresent(Set<String>.self, forKey: .specials) ?? []
+        // Saved "Show only" choices must not hide unrelated station types.
+        _ = try values.decodeIfPresent(Set<String>.self, forKey: .specials)
+        specials = []
         excludedSpecials = try values.decodeIfPresent(Set<String>.self, forKey: .excludedSpecials) ?? []
         sources = try values.decodeIfPresent(Set<String>.self, forKey: .sources) ?? ["cluster", "rbl", "local_cw"]
         worked = try values.decodeIfPresent(Set<String>.self, forKey: .worked) ?? []
@@ -630,7 +633,6 @@ public actor ClusterSessionService {
                 && (filter.spotterContinents.isEmpty || filter.spotterContinents.contains(spot.spotterContinent ?? ""))
                 && (filter.callStatuses.isEmpty || filter.callStatuses.contains(spot.callStatus))
                 && (filter.dxccStatuses.isEmpty || filter.dxccStatuses.contains(spot.dxccStatus))
-                && (filter.specials.isEmpty || !filter.specials.isDisjoint(with: spot.specialTags))
                 && filter.excludedSpecials.isDisjoint(with: spot.specialTags)
                 && filter.sources.contains(spot.source)
                 && SpotLogic.shouldShow(callStatus: spot.callStatus, showWorkedBandModeSpots: configuration.showWorkedBandModeSpots)

@@ -22,20 +22,17 @@ export function normalizeClusterFilter(value?: Partial<ClusterFilter> | null): C
   return {
     query: typeof value?.query === "string" ? value.query : defaults.query,
     bands: list("bands"), modes: list("modes"), continents: list("continents"), spotterContinents: list("spotterContinents"),
-    callStatuses: list("callStatuses"), dxccStatuses: list("dxccStatuses"), specials: list("specials"),
+    // Retire the old "Show only" whitelist when reading saved or detached state.
+    callStatuses: list("callStatuses"), dxccStatuses: list("dxccStatuses"), specials: [],
     excludedSpecials: list("excludedSpecials"), sources: list("sources"), worked: list("worked"),
     sort: typeof value?.sort === "string" ? value.sort : defaults.sort,
   };
 }
 
-export type SpecialFilterState = "neutral" | "include" | "exclude";
-
-export function setSpecialFilterState(filter: ClusterFilter, option: string, state: SpecialFilterState): ClusterFilter {
-  const specials = filter.specials.filter(value => value !== option);
+export function setSpecialShown(filter: ClusterFilter, option: string, shown: boolean): ClusterFilter {
   const excludedSpecials = (filter.excludedSpecials ?? []).filter(value => value !== option);
-  if (state === "include") specials.push(option);
-  if (state === "exclude") excludedSpecials.push(option);
-  return { ...filter, specials, excludedSpecials };
+  if (!shown) excludedSpecials.push(option);
+  return { ...filter, specials: [], excludedSpecials };
 }
 
 export type ClusterFilterSpot = {
@@ -57,7 +54,6 @@ export function filterClusterSpots<T extends ClusterFilterSpot>(spots: readonly 
       (!filter.spotterContinents.length || filter.spotterContinents.includes(spot.spotterContinent ?? "")) &&
       (!filter.callStatuses.length || filter.callStatuses.includes(spot.callStatus)) &&
       (!filter.dxccStatuses.length || filter.dxccStatuses.includes(spot.dxccStatus)) &&
-      (!filter.specials.length || filter.specials.some(value => specialTags.includes(value))) &&
       !(filter.excludedSpecials ?? []).some(value => specialTags.includes(value)) &&
       filter.sources.includes(source) &&
       (!filter.worked.length || filter.worked.includes(spot.workedBefore == null ? "Not worked" : "Worked before"));

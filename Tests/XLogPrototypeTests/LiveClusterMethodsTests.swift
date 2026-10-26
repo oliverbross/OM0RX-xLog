@@ -711,7 +711,7 @@ struct LiveClusterMethodsTests {
         await cluster.terminate()
     }
 
-    @Test("Special include and exclude filters remain independent and reject contradictions")
+    @Test("Legacy Show only choices are retired while explicit hidden types are preserved")
     func specialIncludeExcludeValidation() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -723,12 +723,10 @@ struct LiveClusterMethodsTests {
         var filter = try #require(configuration["filter"] as? [String: Any])
         filter["specials"] = ["POTA"]
         filter["excludedSpecials"] = ["POTA"]
-        do {
-            _ = try await cluster.handle(method: "cluster_filter", params: ["filter": filter])
-            Issue.record("Contradictory Special filters were accepted")
-        } catch let failure as WorkerFailure {
-            #expect(failure.code == "invalid_params")
-        }
+        let migrated = try await cluster.handle(method: "cluster_filter", params: ["filter": filter])
+        let migratedFilter = try #require((migrated["configuration"] as? [String: Any])?["filter"] as? [String: Any])
+        #expect(migratedFilter["specials"] as? [String] == [])
+        #expect(migratedFilter["excludedSpecials"] as? [String] == ["POTA"])
         filter["specials"] = []
         filter["excludedSpecials"] = ["CONTEST"]
         let accepted = try await cluster.handle(method: "cluster_filter", params: ["filter": filter])

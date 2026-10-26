@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultClusterFilter, filterClusterSpots, normalizeClusterFilter } from "./clusterFilters";
+import { defaultClusterFilter, filterClusterSpots, normalizeClusterFilter, setSpecialShown } from "./clusterFilters";
 
 describe("normalizeClusterFilter", () => {
   it("fills fields absent from legacy saved and detached projections", () => {
@@ -9,6 +9,12 @@ describe("normalizeClusterFilter", () => {
     expect(normalizeClusterFilter(legacy)).toEqual(expect.objectContaining({
       query: "EA", sources: ["cluster"], spotterContinents: [], excludedSpecials: [],
     }));
+  });
+  it("retires saved Show only restrictions while preserving hidden types and other filters", () => {
+    const migrated = normalizeClusterFilter({ specials: ["RBN"], excludedSpecials: ["CONTEST"], bands: ["20m"] });
+    expect(migrated.specials).toEqual([]);
+    expect(migrated.excludedSpecials).toEqual(["CONTEST"]);
+    expect(migrated.bands).toEqual(["20m"]);
   });
 });
 
@@ -35,6 +41,19 @@ describe("filterClusterSpots", () => {
     expect(filterClusterSpots(spots, { ...defaultClusterFilter(), sort:"score" }).map(spot => spot.callsign)).toEqual(["VK8OLD", "DL1ABC"]);
     expect(filterClusterSpots(spots, { ...defaultClusterFilter(), sort:"frequency" }).map(spot => spot.callsign)).toEqual(["VK8OLD", "DL1ABC"]);
     expect(filterClusterSpots(spots, { ...defaultClusterFilter(), sort:"callsign" }).map(spot => spot.callsign)).toEqual(["DL1ABC", "VK8OLD"]);
+  });
+  it("Yes leaves unrelated and untagged spots visible; No hides only matching types", () => {
+    const mixed = [...spots, { ...spots[0], callsign: "K1PLAIN", specialTags: [] },
+      { ...spots[0], callsign: "K1BOTH", specialTags: ["POTA", "CONTEST"] }];
+    const shown = setSpecialShown({ ...defaultClusterFilter(), specials: ["RBN"] }, "RBN", true);
+    expect(filterClusterSpots(mixed, shown)).toHaveLength(4);
+    // Even an old detached snapshot cannot reintroduce the whitelist.
+    expect(filterClusterSpots(mixed, { ...shown, specials: ["RBN"] })).toHaveLength(4);
+    const hidden = setSpecialShown(shown, "RBN", false);
+    expect(filterClusterSpots(mixed, hidden).map(spot => spot.callsign)).toEqual(["DL1ABC", "K1PLAIN", "K1BOTH"]);
+    const noContest = setSpecialShown(hidden, "CONTEST", false);
+    expect(filterClusterSpots(mixed, noContest).map(spot => spot.callsign)).toEqual(["K1PLAIN"]);
+    expect(setSpecialShown(noContest, "RBN", true).excludedSpecials).toEqual(["CONTEST"]);
   });
   it("keeps Local CW separate from network and RBN sources", () => {
     const local = { ...spots[0], source: "local_cw", callsign: "K1LOCAL" };

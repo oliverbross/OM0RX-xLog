@@ -454,9 +454,9 @@ final class ClusterSessionServiceTests: XCTestCase {
         let byDXCC = await matching { $0.dxccStatuses = ["W/New Band", "W/New Mode"] }
         XCTAssertEqual(Set(byDXCC.map(\.callsign)), ["K1DIG", "K1RBN"])
         let bySpecial = await matching { $0.specials = ["POTA"] }
-        XCTAssertEqual(bySpecial.map(\.callsign), ["K1AAA"])
+        XCTAssertEqual(bySpecial.count, 4, "Legacy Show only must not hide unrelated types")
         let byRBNSpecial = await matching { $0.specials = ["RBN"] }
-        XCTAssertEqual(byRBNSpecial.map(\.callsign), ["K1RBN"])
+        XCTAssertEqual(byRBNSpecial.count, 4)
         let withoutSpecial = await matching { $0.excludedSpecials = ["POTA"] }
         XCTAssertEqual(Set(withoutSpecial.map(\.callsign)), ["K1OLD", "K1RBN", "K1DIG"])
         let withoutRBN = await matching { $0.excludedSpecials = ["RBN"] }
@@ -482,7 +482,8 @@ final class ClusterSessionServiceTests: XCTestCase {
         object.removeValue(forKey: "connectOnStartup")
         object.removeValue(forKey: "requestRecentSpotsOnConnect")
         var legacyFilter = try XCTUnwrap(object["filter"] as? [String: Any])
-        legacyFilter.removeValue(forKey: "excludedSpecials")
+        legacyFilter["specials"] = ["RBN"]
+        legacyFilter["excludedSpecials"] = ["CONTEST"]
         object["filter"] = legacyFilter
         let decoded = try JSONDecoder().decode(ClusterSessionConfiguration.self,
             from: JSONSerialization.data(withJSONObject: object))
@@ -492,7 +493,8 @@ final class ClusterSessionServiceTests: XCTestCase {
         XCTAssertFalse(decoded.hideWSPRSpots)
         XCTAssertTrue(decoded.connectOnStartup)
         XCTAssertTrue(decoded.requestRecentSpotsOnConnect)
-        XCTAssertTrue(decoded.filter.excludedSpecials.isEmpty)
+        XCTAssertTrue(decoded.filter.specials.isEmpty)
+        XCTAssertEqual(decoded.filter.excludedSpecials, ["CONTEST"])
         XCTAssertEqual(decoded.commandPresets.map(\.command),
                        ["sh/dx/50", "sh/mydx 50", "sh/wwv/5", "sh/wcy/5", "sh/ann/10", "sh/u"])
     }

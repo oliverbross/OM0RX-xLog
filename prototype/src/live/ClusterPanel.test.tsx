@@ -83,18 +83,18 @@ describe("DX Cluster filter colours", () => {
     }
   });
 
-  it("supports independent include and exclude choices for Special stations", () => {
+  it("shows each Special type by default and hides only types set to No", () => {
     const data = response();
     const request = vi.fn(async (_method: string, params?: Record<string, unknown>) => ({ ...data, configuration: { ...data.configuration, filter: params?.filter } }));
     render(<ClusterPanel passive snapshot={data} onRequest={request} onSelect={vi.fn()} />);
     fireEvent.click(within(screen.getByLabelText("Spot filters")).getByRole("button", { name: "Special" }));
     const picker = screen.getByRole("group", { name: "Special" });
-    expect(within(picker).getByRole("checkbox", { name: "Show only RBN" })).toBeTruthy();
-    expect(within(picker).getByRole("checkbox", { name: "Hide RBN" })).toBeTruthy();
-    fireEvent.click(within(picker).getByRole("checkbox", { name: "Hide CONTEST" }));
+    expect((within(picker).getByRole("combobox", { name: "Show RBN" }) as HTMLSelectElement).value).toBe("yes");
+    expect(within(picker).queryByText("Show only")).toBeNull();
+    fireEvent.change(within(picker).getByRole("combobox", { name: "Show CONTEST" }), { target: { value: "no" } });
     expect(request).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ specials: [], excludedSpecials: ["CONTEST"] }) });
-    fireEvent.click(within(picker).getByRole("checkbox", { name: "Show only CONTEST" }));
-    expect(request).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ specials: ["CONTEST"], excludedSpecials: [] }) });
+    fireEvent.change(within(picker).getByRole("combobox", { name: "Show CONTEST" }), { target: { value: "yes" } });
+    expect(request).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ specials: [], excludedSpecials: [] }) });
   });
 });
 
