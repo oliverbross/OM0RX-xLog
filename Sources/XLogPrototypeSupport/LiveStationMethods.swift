@@ -37,6 +37,19 @@ private enum StationRadioRegistry {
 /// The Mac worker talks to the real xCat loopback service. No values are
 /// synthesized when that service or its radio is unavailable.
 enum LiveStationMethods {
+    #if os(macOS)
+    static func cwTCICapabilities(radioID:String) async -> TCIIQCapabilities? {
+        await StationRadioRegistry.tci[radioID]?.cwIQCapabilities()
+    }
+    static func cwStartTCI(radioID:String,receiver:Int,sampleRate:Int,leaseID:UUID) async throws -> TCIIQSubscription {
+        guard let owner=StationRadioRegistry.tci[radioID] else {throw invalidParams()}
+        return try await owner.cwStartIQ(receiver:receiver,sampleRate:sampleRate,leaseID:leaseID)
+    }
+    static func cwStopTCI(radioID:String,leaseID:UUID) async {await StationRadioRegistry.tci[radioID]?.cwStopIQ(leaseID:leaseID)}
+    static func cwTCICapture(radioID:String,leaseID:UUID) async -> TCIIQCapture? {
+        await StationRadioRegistry.tci[radioID]?.cwIQCapture(leaseID:leaseID)
+    }
+    #endif
     static let methods: Set<String> = ["station_snapshot", "station_tune", "station_action", "station_receive_filter",
                                        "station_connect", "station_disconnect", "station_reconnect",
                                        "station_forget", "station_configuration", "station_configuration_save",

@@ -34,3 +34,21 @@ public struct TCIIQSubscription: Sendable {
     public let receiver: Int
     public let blocks: AsyncThrowingStream<TCIIQBlock, Error>
 }
+
+public struct TCIIQReceiverCapability: Sendable {
+    public let receiver:Int
+    public let enabled:Bool?
+    public let centreHz:Int64?
+}
+public struct TCIIQCapabilities: Sendable {
+    public let connectionGeneration:UInt64
+    public let ready:Bool
+    public let device:String?
+    public let protocolVersion:String?
+    public let receivers:[TCIIQReceiverCapability]
+    public let lowerOffsetHz:Double?
+    public let upperOffsetHz:Double?
+    /// Documented requests, not a claim that these rates have streamed.
+    public let requestableSampleRates:[Int]
+    public let transmitStateKnownOff:Bool
+}

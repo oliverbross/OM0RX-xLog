@@ -136,6 +136,28 @@ final class TCIIQSubscriptionTests: XCTestCase {
         XCTAssertEqual(state.availability,.available); XCTAssertEqual(closes,0)
         await session.stopIQ(leaseID:healthy.leaseID); await session.disconnect()
     }
+    func testCapabilitiesArePassiveAndPendingStartHasAnExactCancelableLease() async throws {
+        let (session,wire,_)=try await setup()
+        let capability=await session.iqCapabilities()
+        XCTAssertTrue(capability.ready);XCTAssertTrue(capability.transmitStateKnownOff)
+        XCTAssertEqual(capability.receivers.map(\.centreHz),[14025000,7025000])
+        XCTAssertEqual(capability.protocolVersion,"2.1")
+        let before=await wire.sentTexts();XCTAssertTrue(before.isEmpty)
+        let id=UUID();await wire.holdStart()
+        let starting=Task {try await session.startIQ(receiver:0,sampleRate:96000,
+            expectedGeneration:capability.connectionGeneration,leaseID:id)}
+        for _ in 0..<1000 {
+            if await wire.sentTexts().contains("iq_start:0;"){break}
+            try await Task.sleep(nanoseconds:1_000_000)
+        }
+        await session.stopIQ(leaseID:id);await wire.releaseStart()
+        do {_ = try await starting.value;XCTFail("Stopped pending lease must not attach later")}
+        catch {XCTAssertEqual(error as? TCIIQSubscriptionError,.connectionChanged)}
+        let after=await wire.sentTexts(),closed=await wire.closeCount(),state=await session.currentObservation()
+        XCTAssertEqual(after,["iq_samplerate:96000;","iq_start:0;","iq_stop:0;"])
+        XCTAssertEqual(closed,0);XCTAssertEqual(state.availability,.available)
+        await session.disconnect()
+    }
 }
 
 private final class IQTestClock: @unchecked Sendable {
@@ -151,6 +173,7 @@ private actor IQTestConnection: TCIWebSocketConnection {
     private var pending:[TCIWebSocketMessage]=[]
     private var waiter:CheckedContinuation<TCIWebSocketMessage,Error>?
     private var sent:[String]=[]; private var closes=0
+    private var holding=false,startWaiter:CheckedContinuation<Void,Never>?
     func receive() async throws -> TCIWebSocketMessage {
         if !pending.isEmpty { return pending.removeFirst() }
         return try await withCheckedThrowingContinuation{waiter=$0}
@@ -158,7 +181,12 @@ private actor IQTestConnection: TCIWebSocketConnection {
     func enqueue(_ message:TCIWebSocketMessage) {
         if let waiter { self.waiter=nil; waiter.resume(returning:message) } else { pending.append(message) }
     }
-    func send(text:String) async throws { sent.append(text) }
+    func send(text:String) async throws {
+        sent.append(text)
+        if holding,text.hasPrefix("iq_start:") {await withCheckedContinuation{startWaiter=$0}}
+    }
+    func holdStart() {holding=true}
+    func releaseStart() {holding=false;startWaiter?.resume();startWaiter=nil}
     func close() async { closes+=1; waiter?.resume(throwing:TCIIQSubscriptionError.stopped); waiter=nil }
     func sentTexts() -> [String] { sent }
     func closeCount() -> Int { closes }

@@ -171,6 +171,20 @@ actor LiveTCISession {
     func terminate() async { terminal = true; await disconnect() }
     func isAttached() -> Bool { connectionID != nil || session != nil }
 
+    func cwIQCapabilities() async -> TCIIQCapabilities? {
+        guard !terminal,let active=session else{return nil}
+        return await active.iqCapabilities()
+    }
+    func cwStartIQ(receiver:Int,sampleRate:Int,leaseID:UUID) async throws -> TCIIQSubscription {
+        guard !terminal,let active=session,let id=connectionID else {throw WorkerFailure("station_unavailable","Connect the selected TCI radio before starting CW Decode.")}
+        let transportGeneration=await active.currentObservation().generation
+        let lease=try await active.startIQ(receiver:receiver,sampleRate:sampleRate,expectedGeneration:transportGeneration,leaseID:leaseID)
+        guard !terminal,connectionID==id,session===active else {await active.stopIQ(leaseID:leaseID);throw cancelled()}
+        return lease
+    }
+    func cwStopIQ(leaseID:UUID) async {await session?.stopIQ(leaseID:leaseID)}
+    func cwIQCapture(leaseID:UUID) async -> TCIIQCapture? {await session?.currentIQCapture(leaseID:leaseID)}
+
     private func disconnect() async {
         let closing = session, id = connectionID
         connectionID = nil; session = nil; updates?.cancel(); updates = nil

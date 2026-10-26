@@ -864,6 +864,20 @@ public actor TCIReadOnlyWebSocketSession {
 }
 
 extension TCIReadOnlyWebSocketSession {
+    public func iqCapabilities() -> TCIIQCapabilities {
+        let state=reducer.state
+        let count=min(2,state.trxCount ?? 0)
+        let knownOff=count>0 && (0..<(state.trxCount ?? 0)).allSatisfy {
+            state.transceivers[$0]?.transmitting==false && state.transceivers[$0]?.tuning==false
+        }
+        let version=state.protocolAnnouncement.flatMap{TCIVersion($0.version)}
+        let supported=version.map{$0>=TCIVersion("1.8")! && $0<=TCIVersion("2.1")!} ?? false
+        return TCIIQCapabilities(connectionGeneration:generation,ready:observationValue.availability == .available && supported,
+            device:state.device,protocolVersion:state.protocolAnnouncement?.version,
+            receivers:(0..<count).map{TCIIQReceiverCapability(receiver:$0,enabled:state.transceivers[$0]?.receiveEnabled,centreHz:state.ddsFrequencies[$0])},
+            lowerOffsetHz:state.ifLimits?.lower,upperOffsetHz:state.ifLimits?.upper,
+            requestableSampleRates:supported ? [48000,96000,192000,384000]:[],transmitStateKnownOff:knownOff)
+    }
     /// The supervisor rechecks this token before publishing asynchronous model
     /// output. TX, retune and Stop invalidate it before another IQ block arrives.
     public func currentIQCapture(leaseID:UUID) -> TCIIQCapture? {
@@ -873,8 +887,9 @@ extension TCIReadOnlyWebSocketSession {
 
     /// Leases only IQ on the existing control connection. Does not enable RX2,
     /// move DDS/VFO, select a radio or acquire transmit permissions.
-    public func startIQ(receiver: Int, sampleRate: Int, expectedGeneration: UInt64) async throws -> TCIIQSubscription {
-        guard !iqMutationInFlight, !iqCleanupInFlight, iqLeases[receiver] == nil else { throw TCIIQSubscriptionError.occupied }
+    public func startIQ(receiver: Int, sampleRate: Int, expectedGeneration: UInt64, leaseID:UUID=UUID()) async throws -> TCIIQSubscription {
+        guard !iqMutationInFlight, !iqCleanupInFlight, iqLeases[receiver] == nil,
+              !iqLeases.values.contains(where:{$0.id==leaseID}) else { throw TCIIQSubscriptionError.occupied }
         guard [48_000,96_000,192_000,384_000].contains(sampleRate),
               generation == expectedGeneration, observationValue.availability == .available,
               let active = connection, let id = connectionID,
@@ -886,7 +901,6 @@ extension TCIReadOnlyWebSocketSession {
               version >= TCIVersion("1.8")!, version <= TCIVersion("2.1")! else { throw TCIIQSubscriptionError.unsupportedVersion }
         guard iqLeases.values.allSatisfy({$0.rate == sampleRate}) else { throw TCIIQSubscriptionError.rateConflict }
         let pair = AsyncThrowingStream<TCIIQBlock, Error>.makeStream(bufferingPolicy: .bufferingOldest(2))
-        let leaseID = UUID()
         pair.continuation.onTermination = { [weak self] _ in
             Task { await self?.stopIQ(leaseID: leaseID) }
         }
