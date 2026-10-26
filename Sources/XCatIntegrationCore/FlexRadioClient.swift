@@ -74,7 +74,7 @@ public actor FlexRadioClient: RadioControlling {
     }
 
     private struct PendingCommand {
-        let continuation: CheckedContinuation<Void, any Error>
+        let continuation: CheckedContinuation<String, any Error>
         let timeoutTask: Task<Void, Never>
     }
 
@@ -112,6 +112,9 @@ public actor FlexRadioClient: RadioControlling {
     private var wordsPerMinute = 25
     private var reportedClientHandles: Set<String> = []
     private var reportedSliceIDs: Set<Int> = []
+    var iqState = FlexIQState()
+    private var ownClientHandle:UInt32?
+    private var iqBoundClientID:String?
 
     public init(
         host: String,
@@ -158,6 +161,7 @@ public actor FlexRadioClient: RadioControlling {
     /// Close this client without changing the radio's transmit state. Owners
     /// with explicit RF obligations release and observe those before calling it.
     public func stopTransportOnly() async {
+        iqReset()
         shouldRun = false
         reconnectTask?.cancel()
         reconnectTask = nil
@@ -181,6 +185,7 @@ public actor FlexRadioClient: RadioControlling {
             start()
             return
         }
+        iqReset()
         reconnectAttempt = 0
         generation += 1
         connection?.cancel()
@@ -497,6 +502,7 @@ public actor FlexRadioClient: RadioControlling {
         }
         if line.first == "H" {
             clientHandleReceived = true
+            ownClientHandle=FlexIQResourceInventory.handle(String(line.dropFirst()))
             return
         }
         guard line.first == "S" else { return }
@@ -504,6 +510,7 @@ public actor FlexRadioClient: RadioControlling {
         let statusParts = payload.split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false)
         guard statusParts.count == 2 else { return }
         let body = String(statusParts[1])
+        iqConsumeStatus(body)
         let tokens = body.split(separator: " ")
         guard let object = tokens.first else { return }
 
@@ -544,6 +551,7 @@ public actor FlexRadioClient: RadioControlling {
                     interlockKnown = false
                 }
                 publishSnapshot()
+                iqRevalidate()
             }
         case "transmit":
             if let watts = FlexRFPowerStatusParser.parse(line) {
@@ -562,6 +570,8 @@ public actor FlexRadioClient: RadioControlling {
     }
 
     private func applyClient(identifier: String?, properties: [String: String]) {
+        iqObserveStation(handle:Self.normalizedHandle(identifier ?? properties["handle"]).flatMap(FlexIQResourceInventory.handle),
+            matches:properties["station"].map{Self.normalizedStation($0)==Self.normalizedStation(stationName)},removed:properties["removed"] != nil)
         if let handle = Self.normalizedHandle(identifier ?? properties["handle"]),
            reportedClientHandles.insert(handle).inserted {
             let observedStation = properties["station"].map(Self.displayStation) ?? "unnamed"
@@ -572,6 +582,8 @@ public actor FlexRadioClient: RadioControlling {
             if Self.normalizedHandle(identifier ?? properties["handle"]) == followedClientHandle {
                 followedClientHandle = nil
                 followedClientID = nil
+                iqBoundClientID = nil
+                iqRevalidate()
                 selectedSliceID = nil
                 value.isConnected = false
                 publishSnapshot()
@@ -585,8 +597,17 @@ public actor FlexRadioClient: RadioControlling {
         followedClientHandle = Self.normalizedHandle(identifier ?? properties["handle"])
         followedClientID = newClientID ?? followedClientID
         if shouldBind, let followedClientID {
-            Task { try? await sendCommand("client bind client_id=\(followedClientID)") }
+            iqBoundClientID=nil
+            let bindingGeneration=generation
+            Task {
+                do {
+                    try await sendCommand("client bind client_id=\(followedClientID)")
+                    guard generation==bindingGeneration,self.followedClientID==followedClientID else{return}
+                    iqBoundClientID=followedClientID
+                } catch { /* CAT observation remains available; IQ binding is unproven. */ }
+            }
         }
+        iqRevalidate()
         selectBestSlice()
     }
 
@@ -682,12 +703,16 @@ public actor FlexRadioClient: RadioControlling {
     }
 
     private func sendCommand(_ body: String, timeout: Duration = .seconds(5)) async throws {
+        _ = try await sendReply(body,timeout:timeout)
+    }
+
+    private func sendReply(_ body:String,timeout:Duration = .seconds(5)) async throws -> String {
         guard transportReady, let connection else { throw XCatError.notConnected }
         let commandGeneration = generation
         let sequence = commandSequence
         commandSequence += 1
         let command = "C\(sequence)|\(body)\n"
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, any Error>) in
             let timeoutTask = Task { [weak self] in
                 try? await Task.sleep(for: timeout)
                 guard !Task.isCancelled else { return }
@@ -707,7 +732,7 @@ public actor FlexRadioClient: RadioControlling {
               let pending = pendingCommands.removeValue(forKey: response.sequence) else { return }
         pending.timeoutTask.cancel()
         if response.code == 0 {
-            pending.continuation.resume()
+            pending.continuation.resume(returning:response.message)
         } else {
             let message = !response.message.isEmpty
                 ? response.message
@@ -740,6 +765,7 @@ public actor FlexRadioClient: RadioControlling {
 
     private func connectionFailed(_ message: String, generation currentGeneration: Int) async {
         guard currentGeneration == generation else { return }
+        iqReset()
         pingTask?.cancel()
         pingTask = nil
         generation += 1
@@ -773,6 +799,9 @@ public actor FlexRadioClient: RadioControlling {
     }
 
     private func resetSessionState() {
+        iqReset()
+        ownClientHandle=nil
+        iqBoundClientID=nil
         pingTask?.cancel()
         pingTask = nil
         inboundBuffer.removeAll(keepingCapacity: true)
@@ -794,6 +823,29 @@ public actor FlexRadioClient: RadioControlling {
     private func transition(_ newState: RadioConnectionState, _ description: String) {
         state = newState
         onState(newState, description)
+    }
+
+    // The IQ companion uses this exact control owner and its acknowledged Station
+    // binding. A DNS name, selected slice, or client-bind attempt is insufficient.
+    func iqControlContext() -> FlexIQControlContext? {
+        guard wanValidationHandle==nil,transportReady,state == .ready,
+              let ownClientHandle,let followedClientID,iqBoundClientID==followedClientID,
+              let station=followedClientHandle.flatMap(FlexIQResourceInventory.handle),
+              iqState.stationMatches==[station],
+              case let .hostPort(peer,peerPort)=connection?.currentPath?.remoteEndpoint else{return nil}
+        switch peer {case .ipv4,.ipv6:break;default:return nil}
+        return FlexIQControlContext(generation:generation,peer:peer,port:peerPort.rawValue,
+            ownHandle:ownClientHandle,stationHandle:station,knownReceive:interlockKnown && !value.isTransmitting && iqState.receiveKnown)
+    }
+    func iqCommand(_ command:String,generation expected:Int) async throws -> String {
+        guard expected==generation,transportReady else{throw FlexIQSubscriptionError.stationChanged}
+        let reply=try await sendReply(command)
+        guard expected==generation,transportReady else{throw FlexIQSubscriptionError.stationChanged}
+        return reply
+    }
+    func iqMayRemoveStream(_ id:UInt32,generation expected:Int)->Bool {
+        guard generation==expected,transportReady,let ownClientHandle else{return false}
+        return iqState.inventory.streams[id]?.clientHandle.map{$0==ownClientHandle} ?? true
     }
 
     private static func normalizedHandle(_ value: String?) -> String? {

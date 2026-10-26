@@ -38,6 +38,22 @@ private enum StationRadioRegistry {
 /// synthesized when that service or its radio is unavailable.
 enum LiveStationMethods {
     #if os(macOS)
+    static func cwFlexCapabilities(radioID:String) async -> FlexIQCapabilities?{await StationRadioRegistry.flex[radioID]?.cwIQCapabilities()}
+    static func cwFlexRevokeHandoffs() async {
+        async let first:Void=StationRadioRegistry.flex["radio1"]?.cwRevokeIQHandoffs() ?? ()
+        async let second:Void=StationRadioRegistry.flex["radio2"]?.cwRevokeIQHandoffs() ?? ()
+        _ = await(first,second)
+    }
+    static func cwFlexHandoff(radioID:String,panadapterID:String,inventoryRevision:String) async throws {
+        guard let owner=StationRadioRegistry.flex[radioID] else{throw invalidParams()}
+        try await owner.cwAuthorizeIQHandoff(panadapterID:panadapterID,inventoryRevision:inventoryRevision)
+    }
+    static func cwStartFlex(radioID:String,panadapterID:String,sampleRate:Int,leaseID:UUID) async throws -> FlexIQSubscription {
+        guard let owner=StationRadioRegistry.flex[radioID] else{throw invalidParams()}
+        return try await owner.cwStartIQ(panadapterID:panadapterID,sampleRate:sampleRate,leaseID:leaseID)
+    }
+    static func cwStopFlex(radioID:String,leaseID:UUID) async{await StationRadioRegistry.flex[radioID]?.cwStopIQ(leaseID:leaseID)}
+    static func cwFlexCapture(radioID:String,leaseID:UUID) async -> FlexIQCapture?{await StationRadioRegistry.flex[radioID]?.cwIQCapture(leaseID:leaseID)}
     static func cwTCICapabilities(radioID:String) async -> TCIIQCapabilities? {
         await StationRadioRegistry.tci[radioID]?.cwIQCapabilities()
     }

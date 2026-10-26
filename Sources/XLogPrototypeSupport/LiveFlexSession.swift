@@ -10,9 +10,30 @@ protocol FlexSessionRadio: RadioControlling {
     func setPrimaryMode(_ mode: String) async throws
     func transmitObservation() async -> FlexRadioClient.TransmitObservation?
     func rfPowerObservation() async -> FlexRadioClient.RFPowerObservation?
+    func cwIQCapabilities() async -> FlexIQCapabilities?
+    func cwAuthorizeIQHandoff(panadapterID:String,inventoryRevision:String) async throws
+    func cwStartIQ(panadapterID:String,sampleRate:Int,leaseID:UUID) async throws -> FlexIQSubscription
+    func cwStopIQ(leaseID:UUID) async
+    func cwIQCapture(leaseID:UUID) async -> FlexIQCapture?
+    func cwRevokeIQHandoffs() async
 }
 
-extension FlexRadioClient: FlexSessionRadio {}
+extension FlexSessionRadio {
+    func cwIQCapabilities() async -> FlexIQCapabilities?{nil}
+    func cwAuthorizeIQHandoff(panadapterID:String,inventoryRevision:String) async throws{throw FlexIQSubscriptionError.unavailable}
+    func cwStartIQ(panadapterID:String,sampleRate:Int,leaseID:UUID) async throws -> FlexIQSubscription{throw FlexIQSubscriptionError.unavailable}
+    func cwStopIQ(leaseID:UUID) async{}
+    func cwIQCapture(leaseID:UUID) async -> FlexIQCapture?{nil}
+    func cwRevokeIQHandoffs() async{}
+}
+extension FlexRadioClient: FlexSessionRadio {
+    func cwIQCapabilities() async -> FlexIQCapabilities?{await iqCapabilities()}
+    func cwAuthorizeIQHandoff(panadapterID:String,inventoryRevision:String) async throws{try await authorizeIQHandoff(panadapterID:panadapterID,inventoryRevision:inventoryRevision)}
+    func cwStartIQ(panadapterID:String,sampleRate:Int,leaseID:UUID) async throws -> FlexIQSubscription{try await startIQ(panadapterID:panadapterID,sampleRate:sampleRate,leaseID:leaseID)}
+    func cwStopIQ(leaseID:UUID) async{await stopIQ(leaseID:leaseID)}
+    func cwIQCapture(leaseID:UUID) async -> FlexIQCapture?{currentIQCapture(leaseID:leaseID)}
+    func cwRevokeIQHandoffs() async{revokeIQHandoffs()}
+}
 
 /// Explicit direct-IP FLEX owner. A command ACK is never promoted to observed
 /// success, and disconnect only sends RF release commands for this session's
@@ -57,6 +78,31 @@ actor LiveFlexSession {
     private var guiPTTReleaseOverlappedPendingOn = false
     private var ownsCW = false
     private var ownsTune = false
+
+    func cwIQCapabilities() async -> FlexIQCapabilities? {
+        guard !terminal,!transitioning,let radio else{return nil}
+        return await radio.cwIQCapabilities()
+    }
+    func cwAuthorizeIQHandoff(panadapterID:String,inventoryRevision:String) async throws {
+        guard !terminal,!transitioning,let radio else{throw FlexIQSubscriptionError.unavailable}
+        let epoch=operationEpoch
+        try await radio.cwAuthorizeIQHandoff(panadapterID:panadapterID,inventoryRevision:inventoryRevision)
+        guard !terminal,!transitioning,operationEpoch==epoch else{throw FlexIQSubscriptionError.stationChanged}
+    }
+    func cwStartIQ(panadapterID:String,sampleRate:Int,leaseID:UUID) async throws -> FlexIQSubscription {
+        guard !terminal,!transitioning,let radio else{throw FlexIQSubscriptionError.unavailable}
+        let epoch=operationEpoch
+        let result=try await radio.cwStartIQ(panadapterID:panadapterID,sampleRate:sampleRate,leaseID:leaseID)
+        guard !terminal,!transitioning,operationEpoch==epoch else{await radio.cwStopIQ(leaseID:leaseID);throw FlexIQSubscriptionError.stationChanged}
+        return result
+    }
+    func cwStopIQ(leaseID:UUID) async{await radio?.cwStopIQ(leaseID:leaseID)}
+    func cwRevokeIQHandoffs() async{await radio?.cwRevokeIQHandoffs()}
+    func cwIQCapture(leaseID:UUID) async -> FlexIQCapture? {
+        guard !terminal,!transitioning,let radio else{return nil};let epoch=operationEpoch
+        let capture=await radio.cwIQCapture(leaseID:leaseID)
+        guard !terminal,!transitioning,operationEpoch==epoch else{return nil};return capture
+    }
 
     init(readbackTimeout: Duration = .seconds(4), factory: @escaping Factory = { config, onState, onSnapshot in
         FlexRadioClient(host: config.host, port: config.port, stationName: config.stationName,

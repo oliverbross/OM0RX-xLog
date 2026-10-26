@@ -6,16 +6,20 @@ export type CWDescriptor = { sessionID: string; sourceID: string; radioID: strin
   provider: string; centreHz: number; sampleRate: number; mappingQualified: boolean; replay: boolean };
 export type CWDecodeTrack = { sourceID: string; trackID: string; descriptor: CWDescriptor; revision: string; offsetHz: number; frequencyHz?: number;
   committed: string; provisional: string; ambiguous: boolean; inferenceMilliseconds?: number };
+export type CWCapability = { radioID: string; provider: string; ready: boolean; device?: string; protocolVersion?: string;
+  receivers: { receiver: number; enabled?: boolean; centreHz?: number }[]; requestableSampleRates: number[]; transmitStateKnownOff?: boolean;
+  inventoryRevision?: string; identity?: { serial: string; model: string; address: string; controlPort: number }; stationHandle?: number;
+  panadapters?: { id: string; clientHandle?: number; channel?: number; centreHz?: number; receiveAntenna?: string }[]; handoffPanadapters?: string[] };
 export type CWDecodeSnapshot = { sessionID?: string; state: string; failure?: string; automaticSpotsQualified: boolean; resourcesAvailable: boolean;
   configuration: CWDecodeConfiguration; sources: { configuration: CWIQSource; state: string; descriptor?: CWDescriptor; retryCount: number; failure?: string }[];
-  tracks: CWDecodeTrack[]; capabilities: { radioID: string; provider: string; ready: boolean; device?: string; protocolVersion?: string;
-    receivers: { receiver: number; enabled?: boolean; centreHz?: number }[]; requestableSampleRates: number[]; transmitStateKnownOff?: boolean }[];
+  tracks: CWDecodeTrack[]; capabilities: CWCapability[];
   listener: { state: string; address: string; port?: number; clients: number; authenticatedClients: number; retainedSpots: number;
     acceptedConnections: number; refusedConnections: number; slowDisconnects: number; protocolDisconnects: number } };
-export const cwDecodeMethods = ["cw_decode_snapshot", "cw_decode_configuration_save", "cw_decode_start", "cw_decode_stop", "cw_decode_listener_start", "cw_decode_listener_stop"] as const;
+export const cwDecodeMethods = ["cw_decode_snapshot", "cw_decode_configuration_save", "cw_decode_start", "cw_decode_stop", "cw_decode_listener_start", "cw_decode_listener_stop", "cw_decode_flex_handoff"] as const;
 export type CWDecodeMethod = typeof cwDecodeMethods[number];
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const counter = /^(0|[1-9][0-9]{0,19})$/;
+const panID = /^[0-9a-f]{8}$/;
 const object = (value: unknown): value is Record<string, any> => !!value && typeof value === "object" && !Array.isArray(value);
 const integer = (value: unknown, min = 0, max = Number.MAX_SAFE_INTEGER): value is number => Number.isSafeInteger(value) && (value as number) >= min && (value as number) <= max;
 const source = (value: unknown): value is CWIQSource => object(value) && uuid.test(value.id) && ["radio1", "radio2"].includes(value.radioID) &&
@@ -52,8 +56,19 @@ export function parseCWDecodeSnapshot(value: unknown): CWDecodeSnapshot {
     ["radio1", "radio2"].includes(row.radioID) && ["tci_iq", "flex_dax_iq"].includes(row.provider) && typeof row.ready === "boolean" &&
     Array.isArray(row.receivers) && row.receivers.length <= 2 && row.receivers.every(receiver => object(receiver) && integer(receiver.receiver, 0, 1) &&
       (receiver.enabled === undefined || typeof receiver.enabled === "boolean") && (receiver.centreHz === undefined || integer(receiver.centreHz, 0, 1e9))) &&
-    Array.isArray(row.requestableSampleRates) && row.requestableSampleRates.length <= 5 && row.requestableSampleRates.every(rate => integer(rate, 24000, 384000)))) throw new Error("CW Decode capabilities could not be verified.");
+    Array.isArray(row.requestableSampleRates) && row.requestableSampleRates.length <= 5 && row.requestableSampleRates.every(rate => integer(rate, 24000, 384000)) &&
+    (row.provider !== "flex_dax_iq" || flexCapability(row)))) throw new Error("CW Decode capabilities could not be verified.");
+  if (new Set(value.capabilities.map(row => `${row.radioID}:${row.provider}`)).size !== value.capabilities.length) throw new Error("CW Decode returned duplicate radio capabilities.");
   return value as CWDecodeSnapshot;
+}
+function flexCapability(row: Record<string, any>): boolean {
+  return (row.inventoryRevision === undefined && !row.ready || typeof row.inventoryRevision === "string" && counter.test(row.inventoryRevision)) &&
+    (row.stationHandle === undefined || integer(row.stationHandle, 0, 0xffffffff)) &&
+    (row.identity === undefined || object(row.identity) && ["serial", "model", "address"].every(key => typeof row.identity[key] === "string" && row.identity[key].length > 0 && row.identity[key].length <= 64) && integer(row.identity.controlPort, 1, 65535)) &&
+    Array.isArray(row.panadapters) && row.panadapters.length <= 16 && row.panadapters.every(pan => object(pan) && typeof pan.id === "string" && panID.test(pan.id) &&
+      (pan.clientHandle === undefined || integer(pan.clientHandle, 0, 0xffffffff)) && (pan.channel === undefined || integer(pan.channel, 0, 8)) &&
+      (pan.centreHz === undefined || integer(pan.centreHz, 100000, 1e9)) && (pan.receiveAntenna === undefined || typeof pan.receiveAntenna === "string" && pan.receiveAntenna.length <= 64)) &&
+    (row.handoffPanadapters === undefined || Array.isArray(row.handoffPanadapters) && row.handoffPanadapters.length <= 2 && row.handoffPanadapters.every(id => typeof id === "string" && panID.test(id)));
 }
 export async function requestCWDecode(method: CWDecodeMethod, params: Record<string, unknown> = {}): Promise<CWDecodeSnapshot> {
   if (!cwDecodeMethods.includes(method)) throw new Error("This window can only use CW Decode controls.");

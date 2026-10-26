@@ -65,4 +65,20 @@ describe("CW Decode shared native view", () => {
     await act(async () => { window.dispatchEvent(new Event("focus")); await Promise.resolve(); });
     expect(screen.getByText("IQ resource is occupied. Choose another source.")).toBeTruthy();
   });
+  it("requires an explicit current DAX handoff without acquiring on mount", async () => {
+    const fixture = cwDecodeFixture(); fixture.configuration.sources[0] = { ...fixture.configuration.sources[0], provider: "flex_dax_iq", receiverID: "40000000" };
+    fixture.capabilities = [{ radioID: "radio1", provider: "flex_dax_iq", ready: true, receivers: [], requestableSampleRates: [96000],
+      inventoryRevision: "7", stationHandle: 0x1234, transmitStateKnownOff: true, handoffPanadapters: [],
+      panadapters: [{ id: "40000000", channel: 1, clientHandle: 0x1234, centreHz: 14025000, receiveAntenna: "ANT1" }] }];
+    const owner = service(fixture); render(<CWDecodePanel request={owner.request} />);
+    const button = await screen.findByRole("button", { name: "Allow xLog to acquire DAX IQ 1" });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    expect(owner.request.mock.calls.every(([method]) => method === "cw_decode_snapshot")).toBe(true);
+    fireEvent.click(screen.getByLabelText("I released DAX IQ 1 in other apps for this Station."));
+    fireEvent.click(button);
+    await waitFor(() => expect(owner.request.mock.calls.some(([method]) => method === "cw_decode_flex_handoff")).toBe(true));
+    expect(owner.request.mock.calls.find(([method]) => method === "cw_decode_flex_handoff")![1]).toEqual({ expected_revision: fixture.configuration.revision,
+      radio_id: "radio1", panadapter_id: "40000000", inventory_revision: "7" });
+    expect(owner.request.mock.calls.some(([method]) => method === "cw_decode_start")).toBe(false);
+  });
 });

@@ -240,6 +240,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "cw_decode_stop",
         "cw_decode_listener_start",
         "cw_decode_listener_stop",
+        "cw_decode_flex_handoff",
         "parse_adif",
         "self_test",
         "integration_self_test",
@@ -1237,7 +1238,7 @@ fn service_request_failure(phase: &str, control_request: bool) -> String {
 mod tests {
     #[test]
     fn cw_decode_has_receive_only_authority_and_never_inherits_cw_output() {
-        for method in ["cw_decode_snapshot", "cw_decode_configuration_save", "cw_decode_start", "cw_decode_stop", "cw_decode_listener_start", "cw_decode_listener_stop"] {
+        for method in ["cw_decode_snapshot", "cw_decode_configuration_save", "cw_decode_start", "cw_decode_stop", "cw_decode_listener_start", "cw_decode_listener_stop", "cw_decode_flex_handoff"] {
             let request = serde_json::json!({"id":"cw-read","method":method,"params":{}});
             assert!(super::validate_request(&request).is_ok());
             for label in ["main", "cw-decode"] { assert!(super::validate_surface(label, &request).is_ok(), "{label}:{method}"); }

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ExternalLink, Play, RefreshCw, Settings2, Square, X } from "lucide-react";
-import { cwSourceName, requestCWDecode, type CWDecodeConfiguration, type CWDecodeSnapshot, type CWIQSource } from "./cwDecode";
+import { cwSourceName, requestCWDecode, type CWCapability, type CWDecodeConfiguration, type CWDecodeSnapshot, type CWIQSource } from "./cwDecode";
 import { useCWDecode } from "./useCWDecode";
 import "./CWDecodePanel.css";
 
@@ -46,6 +46,8 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
         return <div key={source.id}><strong>{cwSourceName(source)}</strong><span>{live ? stateName(live.state) : "Stopped"}</span>
           <span>{live?.descriptor ? mhz(live.descriptor.centreHz) : "IQ centre unavailable"} · {source.sampleRate / 1000} kHz</span>
           {!capability?.ready && <small>Connect this radio in Radio Settings to receive IQ.</small>}
+          {source.provider === "flex_dax_iq" && <FlexHandoff source={source} capability={capability} revision={snapshot.configuration.revision}
+            disabled={busy || active} command={command} />}
           {live?.failure && <small>{live.retryCount >= 3 ? "Retry limit reached. Stop, check the source, then start again." : `Source interrupted · retry ${live.retryCount} of 3`}</small>}
         </div>;
       }) : <div><strong>No monitoring spans selected</strong><span>Choose one or two IQ sources to begin.</span><button type="button" onClick={edit}>Choose sources</button></div>}</div>
@@ -82,6 +84,23 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
   </section>;
 }
 
+function FlexHandoff({ source, capability, revision, disabled, command }: { source: CWIQSource; capability?: CWCapability; revision: string;
+  disabled: boolean; command: ReturnType<typeof useCWDecode>["command"] }) {
+  const [acknowledged, setAcknowledged] = useState("");
+  const pan = capability?.panadapters?.find(row => row.id === source.receiverID), key = `${revision}:${capability?.inventoryRevision}:${source.id}`;
+  if (!capability?.ready) return <small>FLEX IQ requires the direct local radio connection and its acknowledged SmartSDR Station binding.</small>;
+  if (!pan || !pan.channel || pan.clientHandle === undefined || pan.clientHandle !== capability.stationHandle || !pan.receiveAntenna || !pan.centreHz)
+    return <small>Choose an existing panadapter owned by this Station with an assigned DAX IQ channel, centre and receive antenna.</small>;
+  if (capability.handoffPanadapters?.includes(pan.id)) return <small>Handoff ready. Start decoding within 30 seconds.</small>;
+  return <div className="cw-decode-handoff"><small>DAX IQ {pan.channel} · {pan.receiveAntenna} · {mhz(pan.centreHz)}{capability.identity ? ` · ${capability.identity.model} ${capability.identity.serial}` : " · radio identity awaits local discovery"}</small>
+    <label className="cw-decode-check"><input type="checkbox" disabled={disabled} checked={acknowledged === key}
+      onChange={event => setAcknowledged(event.target.checked ? key : "")} />I released DAX IQ {pan.channel} in other apps for this Station.</label>
+    <button type="button" disabled={disabled || acknowledged !== key || !capability.inventoryRevision || !capability.transmitStateKnownOff}
+      onClick={() => { setAcknowledged(""); void command("cw_decode_flex_handoff", { expected_revision: revision, radio_id: source.radioID,
+        panadapter_id: pan.id, inventory_revision: capability.inventoryRevision }); }}>Allow xLog to acquire DAX IQ {pan.channel}</button>
+    <small>A known active competitor still blocks acquisition. Stop clears this temporary handoff.</small></div>;
+}
+
 function CWDecodeSettings({ value, snapshot, busy, change, save, close }: { value: CWDecodeConfiguration; snapshot: CWDecodeSnapshot; busy: boolean;
   change: (value: CWDecodeConfiguration) => void; save: () => Promise<void>; close: () => void }) {
   const update = (index: number, patch: Partial<CWIQSource>) => change({ ...value, sources: value.sources.map((source, position) => position === index ? { ...source, ...patch } : source) });
@@ -91,9 +110,12 @@ function CWDecodeSettings({ value, snapshot, busy, change, save, close }: { valu
     {sourceLocked && <p>Stop decoding to change monitoring spans.</p>}
     <fieldset disabled={busy || sourceLocked}><legend>Monitoring spans</legend>{value.sources.map((source, index) => <div className="cw-decode-source-editor" key={source.id}>
       <label>Radio<select value={source.radioID} onChange={event => update(index, { radioID: event.target.value as CWIQSource["radioID"] })}><option value="radio1">Radio 1</option><option value="radio2">Radio 2</option></select></label>
-      <label>IQ provider<select value={source.provider} onChange={event => update(index, { provider: event.target.value as CWIQSource["provider"], receiverID: "0" })}><option value="tci_iq">SunSDR · TCI IQ</option><option value="flex_dax_iq">FLEX · DAX IQ</option></select></label>
+      <label>IQ provider<select value={source.provider} onChange={event => update(index, { provider: event.target.value as CWIQSource["provider"], receiverID: event.target.value === "tci_iq" ? "0" : snapshot.capabilities.find(row => row.radioID === source.radioID && row.provider === "flex_dax_iq")?.panadapters?.[0]?.id ?? "" })}><option value="tci_iq">SunSDR · TCI IQ</option><option value="flex_dax_iq">FLEX · DAX IQ</option></select></label>
       {source.provider === "tci_iq" ? <label>Receiver<select value={source.receiverID} onChange={event => update(index, { receiverID: event.target.value })}><option value="0">RX 1</option><option value="1">RX 2</option></select></label>
-        : <label>Panadapter ID<input value={source.receiverID} maxLength={64} onChange={event => update(index, { receiverID: event.target.value })} /></label>}
+        : <label>Existing panadapter<select value={source.receiverID} onChange={event => update(index, { receiverID: event.target.value })}>
+          <option value="">Choose an observed panadapter</option>{snapshot.capabilities.find(row => row.radioID === source.radioID && row.provider === "flex_dax_iq")?.panadapters?.map(pan =>
+            <option key={pan.id} value={pan.id}>{pan.id} · DAX IQ {pan.channel ?? "unassigned"} · {pan.centreHz ? mhz(pan.centreHz) : "centre unknown"}</option>)}
+        </select></label>}
       <label>Sample rate<select value={source.sampleRate} onChange={event => update(index, { sampleRate: Number(event.target.value) })}>{[48000, 96000, 192000].map(rate => <option key={rate} value={rate}>{rate / 1000} kHz</option>)}</select></label>
       <button type="button" onClick={() => change({ ...value, sources: value.sources.filter(item => item.id !== source.id) })}>Remove span {index + 1}</button>
     </div>)}<button type="button" disabled={value.sources.length >= 2} onClick={() => change({ ...value, sources: [...value.sources,

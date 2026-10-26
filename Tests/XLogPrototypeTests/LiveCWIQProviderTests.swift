@@ -58,6 +58,24 @@ final class LiveCWIQProviderTests:XCTestCase {
         let count=await stops.value();XCTAssertEqual(count,1)
         pair.continuation.finish()
     }
+    func testFlexCaptureRemainsUnqualifiedAndSharedLeaseClockStartsAtZero() async throws {
+        let source=try CWSourceConfiguration(radioID:"radio1",provider:.flexDAXIQ,receiverID:"40000000",sampleRate:96000)
+        let identity=FlexIQIdentity(serial:"FIXTURE-8400",model:"FLEX-8400",address:"127.0.0.1",controlPort:4992)
+        let capture=FlexIQCapture(streamToken:UUID(),epoch:8,connectionGeneration:3,identity:identity,stationHandle:0x1234,
+            panadapter:FlexIQPanadapter(id:"40000000",clientHandle:0x1234,channel:1,centreHz:14025000,receiveAntenna:"ANT1"),streamID:0x80000001,sampleRate:96000)
+        let packet=FlexIQPacket(streamID:0x80000001,packetCounter:0,sampleRate:96000,integerTimestamp:nil,fractionalTimestamp:nil,samples:[Float](repeating:0,count:128))
+        let pair=AsyncThrowingStream<FlexIQBlock,Error>.makeStream(bufferingPolicy:.bufferingOldest(2))
+        let adapted=LiveCWIQProvider.adapt(FlexIQSubscription(leaseID:UUID(),blocks:pair.stream),source:source,sessionID:UUID(),stop:{})
+        var iterator=adapted.makeAsyncIterator()
+        pair.continuation.yield(FlexIQBlock(capture:capture,sequence:10,firstSample:640,receivedMonotonicNS:1234,packet:packet))
+        let first=try await iterator.next(),value=try XCTUnwrap(first)
+        XCTAssertEqual(value.firstSample,0);XCTAssertEqual(value.sequence,0);XCTAssertEqual(value.sampleCount,64)
+        XCTAssertEqual(value.descriptor.centreHz,14025000);XCTAssertEqual(value.descriptor.provider,.flexDAXIQ)
+        XCTAssertFalse(value.descriptor.mappingQualified);XCTAssertNil(value.descriptor.spectralSign)
+        pair.continuation.yield(FlexIQBlock(capture:capture,sequence:11,firstSample:704,receivedMonotonicNS:2345,packet:packet))
+        let second=try await iterator.next();XCTAssertEqual(second?.firstSample,64);XCTAssertEqual(second?.sequence,1)
+        pair.continuation.finish()
+    }
 }
 private actor CWProviderStopCounter {
     private var count=0

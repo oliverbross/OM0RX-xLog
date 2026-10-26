@@ -10,6 +10,7 @@ actor LiveCWDecodeMethods {
     private let listener:CWLocalClusterServer
     private let prepareListener:@Sendable () async throws -> Void
     private var listenerIntent=UUID()
+    private var handoffIntent=UUID()
     private var terminated=false,mutation=false
     init(logbook: LiveLogbookMethods = .shared,configurationURL: URL? = nil,
          provider: any CWIQSourceProviding = LiveCWIQProvider(),compute: any CWComputeControlling = CWComputeProcess(),
@@ -22,7 +23,7 @@ actor LiveCWDecodeMethods {
         store=CWConfigurationStore(url:url);session=CWDecodeSession(provider:provider,compute:compute);self.resources=resources
         self.listener=listener;self.prepareListener=prepareListener
     }
-    func terminate() async {terminated=true;listenerIntent=UUID();await listener.stop();await session.stop()}
+    func terminate() async {terminated=true;listenerIntent=UUID();handoffIntent=UUID();await LiveStationMethods.cwFlexRevokeHandoffs();await listener.stop();await session.stop()}
     func handle(method: String,params: [String:Any]) async throws -> [String:Any] {
         guard !terminated else {throw WorkerFailure("worker_stopping","CW Decode is shutting down.")}
         switch method {
@@ -32,7 +33,22 @@ actor LiveCWDecodeMethods {
             guard params.isEmpty else {throw invalid()}
             // Stop does not wait for an in-progress Start request to release
             // mutation admission; the session revokes that intent immediately.
-            await session.stop()
+            handoffIntent=UUID();await LiveStationMethods.cwFlexRevokeHandoffs();await session.stop()
+        case "cw_decode_flex_handoff":
+            guard Set(params.keys)==["expected_revision","radio_id","panadapter_id","inventory_revision"],
+                  let raw=params["expected_revision"] as? String,let revision=UUID(uuidString:raw),
+                  let radioID=params["radio_id"] as? String,let pan=params["panadapter_id"] as? String,
+                  let inventory=params["inventory_revision"] as? String,inventory.count<=20,UInt64(inventory) != nil else{throw invalid()}
+            guard !mutation else{throw WorkerFailure("cw_busy","CW Decode is applying another request.")}
+            mutation=true;defer{mutation=false}
+            let configuration=try store.load(),intent=handoffIntent
+            guard revision==configuration.revision else{throw changed()}
+            guard configuration.sources.contains(where:{$0.radioID==radioID && $0.provider == .flexDAXIQ && $0.receiverID==pan}) else{throw invalid()}
+            do {try await LiveStationMethods.cwFlexHandoff(radioID:radioID,panadapterID:pan,inventoryRevision:inventory)}
+            catch {throw WorkerFailure("cw_flex_handoff_unavailable","FLEX handoff could not be verified. Check the Station, panadapter, DAX ownership and local discovery, then reload resources.")}
+            guard !terminated,handoffIntent==intent else {
+                await LiveStationMethods.cwFlexRevokeHandoffs();throw WorkerFailure("cw_cancelled","FLEX handoff was cancelled.")
+            }
         case "cw_decode_listener_stop":
             guard params.isEmpty else {throw invalid()}
             listenerIntent=UUID();await listener.stop()
@@ -97,11 +113,19 @@ actor LiveCWDecodeMethods {
         result["listener"]=try Self.object(await listener.snapshot())
         async let first=LiveStationMethods.cwTCICapabilities(radioID:"radio1")
         async let second=LiveStationMethods.cwTCICapabilities(radioID:"radio2")
+        async let flexFirst=LiveStationMethods.cwFlexCapabilities(radioID:"radio1")
+        async let flexSecond=LiveStationMethods.cwFlexCapabilities(radioID:"radio2")
         let capabilities=await [first,second]
-        result["capabilities"]=try zip(["radio1","radio2"],capabilities).map {radio,value -> [String:Any] in
+        var rows=try zip(["radio1","radio2"],capabilities).map {radio,value -> [String:Any] in
             var row=try value.map{try Self.object($0)} ?? ["ready":false,"receivers":[],"requestableSampleRates":[]]
             row["radioID"]=radio;row["provider"]="tci_iq";return row
         }
+        let flexCapabilities=await [flexFirst,flexSecond]
+        rows += try zip(["radio1","radio2"],flexCapabilities).map {radio,value -> [String:Any] in
+            var row=try value.map{try Self.object($0)} ?? ["ready":false,"panadapters":[],"requestableSampleRates":[]]
+            row["receivers"]=[];row["radioID"]=radio;row["provider"]="flex_dax_iq";return row
+        }
+        result["capabilities"]=rows
         return result
     }
     private static func object<T:Encodable>(_ value:T) throws -> [String:Any] {
