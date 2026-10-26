@@ -4,9 +4,15 @@ The later [remaining-limits acceptance](REMAINING_LIMITS_ACCEPTANCE_2026-10-26.m
 records the expanded analytics, durable sync evidence and installed 1.3.34
 fresh-receipt handover. The refreshed complete matrix uses the final source gates
 listed there; the checkpoints and earlier release outcomes below remain historical.
+The combined **1.3.36** release is now installed from exact source
+`079570505b06f0a5aba403aa6105909148652c91`; its
+[protected installation receipt](../MACOS_1_3_36_RELEASE_2026-10-26.md) preserves
+the latest normal/contest baseline and distinguishes subsequent configured sync
+updates. All 94 definitions remain accounted for, with 93 core PASS and CQWS's
+explicit UF branch UNVERIFIED. Optional feature and physical limits are separate.
 
 The canonical implementation is on `main` in `/Users/oliver/Documents/Projects/OM0RX-xLog`.
-The final source qualification checkpoint is `128ee7afeac33168a3779dcc143006a1fd257dcf`,
+The original source qualification checkpoint was `128ee7afeac33168a3779dcc143006a1fd257dcf`,
 following host corrections `a037ace046af05ce066d23802d94198661be4ba0`, initial
 catalogue qualification `3f5f44aab9d23031a49703c3a28d5d1afb37dae1`, and the
 literal WIA operating-case regression `e7430723`.

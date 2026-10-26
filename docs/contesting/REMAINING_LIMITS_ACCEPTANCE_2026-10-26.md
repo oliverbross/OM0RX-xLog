@@ -158,6 +158,34 @@ on canonical source. Combined **1.3.36** is now signed and qualified from
 44 packaged Python cases passing again. Its
 [release receipt](../MACOS_1_3_36_RELEASE_2026-10-26.md) records all component
 hashes, matching 4,075 retained entries and disabled-CW provenance.
-One protected replacement is pending the fresh current-draft check. Until its
-installation receipt exists, installed evidence remains specifically 1.3.34.
-Physical hardware, notarization and 1.3.35 live acceptance are not claimed.
+Protected **1.3.36 installation and startup passed**, recorded in pushed receipt
+`3b497578`. Normal Logging and its Operator Desk were restored after one ordinary
+quit and one reopening, with no force, Clear, logging action or mode rehearsal.
+The human settled the latest draft at revision 2987 before replacement; complete
+native/WebKit snapshots and all 16 visible fields matched exactly afterward.
+The Classic/Modern selector was visible, with its existing Modern value unchanged.
+
+The fresh five-root backup contained 793 files/links, 9,802,451,141 bytes and 35
+checked SQLite databases. All protected bytes matched before reopening. Initial
+post-startup tables matched **69,342 normal rows / 775 contest contacts / 785
+contest identities / 850 audit rows**. These current counts were authoritative;
+older state was never restored. An independent identity-only check retained all
+68,563 older normal primary keys with zero missing and 779 added; it includes
+tombstones and does not establish historical metadata/deleted-state changes or
+the cause of those additions.
+
+The new durable journal then recorded an existing configured **automatic** sync
+run: completed, zero conflicts/failures, zero upload attempts or confirmed remote
+writes, 69,341 remote contacts processed and four local updates. A separate final
+comparison found no inserted/removed normal rows and exactly four LoTW/enrichment
+metadata updates, retaining identities, calls, QSO times, bands and modes. The
+completed contest tables and audit remained unchanged. Thus initial installation
+preservation and subsequent ordinary background updates are distinguished; the
+normal table is not falsely described as unchanged after that run. No manual sync
+was invoked, and this new evidence does not reconstruct historical 1.3.32 activity.
+
+Physical hardware, notarization and 1.3.35 live acceptance remain unclaimed.
+The 1.3.34 fresh-receipt bidirectional handover remains the installed mode-switch
+receipt; 1.3.36 repeated exact-worker retirement cases without using the completed
+contest as another live test. Current-source and optional analytics limits above
+remain explicit.
