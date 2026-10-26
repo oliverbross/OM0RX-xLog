@@ -112,15 +112,17 @@ struct NativeAdmission {
 }
 impl Admission for NativeAdmission {
     fn check(&self) -> Result<(), String> {
+        let active_contesting = crate::contest_window_context::active().is_ok();
         let production_contesting = !crate::runtime_profile::CONTESTING_TEST
             && !self.isolated
-            && crate::contest_window_context::active().is_ok();
+            && active_contesting;
         validate_admission(
             &self.label,
             crate::runtime_profile::CONTESTING_TEST,
             self.isolated,
             crate::APP_EXITING.load(Ordering::Acquire),
             production_contesting,
+            crate::runtime_profile::offline_root().is_some() && active_contesting,
         )
     }
 }
@@ -210,8 +212,9 @@ fn validate_admission(
     isolated: bool,
     exiting: bool,
     production_contesting: bool,
+    offline_contesting: bool,
 ) -> Result<(), String> {
-    if label != "contest-setup" || exiting || !(compiled_test && isolated || production_contesting && !isolated) {
+    if label != "contest-setup" || exiting || !((compiled_test || offline_contesting) && isolated || production_contesting && !isolated) {
         Err("Contest export saving requires the active Contest Setup window.".into())
     } else {
         Ok(())
@@ -966,8 +969,8 @@ mod tests {
 
     #[test]
     fn admission_requires_setup_owner_profile_and_nonexiting_state() {
-        assert!(validate_admission("contest-setup", true, true, false, false).is_ok());
-        assert!(validate_admission("contest-setup", false, false, false, true).is_ok());
+        assert!(validate_admission("contest-setup", true, true, false, false, false).is_ok());
+        assert!(validate_admission("contest-setup", false, false, false, true, false).is_ok());
         for value in [
             ("other", true, true, false),
             ("main", true, true, false),
@@ -975,7 +978,20 @@ mod tests {
             ("contest-setup", true, false, false),
             ("contest-setup", true, true, true),
         ] {
-            assert!(validate_admission(value.0, value.1, value.2, value.3, false).is_err());
+            assert!(validate_admission(value.0, value.1, value.2, value.3, false, false).is_err());
+        }
+    }
+
+    #[test]
+    fn offline_export_requires_active_contest_setup_and_retains_other_fences() {
+        assert!(validate_admission("contest-setup", false, true, false, false, true).is_ok());
+        for (label, isolated, exiting, active) in [
+            ("contest-setup", true, false, false),
+            ("main", true, false, true),
+            ("contest-setup", false, false, true),
+            ("contest-setup", true, true, true),
+        ] {
+            assert!(validate_admission(label, false, isolated, exiting, false, active).is_err());
         }
     }
 
