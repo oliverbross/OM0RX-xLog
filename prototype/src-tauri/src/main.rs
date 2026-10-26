@@ -27,6 +27,7 @@ mod spot_activation_backend;
 mod cw_track_selection;
 mod cw_callsign_bridge;
 mod cw_contest_callsign;
+mod cw_tune;
 mod qsy_clear;
 mod radio_read;
 mod manual_tune;
@@ -415,6 +416,16 @@ async fn cw_callsign_request(window:tauri::WebviewWindow,app:tauri::AppHandle,st
             tauri::async_runtime::spawn_blocking(move||cw_callsign_bridge::project(owner.reconcile(&operation)?)).await.map_err(|_|"CW action readback failed.".to_string())?
         }
     }
+}
+#[tauri::command]
+async fn cw_tune_request(window:tauri::WebviewWindow,app:tauri::AppHandle,state:tauri::State<'_,acceptance::Acceptance>,params:serde_json::Value)->Result<serde_json::Value,String> {
+    cw_callsign_bridge::validate_surface(window.label(),runtime_profile::isolated(state.path.is_some()),APP_EXITING.load(Ordering::Acquire))?;
+    if let Some(context)=contest_cw_decode_url_context(window.label(),&window.url().map_err(|error|error.to_string())?)? {contest_window_context::admit(&context)?;}
+    let action=cw_tune::parse(params)?;
+    tauri::async_runtime::spawn_blocking(move||match action {
+        cw_tune::Action::Apply(request,context,module)=>cw_tune::apply(&app,request,context,module),
+        cw_tune::Action::Status(operation,radio)=>cw_tune::status(&app,&operation,&radio),
+    }).await.map_err(|_|"CW tune outcome is unknown. Check the original operation; no tune was repeated.".to_string())?
 }
 #[tauri::command]
 async fn cw_contest_callsign_resolve(window:tauri::WebviewWindow,state:tauri::State<'_,acceptance::Acceptance>,operation_id:String)->Result<serde_json::Value,String> {
@@ -2458,7 +2469,11 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         let task_admission = module_admission.clone();
         return tauri::async_runtime::spawn_blocking(move || {
             let _module_admission = task_admission;
-            if request["method"]=="cw_decode_snapshot" {cw_track_selection::snapshot(request)} else {worker::request_existing(request)}
+            if request["method"]=="cw_decode_snapshot" {
+                let mut response=cw_track_selection::snapshot(request)?;
+                if response["ok"]==true {response["result"]["activeRadioID"]=serde_json::json!(radio_slots::active(&app)?);}
+                Ok(response)
+            } else {worker::request_existing(request)}
         }).await.map_err(|_| "CW Decode request failed".to_string())?;
     }
     if matches!(workspace_windows::surface_role(window.label()), "monitor" | "log-qso" | "spot-history" | "world-map" | "dxpedition-map" | "band-maps" | "callsign-intelligence" | "previous-qsos" | "operating-goals" | "station-control" | "cw" | "rotor" | "station-status" | "propagation" | "station-identity" | "alerts" | "antenna") { worker::validate_surface(window.label(), &request)?; }
@@ -4132,7 +4147,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![operating_module_status, operating_module_switch, operating_module_transition_ack, operating_module_transition_pending, worker_request, cw_session_request, contest_cw_speed_request, station_session_request, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
-            spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity, cw_callsign_request, cw_contest_callsign_resolve,
+            spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity, cw_callsign_request, cw_tune_request, cw_contest_callsign_resolve,
             operator_draft_read_radio,
             operator_draft_read_radio_recover,
             operator_draft_follow_snapshot, operator_draft_follow_set, operator_draft_follow_settled,

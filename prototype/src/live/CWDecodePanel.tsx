@@ -3,6 +3,7 @@ import { ExternalLink, Play, RefreshCw, Settings2, Square, X } from "lucide-reac
 import { cwSourceName, requestCWDecode, type CWCapability, type CWDecodeConfiguration, type CWDecodeSnapshot, type CWIQSource } from "./cwDecode";
 import { useCWDecode } from "./useCWDecode";
 import { CWCallsignAction, type CWCallsignRequest } from "./CWCallsignAction";
+import { CWTuneAction, type CWTuneRequest } from "./CWTuneAction";
 import "./CWDecodePanel.css";
 
 const stateName = (state: string) => ({ stopped: "Stopped", preparing: "Preparing", acquiring: "Acquiring IQ", running: "Decoding", quarantined: "Waiting for fresh IQ",
@@ -10,8 +11,8 @@ const stateName = (state: string) => ({ stopped: "Stopped", preparing: "Preparin
 const mhz = (hz: number) => `${(hz / 1e6).toFixed(6)} MHz`;
 const offset = (hz: number) => `${hz >= 0 ? "+" : ""}${(hz / 1000).toFixed(3)} kHz`;
 
-export function CWDecodePanel({ detached = false, onUndock, request = requestCWDecode, callsignRequest }: {
-  detached?: boolean; onUndock?: () => void; request?: typeof requestCWDecode; callsignRequest?: CWCallsignRequest;
+export function CWDecodePanel({ detached = false, onUndock, request = requestCWDecode, callsignRequest, tuneRequest }: {
+  detached?: boolean; onUndock?: () => void; request?: typeof requestCWDecode; callsignRequest?: CWCallsignRequest; tuneRequest?: CWTuneRequest;
 }) {
   const { snapshot, error, busy, refresh, command } = useCWDecode(request);
   const [editor, setEditor] = useState<CWDecodeConfiguration | null>(null), [selected, setSelected] = useState<string | null>(null), [sourceFilter, setSourceFilter] = useState("all");
@@ -63,6 +64,7 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
       }) : <div><strong>No monitoring spans selected</strong><span>Choose one or two IQ sources to begin.</span><button type="button" onClick={edit}>Choose sources</button></div>}</div>
       {editor && <CWDecodeSettings value={editor} snapshot={snapshot} busy={busy} change={setEditor} save={save} close={() => setEditor(null)} />}
       <CWCallsignAction signal={signal} snapshot={snapshot} request={callsignRequest} />
+      <CWTuneAction signal={signal} snapshot={snapshot} request={tuneRequest} />
       <div className="cw-decode-workspace">
         <div className="cw-decode-signals"><div className="cw-decode-table-bar"><h3>Signals <span>{tracks.length}</span></h3>
           <label>Source<select value={sourceFilter} onChange={event => setSourceFilter(event.target.value)}><option value="all">All spans</option>

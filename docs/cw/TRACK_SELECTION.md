@@ -178,8 +178,8 @@ to that exact worker, compares the full native reply and rechecks the pool and
 worker after readback. Callsign-only and RF tokens cannot substitute for each
 other. Five native pool/readback cases and strict frontend RF-token projection
 checks cover this boundary. The RF resolver is intentionally not yet called by
-an operating action; its unused-function compiler warning reflects the pending
-durable Tune integration. It grants no RF authority by itself.
+an operating action. It grants no RF authority by itself; the explicit durable
+Tune integration below owns that admission separately.
 
 ## Fenced contest callsign loading
 
@@ -223,3 +223,46 @@ through the normal transaction or contest queue admission. A late click after a
 module switch cannot silently target the other entry. Missing/invalid module or
 context disables the UI action, and normal/contest operation identities cannot
 substitute for each other's retained routes.
+
+## Explicit durable Tune
+
+The separate Tune button accepts a qualified signal without a callsign. It
+identifies the source radio and target frequency in its label. An inactive source
+requires an explicit Radio Settings selection first; the action never switches
+the active radio. Selection, mounting and transcript updates remain passive.
+
+The renderer sends only native source/track/version identities and the observed
+operating module/context. A dedicated native command resolves the RF target,
+requires its source slot to be active with the matching direct Flex/TCI provider,
+and constructs a CW simplex descriptor from current native selection, connection,
+control and worker epochs. It refuses retained or armed CW output. No renderer
+frequency, mode, PTT, rotor or QSO fields are accepted.
+
+The existing Station Control journal persists the operation before dispatch.
+Native-only `cw_signal` provenance survives a process restart; ordinary renderer
+Station Control parameters cannot add that marker. The existing manual tune
+owner checks fresh receive telemetry and authoritative readback. Additional
+guards revalidate exact CW evidence and the active slot inside selection admission
+and immediately before the one transport send. Follow Radio and automatic rotor
+permission use the existing manual tune behavior. The logging draft is untouched.
+
+One native CW apply gate prevents simultaneous duplicate clicks from racing the
+original receipt lookup. A repeated identity reads its original durable receipt
+before consulting live evidence. A lost reply is retained in the renderer journal;
+Check original tune only reads that operation's minimal status. Confirmed or
+durably reviewed outcomes close the intent. Missing, pending and unknown receipts
+remain blocked without replay; the operator reviews unknown radio state through
+the existing Station Control owner. Definite pre-admission refusal closes without
+claiming a tune occurred. Receipt compaction, malformed renderer storage and an
+expired contest-window context still require complete recovery qualification.
+
+Source/fixture tests cover identity-only admission, inactive/provider refusal,
+native target construction, minimal correlated projection, durable provenance and
+restart deduplication, passive UI selection, lost replies and unverified receipts.
+No live tune, installed CW UI or RF acceptance is established by these tests.
+
+Validation on this source: all **904 native tests** passed, including the existing
+manual tune and selection-owner regressions; **31 focused frontend tests** passed.
+TypeScript, Vite and every configured window graph check passed. CW Decode's
+startup graph measured **302,032 bytes**, still separate from the main logging
+controller, map and CW transmit bundles. No application candidate was packaged.

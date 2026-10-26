@@ -43,7 +43,7 @@ own region. These are renderer checks, not installed-app or RF acceptance.
 The isolated follow-up branch adds Call, native signal estimates with expiry,
 requested/actual rate and usable-width status, fresh worker load counts,
 committed-only Copy, source evidence details, native track Mute and explicit
-Normal Logging Use callsign. See [selection/action boundaries](TRACK_SELECTION.md)
+Use callsign in both logging modules and separate explicit Tune. See [selection/action boundaries](TRACK_SELECTION.md)
 and [signal/load evidence](SIGNAL_DIAGNOSTICS.md).
 
 The contest Window menu also opens the singleton `contest--cw-decode` using the
@@ -61,7 +61,7 @@ pass, including the CW menu intent after session restoration. TypeScript passes.
 No installed contest-window or live CW acceptance is claimed.
 
 Still outstanding: real Flex/SunSDR input qualification, qualified RF and quality
-evidence, hardware signal calibration, explicit Tune,
+evidence, hardware signal calibration, installed Tune acceptance,
 complete process-restart action recovery, full CW package acceptance,
 external-client acceptance, measured capacity and the required soaks.
 This development UI does not claim the complete feature has shipped.

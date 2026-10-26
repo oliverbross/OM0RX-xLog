@@ -56,7 +56,7 @@ earlier remaining-source descriptions where applicable.
 | TCI acquisition | Existing socket/receiver leases, negotiated binary parser and DDS/source-width fences | Real SunSDR2 DX one/two local-radio spans, RF mapping, reconnect/sleep/wake |
 | Local spots | Typed local_cw history/classification, bounded single consumer and fresh-source rechecks; [spot output](SPOT_OUTPUT.md) | Production quality remains false; independent corpus calibration and real frequency mapping |
 | Loopback cluster | Bounded clients, queue/command/history limits, collision and loop guards; [server](LOCAL_CLUSTER_SERVER.md) | Real external logger and exact-package soak |
-| Main/detached view | Shared passive owner, source/server configuration, signal copy/diagnostics and partial/committed distinction; [UI](DECODE_UI.md) | Explicit Tune/Use-callsign routes and final installed functional acceptance |
+| Main/detached view | Shared passive owner, source/server configuration, signal copy/diagnostics, explicit Tune/Use-callsign routes and partial/committed distinction; [UI](DECODE_UI.md) | Final installed functional and action-recovery acceptance |
 | Offline packaging | Pinned ORT 1.24.3 arm64, model, source archive/notices, loader relocation, nested signing and offline probe; [packaging](PACKAGING.md) | Public release/notarization, supported-architecture and full CW package qualification |
 
 The human authorized shipping contest updates with CW disabled. The signed
@@ -89,8 +89,10 @@ was built and passed its no-network parser self-test and real-loopback metadata
 command allowlist test. The human expects Station **Red-Dingo** and offered the
 optional VPN route to **192.168.0.199**. This is not verified inventory. Both
 installed-mode acceptance owners released their live test hold; the human's
-VPN-ready indication remains required before the first twelve-second passive
-inspection. No live IQ or radio-control action has been taken by this CW chat.
+VPN-ready indication was then received. The single twelve-second passive
+inspection connected but found Maestro while waiting for Red-Dingo; see the
+[historical inventory receipt](FLEX_PASSIVE_INSPECTION_2026-10-26.md). No live IQ
+or radio-control action has been taken by this CW chat.
 
 Merge `a462bc84` incorporates accepted canonical `main` through `cbc6a1f9` into
 the isolated branch, including the 1.3.32 playback and mode-switch corrections.
@@ -100,7 +102,7 @@ graph is **298,414 bytes**. The subsequent focused Swift run passed 25 XCTest
 cases plus 17 Swift Testing activation/reservation cases (42 total).
 
 This source remains isolated and unpackaged. Installed 1.3.32 remains the other
-chats' accepted contest build with CW disabled. Explicit Tune, opportunity
+chats' accepted contest build with CW disabled. Installed Tune acceptance, opportunity
 annotations, selected-track scheduling, complete restart recovery, real source
 and RF mapping, held-out quality, measured standard capacity, external-client
 and 8/24-hour soak gates remain open. No reduced launch scope or completed CW

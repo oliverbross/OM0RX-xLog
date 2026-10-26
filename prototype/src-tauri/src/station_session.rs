@@ -333,7 +333,9 @@ impl Session {
             } else if action == "tci_receive_filter" {
                 vec!["action", "generation", "revision", "selection_generation", "selection_id", "provider", "control_revision", "connection_generation", "worker_generation", "lower_hz", "upper_hz"]
             } else if action == "manual_tune" {
-                vec!["action", "generation", "revision", "selection_generation", "selection_id", "provider", "control_revision", "connection_generation", "worker_generation", "frequency_hz", "mode"]
+                let mut keys = vec!["action", "generation", "revision", "selection_generation", "selection_id", "provider", "control_revision", "connection_generation", "worker_generation", "frequency_hz", "mode"];
+                if receipt.request.get("cw_signal").is_some() { keys.push("cw_signal"); }
+                keys
             } else if action == "manual_rotor_goto" {
                 vec!["action", "generation", "revision", "rotor_owner", "rotor_generation", "rotor_revision", "worker_generation", "bearing", "label"]
             } else if is_receive(action) {
@@ -432,6 +434,8 @@ impl Session {
                     crate::tci_filter::params(&receipt.request).is_err()
                 } else if action == "manual_tune" {
                     crate::manual_tune::params(&receipt.request).is_err()
+                        || receipt.request.get("cw_signal").is_some_and(|origin| crate::cw_tune::validate_origin(origin, &receipt.operation_id).is_err()
+                            || receipt.request["mode"] != "CW" || !matches!(receipt.request["provider"].as_str(), Some("direct_flex_lan" | "direct_tci")))
                 } else if is_receive(action) {
                     receive_params(&receipt.request).is_err()
                 } else if !matches!(action, "connect_tci" | "disconnect_tci") {
@@ -614,6 +618,20 @@ impl Session {
         params: &Value,
         dispatch: impl FnOnce(Value, u64, &str) -> Result<Value, String>,
     ) -> Result<Value, String> {
+        self.apply_with_cw_origin(params, None, dispatch)
+    }
+    /// Only the native CW resolver supplies this provenance. Renderer Station
+    /// Control parameters cannot add it to an ordinary manual tune receipt.
+    pub fn apply_cw_tune(&self, params: &Value, origin: &Value,
+        dispatch: impl FnOnce(Value, u64, &str) -> Result<Value, String>,
+    ) -> Result<Value, String> {
+        if params["action"] != "manual_tune" { return Err("CW intent requires a manual tune.".into()); }
+        crate::cw_tune::validate_origin(origin, params["operation_id"].as_str().unwrap_or(""))?;
+        self.apply_with_cw_origin(params, Some(origin), dispatch)
+    }
+    fn apply_with_cw_origin(&self, params: &Value, cw_origin: Option<&Value>,
+        dispatch: impl FnOnce(Value, u64, &str) -> Result<Value, String>,
+    ) -> Result<Value, String> {
         let _operation = self
             .operation
             .try_lock()
@@ -672,6 +690,7 @@ impl Session {
             .filter(|value| *value <= MAX_REVISION)
             .ok_or("Invalid Station Control revision.")?;
         let mut descriptor = json!({"action":action,"generation":generation,"revision":revision});
+        if let Some(origin) = cw_origin { descriptor["cw_signal"] = origin.clone(); }
         if is_save(action) {
             if let Some(profile) = params.get("profile") { descriptor["profile"] = radio_profile(profile, action)?; }
         }
@@ -1174,6 +1193,33 @@ mod tests {
                 let mut stale = command.clone(); stale["operation_id"] = json!(uuid::Uuid::new_v4().to_string()); assert!(session.apply(&stale, passive).is_err());
             }
         }
+    }
+    #[test]
+    fn cw_tune_provenance_survives_restart_and_generic_station_parameters_cannot_forge_it() {
+        let (directory, session, save) = setup();
+        let id = uuid::Uuid::new_v4().to_string();
+        let origin = json!({"operationId":id,"sourceEpoch":uuid::Uuid::new_v4().to_string(),"spotId":uuid::Uuid::new_v4().to_string(),"spotVersion":uuid::Uuid::new_v4().to_string()});
+        let command = json!({"action":"manual_tune","radio_id":"radio1","operation_id":id,"generation":save["generation"],"revision":0,
+            "provider":"direct_flex_lan","selection_generation":3,"selection_id":uuid::Uuid::new_v4().to_string(),"control_revision":5,
+            "connection_generation":7,"worker_generation":11,"frequency_hz":14025000,"mode":"CW"});
+        let receipt = session.apply_cw_tune(&command, &origin, |_,_,_| {
+            assert_eq!(session.receipt(&id).unwrap()["request"]["cw_signal"], origin);
+            assert_eq!(session.receipt(&id).unwrap()["status"], "pending");
+            Err("Reply lost".into())
+        }).unwrap();
+        assert_eq!(receipt["status"], "unknown");
+        let restored = Session::new(directory.path().join("session.json")).unwrap();
+        assert_eq!(restored.apply_cw_tune(&command, &origin, passive).unwrap(), receipt);
+        assert_eq!(crate::cw_tune::project(&restored.receipt(&id).unwrap(), &id, "radio1").unwrap()["status"], "unknown");
+        let mut changed = origin.clone(); changed["spotVersion"] = json!(uuid::Uuid::new_v4().to_string());
+        assert!(restored.apply_cw_tune(&command, &changed, passive).is_err());
+        restored.review(&id, "manual_tune").unwrap();
+        assert_eq!(crate::cw_tune::project(&restored.receipt(&id).unwrap(), &id, "radio1").unwrap()["status"], "reviewed");
+        let mut forged = command;let fresh = uuid::Uuid::new_v4().to_string();forged["operation_id"] = json!(fresh);forged["cw_signal"] = origin;
+        forged["revision"] = restored.snapshot().unwrap()["revision"].clone();
+        let receipt = restored.apply(&forged, |_,_,_| Err("No wire fixture".into())).unwrap();
+        assert!(receipt["request"].get("cw_signal").is_none());
+        assert!(crate::cw_tune::project(&receipt, &fresh, "radio1").is_err());
     }
     #[test]
     fn manual_tune_lost_reply_and_failed_storage_never_repeat_or_dispatch() {

@@ -17,6 +17,7 @@ export type CWCapability = { radioID: string; provider: string; ready: boolean; 
 export type CWDecodeSnapshot = { sessionID?: string; state: string; failure?: string; automaticSpotsQualified: boolean; resourcesAvailable: boolean;
   operatingModule?: "normal_logging" | "contesting";
   operatingContext?: string;
+  activeRadioID?: "radio1" | "radio2";
   spotOutputFailure?: string;
   featureEnabled?: boolean;
   load?: { sources: number; tracks: number; pending: number; inFlight: number; coalesced: string; droppedEvents: string };
@@ -70,6 +71,7 @@ export function parseCWDecodeSnapshot(value: unknown): CWDecodeSnapshot {
     value.featureEnabled !== undefined && typeof value.featureEnabled !== "boolean" ||
     value.operatingModule !== undefined && !["normal_logging", "contesting"].includes(value.operatingModule) ||
     value.operatingContext !== undefined && (typeof value.operatingContext !== "string" || !uuid.test(value.operatingContext)) ||
+    value.activeRadioID !== undefined && !["radio1", "radio2"].includes(value.activeRadioID) ||
     value.load !== undefined && (!object(value.load) || !integer(value.load.sources, 0, 2) || !integer(value.load.tracks, 0, 32) ||
       !integer(value.load.pending, 0, 32) || !integer(value.load.inFlight, 0, 4) ||
       ![value.load.coalesced, value.load.droppedEvents].every(number => typeof number === "string" && counter.test(number) && BigInt(number) <= 18446744073709551615n)) ||
