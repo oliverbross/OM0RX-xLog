@@ -264,6 +264,17 @@ const logProjection = { schemaVersion: 1, status: "ready", sessionRevision: 7, c
       name: "", qth: "", comment: "", correctionReason: "", confirmDelete: false, deletionReason: "" }, busy: false } as const;
 
 describe("contest native surface projection v1", () => {
+  it("preserves bounded timed multiplier scopes without widening schema-four radio bands",()=>{
+    const projection=(scope:string)=>({...matrixProjection,bands:[scope],rows:[{label:"Eligible prefix",counts:{[scope]:1},total:1}],total:1});
+    for(const scope of ["80m / UTC block 0","40m / CW / UTC block 7","1.25cm / PH / UTC block 2"]){
+      expect(validContestSurfaceProjection("awards",projection(scope)),scope).toBe(true);
+      expect(validContestSurfaceProjection("chaser-dx",{...matrixProjectionV2,bands:[scope],rows:[]}),scope).toBe(false);
+    }
+    for(const scope of ["80m / UTC block 8","2m / UTC block 9","80m / CW / UTC block 01","30m / CW / UTC block 1",
+      "80m / SSB / UTC block 1","80m / CW / UTC block 1 / extra","80m / CW / UTC block 1\n","80m / СW / UTC block 1"]){
+      expect(validContestSurfaceProjection("awards",projection(scope)),scope).toBe(false);
+    }
+  });
   it("admits every ready projection only for its owning panel and exact unavailable projections for all roles", () => {
     expect(validContestSurfaceProjection("active-qso", entryProjection)).toBe(true);
     expect(validContestSurfaceProjection("active-qso", entryProjectionV2)).toBe(true);

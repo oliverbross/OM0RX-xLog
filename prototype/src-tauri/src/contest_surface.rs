@@ -1983,6 +1983,24 @@ fn validate_native_rate_projection(value: &Map<String, Value>) -> Result<(), Str
     boolean(&value["busy"], "native rate busy")
 }
 
+// Schema one also carries the pinned timed-family scoring axes. Parse the
+// entire ASCII scope; schema four continues to carry short radio-band tokens.
+fn valid_legacy_multiplier_scope(scope: &str) -> bool {
+    if !scope.contains("UTC block") { return scope.len() <= 16; }
+    if !scope.is_ascii() { return false; }
+    let parts: Vec<_> = scope.split(" / ").collect();
+    let (band, block) = match parts.as_slice() {
+        [band, block] => (*band, *block),
+        [band, mode, block] if matches!(*mode, "CW" | "PH" | "OTHER") => (*band, *block),
+        _ => return false,
+    };
+    matches!(band, "160m" | "80m" | "40m" | "20m" | "15m" | "10m" | "6m" | "4m" | "2m" |
+        "1.25m" | "70cm" | "33cm" | "23cm" | "13cm" | "9cm" | "6cm" | "3cm" | "1.25cm" |
+        "6mm" | "4mm" | "2.5mm" | "2mm" | "1mm") &&
+        matches!(block, "UTC block 0" | "UTC block 1" | "UTC block 2" | "UTC block 3" |
+            "UTC block 4" | "UTC block 5" | "UTC block 6" | "UTC block 7")
+}
+
 fn validate_matrix_projection(value: &Map<String, Value>) -> Result<(), String> {
     let version = value["schemaVersion"].as_u64();
     if version == Some(4) {
@@ -2054,7 +2072,10 @@ fn validate_matrix_projection(value: &Map<String, Value>) -> Result<(), String> 
     let bands = array(&value["bands"], 32, "multiplier matrix bands")?;
     let mut band_names = BTreeSet::new();
     for band in bands {
-        let band = text_value(band, 16, false, "multiplier matrix band")?;
+        let band = text_value(band, if version == Some(1) { 64 } else { 16 }, false, "multiplier matrix band")?;
+        if version == Some(1) && !valid_legacy_multiplier_scope(band) {
+            return Err("The multiplier matrix scoring scope is invalid.".into());
+        }
         if !band_names.insert(band) {
             return Err("The multiplier matrix bands are not unique.".into());
         }
@@ -3579,6 +3600,26 @@ mod tests {
         let mut malformed_zone_matrix = zone_matrix;
         malformed_zone_matrix["zoneSystem"] = Value::Null;
         assert!(validate_projection("chaser-dx", &malformed_zone_matrix).is_err());
+    }
+
+    #[test]
+    fn timed_multiplier_scope_preserves_utc_and_mode_without_widening_radio_bands() {
+        for scope in ["80m / UTC block 0", "40m / CW / UTC block 7", "1.25cm / PH / UTC block 2"] {
+            let mut counts = Map::new(); counts.insert(scope.into(), json!(1));
+            let matrix = json!({"schemaVersion":1,"status":"ready","title":"Plugin scopes","bands":[scope],
+                "rows":[{"label":"Eligible prefix","counts":counts,"total":1}],"total":1,"busy":false});
+            assert!(validate_projection("awards", &matrix).is_ok(), "{scope}");
+            let radio_matrix = json!({"schemaVersion":4,"status":"ready","title":"CQ Zones","tracker":"zone","zoneSystem":"cq",
+                "current":{"dxcc":null,"cqZone":null,"ituZone":null},"bands":[scope],"rows":[],"total":0,"busy":false});
+            assert!(validate_projection("chaser-dx", &radio_matrix).is_err(), "{scope}");
+        }
+        for scope in ["80m / UTC block 8", "2m / UTC block 9", "80m / CW / UTC block 01", "30m / CW / UTC block 1",
+            "80m / SSB / UTC block 1", "80m / CW / UTC block 1 / extra", "80m / CW / UTC block 1\n", "80m / СW / UTC block 1"] {
+            let mut counts = Map::new(); counts.insert(scope.into(), json!(1));
+            let matrix = json!({"schemaVersion":1,"status":"ready","title":"Plugin scopes","bands":[scope],
+                "rows":[{"label":"Eligible prefix","counts":counts,"total":1}],"total":1,"busy":false});
+            assert!(validate_projection("awards", &matrix).is_err(), "{scope}");
+        }
     }
 
     #[test]

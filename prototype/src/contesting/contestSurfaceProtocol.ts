@@ -499,6 +499,12 @@ function availableMultiplierSpotValid(value:unknown){
     [value.contestDupe,value.contestCountryMultiplier,value.contestZoneMultiplier].every(item=>item===null||typeof item==="boolean")&&
     (value.contestMultiplierCount===null||uint(value.contestMultiplierCount,10));
 }
+/** Version-one family matrices retain full band/mode/UTC-block identity. */
+export function validLegacyMultiplierScope(value:unknown):value is string {
+  if(typeof value!=="string"||!text(value,64))return false;
+  if(!value.includes("UTC block"))return text(value,16);
+  return /^(?:160m|80m|40m|20m|15m|10m|6m|4m|2m|1\.25m|70cm|33cm|23cm|13cm|9cm|6cm|3cm|1\.25cm|6mm|4mm|2\.5mm|2mm|1mm) \/ (?:(?:CW|PH|OTHER) \/ )?UTC block [0-7](?![\s\S])/.test(value);
+}
 function validMatrixProjection(value: Record<string, unknown>) {
   const bands = value.bands;
   const version = value.schemaVersion;
@@ -507,7 +513,7 @@ function validMatrixProjection(value: Record<string, unknown>) {
     ["schemaVersion", "status", "title", "tracker", "zoneSystem", "current", "bands", "rows", "total", "busy"];
   const optional = version === 4 ? ["configuredBands", "currentBand","draftID","draftRevision"] : [];
   if (!optionalKeys(value, required, optional) || !text(value.title, 160) ||
-      !Array.isArray(bands) || bands.length > 32 || !bands.every(band => text(band, 16)) || new Set(bands).size !== bands.length ||
+      !Array.isArray(bands) || bands.length > 32 || !bands.every(band => version===1?validLegacyMultiplierScope(band):text(band,16)) || new Set(bands).size !== bands.length ||
       !Array.isArray(value.rows) || value.rows.length > 10_000 || !uint(value.total) || typeof value.busy !== "boolean") return false;
   if (version === 4) {
     const current = record(value.current) ? value.current : undefined;

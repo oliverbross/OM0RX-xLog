@@ -157,6 +157,14 @@ async function qualifyCurrentDesk(plugin: string, raw: any, partialScore = false
     for (const panel of contestSurfacePanelIDs) {
       expect(validContestSurfaceProjection(panel, owner.current.projections[panel]), `${plugin}:${panel}`).toBe(true);
     }
+    if(plugin==="trans_tasman"||plugin==="john_moyle_field_day"){
+      const scored=(await host.request("contest_score",{sessionID:session})).result;
+      const scopes=[...new Set(scored.multiplierViews.flatMap((view:any)=>view.rows.map((row:any)=>row.scope)))];
+      expect(owner.current.projections.awards.status).toBe("ready");
+      expect(owner.current.projections.awards.bands).toEqual(scopes);
+      expect(scopes.some(scope=>String(scope).includes("UTC block"))).toBe(true);
+      if(plugin==="john_moyle_field_day")expect(scopes.some(scope=>String(scope).includes(" / CW / UTC block"))).toBe(true);
+    }
     if (partialScore) {
       expect(owner.current.projections["active-qso"].manual.scoringComplete).toBe(false);
       expect(owner.current.projections.propagation.score.scoringComplete).toBe(false);

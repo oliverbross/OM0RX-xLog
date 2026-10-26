@@ -17,7 +17,7 @@ import { not1mmHistoryCandidate } from "./contestCallHistory";
 import type { ContestRequest } from "./types";
 import { contestInputFieldIDs, contestSurfacePanelIDs, type ContestInputFieldID, type ContestSurfaceActionEnvelope, type ContestSurfacePanelID,
   type ContestSurfaceProjection, type ContestLogInlineEdit, type ContestManualRow, type ContestManualContext, type ContestPluginLogRow,
-  type ContestCQWWStatisticsRow, type ContestStatisticsRow, type ContestSurfaceSpot, validContestSurfaceProjection } from "./contestSurfaceProtocol";
+  type ContestCQWWStatisticsRow, type ContestStatisticsRow, type ContestSurfaceSpot, validContestSurfaceProjection, validLegacyMultiplierScope } from "./contestSurfaceProtocol";
 import type { ContestTransitionController } from "./ContestWorkspace";
 import { useContestSurfaceOwner, advanceContestDraftRevision, type ContestDraftRevision } from "./useContestSurfaceOwner";
 import { openContestCallHistoryWindow, openContestSurfaceWindow } from "./contestSurfaceNative";
@@ -2571,7 +2571,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const familyViews=Array.isArray(matrices.multiplierViews)?matrices.multiplierViews as Data[]:[];
     if(scoreRead&&familyViews.length&&(!projection.matrixTrackers?.includes("countries")||projection.pluginID==="cq_ww_rtty")){
       const supported=familyViews.every(view=>view.status==="supported"),scopes=[...new Set(familyViews.flatMap(view=>view.rows.map((row:Data)=>String(row.scope))))] as string[];
-      if(supported&&scopes.length<=32){
+      if(supported&&scopes.length<=32&&scopes.every(validLegacyMultiplierScope)){
         const rows=new Map<string,Record<string,number>>();
         for(const view of familyViews)for(const row of view.rows){const label=`${view.label}: ${row.value}`,counts=rows.get(label)??Object.fromEntries(scopes.map(scope=>[scope,0]));
           counts[row.scope]=Number(row.qsos);rows.set(label,counts);}
@@ -2579,7 +2579,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         unavailable.awards={schemaVersion:1,status:"ready",title:"Worked multipliers · plugin scope",bands:scopes,
           rows:[...rows].map(([label,counts])=>({label,counts,total:Object.values(counts).filter(count=>count>0).length})),
           total:familyViews.reduce((sum,view)=>sum+Number(view.total),0),busy:busy||retiring};
-      }else unavailable.awards={schemaVersion:1,status:"unavailable",reason:"Worked multiplier identities do not reconcile with the plugin total, or exceed the view limit. Statistics retains the authoritative total."};
+      }else unavailable.awards={schemaVersion:1,status:"unavailable",reason:"Worked multiplier identities do not reconcile with the plugin total, or their full scoring scopes exceed the supported view bounds. Statistics retains the authoritative total."};
     }
     // An empty worker matrix is a valid tracker with no worked multipliers yet.
     // Missing matrices remain unavailable for plugins that do not expose them.
