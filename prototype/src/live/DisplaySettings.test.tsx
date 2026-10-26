@@ -10,6 +10,7 @@ import { UiScaleProvider } from "./uiScale";
 import { uiScaleKey } from "./uiScaleController";
 import { qsoDetailsFieldsKey } from "./qsoEditorPreferences";
 import { propagationRefreshKey } from "./propagationPreferences";
+import { clusterAppearanceKey } from "./clusterAppearance";
 beforeEach(() => { localStorage.clear(); vi.clearAllMocks(); mocks.zoom.mockImplementation(async () => {}); mocks.emit.mockImplementation(async () => {}); });
 afterEach(cleanup);
 const mount = () => render(<UiScaleProvider><DisplaySettings /></UiScaleProvider>);
@@ -19,6 +20,14 @@ describe("opt-in display controls", () => {
     expect((screen.getByLabelText("Propagation refresh interval") as HTMLSelectElement).value).toBe("10");
     fireEvent.change(screen.getByLabelText("Propagation refresh interval"), { target: { value: "30" } });
     expect(localStorage.getItem(propagationRefreshKey)).toBe("30");
+  });
+  it("switches the shared cluster presentation while keeping Modern as the default", async () => {
+    mount(); await screen.findByText(/Last applied in this window: 100%/);
+    const select=screen.getByLabelText("Cluster appearance") as HTMLSelectElement;
+    expect(select.value).toBe("modern");
+    fireEvent.change(select,{target:{value:"classic"}});
+    expect(localStorage.getItem(clusterAppearanceKey)).toBe("classic");
+    expect(select.value).toBe("classic");
   });
   it("defaults to 100% and applies an explicit display choice without secret or worker requests", async () => {
     mount(); await waitFor(() => expect(mocks.zoom).toHaveBeenCalledWith(1));

@@ -8,6 +8,7 @@ import { countryDisplay } from "./countryDisplay";
 import { clusterFilterChoices, defaultClusterFilter, normalizeClusterFilter, type ClusterFilter } from "./clusterFilters";
 import SpecialFilterOptions from "./SpecialFilterOptions";
 import { useLogbookCapacity } from "./logbookCapacity";
+import { useClusterAppearancePreference } from "./clusterAppearance";
 import { contestBandMapMultiplierLabel, contestBandMapSpotColor, contestBandMapSpotPending, contestBandMapSpotWorked, contestNeededMultiplierCount } from "./BandMaps";
 import "./ClusterPanel.css";
 
@@ -152,6 +153,8 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
   preferenceStorageKey = fullClusterColumnsKey, onSpotContextMenu, contestBands, contestCurrentBand, contestBandPreferenceKey, radioFrequencyHz,
   contestWorkedFilter,onContestWorkedFilterReset }: Props) {
   const saveToast = useSettingsSaveToast();
+  const clusterAppearance = useClusterAppearancePreference();
+  const classic = !presentationOnly && clusterAppearance.appearance === "classic";
   const ageClock = useSpotAgeClock();
   const panelId = useId();
   const [columnsOpen, setColumnsOpen] = useState(false);
@@ -443,7 +446,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
     {renderToolbarPanels()}
   </section>;
 
-  return <section className={`live-cluster${presentationOnly ? " is-contest-terminal" : ""}${contestPresentation ? " is-cqww-contest" : ""}`} aria-label="Live DX Cluster">
+  return <section className={`live-cluster${presentationOnly ? " is-contest-terminal" : classic ? " is-classic" : ""}${contestPresentation ? " is-cqww-contest" : ""}`} aria-label="Live DX Cluster">
     <header className="live-cluster-head">
       <div>{!taskOnly && <h2>DX Cluster</h2>}<p>{contestPresentation
         ? <span aria-label="CQ WW opportunity totals">QSO {contestSummary.qsos} · Mults {contestSummary.mults} · Country {contestSummary.countries} · Zone {contestSummary.zones}</span>
@@ -585,14 +588,14 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
     </tr></thead><tbody>{visibleSpots.map((spot, index) => { const displayedScore=presentationOnly?spot.contestPoints:spot.score; return <tr key={spot.id}
       tabIndex={0}
       className={`${(selectedSpotId ?? selectedSpot?.id) === spot.id ? "is-selected" : ""}${spot.marked ? " is-marked" : ""} ${index % 2 ? "is-odd" : "is-even"}`}
-      style={{ backgroundColor: presentationOnly || (selectedSpotId ?? selectedSpot?.id) === spot.id ? undefined : clusterRowTint(spot.dxccStatus, configuration?.palette.status) }}
+      style={{ backgroundColor: presentationOnly || classic || (selectedSpotId ?? selectedSpot?.id) === spot.id ? undefined : clusterRowTint(spot.dxccStatus, configuration?.palette.status) }}
       onClick={() => { setSelectedSpot(spot); onSelect(spot); }} onContextMenu={event => onSpotContextMenu?.(spot, event)}
       onKeyDown={event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();setSelectedSpot(spot);onSelect(spot);}
         else if(event.key==="ContextMenu"||event.shiftKey&&event.key==="F10")onSpotContextMenu?.(spot,event);}}
       aria-label={`${spot.callsign}${spot.marked?" marked":""} spot`}
       title={presentationOnly ? "Load this spot into the contest draft and tune the selected radio" : "Load this spot into the logger and tune through xCat"}>
       <td hidden={!visibleColumns.has("time")} className="mono live-cluster-age live-cluster-age-strip"
-        style={{ backgroundColor: presentationOnly ? undefined : spotAgeColor(spot.receivedAt, ageClock) }} title={`Received ${formatDate(spot.receivedAt)}`}>{formatSpotAge(spot.receivedAt, ageClock)}</td>
+        style={{ backgroundColor: presentationOnly || classic ? undefined : spotAgeColor(spot.receivedAt, ageClock) }} title={`Received ${formatDate(spot.receivedAt)}`}>{formatSpotAge(spot.receivedAt, ageClock)}</td>
       <td hidden={!visibleColumns.has("score")}><span className={`live-cluster-score ${(displayedScore??0) >= 80 ? "priority" : (displayedScore??0) >= 55 ? "high" : (displayedScore??0) >= 30 ? "medium" : "low"}`}>{displayedScore??"—"}</span></td>
       <td hidden={!visibleColumns.has("band")}><span className="live-cluster-category" style={{ color: paletteColor(spot.band, configuration?.palette.band, clusterBandColors) }}>{spot.band}</span></td>
       <td hidden={!visibleColumns.has("frequency")} className="cyan mono">{formatSpotFrequency(spot.frequencyKHz * 1000)}</td>
@@ -604,7 +607,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
       <td hidden={!visibleColumns.has("callStatus")} title={spot.callStatus} className="live-cluster-status live-cluster-status-column" style={{ color: paletteColor(spot.callStatus, configuration?.palette.status, clusterStatusColors) }}>{clusterStatusCode(spot.callStatus)}</td>
       <td hidden={!visibleColumns.has("dxccStatus")} title={spot.dxccStatus} className="live-cluster-status live-cluster-status-column" style={{ color: paletteColor(spot.dxccStatus, configuration?.palette.status, clusterStatusColors) }}>{clusterStatusCode(spot.dxccStatus)}</td>
       <td hidden={!visibleColumns.has("special")} className="live-cluster-special">{clusterSpotTags(spot).length
-        ? clusterSpotTags(spot).slice(0, 2).map(tag => <span className="live-cluster-special-tag" style={specialTagColors(tag)} key={tag}>{tag}</span>)
+        ? clusterSpotTags(spot).slice(0, 2).map(tag => <span className="live-cluster-special-tag" style={{ ...specialTagColors(tag), ...(classic ? { backgroundColor: "transparent" } : {}) }} key={tag}>{tag}</span>)
         : "—"}</td>
       <td hidden={!visibleColumns.has("workedBefore")} title={formatDate(spot.workedBefore)} className="live-cluster-worked-before">{spot.workedBefore == null ? "—" : `✓ ${formatDate(spot.workedBefore)}`}</td>
       <td hidden={!visibleColumns.has("comment")} title={spot.comment}>{spot.comment || "—"}</td>

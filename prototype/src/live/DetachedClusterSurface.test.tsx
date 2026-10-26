@@ -3,11 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ClusterPanel } from "./ClusterPanel";
 import { DetachedClusterSurface } from "./DetachedClusterSurface";
+import { clusterAppearanceKey } from "./clusterAppearance";
 const bridge = vi.hoisted(() => ({ dock: vi.fn(async () => {}), ready: vi.fn(async () => {}), request: vi.fn(async () => ({})), handler: null as null | ((value: any) => void) }));
 vi.mock("./DetachedClusterBridge", async original => ({ ...await original<typeof import("./DetachedClusterBridge")>(), dockDetachedWorkspace: bridge.dock,
   announceDetachedClusterReady: bridge.ready, requestViaSession: bridge.request, onClusterProjection: vi.fn(async handler => { bridge.handler = handler; return () => { bridge.handler = null; }; }) }));
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); localStorage.clear(); });
 
 describe("passive docked DX Cluster presentation", () => {
   it("starts with cluster task controls while waiting for the native session", async () => {
@@ -49,6 +50,16 @@ describe("passive docked DX Cluster presentation", () => {
     expect(onRequest).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Undock" }));
     expect(onUndock).toHaveBeenCalledOnce();
+    expect(onRequest).not.toHaveBeenCalled();
+  });
+  it("applies the shared Classic appearance without changing cluster data or actions", () => {
+    localStorage.setItem(clusterAppearanceKey,"classic");
+    const onRequest=vi.fn(async()=>({}));
+    const {container}=render(<ClusterPanel passive snapshot={{snapshot:{connectedClusters:0,loadedSpots:0,contactCount:0,
+      contactRevision:0,logbookDataLoaded:true,countryDataLoaded:true,connections:[],spots:[],console:[]}}}
+      onRequest={onRequest} onSelect={vi.fn()}/>);
+    expect(container.querySelector(".live-cluster.is-classic")).toBeTruthy();
+    expect(screen.getByRole("button",{name:/^Connect$/})).toBeTruthy();
     expect(onRequest).not.toHaveBeenCalled();
   });
   it("applies a new authoritative filter projection without launching a local poll", () => {
