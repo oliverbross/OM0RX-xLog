@@ -12,7 +12,9 @@ let portableDependencies: [Package.Dependency] = []
 let portableCrypto: [Target.Dependency] = []
 let nativeTransferTargets: [Target] = [
     .target(name: "CCurlBackup", linkerSettings: [.linkedLibrary("curl")]),
+    .target(name: "CCWProcess"),
 ]
+let cwProcessDependencies: [Target.Dependency] = ["CCWProcess"]
 let sqlitePkgConfig: String? = nil
 let liveCoreName = "XLogCore"
 let liveIntegrationDependencies: [Target.Dependency] = ["XCatIntegrationCore"]
@@ -30,6 +32,7 @@ let portableDependencies: [Package.Dependency] = [
 ]
 let portableCrypto: [Target.Dependency] = [.product(name: "Crypto", package: "swift-crypto")]
 let nativeTransferTargets: [Target] = []
+let cwProcessDependencies: [Target.Dependency] = []
 let sqlitePkgConfig: String? = "sqlite3"
 let liveCoreName = "XLogPortableCore"
 let liveIntegrationDependencies: [Target.Dependency] = ["XCatIntegrationCore"]
@@ -58,6 +61,7 @@ let prototypeCoreTargets: [Target] = [
 #endif
 
 let portableProducts: [Product] = [
+    .library(name: "XCWCore", targets: ["XCWCore"]),
     .library(name: "XContestCore", targets: ["XContestCore"]),
     .library(name: "XContestStore", targets: ["XContestStore"]),
     .executable(name: "xlog-prototype-worker", targets: ["XLogPrototypeWorker"]),
@@ -76,7 +80,7 @@ portableTargets.append(contentsOf: [
     .target(name: "CPlatformVault", linkerSettings: [.linkedLibrary("Advapi32", .when(platforms: [.windows]))]),
     .target(name: "XClusterIntegrationCore", dependencies: ["CClusterSocket"]),
     .target(name: "XStationIntegrationCore"),
-    .target(name: "XCWCore"),
+    .target(name: "XCWCore", dependencies: cwProcessDependencies),
     .target(name: "XContestCore", resources: [
         .copy("Resources/ContestDefinitions"), .copy("Resources/CountryReferences"),
     ]),
