@@ -35,6 +35,9 @@ public struct CWNativeDecode: Sendable {
     public let text: String
     public let tokens: [CWNativeToken]
     public let inferenceMilliseconds: Double
+    public var estimatedWPM:Double?=nil
+    public var estimatedSNRDB:Double?=nil
+    public var snrReferenceHz:Int?=nil
 }
 public struct CWNativeMetrics: Sendable {
     public let requestSequence: UInt64
@@ -115,7 +118,8 @@ public enum CWComputeWire {
             guard Set(object.keys)==trackKeys else { throw CWComputeError.invalidEvent }
             return .track(try track(object,kind:kind))
         case "decode":
-            guard Set(object.keys)==trackKeys.union(["text","inference_ms","tokens"]),
+            let required=trackKeys.union(["text","inference_ms","tokens"])
+            guard required.isSubset(of:Set(object.keys)),Set(object.keys).isSubset(of:required.union(["estimated_wpm","estimated_snr_db","snr_reference_hz"])),
                   let text=object["text"] as? String, text.utf8.count<=667,text.utf8.allSatisfy({alphabet.contains($0)}),
                   let rows=object["tokens"] as? [[String:Any]],rows.count<=667 else { throw CWComputeError.invalidEvent }
             let metadata=try track(object,kind:kind),inference=try number(object["inference_ms"])
@@ -131,7 +135,13 @@ public enum CWComputeWire {
                 tokens.append(CWNativeToken(symbol:symbol,firstSample:first,endSample:end,logScore:score));last=end
             }
             guard tokens.map(\.symbol).joined()==text else { throw CWComputeError.invalidEvent }
-            return .decode(CWNativeDecode(track:metadata,text:text,tokens:tokens,inferenceMilliseconds:inference))
+            let wpm=try object["estimated_wpm"].map{try number($0)}
+            let snr=try object["estimated_snr_db"].map{try number($0)}
+            let reference=try object["snr_reference_hz"].map{try integer($0,range:2500...2500)}
+            guard wpm.map({(5...80).contains($0)}) ?? true,snr.map({(-100...150).contains($0)}) ?? true,
+                  (snr != nil)==(reference != nil) else{throw CWComputeError.invalidEvent}
+            return .decode(CWNativeDecode(track:metadata,text:text,tokens:tokens,inferenceMilliseconds:inference,
+                estimatedWPM:wpm,estimatedSNRDB:snr,snrReferenceHz:reference))
         default: throw CWComputeError.invalidEvent
         }
     }

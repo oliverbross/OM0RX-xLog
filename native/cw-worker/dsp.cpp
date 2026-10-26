@@ -4,9 +4,50 @@
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
+#if defined(__APPLE__)
+#include <Accelerate/Accelerate.h>
+#endif
 
 namespace cw {
 constexpr double pi=3.14159265358979323846;
+std::optional<double> Carrier::estimated_snr_db(int rate,double reference) const {
+  if(rate<24000 || rate>384000 || !std::isfinite(reference) || reference<=0 || reference>rate ||
+     !noise_estimate_valid || noise_bin_power<=0 || !std::isfinite(integrated_power)) return {};
+  // The local median of a noise periodogram estimates mean bin power / ln(2).
+  // Integrate the Hann carrier's three main bins and subtract their mean noise.
+  // The ratio cancels window gain; rate/N converts bin power to noise per Hz.
+  const double mean=noise_bin_power/std::log(2.0),signal=integrated_power-3*mean;
+  if(signal<=0) return {};
+  const double db=10*std::log10(signal*rate/(8192*mean*reference));
+  return std::isfinite(db)?std::optional<double>(db):std::nullopt;
+}
+void KeyingSpeed::tick(bool next) {
+  if(ticks<UINT64_MAX) ++ticks;
+  if(next==down) {run=std::min(size_t(10000),run+1);return;}
+  if(down && run>=1 && run<=64) {
+    durations.push_back(run*0.0125);last_fall=ticks;
+    if(durations.size()>64) durations.erase(durations.begin());
+  }
+  down=next;run=1;
+}
+std::optional<double> KeyingSpeed::estimate() const {
+  if(durations.size()<12 || ticks-last_fall>160) return {};
+  double best_error=1e9,best=0;
+  for(double wpm=5;wpm<=80;wpm+=0.5) {
+    const double unit=1.2/wpm;
+    double error=0;size_t dots=0,dashes=0;
+    for(double duration:durations) {
+      const double normalized=duration/unit;
+      const bool dash=std::abs(normalized-3)<std::abs(normalized-1);
+      const double residual=normalized-(dash?3:1);error+=residual*residual;
+      if(dash) ++dashes;else ++dots;
+    }
+    error/=durations.size();
+    if(dots>=3 && dashes>=3 && error<best_error){best_error=error;best=wpm;}
+  }
+  if(best_error>0.18*0.18) return {};
+  return best;
+}
 std::vector<Carrier> carriers(const std::vector<std::complex<float>>& iq,int rate,
                               double lower,double upper,size_t capacity) {
   if(iq.size()!=8192 || rate<24000 || rate>384000 || !std::isfinite(lower) || !std::isfinite(upper) ||
@@ -44,7 +85,7 @@ std::vector<Carrier> carriers(const std::vector<std::complex<float>>& iq,int rat
     const double left=std::log(std::max(power[i-1],1e-30)),mid=std::log(std::max(power[i],1e-30)),right=std::log(std::max(power[i+1],1e-30));
     const double denom=left-2*mid+right;
     const double correction=std::abs(denom)>1e-12?std::clamp(0.5*(left-right)/denom,-0.5,0.5):0;
-    found.push_back({offset+correction*bin,power[i],noise});
+    found.push_back({offset+correction*bin,power[i],noise,false,power[i-1]+power[i]+power[i+1],*middle>std::max(1e-16,numericFloor)});
   }
   std::sort(found.begin(),found.end(),[](const auto& a,const auto& b){return a.power>b.power;});
   std::vector<Carrier> selected;
@@ -65,7 +106,7 @@ double bessel0(double x) {
   for(int k=1;k<50;++k) { term*=x*x/(4*k*k); sum+=term; if(term<sum*1e-15) break; }
   return sum;
 }
-Channelizer::Channelizer(int source_rate,double offset):rate(source_rate) {
+Channelizer::Channelizer(int source_rate,double offset,bool accelerated):rate(source_rate),accelerated(accelerated) {
   if((rate!=24000 && rate!=48000 && rate!=96000 && rate!=192000 && rate!=384000) ||
      !std::isfinite(offset) || std::abs(offset)>rate/2.0-400) throw std::invalid_argument("Unsupported channelizer source");
   step=std::polar(1.0,-2*pi*offset/rate);
@@ -84,7 +125,9 @@ Channelizer::Channelizer(int source_rate,double offset):rate(source_rate) {
       h[i]=float(sinc*bessel0(beta*std::sqrt(std::max(0.0,1-p*p)))/scale); sum+=h[i];
     }
     for(float& v:h) v=float(v/sum);
-    coefficients.push_back(std::move(h));
+    // Forward contiguous sample windows permit vector dot products. Reverse
+    // each phase's coefficients once, preserving its original FIR ordering.
+    std::reverse(h.begin(),h.end());coefficients.push_back(std::move(h));
   }
 }
 std::vector<float> Channelizer::process(const std::vector<std::complex<float>>& iq) {
@@ -104,7 +147,16 @@ std::vector<float> Channelizer::process(const std::vector<std::complex<float>>& 
       const size_t phase=(next_numerator%3200)==0?0:1;
       const auto& h=coefficients[phase];
       std::complex<double> value(0,0);
-      for(size_t k=0;k<h.size();++k) value+=std::complex<double>(ring[newest+taps-k])*double(h[k]);
+#if defined(__APPLE__)
+      if(accelerated) {
+        static_assert(sizeof(std::complex<float>)==2*sizeof(float));
+        const auto* samples=reinterpret_cast<const float*>(ring.data()+newest+1);
+        float real=0,imaginary=0;
+        vDSP_dotpr2(samples,2,samples+1,2,h.data(),1,&real,&imaginary,h.size());
+        value={real,imaginary};
+      } else
+#endif
+      for(size_t k=0;k<h.size();++k) value+=std::complex<double>(ring[newest+1+k])*double(h[k]);
       // Real audio carrier at 800 Hz; signed RF translation is already removed.
       const auto oscillator=std::polar(1.0,2*pi*800*double(emitted%4)/3200);
       out.push_back(float((value*oscillator).real()));

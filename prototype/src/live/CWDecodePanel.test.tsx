@@ -81,6 +81,13 @@ describe("CW Decode shared native view", () => {
       radio_id: "radio1", panadapter_id: "40000000", inventory_revision: "7" });
     expect(owner.request.mock.calls.some(([method]) => method === "cw_decode_start")).toBe(false);
   });
+  it("labels observed signal estimates and the SNR reference bandwidth", async () => {
+    const fixture = cwDecodeTrackFixture(); Object.assign(fixture.tracks[0], { estimatedWPM: 24.5, estimatedSNRDB: 12, snrReferenceHz: 2500 });
+    render(<CWDecodePanel request={service(fixture).request} />);
+    await screen.findByText("24.5"); expect(screen.getByText("12.0 dB")).toBeTruthy();
+    expect(screen.getByTitle(/2.5 kHz noise bandwidth/)).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Est. WPM" })).toBeTruthy();
+  });
   it("keeps all capture and listener acquisition disabled in a gated build", async () => {
     const fixture = cwDecodeFixture(); fixture.featureEnabled = false; fixture.configuration.listenerEnabled = true;
     const owner = service(fixture); render(<CWDecodePanel request={owner.request} />);

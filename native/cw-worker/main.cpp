@@ -49,6 +49,8 @@ void outputEvent(const cw::SkimmerEvent& e) {
     <<",\"offset_hz\":"<<e.offset_hz<<",\"ambiguous\":"<<(e.ambiguous?"true":"false")
     <<",\"replay\":"<<(e.replay?"true":"false");
   if(e.kind=="decode") {
+    if(e.estimated_snr_db) std::cout<<",\"estimated_snr_db\":"<<*e.estimated_snr_db<<",\"snr_reference_hz\":2500";
+    if(e.estimated_wpm) std::cout<<",\"estimated_wpm\":"<<*e.estimated_wpm;
     std::cout<<",\"text\":\""<<e.copy.text<<"\",\"inference_ms\":"<<e.copy.inference_ms<<",\"tokens\":[";
     bool comma=false;
     for(const auto& t:e.copy.tokens) {
@@ -92,10 +94,15 @@ int main(int argc,char** argv) {
     }
     if(argc!=2) throw std::runtime_error("Usage: xlog-cw-worker /absolute/path/model.onnx");
     cw::Engine engine(argv[1]);
-    cw::Skimmer skimmer(engine,2);
+#if defined(__APPLE__)
+    constexpr size_t inference_workers=4;
+#else
+    constexpr size_t inference_workers=2;
+#endif
+    cw::Skimmer skimmer(engine,inference_workers);
     EventWriter writer(skimmer);
     std::cout<<"{\"type\":\"ready\",\"protocol_version\":1,\"sample_rate\":3200,\"max_spans\":2,"
-      <<"\"max_tracks_per_span\":16,\"inference_workers\":2,\"runtime_version\":\""<<cw::Engine::runtime_version()<<"\"}"<<std::endl;
+      <<"\"max_tracks_per_span\":16,\"inference_workers\":"<<inference_workers<<",\"runtime_version\":\""<<cw::Engine::runtime_version()<<"\"}"<<std::endl;
     while(true) {
       std::array<uint8_t,8> prefix{};
       if(!readExact(reinterpret_cast<char*>(prefix.data()),8,true)) {

@@ -59,6 +59,18 @@ final class CWWireHarnessTests:XCTestCase {
         XCTAssertThrowsError(try event(record))
         XCTAssertThrowsError(try CWComputeWire.event(Data(repeating:32,count:131073)))
     }
+    func testSignalEstimatesRequireFiniteValuesAndExplicitNoiseBandwidth() throws {
+        var record=decode();record["estimated_wpm"]=24.5;record["estimated_snr_db"]=12.0;record["snr_reference_hz"]=2500
+        guard case .decode(let value)=try event(record) else{return XCTFail("Expected decode")}
+        XCTAssertEqual(value.estimatedWPM,24.5);XCTAssertEqual(value.estimatedSNRDB,12);XCTAssertEqual(value.snrReferenceHz,2500)
+        for (key,bad):(String,Any) in [("estimated_wpm",true),("estimated_wpm",81),("estimated_snr_db",151),("snr_reference_hz",500)] {
+            var invalid=record;invalid[key]=bad;XCTAssertThrowsError(try event(invalid))
+        }
+        record.removeValue(forKey:"snr_reference_hz");XCTAssertThrowsError(try event(record))
+        let noMeasurement=try event(decode())
+        guard case .decode(let missing)=noMeasurement else{return XCTFail("Expected decode")}
+        XCTAssertNil(missing.estimatedWPM);XCTAssertNil(missing.estimatedSNRDB)
+    }
     func testReadyAndMetricsUseBoundedTypes() throws {
         let ready:[String:Any]=["type":"ready","protocol_version":1,"sample_rate":3200,"max_spans":2,"max_tracks_per_span":16,
                                 "inference_workers":2,"runtime_version":"1.24.3"]

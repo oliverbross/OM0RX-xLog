@@ -46,13 +46,41 @@ int main(int argc,char** argv) {
     const auto peaks=cw::carriers(spectrum,96000,-39000,39000,4);
     require(peaks.size()==2,"Two independently located IQ carriers");
     require(std::abs(peaks[0].offset_hz-6200)<2 && std::abs(peaks[1].offset_hz+4100)<2,"Signed frequency estimator");
+    std::mt19937 snr_random(9372);std::normal_distribution<float> snr_noise(0,float(0.01/std::sqrt(2.0)));
+    for(size_t i=0;i<spectrum.size();++i) spectrum[i]=std::complex<float>(std::polar(0.1,2*pi*9600*i/96000))+
+      std::complex<float>(snr_noise(snr_random),snr_noise(snr_random));
+    const auto noisy=cw::carriers(spectrum,96000,-39000,39000,4);
+    require(!noisy.empty(),"Noisy carrier detected");
+    const auto snr=noisy[0].estimated_snr_db(96000);
+    require(snr && std::abs(*snr-10*std::log10(100.0*96000/2500))<2,"Measured Hann SNR uses explicit 2.5-kHz reference bandwidth");
+    for(size_t i=0;i<spectrum.size();++i)spectrum[i]=std::complex<float>(std::polar(0.1,2*pi*6000*i/96000));
+    const auto clean=cw::carriers(spectrum,96000,-39000,39000,4);
+    require(!clean.empty() && !clean[0].estimated_snr_db(96000),"An artificial numerical noise floor cannot become reported SNR");
+    for(int speed:{10,20,30,40}) {
+      cw::KeyingSpeed measured;
+      for(int repeat=0;repeat<12;++repeat) {
+        const int ticks=int(std::round((repeat%2?3:1)*1.2/speed/0.0125));
+        for(int tick=0;tick<ticks;++tick) measured.tick(true);
+        for(int tick=0;tick<8;++tick) measured.tick(false);
+      }
+      const auto estimate=measured.estimate();
+      require(estimate && std::abs(*estimate-speed)<=2,"Observed dot/dash speed estimate");
+      for(int tick=0;tick<200;++tick) measured.tick(false);
+      require(!measured.estimate(),"Stale keying speed expires");
+    }
+    cw::KeyingSpeed carrier_speed;for(int tick=0;tick<1000;++tick) carrier_speed.tick(true);
+    require(!carrier_speed.estimate(),"Unmodulated carrier has no invented WPM");
     for(int rate:{24000,48000,96000,192000}) {
       cw::Channelizer channel(rate,6200);
+      cw::Channelizer reference_channel(rate,6200,false);
       std::vector<float> audio;
       for(int block=0;block<rate/4000;++block) {
         std::vector<std::complex<float>> iq(4000);
         for(size_t i=0;i<iq.size();++i) iq[i]=std::complex<float>(std::polar(0.4,2*pi*6200*(block*4000+i)/rate));
-        const auto output=channel.process(iq); audio.insert(audio.end(),output.begin(),output.end());
+        const auto output=channel.process(iq),reference=reference_channel.process(iq);
+        require(output.size()==reference.size(),"Accelerated/scalar rational phase count agrees");
+        for(size_t i=0;i<output.size();++i)require(std::abs(output[i]-reference[i])<0.00001,"Accelerated FIR agrees with scalar reference");
+        audio.insert(audio.end(),output.begin(),output.end());
       }
       double power=0;
       for(size_t i=400;i<audio.size();++i) power+=audio[i]*audio[i];

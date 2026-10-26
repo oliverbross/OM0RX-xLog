@@ -41,6 +41,8 @@ struct Track {
   size_t envelope_samples=0,rises=0,falls=0;
   size_t ambiguity_hits=0;
   bool keyed=false,ambiguous=false,spectral_ambiguity=false;
+  KeyingSpeed speed;
+  std::optional<double> snr{};
   Track(int rate,double offset,uint64_t origin,bool replay):origin(origin),replay(replay),offset(offset),channel(rate,offset) {}
   bool cw_keying() const { return rises>=2 && falls>=2; }
   void append(const std::vector<std::complex<float>>& iq) {
@@ -53,6 +55,7 @@ struct Track {
         const double power=envelope_sum/40;
         peak_envelope=std::max(peak_envelope*0.999,power);
         const bool on=power>1e-10 && power>peak_envelope*0.2;
+        speed.tick(on);
         if(on && !keyed) rises=std::min(size_t(100),rises+1);
         if(!on && keyed) falls=std::min(size_t(100),falls+1);
         keyed=on; envelope_sum=0; envelope_samples=0;
@@ -76,6 +79,7 @@ struct Job {
   std::string token;
   uint64_t epoch,revision,first,end;
   std::vector<float> audio;
+  std::optional<double> snr{},wpm{};
 };
 struct QueuedEvent {
   SkimmerEvent event;
@@ -150,6 +154,7 @@ struct Skimmer::Impl {
           auto copy=engine.decode(job.audio,job.first);
           if(job.track->valid && job.track->revision==job.revision) {
             SkimmerEvent event{"decode",job.token,job.track->id,"provisional",job.epoch,job.first,job.end,job.track->offset,false,std::move(copy)};
+            event.estimated_snr_db=job.snr;event.estimated_wpm=job.wpm;
             emit(std::move(event),job.track,job.revision);
           }
         } catch(...) {
@@ -205,6 +210,7 @@ void Skimmer::feed(const std::string& token,uint64_t epoch,uint64_t sequence,uin
   if(span.history.size()>size_t(span.rate)) span.history.erase(span.history.begin(),span.history.begin()+std::ptrdiff_t(span.history.size()-span.rate));
   for(auto& track:span.tracks) if(track->valid) track->append(iq);
   span.analysis.insert(span.analysis.end(),iq.begin(),iq.end());
+  size_t admitted=0;
   while(span.analysis.size()>=8192) {
     const std::vector<std::complex<float>> window(span.analysis.begin(),span.analysis.begin()+8192);
     const auto peaks=carriers(window,span.rate,span.lower,span.upper,impl->cap+8);
@@ -218,6 +224,7 @@ void Skimmer::feed(const std::string& token,uint64_t epoch,uint64_t sequence,uin
       if(match!=span.tracks.end()) {
         auto& track=**match;
         track.last_peak=windowEnd;
+        track.snr=peak.estimated_snr_db(span.rate);
         track.ambiguity_hits=peak.ambiguous?std::min(size_t(3),track.ambiguity_hits+1):0;
         track.spectral_ambiguity=track.ambiguity_hits>=3;
         continue;
@@ -229,8 +236,11 @@ void Skimmer::feed(const std::string& token,uint64_t epoch,uint64_t sequence,uin
       }
       candidate->last=windowEnd; ++candidate->hits;
       if(candidate->hits<3 || windowEnd-candidate->first<uint64_t(span.rate)/20) continue;
-      if(span.tracks.size()>=impl->cap) continue;
+      // Bound history priming when many carriers appear together. A single
+      // input block cannot create and backfill all sixteen channelizers.
+      if(span.tracks.size()>=impl->cap || admitted>=1) continue;
       auto track=std::make_shared<Track>(span.rate,peak.offset_hz,span.sample-span.history.size(),span.replay); track->last_peak=windowEnd;
+      track->snr=peak.estimated_snr_db(span.rate);
       track->ambiguity_hits=peak.ambiguous?1:0;
       for(size_t at=0;at<span.history.size();at+=8192) {
         const std::vector<std::complex<float>> before(span.history.begin()+std::ptrdiff_t(at),
@@ -238,6 +248,7 @@ void Skimmer::feed(const std::string& token,uint64_t epoch,uint64_t sequence,uin
         track->append(before);
       }
       span.tracks.push_back(track);
+      ++admitted;
       impl->emit({"track",token,track->id,"acquiring",span.epoch,0,0,track->offset,false,{}},track);
     }
     span.analysis.erase(span.analysis.begin(),span.analysis.begin()+4096);
@@ -254,7 +265,8 @@ void Skimmer::feed(const std::string& token,uint64_t epoch,uint64_t sequence,uin
       track->next_job=last+3200;
       // Filter delay remains explicitly reported; absolute channel indices are
       // tied to this track acquisition, not synthesized hardware timestamps.
-      impl->enqueue({track,token,span.epoch,track->revision,last-track->audio.size(),last,track->audio});
+      impl->enqueue({track,token,span.epoch,track->revision,last-track->audio.size(),last,track->audio,
+          span.sample-track->last_peak<uint64_t(span.rate)/2 ? track->snr:std::nullopt,track->speed.estimate()});
     }
   }
   span.tracks.erase(std::remove_if(span.tracks.begin(),span.tracks.end(),[](const auto& t){return !t->valid;}),span.tracks.end());

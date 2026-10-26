@@ -39,6 +39,9 @@ public struct CWDecodeTrackSnapshot: Encodable, Sendable {
     public let ambiguous: Bool
     public let inferenceMilliseconds: Double?
     public let spotRejection:String?
+    public var estimatedWPM:Double?=nil
+    public var estimatedSNRDB:Double?=nil
+    public var snrReferenceHz:Int?=nil
 }
 public struct CWDecodeSessionSnapshot: Encodable, Sendable {
     public let sessionID: UUID?
@@ -315,7 +318,8 @@ public actor CWDecodeSession {
         let view=CWDecodeTrackSnapshot(sourceID:descriptor.sourceID,trackID:key,descriptor:descriptor,
             revision:String(value.revision),offsetHz:value.offsetHz,
             frequencyHz:frequency,committed:committed,provisional:provisional,ambiguous:ambiguous,
-            inferenceMilliseconds:decode?.inferenceMilliseconds,spotRejection:rejection)
+            inferenceMilliseconds:decode?.inferenceMilliseconds,spotRejection:rejection,
+            estimatedWPM:decode?.estimatedWPM,estimatedSNRDB:decode?.estimatedSNRDB,snrReferenceHz:decode?.snrReferenceHz)
         if tracks[key] != nil || tracks.count<32 {tracks[key]=Track(view:view,transcript:reconciler)}
     }
 }
