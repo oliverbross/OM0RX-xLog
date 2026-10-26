@@ -6,9 +6,9 @@ The live registry contains **94 definitions**: 89 named contests, three utility 
 
 Registry, live catalogue API and source-manifest registered-ID sets match exactly (94 each). There are 94 vendored Python plugin modules excluding `__init__`. Unregistered vendored modules outside this catalogue: none. No registered plugin lacks its vendored module.
 
-Lifecycle source HEAD: `6d758c6710fa9bf2c1c6b47254c5aaa077d54f77`. Report rendered at `3f5f44aab9d23031a49703c3a28d5d1afb37dae1`. Pinned Not1MM revision: `7c8b499225a73f7f8f792246881bd7aefc05452f`. Python runtime: `3.12.4 (main, Jun  8 2024, 04:51:36) [Clang 15.0.0 (clang-1500.1.0.2.5)]`. Exact tested source hashes, plugin bytes, export hashes, field descriptors and per-feature reasons are in the JSON companion.
+Lifecycle source HEAD: `128ee7afeac33168a3779dcc143006a1fd257dcf`. Report rendered at `0b0d256f5c22302b02949f9c4345391cfb6e9ff4`. Pinned Not1MM revision: `7c8b499225a73f7f8f792246881bd7aefc05452f`. Python runtime: `3.12.4 (main, Jun  8 2024, 04:51:36) [Clang 15.0.0 (clang-1500.1.0.2.5)]`. Exact tested source hashes, plugin bytes, export hashes, field descriptors and per-feature reasons are in the JSON companion.
 
-Verified source commit for every recorded lifecycle source path: `3f5f44aab9d23031a49703c3a28d5d1afb37dae1`. Each committed Git object matches the recorded tested SHA-256; this mapping is limited to the listed source paths.
+Verified source commit for every recorded lifecycle source path: `0b0d256f5c22302b02949f9c4345391cfb6e9ff4`. Each committed Git object matches the recorded tested SHA-256; this mapping is limited to the listed source paths.
 
 The lifecycle source hashes match the files present when this report was generated.
 
@@ -22,11 +22,11 @@ The lifecycle checks configure a session, verify generated fields, commit and in
 
 The React tests use the current `Not1MMContestWorkspace` and `DetachedContestSurface`, real Python JSONL and disposable storage for each ID; native windows, output, recorder, SCP and network services are simulated/unavailable. The native test loops every registered fixture through the actual Swift `PythonContestLane`. Neither is a live installed-app rehearsal. The lifecycle runner dispatches the same real host implementation directly for detailed SQLite/export assertions; the JSONL and native checks separately establish the transport path.
 
-Saved React results: 95 passed / 0 failed. Native all-ID XCTest: PASS. Family runner in this lifecycle report: 320 tests, success=True; zero means the committed fixture inputs were reused and that family suite was not rerun by this invocation. Counts from overlapping suites must not be added.
+Saved React results: 97 passed / 0 failed. Native all-ID XCTest: PASS. Family runner in this lifecycle report: 331 tests, success=True; zero means the committed fixture inputs were reused and that family suite was not rerun by this invocation. Counts from overlapping suites must not be added.
 
-Full Python source suite: 383 tests; saved result PASS. Its log hash is captured separately from the lifecycle and append runs. This is source/test evidence; final packaging and installed-app acceptance remain separate.
+Full Python source suite: 394 tests; saved result PASS. Its log hash is captured separately from the lifecycle and append runs. This is source/test evidence; final packaging and installed-app acceptance remain separate.
 
-Append equivalence reports 40 fast-path IDs with comparisons out of 40 currently admitted; uncovered admitted IDs: none. The saved harness ran 115 family tests; overall suite outcome: PASS. Each optimized append is compared with a rolled-back full rebuild, including score components and contact point/multiplier assignments. Tied/backdated/correction/deletion cases remain covered by the family fixtures. John Moyle stays on full rebuild because prior multiplier assignments can change. See [shared consistency evidence](CROSS_CONTEST_CONSISTENCY_2026-10-26.md).
+Append equivalence reports 40 fast-path IDs with comparisons out of 40 currently admitted; uncovered admitted IDs: none. The saved harness ran 126 family tests; overall suite outcome: PASS. Each optimized append is compared with a rolled-back full rebuild, including score components and contact point/multiplier assignments. Tied/backdated/correction/deletion cases remain covered by the family fixtures. John Moyle stays on full rebuild because prior multiplier assignments can change. See [shared consistency evidence](CROSS_CONTEST_CONSISTENCY_2026-10-26.md).
 
 Export PASS validates actual downloaded bytes, not just a marker. The checker verifies ADIF IDs, plugin, raw/exchange fields, date/time, frequency, station and mode; Cabrillo contact rows, identifiers, available categories and exchange oracles; and EDI records as implemented. Each actual export has a SHA-256 and a bounded sample in JSON. Sponsor submission acceptance and every optional header are not implied.
 
@@ -39,6 +39,8 @@ Load a current CTY reference for the entrant and received calls before relying o
 Follow the displayed field labels and order. Compound exchanges may contain spaces. Manual Enter/ESM and Run/S&P remain explicit operating policies, with CQ WW SSB's established manual workflow retained. A DUPE label describes its configured scope; checking disabled, unchecked and unknown scoring remain different states. The pinned score is authoritative; do not reconstruct totals as points × a universal multiplier count.
 
 Before an actual submission, check the current organizer rules and final export with the operator's category, station and exchanged fields. HA DX, PACC and IOTA have partial 2026 sponsor arithmetic checks and documented new-session overlays; this is not full-edition certification. REF's official summary was consulted while its current full DOCX could not be retrieved. ES Open received an official-rule overlay for 80/40 m, CW/SSB points and eligible ES-region multipliers. CQWS scoring was checked against the available official 2023 rules; its 2026 edition remains unknown. Sources, edition limits and overlay provenance are in the [sponsor-rule audit](PILOT_SPONSOR_RULE_AUDIT.md). Other unverified editions remain explicitly UNVERIFIED. No existing production log is silently rescored by this qualification.
+
+JIDX CW/Phone new sessions use `scoringRevision=26.10.26`. The [official English rules](https://www.jidx.org/jidxrule-e.html), heading `2026-10`, support six bands including 160 m in both modes and the checked JA/DX contact and multiplier branches: DX entrants count Japanese prefecture/JD1 island numbers per band; Japanese entrants count DXCC countries and CQ zones per band; maritime-mobile contacts give Japanese entrants points and zone credit without country credit. The host supplies family-specific score labels and totals. Existing unmarked sessions retain their original global received-number behavior. This is partial rule/branch verification; full sponsor-edition status remains UNVERIFIED. Exact overlay boundaries and regression coverage are in [PATCHES.md](../../python/vendor/not1mm/PATCHES.md).
 
 CQWS has an explicit remaining branch limitation: Brazilian state/UF identity is counted only when established. Automatic received-UF acquisition is unavailable. Such a score is visibly partial (`scoringComplete=false`), Cabrillo carries a SOAPBOX limitation, and manual/automatic RTC score payloads refuse with `scoring_incomplete`. The CQWS core row is UNVERIFIED for this branch even when its tested lifecycle and explicit-UF arithmetic pass; operator UF review is required before relying on a submission total. Its explicit-UF one-point branch also preserves legacy behavior without established point-rule authority in the available official 2023 document. Providing UF alone therefore does not establish current sponsor correctness.
 
@@ -583,11 +585,13 @@ Modes: CW. Bands: 160m, 80m, 40m, 20m, 15m, 10m. Sent exchange hint: Prefecture 
 
 Fixture station: `Call=OM0RX, GridSquare=JN88`. Setup/category: `BandCategory=ALL, ModeCategory=CW, OperatorCategory=SINGLE-OP, OverlayCategory=N/A, PowerCategory=LOW, SentExchange=15`. Entry examples: Call (`callsign`) = `JA1ABC`; SNT (`sent`) = `599`; RCV (`receive`) = `599`; SentNR (`other_1`) = `15`; RcvNR (`other_2`) = `13`.
 
-Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: Distinct received prefecture/CQ-zone value across the contest, as pinned fetch_nr_count. First-contact fixture: points=1, multipliers=1, total=1; exact callbacks are linked in JSON. Exports: cabrillo, adif.
+Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: New scoringRevision=26.10.26: DX entrant counts eligible Japanese prefecture/JD1 island number per band; Japanese entrant counts DXCC entity and received CQ zone per band. Maritime-mobile contacts give only Japanese entrants points/zone credit, with no entity credit. Historical unmarked sessions retain the pinned global received-number count. First-contact fixture: points=1, multipliers=1, total=1; exact callbacks are linked in JSON. Exports: cabrillo, adif.
 
 Fixture: `test_jidx_plugins_host.JIDXCWHostTests.test_numeric_exchange_validation_and_original_esm_commit`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
-Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Official English rules revision 2026-10 sections 5–7 support six bands including 160 m in both modes, JA/DX eligibility, per-band prefecture or country/zone credit, JD1 and maritime-mobile handling. These checks support the new scoringRevision=26.10.26 overlay; remaining sponsor clauses and full-edition certification remain unverified. Historical unmarked sessions retain their pinned behavior; see PATCHES.md.
+
+Operator setup for new marked sessions: Japanese land stations send their prefecture/island number (1–50); DX and maritime-mobile stations send their CQ zone (1–40). Enter the received value for the counterpart's role. These bounds apply to setup, commits and corrections; historical unmarked-session compatibility remains separate.
 
 ### jidx_ph
 
@@ -597,11 +601,13 @@ Modes: SSB. Bands: 160m, 80m, 40m, 20m, 15m, 10m. Sent exchange hint: Prefecture
 
 Fixture station: `Call=OM0RX, GridSquare=JN88`. Setup/category: `BandCategory=ALL, ModeCategory=SSB, OperatorCategory=SINGLE-OP, OverlayCategory=N/A, PowerCategory=LOW, SentExchange=15`. Entry examples: Call (`callsign`) = `JA1ABC`; SNT (`sent`) = `59`; RCV (`receive`) = `59`; SentNR (`other_1`) = `15`; RcvNR (`other_2`) = `13`.
 
-Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: Distinct received prefecture/CQ-zone value across the contest, as pinned fetch_nr_count. First-contact fixture: points=1, multipliers=1, total=1; exact callbacks are linked in JSON. Exports: cabrillo, adif.
+Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: New scoringRevision=26.10.26: DX entrant counts eligible Japanese prefecture/JD1 island number per band; Japanese entrant counts DXCC entity and received CQ zone per band. Maritime-mobile contacts give only Japanese entrants points/zone credit, with no entity credit. Historical unmarked sessions retain the pinned global received-number count. First-contact fixture: points=1, multipliers=1, total=1; exact callbacks are linked in JSON. Exports: cabrillo, adif.
 
 Fixture: `test_jidx_plugins_host.JIDXPhoneHostTests.test_numeric_exchange_validation_and_original_esm_commit`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
-Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Official English rules revision 2026-10 sections 5–7 support six bands including 160 m in both modes, JA/DX eligibility, per-band prefecture or country/zone credit, JD1 and maritime-mobile handling. These checks support the new scoringRevision=26.10.26 overlay; remaining sponsor clauses and full-edition certification remain unverified. Historical unmarked sessions retain their pinned behavior; see PATCHES.md.
+
+Operator setup for new marked sessions: Japanese land stations send their prefecture/island number (1–50); DX and maritime-mobile stations send their CQ zone (1–40). Enter the received value for the counterpart's role. These bounds apply to setup, commits and corrections; historical unmarked-session compatibility remains separate.
 
 ### aadx_cw
 
@@ -1373,7 +1379,7 @@ Fixture: `test_second_remaining_plugins_host.SecondRemainingPluginTests.test_all
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
-Operator setup: enter the literal number of years licensed as the sent exchange (for example `25` for an operator licensed for 25 years). The `#` appearing in this synthetic fixture is legacy compatibility evidence only; do not use it as the operating exchange.
+Operator setup: enter the literal number of years licensed as the sent exchange (for example `25` for an operator licensed for 25 years). The `#` appearing in this synthetic fixture is legacy compatibility evidence only; do not use it as the operating exchange. The additional literal-25 host lifecycle (`test_wia_literal_years_never_allocate_or_renumber_a_sent_serial`) and current React desk case verify that normal setup without reserving or renumbering a serial; see the acceptance record for their runs.
 
 ### cq_ww_vhf
 
@@ -1479,7 +1485,7 @@ Run only against synthetic disposable storage:
 
 ```sh
 /opt/local/bin/python3.12 tools/check_all_contests_readiness.py --family-tests --output .build/all-contests-readiness.json
-cd prototype && XLOG_CONTEST_PYTHON=/opt/local/bin/python3.12 npm exec vitest -- run src/contesting/AllContestsPythonDesk.test.tsx --reporter=json --outputFile=/tmp/xlog-all-contests-ui-final-results.json
+cd prototype && XLOG_CONTEST_PYTHON=/opt/local/bin/python3.12 npm exec vitest -- run src/contesting/AllContestsPythonDesk.test.tsx --reporter=json --outputFile=/tmp/xlog-all-contests-ui-final-accepted-results.json
 # Run PythonCatalogueReadinessTests with the repository's native prototype test command.
 # Run tools/check_contest_append_equivalence.py and save its bounded result log.
 cd .. && /opt/local/bin/python3.12 tools/render_all_contests_readiness.py

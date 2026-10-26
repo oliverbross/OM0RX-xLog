@@ -52,7 +52,7 @@ for ids, summary in (
     ("sac_cw sac_ssb", "Entrant-dependent country per band or Scandinavian country/call-area per band."),
     ("iaru_fieldday_r1_cw iaru_fieldday_r1_ssb", "Country per band; stored first-country flags."),
     ("10_10_fall_cw 10_10_spring_cw 10_10_winter_phone 10_10_summer_phone", "No contest multiplier; total uses stored contact points."),
-    ("jidx_cw jidx_ph", "Distinct received prefecture/CQ-zone value across the contest, as pinned fetch_nr_count."),
+    ("jidx_cw jidx_ph", "New scoringRevision=26.10.26: DX entrant counts eligible Japanese prefecture/JD1 island number per band; Japanese entrant counts DXCC entity and received CQ zone per band. Maritime-mobile contacts give only Japanese entrants points/zone credit, with no entity credit. Historical unmarked sessions retain the pinned global received-number count."),
     ("aadx_cw aadx_ssb", "Asian entrant: other DXCC country per band; non-Asian entrant: eligible worked Asian WPX prefix per band."),
     ("cq_160_cw cq_160_ssb", "US state, Canadian province and eligible DXCC entity; single 160 m contest scope."),
     ("euhfc", "Received licence-year value per band, independent of mode."),
@@ -270,6 +270,8 @@ def optional_features(plugin, row):
         features["currentSponsorRules"] = status("NOT APPLICABLE", "Generic QSO-party template; choose and verify the actual sponsor's rules independently.")
     if plugin == "cqws":
         features["currentSponsorRules"] = status("UNVERIFIED", "Available official 2023 class/country/UF rules informed the overlay; 2026 edition is unknown. The explicit-UF one-point branch preserves legacy behavior without an established 2023 point-rule authority, so providing UF alone does not certify this branch.")
+    if plugin in {"jidx_cw", "jidx_ph"}:
+        features["currentSponsorRules"] = status("UNVERIFIED", "Official English rules revision 2026-10 sections 5–7 support six bands including 160 m in both modes, JA/DX eligibility, per-band prefecture or country/zone credit, JD1 and maritime-mobile handling. These checks support the new scoringRevision=26.10.26 overlay; remaining sponsor clauses and full-edition certification remain unverified. Historical unmarked sessions retain their pinned behavior; see PATCHES.md.")
     return features
 
 
@@ -335,7 +337,12 @@ def render(options):
                                       "comparisonToolSHA256": sha(ROOT / "tools/check_contest_append_equivalence.py"),
                                       "scope": "Per-append score and contact assignments compared; JMMFD fallback; suite outcome recorded separately"}},
               "sharedEvidence": "docs/contesting/CROSS_CONTEST_CONSISTENCY_2026-10-26.md",
-              "sponsorRuleEvidence": "docs/contesting/PILOT_SPONSOR_RULE_AUDIT.md", "plugins": []}
+              "sponsorRuleEvidence": "docs/contesting/PILOT_SPONSOR_RULE_AUDIT.md",
+              "sponsorRuleOverlayProvenance": "python/vendor/not1mm/PATCHES.md",
+              "jidxPartialOfficialRuleEvidence": {"source": "https://www.jidx.org/jidxrule-e.html", "revisionHeading": "2026-10",
+                  "retrieved": "2026-10-26", "scope": "Sections 5–7: supported bands, JA/DX eligibility, per-band prefecture/country/zone multipliers, JD1 and maritime-mobile branches",
+                  "editionStatus": "UNVERIFIED", "reason": "Partial rule/branch verification supports the new-session overlay; full sponsor-edition certification is not claimed."},
+              "plugins": []}
     for plugin, definition in PLUGIN_REGISTRY.items():
         row = rows[plugin]
         checks = {name: {**item, "reason": item.get("reason", CHECK_REASONS.get(name, "See saved checker result."))}
@@ -396,6 +403,7 @@ def render(options):
         "Load a current CTY reference for the entrant and received calls before relying on country/continent-dependent points. The qualification uses a small synthetic CTY reference, not the operator's live database. Supply a real station grid for grid/distance contests, and use each received grid's descriptor rather than overwriting the sent grid. Conditional serials depend on the entrant's country and sent-exchange configuration. Retain allocated serials and historical exchanges; do not renumber gaps after a wipe or correction.", "",
         "Follow the displayed field labels and order. Compound exchanges may contain spaces. Manual Enter/ESM and Run/S&P remain explicit operating policies, with CQ WW SSB's established manual workflow retained. A DUPE label describes its configured scope; checking disabled, unchecked and unknown scoring remain different states. The pinned score is authoritative; do not reconstruct totals as points × a universal multiplier count.", "",
         "Before an actual submission, check the current organizer rules and final export with the operator's category, station and exchanged fields. HA DX, PACC and IOTA have partial 2026 sponsor arithmetic checks and documented new-session overlays; this is not full-edition certification. REF's official summary was consulted while its current full DOCX could not be retrieved. ES Open received an official-rule overlay for 80/40 m, CW/SSB points and eligible ES-region multipliers. CQWS scoring was checked against the available official 2023 rules; its 2026 edition remains unknown. Sources, edition limits and overlay provenance are in the [sponsor-rule audit](PILOT_SPONSOR_RULE_AUDIT.md). Other unverified editions remain explicitly UNVERIFIED. No existing production log is silently rescored by this qualification.", "",
+        "JIDX CW/Phone new sessions use `scoringRevision=26.10.26`. The [official English rules](https://www.jidx.org/jidxrule-e.html), heading `2026-10`, support six bands including 160 m in both modes and the checked JA/DX contact and multiplier branches: DX entrants count Japanese prefecture/JD1 island numbers per band; Japanese entrants count DXCC countries and CQ zones per band; maritime-mobile contacts give Japanese entrants points and zone credit without country credit. The host supplies family-specific score labels and totals. Existing unmarked sessions retain their original global received-number behavior. This is partial rule/branch verification; full sponsor-edition status remains UNVERIFIED. Exact overlay boundaries and regression coverage are in [PATCHES.md](../../python/vendor/not1mm/PATCHES.md).", "",
         "CQWS has an explicit remaining branch limitation: Brazilian state/UF identity is counted only when established. Automatic received-UF acquisition is unavailable. Such a score is visibly partial (`scoringComplete=false`), Cabrillo carries a SOAPBOX limitation, and manual/automatic RTC score payloads refuse with `scoring_incomplete`. The CQWS core row is UNVERIFIED for this branch even when its tested lifecycle and explicit-UF arithmetic pass; operator UF review is required before relying on a submission total. Its explicit-UF one-point branch also preserves legacy behavior without established point-rule authority in the available official 2023 document. Providing UF alone therefore does not establish current sponsor correctness.", "",
         "## Complete catalogue matrix", "", "Core includes the feature checks in the JSON companion and the saved transport runs. Optional status defaults and per-plugin reasons follow below.", "",
         "| ID / definition | Kind / family | Core | Fixture mode; serial | Exports |", "|---|---|---|---|---|"]
@@ -420,10 +428,12 @@ def render(options):
             f"Fixture: `{row['fixture']}`. Append: {row['appendEquivalence']['status']} — {row['appendEquivalence']['reason']}.", "",
             f"Multiplier view: {row['optionalFeatures']['multiplierTracker']['status']} — {row['optionalFeatures']['multiplierTracker']['reason']} Sponsor edition: {row['optionalFeatures']['currentSponsorRules']['status']} — {row['optionalFeatures']['currentSponsorRules']['reason']}"]
         if row["id"] == "wia_remembrance":
-            lines += ["", "Operator setup: enter the literal number of years licensed as the sent exchange (for example `25` for an operator licensed for 25 years). The `#` appearing in this synthetic fixture is legacy compatibility evidence only; do not use it as the operating exchange."]
+            lines += ["", "Operator setup: enter the literal number of years licensed as the sent exchange (for example `25` for an operator licensed for 25 years). The `#` appearing in this synthetic fixture is legacy compatibility evidence only; do not use it as the operating exchange. The additional literal-25 host lifecycle (`test_wia_literal_years_never_allocate_or_renumber_a_sent_serial`) and current React desk case verify that normal setup without reserving or renumbering a serial; see the acceptance record for their runs."]
+        if row["id"] in {"jidx_cw", "jidx_ph"}:
+            lines += ["", "Operator setup for new marked sessions: Japanese land stations send their prefecture/island number (1–50); DX and maritime-mobile stations send their CQ zone (1–40). Enter the received value for the counterpart's role. These bounds apply to setup, commits and corrections; historical unmarked-session compatibility remains separate."]
     lines += ["", "## Reproduce and refresh", "", "Run only against synthetic disposable storage:", "", "```sh",
         "/opt/local/bin/python3.12 tools/check_all_contests_readiness.py --family-tests --output .build/all-contests-readiness.json",
-        "cd prototype && XLOG_CONTEST_PYTHON=/opt/local/bin/python3.12 npm exec vitest -- run src/contesting/AllContestsPythonDesk.test.tsx --reporter=json --outputFile=/tmp/xlog-all-contests-ui-final-results.json",
+        "cd prototype && XLOG_CONTEST_PYTHON=/opt/local/bin/python3.12 npm exec vitest -- run src/contesting/AllContestsPythonDesk.test.tsx --reporter=json --outputFile=/tmp/xlog-all-contests-ui-final-accepted-results.json",
         "# Run PythonCatalogueReadinessTests with the repository's native prototype test command.",
         "# Run tools/check_contest_append_equivalence.py and save its bounded result log.",
         "cd .. && /opt/local/bin/python3.12 tools/render_all_contests_readiness.py", "```", "",
@@ -435,10 +445,10 @@ def render(options):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, default=ROOT / ".build/all-contests-readiness.json")
-    parser.add_argument("--ui", type=Path, default=Path("/tmp/xlog-all-contests-ui-final-results.json"))
+    parser.add_argument("--ui", type=Path, default=Path("/tmp/xlog-all-contests-ui-final-accepted-results.json"))
     parser.add_argument("--native", type=Path, default=Path("/tmp/xlog-native-catalogue-final.log"))
-    parser.add_argument("--python-suite", type=Path, default=Path("/tmp/xlog-python-final-clean.log"))
-    parser.add_argument("--append", type=Path, default=Path("/tmp/xlog-append-final-held.log"))
+    parser.add_argument("--python-suite", type=Path, default=Path("/tmp/xlog-python-final-accepted.log"))
+    parser.add_argument("--append", type=Path, default=Path("/tmp/xlog-append-final-accepted.log"))
     parser.add_argument("--markdown", type=Path, default=ROOT / "docs/contesting/ALL_CONTESTS_READINESS.md")
     parser.add_argument("--json", type=Path, default=ROOT / "docs/contesting/ALL_CONTESTS_READINESS.json")
     render(parser.parse_args())
