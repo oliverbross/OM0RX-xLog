@@ -88,3 +88,17 @@ worker again after readback, then produces the callsign-only command without RF
 fields. It grants no draft mutation; the explicit window action is still pending.
 Three focused native retention/readback cases and four frontend projection cases
 passed. TypeScript validation accompanies this boundary.
+
+## Draft admission boundary
+
+The native activation backend recognizes retained CW identities as draft-only.
+Its durable receipt must match the canonical draft's frequency, mode and band,
+rather than treating the CW command's absent RF fields as replacement values.
+The application worker resolves the exact native callsign again inside the
+database actor, after any queued disk work and immediately before the existing
+CAS transaction. Non-owning or disabled workers cannot commit the CW payload.
+
+Ten activation-backend cases and one application-worker admission case covering
+both non-owner and disabled-owner configurations passed. The explicit CW window
+action and its UI/recovery integration remain pending; this boundary adds no
+automatic draft change or station effect.
