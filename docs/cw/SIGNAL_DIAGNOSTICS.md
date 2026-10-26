@@ -159,3 +159,18 @@ explained solely by the other chats' compiles; scheduling/inference capacity
 still requires investigation. No inference budget, window length, stride,
 admission criterion or pass threshold was relaxed. The CPU window was released
 immediately after this single run. No IQ/radio/network/UI action occurred.
+
+## Inference attribution preparation
+
+The paced load profiler now also summarizes observed decode jobs' model Run,
+feature extraction, CTC projection and queue wait wall times (count, sum, mean,
+P95 and maximum). Queue wait starts when the current job is enqueued; replacement
+of a coalesced job starts that replacement's own wait. It therefore measures
+serviced jobs, not the age or cost of discarded work. Sums overlap across worker
+threads and must not be interpreted as process CPU time. Events retired or
+discarded before profiler delivery are absent from these distributions.
+
+These internal clocks leave the existing wire output, inference inputs/windows,
+thread count, queue bounds and strict stability predicate unchanged. Native
+CTest 2/2 and the real-child Swift supervisor/wire harness 15/15 pass. No new
+capacity result is implied by building this instrumentation.

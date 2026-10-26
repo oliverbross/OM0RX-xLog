@@ -82,6 +82,7 @@ struct Job {
   uint64_t epoch,revision,first,end;
   std::vector<float> audio;
   std::optional<double> snr{},wpm{};
+  std::chrono::steady_clock::time_point enqueued{};
 };
 struct QueuedEvent {
   SkimmerEvent event;
@@ -132,6 +133,7 @@ struct Skimmer::Impl {
     output_bytes+=item.bytes(); output.push_back(std::move(item));
   }
   void enqueue(Job job) {
+    job.enqueued=std::chrono::steady_clock::now();
     std::lock_guard<std::mutex> lock(jobs_mutex);
     const auto id=job.track->id;
     if(pending.count(id)) { pending[id]=std::move(job); ++coalesced; }
@@ -154,10 +156,12 @@ struct Skimmer::Impl {
       }
       if(job.track->valid && !job.track->muted && job.track->revision==job.revision) {
         try {
+          const double queue_ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-job.enqueued).count();
           auto copy=engine.decode(job.audio,job.first);
           if(job.track->valid && !job.track->muted && job.track->revision==job.revision) {
             SkimmerEvent event{"decode",job.token,job.track->id,"provisional",job.epoch,job.first,job.end,job.track->offset,false,std::move(copy)};
             event.estimated_snr_db=job.snr;event.estimated_wpm=job.wpm;
+            event.queue_wait_ms=queue_ms;
             emit(std::move(event),job.track,job.revision);
           }
         } catch(...) {

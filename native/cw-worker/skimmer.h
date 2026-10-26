@@ -16,6 +16,7 @@ struct SkimmerEvent {
   bool replay=false;
   uint64_t track_revision=0;
   std::optional<double> estimated_snr_db{},estimated_wpm{};
+  double queue_wait_ms=0; // Internal developer timing, excluded from wire output.
 };
 struct SkimmerMetrics { size_t sources,tracks,pending,in_flight; uint64_t coalesced,dropped_events; };
 /// One instance owns two spans and a fixed shared CPU inference pool. Radio
