@@ -79,6 +79,22 @@ class EuropeanHFPluginTests(unittest.TestCase):
     def read(host, session, method):
         return host.dispatch({"id": uid(), "method": method, "params": {"sessionID": session}})
 
+    def test_ssa_chronological_repeated_new_squares_and_bands(self):
+        for plugin_id in ("ssa_mt_cw", "ssa_mt_ssb"):
+            with self.subTest(plugin=plugin_id):
+                host, _, session, revision = self.create(plugin_id)
+                try:
+                    for minute, (call, locator, frequency) in enumerate((
+                            ("SM1ABC", "JP75AA", 7025000), ("DL1ABC", "JP75BB", 7025000),
+                            ("K1ABC", "JO79AA", 7025000), ("SM1ABC", "JP75AA", 3525000))):
+                        _, revision = self.mutate(host, session, revision, "qso_commit", qsoID=uid(),
+                            timestamp=f"2026-10-21 08:{minute:02}:00", frequencyHz=frequency,
+                            fields={"callsign": call, "other_1": "001", "other_2": locator})
+                    rows = self.read(host, session, "log")["rows"]
+                    self.assertEqual(sum(row["IsMultiplier1"] for row in rows), 3)
+                finally:
+                    host.close()
+
     @staticmethod
     def exchange_fields(case, corrected=False):
         fields = {"callsign": case["call"], "other_2": case["corrected"] if corrected else case["received"]}

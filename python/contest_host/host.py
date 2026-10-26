@@ -76,6 +76,9 @@ APPEND_RECALCULATION_PLUGINS = frozenset({
     "ca_qso_party", "canada_day", "cqws", "winter_field_day", "agcw_qrp",
     "rda_contest", "rdxc", *FINAL_VHF_PLUGINS,
 })
+# The block callback can reassign an earlier flag after tied contacts. Preserve
+# the full-rebuild authority until a bounded append rule proves row equivalence.
+FULL_REBUILD_APPEND_PLUGINS = frozenset({"john_moyle_field_day"})
 ESTONIAN_REGIONS = frozenset({
     "HM", "HR", "IV", "JG", "JR", "LN", "LV", "PL",
     "PU", "RP", "SR", "TA", "TL", "VC", "VO", "VP",
@@ -3727,7 +3730,7 @@ class Host:
         country = desk.state["reference"]["countries"].get(contact["Call"])
         desk.database.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,0)", (qso_id, canonical(fields), canonical(country)))
         if desk.state["pluginID"] in APPEND_RECALCULATION_PLUGINS:
-            if chronological_append:
+            if chronological_append and desk.state["pluginID"] not in FULL_REBUILD_APPEND_PLUGINS:
                 self.recalculate_append(desk, contact)
             else:
                 self.rebuild(desk)

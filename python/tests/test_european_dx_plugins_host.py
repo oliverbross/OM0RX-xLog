@@ -89,6 +89,22 @@ class EuropeanDxPluginTests(unittest.TestCase):
         finally:
             host.close()
 
+    def test_chronological_multiplier_callbacks_for_remaining_conditional_serial_families(self):
+        for plugin_id, exchange in (("hadx", "001"), ("helvetia", "ZH"), ("pacc", "ZH")):
+            with self.subTest(plugin=plugin_id):
+                host, session, revision = self.state(plugin_id)
+                try:
+                    for minute, call in enumerate(("DL1ABC", "K1ABC", "DL1ABC", "OM1ABC")):
+                        result = host.dispatch({"id": uid(), "method": "qso_commit", "params": {
+                            "sessionID": session, "operationID": uid(), "expectedRevision": revision,
+                            "qsoID": uid(), "timestamp": f"2026-10-21 08:{minute:02}:00",
+                            "frequencyHz": 7025000 if minute == 3 else 14025000,
+                            "fields": {"callsign": call, "other_2": exchange}}})
+                        revision = result["revision"]
+                    self.assertEqual(host.dispatch({"id": uid(), "method": "log", "params": {"sessionID": session}})["total"], 4)
+                finally:
+                    host.close()
+
 
 if __name__ == "__main__":
     unittest.main()
