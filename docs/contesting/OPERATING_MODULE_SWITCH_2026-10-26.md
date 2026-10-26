@@ -191,3 +191,46 @@ timeout preserves pending counts and returns a usable workspace.
 
 Validation: all 888 native cases passed. After the final post-wake context check
 and cancellation notification, all 15 operating-module cases passed again.
+
+## Installed 1.3.34: both requested switches complete
+
+The signed installed source is `db1641a2d2245951700604f98733308fbd2259df`,
+including deferred cosmetic cleanup `c20b0066` and queued transition `ba53ca7d`.
+Exact component/source/signature checks and a fresh protected five-root backup
+passed before reopening; see the
+[1.3.34 release receipt](../MACOS_1_3_34_RELEASE_2026-10-26.md).
+
+One Return to Normal succeeded with **22 fresh contest-owned Radio 1 Agent
+receipts**, aged 101–329.7 seconds immediately before dispatch. The automatic
+restart was observed about 6.157 seconds after dispatch; this is an external
+observation, not an internal retirement timer. All ten outgoing contest windows,
+including Cluster and the explicitly opened stopped Recorder, closed. The
+destination Window menu contained only the Normal main window. The saved
+Traditional Normal desk was usable with blank entry and connected passive radio,
+rotor and cluster state. The 22 contest receipts remained recorded, alongside new
+Normal receipts; their removal was not required or claimed.
+
+After its blank draft settled, one reciprocal Switch to Contesting succeeded.
+Contest Setup opening was observed about 15.722 seconds after dispatch. The same
+CQ WW session and workspace returned with a new context and Swift/Python workers.
+Main Logging showed blank callsign/CQ Zone, 59/59, Ready for callsign, recording
+stopped and the reviewed 775 QSOs / 116 multipliers / 111,012 score. The receipt
+inventory retained its 22 contest and 14 Normal receipts across that action.
+Neither direction used a repeated click, manual restart or guard bypass.
+
+Normal activation legitimately seeded the current radio values and advanced
+the settled blank draft to revision 2918; the original Clear was not repeated.
+Protected core comparisons after startup and Return to Normal matched the fresh
+backup: 68,563 normal contacts, 775 contest rows, 785 identities and 850 audit
+rows. Final reciprocal window/data observations are recorded in the release
+receipt. No synthetic marker or RF, rotor, network configuration or audio
+operation was used to force acceptance.
+
+The final reciprocal audit passed as well: all protected normal/contest contact,
+revision, identity and audit tables matched the fresh backup, and the blank
+Normal journal remained settled at 2918. The outgoing Normal window closed and
+all nine saved core contest windows returned; Recorder stayed closed as an
+explicit utility. Fresh passive connections were restored at 0 W with the rotor
+stopped. Stats retained 19 dupes / 957 points / 111,012 score. The detailed
+installed acceptance was committed and pushed as `89dc5782`. Final focus was
+Contest Main Logging, blank 59/59, Ready for callsign and recording stopped.
