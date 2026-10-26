@@ -90,7 +90,7 @@ int main(int argc,char** argv) {
     }
     cw::KeyingSpeed carrier_speed;for(int tick=0;tick<1000;++tick) carrier_speed.tick(true);
     require(!carrier_speed.estimate(),"Unmodulated carrier has no invented WPM");
-    for(int rate:{24000,48000,96000,192000}) {
+    for(int rate:{24000,48000,96000,192000,384000}) {
       cw::Channelizer channel(rate,6200);
       cw::Channelizer reference_channel(rate,6200,false);
       std::vector<float> audio;

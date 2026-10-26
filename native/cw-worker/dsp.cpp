@@ -113,7 +113,7 @@ Channelizer::Channelizer(int source_rate,double offset,bool accelerated):rate(so
   // Independent Kaiser-windowed sinc, 100-Hz useful passband / 250-Hz stopband.
   // This is a measured engineering profile, not an arbitrary linear interpolator.
   const size_t taps=size_t(rate/25)|1;
-  ring.resize(taps*2);
+  real_ring.resize(taps*2);imaginary_ring.resize(taps*2);
   const int phases=(rate==24000?2:1);
   const double beta=8.6,scale=bessel0(beta),cutoff=175.0/rate;
   for(int phase=0;phase<phases;++phase) {
@@ -138,7 +138,8 @@ std::vector<float> Channelizer::process(const std::vector<std::complex<float>>& 
     if(!std::isfinite(sample.real()) || !std::isfinite(sample.imag())) throw std::invalid_argument("Non-finite channel IQ");
     const size_t taps=coefficients[0].size(),newest=size_t(received%taps);
     const auto mixed=std::complex<float>(std::complex<double>(sample)*mixer);
-    ring[newest]=mixed; ring[newest+taps]=mixed;
+    real_ring[newest]=real_ring[newest+taps]=mixed.real();
+    imaginary_ring[newest]=imaginary_ring[newest+taps]=mixed.imag();
     mixer*=step;
     if((received&4095)==0) mixer/=std::abs(mixer);
     // Output at rational source positions; 24k has alternating integer/half
@@ -149,14 +150,14 @@ std::vector<float> Channelizer::process(const std::vector<std::complex<float>>& 
       std::complex<double> value(0,0);
 #if defined(__APPLE__)
       if(accelerated) {
-        static_assert(sizeof(std::complex<float>)==2*sizeof(float));
-        const auto* samples=reinterpret_cast<const float*>(ring.data()+newest+1);
         float real=0,imaginary=0;
-        vDSP_dotpr2(samples,2,samples+1,2,h.data(),1,&real,&imaginary,h.size());
+        // Unit-stride split buffers preserve the FIR while allowing Accelerate
+        // to use its contiguous vector kernel for both components.
+        vDSP_dotpr2(real_ring.data()+newest+1,1,imaginary_ring.data()+newest+1,1,h.data(),1,&real,&imaginary,h.size());
         value={real,imaginary};
       } else
 #endif
-      for(size_t k=0;k<h.size();++k) value+=std::complex<double>(ring[newest+1+k])*double(h[k]);
+      for(size_t k=0;k<h.size();++k) value+=std::complex<double>(real_ring[newest+1+k],imaginary_ring[newest+1+k])*double(h[k]);
       // Real audio carrier at 800 Hz; signed RF translation is already removed.
       const auto oscillator=std::polar(1.0,2*pi*800*double(emitted%4)/3200);
       out.push_back(float((value*oscillator).real()));

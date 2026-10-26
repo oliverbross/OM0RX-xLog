@@ -80,9 +80,53 @@ time, process CPU time, call count and maximum call time. Synthetic generation
 is outside those measured regions. It never opens an IQ source, radio, model or
 spot output, and always reports `capacity_qualified=false`.
 
-The target compiled successfully on 26 October 2026. Execution was permanently
+The target compiled successfully on 26 October 2026. Execution was initially
 blocked by the local shell allowlist because `cw-dsp-profile` was not allowed.
 The policy was not changed, and the command was not rerouted through another
-runner. No attribution timings exist from this instrument. Its compilation does
+runner. No attribution timings were produced at that stage. Its compilation did
 not resolve the failed paced profiles above, and no FIR cache or other speculative
 optimization was introduced without a measurement.
+
+## Authorized measurements and contiguous FIR buffers
+
+The human subsequently explicitly authorized adding the single `cw-dsp-profile`
+command. `lean-ctx allow cw-dsp-profile` applied it additively to the existing
+restricted allowlist; the defaults and other entries were retained. Measurements
+then used the Release arm64 build (`-O3 -DNDEBUG`) on the development Mac. Other
+release work was active, and the reference hardware/OS and isolated scheduling
+conditions are not frozen acceptance evidence.
+
+The fixed 32-channel workload uses two spans, 16 tracks per span, 32 blocks of
+4,096 samples at 96 ksample/s: 1.3653 seconds of input per span. Its unchanged
+synthetic input produced 1,024 detected-peak observations and 139,840 output
+samples before and after the change.
+
+| Buffer layout | Construction CPU | Spectrum CPU | Channel processing CPU | Maximum channel call wall time |
+| --- | ---: | ---: | ---: | ---: |
+| Interleaved I/Q, stride 2 | 3.486 ms | 88.786 ms | 1,401.350 ms | 12.7414 ms |
+| Split I/Q, stride 1 | 3.616 ms | 82.394 ms | 93.912 ms | 0.1208 ms |
+
+A two-channel baseline with the original layout used 88.627 ms of channel CPU
+over 64 calls, consistent with the per-channel cost in the 32-channel case.
+Construction was small, so no coefficient cache was added. The measured change
+stores real/imaginary FIR history in separate contiguous buffers for the existing
+Accelerate dot product. Coefficients, tap counts, output count, rational phase,
+frequency translation and group delay are unchanged. This reduced channel CPU
+about 15-fold in the attribution fixture; it is not a decoder accuracy or full
+application capacity result.
+
+The subsequent four-worker paced replay requested and delivered 15 seconds from
+both 96-kHz spans, reached and inferred all 32 tracks, and emitted 240 inference
+events. It recorded 18.6574 ms maximum input lateness, 1,781.77 ms P95 decode age,
+32 maximum pending jobs, **48 coalesced jobs**, zero dropped events, 3,475 ms DSP
+ingress wall time, 39.1668 CPU seconds and 299.031 MiB peak RSS over 15.9899 wall
+seconds. `stable_under_this_synthetic_load` remained **false**. The original
+zero-coalescing criterion was retained. Real RF quality, end-to-end commit/spot
+latency, CPU headroom, logging/UI behavior and 8/24-hour soaks remain unqualified.
+
+Native CTest 2/2 passed, including scalar/accelerated output comparison, gain,
+group delay and strong-neighbour rejection at 24/48/96/192/384 ksample/s. The
+buffer change does not alter the signed build's disabled CW flag or package an
+application candidate.
+The real-child Swift supervisor/wire harness also passed all 15 cases after the
+buffer change, including actual IQ decoding and source-scoped lifecycle checks.

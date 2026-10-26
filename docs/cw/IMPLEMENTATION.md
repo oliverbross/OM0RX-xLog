@@ -136,6 +136,14 @@ IQ. Receive-state, physical identity, provider/RF qualification, held-out qualit
 measured launch capacity, action recovery, real external-client and soak/release
 gates remain open. The installed contest app keeps CW disabled.
 
+After the human authorized the profiler's single-command allowlist entry, DSP
+attribution identified the strided channel FIR as the main measured cost.
+Contiguous split buffers reduced channel CPU about 15-fold while preserving the
+existing filter/timing contract; native CTest 2/2 and the real-child/wire harness
+15/15 passed. A subsequent 15-second, 32-track paced replay delivered all input
+and inferred all tracks, but still coalesced 48 jobs, so capacity acceptance
+remains false. Exact measurements are in [signal diagnostics](SIGNAL_DIAGNOSTICS.md).
+
 ## Native compute contract v1
 
 One C++17 host using ONNX Runtime's C API via its RAII headers. One shared
