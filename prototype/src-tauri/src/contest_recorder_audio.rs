@@ -232,6 +232,8 @@ pub struct Output {
     pub volume: Arc<AtomicU32>,
     pub output_id: String,
     pub device_channels: u16,
+    pub underruns: Arc<AtomicU64>,
+    pub failures: rtrb::Consumer<cpal::Error>,
 }
 pub struct PlaySpec {
     pub output_id: String,
@@ -283,6 +285,22 @@ where
         }
     }
 }
+fn output_fault(
+    error: cpal::Error,
+    done: &AtomicBool,
+    underruns: &AtomicU64,
+    failures: &mut rtrb::Producer<cpal::Error>,
+) {
+    // CoreAudio reports recoverable scheduling glitches through the error callback.
+    // Keep the same explicit output and sample cursor; only a real failure ends replay.
+    if error.kind() == cpal::ErrorKind::Xrun {
+        underruns.fetch_add(1, Ordering::Relaxed);
+        return;
+    }
+    // Preallocated, nonblocking handoff; format the retained error off the audio thread.
+    let _ = failures.push(error);
+    done.store(true, Ordering::Release);
+}
 pub fn output_unchanged(output: &Output) -> bool {
     validate_listening(&output.output_id).is_ok()
         && device(&output.output_id)
@@ -321,6 +339,8 @@ pub fn output(
     let done = Arc::new(AtomicBool::new(false));
     let paused = Arc::new(AtomicBool::new(false));
     let volume = Arc::new(AtomicU32::new(spec.volume.to_bits()));
+    let underruns = Arc::new(AtomicU64::new(0));
+    let (failure_tx, failures) = rtrb::RingBuffer::new(1);
     let output_id = spec.output_id.clone();
     let frames = samples.len() as u64 / spec.source_channels as u64;
     let rate = spec.rate;
@@ -339,6 +359,8 @@ pub fn output(
                     generation,
                     volume: volume.clone(),
                 },
+                underruns.clone(),
+                failure_tx,
             ),
             cpal::SampleFormat::I16 => output_stream::<i16>(
                 &d,
@@ -353,6 +375,8 @@ pub fn output(
                     generation,
                     volume: volume.clone(),
                 },
+                underruns.clone(),
+                failure_tx,
             ),
             cpal::SampleFormat::U16 => output_stream::<u16>(
                 &d,
@@ -367,6 +391,8 @@ pub fn output(
                     generation,
                     volume: volume.clone(),
                 },
+                underruns.clone(),
+                failure_tx,
             ),
             _ => Err("Unsupported listening format".into()),
         }
@@ -383,6 +409,8 @@ pub fn output(
         volume,
         output_id,
         device_channels: channels,
+        underruns,
+        failures,
     })
 }
 #[allow(clippy::too_many_arguments)]
@@ -392,6 +420,8 @@ fn output_stream<T>(
     s: PlaySpec,
     channels: u16,
     signals: Signals,
+    underruns: Arc<AtomicU64>,
+    mut failures: rtrb::Producer<cpal::Error>,
 ) -> Result<cpal::Stream>
 where
     T: cpal::SizedSample + cpal::FromSample<f32>,
@@ -400,9 +430,7 @@ where
     d.build_output_stream::<T, _, _>(
         stream_config(channels, s.rate),
         move |out, _| render(&samples, &s, channels, &signals, out),
-        move |_| {
-            fault.store(true, Ordering::Release);
-        },
+        move |error| output_fault(error, &fault, &underruns, &mut failures),
         None,
     )
     .map_err(|e| e.to_string())
@@ -531,5 +559,29 @@ mod tests {
         render(&samples, &spec, 4, &signals, &mut output);
         assert_eq!(output, [0.0, 0.0, -0.25, 0.0]);
         assert_eq!(samples, original);
+    }
+    #[test]
+    fn playback_survives_underruns_but_device_failure_stops_and_retains_reason() {
+        let signals = signals();
+        let underruns = AtomicU64::new(0);
+        let (mut tx, mut rx) = rtrb::RingBuffer::new(1);
+        let samples = [32767, -32768, 16384, -16384];
+        let mut output = [0.0f32; 2];
+        for _ in 0..3 {
+            output_fault(cpal::ErrorKind::Xrun.into(), &signals.done, &underruns, &mut tx);
+        }
+        assert!(!signals.done.load(Ordering::Acquire));
+        assert_eq!(underruns.load(Ordering::Relaxed), 3);
+        assert!(rx.pop().is_err());
+        render(&samples, &spec(), 2, &signals, &mut output);
+        assert_eq!(signals.cursor.load(Ordering::Acquire), 1);
+        assert!(output[0] > 0.24);
+        assert_eq!(output[1], -0.25);
+        output_fault(cpal::ErrorKind::DeviceNotAvailable.into(), &signals.done, &underruns, &mut tx);
+        assert!(signals.done.load(Ordering::Acquire));
+        assert_eq!(rx.pop().unwrap().kind(), cpal::ErrorKind::DeviceNotAvailable);
+        render(&samples, &spec(), 2, &signals, &mut output);
+        assert_eq!(output, [0.0, 0.0]);
+        assert_eq!(signals.cursor.load(Ordering::Acquire), 1);
     }
 }
