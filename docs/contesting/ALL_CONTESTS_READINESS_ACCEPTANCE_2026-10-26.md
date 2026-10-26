@@ -85,11 +85,29 @@ continued, followed by another uniquely versioned final build.
 
 The signed interim **1.3.28** candidate passed packaging from `cc5d387f70ed0a2f7c9a98ab6b2d2666c062b570`. Exact component hashes and the source/candidate checks are in [the 1.3.28 artifact record](../MACOS_1_3_28_RELEASE_2026-10-26.md). Its Developer ID deep strict signature passed, CDHash `b5b10b39e7b7a15efda05e1b9b3b3ba208fbd150`; notarization and Intel-app acceptance are not claimed. The original bundle is `prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app`; a signature-verified copy is retained at `.build/releases/1.3.28/OM0RX-xLog.app`. The coordinated installation owner installed and reopened it under the user's authorization. All 778 protected files matched before reopening and 33 database checks passed. Post-reopen checks retained the normal log's 68,560 rows and contest 775 QSO / 785 identity / 849 audit rows; score 111,360 and 18 dupes were retained. The [installation receipt](../MACOS_1_3_28_RELEASE_2026-10-26.md) distinguishes these data checks from physical-station acceptance.
 
-The user-requested second final build is reserved as **1.3.29**, with CW Decode still disabled. The source gates are complete within the explicit scopes above. Its uniquely versioned candidate will be built from the clean acceptance checkpoint after the interim installation owner confirms that the 1.3.28 artifact has been safely staged. Exact final source/signature evidence is recorded after packaging; this paragraph does not claim that the final artifact already exists.
+The second candidate **1.3.29** was built from
+`f142114df986bb8d2884edb69126a372f061cc19`, signed and installed after a fresh
+protected backup. Its [artifact and installation record](../MACOS_1_3_29_RELEASE_2026-10-26.md)
+records CDHash `b3c61ca83064c67b748d3061db909fece920de77`. Startup and contest
+logging controls passed. The first Return to Normal attempt failed during worker
+retirement; a protected restart of the same signed candidate restored the usable
+contest desk. Both mode directions remained UNVERIFIED.
 
-The packaging owner is the CW chat; the protected installation owner is the Rates
-chat. Candidate provenance, code signatures and component hashes must refer to the
-exact bundle handed over, not merely a displayed version or current checkout.
+The diagnostic candidate **1.3.30** was subsequently built from
+`ff9d9693a86c5d677a7b300079318d5a28c52761`, with the same safeguards and more
+precise retirement errors. The [artifact and installation record](../MACOS_1_3_30_RELEASE_2026-10-26.md)
+records CDHash `0eddb9ac1d3421240a8a882a7b02e4e9c98f6cdf`, exact component
+hashes and the protected installation receipt (`85192828`). Startup passed and
+the completed logs remained unchanged. Its single Return to Normal attempt was
+rejected before retirement with “Wait for the current operating action to finish
+before changing module.” The app and workers remained usable. This preflight veto
+did not exercise the new retirement diagnostics and does not establish a causal
+fix or either live mode direction. Follow-up remains active with the mode owner.
+
+CW Decode remains disabled. Packaging ownership transferred from the CW chat to
+the mode-switch chat for 1.3.30; the Rates chat remains the exclusive protected
+installation/UI owner. Provenance, signatures and component hashes refer to the
+exact handed-over bundles. No notarization or Intel-app acceptance is claimed.
 
 ## Protection and remaining operator acceptance
 
@@ -132,9 +150,13 @@ at revision 2915 with no receipt. Its guard was legitimate; bidirectional handov
 was not marked passed. The operator subsequently authorized completing that exact
 original request in the mode-switch chat. Its owner rehearsed the existing app-core
 transaction on a database copy: only draft/receipt tables changed, all other 24-table
-fingerprints were retained, and replay returned the same receipt. Actual recovery
-and final installation require a fresh protected backup and quiescence; this record
-does not substitute a source fixture for that live receipt. No generic Clear,
+fingerprints were retained, and replay returned the same receipt. After a fresh
+protected backup and process quiescence, the exact authorized Clear completed once
+and retained its durable receipt at blank revision 2916 (`0b0d256f`). All other
+normal-log tables and contest core tables were unchanged; the WebKit journal was
+not directly modified. Both 1.3.29 and 1.3.30 startup reconciled that receipt with
+no pending action or repeated Clear. The installation records above carry the live
+evidence separately from the rehearsal. No generic Clear,
 logged-contact deletion, journal wipe or hardware operation is authorized by the
 qualification itself.
 
