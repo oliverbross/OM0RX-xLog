@@ -323,6 +323,9 @@ pub fn worker_module(request: &Value) -> Option<OperatingModule> {
                 | "contest_qso_get"
                 | "contest_setup_get"
                 | "contest_rates"
+                | "contest_analytics"
+                | "contest_recorder_changes"
+                | "contest_rtc_status"
                 | "contest_check_partial"
                 | "contest_operation_receipt"
                 | "contest_log_page"
@@ -484,6 +487,9 @@ mod tests {
             "contest_qso_get",
             "contest_setup_get",
             "contest_rates",
+            "contest_analytics",
+            "contest_recorder_changes",
+            "contest_rtc_status",
             "contest_check_partial",
             "contest_spot_points_preview",
             "contest_statistics",

@@ -2352,6 +2352,15 @@ fn contest_setup_digital_worker_module(label: &str, method: &str) -> Option<oper
         .then_some(operating_module::OperatingModule::Contesting)
 }
 
+fn worker_request_admission_module(label: &str, request: &serde_json::Value) -> Option<operating_module::OperatingModule> {
+    let method = request["method"].as_str().unwrap_or("");
+    // Keep the trusted Contesting routing stamp for digital snapshots without
+    // treating their recurring passive reads as in-flight operating actions.
+    contest_setup_digital_worker_module(label, method)
+        .filter(|_| !matches!(method, "wsjtx_snapshot" | "fldigi_snapshot"))
+        .or_else(|| operating_module::worker_module(request))
+}
+
 #[tauri::command]
 async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, request: serde_json::Value) -> Result<serde_json::Value, String> {
     // Only typed integration operations cross this boundary; never shell commands.
@@ -2360,7 +2369,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let method = method_value.as_str();
     validate_worker_request_caller(window.label(), &request)?;
     let digital_contest_module = contest_setup_digital_worker_module(window.label(), method);
-    let module_admission = if let Some(module) = digital_contest_module.or_else(|| operating_module::worker_module(&request)) {
+    let module_admission = if let Some(module) = worker_request_admission_module(window.label(), &request) {
         Some(Arc::new(operating_module::owner()?.admit(module, request["operatingContext"].as_str())?))
     } else if operating_module::shared_worker_mutation(&request) {
         Some(Arc::new(operating_module::owner()?.admit_current()?))
@@ -4527,6 +4536,65 @@ mod workspace_layout_tests {
             assert_eq!(super::contest_setup_digital_worker_module("main", method), None);
         }
         assert_eq!(super::contest_setup_digital_worker_module("contest-setup", "contest_setup_get"), None);
+    }
+
+    #[test]
+    fn delayed_contest_status_poll_does_not_hold_operating_action_admission() {
+        use crate::operating_module::{OperatingModule, Owner};
+        for method in ["wsjtx_snapshot", "fldigi_snapshot", "contest_analytics", "contest_recorder_changes", "contest_rtc_status"] {
+            let owner = Owner::memory(OperatingModule::Contesting);
+            let context = owner.snapshot().unwrap()["context"].as_str().unwrap().to_owned();
+            let request = serde_json::json!({"method":method,"params":{}});
+            assert!(!crate::operating_module::shared_worker_mutation(&request));
+            let (entered, ready) = std::sync::mpsc::channel();
+            let (release, finish) = std::sync::mpsc::channel();
+            let result = std::thread::scope(|threads| {
+                let admitted_owner = &owner;
+                let admitted_request = &request;
+                let admitted_context = &context;
+                threads.spawn(move || {
+                    let module = super::worker_request_admission_module("contest-setup", admitted_request);
+                    let _admission = module.map(|module| admitted_owner.admit(module, Some(admitted_context)).unwrap());
+                    entered.send(()).unwrap();
+                    finish.recv().unwrap();
+                });
+                ready.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
+                let result = owner.begin_restart("normal_logging", &context);
+                release.send(()).unwrap();
+                result
+            });
+            let target = result.unwrap_or_else(|error| panic!("{method}: {error}"));
+            owner.commit(target).unwrap();
+        }
+    }
+
+    #[test]
+    fn delayed_contest_mutation_still_blocks_operating_module_restart() {
+        use crate::operating_module::{OperatingModule, Owner};
+        for method in ["wsjtx_start", "wsjtx_stop", "fldigi_configure", "fldigi_send", "contest_qso_commit", "contest_rtc_configure", "cluster_contest_radio_spots_publish"] {
+            let owner = Owner::memory(OperatingModule::Contesting);
+            let context = owner.snapshot().unwrap()["context"].as_str().unwrap().to_owned();
+            let request = serde_json::json!({"method":method,"params":{}});
+            let (entered, ready) = std::sync::mpsc::channel();
+            let (release, finish) = std::sync::mpsc::channel();
+            let result = std::thread::scope(|threads| {
+                let admitted_owner = &owner;
+                let admitted_request = &request;
+                let admitted_context = &context;
+                threads.spawn(move || {
+                    let module = super::worker_request_admission_module("contest-setup", admitted_request).unwrap();
+                    let _admission = admitted_owner.admit(module, Some(admitted_context)).unwrap();
+                    entered.send(()).unwrap();
+                    finish.recv().unwrap();
+                });
+                ready.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
+                let result = owner.begin_restart("normal_logging", &context);
+                release.send(()).unwrap();
+                result
+            });
+            assert!(result.is_err(), "{method}");
+            assert!(owner.begin_restart("normal_logging", &context).is_ok(), "{method}");
+        }
     }
 
     #[test]

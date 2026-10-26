@@ -65,3 +65,29 @@ The native error incorrectly called every retirement failure a deadline failure.
 Disposable real-worker process checks cover immediate EOF with accepted requests, full correlated replies and clean exit; a retained fresh contest spot with no available radio produces exit 71, while an expired receipt retires locally with exit zero. Every process uses a separate HOME/CFFIXED_USER_HOME and, on macOS, the bundle-bound Contesting Test profile with external I/O disabled. These checks reproduce the fast spot-retirement failure family but do not prove the cause of the production occurrence, whose exit status was discarded by 1.3.29. Both installed mode directions remain unverified.
 
 Validation: 23 Swift cluster/shutdown-outcome tests, all 79 native worker tests (including seven real child-process shutdown cases), and all eight real Swift worker process tests pass. The worker process suite passes against both debug and release builds. The missing-reply native fixture now decrements its manual writer reservation, so it proves missing-response rejection rather than accidentally timing out while withholding EOF.
+
+## Passive status reads incorrectly held operating-action admission
+
+Installed 1.3.30 passed startup, then its single Return to Normal attempt was
+rejected before retirement with “Wait for the current operating action to finish
+before changing module.” The same contest context remained usable; the original
+Clear stayed settled at blank revision 2916, and logged/core data remained
+unchanged. Immediately before the attempt, two contest-owned Radio 1 forwarding
+receipts were still under 600 seconds old; a future pass must not be attributed
+to this fix merely because those receipts aged out.
+
+The native Contest Setup digital routing stamp was also acquiring mutation
+admission for its recurring `wsjtx_snapshot` and `fldigi_snapshot` reads. Analytics,
+recorder-change and RTC status reads were omitted from the operating-module
+passive list; RTC status was omitted from the worker's passive gate too. That
+caused idle background reads to look like active operator work. RTC status is
+polled every five seconds and only returns retained reporting state.
+
+The digital Contesting routing stamp remains intact, while those five passive
+reads no longer hold mutation admission. RTC status also uses the existing
+bounded passive timeout and late-reply routing. No mutation, editor guard,
+retirement deadline or unresolved-operation fence is relaxed. All 883 native
+tests pass, including paused-read overlap cases that allow the mode transition,
+paused real-mutation cases that keep it blocked until release, and RTC timeout
+recovery without worker retirement. Installed acceptance of this source fix and
+both mode directions still follows in a new uniquely versioned candidate.
