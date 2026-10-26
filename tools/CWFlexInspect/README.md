@@ -23,6 +23,11 @@ state token when valid, and that parser's existing receive acceptance result.
 This is refusal attribution, not an additional receive-state authority.
 It also distinguishes a `band_configuration` message from an ordinary interlock
 message and retains at most 16 bounded ASCII field names, without their values.
+Strictly validated settings-only updates are labelled `interlock_settings` and
+`stateRetained=true`: they preserve the preceding state, including unknown/TX,
+and never supply a new receive observation. All other missing-state messages
+remain blocking. `acceptedReceive` describes the IQ component, not complete
+acquisition qualification.
 
 Offline preparation:
 

@@ -129,3 +129,23 @@ dispatches per-band configuration on the interlock prefix. Bounded message-kind
 and field-name diagnostics were prepared to determine whether the observed
 message belongs to that separate form. No state predicate was changed on this
 evidence alone.
+
+## Message-kind read: global transmitter settings
+
+Following validation and push of `dd3c7507`, the readiness owner confirmed the
+one pending metadata-only probe. At `2026-10-26T11:37:03Z`, it connected and
+reported the same Station-owned panadapter, with control RX revision `3` and
+IQ receive false. The diagnostic showed ordinary `interlock` shape, no `state`,
+and these fifteen names, without retaining their values:
+
+`acc_tx_delay`, `acc_tx_enabled`, `acc_txreq_enable`, `acc_txreq_polarity`,
+`rca_txreq_enable`, `rca_txreq_polarity`, `timeout`, `tune_tx_suppress`,
+`tx1_delay`, `tx1_enabled`, `tx2_delay`, `tx2_enabled`, `tx3_delay`,
+`tx3_enabled`, `tx_delay`.
+
+This is the global configuration form, rather than the initially considered
+per-band form. It exposed why the IQ parser cleared preceding receive evidence.
+Transport closure and live-window release completed; no handoff, IQ, discovery,
+RF or installed-app action occurred. The subsequent offline correction strictly
+recognizes validated settings-only messages, retaining rather than creating
+state. Its red/green fixture evidence is documented in [Flex IQ](FLEX_IQ.md).

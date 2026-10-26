@@ -66,6 +66,32 @@ final class FlexIQSubscriptionTests:XCTestCase {
         let closed=await radio.iqCapabilities();XCTAssertNil(closed.interlockEvidence)
         await wire.stop()
     }
+    func testValidatedInterlockSettingsRetainButNeverCreateReceiveEvidence() async throws {
+        let (radio,wire)=try await setup()
+        let ready=await radio.iqCapabilities();XCTAssertTrue(ready.transmitStateKnownOff)
+        XCTAssertEqual(ready.interlockEvidence?.messageKind,"interlock_settings")
+        XCTAssertEqual(ready.interlockEvidence?.stateRetained,true)
+        for state in ["PTT_REQUESTED","TRANSMITTING","NOT_READY","UNRECOGNIZED"] {
+            await radio.iqConsumeStatus("interlock state="+state)
+            await radio.iqConsumeStatus("interlock tx1_enabled=1 timeout=60000 tx_delay=0")
+            let value=await radio.iqCapabilities();XCTAssertFalse(value.transmitStateKnownOff)
+            XCTAssertEqual(value.interlockEvidence?.stateRetained,true)
+        }
+        for malformed in ["interlock tx1_enabled=2","interlock tx_delay=-1","interlock timeout=2147483648",
+            "interlock tx_delay=0 tx_delay=0","interlock tx_delay=0 unknown=1","interlock tx_allowed=1",
+            "interlock state=TRANSMITTING state=READY","interlock state=READY tx_delay=0 state=PTT_REQUESTED"] {
+            await radio.iqConsumeStatus("interlock state=READY")
+            await radio.iqConsumeStatus(malformed)
+            let value=await radio.iqCapabilities();XCTAssertFalse(value.transmitStateKnownOff)
+            XCTAssertEqual(value.interlockEvidence?.stateRetained,false)
+        }
+        await radio.stopTransportOnly()
+        await radio.iqConsumeStatus("interlock tx1_enabled=1 timeout=60000")
+        let closed=await radio.iqCapabilities();XCTAssertFalse(closed.transmitStateKnownOff)
+        XCTAssertEqual(closed.interlockEvidence?.acceptedReceive,false)
+        let commands=await wire.commands;XCTAssertFalse(commands.contains{$0.hasPrefix("stream ")||$0.hasPrefix("client udpport")})
+        await wire.stop()
+    }
     private func next(_ subscription:FlexIQSubscription) async throws -> FlexIQBlock {
         try await withThrowingTaskGroup(of:FlexIQBlock.self) {group in
             group.addTask {var iterator=subscription.blocks.makeAsyncIterator();guard let block=try await iterator.next() else{throw FlexIQSubscriptionError.stopped};return block}
@@ -238,6 +264,11 @@ private actor FlexIQFixtureRadio {
     }
     private func command(_ body:String,sequence:Int) {
         commands.append(body)
+        if body=="sub radio all" {
+            // Synthetic values with the settings field names observed on the
+            // real 8400. This packet follows the explicit READY observation.
+            status("interlock acc_tx_delay=0 acc_tx_enabled=0 acc_txreq_enable=0 acc_txreq_polarity=0 rca_txreq_enable=0 rca_txreq_polarity=0 timeout=60000 tune_tx_suppress=0 tx1_delay=0 tx1_enabled=0 tx2_delay=0 tx2_enabled=0 tx3_delay=0 tx3_enabled=0 tx_delay=0")
+        }
         if body=="sub pan all" {
             status("display pan 0x40000000 client_handle=0x1234 daxiq_channel=1 center=14.025000 rxant=ANT1")
             status("display pan 0x40000001 client_handle=0x1234 daxiq_channel=2 center=7.025000 rxant=ANT1")

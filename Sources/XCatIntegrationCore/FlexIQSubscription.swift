@@ -61,6 +61,7 @@ public struct FlexIQReceiveEvidence:Encodable,Sendable {
     public let acceptedReceive:Bool
     public var messageKind:String="interlock"
     public var fieldNames:[String]=[]
+    public var stateRetained:Bool=false
 }
 public struct FlexIQCapabilities:Encodable,Sendable {
     public let connectionGeneration:Int
