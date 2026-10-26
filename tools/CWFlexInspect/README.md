@@ -38,7 +38,7 @@ the human's VPN-ready indication:
 
 ```sh
 XLOG_PORTABLE_ONLY=1 swift run --skip-build xlog-cw-flex-inspect \
-  --inspect --host 192.168.0.199 --station Red-Dingo --seconds 12
+  --inspect --host 192.168.0.199 --station OM0RX-WIN10 --seconds 12
 ```
 
 The human corrected the Station name to **OM0RX-WIN10**, and its owned DAX IQ 1

@@ -110,6 +110,32 @@ and RF mapping, held-out quality, measured standard capacity, external-client
 and 8/24-hour soak gates remain open. No reduced launch scope or completed CW
 release is claimed.
 
+Subsequent isolated source milestones, all pushed:
+
+- `f31aa963`: explicit identity-only Tune through the existing durable station
+  owner; all 904 native tests and 31 focused frontend cases passed, together with
+  TypeScript/Vite/window graph checks.
+- `e66b6f65`: passive existing-logbook Opportunity annotations; 14 Swift and 33
+  focused frontend cases plus TypeScript passed. No contact scan or cluster
+  connection is started by the annotation reader.
+- `92274993`: explicit focused-track preference with bounded ordinary FIFO
+  service; native CTest 2/2, 26 Swift session/method, 15 real-child/wire, 19
+  frontend and the native receive-only authority case passed. The integrated
+  frontend build/window graph checks passed (CW Decode 303,329 bytes).
+- `7cc3a288`: offline-prepared passive inspector v2 separates the control
+  transmit observation from IQ readiness. Build, no-network parser self-test
+  and the loopback metadata command-allowlist case passed; v2 has not been run
+  against the radio.
+- `71db46b6`: DSP attribution instrument compiled, but execution was blocked by
+  the local shell allowlist. No timings or capacity acceptance were produced.
+
+The human confirmed the exact OM0RX-WIN10 DAX IQ 1 resource was released. A new
+mode-switch failure in the canonical chat then imposed a coordinated live-action
+hold. This chat holds no live connection and has not granted a handoff or started
+IQ. Receive-state, physical identity, provider/RF qualification, held-out quality,
+measured launch capacity, action recovery, real external-client and soak/release
+gates remain open. The installed contest app keeps CW disabled.
+
 ## Native compute contract v1
 
 One C++17 host using ONNX Runtime's C API via its RAII headers. One shared
