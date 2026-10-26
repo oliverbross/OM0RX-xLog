@@ -1,15 +1,18 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
+import { promisify } from "node:util";
+
+const runFile = promisify(execFile);
 
 const binary = process.env.XLOG_WORKER_BINARY || process.argv[2];
 assert.ok(binary, "Pass the built xlog-prototype-worker executable path.");
 
 async function exercise(start, onLine, expectedCount, args = [], executable = binary,
-                        { prepareHome = async () => {}, expectedExitCode = 0 } = {}) {
+                        { prepareHome = async () => {}, afterExit = async () => {}, expectedExitCode = 0 } = {}) {
   const home = await mkdtemp(join(tmpdir(), "xlog-worker-home-"));
   try {
     await prepareHome(home);
@@ -54,7 +57,7 @@ async function exercise(start, onLine, expectedCount, args = [], executable = bi
         assert.ok(Buffer.byteLength(buffer) <= 1048576, "Unframed stdout exceeds its limit.");
       } catch (error) { child.kill(); clearTimeout(timer); reject(error); }
     });
-    child.on("close", (code, signal) => {
+    child.on("close", async (code, signal) => {
       clearTimeout(timer);
       try {
         assert.equal(signal, null, `Worker terminated by ${signal}; stderr: ${stderr}`);
@@ -62,6 +65,7 @@ async function exercise(start, onLine, expectedCount, args = [], executable = bi
         assert.equal(stderr, expectedExitCode === 0 ? "" : "Background delivery retirement failed.\n");
         assert.equal(buffer, "");
         assert.equal(responses.length, expectedCount);
+        await afterExit(home);
         resolve(responses);
       } catch (error) { reject(error); }
     });
@@ -97,6 +101,17 @@ test("retained unconfirmed contest spots fail retirement; expired receipts retir
           provider: "direct_agent", radioID: "radio1", callsign: "TEST1", frequencyHz: 7125000,
           owner: "contesting", acceptedAt: Date.now() / 1000 - age,
         }] }));
+      },
+      afterExit: async home => {
+        const inventory = join(home, "Library", "Application Support", "OM0RX-xLog Integration Services", "forwarded-radio-spots.json.sqlite");
+        const { stdout } = await runFile("/usr/bin/sqlite3", [inventory, "SELECT CAST(payload AS TEXT) FROM receipts;"]);
+        const rows = stdout.trim() ? stdout.trim().split("\n").map(value => JSON.parse(value)) : [];
+        assert.equal(rows.length, age === 0 ? 1 : 0, "Unknown fresh withdrawal must retain its durable receipt.");
+        if (age === 0) {
+          assert.deepEqual([rows[0].provider, rows[0].radioID, rows[0].owner, rows[0].callsign, rows[0].frequencyHz],
+            ["direct_agent", "radio1", "contesting", "TEST1", 7125000]);
+          assert.ok(Date.now() / 1000 - rows[0].acceptedAt < 600, "This must exercise a fresh receipt.");
+        }
       },
     });
     assert.equal(replies[0].ok, true);

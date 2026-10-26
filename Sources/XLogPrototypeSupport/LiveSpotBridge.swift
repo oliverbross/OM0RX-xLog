@@ -99,7 +99,9 @@ actor SpotForwardBroker {
     private var accepted: [String: (at: Date, priority: Int, radioID: String?)] = [:]
     private var recentRemovalTargets: [String: (radioID: String, at: Date)] = [:]
     private var pending: Set<String> = []
-    private var pendingWaiters: [String: [CheckedContinuation<Void, Never>]] = [:]
+    private var pendingAcceptances: [String: (owner: String, at: Date)] = [:]
+    private var retiringOwners: Set<String> = []
+    private var pendingWaiters: [String: [UUID: CheckedContinuation<Void, Error>]] = [:]
 
     init(deliver: @escaping @Sendable (FlexSpot, String) async throws -> Void,
          remove: @escaping @Sendable (FlexSpot, String) async throws -> Void = { _, _ in
@@ -129,6 +131,10 @@ actor SpotForwardBroker {
     /// Returns false for a duplicate or an already-pending matching spot.
     func forward(_ spot: FlexSpot, provider: String = "direct_agent", now: Date = Date(),
                  replacingExisting: Bool = false) async throws -> Bool {
+        let owner = spot.source == "xLog Contest" ? "contesting" : "normal_logging"
+        guard !retiringOwners.contains(owner) else {
+            throw WorkerFailure("worker_stopping", "This radio spot publisher is retiring; no new spot was sent.")
+        }
         let key = "\(provider)|\(spot.callsign)|\(spot.frequencyHz)"
         let pendingKey = reservationKey(provider: provider, callsign: spot.callsign, frequencyHz: spot.frequencyHz)
         accepted = accepted.filter { now.timeIntervalSince($0.value.at) < 180 }
@@ -146,14 +152,17 @@ actor SpotForwardBroker {
             now.timeIntervalSince($0.at) < 30 ? $0.radioID : nil
         }
         if replacingExisting {
-            while pending.contains(pendingKey) {
-                await withCheckedContinuation { pendingWaiters[pendingKey, default: []].append($0) }
-            }
+            try await awaitPending(pendingKey)
             preferredRadioID = accepted[key]?.radioID ?? preferredRadioID
             accepted.removeValue(forKey: key)
         }
         if let prior = accepted[key], prior.priority >= spot.priority { return false }
         preferredRadioID = accepted[key]?.radioID ?? preferredRadioID
+        // A repaint may have waited for a previous delivery while terminal
+        // retirement sealed this owner. It must not begin a new remote add.
+        guard !retiringOwners.contains(owner) else {
+            throw WorkerFailure("worker_stopping", "This radio spot publisher is retiring; no new spot was sent.")
+        }
         guard pending.count < 256 else {
             throw WorkerFailure("spot_broker_busy", "Spot forwarding is busy; retry after the current deliveries settle.")
         }
@@ -161,6 +170,7 @@ actor SpotForwardBroker {
         // is in flight is deliberately suppressed, never reported as accepted.
         // A repeated higher-priority spot after ACK replaces the lower style.
         guard pending.insert(pendingKey).inserted else { return false }
+        pendingAcceptances[pendingKey] = (owner, now)
         defer { finishPending(pendingKey) }
         let radioID = try await deliver(spot, provider, preferredRadioID)
         accepted[key] = (now, spot.priority, radioID)
@@ -183,9 +193,7 @@ actor SpotForwardBroker {
     func remove(_ spot: FlexSpot, provider: String = "direct_agent") async throws -> Bool {
         let key = "\(provider)|\(spot.callsign)|\(spot.frequencyHz)"
         let pendingKey = reservationKey(provider: provider, callsign: spot.callsign, frequencyHz: spot.frequencyHz)
-        while pending.contains(pendingKey) {
-            await withCheckedContinuation { pendingWaiters[pendingKey, default: []].append($0) }
-        }
+        try await awaitPending(pendingKey)
         guard pending.count < 256 else {
             throw WorkerFailure("spot_broker_busy", "Spot forwarding is busy; retry after the current deliveries settle.")
         }
@@ -219,7 +227,22 @@ actor SpotForwardBroker {
         try await withdrawForwardedSpots(owner: "contesting", acceptedBefore: cutoff)
     }
 
+    /// Terminal worker retirement seals this publisher before draining adds.
+    /// A failed or unknown removal retains both the seal and durable receipts;
+    /// a replacement worker can retry through a new broker instance.
+    func retireContestForwardedSpots() async throws -> Int {
+        retiringOwners.insert("contesting")
+        return try await withdrawForwardedSpots(owner: "contesting", acceptedBefore: .distantFuture)
+    }
+
     private func withdrawForwardedSpots(owner: String, acceptedBefore cutoff: Date) async throws -> Int {
+        // A remote add may be acknowledged after shutdown begins. Snapshotting
+        // the inventory before that admitted delivery settles would miss its
+        // fresh receipt and falsely report successful retirement.
+        while let key = pendingAcceptances.first(where: { $0.value.owner == owner && $0.value.at < cutoff })?.key {
+            try await awaitPending(key)
+        }
+        try Task.checkCancellation()
         let document = try loadInventory()
         let owned = document.spots.filter { $0.owner == owner && $0.acceptedAt < cutoff.timeIntervalSince1970 }
         guard !owned.isEmpty else { return 0 }
@@ -241,11 +264,7 @@ actor SpotForwardBroker {
         for entry in activeOwned {
             do {
                 let key = reservationKey(provider: entry.provider, callsign: entry.callsign, frequencyHz: entry.frequencyHz)
-                while pending.contains(key) {
-                    // Unlike a publication, background cleanup must be promptly
-                    // cancellable even while a delivery owns this key.
-                    try await Task.sleep(for: .milliseconds(10))
-                }
+                try await awaitPending(key)
                 try Task.checkCancellation()
                 guard pending.count < 256 else {
                     throw WorkerFailure("spot_broker_busy", "Spot forwarding is busy; prior cleanup will retry.")
@@ -287,10 +306,35 @@ actor SpotForwardBroker {
         return expired.count + removed
     }
 
+    private func awaitPending(_ key: String) async throws {
+        while pending.contains(key) {
+            let waiterID = UUID()
+            try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                    // Completion/cancellation can precede registration while
+                    // this actor resumes. Do not retain an unwakeable waiter.
+                    if Task.isCancelled { continuation.resume(throwing: CancellationError()) }
+                    else if !pending.contains(key) { continuation.resume(returning: ()) }
+                    else { pendingWaiters[key, default: [:]][waiterID] = continuation }
+                }
+            } onCancel: {
+                Task { await self.cancelPendingWaiter(key, waiterID: waiterID) }
+            }
+        }
+        try Task.checkCancellation()
+    }
+
+    private func cancelPendingWaiter(_ key: String, waiterID: UUID) {
+        guard let waiter = pendingWaiters[key]?.removeValue(forKey: waiterID) else { return }
+        if pendingWaiters[key]?.isEmpty == true { pendingWaiters.removeValue(forKey: key) }
+        waiter.resume(throwing: CancellationError())
+    }
+
     private func finishPending(_ key: String) {
         pending.remove(key)
-        let waiters = pendingWaiters.removeValue(forKey: key) ?? []
-        for waiter in waiters { waiter.resume() }
+        pendingAcceptances.removeValue(forKey: key)
+        let waiters = pendingWaiters.removeValue(forKey: key) ?? [:]
+        for waiter in waiters.values { waiter.resume(returning: ()) }
     }
 
     private func reservationKey(provider: String, callsign: String, frequencyHz: Int64) -> String {

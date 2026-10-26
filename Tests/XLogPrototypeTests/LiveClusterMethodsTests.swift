@@ -100,6 +100,20 @@ private actor SlowPriorSpotCleanup {
     }
 }
 
+private actor FreshContestDeliveryGate {
+    private var entered = false
+    private var retired = false
+    private var continuation: CheckedContinuation<Void, Never>?
+    func waitForAcceptance() async {
+        entered = true
+        await withCheckedContinuation { continuation = $0 }
+    }
+    func started() -> Bool { entered }
+    func release() { continuation?.resume(); continuation = nil }
+    func markRetired() { retired = true }
+    func retirementCompleted() -> Bool { retired }
+}
+
 @Suite("Portable live cluster worker bridge")
 struct LiveClusterMethodsTests {
     private func request(_ worker: LiveWorker, _ method: String, _ params: [String: Any] = [:]) async throws -> [String: Any] {
@@ -496,6 +510,92 @@ struct LiveClusterMethodsTests {
         await recorder.setRemovalAccepted(true)
         #expect(await cluster.terminate() == true)
         #expect((await recorder.activeSnapshot()).isEmpty)
+    }
+
+    @Test("Real worker retirement removes fresh persisted contest spots without loading cluster configuration")
+    func freshPersistedContestRetirementWithoutClusterConfiguration() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let inventoryURL = root.appendingPathComponent("spots.json")
+        let recorder = ClusterRadioSpotRecorder()
+        let broker = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { _, _, _ in "radio2" },
+            targetedRemove: { spot, provider, radioID in
+                #expect(provider == "direct_agent")
+                #expect(radioID == "radio2")
+                let payload = ClusterRadioSpotPayload(frequencyHz: spot.frequencyHz, callsign: spot.callsign,
+                    mode: spot.mode, source: spot.source, spotter: spot.spotter, comment: spot.comment,
+                    timestamp: spot.timestamp, lifetimeSeconds: spot.lifetimeSeconds, priority: spot.priority, colorHex: spot.colorHex)
+                _ = await recorder.remove(payload, provider: provider)
+            })
+        let payload = ClusterRadioSpotPayload(frequencyHz: 7_125_000, callsign: "DL1FRESH", mode: "SSB", source: "xLog Contest",
+            spotter: "W1AW", comment: "", timestamp: Int64(Date().timeIntervalSince1970), lifetimeSeconds: 600,
+            priority: 3, colorHex: "#3DA5F4")
+        _ = try await broker.forward(payload.flexSpot(), replacingExisting: true)
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let cluster = LiveClusterMethods(logbook: logbook, configurationURL: root.appendingPathComponent("absent-cluster.json"),
+            vault: UnavailableClusterTestVault(), forwardClassifiedIngressSpots: false,
+            retirePersistedContestSpots: { _ = try await broker.retireContestForwardedSpots() })
+        let worker = LiveWorker(logbook: logbook, localAcceptance: true, cluster: cluster)
+        #expect(await worker.shutdownOutcome() == .clean)
+        #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("absent-cluster.json").path))
+        #expect((await recorder.removed()).map(\.0.callsign) == ["DL1FRESH"])
+        let inventory = try SpotInventoryStore(url: inventoryURL.appendingPathExtension("sqlite"))
+        #expect(try inventory.rows().isEmpty)
+    }
+
+    @Test("Worker retirement drains a delayed fresh acceptance before removing its exact durable receipt")
+    func retirementDrainsDelayedFreshContestAcceptance() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let configurationURL = root.appendingPathComponent("cluster.json"), inventoryURL = root.appendingPathComponent("spots.json")
+        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [], forwardSpotsToFlex: true)).write(to: configurationURL)
+        let gate = FreshContestDeliveryGate(), recorder = ClusterRadioSpotRecorder()
+        let broker = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { _, _, _ in
+            await gate.waitForAcceptance(); return "radio2"
+        }, targetedRemove: { spot, provider, radioID in
+            #expect(provider == "direct_agent" && radioID == "radio2")
+            let payload = ClusterRadioSpotPayload(frequencyHz: spot.frequencyHz, callsign: spot.callsign,
+                mode: spot.mode, source: spot.source, spotter: spot.spotter, comment: spot.comment,
+                timestamp: spot.timestamp, lifetimeSeconds: spot.lifetimeSeconds, priority: spot.priority, colorHex: spot.colorHex)
+            _ = await recorder.remove(payload, provider: provider)
+        })
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let cluster = LiveClusterMethods(logbook: logbook, configurationURL: configurationURL,
+            vault: UnavailableClusterTestVault(), forwardClassifiedIngressSpots: false,
+            spotForward: { payload, provider, replacing in
+                try await broker.forward(payload.flexSpot(), provider: provider, replacingExisting: replacing)
+            }, spotRemove: { payload, provider in try await broker.remove(payload.flexSpot(), provider: provider) },
+            retirePersistedContestSpots: { _ = try await broker.retireContestForwardedSpots() })
+        let publication = Task { try await cluster.handle(method: "cluster_contest_radio_spots_publish", params: [
+            "publisher_id": UUID().uuidString, "publisher_started_at": 2, "publication_sequence": 1,
+            "action": "replace", "session_id": UUID().uuidString, "workspace_generation": UUID().uuidString,
+            "revision": 1, "configured_bands": ["40m"], "allowed_mode_groups": ["phone"],
+            "chunk_index": 0, "chunk_count": 1, "spots": [["spot_id": "fresh", "callsign": "DL1FRESH",
+                "frequency_hz": 7_125_000, "band": "40m", "mode": "SSB", "spotter": "W1AW", "comment": "",
+                "timestamp": Date().timeIntervalSinceReferenceDate, "points": 3, "dupe": false,
+                "multiplier_count": 0, "country_multiplier": false, "zone_multiplier": false]]]) }
+        for _ in 0..<200 {
+            if await gate.started() { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(await gate.started())
+        let worker = LiveWorker(logbook: logbook, localAcceptance: true, cluster: cluster)
+        let retirement = Task {
+            let outcome = await worker.shutdownOutcome()
+            await gate.markRetired()
+            return outcome
+        }
+        try await Task.sleep(for: .milliseconds(40))
+        #expect(!(await gate.retirementCompleted()))
+        await gate.release()
+        #expect(await retirement.value == .clean)
+        let result = try await publication.value
+        #expect(result["accepted"] as? Int == 0)
+        #expect(result["rejected"] as? Int == 1)
+        #expect((await recorder.removed()).map(\.0.callsign) == ["DL1FRESH"])
+        let inventory = try SpotInventoryStore(url: inventoryURL.appendingPathExtension("sqlite"))
+        #expect(try inventory.rows().isEmpty)
     }
 
     @Test("Contest module suppresses the unfiltered ingress radio publisher")

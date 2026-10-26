@@ -231,7 +231,7 @@ public actor LiveClusterMethods {
         } else if logbook === LiveLogbookMethods.shared {
             #if os(macOS)
             self.retirePersistedContestSpots = {
-                _ = try await SpotForwardBroker.shared.withdrawContestForwardedSpots()
+                _ = try await SpotForwardBroker.shared.retireContestForwardedSpots()
             }
             #else
             self.retirePersistedContestSpots = nil
@@ -957,6 +957,9 @@ public actor LiveClusterMethods {
             guard let provider = key.split(separator: "|").first.map(String.init) else { rejected += 1; continue }
             do {
                 if try await spotForward(next.payload, provider, true) {
+                    // Terminal retirement drains the broker's accepted receipt;
+                    // a delayed publication must not recreate in-memory state.
+                    guard !terminated else { throw WorkerFailure("worker_stopping", "The contest spot publisher has shut down.") }
                     contestForwardedSpots[key] = ContestForwardedRadioSpot(
                         spotID: next.spotID, payload: next.payload, signature: next.signature,
                         forwardedAt: contestRadioClock())

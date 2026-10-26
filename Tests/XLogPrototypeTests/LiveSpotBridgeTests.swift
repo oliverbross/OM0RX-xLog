@@ -303,6 +303,139 @@ final class LiveSpotBridgeTests: XCTestCase {
         ])
     }
 
+    func testWithdrawalWaitsForAlreadyAdmittedFreshContestAcceptance() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let inventoryURL = directory.appendingPathComponent("spots.json")
+        let gate = GatedDelivery(), removals = ProviderRecorder()
+        let broker = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { _, _, _ in
+            await gate.deliver()
+            return "radio2"
+        }, targetedRemove: { spot, provider, radioID in
+            await removals.record("\(provider)|\(radioID ?? "missing")|\(spot.callsign)|\(spot.frequencyHz)")
+        })
+        let value = try spot(source: "xLog Contest")
+        let forwarding = Task { try await broker.forward(value) }
+        await gate.waitStarted()
+        let withdrawal = Task { try await broker.withdrawContestForwardedSpots() }
+        try await Task.sleep(for: .milliseconds(40))
+        await gate.release()
+        let accepted = try await forwarding.value
+        let removed = try await withdrawal.value
+        XCTAssertTrue(accepted)
+        XCTAssertEqual(removed, 1)
+        let calls = await removals.value()
+        XCTAssertEqual(calls, ["direct_agent|radio2|K1ABC|14074000"])
+        XCTAssertEqual((try storedInventory(at: inventoryURL)?["spots"] as? [[String: Any]])?.count, 0)
+    }
+
+    func testTerminalContestRetirementKeepsUnknownFreshReceiptsForExactRecovery() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let inventoryURL = directory.appendingPathComponent("spots.json")
+        let gate = GatedDelivery(), attempts = ProviderRecorder()
+        let broker = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { _, provider, _ in
+            provider == "direct_agent" ? "radio2" : "radio1"
+        }, targetedRemove: { spot, provider, radioID in
+            await attempts.record("\(provider)|\(radioID ?? "missing")|\(spot.callsign)|\(spot.frequencyHz)")
+            await gate.deliver()
+            throw WorkerFailure("station_rejected", "Removal acknowledgement is unavailable.")
+        })
+        let contest = try spot(source: "xLog Contest")
+        let normal = try FlexSpot(frequencyHz: 7_125_000, callsign: "K1NORMAL", mode: "SSB", source: "xLog xCluster",
+            spotter: "", comment: "", timestamp: Int64(Date().timeIntervalSince1970), lifetimeSeconds: 600,
+            priority: 1, colorHex: "#AEB5B7")
+        _ = try await broker.forward(contest)
+        _ = try await broker.forward(contest, provider: "direct_tci")
+        _ = try await broker.forward(normal)
+        let retirement = Task { try await broker.retireContestForwardedSpots() }
+        await gate.waitStarted()
+        XCTAssertEqual((try storedInventory(at: inventoryURL)?["spots"] as? [[String: Any]])?.count, 3,
+                       "A pending removal is not an acknowledgement.")
+        do { _ = try await broker.forward(contest, replacingExisting: true); XCTFail("Retired publisher accepted a new spot") }
+        catch let error as WorkerFailure { XCTAssertEqual(error.code, "worker_stopping") }
+        await gate.release()
+        do { _ = try await retirement.value; XCTFail("Unknown removal must fail retirement") } catch {}
+        let retained = try XCTUnwrap(try storedInventory(at: inventoryURL)?["spots"] as? [[String: Any]])
+        XCTAssertEqual(retained.count, 3)
+        XCTAssertTrue(retained.allSatisfy { Date().timeIntervalSince1970 - ($0["acceptedAt"] as? Double ?? 0) < 600 })
+        let recovery = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { _, _, _ in "radio1" },
+            targetedRemove: { spot, provider, radioID in
+                await attempts.record("recovered:\(provider)|\(radioID ?? "missing")|\(spot.callsign)|\(spot.frequencyHz)")
+            })
+        let removed = try await recovery.retireContestForwardedSpots()
+        XCTAssertEqual(removed, 2)
+        let events = await attempts.value()
+        XCTAssertEqual(Set(events.filter { $0.hasPrefix("recovered:") }), [
+            "recovered:direct_agent|radio2|K1ABC|14074000", "recovered:direct_tci|radio1|K1ABC|14074000"])
+        let remaining = try XCTUnwrap(try storedInventory(at: inventoryURL)?["spots"] as? [[String: Any]])
+        XCTAssertEqual(remaining.count, 1)
+        XCTAssertEqual(remaining.first?["owner"] as? String, "normal_logging")
+    }
+
+    func testContestRetirementDoesNotDrainOrSealNormalLoggingOwner() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let inventoryURL = directory.appendingPathComponent("spots.json")
+        let gate = GatedDelivery(), completion = ProviderRecorder()
+        let broker = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { _, _, _ in
+            await gate.deliver(); return "radio2"
+        }, targetedRemove: { _, _, _ in XCTFail("Normal Logging must not be removed") })
+        let value = try spot(source: "xLog xCluster")
+        let forwarding = Task { try await broker.forward(value) }
+        await gate.waitStarted()
+        let retirement = Task {
+            let count = try await broker.retireContestForwardedSpots()
+            await completion.record("done")
+            return count
+        }
+        try await Task.sleep(for: .milliseconds(40))
+        let completed = await completion.value()
+        XCTAssertEqual(completed, ["done"], "An unrelated owner's pending ACK cannot hold Contest retirement.")
+        await gate.release()
+        let accepted = try await forwarding.value, removed = try await retirement.value
+        XCTAssertTrue(accepted)
+        XCTAssertEqual(removed, 0)
+        _ = try await broker.forward(value, replacingExisting: true)
+        XCTAssertEqual((try storedInventory(at: inventoryURL)?["spots"] as? [[String: Any]])?.count, 1)
+    }
+
+    func testCancelledContestDrainReturnsBeforePendingAckAndKeepsFreshReceiptRecoverable() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let inventoryURL = directory.appendingPathComponent("spots.json")
+        let gate = GatedDelivery(), completion = ProviderRecorder(), removals = ProviderRecorder()
+        let broker = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { _, _, _ in
+            await gate.deliver(); return "radio2"
+        }, targetedRemove: { _, _, _ in await removals.record("removed") })
+        let value = try spot(source: "xLog Contest")
+        let forwarding = Task { try await broker.forward(value) }
+        await gate.waitStarted()
+        let retirement = Task {
+            do { _ = try await broker.retireContestForwardedSpots(); return false }
+            catch is CancellationError { await completion.record("cancelled"); return true }
+            catch { return false }
+        }
+        try await Task.sleep(for: .milliseconds(40))
+        retirement.cancel()
+        try await Task.sleep(for: .milliseconds(40))
+        let beforeAck = await completion.value()
+        XCTAssertEqual(beforeAck, ["cancelled"], "Cancellation must not wait for the remote add acknowledgement.")
+        await gate.release()
+        let accepted = try await forwarding.value, cancelled = await retirement.value
+        XCTAssertTrue(accepted)
+        XCTAssertTrue(cancelled)
+        let attempts = await removals.value()
+        XCTAssertEqual(attempts, [])
+        XCTAssertEqual((try storedInventory(at: inventoryURL)?["spots"] as? [[String: Any]])?.count, 1)
+        let recovery = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { _, _, _ in "radio1" },
+            targetedRemove: { _, provider, radioID in
+                XCTAssertEqual(provider, "direct_agent"); XCTAssertEqual(radioID, "radio2")
+            })
+        let recovered = try await recovery.retireContestForwardedSpots()
+        XCTAssertEqual(recovered, 1)
+    }
+
     func testReplacementContestWorkerRetiresExpiredReceiptsWithoutBlockingOnRadioRemoval() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-contest-expired-recovery-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: directory) }
