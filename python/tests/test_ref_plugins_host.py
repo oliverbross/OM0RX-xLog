@@ -134,31 +134,31 @@ class REFHostCase:
         self.assertEqual((row["SentNr"], row["NR"], row["Points"]), ("OM", "M", 1))
 
     def test_scoring_correction_delete_restart_and_export(self):
-        first = self.log("F1AAA", "M", 0)
-        second = self.log("F2BBB", "B", 1)
+        first = self.log("F1AAA", "75", 0)
+        second = self.log("F2BBB", "33", 1)
         self.assertEqual(self.read("score")["score"], {
             "qsos": 2,
             "points": 2,
             "countries": 0,
             "zones": 0,
-            "multipliers": 3,
-            "total": 6,
+            "multipliers": 2,
+            "total": 4,
         })
 
-        self.mutate("qso_correct", qsoID=first, fields={"other_2": "B"},
-                    reason="Correct overseas prefix")
-        self.assertEqual(self.read("score")["score"]["total"], 4)
-        self.mutate("qso_delete", qsoID=first, reason="Remove corrected contact")
+        self.mutate("qso_correct", qsoID=first, fields={"other_2": "33"},
+                    reason="Correct received department")
         self.assertEqual(self.read("score")["score"]["total"], 2)
+        self.mutate("qso_delete", qsoID=first, reason="Remove corrected contact")
+        self.assertEqual(self.read("score")["score"]["total"], 1)
         row = self.read("log")["rows"][0]
-        self.assertEqual((row["ID"], row["SentNr"], row["NR"]), (second, 2, "B"))
+        self.assertEqual((row["ID"], row["SentNr"], row["NR"]), (second, 2, 33))
 
         self.host.close()
         self.host = Host(self.root)
-        self.assertEqual(self.read("score")["score"]["total"], 2)
+        self.assertEqual(self.read("score")["score"]["total"], 1)
         export = self.read("export")["content"]
         self.assertIn(f"CONTEST: {self.cabrillo_name}\r\n", export)
-        self.assertIn("CLAIMED-SCORE: 2\r\n", export)
+        self.assertIn("CLAIMED-SCORE: 1\r\n", export)
         qso_lines = [line for line in export.splitlines() if line.startswith("QSO:")]
         self.assertEqual(len(qso_lines), 1)
         self.assertIn(" PH " if self.mode == "SSB" else " CW ", qso_lines[0])

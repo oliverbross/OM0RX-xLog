@@ -30,6 +30,7 @@ class Plugin:
     clear_on_vfo_change: bool = False
     filter_spot_ranges: bool = False
     preview_required_fields: tuple[str, ...] = ()
+    duplicate_description: str = ""
     sent_exchange_hint: str = "Sent Exchange"
     overlay_choices: tuple[str, ...] = ("N/A", "CLASSIC", "ROOKIE", "TB-WIRES", "YOUTH")
     export_formats: tuple[str, ...] = ("cabrillo", "adif")
@@ -72,7 +73,8 @@ PLUGIN_REGISTRY = MappingProxyType({
     "cwo": Plugin("CWOPS - Open", serial=True, allow_duplicate_commit=True, sent_exchange_hint="Name"),
     "k1usn_sst": Plugin("K1USN SLOW SPEED TEST"),
     "trans_tasman": Plugin("Trans Tasman CW", serial=True, bands=("160m", "80m", "40m"),
-                            allow_duplicate_commit=True),
+                            allow_duplicate_commit=True,
+                            duplicate_description="Worked on this band and mode in this 2-hour UTC block (08–10, 10–12, 12–14)."),
     "oceania_dx_cw": Plugin("Oceania DX CW", serial=True, allow_duplicate_commit=True),
     "oceania_dx_ssb": Plugin("Oceania DX SSB", serial=True, modes=("SSB",), allow_duplicate_commit=True),
     "sac_cw": Plugin("SAC CW", serial=True),
@@ -133,13 +135,17 @@ PLUGIN_REGISTRY = MappingProxyType({
                                      sent_exchange_hint="Serial number (optional HQ)"),
     "es_field_day": Plugin("ES FIELD DAY", serial=True, modes=("CW", "SSB"),
                            allow_duplicate_commit=True,
+                           duplicate_description="Worked on this band and mode in this configured 30-minute period; outside the schedule, band/mode applies.",
                            sent_exchange_hint="Serial + Estonian region"),
     "es_ll_kv": Plugin("ES LL KV", serial=True, modes=("CW", "SSB"),
-                       allow_duplicate_commit=True, sent_exchange_hint="Serial number"),
+                       allow_duplicate_commit=True, sent_exchange_hint="Serial number",
+                       duplicate_description="Worked on this band and mode in this configured 15-minute period; outside the schedule, band/mode applies."),
     "es_manual_key": Plugin("ES MANUAL KEY", serial=True, allow_duplicate_commit=True,
+                            duplicate_description="Worked on this band and mode in this configured 15-minute period; outside the schedule, band/mode applies.",
                             sent_exchange_hint="Seniority + serial"),
-    "es_open": Plugin("ES OPEN", serial=True, modes=("CW", "SSB"),
-                      allow_duplicate_commit=True, sent_exchange_hint="Serial number"),
+    "es_open": Plugin("ES OPEN", serial=True, bands=("80m", "40m"), modes=("CW", "SSB"),
+                      allow_duplicate_commit=True, sent_exchange_hint="Serial number",
+                      duplicate_description="Worked on this band and mode in this configured one-hour period; outside the schedule, band/mode applies."),
     "hadx": Plugin("HA DX", conditional_serial=True, modes=("CW", "SSB"),
                    sent_exchange_hint="# or County"),
     "helvetia": Plugin("HELVETIA", conditional_serial=True, modes=("CW", "SSB"),
@@ -219,9 +225,11 @@ PLUGIN_REGISTRY = MappingProxyType({
                                      "1.25m", "70cm", "33cm", "23cm", "13cm", "9cm", "6cm", "3cm",
                                      "1.25cm", "6mm", "4mm", "2.5mm", "2mm", "1mm", "submm"),
                               modes=("CW", "SSB", "FM", *RTTY_MODES), sent_exchange_hint="Years licensed",
+                              duplicate_description="Worked on this band and mode within the preceding three hours.",
                               overlay_choices=("N/A",)),
     "cq_ww_vhf": Plugin("CQ WW VHF", bands=("6m", "2m"),
                         modes=("CW", "SSB", "FM", *RTTY_MODES),
+                        duplicate_description="Worked on this band from this sent grid square.",
                         sent_exchange_hint="4-character grid square", overlay_choices=("N/A",)),
     "darc_vhf": Plugin("DARC VHF", serial=True,
                        bands=("2m", "70cm", "23cm", "13cm", "9cm", "6cm", "3cm", "1.25cm",
@@ -232,6 +240,7 @@ PLUGIN_REGISTRY = MappingProxyType({
         "John Moyle Field Day", serial=True,
         bands=("160m", "80m", "40m", "20m", "15m", "10m", *VHF_AND_UP_BANDS[:-1]),
         modes=("CW", "SSB", "FM", "AM"), sent_exchange_hint="#", overlay_choices=("N/A",),
+        duplicate_description="Worked on this band and mode group in this three-hour UTC block.",
     ),
     "labre_rs_digi": Plugin("LABRE-RS Digi", bands=("80m", "40m", "20m", "15m", "10m"),
                             modes=RTTY_MODES, sent_exchange_hint="4-character grid square",

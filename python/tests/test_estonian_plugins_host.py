@@ -108,7 +108,7 @@ class EstonianPluginHostTests(unittest.TestCase):
             "es_field_day": ("001", "2026-10-21 08:31:00", 2),
             "es_ll_kv": ("001", "2026-10-21 08:16:00", 4),
             "es_manual_key": ("05001", "2026-10-21 08:16:00", 65),
-            "es_open": ("001", "2026-10-21 09:01:00", 4),
+            "es_open": ("001", "2026-10-21 09:01:00", 0),
         }
         for plugin_id, (exchange, next_period, total) in cases.items():
             with self.subTest(plugin=plugin_id):
@@ -146,14 +146,14 @@ class EstonianPluginHostTests(unittest.TestCase):
         qso = contest.log("2026-10-21 08:01:00", "001")
         contest.mutate("qso_correct", qsoID=qso, fields={"callsign": "DL1ABC"},
                        reason="Correct callsign")
-        self.assertEqual(contest.read("score")["score"]["total"], 2)
+        self.assertEqual(contest.read("score")["score"]["total"], 0)
         contest.host.close()
         contest.host = Host(self.root / "open")
         try:
-            self.assertEqual(contest.read("score")["score"]["total"], 2)
+            self.assertEqual(contest.read("score")["score"]["total"], 0)
             export = contest.read("export")["content"]
             self.assertIn("CONTEST: ES-OPEN-HF\r\n", export)
-            self.assertIn("CLAIMED-SCORE: 2\r\n", export)
+            self.assertIn("CLAIMED-SCORE: 0\r\n", export)
             self.assertIn("DL1ABC", export)
         finally:
             contest.host.close()

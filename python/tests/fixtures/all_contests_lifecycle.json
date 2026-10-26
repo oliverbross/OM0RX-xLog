@@ -2494,14 +2494,14 @@
     "fixture": "test_european_dx_plugins_host.EuropeanDxPluginTests.test_chronological_multiplier_callbacks_for_remaining_conditional_serial_families",
     "mode": "CW",
     "fields": {
-      "callsign": "DL1ABC",
+      "callsign": "HB9ABC",
       "sent": "599",
       "receive": "599",
       "other_1": "001",
       "other_2": "ZH"
     },
     "firstRow": {
-      "Call": "DL1ABC"
+      "Call": "HB9ABC"
     },
     "state": {
       "station": {
@@ -2549,6 +2549,13 @@
             "entity": "Poland",
             "itu": 28,
             "primary_pfx": "SP"
+          },
+          "HB9ABC": {
+            "entity": "Switzerland",
+            "continent": "EU",
+            "cq": 14,
+            "itu": 28,
+            "primary_pfx": "HB"
           }
         },
         "id": "cty-v1"
@@ -2556,20 +2563,21 @@
       "draft": {
         "frequencyHz": 14025000
       }
-    }
+    },
+    "qualificationNote": "Contest-appropriate contact adapted from the referenced existing fixture"
   },
   "pacc": {
     "fixture": "test_european_dx_plugins_host.EuropeanDxPluginTests.test_chronological_multiplier_callbacks_for_remaining_conditional_serial_families",
     "mode": "CW",
     "fields": {
-      "callsign": "DL1ABC",
+      "callsign": "PA1ABC",
       "sent": "599",
       "receive": "599",
       "other_1": "001",
       "other_2": "ZH"
     },
     "firstRow": {
-      "Call": "DL1ABC"
+      "Call": "PA1ABC"
     },
     "state": {
       "station": {
@@ -2617,6 +2625,13 @@
             "entity": "Poland",
             "itu": 28,
             "primary_pfx": "SP"
+          },
+          "PA1ABC": {
+            "entity": "Netherlands",
+            "continent": "EU",
+            "cq": 14,
+            "itu": 27,
+            "primary_pfx": "PA"
           }
         },
         "id": "cty-v1"
@@ -2624,7 +2639,8 @@
       "draft": {
         "frequencyHz": 14025000
       }
-    }
+    },
+    "qualificationNote": "Contest-appropriate contact adapted from the referenced existing fixture"
   },
   "spdx": {
     "fixture": "test_european_dx_plugins_host.EuropeanDxPluginTests.test_scoring_persistence_duplicate_mode_and_export",
@@ -2698,14 +2714,14 @@
     "fixture": "test_european_hf_plugins_host.EuropeanHFPluginTests.test_commit_score_correction_restart_export_and_historical_sent_exchange",
     "mode": "CW",
     "fields": {
-      "callsign": "DL1ABC",
+      "callsign": "I1ABC",
       "sent": "599",
       "receive": "599",
       "other_1": "",
       "other_2": "TO"
     },
     "firstRow": {
-      "Call": "DL1ABC"
+      "Call": "I1ABC"
     },
     "state": {
       "station": {
@@ -2770,6 +2786,13 @@
             "entity": "Sweden",
             "itu": 18,
             "primary_pfx": "SM"
+          },
+          "I1ABC": {
+            "entity": "Italy",
+            "continent": "EU",
+            "cq": 15,
+            "itu": 28,
+            "primary_pfx": "I"
           }
         },
         "id": "european-hf-cty-v1"
@@ -2777,7 +2800,8 @@
       "draft": {
         "frequencyHz": 7025000
       }
-    }
+    },
+    "qualificationNote": "Contest-appropriate contact adapted from the referenced existing fixture"
   },
   "ea_rtty": {
     "fixture": "test_european_hf_plugins_host.EuropeanHFPluginTests.test_commit_score_correction_restart_export_and_historical_sent_exchange",
@@ -3143,7 +3167,7 @@
         "OperatorCategory": "SINGLE-OP",
         "OverlayCategory": "N/A",
         "PowerCategory": "LOW",
-        "SentExchange": "JN88",
+        "SentExchange": "QG62",
         "StartDate": "2026-10-21 00:00:00"
       },
       "reference": {
@@ -3663,14 +3687,14 @@
     "fixture": "test_first_remaining_plugins_host.FirstRemainingPluginTests.test_cqws_accepts_all_pinned_scoring_classes",
     "mode": "CW",
     "fields": {
-      "callsign": "K1AB0",
+      "callsign": "K1ABC",
       "sent": "599",
       "receive": "599",
       "other_1": "",
-      "other_2": "SP"
+      "other_2": "FD"
     },
     "firstRow": {
-      "Call": "K1AB0"
+      "Call": "K1ABC"
     },
     "state": {
       "station": {
@@ -3721,7 +3745,8 @@
       "draft": {
         "frequencyHz": 7025000
       }
-    }
+    },
+    "qualificationNote": "Contest-appropriate contact adapted from the referenced existing fixture"
   },
   "darc_schwaben": {
     "fixture": "test_first_remaining_plugins_host.FirstRemainingPluginTests.test_darc_vhf_requires_locator_but_hf_does_not",
@@ -4827,7 +4852,7 @@
       "sent": "599",
       "receive": "599",
       "other_1": "001",
-      "other_2": "M"
+      "other_2": "75"
     },
     "firstRow": {
       "Call": "F1AAA"
@@ -4905,7 +4930,7 @@
       "sent": "59",
       "receive": "59",
       "other_1": "001",
-      "other_2": "M"
+      "other_2": "75"
     },
     "firstRow": {
       "Call": "F1AAA"
@@ -5639,14 +5664,14 @@
     "fixture": "test_second_remaining_plugins_host.SecondRemainingPluginTests.test_all_eight_lifecycle_score_history_exports_and_restart",
     "mode": "CW",
     "fields": {
-      "callsign": "K1ABC",
+      "callsign": "UA3ABC",
       "sent": "599",
       "receive": "599",
       "other_1": "001",
-      "other_2": "101"
+      "other_2": "MO01"
     },
     "firstRow": {
-      "Call": "K1ABC"
+      "Call": "UA3ABC"
     },
     "state": {
       "station": {
@@ -5690,6 +5715,13 @@
             "entity": "Slovak Republic",
             "itu": 28,
             "primary_pfx": "OM"
+          },
+          "UA3ABC": {
+            "entity": "European Russia",
+            "continent": "EU",
+            "cq": 16,
+            "itu": 29,
+            "primary_pfx": "UA"
           }
         },
         "id": "batch-two-cty-v1"
@@ -5697,7 +5729,8 @@
       "draft": {
         "frequencyHz": 7025000
       }
-    }
+    },
+    "qualificationNote": "Contest-appropriate contact adapted from the referenced existing fixture"
   },
   "rdxc": {
     "fixture": "test_second_remaining_plugins_host.SecondRemainingPluginTests.test_all_eight_lifecycle_score_history_exports_and_restart",
@@ -6380,6 +6413,13 @@
             "entity": "Australia",
             "itu": 55,
             "primary_pfx": "VK"
+          },
+          "ZL1ABC": {
+            "entity": "New Zealand",
+            "continent": "OC",
+            "cq": 32,
+            "itu": 60,
+            "primary_pfx": "ZL"
           }
         },
         "id": "test-cty-v1"

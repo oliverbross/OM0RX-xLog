@@ -6,6 +6,56 @@ the original source bytes. GPL-3.0 license is retained in `LICENSE`.
 
 ## New-session scoring revision 26.10.26
 
+ES Open new sessions use the organizer's [2026 rules](https://www.erau.ee/images/LL/ES-Open_rules.pdf):
+80/40 metres only; two points for CW and one for SSB; foreign entrants can score
+only Estonian stations; Russian/Belarusian stations give no credit. ES regions
+0–9 count on each band/mode, including the entrant's own region. The final score
+uses the actual multiplier count, so an Estonian entrant with only foreign QSOs
+has points but zero claimed score. Exact source-count checked overlays preserve
+the original bytes and pre-revision scoring callbacks for historical sessions.
+
+CQWS new sessions apply the published [2023 rules §§8, 10–11](https://www.labre.org.br/wp-content/uploads/2023/03/CQWS-2023-v.1.0.pdf):
+FD/TEEN/ROOKIE give seven points, YL/QRP give three, countries count once across
+all bands, and the final score multiplies points by the actual multiplier sum.
+An explicit Brazilian UF exchange counts once per band only for Brazilian
+stations; station-type codes such as FD, HQ or YL are never treated as UFs.
+No callsign-to-UF dataset is supplied, and no UF is guessed from a callsign.
+Positive-point Brazilian category exchanges therefore leave the UF component
+**UNVERIFIED**: the score projection exposes `scoringComplete=false` and a
+`scoringLimitations` explanation, and Cabrillo adds a partial-score SOAPBOX note.
+The numeric result is a known lower bound. Removing/correcting the unresolved
+contacts recomputes that status. Full CQWS **2026 organizer-rule certification
+remains UNVERIFIED**; the 2023 authority and bounded DX fixture do not establish
+current-edition or complete Brazilian-entrant readiness.
+
+REF CW/SSB sessions created with this revision additionally use department and
+French overseas-prefix multipliers by band, and DXCC multipliers only for French
+entrants. France/Corsica and overseas French entrants use their appropriate
+points branch. The organizer's [DX summary](https://concours.r-e-f.org/contest/a-propos/)
+supports these scopes; complete current-edition certification remains unverified
+because the linked April 2026 DOCX could not be retrieved. Existing sessions keep
+their old scoring policy. Numeric SQLite departments are converted to strings
+before the original callbacks inspect them, preventing replay/edit crashes.
+
+The generic ADIF export now supplements existing standard tags with
+`APP_XLOG_PLUGIN`, `APP_XLOG_QSO_ID`, `APP_XLOG_ENTRY_FIELDS` and
+`APP_XLOG_EXCHANGE_FIELDS`. They preserve compound sent/received exchanges and
+stable identity from saved rows/entry snapshots rather than reconstructing them
+from current setup. Exact source-count checked import overlays retain the original
+vendored bytes. Older contacts without saved raw fields omit that application tag.
+
+The JSONL launcher redirects incidental plugin stdout to diagnostic stderr, so a
+Helvetia multiplier diagnostic cannot corrupt the native wire protocol. SAC and
+IARU Region 1 Field Day received serials must be positive SQLite integers, matching
+their existing sent-serial requirement. Plugin-owned duplicate descriptions now
+distinguish the Estonian periods, Trans-Tasman blocks, WIA rolling window, CQ WW
+VHF sent-grid scope and John Moyle blocks.
+
+Cabrillo field review against the [WWROF QSO specification](https://wwrof.org/cabrillo/cabrillo-qso-data/)
+found LABRE-RS dividing already-kHz frequency by 1,000 and WPX RTTY/ARRL RTTY
+Roundup writing `RTTY` rather than Cabrillo `RY`. Finite source-count checked
+overlays correct those three writers without altering stored contacts or scores.
+
 The 26 October 2026 readiness qualification found an extra `+1` multiplier in
 the pinned HA-DX, PACC and RSGB IOTA final-score callbacks. Their organizers'
 2026 rules require actual QSO points multiplied by actual credited multipliers:

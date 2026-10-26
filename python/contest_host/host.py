@@ -37,10 +37,12 @@ from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, ARRL_VHF_PLUGINS, CENTRAL_E
 from .statistics import calculate_statistics
 from .statistics_dupes import duplicate_flags
 from .multipliers import dimensions as multiplier_definitions, project as multiplier_dimensions, view_status as multiplier_view_status
-from .upstream import (adapt_cw_template, load_plugin, load_cw_macros, pinned_band_definitions,
+from .upstream import (CQWS_UF_LIMITATION, adapt_cw_template, cqws_multiplier_counts,
+                       load_plugin, load_cw_macros, pinned_band_definitions,
                        split_macro_template, verify_source)
 
 PLUGIN_ID = "cq_ww_cw"
+SCORING_REVISION_PLUGINS = frozenset({"hadx", "pacc", "rsgb_iota", "ref_cw", "ref_ssb", "es_open", "cqws"})
 SOURCE_REVISION = "7c8b499225a73f7f8f792246881bd7aefc05452f"
 INPUTS = ("callsign", "sent", "receive", "other_1", "other_2")
 CONTACT_METADATA_FIELDS = {"Name": 20, "QTH": 25, "Comment": 60}
@@ -1033,14 +1035,13 @@ class Desk:
                     **self.cw_macros[("R" if self.pref["run_state"] else "S", f"F{i}")]} for i in range(1, 13)],
                 "dupe": duplicate,
                 **({"entryMultiplierStatus": multiplier_status} if multiplier_status is not None else {}),
-                "dupeExplanation": ("Worked on this band and mode within the preceding three hours."
-                                    if self.state["pluginID"] == "wia_remembrance" else
-                                    "Worked on this band and mode in this 2-hour UTC block (08–10, 10–12, 12–14)."
+                "dupeExplanation": (PLUGIN_REGISTRY[self.state["pluginID"]].duplicate_description or
+                                    ("Worked under this contest's specific duplicate rule."
                                     if self.contest.dupe_type == 5 else
                                     "Worked in this contest." if self.contest.dupe_type == 1 else
                                     "Worked on this band and mode." if self.contest.dupe_type == 3 else
                                     "Duplicate checking disabled." if self.contest.dupe_type == 4 else
-                                    "Worked on this band."),
+                                    "Worked on this band.")),
                 "countryResolved": bool(self.cty_lookup(call)), "history": self.history_info.text(),
                 "exchangeWarnings": self.exchange_warnings(),
                 "columns": (list(CQ_WW_SSB_LOG_COLUMNS) if self.state["pluginID"] == "cq_ww_ssb"
@@ -1118,9 +1119,14 @@ class Desk:
                     "multipliers": prefixes, "total": self.contest.calc_score(self)}
         if self.state["pluginID"] == "cqws":
             countries, brazilian_units = self.contest.show_mults(self, rtc=True)
-            return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
+            score = {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                     "countries": countries, "zones": 0, "exchangeBandMultipliers": brazilian_units,
                     "multipliers": countries + brazilian_units, "total": self.contest.calc_score(self)}
+            if self.state.get("scoringRevision") == "26.10.26":
+                unresolved = cqws_multiplier_counts(self)[2]
+                score.update(scoringComplete=not unresolved,
+                             scoringLimitations=[CQWS_UF_LIMITATION] if unresolved else [])
+            return score
         if self.state["pluginID"] in {"rda_contest", "rdxc"}:
             countries, subdivisions = self.contest.show_mults(self, rtc=True)
             subdivision_name = "rdaDistricts" if self.state["pluginID"] == "rda_contest" else "oblasts"
@@ -1637,6 +1643,8 @@ class Host:
                     "RTC reporting context is stale", "stale_generation")
             desk = Desk(store, state, self.commit)
             generator = getattr(desk.contest, "online_score_xml", None)
+            require(desk.score().get("scoringComplete") is not False,
+                    "This score is partial; complete scoring data is required for online reporting", "scoring_incomplete")
             require(callable(generator), "This contest does not provide RTC score XML", "rtc_unsupported")
             desk.station = rtc_safe_values(desk.station)
             desk.contest_settings = rtc_safe_values(desk.contest_settings)
@@ -2959,7 +2967,7 @@ class Host:
         identifier(state["sessionID"])
         require(state.get("scoringRevision") in {None, "26.10.26"}
                 and (state.get("scoringRevision") is None
-                     or state["pluginID"] in {"hadx", "pacc", "rsgb_iota"}),
+                     or state["pluginID"] in SCORING_REVISION_PLUGINS),
                 "Unsupported persisted scoring revision", "engine_mismatch")
         require(isinstance(state["draft"].get("fields"), dict)
                 and isinstance(state["draft"].get("id"), str)
@@ -3133,7 +3141,7 @@ class Host:
                 "sourceRevision": SOURCE_REVISION, "schemaVersion": 1, "station": station, "settings": settings,
                 # Existing sessions have no marker and retain their pinned score.
                 # Setup edits/reopening never opt historical logs into new rules.
-                "scoringRevision": "26.10.26" if plugin_id in {"hadx", "pacc", "rsgb_iota"} else None,
+                "scoringRevision": "26.10.26" if plugin_id in SCORING_REVISION_PLUGINS else None,
                 "operatingMode": live_mode,
                 "roverLocation": "",
                 "operator": text(params.get("operator", call), 32), "reference": {"id": text(reference["id"]), "countries": countries},
@@ -3512,7 +3520,8 @@ class Host:
             if fields["other_2"].isdigit():
                 require(int(fields["other_2"]) > 0, "Canada Day received serial must be positive")
         elif desk.state["pluginID"] == "cqws":
-            require(fields["other_2"].upper() in CQWS_EXCHANGES,
+            extra = {"TEEN", "ROOKIE"} if desk.state.get("scoringRevision") == "26.10.26" else set()
+            require(fields["other_2"].upper() in CQWS_EXCHANGES | extra,
                     "CQWS received station type is invalid")
         elif desk.state["pluginID"] == "darc_schwaben":
             if requires_serial(desk.state):
@@ -3641,6 +3650,10 @@ class Host:
             require(re.fullmatch(r"[0-9]+", fields["other_1"]) is not None
                     and 0 < int(fields["other_1"]) <= 9223372036854775807,
                     "Sent serial must be a positive SQLite integer")
+            if desk.state["pluginID"] in {"sac_cw", "sac_ssb", "iaru_fieldday_r1_cw", "iaru_fieldday_r1_ssb"}:
+                require(re.fullmatch(r"[0-9]+", fields["other_2"]) is not None
+                        and 0 < int(fields["other_2"]) <= 9223372036854775807,
+                        "Received serial must be a positive SQLite integer")
             if desk.state["pluginID"] == "icwc_mst":
                 exchange = re.fullmatch(r"[A-Za-z][A-Za-z'-]{0,31} ([0-9]+)", fields["other_2"])
                 require(exchange is not None and 0 < int(exchange[1]) <= 9223372036854775807,
@@ -4210,6 +4223,13 @@ class Host:
                         os.environ["HOME"] = previous_home
                 files = list(Path(directory).glob("*.adi" if export_format == "adif" else "*.edi"))
             require(len(files) == 1, "Plugin export failed", "export_failed")
+            if (export_format == "cabrillo" and desk.state["pluginID"] == "cqws"
+                    and desk.state.get("scoringRevision") == "26.10.26"
+                    and not desk.score()["scoringComplete"]):
+                payload = files[0].read_bytes()
+                note = ("SOAPBOX: Known score (partial): " + CQWS_UF_LIMITATION + "\r\n").encode("utf-8")
+                require(payload.count(b"END-OF-LOG:") == 1, "CQWS export terminator is invalid", "export_failed")
+                files[0].write_bytes(payload.replace(b"END-OF-LOG:", note + b"END-OF-LOG:"))
             require(files[0].stat().st_size <= maximum,
                     "Use a chunked export route for this log" if maximum == 512000 else "Prepared export exceeds the native save limit",
                     "export_too_large")

@@ -1,5 +1,6 @@
 """Bounded serial JSONL protocol. Run: python -m contest_host --data-root PATH."""
 import argparse
+from contextlib import redirect_stdout
 import json
 import logging
 import sys
@@ -24,7 +25,10 @@ def run(input_stream, output_stream, host):
             request = json.loads(raw, parse_constant=lambda value: (_ for _ in ()).throw(ValueError("Nonfinite JSON")))
             if isinstance(request, dict) and isinstance(request.get("id"), str) and len(request["id"]) <= 128:
                 request_id = request["id"]
-            result = host.dispatch(request)
+            # Pinned plugins may print diagnostics. They must never share the
+            # JSONL protocol channel with native request/reply frames.
+            with redirect_stdout(sys.stderr):
+                result = host.dispatch(request)
             response = {"id": request_id, "ok": True, "result": result}
         except HostError as error:
             response = {"id": request_id, "ok": False, "error": {"code": error.code, "message": str(error), "outcome": "rejected"}}

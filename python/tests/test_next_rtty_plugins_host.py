@@ -156,7 +156,7 @@ class CQWPXRTTYHostTests(RTTYHostCase):
         self.assertIn("CONTEST: CQ-WPX-RTTY\r\n", export)
         self.assertIn("CATEGORY-MODE: RTTY\r\n", export)
         self.assertIn("CLAIMED-SCORE: 22\r\n", export)
-        self.assertTrue(any(line.startswith("QSO:") and " RTTY " in line for line in export.splitlines()))
+        self.assertTrue(any(line.startswith("QSO:") and line.split()[2] == "RY" for line in export.splitlines()))
 
     def test_esm_commits_with_fldigi_output(self):
         self.mutate("esm", field="callsign", fields={"callsign": "K1ABC", "other_2": "100"})

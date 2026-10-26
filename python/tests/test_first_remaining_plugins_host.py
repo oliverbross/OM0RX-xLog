@@ -119,7 +119,7 @@ class FirstRemainingPluginTests(unittest.TestCase):
                     _, revision = self.mutate(host, session, revision, "recalculate")
                     self.assertEqual(self.read(host, session, "score")["score"], before)
                     if plugin_id == "cqws":
-                        self.assertEqual(before["total"], before["points"] * (1 + before["multipliers"]))
+                        self.assertEqual(before["total"], before["points"] * before["multipliers"])
                     self.assertIn("QSO:", self.read(host, session, "export")["content"])
                     self.assertEqual(self.read(host, session, "export_prepare", format="adif")["format"], "adif")
 

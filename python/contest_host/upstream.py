@@ -161,6 +161,11 @@ def load_plugin(plugin_id="cq_ww_cw"):
             ("from PyQt6.QtCore import QCoreApplication, Qt", "from contest_host.qt_compat import QCoreApplication, Qt"),
             ("from PyQt6.QtWidgets import QApplication, QDialog, QProgressDialog, QPushButton", "from contest_host.qt_compat import QApplication, QDialog, QProgressDialog, QPushButton"),
             ("def imp_adif(self):", "def imp_adif(self):\n    import adif_io  # real optional dependency; never a stand-in"),
+            ('                print("<EOR>", end="\\r\\n", file=file_descriptor)',
+             '                from contest_host.upstream import adif_context_fields\n'
+             '                for tag, value in adif_context_fields(self, contact).items():\n'
+             '                    print(f"<{tag}:{len(value)}>{value}", end="\\r\\n", file=file_descriptor)\n'
+             '                print("<EOR>", end="\\r\\n", file=file_descriptor)'),
         ])
     module_name = f"not1mm.plugins.{plugin_id}"
     if module_name not in sys.modules:
@@ -171,6 +176,39 @@ def load_plugin(plugin_id="cq_ww_cw"):
         source = (VENDOR / f"not1mm/plugins/{plugin_id}.py").read_text(encoding="utf-8")
         if "str(Path.home())" in source:
             replacements.append(("str(Path.home())", "str(self.export_directory)"))
+        if plugin_id == "labre_rs_digi":
+            # DXLOG stores frequency in kHz; this writer divided it again and
+            # emitted 14 rather than 14080, outside Cabrillo's HF contract.
+            replacements.append(('freq = contact.get("Freq", "0") / 1000',
+                                 'freq = float(contact.get("Freq", "0"))'))
+        if plugin_id in {"cq_wpx_rtty", "arrl_rtty_ru"}:
+            replacements.append(('themode = contact.get("Mode", "")',
+                                 'themode = "RY"'))
+        if plugin_id in {"ref_cw", "ref_ssb"}:
+            # SQLite's NUMERIC affinity returns numeric departments as integers
+            # during replay; the original callback expects a string widget.
+            replacements.extend([
+                ('self.contact.get("NR", "").isalpha()', 'str(self.contact.get("NR", "")).isalpha()'),
+                ('canton = contact.get("NR", "")', 'canton = str(contact.get("NR", ""))'),
+                ('def points(self):\n', 'def points(self):\n    from contest_host.upstream import ref_french_call\n'),
+                ('if my_country == "France":',
+                 'if my_country == "France" or self.state.get("scoringRevision") == "26.10.26" and ref_french_call(self, self.station.get("Call", "")):'),
+                ('if their_country == "France":',
+                 'if their_country == "France" or self.state.get("scoringRevision") == "26.10.26" and ref_french_call(self, self.contact.get("Call", "")):', 2),
+                ('def predupe(self):',
+                 '    if self.state.get("scoringRevision") == "26.10.26":\n'
+                 '        from contest_host.upstream import ref_assign_multipliers\n'
+                 '        ref_assign_multipliers(self, self.contact)\n\n\ndef predupe(self):'),
+                ('def recalculate_mults(self):\n',
+                 'def recalculate_mults(self):\n'
+                 '    if self.state.get("scoringRevision") == "26.10.26":\n'
+                 '        from contest_host.upstream import ref_assign_multipliers\n'
+                 '        seen = set()\n'
+                 '        for row in self.database.fetch_all_contacts_asc():\n'
+                 '            ref_assign_multipliers(self, row, seen)\n'
+                 '            self.database.change_contact(row)\n'
+                 '        return\n'),
+            ])
         if plugin_id in {"hadx", "pacc", "rsgb_iota"}:
             # Organizer 2026 final-score rules use the actual multiplier count.
             # Persisted pre-fix sessions keep the original arithmetic, including
@@ -197,6 +235,39 @@ def load_plugin(plugin_id="cq_ww_cw"):
                     '        return len({(row["Band"], row["Mode"], pacc_multiplier_key(row))\n'
                     '                    for row in self.database.fetch_all_contacts_asc()\n'
                     '                    if row.get("Points", 0) > 0 and pacc_multiplier_key(row)})\n'))
+        if plugin_id == "es_open":
+            replacements.extend([
+                ('def points(self):\n',
+                 'def points(self):\n'
+                 '    if self.state.get("scoringRevision") == "26.10.26":\n'
+                 '        from contest_host.upstream import es_open_points\n'
+                 '        return es_open_points(self)\n'),
+                ('def show_mults(self, rtc=None):\n',
+                 'def show_mults(self, rtc=None):\n'
+                 '    if self.state.get("scoringRevision") == "26.10.26":\n'
+                 '        from contest_host.upstream import es_open_multiplier_key\n'
+                 '        return len({es_open_multiplier_key(row)\n'
+                 '                    for row in self.database.fetch_all_contacts_asc()\n'
+                 '                    if row.get("Points", 0) > 0 and es_open_multiplier_key(row)})\n'),
+                ('return contest_points * (mults + 1)',
+                 'return contest_points * (mults if self.state.get("scoringRevision") == "26.10.26" else mults + 1)'),
+            ])
+        if plugin_id == "cqws":
+            replacements.extend([
+                ('        "YL": 7,', '        "YL": 3 if self.state.get("scoringRevision") == "26.10.26" else 7,'),
+                ('        "QRP": 7,',
+                 '        "QRP": 3 if self.state.get("scoringRevision") == "26.10.26" else 7,\n'
+                 '        "TEEN": 7 if self.state.get("scoringRevision") == "26.10.26" else 0,\n'
+                 '        "ROOKIE": 7 if self.state.get("scoringRevision") == "26.10.26" else 0,'),
+                ('def show_mults(self, rtc=None):\n',
+                 'def show_mults(self, rtc=None):\n'
+                 '    if self.state.get("scoringRevision") == "26.10.26":\n'
+                 '        from contest_host.upstream import cqws_multiplier_counts\n'
+                 '        countries, units, _ = cqws_multiplier_counts(self)\n'
+                 '        return (countries, units) if rtc is not None else countries + units\n'),
+                ('return contest_points * (1 + mults)',
+                 'return contest_points * (mults if self.state.get("scoringRevision") == "26.10.26" else 1 + mults)'),
+            ])
         if plugin_id == "cq_ww_rtty":
             # Apply the CQ WW duplicate-eligibility rule to its third multiplier
             # family; the original query otherwise counts a duplicate's state.
@@ -714,3 +785,111 @@ def pacc_multiplier_key(row):
     elif country == "UA9":
         country = "UA"
     return country + area
+
+
+def es_open_points(desk):
+    """ES Open 2026: eligible 80/40m QSOs; no Russian/Belarusian credit."""
+    own = desk.cty_lookup(desk.station.get("Call", ""))
+    own_prefix = next(iter(own.values())).get("primary_pfx", "") if own else ""
+    their_prefix = desk.contact.get("CountryPrefix", "")
+    excluded = {"UA", "UA2", "UA9", "EU"}
+    if (desk.contact_is_dupe or desk.contact.get("Band") not in {3.5, 7.0}
+            or own_prefix in excluded or their_prefix in excluded
+            or not own_prefix or not their_prefix
+            or own_prefix != "ES" and their_prefix != "ES"):
+        return 0
+    return {"CW": 2, "SSB": 1, "USB": 1, "LSB": 1}.get(desk.contact.get("Mode"), 0)
+
+
+def es_open_multiplier_key(row):
+    """One ES region 0–9 on each band/mode, including the entrant's region."""
+    prefix = str(row.get("WPXPrefix", "")).upper()
+    match = re.fullmatch(r"ES([0-9])", prefix)
+    if row.get("CountryPrefix") == "ES" and match:
+        return (match.group(1), row.get("Band"), row.get("Mode"))
+    return None
+
+
+CQWS_BRAZILIAN_UNITS = frozenset({
+    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
+    "PA", "PB", "PR", "PE", "PI", "RJ", "RS", "RO", "RN", "RR", "SC", "SP", "SE", "TO",
+})
+CQWS_UF_LIMITATION = ("Brazilian station-type exchanges do not identify a federal unit; "
+                      "unknown UF multipliers are omitted and this score is a lower bound.")
+
+
+def cqws_multiplier_counts(desk):
+    """CQWS 2023 §10: countries globally; explicit Brazilian UF per band only.
+
+    Category codes are not federal units. No callsign-to-UF inference is made.
+    The unresolved count prevents a partial lower bound being presented as final.
+    """
+    countries, units, unresolved = set(), set(), 0
+    for row in desk.database.fetch_all_contacts_asc():
+        if row.get("Points", 0) <= 0:
+            continue
+        prefix = row.get("CountryPrefix", "")
+        if prefix:
+            countries.add(prefix)
+        # Include Brazil's separate PY0 island entities; category exchanges
+        # still do not establish their UF, so they also need the partial guard.
+        if str(prefix).startswith("PY"):
+            exchange = str(row.get("Exchange1", "")).upper()
+            if exchange in CQWS_BRAZILIAN_UNITS:
+                units.add((exchange, row.get("Band")))
+            else:
+                unresolved += 1
+    return len(countries), len(units), unresolved
+
+
+def adif_context_fields(desk, contact):
+    """Retain compound exchanges that the pinned generic ADIF writer omits.
+
+    Application-defined ADIF fields supplement the original interoperable tags.
+    Use saved identity/row values only; never guess old exchanges from setup.
+    """
+    identity = desk.database.exec_sql("SELECT raw_fields FROM xlog_qso_identity WHERE id=?", (contact["ID"],))
+    fields = {"APP_XLOG_PLUGIN": desk.state["pluginID"], "APP_XLOG_QSO_ID": contact["ID"]}
+    if identity:
+        fields["APP_XLOG_ENTRY_FIELDS"] = identity["raw_fields"]
+    exchange = {key: contact[key] for key in (
+        "SentNr", "NR", "Name", "Exchange1", "CK", "Prec", "Sect", "GridSquare", "ZN", "MiscText"
+    ) if key in contact and contact[key] not in (None, "")}
+    fields["APP_XLOG_EXCHANGE_FIELDS"] = json.dumps(exchange, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return fields
+
+
+def ref_french_call(desk, call):
+    country = desk.cty_lookup(call)
+    prefix = next(iter(country.values())).get("primary_pfx", "") if country else ""
+    return prefix.startswith("F") or prefix == "TK"
+
+
+def ref_credit_keys(desk, contact):
+    prefix = str(contact.get("CountryPrefix", ""))
+    band = contact.get("Band")
+    if prefix in {"F", "TK"}:
+        department = str(contact.get("NR", "")).upper()
+        if department.isdigit():
+            department = department.zfill(2)
+        return [("department", band, department)] if department else []
+    if prefix.startswith("F"):
+        return [("department", band, prefix)]
+    if prefix and ref_french_call(desk, desk.station.get("Call", "")):
+        return [("country", band, prefix)]
+    return []
+
+
+def ref_assign_multipliers(desk, contact, seen=None):
+    """REF department/overseas-prefix and domestic-only DXCC credit per band."""
+    rebuilding = seen is not None
+    if seen is None:
+        seen = {key for row in desk.database.fetch_all_contacts_asc() if row.get("Points", 0) > 0
+                for key in ref_credit_keys(desk, row)}
+    contact["IsMultiplier1"] = contact["IsMultiplier2"] = 0
+    eligible = contact.get("Points", 0) > 0 if rebuilding else not desk.contact_is_dupe
+    if eligible:
+        for key in ref_credit_keys(desk, contact):
+            if key not in seen:
+                contact["IsMultiplier1" if key[0] == "department" else "IsMultiplier2"] = 1
+            seen.add(key)
