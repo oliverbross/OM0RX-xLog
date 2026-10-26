@@ -9,23 +9,33 @@ actor LiveCWDecodeMethods {
     private let resources: @Sendable () throws -> CWComputeResources
     private let listener:CWLocalClusterServer
     private let prepareListener:@Sendable () async throws -> Void
+    private let ingestSpot:@Sendable (CWConfirmedSpot,String) async throws -> Bool
+    private let stationCallsign:@Sendable () throws -> String
+    private var publisher:Task<Void,Never>?
+    private var spotOutputFailure:String?
     private var listenerIntent=UUID()
     private var handoffIntent=UUID()
     private var terminated=false,mutation=false
     init(logbook: LiveLogbookMethods = .shared,configurationURL: URL? = nil,
          provider: any CWIQSourceProviding = LiveCWIQProvider(),compute: any CWComputeControlling = CWComputeProcess(),
          resources: @escaping @Sendable () throws -> CWComputeResources = {try CWBundleResources.locate()},
-         listener:CWLocalClusterServer = CWLocalClusterServer(),prepareListener:@escaping @Sendable () async throws -> Void = {}) {
+         listener:CWLocalClusterServer = CWLocalClusterServer(),prepareListener:@escaping @Sendable () async throws -> Void = {},
+         ingestSpot:@escaping @Sendable (CWConfirmedSpot,String) async throws -> Bool = {_,_ in false}) {
         let url=configurationURL ?? (logbook === LiveLogbookMethods.shared
             ? FileManager.default.urls(for:.applicationSupportDirectory,in:.userDomainMask)[0]
                 .appendingPathComponent("OM0RX-xLog Integration Services/CWDecode/settings.json")
             : logbook.workspaceDirectoryURL.appendingPathComponent("CWDecode/settings.json"))
-        store=CWConfigurationStore(url:url);session=CWDecodeSession(provider:provider,compute:compute);self.resources=resources
+        store=CWConfigurationStore(url:url);session=CWDecodeSession(provider:provider,compute:compute,spotPolicy:CWSpotPolicy(origin:listener.instanceID));self.resources=resources
         self.listener=listener;self.prepareListener=prepareListener
+        self.ingestSpot=ingestSpot;stationCallsign={try logbook.currentSettings().stationCall}
     }
-    func terminate() async {terminated=true;listenerIntent=UUID();handoffIntent=UUID();await LiveStationMethods.cwFlexRevokeHandoffs();await listener.stop();await session.stop()}
+    func terminate() async {terminated=true;publisher?.cancel();publisher=nil;listenerIntent=UUID();handoffIntent=UUID();await LiveStationMethods.cwFlexRevokeHandoffs();await listener.stop();await session.stop()}
     func handle(method: String,params: [String:Any]) async throws -> [String:Any] {
         guard !terminated else {throw WorkerFailure("worker_stopping","CW Decode is shutting down.")}
+        if publisher==nil {
+            let events=session.acceptedSpots
+            publisher=Task{[weak self] in for await spot in events {guard !Task.isCancelled else{return};await self?.publish(spot)}}
+        }
         switch method {
         case "cw_decode_snapshot":
             guard params.isEmpty else {throw invalid()}
@@ -110,6 +120,7 @@ actor LiveCWDecodeMethods {
         result["configuration"]=try Self.object(configuration)
         result["resourcesAvailable"]=(try? resources()) != nil
         result["qualityStatus"]="awaiting_live_qualification"
+        if let spotOutputFailure{result["spotOutputFailure"]=spotOutputFailure}
         result["listener"]=try Self.object(await listener.snapshot())
         async let first=LiveStationMethods.cwTCICapabilities(radioID:"radio1")
         async let second=LiveStationMethods.cwTCICapabilities(radioID:"radio2")
@@ -127,6 +138,15 @@ actor LiveCWDecodeMethods {
         }
         result["capabilities"]=rows
         return result
+    }
+    private func publish(_ spot:CWConfirmedSpot) async {
+        guard !terminated,await session.canPublish(spot),let call=try? stationCallsign(),(try? CWSpotWire.reporter(call)) != nil else{return}
+        do {
+            _ = try await ingestSpot(spot,call)
+            guard !terminated,await session.canPublish(spot) else{return}
+            _ = try await listener.publish(spot,stationCallsign:call)
+            spotOutputFailure=nil
+        } catch {spotOutputFailure="local_cw_output_unavailable"}
     }
     private static func object<T:Encodable>(_ value:T) throws -> [String:Any] {
         guard let result=try JSONSerialization.jsonObject(with:JSONEncoder().encode(value)) as? [String:Any] else {throw CWComputeError.invalidEvent}

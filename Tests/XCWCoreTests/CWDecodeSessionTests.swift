@@ -88,6 +88,47 @@ final class CWDecodeSessionTests: XCTestCase {
         XCTAssertEqual(delays,[1_000_000_000,2_000_000_000,4_000_000_000])
         await session.stop()
     }
+    func testCommittedIdentityEntersBoundedAcceptedOutputAndRetuneFencesQueuedSpot() async throws {
+        try await spotFixture(qualifiedForTests:true)
+    }
+    func testProductionPolicyCannotEmitEvenWithPreferenceAndQualifiedFixtureRF() async throws {
+        try await spotFixture(qualifiedForTests:false)
+    }
+    private func spotFixture(qualifiedForTests:Bool) async throws {
+        let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),a=try source(),clock=CWSessionTestClock(),origin=UUID()
+        let policy=qualifiedForTests ? CWSpotPolicy(qualifiedForTests:true,origin:origin):CWSpotPolicy(origin:origin)
+        let session=CWDecodeSession(provider:provider,compute:compute,clock:{clock.now()},spotPolicy:policy)
+        let collector=CWSessionSpotCollector(),events=session.acceptedSpots
+        let reader=Task{for await spot in events{await collector.append(spot)}}
+        try await session.start(configuration:CWDecodeConfiguration(sources:[a],automaticSpots:true),resources:resources)
+        try await wait{await provider.leaseCount()==1}
+        var descriptor:CWStreamDescriptor?
+        for count in 1...84 {
+            descriptor=try await provider.emit(a.id,receipt:clock.now(),qualified:true,samples:8192)
+            try await wait{await compute.counts().sends==count}
+        }
+        let capture=try XCTUnwrap(descriptor),id=UUID().uuidString
+        let tokens="CQ K1ABC K1ABC ".enumerated().map{index,symbol in CWNativeToken(symbol:String(symbol),firstSample:4000+UInt64(index*80),endSample:4060+UInt64(index*80),logScore:-0.1)}
+        for (first,end):(UInt64,UInt64) in [(0,19200),(3200,22400)] {
+            let metadata=CWNativeTrack(kind:"decode",streamToken:capture.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased(),
+                epoch:1,trackID:id,revision:0,state:"provisional",firstSample:first,endSample:end,sourceFirstSample:0,
+                filterDelaySeconds:0.02,offsetHz:600,ambiguous:false,replay:false)
+            await compute.emit(.decode(CWNativeDecode(track:metadata,text:"CQ K1ABC K1ABC ",tokens:tokens,inferenceMilliseconds:10)))
+        }
+        if qualifiedForTests {
+            try await wait{await collector.values().count==1}
+            let values=await collector.values(),spot=try XCTUnwrap(values.first)
+            XCTAssertEqual(spot.callsign,"K1ABC");XCTAssertEqual(spot.originInstanceID,origin);XCTAssertEqual(spot.frequencyHz,14025600)
+            let current=await session.canPublish(spot);XCTAssertTrue(current)
+            await provider.invalidate(a.id)
+            let stale=await session.canPublish(spot);XCTAssertFalse(stale)
+        } else {
+            try await wait{await session.snapshot().tracks.first?.spotRejection=="quality_not_qualified"}
+            let values=await collector.values(),snapshot=await session.snapshot()
+            XCTAssertTrue(values.isEmpty);XCTAssertFalse(snapshot.automaticSpotsQualified)
+        }
+        await session.stop();reader.cancel()
+    }
     private func track(_ descriptor:CWStreamDescriptor) -> CWNativeTrack {
         CWNativeTrack(kind:"track",streamToken:descriptor.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased(),
             epoch:UInt64(descriptor.epoch)!,trackID:UUID().uuidString,revision:0,state:"acquiring",firstSample:0,endSample:0,
@@ -152,19 +193,24 @@ private actor CWSessionTestProvider:CWIQSourceProviding {
         leases.removeValue(forKey:source.id)?.continuation.finish()
     }
     func invalidate(_ id:UUID){leases[id]?.descriptor=nil}
-    func emit(_ id:UUID,newEpoch:Bool=false,receipt:UInt64=DispatchTime.now().uptimeNanoseconds) throws -> CWStreamDescriptor {
+    func emit(_ id:UUID,newEpoch:Bool=false,receipt:UInt64=DispatchTime.now().uptimeNanoseconds,qualified:Bool=false,samples:Int=256) throws -> CWStreamDescriptor {
         var lease=try XCTUnwrap(leases[id])
         if lease.descriptor==nil || newEpoch {
             lease.descriptor=try CWStreamDescriptor(sessionID:lease.session,sourceID:id,radioID:lease.source.radioID,
                 provider:lease.source.provider,receiverID:lease.source.receiverID,epoch:newEpoch ? "2":"1",centreHz:14025000,
-                sampleRate:96000,spectralSign:nil,usableLowerHz:13986000,usableUpperHz:14064000)
+                sampleRate:96000,spectralSign:qualified ? 1:nil,usableLowerHz:13986000,usableUpperHz:14064000,mappingQualified:qualified)
             lease.sequence=0;lease.sample=0
         }
         let descriptor=lease.descriptor!
         let block=try CWIQBlock(descriptor:descriptor,sequence:lease.sequence,firstSample:lease.sample,
-            receivedMonotonicNS:receipt,samples:[Float](repeating:0,count:512))
-        lease.sequence+=1;lease.sample+=256;lease.continuation.yield(block);leases[id]=lease
+            receivedMonotonicNS:receipt,samples:[Float](repeating:0,count:samples*2))
+        lease.sequence+=1;lease.sample+=UInt64(samples);lease.continuation.yield(block);leases[id]=lease
         return descriptor
     }
+}
+private actor CWSessionSpotCollector {
+    private var spots:[CWConfirmedSpot]=[]
+    func append(_ spot:CWConfirmedSpot){spots.append(spot)}
+    func values()->[CWConfirmedSpot]{spots}
 }
 #endif

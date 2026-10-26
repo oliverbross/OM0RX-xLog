@@ -53,6 +53,7 @@ public struct CWSpotPolicy: Sendable {
     private let origin: UUID
     private struct Emitted: Sendable { let call:String; let source:UUID; let hz:Int64; let at:UInt64 }
     private var emitted:[Emitted]=[]
+    public var isQualityQualified:Bool{qualityQualified}
     public init(origin: UUID = UUID()) { self.origin=origin; self.qualityQualified=false }
     // Internal for policy-unit fixtures only. No worker/renderer input can enable it.
     init(qualifiedForTests: Bool, origin: UUID = UUID()) { self.origin=origin; qualityQualified=qualifiedForTests }

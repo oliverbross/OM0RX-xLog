@@ -41,6 +41,7 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
       {!snapshot.resourcesAvailable && <p className="cw-decode-notice">The offline decoder is unavailable in this build. Install a complete CW Decode build before starting capture.</p>}
       {snapshot.failure && <p className="cw-decode-notice" role="alert">The decoder process is unavailable. Stop decoding, check the offline installation, then start again.</p>}
       {!snapshot.automaticSpotsQualified && <p className="cw-decode-quality">Automatic spots are off while live decoding quality and RF mapping await qualification.</p>}
+      {snapshot.spotOutputFailure && <p className="cw-decode-notice" role="alert">A Local CW spot could not be delivered. Check the local cluster history and server state. IQ decoding continues.</p>}
       <div className="cw-decode-sources" aria-label="Monitoring spans">{configured.length ? configured.map(source => {
         const live = snapshot.sources.find(row => row.configuration.id === source.id), capability = snapshot.capabilities.find(row => row.radioID === source.radioID && row.provider === source.provider);
         return <div key={source.id}><strong>{cwSourceName(source)}</strong><span>{live ? stateName(live.state) : "Stopped"}</span>
@@ -74,6 +75,7 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
           <label>Committed text<textarea readOnly value={signal.committed} rows={5} /></label>
           <label>Provisional tail<textarea readOnly value={signal.provisional} rows={3} /></label>
           <p className="cw-decode-quality">Provisional text can change. Automatic spots require committed station identification and qualified live evidence.</p>
+          {signal.spotRejection && <small>Spot withheld: {signal.spotRejection.replaceAll("_", " ")}</small>}
         </aside>}
       </div>
       <footer className="cw-decode-server"><div><strong>Local CW server · {stateName(snapshot.listener.state)}</strong><span>{snapshot.listener.address}:{snapshot.listener.port ?? snapshot.configuration.listenerPort} · {snapshot.listener.authenticatedClients}/{snapshot.listener.clients} clients logged in · {snapshot.listener.retainedSpots} retained spots</span></div>

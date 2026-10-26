@@ -5,12 +5,13 @@ export type CWDecodeConfiguration = { version: 1; revision: string; sources: CWI
 export type CWDescriptor = { sessionID: string; sourceID: string; radioID: string; receiverID: string; streamToken: string; epoch: string;
   provider: string; centreHz: number; sampleRate: number; mappingQualified: boolean; replay: boolean };
 export type CWDecodeTrack = { sourceID: string; trackID: string; descriptor: CWDescriptor; revision: string; offsetHz: number; frequencyHz?: number;
-  committed: string; provisional: string; ambiguous: boolean; inferenceMilliseconds?: number };
+  committed: string; provisional: string; ambiguous: boolean; inferenceMilliseconds?: number; spotRejection?: string };
 export type CWCapability = { radioID: string; provider: string; ready: boolean; device?: string; protocolVersion?: string;
   receivers: { receiver: number; enabled?: boolean; centreHz?: number }[]; requestableSampleRates: number[]; transmitStateKnownOff?: boolean;
   inventoryRevision?: string; identity?: { serial: string; model: string; address: string; controlPort: number }; stationHandle?: number;
   panadapters?: { id: string; clientHandle?: number; channel?: number; centreHz?: number; receiveAntenna?: string }[]; handoffPanadapters?: string[] };
 export type CWDecodeSnapshot = { sessionID?: string; state: string; failure?: string; automaticSpotsQualified: boolean; resourcesAvailable: boolean;
+  spotOutputFailure?: string;
   configuration: CWDecodeConfiguration; sources: { configuration: CWIQSource; state: string; descriptor?: CWDescriptor; retryCount: number; failure?: string }[];
   tracks: CWDecodeTrack[]; capabilities: CWCapability[];
   listener: { state: string; address: string; port?: number; clients: number; authenticatedClients: number; retainedSpots: number;
@@ -32,6 +33,7 @@ const descriptor = (value: unknown): value is CWDescriptor => object(value) && [
 export function parseCWDecodeSnapshot(value: unknown): CWDecodeSnapshot {
   if (!object(value) || !["stopped", "preparing", "running", "recovering", "blocked", "stopping"].includes(value.state) ||
     typeof value.resourcesAvailable !== "boolean" || typeof value.automaticSpotsQualified !== "boolean" ||
+    value.spotOutputFailure !== undefined && value.spotOutputFailure !== "local_cw_output_unavailable" ||
     value.sessionID !== undefined && (typeof value.sessionID !== "string" || !uuid.test(value.sessionID))) throw new Error("CW Decode returned an invalid session state.");
   const config = value.configuration;
   if (!object(config) || config.version !== 1 || typeof config.revision !== "string" || !uuid.test(config.revision) ||
@@ -47,6 +49,7 @@ export function parseCWDecodeSnapshot(value: unknown): CWDecodeSnapshot {
     Math.abs(track.offsetHz) <= track.descriptor.sampleRate / 2 && typeof track.committed === "string" && track.committed.length <= 1024 &&
     typeof track.provisional === "string" && track.provisional.length <= 1024 && typeof track.ambiguous === "boolean" &&
     (track.frequencyHz === undefined || track.descriptor.mappingQualified && integer(track.frequencyHz, 100000, 1e9)) &&
+    (track.spotRejection === undefined || ["quality_not_qualified", "replay", "stale_source", "unmapped_frequency", "contaminated", "ambiguous", "insufficient_occurrences", "cooldown", "invalid_evidence"].includes(track.spotRejection)) &&
     (track.inferenceMilliseconds === undefined || Number.isFinite(track.inferenceMilliseconds) && track.inferenceMilliseconds >= 0))) throw new Error("CW Decode track state could not be verified.");
   const listener = value.listener;
   if (!object(listener) || !["off", "starting", "listening", "occupied", "failed", "loop_blocked"].includes(listener.state) || listener.address !== "127.0.0.1" ||

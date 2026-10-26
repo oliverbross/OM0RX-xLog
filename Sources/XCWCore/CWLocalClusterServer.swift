@@ -38,7 +38,8 @@ public actor CWLocalClusterServer {
     }
     private struct Report {let id:UUID;let line:Data;let observed:Date}
     private let queue=DispatchQueue(label:"com.oliverbross.xlog.cw.local-cluster",qos:.utility)
-    private let endpointOwner=UUID(),instanceID=UUID()
+    private let endpointOwner=UUID()
+    public nonisolated let instanceID:UUID
     private let endpointGuard:CWLocalEndpointGuard
     private var admission=CWClientAdmission()
     private var listener:NWListener?,identity:UUID?
@@ -49,8 +50,8 @@ public actor CWLocalClusterServer {
     private let clock:@Sendable ()->UInt64
     private let wallClock:@Sendable ()->Date
     public init(clock:@escaping @Sendable ()->UInt64={DispatchTime.now().uptimeNanoseconds},
-                wallClock:@escaping @Sendable ()->Date={Date()},endpointGuard:CWLocalEndpointGuard = .shared) {
-        self.clock=clock;self.wallClock=wallClock;self.endpointGuard=endpointGuard
+                wallClock:@escaping @Sendable ()->Date={Date()},endpointGuard:CWLocalEndpointGuard = .shared,instanceID:UUID=UUID()) {
+        self.clock=clock;self.wallClock=wallClock;self.endpointGuard=endpointGuard;self.instanceID=instanceID
     }
     deinit {
         watchdog?.cancel();listener?.cancel()

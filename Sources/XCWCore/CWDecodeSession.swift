@@ -38,6 +38,7 @@ public struct CWDecodeTrackSnapshot: Encodable, Sendable {
     public let provisional: String
     public let ambiguous: Bool
     public let inferenceMilliseconds: Double?
+    public let spotRejection:String?
 }
 public struct CWDecodeSessionSnapshot: Encodable, Sendable {
     public let sessionID: UUID?
@@ -45,7 +46,8 @@ public struct CWDecodeSessionSnapshot: Encodable, Sendable {
     public let failure: String?
     public let sources: [CWDecodeSourceSnapshot]
     public let tracks: [CWDecodeTrackSnapshot]
-    public let automaticSpotsQualified: Bool = false
+    public let automaticSpotsQualified: Bool
+    public let spotDeliveryDrops:Int
 }
 
 /// Shared by main and detached views. Only this actor owns source leases and
@@ -66,6 +68,11 @@ public actor CWDecodeSession {
     private let compute: any CWComputeControlling
     private let sleep: @Sendable (UInt64) async throws -> Void
     private let clock: @Sendable () -> UInt64
+    private let wallClock:@Sendable ()->Date
+    private var spotPolicy:CWSpotPolicy
+    public nonisolated let acceptedSpots:AsyncStream<CWConfirmedSpot>
+    private let spotOutput:AsyncStream<CWConfirmedSpot>.Continuation
+    private var spotDeliveryDrops=0
     private var intent: UUID?
     private var configuration: CWDecodeConfiguration?
     private var resources: CWComputeResources?
@@ -76,13 +83,30 @@ public actor CWDecodeSession {
     private var childAttempt=0
     public init(provider: any CWIQSourceProviding, compute: any CWComputeControlling = CWComputeProcess(),
                 clock: @escaping @Sendable () -> UInt64 = {DispatchTime.now().uptimeNanoseconds},
-                sleep: @escaping @Sendable (UInt64) async throws -> Void = {try await Task.sleep(nanoseconds:$0)}) {
-        self.provider=provider;self.compute=compute;self.clock=clock;self.sleep=sleep
+                sleep: @escaping @Sendable (UInt64) async throws -> Void = {try await Task.sleep(nanoseconds:$0)},
+                wallClock:@escaping @Sendable ()->Date={Date()},spotPolicy:CWSpotPolicy=CWSpotPolicy()) {
+        self.provider=provider;self.compute=compute;self.clock=clock;self.sleep=sleep;self.wallClock=wallClock;self.spotPolicy=spotPolicy
+        let pair=AsyncStream<CWConfirmedSpot>.makeStream(bufferingPolicy:.bufferingOldest(16))
+        acceptedSpots=pair.stream;spotOutput=pair.continuation
     }
+    deinit{spotOutput.finish()}
     public func snapshot() -> CWDecodeSessionSnapshot {
         CWDecodeSessionSnapshot(sessionID:intent,state:state,failure:failure,
             sources:sources.values.map(\.view).sorted{$0.configuration.id.uuidString<$1.configuration.id.uuidString},
-            tracks:tracks.values.map(\.view).sorted{$0.trackID<$1.trackID})
+            tracks:tracks.values.map(\.view).sorted{$0.trackID<$1.trackID},automaticSpotsQualified:spotPolicy.isQualityQualified,
+            spotDeliveryDrops:spotDeliveryDrops)
+    }
+    /// Recheck queued output against the live provider before each external
+    /// classification/listener admission. Archived accepted spots remain history.
+    public func canPublish(_ spot:CWConfirmedSpot) async -> Bool {
+        guard spotPolicy.isQualityQualified,configuration?.automaticSpots==true,intent==spot.sessionID,
+              let source=sources[spot.sourceID],let lease=source.lease,let descriptor=source.view.descriptor,
+              descriptor.streamToken==spot.streamToken,descriptor.epoch==spot.epoch,descriptor.mappingQualified else{return false}
+        let current=await provider.current(source.view.configuration,sessionID:spot.sessionID,leaseID:lease)
+        let now=clock()
+        return intent==spot.sessionID && sources[spot.sourceID]?.lease==lease &&
+            sources[spot.sourceID]?.view.descriptor==descriptor && current==descriptor &&
+            now>=source.lastReceipt && now-source.lastReceipt<=250_000_000
     }
     public func start(configuration: CWDecodeConfiguration, resources: CWComputeResources) async throws {
         try configuration.validate()
@@ -255,6 +279,7 @@ public actor CWDecodeSession {
         if track?.view.revision != String(value.revision) {track=nil}
         var reconciler=track?.transcript ?? CWTranscriptReconciler()
         var committed=track?.view.committed ?? "",provisional=track?.view.provisional ?? "",ambiguous=value.ambiguous
+        var occurrences:[CWIdentityOccurrence]=[]
         if let decode {
             // Convert track-local 3.2 kHz time to the capture sample clock.
             let position=Double(value.sourceFirstSample)+Double(value.endSample)*Double(descriptor.sampleRate)/3200
@@ -263,12 +288,34 @@ public actor CWDecodeSession {
             guard let update=try? reconciler.process(decode.tokens.compactMap(\.aligned),firstSample:value.firstSample,endSample:value.endSample) else {return}
             committed=update.committed.map(\.symbol).joined();provisional=update.provisional.map(\.symbol).joined()
             ambiguous = ambiguous || update.ambiguous
+            occurrences=Array(CWTransmittingIdentity.occurrences(in:update.committed).suffix(128))
         }
         if ambiguous {committed="";provisional="";reconciler.reset()}
+        let frequency=descriptor.mappingQualified ? try? descriptor.frequency(offsetHz:value.offsetHz):nil
+        var rejection=ambiguous ? CWSpotRejection.ambiguous.rawValue:track?.view.spotRejection
+        if decode != nil,let trackID=UUID(uuidString:key) {
+            let now=clock(),latest=occurrences.map(\.endSample).max() ?? value.endSample
+            let samplePosition=Double(value.sourceFirstSample)+Double(latest)*Double(descriptor.sampleRate)/3200
+            let age=Double(now-source.lastReceipt)/1e9+max(0,Double(source.lastSample)-samplePosition)/Double(descriptor.sampleRate)+value.filterDelaySeconds
+            var evaluatingPolicy=spotPolicy
+            let decision=evaluatingPolicy.evaluate(descriptor:descriptor,trackID:trackID,frequencyHz:frequency ?? 0,
+                occurrences:occurrences,channelSample:value.endSample,latestSampleNS:source.lastReceipt,nowNS:now,
+                observedAt:wallClock().addingTimeInterval(-age),transmitting:false,clean:true,ambiguous:ambiguous)
+            rejection=decision.rejection?.rawValue
+            if configuration?.automaticSpots==true{spotPolicy=evaluatingPolicy}
+            if configuration?.automaticSpots==true,let spot=decision.spot {
+                switch spotOutput.yield(spot) {
+                case .enqueued:break
+                case .dropped:spotDeliveryDrops=min(Int.max-1,spotDeliveryDrops)+1
+                case .terminated:break
+                @unknown default:break
+                }
+            }
+        }
         let view=CWDecodeTrackSnapshot(sourceID:descriptor.sourceID,trackID:key,descriptor:descriptor,
             revision:String(value.revision),offsetHz:value.offsetHz,
-            frequencyHz:descriptor.mappingQualified ? try? descriptor.frequency(offsetHz:value.offsetHz):nil,
-            committed:committed,provisional:provisional,ambiguous:ambiguous,inferenceMilliseconds:decode?.inferenceMilliseconds)
+            frequencyHz:frequency,committed:committed,provisional:provisional,ambiguous:ambiguous,
+            inferenceMilliseconds:decode?.inferenceMilliseconds,spotRejection:rejection)
         if tracks[key] != nil || tracks.count<32 {tracks[key]=Track(view:view,transcript:reconciler)}
     }
 }
