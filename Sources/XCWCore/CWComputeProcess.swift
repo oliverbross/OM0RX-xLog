@@ -108,7 +108,7 @@ public actor CWComputeProcess {
         let outgoing=AsyncThrowingStream<CWComputeEvent,Error>.makeStream(bufferingPolicy:.bufferingOldest(64))
         ingress=incoming.continuation;events=outgoing.continuation
         outgoing.continuation.onTermination = { [weak self] reason in
-            if case .cancelled=reason {Task{await self?.stop()}}
+            if case .cancelled=reason {Task{await self?.stopIfCurrent(id)}}
         }
         let inputFD=child.input_fd,outputFD=child.output_fd,errorFD=child.error_fd
         input=DispatchIO(type:.stream,fileDescriptor:inputFD,queue:ioQueue){_ in Darwin.close(inputFD)}
@@ -254,6 +254,10 @@ public actor CWComputeProcess {
             return
         }
         failure=nil;state="stopping";await retire(preserveFailure:false)
+    }
+    private func stopIfCurrent(_ id:UUID) async {
+        guard childID==id else {return}
+        await stop()
     }
     private func retire(preserveFailure:Bool) async {
         guard !retiring else{return};retiring=true

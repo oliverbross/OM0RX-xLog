@@ -1,0 +1,275 @@
+// Copyright © 2026 Oliver Bross OM0RX. SPDX-License-Identifier: GPL-3.0-only
+#if os(macOS)
+import Foundation
+import Dispatch
+
+public protocol CWComputeControlling: Sendable {
+    func start(resources: CWComputeResources) async throws -> AsyncThrowingStream<CWComputeEvent,Error>
+    func open(_ descriptor: CWStreamDescriptor) async throws
+    func send(_ block: CWIQBlock) async throws
+    func end(_ descriptor: CWStreamDescriptor, gap: Bool) async
+    func stop() async
+}
+extension CWComputeProcess: CWComputeControlling {}
+
+/// One adapter delegates to existing radio owners. The lease UUID is known
+/// before acquire suspends, allowing Stop to cancel an in-flight acquisition.
+public protocol CWIQSourceProviding: Sendable {
+    func acquire(_ source: CWSourceConfiguration, sessionID: UUID, leaseID: UUID) async throws -> AsyncThrowingStream<CWIQBlock,Error>
+    func current(_ source: CWSourceConfiguration, sessionID: UUID, leaseID: UUID) async -> CWStreamDescriptor?
+    func release(_ source: CWSourceConfiguration, leaseID: UUID) async
+}
+
+public struct CWDecodeSourceSnapshot: Encodable, Sendable {
+    public let configuration: CWSourceConfiguration
+    public var state: CWSourceState
+    public var descriptor: CWStreamDescriptor?
+    public var retryCount: Int
+    public var failure: String?
+}
+public struct CWDecodeTrackSnapshot: Encodable, Sendable {
+    public let sourceID: UUID
+    public let trackID: String
+    public let descriptor: CWStreamDescriptor
+    public let revision: String
+    public let offsetHz: Double
+    public let frequencyHz: Int64?
+    public let committed: String
+    public let provisional: String
+    public let ambiguous: Bool
+    public let inferenceMilliseconds: Double?
+}
+public struct CWDecodeSessionSnapshot: Encodable, Sendable {
+    public let sessionID: UUID?
+    public let state: String
+    public let failure: String?
+    public let sources: [CWDecodeSourceSnapshot]
+    public let tracks: [CWDecodeTrackSnapshot]
+    public let automaticSpotsQualified: Bool = false
+}
+
+/// Shared by main and detached views. Only this actor owns source leases and
+/// the compute child. Snapshots are passive and contain no raw IQ or model data.
+public actor CWDecodeSession {
+    private struct Source {
+        var view: CWDecodeSourceSnapshot
+        var lease: UUID?
+        var task: Task<Void,Never>?
+        var lastReceipt: UInt64 = 0
+        var lastSample: UInt64 = 0
+    }
+    private struct Track {
+        var view: CWDecodeTrackSnapshot
+        var transcript = CWTranscriptReconciler()
+    }
+    private let provider: any CWIQSourceProviding
+    private let compute: any CWComputeControlling
+    private let sleep: @Sendable (UInt64) async throws -> Void
+    private let clock: @Sendable () -> UInt64
+    private var intent: UUID?
+    private var configuration: CWDecodeConfiguration?
+    private var resources: CWComputeResources?
+    private var state="stopped",failure: String?
+    private var sources: [UUID:Source]=[:],tracks: [String:Track]=[:]
+    private var retiredTracks: [String]=[]
+    private var eventTask: Task<Void,Never>?,monitor: Task<Void,Never>?
+    private var childAttempt=0
+    public init(provider: any CWIQSourceProviding, compute: any CWComputeControlling = CWComputeProcess(),
+                clock: @escaping @Sendable () -> UInt64 = {DispatchTime.now().uptimeNanoseconds},
+                sleep: @escaping @Sendable (UInt64) async throws -> Void = {try await Task.sleep(nanoseconds:$0)}) {
+        self.provider=provider;self.compute=compute;self.clock=clock;self.sleep=sleep
+    }
+    public func snapshot() -> CWDecodeSessionSnapshot {
+        CWDecodeSessionSnapshot(sessionID:intent,state:state,failure:failure,
+            sources:sources.values.map(\.view).sorted{$0.configuration.id.uuidString<$1.configuration.id.uuidString},
+            tracks:tracks.values.map(\.view).sorted{$0.trackID<$1.trackID})
+    }
+    public func start(configuration: CWDecodeConfiguration, resources: CWComputeResources) async throws {
+        try configuration.validate()
+        guard intent==nil,state != "stopping",!configuration.sources.isEmpty else {throw CWComputeError.occupied}
+        let id=UUID();intent=id;self.configuration=configuration;self.resources=resources
+        state="preparing";failure=nil;childAttempt=0;tracks.removeAll();retiredTracks.removeAll()
+        sources=Dictionary(uniqueKeysWithValues:configuration.sources.map {
+            ($0.id,Source(view:CWDecodeSourceSnapshot(configuration:$0,state:.preparing,descriptor:nil,retryCount:0,failure:nil)))
+        })
+        await launchChild(id:id)
+        guard intent==id else {return}
+        monitor=Task {[weak self] in
+            while !Task.isCancelled {
+                do {try await Task.sleep(nanoseconds:100_000_000)} catch {return}
+                await self?.checkSources(id:id)
+            }
+        }
+    }
+    public func stop() async {
+        guard state != "stopping" else {return}
+        intent=nil;state="stopping";eventTask?.cancel();eventTask=nil;monitor?.cancel();monitor=nil
+        await releaseAll()
+        await compute.stop()
+        tracks.removeAll();retiredTracks.removeAll();state="stopped";failure=nil
+    }
+    private func launchChild(id: UUID) async {
+        guard intent==id,let resources else {return}
+        do {
+            let events=try await compute.start(resources:resources)
+            guard intent==id else {await compute.stop();return}
+            eventTask=Task {[weak self] in
+                do {
+                    for try await event in events {
+                        if Task.isCancelled {return}
+                        await self?.receive(event,id:id)
+                    }
+                    if !Task.isCancelled {await self?.childFailed(id:id)}
+                } catch {if !Task.isCancelled {await self?.childFailed(id:id)}}
+            }
+        } catch {await childFailed(id:id)}
+    }
+    private func childFailed(id: UUID) async {
+        guard intent==id else {return}
+        state="recovering";failure="compute_unavailable"
+        await releaseAll();await compute.stop()
+        guard intent==id else {return}
+        guard childAttempt<3 else {state="blocked";return}
+        let delay=UInt64(1<<childAttempt)*1_000_000_000;childAttempt+=1
+        do {try await sleep(delay)} catch {return}
+        guard intent==id else {return}
+        await launchChild(id:id)
+    }
+    private func releaseAll() async {
+        let closing=sources.values.compactMap {value -> (CWSourceConfiguration,UUID)? in
+            guard let lease=value.lease else {return nil};return (value.view.configuration,lease)
+        }
+        for key in sources.keys {
+            sources[key]?.task?.cancel();sources[key]?.task=nil;sources[key]?.lease=nil
+            sources[key]?.view.descriptor=nil;sources[key]?.view.state = .stopped
+        }
+        tracks.removeAll();retiredTracks.removeAll()
+        for (source,lease) in closing {await provider.release(source,leaseID:lease)}
+    }
+    private func beginSource(_ source: CWSourceConfiguration,id: UUID) {
+        guard intent==id,sources[source.id]?.lease==nil else {return}
+        let lease=UUID();sources[source.id]?.lease=lease;sources[source.id]?.view.state = .acquiring
+        sources[source.id]?.task=Task {[weak self,provider] in
+            do {
+                let blocks=try await provider.acquire(source,sessionID:id,leaseID:lease)
+                for try await block in blocks {
+                    if Task.isCancelled {return}
+                    try await self?.accept(block,source:source,lease:lease,id:id)
+                }
+                if !Task.isCancelled {await self?.sourceFailed(source,lease:lease,id:id)}
+            } catch {if !Task.isCancelled {await self?.sourceFailed(source,lease:lease,id:id)}}
+        }
+    }
+    private func sourceFailed(_ source: CWSourceConfiguration,lease: UUID,id: UUID) async {
+        guard intent==id,sources[source.id]?.lease==lease else {return}
+        await invalidate(source.id)
+        sources[source.id]?.lease=nil;sources[source.id]?.view.state = .recovering
+        sources[source.id]?.view.failure="iq_unavailable"
+        await provider.release(source,leaseID:lease)
+        guard intent==id,sources[source.id]?.lease==nil else {return}
+        let attempts=sources[source.id]?.view.retryCount ?? 3
+        guard attempts<3 else {sources[source.id]?.view.state = .blocked;return}
+        sources[source.id]?.view.retryCount=attempts+1
+        do {try await sleep(UInt64(1<<attempts)*1_000_000_000)} catch {return}
+        guard intent==id,state=="running",sources[source.id]?.lease==nil else {return}
+        beginSource(source,id:id)
+    }
+    private func invalidate(_ sourceID: UUID) async {
+        let descriptor=sources[sourceID]?.view.descriptor
+        sources[sourceID]?.view.descriptor=nil
+        tracks=tracks.filter{$0.value.view.sourceID != sourceID}
+        if let descriptor {await compute.end(descriptor,gap:true)}
+    }
+    private func accept(_ block: CWIQBlock,source: CWSourceConfiguration,lease: UUID,id: UUID) async throws {
+        guard intent==id,sources[source.id]?.lease==lease else {return}
+        let current=await provider.current(source,sessionID:id,leaseID:lease)
+        guard intent==id,sources[source.id]?.lease==lease else {return}
+        guard current==block.descriptor,block.descriptor.sessionID==id,block.descriptor.sourceID==source.id,
+              block.descriptor.radioID==source.radioID,block.descriptor.provider==source.provider,
+              block.descriptor.receiverID==source.receiverID,!block.descriptor.replay else {
+            await invalidate(source.id);return
+        }
+        if sources[source.id]?.view.descriptor != current {
+            await invalidate(source.id)
+            guard intent==id,sources[source.id]?.lease==lease else {return}
+            try await compute.open(block.descriptor)
+            guard intent==id,sources[source.id]?.lease==lease else {await compute.end(block.descriptor,gap:true);return}
+            sources[source.id]?.view.descriptor=block.descriptor
+        }
+        try await compute.send(block)
+        guard intent==id,sources[source.id]?.lease==lease else {return}
+        sources[source.id]?.lastReceipt=block.receivedMonotonicNS
+        sources[source.id]?.lastSample=block.firstSample+UInt64(block.sampleCount)
+        sources[source.id]?.view.state = .running;sources[source.id]?.view.failure=nil
+    }
+    private func checkSources(id: UUID) async {
+        guard intent==id else {return}
+        for source in sources.values.map(\.view.configuration) {
+            guard let lease=sources[source.id]?.lease,let descriptor=sources[source.id]?.view.descriptor else {continue}
+            let current=await provider.current(source,sessionID:id,leaseID:lease)
+            guard intent==id,sources[source.id]?.lease==lease else {continue}
+            if current != descriptor {
+                await invalidate(source.id);sources[source.id]?.view.state = .quarantined
+            } else if clock()>=sources[source.id]!.lastReceipt,clock()-sources[source.id]!.lastReceipt>250_000_000 {
+                // Keep the provider lease until its own timeout, but never show
+                // stale copy while waiting for it to fail or resume with an epoch.
+                tracks=tracks.filter{$0.value.view.sourceID != source.id}
+                sources[source.id]?.view.state = .quarantined
+            }
+        }
+    }
+    private static func token(_ descriptor: CWStreamDescriptor) -> String {
+        descriptor.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased()
+    }
+    private func receive(_ event: CWComputeEvent,id: UUID) async {
+        guard intent==id else {return}
+        switch event {
+        case .ready:
+            state="running";failure=nil
+            for source in configuration?.sources ?? [] {beginSource(source,id:id)}
+        case .metrics:break
+        case .track(let track):await receiveTrack(track,decode:nil,id:id)
+        case .decode(let decode):await receiveTrack(decode.track,decode:decode,id:id)
+        }
+    }
+    private func receiveTrack(_ value: CWNativeTrack,decode: CWNativeDecode?,id: UUID) async {
+        guard let source=sources.values.first(where:{$0.view.descriptor.map(Self.token)==value.streamToken}),
+              let descriptor=source.view.descriptor,let lease=source.lease,
+              UInt64(descriptor.epoch)==value.epoch,descriptor.replay==value.replay else {return}
+        let current=await provider.current(source.view.configuration,sessionID:id,leaseID:lease)
+        guard intent==id,sources[descriptor.sourceID]?.lease==lease,
+              sources[descriptor.sourceID]?.view.descriptor==descriptor,current==descriptor,
+              clock()>=source.lastReceipt,clock()-source.lastReceipt<=250_000_000 else {return}
+        if value.kind=="fault",value.trackID.isEmpty {
+            await sourceFailed(source.view.configuration,lease:lease,id:id);return
+        }
+        guard !value.trackID.isEmpty else {return}
+        let key=value.trackID
+        if ["retired","fault"].contains(value.kind) {
+            tracks.removeValue(forKey:key);retiredTracks.append(key)
+            if retiredTracks.count>128 {retiredTracks.removeFirst(retiredTracks.count-128)}
+            return
+        }
+        guard !retiredTracks.contains(key),tracks[key].map({UInt64($0.view.revision).map{$0<=value.revision} ?? false}) ?? true else {return}
+        var track=tracks[key]
+        if track?.view.revision != String(value.revision) {track=nil}
+        var reconciler=track?.transcript ?? CWTranscriptReconciler()
+        var committed=track?.view.committed ?? "",provisional=track?.view.provisional ?? "",ambiguous=value.ambiguous
+        if let decode {
+            // Convert track-local 3.2 kHz time to the capture sample clock.
+            let position=Double(value.sourceFirstSample)+Double(value.endSample)*Double(descriptor.sampleRate)/3200
+            guard position.isFinite,position<=Double(source.lastSample)+1,
+                  Double(source.lastSample)-position<=Double(descriptor.sampleRate)*2 else {return}
+            guard let update=try? reconciler.process(decode.tokens.compactMap(\.aligned),firstSample:value.firstSample,endSample:value.endSample) else {return}
+            committed=update.committed.map(\.symbol).joined();provisional=update.provisional.map(\.symbol).joined()
+            ambiguous = ambiguous || update.ambiguous
+        }
+        if ambiguous {committed="";provisional="";reconciler.reset()}
+        let view=CWDecodeTrackSnapshot(sourceID:descriptor.sourceID,trackID:key,descriptor:descriptor,
+            revision:String(value.revision),offsetHz:value.offsetHz,
+            frequencyHz:descriptor.mappingQualified ? try? descriptor.frequency(offsetHz:value.offsetHz):nil,
+            committed:committed,provisional:provisional,ambiguous:ambiguous,inferenceMilliseconds:decode?.inferenceMilliseconds)
+        if tracks[key] != nil || tracks.count<32 {tracks[key]=Track(view:view,transcript:reconciler)}
+    }
+}
+#endif
