@@ -94,6 +94,7 @@ async function qualifyCurrentDesk(plugin: string, raw: any, partialScore = false
     });
     expect(created.ok, JSON.stringify(created)).toBe(true);
     const projection = created.result.projection;
+    if (fixture.expectedSentNr !== undefined) expect(projection.reservedSerial).toBeNull();
     const serviceRequest = vi.fn(async (method: string, params: any = {}) => method === "lookup_call"
       ? { call: params.call, ...(fixture.state.reference.countries[params.call] ?? {}) } : {});
     const view = render(<Not1MMContestWorkspace request={host.request} serviceRequest={serviceRequest}
@@ -144,6 +145,10 @@ async function qualifyCurrentDesk(plugin: string, raw: any, partialScore = false
     expect(logged.result.total).toBe(1);
     expect(logged.result.rows[0].Call).toBe(fixture.firstRow.Call);
     expect(logged.result.rows[0].raw_fields.other_2).toBe(fixture.fields.other_2.toUpperCase());
+    if (fixture.expectedSentNr !== undefined) {
+      expect(String(logged.result.rows[0].SentNr)).toBe(String(fixture.expectedSentNr));
+      expect(logged.result.rows[0].raw_fields.other_1).toBe(String(fixture.expectedSentNr));
+    }
     for (const panel of contestSurfacePanelIDs) {
       expect(validContestSurfaceProjection(panel, owner.current.projections[panel]), `${plugin}:${panel}`).toBe(true);
     }
@@ -166,4 +171,11 @@ it("current React desk labels an unknown Brazilian UF score as partial", async (
   fixture.fields.callsign = fixture.firstRow.Call = "PY2ABC";
   fixture.state.reference.countries.PY2ABC = { entity:"Brazil",continent:"SA",cq:11,itu:15,primary_pfx:"PY" };
   await qualifyCurrentDesk("cqws", fixture, true);
+}, 15000);
+
+it("current React desk sends literal WIA years licensed without a serial allocation", async () => {
+  const fixture = structuredClone(fixtures.wia_remembrance);
+  fixture.state.settings.SentExchange = fixture.fields.other_1 = "25";
+  fixture.expectedSentNr = 25;
+  await qualifyCurrentDesk("wia_remembrance", fixture);
 }, 15000);
