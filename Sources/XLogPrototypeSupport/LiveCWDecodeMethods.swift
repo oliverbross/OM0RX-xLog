@@ -4,6 +4,11 @@ import Foundation
 import XCWCore
 
 actor LiveCWDecodeMethods {
+    private struct SelectionRequest:Decodable {
+        let reference:CWTrackReference
+        let requireFrequency:Bool
+        enum CodingKeys:String,CodingKey {case reference;case requireFrequency="require_frequency"}
+    }
     private let store: CWConfigurationStore
     private let session: CWDecodeSession
     private let resources: @Sendable () throws -> CWComputeResources
@@ -35,7 +40,7 @@ actor LiveCWDecodeMethods {
     func terminate() async {terminated=true;publisher?.cancel();publisher=nil;listenerIntent=UUID();handoffIntent=UUID();await LiveStationMethods.cwFlexRevokeHandoffs();await listener.stop();await session.stop()}
     func handle(method: String,params: [String:Any]) async throws -> [String:Any] {
         guard !terminated else {throw WorkerFailure("worker_stopping","CW Decode is shutting down.")}
-        if ["cw_decode_start","cw_decode_listener_start","cw_decode_flex_handoff"].contains(method),!featureEnabled() {
+        if ["cw_decode_start","cw_decode_listener_start","cw_decode_flex_handoff","cw_decode_resolve_selection"].contains(method),!featureEnabled() {
             throw WorkerFailure("cw_feature_disabled","CW Decode is disabled in this build while input and release qualification are incomplete.")
         }
         if publisher==nil {
@@ -43,6 +48,21 @@ actor LiveCWDecodeMethods {
             publisher=Task{[weak self] in for await spot in events {guard !Task.isCancelled else{return};await self?.publish(spot)}}
         }
         switch method {
+        case "cw_decode_resolve_selection":
+            guard Set(params.keys)==["reference","require_frequency"],let reference=params["reference"] as? [String:Any],
+                  Set(reference.keys)==["sessionID","sourceID","streamToken","epoch","trackID","revision","selectionID"] else {throw invalid()}
+            let request:SelectionRequest
+            do {request=try JSONDecoder().decode(SelectionRequest.self,from:JSONSerialization.data(withJSONObject:params))}
+            catch {throw invalid()}
+            do {
+                let resolved=try await session.resolveSelection(request.reference,requireFrequency:request.requireFrequency)
+                guard !terminated else {throw WorkerFailure("worker_stopping","CW Decode is shutting down.")}
+                return try Self.object(resolved)
+            } catch CWTrackSelectionError.frequencyUnqualified {
+                throw WorkerFailure("cw_frequency_unqualified","RF mapping for this signal is not qualified.")
+            } catch CWTrackSelectionError.staleEvidence {
+                throw WorkerFailure("cw_selection_stale","This signal changed or expired. Select its current row again.")
+            }
         case "cw_decode_snapshot":
             guard params.isEmpty else {throw invalid()}
         case "cw_decode_stop":

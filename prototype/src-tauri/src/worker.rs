@@ -235,6 +235,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
     if ![
         "health",
         "cw_decode_snapshot",
+        "cw_decode_resolve_selection",
         "cw_decode_configuration_save",
         "cw_decode_start",
         "cw_decode_stop",
@@ -1088,7 +1089,7 @@ fn request_blocks_module_transition(request: &Value) -> bool {
         "health" | "workspace_status" | "settings_load" |
         "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot" |
         "spot_bridge_snapshot" | "wsjtx_snapshot" | "fldigi_snapshot" |
-        "cluster_snapshot" | "cluster_history" | "cw_decode_snapshot" |
+        "cluster_snapshot" | "cluster_history" | "cw_decode_snapshot" | "cw_decode_resolve_selection" |
         "opportunities_snapshot" | "opportunities_refresh" |
         "opportunities_dxpedition_snapshot" | "opportunities_dxpedition_refresh" |
         "spot_history_status" | "spot_history_query" | "spot_history_detail" | "reference_log_review" |
@@ -1189,7 +1190,7 @@ fn request_can_change_station_state(request: &Value) -> bool {
 
 fn request_is_non_retiring_read(request: &Value) -> bool {
     matches!(request["method"].as_str(), Some(
-        "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot" | "cw_decode_snapshot" |
+        "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot" | "cw_decode_snapshot" | "cw_decode_resolve_selection" |
         "lookup_call" | "logbook_previous" | "logbook_duplicate" |
         "logbook_matrix" | "cluster_history" | "cluster_snapshot" |
         "opportunities_snapshot" | "opportunities_refresh" |
@@ -1238,7 +1239,7 @@ fn service_request_failure(phase: &str, control_request: bool) -> String {
 mod tests {
     #[test]
     fn cw_decode_has_receive_only_authority_and_never_inherits_cw_output() {
-        for method in ["cw_decode_snapshot", "cw_decode_configuration_save", "cw_decode_start", "cw_decode_stop", "cw_decode_listener_start", "cw_decode_listener_stop", "cw_decode_flex_handoff"] {
+        for method in ["cw_decode_snapshot", "cw_decode_resolve_selection", "cw_decode_configuration_save", "cw_decode_start", "cw_decode_stop", "cw_decode_listener_start", "cw_decode_listener_stop", "cw_decode_flex_handoff"] {
             let request = serde_json::json!({"id":"cw-read","method":method,"params":{}});
             assert!(super::validate_request(&request).is_ok());
             for label in ["main", "cw-decode"] { assert!(super::validate_surface(label, &request).is_ok(), "{label}:{method}"); }
@@ -1247,7 +1248,7 @@ mod tests {
             }
             assert!(!super::request_can_change_station_state(&request));
             assert!(super::request_keeps_worker_on_timeout(&request));
-            assert_eq!(super::request_blocks_module_transition(&request), method != "cw_decode_snapshot");
+            assert_eq!(super::request_blocks_module_transition(&request), !matches!(method,"cw_decode_snapshot" | "cw_decode_resolve_selection"));
         }
         for method in ["station_action", "winkeyer_control", "logbook_operator_draft_apply", "secret_save", "cluster_connect"] {
             assert!(super::validate_surface("cw-decode", &serde_json::json!({"id":"denied","method":method,"params":{}})).is_err(), "{method}");
@@ -1257,7 +1258,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn cw_decode_timeout_keeps_radio_and_logbook_worker_alive() {
-        for method in ["cw_decode_snapshot", "cw_decode_start", "cw_decode_stop"] {
+        for method in ["cw_decode_snapshot", "cw_decode_resolve_selection", "cw_decode_start", "cw_decode_stop"] {
             assert_passive_timeout_preserves_worker(method);
         }
     }

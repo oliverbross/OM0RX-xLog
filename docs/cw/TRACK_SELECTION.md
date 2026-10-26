@@ -34,3 +34,19 @@ Remaining integration: callsign-only normal-draft semantics through the shared
 editor/CAS/receipt owner; fenced contest `entry_set_text` through its sole main
 consumer; explicit Tune through the durable manual-tune owner with current source
 and operating-radio admission; scoped window methods, UI and action recovery tests.
+
+## Scoped read bridge
+
+`cw_decode_resolve_selection` accepts exactly `reference` and the boolean
+`require_frequency`. Reference fields must have the exact retained shape; callers
+cannot supply callsign or frequency fields. JSON numeric values are not booleans.
+Expired/changed evidence and unqualified requested frequency have separate errors.
+The disabled-build gate rejects this method before consulting the session.
+
+The Rust worker whitelist admits this read only from main/CW Decode surfaces.
+It uses the passive deadline, does not block module transitions and retains the
+shared radio/logbook worker on timeout. It adds no draft or radio mutation route.
+Seven focused Swift method cases and both Rust CW authority/timeout cases passed.
+Rust unit tests used a test-only `TAURI_CONFIG` externalBin-empty override because
+this isolated worktree has no staged distribution helpers. No application was
+packaged there; canonical production package resource checks remain unchanged.
