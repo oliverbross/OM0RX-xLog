@@ -67,3 +67,12 @@ tests pass, including bounded diagnostics, missing/duplicate/lowercase/transitio
 state refusal, lifecycle reset and the passive command allowlist. The developer
 inspector rebuilt and passed its no-network parser self-test. This is source and
 fixture evidence; the new diagnostic still awaits a coordinated hardware read.
+
+A coordinated read subsequently confirmed `stateFields=none`, alongside the
+normal owner's receive observation. The next diagnostic extension distinguishes
+per-band configuration from the ordinary interlock message and captures at most
+16 unique field names, each at most 32 ASCII alphanumeric/underscore bytes,
+without values. Reviewing the pinned official FlexLib `Radio.cs` confirmed its
+separate band-configuration dispatch; no manufacturer code was copied. The
+receive predicate remains unchanged pending observation of the actual message
+kind. The existing test also verifies bounded names and exclusion of values.

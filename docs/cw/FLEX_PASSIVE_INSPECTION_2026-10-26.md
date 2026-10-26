@@ -111,3 +111,21 @@ it does not identify the parser condition responsible or prove physical
 discovery, RF mapping or acquisition readiness. An offline bounded diagnostic
 was then prepared to expose the existing IQ interlock parser's refusal without
 changing its receive-state rule.
+
+## First refusal diagnostic: missing state field
+
+After the eleven loopback subscription tests, inspector build and no-network
+self-test passed, the readiness owner granted one metadata-only probe using
+source `4149e4ac`. At `2026-10-26T11:22:20Z`, it again found the same Station and
+owned panadapter. The control observation remained connected true/transmitting
+false/revision `3`. IQ `interlockEvidence` reported `stateFields=none` and
+`acceptedReceive=false`; there was no raw state token. The overall IQ receive
+gate remained false, and no handoff, acquisition or discovery was attempted.
+Transport-only shutdown completed and the live window was released.
+
+This identifies the current IQ refusal, not the semantics of that message.
+Offline reference inspection then found that the pinned manufacturer's API also
+dispatches per-band configuration on the interlock prefix. Bounded message-kind
+and field-name diagnostics were prepared to determine whether the observed
+message belongs to that separate form. No state predicate was changed on this
+evidence alone.

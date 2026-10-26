@@ -21,6 +21,8 @@ IQ capabilities can also include `interlockEvidence`: whether the latest IQ
 parser saw no state field, one field or multiple fields, a single bounded ASCII
 state token when valid, and that parser's existing receive acceptance result.
 This is refusal attribution, not an additional receive-state authority.
+It also distinguishes a `band_configuration` message from an ordinary interlock
+message and retains at most 16 bounded ASCII field names, without their values.
 
 Offline preparation:
 

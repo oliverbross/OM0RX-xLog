@@ -157,8 +157,18 @@ extension FlexRadioClient {
             let safe=raw.flatMap{value in (1...32).contains(value.utf8.count) && value.utf8.allSatisfy({
                 (65...90).contains($0)||(97...122).contains($0)||(48...57).contains($0)||$0==95
             }) ? value:nil}
+            var names=Set<String>()
+            for word in words.dropFirst() {
+                if names.count>=16{break}
+                let parts=word.split(separator:"=",maxSplits:1,omittingEmptySubsequences:false)
+                guard parts.count==2,(1...32).contains(parts[0].utf8.count),parts[0].utf8.allSatisfy({
+                    (65...90).contains($0)||(97...122).contains($0)||(48...57).contains($0)||$0==95
+                }) else{continue}
+                names.insert(String(parts[0]))
+            }
             iqState.interlockEvidence=FlexIQReceiveEvidence(stateFields:states.isEmpty ? "none":states.count==1 ? "single":"multiple",
-                rawState:safe,acceptedReceive:iqState.receiveKnown)
+                rawState:safe,acceptedReceive:iqState.receiveKnown,messageKind:words.dropFirst().first=="band" ? "band_configuration":"interlock",
+                fieldNames:names.sorted())
             iqRevalidate()
         }
         if iqState.inventory.consume(body){iqResolveCreatedStreams();iqRevalidate()}

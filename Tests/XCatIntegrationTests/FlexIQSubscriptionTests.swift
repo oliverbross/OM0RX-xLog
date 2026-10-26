@@ -51,6 +51,15 @@ final class FlexIQSubscriptionTests:XCTestCase {
             XCTAssertEqual(value.interlockEvidence?.acceptedReceive,accepted)
             XCTAssertEqual(value.transmitStateKnownOff,accepted)
         }
+        await radio.iqConsumeStatus("interlock band 3 tx1_enabled=1 tx2_enabled=0")
+        let band=await radio.iqCapabilities()
+        XCTAssertEqual(band.interlockEvidence?.messageKind,"band_configuration")
+        XCTAssertEqual(band.interlockEvidence?.fieldNames,["tx1_enabled","tx2_enabled"])
+        XCTAssertFalse(band.transmitStateKnownOff) // diagnostics do not change admission
+        await radio.iqConsumeStatus("interlock "+(0..<40).map{"field_\($0)=PRIVATE_VALUE"}.joined(separator:" "))
+        let bounded=await radio.iqCapabilities()
+        XCTAssertEqual(bounded.interlockEvidence?.fieldNames.count,16)
+        XCTAssertFalse(String(decoding:try JSONEncoder().encode(bounded),as:UTF8.self).contains("PRIVATE_VALUE"))
         let commands=await wire.commands
         XCTAssertFalse(commands.contains{$0.hasPrefix("stream ")||$0.hasPrefix("client udpport")})
         await radio.stopTransportOnly()
