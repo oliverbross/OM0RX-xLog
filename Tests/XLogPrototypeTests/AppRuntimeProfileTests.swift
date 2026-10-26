@@ -10,7 +10,7 @@ import XCTest
 final class AppRuntimeProfileTests: XCTestCase {
     func testOfflineCandidateRequiresPrivateMarkedTemporaryRootAndDisablesExternalIO() throws {
         let (bundleRoot, executable) = try bundledExecutable(identifier: "com.oliverbross.xlog.integration")
-        let root = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
+        let root = URL(fileURLWithPath: try AppRuntimeProfile.canonicalFilesystemPath(FileManager.default.temporaryDirectory), isDirectory: true)
             .appendingPathComponent("xlog-wave1-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: bundleRoot) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
@@ -27,6 +27,21 @@ final class AppRuntimeProfileTests: XCTestCase {
         try FileManager.default.setAttributes([.posixPermissions:0o755], ofItemAtPath:root.path)
         XCTAssertThrowsError(try AppRuntimeProfile.resolve(arguments: [argument], executableURL: executable))
     }
+    #if os(macOS)
+    func testOfflineCandidateAcceptsRustCanonicalPrivateTemporaryPath() throws {
+        let (bundleRoot, executable) = try bundledExecutable(identifier: "com.oliverbross.xlog.integration")
+        let root = URL(fileURLWithPath: "/private/tmp/xlog-wave1-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: bundleRoot) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false, attributes: [.posixPermissions:0o700])
+        try JSONSerialization.data(withJSONObject:["schema":1,"id":UUID().uuidString])
+            .write(to:root.appendingPathComponent(".xlog-offline-acceptance.json"))
+        let prefix = AppRuntimeProfile.offlineAcceptancePrefix
+        XCTAssertEqual(try AppRuntimeProfile.canonicalFilesystemPath(root), root.path)
+        let profile = try AppRuntimeProfile.resolve(arguments:[prefix + root.path], executableURL:executable)
+        XCTAssertEqual(profile.supportDirectory, root.appendingPathComponent("worker", isDirectory:true))
+        XCTAssertThrowsError(try AppRuntimeProfile.resolve(arguments:[prefix + root.path.replacingOccurrences(of:"/private/tmp/",with:"/tmp/")], executableURL:executable))
+    }
+    #endif
     private func bundledExecutable(identifier: String) throws -> (URL, URL) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-bundle-\(UUID().uuidString)")
         let contents = root.appendingPathComponent("Test.app/Contents", isDirectory: true)

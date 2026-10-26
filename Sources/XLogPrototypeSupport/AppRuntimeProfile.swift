@@ -1,4 +1,9 @@
 import Foundation
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 
 public enum AppRuntimeProfile: Equatable, Sendable {
     case production
@@ -39,12 +44,12 @@ public enum AppRuntimeProfile: Equatable, Sendable {
                 throw WorkerFailure("runtime_profile_unbound", "Offline acceptance requires one production-candidate launch coordinate.")
             }
             let root = URL(fileURLWithPath: String(arguments[0].dropFirst(offlineAcceptancePrefix.count)), isDirectory: true)
-            let resolved = root.standardizedFileURL.resolvingSymlinksInPath()
-            let parents = [fileManager.temporaryDirectory, URL(fileURLWithPath: "/tmp", isDirectory: true)].map { $0.resolvingSymlinksInPath().standardizedFileURL.path }
+            let resolved = try canonicalFilesystemPath(root)
+            let parents = try [fileManager.temporaryDirectory, URL(fileURLWithPath: "/tmp", isDirectory: true)].map { try canonicalFilesystemPath($0) }
             let attributes = try fileManager.attributesOfItem(atPath: root.path)
             let marker = root.appendingPathComponent(".xlog-offline-acceptance.json")
             let markerAttributes = try fileManager.attributesOfItem(atPath: marker.path)
-            guard root.path == resolved.path, root.lastPathComponent.hasPrefix("xlog-wave1-"),
+            guard root.path == resolved, root.lastPathComponent.hasPrefix("xlog-wave1-"),
                   parents.contains(root.deletingLastPathComponent().path),
                   attributes[.type] as? FileAttributeType == .typeDirectory,
                   ((attributes[.posixPermissions] as? NSNumber)?.intValue ?? 0) & 0o077 == 0,
@@ -66,6 +71,20 @@ public enum AppRuntimeProfile: Equatable, Sendable {
         let applicationSupport = try fileManager.url(for: .applicationSupportDirectory,
             in: .userDomainMask, appropriateFor: nil, create: false)
         return try contestingTestProfile(applicationSupport: applicationSupport, fileManager: fileManager)
+    }
+
+    /// Match Rust's filesystem canonicalization. Foundation deliberately presents
+    /// /private/tmp and /private/var through their shorter macOS aliases.
+    static func canonicalFilesystemPath(_ url: URL) throws -> String {
+        #if canImport(Darwin) || canImport(Glibc)
+        guard let path = realpath(url.path, nil) else {
+            throw WorkerFailure("runtime_profile_invalid", "Offline acceptance directory is unavailable.")
+        }
+        defer { free(path) }
+        return String(cString: path)
+        #else
+        return url.standardizedFileURL.resolvingSymlinksInPath().path
+        #endif
     }
 
     /// Exact worker service modes. Unknown, duplicated, or reordered arguments
