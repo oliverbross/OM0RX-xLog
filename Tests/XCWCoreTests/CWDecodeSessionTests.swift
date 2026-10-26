@@ -209,6 +209,37 @@ final class CWDecodeSessionTests: XCTestCase {
         await session.stop()
         let stopped=await session.snapshot();XCTAssertNil(stopped.load)
     }
+    func testQualifiedSignalResolutionDoesNotNeedCallsignAndCannotSurviveMuteOrStaleIQ() async throws {
+        let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),clock=CWSessionTestClock(),source=try source()
+        let session=CWDecodeSession(provider:provider,compute:compute,clock:{clock.now()})
+        try await session.start(configuration:CWDecodeConfiguration(sources:[source]),resources:resources)
+        try await wait{await provider.leaseCount()==1}
+        let descriptor=try await provider.emit(source.id,receipt:clock.now(),qualified:true)
+        try await wait{await compute.counts().sends==1}
+        await compute.emit(.track(track(descriptor)))
+        try await wait{await session.snapshot().tracks.count==1}
+        let snapshot=await session.snapshot(),view=try XCTUnwrap(snapshot.tracks.first),reference=try XCTUnwrap(view.controlReference)
+        XCTAssertNil(view.selection)
+        let result=try await session.resolveSignal(reference)
+        XCTAssertEqual(result.frequencyHz,14025600);XCTAssertEqual(result.radioID,"radio1")
+        clock.advance(300_000_000)
+        do{_ = try await session.resolveSignal(reference);XCTFail("Stale signal accepted")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+        _ = try await provider.emit(source.id,receipt:clock.now(),qualified:true)
+        try await wait{await compute.counts().sends==2}
+        try await session.mute(reference)
+        do{_ = try await session.resolveSignal(reference);XCTFail("Muted signal accepted")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+        await session.stop()
+    }
+    func testSignalResolutionRefusesUnqualifiedMappingAndStopDuringReadback() async throws {
+        let (session,provider,_,_,_,_)=try await selectionFixture()
+        let snapshot=await session.snapshot(),reference=try XCTUnwrap(snapshot.tracks.first?.controlReference)
+        do{_ = try await session.resolveSignal(reference);XCTFail("Unqualified RF accepted")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.frequencyUnqualified)}
+        await provider.setCurrentHold()
+        let resolving=Task{try await session.resolveSignal(reference)}
+        try await wait{await provider.currentWaiterCount()>0}
+        await session.stop();await provider.resumeCurrent()
+        do{_ = try await resolving.value;XCTFail("Stopped RF target accepted")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+    }
     private func selectionFixture(qualified:Bool=false,measured:Bool=false) async throws -> (CWDecodeSession,CWSessionTestProvider,CWSessionTestCompute,CWSessionTestClock,CWSourceConfiguration,CWStreamDescriptor) {
         let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),clock=CWSessionTestClock(),source=try source()
         let session=CWDecodeSession(provider:provider,compute:compute,clock:{clock.now()})

@@ -78,6 +78,7 @@ public actor CWDecodeSession {
         var transcript = CWTranscriptReconciler()
         var selectionUpdatedNS:UInt64=0
         var metricsUpdatedNS:UInt64=0
+        var updatedNS:UInt64=0
     }
     private let provider: any CWIQSourceProviding
     private let compute: any CWComputeControlling
@@ -161,6 +162,23 @@ public actor CWDecodeSession {
         // Local suppression precedes the pipe write and survives a lost child.
         mutedTracks.insert(reference.trackID);tracks[key]?.view.muted=true;tracks[key]?.view.selection=nil
         try await compute.mute(descriptor,trackID:reference.trackID)
+    }
+    /// An RF target needs current capture proof even when no callsign decoded.
+    /// This read never selects a radio, tunes, changes a draft or grants output.
+    public func resolveSignal(_ reference:CWTrackReference) async throws -> CWResolvedSignal {
+        guard let key=tracks.first(where:{$0.value.view.controlReference==reference})?.key,
+              intent==reference.sessionID,state=="running",let source=sources[reference.sourceID],
+              source.view.state == .running,let lease=source.lease,let descriptor=source.view.descriptor,
+              tracks[key]?.view.descriptor==descriptor,!descriptor.replay else{throw CWTrackSelectionError.staleEvidence}
+        let current=await provider.current(source.view.configuration,sessionID:reference.sessionID,leaseID:lease)
+        let now=clock()
+        guard intent==reference.sessionID,state=="running",current==descriptor,sources[reference.sourceID]?.lease==lease,
+              sources[reference.sourceID]?.view.descriptor==descriptor,sources[reference.sourceID]?.view.state == .running,
+              let track=tracks[key],track.view.controlReference==reference,!track.view.muted,!track.view.ambiguous,
+              now>=source.lastReceipt,now-source.lastReceipt<=250_000_000,
+              now>=track.updatedNS,now-track.updatedNS<=2_000_000_000 else{throw CWTrackSelectionError.staleEvidence}
+        guard descriptor.mappingQualified,let frequency=track.view.frequencyHz else{throw CWTrackSelectionError.frequencyUnqualified}
+        return CWResolvedSignal(reference:reference,radioID:descriptor.radioID,provider:descriptor.provider,frequencyHz:frequency)
     }
     /// Recheck queued output against the live provider before each external
     /// classification/listener admission. Archived accepted spots remain history.
@@ -422,7 +440,7 @@ public actor CWDecodeSession {
             selection:selection,controlReference:controlReference)
         if tracks[key] != nil || tracks.count<32 {
             tracks[key]=Track(view:view,transcript:reconciler,selectionUpdatedNS:selectionUpdatedNS,
-                metricsUpdatedNS:decode != nil ? clock():(track?.metricsUpdatedNS ?? 0))
+                metricsUpdatedNS:decode != nil ? clock():(track?.metricsUpdatedNS ?? 0),updatedNS:clock())
         }
     }
 }

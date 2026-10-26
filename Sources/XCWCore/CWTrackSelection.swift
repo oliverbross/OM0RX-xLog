@@ -25,6 +25,12 @@ public struct CWResolvedTrackSelection: Encodable, Equatable, Sendable {
     public let provider: CWProvider
     public let frequencyHz: Int64?
 }
+public struct CWResolvedSignal:Encodable,Equatable,Sendable {
+    public let reference:CWTrackReference
+    public let radioID:String
+    public let provider:CWProvider
+    public let frequencyHz:Int64
+}
 
 public enum CWTrackSelectionError: Error, Equatable {
     case staleEvidence, frequencyUnqualified

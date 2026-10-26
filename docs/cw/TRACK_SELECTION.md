@@ -153,3 +153,19 @@ native CTest 2/2, one Rust receive-only authority case, twenty-two frontend case
 and TypeScript pass. Native replay continues IQ after muting and verifies other
 tracks, exact capture targeting and no subsequent muted decode output. This is
 source/replay evidence, not live-radio, capacity or release acceptance.
+
+## Qualified signal read
+
+`cw_decode_resolve_signal` accepts the exact retained control reference and can
+resolve a signal with no callsign. It returns only its native reference, source
+radio/provider and qualified in-passband RF frequency. It rechecks the provider
+after suspension, requires IQ at most 250 ms old and track evidence at most two
+seconds old, and refuses replay, ambiguity, mute, changed capture and Stop.
+The disabled-build gate and narrow window roles remain in force. This is a
+passive read with the five-second, non-retiring deadline, not radio authority.
+
+Seventeen focused session cases, seven live-method cases and the Rust
+receive-only authority case pass, including call-less qualified RF, stale IQ,
+unqualified mapping, muted target and Stop during readback. Native target
+retention, durable Tune admission/readback and its UI remain separate pending
+integration; no RF action has been performed by this milestone.
