@@ -71,7 +71,10 @@ for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "Calls
   // CW Decode adds another lazy-route/preload descriptor. Its panel remains
   // outside all unrelated startup graphs (asserted above); measured Logbook
   // startup is 403,557 bytes before the shared eager CSS descriptor.
-  const budget = name === "Settings" ? 408_000 : name === "QSO" ? 407_000 : name === "Logbook" ? 403_800 : 401_000;
+  // Mode handoff shares the 1,341-byte editor-preparation helper with Logbook.
+  // Measured startup: 404,998 bytes (130,274 gzip); allow 202 bytes of headroom
+  // only here. Main, map and IQ UI exclusion checks above remain unchanged.
+  const budget = name === "Settings" ? 408_000 : name === "QSO" ? 407_000 : name === "Logbook" ? 405_200 : 401_000;
   console.log(JSON.stringify({ window: name, bytes, gzip, files }));
   assert(bytes <= budget, `${name} startup JavaScript exceeds the ${budget / 1_000} kB budget: ${bytes}`);
 }
