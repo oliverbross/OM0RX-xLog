@@ -132,6 +132,10 @@ type Projection = {
   functionKeys: Array<{ id: string; highlighted: boolean; label?: string; template?: string }>; dupe: boolean; dupeExplanation?: string; countryResolved: boolean;
   entryMultiplierStatus?: import("./contestSurfaceProtocol").ContestEntryMultiplierStatus;
   matrixTrackers?: Array<"countries" | "zones">;
+  multiplierViewStatus?: Record<string,"supported"|"not-implemented"|"not-applicable">;
+  entryPolicy?: {enter:"manual"|"esm";clearOnVFOChange:boolean;leaveRunOnRetune:boolean};
+  duplicateChecking?: boolean; spaceNext?: Record<string,string>; nextField?: string;
+  filterSpotRanges?: boolean; spotModeCategory?: string;
   exportFormats?: PythonContestExportFormat[];
   ruleIdentity?: { id: string; version: string; edition: string; sourceRevision: string };
   supportedBands?: string[]; supportedModes?: string[]; allowDuplicateCommit?: boolean;
@@ -253,8 +257,12 @@ const contestSurfaceModes = (values: readonly unknown[], fallback: unknown): Con
   const fallbackMode = canonicalContestSurfaceMode(fallback);
   return [...new Set(modes.length ? modes : fallbackMode ? [fallbackMode] : ["CW"] as ContestSurfaceMode[])];
 };
-const contestSpotSurfaceModes = (pluginID: unknown, values: readonly unknown[], configuredMode: unknown): ContestSurfaceMode[] =>
-  pluginID === "cq_ww_ssb" ? ["SSB"] : contestSurfaceModes(values, configuredMode);
+const contestSpotSurfaceModes = (_pluginID: unknown, values: readonly unknown[], configuredMode: unknown): ContestSurfaceMode[] => {
+  const allowed=contestSurfaceModes(values,configuredMode),category=canonicalContestSurfaceMode(configuredMode);
+  if(configuredMode==="DIGITAL")return allowed.filter(mode=>mode==="RTTY");
+  if(configuredMode==="SSB+CW")return allowed.filter(mode=>mode==="SSB"||mode==="CW");
+  return category?allowed.filter(mode=>mode===category):allowed;
+};
 const contestBandMode = (value: unknown): ContestBandMode => {
   const mode = canonicalContestSurfaceMode(value);
   return mode === "CW" ? "cw" : mode === "RTTY" ? "data" : "phone";
@@ -339,7 +347,8 @@ function scoreSummary(score: Score | null, pluginID?: string) {
     : pluginID === "rdxc" ? [`${score.countries} countries`, `${score.oblasts ?? 0} oblasts`]
     : pluginID === "euhfc" ? [`${score.multipliers ?? 0} license years`]
     : pluginID === "iaru_hf" ? [`${score.headquarters ?? 0} headquarters`, `${score.zones} zones`]
-    : [`${score.countries} countries`, `${score.zones} zones`];
+    : pluginID?.startsWith("cq_ww_") ? [`${score.countries} countries`, `${score.zones} zones`]
+    : [`${score.multipliers ?? 0} multipliers (plugin)`];
   return { claimedScore: score.total, qsos: score.qsos, points: score.points,
     multipliers: score.multipliers ?? score.countries + score.zones, multiplierLabels,
     multiplierDisplayLabels: multiplierLabels, sourceVerification: "verified" as const };
@@ -548,7 +557,7 @@ function contestSpotPreviewCandidate(spot:ContestSurfaceSpot){
 
 type SpotPointsPreview = { sessionID:string; workspaceGeneration:string; revision:number;
   spots:{spotID:string;points:number|null;dupe:boolean|null;multiplierCount:number|null;countryMultiplier:boolean|null;zoneMultiplier:boolean|null;
-    reason:"unresolved_callsign"|"unsupported_band"|"exchange_required"|"scoring_unavailable"|null}[] };
+    reason:"unresolved_callsign"|"unsupported_band"|"unsupported_mode"|"exchange_required"|"scoring_unavailable"|null}[] };
 function validSpotPointsPreview(value:unknown,sessionID:string,workspaceGeneration:string,revision:number):value is SpotPointsPreview{
   if(!value||typeof value!=="object"||Array.isArray(value))return false;const row=value as Data;
   if(row.sessionID!==sessionID||row.workspaceGeneration!==workspaceGeneration||row.revision!==revision||!Array.isArray(row.spots)||row.spots.length>256)return false;
@@ -558,7 +567,7 @@ function validSpotPointsPreview(value:unknown,sessionID:string,workspaceGenerati
     (item.dupe===null||typeof item.dupe==="boolean")&&(item.multiplierCount===null||Number.isSafeInteger(item.multiplierCount)&&item.multiplierCount>=0)&&
     (item.countryMultiplier===null||typeof item.countryMultiplier==="boolean")&&
     (item.zoneMultiplier===null||typeof item.zoneMultiplier==="boolean")&&
-    [null,"unresolved_callsign","unsupported_band","exchange_required","scoring_unavailable"].includes(item.reason)&&!!ids.add(item.spotID));
+      [null,"unresolved_callsign","unsupported_band","unsupported_mode","exchange_required","scoring_unavailable"].includes(item.reason)&&!!ids.add(item.spotID));
 }
 
 type SpotWorkflowScope = { operatingContext: string; sessionID: string; workspaceGeneration: string };
@@ -857,8 +866,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const sharedSpots=useMemo(()=>contestSurfaceSpots(spots),[spots]);
   const contestBandPlan=useMemo(()=>decodeContestBandPlan(setup.preferences.contestBandSegments,configuredBands),
     [setup.preferences.contestBandSegments,configuredBands]);
-  const allowedModeGroups=useMemo(()=>[...new Set(contestSpotSurfaceModes(projection?.pluginID,projection?.supportedModes??[],projection?.mode)
-    .map(contestBandMode))],[projection?.pluginID,projection?.supportedModes,projection?.mode]);
+  const allowedModeGroups=useMemo(()=>[...new Set(contestSpotSurfaceModes(projection?.pluginID,projection?.supportedModes??[],projection?.spotModeCategory??"MIXED")
+    .map(contestBandMode))],[projection?.pluginID,projection?.supportedModes,projection?.spotModeCategory]);
   const contestRadioBand=projection?(bandLabels[String(projection.band)]??String(projection.band)):"";
   const classifiedSharedSpots=useMemo(()=>deduplicateBandMapSpots(sharedSpots.map(spot=>{
     const entry=contestBandPlan.find(item=>item.band===spot.band),frequency=Number(spot.frequencyKHz);
@@ -884,12 +893,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const visibleWorkflowSpots=useMemo(()=>{
     const projected=projectContestSpotWorkflow(classifiedSharedSpots,effectiveSpotWorkflow);
     if(!projection)return projected;
-    const supported=new Set(contestSpotSurfaceModes(projection.pluginID,projection.supportedModes??[],projection.mode));
+    const supported=new Set(contestSpotSurfaceModes(projection.pluginID,projection.supportedModes??[],projection.spotModeCategory??"MIXED"));
     const supportedBands=new Set(configuredBands.map(band=>band.trim().toLowerCase()));
     return projected.filter(spot=>{const mode=canonicalContestSurfaceMode(spot.mode);
       return mode!==null&&supported.has(mode)&&supportedBands.has(spot.band.trim().toLowerCase())&&
-        (projection.pluginID!=="cq_ww_ssb"||contestSpotWithinModeRange(contestBandPlan.find(entry=>entry.band===spot.band),spot.frequencyKHz,contestBandMode(mode)));});
-  },[classifiedSharedSpots,effectiveSpotWorkflow,projection?.pluginID,projection?.supportedModes,projection?.mode,projection?.sessionID,configuredBands,contestBandPlan]);
+        (!projection.filterSpotRanges||contestSpotWithinModeRange(contestBandPlan.find(entry=>entry.band===spot.band),spot.frequencyKHz,contestBandMode(mode)));});
+  },[classifiedSharedSpots,effectiveSpotWorkflow,projection?.pluginID,projection?.supportedModes,projection?.mode,projection?.sessionID,projection?.filterSpotRanges,projection?.spotModeCategory,configuredBands,contestBandPlan]);
   const currentEntryMapSpot=useMemo<ContestSurfaceSpot|null>(()=>{
     if(!projection||operationFrequencyHz===null)return null;
     const callsign=(fields.callsign??"").trim().toUpperCase();
@@ -1279,7 +1288,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       if (lane === "log") {
         setRows(Array.isArray(value.rows) ? value.rows : []); setLogOffset(Number(value.offset ?? offset)); setLogTotal(Number(value.total ?? 0));
       } else if (lane === "score") {
-          setScore(value.score as Score); setMatrices({...value.matrices,countryUniverse:value.countryUniverse??[]});
+        setScore(value.score as Score); setMatrices({...value.matrices,countryUniverse:value.countryUniverse??[],multiplierViews:value.multiplierViews??[]});
         admitStatistics(value, sessionID, revision);
       } else if (!admitRates(value, sessionID, revision)) return false;
       setAuxiliaryReads(previous => {
@@ -1913,14 +1922,15 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         [...allWorkflowSpots.filter(item=>item.id!==heard.id),heard], heard.id, "mark", true));
       }
     }
-    const tunedSpot = operatorRetune &&
-      (projection.pluginID === "cq_ww_ssb" || setup.preferences.clearOnVFOChange === true)
+    const leaveRunOnRetune = projection.entryPolicy?.leaveRunOnRetune === true;
+    const clearOnRetune = (!projection.run || leaveRunOnRetune) && (projection.entryPolicy?.clearOnVFOChange ?? setup.preferences.clearOnVFOChange === true);
+    const tunedSpot = operatorRetune && clearOnRetune
       ? observedContestSpot(visibleWorkflowSpots, observedFrequencyHz,ssbTuningToleranceHz) : null;
-    const observedFields=operatorRetune?{...fieldsRef.current,callsign:""}:fieldsRef.current;
-    if(operatorRetune){manualHeardCallRef.current=null;fieldsRef.current=observedFields;setFields(observedFields);}
+    const observedFields=operatorRetune&&clearOnRetune?{...fieldsRef.current,callsign:""}:fieldsRef.current;
+    if(operatorRetune&&clearOnRetune){manualHeardCallRef.current=null;fieldsRef.current=observedFields;setFields(observedFields);}
     observedFrequencySyncRef.current=syncKey;
     void (async()=>{
-      if(operatorRetune&&projection.run){
+      if(operatorRetune&&projection.run&&leaveRunOnRetune){
         const switched=await runMutation(base=>mutate("contest_run_state",base,{run:false}),false,true,false,true);
         if(!switched)return;
       }
@@ -2060,7 +2070,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     let admittedSpotMode: string | null = null;
     try {
     const next = await runMutation(async base => {
-      const supportedModes=contestSpotSurfaceModes(base.pluginID,base.supportedModes??[],base.mode),spotMode=canonicalContestSurfaceMode(spot.mode);
+      const supportedModes=contestSpotSurfaceModes(base.pluginID,base.supportedModes??[],base.spotModeCategory??"MIXED"),spotMode=canonicalContestSurfaceMode(spot.mode);
       const admittedMode=supportedModes.length===1?base.mode:
         base.supportedModes?.find(mode=>canonicalContestSurfaceMode(mode)===spotMode)??
         (spotMode&&supportedModes.includes(spotMode)?spotMode:null);
@@ -2349,20 +2359,21 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         dupe: configuredClient ? authorityClientReady&&authorityDupe?.key===`${projection.draftID}|${(currentFields.callsign??"").trim().toUpperCase()}|${frequencyHz}|${projection.mode}`
           ? {state:authorityDupe.isDupe?"duplicate":"clear" as const,reason:authorityDupe.isDupe?"Worked in the authoritative group log.":"Clear in the authoritative group log."}
           : {state:"unchecked" as const,reason:"Awaiting the authoritative group duplicate check."}
-          : { state: projection.dupe ? "duplicate" : "clear", reason: projection.dupe
-          ? projection.dupeExplanation ?? "Worked on this band." : "Clear for this contest." },
+          : { state: projection.duplicateChecking === false ? "unchecked" : projection.dupe ? "duplicate" : "clear", reason: projection.duplicateChecking === false
+          ? "Duplicate checking disabled." : projection.dupe ? projection.dupeExplanation ?? "Worked in this contest." : "Clear for this contest." },
         validation: { errors: [], warnings: !(currentFields.callsign ?? "").trim() || projection.countryResolved
           ? [] : ["Country is unresolved; scoring credit may be zero."] },
         reservedSerial,exchangeWarnings:projection.exchangeWarnings??[],
         ...(entryMultiplierCurrent && projection.entryMultiplierStatus ? {multiplierStatus:projection.entryMultiplierStatus} : {}),
       },
       descriptor: {
+        enterPolicy: projection.entryPolicy?.enter ?? (setup.preferences.useESM ? "esm" : "manual"),
         bands: configuredBands, modes: contestSurfaceModes(projection.supportedModes ?? [], projection.mode), reportsVisible,
         reportFields: reportFields.map(field => ({ id: field.id, label: field.label, value: currentFields[field.id] ?? "",
           required: true, maximumUTF8Bytes: 160, enabled: field.enabled, readOnly: field.readOnly })),
         allowDuplicateCommit: projection.allowDuplicateCommit ?? false, automaticSerial: reservedSerial !== null,
         advanceOnSpace: (projection.advanceOnSpace ?? ["callsign"]).filter(contestInputFieldID),
-        ...(projection.pluginID === "cq_ww_ssb" ? { spaceNext: { callsign: "other_2" as const } } : {}),
+        spaceNext: contestTabMap(projection.spaceNext ?? (contestInputFieldID(projection.nextField) ? {callsign:projection.nextField} : {})),
         keyBindings: activeContestKeyBindings(setup.preferences.keyBindings),
         sentFields: sentExchangeFields.map(field => ({ id: field.id, label: field.label,
           value: currentFields[field.id] ?? "", required: true, maximumUTF8Bytes: 32,
@@ -2535,9 +2546,28 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       ...connections.filter(connection => connection.error).map(connection => ({kind:"error" as const,
         text:`${connection.serverName}: ${connection.error}`})),
     ], busy:busy || retiring };
+    for(const [panel,dimension] of [["awards","countries"],["chaser-dx","zones"]] as const){
+      const applicable=projection.multiplierViewStatus?.[dimension]!=="not-applicable";
+      unavailable[panel]={schemaVersion:1,status:"unavailable",reason:applicable
+        ?`The ${dimension} matrix is not yet implemented for this contest. See Statistics for plugin totals.`
+        :`This contest does not use ${dimension} as multipliers. See Multipliers for its scoring dimensions.`};
+    }
+    const familyViews=Array.isArray(matrices.multiplierViews)?matrices.multiplierViews as Data[]:[];
+    if(scoreRead&&familyViews.length&&(!projection.matrixTrackers?.includes("countries")||projection.pluginID==="cq_ww_rtty")){
+      const supported=familyViews.every(view=>view.status==="supported"),scopes=[...new Set(familyViews.flatMap(view=>view.rows.map((row:Data)=>String(row.scope))))] as string[];
+      if(supported&&scopes.length<=32){
+        const rows=new Map<string,Record<string,number>>();
+        for(const view of familyViews)for(const row of view.rows){const label=`${view.label}: ${row.value}`,counts=rows.get(label)??Object.fromEntries(scopes.map(scope=>[scope,0]));
+          counts[row.scope]=Number(row.qsos);rows.set(label,counts);}
+        if(!scopes.length)scopes.push("Contest");
+        unavailable.awards={schemaVersion:1,status:"ready",title:"Worked multipliers · plugin scope",bands:scopes,
+          rows:[...rows].map(([label,counts])=>({label,counts,total:Object.values(counts).filter(count=>count>0).length})),
+          total:familyViews.reduce((sum,view)=>sum+Number(view.total),0),busy:busy||retiring};
+      }else unavailable.awards={schemaVersion:1,status:"unavailable",reason:"Worked multiplier identities do not reconcile with the plugin total, or exceed the view limit. Statistics retains the authoritative total."};
+    }
     // An empty worker matrix is a valid tracker with no worked multipliers yet.
     // Missing matrices remain unavailable for plugins that do not expose them.
-    if (scoreRead && projection.matrixTrackers?.includes("countries") && Array.isArray(matrices.countries)) {
+    if (scoreRead && projection.pluginID!=="cq_ww_rtty" && projection.matrixTrackers?.includes("countries") && Array.isArray(matrices.countries)) {
       unavailable.awards = multiplierMatrix("DXCC", "dxcc", matrices.countries, busy || retiring,
         { dxcc: callContext?.country ?? null, cqZone: callContext?.cqZone ?? null, ituZone: callContext?.ituZone ?? null }, null,
         configuredBands, bandLabels[String(projection.band)] ?? String(projection.band ?? ""),
@@ -2826,8 +2856,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         return;
       case "entry_operator_key":
         if (action.params.key === "Enter") {
-          if (active.pluginID === "cq_ww_ssb") await commitEntry();
-          else if (setup.preferences.useESM) await hostAction("contest_esm", { field: action.params.focusedField ?? active.focus }, true, action.requestID);
+          if ((active.entryPolicy?.enter ?? (setup.preferences.useESM ? "esm" : "manual")) === "esm") await hostAction("contest_esm", { field: action.params.focusedField ?? active.focus }, true, action.requestID);
           else await commitEntry();
           return;
         }

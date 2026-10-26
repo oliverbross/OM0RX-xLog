@@ -4,6 +4,17 @@ import { analyticsFixtureMeta,analyticsFixtureRows } from "./contestAnalytics.fi
 
 const data=()=>prepareAnalytics(analyticsFixtureMeta,analyticsFixtureRows);
 describe("contest analytical semantics",()=>{
+  it("uses global family keys across bands and withholds unreconciled histories",()=>{
+    const meta={...analyticsFixtureMeta,cqWW:false,pluginID:"cq_wpx_cw",multiplierAdapter:true,total:2,score:{qsos:2,points:6,multipliers:1,total:6}};
+    const rows=[{...analyticsFixtureRows[0],mode:"CW",zone:"Unknown",creditedKeys:["WPX prefixes K1 · Contest"],multiplierEligible:null},
+      {...analyticsFixtureRows[0],id:"second",sourceOrder:2,utc:"2026-10-25 00:00:00",mode:"CW",band:"40m",zone:"Unknown",creditedKeys:["WPX prefixes K1 · Contest"],multiplierEligible:null}];
+    const dataset=prepareAnalytics(meta,rows);
+    expect(dataset.scoreHistory).toBe(true);expect(dataset.contacts.map(q=>q.newKeys.length)).toEqual([1,0]);
+    expect(dataset.contacts.reduce((sum,q)=>sum+(q.scoreGain??0),0)).toBe(6);
+    expect(prepareAnalytics({...meta,score:{...meta.score,total:12}},rows).scoreHistory).toBe(false);
+    const reference=readAnalyticsReport(JSON.stringify(analyticsReport(dataset,defaultAnalyticsFilters)));
+    expect(reference.scoreHistory).toBe(false);
+  });
   it("accepts Not1MM UTC, offset ISO, and minutes; rejects impossible dates",()=>{
     expect(analyticsTime("2026-10-25 00:00:00")).toBe(analyticsTime("2026-10-25T02:00:00+02:00"));
     expect(analyticsTime("2026-02-30 12:00:00")).toBeNull();expect(analyticsTime("2026-10-25T24:00:00Z")).toBeNull();

@@ -31,10 +31,11 @@ from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, ARRL_VHF_PLUGINS, CENTRAL_E
                       JIDX_PLUGINS,
                       NO_MULTIPLIER_PLUGINS, QSO_PARTY_PLUGINS,
                       NAME_SPC_ENTRY_PLUGINS, NAME_SPC_PLUGINS, PLUGIN_REGISTRY,
-                      PLUGINS, REF_PLUGINS, RSGB_PLUGINS, RTTY_PLUGINS, SENTNR_FIELD_PLUGINS, SERIAL_PLUGINS,
+                      PLUGINS, REF_PLUGINS, RSGB_PLUGINS, RTTY_MODES, RTTY_PLUGINS, SENTNR_FIELD_PLUGINS, SERIAL_PLUGINS,
                       SENT_FIELD_SERIAL_PLUGINS, SIMPLE_MULTIPLIER_PLUGINS, SSA_MT_PLUGINS, TEN_TEN_PLUGINS,
                       TYPE4_UTILITY_PLUGINS)
 from .statistics import calculate_statistics
+from .multipliers import dimensions as multiplier_definitions, project as multiplier_dimensions, view_status as multiplier_view_status
 from .upstream import (adapt_cw_template, load_plugin, load_cw_macros, pinned_band_definitions,
                        split_macro_template, verify_source)
 
@@ -594,6 +595,8 @@ class Desk:
         self.station, self.contest_settings = state["station"], state["settings"]
         esm = esm_preferences(state.get("setup", {}).get("preferences", {}))
         self.use_esm = esm["useESM"]
+        if state.get("setup", {}).get("preferences", {}).get("enterPolicy") == "esm":
+            self.use_esm = True
         self.pref = {"contest": 1, "run_state": state["run"], "use_esm": self.use_esm,
                      "esm_send_corrected_call": esm["sendCorrectedCall"]}
         self.actions, self.messages, self.highlights = [], [], set()
@@ -999,6 +1002,12 @@ class Desk:
                 "fldigiTransmitAvailable": (self.state["pluginID"] in RTTY_PLUGINS
                                              and operating_mode(self.state) in DIGITAL_OUTPUT_MODES),
                 "matrixTrackers": list(plugin.matrix_trackers),
+                "multiplierViewStatus": multiplier_view_status(self.state),
+                "entryPolicy": self.entry_policy(),
+                "filterSpotRanges": self.state.get("setup", {}).get("preferences", {}).get("spotRangePolicy", "plugin") == "configured"
+                    or self.state.get("setup", {}).get("preferences", {}).get("spotRangePolicy", "plugin") == "plugin" and plugin.filter_spot_ranges,
+                "spotModeCategory": self.state["settings"]["ModeCategory"],
+                "duplicateChecking": self.contest.dupe_type != 4,
                 "exportFormats": list(plugin.export_formats),
                 "workspaceGeneration": workspace_generation(self.state),
                 "referenceID": self.state["reference"]["id"], "revision": self.state["revision"],
@@ -1011,6 +1020,9 @@ class Desk:
                     "primaryPrefix": country.get("primary_pfx"), "headingDegrees": None,
                     "longPathHeadingDegrees": None, "distanceKm": None},
                 "focus": self.current_widget, "nextField": self.next_field.name,
+                "spaceNext": {"callsign": self.next_field.name} if any(
+                    field["id"] == self.next_field.name and field["visible"] and field["enabled"]
+                    and not field["readOnly"] for field in fields) else {},
                 "tabNext": {a.name: b.name for a, b in self.tab_next.items()},
                 "tabPrevious": {a.name: b.name for a, b in self.tab_prev.items()},
                 "advanceOnSpace": [name for name, enabled in zip(
@@ -1032,6 +1044,21 @@ class Desk:
                 "exchangeWarnings": self.exchange_warnings(),
                 "columns": (list(CQ_WW_SSB_LOG_COLUMNS) if self.state["pluginID"] == "cq_ww_ssb"
                             else self.contest.columns), "score": self.score()}
+
+    def entry_policy(self):
+        """Keep the proven phone defaults; operator overrides are explicit."""
+        plugin = PLUGIN_REGISTRY[self.state["pluginID"]]
+        preferences = self.state.get("setup", {}).get("preferences", {})
+        enter = preferences.get("enterPolicy", "plugin")
+        clear = preferences.get("vfoClearPolicy", "plugin")
+        require(enter in {"plugin", "manual", "esm"}, "Invalid Enter policy")
+        require(clear in {"plugin", "on", "off"}, "Invalid VFO clear policy")
+        require(preferences.get("spotRangePolicy", "plugin") in {"plugin", "configured", "off"}, "Invalid spot range policy")
+        return {"enter": ("manual" if plugin.manual_enter else "esm" if self.use_esm else "manual")
+                if enter == "plugin" else enter,
+                "clearOnVFOChange": (plugin.clear_on_vfo_change or preferences.get("clearOnVFOChange") is True)
+                if clear == "plugin" else clear == "on",
+                "leaveRunOnRetune": plugin.clear_on_vfo_change and clear != "off"}
 
     def score(self):
         if self.state["pluginID"] == "nac_vhf":
@@ -1508,11 +1535,6 @@ class Host:
                     preview["operatingMode"] = mode
                     preview["draft"]["frequencyHz"] = frequency
                     desk = Desk(store, preview, self.commit)
-                    if desk.cty_lookup(callsign) is None:
-                        results.append({"spotID": spot_id, "points": None, "dupe": None,
-                                        "multiplierCount": None, "countryMultiplier": None,
-                                        "zoneMultiplier": None, "reason": "unresolved_callsign"})
-                        continue
                     try:
                         desk.contest_band(frequency)
                     except HostError:
@@ -1520,14 +1542,32 @@ class Host:
                                         "multiplierCount": None, "countryMultiplier": None,
                                         "zoneMultiplier": None, "reason": "unsupported_band"})
                         continue
+                    category = current["settings"]["ModeCategory"]
+                    if (category in {"CW", "SSB", "AM", "FM"} and mode != category
+                            or category in {"DIGITAL", *RTTY_MODES} and mode in {"CW", "SSB", "AM", "FM"}):
+                        results.append({"spotID": spot_id, "points": None, "dupe": None,
+                                        "multiplierCount": None, "countryMultiplier": None,
+                                        "zoneMultiplier": None, "reason": "unsupported_mode"})
+                        continue
                     desk.clear_inputs()
                     desk.callsign.setText(callsign)
+                    # Duplicate scope does not require a received serial/name/grid.
+                    # Do this before validation and retain it if scoring is unknown.
+                    radio_mode = ("LSB" if frequency < 10000000 else "USB") if mode == "SSB" else mode
+                    dupe = None if desk.contest.dupe_type == 4 else bool(desk.is_dupe(callsign, desk.band(frequency), mode=radio_mode))
+                    if desk.cty_lookup(callsign) is None:
+                        results.append({"spotID": spot_id, "points": None, "dupe": dupe,
+                                        "multiplierCount": None, "countryMultiplier": None,
+                                        "zoneMultiplier": None, "reason": "unresolved_callsign"})
+                        continue
                     try:
                         self.prefill(desk)
                         fields = desk.values()
+                        require(all(fields[name].strip() for name in PLUGIN_REGISTRY[current["pluginID"]].preview_required_fields),
+                                "Received exchange required")
                         self.validate_exchange(desk, fields)
                     except (HostError, ValueError, TypeError, AttributeError):
-                        results.append({"spotID": spot_id, "points": None, "dupe": None,
+                        results.append({"spotID": spot_id, "points": None, "dupe": dupe,
                                         "multiplierCount": None, "countryMultiplier": None,
                                         "zoneMultiplier": None, "reason": "exchange_required"})
                         continue
@@ -1546,14 +1586,14 @@ class Host:
                         finally:
                             desk.database.conn.execute("ROLLBACK TO spot_preview")
                             desk.database.conn.execute("RELEASE spot_preview")
-                        cq_ww_ssb = current["pluginID"] == "cq_ww_ssb"
-                        results.append({"spotID": spot_id, "points": points, "dupe": bool(desk.contact_is_dupe),
+                        cq_ww = current["pluginID"] in CQ_WW_STATION_ZONE_PLUGINS
+                        results.append({"spotID": spot_id, "points": points, "dupe": dupe,
                                         "multiplierCount": multiplier_count,
-                                        "countryMultiplier": after_score["countries"] > before_score["countries"] if cq_ww_ssb else None,
-                                        "zoneMultiplier": after_score["zones"] > before_score["zones"] if cq_ww_ssb else None,
+                                        "countryMultiplier": after_score["countries"] > before_score["countries"] if cq_ww else None,
+                                        "zoneMultiplier": after_score["zones"] > before_score["zones"] if cq_ww else None,
                                         "reason": None})
                     except (HostError, ValueError, TypeError, AttributeError, ArithmeticError):
-                        results.append({"spotID": spot_id, "points": None, "dupe": None,
+                        results.append({"spotID": spot_id, "points": None, "dupe": dupe,
                                         "multiplierCount": None, "countryMultiplier": None,
                                         "zoneMultiplier": None, "reason": "scoring_unavailable"})
                 return {"sessionID": session_id, "workspaceGeneration": workspace_generation(current),
@@ -1577,10 +1617,15 @@ class Host:
                     + (" AND Band=?" if score_band is not None else ""),
                     (store.current_contest, *(() if score_band is None else (score_band,))),
                 )
+                score = desk.score()
+                dimension_rows = store.exec_sql_mult("SELECT rowid AS source_order,* FROM DXLOG WHERE ContestNR=? ORDER BY TS,rowid", (store.current_contest,)) if multiplier_definitions(state) else []
+                views, _, _ = multiplier_dimensions(dimension_rows, state, score, BAND_LABELS)
                 return {"sessionID": session_id, "revision": state["revision"],
-                        "score": desk.score(), "matrices": self.matrices(store),
+                        "score": score, "matrices": self.matrices(store),
+                        "multiplierViews": views,
                         "statistics": calculate_statistics(rows, *("IsMultiplier2", "IsMultiplier1")
-                                                           if state["pluginID"] == "cq_ww_ssb" else ())}
+                                                           if state["pluginID"] == "cq_ww_ssb" else
+                                                           ("IsMultiplier1", "IsMultiplier2") if state["pluginID"] == "cq_ww_cw" else ())}
             finally:
                 store.conn.rollback()
         if method == "rtc_payload":
@@ -3229,8 +3274,7 @@ class Host:
         if "observedVFOChange" not in params:
             return
         require(type(params["observedVFOChange"]) is bool, "Observed VFO change flag must be boolean")
-        clear_enabled = (desk.state["pluginID"] == "cq_ww_ssb"
-                         or desk.state.get("setup", {}).get("preferences", {}).get("clearOnVFOChange") is True)
+        clear_enabled = desk.entry_policy()["clearOnVFOChange"]
         if not params["observedVFOChange"] or desk.state["run"] or not clear_enabled:
             return
         # Reports remain at their contest defaults (59/599); only the call and

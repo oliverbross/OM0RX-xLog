@@ -26,6 +26,10 @@ class Plugin:
     modes: tuple[str, ...] = ("CW",)
     allow_duplicate_commit: bool = False
     matrix_trackers: tuple[str, ...] = ()
+    manual_enter: bool = False
+    clear_on_vfo_change: bool = False
+    filter_spot_ranges: bool = False
+    preview_required_fields: tuple[str, ...] = ()
     sent_exchange_hint: str = "Sent Exchange"
     overlay_choices: tuple[str, ...] = ("N/A", "CLASSIC", "ROOKIE", "TB-WIRES", "YOUTH")
     export_formats: tuple[str, ...] = ("cabrillo", "adif")
@@ -34,6 +38,7 @@ class Plugin:
 PLUGIN_REGISTRY = MappingProxyType({
     "cq_ww_cw": Plugin("CQ WW CW", matrix_trackers=("countries", "zones")),
     "cq_ww_ssb": Plugin("CQ WW SSB", modes=("SSB",), matrix_trackers=("countries", "zones"),
+                        manual_enter=True, clear_on_vfo_change=True, filter_spot_ranges=True,
                         sent_exchange_hint="CQ Zone No."),
     "cq_ww_rtty": Plugin(
         "CQ WW RTTY",
@@ -47,8 +52,10 @@ PLUGIN_REGISTRY = MappingProxyType({
     "cq_wpx_rtty": Plugin("CQ WPX RTTY", serial=True,
                             bands=("80m", "40m", "20m", "15m", "10m"), modes=RTTY_MODES),
     "arrl_ss_cw": Plugin("ARRL Sweepstakes CW", serial=True,
+                         preview_required_fields=("other_2",),
                          sent_exchange_hint="Prec Call Check Section", overlay_choices=("N/A",)),
     "arrl_ss_phone": Plugin("ARRL Sweepstakes Phone", serial=True, modes=("SSB",),
+                            preview_required_fields=("other_2",),
                             sent_exchange_hint="Prec Call Check Section", overlay_choices=("N/A",)),
     "arrl_dx_cw": Plugin("ARRL DX CW", sent_exchange_hint="Power/State/Province"),
     "arrl_dx_ssb": Plugin("ARRL DX SSB", modes=("SSB",), sent_exchange_hint="Power/State/Province"),

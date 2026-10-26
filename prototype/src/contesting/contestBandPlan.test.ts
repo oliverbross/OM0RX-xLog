@@ -41,6 +41,14 @@ describe("contest band plan", () => {
     expect(explicitContestMode("CQ DX")).toBeNull();
   });
 
+  it("preserves reported CW/phone and digital aliases outside ordinary inferred segments",()=>{
+    const entry=defaultContestBandPlan(["20m"])[0];
+    expect(contestModeForSpot(entry,14250,["cw","phone"],"CQ","CW")).toBe("cw");
+    expect(contestModeForSpot(entry,14025,["cw","phone"],"CQ","SSB")).toBe("phone");
+    for(const mode of ["USB-D","LSB-D","DIGI-U","PKTLSB","PKTUSB","RTTY-R"])
+      expect(contestModeForSpot(entry,14250,["data"],"CQ",mode)).toBe("data");
+  });
+
   it("admits an unannotated spot inside a customized single-mode contest segment", () => {
     const entry = defaultContestBandPlan(["40m"])[0];
     entry.phone = { low: 7050, high: 7200 };

@@ -1031,8 +1031,12 @@ fn validate_projection(panel_id: &str, value: &Value) -> Result<(), String> {
         if schema_version != 1 {
             return Err("The contest surface projection schema is invalid.".into());
         }
+        let mut unavailable = projection.clone();
+        if let Some(reason) = unavailable.remove("reason") {
+            text_value(&reason, 512, false, "unavailable reason")?;
+        }
         return exact(
-            projection,
+            &unavailable,
             &["schemaVersion", "status"],
             "unavailable projection",
         );
@@ -1372,6 +1376,9 @@ fn validate_entry_descriptor(value: &Value) -> Result<BTreeSet<String>, String> 
     let advance_on_space = required.remove("advanceOnSpace");
     let space_next = required.remove("spaceNext");
     let key_bindings = required.remove("keyBindings");
+    if let Some(policy) = required.remove("enterPolicy") {
+        enum_value(&policy, &["manual", "esm"], "entry Enter policy")?;
+    }
     exact(
         &required,
         &["bands", "modes", "sentFields", "serial"],
@@ -3860,6 +3867,22 @@ mod tests {
             )
             .collect::<Vec<_>>());
         assert!(validate_projection("active-qso", &excessive_trace).is_err());
+    }
+
+    #[test]
+    fn entry_policy_and_unavailable_reasons_are_explicit_and_bounded() {
+        for policy in ["manual", "esm"] {
+            let mut entry = entry_v2();
+            entry["descriptor"]["enterPolicy"] = json!(policy);
+            assert!(validate_projection("active-qso", &entry).is_ok());
+        }
+        let mut entry = entry_v2();
+        entry["descriptor"]["enterPolicy"] = json!("guess");
+        assert!(validate_projection("active-qso", &entry).is_err());
+        assert!(validate_projection("awards", &json!({"schemaVersion":1,"status":"unavailable",
+            "reason":"This multiplier dimension is not applicable to the selected contest."})).is_ok());
+        assert!(validate_projection("awards", &json!({"schemaVersion":1,"status":"unavailable",
+            "reason":"x".repeat(513)})).is_err());
     }
 
     #[test]

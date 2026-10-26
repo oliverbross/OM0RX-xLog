@@ -63,7 +63,7 @@ export type ContestSurfaceActionEnvelope = ContestSurfaceAction & {
   projectionRevision: Revision;
   requestID: string;
 };
-export type ContestSurfaceUnavailableProjection = { schemaVersion: 1; status: "unavailable" };
+export type ContestSurfaceUnavailableProjection = { schemaVersion: 1; status: "unavailable"; reason?: string };
 export type ContestSurfaceReceivedField = { id: string; label: string; value: string; required: boolean; maximumUTF8Bytes: number;
   enabled?: boolean; readOnly?: boolean };
 export type ContestManualRow = { qsoID: string; TS: string; Call: string; Freq: string; SNT: string; RCV: string;
@@ -93,6 +93,7 @@ export type ContestEntrySurfaceProjection = { schemaVersion: 1; status: "ready";
   busy: boolean; dirty: boolean; uncertain: boolean };
 export type ContestEntrySurfaceProjectionV2 = Omit<ContestEntrySurfaceProjection, "schemaVersion"> & { schemaVersion: 2;
   descriptor: { reportsVisible?: boolean; bands: string[]; modes: ("CW" | "SSB" | "RTTY" | "AM" | "FM")[];
+    enterPolicy?: "manual" | "esm";
     allowDuplicateCommit?: boolean; automaticSerial?: boolean; advanceOnSpace?: ContestInputFieldID[];
     spaceNext?: Partial<Record<ContestInputFieldID, ContestInputFieldID>>; keyBindings?: ContestKeyBinding[];
     reportFields?: ContestSurfaceReceivedField[];
@@ -325,7 +326,8 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
       oneOf(trace.mode, ["CW", "SSB", "AM", "FM"]) && text(trace.macro, 160, true) &&
       text(trace.text, 4096, true) && oneOf(trace.status, ["pending", "confirmed", "failed", "stopped"]); });
   return optionalKeys(value, ["schemaVersion", "status", "session", "draft", "busy", "dirty", "uncertain", "descriptor", "operator"], ["manual"]) &&
-    validEntryProjection(base) && !!descriptor && optionalKeys(descriptor, ["bands", "modes", "sentFields", "serial"], ["reportFields", "reportsVisible", "allowDuplicateCommit", "automaticSerial", "advanceOnSpace", "spaceNext", "keyBindings"]) &&
+    validEntryProjection(base) && !!descriptor && optionalKeys(descriptor, ["bands", "modes", "sentFields", "serial"], ["enterPolicy", "reportFields", "reportsVisible", "allowDuplicateCommit", "automaticSerial", "advanceOnSpace", "spaceNext", "keyBindings"]) &&
+    (descriptor.enterPolicy===undefined||oneOf(descriptor.enterPolicy,["manual","esm"])) &&
     (!("reportsVisible" in descriptor) || typeof descriptor.reportsVisible === "boolean") &&
     (!("allowDuplicateCommit" in descriptor) || typeof descriptor.allowDuplicateCommit === "boolean") &&
     (!("automaticSerial" in descriptor) || typeof descriptor.automaticSerial === "boolean") &&
@@ -592,7 +594,8 @@ export function validContestSurfaceProjection(panelID: ContestSurfacePanelID, va
   if ((panelID === "awards" || panelID === "chaser-dx") && projection.schemaVersion === 4 && projection.status === "ready") return validMatrixProjection(projection);
   if ((panelID === "band-maps" || panelID === "world-map" || panelID === "dx-cluster") && projection.schemaVersion === 2 && projection.status === "ready") return validSpotProjection(projection);
   if (projection.schemaVersion !== 1) return false;
-  if (projection.status === "unavailable") return exact(projection, ["schemaVersion", "status"]);
+  if (projection.status === "unavailable") return optionalKeys(projection, ["schemaVersion", "status"],["reason"]) &&
+    (projection.reason===undefined||text(projection.reason,512));
   if (projection.status !== "ready") return false;
   if (panelID === "active-qso" || panelID === "qrz-details") return validEntryProjection(projection);
   if (panelID === "callsign-intelligence") return validCheckProjection(projection);

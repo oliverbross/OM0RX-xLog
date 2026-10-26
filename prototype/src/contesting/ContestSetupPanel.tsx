@@ -446,7 +446,14 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
         </section>
       </div>; break;
       case "Options": content = <div className="contest-options-columns">
-        <div className="contest-manual-stack">{check("preferences", "useESM", "Enable ESM")}{[["esmCQ", "CQ", "F1"], ["esmHisCall", "His Call", "F2"], ["esmExchange", "Exchange", "F3"], ["esmAGN", "AGN", "F9"], ["esmMyCall", "My Call", "F5"], ["esmQRZ", "QRZ", "F4"], ["esmQsoB4", "QSO B4", "DISABLED"]].map(([key, label, fallback]) => <label key={key}><span>{label}</span><select value={String(draft.preferences[key] ?? fallback)} onChange={event => update("preferences", key, event.target.value)}>{["DISABLED", ...Array.from({ length: 12 }, (_, i) => "F" + (i + 1))].map(keyName => <option key={keyName}>{keyName}</option>)}</select></label>)}</div>
+        <div className="contest-manual-stack">
+        <label><span>Enter behavior</span><select value={String(draft.preferences.enterPolicy??"plugin")} onChange={event=>update("preferences","enterPolicy",event.target.value)}>
+          <option value="plugin">Contest default (CQ WW SSB: manual; others: Enable ESM)</option><option value="manual">Manual: log contact</option><option value="esm">ESM: use plugin sequence</option></select></label>
+        <label><span>S&amp;P VFO clearing</span><select value={String(draft.preferences.vfoClearPolicy??"plugin")} onChange={event=>update("preferences","vfoClearPolicy",event.target.value)}>
+          <option value="plugin">Contest default (CQ WW SSB: on; others: preference below)</option><option value="on">Clear received inputs</option><option value="off">Keep input fields</option></select></label>
+        <label><span>Spot band segments</span><select value={String(draft.preferences.spotRangePolicy??"plugin")} onChange={event=>update("preferences","spotRangePolicy",event.target.value)}>
+          <option value="plugin">Contest default (CQ WW SSB: configured segments)</option><option value="configured">Use configured segments</option><option value="off">Use spot mode and contest category</option></select></label>
+        {check("preferences", "useESM", "Enable ESM")}{[["esmCQ", "CQ", "F1"], ["esmHisCall", "His Call", "F2"], ["esmExchange", "Exchange", "F3"], ["esmAGN", "AGN", "F9"], ["esmMyCall", "My Call", "F5"], ["esmQRZ", "QRZ", "F4"], ["esmQsoB4", "QSO B4", "DISABLED"]].map(([key, label, fallback]) => <label key={key}><span>{label}</span><select value={String(draft.preferences[key] ?? fallback)} onChange={event => update("preferences", key, event.target.value)}>{["DISABLED", ...Array.from({ length: 12 }, (_, i) => "F" + (i + 1))].map(keyName => <option key={keyName}>{keyName}</option>)}</select></label>)}</div>
         <div className="contest-manual-stack">
           {field("preferences", "autoCQDelay", "Auto CQ Delay (Seconds)", "number")}
           {check("preferences", "callHistory", "Use Call History")}

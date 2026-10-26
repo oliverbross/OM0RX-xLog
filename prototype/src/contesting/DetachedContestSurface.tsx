@@ -229,7 +229,7 @@ function Surface({ context }: { context: Context }) {
       ? <p role="status">Loading shared contest panel…</p>
       : context.panelID === "awards" || context.panelID === "chaser-dx"
       ? <section className="contest-surface-unavailable"><h1>{context.panelID === "awards" ? "DXCC" : "Zones"}</h1>
-          <p>{context.panelID === "awards" ? "This contest does not score DXCC multipliers." : "This contest does not score CQ or ITU zone multipliers."}</p></section>
+          <p>{projection.reason??"This multiplier view is not yet implemented for the selected contest."}</p></section>
       : (() => { throw new Error(`No shared contest renderer owns ${context.panelID}.`); })()
       : snapshot.panelID === "active-qso" ? <Entry projection={projection as Extract<typeof projection, { draft: unknown }>} disabled={projection.busy} sending={sending}
           context={context} projectionRevision={snapshot.projectionRevision} send={send} refresh={refresh} settle={()=>queueRef.current}
@@ -786,7 +786,7 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
     const dataField=target?.dataset.contestFieldId,focusedField=contestInputFieldIDs.includes(dataField as ContestInputFieldID)
       ? dataField as ContestInputFieldID : operator?.focusedField??null;
     if(event.key==="Enter"&&!event.altKey&&!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&
-        projection.session.ruleName.trim().toUpperCase()==="CQ WW SSB"){
+        (projection.schemaVersion===1||projection.descriptor.enterPolicy==="manual")){
       event.preventDefault();event.stopPropagation();runBoundAction("LOG_NOW",focusedField);return;
     }
     const chord=contestKeyChord(event),bound=projection.descriptor?.keyBindings&&chord
@@ -857,11 +857,11 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
     </div>
     <div className={`contest-surface-entry-status is-${duplicateState}`} role={duplicateState==="duplicate"?"alert":"status"}>
       {intendedCall===""?<span>Ready for callsign</span>:duplicatePending?<span>Checking — {intendedCall}</span>:duplicateState==="duplicate"
-        ?<strong>DUPE — {authoritativeCall} already worked on {projection.draft.band}</strong>
+        ?<strong>DUPE — {authoritativeCall}</strong>
         :duplicateState==="unchecked"?<span>{projection.draft.dupe.reason||"Checking duplicate…"}</span>
         :multiplierLabel&&multiplierPending?<span>Checking multipliers — {authoritativeCall} on {projection.draft.band}</span>
         :multiplierLabel?<span>{multiplierLabel} — {authoritativeCall} on {projection.draft.band}</span>
-        :<span>Clear — {authoritativeCall} not worked on {projection.draft.band}</span>}
+        :<span>Clear — {authoritativeCall}</span>}
       {!duplicatePending&&duplicateState==="duplicate"&&projection.draft.dupe.reason&&<small>{projection.draft.dupe.reason}</small>}
     </div>
     {(feedback||(projection.schemaVersion===2&&(projection.draft.frequencyError||projection.draft.validation.errors[0])))&&
@@ -964,12 +964,14 @@ function Statistics({ projection }: { projection: ContestStatisticsSurfaceProjec
   const rows = [...projection.rows, projection.total];
   return <section className="contest-surface-statistics contest-surface-statistics-v3" aria-label="Statistics" aria-busy={projection.busy}>
     <div className="contest-surface-statistics-scroll" role="region" aria-label="Scrollable contest statistics" tabIndex={0}><table aria-label="Contest statistics"><thead><tr>
-      {(["BAND", "QSO", "CALLS", "CW", "PH", "DI", "WPX", "PTS"] as const).map(label => <th key={label} scope="col">{label}</th>)}
+      {(["BAND", "QSO", "CALLS", "CW", "PH", "DI", "PFX/BAND", "PTS"] as const).map(label => <th key={label} scope="col">{label}</th>)}
     </tr></thead><tbody>{rows.map(row => <tr key={row.band} className={row.band === "TOTAL" ? "contest-surface-statistics-total" : undefined}>
       <th scope="row">{row.band}</th><td>{row.qsos.toLocaleString()}</td><td>{row.calls.toLocaleString()}</td>
       <td>{row.cw.toLocaleString()}</td><td>{row.phone.toLocaleString()}</td><td>{row.digital.toLocaleString()}</td>
       <td>{row.wpx.toLocaleString()}</td><td>{row.points.toLocaleString()}</td>
     </tr>)}</tbody></table></div>
+    <p>Prefix-band counts describe the log. Contest multiplier totals and scope come from the selected plugin.</p>
+    <ContestScoreSummary score={projection.score} detached/>
   </section>;
 }
 function ManualLogTable({rows,disabled,onEdit,onDeleteMenu,label,emptyMessage}:{rows:any[];disabled:boolean;onEdit:(qsoID:string)=>void;

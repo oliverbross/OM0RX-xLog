@@ -745,7 +745,7 @@ it("projects only fenced host contest points without replacing cluster opportuni
 });
 
 it("preserves authoritative CQ WW SSB dupe and country-zone multiplier classifications in both spot surfaces",async()=>{
-  const current={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",supportedModes:["SSB"] as const},
+  const current={...projection(),pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},pluginName:"CQ WW SSB",mode:"SSB",supportedModes:["SSB"] as const},
     classifications:Record<string,{dupe:boolean;multiplierCount:number;countryMultiplier:boolean;zoneMultiplier:boolean}>={
       dupe:{dupe:true,multiplierCount:0,countryMultiplier:false,zoneMultiplier:false},
       qso:{dupe:false,multiplierCount:0,countryMultiplier:false,zoneMultiplier:false},
@@ -768,7 +768,7 @@ it("preserves authoritative CQ WW SSB dupe and country-zone multiplier classific
 it("retains a manually entered CQ WW QSO and publishes it to Band Map and radio only when Show worked is enabled",async()=>{
   const setup=newContestSetup("OM0RX");setup.pluginID="cq_ww_ssb";setup.preferences.bands=["40m"];
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(setup));
-  let current:any={...projection(1,{callsign:"DL1AAA"}),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
+  let current:any={...projection(1,{callsign:"DL1AAA"}),pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
     supportedModes:["SSB"],supportedBands:["160m","80m","40m","20m","15m","10m"]};
   const base=operationalRequest(()=>current,()=>0,()=>({dupe:true,multiplierCount:0,countryMultiplier:false,zoneMultiplier:false}));
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
@@ -811,7 +811,7 @@ it("retains a manually entered CQ WW QSO and publishes it to Band Map and radio 
 });
 
 it("projects only the configured mode and bands into Cluster and Band Map even when the plug-in supports more modes",async()=>{
-  const current={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",supportedModes:["CW","SSB"] as const,
+  const current={...projection(),pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},pluginName:"CQ WW SSB",mode:"SSB",supportedModes:["CW","SSB"] as const,
     supportedBands:["160m","80m","40m","20m","15m","10m"]};
   const setup=newContestSetup("OM0RX");setup.pluginID="cq_ww_ssb";setup.preferences.bands=["20m"];
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(setup));
@@ -865,7 +865,7 @@ it("projects only the configured mode and bands into Cluster and Band Map even w
 });
 
 it("keeps inferred FT8 and out-of-range phone spots out of the CQ WW SSB desk",async()=>{
-  const current:any={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
+  const current:any={...projection(),pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
     supportedModes:["SSB"],supportedBands:["40m"]};
   const setup=newContestSetup("OM0RX");setup.pluginID="cq_ww_ssb";setup.preferences.bands=["40m"];
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(setup));
@@ -891,7 +891,7 @@ it("keeps inferred FT8 and out-of-range phone spots out of the CQ WW SSB desk",a
 });
 
 it("keeps publishing live contest spots when an older full-list preview is overtaken",async()=>{
-  const current:any={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
+  const current:any={...projection(),pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
     supportedModes:["SSB"],supportedBands:["160m","80m","40m","20m","15m","10m"]};
   const setup=newContestSetup("OM0RX");setup.pluginID="cq_ww_ssb";setup.preferences.bands=["40m"];
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(setup));
@@ -932,7 +932,7 @@ it("keeps publishing live contest spots when an older full-list preview is overt
 });
 
 it("finishes in-flight classification across passive draft edits and classifies only arriving spots",async()=>{
-  let current:any={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
+  let current:any={...projection(),pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
     supportedModes:["SSB"],supportedBands:["40m"]};
   const setup=newContestSetup("OM0RX");setup.pluginID="cq_ww_ssb";setup.preferences.bands=["40m"];
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(setup));
@@ -1169,7 +1169,7 @@ it.each(["20m","40m"])("renews ready active-band radio spots while a new %s clas
     if(timeout===60_000&&typeof handler==="function")renew=handler as ()=>void;
     return original(handler,timeout,...args);
   }) as typeof window.setInterval);
-  const current:any={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
+  const current:any={...projection(),pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
     supportedModes:["SSB"],supportedBands:["40m","20m"]};
   const setup=newContestSetup("OM0RX");setup.pluginID="cq_ww_ssb";setup.preferences.bands=["40m","20m"];
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(setup));
@@ -1317,7 +1317,7 @@ it.each(["accepted","rejected"])("discards queued pre-QSO snapshots and stale re
 });
 
 it.each(["20m","40m"])("publishes fresh active-band scoring after a QSO while a %s row is rebuilding",async(pendingBand)=>{
-  let current:any={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
+  let current:any={...projection(),pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
     supportedModes:["SSB"],supportedBands:["40m","20m"]};
   const setup=newContestSetup("OM0RX");setup.pluginID="cq_ww_ssb";setup.preferences.bands=["40m","20m"];
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(setup));
@@ -1406,7 +1406,7 @@ it("isolates malformed cluster callsigns from classification batches and radio r
 });
 
 it("clears contest radio spots when the active radio band is outside the configured contest bands",async()=>{
-  const current:any={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
+  const current:any={...projection(),pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},pluginName:"CQ WW SSB",mode:"SSB",band:7,frequencyHz:7_125_000,
     supportedModes:["SSB"],supportedBands:["160m","80m","40m","20m","15m","10m"]};
   const setup=newContestSetup("OM0RX");setup.pluginID="cq_ww_ssb";setup.preferences.bands=["20m"];
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(setup));
@@ -2176,7 +2176,7 @@ it("projects Trans Tasman low bands, serial exchange, plugin dupe period and ret
 });
 
 it.each([
-  { pluginID:"cq_ww_ssb", pluginName:"CQ WW SSB",
+  { pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"}, pluginName:"CQ WW SSB",
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","M1","CQ Zone","M2","Country","PTS"],
     sourceColumns:[],
     row:{ID:"cqww-ssb-qso",TS:"2026-10-20 11:00:00",Call:"K1ABC",Freq:14250,QSXFreq:14260,Band:14,Mode:"USB",SNT:"59",RCV:"59",SentNr:15,ZN:5,Power:"100",
@@ -2563,11 +2563,12 @@ it.each([
 });
 
 it.each([
-  {pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB"},
+  {pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},pluginName:"CQ WW SSB"},
   {pluginID:"cq_wpx_ssb",pluginName:"CQ WPX SSB"},
   {pluginID:"arrl_ss_phone",pluginName:"ARRL Sweepstakes Phone"},
 ])("keeps production $pluginName voice optional while logging Enter without output", async ({pluginID,pluginName}) => {
   let current={...projection(3,{callsign:"K1ABC",sent:"59",receive:"59",other_1:"001"}),pluginID,pluginName,
+    spaceNext:{callsign:"other_2"},entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},
     mode:"SSB",supportedModes:["SSB"] as const,reservedSerial:pluginID==="cq_ww_ssb"?null:1,matrixTrackers:[] as Array<"countries"|"zones">};
   let esmCalls=0,logged=0;
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
@@ -2616,7 +2617,7 @@ it.each([
 
 it.each([false,true])("confirms a durable Enter save before auxiliary reads and fences their stale replies (publication fails: %s)",async(publicationFails)=>{
   let current:any={...projection(3,{callsign:"K1ABC",sent:"59",receive:"59",other_2:"5"}),
-    pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",supportedModes:["SSB"],reservedSerial:null};
+    pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},pluginName:"CQ WW SSB",mode:"SSB",supportedModes:["SSB"],reservedSerial:null};
   let committed=false,completed=false;
   const releases:(()=>void)[]=[];
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
@@ -2702,7 +2703,7 @@ it("projects and routes production recorded-phone arm and stop only with a saved
   const saved=newContestSetup("OM0RX");saved.pluginID="cq_ww_ssb";saved.name="CQ WW SSB";saved.settings.ModeCategory="SSB";
   saved.preferences.voiceProfilePath="/operator/voice";
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(saved));
-  const current={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",supportedModes:["SSB"] as const,
+  const current={...projection(),pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},pluginName:"CQ WW SSB",mode:"SSB",supportedModes:["SSB"] as const,
     fields:projection().fields.map(field=>({...field,value:field.id==="sent"||field.id==="receive"?"59":field.value})),matrixTrackers:[]};
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
     const support=workspaceSupport(method,params,current);if(support)return support;
@@ -2734,7 +2735,7 @@ it("projects and routes production recorded-phone arm and stop only with a saved
 it("runs detached Shift-F1 Auto CQ immediately in Run and cancels it on callsign input",async()=>{
   const saved=newContestSetup("OM0RX");saved.pluginID="cq_ww_ssb";saved.name="CQ WW SSB";saved.settings.ModeCategory="SSB";
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(saved));
-  let current:any={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",supportedModes:["SSB"],run:false,
+  let current:any={...projection(),pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},pluginName:"CQ WW SSB",mode:"SSB",supportedModes:["SSB"],run:false,
     fields:projection().fields.map(field=>({...field,value:field.id==="sent"||field.id==="receive"?"59":field.value})),matrixTrackers:[]};
   let outputActions:any[]=[];
   const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
@@ -3224,7 +3225,7 @@ it("leaving a CQ WW SSB Run frequency switches to S&P and loads a nearby spot", 
   saved.pluginID = "cq_ww_ssb"; saved.name = "CQ WW SSB"; saved.settings.ModeCategory = "SSB";
   saved.preferences.clearOnVFOChange = false; saved.preferences.bands = ["40m"];
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1", JSON.stringify(saved));
-  let current:any = {...projection(1,{callsign:"OLD1",other_2:"14"}),pluginID:"cq_ww_ssb",mode:"SSB",band:7,frequencyHz:7_175_000,run:true};
+  let current:any = {...projection(1,{callsign:"OLD1",other_2:"14"}),pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},mode:"SSB",band:7,frequencyHz:7_175_000,run:true};
   let observedApply:Record<string,unknown>|undefined,runChange:Record<string,unknown>|undefined;
   const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
     const support=workspaceSupport(method,params,current);if(support)return support;
@@ -3258,7 +3259,7 @@ it("leaving a CQ WW SSB Run frequency switches to S&P and loads a nearby spot", 
 it("adopts the radio-follow CQ zone and preserves a manual override through delayed lookup",async()=>{
   const saved=newContestSetup("OM0RX");saved.pluginID="cq_ww_ssb";saved.preferences.bands=["40m"];
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(saved));
-  let current:any={...projection(1,{callsign:"",other_2:""}),pluginID:"cq_ww_ssb",mode:"SSB",band:7,frequencyHz:7_175_000,run:false};
+  let current:any={...projection(1,{callsign:"",other_2:""}),pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},mode:"SSB",band:7,frequencyHz:7_175_000,run:false};
   let releaseLookup:(()=>void)|undefined;
   const base=operationalRequest(()=>current),request=vi.fn(async(method:string,params:Record<string,any>={})=>{
     if(method!=="contest_draft_apply")return base(method,params);
@@ -3293,7 +3294,7 @@ it("adopts the radio-follow CQ zone and preserves a manual override through dela
 it("keeps an SSB entry across small VFO steps but clears and captures beyond the fixed configured tolerance anchor",async()=>{
   const saved=newContestSetup("OM0RX");saved.pluginID="cq_ww_ssb";saved.preferences.bands=["40m"];saved.preferences.ssbTuningToleranceHz=1200;
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(saved));
-  let current:any={...projection(1,{callsign:"OLD1",other_2:"9"}),pluginID:"cq_ww_ssb",mode:"SSB",band:7,frequencyHz:7_175_000,run:false};
+  let current:any={...projection(1,{callsign:"OLD1",other_2:"9"}),pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},mode:"SSB",band:7,frequencyHz:7_175_000,run:false};
   const base=operationalRequest(()=>current),request=vi.fn(async(method:string,params:Record<string,any>={})=>{
     if(method!=="contest_draft_apply")return base(method,params);
     const values=params.observedVFOChange?{...params.fields,callsign:params.observedSpotCallsign,other_2:"14"}:params.fields;
@@ -3320,7 +3321,7 @@ it("keeps an SSB entry across small VFO steps but clears and captures beyond the
 it("retains a manually typed callsign at its entry frequency when the operator tunes away",async()=>{
   const saved=newContestSetup("OM0RX");saved.pluginID="cq_ww_ssb";saved.preferences.bands=["40m"];
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(saved));
-  let current:any={...projection(1,{callsign:"",other_2:""}),pluginID:"cq_ww_ssb",mode:"SSB",band:7,frequencyHz:7_150_000,run:false};
+  let current:any={...projection(1,{callsign:"",other_2:""}),pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},mode:"SSB",band:7,frequencyHz:7_150_000,run:false};
   const base=operationalRequest(()=>current),request=vi.fn(async(method:string,params:Record<string,any>={})=>{
     if(method!=="contest_draft_apply")return base(method,params);
     current={...current,revision:current.revision+1,frequencyHz:params.frequencyHz,
@@ -3344,7 +3345,7 @@ it("retains a manually typed callsign at its entry frequency when the operator t
 it("does not create heard spots when refocus and host revisions change at an unchanged authoritative VFO",async()=>{
   const saved=newContestSetup("OM0RX");saved.pluginID="cq_ww_ssb";saved.preferences.bands=["40m"];
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(saved));
-  let current:any={...projection(1,{callsign:"SX5P",other_2:"20"}),pluginID:"cq_ww_ssb",mode:"SSB",band:7,frequencyHz:7_150_000,run:false};
+  let current:any={...projection(1,{callsign:"SX5P",other_2:"20"}),pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},mode:"SSB",band:7,frequencyHz:7_150_000,run:false};
   const base=operationalRequest(()=>current),request=vi.fn(async(method:string,params:Record<string,any>={})=>{
     if(method!=="contest_focus")return base(method,params);
     expect(params.expectedRevision).toBe(current.revision);
@@ -3372,7 +3373,7 @@ it("does not create heard spots when refocus and host revisions change at an unc
 it("keeps a clicked SX5P draft at 7150 while old and intermediate radio telemetry wait for the owned tune readback",async()=>{
   const saved=newContestSetup("OM0RX");saved.pluginID="cq_ww_ssb";saved.preferences.bands=["40m"];
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(saved));
-  let current:any={...projection(1,{callsign:"",other_2:""}),pluginID:"cq_ww_ssb",mode:"SSB",supportedModes:["SSB"],band:7,frequencyHz:7_129_000,run:false};
+  let current:any={...projection(1,{callsign:"",other_2:""}),pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},mode:"SSB",supportedModes:["SSB"],band:7,frequencyHz:7_129_000,run:false};
   let confirmTune!:()=>void;
   const tune=vi.fn(()=>new Promise<{accepted:boolean;confirmed:boolean}>(resolve=>{confirmTune=()=>resolve({accepted:true,confirmed:true});}));
   const base=operationalRequest(()=>current),request=vi.fn(async(method:string,params:Record<string,any>={})=>{
@@ -3411,7 +3412,7 @@ it("keeps a clicked SX5P draft at 7150 while old and intermediate radio telemetr
 it("follows a manual third frequency after a confirmed tune whose target React never rendered and navigates from the live VFO",async()=>{
   const saved=newContestSetup("OM0RX");saved.pluginID="cq_ww_ssb";saved.preferences.bands=["40m"];
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(saved));
-  let current:any={...projection(1,{callsign:"",other_2:""}),pluginID:"cq_ww_ssb",mode:"SSB",supportedModes:["SSB"],band:7,frequencyHz:7_129_000,run:false};
+  let current:any={...projection(1,{callsign:"",other_2:""}),pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},mode:"SSB",supportedModes:["SSB"],band:7,frequencyHz:7_129_000,run:false};
   let confirmTune!:()=>void;
   const tune=vi.fn((_frequencyHz:number,_mode:string)=>new Promise<{accepted:boolean;confirmed:boolean}>(resolve=>{
     confirmTune=()=>resolve({accepted:true,confirmed:true});
@@ -3455,7 +3456,7 @@ it("keeps Run state and entry intact when CAT reconnects at a frequency", async 
   saved.pluginID = "cq_ww_ssb"; saved.name = "CQ WW SSB"; saved.settings.ModeCategory = "SSB";
   saved.preferences.clearOnVFOChange = false; saved.preferences.bands = ["40m"];
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1", JSON.stringify(saved));
-  let current:any = {...projection(1,{callsign:"CQ9A",other_2:"33"}),pluginID:"cq_ww_ssb",mode:"SSB",band:7,
+  let current:any = {...projection(1,{callsign:"CQ9A",other_2:"33"}),pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},mode:"SSB",band:7,
     frequencyHz:7_158_000,run:true};
   const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
     const support=workspaceSupport(method,params,current);if(support)return support;
@@ -3520,7 +3521,7 @@ it("wipes the entry with one mutation while keeping committed auxiliary panels m
 
 it("imports bounded CQ WW SSB ADIF batches through the normal commit path and restores the live draft",async()=>{
   let current={...projection(1,{callsign:"LIVE",sent:"59",receive:"59",other_1:"15",other_2:"15"}),
-    pluginID:"cq_ww_ssb",mode:"SSB",band:14,frequencyHz:14_250_000,
+    pluginID:"cq_ww_ssb",entryPolicy:{enter:"manual",clearOnVFOChange:true,leaveRunOnRetune:true},filterSpotRanges:true,spotModeCategory:"SSB",spaceNext:{callsign:"other_2"},mode:"SSB",band:14,frequencyHz:14_250_000,
     ruleIdentity:{id:"cq-ww-ssb",version:"26.10.11",edition:"not1mm-python",sourceRevision:"test"}};
   const committed:Record<string,any>[]=[];
   const request=vi.fn(async(method:string,params:Record<string,any>={})=>{

@@ -91,7 +91,7 @@ export function Matrix({ projection,preferenceScope,onSelectSpot }: { projection
     <span className="contest-surface-matrix-summary"><span>{rich&&`${projectedRows.length.toLocaleString()} shown · `}{workedInView.toLocaleString()} worked in view</span>
       {workedInView!==projection.total&&<span>{projection.total.toLocaleString()} unique total</span>}</span></header>
       <div className="contest-surface-matrix-scroll"><div className="contest-surface-matrix-blocks" style={{gridTemplateColumns:`repeat(${blockCount},minmax(${blockMinWidth}px,1fr))`}}>{blocks.map((block,blockIndex)=><table
-        key={blockIndex} aria-label={blockIndex===0?`${projection.title} by band`:`${projection.title} by band continuation ${blockIndex+1}`}><thead><tr><th scope="col">{projection.title === "DXCC" ? "DXCC" : "Zone"}</th>
+        key={blockIndex} aria-label={blockIndex===0?`${projection.title} by band`:`${projection.title} by band continuation ${blockIndex+1}`}><thead><tr><th scope="col">{projection.title === "DXCC" ? "DXCC" : rich?.tracker==="zone"||projection.title.includes("Zones") ? "Zone" : "Multiplier"}</th>
         {visibleBands.map(band => <th key={band} scope="col">{band}</th>)}<th scope="col">Total</th></tr></thead><tbody>
         {block.map(row => { const key = row.label.trim().toLocaleUpperCase(), current = !!selectedKey && key === selectedKey,
           visibleTotal=visibleBands.reduce((sum,band)=>sum+(row.counts[band]??0),0); return <tr key={row.label}

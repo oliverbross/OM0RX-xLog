@@ -464,7 +464,7 @@ it("renders Statistics v3 as the original compact table with TOTAL last", async 
   native.invoke.mockResolvedValue({...snapshot,panelID:"propagation",projection:view}); render(<DetachedContestSurface/>);
   const table = await screen.findByRole("table", {name:"Contest statistics"});
   expect(screen.getByRole("region", {name:"Scrollable contest statistics"}).getAttribute("tabindex")).toBe("0");
-  expect(Array.from(table.querySelectorAll("thead th")).map(cell=>cell.textContent)).toEqual(["BAND","QSO","CALLS","CW","PH","DI","WPX","PTS"]);
+  expect(Array.from(table.querySelectorAll("thead th")).map(cell=>cell.textContent)).toEqual(["BAND","QSO","CALLS","CW","PH","DI","PFX/BAND","PTS"]);
   expect(Array.from(table.querySelectorAll("tbody tr")).map(row=>Array.from(row.children).map(cell=>cell.textContent))).toEqual([
     ["20m","4","3","2","1","1","2","15"], ["40m","2","2","2","0","0","1","6"],
     ["TOTAL","6","4","4","1","1","3","21"],
@@ -472,7 +472,7 @@ it("renders Statistics v3 as the original compact table with TOTAL last", async 
   expect(screen.queryByRole("heading")).toBeNull();
   expect(screen.queryByRole("button")).toBeNull();
   expect(document.querySelector("canvas")).toBeNull();
-  expect(document.querySelector("dl")).toBeNull();
+  expect(document.querySelector("dl")).toBeTruthy();
 });
 
 it("renders the CQ WW score breakdown with zones, countries and claimed score", async () => {
@@ -613,14 +613,14 @@ it.each([
 ])("shows authoritative entry multiplier status %s with legacy fallback",async(multiplierStatus,label)=>{
   const view={...projection,draft:{...projection.draft,frequencyError:"",...(multiplierStatus?{multiplierStatus}:{})}};
   native.invoke.mockResolvedValue({...snapshot,projection:view});render(<DetachedContestSurface/>);
-  expect(await screen.findByText(multiplierStatus?`${label} — OM0RX on 20m`:"Clear — OM0RX not worked on 20m")).toBeTruthy();
+  expect(await screen.findByText(multiplierStatus?`${label} — OM0RX on 20m`:"Clear — OM0RX")).toBeTruthy();
 });
 
 it("keeps DUPE ahead of a multiplier status",async()=>{
   const view={...projection,draft:{...projection.draft,frequencyError:"",multiplierStatus:"new-zone-and-country",
     dupe:{state:"duplicate",reason:"Worked on this band."}}};
   native.invoke.mockResolvedValue({...snapshot,projection:view});render(<DetachedContestSurface/>);
-  expect(await screen.findByText("DUPE — OM0RX already worked on 20m")).toBeTruthy();
+  expect(await screen.findByText("DUPE — OM0RX")).toBeTruthy();
   expect(screen.queryByText(/New zone and country/)).toBeNull();
 });
 
@@ -1413,8 +1413,8 @@ it.each(["band-maps", "monitor", "dx-cluster"])(
   });
 
 it.each([
-  ["awards", "DXCC", "This contest does not score DXCC multipliers."],
-  ["chaser-dx", "Zones", "This contest does not score CQ or ITU zone multipliers."],
+  ["awards", "DXCC", "This multiplier view is not yet implemented for the selected contest."],
+  ["chaser-dx", "Zones", "This multiplier view is not yet implemented for the selected contest."],
 ])("explains why the contest %s window has no scoring data",async(panelID,heading,message)=>{
   window.history.replaceState({},"",search.replace("view=active-qso",`view=${panelID}`));
   native.invoke.mockImplementation(async(command:string)=>{
@@ -1681,7 +1681,7 @@ it("uses the configured CW speed step for buttons and PgUp/PgDown with station b
 
 it("keeps SSB macros visible while optional unconfigured voice controls and setup guidance stay out of Main Logging",async()=>{
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode:"SSB",sentReport:"59",receivedReport:"59"},
-    descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
+    descriptor:{enterPolicy:"manual",bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
     operator:{output:"xlog-native",outputAvailable:false,outputUnavailableReason:"Recorded phone output is unavailable until a Voice WAV profile folder is saved in Contest Setup.",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
       functionKeys:[{key:"F1",macro:"CQ",highlighted:true},{key:"F2",macro:"Exchange",highlighted:false}],
       readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
@@ -1708,7 +1708,7 @@ it.each([
 ] as const)("flushes a freshly typed CQ WW %s value and accepts Enter immediately",async(label,focusedField,typedValue)=>{
   let view:any={...snapshot,projection:{...projection,schemaVersion:2,session:{name:"CQ WW SSB",ruleName:"CQ WW SSB",mode:"SSB"},draft:{...projection.draft,callsign:focusedField==="callsign"?"":"DL1ABC",mode:"SSB",
       sentReport:"59",receivedReport:"59",receivedFields:[{id:"other_2",label:"CQ Zone",value:"14",required:true,maximumUTF8Bytes:128,enabled:true,readOnly:false}]},
-    descriptor:{bands:["40m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
+    descriptor:{enterPolicy:"manual",bands:["40m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
     operator:{output:"xlog-native",outputAvailable:false,outputUnavailableReason:"Optional voice output is not configured.",armed:false,style:"search-and-pounce",status:"disarmed",
       pending:null,focusedField,...tabMaps,functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,
         canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
@@ -1735,7 +1735,7 @@ it("shows saved only after a confirmed commit advances to a new draft",async()=>
   const operator={output:"xlog-native",outputAvailable:false,outputUnavailableReason:"Optional voice is not configured.",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
     functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   let current:any={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14_250_000,frequencyText:"14250000",frequencyError:"",mode:"SSB",sentReport:"59",receivedReport:"59"},
-    descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+    descriptor:{enterPolicy:"manual",bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
     if(command==="contest_surface_snapshot")return structuredClone(current);
     if(command==="contest_surface_action"){
@@ -1760,7 +1760,7 @@ it("clears saved feedback when a selected spot fills the next callsign",async()=
   const operator={output:"xlog-native",outputAvailable:false,outputUnavailableReason:"Optional voice is not configured.",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
     functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   let current:any={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14_250_000,frequencyText:"14250000",frequencyError:"",mode:"SSB",sentReport:"59",receivedReport:"59"},
-    descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+    descriptor:{enterPolicy:"manual",bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
     if(command==="contest_surface_snapshot")return structuredClone(current);
     if(command==="contest_surface_action"){
@@ -1810,7 +1810,7 @@ it.each([{available:false},{available:true}])("keeps original RTTY macros visibl
 it.each([{armed:false,label:"Arm recorded phone",next:true},{armed:true,label:"Disarm",next:false}])(
   "routes truthful production SSB $label controls through the owner",async({armed,label,next})=>{
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode:"SSB",sentReport:"59",receivedReport:"59"},
-    descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
+    descriptor:{enterPolicy:"manual",bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
     operator:{output:"xlog-native",outputAvailable:true,outputUnavailableReason:null,armed,style:"run",status:armed?"armed":"disarmed",pending:null,focusedField:"callsign",...tabMaps,
       functionKeys:[{key:"F1",macro:"CQ",highlighted:false}],readiness:{canSendCQ:armed,canSendCall:armed,canSendDuplicate:armed,
         canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
@@ -1831,7 +1831,7 @@ it.each([{armed:false,label:"Arm recorded phone",next:true},{armed:true,label:"D
 
 it("keeps uncertain production phone ownership visible while blocking every send",async()=>{
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode:"SSB",sentReport:"59",receivedReport:"59"},
-    descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
+    descriptor:{enterPolicy:"manual",bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
     operator:{output:"xlog-native",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"run",status:"uncertain",pending:null,focusedField:"callsign",...tabMaps,
       functionKeys:[{key:"F1",macro:"CQ",highlighted:false}],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,
         canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
@@ -1852,7 +1852,7 @@ it("keeps uncertain production phone ownership visible while blocking every send
 
 it("makes CQ WW SSB Contesting Test intent simulation unmistakable without CW controls",async()=>{
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode:"SSB",sentReport:"59",receivedReport:"59"},
-    descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
+    descriptor:{enterPolicy:"manual",bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
     operator:{output:"test-simulation",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
       functionKeys:[{key:"F1",macro:"CQ",highlighted:true},{key:"F12",macro:"His call TU",highlighted:false}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:true,
         canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[{operationID:"operation-1:0",mode:"SSB",macro:"Their call",text:"K1ABC",status:"confirmed"}]}}};
@@ -2173,7 +2173,7 @@ it("uses CQ WW smart Space from callsign directly to the received zone while Tab
     functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode:"SSB",sentReport:"59",receivedReport:"59",
       frequencyHz:7_100_000,frequencyText:"7100000",frequencyError:"",receivedFields:[{id:"other_2",label:"CQ Zone",value:"5",required:true,maximumUTF8Bytes:2}]},
-    descriptor:{bands:["40m"],modes:["SSB"],advanceOnSpace:["callsign"],spaceNext:{callsign:"other_2"},sentFields:[],
+    descriptor:{enterPolicy:"manual",bands:["40m"],modes:["SSB"],advanceOnSpace:["callsign"],spaceNext:{callsign:"other_2"},sentFields:[],
       serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>command==="contest_surface_snapshot"?view:
     command==="contest_surface_action"?{requestID:args.requestID,status:"queued"}:Promise.reject(new Error(command)));
@@ -2487,7 +2487,7 @@ it("restores the authoritative draft when Wipe is rejected before a later Enter"
     functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   let current:any={...snapshot,projection:{...projection,schemaVersion:2,session:{name:"CQ WW SSB",ruleName:"CQ WW SSB",mode:"SSB"},
     draft:{...projection.draft,callsign:"OM0RX",sentReport:"59",receivedReport:"59",mode:"SSB",frequencyError:""},
-    descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+    descriptor:{enterPolicy:"manual",bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
   const actions:Record<string,any>[]=[];
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
     if(command==="contest_surface_snapshot")return structuredClone(current);
@@ -2512,7 +2512,7 @@ it("restores the last authoritative draft when Wipe preflight cannot refresh",as
     functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   const current:any={...snapshot,projection:{...projection,schemaVersion:2,session:{name:"CQ WW SSB",ruleName:"CQ WW SSB",mode:"SSB"},
     draft:{...projection.draft,callsign:"OM0RX",sentReport:"59",receivedReport:"59",mode:"SSB",frequencyError:""},
-    descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+    descriptor:{enterPolicy:"manual",bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
   const actions:Record<string,any>[]=[];let failReads=false;
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
     if(command==="contest_surface_snapshot"){if(failReads)throw new Error("snapshot unavailable");return structuredClone(current);}
@@ -2583,7 +2583,7 @@ it("shows the owner validation rejection from the first detached Enter",async()=
     functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   let current:any={...snapshot,projection:{...projection,schemaVersion:2,session:{name:"CQ WW SSB",ruleName:"CQ WW SSB",mode:"SSB"},
     draft:{...projection.draft,callsign:"",sentReport:"59",receivedReport:"59",mode:"SSB",frequencyError:""},
-    descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+    descriptor:{enterPolicy:"manual",bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
   const actions:Record<string,any>[]=[];
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
     if(command==="contest_surface_snapshot")return structuredClone(current);
@@ -2629,7 +2629,7 @@ it("reconciles a queued callsign receipt that settles before its wake and restor
     draft:{...projection.draft,callsign:"",sentReport:"59",receivedReport:"59",frequencyHz:7_115_000,frequencyText:"7115000",frequencyError:"",
       band:"40m",mode:"SSB",dupe:{state:"clear",reason:"Clear for this contest."},
       receivedFields:[{id:"other_2",label:"CQ Zone",value:"14",required:true,maximumUTF8Bytes:2}]},
-    descriptor:{bands:["40m"],modes:["SSB"],advanceOnSpace:["callsign"],spaceNext:{callsign:"other_2"},sentFields:[],
+    descriptor:{enterPolicy:"manual",bands:["40m"],modes:["SSB"],advanceOnSpace:["callsign"],spaceNext:{callsign:"other_2"},sentFields:[],
       serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator:null}};
   const actions:Record<string,any>[]=[];
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
@@ -2648,7 +2648,7 @@ it("reconciles a queued callsign receipt that settles before its wake and restor
   render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign");
   fireEvent.change(callsign,{target:{value:"DL3A"}});fireEvent.change(callsign,{target:{value:"DL3AO"}});
   expect(await screen.findByText("Checking — DL3AO")).toBeTruthy();
-  expect(await screen.findByText("DUPE — DL3AO already worked on 40m")).toBeTruthy();
+  expect(await screen.findByText("DUPE — DL3AO")).toBeTruthy();
   expect(actions).toHaveLength(1);expect(actions[0]).toMatchObject({action:"entry_set_text",params:{value:"DL3AO"}});
   expect(screen.getByRole("button",{name:/^Log It/})).toHaveProperty("disabled",false);
 });
@@ -2670,7 +2670,7 @@ it("refreshes a pending callsign receipt after both projection and completion wa
   });
   render(<DetachedContestSurface/>);
   fireEvent.change(await screen.findByLabelText("Callsign"),{target:{value:"VP2MAA"}});
-  expect(await screen.findByText("DUPE — VP2MAA already worked on 20m",{},{timeout:2000})).toBeTruthy();
+  expect(await screen.findByText("DUPE — VP2MAA",{},{timeout:2000})).toBeTruthy();
   expect(actions).toHaveLength(1);
 });
 

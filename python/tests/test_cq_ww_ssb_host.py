@@ -369,7 +369,7 @@ class CQWWSSBHostTests(unittest.TestCase):
                  "countryMultiplier": True, "zoneMultiplier": True, "reason": None},
                 {"spotID": "different-continent", "points": 3, "dupe": False, "multiplierCount": 2,
                  "countryMultiplier": True, "zoneMultiplier": True, "reason": None},
-                {"spotID": "unresolved", "points": None, "dupe": None, "multiplierCount": None,
+                {"spotID": "unresolved", "points": None, "dupe": False, "multiplierCount": None,
                  "countryMultiplier": None, "zoneMultiplier": None, "reason": "unresolved_callsign"},
             ],
         })

@@ -23,7 +23,7 @@ def _integer(value):
         return 0
 
 
-def calculate_statistics(rows, country_multiplier="IsMultiplier1", zone_multiplier="IsMultiplier2"):
+def calculate_statistics(rows, country_multiplier=None, zone_multiplier=None):
     """Return Statistics-v3 rows; unknown modes remain visible in QSO/call totals."""
     grouped = {}
     total_calls = set()

@@ -5,6 +5,8 @@ import json
 import math
 import time
 import uuid
+from .multipliers import project as multiplier_dimensions
+from .plugins import ARRL_VHF_PLUGINS, SSA_MT_PLUGINS
 
 MAX_CONTACTS = 50000
 PAGE_SIZE = 500
@@ -27,12 +29,16 @@ def finite(value):
         return None
 
 
-def contact(row, band_labels, score_band, cq_ww):
+def contact(row, band_labels, score_band, cq_ww, plugin_id=""):
     country = json.loads(row["country_identity"]) if row.get("country_identity") else {}
     country = country or {}
     band = finite(row.get("Band"))
     style = str(row.get("IsRunQSO", "")).strip()
     zone = finite(row.get("ZN"))
+    # GridSquare is the SENT locator in SSA MT; the received locator belongs to
+    # Exchange1 there and in the serial/distance families, and NR in ARRL VHF.
+    grid_field = ("Exchange1" if plugin_id in {*SSA_MT_PLUGINS, "darc_vhf", "nac_vhf", "ta_vhf_uhf_contest", "stew_perry_topband"}
+                  else "NR" if plugin_id in {*ARRL_VHF_PLUGINS, "cq_ww_vhf", "labre_rs_digi", "vhf_sprint"} else None)
     return {"id": row["ID"], "sourceOrder": row["source_order"], "call": row["Call"], "utc": row["TS"],
             "band": band_labels.get(band, "Unknown"), "frequencyKHz": finite(row.get("Freq")),
             "mode": str(row.get("Mode") or "Unknown"), "operator": str(row.get("Operator") or "Unknown"),
@@ -40,7 +46,14 @@ def contact(row, band_labels, score_band, cq_ww):
             "country": str(row.get("CountryPrefix") or "Unknown"),
             "countryName": str(country.get("entity") or row.get("CountryPrefix") or "Unknown"),
             "continent": str(country.get("continent") or row.get("Continent") or "Unknown"),
-            "zone": str(int(zone)) if cq_ww and zone is not None and zone.is_integer() and 1 <= zone <= 40 else "Unknown",
+            "zone": str(int(zone)) if (cq_ww or plugin_id == "cq_ww_rtty") and zone is not None and zone.is_integer() and 1 <= zone <= 40 else "Unknown",
+            "section": str(row.get("Sect") or "Unknown"),
+            "state": str(row.get("Exchange1") or "Unknown") if plugin_id == "cq_ww_rtty" else
+                     str(row.get("NR") or "Unknown") if plugin_id in {"arrl_dx_cw", "arrl_dx_ssb"} and str(row.get("NR", "")).isalpha() else "Unknown",
+            "ituZone": str(row["ZN"]) if plugin_id == "iaru_hf" and isinstance(row.get("ZN"), int) else "Unknown",
+            "hq": str(row["ZN"]) if plugin_id == "iaru_hf" and not isinstance(row.get("ZN"), int) else "Unknown",
+            "grid": str(row.get(grid_field) or "Unknown") if grid_field else "Unknown",
+            "creditedKeys": row.get("credited_keys", []),
             "prefix": str(row.get("WPXPrefix") or "Unknown"),
             "points": finite(row.get("Points")),
             "multiplierEligible": row.get("multiplier_eligible") if cq_ww else None,
@@ -68,7 +81,7 @@ class AnalyticsCopies:
                 score_band = desk.database.score_band
                 rows = store.exec_sql_mult(
                     "SELECT d.rowid AS source_order,d.ID,d.Call,d.TS,d.Band,d.Freq,d.Mode,d.Operator,d.IsRunQSO,"
-                    "d.CountryPrefix,d.Continent,d.ZN,d.WPXPrefix,d.Points,i.country AS country_identity "
+                    "d.CountryPrefix,d.Continent,d.ZN,d.WPXPrefix,d.Points,d.Sect,d.NR,d.Exchange1,d.GridSquare,i.country AS country_identity "
                     "FROM DXLOG AS d LEFT JOIN xlog_qso_identity AS i ON i.id=d.ID "
                     "WHERE d.ContestNR=? ORDER BY d.TS,d.rowid LIMIT ?", (store.current_contest, MAX_CONTACTS + 1))
                 require(len(rows) <= MAX_CONTACTS, "Analytics supports up to 50,000 contacts in one contest.")
@@ -80,6 +93,10 @@ class AnalyticsCopies:
                             "score": score, "dupeType": desk.contest.dupe_type,
                             "cqWW": state["pluginID"] in {"cq_ww_ssb", "cq_ww_cw"},
                             "capturedAt": datetime.now(UTC).isoformat().replace("+00:00", "Z")}
+                views, support, available = multiplier_dimensions(rows, state, score, band_labels)
+                metadata["multiplierAdapter"] = available
+                for row in rows:
+                    row["credited_keys"] = support[row["ID"]]
             finally:
                 store.conn.rollback()
             # No live SQLite read lock is held while serializing the copied rows.
@@ -90,7 +107,7 @@ class AnalyticsCopies:
                 duplicate_key = (row["Call"], row["Band"])
                 row["multiplier_eligible"] = bool(row["CountryPrefix"]) and duplicate_key not in seen
                 seen.add(duplicate_key)
-            normalized = [contact(row, band_labels, score_band, metadata["cqWW"]) for row in rows]
+            normalized = [contact(row, band_labels, score_band, metadata["cqWW"], state["pluginID"]) for row in rows]
             key = str(uuid.uuid4())
             while len(self.copies) >= 2:
                 del self.copies[next(iter(self.copies))]

@@ -3,21 +3,24 @@ export type AnalyticsRow = {
   id:string;sourceOrder:number;call:string;utc:string;band:string;frequencyKHz:number|null;mode:string;operator:string;
   style:string;country:string;countryName:string;continent:string;zone:string;prefix:string;
   points:number|null;inCategory:boolean;multiplierEligible:boolean|null;
+  section?:string;state?:string;ituZone?:string;hq?:string;grid?:string;creditedKeys?:string[];
 };
 export type AnalyticsMeta = {
   sessionID:string;workspaceGeneration:string;snapshotID:string;identity:string;revision:number;total:number;
   pluginID:string;name:string;stationCall:string;settings:Record<string,unknown>;referenceID:string;
   sourceRevision:string;capturedAt:string;cqWW:boolean;dupeType:number;
+  multiplierAdapter?:boolean;
   score:{qsos:number;points:number;multipliers:number;total:number;countries?:number;zones?:number};
 };
 export type AnalyticsContact = AnalyticsRow & {time:number|null;dupe:boolean|null;newKeys:string[];supportKeys:string[];scoreGain:number|null;issues:string[]};
 export type AnalyticsDataset = {meta:AnalyticsMeta;contacts:AnalyticsContact[];scoreHistory:boolean;scoreHistoryReason:string};
-export type Dimension = "hour"|"band"|"mode"|"country"|"continent"|"zone"|"operator"|"style"|"prefix";
+export type Dimension = "hour"|"band"|"mode"|"country"|"continent"|"zone"|"operator"|"style"|"prefix"|"section"|"state"|"ituZone"|"hq"|"grid";
 export type Measure = "qsos"|"calls"|"points"|"multipliers"|"share";
 export type AnalyticsFilters = {band:string;mode:string;operator:string;style:string;continent:string;scope:"all"|"category";basis:"logged"|"nondupe";from:string;to:string;minutes:number;row:Dimension;column:Dimension;measure:Measure};
 export const defaultAnalyticsFilters:AnalyticsFilters={band:"all",mode:"all",operator:"all",style:"all",continent:"all",scope:"all",basis:"logged",from:"",to:"",minutes:60,row:"hour",column:"band",measure:"qsos"};
-export const dimensions:Dimension[]=["hour","band","mode","country","continent","zone","operator","style","prefix"];
-export const dimensionLabels:Record<Dimension,string>={hour:"UTC hour",band:"Band",mode:"Mode",country:"Country prefix",continent:"Continent",zone:"CQ zone",operator:"Operator",style:"Run / S&P",prefix:"WPX prefix"};
+export const dimensions:Dimension[]=["hour","band","mode","country","continent","zone","operator","style","prefix","section","state","ituZone","hq","grid"];
+export const dimensionLabels:Record<Dimension,string>={hour:"UTC hour",band:"Band",mode:"Mode",country:"Country prefix",continent:"Continent",zone:"CQ zone",operator:"Operator",style:"Run / S&P",prefix:"WPX prefix",section:"Section / SPC",state:"State / VE area",ituZone:"ITU zone",hq:"IARU HQ",grid:"Grid square"};
+export const hasMultiplierAdapter=(meta:AnalyticsMeta)=>meta.cqWW||meta.multiplierAdapter===true;
 export const numberText=(value:number|null|undefined,maximumFractionDigits=0)=>value===null||value===undefined?"—":value.toLocaleString(undefined,{maximumFractionDigits});
 export const utcText=(time:number)=>new Date(time).toISOString().replace("T"," ").slice(0,16);
 
@@ -67,12 +70,17 @@ export function prepareAnalytics(meta:AnalyticsMeta,rows:AnalyticsRow[]):Analyti
       if(qso.zone!=="Unknown")qso.supportKeys.push(`CQ zone ${qso.zone} · ${qso.band}`);
       for(const mult of qso.supportKeys)if(!multipliers.has(mult)){multipliers.add(mult);qso.newKeys.push(mult);}
     }
-    if(meta.cqWW)qso.scoreGain=points*multipliers.size-before;
+    if(!meta.cqWW&&meta.multiplierAdapter){
+      qso.supportKeys=[...(qso.creditedKeys??[])];
+      for(const mult of qso.supportKeys)if(!multipliers.has(mult)){multipliers.add(mult);qso.newKeys.push(mult);}
+    }
+    if(hasMultiplierAdapter(meta))qso.scoreGain=points*multipliers.size-before;
   }
   const complete=contacts.filter(q=>q.inCategory).every(q=>q.time!==null&&q.points!==null&&q.dupe!==null&&q.country!=="Unknown"&&q.zone!=="Unknown"&&q.multiplierEligible===!q.dupe);
-  const reconciled=meta.cqWW&&complete&&points===meta.score.points&&multipliers.size===meta.score.multipliers&&points*multipliers.size===meta.score.total;
+  const familyComplete=contacts.filter(q=>q.inCategory).every(q=>q.time!==null&&q.points!==null&&q.dupe!==null&&Array.isArray(q.creditedKeys));
+  const reconciled=hasMultiplierAdapter(meta)&&(meta.cqWW?complete:familyComplete)&&points===meta.score.points&&multipliers.size===meta.score.multipliers&&points*multipliers.size===meta.score.total;
   if(!reconciled)for(const qso of contacts)qso.scoreGain=null;
-  return {meta,contacts,scoreHistory:reconciled,scoreHistoryReason:reconciled?"Reconstructed from the corrected category log; reconciles with the host score.":meta.cqWW?"Score history unavailable: complete category data must reconcile with the host score.":"Historical score and credited multiplier keys need a contest-specific adapter. Current claimed score comes from the host."};
+  return {meta,contacts,scoreHistory:reconciled,scoreHistoryReason:reconciled?"Reconstructed from the corrected category log; reconciles with the host score.":hasMultiplierAdapter(meta)?"Score history unavailable: complete category data must reconcile with the host score.":"Historical score and credited multiplier keys need a contest-specific adapter. Current claimed score comes from the host."};
 }
 
 export type Aggregate = {qsos:number;calls:number;points:number;unknownPoints:number;nondupe:number;duplicates:number;unknownDupe:number;multipliers:number;countries:number;zones:number;ids:string[]};
@@ -105,7 +113,7 @@ export function timeline(rows:AnalyticsContact[],filters:AnalyticsFilters,now:nu
   return buckets.map(bucket=>{cumulative+=bucket.qsos;return {...bucket,cumulative,partial:bucket.start<=now&&now<bucket.end||bucket.start<first||bucket.end-bucket.start<span};});
 }
 export function dimensionValue(qso:AnalyticsContact,dimension:Dimension):string {
-  return dimension==="hour"?(qso.time===null?"Invalid timestamp":utcText(Math.floor(qso.time/3600000)*3600000)):qso[dimension];
+  return dimension==="hour"?(qso.time===null?"Invalid timestamp":utcText(Math.floor(qso.time/3600000)*3600000)):qso[dimension]??"Unknown";
 }
 export type PivotCell={row:string;column:string;value:number;ids:string[]};
 export function pivot(rows:AnalyticsContact[],row:Dimension,column:Dimension,measure:Measure){
@@ -126,7 +134,7 @@ export function bestIntervals(rows:AnalyticsContact[]){
 }
 export type AnalyticsResult=ReturnType<typeof analyzeAnalytics>;
 export function analyzeAnalytics(dataset:AnalyticsDataset,filters:AnalyticsFilters,now:number){
-  if(filters.measure==="multipliers"&&!dataset.meta.cqWW)throw new Error("Credited multiplier keys are unavailable for this contest. Choose contacts, calls or points.");
+  if(filters.measure==="multipliers"&&!hasMultiplierAdapter(dataset.meta))throw new Error("Credited multiplier keys are unavailable for this contest. Choose contacts, calls or points.");
   const rows=selectContacts(dataset,filters),timed=rows.filter(q=>q.time!==null&&q.time<=now),last=timed.at(-1);
   const allTimed=dataset.contacts.filter(q=>q.time!==null),extent=allTimed.length?{first:allTimed[0].time!,last:allTimed.at(-1)!.time!}:undefined;
   const supportMap=new Map<string,AnalyticsContact[]>();
@@ -153,6 +161,8 @@ export function readAnalyticsReport(text:string):AnalyticsDataset {
   const report=JSON.parse(text);
   if(report?.format!=="xlog-contest-analytics-v1"||!Array.isArray(report.rows)||report.rows.length>50000||report.rows.length!==report.meta?.total)throw new Error("Choose a complete xLog analytics JSON report.");
   const strings=["id","call","utc","band","mode","operator","style","country","countryName","continent","zone","prefix"];
+  if(report.rows.some((row:AnalyticsRow)=>["section","state","ituZone","hq","grid"].some(key=>row?.[key as keyof AnalyticsRow]!==undefined&&(typeof row[key as keyof AnalyticsRow]!=="string"||String(row[key as keyof AnalyticsRow]).length>256))||
+    row?.creditedKeys!==undefined&&(!Array.isArray(row.creditedKeys)||row.creditedKeys.length>8||row.creditedKeys.some(key=>typeof key!=="string"||key.length>256))))throw new Error("The reference report contains invalid multiplier dimensions.");
   if(report.rows.some((row:AnalyticsRow)=>!row||strings.some(key=>typeof row[key as keyof AnalyticsRow]!=="string"||String(row[key as keyof AnalyticsRow]).length>256)||typeof row.inCategory!=="boolean"||(row.multiplierEligible!==null&&typeof row.multiplierEligible!=="boolean")||(row.points!==null&&!Number.isFinite(row.points))||(row.frequencyKHz!==null&&!Number.isFinite(row.frequencyKHz)))||new Set(report.rows.map((row:AnalyticsRow)=>row.id)).size!==report.rows.length)throw new Error("The reference report contains invalid contact data.");
   if(report.rows.some((row:AnalyticsRow)=>!Number.isSafeInteger(row.sourceOrder)||row.sourceOrder<1)
     ||new Set(report.rows.map((row:AnalyticsRow)=>row.sourceOrder)).size!==report.rows.length)
@@ -160,5 +170,5 @@ export function readAnalyticsReport(text:string):AnalyticsDataset {
   const meta=report.meta;
   if(!meta||!["sessionID","workspaceGeneration","snapshotID","identity","pluginID","name","stationCall","referenceID","capturedAt"].every(key=>typeof meta[key]==="string"&&meta[key].length<=256)||!meta.settings||typeof meta.settings!=="object"||Array.isArray(meta.settings)||typeof meta.cqWW!=="boolean"||!Number.isInteger(meta.dupeType)||!meta.score||!["qsos","points","multipliers","total"].every(key=>Number.isFinite(meta.score[key])))throw new Error("The reference report metadata is invalid.");
   // Never trust capabilities supplied by an imported file.
-  return prepareAnalytics({...meta,cqWW:["cq_ww_cw","cq_ww_ssb"].includes(meta.pluginID)},report.rows);
+  return prepareAnalytics({...meta,cqWW:["cq_ww_cw","cq_ww_ssb"].includes(meta.pluginID),multiplierAdapter:false},report.rows);
 }

@@ -87,7 +87,8 @@ export function contestModeForSpot(entry: ContestBandPlanEntry | undefined, freq
   // The shared cluster service already recognizes FT dial frequencies and
   // digital protocols. An overlapping contest phone range must not erase that
   // evidence merely because the packet comment omitted the mode.
-  if (explicitContestMode(reportedMode) === "data") return "data";
+  const reported = explicitContestMode(reportedMode);
+  if (reported) return reported;
   if (entry && allowedModes.length === 1) {
     const mode = allowedModes[0], range = entry[mode];
     if (range.high > range.low && frequencyKHz >= range.low && frequencyKHz <= range.high) return mode;
@@ -97,7 +98,7 @@ export function contestModeForSpot(entry: ContestBandPlanEntry | undefined, freq
 
 export function explicitContestMode(comment: unknown): ContestBandMode | null {
   const value = typeof comment === "string" ? comment.toUpperCase() : "";
-  if (/\b(?:RTTY|JTTY|FT-?[248]|PSK(?:-?\d+)?|JT-?(?:65|9)|Q65[A-D]?|OLIVIA|HELL|MFSK|SSTV|DIGI(?:TAL)?|DATA)\b/.test(value)) return "data";
+  if (/\b(?:RTTY|JTTY|PKTLSB|PKTUSB|(?:USB|LSB|AM|FM)-D|DIGI-[UL]|FT-?[248]|PSK(?:-?\d+)?|JT-?(?:65|9)|Q65[A-D]?|OLIVIA|HELL|MFSK|SSTV|DIGI(?:TAL)?|DATA)\b/.test(value)) return "data";
   if (/\b(?:CW|CWR)\b/.test(value)) return "cw";
   if (/\b(?:SSB|USB|LSB|PHONE|AM|FM|NFM)\b/.test(value)) return "phone";
   return null;
