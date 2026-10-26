@@ -164,3 +164,30 @@ Validation before the release: 39 broker XCTest cases, 26 cluster/shutdown
 Swift Testing cases, all 80 native worker tests and all eight real worker
 process cases passed. The post-acknowledgement storage-fault case proves that
 neither publication settlement nor deferred shutdown calls the gated remover.
+
+## Keep the requested switch while admitted background work finishes
+
+Installed 1.3.33 passed startup and data checks, but the first live Return to
+Normal attempt stopped before retirement with the generic current-operating-
+action guard. Sixteen fresh contest-owned radio receipts were present. The
+workspace and worker processes remained usable and no retry was performed.
+This does not exercise 1.3.33's deferred cosmetic cleanup boundary; the exact
+blocked native admission was not exposed in the installed UI.
+
+The preflight owner previously required its active count to be zero at the
+instant of the menu request. A legitimate overlapping publication or workspace
+operation could therefore reject the user's request. The explicit switch now
+records its transition first, prevents new admissions, and waits for already
+admitted work to finish. The native worker gate likewise seals while retaining
+its existing in-flight count and drains it before retirement. Both waits are
+bounded at 30 seconds; a genuinely unfinished operation retains its count and
+data/control protections, cancels the uncommitted transition and restores
+admission. No shutdown or preference commit happens ahead of accepted work.
+
+Regression cases hold an operation open, request a switch, prove new work and
+early commit are refused, release the original operation and require the same
+request to complete. Competing switches cannot clear another request's seal;
+timeout preserves pending counts and returns a usable workspace.
+
+Validation: all 888 native cases passed. After the final post-wake context check
+and cancellation notification, all 15 operating-module cases passed again.

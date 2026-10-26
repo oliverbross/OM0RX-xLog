@@ -214,6 +214,25 @@ fn seal_transition_gate(gate: &AtomicUsize) -> bool {
     .is_ok()
 }
 
+fn seal_transition_gate_when_idle(gate: &AtomicUsize, timeout: Duration) -> bool {
+    if seal_transition_gate(gate) { return true; }
+    // Keep the admitted count while sealing; releases decrement the count with
+    // the seal intact. No new background request can extend this drain.
+    if gate.fetch_or(MODULE_TRANSITION_SEALED, Ordering::AcqRel) & MODULE_TRANSITION_SEALED != 0 {
+        return false;
+    }
+    let deadline = Instant::now() + timeout;
+    loop {
+        if gate.load(Ordering::Acquire) == MODULE_TRANSITION_SEALED { return true; }
+        if Instant::now() >= deadline {
+            // Cancel only our seal, preserving every still-admitted request.
+            gate.fetch_and(!MODULE_TRANSITION_SEALED, Ordering::AcqRel);
+            return false;
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+}
+
 pub fn validate_request(request: &Value) -> Result<(), String> {
     let object = request.as_object().ok_or("Request must be an object")?;
     let method = request["method"].as_str().ok_or("Method is required")?;
@@ -782,10 +801,10 @@ static CONTESTING_TEST: OnceLock<bool> = OnceLock::new();
 pub fn local_acceptance() -> bool { *LOCAL_ACCEPTANCE.get().unwrap_or(&false) }
 pub fn generation() -> u64 { SESSION_GENERATION.load(Ordering::Acquire) }
 pub fn seal_module_transition_admission() -> Result<(), String> {
-    seal_transition_gate(&TRANSITION_BLOCKING_IN_FLIGHT)
+    seal_transition_gate_when_idle(&TRANSITION_BLOCKING_IN_FLIGHT, Duration::from_secs(30))
         .then_some(())
         .ok_or(
-            "Wait for the current station or logbook operation to finish before changing module."
+            "An earlier station or logbook operation did not finish. Its outcome must settle before switching."
                 .into(),
         )
 }
@@ -1381,6 +1400,46 @@ mod tests {
         release_transition_blocker(&gate);
         assert!(seal_transition_gate(&gate));
         assert!(!admit_transition_blocker(&gate));
+    }
+
+    #[test]
+    fn requested_module_transition_seals_then_drains_existing_worker_work() {
+        let gate = AtomicUsize::new(0);
+        assert!(admit_transition_blocker(&gate));
+        std::thread::scope(|scope| {
+            let (done, completed) = mpsc::channel();
+            let gate = &gate;
+            let draining = scope.spawn(move || {
+                done.send(seal_transition_gate_when_idle(&gate, Duration::from_secs(2))).unwrap();
+            });
+            let deadline = Instant::now() + Duration::from_secs(1);
+            while gate.load(Ordering::Acquire) & MODULE_TRANSITION_SEALED == 0 {
+                assert!(Instant::now() < deadline);
+                std::thread::yield_now();
+            }
+            assert!(!admit_transition_blocker(&gate));
+            assert!(completed.try_recv().is_err());
+            // A competing request cannot remove the first request's seal.
+            assert!(!seal_transition_gate_when_idle(&gate, Duration::ZERO));
+            assert!(!admit_transition_blocker(&gate));
+            release_transition_blocker(&gate);
+            assert!(completed.recv_timeout(Duration::from_secs(1)).unwrap());
+            draining.join().unwrap();
+        });
+        assert_eq!(gate.load(Ordering::Acquire), MODULE_TRANSITION_SEALED);
+    }
+
+    #[test]
+    fn queued_worker_gate_timeout_keeps_inflight_count_and_resumes_admission() {
+        let gate = AtomicUsize::new(0);
+        assert!(admit_transition_blocker(&gate));
+        assert!(!seal_transition_gate_when_idle(&gate, Duration::ZERO));
+        assert_eq!(gate.load(Ordering::Acquire), 1);
+        assert!(admit_transition_blocker(&gate));
+        release_transition_blocker(&gate);
+        assert_eq!(gate.load(Ordering::Acquire), 1);
+        release_transition_blocker(&gate);
+        assert!(seal_transition_gate_when_idle(&gate, Duration::ZERO));
     }
 
     #[test]
