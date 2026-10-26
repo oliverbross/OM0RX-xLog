@@ -1,5 +1,6 @@
+// @vitest-environment jsdom
 import { beforeEach, expect, it, vi } from "vitest";
-import { prepareOperatingModuleTransition } from "./operatingModulePreparation";
+import { prepareOperatingModuleEditor, prepareOperatingModuleTransition } from "./operatingModulePreparation";
 
 const api = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: api.invoke }));
@@ -37,9 +38,41 @@ it("fails closed and resumes when the buffered contest draft cannot be prepared"
   await Promise.resolve();
   handlers.get("xlog:operating-module-prepare")!({ payload: { request: "transition-b" } });
   await vi.waitFor(() => expect(api.invoke).toHaveBeenCalledWith("operating_module_transition_ack", {
-    request: "transition-b", ready: false,
+    request: "transition-b", ready: false, reason: "busy",
   }));
   expect(controller.resume).toHaveBeenCalledOnce();
+  dispose();
+});
+
+it("recovers preparation sent before listener startup without preparing a request twice", async () => {
+  const handlers = new Map<string, (event: { payload: { request: string } }) => void>();
+  api.listen.mockImplementation(async (name: string, handler: any) => { handlers.set(name, handler); return vi.fn(); });
+  api.invoke.mockImplementation(async (command: string) => command === "operating_module_transition_pending" ? "early" : undefined);
+  const controller = { freeze: vi.fn(), prepare: vi.fn(async () => undefined), resume: vi.fn() };
+  const dispose = prepareOperatingModuleTransition(() => controller);
+  await vi.waitFor(() => expect(controller.prepare).toHaveBeenCalledOnce());
+  handlers.get("xlog:operating-module-prepare")!({ payload: { request: "early" } });
+  expect(controller.prepare).toHaveBeenCalledOnce();
+  dispose();
+});
+
+it("freezes detached editor input until cancellation and retains an unsaved editor veto", async () => {
+  const handlers = new Map<string, (event: { payload: { request: string } }) => void>();
+  api.listen.mockImplementation(async (name: string, handler: any) => { handlers.set(name, handler); return vi.fn(); });
+  document.body.inert = false;
+  let blocked = false;
+  const explain = vi.fn(), dispose = prepareOperatingModuleEditor(() => blocked, explain);
+  await Promise.resolve();
+  handlers.get("xlog:operating-module-prepare")!({ payload: { request: "editor" } });
+  await vi.waitFor(() => expect(api.invoke).toHaveBeenCalledWith("operating_module_transition_ack", { request: "editor", ready: true }));
+  expect(document.body.inert).toBe(true);
+  handlers.get("xlog:operating-module-cancel")!({ payload: { request: "editor" } });
+  expect(document.body.inert).toBe(false);
+  blocked = true;
+  handlers.get("xlog:operating-module-prepare")!({ payload: { request: "unsaved" } });
+  await vi.waitFor(() => expect(explain).toHaveBeenCalledOnce());
+  expect(document.body.inert).toBe(false);
+  expect(api.invoke).toHaveBeenCalledWith("operating_module_transition_ack", expect.objectContaining({ request: "unsaved", ready: false }));
   dispose();
 });
 

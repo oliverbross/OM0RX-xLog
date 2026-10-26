@@ -2,6 +2,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen, TauriEvent } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { prepareCanvasClose } from "./canvasClose";
+import { prepareOperatingModuleEditor } from "../operatingModulePreparation";
 
 export async function openDetachedLogbook() {
   if (!isTauri()) throw new Error("Undocking requires the desktop application.");
@@ -35,6 +36,7 @@ export function protectLogbookClose(blocked: () => boolean, explain: () => void,
   if (!isTauri()) return () => {};
   let active = true, stop: (() => void) | undefined;
   const stopCanvas = prepareCanvasClose(blocked, explain, failed);
+  const stopModule = prepareOperatingModuleEditor(blocked, explain);
   // Registering this native close event defers the default close. Unlike the
   // convenience onCloseRequested API, use a command which can destroy only
   // the caller's Logbook, not the generic cross-window destroy permission.
@@ -44,5 +46,5 @@ export function protectLogbookClose(blocked: () => boolean, explain: () => void,
     void invoke("close_logbook_window").catch(() => { if (active) failed("Could not close Logbook. Try again or use Quit to exit the application."); });
   }).then(dispose => { if (active) stop = dispose; else dispose(); })
     .catch(() => { if (active) failed("Close protection is unavailable. Finish contact changes before closing this window."); });
-  return () => { active = false; stop?.(); stopCanvas(); };
+  return () => { active = false; stop?.(); stopCanvas(); stopModule(); };
 }

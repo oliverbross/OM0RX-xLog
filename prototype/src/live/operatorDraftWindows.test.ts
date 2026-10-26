@@ -5,7 +5,7 @@ const api = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), close: vi.fn()
 vi.mock("@tauri-apps/api/core", () => ({ invoke: api.invoke, isTauri: () => api.desktop }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: api.listen, TauriEvent: { WINDOW_CLOSE_REQUESTED: "tauri://close-requested" } }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ listen: api.close }) }));
-beforeEach(() => { vi.useFakeTimers(); api.desktop = true; api.invoke.mockReset().mockResolvedValue(undefined); api.listen.mockReset(); api.close.mockReset(); });
+beforeEach(() => { vi.useFakeTimers(); api.desktop = true; api.invoke.mockReset().mockResolvedValue(undefined); api.listen.mockReset().mockResolvedValue(vi.fn()); api.close.mockReset(); });
 afterEach(() => vi.useRealTimers());
 it("opens only the native Log QSO singleton", async () => {
   await openDetachedQSO(); expect(api.invoke).toHaveBeenCalledWith("open_detached_map", { kind: "log-qso" });
@@ -72,12 +72,15 @@ it("freezes edits before approved close, ignores repeated close, and unlocks on 
   let close!: () => void, reject!: (cause: Error) => void;
   const changed = vi.fn(), failed = vi.fn();
   api.close.mockImplementation(async (_: string, handler: () => void) => { close = handler; return vi.fn(); });
-  api.invoke.mockImplementation(() => { expect(changed).toHaveBeenLastCalledWith(true); return new Promise((_, fail) => { reject = fail; }); });
+  api.invoke.mockImplementation((command: string) => {
+    if (command === "operating_module_transition_pending") return Promise.resolve(null);
+    expect(changed).toHaveBeenLastCalledWith(true); return new Promise((_, fail) => { reject = fail; });
+  });
   const dispose = protectOperatorDraftClose(() => false, vi.fn(), failed, changed); await Promise.resolve();
   close(); close(); expect(api.invoke).toHaveBeenCalledOnce();
   reject(new Error("failed")); await vi.advanceTimersByTimeAsync(0);
   expect(changed).toHaveBeenLastCalledWith(false); expect(failed).toHaveBeenCalledOnce();
-  close(); expect(api.invoke).toHaveBeenCalledTimes(2); dispose();
+  close(); expect(api.invoke.mock.calls.filter(([command]) => command === "close_qso_window")).toHaveLength(2); dispose();
 });
 it("uses the main-only close command with the same synchronous admission and no automatic flush", async () => {
   let close!: () => void; const changed = vi.fn();

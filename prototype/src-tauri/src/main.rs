@@ -819,6 +819,7 @@ fn recover_singleton<T>(creation: &Mutex<()>, existing: impl FnOnce() -> Option<
 fn main_workspace(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow, String> {
     if APP_EXITING.load(Ordering::Acquire) { return Err("Application is shutting down".into()); }
     let main = recover_singleton(&MAIN_CREATION, || app.get_webview_window("main"), || {
+        let _module_admission = operating_module::owner()?.admit_current()?;
         if APP_EXITING.load(Ordering::Acquire) { return Err("Application is shutting down".into()); }
         let config = app.config().app.windows.iter().find(|window| window.label == "main")
             .ok_or("Main workspace configuration unavailable")?;
@@ -985,6 +986,7 @@ fn contest_setup_window_config(foreground: bool, acceptance: bool,
 fn ensure_contest_setup_window_for(app: &tauri::AppHandle, foreground: bool,
     host_active: Option<&HostActiveContest>, query_missing: bool) -> Result<(), String> {
     let window = recover_singleton(&CONTEST_SETUP_CREATION, || app.get_webview_window("contest-setup"), || {
+        let _module_admission = operating_module::owner()?.admit_current()?;
         let queried = if query_missing { query_host_active_contest()? } else { None };
         let effective_active = if query_missing { queried.as_ref() } else { host_active };
         let acceptance = app.state::<acceptance::Acceptance>().path.is_some();
@@ -1092,7 +1094,9 @@ fn fulfill_module_restart_intent(app: &tauri::AppHandle) -> Result<(), String> {
         module_restart_intent::Decision::None | module_restart_intent::Decision::WaitForNormal
             | module_restart_intent::Decision::WaitForSetup | module_restart_intent::Decision::WaitForContest => Ok(()),
         module_restart_intent::Decision::OpenNormalMain => {
+            app.state::<workspace_navigation::WorkspaceNavigation>().request("operator-desk")?;
             show_main_workspace(app)?;
+            app.emit_to("main", "xlog:workspace-navigation", ()).map_err(|error| error.to_string())?;
             module_restart_intent::consume(&directory, destination)
         }
         module_restart_intent::Decision::DiscardInactive => {
@@ -2616,50 +2620,54 @@ fn operating_module_status() -> Result<serde_json::Value, String> {
 }
 
 #[tauri::command]
-fn operating_module_transition_ack(window: tauri::WebviewWindow, request: String, ready: bool) -> Result<(), String> {
-    if !matches!(window.label(), "main" | CONTEST_SETUP_WINDOW) {
+fn operating_module_transition_ack(window: tauri::WebviewWindow, request: String, ready: bool, reason: Option<String>) -> Result<(), String> {
+    if !module_transition_editor(window.label()) {
         return Err("Only the active logging workspace can acknowledge operating-module preparation.".into());
     }
-    operating_module_prepare::preparation().acknowledge(window.label(), &request, ready)
+    operating_module_prepare::preparation().acknowledge(window.label(), &request, ready, reason.as_deref())
 }
 
-struct PreparedModuleTransition { request: String, window: &'static str }
+#[tauri::command]
+fn operating_module_transition_pending(window: tauri::WebviewWindow) -> Result<Option<String>, String> {
+    operating_module_prepare::preparation().request_for(window.label())
+}
 
-fn prepare_module_transition(app: &tauri::AppHandle, target: &str) -> Result<PreparedModuleTransition, String> {
-    let window_label = match target {
-        "normal_logging" => CONTEST_SETUP_WINDOW,
-        "contesting" => "main",
-        _ => return Err("Choose Normal Logging or Contesting.".into()),
-    };
-    let Some(window) = app.get_webview_window(window_label) else {
-        return Err(format!("{} is unavailable, so its active entry cannot be saved safely. Reopen it and retry.",
-            if window_label == CONTEST_SETUP_WINDOW { "Contest Setup" } else { "The main logging workspace" }));
-    };
+fn module_transition_editor(label: &str) -> bool {
+    matches!(label, "main" | CONTEST_SETUP_WINDOW | "log-qso" | "logbook")
+}
+
+struct PreparedModuleTransition { request: String, windows: Vec<String> }
+
+fn prepare_module_transition(app: &tauri::AppHandle, _target: &str) -> Result<PreparedModuleTransition, String> {
+    // An absent renderer has no buffered text. Contest Setup may legitimately
+    // have retired after its last child closed; inventory all surviving editors.
+    let windows = app.webview_windows().into_values().filter(|window| module_transition_editor(window.label())).collect::<Vec<_>>();
+    let labels = windows.iter().map(|window| window.label().to_owned()).collect::<Vec<_>>();
     let preparation = operating_module_prepare::preparation();
-    let request = preparation.begin(window_label)?;
-    let result = window.emit("xlog:operating-module-prepare", serde_json::json!({"request":request}))
-        .map_err(|error| error.to_string())
-        .and_then(|_| preparation.wait(&request, Duration::from_secs(3)));
+    let request = preparation.begin(&labels)?;
+    let result = (|| {
+        for window in &windows {
+            window.emit("xlog:operating-module-prepare", serde_json::json!({"request":request})).map_err(|error| error.to_string())?;
+        }
+        preparation.wait(&request, Duration::from_secs(10))
+    })();
     if let Err(error) = result {
-        let _ = window.emit("xlog:operating-module-cancel", serde_json::json!({"request":request}));
+        for window in &windows { let _ = window.emit("xlog:operating-module-cancel", serde_json::json!({"request":request})); }
         preparation.finish(&request);
         return Err(error);
     }
-    Ok(PreparedModuleTransition { request, window: window_label })
+    Ok(PreparedModuleTransition { request, windows: labels })
 }
 
 fn finish_module_transition_preparation(app: &tauri::AppHandle, prepared: &PreparedModuleTransition, resume: bool) {
     if resume {
-        if let Some(window) = app.get_webview_window(prepared.window) {
-            let _ = window.emit("xlog:operating-module-cancel", serde_json::json!({"request":prepared.request}));
+        for label in &prepared.windows {
+            if let Some(window) = app.get_webview_window(label) {
+                let _ = window.emit("xlog:operating-module-cancel", serde_json::json!({"request":prepared.request}));
+            }
         }
     }
     operating_module_prepare::preparation().finish(&prepared.request);
-}
-
-fn normal_operator_windows_open(app: &tauri::AppHandle) -> Vec<&'static str> {
-    ["log-qso", "logbook", "cw"].into_iter()
-        .filter(|label| app.get_webview_window(label).is_some()).collect()
 }
 
 fn unresolved_receipts(value: &serde_json::Value) -> bool {
@@ -2667,10 +2675,6 @@ fn unresolved_receipts(value: &serde_json::Value) -> bool {
 }
 
 fn require_module_transition_idle(app: &tauri::AppHandle) -> Result<(), String> {
-    let open = normal_operator_windows_open(app);
-    if !open.is_empty() {
-        return Err(format!("Close these operator windows before changing module: {}.", open.join(", ")));
-    }
     if SCP_IMPORT_ACTIVE.load(Ordering::Acquire) || HISTORY_PREVIEW_ACTIVE.load(Ordering::Acquire) {
         return Err("Close the active contest import or call-history chooser before changing module.".into());
     }
@@ -2710,6 +2714,7 @@ fn require_module_transition_idle(app: &tauri::AppHandle) -> Result<(), String> 
 }
 
 fn retire_for_module_restart(app: &tauri::AppHandle) -> Result<(), String> {
+    contest_recorder::prepare_module_restart()?;
     contest_voice::shutdown(app)?;
     carrier_tune::revoke_output_intent()?;
     radio_follow::revoke("The operating module changed. Follow Radio is off.");
@@ -2744,7 +2749,7 @@ fn switch_operating_module(app: &tauri::AppHandle, target: &str, context: &str,
         return Ok(rejected(error));
     }
     let owner = operating_module::owner()?;
-    let source = if target == "normal_logging" {
+    let source = if owner.snapshot()?["selected"] == "contesting" {
         operating_module::OperatingModule::Contesting
     } else {
         operating_module::OperatingModule::NormalLogging
@@ -2758,13 +2763,18 @@ fn switch_operating_module(app: &tauri::AppHandle, target: &str, context: &str,
         Err(error) => return Ok(rejected(format!("Operating module was not changed. {error}"))),
     };
     drop(preparation_guard);
-    let target = match owner.begin(target, context) {
+    let target = match owner.begin_restart(target, context) {
         Ok(target) => target,
         Err(error) => {
             finish_module_transition_preparation(app, &prepared, true);
             return Ok(rejected(error));
         }
     };
+    if app.webview_windows().keys().any(|label| module_transition_editor(label) && !prepared.windows.contains(label)) {
+        owner.cancel();
+        finish_module_transition_preparation(app, &prepared, true);
+        return Ok(rejected("An editor opened while preparing the workspace switch. Retry after it finishes loading.".into()));
+    }
     if let Err(error) = require_module_transition_idle(app) {
         owner.cancel();
         finish_module_transition_preparation(app, &prepared, true);
@@ -2778,7 +2788,11 @@ fn switch_operating_module(app: &tauri::AppHandle, target: &str, context: &str,
         finish_module_transition_preparation(app, &prepared, false);
         return Ok(failed(format!("Operating module was not changed. {error} Restart xLog before retrying because station services were retired.")));
     }
-    if let Some(destination) = restart_destination {
+    let destination = restart_destination.unwrap_or(match target {
+        operating_module::OperatingModule::NormalLogging => module_restart_intent::Destination::NormalMain,
+        operating_module::OperatingModule::Contesting => module_restart_intent::Destination::contest_route("contest-setup")?,
+    });
+    {
         let directory = app.path().app_data_dir().map_err(|error| error.to_string())?;
         if let Err(error) = module_restart_intent::publish(&directory, destination) {
             finish_module_transition_preparation(app, &prepared, false);
@@ -2796,6 +2810,29 @@ fn report_module_switch_failure(app: &tauri::AppHandle, result: &serde_json::Val
     }
     let _ = app.notification().builder().title("Operating module unchanged")
         .body(message).group("operating-module").show();
+    // Notifications can be disabled and Messages can be hidden. A rejected
+    // menu command must always explain itself in the foreground.
+    show_module_switch_error(app, message);
+}
+
+#[cfg(target_os = "macos")]
+fn show_module_switch_error(app: &tauri::AppHandle, message: &str) {
+    let message = message.to_owned();
+    let _ = app.run_on_main_thread(move || {
+        use objc2_app_kit::NSAlert;
+        use objc2_foundation::NSString;
+        if let Some(main) = objc2::MainThreadMarker::new() {
+            let alert = NSAlert::new(main);
+            alert.setMessageText(&NSString::from_str("Workspace switch could not finish"));
+            alert.setInformativeText(&NSString::from_str(&message));
+            let _ = alert.runModal();
+        }
+    });
+}
+
+#[cfg(not(target_os = "macos"))]
+fn show_module_switch_error(_app: &tauri::AppHandle, message: &str) {
+    rfd::MessageDialog::new().set_title("Workspace switch could not finish").set_description(message).show();
 }
 
 #[tauri::command]
@@ -3778,7 +3815,7 @@ fn main() {
                     match operating_module::owner().and_then(|owner| owner.snapshot()).and_then(|module|
                         switch_operating_module(&app, target, module["context"].as_str().unwrap_or(""), None)) {
                         Ok(result) => report_module_switch_failure(&app, &result),
-                        Err(error) => eprintln!("Could not change operating module: {error}"),
+                        Err(error) => report_module_switch_failure(&app, &serde_json::json!({"message":error})),
                     }
                 });
                 return;
@@ -4027,7 +4064,7 @@ fn main() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![operating_module_status, operating_module_switch, operating_module_transition_ack, worker_request, cw_session_request, contest_cw_speed_request, station_session_request, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
+        .invoke_handler(tauri::generate_handler![operating_module_status, operating_module_switch, operating_module_transition_ack, operating_module_transition_pending, worker_request, cw_session_request, contest_cw_speed_request, station_session_request, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity,
             operator_draft_read_radio,

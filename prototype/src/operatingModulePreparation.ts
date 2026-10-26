@@ -18,13 +18,14 @@ export function prepareOperatingModuleTransition(controller: () => OperatingModu
 
   const prepare = async (request: string) => {
     const current = controller();
+    if (request === preparingRequest || request === preparedRequest) return;
     if (!active || !current || preparingRequest !== null || preparedRequest !== null) {
       if (active) await invoke("operating_module_transition_ack", { request, ready: false }).catch(() => undefined);
       return;
     }
     preparingRequest = request;
     current.freeze();
-    let ready = false;
+    let ready = false, reason: string | undefined;
     try {
       await current.prepare();
       if (active && !cancelled.has(request)) {
@@ -33,13 +34,14 @@ export function prepareOperatingModuleTransition(controller: () => OperatingModu
       } else {
         current.resume();
       }
-    } catch {
+    } catch (cause) {
+      reason = cause instanceof Error ? cause.message : String(cause);
       current.resume();
     } finally {
       preparingRequest = null;
     }
     try {
-      if (active) await invoke("operating_module_transition_ack", { request, ready });
+      if (active) await invoke("operating_module_transition_ack", { request, ready, ...(reason ? { reason } : {}) });
     } catch {
       if (ready && preparedRequest === request) {
         preparedRequest = null;
@@ -59,8 +61,13 @@ export function prepareOperatingModuleTransition(controller: () => OperatingModu
       if (request === preparedRequest || request === preparingRequest) controller()?.resume();
       if (request === preparedRequest) preparedRequest = null;
     }),
-  ]).then(dispose => {
+  ]).then(async dispose => {
     if (active) stops.push(...dispose); else dispose.forEach(stop => stop());
+    // Recover a request sent before this renderer installed its listeners.
+    if (active) {
+      const pending = await invoke<string | null>("operating_module_transition_pending");
+      if (active && typeof pending === "string") await prepare(pending);
+    }
   }).catch(() => { /* Native preflight times out safely if listeners cannot install. */ });
 
   return () => {
@@ -68,4 +75,17 @@ export function prepareOperatingModuleTransition(controller: () => OperatingModu
     if (preparedRequest !== null || preparingRequest !== null) controller()?.resume();
     stops.forEach(stop => stop());
   };
+}
+
+/** Detached editors already own close vetoes. Freeze their input for the whole
+ * restart preflight so an acknowledged editor cannot receive new unsaved text. */
+export function prepareOperatingModuleEditor(blocked: () => boolean, explain: () => void) {
+  let inert = false;
+  return prepareOperatingModuleTransition(() => ({
+    freeze: () => { inert = document.body.inert; document.body.inert = true; },
+    prepare: async () => {
+      if (blocked()) { explain(); throw new Error("Finish or cancel unsaved editor changes before changing operating module."); }
+    },
+    resume: () => { document.body.inert = inert; },
+  }));
 }

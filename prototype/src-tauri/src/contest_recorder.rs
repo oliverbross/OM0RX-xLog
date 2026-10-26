@@ -161,6 +161,16 @@ pub fn shutdown() {
     }
 }
 
+/// Finalize the capture while its services still exist; a failed finalization
+/// must be reported before the operating-module restart can proceed.
+pub fn prepare_module_restart() -> Result<()> {
+    if let Some(owner) = existing() {
+        stop_replay();
+        owner.stop("stopped", "Operating module changed")?;
+    }
+    Ok(())
+}
+
 fn owner(app: &tauri::AppHandle) -> Result<Arc<Recorder>> {
     if let Some(owner) = existing() {
         return Ok(owner.clone());

@@ -202,6 +202,16 @@ impl Owner {
     }
 
     pub fn begin(&self, target: &str, context: &str) -> Result<OperatingModule, String> {
+        self.begin_transition(target, context, false)
+    }
+
+    /// Explicit mode-menu requests also rebuild an already selected workspace.
+    /// The same admission, context, retirement and persistence fences still apply.
+    pub fn begin_restart(&self, target: &str, context: &str) -> Result<OperatingModule, String> {
+        self.begin_transition(target, context, true)
+    }
+
+    fn begin_transition(&self, target: &str, context: &str, restart: bool) -> Result<OperatingModule, String> {
         let target = OperatingModule::parse(target)?;
         let mut state = self
             .state
@@ -213,7 +223,7 @@ impl Owner {
         if state.context != context {
             return Err("The operating-module choice is stale. Reload and try again.".into());
         }
-        if state.selected == target {
+        if state.selected == target && !restart {
             return Err("That operating module is already active.".into());
         }
         if state.active != 0 {
@@ -623,6 +633,21 @@ mod tests {
         assert_eq!(snapshot["selected"], "normal_logging");
         assert_eq!(snapshot["context"], context);
         assert_eq!(snapshot["transitioning"], false);
+    }
+
+    #[test]
+    fn explicit_workspace_restart_rotates_context_even_when_module_is_already_selected() {
+        let owner = Owner::memory(OperatingModule::NormalLogging);
+        let context = owner.snapshot().unwrap()["context"].as_str().unwrap().to_owned();
+        assert!(owner.begin_restart("normal_logging", "stale").is_err());
+        let admission = owner.admit_current().unwrap();
+        assert!(owner.begin_restart("normal_logging", &context).is_err());
+        drop(admission);
+        let target = owner.begin_restart("normal_logging", &context).unwrap();
+        assert!(owner.admit_current().is_err());
+        owner.commit(target).unwrap();
+        assert_ne!(owner.snapshot().unwrap()["context"], context);
+        assert!(owner.admit(OperatingModule::NormalLogging, Some(&context)).is_err());
     }
 
     #[test]

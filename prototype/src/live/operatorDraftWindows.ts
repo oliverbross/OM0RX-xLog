@@ -2,6 +2,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen, TauriEvent } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { prepareCanvasClose } from "./canvasClose";
+import { prepareOperatingModuleEditor } from "../operatingModulePreparation";
 
 export async function openDetachedQSO() {
   if (!isTauri()) throw new Error("Undocking requires the desktop application.");
@@ -85,6 +86,7 @@ export function protectOperatorDraftClose(blocked: () => boolean, explain: () =>
   if (!isTauri()) return () => {};
   let active = true, closing = false, stop: (() => void) | undefined;
   const stopCanvas = closeCommand === "close_qso_window" ? prepareCanvasClose(() => closing || blocked(), explain, failed) : () => {};
+  const stopModule = closeCommand === "close_qso_window" ? prepareOperatingModuleEditor(() => closing || blocked(), explain) : () => {};
   void getCurrentWindow().listen(TauriEvent.WINDOW_CLOSE_REQUESTED, () => {
     if (!active || closing) return;
     if (blocked()) { explain(); return; }
@@ -97,5 +99,5 @@ export function protectOperatorDraftClose(blocked: () => boolean, explain: () =>
     });
   }).then(dispose => { if (active) stop = dispose; else dispose(); })
     .catch(() => { if (active) failed("Close protection is unavailable. Resolve draft changes before closing this window."); });
-  return () => { active = false; stop?.(); stopCanvas(); };
+  return () => { active = false; stop?.(); stopCanvas(); stopModule(); };
 }
