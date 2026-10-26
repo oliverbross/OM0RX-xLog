@@ -149,6 +149,11 @@ async function qualifyCurrentDesk(plugin: string, raw: any, partialScore = false
       expect(String(logged.result.rows[0].SentNr)).toBe(String(fixture.expectedSentNr));
       expect(logged.result.rows[0].raw_fields.other_1).toBe(String(fixture.expectedSentNr));
     }
+    if (plugin === "jidx_cw" || plugin === "jidx_ph") {
+      const score = (await host.request("contest_score", {sessionID:session})).result.score;
+      expect(owner.current.projections.propagation.score.multiplierLabels).toEqual(score.multiplierSummaryLabels);
+      if (fixture.expectedMultiplierLabels) expect(score.multiplierSummaryLabels).toEqual(fixture.expectedMultiplierLabels);
+    }
     for (const panel of contestSurfacePanelIDs) {
       expect(validContestSurfaceProjection(panel, owner.current.projections[panel]), `${plugin}:${panel}`).toBe(true);
     }
@@ -178,4 +183,14 @@ it("current React desk sends literal WIA years licensed without a serial allocat
   fixture.state.settings.SentExchange = fixture.fields.other_1 = "25";
   fixture.expectedSentNr = 25;
   await qualifyCurrentDesk("wia_remembrance", fixture);
+}, 15000);
+
+it("current React desk shows JIDX Japanese entrant country and CQ-zone band scopes", async () => {
+  const fixture = structuredClone(fixtures.jidx_cw);
+  fixture.state.station = {Call:"JA1ABC",GridSquare:"PM95"};
+  fixture.state.settings.SentExchange = fixture.fields.other_1 = "13";
+  fixture.fields.callsign = fixture.firstRow.Call = "K1ABC";
+  fixture.fields.other_2 = "05";
+  fixture.expectedMultiplierLabels = ["1 country/band multipliers","1 CQ zone/band multipliers"];
+  await qualifyCurrentDesk("jidx_cw", fixture);
 }, 15000);

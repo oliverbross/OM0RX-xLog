@@ -119,7 +119,7 @@ export function authoritativeChangeRevision(row:Record<string,unknown>):number{
 type ContestFunctionKey = "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F7" | "F8" | "F9" | "F10" | "F11" | "F12";
 type Request = (method: string, params?: Record<string, unknown>) => Promise<unknown>;
 type Field = { id: string; label: string; accessibleName: string; value: string; visible: boolean; readOnly: boolean; enabled: boolean };
-type Score = { qsos: number; points: number; countries: number; zones: number; multipliers?: number; uniqueCalls?: number; prefixes?: number; sections?: number; headquarters?: number; gridSquares?: number; states?: number; exchangeBandMultipliers?: number; rdaDistricts?: number; oblasts?: number; total: number; scoringComplete?: boolean; scoringLimitations?: string[] };
+type Score = { qsos: number; points: number; countries: number; zones: number; multipliers?: number; uniqueCalls?: number; prefixes?: number; sections?: number; headquarters?: number; gridSquares?: number; states?: number; exchangeBandMultipliers?: number; rdaDistricts?: number; oblasts?: number; prefectures?: number; multiplierSummaryLabels?: string[]; total: number; scoringComplete?: boolean; scoringLimitations?: string[] };
 type ContestBandDefinition = { id: string; lowHz: number; highHz: number; value: number };
 type ContestSurfaceMode = "CW" | "SSB" | "RTTY" | "AM" | "FM";
 type PythonContestExportFormat = "cabrillo" | "adif" | "edi";
@@ -339,7 +339,7 @@ function projectionFields(projection: Projection | null) {
 
 function scoreSummary(score: Score | null, pluginID?: string) {
   if (!score) return null;
-  const multiplierLabels = score.uniqueCalls !== undefined ? [`${score.uniqueCalls} unique calls`]
+  const multiplierLabels = score.multiplierSummaryLabels ? [...score.multiplierSummaryLabels] : (score.uniqueCalls !== undefined ? [`${score.uniqueCalls} unique calls`]
     : score.prefixes !== undefined ? [`${score.prefixes} prefixes`] : score.sections !== undefined ? [`${score.sections} sections`]
     : pluginID === "nac_vhf" ? [`${score.gridSquares ?? 0} grid squares`]
     : pluginID === "cq_ww_rtty" ? [`${score.countries} countries`, `${score.zones} zones`, `${score.states ?? 0} states/provinces`]
@@ -350,7 +350,7 @@ function scoreSummary(score: Score | null, pluginID?: string) {
     : pluginID === "euhfc" ? [`${score.multipliers ?? 0} license years`]
     : pluginID === "iaru_hf" ? [`${score.headquarters ?? 0} headquarters`, `${score.zones} zones`]
     : pluginID?.startsWith("cq_ww_") ? [`${score.countries} countries`, `${score.zones} zones`]
-    : [`${score.multipliers ?? 0} multipliers (plugin)`];
+    : [`${score.multipliers ?? 0} multipliers (plugin)`]);
   if (score.scoringComplete === false) multiplierLabels.push(...(score.scoringLimitations ?? ["Some scoring information is unavailable."]));
   return { claimedScore: score.total, qsos: score.qsos, points: score.points,
     ...(score.scoringComplete === false ? {scoringComplete:false} : {}),
