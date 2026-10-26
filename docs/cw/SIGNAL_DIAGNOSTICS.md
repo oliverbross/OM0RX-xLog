@@ -70,3 +70,19 @@ Validation: native CTest 2/2 passed after these changes; Swift process/wire
 harness 13/13 passed for the diagnostics wire extension; UI diagnostics and
 disabled-build tests 11/11 passed. No live Flex IQ, RF mapping, held-out corpus,
 external logger, eight-hour or twenty-four-hour soak acceptance is claimed.
+
+## Prepared DSP attribution instrument
+
+`cw-dsp-profile` is a separate developer-only CMake target. It bounds input to
+1–16 tracks per span and 1–128 blocks at 96 ksample/s. It reports construction,
+8192-point spectrum analysis and per-channel processing separately, with wall
+time, process CPU time, call count and maximum call time. Synthetic generation
+is outside those measured regions. It never opens an IQ source, radio, model or
+spot output, and always reports `capacity_qualified=false`.
+
+The target compiled successfully on 26 October 2026. Execution was permanently
+blocked by the local shell allowlist because `cw-dsp-profile` was not allowed.
+The policy was not changed, and the command was not rerouted through another
+runner. No attribution timings exist from this instrument. Its compilation does
+not resolve the failed paced profiles above, and no FIR cache or other speculative
+optimization was introduced without a measurement.
