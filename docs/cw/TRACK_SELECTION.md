@@ -50,3 +50,25 @@ Seven focused Swift method cases and both Rust CW authority/timeout cases passed
 Rust unit tests used a test-only `TAURI_CONFIG` externalBin-empty override because
 this isolated worktree has no staged distribution helpers. No application was
 packaged there; canonical production package resource checks remain unchanged.
+
+## Callsign-only durable draft command
+
+`SpotDraftSelection.cwCallsign` carries the exact capture/track selection reference
+through the existing draft CAS, durable operation receipt and reservation owner.
+Its payload must have no frequency, mode, band, country, reference/comment tags
+or opportunity selection. It validates callsign shape, UUIDs and lossless counters.
+The caller must still resolve native live evidence; this marker grants no source
+authority by itself.
+
+Applying it changes the call, clears lookup identity belonging to a different
+previous call, and preserves frequency, mode, reports, operator comment and award
+references. The existing automatic/manual start-time and power owners still apply;
+an explicitly edited timestamp is retained. It does not insert a logged QSO.
+Every tune/rotor staging request is rejected for this draft-only record. Confirmed
+completion releases its exact reservation; same-operation retries read its durable
+receipt without reacquiring a lease.
+
+All seventeen activation/reservation tests passed, including two new cases for
+field preservation, station-effect refusal and malformed/mixed CW payloads.
+Native window action admission and the shared editor barrier integration are
+still required before exposing this command as an operator action.

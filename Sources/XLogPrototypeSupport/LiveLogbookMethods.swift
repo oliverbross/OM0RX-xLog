@@ -1620,13 +1620,17 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             case "spot_draft_apply":
                 _ = try integer(params, "expectedRevision", default: -1, range: 0...9_007_199_254_740_990)
                 guard let spot = params["spot"] as? [String: Any] else { throw invalid() }
-                try requireKeys(spot, allowed: ["call", "frequencyHz", "band", "mode", "country", "dxcc", "comment", "specialTags", "opportunity"],
+                try requireKeys(spot, allowed: ["call", "frequencyHz", "band", "mode", "country", "dxcc", "comment", "specialTags", "opportunity", "cwCallsign"],
                                 required: ["call", "frequencyHz", "band", "mode", "country", "comment", "specialTags"])
-                if !(spot["frequencyHz"] is NSNull && spot["opportunity"] != nil) {
+                if !(spot["frequencyHz"] is NSNull && (spot["opportunity"] != nil || spot["cwCallsign"] != nil)) {
                     _ = try integer(spot, "frequencyHz", default: 0, range: 1...1_000_000_000_000)
                 }
                 if let opportunity = spot["opportunity"] as? [String: Any] {
                     try requireKeys(opportunity, allowed: ["kind", "reference", "referenceKind"], required: ["kind", "reference", "referenceKind"])
+                }
+                if let reference=spot["cwCallsign"] as? [String:Any] {
+                    let keys:Set<String>=["sessionID","sourceID","streamToken","epoch","trackID","revision","selectionID"]
+                    try requireKeys(reference,allowed:keys,required:keys)
                 }
                 if spot["dxcc"] != nil, !(spot["dxcc"] is NSNull) { _ = try integer(spot, "dxcc", default: 0, range: 1...1_000) }
                 guard JSONSerialization.isValidJSONObject(params), try JSONSerialization.data(withJSONObject: params).count <= 16_384 else { throw invalid() }

@@ -11,6 +11,18 @@ public struct SpotDraftSelection: Codable, Equatable, Sendable {
     public let comment: String
     public let specialTags: [String]
     public let opportunity: OpportunityDraftReference?
+    public var cwCallsign: CWCallsignDraftReference? = nil
+    public var draftOnly:Bool {opportunity != nil || cwCallsign != nil}
+
+    public struct CWCallsignDraftReference:Codable,Equatable,Sendable {
+        public let sessionID:UUID
+        public let sourceID:UUID
+        public let streamToken:UUID
+        public let epoch:String
+        public let trackID:UUID
+        public let revision:String
+        public let selectionID:UUID
+    }
 
     public struct OpportunityDraftReference: Codable, Equatable, Sendable {
         public let kind: String
@@ -22,9 +34,9 @@ public struct SpotDraftSelection: Codable, Equatable, Sendable {
         let normalized = call.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard (2...32).contains(normalized.utf8.count),
               normalized.utf8.allSatisfy({ (65...90).contains($0) || (48...57).contains($0) || $0 == 47 || $0 == 45 }),
-              frequencyHz.map({ (1...1_000_000_000_000).contains($0) }) ?? (opportunity != nil),
-              (opportunity != nil ? (0...16) : (1...16)).contains(band.utf8.count),
-              (opportunity != nil ? (0...16) : (1...16)).contains(mode.utf8.count),
+              frequencyHz.map({ (1...1_000_000_000_000).contains($0) }) ?? draftOnly,
+              (draftOnly ? (0...16) : (1...16)).contains(band.utf8.count),
+              (draftOnly ? (0...16) : (1...16)).contains(mode.utf8.count),
               country.utf8.count <= 256, dxcc.map({ (1...1_000).contains($0) }) ?? true,
               comment.utf8.count <= 8_192, specialTags.count <= 32,
               specialTags.allSatisfy({ $0.utf8.count <= 128 }) else { throw SpotDraftError.invalid }
@@ -33,6 +45,17 @@ public struct SpotDraftSelection: Codable, Equatable, Sendable {
                   opportunity.reference.utf8.count <= 128,
                   ["pota", "sota", "wwff", "wwbota", "iota", "castle", "dxpedition", "special_event"].contains(opportunity.referenceKind)
             else { throw SpotDraftError.invalid }
+        }
+        if let cwCallsign {
+            guard (3...20).contains(normalized.utf8.count),normalized.utf8.contains(where:{(65...90).contains($0)}),
+                  normalized.utf8.contains(where:{(48...57).contains($0)}),!normalized.contains("-"),
+                  !normalized.hasPrefix("/"),!normalized.hasSuffix("/"),!normalized.contains("//"),
+                  opportunity==nil,frequencyHz==nil,band.isEmpty,mode.isEmpty,country.isEmpty,dxcc==nil,
+                  comment.isEmpty,specialTags.isEmpty,
+                  UInt64(cwCallsign.epoch).map({String($0)})==cwCallsign.epoch,
+                  UInt64(cwCallsign.revision).map({String($0)})==cwCallsign.revision,
+                  [cwCallsign.sessionID,cwCallsign.sourceID,cwCallsign.streamToken,cwCallsign.trackID,cwCallsign.selectionID]
+                    .allSatisfy({$0.uuidString != "00000000-0000-0000-0000-000000000000"}) else {throw SpotDraftError.invalid}
         }
     }
 
@@ -44,6 +67,14 @@ public struct SpotDraftSelection: Codable, Equatable, Sendable {
             qso.state = ""; qso.county = ""; qso.qth = ""; qso.email = ""
         }
         qso.call = call.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if cwCallsign != nil {
+            if previous.call.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() != qso.call {
+                qso.country="";qso.dxcc=nil
+            }
+            // Callsign loading preserves operating fields and operator text.
+            // The database's existing start-time and power owners still apply.
+            return qso
+        }
         qso.frequencyHz = frequencyHz
         qso.band = opportunity != nil ? frequencyHz.map(BandPlan.band(for:)) ?? previous.band : band.lowercased()
         qso.mode = opportunity != nil && mode.isEmpty ? previous.mode : mode.uppercased()

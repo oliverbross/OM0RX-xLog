@@ -40,6 +40,60 @@ struct SpotDraftActivationTests {
         let receipt = try #require(result["receipt"] as? [String: Any])
         return try #require(receipt["draft"] as? [String: Any])
     }
+    private func cwSelection() -> [String:Any] {
+        ["call":"K1ABC","frequencyHz":NSNull(),"band":"","mode":"","country":"","comment":"","specialTags":[],
+         "cwCallsign":["sessionID":UUID().uuidString,"sourceID":UUID().uuidString,"streamToken":UUID().uuidString,
+            "epoch":"1","trackID":UUID().uuidString,"revision":"0","selectionID":UUID().uuidString]]
+    }
+
+    @Test("CW callsign loading preserves operating fields and user text and cannot grant station effects")
+    func cwCallsignOnly() throws {
+        try fixture { service, _ in
+            let db=try service.openedDatabase(),current=try db.operatorDraft(initial:QSO(call:"",band:"20m",mode:"CW"))
+            var qso=current.qso
+            qso.call="DL1ABC";qso.start=Date(timeIntervalSince1970:1_700_000_000)
+            qso.frequencyHz=7_188_000;qso.band="40m";qso.mode="SSB";qso.rstSent="57";qso.rstReceived="56"
+            qso.country="Germany";qso.dxcc=230;qso.name="Prior station";qso.gridSquare="JO62"
+            qso.comment="Operator text";qso.potaReference="K-0001"
+            let edit=OperatorDraftMutation(operationID:UUID(),draftID:current.qso.id,expectedRevision:current.revision,action:.replace,qso:qso)
+            _ = try db.applyOperatorDraft(edit,nextDraft:QSO(call:"",band:"20m",mode:"CW"))
+            var request=try command(snapshot(service));request["spot"]=cwSelection()
+            let applied=try service.handle(method:"spot_draft_apply",params:request)
+            let selected=try #require(scopedReceiptDraft(applied)["qso"] as? [String:Any])
+            #expect(selected["call"] as? String == "K1ABC")
+            #expect(selected["frequencyHz"] as? Int == 7_188_000)
+            #expect(selected["band"] as? String == "40m");#expect(selected["mode"] as? String == "SSB")
+            #expect(selected["rstSent"] as? String == "57");#expect(selected["rstReceived"] as? String == "56")
+            #expect(selected["comment"] as? String == "Operator text");#expect(selected["potaReference"] as? String == "K-0001")
+            let saved=try db.operatorDraft(initial:qso)
+            #expect(saved.qso.start==qso.start);#expect(!saved.automaticStart)
+            #expect(saved.qso.country.isEmpty);#expect(saved.qso.dxcc==nil);#expect(saved.qso.name.isEmpty);#expect(saved.qso.gridSquare.isEmpty)
+            for name in ["tune_started","rotor_started"] {
+                var stage=try control(request,applied);stage["stage"]=name
+                #expect(throws:WorkerFailure.self){try service.handle(method:"spot_draft_stage",params:stage)}
+            }
+            var finish=try control(request,applied);finish["outcome"]="confirmed"
+            #expect(try service.handle(method:"spot_draft_finish",params:finish)["phase"] as? String == "confirmed")
+            let replay=try service.handle(method:"spot_draft_apply",params:request)
+            #expect(replay["replay"] as? Bool == true);#expect(replay["leaseID"]==nil)
+        }
+    }
+
+    @Test("CW callsign-only commands reject mixed selections, RF fields and unknown provenance")
+    func cwCallsignCommandBounds() throws {
+        try fixture { service, _ in
+            let request=try command(snapshot(service))
+            for (key,value):(String,Any) in [("frequencyHz",14_025_000),("mode","CW"),("country","United States"),
+                ("call","CQ"),("call","K1ABC-1"),
+                ("opportunity",["kind":"pota","reference":"K-0001","referenceKind":"pota"])] {
+                var invalid=request,spot=cwSelection();spot[key]=value;invalid["spot"]=spot
+                #expect(throws:WorkerFailure.self){try service.handle(method:"spot_draft_apply",params:invalid)}
+            }
+            var invalid=request,spot=cwSelection(),reference=try #require(spot["cwCallsign"] as? [String:Any])
+            reference["call"]="K1ABC";spot["cwCallsign"]=reference;invalid["spot"]=spot
+            #expect(throws:WorkerFailure.self){try service.handle(method:"spot_draft_apply",params:invalid)}
+        }
+    }
 
     @Test("Apply is atomic, same-ID retries retain receipt, and a stage grants one send only")
     func replayAndStages() throws {

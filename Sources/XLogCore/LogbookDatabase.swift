@@ -2009,7 +2009,7 @@ public final class LogbookDatabase: @unchecked Sendable {
             try execute("BEGIN IMMEDIATE;")
             do {
                 var record = try requireSpotDraftLease(operationID: operationID, generation: generation, leaseID: leaseID)
-                guard record.command.spot.opportunity == nil else { throw SpotDraftError.invalidTransition }
+                guard !record.command.spot.draftOnly else { throw SpotDraftError.invalidTransition }
                 guard !stage.terminal, stage != .draft_applied else { throw SpotDraftError.invalidTransition }
                 if record.phase == stage {
                     try execute("COMMIT;"); return false
@@ -2038,7 +2038,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 }
                 _ = try requireSpotDraftLease(operationID: operationID, generation: generation, leaseID: leaseID)
                 guard outcome != .confirmed || [.tune_confirmed, .rotor_started].contains(record.phase)
-                    || record.command.spot.opportunity != nil && record.phase == .draft_applied else {
+                    || record.command.spot.draftOnly && record.phase == .draft_applied else {
                     throw SpotDraftError.invalidTransition
                 }
                 record.phase = outcome
