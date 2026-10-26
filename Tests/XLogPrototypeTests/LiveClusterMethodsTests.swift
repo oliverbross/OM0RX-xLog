@@ -102,6 +102,29 @@ private actor SlowPriorSpotCleanup {
 
 @Suite("Portable live cluster worker bridge")
 struct LiveClusterMethodsTests {
+    @Test("CW classification reads only a current existing projection and never starts a transport")
+    func cwClassificationIsPassive() async throws {
+        let root=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer{try? FileManager.default.removeItem(at:root)}
+        let logbook=LiveLogbookMethods(supportDirectory:root,inheritNativePreferences:false)
+        _ = try logbook.handle(method:"workspace_create",params:["mode":"empty"])
+        _ = try logbook.handle(method:"logbook_import_adif",params:["text":"<CALL:5>K1ABC<QSO_DATE:8>20261001<TIME_ON:6>120000<BAND:3>20m<MODE:2>CW<EOR>"])
+        let fixture=WorkerClusterFixture()
+        let cluster=LiveClusterMethods(logbook:logbook,vault:UnavailableClusterTestVault(),transportFactory:{_,_,_,_,_,_ in fixture})
+        #expect(await cluster.classifyCWIfCurrent(call:"K1ABC",frequencyHz:14025000)==nil)
+        #expect(fixture.counts.0==0)
+        try await cluster.refreshContacts()
+        let classification=await cluster.classifyCWIfCurrent(call:"K1ABC",frequencyHz:14025000)
+        #expect(classification?.callStatus=="Worked")
+        #expect(await cluster.currentSpotRowsIfStarted().isEmpty)
+        await cluster.invalidateContactsForWorkspaceChange()
+        #expect(await cluster.classifyCWIfCurrent(call:"K1ABC",frequencyHz:14025000)==nil)
+        await cluster.finishWorkspaceChange()
+        #expect(await cluster.classifyCWIfCurrent(call:"K1ABC",frequencyHz:14025000)==nil)
+        await cluster.terminate()
+        #expect(await cluster.classifyCWIfCurrent(call:"K1ABC",frequencyHz:14025000)==nil)
+        #expect(fixture.counts.0==0)
+    }
     private func request(_ worker: LiveWorker, _ method: String, _ params: [String: Any] = [:]) async throws -> [String: Any] {
         let data = try JSONSerialization.data(withJSONObject: ["id": method, "method": method, "params": params])
         return try #require(JSONSerialization.jsonObject(with: await worker.response(to: data)) as? [String: Any])

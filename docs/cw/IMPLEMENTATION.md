@@ -102,8 +102,8 @@ graph is **298,414 bytes**. The subsequent focused Swift run passed 25 XCTest
 cases plus 17 Swift Testing activation/reservation cases (42 total).
 
 This source remains isolated and unpackaged. Installed 1.3.32 remains the other
-chats' accepted contest build with CW disabled. Installed Tune acceptance, opportunity
-annotations, selected-track scheduling, complete restart recovery, real source
+chats' accepted contest build with CW disabled. Installed Tune/Opportunity acceptance,
+selected-track scheduling, complete restart recovery, real source
 and RF mapping, held-out quality, measured standard capacity, external-client
 and 8/24-hour soak gates remain open. No reduced launch scope or completed CW
 release is claimed.

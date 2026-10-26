@@ -37,6 +37,14 @@ describe("native CW Decode projection", () => {
     expect(parseCWDecodeSnapshot(fixture).tracks[0].controlActivation).toEqual(track.controlActivation);
     track.muted = true; expect(() => parseCWDecodeSnapshot(fixture)).toThrow();
   });
+  it("accepts only existing logbook status annotations on a qualified callsign row", () => {
+    const fixture=cwDecodeTrackFixture(),track=fixture.tracks[0];track.descriptor.mappingQualified=true;track.frequencyHz=14025000;
+    track.selection={callsign:"K1ABC",reference:{sessionID:track.descriptor.sessionID,sourceID:track.sourceID,streamToken:track.descriptor.streamToken,
+      epoch:track.descriptor.epoch,trackID:track.trackID,revision:track.revision,selectionID:crypto.randomUUID()}};
+    track.opportunity={callStatus:"New Call",dxccStatus:"ATNO"};expect(parseCWDecodeSnapshot(fixture).tracks[0].opportunity).toEqual(track.opportunity);
+    const malformed=structuredClone(fixture);malformed.tracks[0].opportunity!.callStatus="Guessed call";expect(()=>parseCWDecodeSnapshot(malformed)).toThrow();
+    delete track.selection;expect(()=>parseCWDecodeSnapshot(fixture)).toThrow();
+  });
   it("rejects lossy capture identity, unqualified RF and unbounded arrays", () => {
     const numericEpoch = cwDecodeTrackFixture(); (numericEpoch.tracks[0].descriptor as any).epoch = 12;
     expect(() => parseCWDecodeSnapshot(numericEpoch)).toThrow();

@@ -32,6 +32,7 @@
 .cw-decode-frequency,.cw-decode-copy,.cw-decode textarea { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums; }
 .cw-decode-frequency { white-space:nowrap; color:var(--cyan,#35c8f5); }
 .cw-decode-frequency small { display:block; }
+.cw-decode-opportunity { white-space:nowrap; }.cw-decode-opportunity small { display:block; }
 .cw-decode-copy { min-width:260px; max-width:520px; overflow-wrap:anywhere; white-space:pre-wrap; }
 .cw-decode-provisional,.cw-decode-placeholder { color:#a0b3ca; }
 .cw-decode-empty { padding:32px 12px; text-align:center; max-width:70ch; margin:auto; }

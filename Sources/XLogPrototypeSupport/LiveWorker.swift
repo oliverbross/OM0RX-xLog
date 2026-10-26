@@ -273,7 +273,8 @@ public actor LiveWorker {
         self.cluster = cluster
         #if os(macOS)
         cwDecode = LiveCWDecodeMethods(logbook:logbook,prepareListener:{try await cluster.prepareLocalCWListener()},
-            ingestSpot:{spot,call in try await cluster.ingestLocalCW(spot,stationCallsign:call)})
+            ingestSpot:{spot,call in try await cluster.ingestLocalCW(spot,stationCallsign:call)},
+            classify:{call,frequency in await cluster.classifyCWIfCurrent(call:call,frequencyHz:frequency)})
         #endif
         self.contactRefresher = contactRefresher ?? { try await cluster.refreshContacts() }
         let opportunityMethods = opportunityMethods ?? LiveOpportunitiesMethods(logbook: logbook, clusterSpots: { await cluster.currentSpotRowsIfStarted() })

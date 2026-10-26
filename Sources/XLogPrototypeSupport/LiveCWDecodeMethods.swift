@@ -2,6 +2,7 @@
 #if os(macOS)
 import Foundation
 import XCWCore
+import XClusterIntegrationCore
 
 actor LiveCWDecodeMethods {
     private struct SelectionRequest:Decodable {
@@ -17,6 +18,7 @@ actor LiveCWDecodeMethods {
     private let ingestSpot:@Sendable (CWConfirmedSpot,String) async throws -> Bool
     private let stationCallsign:@Sendable () throws -> String
     private let featureEnabled:@Sendable ()->Bool
+    private let classify:@Sendable (String,Int64) async -> ClusterClassification?
     private var publisher:Task<Void,Never>?
     private var spotOutputFailure:String?
     private var listenerIntent=UUID()
@@ -27,6 +29,7 @@ actor LiveCWDecodeMethods {
          resources: @escaping @Sendable () throws -> CWComputeResources = {try CWBundleResources.locate()},
          listener:CWLocalClusterServer = CWLocalClusterServer(),prepareListener:@escaping @Sendable () async throws -> Void = {},
          ingestSpot:@escaping @Sendable (CWConfirmedSpot,String) async throws -> Bool = {_,_ in false},
+         classify:@escaping @Sendable (String,Int64) async -> ClusterClassification? = {_,_ in nil},
          featureEnabled:@escaping @Sendable ()->Bool={CWBundleResources.experimentalEnabled()}) {
         let url=configurationURL ?? (logbook === LiveLogbookMethods.shared
             ? FileManager.default.urls(for:.applicationSupportDirectory,in:.userDomainMask)[0]
@@ -36,6 +39,7 @@ actor LiveCWDecodeMethods {
         self.listener=listener;self.prepareListener=prepareListener
         self.ingestSpot=ingestSpot;stationCallsign={try logbook.currentSettings().stationCall}
         self.featureEnabled=featureEnabled
+        self.classify=classify
     }
     func terminate() async {terminated=true;publisher?.cancel();publisher=nil;listenerIntent=UUID();handoffIntent=UUID();await LiveStationMethods.cwFlexRevokeHandoffs();await listener.stop();await session.stop()}
     func handle(method: String,params: [String:Any]) async throws -> [String:Any] {
@@ -170,6 +174,15 @@ actor LiveCWDecodeMethods {
         if let spotOutputFailure{result["spotOutputFailure"]=spotOutputFailure}
         result["listener"]=try Self.object(await listener.snapshot())
         guard featureEnabled() else{result["capabilities"]=[];return result}
+        var tracks=result["tracks"] as? [[String:Any]] ?? []
+        for (index,track) in snapshot.tracks.enumerated() {
+            guard snapshot.state=="running",!track.muted,!track.ambiguous,!track.descriptor.replay,
+                  track.descriptor.mappingQualified,let frequency=track.frequencyHz,let selection=track.selection,
+                  let value=await classify(selection.callsign,frequency) else{continue}
+            tracks[index]["opportunity"]=["callStatus":value.callStatus,"dxccStatus":value.dxccStatus]
+        }
+        guard !terminated else{throw WorkerFailure("worker_stopping","CW Decode is shutting down.")}
+        result["tracks"]=tracks
         async let first=LiveStationMethods.cwTCICapabilities(radioID:"radio1")
         async let second=LiveStationMethods.cwTCICapabilities(radioID:"radio2")
         async let flexFirst=LiveStationMethods.cwFlexCapabilities(radioID:"radio1")

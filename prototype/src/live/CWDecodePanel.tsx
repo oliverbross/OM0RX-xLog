@@ -69,7 +69,7 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
         <div className="cw-decode-signals"><div className="cw-decode-table-bar"><h3>Signals <span>{tracks.length}</span></h3>
           <label>Source<select value={sourceFilter} onChange={event => setSourceFilter(event.target.value)}><option value="all">All spans</option>
             {configured.map(source => <option key={source.id} value={source.id}>{cwSourceName(source)}</option>)}</select></label></div>
-          <div className="cw-decode-table-scroll"><table><thead><tr><th>Source</th><th>RF / offset</th><th>Call</th><th>Decoded text</th><th>Est. WPM</th><th>Est. SNR</th><th>State</th></tr></thead>
+          <div className="cw-decode-table-scroll"><table><thead><tr><th>Source</th><th>RF / offset</th><th>Call</th><th>Decoded text</th><th>Est. WPM</th><th>Est. SNR</th><th>Opportunity</th><th>State</th></tr></thead>
             <tbody>{tracks.map(track => <tr key={track.trackID} aria-selected={selected === track.trackID}>
               <td><button type="button" onClick={() => setSelected(track.trackID)} aria-label={`Inspect signal ${offset(track.offsetHz)} on ${cwSourceName(track.descriptor)}`}>{cwSourceName(track.descriptor)}</button></td>
               <td className="cw-decode-frequency">{track.frequencyHz === undefined ? offset(track.offsetHz) : mhz(track.frequencyHz)}{track.frequencyHz === undefined && <small>RF unqualified</small>}</td>
@@ -77,6 +77,8 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
               <td className="cw-decode-copy"><span>{track.committed}</span><span className="cw-decode-provisional" aria-label="Provisional text">{track.provisional}</span>{!track.committed && !track.provisional && <span className="cw-decode-placeholder">Waiting for copy</span>}</td>
               <td title={track.estimatedWPM === undefined ? "Speed has not been measured" : "Estimated from observed key-down durations using the PARIS timing unit"}>{track.estimatedWPM?.toFixed(1) ?? "—"}</td>
               <td title={track.estimatedSNRDB === undefined ? "Signal-to-noise ratio has not been measured" : "Estimated SNR relative to 2.5 kHz noise bandwidth; hardware calibration pending"}>{track.estimatedSNRDB === undefined ? "—" : `${track.estimatedSNRDB.toFixed(1)} dB`}</td>
+              <td className="cw-decode-opportunity" title="Existing logbook classification for this observed call and CW band.">{track.opportunity?.callStatus ?? "Unavailable"}
+                {track.opportunity && <small>DXCC {track.opportunity.dxccStatus}</small>}</td>
               <td>{track.muted ? "Muted" : track.ambiguous ? "Ambiguous" : track.committed ? "Committed + live tail" : "Provisional"}</td>
             </tr>)}</tbody></table></div>
           {!tracks.length && <div className="cw-decode-empty"><h3>{active ? "Listening for CW signals" : "No live signals"}</h3>

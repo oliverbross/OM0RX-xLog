@@ -4,6 +4,28 @@ import XCTest
 @testable import XClusterIntegrationCore
 
 final class LocalCWIngressTests:XCTestCase {
+    func testPassiveCWClassificationUsesExistingIndexWithoutPublishingOrConnecting() async throws {
+        let service=ClusterSessionService(configuration:.init(servers:[],showWorkedBandModeSpots:true),
+            transportFactory:{_,_,_,_,_,_ in XCTFail("Classification must not connect");return LocalCWNoTransport()})
+        let missing=await service.classifyLocalCW(call:"K1ABC/P",frequencyHz:14025123)
+        XCTAssertNil(missing)
+        for (records,expected) in [([ClusterContact](),"New Call"),
+            ([ClusterContact(callsign:"K1ABC/P",band:"40m",mode:"CW")],"New Band"),
+            ([ClusterContact(callsign:"K1ABC/P",band:"20m",mode:"CW")],"Worked"),
+            ([ClusterContact(callsign:"K1ABC/P",band:"20m",mode:"CW",paperQSL:"Y")],"Confirmed")] {
+            await service.replaceContacts(records)
+            let value=await service.classifyLocalCW(call:"K1ABC/P",frequencyHz:14025123)
+            XCTAssertEqual(value?.callStatus,expected)
+            let snapshot=await service.snapshot();XCTAssertEqual(snapshot.loadedSpots,0);XCTAssertEqual(snapshot.connectedClusters,0)
+        }
+        for (call,hz) in [("K1ABC?",Int64(14025000)),("CQ",14025000),("k1abc",14025000),("K1ABC",100)] {
+            let invalid=await service.classifyLocalCW(call:call,frequencyHz:hz);XCTAssertNil(invalid)
+        }
+        await service.invalidateContacts()
+        let stale=await service.classifyLocalCW(call:"K1ABC/P",frequencyHz:14025123);XCTAssertNil(stale)
+        await service.terminate()
+        let closed=await service.classifyLocalCW(call:"K1ABC/P",frequencyHz:14025123);XCTAssertNil(closed)
+    }
     func testOwnInstanceGreetingStopsInboundBeforeFollowingSpots() async throws {
         let owner=UUID(),instance=UUID(),guardOwner=CWLocalEndpointGuard.shared
         try guardOwner.reserveListener(owner:owner,port:49112,instance:instance)

@@ -40,7 +40,7 @@ The incumbent navy/system-font console is preserved. The same input/copy styles
 and readable labels are used at both sizes; the dense table scrolls within its
 own region. These are renderer checks, not installed-app or RF acceptance.
 
-The isolated follow-up branch adds Call, native signal estimates with expiry,
+The isolated follow-up branch adds Call and Opportunity, native signal estimates with expiry,
 requested/actual rate and usable-width status, fresh worker load counts,
 committed-only Copy, source evidence details, native track Mute and explicit
 Use callsign in both logging modules and separate explicit Tune. See [selection/action boundaries](TRACK_SELECTION.md)
@@ -65,3 +65,18 @@ evidence, hardware signal calibration, installed Tune acceptance,
 complete process-restart action recovery, full CW package acceptance,
 external-client acceptance, measured capacity and the required soaks.
 This development UI does not claim the complete feature has shipped.
+
+Opportunity reads the existing cluster contact index for a resolved callsign on
+a qualified CW band. Call status and DXCC status remain distinct. This is a
+passive annotation: it cannot publish a spot, repair a callsign hypothesis or
+change worked/confirmed state. The worker uses only an already loaded current
+contact projection; it does not scan the database or connect a cluster when this
+view opens. Missing/stale contacts, call-less, ambiguous, muted, replay or
+unqualified-frequency rows show Unavailable. It does not claim contest multiplier
+or dupe classification. Contact refresh and workspace changes fence late results.
+
+Validation includes index parity for new/worked/confirmed calls, unavailable
+contact state, no published spots or opened transports, worker cache lifecycle
+and strict renderer projection. This is source/fixture evidence only.
+Fourteen Swift cases (13 XCTest and one Swift Testing), 33 focused frontend
+cases and TypeScript passed on the Opportunity change.

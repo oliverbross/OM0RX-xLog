@@ -9,7 +9,8 @@ export type CWTrackSelection = { reference: CWTrackReference; callsign: string; 
 export type CWDecodeTrack = { sourceID: string; trackID: string; descriptor: CWDescriptor; revision: string; offsetHz: number; frequencyHz?: number;
   committed: string; provisional: string; ambiguous: boolean; inferenceMilliseconds?: number; spotRejection?: string;
   estimatedWPM?: number; estimatedSNRDB?: number; snrReferenceHz?: number; selection?: CWTrackSelection; controlReference?: CWTrackReference;
-  controlActivation?: { sourceEpoch: string; spotVersion: string }; muted?: boolean };
+  controlActivation?: { sourceEpoch: string; spotVersion: string }; muted?: boolean;
+  opportunity?: { callStatus: string; dxccStatus: string } };
 export type CWCapability = { radioID: string; provider: string; ready: boolean; device?: string; protocolVersion?: string;
   receivers: { receiver: number; enabled?: boolean; centreHz?: number }[]; requestableSampleRates: number[]; transmitStateKnownOff?: boolean;
   inventoryRevision?: string; identity?: { serial: string; model: string; address: string; controlPort: number }; stationHandle?: number;
@@ -64,6 +65,13 @@ const trackControl = (track: Record<string, any>): boolean => {
       ["sessionID", "sourceID", "streamToken"].every(key => reference[key].toLowerCase() === track.descriptor[key].toLowerCase()) &&
       reference.trackID.toLowerCase() === track.trackID.toLowerCase() && reference.epoch === track.descriptor.epoch && reference.revision === track.revision);
 };
+const trackOpportunity = (track: Record<string, any>): boolean => {
+  const value = track.opportunity;
+  return value === undefined || object(value) && Object.keys(value).length === 2 && track.selection !== undefined &&
+    track.frequencyHz !== undefined && !track.muted && !track.ambiguous && !track.descriptor.replay &&
+    ["Unknown", "New Call", "New Band+Mode", "New Band", "New Mode", "Worked", "Confirmed"].includes(value.callStatus) &&
+    ["Unknown", "ATNO", "Worked", "Confirmed", "C/New Band+Mode", "C/New Band", "C/New Mode", "W/New Band+Mode", "W/New Band", "W/New Mode"].includes(value.dxccStatus);
+};
 
 export function parseCWDecodeSnapshot(value: unknown): CWDecodeSnapshot {
   if (!object(value) || !["stopped", "preparing", "running", "recovering", "blocked", "stopping"].includes(value.state) ||
@@ -90,7 +98,7 @@ export function parseCWDecodeSnapshot(value: unknown): CWDecodeSnapshot {
     typeof track.revision === "string" && counter.test(track.revision) && typeof track.offsetHz === "number" && Number.isFinite(track.offsetHz) &&
     Math.abs(track.offsetHz) <= track.descriptor.sampleRate / 2 && typeof track.committed === "string" && track.committed.length <= 1024 &&
     typeof track.provisional === "string" && track.provisional.length <= 1024 && typeof track.ambiguous === "boolean" &&
-    trackSelection(track) && trackControl(track) &&
+    trackSelection(track) && trackControl(track) && trackOpportunity(track) &&
     (track.frequencyHz === undefined || track.descriptor.mappingQualified && integer(track.frequencyHz, 100000, 1e9)) &&
     (track.spotRejection === undefined || ["quality_not_qualified", "replay", "stale_source", "unmapped_frequency", "contaminated", "ambiguous", "insufficient_occurrences", "cooldown", "invalid_evidence"].includes(track.spotRejection)) &&
     (track.estimatedWPM === undefined || Number.isFinite(track.estimatedWPM) && track.estimatedWPM >= 5 && track.estimatedWPM <= 80) &&

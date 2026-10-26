@@ -527,6 +527,15 @@ public actor LiveClusterMethods {
               let object = try? json(snapshot) as? [String: Any] else { return [] }
         return object["spots"] as? [[String: Any]] ?? []
     }
+    /// Annotation reads only an existing current contact projection. Opening a
+    /// CW view cannot scan the database or start a cluster connection.
+    func classifyCWIfCurrent(call:String,frequencyHz:Int64) async -> ClusterClassification? {
+        guard !terminated,workspaceTransitionCount==0,contactRefreshState=="current",let service else{return nil}
+        let revision=contactRefreshRevision
+        let value=await service.classifyLocalCW(call:call,frequencyHz:frequencyHz)
+        guard !terminated,workspaceTransitionCount==0,contactRefreshState=="current",revision==contactRefreshRevision else{return nil}
+        return value
+    }
 
     /// Called after local QSO mutations, import, restore or remote reconciliation.
     public func refreshContacts() async throws {

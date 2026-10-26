@@ -14,6 +14,13 @@ function service(initial = cwDecodeFixture()) {
   return { request, set: (next: CWDecodeSnapshot) => { current = next; } };
 }
 describe("CW Decode shared native view", () => {
+  it("shows existing opportunity annotations and keeps unavailable classification explicit", async () => {
+    const fixture=cwDecodeTrackFixture();fixture.tracks[0].opportunity={callStatus:"Worked",dxccStatus:"Confirmed"};
+    const owner=service(fixture);render(<CWDecodePanel request={owner.request} />);
+    await screen.findByText("Worked");expect(screen.getByText("DXCC Confirmed")).toBeTruthy();
+    expect(screen.getByRole("columnheader",{name:"Opportunity"})).toBeTruthy();
+    expect(owner.request.mock.calls.every(([method])=>method==="cw_decode_snapshot")).toBe(true);
+  });
   it("mutes a call-less track only on explicit native-reference intent", async () => {
     const fixture = cwDecodeTrackFixture(), track = fixture.tracks[0]; fixture.featureEnabled = true;
     track.controlReference = { sessionID: track.descriptor.sessionID, sourceID: track.sourceID, streamToken: track.descriptor.streamToken,
