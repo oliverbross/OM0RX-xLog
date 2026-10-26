@@ -350,7 +350,7 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
       value={String(draft.settings.EndDate || contestSchedule(draft.pluginID,draft.settings).contestEndAt?.slice(0,19) || "").replace(" ","T")}
       onChange={event=>update("settings","EndDate",(event.target.value.length===16?event.target.value+":00":event.target.value).replace("T"," "))}/></label>
     <p className="contest-manual-stack">{cqWWStationZonePlugins.has(draft.pluginID) && !draft.settings.EndDate
-      ? "Finish defaults to 48 hours after Start UTC. Enter End UTC to override."
+      ? "Default: CQ WW organizer calendar when the contest year is known. Enter End UTC to use your configured period."
       : "Set the full contest period in UTC. Remaining time appears in Rates."}</p>
     <hr/>
     {choice("settings", "OperatorCategory", "Operator", ["SINGLE-OP", "MULTI-OP", "MULTI-TWO", "CHECKLOG"])}

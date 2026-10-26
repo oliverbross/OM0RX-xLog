@@ -490,7 +490,7 @@ struct LiveClusterMethodsTests {
         #expect(published["accepted"] as? Int == 1)
         await recorder.setRemovalAccepted(false)
         let worker = LiveWorker(logbook: logbook, localAcceptance: true, cluster: cluster)
-        #expect(await worker.shutdown() == false)
+        #expect(await worker.shutdownOutcome() == .contestSpotWithdrawalFailed)
         #expect((await recorder.activeSnapshot()).count == 1)
 
         await recorder.setRemovalAccepted(true)

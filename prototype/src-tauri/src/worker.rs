@@ -611,6 +611,10 @@ impl Session {
     }
 
     fn shutdown_with_grace(self: &Arc<Self>, grace: Duration) -> bool {
+        self.shutdown_result_with_grace(grace).is_ok()
+    }
+
+    fn shutdown_result_with_grace(self: &Arc<Self>, grace: Duration) -> Result<(), String> {
         // Stop admission atomically with registration, but keep routing alive
         // while accepted requests finish. The worker needs stdin EOF to release
         // only the station controls it owns.
@@ -618,11 +622,11 @@ impl Session {
             self.accepting.store(false, Ordering::Release);
         } else {
             self.retire("Station service routing failed during shutdown");
-            return false;
+            return Err("The station service routing lock failed during retirement.".into());
         }
         if !self.alive.load(Ordering::Acquire) {
             self.kill_reap();
-            return false;
+            return Err("The station service had already stopped before retirement.".into());
         }
         // A writer can be blocked on a full stdin pipe. Close on another
         // thread only after all admitted writers attempted their writes; the
@@ -639,13 +643,13 @@ impl Session {
             }
         });
         let deadline = Instant::now() + grace;
-        let mut graceful = true;
+        let mut failure = None;
         loop {
             let exited = match self.child.lock() {
                 Ok(mut child) => match child.as_mut() {
                     Some(process) => match process.try_wait() {
                         Ok(Some(status)) => {
-                            if !status.success() { graceful = false; }
+                            if !status.success() { failure = Some(worker_retirement_exit_message(status.code())); }
                             *child = None;
                             true
                         }
@@ -653,18 +657,18 @@ impl Session {
                         Err(_) => {
                             drop(child);
                             self.kill_reap();
-                            graceful = false;
+                            failure = Some("The station service could not be reaped during retirement.".into());
                             true
                         }
                     },
                     None => {
-                        graceful = false;
+                        failure = Some("The station service process was unavailable during retirement.".into());
                         true
                     },
                 },
                 Err(_) => {
                     self.kill_reap();
-                    graceful = false;
+                    failure = Some("The station service process lock failed during retirement.".into());
                     true
                 }
             };
@@ -673,7 +677,7 @@ impl Session {
             }
             if Instant::now() >= deadline {
                 self.kill_reap();
-                graceful = false;
+                failure = Some("The station service exceeded the retirement deadline.".into());
                 break;
             }
             std::thread::sleep(Duration::from_millis(25));
@@ -693,12 +697,12 @@ impl Session {
             std::thread::sleep(Duration::from_millis(5));
         }
         if self.pending.lock().map(|pending| !pending.is_empty()).unwrap_or(true) {
-            graceful = false;
+            failure.get_or_insert_with(|| "The station service exited without answering accepted work; its outcome is unknown.".into());
         }
         if !self.output_finished.load(Ordering::Acquire)
             || self.retirement_failed.load(Ordering::Acquire)
         {
-            graceful = false;
+            failure.get_or_insert_with(|| "The station service response stream did not retire cleanly.".into());
         }
         self.alive.store(false, Ordering::Release);
         if let Ok(mut pending) = self.pending.lock() {
@@ -708,7 +712,17 @@ impl Session {
                 ));
             }
         }
-        graceful
+        failure.map_or(Ok(()), Err)
+    }
+}
+
+fn worker_retirement_exit_message(code: Option<i32>) -> String {
+    match code {
+        Some(70) => "The station service could not settle online-log delivery state before retirement.".into(),
+        Some(71) => "The station service could not confirm removal of contest-owned radio spots before retirement.".into(),
+        Some(72) => "The station service could not settle online-log delivery state or remove contest-owned radio spots before retirement.".into(),
+        Some(code) => format!("The station service exited unsuccessfully during retirement (exit {code})."),
+        None => "The station service was terminated during retirement.".into(),
     }
 }
 
@@ -976,9 +990,7 @@ pub fn shutdown_for_module_transition() -> Result<(), String> {
     if let Some(lock) = SESSION.get() {
         let mut guard = lock.lock().map_err(|_| "Station service retirement lock failed")?;
         if let Some(session) = guard.take() {
-            if !session.shutdown() {
-                return Err("The station service did not finish accepted background work before the retirement deadline.".into());
-            }
+            session.shutdown_result_with_grace(Duration::from_secs(8))?;
         }
     }
     Ok(())
@@ -1098,7 +1110,7 @@ fn request_blocks_module_transition(request: &Value) -> bool {
         "contest_catalog" | "contest_sessions" | "contest_draft_get" |
         "contest_qso_get" | "contest_operation_receipt" | "contest_log_page" |
         "contest_log_transfer_status" | "contest_score" | "contest_spot_points_preview" |
-        "contest_rates" | "contest_analytics" | "contest_recorder_changes" | "contest_check_partial" | "contest_setup_get" |
+        "contest_rates" | "contest_analytics" | "contest_recorder_changes" | "contest_rtc_status" | "contest_check_partial" | "contest_setup_get" |
         "contest_statistics" | "contest_export_read" |
         "contest_scp_status" | "contest_scp_query" |
         "contest_history_status" | "contest_history_preview_page" | "contest_history_query"
@@ -1202,7 +1214,7 @@ fn request_is_non_retiring_read(request: &Value) -> bool {
         "contest_scp_status" | "contest_scp_query" | "contest_scp_cancel" | "contest_scp_select" |
         "contest_history_status" | "contest_history_preview_page" | "contest_history_preview_cancel" |
         "contest_history_query" | "contest_history_query_cancel" | "contest_history_select" |
-        "contest_log_page" | "contest_analytics" | "contest_recorder_changes" | "spot_history_status" | "spot_history_query" | "spot_history_detail" | "reference_log_review"
+        "contest_log_page" | "contest_analytics" | "contest_recorder_changes" | "contest_rtc_status" | "spot_history_status" | "spot_history_query" | "spot_history_detail" | "reference_log_review"
     ))
 }
 fn request_keeps_worker_on_timeout(request: &Value) -> bool {
@@ -2039,6 +2051,7 @@ mod tests {
         GracefulReply,
         IgnoreEof,
         NonzeroExit,
+        ContestSpotFailure,
         UnsolicitedEof,
         MissingReply,
         MalformedReply,
@@ -2059,6 +2072,9 @@ mod tests {
                 }
                 ShutdownFixture::NonzeroExit => {
                     "while IFS= read -r request; do :; done; exit 7"
+                }
+                ShutdownFixture::ContestSpotFailure => {
+                    "while IFS= read -r request; do :; done; exit 71"
                 }
                 ShutdownFixture::UnsolicitedEof => "exit 0",
                 ShutdownFixture::MissingReply => {
@@ -2093,6 +2109,7 @@ mod tests {
                     "for /L %i in (1,1,2147483647) do @ver >nul"
                 ),
                 ShutdownFixture::NonzeroExit => "set /p request= & exit /b 7",
+                ShutdownFixture::ContestSpotFailure => "set /p request= & exit /b 71",
                 ShutdownFixture::UnsolicitedEof => "exit /b 0",
                 ShutdownFixture::MissingReply => {
                     "set /p request= & set /p extra= & exit /b 0"
@@ -2381,11 +2398,22 @@ mod tests {
 
     #[test]
     fn review_reads_do_not_block_module_transitions_or_retire_on_timeout() {
-        for method in ["contest_log_page", "contest_analytics", "spot_history_status", "spot_history_query", "spot_history_detail", "reference_log_review"] {
+        for method in ["contest_log_page", "contest_analytics", "contest_recorder_changes", "contest_rtc_status", "wsjtx_snapshot", "fldigi_snapshot", "spot_history_status", "spot_history_query", "spot_history_detail", "reference_log_review"] {
             let request = json!({"method":method});
             assert!(!request_blocks_module_transition(&request), "{method}");
             assert!(request_is_non_retiring_read(&request), "{method}");
         }
+        for method in ["contest_rtc_configure", "contest_rtc_send_now", "contest_recorder_index_segment", "contest_qso_commit", "cluster_contest_radio_spots_publish", "wsjtx_start", "fldigi_send"] {
+            let request = json!({"method":method});
+            assert!(request_blocks_module_transition(&request), "{method}");
+            assert!(!request_is_non_retiring_read(&request), "{method}");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rtc_status_timeout_preserves_worker_and_routes_late_reply() {
+        assert_passive_timeout_preserves_worker("contest_rtc_status");
     }
 
     #[cfg(unix)]
@@ -2482,7 +2510,7 @@ mod tests {
             std::thread::sleep(Duration::from_millis(5));
         }
         let started = Instant::now();
-        assert!(!session.shutdown_with_grace(Duration::from_millis(100)));
+        assert!(session.shutdown_result_with_grace(Duration::from_millis(100)).unwrap_err().contains("deadline"));
         assert!(started.elapsed() < Duration::from_secs(1));
         assert!(requester.join().unwrap().is_err());
         assert!(session.child.lock().unwrap().is_none());
@@ -2493,7 +2521,17 @@ mod tests {
     #[test]
     fn shutdown_rejects_nonzero_worker_exit() {
         let session = shutdown_fixture_session(ShutdownFixture::NonzeroExit);
-        assert!(!session.shutdown_with_grace(Duration::from_secs(2)));
+        assert!(session.shutdown_result_with_grace(Duration::from_secs(2)).unwrap_err().contains("exit 7"));
+        assert!(session.child.lock().unwrap().is_none());
+    }
+
+    #[cfg(any(unix, windows))]
+    #[test]
+    fn shutdown_reports_spot_retirement_failure_instead_of_a_deadline() {
+        let session = shutdown_fixture_session(ShutdownFixture::ContestSpotFailure);
+        let failure = session.shutdown_result_with_grace(Duration::from_secs(2)).unwrap_err();
+        assert!(failure.contains("contest-owned radio spots"));
+        assert!(!failure.contains("deadline"));
         assert!(session.child.lock().unwrap().is_none());
     }
 
@@ -2516,7 +2554,10 @@ mod tests {
         let reply = session.register("pending").unwrap();
         session.input.lock().unwrap().as_mut().unwrap()
             .write_all(b"{\"id\":\"pending\"}\n").unwrap();
-        assert!(!session.shutdown_with_grace(Duration::from_secs(2)));
+        // This fixture bypasses request_in_session's WritePending guard.
+        session.writes_pending.fetch_sub(1, Ordering::AcqRel);
+        let failure = session.shutdown_result_with_grace(Duration::from_secs(2)).unwrap_err();
+        assert!(failure.contains("without answering accepted work"), "{failure}");
         assert!(reply.recv_timeout(Duration::from_secs(1)).unwrap().is_err());
     }
 

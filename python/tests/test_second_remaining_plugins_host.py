@@ -74,6 +74,37 @@ class SecondRemainingPluginTests(unittest.TestCase):
     def read(host, session, method, **params):
         return host.dispatch({"id": uid(), "method": method, "params": {"sessionID": session, **params}})
 
+    def test_wia_literal_years_never_allocate_or_renumber_a_sent_serial(self):
+        host, root, session, revision = self.create("wia_remembrance", sent_exchange="25")
+        try:
+            view = self.read(host, session, "projection")["projection"]
+            self.assertIsNone(view["reservedSerial"])
+            self.assertIsNone(view["allocatedSerialFieldID"])
+            self.assertEqual(next(field["value"] for field in view["fields"] if field["id"] == "other_1"), "25")
+            ids = []
+            for minute, call, years in ((31, "K1ABC", "10"), (32, "DL1ABC", "20"), (33, "K1ABC", "10")):
+                qso = uid()
+                ids.append(qso)
+                _, revision = self.mutate(host, session, revision, "qso_commit", qsoID=qso,
+                    timestamp=f"2026-10-20 20:{minute}:00", fields={"callsign": call, "receive": "579", "other_2": years})
+            rows = {row["ID"]: row for row in self.read(host, session, "log")["rows"]}
+            self.assertEqual([rows[qso]["Points"] for qso in ids], [2, 2, 0])
+            self.assertTrue(all(str(row["SentNr"]) == "25" and row["raw_fields"]["other_1"] == "25" for row in rows.values()))
+            self.assertEqual(self.read(host, session, "score")["score"]["total"], 4)
+            exported = self.read(host, session, "export")["content"]
+            self.assertEqual(sum(" 025 " in line for line in exported.splitlines() if line.startswith("QSO:")), 3)
+            _, revision = self.mutate(host, session, revision, "qso_correct", qsoID=ids[0], fields={"receive": "589"})
+            _, revision = self.mutate(host, session, revision, "qso_delete", qsoID=ids[1])
+            _, revision = self.mutate(host, session, revision, "qso_delete", qsoID=ids[0])
+            host.close()
+            host = Host(root)
+            self.read(host, session, "session_open")
+            retained = self.read(host, session, "log")["rows"]
+            self.assertEqual([(row["ID"], str(row["SentNr"]), row["Points"]) for row in retained], [(ids[2], "25", 2)])
+            self.assertIsNone(self.read(host, session, "projection")["projection"]["reservedSerial"])
+        finally:
+            host.close()
+
     def test_exact_sources_catalog_and_dynamic_contracts(self):
         self.assertEqual(len(PLUGIN_REGISTRY), 94)
         for plugin_id, digest in HASHES.items():

@@ -1947,9 +1947,12 @@ fn validate_native_rate_projection(value: &Map<String, Value>) -> Result<(), Str
             "hourSearchAndPounceQso",
             "busy",
         ],
-        &["hourly", "lastQsoAt", "contestStartAt", "contestEndAt"],
+        &["hourly", "lastQsoAt", "contestStartAt", "contestEndAt", "contestScheduleSource"],
         "native rate projection",
     )?;
+    if let Some(source) = value.get("contestScheduleSource") {
+        enum_value(source, &["settings", "cq-ww-calendar"], "contest schedule source")?;
+    }
     if let Some(hourly) = value.get("hourly") {
         for hour in array(hourly, 168, "hourly contest rates")? {
             let hour = object(hour, "hourly contest rate")?;
@@ -3658,6 +3661,11 @@ mod tests {
         assert!(validate_projection("monitor", &rates).is_err());
         rates["contestEndAt"] = Value::Null;
         assert!(validate_projection("monitor", &rates).is_ok());
+        rates["contestScheduleSource"] = json!("cq-ww-calendar");
+        assert!(validate_projection("monitor", &rates).is_ok());
+        rates["contestScheduleSource"] = json!("guessed");
+        assert!(validate_projection("monitor", &rates).is_err());
+        rates.as_object_mut().unwrap().remove("contestScheduleSource");
         rates["hourly"][0]["qsos"] = json!(-1);
         assert!(validate_projection("monitor", &rates).is_err());
         rates["hourly"] = json!(vec![json!({"hourUTC":"2026-10-25T19:00:00.000Z","qsos":0});169]);

@@ -313,6 +313,43 @@ def load_plugin(plugin_id="cq_ww_cw"):
                     "                self.make_button_green(self.esm_dict[\"EXCH\"])",
                 ),
             ])
+        if plugin_id in {"jidx_cw", "jidx_ph"}:
+            replacements.extend([
+                ('def points(self):\n',
+                 'def points(self):\n'
+                 '    if self.state.get("scoringRevision") == "26.10.26":\n'
+                 '        from contest_host.upstream import jidx_points\n'
+                 '        return jidx_points(self)\n'),
+                ('def show_mults(self):\n',
+                 'def show_mults(self):\n'
+                 '    if self.state.get("scoringRevision") == "26.10.26":\n'
+                 '        from contest_host.upstream import jidx_credit_keys\n'
+                 '        return len({key for row in self.database.fetch_all_contacts_asc()\n'
+                 '                    if row.get("Points", 0) > 0 for key in jidx_credit_keys(self, row)})\n'),
+                ('        result = self.database.fetch_nr_count()\n        mults = int(result.get("nr_count", 0))',
+                 '        result = self.database.fetch_nr_count()\n'
+                 '        mults = (show_mults(self) if self.state.get("scoringRevision") == "26.10.26"\n'
+                 '                 else int(result.get("nr_count", 0)))'),
+                ('def predupe(self):  # pylint: disable=unused-argument',
+                 '    if self.state.get("scoringRevision") == "26.10.26":\n'
+                 '        from contest_host.upstream import jidx_assign_multipliers\n'
+                 '        jidx_assign_multipliers(self, self.contact)\n\n\n'
+                 'def predupe(self):  # pylint: disable=unused-argument'),
+                ('def recalculate_mults(self):\n',
+                 'def recalculate_mults(self):\n'
+                 '    if self.state.get("scoringRevision") == "26.10.26":\n'
+                 '        from contest_host.upstream import jidx_assign_multipliers\n'
+                 '        seen = set()\n'
+                 '        for row in self.database.fetch_all_contacts_asc():\n'
+                 '            jidx_assign_multipliers(self, row, seen)\n'
+                 '            self.database.change_contact(row)\n'
+                 '        return\n'),
+                ('def get_mults(self):\n',
+                 'def get_mults(self):\n'
+                 '    if self.state.get("scoringRevision") == "26.10.26":\n'
+                 '        from contest_host.upstream import jidx_rtc_mults\n'
+                 '        return jidx_rtc_mults(self)\n'),
+            ])
         if plugin_id == "jidx_cw":
             # The CW sibling targets older container-label and cty_lookup
             # shapes; the pinned phone sibling already uses both current APIs.
@@ -785,6 +822,74 @@ def pacc_multiplier_key(row):
     elif country == "UA9":
         country = "UA"
     return country + area
+
+
+def jidx_japanese_prefix(prefix):
+    """Japan and the JD1 island entities named in JIDX §6."""
+    prefix = str(prefix).upper()
+    return prefix in {"JA", "JD/O", "JD/M"} or prefix.startswith("JD1")
+
+
+def jidx_exchange_limit(prefix, call):
+    """JA land stations send prefectures; every DX or /MM station sends a zone."""
+    return 50 if jidx_japanese_prefix(prefix) and not str(call).upper().endswith("/MM") else 40
+
+
+def jidx_credit_keys(desk, row):
+    """JIDX 2026 §§5–6: eligible JA/DX multipliers, independently per band."""
+    own = desk.cty_lookup(desk.station.get("Call", ""))
+    own_prefix = next(iter(own.values())).get("primary_pfx", "") if own else ""
+    their_mm = str(row.get("Call", "")).upper().endswith("/MM")
+    their_prefix = str(row.get("CountryPrefix", ""))
+    if not own_prefix or not their_prefix and not their_mm:
+        return []
+    own_ja = jidx_exchange_limit(own_prefix, desk.station.get("Call", "")) == 50
+    their_ja = jidx_exchange_limit(their_prefix, row.get("Call", "")) == 50
+    if own_ja == their_ja:
+        return []
+    band = row.get("Band")
+    if band not in {1.8, 3.5, 7.0, 14.0, 21.0, 28.0}:
+        return []
+    number = str(row.get("NR", ""))
+    if not number.isdigit() or not 1 <= int(number) <= (40 if own_ja else 50):
+        return []
+    if not own_ja:
+        return [("prefecture", band, int(number))]
+    keys = [("zone", band, int(number))]
+    if not their_mm:
+        keys.append(("country", band, their_prefix))
+    return keys
+
+
+def jidx_points(desk):
+    if desk.contact_is_dupe or not jidx_credit_keys(desk, desk.contact):
+        return 0
+    return {1.8: 4, 3.5: 2, 7.0: 1, 14.0: 1, 21.0: 1, 28.0: 2}.get(desk.contact.get("Band"), 0)
+
+
+def jidx_rtc_mults(desk):
+    keys = {key for row in desk.database.fetch_all_contacts_asc() if row.get("Points", 0) > 0
+            for key in jidx_credit_keys(desk, row)}
+    own = desk.cty_lookup(desk.station.get("Call", ""))
+    prefix = next(iter(own.values())).get("primary_pfx", "") if own else ""
+    japanese = jidx_exchange_limit(prefix, desk.station.get("Call", "")) == 50
+    families = ("country", "zone") if japanese else ("prefecture",)
+    return {family: sum(key[0] == family for key in keys) for family in families}
+
+
+def jidx_assign_multipliers(desk, contact, seen=None):
+    """M1 is prefecture/zone; M2 is the Japanese entrant's DXCC credit."""
+    rebuilding = seen is not None
+    if seen is None:
+        seen = {key for row in desk.database.fetch_all_contacts_asc() if row.get("Points", 0) > 0
+                for key in jidx_credit_keys(desk, row)}
+    contact["IsMultiplier1"] = contact["IsMultiplier2"] = 0
+    eligible = contact.get("Points", 0) > 0 if rebuilding else not desk.contact_is_dupe
+    if eligible:
+        for key in jidx_credit_keys(desk, contact):
+            if key not in seen:
+                contact["IsMultiplier2" if key[0] == "country" else "IsMultiplier1"] = 1
+            seen.add(key)
 
 
 def es_open_points(desk):

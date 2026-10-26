@@ -7,14 +7,38 @@ export function contestUTC(value: unknown): string | null {
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 19) === normalized ? date.toISOString() : null;
 }
 
-export function contestSchedule(pluginID: string, settings: Record<string, unknown>) {
-  const contestStartAt = contestUTC(settings.StartDate);
+function cqWWPeriod(pluginID:string, year:number) {
+  const month=pluginID==="cq_ww_ssb"?9:10;
+  const last=new Date(Date.UTC(year,month+1,0));
+  const sunday=last.getUTCDate()-last.getUTCDay();
+  return {contestStartAt:new Date(Date.UTC(year,month,sunday-1)).toISOString(),
+    contestEndAt:new Date(Date.UTC(year,month,sunday+1)).toISOString(),contestScheduleSource:"cq-ww-calendar" as const};
+}
+
+export function contestSchedule(pluginID: string, settings: Record<string, unknown>, lastQsoAt?:string|null) {
+  const configuredStart = contestUTC(settings.StartDate);
   const explicitEnd = String(settings.EndDate ?? "").trim();
-  // CQ WW SSB/CW: 00:00 Saturday to 24:00 Sunday, https://cqww.com/rules/.
-  const defaultHours = ["cq_ww_ssb", "cq_ww_cw"].includes(pluginID) ? 48 : null;
-  const end = explicitEnd ? contestUTC(explicitEnd) : contestStartAt && defaultHours
-    ? new Date(Date.parse(contestStartAt) + defaultHours * 3_600_000).toISOString() : null;
-  return { contestStartAt, contestEndAt: contestStartAt && end && end > contestStartAt ? end : null };
+  const unknown={contestStartAt:configuredStart,contestEndAt:null};
+  if (explicitEnd) {
+    const end=contestUTC(explicitEnd);
+    return configuredStart&&end&&end>configuredStart
+      ? {contestStartAt:configuredStart,contestEndAt:end,contestScheduleSource:"settings" as const}:unknown;
+  }
+  if (!["cq_ww_ssb","cq_ww_cw"].includes(pluginID)) return unknown;
+  // Organizer rule: last FULL weekend of October/November, 00:00 Sat to 24:00 Sun.
+  // https://cqww.com/index.htm and https://cqww.com/rules/ (verified 2026-10-26).
+  // Legacy StartDate can be session creation time; never add 48 hours to it.
+  if (lastQsoAt) {
+    const qso=new Date(lastQsoAt);
+    if (!Number.isFinite(qso.getTime())||!lastQsoAt.startsWith(qso.toISOString().slice(0,19))) return unknown;
+    const period=cqWWPeriod(pluginID,qso.getUTCFullYear());
+    return qso.getTime()>=Date.parse(period.contestStartAt)&&qso.getTime()<Date.parse(period.contestEndAt)?period:unknown;
+  }
+  if (configuredStart) {
+    const period=cqWWPeriod(pluginID,new Date(configuredStart).getUTCFullYear());
+    if (configuredStart===period.contestStartAt) return period;
+  }
+  return unknown;
 }
 
 export function durationText(seconds: number) {

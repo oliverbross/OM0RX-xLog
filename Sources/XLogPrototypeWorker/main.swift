@@ -159,12 +159,12 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
     // waiting on unrelated slow service/logbook work so RF releases are not
     // delayed behind a network lookup or database import.
     backgroundServices.cancel()
-    let retiredCleanly = acceptance == nil ? await liveWorker.shutdown() : true
+    let retirement = acceptance == nil ? await liveWorker.shutdownOutcome() : .clean
     await backgroundServices.value
     await group.waitForAll()
-    if !retiredCleanly {
+    if retirement != .clean {
         FileHandle.standardError.write(Data("Background delivery retirement failed.\n".utf8))
-        exit(1)
+        exit(retirement.rawValue)
     }
     }
     if let acceptance {

@@ -371,6 +371,9 @@ impl Recorder {
                 .as_ref()
                 .is_some_and(|p| p.done.load(Ordering::Acquire))
             {
+                if let Some(error) = player.as_mut().and_then(|p| p.failures.pop().ok()) {
+                    self.error(format!("Listening output failed: {error}; replay stopped, capture continues"));
+                }
                 *player = None;
             }
         }
@@ -746,7 +749,7 @@ impl Recorder {
         #[cfg(not(target_os = "macos"))]
         let level: Option<f64> = None;
         let active=active.map(|(a,done)|->Result<Value>{let a=a.try_lock().map_err(|_|"Recorder writer busy; recording health unavailable")?;Ok(json!({"logId":a.manifest.log_id,"captureId":a.manifest.capture_id,"status":a.manifest.status,"inputState":if done{"Stopped"}else if a.manifest.frames==0{"Starting — waiting for samples"}else if level.unwrap_or(0.0)<0.001{"Input silent — valid callbacks"}else{"Input present"},"inputLevel":level,"frames":a.manifest.frames,"savedFrames":a.manifest.saved_frames,"startUtcMs":a.manifest.start_utc_ms,"rate":a.manifest.config.rate,"roles":a.manifest.config.roles,"finished":done}))}).transpose()?;
-        #[cfg(target_os="macos")]let playback=self.playback.lock().ok().and_then(|p|p.as_ref().map(|p|json!({"position":p.cursor.load(Ordering::Acquire),"frames":p.frames,"rate":p.rate,"paused":p.paused.load(Ordering::Acquire)})));
+        #[cfg(target_os="macos")]let playback=self.playback.lock().ok().and_then(|p|p.as_ref().map(|p|json!({"position":p.cursor.load(Ordering::Acquire),"frames":p.frames,"rate":p.rate,"paused":p.paused.load(Ordering::Acquire),"underruns":p.underruns.load(Ordering::Relaxed)})));
         #[cfg(not(target_os = "macos"))]
         let playback: Option<Value> = None;
         let context = crate::contest_window_context::active()

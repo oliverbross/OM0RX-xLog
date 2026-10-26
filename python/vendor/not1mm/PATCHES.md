@@ -6,6 +6,37 @@ the original source bytes. GPL-3.0 license is retained in `LICENSE`.
 
 ## New-session scoring revision 26.10.26
 
+### JIDX CW and phone: eligible contacts and band-scoped multipliers
+
+The sponsor's [English rules](https://www.jidx.org/jidxrule-e.html), retrieved
+26 October 2026 with a `2026-10` revision heading and explicit 2026 event dates,
+confirm six bands for both CW and phone, including 160 metres. Sections 5–7 allow
+points only between Japanese and DX stations. DX entrants count received Japanese
+prefectures/JD1 island numbers separately on each band; Japanese entrants count
+both DXCC entities and received CQ zones separately on each band. Maritime-mobile
+contacts give Japanese entrants points and zone credit, with no entity credit.
+
+New JIDX sessions now bear `scoringRevision=26.10.26`. Finite, exact-count import
+overlays apply these eligibility, multiplier, row-flag and claimed-score rules
+without changing pinned source bytes. M1 represents prefecture/zone credit and
+M2 represents a Japanese entrant's entity credit. Cabrillo and local RTC XML use
+the same corrected score; RTC breakdowns distinguish the multiplier families.
+The new-session score projection exposes actual country/zone or prefecture totals
+and owner-supplied `multiplierSummaryLabels` with explicit per-band scope,
+including empty-log zero labels; historical projections retain their old shape.
+One shared role bound validates new-session setup, commits and corrections:
+Japanese land stations send prefecture 1–50; DX and `/MM` stations send CQ zone
+1–40. Received exchanges use the contacted station's role. Invalid values reject
+the complete transaction rather than persisting a zero-point contact. Legacy
+import selects its unmarked policy before setup validation, and historical setup
+edits retain the original positive-integer acceptance without opting into new rules.
+No live score posting is part of qualification. Existing unmarked JIDX sessions
+keep their original global received-number count and original points, including
+after reopening or recalculation. `test_jidx_plugins_host.py` independently checks
+both entrant branches, repeated and new multipliers by band, duplicate/ineligible
+rows, JD1 and explicit `/MM` cases, correction/deletion, restart, historical
+compatibility, actual Cabrillo claimed scores and locally generated RTC XML.
+
 ES Open new sessions use the organizer's [2026 rules](https://www.erau.ee/images/LL/ES-Open_rules.pdf):
 80/40 metres only; two points for CW and one for SSB; foreign entrants can score
 only Estonian stations; Russian/Belarusian stations give no credit. ES regions

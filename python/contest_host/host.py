@@ -38,11 +38,12 @@ from .statistics import calculate_statistics
 from .statistics_dupes import duplicate_flags
 from .multipliers import dimensions as multiplier_definitions, project as multiplier_dimensions, view_status as multiplier_view_status
 from .upstream import (CQWS_UF_LIMITATION, adapt_cw_template, cqws_multiplier_counts,
-                       load_plugin, load_cw_macros, pinned_band_definitions,
+                       jidx_exchange_limit, load_plugin, load_cw_macros, pinned_band_definitions,
                        split_macro_template, verify_source)
 
 PLUGIN_ID = "cq_ww_cw"
-SCORING_REVISION_PLUGINS = frozenset({"hadx", "pacc", "rsgb_iota", "ref_cw", "ref_ssb", "es_open", "cqws"})
+SCORING_REVISION_PLUGINS = frozenset({"hadx", "pacc", "rsgb_iota", "ref_cw", "ref_ssb", "es_open", "cqws", "jidx_cw", "jidx_ph"})
+_NEW_SCORING_REVISION = object()
 SOURCE_REVISION = "7c8b499225a73f7f8f792246881bd7aefc05452f"
 INPUTS = ("callsign", "sent", "receive", "other_1", "other_2")
 CONTACT_METADATA_FIELDS = {"Name": 20, "QTH": 25, "Comment": 60}
@@ -286,6 +287,17 @@ def text(value, maximum=256):
     require(isinstance(value, str) and len(value.encode("utf-8")) <= maximum, "Text exceeds field bound")
     require(not any(ord(c) < 32 for c in value), "Control characters are not accepted")
     return value
+
+
+def validate_jidx_number(value, prefix, call, scoring_revision, direction):
+    number = str(value)
+    require(re.fullmatch(r"[0-9]+", number) is not None
+            and 0 < int(number) <= 9223372036854775807,
+            "JIDX sent and received prefecture/CQ zones must be positive SQLite integers")
+    if scoring_revision == "26.10.26":
+        maximum = jidx_exchange_limit(prefix, call)
+        kind = "prefecture" if maximum == 50 else "CQ zone"
+        require(int(number) <= maximum, f"JIDX {direction} {kind} must be 1 to {maximum}")
 
 
 def digital_text(value, maximum=256):
@@ -1133,6 +1145,14 @@ class Desk:
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                     "countries": countries, "zones": 0, subdivision_name: subdivisions,
                     "multipliers": countries + subdivisions, "total": self.contest.calc_score(self)}
+        if self.state["pluginID"] in JIDX_PLUGINS and self.state.get("scoringRevision") == "26.10.26":
+            counts = self.contest.get_mults(self)
+            labels = ([f"{counts['prefecture']} prefecture/band multipliers"] if "prefecture" in counts else
+                      [f"{counts['country']} country/band multipliers", f"{counts['zone']} CQ zone/band multipliers"])
+            return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
+                    "countries": counts.get("country", 0), "zones": counts.get("zone", 0),
+                    "prefectures": counts.get("prefecture", 0), "multipliers": sum(counts.values()),
+                    "multiplierSummaryLabels": labels, "total": self.contest.calc_score(self)}
         if self.state["pluginID"] in SIMPLE_MULTIPLIER_PLUGINS:
             multipliers = self.contest.show_mults(self)
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
@@ -2278,8 +2298,7 @@ class Host:
             elif method == "legacy_import":
                 if state is None:
                     require(expected == 0, "Creation revision must be zero")
-                    state = self.new_state(session_id, params)
-                    state["scoringRevision"] = None
+                    state = self.new_state(session_id, params, scoring_revision=None)
                     new_session = True
                 else:
                     self.verify_engine(state)
@@ -2407,6 +2426,9 @@ class Host:
                 if state["pluginID"] in EUROPEAN_HF_PLUGINS:
                     validate_european_hf_setup(
                         state["pluginID"], state["reference"]["countries"][call].get("primary_pfx", ""), zone)
+                if state["pluginID"] in JIDX_PLUGINS:
+                    validate_jidx_number(zone, state["reference"]["countries"][call].get("primary_pfx", ""),
+                                         call, state.get("scoringRevision"), "sent")
                 if state["pluginID"] == "ca_qso_party":
                     validate_ca_exchange(load_plugin(state["pluginID"]), zone, setup=True)
                 if state["pluginID"] == "canada_day":
@@ -2983,9 +3005,11 @@ class Host:
         require(isinstance(rover_location, str) and len(rover_location.encode("utf-8")) <= 10,
                 "Invalid persisted rover location", "invalid_session")
 
-    def new_state(self, session_id, params):
+    def new_state(self, session_id, params, *, scoring_revision=_NEW_SCORING_REVISION):
         plugin_id = params.get("pluginID", PLUGIN_ID)
         require(plugin_id in PLUGINS, "Unsupported pinned plugin")
+        if scoring_revision is _NEW_SCORING_REVISION:
+            scoring_revision = "26.10.26" if plugin_id in SCORING_REVISION_PLUGINS else None
         workspace = identifier(params.get("workspaceGeneration"))
         frequency = params.get("frequencyHz")
         require(type(frequency) is int, "A confirmed or manual frequency is required")
@@ -3043,9 +3067,8 @@ class Host:
         if plugin_id in TEN_TEN_PLUGINS:
             validate_ten_ten_sent_exchange(settings["SentExchange"])
         if plugin_id in JIDX_PLUGINS:
-            require(re.fullmatch(r"[0-9]+", str(settings["SentExchange"])) is not None
-                    and 0 < int(settings["SentExchange"]) <= 9223372036854775807,
-                    "JIDX sent prefecture/CQ zone must be a positive SQLite integer")
+            validate_jidx_number(settings["SentExchange"], countries[call].get("primary_pfx", ""),
+                                 call, scoring_revision, "sent")
         if plugin_id in AADX_PLUGINS:
             require(re.fullmatch(r"[0-9]+", str(settings["SentExchange"])) is not None
                     and 0 < int(settings["SentExchange"]) <= 9223372036854775807,
@@ -3141,7 +3164,7 @@ class Host:
                 "sourceRevision": SOURCE_REVISION, "schemaVersion": 1, "station": station, "settings": settings,
                 # Existing sessions have no marker and retain their pinned score.
                 # Setup edits/reopening never opt historical logs into new rules.
-                "scoringRevision": "26.10.26" if plugin_id in SCORING_REVISION_PLUGINS else None,
+                "scoringRevision": scoring_revision,
                 "operatingMode": live_mode,
                 "roverLocation": "",
                 "operator": text(params.get("operator", call), 32), "reference": {"id": text(reference["id"]), "countries": countries},
@@ -3354,10 +3377,11 @@ class Host:
         elif desk.state["pluginID"] in TEN_TEN_PLUGINS:
             require(desk.contest.validate(desk), "Received exchange must be NAME 10-10# SPC")
         elif desk.state["pluginID"] in JIDX_PLUGINS:
-            for name in ("other_1", "other_2"):
-                require(re.fullmatch(r"[0-9]+", fields[name]) is not None
-                        and 0 < int(fields[name]) <= 9223372036854775807,
-                        "JIDX sent and received prefecture/CQ zones must be positive SQLite integers")
+            for name, call, direction in (("other_1", desk.station["Call"], "sent"),
+                                           ("other_2", desk.parsed_call(), "received")):
+                country = desk.cty_lookup(call)
+                prefix = next(iter(country.values())).get("primary_pfx", "") if country else ""
+                validate_jidx_number(fields[name], prefix, call, desk.state.get("scoringRevision"), direction)
         elif desk.state["pluginID"] in AADX_PLUGINS:
             require(desk.cty_lookup(desk.callsign.text()) is not None,
                     "Resolve the contact country before logging AADX")
