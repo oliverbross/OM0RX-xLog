@@ -50,7 +50,12 @@ std::vector<Carrier> carriers(const std::vector<std::complex<float>>& iq,int rat
   std::vector<Carrier> selected;
   for(const auto& peak:found) {
     if(selected.size()>=capacity) break;
-    if(std::none_of(selected.begin(),selected.end(),[&](const auto& c){return std::abs(c.offset_hz-peak.offset_hz)<100;})) selected.push_back(peak);
+    auto neighbour=std::find_if(selected.begin(),selected.end(),[&](const auto& c){return std::abs(c.offset_hz-peak.offset_hz)<250;});
+    if(neighbour==selected.end()) selected.push_back(peak);
+    // Keying sidebands are not independent stations. A nearby comparable peak
+    // instead marks the unresolved group ambiguous. Closer-spacing profiles
+    // need separate corpus qualification, not a promise of source separation.
+    else if(std::abs(neighbour->offset_hz-peak.offset_hz)>175 && peak.power>neighbour->power*0.5) neighbour->ambiguous=true;
   }
   return selected;
 }

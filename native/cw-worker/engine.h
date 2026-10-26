@@ -14,6 +14,7 @@ std::vector<float> features(const std::vector<float>& audio);
 class Engine {
  public:
   explicit Engine(const std::string& model_path);
+  static std::string runtime_version();
   ~Engine();
   Engine(const Engine&) = delete;
   Engine& operator=(const Engine&) = delete;

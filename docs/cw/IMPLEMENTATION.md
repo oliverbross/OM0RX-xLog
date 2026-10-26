@@ -58,11 +58,13 @@ Input prefix: ASCII `XCW1`, little-endian uint32 body size. Body:
 | 20 | uint64 | capture epoch |
 | 28 | uint64 | job sequence |
 | 36 | uint64 | absolute first 3200-Hz channel sample |
-| 44 | uint32 | sample rate 3200 |
+| 44 | uint32 | sample rate: 3200 for mono, observed source rate for IQ |
 | 48 | uint32 | sample count |
-| 52 | float32 LE[] | mono samples, exactly count × 4 bytes |
+| 52 | typed payload | mono samples or complex IQ, exactly the message-specific size |
 
-Maximum body 128052 bytes; inference 5–10 seconds. EOF closes the child. Invalid
+Maximum body 131124 bytes; mono inference 5–10 seconds. StreamOpen, IQ, Gap,
+EpochEnd, Stop and bounded metrics messages extend the same framing; see
+`docs/cw/WORKER_PROTOCOL.md`. EOF closes the child. Invalid
 length/version/rate/count/nonfinite samples fail closed. JSON output is bounded
 by the 667-frame maximum; counters use decimal strings. Events contain the
 unchanged source token/epoch/job and approximate CTC sample alignment. Diagnostics

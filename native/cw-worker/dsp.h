@@ -5,7 +5,7 @@
 #include <vector>
 
 namespace cw {
-struct Carrier { double offset_hz; double power; double noise_bin_power; };
+struct Carrier { double offset_hz; double power; double noise_bin_power; bool ambiguous=false; };
 // Analysis only: keyed-carrier eligibility is decided by temporal tracking.
 std::vector<Carrier> carriers(const std::vector<std::complex<float>>& iq,int rate,
                               double lower_offset,double upper_offset,size_t capacity);

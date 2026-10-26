@@ -1,23 +1,25 @@
 // Copyright © 2026 Oliver Bross OM0RX. SPDX-License-Identifier: GPL-3.0-only
 #include "engine.h"
 #include "dsp.h"
+#include "skimmer.h"
 #include <cmath>
 #include <iostream>
 #include <map>
+#include <random>
 #include <stdexcept>
 
 void require(bool v,const char* what) { if(!v) throw std::runtime_error(what); }
-std::vector<float> morse(int wpm) {
-  const std::map<char,std::string> codes{{'C',"-.-."},{'Q',"--.-"},{'O',"---"},{'M',"--"},{'0',"-----"},{'R',".-."},{'X',"-..-"}};
+std::vector<float> morse(int wpm,const std::string& text="CQ OM0RX",bool envelope=false) {
+  const std::map<char,std::string> codes{{'C',"-.-."},{'Q',"--.-"},{'O',"---"},{'M',"--"},{'0',"-----"},{'R',".-."},{'X',"-..-"},
+    {'D',"-.."},{'L',".-.."},{'1',".----"},{'A',".-"},{'B',"-..."}};
   std::vector<float> out(1600,0);
   const auto add=[&](int units,bool keyed) {
     const size_t count=size_t(std::round(3200.0*1.2/wpm*units)), first=out.size();
     for(size_t i=0;i<count;++i) {
       double ramp=std::min(1.0,double(std::min(i,count-1-i))/16.0);
-      out.push_back(keyed?float(0.6*ramp*std::sin(2*3.141592653589793*800*(first+i)/3200)):0);
+      out.push_back(keyed?(envelope?float(0.6*ramp):float(0.6*ramp*std::sin(2*3.141592653589793*800*(first+i)/3200))):0);
     }
   };
-  const std::string text="CQ OM0RX";
   for(size_t c=0;c<text.size();++c) {
     if(text[c]==' ') { add(4,false); continue; }
     const auto& code=codes.at(text[c]);
@@ -40,7 +42,7 @@ int main(int argc,char** argv) {
     require(rejected,"Nonfinite rejection");
     const double pi=3.141592653589793;
     std::vector<std::complex<float>> spectrum(8192);
-    for(size_t i=0;i<spectrum.size();++i) spectrum[i]=std::polar(0.4f,float(2*pi*6200*i/96000))+std::polar(0.2f,float(-2*pi*4100*i/96000));
+    for(size_t i=0;i<spectrum.size();++i) spectrum[i]=std::complex<float>(std::polar(0.4,2*pi*6200*i/96000)+std::polar(0.2,-2*pi*4100*i/96000));
     const auto peaks=cw::carriers(spectrum,96000,-39000,39000,4);
     require(peaks.size()==2,"Two independently located IQ carriers");
     require(std::abs(peaks[0].offset_hz-6200)<2 && std::abs(peaks[1].offset_hz+4100)<2,"Signed frequency estimator");
@@ -49,7 +51,7 @@ int main(int argc,char** argv) {
       std::vector<float> audio;
       for(int block=0;block<rate/4000;++block) {
         std::vector<std::complex<float>> iq(4000);
-        for(size_t i=0;i<iq.size();++i) iq[i]=std::polar(0.4f,float(2*pi*6200*(block*4000+i)/rate));
+        for(size_t i=0;i<iq.size();++i) iq[i]=std::complex<float>(std::polar(0.4,2*pi*6200*(block*4000+i)/rate));
         const auto output=channel.process(iq); audio.insert(audio.end(),output.begin(),output.end());
       }
       double power=0;
@@ -61,7 +63,7 @@ int main(int argc,char** argv) {
       double leak=0; size_t total=0,index=0;
       for(int block=0;block<rate/4000;++block) {
         std::vector<std::complex<float>> iq(4000);
-        for(size_t i=0;i<iq.size();++i) iq[i]=std::polar(12.65f,float(2*pi*6500*(block*4000+i)/rate));
+        for(size_t i=0;i<iq.size();++i) iq[i]=std::complex<float>(std::polar(12.65,2*pi*6500*(block*4000+i)/rate));
         for(float f:rejection.process(iq)) { if(index++>400) { leak+=f*f; ++total; } }
       }
       require(leak/total < 0.08*0.001,"Thirty-dB stronger neighbour at 300 Hz rejected");
@@ -74,6 +76,62 @@ int main(int argc,char** argv) {
       require(result.text.find("CQ OM0RX")!=std::string::npos,"Synthetic Morse decoding");
       for(auto t:result.tokens) require(t.first_sample>=3200 && t.end_sample>=t.first_sample,"Absolute sample alignment");
     }
+    // Two independent CW signals in IQ, extracted and decoded through the
+    // actual tracker/scheduler. Offline draining proves function, not capacity.
+    cw::Skimmer skimmer(engine,2);
+    const std::string source="00112233445566778899aabbccddeeff";
+    const std::string second_source="ffeeddccbbaa99887766554433221100";
+    skimmer.open(source,7,96000,-39000,39000,true);
+    skimmer.open(second_source,9,48000,-19000,19000,true);
+    rejected=false;
+    try { skimmer.open("11112233445566778899aabbccddeeff",1,96000,-39000,39000,true); } catch(...) { rejected=true; }
+    require(rejected,"Two total spans, no silent four-span expansion");
+    const auto a=morse(20,"CQ OM0RX",true),b=morse(30,"CQ DL1ABC",true),c=morse(25,"CQ DL1ABC",true);
+    std::mt19937 random(728396); std::normal_distribution<float> noise(0,0.002f);
+    uint64_t sequence=0,second_sequence=0;
+    std::map<std::string,std::string> transcripts;
+    for(size_t first=0;first<96000*10;first+=4096) {
+      const size_t count=std::min(size_t(4096),size_t(96000*10)-first);
+      std::vector<std::complex<float>> block(count);
+      for(size_t i=0;i<count;++i) {
+        const size_t n=first+i, audio_index=n/30;
+        const auto envelope=[&](const std::vector<float>& e) {
+          if(audio_index+1>=e.size()) return 0.0;
+          const double f=double(n%30)/30;
+          return e[audio_index]*(1-f)+e[audio_index+1]*f;
+        };
+        block[i]=std::complex<float>(std::polar(envelope(a),2*pi*6200*n/96000)+std::polar(envelope(b),-2*pi*4100*n/96000))+
+          std::complex<float>(noise(random),noise(random));
+      }
+      skimmer.feed(source,7,sequence++,first,96000,block);
+      std::vector<std::complex<float>> other(count/2);
+      for(size_t i=0;i<other.size();++i) {
+        const size_t n=first/2+i,index=n/15;
+        double key=0;
+        if(index+1<c.size()) { const double f=double(n%15)/15; key=c[index]*(1-f)+c[index+1]*f; }
+        other[i]=std::complex<float>(std::polar(key,2*pi*8500*n/48000))+std::complex<float>(noise(random),noise(random));
+      }
+      skimmer.feed(second_source,9,second_sequence++,first/2,48000,other);
+      require(skimmer.wait_idle(10),"Bounded inference drain");
+      for(const auto& event:skimmer.events()) { if(event.kind=="track") std::cout<<"Track "<<event.offset_hz<<" "<<event.state<<"\n"; if(event.kind=="decode") {
+        require((event.epoch==7 && event.stream_token==source)||(event.epoch==9&&event.stream_token==second_source),"Original capture identity on multitrack copy");
+        require(event.replay,"Replay provenance on derived copy");
+        transcripts[event.stream_token==second_source?"second":event.offset_hz>0?"positive":"negative"]=event.copy.text;
+        std::cout<<"IQ "<<event.offset_hz<<" Hz ["<<event.copy.text<<"]\n";
+      } }
+    }
+    std::cout<<"Final tracks "<<skimmer.metrics().tracks<<" pending "<<skimmer.metrics().pending<<"\n";
+    require(transcripts["positive"].find("OM0RX")!=std::string::npos,"Positive IQ carrier independently decoded");
+    require(transcripts["negative"].find("DL1ABC")!=std::string::npos,"Negative IQ carrier independently decoded");
+    require(transcripts["second"].find("DL1ABC")!=std::string::npos,"Independent second-rate span decoded");
+    require(skimmer.metrics().tracks==3,"Independent carrier tracking, no mirrored station");
+    skimmer.feed(source,7,sequence+1,960000,96000,std::vector<std::complex<float>>(512));
+    require(skimmer.metrics().sources==1,"A sample gap retires only its source");
+    skimmer.feed(second_source,9,second_sequence,480000,48000,std::vector<std::complex<float>>(512));
+    require(skimmer.metrics().sources==1,"Healthy other span retains continuity");
+    require(skimmer.wait_idle(10),"Cancel drain");
+    for(const auto& event:skimmer.events()) require(event.kind!="decode"||event.stream_token!=source,"No late copy after source retirement");
+    skimmer.stop(); require(skimmer.metrics().sources==0,"Stop retires every span");
     std::cout<<"Native CW engine checks passed\n";
     return 0;
   } catch(const std::exception& e) { std::cerr<<e.what()<<'\n'; return 1; }
