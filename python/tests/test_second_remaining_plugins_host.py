@@ -156,7 +156,7 @@ class SecondRemainingPluginTests(unittest.TestCase):
                     _, revision = self.mutate(host, session, revision, "recalculate")
                     self.assertEqual(self.read(host, session, "score")["score"], score)
                     if plugin_id == "rsgb_iota":
-                        self.assertEqual((score["points"], score["multipliers"], score["total"]), (20, 1, 40))
+                        self.assertEqual((score["points"], score["multipliers"], score["total"]), (20, 1, 20))
                     if plugin_id == "stew_perry_topband":
                         self.assertGreater(score["points"], 2)
                         projected = {item["id"]: item["value"] for item in
@@ -213,8 +213,8 @@ class SecondRemainingPluginTests(unittest.TestCase):
             host.close()
 
         # A world station earns 2 points for another world station and 15 for
-        # an island.  One IOTA reference produces one multiplier, while the
-        # pinned implementation deliberately scores with (multipliers + 1).
+        # an island. One IOTA reference produces one multiplier under the
+        # organizer-2026 revision used by new sessions.
         host, _, session, revision = self.create("rsgb_iota", sent_exchange="#")
         try:
             for call, exchange in (("K1ABC", "101"), ("DL1ABC", "102 EU005")):
@@ -222,7 +222,7 @@ class SecondRemainingPluginTests(unittest.TestCase):
                                           timestamp="2026-10-21 07:30:00",
                                           fields={"callsign": call, "other_2": exchange})
             score = self.read(host, session, "score")["score"]
-            self.assertEqual((score["points"], score["multipliers"], score["total"]), (17, 1, 34))
+            self.assertEqual((score["points"], score["multipliers"], score["total"]), (17, 1, 17))
         finally:
             host.close()
 

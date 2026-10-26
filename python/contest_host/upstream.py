@@ -171,6 +171,32 @@ def load_plugin(plugin_id="cq_ww_cw"):
         source = (VENDOR / f"not1mm/plugins/{plugin_id}.py").read_text(encoding="utf-8")
         if "str(Path.home())" in source:
             replacements.append(("str(Path.home())", "str(self.export_directory)"))
+        if plugin_id in {"hadx", "pacc", "rsgb_iota"}:
+            # Organizer 2026 final-score rules use the actual multiplier count.
+            # Persisted pre-fix sessions keep the original arithmetic, including
+            # in Cabrillo. No source bytes or historical contacts are rewritten.
+            corrected = 'self.state.get("scoringRevision") == "26.10.26"'
+            if plugin_id == "rsgb_iota":
+                replacements.append((
+                    "return contest_points * (mults + 1)",
+                    f"return contest_points * (mults if {corrected} else mults + 1)"))
+            else:
+                old_factor = "(1 + int(mults))" if plugin_id == "hadx" else "(int(mults) + 1)"
+                replacements.extend([
+                    (f"contest_points = int(score) * {old_factor}",
+                     f"contest_points = int(score) * (int(mults) if {corrected} else int(mults) + 1)"),
+                    ("contest_points = int(score)\n        return contest_points",
+                     f"contest_points = int(score) * (0 if {corrected} else 1)\n        return contest_points"),
+                ])
+            if plugin_id == "pacc":
+                replacements.append((
+                    'def show_mults(self):\n',
+                    'def show_mults(self):\n'
+                    '    if self.state.get("scoringRevision") == "26.10.26" and im_dutch(self):\n'
+                    '        from contest_host.upstream import pacc_multiplier_key\n'
+                    '        return len({(row["Band"], row["Mode"], pacc_multiplier_key(row))\n'
+                    '                    for row in self.database.fetch_all_contacts_asc()\n'
+                    '                    if row.get("Points", 0) > 0 and pacc_multiplier_key(row)})\n'))
         if plugin_id == "cq_ww_rtty":
             # Apply the CQ WW duplicate-eligibility rule to its third multiplier
             # family; the original query otherwise counts a duplicate's state.
@@ -672,3 +698,19 @@ def load_plugin(plugin_id="cq_ww_cw"):
 
 def load_cqww():
     return load_plugin("cq_ww_cw")
+
+
+def pacc_multiplier_key(row):
+    """PACC 2026 §9.2: country except the named country/call-area families."""
+    country = str(row.get("CountryPrefix", "")).upper()
+    if country not in {"UA9", "CE", "JA", "LU", "PY", "VE", "K", "VK", "ZS", "ZL"}:
+        return country
+    prefix = str(row.get("WPXPrefix", "")).upper()
+    digits = re.findall(r"[0-9]", prefix)
+    area = digits[-1] if digits else "0"
+    if country == "VE":
+        # VO/VY districts are separate from VE/VA and equivalent special calls.
+        country = "VO" if prefix.startswith("VO") else "VY" if prefix.startswith("VY") else "VE"
+    elif country == "UA9":
+        country = "UA"
+    return country + area

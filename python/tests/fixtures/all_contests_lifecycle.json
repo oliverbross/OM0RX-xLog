@@ -1,0 +1,6712 @@
+{
+  "aadx_cw": {
+    "fixture": "test_aadx_plugins_host.AADXCWHostTests.test_original_source_projection_validation_and_esm",
+    "mode": "CW",
+    "fields": {
+      "callsign": "JA1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "42",
+      "other_2": "21"
+    },
+    "firstRow": {
+      "Call": "JA1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "42"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "JA1ABC": {
+            "continent": "AS",
+            "cq": 25,
+            "entity": "Japan",
+            "itu": 45,
+            "primary_pfx": "JA"
+          },
+          "JA1XYZ": {
+            "continent": "AS",
+            "cq": 25,
+            "entity": "Japan",
+            "itu": 45,
+            "primary_pfx": "JA"
+          },
+          "JA2XYZ": {
+            "continent": "AS",
+            "cq": 25,
+            "entity": "Japan",
+            "itu": 45,
+            "primary_pfx": "JA"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "aadx_ssb": {
+    "fixture": "test_aadx_plugins_host.AADXSSBHostTests.test_original_source_projection_validation_and_esm",
+    "mode": "SSB",
+    "fields": {
+      "callsign": "JA1ABC",
+      "sent": "59",
+      "receive": "59",
+      "other_1": "42",
+      "other_2": "21"
+    },
+    "firstRow": {
+      "Call": "JA1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "SSB",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "42"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "JA1ABC": {
+            "continent": "AS",
+            "cq": 25,
+            "entity": "Japan",
+            "itu": 45,
+            "primary_pfx": "JA"
+          },
+          "JA1XYZ": {
+            "continent": "AS",
+            "cq": 25,
+            "entity": "Japan",
+            "itu": 45,
+            "primary_pfx": "JA"
+          },
+          "JA2XYZ": {
+            "continent": "AS",
+            "cq": 25,
+            "entity": "Japan",
+            "itu": 45,
+            "primary_pfx": "JA"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "arrl_field_day": {
+    "fixture": "test_arrl_field_rtty_vhf_host.ARRLFieldDayHostTests.test_am_fm_reports_scoring_and_exports_are_phone_compatible",
+    "mode": "AM",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "59",
+      "receive": "59",
+      "other_1": "2A",
+      "other_2": "CT"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "ARRLSection": "ORG",
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "MIXED",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "1D ORG"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "arrl-original-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "arrl_rtty_ru": {
+    "fixture": "test_arrl_field_rtty_vhf_host.ARRLRTTYRoundupHostTests.test_serial_multiplier_correction_restart_and_exports",
+    "mode": "RTTY",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "CT"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "ARRLSection": "ORG",
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "RTTY",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "#"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "arrl-original-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14080000
+      }
+    }
+  },
+  "arrl_vhf_jun": {
+    "fixture": "test_arrl_field_rtty_vhf_host.ARRLVHFHostTests.test_vhf_am_fm_reports_scoring_and_cabrillo_are_phone_compatible",
+    "mode": "AM",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "59",
+      "receive": "59",
+      "other_1": "JN88",
+      "other_2": "FN31"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "ARRLSection": "ORG",
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "MIXED",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "JN88"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "arrl-original-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 144100000
+      }
+    }
+  },
+  "arrl_vhf_jan": {
+    "fixture": "test_arrl_field_rtty_vhf_host.ARRLVHFHostTests.test_vhf_season_scoring_and_exact_plugin_differences",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "JN88",
+      "other_2": "FN31"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "ARRLSection": "ORG",
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "JN88"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "arrl-original-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 50125000
+      }
+    }
+  },
+  "arrl_vhf_sep": {
+    "fixture": "test_arrl_field_rtty_vhf_host.ARRLVHFHostTests.test_vhf_season_scoring_and_exact_plugin_differences",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "JN88",
+      "other_2": "FN31"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "ARRLSection": "ORG",
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "JN88"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "arrl-original-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 50125000
+      }
+    }
+  },
+  "arrl_10m": {
+    "fixture": "test_arrl_single_band_plugins_host.ARRL10MHostTests.test_catalog_projection_conditional_serial_validation_and_esm",
+    "mode": "CW",
+    "fields": {
+      "callsign": "DL1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "001"
+    },
+    "firstRow": {
+      "Call": "DL1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "MIXED",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "#"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "K1XYZ": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "arrl-single-band-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 28025000
+      }
+    }
+  },
+  "arrl_160m": {
+    "fixture": "test_arrl_single_band_plugins_host.ARRL160MHostTests.test_original_scoring_correction_delete_restart_and_cabrillo",
+    "mode": "CW",
+    "fields": {
+      "callsign": "DL1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "",
+      "other_2": "14"
+    },
+    "firstRow": {
+      "Call": "DL1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "15"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "K1XYZ": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "arrl-single-band-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 1825000
+      }
+    }
+  },
+  "arrl_ss_phone": {
+    "fixture": "test_arrl_ss_phone_host.ARRLSweepstakesPhoneHostTests.test_original_bytes_catalog_fields_parser_and_setup_validation",
+    "mode": "SSB",
+    "fields": {
+      "callsign": "DL1ABC",
+      "sent": "59",
+      "receive": "59",
+      "other_1": "001",
+      "other_2": "123A K1ABC 67CT"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "SSB",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "A OM0RX 67 CT"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14250000
+      }
+    }
+  },
+  "cq_ww_cw": {
+    "fixture": "test_call_history_host.CallHistoryHostTests.test_plugin_history_is_cleared_for_the_next_qso",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "15",
+      "other_2": "5"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "CQZone": "15",
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "15"
+      },
+      "reference": {
+        "countries": {
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "eudx": {
+    "fixture": "test_central_european_plugins_host.CentralEuropeanPluginTests.test_correction_preserves_historical_sent_exchange_and_run_metadata",
+    "mode": "CW",
+    "fields": {
+      "callsign": "DL1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "28",
+      "other_2": "28"
+    },
+    "firstRow": {
+      "Call": "DL1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "K1ABC",
+        "GridSquare": "FN31"
+      },
+      "settings": {
+        "ModeCategory": "MIXED",
+        "OverlayCategory": "N/A",
+        "SentExchange": "28"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "DL1XYZ": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "I1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Italy",
+            "itu": 28,
+            "primary_pfx": "I"
+          },
+          "I1XYZ": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Italy",
+            "itu": 28,
+            "primary_pfx": "I"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "LZ1ABC": {
+            "continent": "EU",
+            "cq": 20,
+            "entity": "Bulgaria",
+            "itu": 28,
+            "primary_pfx": "LZ"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "lz-dx": {
+    "fixture": "test_central_european_plugins_host.CentralEuropeanPluginTests.test_correction_rejects_plugin_invalid_historical_sent_exchange",
+    "mode": "CW",
+    "fields": {
+      "callsign": "LZ1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "28",
+      "other_2": "SO"
+    },
+    "firstRow": {
+      "Call": "LZ1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "K1ABC",
+        "GridSquare": "FN31"
+      },
+      "settings": {
+        "ModeCategory": "MIXED",
+        "OverlayCategory": "N/A",
+        "SentExchange": "28"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "DL1XYZ": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "I1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Italy",
+            "itu": 28,
+            "primary_pfx": "I"
+          },
+          "I1XYZ": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Italy",
+            "itu": 28,
+            "primary_pfx": "I"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "LZ1ABC": {
+            "continent": "EU",
+            "cq": 20,
+            "entity": "Bulgaria",
+            "itu": 28,
+            "primary_pfx": "LZ"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "ari_dx": {
+    "fixture": "test_central_european_plugins_host.CentralEuropeanPluginTests.test_correction_rejects_plugin_invalid_historical_sent_exchange",
+    "mode": "CW",
+    "fields": {
+      "callsign": "I1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "RM"
+    },
+    "firstRow": {
+      "Call": "I1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "K1ABC",
+        "GridSquare": "FN31"
+      },
+      "settings": {
+        "ModeCategory": "MIXED",
+        "OverlayCategory": "N/A",
+        "SentExchange": "#"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "DL1XYZ": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "I1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Italy",
+            "itu": 28,
+            "primary_pfx": "I"
+          },
+          "I1XYZ": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Italy",
+            "itu": 28,
+            "primary_pfx": "I"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "LZ1ABC": {
+            "continent": "EU",
+            "cq": 20,
+            "entity": "Bulgaria",
+            "itu": 28,
+            "primary_pfx": "LZ"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "darc_xmas": {
+    "fixture": "test_central_european_plugins_host.CentralEuropeanPluginTests.test_scoring_same_second_replay_exports_and_rtty_contract",
+    "mode": "CW",
+    "fields": {
+      "callsign": "DL1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "A01"
+    },
+    "firstRow": {
+      "Call": "DL1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "K1ABC",
+        "GridSquare": "FN31"
+      },
+      "settings": {
+        "ModeCategory": "MIXED",
+        "OverlayCategory": "N/A",
+        "SentExchange": "#"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "DL1XYZ": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "I1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Italy",
+            "itu": 28,
+            "primary_pfx": "I"
+          },
+          "I1XYZ": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Italy",
+            "itu": 28,
+            "primary_pfx": "I"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "LZ1ABC": {
+            "continent": "EU",
+            "cq": 20,
+            "entity": "Bulgaria",
+            "itu": 28,
+            "primary_pfx": "LZ"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "wag": {
+    "fixture": "test_central_european_plugins_host.CentralEuropeanPluginTests.test_scoring_same_second_replay_exports_and_rtty_contract",
+    "mode": "CW",
+    "fields": {
+      "callsign": "DL1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "A01"
+    },
+    "firstRow": {
+      "Call": "DL1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "K1ABC",
+        "GridSquare": "FN31"
+      },
+      "settings": {
+        "ModeCategory": "MIXED",
+        "OverlayCategory": "N/A",
+        "SentExchange": "#"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "DL1XYZ": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "I1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Italy",
+            "itu": 28,
+            "primary_pfx": "I"
+          },
+          "I1XYZ": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Italy",
+            "itu": 28,
+            "primary_pfx": "I"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "LZ1ABC": {
+            "continent": "EU",
+            "cq": 20,
+            "entity": "Bulgaria",
+            "itu": 28,
+            "primary_pfx": "LZ"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "cq_160_cw": {
+    "fixture": "test_cq_160_plugins_host.CQ160CWHostTests.test_original_scoring_rebuild_restart_and_export",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "",
+      "other_2": "CT"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "160M",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "15"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "K1ABC/MM": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "K1NEW": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "K1XYZ": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "VE3ABC": {
+            "continent": "NA",
+            "cq": 4,
+            "entity": "Canada",
+            "itu": 4,
+            "primary_pfx": "VE"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 1825000
+      }
+    }
+  },
+  "cq_160_ssb": {
+    "fixture": "test_cq_160_plugins_host.CQ160SSBHostTests.test_original_scoring_rebuild_restart_and_export",
+    "mode": "SSB",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "59",
+      "receive": "59",
+      "other_1": "",
+      "other_2": "CT"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "160M",
+        "ModeCategory": "SSB",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "15"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "K1ABC/MM": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "K1NEW": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "K1XYZ": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "VE3ABC": {
+            "continent": "NA",
+            "cq": 4,
+            "entity": "Canada",
+            "itu": 4,
+            "primary_pfx": "VE"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 1825000
+      }
+    }
+  },
+  "cq_wpx_ssb": {
+    "fixture": "test_cq_wpx_ssb_host.CQWPXSSBHostTests.test_correction_delete_restart_and_ph_export",
+    "mode": "SSB",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "57",
+      "receive": "58",
+      "other_1": "001",
+      "other_2": "100"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "SSB",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": ""
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14250000
+      }
+    }
+  },
+  "cq_ww_rtty": {
+    "fixture": "test_cq_ww_rtty_host.CQWWRTTYHostTests.test_correction_delete_restart_and_cabrillo_rtty_submode_output",
+    "mode": "RTTY",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "5",
+      "other_2": "CT"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "ARRLSection": "DX",
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "RTTY",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "15"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7080000
+      }
+    }
+  },
+  "cq_ww_ssb": {
+    "fixture": "test_cq_ww_ssb_host.CQWWSSBHostTests.test_correction_delete_restart_and_cabrillo_ph_output",
+    "mode": "SSB",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "57",
+      "receive": "58",
+      "other_1": "15",
+      "other_2": "5"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "CQZone": "15",
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "SSB",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "15"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "ED5D": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Spain",
+            "itu": 37,
+            "primary_pfx": "EA"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "LZ9W": {
+            "continent": "EU",
+            "cq": 20,
+            "entity": "Bulgaria",
+            "itu": 28,
+            "primary_pfx": "LZ"
+          },
+          "OE8DDX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Austria",
+            "itu": 28,
+            "primary_pfx": "*4U1V"
+          },
+          "OM0A": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7125000
+      }
+    }
+  },
+  "cwo": {
+    "fixture": "test_cwo_host.CWOHostTests.test_esm_commit_receipt_replay_and_serial_progression",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "12 ALICE"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88TQ",
+        "Name": "OLIVER BROSS"
+      },
+      "settings": {
+        "ModeCategory": "CW",
+        "OverlayCategory": "N/A",
+        "SentExchange": "OLIVER"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "cwt": {
+    "fixture": "test_cwt_sst_host.CWTHostTests.test_correction_preserves_historical_sent_exchange_after_setup_change",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "ALICE",
+      "other_2": "100"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX"
+      },
+      "settings": {
+        "ModeCategory": "CW",
+        "OverlayCategory": "N/A",
+        "SentExchange": "OLIVER 1234"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "k1usn_sst": {
+    "fixture": "test_cwt_sst_host.K1USNSSTHostTests.test_correction_preserves_historical_sent_exchange_after_setup_change",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "ALICE",
+      "other_2": "CT"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX"
+      },
+      "settings": {
+        "ModeCategory": "CW",
+        "OverlayCategory": "N/A",
+        "SentExchange": "OLIVER SD"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "ea_majestad_cw": {
+    "fixture": "test_ea_majestad_plugins_host.KingOfSpainCWHostTests.test_scoring_correction_delete_restart_and_export",
+    "mode": "CW",
+    "fields": {
+      "callsign": "EA1AAA",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "M"
+    },
+    "firstRow": {
+      "Call": "EA1AAA"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "#"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "EA1AAA": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Spain",
+            "itu": 37,
+            "primary_pfx": "EA"
+          },
+          "EA2BBB": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Spain",
+            "itu": 37,
+            "primary_pfx": "EA"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "king-of-spain-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "ea_majestad_ssb": {
+    "fixture": "test_ea_majestad_plugins_host.KingOfSpainSSBHostTests.test_scoring_correction_delete_restart_and_export",
+    "mode": "SSB",
+    "fields": {
+      "callsign": "EA1AAA",
+      "sent": "59",
+      "receive": "59",
+      "other_1": "001",
+      "other_2": "M"
+    },
+    "firstRow": {
+      "Call": "EA1AAA"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "SSB",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "#"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "EA1AAA": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Spain",
+            "itu": 37,
+            "primary_pfx": "EA"
+          },
+          "EA2BBB": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Spain",
+            "itu": 37,
+            "primary_pfx": "EA"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "king-of-spain-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "es_field_day": {
+    "fixture": "test_estonian_plugins_host.EstonianPluginHostTests.test_field_day_multiplier_and_open_correction_restart_export",
+    "mode": "CW",
+    "fields": {
+      "callsign": "ES5AAA",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001 HM",
+      "other_2": "001 HM"
+    },
+    "firstRow": {
+      "Call": "ES5AAA"
+    },
+    "state": {
+      "station": {
+        "Call": "ES1ABC",
+        "GridSquare": "KO29",
+        "LicenseClass": "05",
+        "State": "HM"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "#",
+        "StartDate": "2026-10-21 08:00:00"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "ES1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Estonia",
+            "itu": 29,
+            "primary_pfx": "ES"
+          },
+          "ES5AAA": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Estonia",
+            "itu": 29,
+            "primary_pfx": "ES"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "estonian-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "es_open": {
+    "fixture": "test_estonian_plugins_host.EstonianPluginHostTests.test_field_day_multiplier_and_open_correction_restart_export",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "001"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "ES1ABC",
+        "GridSquare": "KO29",
+        "LicenseClass": "05",
+        "State": "HM"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "#",
+        "StartDate": "2026-10-21 08:00:00"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "ES1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Estonia",
+            "itu": 29,
+            "primary_pfx": "ES"
+          },
+          "ES5AAA": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Estonia",
+            "itu": 29,
+            "primary_pfx": "ES"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "estonian-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "es_ll_kv": {
+    "fixture": "test_estonian_plugins_host.EstonianPluginHostTests.test_period_duplicates_scoring_and_exchange_validation",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "001"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "ES1ABC",
+        "GridSquare": "KO29",
+        "LicenseClass": "05",
+        "State": "HM"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "#",
+        "StartDate": "2026-10-21 08:00:00"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "ES1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Estonia",
+            "itu": 29,
+            "primary_pfx": "ES"
+          },
+          "ES5AAA": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Estonia",
+            "itu": 29,
+            "primary_pfx": "ES"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "estonian-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "es_manual_key": {
+    "fixture": "test_estonian_plugins_host.EstonianPluginHostTests.test_period_duplicates_scoring_and_exchange_validation",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "05001",
+      "other_2": "05001"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "ES1ABC",
+        "GridSquare": "KO29",
+        "LicenseClass": "05",
+        "State": "HM"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "#",
+        "StartDate": "2026-10-21 08:00:00"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "ES1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Estonia",
+            "itu": 29,
+            "primary_pfx": "ES"
+          },
+          "ES5AAA": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Estonia",
+            "itu": 29,
+            "primary_pfx": "ES"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "estonian-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "euhfc": {
+    "fixture": "test_euhfc_iaru_hf_host.EUHFCHostTests.test_original_scoring_band_mode_dupes_restart_and_export",
+    "mode": "CW",
+    "fields": {
+      "callsign": "DL1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "82",
+      "other_2": "17"
+    },
+    "firstRow": {
+      "Call": "DL1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88",
+        "IARUZone": 28
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "MIXED",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "82"
+      },
+      "reference": {
+        "countries": {
+          "DA0HQ": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "DL2XYZ": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "championship-test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "iaru_hf": {
+    "fixture": "test_euhfc_iaru_hf_host.IARUHFHostTests.test_original_points_zone_and_hq_multipliers_restart_and_export",
+    "mode": "CW",
+    "fields": {
+      "callsign": "DL1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "28",
+      "other_2": "28"
+    },
+    "firstRow": {
+      "Call": "DL1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88",
+        "IARUZone": 28
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "MIXED",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "28"
+      },
+      "reference": {
+        "countries": {
+          "DA0HQ": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "DL2XYZ": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "championship-test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "hadx": {
+    "fixture": "test_european_dx_plugins_host.EuropeanDxPluginTests.test_chronological_multiplier_callbacks_for_remaining_conditional_serial_families",
+    "mode": "CW",
+    "fields": {
+      "callsign": "DL1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "001"
+    },
+    "firstRow": {
+      "Call": "DL1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "K1ABC",
+        "GridSquare": "FN31"
+      },
+      "settings": {
+        "ModeCategory": "CW",
+        "OverlayCategory": "N/A",
+        "SentExchange": "#"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "SP1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Poland",
+            "itu": 28,
+            "primary_pfx": "SP"
+          }
+        },
+        "id": "cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "helvetia": {
+    "fixture": "test_european_dx_plugins_host.EuropeanDxPluginTests.test_chronological_multiplier_callbacks_for_remaining_conditional_serial_families",
+    "mode": "CW",
+    "fields": {
+      "callsign": "DL1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "ZH"
+    },
+    "firstRow": {
+      "Call": "DL1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "K1ABC",
+        "GridSquare": "FN31"
+      },
+      "settings": {
+        "ModeCategory": "CW",
+        "OverlayCategory": "N/A",
+        "SentExchange": "#"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "SP1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Poland",
+            "itu": 28,
+            "primary_pfx": "SP"
+          }
+        },
+        "id": "cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "pacc": {
+    "fixture": "test_european_dx_plugins_host.EuropeanDxPluginTests.test_chronological_multiplier_callbacks_for_remaining_conditional_serial_families",
+    "mode": "CW",
+    "fields": {
+      "callsign": "DL1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "ZH"
+    },
+    "firstRow": {
+      "Call": "DL1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "K1ABC",
+        "GridSquare": "FN31"
+      },
+      "settings": {
+        "ModeCategory": "CW",
+        "OverlayCategory": "N/A",
+        "SentExchange": "#"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "SP1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Poland",
+            "itu": 28,
+            "primary_pfx": "SP"
+          }
+        },
+        "id": "cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "spdx": {
+    "fixture": "test_european_dx_plugins_host.EuropeanDxPluginTests.test_scoring_persistence_duplicate_mode_and_export",
+    "mode": "CW",
+    "fields": {
+      "callsign": "SP1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "A"
+    },
+    "firstRow": {
+      "Call": "SP1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "K1ABC",
+        "GridSquare": "FN31"
+      },
+      "settings": {
+        "ModeCategory": "CW",
+        "OverlayCategory": "N/A",
+        "SentExchange": "#"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "SP1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Poland",
+            "itu": 28,
+            "primary_pfx": "SP"
+          }
+        },
+        "id": "cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "ari_40_80": {
+    "fixture": "test_european_hf_plugins_host.EuropeanHFPluginTests.test_commit_score_correction_restart_export_and_historical_sent_exchange",
+    "mode": "CW",
+    "fields": {
+      "callsign": "DL1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "",
+      "other_2": "TO"
+    },
+    "firstRow": {
+      "Call": "DL1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88XX"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "RM"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "EA1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Spain",
+            "itu": 37,
+            "primary_pfx": "EA"
+          },
+          "EA2ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Spain",
+            "itu": 37,
+            "primary_pfx": "EA"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "SM1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Sweden",
+            "itu": 18,
+            "primary_pfx": "SM"
+          }
+        },
+        "id": "european-hf-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "ea_rtty": {
+    "fixture": "test_european_hf_plugins_host.EuropeanHFPluginTests.test_commit_score_correction_restart_export_and_historical_sent_exchange",
+    "mode": "RTTY",
+    "fields": {
+      "callsign": "EA1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "M"
+    },
+    "firstRow": {
+      "Call": "EA1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88XX"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "RTTY",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "#"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "EA1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Spain",
+            "itu": 37,
+            "primary_pfx": "EA"
+          },
+          "EA2ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Spain",
+            "itu": 37,
+            "primary_pfx": "EA"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "SM1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Sweden",
+            "itu": 18,
+            "primary_pfx": "SM"
+          }
+        },
+        "id": "european-hf-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "ok1wc": {
+    "fixture": "test_european_hf_plugins_host.EuropeanHFPluginTests.test_commit_score_correction_restart_export_and_historical_sent_exchange",
+    "mode": "CW",
+    "fields": {
+      "callsign": "DL1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "001"
+    },
+    "firstRow": {
+      "Call": "DL1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88XX"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "#"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "EA1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Spain",
+            "itu": 37,
+            "primary_pfx": "EA"
+          },
+          "EA2ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Spain",
+            "itu": 37,
+            "primary_pfx": "EA"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "SM1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Sweden",
+            "itu": 18,
+            "primary_pfx": "SM"
+          }
+        },
+        "id": "european-hf-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "ssa_mt_cw": {
+    "fixture": "test_european_hf_plugins_host.EuropeanHFPluginTests.test_commit_score_correction_restart_export_and_historical_sent_exchange",
+    "mode": "CW",
+    "fields": {
+      "callsign": "SM1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "JP75AA"
+    },
+    "firstRow": {
+      "Call": "SM1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88XX"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "JP75XX"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "EA1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Spain",
+            "itu": 37,
+            "primary_pfx": "EA"
+          },
+          "EA2ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Spain",
+            "itu": 37,
+            "primary_pfx": "EA"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "SM1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Sweden",
+            "itu": 18,
+            "primary_pfx": "SM"
+          }
+        },
+        "id": "european-hf-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "ssa_mt_ssb": {
+    "fixture": "test_european_hf_plugins_host.EuropeanHFPluginTests.test_commit_score_correction_restart_export_and_historical_sent_exchange",
+    "mode": "SSB",
+    "fields": {
+      "callsign": "SM1ABC",
+      "sent": "59",
+      "receive": "59",
+      "other_1": "001",
+      "other_2": "JP75AA"
+    },
+    "firstRow": {
+      "Call": "SM1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88XX"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "SSB",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "JP75XX"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "EA1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Spain",
+            "itu": 37,
+            "primary_pfx": "EA"
+          },
+          "EA2ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Spain",
+            "itu": 37,
+            "primary_pfx": "EA"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "SM1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Sweden",
+            "itu": 18,
+            "primary_pfx": "SM"
+          }
+        },
+        "id": "european-hf-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "cq_ww_vhf": {
+    "fixture": "test_final_remaining_plugins_host.FinalRemainingPluginTests.test_cq_vhf_rover_grid_survives_setup_edit_replay_and_restart",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "QG62",
+      "other_2": "FN31"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88XX"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "JN88",
+        "StartDate": "2026-10-21 00:00:00"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "final-seven-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 144100000
+      }
+    }
+  },
+  "labre_rs_digi": {
+    "fixture": "test_final_remaining_plugins_host.FinalRemainingPluginTests.test_grid_exchanges_are_strict_and_normalized",
+    "mode": "RTTY",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "jn88",
+      "other_2": "gg40"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88XX"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "RTTY",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "JN88",
+        "StartDate": "2026-10-21 00:00:00"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "final-seven-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14080000
+      }
+    }
+  },
+  "vhf_sprint": {
+    "fixture": "test_final_remaining_plugins_host.FinalRemainingPluginTests.test_grid_exchanges_are_strict_and_normalized",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "jn88",
+      "other_2": "jo60"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88XX"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "JN88",
+        "StartDate": "2026-10-21 00:00:00"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "final-seven-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 144300000
+      }
+    }
+  },
+  "darc_vhf": {
+    "fixture": "test_final_remaining_plugins_host.FinalRemainingPluginTests.test_grid_exchanges_are_strict_and_normalized",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "101 JO60AA"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88XX"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "#",
+        "StartDate": "2026-10-21 00:00:00"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "final-seven-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 144300000
+      }
+    }
+  },
+  "nac_vhf": {
+    "fixture": "test_final_remaining_plugins_host.FinalRemainingPluginTests.test_grid_exchanges_are_strict_and_normalized",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "101 JO60AA"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88XX"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "#",
+        "StartDate": "2026-10-21 00:00:00"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "final-seven-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 144300000
+      }
+    }
+  },
+  "ta_vhf_uhf_contest": {
+    "fixture": "test_final_remaining_plugins_host.FinalRemainingPluginTests.test_grid_exchanges_are_strict_and_normalized",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "59",
+      "receive": "59",
+      "other_1": "001",
+      "other_2": "101 JO60AA"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88XX"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "#",
+        "StartDate": "2026-10-21 00:00:00"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "final-seven-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 144300000
+      }
+    }
+  },
+  "john_moyle_field_day": {
+    "fixture": "test_final_remaining_plugins_host.FinalRemainingPluginTests.test_jmmfd_timestamp_blocks_dupes_and_multiplier_tie_break",
+    "mode": "CW",
+    "fields": {
+      "callsign": "VK2AAB",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "101"
+    },
+    "firstRow": {
+      "Call": "VK2AAB"
+    },
+    "state": {
+      "station": {
+        "Call": "VK4ABC",
+        "GridSquare": "QG62"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "#",
+        "StartDate": "2026-10-21 00:00:00"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "VK2AAA": {
+            "continent": "OC",
+            "cq": 30,
+            "entity": "Australia",
+            "itu": 59,
+            "primary_pfx": "VK"
+          },
+          "VK2AAB": {
+            "continent": "OC",
+            "cq": 30,
+            "entity": "Australia",
+            "itu": 59,
+            "primary_pfx": "VK"
+          },
+          "VK4ABC": {
+            "continent": "OC",
+            "cq": 30,
+            "entity": "Australia",
+            "itu": 59,
+            "primary_pfx": "VK"
+          }
+        },
+        "id": "final-seven-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 144300000
+      }
+    }
+  },
+  "ca_qso_party": {
+    "fixture": "test_first_remaining_plugins_host.FirstRemainingPluginTests.test_cqp_same_second_multiplier_replay_is_stable",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "001",
+      "receive": "101",
+      "other_1": "ALAM",
+      "other_2": ""
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88XX"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "MIXED",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "# ORAN/SBER"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "remaining-five-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "cqws": {
+    "fixture": "test_first_remaining_plugins_host.FirstRemainingPluginTests.test_cqws_accepts_all_pinned_scoring_classes",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1AB0",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "",
+      "other_2": "SP"
+    },
+    "firstRow": {
+      "Call": "K1AB0"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88XX"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "MIXED",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "DX"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "remaining-five-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "darc_schwaben": {
+    "fixture": "test_first_remaining_plugins_host.FirstRemainingPluginTests.test_darc_vhf_requires_locator_but_hf_does_not",
+    "mode": "CW",
+    "fields": {
+      "callsign": "DL1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "T01",
+      "other_2": "T01 JN58"
+    },
+    "firstRow": {
+      "Call": "DL1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88XX"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "MIXED",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "T01"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "remaining-five-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 144300000
+      }
+    }
+  },
+  "canada_day": {
+    "fixture": "test_first_remaining_plugins_host.FirstRemainingPluginTests.test_each_plugin_lifecycle_recalculate_restart_and_exports",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001 NT",
+      "other_2": "ON"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88XX"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "MIXED",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "# NT"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "remaining-five-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "winter_field_day": {
+    "fixture": "test_first_remaining_plugins_host.FirstRemainingPluginTests.test_each_plugin_lifecycle_recalculate_restart_and_exports",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "1O",
+      "other_2": "EMA"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88XX"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "MIXED",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "1O ORG"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "remaining-five-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "iaru_fieldday_r1_cw": {
+    "fixture": "test_iaru_fieldday_host.FieldDayCWHostTests.test_original_esm_commits_and_advances_serial",
+    "mode": "CW",
+    "fields": {
+      "callsign": "DL1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "101"
+    },
+    "firstRow": {
+      "Call": "DL1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX/P",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": ""
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM0RX/P": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "field-day-test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "iaru_fieldday_r1_ssb": {
+    "fixture": "test_iaru_fieldday_host.FieldDaySSBHostTests.test_original_esm_commits_and_advances_serial",
+    "mode": "SSB",
+    "fields": {
+      "callsign": "DL1ABC",
+      "sent": "59",
+      "receive": "59",
+      "other_1": "001",
+      "other_2": "101"
+    },
+    "firstRow": {
+      "Call": "DL1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX/P",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "SSB",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": ""
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM0RX/P": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "field-day-test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "jidx_cw": {
+    "fixture": "test_jidx_plugins_host.JIDXCWHostTests.test_numeric_exchange_validation_and_original_esm_commit",
+    "mode": "CW",
+    "fields": {
+      "callsign": "JA1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "15",
+      "other_2": "13"
+    },
+    "firstRow": {
+      "Call": "JA1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "15"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "JA1ABC": {
+            "continent": "AS",
+            "cq": 25,
+            "entity": "Japan",
+            "itu": 45,
+            "primary_pfx": "JA"
+          },
+          "JA2XYZ": {
+            "continent": "AS",
+            "cq": 25,
+            "entity": "Japan",
+            "itu": 45,
+            "primary_pfx": "JA"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "jidx_ph": {
+    "fixture": "test_jidx_plugins_host.JIDXPhoneHostTests.test_numeric_exchange_validation_and_original_esm_commit",
+    "mode": "SSB",
+    "fields": {
+      "callsign": "JA1ABC",
+      "sent": "59",
+      "receive": "59",
+      "other_1": "15",
+      "other_2": "13"
+    },
+    "firstRow": {
+      "Call": "JA1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "SSB",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "15"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "JA1ABC": {
+            "continent": "AS",
+            "cq": 25,
+            "entity": "Japan",
+            "itu": 45,
+            "primary_pfx": "JA"
+          },
+          "JA2XYZ": {
+            "continent": "AS",
+            "cq": 25,
+            "entity": "Japan",
+            "itu": 45,
+            "primary_pfx": "JA"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "icwc_mst": {
+    "fixture": "test_mst_host.MSTHostTests.test_macro_esm_partial_failure_receipt_replay_and_serial",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "BOB 12"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX"
+      },
+      "settings": {
+        "ModeCategory": "CW",
+        "OverlayCategory": "N/A",
+        "SentExchange": "OLIVER"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "cq_wpx_cw": {
+    "fixture": "test_multi_operator_host.MultiOperatorHostTests.test_empty_replica_page_does_not_skip_later_contact_and_contest_number_is_local",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "002",
+      "other_2": "404"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "ModeCategory": "CW",
+        "OverlayCategory": "N/A",
+        "SentExchange": "CONFIGURED"
+      },
+      "reference": {
+        "countries": {
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "arrl_dx_cw": {
+    "fixture": "test_next_cw_plugins_host.ARRLDXCWHostTests.test_original_run_esm_emits_exchange_and_commits",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "100",
+      "other_2": "CT"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "100"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "naqp_cw": {
+    "fixture": "test_next_cw_plugins_host.NAQPCWHostTests.test_original_run_esm_emits_exchange_and_commits",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "JOHN",
+      "other_2": "CT"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "OLIVER DX"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "cq_wpx_rtty": {
+    "fixture": "test_next_rtty_plugins_host.CQWPXRTTYHostTests.test_esm_commits_with_fldigi_output",
+    "mode": "RTTY",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "100"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "ARRLSection": "DX",
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "RTTY",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "IGNORED BY SERIAL OWNER"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14080000
+      }
+    }
+  },
+  "naqp_rtty": {
+    "fixture": "test_next_rtty_plugins_host.NAQPRTTYHostTests.test_section_scoring_correction_delete_restart_and_cabrillo",
+    "mode": "RTTY",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "JOHN",
+      "other_2": "CT"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "ARRLSection": "DX",
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "RTTY",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "OLIVER DX"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14080000
+      }
+    }
+  },
+  "weekly_rtty": {
+    "fixture": "test_next_rtty_plugins_host.WeeklyRTTYHostTests.test_unique_call_scoring_is_not_naqp_and_relocates",
+    "mode": "RTTY",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "JOHN",
+      "other_2": "CT"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "ARRLSection": "DX",
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "RTTY",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "OLIVER DX"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14080000
+      }
+    }
+  },
+  "oceania_dx_cw": {
+    "fixture": "test_oceania_host.OceaniaHostTests.test_all_band_points_prefix_scopes_duplicates_and_geography",
+    "mode": "CW",
+    "fields": {
+      "callsign": "VK4ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "012"
+    },
+    "firstRow": {
+      "Call": "VK4ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX"
+      },
+      "settings": {
+        "ModeCategory": "CW",
+        "OverlayCategory": "N/A",
+        "SentExchange": ""
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "VK2ABC": {
+            "continent": "OC",
+            "cq": 30,
+            "entity": "Australia",
+            "itu": 55,
+            "primary_pfx": "VK"
+          },
+          "VK4ABC": {
+            "continent": "OC",
+            "cq": 30,
+            "entity": "Australia",
+            "itu": 55,
+            "primary_pfx": "VK"
+          },
+          "VK4XYZ": {
+            "continent": "OC",
+            "cq": 30,
+            "entity": "Australia",
+            "itu": 55,
+            "primary_pfx": "VK"
+          },
+          "ZL1ABC": {
+            "continent": "OC",
+            "cq": 30,
+            "entity": "New Zealand",
+            "itu": 55,
+            "primary_pfx": "ZL"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 1825000
+      }
+    }
+  },
+  "oceania_dx_ssb": {
+    "fixture": "test_oceania_host.OceaniaSSBHostTests.test_all_band_points_prefix_scopes_duplicates_and_geography",
+    "mode": "SSB",
+    "fields": {
+      "callsign": "VK4ABC",
+      "sent": "59",
+      "receive": "59",
+      "other_1": "001",
+      "other_2": "012"
+    },
+    "firstRow": {
+      "Call": "VK4ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX"
+      },
+      "settings": {
+        "ModeCategory": "SSB",
+        "OverlayCategory": "N/A",
+        "SentExchange": ""
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "VK2ABC": {
+            "continent": "OC",
+            "cq": 30,
+            "entity": "Australia",
+            "itu": 55,
+            "primary_pfx": "VK"
+          },
+          "VK4ABC": {
+            "continent": "OC",
+            "cq": 30,
+            "entity": "Australia",
+            "itu": 55,
+            "primary_pfx": "VK"
+          },
+          "VK4XYZ": {
+            "continent": "OC",
+            "cq": 30,
+            "entity": "Australia",
+            "itu": 55,
+            "primary_pfx": "VK"
+          },
+          "ZL1ABC": {
+            "continent": "OC",
+            "cq": 30,
+            "entity": "New Zealand",
+            "itu": 55,
+            "primary_pfx": "ZL"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 1825000
+      }
+    }
+  },
+  "ref_cw": {
+    "fixture": "test_ref_plugins_host.REFCWHostTests.test_scoring_correction_delete_restart_and_export",
+    "mode": "CW",
+    "fields": {
+      "callsign": "F1AAA",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "M"
+    },
+    "firstRow": {
+      "Call": "F1AAA"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "#"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "F1AAA": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "France",
+            "itu": 27,
+            "primary_pfx": "F"
+          },
+          "F2BBB": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "France",
+            "itu": 27,
+            "primary_pfx": "F"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "ref-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "ref_ssb": {
+    "fixture": "test_ref_plugins_host.REFSSBHostTests.test_scoring_correction_delete_restart_and_export",
+    "mode": "SSB",
+    "fields": {
+      "callsign": "F1AAA",
+      "sent": "59",
+      "receive": "59",
+      "other_1": "001",
+      "other_2": "M"
+    },
+    "firstRow": {
+      "Call": "F1AAA"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "SSB",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "#"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "F1AAA": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "France",
+            "itu": 27,
+            "primary_pfx": "F"
+          },
+          "F2BBB": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "France",
+            "itu": 27,
+            "primary_pfx": "F"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "ref-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "arrl_dx_ssb": {
+    "fixture": "test_remaining_phone_plugins_host.ARRLDXSSBHostTests.test_original_source_layout_scoring_corrections_restart_and_export",
+    "mode": "SSB",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "59",
+      "receive": "59",
+      "other_1": "",
+      "other_2": "CT"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "SSB",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "100"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14250000
+      }
+    }
+  },
+  "naqp_ssb": {
+    "fixture": "test_remaining_phone_plugins_host.NAQPSSBHostTests.test_original_source_layout_scoring_esm_corrections_and_export",
+    "mode": "SSB",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "59",
+      "receive": "59",
+      "other_1": "JOHN",
+      "other_2": "CT"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "SSB",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "OLIVER DX"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14250000
+      }
+    }
+  },
+  "phone_weekly_test": {
+    "fixture": "test_remaining_phone_plugins_host.PhoneWeeklyTestHostTests.test_original_source_layout_scoring_esm_corrections_and_export",
+    "mode": "SSB",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "59",
+      "receive": "59",
+      "other_1": "JOHN",
+      "other_2": "CT"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "SSB",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "OLIVER DX"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14250000
+      }
+    }
+  },
+  "rsgb_80m_cc": {
+    "fixture": "test_rsgb_plugins_host.RSGB80MCCHostTests.test_duplicate_correction_delete_restart_and_export",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "001"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "FN03"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "#"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "G3AAA": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "England",
+            "itu": 27,
+            "primary_pfx": "G"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "VE3ABC": {
+            "continent": "NA",
+            "cq": 4,
+            "entity": "Canada",
+            "itu": 9,
+            "primary_pfx": "VE"
+          },
+          "VK3AAA": {
+            "continent": "OC",
+            "cq": 30,
+            "entity": "Australia",
+            "itu": 59,
+            "primary_pfx": "VK"
+          },
+          "ZL1AAA": {
+            "continent": "OC",
+            "cq": 32,
+            "entity": "New Zealand",
+            "itu": 60,
+            "primary_pfx": "ZL"
+          }
+        },
+        "id": "rsgb-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 3525000
+      }
+    }
+  },
+  "rsgb_commonwealth_beru": {
+    "fixture": "test_rsgb_plugins_host.RSGBCommonwealthBERUHostTests.test_esm_commits_serial_and_hq_in_run_and_sandp_with_safe_reset_and_history",
+    "mode": "CW",
+    "fields": {
+      "callsign": "G3AAA",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "101"
+    },
+    "firstRow": {
+      "Call": "G3AAA"
+    },
+    "state": {
+      "station": {
+        "Call": "VE3ABC",
+        "GridSquare": "FN03"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "#"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "G3AAA": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "England",
+            "itu": 27,
+            "primary_pfx": "G"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "VE3ABC": {
+            "continent": "NA",
+            "cq": 4,
+            "entity": "Canada",
+            "itu": 9,
+            "primary_pfx": "VE"
+          },
+          "VK3AAA": {
+            "continent": "OC",
+            "cq": 30,
+            "entity": "Australia",
+            "itu": 59,
+            "primary_pfx": "VK"
+          },
+          "ZL1AAA": {
+            "continent": "OC",
+            "cq": 32,
+            "entity": "New Zealand",
+            "itu": 60,
+            "primary_pfx": "ZL"
+          }
+        },
+        "id": "rsgb-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 3525000
+      }
+    }
+  },
+  "sac_cw": {
+    "fixture": "test_sac_host.SACCWHostTests.test_original_esm_commits_and_advances_serial",
+    "mode": "CW",
+    "fields": {
+      "callsign": "SM1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "101"
+    },
+    "firstRow": {
+      "Call": "SM1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": ""
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "SM1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Sweden",
+            "itu": 18,
+            "primary_pfx": "SM"
+          },
+          "SM2ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Sweden",
+            "itu": 18,
+            "primary_pfx": "SM"
+          }
+        },
+        "id": "sac-test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "sac_ssb": {
+    "fixture": "test_sac_host.SACSSBHostTests.test_original_esm_commits_and_advances_serial",
+    "mode": "SSB",
+    "fields": {
+      "callsign": "SM1ABC",
+      "sent": "59",
+      "receive": "59",
+      "other_1": "001",
+      "other_2": "101"
+    },
+    "firstRow": {
+      "Call": "SM1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "SSB",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": ""
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "SM1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Sweden",
+            "itu": 18,
+            "primary_pfx": "SM"
+          },
+          "SM2ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Sweden",
+            "itu": 18,
+            "primary_pfx": "SM"
+          }
+        },
+        "id": "sac-test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "agcw_qrp": {
+    "fixture": "test_second_remaining_plugins_host.SecondRemainingPluginTests.test_all_eight_lifecycle_score_history_exports_and_restart",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "101 QRP 1234"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "# QRP NM"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "batch-two-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "raem": {
+    "fixture": "test_second_remaining_plugins_host.SecondRemainingPluginTests.test_all_eight_lifecycle_score_history_exports_and_restart",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "001",
+      "receive": "599",
+      "other_1": "101",
+      "other_2": "40N74W"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "48N17O"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "batch-two-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "rda_contest": {
+    "fixture": "test_second_remaining_plugins_host.SecondRemainingPluginTests.test_all_eight_lifecycle_score_history_exports_and_restart",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "101"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "MIXED",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "#"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "batch-two-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "rdxc": {
+    "fixture": "test_second_remaining_plugins_host.SecondRemainingPluginTests.test_all_eight_lifecycle_score_history_exports_and_restart",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "101"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "MIXED",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "#"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "batch-two-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "rsgb_iota": {
+    "fixture": "test_second_remaining_plugins_host.SecondRemainingPluginTests.test_all_eight_lifecycle_score_history_exports_and_restart",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001 EU005",
+      "other_2": "101 NA001"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "MIXED",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "# EU005"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "batch-two-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "stew_perry_topband": {
+    "fixture": "test_second_remaining_plugins_host.SecondRemainingPluginTests.test_all_eight_lifecycle_score_history_exports_and_restart",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "FN20",
+      "other_2": ""
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "JN88"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "batch-two-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 1825000
+      }
+    }
+  },
+  "ukeidx": {
+    "fixture": "test_second_remaining_plugins_host.SecondRemainingPluginTests.test_all_eight_lifecycle_score_history_exports_and_restart",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001 DX",
+      "other_2": "101 AB"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "MIXED",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "# DX"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "batch-two-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "wia_remembrance": {
+    "fixture": "test_second_remaining_plugins_host.SecondRemainingPluginTests.test_all_eight_lifecycle_score_history_exports_and_restart",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "10"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ContestUTCOffsetMinutes": 570,
+        "ModeCategory": "MIXED",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "#"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "batch-two-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "arrl_ss_cw": {
+    "fixture": "test_sweepstakes_host.SweepstakesHostTests.test_catalog_source_layout_and_original_parser_results",
+    "mode": "CW",
+    "fields": {
+      "callsign": "DL1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "123 A K1ABC 67 CT"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88"
+      },
+      "settings": {
+        "ModeCategory": "CW",
+        "OverlayCategory": "N/A",
+        "SentExchange": "A OM0RX 67 CT"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 14025000
+      }
+    }
+  },
+  "10_10_fall_cw": {
+    "fixture": "test_ten_ten_host.TenTenHostTests.test_correction_delete_row_specific_rescore_and_restart",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "OLIVER 12345 NT",
+      "other_2": "ALICE 12345 CT"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX"
+      },
+      "settings": {
+        "ModeCategory": "CW",
+        "OverlayCategory": "N/A",
+        "SentExchange": "OLIVER 12345 NT"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 28300000
+      }
+    }
+  },
+  "10_10_spring_cw": {
+    "fixture": "test_ten_ten_host.TenTenHostTests.test_correction_delete_row_specific_rescore_and_restart",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "OLIVER 12345 NT",
+      "other_2": "ALICE 12345 CT"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX"
+      },
+      "settings": {
+        "ModeCategory": "CW",
+        "OverlayCategory": "N/A",
+        "SentExchange": "OLIVER 12345 NT"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 28300000
+      }
+    }
+  },
+  "10_10_winter_phone": {
+    "fixture": "test_ten_ten_host.TenTenHostTests.test_correction_delete_row_specific_rescore_and_restart",
+    "mode": "SSB",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "59",
+      "receive": "59",
+      "other_1": "OLIVER 12345 NT",
+      "other_2": "ALICE 12345 CT"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX"
+      },
+      "settings": {
+        "ModeCategory": "SSB",
+        "OverlayCategory": "N/A",
+        "SentExchange": "OLIVER 12345 NT"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 28300000
+      }
+    }
+  },
+  "10_10_summer_phone": {
+    "fixture": "test_ten_ten_host.TenTenHostTests.test_correction_delete_row_specific_rescore_and_restart",
+    "mode": "SSB",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "59",
+      "receive": "59",
+      "other_1": "OLIVER 12345 NT",
+      "other_2": "ALICE 12345 CT"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX"
+      },
+      "settings": {
+        "ModeCategory": "SSB",
+        "OverlayCategory": "N/A",
+        "SentExchange": "OLIVER 12345 NT"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 28300000
+      }
+    }
+  },
+  "trans_tasman": {
+    "fixture": "test_trans_tasman_host.TransTasmanHostTests.test_blocks_duplicates_score_correction_delete_export_and_reopen",
+    "mode": "CW",
+    "fields": {
+      "callsign": "ZL1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "001",
+      "other_2": "012"
+    },
+    "firstRow": {
+      "Call": "ZL1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "VK4ABC"
+      },
+      "settings": {
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "SentExchange": ""
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "VK4ABC": {
+            "continent": "OC",
+            "cq": 30,
+            "entity": "Australia",
+            "itu": 55,
+            "primary_pfx": "VK"
+          }
+        },
+        "id": "test-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "qso_party_rst": {
+    "fixture": "test_type4_utility_plugins_host.Type4UtilityPluginTests.test_correction_preserves_historical_rover_location_and_cabrillo",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "579",
+      "other_1": "NEW",
+      "other_2": ""
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88XX"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "NIT"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "type4-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "qso_party_sn": {
+    "fixture": "test_type4_utility_plugins_host.Type4UtilityPluginTests.test_draft_commit_edit_delete_restart_replay_and_historical_sent_fields",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "001",
+      "receive": "42",
+      "other_1": "NEW",
+      "other_2": ""
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88XX"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "NIT"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "type4-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "dxpedition": {
+    "fixture": "test_type4_utility_plugins_host.Type4UtilityPluginTests.test_dxpedition_prev_call_persists_between_native_esm_requests",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "",
+      "other_2": ""
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88XX"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "NIT"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "type4-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "general_logging": {
+    "fixture": "test_type4_utility_plugins_host.Type4UtilityPluginTests.test_exports_and_esm_function_keys",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "Alice",
+      "other_2": "portable"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88XX"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "NIT"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "type4-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  },
+  "randomgram": {
+    "fixture": "test_type4_utility_plugins_host.Type4UtilityPluginTests.test_exports_and_esm_function_keys",
+    "mode": "CW",
+    "fields": {
+      "callsign": "K1ABC",
+      "sent": "599",
+      "receive": "599",
+      "other_1": "ABC",
+      "other_2": "XYZ"
+    },
+    "firstRow": {
+      "Call": "K1ABC"
+    },
+    "state": {
+      "station": {
+        "Call": "OM0RX",
+        "GridSquare": "JN88XX"
+      },
+      "settings": {
+        "BandCategory": "ALL",
+        "ModeCategory": "CW",
+        "OperatorCategory": "SINGLE-OP",
+        "OverlayCategory": "N/A",
+        "PowerCategory": "LOW",
+        "SentExchange": "NIT"
+      },
+      "reference": {
+        "countries": {
+          "DL1ABC": {
+            "continent": "EU",
+            "cq": 14,
+            "entity": "Germany",
+            "itu": 28,
+            "primary_pfx": "DL"
+          },
+          "K1ABC": {
+            "continent": "NA",
+            "cq": 5,
+            "entity": "United States",
+            "itu": 8,
+            "primary_pfx": "K"
+          },
+          "OM0RX": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          },
+          "OM1ABC": {
+            "continent": "EU",
+            "cq": 15,
+            "entity": "Slovak Republic",
+            "itu": 28,
+            "primary_pfx": "OM"
+          }
+        },
+        "id": "type4-cty-v1"
+      },
+      "draft": {
+        "frequencyHz": 7025000
+      }
+    }
+  }
+}

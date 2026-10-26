@@ -4,6 +4,35 @@ Source: `oliverbross/contest-sw` commit `7c8b499225a73f7f8f792246881bd7aefc05452
 Copied from the supplied Not1MM reset feasibility archive. `upstream/` preserves
 the original source bytes. GPL-3.0 license is retained in `LICENSE`.
 
+## New-session scoring revision 26.10.26
+
+The 26 October 2026 readiness qualification found an extra `+1` multiplier in
+the pinned HA-DX, PACC and RSGB IOTA final-score callbacks. Their organizers'
+2026 rules require actual QSO points multiplied by actual credited multipliers:
+[HA-DX §10](https://ha-dx.com/en/contest-rules),
+[PACC §10](https://veron.nl/wp-content/uploads/2025/12/PACC_2026_rules_eng.pdf),
+[IOTA §6(d)](https://www.rsgbcc.org/hf/rules/2026/riota.shtml).
+Exact single-occurrence import overlays correct those arithmetic expressions
+only for newly created sessions bearing immutable `scoringRevision=26.10.26`.
+Zero multipliers give zero claimed score. Original vendored bytes/hashes remain
+unchanged. Rule identity exposes the revised version, and coordination digests
+include it to prevent mixing old/new scoring policies in replicas.
+
+PACC §9.2 additionally distinguishes call areas for the named countries for
+Dutch entrants. Its new-session multiplier display/callback counts authoritative
+stored country/WPX area keys by band and mode, including VO/VY distinctions and
+equivalent VE special prefixes. The ordinary foreign-entrant province query
+remains upstream. `Host.rebuild` supplies each historical PACC received exchange
+to its existing widget-reading points callback, so unrelated edits/deletions do
+not turn retained points into zero.
+
+Existing sessions without the marker, and newly imported historical logs, retain
+the pinned final-score formula. Opening, setup edits, exporting and recalculating
+do not opt them into the new revision. No production session was opened or
+rescored by qualification. `test_score_revision_host.py` covers new/legacy totals,
+Cabrillo headers, restart, rebuild and Dutch mixed-mode call-area scope. This is
+a bounded correction, not complete organizer certification of every category.
+
 The 79-plugin progression adds the unchanged `ca_qso_party.py`, `canada_day.py`,
 `cqws.py`, `darc_schwaben.py`, and `winter_field_day.py` bytes from that same
 revision. Canada Day, CQWS, and Winter Field Day have no upstream band whitelist,

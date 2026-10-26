@@ -504,6 +504,8 @@ def coordination_identity(state):
         "settings": state["settings"],
     }
     return {"pluginID": value["pluginID"], "sourceRevision": value["sourceRevision"],
+    if state.get("scoringRevision"):
+        value = {**value, "scoringRevision": state["scoringRevision"]}
             "referenceID": value["referenceID"],
             "coordinationDigest": hashlib.sha256(canonical(value).encode()).hexdigest()}
 
@@ -986,7 +988,8 @@ class Desk:
                 "authoritySerialRequestID": ((staged_reservation or {}).get("requestID") or
                                              self.state.get("replicaReservation", {}).get("requestID")),
                 "sourceRevision": SOURCE_REVISION,
-                "ruleIdentity": {"id": self.state["pluginID"].replace("_", "-"), "version": "26.10.11",
+                "ruleIdentity": {"id": self.state["pluginID"].replace("_", "-"),
+                                 "version": self.state.get("scoringRevision") or "26.10.11",
                                  "edition": "not1mm-python", "sourceRevision": SOURCE_REVISION},
                 "supportedBands": list(plugin.bands), "supportedModes": list(plugin.modes),
                 "allowDuplicateCommit": plugin.allow_duplicate_commit,
@@ -2266,6 +2269,7 @@ class Host:
                 self.apply_fields(desk, params)
                 self.clear_received_fields_after_vfo_change(desk, params)
                 self.prefill(desk, reset_cq_ww_zone=(desk.callsign.text().strip().upper() != previous_call))
+                    state["scoringRevision"] = None
             elif method == "focus":
                 require(params.get("field") in INPUTS, "Unknown field")
                 desk.current_widget = params["field"]
@@ -2951,6 +2955,10 @@ class Host:
         settings = deepcopy(params.get("settings", {}))
         require(isinstance(settings, dict), "Settings must be an object")
         apply_canonical_cq_ww_station_zone(plugin_id, station, settings)
+        require(state.get("scoringRevision") in {None, "26.10.26"}
+                and (state.get("scoringRevision") is None
+                     or state["pluginID"] in {"hadx", "pacc", "rsgb_iota"}),
+                "Unsupported persisted scoring revision", "engine_mismatch")
         if plugin_id == "wia_remembrance":
             local_offset = datetime.now().astimezone().utcoffset()
             settings.setdefault("ContestUTCOffsetMinutes",
@@ -3121,6 +3129,9 @@ class Host:
         state["draft"]["serial"] = serial
         if state["pluginID"] not in SSA_MT_PLUGINS:
             field = "sent" if state["pluginID"] in SENT_FIELD_SERIAL_PLUGINS else "other_1"
+                # Existing sessions have no marker and retain their pinned score.
+                # Setup edits/reopening never opt historical logs into new rules.
+                "scoringRevision": "26.10.26" if plugin_id in {"hadx", "pacc", "rsgb_iota"} else None,
             state["draft"]["fields"][field] = reserved_sent_exchange(state, serial)
 
     @staticmethod
@@ -4009,7 +4020,7 @@ class Host:
                 desk.contact_is_dupe = int(desk.is_dupe(row["Call"], row["Band"], row["TS"], row["Mode"]))
                 if desk.contact_is_dupe:
                     duplicate_ids.add(row["ID"])
-                if desk.state["pluginID"] in TEN_TEN_PLUGINS:
+                if desk.state["pluginID"] in TEN_TEN_PLUGINS or desk.state["pluginID"] == "pacc":
                     # The original points() reads the active exchange widget. During
                     # ordered replay, make that widget represent the row being scored.
                     desk.other_2.setText(row["NR"])
