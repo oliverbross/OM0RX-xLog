@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { compareContestLog, defaultReviewOptions, type ReviewFinding, type ReviewOptions, type ReviewResult } from "./logReview";
+import { compareContestLog, defaultReviewOptions, reviewTime, type ReviewFinding, type ReviewOptions, type ReviewResult } from "./logReview";
 import { collectReview, readReview, runReviewWorker, type ReviewRead, type ReviewSnapshot } from "./logReviewService";
 import "./ContestLogReviewWindow.css";
 
@@ -26,6 +26,8 @@ export function ContestLogReviewWindow({read=readReview,compare=runReviewWorker}
   const [filter,setFilter]=useState("Unreviewed"),[selected,setSelected]=useState<ReviewFinding|null>(null);
   const [decisions,setDecisions]=useState<Record<string,Decision>>({}),[raw,setRaw]=useState<Record<string,string>>({});
   const [notice,setNotice]=useState("");
+  const [applying,setApplying]=useState(false),[stale,setStale]=useState(false);
+  const correctionActive=useRef(false);
   const active=useRef<AbortController|null>(null),detailGeneration=useRef(0);
   useEffect(()=>()=>{active.current?.abort();detailGeneration.current++;},[]);
   const run=async()=>{
@@ -40,6 +42,7 @@ export function ContestLogReviewWindow({read=readReview,compare=runReviewWorker}
       const result=await compare(snapshot,{...options},controller.signal);
       if(controller.signal.aborted)return;
       setComplete({snapshot,result,options:{...options}});setFilter("Unreviewed");
+      setStale(false);
       try {setDecisions(loadDecisions(snapshot));} catch {setDecisions({});setNotice("Saved review decisions could not be read. Findings remain available.");}
     } catch(cause) {if(!controller.signal.aborted)setError(message(cause));else setNotice("Review cancelled. Previous results, if any, remain unchanged.");}
     finally {if(active.current===controller){active.current=null;setBusy(false);setProgress("");}}
@@ -70,13 +73,27 @@ export function ContestLogReviewWindow({read=readReview,compare=runReviewWorker}
     catch{setError("The report could not be copied to the clipboard.");}
   };
   const findings=complete?.result.findings??[];
+  const candidate=selected?.kind==="Possible typo"&&selected.candidateCalls?.length===1?selected.candidateCalls[0]:null;
+  const correctCall=async()=>{
+    if(!complete||!selected||!candidate||correctionActive.current||stale)return;
+    correctionActive.current=true;setApplying(true);setError("");setNotice("");
+    // Disable the old snapshot even after a timeout: the durable receipt may settle later.
+    setStale(true);
+    try {
+      await invoke("contest_log_review_correct_call",{sessionId:complete.snapshot.context.sessionID,
+        workspaceGeneration:complete.snapshot.context.workspaceGeneration,qsoId:selected.qso.ID,
+        expectedRevision:complete.snapshot.context.revision,expectedCall:selected.qso.Call,callsign:candidate,requestId:crypto.randomUUID()});
+      setNotice(`Callsign changed: ${selected.qso.Call} → ${candidate}. Run review again to refresh the findings.`);
+    } catch(cause){setError(message(cause));}
+    finally{correctionActive.current=false;setApplying(false);}
+  };
   const shown=findings.filter(f=>filter==="All" || (filter==="Reviewed"?Boolean(decisions[f.key]):
     !decisions[f.key] && (filter==="Unreviewed" || f.kind===filter)));
   return <main className="contest-log-review">
     <header><div><h1>Log Review</h1><p>Compare the active contest with recorded spots and local reference data.</p></div>
-      <button onClick={()=>void run()} disabled={busy}>{complete?"Run again":"Run review"}</button>
+      <button onClick={()=>void run()} disabled={busy||applying}>{complete?"Run again":"Run review"}</button>
       {busy&&<button onClick={()=>active.current?.abort()}>Cancel</button>}</header>
-    <p className="review-hint">Run after operating. Review never changes contacts or sends radio commands.
+    <p className="review-hint">Run after operating. Contacts change only when you choose a correction. Review sends no radio commands.
       Missing spots do not mean a contact is wrong; reports can contain mistakes or describe another station.</p>
     <fieldset disabled={busy}><legend>Comparison tolerances</legend>
       <label>Time ± minutes<input type="number" min="1" max="30" value={options.minutes}
@@ -137,7 +154,18 @@ export function ContestLogReviewWindow({read=readReview,compare=runReviewWorker}
         <td>{decisions[finding.key]?"Reviewed":"Unreviewed"}</td></tr>)}</tbody></table>
         {!shown.length&&<p>No suggestions in this filter. This is not proof that the log has no errors.</p>}</section>
         {selected&&<aside aria-label="Supporting reports"><h2>{selected.qso.Call} · {selected.kind}</h2>
+          {selected.evidence.length>0&&<div className="review-comparison"><table aria-label="Logged contact compared with reports"><thead><tr>
+            <th>Field</th><th>Logged contact</th><th>Reported suggestion</th></tr></thead><tbody>
+            <tr><th>Callsign</th><td><strong>{selected.qso.Call}</strong></td><td><strong>{(selected.candidateCalls??[...new Set(selected.evidence.map(spot=>spot.callsign))]).join(" / ")}</strong></td></tr>
+            <tr><th>UTC</th><td>{utc(selected.qso.TS)}</td><td>{utc(selected.evidence[0].reportedAt)}<br/>{(Math.abs(reviewTime(selected.qso.TS)-reviewTime(selected.evidence[0].reportedAt??""))/60000).toFixed(1)} min apart</td></tr>
+            <tr><th>Frequency / mode</th><td>{selected.qso.Freq} kHz · {selected.qso.Mode}</td><td>{selected.evidence[0].frequencyKHz} kHz · {selected.evidence[0].mode}</td></tr>
+          </tbody></table></div>}
           <p>{selected.explanation}</p>
+          {candidate&&<div className="review-correction"><button disabled={busy||applying||stale} onClick={()=>void correctCall()}>
+            {applying?"Applying callsign correction…":`Change callsign to ${candidate}`}</button>
+            <p>Changes only {selected.qso.Call} → {candidate}. Time, frequency, reports and received exchange stay as logged. Score and multipliers follow the corrected callsign.</p></div>}
+          {selected.kind==="Possible typo"&&!candidate&&<p>Reports suggest more than one callsign. Open this contact to verify and edit it.</p>}
+          {stale&&<p role="status">This review is out of date. Run again before applying another correction.</p>}
           <p>Logged {utc(selected.qso.TS)} UTC · RX {selected.qso.Freq} kHz
             {Number(selected.qso.QSXFreq)>0&&` · split ${selected.qso.QSXFreq} kHz`} · {selected.qso.Mode}</p>
           <p>Logged country {selected.qso.CountryPrefix||"unavailable"} · received exchange {selected.qso.NR??"unavailable"}.</p>
@@ -153,9 +181,10 @@ export function ContestLogReviewWindow({read=readReview,compare=runReviewWorker}
             <button onClick={()=>decide(selected,"Dismiss suggestion")}>Dismiss suggestion</button>
             {decisions[selected.key]&&<button onClick={()=>decide(selected,null)}>Reopen review</button>}</div>
           {decisions[selected.key]&&<p>{decisions[selected.key].disposition} · {utc(decisions[selected.key].at)}</p>}
-          <p>To correct a contact, open Contest → Log Display and double-click this contact to use Edit Contact. Run review again afterwards.</p>
-          <button onClick={()=>void invoke("contest_log_review_open_log",{
+          <p>Open this exact contact in Log Display, then click its callsign to edit other fields.</p>
+          <button disabled={busy||applying||stale} onClick={()=>void invoke("contest_log_review_open_log",{
             sessionId:complete.snapshot.context.sessionID,workspaceGeneration:complete.snapshot.context.workspaceGeneration,
+            qsoId:selected.qso.ID,callsign:selected.qso.Call,
           }).catch(cause=>setError(message(cause)))}>Open Log Display</button>
         </aside>}
       </div>

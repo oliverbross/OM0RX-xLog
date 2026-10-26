@@ -1850,6 +1850,43 @@ it.each(["wrong session", "stale revision"])("rejects an initial Rates snapshot 
   expect(surfaceOwner.current.projections.monitor).toEqual({schemaVersion:1,status:"unavailable"});
 });
 
+it("searches the complete log, focuses an exact repeated call and corrects only its callsign",async()=>{
+  let current:any=projection(3);
+  const rows=Array.from({length:105},(_,index)=>({ID:`qso-${index}`,TS:"2026-10-25 00:26:20",Call:index===104||index===1?"UA6LUQ":"K1ABC",
+    Freq:7116,Band:7,Mode:"LSB",SNT:"59",RCV:"59",NR:16,Points:1}));
+  let corrected:any;
+  const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    let result:any;
+    if(method==="contest_catalog")result={plugins:[{id:"cq_ww_ssb",name:"CQ WW SSB"}]};
+    else if(method==="contest_sessions")result={sessions:[]};
+    else if(method==="contest_create")result={projection:current};
+    else if(method==="contest_log_page")result={revision:current.revision,rows:rows.slice(params.offset??0,(params.offset??0)+(params.limit??20)),total:rows.length};
+    else if(method==="contest_score")result={score:current.score,matrices:{countries:[],zones:[]}};
+    else if(method==="contest_qso_correct"){
+      corrected=params;rows[104]={...rows[104],Call:params.fields.callsign};current={...current,revision:4};result={projection:current,actions:[],messages:[]};
+    }else throw new Error(method);
+    return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await userEvent.click(await screen.findByRole("button",{name:"New Contest"}));
+  await userEvent.click(screen.getByRole("button",{name:"OK"}));
+  await waitFor(()=>expect(surfaceOwner.current.projections.logbook.status).toBe("ready"));
+  const envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,panelID:"logbook",projectionRevision:1,requestID:crypto.randomUUID()};
+  const liveCall=surfaceOwner.current.projections["active-qso"].draft.callsign;
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"log_focus",params:{qsoID:"qso-104",callsign:"UA6LUQ"}}));
+  expect(surfaceOwner.current.projections.logbook).toMatchObject({searchQuery:"UA6LUQ",focusedQsoID:"qso-104",page:{total:2}});
+  expect(surfaceOwner.current.projections.logbook.page.rows.map((row:any)=>row.qsoID)).toEqual(["qso-1","qso-104"]);
+  expect(surfaceOwner.current.projections["active-qso"].draft.callsign).toBe(liveCall);
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"log_correct_call",params:{qsoID:"qso-104",expectedSessionRevision:3,expectedCall:"UA6LUQ",callsign:"UA6LQ"}}));
+  expect(corrected.fields).toEqual({callsign:"UA6LQ"});
+  expect(Object.keys(corrected).sort()).toEqual(["draftID","expectedRevision","fields","operationID","qsoID","reason","sessionID"].sort());
+  expect(rows[1].Call).toBe("UA6LUQ");expect(rows[104]).toMatchObject({Call:"UA6LQ",NR:16,Freq:7116,TS:"2026-10-25 00:26:20"});
+  await expect(surfaceOwner.current.handle({...envelope,action:"log_correct_call",params:{qsoID:"qso-104",expectedSessionRevision:3,expectedCall:"UA6LUQ",callsign:"UA6LQ"}})).rejects.toThrow("changed");
+  expect(request.mock.calls.filter(([method])=>method==="contest_qso_correct")).toHaveLength(1);
+});
+
 it("projects CWT Name as received input and admits edits through the detached owner", async () => {
   let current:any={...projection(3,{other_1:"ALICE",other_2:"1234"}),pluginID:"cwt",pluginName:"CWT",matrixTrackers:[],
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Name","SPC","PTS"]};

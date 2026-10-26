@@ -19,6 +19,7 @@ export type ReviewFinding = {
   key: string; kind: "Possible typo" | "Frequency/time mismatch" | "Country / zone mismatch"; qso: ReviewQSO;
   explanation: string; evidence: ReviewSpot[]; evidenceCount: number;
   reference?:ReviewReference;
+  candidateCalls?:string[];
 };
 export type ReviewResult = {
   findings: ReviewFinding[]; checked: number; corroborated: number; withoutEvidence: number;
@@ -144,7 +145,8 @@ export function compareContestLog(qsos: ReviewQSO[], spots: ReviewSpot[], option
       const retained = [...unique.values()].slice(0,8).map(item=>item.spot);
       const fingerprint = JSON.stringify([qso.ID,name,qso.TS,frequency,qso.QSXFreq,mode,qso.NR,qso.CountryPrefix,kind,options,
         retained.map(spot=>[spot.callsign,spot.frequencyKHz,spot.reportedAt,spot.spotter])]);
-      result.findings.push({key:fingerprint,kind,qso,explanation,evidence:retained,evidenceCount:unique.size,reference});
+      result.findings.push({key:fingerprint,kind,qso,explanation,evidence:retained,evidenceCount:unique.size,reference,
+        candidateCalls:kind==="Possible typo"?[...new Set(evidence.map(item=>item.call))].sort():undefined});
     };
     if (candidates.length) add("Possible typo",candidates,
       "A similar callsign was reported nearby in time and frequency. This can also be another station on a busy frequency; verify your notes or recording.");

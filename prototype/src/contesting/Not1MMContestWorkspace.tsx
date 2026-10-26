@@ -4,6 +4,8 @@ import BandMaps, { deduplicateBandMapSpots, type BandMapSpot } from "../live/Ban
 import ClusterPanel from "../live/ClusterPanel";
 import { bearingAndDistance } from "../MapGeography";
 import { contestSchedule } from "./contestSchedule";
+import { selectContestLog } from "./contestLogSelection";
+import { validReviewCall } from "./logReview";
 import { connectMapContext, type MapContext } from "../live/mapContext";
 import { useSharedCW } from "../live/useSharedCW";
 import { ContestAssistancePanel, type ContestSCPPanelSurface, type SCPSelectionScope } from "./ContestAssistancePanel";
@@ -784,6 +786,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [logOffset, setLogOffset] = useState(0), [logTotal, setLogTotal] = useState(0);
   const [logPageSize, setLogPageSize] = useState(initialLogPageSize);
+  const [logQuery,setLogQuery]=useState(""),[logFocus,setLogFocus]=useState("");
+  const logQueryRef=useRef("");
   const [scpSurface, setSCPSurface] = useState<ContestSCPPanelSurface | null>(null);
   const fieldRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const focusRef = useRef("callsign");
@@ -1227,6 +1231,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   };
   const acceptSessionProjection = (next: Projection) => {
     if (projectionRef.current?.sessionID !== next.sessionID) {
+      logQueryRef.current="";setLogQuery("");setLogFocus("");
       setRows([]); setLogOffset(0); setLogTotal(0); setPartial(null); setScore(null); setStatistics(null);
       setMatrices({}); setRates(null); setEditing(null);
       setAuxiliaryReads({});
@@ -1280,8 +1285,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const revision = expected.revision;
     const key = `${sessionID}:${revision}`;
     const operations = lanes.map(async lane => {
-      const value = await (lane === "log"
-        ? result<Data>("contest_log_page", { sessionID, expectedRevision: revision, offset, limit: pageLimit })
+      const value:Data = await (lane === "log"
+        ? logQueryRef.current ? selectContestLog((offset,limit)=>result<any>("contest_log_page",{sessionID,expectedRevision:revision,offset,limit}),revision,logQueryRef.current,offset,pageLimit)
+          : result<Data>("contest_log_page", { sessionID, expectedRevision: revision, offset, limit: pageLimit })
         : lane === "score" ? result<Data>("contest_score", { sessionID, expectedRevision: revision })
         : result<Data>("contest_rates", { sessionID, expectedRevision: revision }));
       const current = projectionRef.current;
@@ -2421,6 +2427,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       canExportAdif: projection.exportFormats?.includes("adif")??true,
       canExportEdi: projection.exportFormats?.includes("edi")??false,
       page: { offset: logOffset, limit: logPageSize, total: logTotal, rows: logRows(rows, projection.pluginID, bandLabels) },
+      searchQuery:logQuery,focusedQsoID:logFocus,
       ...(sourcePluginColumns.length ? { exchangeLayout: "plugin" as const, pluginColumns,
         pluginRows:not1mmLogRows(rows,sourcePluginColumns,projection.fields,projection.pluginID),
         pluginPartialRows:not1mmLogRows(partialRows,sourcePluginColumns,projection.fields,projection.pluginID) }
@@ -2589,7 +2596,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         {universe:matrices.countryUniverse??[],spots:surfaceSpots,draftID:projection.draftID,draftRevision:surfaceDraftRevision});
     }
     return unavailable;
-  }, [projection, detachedAvailable, activeSessionName, fields, operationFrequencyHz, rows, logOffset, logTotal, editing,
+  }, [projection, detachedAvailable, activeSessionName, fields, operationFrequencyHz, rows, logOffset, logTotal, logQuery, logFocus, logPageSize, editing,
     editCall, editTimestamp, editFrequencyMHz, editReceiveFrequencyHz, editPower, editOperator, editSent, editReceived, editSentExchange, editZone, editName, editQTH, editComment,
     correctionReason, confirmDelete, deletionReason,
     busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, phoneSimulationAvailable, phoneOutputAvailable, phoneSimulationArmed,
@@ -2952,6 +2959,34 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         if (await runMutation(base => mutate("contest_recalculate", base), true, true, false, true))
           setNotice("Score and multipliers recalculated from the complete contest log.");
         return;
+      case "log_search":
+      case "log_focus": {
+        if(editing)throw new Error("Save or cancel the open contact editor before searching.");
+        const query=(action.action==="log_search"?action.params.query:action.params.callsign).trim().toUpperCase();
+        const selected=await selectContestLog((offset,limit)=>result<any>("contest_log_page",{
+          sessionID:active.sessionID,expectedRevision:active.revision,offset,limit}),active.revision,query,0,logPageSize,
+          action.action==="log_focus"?action.params.qsoID:undefined);
+        if(projectionRef.current?.sessionID!==active.sessionID||projectionRef.current?.revision!==active.revision)
+          throw new Error("The contest changed. Search again.");
+        logQueryRef.current=query;setLogQuery(query);setLogFocus(action.action==="log_focus"?action.params.qsoID:"");
+        setRows(selected.rows);setLogOffset(selected.offset);setLogTotal(selected.total);return;
+      }
+      case "log_correct_call": {
+        if(editing)throw new Error("Save or cancel the open contact editor before applying a review correction.");
+        if(!sameFields(fieldsRef.current,projectionFields(active)))throw new Error("Finish the pending live entry before applying a review correction.");
+        if(configuredClient)throw new Error("Use Edit Contact for a correction on a shared contest client.");
+        const {qsoID,expectedSessionRevision,expectedCall,callsign}=action.params;
+        if(active.revision!==expectedSessionRevision)throw new Error("The contest changed. Run review again before applying this correction.");
+        if(!validReviewCall(callsign)||callsign===expectedCall)throw new Error("Choose a different complete callsign.");
+        const selected=await selectContestLog((offset,limit)=>result<any>("contest_log_page",{
+          sessionID:active.sessionID,expectedRevision:active.revision,offset,limit}),active.revision,expectedCall,0,1,qsoID);
+        if(selected.target?.Call!==expectedCall)throw new Error("This contact changed. Run review again.");
+        await runMutation(base=>{
+          if(base.revision!==expectedSessionRevision)throw new Error("The contest changed. Run review again.");
+          return mutate("contest_qso_correct",base,{qsoID,fields:{callsign},reason:`Log Review callsign correction: ${expectedCall} → ${callsign}`});
+        },true,false,true,true);
+        return;
+      }
       case "log_page":
         setLogPageSize(action.params.limit);
         await loadLogPage(action.params.offset, true, action.params.limit);

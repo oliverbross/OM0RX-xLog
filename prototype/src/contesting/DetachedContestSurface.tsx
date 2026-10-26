@@ -979,7 +979,7 @@ function ManualLogTable({rows,disabled,onEdit,onDeleteMenu,label,emptyMessage}:{
   const columns=["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","M1","ZN","M2","PFX","PTS"];
   return <div className="contest-surface-log-scroll"><table className="contest-surface-original-log" aria-label={label}><thead><tr>{columns.map(title=><th key={title} scope="col">{title}</th>)}</tr></thead><tbody>{rows.length===0
     ? <tr className="contest-surface-empty-row"><td colSpan={columns.length}>{emptyMessage ?? (label === "Callsign partial matches" ? "No partial matches" : "No contacts")}</td></tr>
-    : rows.map(row=><tr key={row.qsoID} onDoubleClick={event=>{if(!disabled&&!(event.target as Element).closest("button"))onEdit(row.qsoID);}}
+    : rows.map(row=><tr key={row.qsoID} data-qso-id={row.qsoID} onDoubleClick={event=>{if(!disabled&&!(event.target as Element).closest("button"))onEdit(row.qsoID);}}
       onContextMenu={event=>{event.preventDefault();if(!disabled)onEdit(row.qsoID);}}>
     <td>{row.TS??new Date(row.workedAt).toISOString().slice(0,19).replace("T"," ")}</td><td onContextMenu={event=>{event.preventDefault();event.stopPropagation();
       if(!disabled)onDeleteMenu(row.qsoID,String(row.Call??row.callsign??"Contact"),event);}}><button disabled={disabled} onDoubleClick={event=>event.stopPropagation()} onClick={()=>onEdit(row.qsoID)}>{row.Call??row.callsign}</button><RecorderAudioAction qsoId={row.qsoID}/></td>
@@ -1056,7 +1056,7 @@ function PluginLogTable({columns,rows,columnWidths,onColumnWidths,view,onView,di
         event.preventDefault();const target=view.order[index+(event.key==="ArrowLeft"?-1:1)];if(target!==undefined)moveColumn(original,target);}}}>{column}</button>{index<columns.length-1&&<button type="button" className="contest-surface-log-column-resizer" role="separator" aria-orientation="vertical" aria-label={`Resize ${column} column`} aria-valuemin={minimumLogColumnWidth} aria-valuemax={Math.round(orderedWidths[index]+orderedWidths[index+1]-minimumLogColumnWidth)} aria-valuenow={Math.round(orderedWidths[index])}
       onPointerDown={event=>startLogColumnResize(event,index,orderedWidths,commitWidths)} onKeyDown={event=>{if(event.key==="ArrowLeft"||event.key==="ArrowRight"){event.preventDefault();adjust(index,event.key==="ArrowLeft"?-2:2);}else if(event.key==="Home"){event.preventDefault();adjust(index,minimumLogColumnWidth-orderedWidths[index]);}else if(event.key==="End"){event.preventDefault();adjust(index,orderedWidths[index+1]-minimumLogColumnWidth);}}}/>}</th>;})}</tr></thead>
     <tbody>{rows.length===0?<tr className="contest-surface-empty-row"><td colSpan={columns.length}>{emptyMessage ?? (label === "Callsign partial matches" ? "No partial matches" : "No contacts")}</td></tr>
-      :sortedRows.map(row=><tr key={row.qsoID} className={row.isDupe?"contest-surface-log-dupe":undefined} aria-label={row.isDupe?`${row.values[callIndex]??"Contact"} duplicate`:undefined} onContextMenu={event=>{event.preventDefault();if(!disabled)onEdit(row.qsoID);}}>
+      :sortedRows.map(row=><tr key={row.qsoID} data-qso-id={row.qsoID} className={row.isDupe?"contest-surface-log-dupe":undefined} aria-label={row.isDupe?`${row.values[callIndex]??"Contact"} duplicate`:undefined} onContextMenu={event=>{event.preventDefault();if(!disabled)onEdit(row.qsoID);}}>
         {view.order.map(index=>{const value=row.values[index]??"",edit=row.inlineEdits?.[index]??null,
           isEditing=inline?.qsoID===row.qsoID&&inline.columnIndex===index&&inline.source===label;
           const content=<>{value}{index===callIndex&&row.isDupe&&<span className="contest-surface-dupe-badge">DUPE</span>}{index===callIndex&&!!row.exchangeWarnings?.length&&<span className="contest-log-advisory" role="note" aria-label={row.exchangeWarnings.map(item=>item.message).join(" ")} title={row.exchangeWarnings.map(item=>item.message).join(" ")}>!</span>}</>;
@@ -1147,6 +1147,15 @@ function Log({logId,projection,disabled,sending,projectionRevision,send,openEdit
   useEffect(()=>{if(columnLayout.signature!==columnSignature)setColumnLayout({signature:columnSignature,widths:readLogColumnWidths(pluginColumns)});},[columnLayout.signature,columnSignature]);
   const setColumnWidths=useCallback((widths:number[])=>{persistLogColumnWidths(pluginColumns,widths);setColumnLayout({signature:columnSignature,widths});},[columnSignature]);
   const primaryPane=useRef<HTMLElement|null>(null);
+  const [search,setSearch]=useState(projection.searchQuery??"");
+  useEffect(()=>setSearch(projection.searchQuery??""),[projection.searchQuery]);
+  useEffect(()=>{
+    primaryPane.current?.querySelectorAll<HTMLElement>("[data-qso-id]").forEach(row=>{
+      const selected=!!projection.focusedQsoID&&row.dataset.qsoId===projection.focusedQsoID;
+      row.dataset.reviewTarget=String(selected);
+      if(selected)row.scrollIntoView?.({block:"nearest"});
+    });
+  },[projection.focusedQsoID,projection.page.rows]);
   useLayoutEffect(()=>{
     const element=primaryPane.current;
     if(!element||typeof ResizeObserver==="undefined")return;
@@ -1155,7 +1164,8 @@ function Log({logId,projection,disabled,sending,projectionRevision,send,openEdit
       const next=Math.max(1,Math.min(20,Math.floor((element.clientHeight-48)/24)));
       if(next===last||next===projection.page.limit)return;
       last=next;
-      const offset=Math.floor(projection.page.offset/next)*next;
+      const selectedIndex=projection.page.rows.findIndex((row:any)=>row.qsoID===projection.focusedQsoID);
+      const offset=Math.floor((projection.page.offset+Math.max(0,selectedIndex))/next)*next;
       void send({action:"log_page",params:{offset,limit:next}},projectionRevision);
     });
     resize.observe(element);return()=>resize.disconnect();
@@ -1189,6 +1199,12 @@ function Log({logId,projection,disabled,sending,projectionRevision,send,openEdit
     <button type="button" aria-label={`Cancel ${inlineLabel}`} title="Cancel" disabled={disabled||sending} onClick={()=>void cancelInline()}>×</button></span>:null;
   const openDeleteMenu=(qsoID:string,callsign:string,event:ReactMouseEvent<HTMLElement>)=>setDeleteMenu({qsoID,callsign,
     x:Math.max(4,Math.min(event.clientX,window.innerWidth-176)),y:Math.max(4,Math.min(event.clientY,window.innerHeight-80))});
+  const searchForm=<form className="contest-surface-log-search" onSubmit={event=>{event.preventDefault();void send({action:"log_search",params:{query:search.trim().toUpperCase()}},projectionRevision);}}>
+    <label>Search callsign <input type="search" maxLength={32} value={search} placeholder="Full or partial call" disabled={disabled||sending}
+      onChange={event=>setSearch(event.target.value.toUpperCase())}/></label>
+    <button disabled={disabled||sending}>Search</button><button type="button" disabled={disabled||sending||(!search&&!projection.searchQuery)}
+      onClick={()=>{setSearch("");void send({action:"log_search",params:{query:""}},projectionRevision);}}>Clear search</button>
+    {projection.focusedQsoID&&<span>Review contact highlighted · click its call to edit</span>}</form>;
   const chooseImport=async(file:File|undefined)=>{
     if(!file)return;
     try{setImportReview({sourceName:file.name,records:await contestADIFImport(await file.arrayBuffer())});}
@@ -1207,7 +1223,7 @@ function Log({logId,projection,disabled,sending,projectionRevision,send,openEdit
       setImportReview(null);
     }finally{setImporting(false);}
   };
-  return <RecorderAudioProvider logId={logId} ids={[...new Set<string>([...(projection.pluginRows??[]),...(projection.manualRows??projection.page.rows??[]),...pluginPartialRows,...partialRows].map((r:any)=>r.qsoID))]}><section className="contest-surface-log"><header><h1>Log Display</h1>
+  return <RecorderAudioProvider logId={logId} ids={[...new Set<string>([...(projection.pluginRows??[]),...(projection.manualRows??projection.page.rows??[]),...pluginPartialRows,...partialRows].map((r:any)=>r.qsoID))]}><section className="contest-surface-log"><header><h1>Log Display</h1>{searchForm}
   <details className="contest-surface-log-tools"><summary>Log tools</summary><div className="contest-surface-log-actions">{projection.canExportCabrillo&&<button disabled={disabled||sending} onClick={()=>void send({action:"log_export_cabrillo",params:{}},projectionRevision)}>Export Cabrillo…</button>}
   <input ref={importInput} type="file" accept=".adi,.adif" hidden onChange={event=>void chooseImport(event.target.files?.[0])}/>
   <button disabled={disabled||sending||importing} onClick={()=>importInput.current?.click()}>Import ADIF…</button>

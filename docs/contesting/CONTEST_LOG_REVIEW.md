@@ -2,7 +2,8 @@
 
 An on-demand review of the active contest, available through **Contest → Log Review**
 in the next candidate. It reads the actual Python/Not1MM contest log and the existing
-separate `spot-history.sqlite` archive. It never changes a QSO or sends radio commands.
+separate `spot-history.sqlite` archive. Scanning is read-only; an explicit callsign
+correction uses the existing audited host correction path. It sends no radio commands.
 Received spots are already archived by the cluster service; this feature reuses that
 path without adding review work to entry, DUPE checking, saving or spot delivery.
 
@@ -16,14 +17,45 @@ path without adding review work to entry, DUPE checking, saving or spot delivery
    **Reviewed**, or **All**. Select a finding to inspect its original QSO and evidence.
 4. Use **Original report** to read the archived cluster text. Keep the logged contact
    or dismiss the suggestion to record a review decision. These do not change the log.
-5. To correct a contact, **Open Log Display**, double-click the contact and use the
-   existing Edit Contact workflow. Run review again after corrections.
-6. **Copy report** copies a JSON report containing the snapshot revision, source
+5. Read the **Logged contact / Reported suggestion** comparison. A possible typo with
+   exactly one candidate offers **Change callsign to …**. This changes only the
+   callsign input; received exchange, timestamp, frequency, reports and notes remain
+   intact. Country, duplicate status, score and multipliers follow the existing host
+   recalculation. Multiple candidate calls require manual verification.
+6. **Open Log Display** searches for the logged call and highlights this exact QSO ID,
+   including when the call occurs more than once. Click its call to use Edit Contact.
+   Log Display also has an independent full/partial **Search callsign** field, **Search**
+   and **Clear search**, with paging over matching contacts. It never fills the live
+   contest entry. Search supports up to 20,000 contacts, at a consistent log revision.
+7. Run review again after a correction. Old results are disabled after a correction
+   attempt, including an uncertain completion; stale revisions and changed contacts
+   are rejected. Save/cancel an open editor first. Finish a pending live entry before
+   applying a review correction; shared contest clients use Edit Contact.
+8. **Copy report** copies a JSON report containing the snapshot revision, source
    fingerprints, tolerances, suggestions and decisions.
 
 Decisions are local to the contest/workspace and apply only to unchanged contacts
-and supporting evidence. Closing the window cancels current work. Cancellation keeps
+and supporting evidence. Closing the window cancels the current scan. Cancellation keeps
 previous results and has no partial QSO changes to roll back.
+
+The Cancel button cancels scanning, not an explicitly submitted correction. A submitted
+correction has a native at-most-once receipt; after a timeout, inspect the log and rerun
+review before retrying. Report suggestions remain evidence for the operator to verify.
+
+### Search and correction validation — 26 October 2026
+
+- Focused frontend coverage: 493 tests across review, comparison, selection, protocol,
+  detached windows and the Python contest desk (492 in the broad pass plus the corrected
+  canonical-timestamp fixture passing separately).
+- Exact-ID navigation among repeated calls and beyond the first 100 contacts; search
+  and paging leave the live callsign unchanged. Ambiguity uses all candidates before
+  supporting reports are truncated.
+- Disposable real Python-host correction preserves exchange, UTC, TX/RX frequencies,
+  reports, operator, power and notes; correction survives restart and stale writes fail.
+- TypeScript compilation, native review admission and 34 native surface tests pass.
+- Browser previews visually checked for the comparison/correction and exact-contact
+  highlight with the search controls. These source checks do not
+  edit the production log or establish installed-app acceptance.
 
 ## Local reference evidence
 

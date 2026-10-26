@@ -4041,6 +4041,7 @@ fn main() {
             contest_analytics::contest_analytics_print,
             open_contest_recorder, contest_recorder::contest_recorder_request, contest_recorder::contest_recorder_stop_replay,
             contest_log_review::contest_log_review_open_log,
+            contest_log_review::contest_log_review_correct_call,
             contest_log_transfer::contest_log_transfer_context, contest_log_transfer::contest_log_transfer_request,
             contest_log_transfer::contest_legacy_choose_preview, contest_log_transfer::contest_legacy_import,
             contest_setup_dialog_open, contest_setup_dialog_request,

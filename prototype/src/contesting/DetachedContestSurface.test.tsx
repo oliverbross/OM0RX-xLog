@@ -1068,6 +1068,22 @@ it("marks explicit same-band dupes and shares persistent keyboard-resizable colu
   expect((screen.getByRole("table",{name:"Contest log"}).querySelector("col") as HTMLElement).style.width).toBe(saved);
 });
 
+it("offers a separate callsign search and highlights the exact review contact",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
+  const row={qsoID:"target",workedAt:"2026-10-25T00:26:20.000Z",callsign:"UA6LUQ",band:"40m",mode:"LSB",sentExchange:"15",receivedExchange:"16",points:1,multiplierLabels:[]};
+  const view={schemaVersion:1,status:"ready",sessionRevision:7,canExportCabrillo:true,searchQuery:"UA6LUQ",focusedQsoID:"target",
+    page:{offset:0,limit:20,total:1,rows:[row]},partialRows:[],editing:null,busy:false};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>command==="contest_surface_snapshot"
+    ? {...snapshot,panelID:"logbook",projection:view}:{requestID:args.requestID,status:"queued"});
+  render(<DetachedContestSurface/>);
+  const input=await screen.findByRole("searchbox",{name:"Search callsign"});
+  expect((input as HTMLInputElement).value).toBe("UA6LUQ");
+  expect(screen.getByRole("button",{name:"UA6LUQ"}).closest("tr")?.dataset.reviewTarget).toBe("true");
+  fireEvent.change(input,{target:{value:"UA6L"}});fireEvent.click(screen.getByRole("button",{name:"Search"}));
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="log_search")?.[1])
+    .toMatchObject({panelID:"logbook",params:{query:"UA6L"}}));
+});
+
 it("fits the detached Log page to the visible primary pane and requests that exact limit",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
   let resized=()=>{};

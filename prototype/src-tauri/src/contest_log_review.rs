@@ -1,4 +1,4 @@
-//! Read-only access for the on-demand review utility. No log or station mutations.
+//! On-demand review reads plus explicit, narrowly scoped callsign corrections.
 use serde_json::{json, Value};
 use tauri::Manager;
 
@@ -81,11 +81,49 @@ mod tests {
 
 #[tauri::command]
 pub async fn contest_log_review_open_log(window: tauri::WebviewWindow,
-    session_id: String, workspace_generation: String) -> Result<(), String> {
+    session_id: String, workspace_generation: String, qso_id: String, callsign: String) -> Result<(), String> {
     validate(window.label(), "context", &json!({}))?;
     let context = crate::contest_window_context::resolve(&session_id, &workspace_generation)?;
     let app = window.app_handle().clone();
-    tauri::async_runtime::spawn_blocking(move ||
+    tauri::async_runtime::spawn_blocking(move || {
+        review_action(&context, "log_focus", json!({"qsoID":qso_id,"callsign":callsign}), uuid::Uuid::new_v4().to_string())?;
         crate::workspace_window_runtime::contest_open(&app, context, "logbook")
-    ).await.map_err(|_| "Could not open Contest Log Display.".to_string())?
+    }).await.map_err(|_| "Could not open Contest Log Display.".to_string())?
+}
+
+// The review window cannot submit arbitrary surface actions. These commands
+// construct the only two admitted intents and retain native context/receipt fences.
+fn review_action(context: &crate::contest_window_context::ContestWindowContext,
+    action: &str, params: Value, request_id: String) -> Result<(), String> {
+    let label="contest--logbook";
+    let snapshot=crate::contest_surface::snapshot(label, context)?;
+    if snapshot["projection"]["status"] != "ready" { return Err("The contest log is not ready. Open Log Display and try again.".into()); }
+    let envelope=json!({"operatingContext":context.operating_context,"scope":"contesting",
+        "sessionID":context.session_id,"workspaceGeneration":context.workspace_generation,"panelID":"logbook",
+        "projectionRevision":snapshot["projectionRevision"],"requestID":request_id,"action":action,"params":params});
+    crate::contest_surface::submit(label, envelope, false)?;
+    let deadline=std::time::Instant::now()+std::time::Duration::from_secs(15);
+    loop {
+        let current=crate::contest_surface::snapshot(label,context)?;
+        if let Some(receipt)=current["receipts"].as_array().and_then(|rows|rows.iter().find(|row|row["requestID"]==request_id)) {
+            match receipt["status"].as_str() {
+                Some("applied")=>return Ok(()),
+                Some("rejected")=>return Err(receipt["message"].as_str().unwrap_or("The review action was rejected. Run review again.").into()),
+                _=>{}
+            }
+        }
+        if std::time::Instant::now()>=deadline { return Err("The review action is still pending. Check Log Display and run review again before retrying.".into()); }
+        std::thread::sleep(std::time::Duration::from_millis(40));
+    }
+}
+
+#[tauri::command]
+pub async fn contest_log_review_correct_call(window: tauri::WebviewWindow,
+    session_id:String, workspace_generation:String, qso_id:String, expected_revision:u64,
+    expected_call:String, callsign:String, request_id:String) -> Result<(),String> {
+    validate(window.label(),"context",&json!({}))?;
+    let context=crate::contest_window_context::resolve(&session_id,&workspace_generation)?;
+    tauri::async_runtime::spawn_blocking(move || review_action(&context,"log_correct_call",
+        json!({"qsoID":qso_id,"expectedSessionRevision":expected_revision,"expectedCall":expected_call,"callsign":callsign}),request_id))
+        .await.map_err(|_|"The callsign correction could not complete. Run review again.".to_string())?
 }

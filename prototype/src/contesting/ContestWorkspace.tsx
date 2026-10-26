@@ -587,6 +587,9 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
       }
       case "log_export_cabrillo": throw new Error("Cabrillo export is available from the Python contest host.");
       case "log_page": await movePage(action.params.offset, true); return;
+      case "log_search":
+      case "log_focus":
+      case "log_correct_call": throw new Error("Log search and review corrections require the Python contest host.");
       case "log_edit_begin": await editQSO(action.params.qsoID, true); return;
       case "log_edit_begin_delete": await editQSO(action.params.qsoID, true); setConfirmDelete(true); return;
       case "log_edit_cancel":

@@ -386,3 +386,8 @@
 .contest-exchange-advisory { display:block; color:var(--warning, #e6b85b); font-size:10px; line-height:1.25; margin-top:3px; }
 .contest-advisory-description { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 .contest-log-advisory { display:inline-flex; align-items:center; justify-content:center; width:13px; height:13px; border:1px solid currentColor; border-radius:50%; margin-left:4px; color:var(--warning, #e6b85b); font-size:10px; font-weight:700; }
+.contest-surface-log-search{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.contest-surface-log-search label{display:flex;align-items:center;gap:6px}
+.contest-surface-log-search input{width:170px;min-width:0}
+.contest-surface-log-search span{font-size:12px;color:var(--text-secondary,#a9bbcc)}
+.contest-surface-log tr[data-review-target=true]{background:#153a51;outline:2px solid #35c8f5;outline-offset:-2px}

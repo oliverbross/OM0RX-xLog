@@ -16,6 +16,12 @@ describe("contest archive comparison",()=>{
     expect(compare([row],[spot()]).findings[0]).toMatchObject({kind:"Possible typo",qso:row,evidence:[{callsign:"DL3AG"}]});
     expect(JSON.stringify(row)).toBe(original);
   });
+  it("counts every candidate before truncating supporting reports",()=>{
+    const reports=Array.from({length:9},(_,index)=>spot({id:String(index),spotter:`K${index}AA`,callsign:index===8?"DL3AK":"DL3AG",
+      reportedAt:`2026-10-24T00:01:0${index}Z`}));
+    const finding=compare([qso({Call:"DL3AJ"})],reports).findings[0];
+    expect(finding.evidence).toHaveLength(8);expect(finding.candidateCalls).toEqual(["DL3AG","DL3AK"]);
+  });
   it("does not flag another station at the same frequency if the logged call is corroborated",()=>{
     expect(compare([qso()],[spot(),spot({id:"other",callsign:"DL3AJ"})]).findings).toEqual([]);
   });

@@ -38,6 +38,9 @@ export type ContestSurfaceAction =
   | { action: "log_import_adif"; params: { sourceName: string; records: ContestADIFImportRecord[] } }
   | { action: "log_recalculate"; params: { expectedSessionRevision: Revision } }
   | { action: "log_page"; params: { offset: number; limit: number } }
+  | { action: "log_search"; params: { query:string } }
+  | { action: "log_focus"; params: { qsoID:string; callsign:string } }
+  | { action: "log_correct_call"; params: { qsoID:string; expectedSessionRevision:number; expectedCall:string; callsign:string } }
   | { action: "log_edit_begin" | "log_edit_begin_delete" | "log_edit_cancel"; params: { qsoID: string } }
   | { action: "log_edit_set_text"; params: { qsoID: string; field: "callsign" | "sentReport" | "receivedReport" |
       "timestamp" | "operator" | "name" | "qth" | "comment" | "receiveFrequency" | "power" |
@@ -177,6 +180,7 @@ export type ContestRemoteVFOSurfaceProjection = { schemaVersion: 1; status: "rea
 export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; sessionRevision: number;
   canExportCabrillo: boolean; canExportAdif?: boolean; canExportEdi?: boolean;
   exchangeLayout?: "plugin";
+  searchQuery?:string; focusedQsoID?:string;
   manualRows?: ContestManualRow[]; partialRows?: ContestManualRow[];
   pluginColumns?: string[]; pluginRows?: ContestPluginLogRow[]; pluginPartialRows?: ContestPluginLogRow[];
   page: { offset: number; limit: number; total: number; rows: { qsoID: string; workedAt: string; callsign: string; band: string;
@@ -434,7 +438,8 @@ function validLogProjection(value: Record<string, unknown>) {
   const pageRows = Array.isArray(page?.rows) ? page.rows : [], pluginLayout = value.exchangeLayout === "plugin";
   const pluginColumns = pluginColumnsValid(value.pluginColumns) ? value.pluginColumns : undefined;
   return optionalKeys(value, ["schemaVersion", "status", "sessionRevision", "canExportCabrillo", "page", "editing", "busy"],
-      ["canExportAdif", "canExportEdi", "manualRows", "partialRows", "exchangeLayout", "pluginColumns", "pluginRows", "pluginPartialRows"]) &&
+      ["canExportAdif", "canExportEdi", "manualRows", "partialRows", "exchangeLayout", "pluginColumns", "pluginRows", "pluginPartialRows", "searchQuery", "focusedQsoID"]) &&
+    (value.searchQuery===undefined||text(value.searchQuery,32,true)) && (value.focusedQsoID===undefined||text(value.focusedQsoID,160,true)) &&
     typeof value.canExportCabrillo === "boolean" && (value.canExportAdif === undefined || typeof value.canExportAdif === "boolean") &&
     (value.canExportEdi === undefined || typeof value.canExportEdi === "boolean") &&
     (!("exchangeLayout" in value) || value.exchangeLayout === "plugin") &&
@@ -662,6 +667,10 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "log_recalculate") return exact(params, ["expectedSessionRevision"]) && uint(params.expectedSessionRevision);
   if (action === "log_page") return exact(params, ["offset", "limit"]) && uint(params.offset, 1_000_000) &&
     uint(params.limit, 20) && (params.limit as number) > 0;
+  if (action === "log_search") return exact(params,["query"]) && text(params.query,32,true);
+  if (action === "log_focus") return qso(params,["callsign"]) && text(params.callsign,32);
+  if (action === "log_correct_call") return qso(params,["expectedSessionRevision","expectedCall","callsign"]) &&
+    uint(params.expectedSessionRevision) && text(params.expectedCall,32) && text(params.callsign,32);
   if (action === "log_edit_begin" || action === "log_edit_begin_delete" || action === "log_edit_cancel") return qso(params, []);
   if (action === "log_edit_set_text") return qso(params, ["field", "value"]) &&
     oneOf(params.field, ["callsign", "sentReport", "receivedReport", "timestamp", "operator", "name", "qth", "comment", "receiveFrequency", "power", "correctionReason", "deletionReason"]) && text(params.value, 1024, true);

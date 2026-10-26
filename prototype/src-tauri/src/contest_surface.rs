@@ -926,6 +926,20 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
             let limit = uint_value(&params["limit"], 20, "log page size")?;
             if limit == 0 { return Err("The log page size is invalid.".into()); }
         }
+        "log_search" => {
+            exact(params, &["query"], "log search params")?;
+            text_value(&params["query"], 32, true, "callsign search")?;
+        }
+        "log_focus" => {
+            qso(params, &["callsign"])?;
+            text_value(&params["callsign"], 32, false, "callsign")?;
+        }
+        "log_correct_call" => {
+            qso(params, &["expectedSessionRevision", "expectedCall", "callsign"])?;
+            uint_value(&params["expectedSessionRevision"], MAX_SAFE_INTEGER, "session revision")?;
+            text_value(&params["expectedCall"], 32, false, "logged callsign")?;
+            text_value(&params["callsign"], 32, false, "corrected callsign")?;
+        }
         "log_edit_begin" | "log_edit_begin_delete" | "log_edit_cancel" => qso(params, &[])?,
         "log_edit_set_text" => {
             qso(params, &["field", "value"])?;
@@ -2503,6 +2517,8 @@ fn validate_band_statistics(value: &Value, total: bool) -> Result<(String, [u64;
 
 fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String> {
     let mut required = value.clone();
+    if let Some(query) = required.remove("searchQuery") { text_value(&query, 32, true, "callsign search")?; }
+    if let Some(id) = required.remove("focusedQsoID") { text_value(&id, 160, true, "focused contact")?; }
     let can_export_adif = required.remove("canExportAdif");
     let can_export_edi = required.remove("canExportEdi");
     let manual_rows = required.remove("manualRows");
