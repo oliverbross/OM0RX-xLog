@@ -99,6 +99,17 @@ actor PythonContestLane {
         let operation = Task { [self] in
             await previous?.value
             var effectiveParams = params
+            if method == "contest_rtc_payload" {
+                guard params["sessionID"] as? String == activeSessionID,
+                      params["workspaceGeneration"] as? String == activeWorkspaceGeneration,
+                      !(activeProjection?["practice"] is [String: Any]) else {
+                    throw ContestLaneError.confirmed("practice_output_disabled", "Score reporting requires the active non-Practice contest.")
+                }
+            }
+            if ["contest_cw_context", "contest_output_claim"].contains(method),
+               activeProjection?["practice"] is [String: Any] {
+                throw ContestLaneError.confirmed("practice_output_disabled", "Practice sessions have native output disabled.")
+            }
             if method == "contest_cw_context" {
                 guard let activeSessionID else {
                     throw ContestLaneError.confirmed("contest_session_inactive", "Open a contest before using CW.")
@@ -179,6 +190,7 @@ actor PythonContestLane {
 
     func fldigiTransmitDestination() throws -> WSJTXContestDestination {
         guard let projection = activeProjection,
+              !(projection["practice"] is [String: Any]),
               projection["fldigiTransmitAvailable"] as? Bool == true,
               let sessionID = projection["sessionID"] as? String,
               let workspaceGeneration = projection["workspaceGeneration"] as? String,

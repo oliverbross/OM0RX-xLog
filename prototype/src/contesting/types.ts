@@ -4,6 +4,8 @@ export type ContestMethod =
   | "contest_qso_commit" | "contest_qso_get" | "contest_qso_correct" | "contest_qso_delete"
   | "contest_operation_receipt" | "contest_log_page" | "contest_score" | "contest_recalculate"
   | "contest_spot_points_preview"
+  | "contest_assistance_reverse" | "contest_assistance_dupesheet"
+  | "contest_notes" | "contest_note_save" | "contest_submission_preflight"
   | "contest_export_prepare" | "contest_export_read" | "contest_export_release"
   | "contest_history_status" | "contest_history_preview_page" | "contest_history_preview_cancel"
   | "contest_history_preview_commit" | "contest_history_query" | "contest_history_query_cancel"

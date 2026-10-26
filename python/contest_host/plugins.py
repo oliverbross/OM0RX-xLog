@@ -34,6 +34,7 @@ class Plugin:
     sent_exchange_hint: str = "Sent Exchange"
     overlay_choices: tuple[str, ...] = ("N/A", "CLASSIC", "ROOKIE", "TB-WIRES", "YOUTH")
     export_formats: tuple[str, ...] = ("cabrillo", "adif")
+    reverse_history_fields: tuple[str, ...] = ()
 
 
 PLUGIN_REGISTRY = MappingProxyType({
@@ -60,9 +61,9 @@ PLUGIN_REGISTRY = MappingProxyType({
                             sent_exchange_hint="Prec Call Check Section", overlay_choices=("N/A",)),
     "arrl_dx_cw": Plugin("ARRL DX CW", sent_exchange_hint="Power/State/Province"),
     "arrl_dx_ssb": Plugin("ARRL DX SSB", modes=("SSB",), sent_exchange_hint="Power/State/Province"),
-    "naqp_cw": Plugin("NAQP CW", sent_exchange_hint="Name + SPC"),
-    "naqp_ssb": Plugin("NAQP SSB", modes=("SSB",), sent_exchange_hint="Name + SPC"),
-    "naqp_rtty": Plugin("NAQP RTTY", modes=RTTY_MODES, sent_exchange_hint="Name + SPC"),
+    "naqp_cw": Plugin("NAQP CW", sent_exchange_hint="Name + SPC", reverse_history_fields=("name", "state")),
+    "naqp_ssb": Plugin("NAQP SSB", modes=("SSB",), sent_exchange_hint="Name + SPC", reverse_history_fields=("name", "state")),
+    "naqp_rtty": Plugin("NAQP RTTY", modes=RTTY_MODES, sent_exchange_hint="Name + SPC", reverse_history_fields=("name", "state")),
     "phone_weekly_test": Plugin("PHONE WEEKLY TEST",
                                 bands=("160m", "80m", "40m", "20m", "15m"),
                                 modes=("SSB",), sent_exchange_hint="Name + SPC"),
@@ -109,15 +110,15 @@ PLUGIN_REGISTRY = MappingProxyType({
     "arrl_vhf_jan": Plugin("ARRL VHF JAN", modes=("CW", "SSB", "RTTY", "AM", "FM"),
                            bands=("6m", "2m", "1.25m", "70cm", "33cm", "23cm", "13cm", "9cm",
                                   "6cm", "3cm", "1.25cm", "6mm", "4mm", "2.5mm", "2mm", "1mm", "submm"),
-                           sent_exchange_hint="4-character grid square"),
+                            sent_exchange_hint="4-character grid square", reverse_history_fields=("locator",)),
     "arrl_vhf_jun": Plugin("ARRL VHF JUN", modes=("CW", "SSB", "RTTY", "AM", "FM"),
                            bands=("6m", "2m", "1.25m", "70cm", "33cm", "23cm", "13cm", "9cm",
                                   "6cm", "3cm", "1.25cm", "6mm", "4mm", "2.5mm", "2mm", "1mm", "submm"),
-                           sent_exchange_hint="4-character grid square"),
+                            sent_exchange_hint="4-character grid square", reverse_history_fields=("locator",)),
     "arrl_vhf_sep": Plugin("ARRL VHF SEP", modes=("CW", "SSB", "RTTY", "AM", "FM"),
                            bands=("6m", "2m", "1.25m", "70cm", "33cm", "23cm", "13cm", "9cm",
                                   "6cm", "3cm", "1.25cm", "6mm", "4mm", "2.5mm", "2mm", "1mm", "submm"),
-                           sent_exchange_hint="4-character grid square"),
+                            sent_exchange_hint="4-character grid square", reverse_history_fields=("locator",)),
     "ea_majestad_cw": Plugin("His Maj. King of Spain Contest, CW", conditional_serial=True,
                              sent_exchange_hint="Province or #"),
     "ea_majestad_ssb": Plugin("His Maj. King of Spain Contest, SSB", conditional_serial=True,
@@ -230,7 +231,8 @@ PLUGIN_REGISTRY = MappingProxyType({
     "cq_ww_vhf": Plugin("CQ WW VHF", bands=("6m", "2m"),
                         modes=("CW", "SSB", "FM", *RTTY_MODES),
                         duplicate_description="Worked on this band from this sent grid square.",
-                        sent_exchange_hint="4-character grid square", overlay_choices=("N/A",)),
+                        sent_exchange_hint="4-character grid square", overlay_choices=("N/A",),
+                        reverse_history_fields=("locator",)),
     "darc_vhf": Plugin("DARC VHF", serial=True,
                        bands=("2m", "70cm", "23cm", "13cm", "9cm", "6cm", "3cm", "1.25cm",
                               "6mm", "4mm", "2.5mm", "2mm", "1mm", "submm"),

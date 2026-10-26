@@ -1,0 +1,7 @@
+.contest-readiness { grid-column: 1 / -1; min-width: 0; border: 1px solid var(--border, #777); padding: .65rem; }
+.contest-readiness summary { cursor: pointer; font-weight: 600; }
+.contest-readiness p { margin: .65rem 0; }
+.contest-readiness dl { display: grid; gap: .6rem; margin: .75rem 0; }
+.contest-readiness dt { display: flex; flex-wrap: wrap; gap: .6rem; }
+.contest-readiness dt strong { font-size: .9em; }
+.contest-readiness dd { margin: .2rem 0 0; overflow-wrap: anywhere; }

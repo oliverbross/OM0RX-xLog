@@ -33,6 +33,12 @@ import { configureContestGroupChat, openContestGroupChatWindow, publishContestGr
   type ContestGroupChatSnapshot } from "./contestGroupChat";
 import { ContestVoiceOutput, type ContestVoiceAction } from "./contestVoiceOutput";
 import "./ContestWorkspace.css";
+import { ContestCallStackOwner } from "./ContestCallStackOwner";
+import { callStackStorageKey, type CallStackDraft, type CallStackOperation, type CallStackResult } from "./contestCallStack";
+import { ContestReverseHistoryPanel } from "./ContestReverseHistoryPanel";
+import { ContestVisibleDupesheet } from "./ContestVisibleDupesheet";
+import { ContestNotesPanel, ContestSubmissionPanel, type NoteTarget } from "./ContestProductivityTools";
+import "./ContestProductivityTools.css";
 
 type Data = Record<string, any>;
 type RTCStatus={configured:boolean;enabled:boolean;service:string|null;username:string;interval_minutes:number;posting:boolean;
@@ -128,6 +134,7 @@ type StatisticsState = { sessionID: string; revision: number } & (
   { layout: "cq_ww"; rows: ContestCQWWStatisticsRow[]; total: ContestCQWWStatisticsRow });
 type AuxiliaryLane = "log" | "score" | "rates";
 type Projection = {
+  practice?: {sourceSessionID:string;sourceRevision:number;nativeOutputDisabled:boolean;publicPostingDisabled:boolean}|null;
   sessionID: string; engine: "not1mm-python"; pluginID: string; pluginName?: string; reservedSerial?: number | null; allocatedSerialFieldID?: string | null; sourceRevision: string; referenceID: string;
   workspaceGeneration: string; revision: number; spotScoreRevision?: number; draftID: string; fields: Field[]; frequencyHz: number; mode: string; band: number;
   focus: string; tabNext: Record<string, string>; tabPrevious: Record<string, string>; advanceOnSpace?: string[]; run: boolean;
@@ -717,13 +724,24 @@ function boundedFldigiSnapshot(value: unknown): NonNullable<ContestDigitalSnapsh
     udp_endpoint: source.udp_endpoint, xmlrpc_endpoint: source.xmlrpc_endpoint };
 }
 
-export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, stationStep, rotorStop, contestSpot, operatingContext, workspaceGeneration, stationCall, radioFrequencyHz, spots, cluster,
+export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: stationTunePort, stationStep: stationStepPort, rotorStop, contestSpot: contestSpotPort, operatingContext, workspaceGeneration, stationCall, radioFrequencyHz, spots, cluster,
   selectedSpotId, onSelectedSpot, onSetupViewChange, registerTransition, registerMenuRoute, strictHostActive = null, setupOnly = false, contestingTest = false }: Props) {
   const [catalog, setCatalog] = useState<Data[]>([]), [sessions, setSessions] = useState<Session[]>([]);
   const [bandDefinitions, setBandDefinitions] = useState<ContestBandDefinition[]>(fallbackBandDefinitions);
   const bandLabels = useMemo<Record<string, string>>(() => Object.fromEntries(
     bandDefinitions.map(band => [String(band.value), band.id])), [bandDefinitions]);
   const [projection, setProjection] = useState<Projection | null>(null), projectionRef = useRef<Projection | null>(null);
+  const [productivityOpen,setProductivityOpen]=useState(false),[productivityTab,setProductivityTab]=useState("Entry & stack");
+  const practiceTransitionRef=useRef(false);
+  const logOrderRef=useRef({sort:"utc",direction:"descending"}),[logOrder,setLogOrder]=useState(logOrderRef.current);
+  const typedFieldsRef=useRef<{draftID:string;fields:Set<string>}>({draftID:"",fields:new Set()});
+  const assertStationAction=()=>{if(projectionRef.current?.practice||practiceTransitionRef.current)throw new Error("Practice sessions have station actions and public posting disabled. Resolve any pending Practice creation before using the station.");};
+  const assertNoPendingStack=()=>{const current=projectionRef.current;if(!current)return;
+    const raw=localStorage.getItem(callStackStorageKey(current));if(raw&&JSON.parse(raw).pending)
+      throw new Error("Resolve the pending Call Stack receipt in Productivity desk before logging or sending another message.");};
+  const stationTune:Props["stationTune"]=(...args)=>{assertStationAction();return stationTunePort(...args);};
+  const stationStep:Props["stationStep"]=stationStepPort?(...args)=>{assertStationAction();return stationStepPort(...args);}:undefined;
+  const contestSpot:Props["contestSpot"]=(...args)=>{assertStationAction();return contestSpotPort(...args);};
   const [fields, setFields] = useState<Record<string, string>>({}), fieldsRef = useRef<Record<string, string>>({});
   const [rows, setRows] = useState<Data[]>([]), [score, setScore] = useState<Score | null>(null), [matrices, setMatrices] = useState<Data>({});
   const [statistics, setStatistics] = useState<StatisticsState | null | undefined>(null);
@@ -838,7 +856,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const flushDraftRef = useRef<() => Promise<Projection | null>>(async () => projectionRef.current);
   const cw = useSharedCW(projection?.sessionID ?? "not1mm-no-session", retiring, setupOnly);
   projectionRef.current = projection; fieldsRef.current = fields;groupNetworkRef.current=groupNetwork;editingRef.current=editing;
-  const selectedRadioFrequencyHz = typeof radioFrequencyHz === "number" && Number.isSafeInteger(radioFrequencyHz) &&
+  const selectedRadioFrequencyHz = !projection?.practice && typeof radioFrequencyHz === "number" && Number.isSafeInteger(radioFrequencyHz) &&
     radioFrequencyHz >= 0 ? radioFrequencyHz : null;
   const observedFrequencyHz = contestFrequency(selectedRadioFrequencyHz, activeSupportedBands, bandDefinitions);
   observedFrequencyHzRef.current=observedFrequencyHz;
@@ -846,7 +864,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const operationFrequencyHz = observedFrequencyHz ?? fallbackFrequencyHz;
 
   useEffect(()=>{
-    if(!projection||setupOnly||contestingTest)return;
+    if(!projection||projection.practice||setupOnly||contestingTest)return;
     const service=setup.preferences.rtcURL==="https://contestonlinescore.com/post/"?"contestonlinescore":"hamscore";
     const url=service==="contestonlinescore"?"https://contestonlinescore.com/post/":"https://hamscore.com/postxml/";
     const username=String(setup.preferences.rtcUsername??"").trim(),intervalMinutes=Math.max(1,Math.min(60,Number(setup.preferences.rtcIntervalMinutes)||2));
@@ -864,7 +882,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   },[projection?.sessionID,projection?.workspaceGeneration,setupOnly,contestingTest,setup.preferences.rtcURL,
     setup.preferences.rtcUsername,setup.preferences.rtcIntervalMinutes,setup.preferences.rtcEnabled,rtcStatus?.configured,request]);
   useEffect(()=>{
-    if(!projection||setupOnly||contestingTest)return;
+    if(!projection||projection.practice||setupOnly||contestingTest)return;
     let current=true;
     const refresh=()=>void request("contest_rtc_status").then(value=>{if(current)setRTCStatus(value as RTCStatus);},()=>{});
     const timer=window.setInterval(refresh,5_000);return()=>{current=false;window.clearInterval(timer);};
@@ -1034,9 +1052,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       configured_bands:radioBands,allowed_mode_groups:allowedModeGroups,spots:rows};
   },[projection?.sessionID,projection?.workspaceGeneration,projection?.revision,spotRadioPreview,contestRadioPreviewCurrent,
     contestRadioPreviewPending,contestRadioReadySpots,configuredBands,allowedModeGroups,bandLabels,effectiveSpotWorkflow.showWorked]);
-  const contestRadioCurrentKey=contestingTest||!contestRadioPublication?null:JSON.stringify(contestRadioPublication);
+  const contestRadioCurrentKey=contestingTest||projection?.practice||!contestRadioPublication?null:JSON.stringify(contestRadioPublication);
   const contestRadioCurrentKeyRef=useRef(contestRadioCurrentKey);contestRadioCurrentKeyRef.current=contestRadioCurrentKey;
-  const contestRadioCurrentRef=useRef(contestRadioPublication);contestRadioCurrentRef.current=contestingTest?null:contestRadioPublication;
+  const contestRadioCurrentRef=useRef(contestRadioPublication);contestRadioCurrentRef.current=contestingTest||projection?.practice?null:contestRadioPublication;
   const enqueueContestRadioPublication=(action:"replace"|"clear",base:NonNullable<typeof contestRadioPublication>)=>{
     const state=contestRadioPublicationRef.current,queueVersion=++state.queueVersion,snapshotKey=JSON.stringify(base),
       scoringRevision=spotScoreRevision,
@@ -1148,7 +1166,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const configuredAutoCQDelay = Number(setup.preferences.autoCQDelay ?? 15);
   const autoCQDelaySeconds = Number.isFinite(configuredAutoCQDelay) ? Math.min(3600, Math.max(1, configuredAutoCQDelay)) : 15;
   const phoneSimulationAvailable = Boolean(contestingTest && projection?.pluginID && contestPhoneIntentPlugins.has(projection.pluginID) && projection.mode === "SSB");
-  const phoneProductionAvailable = Boolean(!contestingTest && projection?.pluginID && contestPhoneIntentPlugins.has(projection.pluginID) && projection.mode === "SSB");
+  const phoneProductionAvailable = Boolean(!contestingTest && !projection?.practice && projection?.pluginID && contestPhoneIntentPlugins.has(projection.pluginID) && projection.mode === "SSB");
   const phoneProductionConfigured = phoneProductionAvailable && Boolean(String(setup.preferences.voiceProfilePath ?? "").trim());
   const phoneOutputAvailable = phoneSimulationAvailable || phoneProductionConfigured;
   const phoneCanSend = phoneSimulationArmed && !phoneSimulationPending && !phoneReleaseUncertain;
@@ -1226,9 +1244,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     return () => { cancelled = true; };
   }, [projection?.sessionID, projection?.revision, partialQuery, request]);
   const acceptProjection = (next: Projection, inputVersion?: number) => {
+    if(typedFieldsRef.current.draftID!==next.draftID)typedFieldsRef.current={draftID:next.draftID,fields:new Set()};
     projectionRef.current = next; focusRef.current = next.focus; setProjection(next);
     const values = inputVersion !== undefined && editVersionRef.current !== inputVersion
-      ? fieldsRef.current : projectionFields(next);
+      ? {...fieldsRef.current,...Object.fromEntries(next.fields.filter(field=>field.readOnly||field.id===next.allocatedSerialFieldID).map(field=>[field.id,field.value]))}
+      : projectionFields(next);
     fieldsRef.current = values; setFields(values);
   };
   const acceptSessionProjection = (next: Projection) => {
@@ -1287,14 +1307,15 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const revision = expected.revision;
     const key = `${sessionID}:${revision}`;
     const operations = lanes.map(async lane => {
+      const query=logQueryRef.current,order={...logOrderRef.current};
       const value:Data = await (lane === "log"
-        ? logQueryRef.current ? selectContestLog((offset,limit)=>result<any>("contest_log_page",{sessionID,expectedRevision:revision,offset,limit}),revision,logQueryRef.current,offset,pageLimit)
-          : result<Data>("contest_log_page", { sessionID, expectedRevision: revision, offset, limit: pageLimit })
+        ? result<Data>("contest_log_page", { sessionID, expectedRevision: revision, offset, limit: pageLimit,query,...order })
         : lane === "score" ? result<Data>("contest_score", { sessionID, expectedRevision: revision })
         : result<Data>("contest_rates", { sessionID, expectedRevision: revision }));
       const current = projectionRef.current;
       if (current?.sessionID !== sessionID || current.revision !== revision) return false;
       if (lane === "log") {
+        if(query!==logQueryRef.current||order.sort!==logOrderRef.current.sort||order.direction!==logOrderRef.current.direction)return false;
         setRows(Array.isArray(value.rows) ? value.rows : []); setLogOffset(Number(value.offset ?? offset)); setLogTotal(Number(value.total ?? 0));
       } else if (lane === "score") {
         setScore(value.score as Score); setMatrices({...value.matrices,countryUniverse:value.countryUniverse??[],multiplierViews:value.multiplierViews??[]});
@@ -1391,7 +1412,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       const admitted = current?.sessionID === opened.projection.sessionID &&
         current.workspaceGeneration === opened.projection.workspaceGeneration && current.revision > opened.projection.revision
         ? current : opened.projection;
-      acceptSessionProjection(admitted); phoneSimulationRecoveryRef.current = null;
+      acceptSessionProjection(admitted); practiceTransitionRef.current=false; phoneSimulationRecoveryRef.current = null;
       if (startup) setStartupOpenError("");
       setSessions(existing => existing.some(item => item.sessionID === admitted.sessionID) ? existing : [...existing, {
         sessionID: admitted.sessionID, workspaceGeneration: admitted.workspaceGeneration,
@@ -1722,6 +1743,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   };
   const hostAction = async (method: string, extra: Record<string, unknown> = {}, throwFailures = false,
       contestSurfaceRequestID?: string) => {
+    try{assertNoPendingStack();}catch(cause){setError(errorMessage(cause));if(throwFailures)throw cause;return null;}
+    if(projectionRef.current?.practice||practiceTransitionRef.current){
+      const failure=new Error("Practice has native output disabled. Use Log Now to save without output.");
+      setError(failure.message);if(throwFailures)throw failure;return null;
+    }
     const source=projectionRef.current,cqObservation=method==="contest_function_key"&&extra.key==="F1"&&source&&observedFrequencyHzRef.current!==null
       ? {sessionID:source.sessionID,workspaceGeneration:source.workspaceGeneration,frequencyHz:observedFrequencyHzRef.current,mode:source.mode}:null;
     if (configuredClient && (method === "contest_esm" || method === "contest_function_key")) {
@@ -1996,6 +2022,25 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       false, true, false, true);
     if (saved) { rememberSetup(document); setEffectiveMacros(savedMacros); }
   };
+  const createPractice=async()=>{
+    const base=projectionRef.current;if(!base||busyRef.current)throw new Error("Open a source contest before creating Practice.");
+    const key=`xlog.contest.practice-create.v1/${base.workspaceGeneration}/${base.sessionID}`;
+    const pending=localStorage.getItem(key),params=pending?JSON.parse(pending):{sessionID:crypto.randomUUID(),workspaceGeneration:base.workspaceGeneration,
+      operationID:crypto.randomUUID(),expectedRevision:0,practiceSourceSessionID:base.sessionID,sourceRevision:base.revision};
+    localStorage.setItem(key,JSON.stringify(params));practiceTransitionRef.current=true;
+    busyRef.current=true;setBusy(true);setError("");
+    try{
+      const created=await result<MutationResult>("contest_create",params);
+      acceptSessionProjection(created.projection);practiceTransitionRef.current=false;localStorage.removeItem(key);
+      setManualFrequencyMHz((created.projection.frequencyHz/1e6).toFixed(6));
+      const saved=await result<{setup:ContestSetupDocument;effectiveMacros?:ContestSetupMacro[]}>("contest_setup_get",{sessionID:created.projection.sessionID});
+      acceptSessionProjection(created.projection);rememberSetup(saved.setup);setEffectiveMacros(saved.effectiveMacros);
+      setManualFrequencyMHz((created.projection.frequencyHz/1e6).toFixed(6));
+      await refresh(created.projection.sessionID,created.projection);setSessions((await result<{sessions:Session[]}>("contest_sessions")).sessions);
+      localStorage.setItem(activeSessionKey,created.projection.sessionID);setProductivityOpen(true);setProductivityTab("Entry & stack");
+    }catch(cause){if(cause instanceof ContestServerError&&cause.outcome!=="uncertain"){localStorage.removeItem(key);practiceTransitionRef.current=false;}
+      setError(errorMessage(cause));throw cause;}finally{busyRef.current=false;setBusy(false);}
+  };
   useEffect(() => {
     if (!setupOnly && !projection) return;
     let active = true;
@@ -2108,7 +2153,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   };
 
   const exportLog = async (format: PythonContestExportFormat, throwFailures = false, completion?: {
-      operatingContext:string;sessionID:string;workspaceGeneration:string;requestID:string;projectionRevision:number }) => {
+      operatingContext:string;sessionID:string;workspaceGeneration:string;requestID:string;projectionRevision:number },expectedRevision?:number,expectedSHA256?:string) => {
     const active = projectionRef.current;
     if (!active || busyRef.current) return;
     const exportFormats=active.exportFormats??["cabrillo","adif"];
@@ -2118,7 +2163,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     let nativeOwnsCompletion = false;
     busyRef.current = true; setBusy(true); setError("");
     try {
-      const prepared = await result<ContestExportSavePrepared & { filename?: string }>("contest_export_prepare", { sessionID: active.sessionID, format });
+      const prepared = await result<ContestExportSavePrepared & { filename?: string }>("contest_export_prepare", { sessionID: active.sessionID, format,
+        ...(expectedRevision===undefined?{}:{expectedRevision}) });
+      if(expectedSHA256&&prepared.sha256!==expectedSHA256){await result("contest_export_release",{sessionID:active.sessionID,workspaceGeneration:active.workspaceGeneration,exportID:prepared.artifactID});
+        throw new Error("Export bytes changed after review. Run submission preflight again before saving.");}
       nativeOwnsCompletion = completion !== undefined;
       const saved = await nativeContestExportSave(prepared, completion);
       if (saved.status === "saved") setNotice(`Saved ${saved.filename}.`);
@@ -2210,6 +2258,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const remove = () => { if (!editing || !confirm(`Delete ${editing.Call} from this contest?`)) return;
     void deleteQSO(deletionReason).catch(cause => setError(errorMessage(cause))); };
   const commitEntry=async()=>{
+    assertNoPendingStack();
+    if((fieldsRef.current.callsign??"").includes("?"))throw new Error("Complete the partial callsign before logging; queued partials are assistance only.");
     const committedCall=(fieldsRef.current.callsign??"").trim().toUpperCase(),committedFrequency=operationFrequencyHz;
     const retainedBase=committedFrequency===null?null:localContestHeardSpot({callsign:committedCall,frequencyHz:committedFrequency,
       mode:projectionRef.current?.mode??"",stationCall:effectiveStationCall,bandDefinitions,callContext:projectionRef.current?.callContext});
@@ -2258,11 +2308,78 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const scoreView = scoreSummary(score, projection?.pluginID);
   const visibleFields = projection?.fields.filter(field => field.visible) ?? [];
   const changeField = (field: string, value: string) => {
+    const draft=projectionRef.current;if(draft){if(typedFieldsRef.current.draftID!==draft.draftID)typedFieldsRef.current={draftID:draft.draftID,fields:new Set()};typedFieldsRef.current.fields.add(field);}
     if(field==="callsign")recordManualHeardCall(value);
     if (field === "callsign" && autoCQActiveRef.current) void stopAutoCQ();
     editVersionRef.current += 1;
     const next = { ...fieldsRef.current, [field]: value };
     fieldsRef.current = next; setFields(next);
+  };
+  const stackDraft=(base=projectionRef.current,values=fieldsRef.current):CallStackDraft=>{
+    if(!base)throw new Error("Open a contest before using Call Stack.");
+    return {sessionID:base.sessionID,workspaceGeneration:base.workspaceGeneration,draftID:base.draftID,revision:base.revision,
+      fields:{...values},defaults:clearedContestFields(base,base.mode),receivedFieldIDs:base.fields.filter(field=>field.id!=="callsign"&&field.id!=="sent"&&
+        field.id!==base.allocatedSerialFieldID&&!field.readOnly&&field.visible&&field.enabled).map(field=>field.id),heardFieldIDs:base.fields.filter(field=>field.id!=="callsign"&&field.id!=="sent"&&
+        field.id!==base.allocatedSerialFieldID&&!field.readOnly&&typedFieldsRef.current.draftID===base.draftID&&typedFieldsRef.current.fields.has(field.id)).map(field=>field.id)};
+  };
+  const stackResult=async(operation:CallStackOperation,changed:MutationResult&{operationID?:string},preserveBuffered=false):Promise<CallStackResult>=>{
+    if(changed.operationID!==operation.operationID||changed.projection.sessionID!==operation.draft.sessionID||
+      changed.projection.workspaceGeneration!==operation.draft.workspaceGeneration)throw new Error("The stack receipt belongs to a different operation.");
+    const current=projectionRef.current;
+    if(current?.sessionID!==operation.draft.sessionID||current.workspaceGeneration!==operation.draft.workspaceGeneration)throw new Error("The Call Stack session changed; reopen its source to recover.");
+    const next=changed.projection;
+    if(operation.kind==="load"&&!preserveBuffered&&(current.revision<=next.revision||
+      current.draftID===next.draftID&&sameFields(fieldsRef.current,projectionFields(next))))
+      typedFieldsRef.current={draftID:next.draftID,fields:new Set((operation.draft.receivedFieldIDs??[]).filter(id=>operation.fields[id]!==operation.draft.defaults[id]))};
+    if(current.revision<=next.revision){acceptProjection(next,preserveBuffered?Number.MIN_SAFE_INTEGER:undefined);void refresh(next.sessionID,next);}
+    return {operationID:operation.operationID,draft:stackDraft(next,projectionFields(next)),...(operation.kind==="commit"?{qsoID:operation.operationID}:{})};
+  };
+  const mutateStack=async(operation:CallStackOperation)=>{
+    if(configuredClient)throw new Error("Call Stack logging requires the local authoritative desk; client routing is retained for a later wave.");
+    if(busyRef.current||retiring)throw new Error("The contest owner is busy.");
+    const current=projectionRef.current;
+    if(!current||current.sessionID!==operation.draft.sessionID||current.workspaceGeneration!==operation.draft.workspaceGeneration)throw new Error("The Call Stack session changed.");
+    const version=editVersionRef.current;
+    busyRef.current=true;setBusy(true);setError("");
+    try{
+      const changed=await mutate(operation.kind==="commit"?"contest_qso_commit":"contest_draft_apply",current,{
+        operationID:operation.operationID,expectedRevision:operation.draft.revision,draftID:operation.draft.draftID,fields:operation.fields,
+        ...(operation.kind==="commit"?{qsoID:operation.operationID}:{manualStackLoad:true})});
+      if(operation.kind==="load")typedFieldsRef.current={draftID:changed.projection.draftID,fields:new Set((operation.draft.receivedFieldIDs??[])
+        .filter(id=>operation.fields[id]!==operation.draft.defaults[id]))};
+      return await stackResult(operation,changed,editVersionRef.current!==version);
+    }finally{busyRef.current=false;setBusy(false);}
+  };
+  const recoverStack=async(operation:CallStackOperation)=>{
+    const before=projectionRef.current,buffered={...fieldsRef.current},version=editVersionRef.current;
+    const preserve=before?.draftID===operation.draft.draftID?before.fields.some(field=>!field.readOnly&&field.id!==before.allocatedSerialFieldID&&
+      buffered[field.id]!==operation.fields[field.id]):
+      Boolean(before&&!sameFields(buffered,projectionFields(before)));
+    const receipt=await result<{found:boolean;result:(MutationResult&{operationID:string})|null}>("contest_operation_receipt",{
+      sessionID:operation.draft.sessionID,operationID:operation.operationID});
+    if(!receipt.found||!receipt.result)return null;
+    // Reconcile live projection before considering an old receipt's draft safe to load.
+    const opened=await result<{projection:Projection}>("contest_draft_get",{sessionID:operation.draft.sessionID});
+    const keep=preserve||version!==editVersionRef.current;
+    if(projectionRef.current?.sessionID===operation.draft.sessionID)acceptProjection(opened.projection,keep?Number.MIN_SAFE_INTEGER:undefined);
+    return stackResult(operation,receipt.result,keep);
+  };
+  const saveNote=async(target:NoteTarget,text:string,noteID:string)=>{
+    const base=projectionRef.current;if(!base||busyRef.current||retiring)throw new Error("The contest owner is busy.");
+    const key=`xlog.contest.note-pending.v1/${base.workspaceGeneration}/${base.sessionID}/${noteID}`;
+    const saved=localStorage.getItem(key),params=saved?JSON.parse(saved):{sessionID:base.sessionID,workspaceGeneration:base.workspaceGeneration,
+      operationID:noteID,expectedRevision:base.revision,noteID,target,text};
+    localStorage.setItem(key,JSON.stringify(params));busyRef.current=true;setBusy(true);
+    try{
+      const receipt=await result<{found:boolean;result:MutationResult|null}>("contest_operation_receipt",{sessionID:base.sessionID,operationID:noteID});
+      const changed=receipt.found&&receipt.result?receipt.result:await result<MutationResult>("contest_note_save",params);
+      localStorage.removeItem(key);
+      const latest=await result<{projection:Projection}>("contest_draft_get",{sessionID:base.sessionID});
+      if(projectionRef.current?.sessionID===base.sessionID)acceptProjection(latest.projection);
+      setNotice("Note saved to its original contact identity.");
+      return changed;
+    }catch(cause){if(cause instanceof ContestServerError&&cause.outcome!=="uncertain")localStorage.removeItem(key);throw cause;}
+    finally{busyRef.current=false;setBusy(false);}
   };
   const focusField = (field: string) => {
     focusRef.current = field;
@@ -2638,6 +2755,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     if (action.action === "entry_operator_key" && action.params.key === "Escape") {
       await stopAutoCQ(true); return;
     }
+    if((active.practice||practiceTransitionRef.current)&&["entry_operator_arm","entry_auto_cq","entry_send_cw_text","entry_set_cw_speed","entry_rotor_turn","entry_rotor_stop"].includes(action.action))
+      throw new Error("Practice sessions have native output and station actions disabled.");
     if (busyRef.current || retiring) throw new Error("The contest owner is busy.");
     if (action.action.startsWith("entry_") || action.action.startsWith("assistance_") || action.action.startsWith("spot_")) {
       const rebasablePresentationAction = ["entry_set_text","entry_set_exchange","entry_set_frequency_text","entry_set_band","entry_set_mode",
@@ -2647,6 +2766,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         throw new Error("The contest entry changed before this action reached the owner.");
     }
     const persistFields = async (fieldID: string, value: string) => {
+      typedFieldsRef.current.fields.add(fieldID);
       if (fieldID === "callsign" && autoCQActiveRef.current) await stopAutoCQ();
       if(fieldID==="callsign")recordManualHeardCall(value);
       const next = { ...fieldsRef.current, [fieldID]: value };
@@ -3192,6 +3312,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
 
   const fldigiPanelReady = Boolean(projection?.fldigiTransmitAvailable && digitalSnapshot?.fldigi?.configuration.transmit_enabled);
   const cwPanel = () => {
+    if(projection?.practice)return <p role="status">Practice · native keyer, voice, modem and station output disabled. Manual logging is available.</p>;
     if (!projection || projection.mode === "SSB" && !phoneOutputAvailable) return null;
     const phone = projection.mode === "SSB" && phoneOutputAvailable;
     const armed = phoneReleaseBlocking ? phoneSimulationArmed || Boolean(phoneReleaseUncertain) : phone ? phoneSimulationArmed : fldigiPanelReady || cw.state.armed;
@@ -3240,9 +3361,15 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
   const logPanel = <section className="contest-log"><header><div><h2><BookOpen size={15}/> Contest log</h2><p>{logTotal} contacts in the Python-owned DXLOG store.</p></div><div className="contest-log-actions"><button type="button" disabled={busy} onClick={() => void exportLog("cabrillo")}><Download size={14}/>Cabrillo</button><button type="button" disabled={busy} onClick={() => void exportLog("adif")}><Download size={14}/>ADIF</button>{projection?.exportFormats?.includes("edi")&&<button type="button" disabled={busy} onClick={() => void exportLog("edi")}><Download size={14}/>EDI</button>}<button type="button" disabled={busy} onClick={() => void runMutation(base => mutate("contest_recalculate", base))}>Recalculate</button></div></header>{editing && <form className="contest-qso-editor" onSubmit={correct}><h2>Edit {editing.Call}</h2><div className="contest-qso-fields"><ContestTextField label="Callsign" value={editCall} onChange={event => setEditCall(event.target.value.toUpperCase())}/><ContestTextField label="UTC timestamp" value={editTimestamp} onChange={event => setEditTimestamp(event.target.value)}/><ContestTextField label="Frequency MHz" inputMode="decimal" value={editFrequencyMHz} onChange={event => setEditFrequencyMHz(event.target.value)}/><ContestTextField label="Operator" value={editOperator} onChange={event => setEditOperator(event.target.value.toUpperCase())}/><ContestTextField label="Sent report" value={editSent} onChange={event => setEditSent(event.target.value)}/><ContestTextField label="Received report" value={editReceived} onChange={event => setEditReceived(event.target.value)}/><ContestTextField label={projection?.fields.find(field => field.id === "other_1")?.label || "Sent exchange"} inputMode="numeric" value={editSentExchange} onChange={event => setEditSentExchange(event.target.value)}/><ContestTextField label={projection?.fields.find(field => field.id === "other_2")?.label || "Received exchange"} value={editZone} onChange={event => setEditZone(event.target.value)}/>{!renderedPluginMetadata.has("Name")&&<ContestTextField label="Name" value={editName} onChange={event => setEditName(event.target.value)}/>} {!renderedPluginMetadata.has("QTH")&&<ContestTextField label="QTH" value={editQTH} onChange={event => setEditQTH(event.target.value)}/>} {!renderedPluginMetadata.has("Comment")&&<ContestTextField label="Comment" value={editComment} onChange={event => setEditComment(event.target.value)}/>}</div><footer><button className="contest-danger" type="button" onClick={remove}>Delete</button><button type="button" onClick={() => setEditing(null)}>Cancel</button><button className="contest-primary" type="submit">Save correction</button></footer></form>}<ContestLogTable rows={logRows(rows, projection?.pluginID, bandLabels)} disabled={busy || retiring} onEdit={beginEdit}/><footer><button type="button" disabled={busy || logOffset === 0} onClick={() => void loadLogPage(Math.max(0, logOffset - logPageSize))}>Newer</button><span>{logTotal ? `${logOffset + 1}–${logOffset + rows.length} of ${logTotal}` : "No contacts"}</span><button type="button" disabled={busy || logOffset + rows.length >= logTotal} onClick={() => void loadLogPage(logOffset + logPageSize)}>Older</button></footer></section>;
   const bandMapPanel = <BandMaps spots={spots} radioFrequencyHz={radioFrequencyHz} compact onSelect={spot => void chooseSpot(spot)} selectionHint="Select a spot to load the active Not1MM draft and tune the selected xLog radio once."/>;
   const clusterPanel = <ClusterPanel passive snapshot={cluster} selectedSpotId={selectedSpotId ?? undefined} onRequest={serviceRequest} onSelect={spot => void chooseSpot(spot as BandMapSpot)}/>;
-  const showSetup = setupOnly || manager;
+  const showSetup = (setupOnly || manager)&&!productivityOpen;
   return <main className={`contest-workspace${setupOnly ? " is-setup-only" : ""}`}>
     {setupOnly && <h1 className="contest-visually-hidden">Contest Setup</h1>}
+    {projection&&<nav className="contest-productivity-nav" aria-label="Contest workspace views"><button type="button" disabled={busy||retiring}
+      aria-pressed={!productivityOpen} onClick={()=>setProductivityOpen(false)}>Contest setup</button><button type="button" disabled={busy||retiring}
+      aria-pressed={productivityOpen} onClick={()=>setProductivityOpen(true)}>Productivity desk</button>
+      {projection.practice&&<strong role="status">Practice · station output and posting disabled</strong>}</nav>}
+    {productivityOpen&&error&&<p className="contest-alert is-error" role="alert">{error}</p>}
+    {productivityOpen&&notice&&<p className="contest-alert" role="status">{notice}</p>}
     {setupOnly && !projection && startupOpenError && <section className="contest-alert is-error" role="alert">
       <p>{startupOpenError}</p>
       <button type="button" disabled={busy || retiring} onClick={() => setCatalogLoadAttempt(attempt => attempt + 1)}>
@@ -3265,13 +3392,43 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     </div>}
     {showSetup ? <ContestSetupPanel value={setup} effectiveMacros={effectiveMacros} sessions={sessions} activeSessionID={projection?.sessionID}
       catalog={setupCatalog} busy={busy || retiring} newContestDisabled={!catalogReady}
-      onSave={saveSetup} onCreate={createSession} onOpen={session => openSession(session as Session)} onOpenSettings={openContestSetupService}
+      onSave={saveSetup} onCreate={createSession} onCreatePractice={projection?createPractice:undefined}
+      preflightContext={{practice:Boolean(projection?.practice),referenceID:projection?.referenceID,scoringRevision:projection?.ruleIdentity?.version,
+        selectedRadio:observedFrequencyHz===null?"Manual frequency; no selected radio receipt.":`${(observedFrequencyHz/1e6).toFixed(6)} MHz observed; output acceptance remains separate.`}}
+      onOpen={session => openSession(session as Session)} onOpenSettings={openContestSetupService}
       onOpenDialog={setupOnly ? openContestSetupDialog : undefined} onViewChange={onSetupViewChange}
       onOpenCallHistory={() => { if (!surfaceContext) { setError("Open a contest before opening Call History."); return; }
         if (!setupOnly) setManager(false); void openContestCallHistoryWindow(surfaceContext); }}/>
       : projection ? <><section className="contest-snapshot" aria-label="Contest identity"><div><span>Station</span><strong>{effectiveStationCall}</strong></div><div><span>Engine</span><strong>Not1MM Python</strong></div><div><span>Plugin</span><strong>{projection.pluginID}</strong></div><div><span>Revision</span><strong>{projection.revision}</strong></div><div><span>Source</span><small>{projection.sourceRevision.slice(0, 12)} · {projection.referenceID}</small></div></section>{detachedAvailable
-        ? <section className="contest-welcome"><h2>Contest windows are ready</h2><p>Use the Contest menu to open and position Main Logging, Check Partial, Stats, Rates, Score Reporting, Messages, Logbook, Band Map, Cluster, Rotator, DXCC, Zone and Remote VFO windows.</p></section>
-        : <section className="contest-welcome"><h2>Preserved contest session</h2><p>This session predates detached contest windows for the current xLog workspace. Its Python/SQLite log is preserved; create a current-workspace contest before opening independent windows.</p></section>}</> : <section className="contest-welcome"><h2>Open a contest session</h2></section>}
+        ? !productivityOpen&&<section className="contest-welcome"><h2>Contest windows are ready</h2><p>Use the Contest menu to open and position Main Logging, Check Partial, Stats, Rates, Score Reporting, Messages, Logbook, Band Map, Cluster, Rotator, DXCC, Zone and Remote VFO windows.</p></section>
+        : !productivityOpen&&<section className="contest-welcome"><h2>Preserved contest session</h2><p>This session predates detached contest windows for the current xLog workspace. Its Python/SQLite log is preserved; create a current-workspace contest before opening independent windows.</p></section>}</> : <section className="contest-welcome"><h2>Open a contest session</h2></section>}
+    {productivityOpen&&projection&&<section className="contest-productivity-desk" aria-label="Productivity desk">
+      <nav className="contest-productivity-nav" aria-label="Productivity tools">{["Entry & stack","Check","Log & notes","Submission"].map(tab=><button key={tab}
+        type="button" aria-pressed={productivityTab===tab} onClick={()=>setProductivityTab(tab)}>{tab}</button>)}</nav>
+      {productivityTab==="Entry & stack"&&<>{entryPanel}<ContestCallStackOwner draft={stackDraft()} getDraft={()=>stackDraft()} disabled={busy||retiring||configuredClient}
+        mutate={mutateStack} receipt={recoverStack} onError={setError} rejected={cause=>cause instanceof ContestServerError&&cause.outcome!=="uncertain"}
+        classify={async(items,draft,scope)=>{const active=projectionRef.current;if(!active||active.sessionID!==draft.sessionID)throw new Error("Stack scope changed.");
+          const value=await result<Data>("contest_spot_points_preview",{sessionID:draft.sessionID,workspaceGeneration:draft.workspaceGeneration,expectedRevision:draft.revision,
+            spots:items.map(item=>({spotID:item.id,callsign:item.callsign,frequencyHz:active.frequencyHz,mode:active.mode}))});
+          return items.map(item=>{const row=value.spots.find((row:Data)=>row.spotID===item.id);return {itemID:item.id,itemRevision:item.revision,scope,
+            state:row?.dupe===true?"duplicate" as const:row?.dupe===false?"clear" as const:"unknown" as const,reason:row?.reason||"Current plugin duplicate scope"};});}}/>
+        {configuredClient&&<p>Call Stack transitions require the local authoritative desk. The existing multi-op logging path remains available in Main Logging.</p>}</>}
+      {productivityTab==="Check"&&<><ContestReverseHistoryPanel request={request as ContestRequest} scope={projection} disabled={busy||retiring}
+        onSelect={(callsign,scope)=>{if(projectionRef.current?.draftID!==scope.draftID||projectionRef.current?.revision!==scope.revision)return;
+          if(fieldsRef.current.callsign?.trim()){setError("Entry is occupied. Park, swap or clear it before loading a history suggestion.");return;}changeField("callsign",callsign);}}/>
+        <ContestVisibleDupesheet request={request as ContestRequest} scope={projection} disabled={busy||retiring}/></>}
+      {productivityTab==="Log & notes"&&<><div className="contest-productivity-actions"><label>Whole-log order<select aria-label="Whole-log sort" value={logOrder.sort} onChange={event=>{
+        const next={...logOrderRef.current,sort:event.target.value};logOrderRef.current=next;setLogOrder(next);void loadLogPage(0);}}>
+          {[["utc","UTC"],["call","Callsign"],["frequency","Frequency"],["sentSerial","Sent serial"],["receivedSerial","Received serial"],["points","Points"],["mode","Mode"]].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+        <label>Direction<select aria-label="Whole-log direction" value={logOrder.direction} onChange={event=>{const next={...logOrderRef.current,direction:event.target.value};logOrderRef.current=next;setLogOrder(next);void loadLogPage(0);}}><option value="ascending">Ascending</option><option value="descending">Descending</option></select></label>
+        <label>Callsign contains<input aria-label="Whole-log callsign filter" value={logQuery} maxLength={128} onChange={event=>{const value=event.target.value.toUpperCase();setLogQuery(value);logQueryRef.current=value;void loadLogPage(0);}}/></label></div>
+        {logPanel}<ContestNotesPanel scope={projection} request={request as ContestRequest} disabled={busy||retiring}
+          onSave={async(target,text,noteID)=>{await saveNote(target,text,noteID);}} onLast={async()=>{const active=projectionRef.current;if(!active)throw new Error("No active contest.");
+            const page=await result<Data>("contest_log_page",{sessionID:active.sessionID,expectedRevision:active.revision,offset:0,limit:1});
+            if(!page.rows.length)throw new Error("Log a QSO before adding a last-QSO note.");return {qsoID:page.rows[0].ID,callsign:page.rows[0].Call};}}/></>}
+      {productivityTab==="Submission"&&<ContestSubmissionPanel scope={projection} request={request as ContestRequest} formats={projection.exportFormats??["cabrillo","adif"]}
+        disabled={busy||retiring} onExport={(format,revision,digest)=>exportLog(format,true,undefined,revision,digest)}/>}
+    </section>}
     <div hidden aria-hidden="true">{checkPanel}</div>
   </main>;
 }

@@ -995,6 +995,7 @@ class Desk:
         staged_reservation = (json.loads(staged_replica["reservation_json"])
                               if staged_replica and staged_replica["reservation_json"] else None)
         return {"sessionID": self.state["sessionID"], "engine": "not1mm-python",
+                "practice": deepcopy(self.state.get("practice")),
                 "pluginID": self.state["pluginID"], "pluginName": PLUGINS[self.state["pluginID"]],
                 "reservedSerial": self.current_sn if requires_serial(self.state) else None,
                 "allocatedSerialFieldID": serial_field,
@@ -1015,7 +1016,7 @@ class Desk:
                 "digitalLoggingSupported": callable(getattr(self.contest, "ft8_handler", None)),
                 "fldigiReceiveSupported": callable(getattr(self.contest, "ft8_handler", None)),
                 "fldigiTransmitSupported": self.state["pluginID"] in RTTY_PLUGINS,
-                "fldigiTransmitAvailable": (self.state["pluginID"] in RTTY_PLUGINS
+                "fldigiTransmitAvailable": (not self.state.get("practice") and self.state["pluginID"] in RTTY_PLUGINS
                                              and operating_mode(self.state) in DIGITAL_OUTPUT_MODES),
                 "matrixTrackers": list(plugin.matrix_trackers),
                 "multiplierViewStatus": multiplier_view_status(self.state),
@@ -1170,7 +1171,7 @@ class Desk:
 
 
 class Host:
-    MUTATIONS = {"session_create", "legacy_import", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "digital_ingest", "qso_correct", "qso_delete", "setup_save", "rover_location", "recalculate", "country_reconcile", "multi_contact_apply", "multi_replica_apply"}
+    MUTATIONS = {"session_create", "legacy_import", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "digital_ingest", "qso_correct", "qso_delete", "setup_save", "rover_location", "recalculate", "country_reconcile", "multi_contact_apply", "multi_replica_apply", "note_save"}
     REPLICA_BLOCKED = {"legacy_import", "esm", "function_key", "qso_commit", "digital_ingest",
                        "qso_correct", "qso_delete", "recalculate", "country_reconcile", "setup_save", "rover_location",
                        "multi_contact_apply"}
@@ -1185,6 +1186,7 @@ class Host:
         self.analytics = AnalyticsCopies()
         self._operation = None
         self._n1mm_events = None
+        self._note_binding_allowed = False
         self.n1mm = N1MMOutput()
         # The trusted native launcher grants this only in the production profile.
         self.n1mm_udp_allowed = os.environ.get("XLOG_CONTEST_N1MM_UDP_ALLOWED") == "1"
@@ -1224,7 +1226,7 @@ class Host:
         }
 
     def publish_n1mm(self, state, method, params, desk, previous_network):
-        if not self.n1mm_udp_allowed:
+        if not self.n1mm_udp_allowed or state.get("practice"):
             return
         try:
             config = n1mm_preferences(state.get("setup", {}).get("network", {}))
@@ -1388,6 +1390,7 @@ class Host:
                     state = json.loads(row[0])
                     self.verify_engine(state)
                     summary = {"sessionID": session_id, "name": state.get("name", "CQ WW CW"),
+                               **({"practice": True} if state.get("practice") else {}),
                                "workspaceGeneration": workspace_generation(state),
                                "pluginID": state["pluginID"], "sourceRevision": state["sourceRevision"],
                                "revision": state["revision"]}
@@ -1432,6 +1435,9 @@ class Host:
                                        BAND_LABELS, require)
         if method.startswith("history_"):
             return self.callhistory(store, state, method, params)
+        if method in {"assistance_reverse", "assistance_dupesheet"}:
+            from .assistance import read_assistance
+            return read_assistance(store, state, method, params, lambda current: Desk(store, current, self.commit), require)
         if method in {"multi_serial_reserve", "multi_dupe_inquiry", "multi_changes"}:
             return self.coordinate(store, state, method, params)
         if method == "rates":
@@ -1658,6 +1664,7 @@ class Host:
             finally:
                 store.conn.rollback()
         if method == "rtc_payload":
+            require(not state.get("practice"), "Practice sessions cannot publish scores", "practice_output_disabled")
             require(set(params) == {"sessionID", "workspaceGeneration"},
                     "Unexpected RTC payload fields")
             require(params["workspaceGeneration"] == workspace_generation(state),
@@ -1678,6 +1685,7 @@ class Host:
                 self.remember_active_session(session_id)
             return {"projection": desk.projection()}
         if method == "cw_context":
+            require(not state.get("practice"), "Practice sessions have native output disabled", "practice_output_disabled")
             require(operating_mode(state) == "CW", "This contest does not support CW output", "unsupported_mode")
             return {"sessionID": session_id, "revision": state["revision"],
                     "draftID": state["draft"]["id"], "stationCall": state["station"]["Call"],
@@ -1691,6 +1699,7 @@ class Host:
             row = store.exec_sql("SELECT payload,result FROM xlog_operation WHERE operation_id=?", (identifier(params.get("operationID")),))
             return {"found": bool(row), "result": self.replay_result(json.loads(row["result"]), store) if row else None}
         if method == "output_claim":
+            require(not state.get("practice"), "Practice sessions have native output disabled", "practice_output_disabled")
             operation = identifier(params.get("operationID"))
             store.begin()
             try:
@@ -1710,32 +1719,38 @@ class Host:
                 store.finish(False)
                 raise
         if method == "log":
-            offset, limit = params.get("offset", 0), params.get("limit", 50)
-            require(type(offset) is int and offset >= 0 and type(limit) is int and 1 <= limit <= 100, "Invalid page")
-            expected = params.get("expectedRevision")
-            require(expected is None or expected == state["revision"], "Contest changed before the next log page", "stale_revision")
-            duplicate_projection = cq_ww_duplicate_projection(state["pluginID"])
-            rows = store.exec_sql_mult(
-                "SELECT d.*,i.raw_fields,i.country AS country_identity,coalesce((SELECT max(a.revision) "
-                "FROM xlog_qso_audit AS a WHERE a.qso_id=d.ID),0) AS change_revision" + duplicate_projection + " " +
-                "FROM DXLOG AS d "
-                "LEFT JOIN xlog_qso_identity AS i ON i.id=d.ID "
-                "ORDER BY d.TS DESC,d.rowid DESC LIMIT ? OFFSET ?",
-                (limit, offset),
-            )
-            for row in rows:
-                row["raw_fields"] = json.loads(row["raw_fields"]) if row["raw_fields"] else {}
-                row["country_identity"] = json.loads(row["country_identity"]) if row["country_identity"] else None
-                self.add_legacy_provenance(store, row)
-            self.add_exchange_warnings(store, state, rows)
-            return {"sessionID": session_id, "revision": state["revision"], "offset": offset, "limit": limit,
-                    "total": store.exec_sql("SELECT count(*) AS n FROM DXLOG")["n"],
-                    "rows": rows}
+            from .productivity import log_query
+            store.conn.execute("BEGIN")
+            try:
+                current = store.state(session_id)
+                page = log_query(store, current, params, require, cq_ww_duplicate_projection(current["pluginID"]))
+                for row in page["rows"]:
+                    self.add_legacy_provenance(store, row)
+                self.add_exchange_warnings(store, current, page["rows"])
+                return page
+            finally:
+                store.conn.rollback()
+        if method == "notes":
+            from .productivity import read_notes
+            require(params.get("workspaceGeneration") == workspace_generation(state), "Notes workspace changed", "stale_context")
+            require(params.get("expectedRevision") == state["revision"], "Notes snapshot changed", "stale_revision")
+            return read_notes(store, state, params, require)
         if method == "export":
             return self.export(desk)
+        if method == "submission_preflight":
+            from .submission import submission_preflight
+            require(params.get("workspaceGeneration") == workspace_generation(state), "Submission workspace changed", "stale_context")
+            require(type(params.get("expectedRevision")) is int and params["expectedRevision"] == state["revision"],
+                    "Contest changed before submission review", "stale_revision")
+            export_format = params.get("format", "cabrillo")
+            require(export_format in PLUGIN_REGISTRY[state["pluginID"]].export_formats, "Unsupported submission format")
+            filename, payload = self.export_artifact(desk, 32 * 1024 * 1024, export_format)
+            return submission_preflight(desk, export_format, filename, payload)
         if method == "export_prepare":
-            require(set(params) in ({"sessionID"}, {"sessionID", "format"}),
+            require({"sessionID"} <= set(params) <= {"sessionID", "format", "expectedRevision"},
                     "Unexpected contest export fields")
+            require("expectedRevision" not in params or type(params["expectedRevision"]) is int
+                    and params["expectedRevision"] == state["revision"], "Contest changed after submission review", "stale_revision")
             require(len(self.exports) < 8, "Release another prepared export first", "export_busy")
             export_format = params.get("format", "cabrillo")
             require(export_format in {"cabrillo", "adif", "edi"}, "Unsupported contest export format")
@@ -2289,7 +2304,20 @@ class Host:
             if method == "session_create":
                 require(state is None, "Session already exists", "session_exists")
                 require(expected == 0, "Creation revision must be zero")
-                state = self.new_state(session_id, params)
+                if "practiceSourceSessionID" in params:
+                    from .practice import practice_creation
+                    source_id = identifier(params["practiceSourceSessionID"])
+                    require(source_id != session_id, "Practice requires a new session identity")
+                    source = self.database(source_id).state(source_id)
+                    require(source is not None and source["revision"] == params.get("sourceRevision")
+                            and workspace_generation(source) == params.get("workspaceGeneration"),
+                            "Practice source changed; reopen it before copying", "stale_context")
+                    self.verify_engine(source)
+                    copied, safe_setup, metadata, scoring = practice_creation(source, {**params, "sessionID": session_id})
+                    state = self.new_state(session_id, copied, scoring_revision=scoring)
+                    state["practice"], state["setup"] = metadata, safe_setup
+                else:
+                    state = self.new_state(session_id, params)
                 state["coordinationBasis"] = {
                     "pluginID": state["pluginID"], "sourceRevision": SOURCE_REVISION,
                     "referenceID": state["reference"]["id"],
@@ -2334,17 +2362,23 @@ class Host:
                     require(expected == state["revision"], "Session changed; refresh before editing", "stale_revision")
             self._operation = operation
             self._n1mm_events = []
+            self._note_binding_allowed = method in {"qso_commit", "esm", "function_key"}
             if new_session:
                 self.reserve_serial(store, state)
             legacy_summary = None
             if method == "legacy_import":
                 legacy_summary = self.import_legacy(store, state, params)
             desk = Desk(store, state, self.commit)
-            if method == "draft_apply":
+            if method == "note_save":
+                from .productivity import save_note
+                require(params.get("workspaceGeneration") == workspace_generation(state), "Note workspace changed", "stale_context")
+                save_note(store, state, params, require)
+            elif method == "draft_apply":
                 previous_call = desk.callsign.text().strip().upper()
                 self.apply_fields(desk, params)
                 self.clear_received_fields_after_vfo_change(desk, params)
-                self.prefill(desk, reset_cq_ww_zone=(desk.callsign.text().strip().upper() != previous_call))
+                if params.get("manualStackLoad") is not True:
+                    self.prefill(desk, reset_cq_ww_zone=(desk.callsign.text().strip().upper() != previous_call))
             elif method == "focus":
                 require(params.get("field") in INPUTS, "Unknown field")
                 desk.current_widget = params["field"]
@@ -2355,6 +2389,8 @@ class Host:
                 desk.pref["run_state"] = state["run"] = params["run"]
             elif method == "setup_save":
                 setup = self.validate_setup(params.get("setup"))
+                from .practice import enforce_practice_setup
+                setup = enforce_practice_setup(state, setup)
                 require(setup["pluginID"] == state["pluginID"], "A session's plugin cannot be changed")
                 call = text(setup["station"].get("Call", ""), 32).upper()
                 require(re.fullmatch(r"[A-Z0-9/]{3,32}", call) is not None, "Invalid station call")
@@ -2721,6 +2757,9 @@ class Host:
                     if action == "correct":
                         require("fields" in params, "Remote correction fields are required")
                     self.change(desk, "qso_correct" if action == "correct" else "qso_delete", params)
+            if state.get("practice"):
+                # Host-owned restriction survives setup changes and receipt replay.
+                desk.actions = []
             desk.persist()
             state["revision"] += 1
             store.save_state(state)
@@ -2752,6 +2791,7 @@ class Host:
         finally:
             self._operation = None
             self._n1mm_events = None
+            self._note_binding_allowed = False
 
     @staticmethod
     def exchange_warnings(received, country, prior_zones):
@@ -3829,6 +3869,12 @@ class Host:
             raise HostError("qso_collision", "QSO identity or timestamp/call already exists") from error
         country = desk.state["reference"]["countries"].get(contact["Call"])
         desk.database.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,0)", (qso_id, canonical(fields), canonical(country)))
+        if self._note_binding_allowed:
+            # External/digital contacts temporarily borrow a Desk but do not
+            # consume the operator's Entry; they must never claim its notes.
+            draft_id = desk.state["draft"]["id"]
+            desk.database.conn.execute("INSERT OR IGNORE INTO xlog_draft_contact VALUES(?,?)", (draft_id, qso_id))
+            desk.database.conn.execute("UPDATE xlog_note SET qso_id=? WHERE draft_id=? AND qso_id IS NULL", (qso_id, draft_id))
         if desk.state["pluginID"] in APPEND_RECALCULATION_PLUGINS:
             if chronological_append and desk.state["pluginID"] not in FULL_REBUILD_APPEND_PLUGINS:
                 self.recalculate_append(desk, contact)

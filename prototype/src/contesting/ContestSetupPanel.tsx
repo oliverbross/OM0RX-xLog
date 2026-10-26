@@ -7,6 +7,8 @@ import { decodeContestBandPlan, defaultContestBandPlan, encodeContestBandPlan, t
 import { BAND_RANGES } from "../live/band";
 import "./ContestSetupPanel.css";
 import { contestSchedule, contestUTC } from "./contestSchedule";
+import { ContestReadinessPanel } from "./ContestReadinessPanel";
+import type { ContestPreflightContext } from "./contestReadiness";
 
 export type ContestSetupMacro = { mode: "R" | "S"; key: string; label: string; template: string };
 export type ContestSetupDocument = {
@@ -42,6 +44,8 @@ type Props = {
   busy?: boolean; newContestDisabled?: boolean; error?: string; initialTab?: ContestSetupTab | "Station" | "Contest" | "N1MM+" | "Call History" | "Macros" | "Key bindings" | "Digital" | "Multi-Multi";
   onSave: (value: ContestSetupDocument) => Promise<void>;
   onCreate: (value: ContestSetupDocument) => Promise<void>;
+  onCreatePractice?: () => Promise<void>;
+  preflightContext?: ContestPreflightContext;
   onOpen: (session: ContestSetupSession) => Promise<void>;
   onOpenSettings?: (tab: ContestSetupServiceTab) => void | Promise<void>;
   servicePanels?: Partial<Record<ContestSetupServiceTab, ReactNode>>;
@@ -129,7 +133,7 @@ function ContestBandSegmentInput({ label, value, minimum, maximum, onCommit }: {
 
 /** Controlled, service-agnostic editor: the owner supplies revisioned durable saves. */
 export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, busy = false, newContestDisabled = false, error = "", initialTab = "Contest",
-  onSave, onCreate, onOpen, onOpenSettings, servicePanels, callHistoryPanel, onOpenCallHistory, effectiveMacros, onOpenDialog, onContentChange, onViewChange, detachedDialog, onCancel }: Props) {
+  onSave, onCreate, onCreatePractice, preflightContext, onOpen, onOpenSettings, servicePanels, callHistoryPanel, onOpenCallHistory, effectiveMacros, onOpenDialog, onContentChange, onViewChange, detachedDialog, onCancel }: Props) {
   const [draft, setDraft] = useState<ContestSetupDocument>(() => setupDraft(value));
   const [view, setView] = useState<SetupView | null>(initialTab === "Contest" ? null : initialTab === "Station" ? "Station Settings" : initialTab === "Macros" ? "Edit Macros" : initialTab === "Key bindings" ? "Edit Keys" : "Configuration Settings");
   const [tab, setTab] = useState<ContestSetupTab>(contestSetupTabs.includes(initialTab as ContestSetupTab) ? initialTab as ContestSetupTab : initialTab === "N1MM+" ? "N1MM" : initialTab === "Multi-Multi" ? "Group" : initialTab === "Call History" ? "Options" : "Lookup"), [message, setMessage] = useState("");
@@ -367,6 +371,7 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
     </div> : <div className="contest-exchange-row">{field("settings", "SentExchange", selectedPlugin?.sentExchangeHint ?? (["icwc_mst", "cwo"].includes(draft.pluginID) ? "Name" : "Sent Exchange"))}<span>Exclude RST</span></div>}
     <label><span>Operators</span><input value={draft.operator} onChange={event => setDraft(current => ({ ...current, operator: event.target.value.toUpperCase() }))}/></label>
     {textArea("settings", "Soapbox", "Soapbox")}
+    <ContestReadinessPanel document={draft} context={preflightContext} macros={effectiveMacros}/>
   </div>;
   else if (view === "Choose a Contest") content = <table className="contest-choose-table"><thead><tr><th>Contest Name</th><th>Contest Start</th></tr></thead><tbody>{sessions.map(session => <tr key={session.sessionID} aria-selected={selectedSession === session.sessionID} onClick={() => setSelectedSession(session.sessionID)}><td><label><input type="radio" name="contest-session" checked={selectedSession === session.sessionID} onChange={() => setSelectedSession(session.sessionID)}/>{session.name}</label></td><td>{session.startUTC ?? "—"}</td></tr>)}</tbody></table>;
   else if (view === "Configuration Settings") {
@@ -482,7 +487,8 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
       const kind = name === "Station Settings" ? "station" : name === "Configuration Settings" ? "configuration" : name === "Digital Setup" ? "digital" : name === "Edit Macros" ? "macros" : name === "Edit Keys" ? "keys" : null;
       if (kind && onOpenDialog) { void Promise.resolve().then(() => onOpenDialog(kind)).catch(cause => setMessage(cause instanceof Error ? cause.message : "Dialog could not open.")); }
       else open(name);
-    }}>{name}</button>)}</div> :
+    }}>{name}</button>)}{onCreatePractice && <button type="button" disabled={disabled || newContestDisabled || !activeSessionID} onClick={() => void run(onCreatePractice, "Practice copy created. Native output and public posting are disabled.")}>Create Practice copy</button>}
+    <ContestReadinessPanel document={draft} context={preflightContext} macros={effectiveMacros}/></div> :
       <form onSubmit={submit}>{configuration && <nav role="tablist" aria-label="Configuration settings sections" style={{ "--contest-setup-tab-count": contestSetupTabs.length } as CSSProperties}>{contestSetupTabs.map((name, index) => <button key={name} id={id + "-tab-" + index} type="button" role="tab" aria-selected={tab === name} aria-controls={id + "-panel"} tabIndex={tab === name ? 0 : -1} onClick={() => selectConfigurationTab(name)} onKeyDown={event => { const next = event.key === "ArrowRight" ? (index + 1) % contestSetupTabs.length : event.key === "ArrowLeft" ? (index + contestSetupTabs.length - 1) % contestSetupTabs.length : event.key === "Home" ? 0 : event.key === "End" ? contestSetupTabs.length - 1 : null; if (next !== null) { event.preventDefault(); selectConfigurationTab(contestSetupTabs[next]); document.getElementById(id + "-tab-" + next)?.focus(); } }}>{name}</button>)}</nav>}
         <fieldset disabled={disabled}><div id={id + "-panel"} role={configuration ? "tabpanel" : undefined} aria-labelledby={configuration ? id + "-tab-" + contestSetupTabs.indexOf(tab) : undefined} className="contest-manual-content">{content}</div></fieldset>
         <footer><button type="button" disabled={disabled} onClick={() => { recorderRef.current?.cancel(); recorderRef.current = null; recordingSlotRef.current = ""; setRecordingSlot(""); setReplaceSlot(""); if (detachedDialog) void onCancel?.(); else close(); }}>Cancel</button><button type="submit" className="contest-primary" disabled={disabled || Boolean(recordingSlot) || (view === "Choose a Contest" && !selectedSession) || (!activeSessionID && ["Edit Current Contest", "Edit Macros", "Edit Keys"].includes(view ?? ""))}>{pending ? "Saving…" : detachedDialog || configuration ? "Save" : "OK"}</button></footer>

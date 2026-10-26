@@ -8,6 +8,76 @@ import XLogPortableCore
 @testable import XLogPrototypeSupport
 
 final class PythonContestLaneTests: XCTestCase {
+    func testPracticeNativeOutputFencesRejectCurrentAndRetiredSourceContexts() async throws {
+        let temporary = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
+            .appendingPathComponent("xlog-practice-native-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let configuration = PythonContestHostConfiguration(executableURL: try python312(),
+            launcherURL: repositoryRoot().appendingPathComponent("python/contest_host/launcher.py"),
+            dataRootURL: temporary.appendingPathComponent("Contesting/Python"))
+        let lane = try PythonContestLane(configuration: configuration)
+        do {
+            let workspace = UUID().uuidString.lowercased()
+            for plugin in ["cq_ww_cw", "cq_wpx_rtty"] {
+                let source = UUID().uuidString.lowercased(), practice = UUID().uuidString.lowercased()
+                let created = try await lane.handle(method: "contest_session_create", params: [
+                    "sessionID": source, "workspaceGeneration": workspace,
+                    "operationID": UUID().uuidString.lowercased(), "expectedRevision": 0,
+                    "pluginID": plugin, "frequencyHz": 14_025_000,
+                    "station": ["Call": "OM0RX", "CQZone": "15"],
+                    "settings": ["SentExchange": plugin == "cq_ww_cw" ? "15" : "#"],
+                ])
+                let sourceProjection = try XCTUnwrap(created["projection"] as? [String: Any])
+                if plugin == "cq_ww_cw" {
+                    let context = try await lane.handle(method: "contest_cw_context", params: [:])
+                    XCTAssertEqual(context["sessionID"] as? String, source)
+                    let rtc = try await lane.handle(method: "contest_rtc_payload", params: [
+                        "sessionID": source, "workspaceGeneration": workspace,
+                    ])
+                    XCTAssertNotNil(rtc["xml"] as? String)
+                } else {
+                    let destination = try await lane.fldigiTransmitDestination()
+                    XCTAssertEqual(destination.sessionID, source)
+                }
+                let copied = try await lane.handle(method: "contest_session_create", params: [
+                    "sessionID": practice, "workspaceGeneration": workspace,
+                    "operationID": UUID().uuidString.lowercased(), "expectedRevision": 0,
+                    "practiceSourceSessionID": source, "sourceRevision": sourceProjection["revision"]!,
+                ])
+                let projection = try XCTUnwrap(copied["projection"] as? [String: Any])
+                XCTAssertNotNil(projection["practice"] as? [String: Any])
+                for session in [source, practice] {
+                    for method in ["contest_rtc_payload", "contest_output_claim"] {
+                        do {
+                            _ = try await lane.handle(method: method, params: [
+                                "sessionID": session, "workspaceGeneration": workspace,
+                                "operationID": UUID().uuidString.lowercased(), "revision": 1,
+                            ].filter { method == "contest_output_claim" || ["sessionID", "workspaceGeneration"].contains($0.key) })
+                            XCTFail("Practice must reject \(method) even with the old real-session identity")
+                        } catch let error as ContestLaneError {
+                            XCTAssertEqual(error.outcome, "confirmed")
+                            XCTAssertTrue(["practice_output_disabled", "contest_session_inactive"].contains(error.code))
+                        }
+                    }
+                }
+                do {
+                    _ = try await lane.handle(method: "contest_cw_context", params: [:])
+                    XCTFail("Practice must not acquire a CW context")
+                } catch let error as ContestLaneError { XCTAssertEqual(error.code, "practice_output_disabled") }
+                do {
+                    _ = try await lane.fldigiTransmitDestination()
+                    XCTFail("Practice must not become a fldigi transmitter destination")
+                } catch let error as ContestLaneError {
+                    XCTAssertTrue(["practice_output_disabled", "fldigi_transmit_unsupported"].contains(error.code))
+                }
+            }
+        } catch {
+            await lane.shutdown()
+            throw error
+        }
+        await lane.shutdown()
+    }
+
     func testSCPRecoversActiveSessionAfterWorkerRestartWithoutReopeningContest() async throws {
         let temporary = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
             .appendingPathComponent("xlog-scp-restart-\(UUID().uuidString)", isDirectory: true)

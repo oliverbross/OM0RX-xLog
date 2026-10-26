@@ -48,6 +48,9 @@ class Store(DataBase):
             CREATE TABLE IF NOT EXISTS xlog_session(id TEXT PRIMARY KEY, state TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_operation(operation_id TEXT PRIMARY KEY, payload TEXT NOT NULL, result TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_output_claim(operation_id TEXT PRIMARY KEY);
+            CREATE TABLE IF NOT EXISTS xlog_draft_contact(draft_id TEXT PRIMARY KEY, qso_id TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS xlog_note(id TEXT PRIMARY KEY, draft_id TEXT, qso_id TEXT,
+                body TEXT NOT NULL, created_utc TEXT NOT NULL, revision INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_serial(draft_id TEXT NOT NULL, serial INTEGER NOT NULL,
                 operation_id TEXT NOT NULL, scope TEXT NOT NULL, qso_id TEXT UNIQUE,
                 PRIMARY KEY(draft_id,scope), UNIQUE(scope,serial));
