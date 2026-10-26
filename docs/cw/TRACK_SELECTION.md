@@ -169,3 +169,14 @@ receive-only authority case pass, including call-less qualified RF, stale IQ,
 unqualified mapping, muted target and Stop during readback. Native target
 retention, durable Tune admission/readback and its UI remain separate pending
 integration; no RF action has been performed by this milestone.
+
+The native snapshot pool separately retains up to 32 qualified signal targets,
+with independent opaque activation versions. A signal needs no callsign to enter
+this pool. Muted/ambiguous/unmapped rows have no RF activation token, and a worker
+change rotates the token. The resolver sends only its retained control reference
+to that exact worker, compares the full native reply and rechecks the pool and
+worker after readback. Callsign-only and RF tokens cannot substitute for each
+other. Five native pool/readback cases and strict frontend RF-token projection
+checks cover this boundary. The RF resolver is intentionally not yet called by
+an operating action; its unused-function compiler warning reflects the pending
+durable Tune integration. It grants no RF authority by itself.

@@ -8,7 +8,8 @@ export type CWTrackReference = { sessionID: string; sourceID: string; streamToke
 export type CWTrackSelection = { reference: CWTrackReference; callsign: string; activation?: { sourceEpoch: string; spotVersion: string } };
 export type CWDecodeTrack = { sourceID: string; trackID: string; descriptor: CWDescriptor; revision: string; offsetHz: number; frequencyHz?: number;
   committed: string; provisional: string; ambiguous: boolean; inferenceMilliseconds?: number; spotRejection?: string;
-  estimatedWPM?: number; estimatedSNRDB?: number; snrReferenceHz?: number; selection?: CWTrackSelection; controlReference?: CWTrackReference; muted?: boolean };
+  estimatedWPM?: number; estimatedSNRDB?: number; snrReferenceHz?: number; selection?: CWTrackSelection; controlReference?: CWTrackReference;
+  controlActivation?: { sourceEpoch: string; spotVersion: string }; muted?: boolean };
 export type CWCapability = { radioID: string; provider: string; ready: boolean; device?: string; protocolVersion?: string;
   receivers: { receiver: number; enabled?: boolean; centreHz?: number }[]; requestableSampleRates: number[]; transmitStateKnownOff?: boolean;
   inventoryRevision?: string; identity?: { serial: string; model: string; address: string; controlPort: number }; stationHandle?: number;
@@ -53,6 +54,9 @@ const trackSelection = (track: Record<string, any>): boolean => {
 const trackControl = (track: Record<string, any>): boolean => {
   const reference = track.controlReference;
   return (track.muted === undefined || typeof track.muted === "boolean") && (!track.muted || track.selection === undefined) &&
+    (track.controlActivation === undefined || reference !== undefined && !track.muted && !track.ambiguous && track.frequencyHz !== undefined &&
+      object(track.controlActivation) && Object.keys(track.controlActivation).length === 2 &&
+      ["sourceEpoch", "spotVersion"].every(key => typeof track.controlActivation[key] === "string" && uuid.test(track.controlActivation[key]))) &&
     (reference === undefined || object(reference) && Object.keys(reference).length === 7 &&
       ["sessionID", "sourceID", "streamToken", "trackID", "selectionID"].every(key => typeof reference[key] === "string" && uuid.test(reference[key])) &&
       ["sessionID", "sourceID", "streamToken"].every(key => reference[key].toLowerCase() === track.descriptor[key].toLowerCase()) &&

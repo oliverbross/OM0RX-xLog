@@ -27,6 +27,16 @@ describe("native CW Decode projection", () => {
     track.muted = true; expect(parseCWDecodeSnapshot(fixture).tracks[0].muted).toBe(true);
     track.controlReference.revision = "2"; expect(() => parseCWDecodeSnapshot(fixture)).toThrow();
   });
+  it("admits native RF activation tokens only on an eligible qualified signal", () => {
+    const fixture = cwDecodeTrackFixture(), track = fixture.tracks[0];
+    track.controlReference = { sessionID: track.descriptor.sessionID, sourceID: track.sourceID, streamToken: track.descriptor.streamToken,
+      epoch: track.descriptor.epoch, trackID: track.trackID, revision: track.revision, selectionID: "60000000-0000-0000-0000-000000000001" };
+    track.controlActivation = { sourceEpoch: "80000000-0000-0000-0000-000000000001", spotVersion: "90000000-0000-0000-0000-000000000001" };
+    expect(() => parseCWDecodeSnapshot(fixture)).toThrow();
+    track.descriptor.mappingQualified = true; track.frequencyHz = 14031200;
+    expect(parseCWDecodeSnapshot(fixture).tracks[0].controlActivation).toEqual(track.controlActivation);
+    track.muted = true; expect(() => parseCWDecodeSnapshot(fixture)).toThrow();
+  });
   it("rejects lossy capture identity, unqualified RF and unbounded arrays", () => {
     const numericEpoch = cwDecodeTrackFixture(); (numericEpoch.tracks[0].descriptor as any).epoch = 12;
     expect(() => parseCWDecodeSnapshot(numericEpoch)).toThrow();
