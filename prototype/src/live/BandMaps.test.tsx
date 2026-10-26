@@ -13,6 +13,30 @@ const spot = (id: string, frequencyKHz: number, band = "20m", callStatus = "New 
 beforeEach(() => localStorage.clear());
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
+it.each([false, true])("uses contest-style callsign stacking and exact-frequency leaders in normal maps (compact=%s)", compact => {
+  const rows = [spot("HB9BIN/P", 14044), spot("OK5WA/P", 14044), spot("OK5WA/P-QSY", 14050)];
+  rows[2].callsign = "OK5WA/P";
+  const select = vi.fn();
+  const view = render(<BandMaps compact={compact} spots={rows} onSelect={select} />);
+  const first = screen.getByRole("button", { name: /^HB9BIN\/P ·/ }) as HTMLButtonElement;
+  const others = screen.getAllByRole("button", { name: /^OK5WA\/P ·/ }) as HTMLButtonElement[];
+  expect(first.textContent).toBe("HB9BIN/P");
+  expect(others).toHaveLength(2); // A real QSY remains a separate occurrence.
+  expect(others.every(marker => marker.textContent === "OK5WA/P")).toBe(true);
+  const sameFrequency = others.find(marker => marker.getAttribute("aria-label")!.includes("14.044.0"))!;
+  expect(sameFrequency.style.left).toBe(first.style.left);
+  expect(Math.abs(parseFloat(sameFrequency.style.top) - parseFloat(first.style.top))).toBeGreaterThanOrEqual(25);
+  const leaders = Array.from(view.container.querySelectorAll<SVGPathElement>(".band-map-spot-leaders path"));
+  expect(leaders).toHaveLength(3);
+  expect(leaders.find(path => path.dataset.spotId === "HB9BIN/P")!.getAttribute("d")!.split(" L ")[0])
+    .toBe(leaders.find(path => path.dataset.spotId === "OK5WA/P")!.getAttribute("d")!.split(" L ")[0]);
+  const position = [first.style.top, first.style.left];
+  view.rerender(<BandMaps compact={compact} spots={[spot("NEW1", 14044), ...rows]} onSelect={select} />);
+  expect([first.style.top, first.style.left]).toEqual(position);
+  expect(first.style.color).toBe("rgb(204, 55, 45)");
+  fireEvent.click(first); expect(select).toHaveBeenCalledWith(rows[0]);
+});
+
 it("keeps remaining contest markers and DOM positions when a worked neighbour disappears",()=>{
   const rows=["LONGESTCALL/P","K1ABC","DL1ABC"].map((call,index)=>({...spot(call,7120,"40m"),mode:"SSB",contestDupe:false,
     contestMultiplierCount:0,contestCountryMultiplier:false,contestZoneMultiplier:false,id:String(index)}));
@@ -589,7 +613,7 @@ describe("native band-map parity", () => {
     expect(BAND_RANGES["30m"].allocations.map((part) => part.name)).toEqual(["CW", "Data"]);
   });
 
-  it("uses compact common chip widths for visible callsigns and composite codes", () => {
+  it("uses compact common chip widths for full callsigns with status in accessible details", () => {
     const spots = [spot("UB3A", 14020), spot("IU1PZC", 14030), spot("OK2JIQ/P", 14040), spot("R5GG", 14050, "20m", "New Call")];
     render(<BandMaps spots={spots} onSelect={vi.fn()} />);
     const chart = screen.getByLabelText(/20m spectrum/);
@@ -598,7 +622,8 @@ describe("native band-map parity", () => {
     expect(new Set(widths).size).toBe(1);
     expect(widths[0]).toBeLessThan(90);
     expect(within(chart).getByText("OK2JIQ/P")).toBeTruthy();
-    expect(within(chart).getAllByText("NC")).toHaveLength(4);
+    expect(within(chart).queryByText("NC")).toBeNull();
+    expect(markers.every(marker => marker.getAttribute("aria-label")?.includes("New Call"))).toBe(true);
     expect(within(screen.getByRole("region", { name: "20m band map" })).getByText("Phone")).toBeTruthy();
   });
 
@@ -720,7 +745,7 @@ describe("native band-map parity", () => {
     const panel = screen.getByRole("region", { name: "20m band map" });
     const marker = within(panel).getByRole("button", { name: /OM0RX.*14\.070\.0 MHz/ });
     expect(marker.getAttribute("aria-label")).toContain("Slovak Republic");
-    expect(marker.textContent).toBe("OM0RXNC");
+    expect(marker.textContent).toBe("OM0RX");
     fireEvent.click(marker);
     expect(onSelect).toHaveBeenCalledWith(realSpot);
     expect(within(panel).getByLabelText(/20m spectrum/)).toBeTruthy();

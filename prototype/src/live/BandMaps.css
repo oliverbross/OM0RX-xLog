@@ -69,7 +69,7 @@
 .band-map-filter-details dl { display:grid; grid-template-columns:1fr auto; gap:4px 12px; margin:0; }
 .band-map-filter-details dd { margin:0; font-variant-numeric:tabular-nums; }
 .band-map-spot { position: absolute; z-index: 4; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: space-between; gap: 4px; height: calc(22px * var(--band-font-scale)); min-height: calc(22px * var(--band-font-scale)) !important; padding: 1px 4px; border: 1px solid currentColor !important; border-radius: 4px; background: color-mix(in srgb, currentColor 16%, #0b1728 84%) !important; text-shadow: 0 1px 2px #000, 0 0 5px #07111f; text-align: left; font: calc(10px * var(--band-font-scale)) ui-monospace, SFMono-Regular, monospace; overflow: hidden; }
-.band-map-spot strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.band-map-spot strong { min-width: 0; overflow: visible; text-overflow: clip; white-space: nowrap; }
 .band-map-spot b { flex: none; font-size: .86em; white-space: nowrap; }
 .band-map-spot:hover { background: #18314c !important; filter: brightness(1.2); }
 .band-map-spot:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }

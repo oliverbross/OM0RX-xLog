@@ -263,7 +263,7 @@ export function placeSpots(spots: BandMapSpot[], view: ViewRange, width: number,
   const occupied = Array.from({ length: laneCount }, () => new Set<number>());
   const ordered = [...spots].sort((a, b) => b.frequencyKHz - a.frequencyKHz || text(a.callsign).localeCompare(text(b.callsign)));
   const placed: PlacedSpot[] = [];
-  const identity=(spot:BandMapSpot)=>`${spot.band}/${text(spot.callsign).trim().toUpperCase()}`;
+  const identity=(spot:BandMapSpot)=>`${spot.band}/${text(spot.callsign).trim().toUpperCase()}/${text(spot.mode)}/${spot.frequencyKHz}`;
   const retained=new Map<string,PlacedSpot>();
   const currentByCall=new Map(ordered.map(spot=>[identity(spot),spot]));
   if(contestPresentation)for(const old of previous){
@@ -284,8 +284,8 @@ export function placeSpots(spots: BandMapSpot[], view: ViewRange, width: number,
     for (let lane = 0; lane < laneCount; lane++) {
       for (let slot = 0; slot < slotCount; slot++) {
         if (occupied[lane].has(slot)) continue;
-        // In contest view, stack nearby calls vertically before spilling into
-        // another column; their leaders retain the precise frequency anchor.
+        // Stack nearby calls vertically before spilling into another column;
+        // their leaders retain the precise frequency anchor.
         const cost = Math.abs(slot - desired) * 10 + lane * (contestPresentation ? 30 : 1);
         if (!best || cost < best.cost) best = { lane, slot, cost };
       }
@@ -367,19 +367,19 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
   const visible = useMemo(() => normalizeSpots(spots, band, view), [spots, band, view]);
   const widthRef=useRef({geometry:"",width:0});
   const widthGeometry=JSON.stringify([band,view.low,view.high,width,chartHeight,fontScale]);
-  const measuredSpotWidth=contestPresentation?bandMapSpotWidth(visible,Number.POSITIVE_INFINITY,fontScale,true):0;
+  const measuredSpotWidth=bandMapSpotWidth(visible,Number.POSITIVE_INFINITY,fontScale,true);
   // Removing a worked call must not shrink every lane and move remaining calls.
   widthRef.current={geometry:widthGeometry,width:Math.max(measuredSpotWidth,widthRef.current.geometry===widthGeometry?widthRef.current.width:0)};
-  const contestSpotWidth=contestPresentation?widthRef.current.width:undefined;
+  const labelWidth=widthRef.current.width;
   const placementRef=useRef<{geometry:string;placed:PlacedSpot[]}>({geometry:"",placed:[]});
   const { placed, hidden } = useMemo(() => {
-    const geometry=JSON.stringify([view.low,view.high,width,chartHeight,fontScale,contestSpotWidth]);
-    const result=placeSpots(visible,view,width,chartHeight,fontScale,contestSpotWidth,contestPresentation,
-      contestPresentation&&placementRef.current.geometry===geometry?placementRef.current.placed:[]);
+    const geometry=JSON.stringify([view.low,view.high,width,chartHeight,fontScale,labelWidth]);
+    const result=placeSpots(visible,view,width,chartHeight,fontScale,labelWidth,true,
+      placementRef.current.geometry===geometry?placementRef.current.placed:[]);
     placementRef.current={geometry,placed:result.placed};return result;
-  }, [visible, view, width, chartHeight, fontScale,contestSpotWidth,contestPresentation]);
-  const { axis, laneWidth } = bandMapLaneGeometry(width, fontScale,contestSpotWidth);
-  const spotWidth = bandMapSpotWidth(visible, laneWidth, fontScale,contestPresentation);
+  }, [visible, view, width, chartHeight, fontScale,labelWidth]);
+  const { axis, laneWidth } = bandMapLaneGeometry(width, fontScale,labelWidth);
+  const spotWidth = bandMapSpotWidth(visible, laneWidth, fontScale,true);
   // Allocation captions can use the chart's right gutter only if a complete
   // PHONE label fits clear of the last lane; the legend/select cover tight maps.
   const allocationCaptionsFit = !placed.length || 8 + (laneWidth - spotWidth) / 2 >= Math.ceil(5 * 12 * 0.67 * fontScale * 0.64 + 12);
@@ -455,25 +455,23 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
         aria-label={`Current VFO ${formatSpotFrequency(visibleRadioFrequency * 1000)} MHz`}
         title={`Current VFO ${formatSpotFrequency(visibleRadioFrequency * 1000)} MHz`}
         style={{ top: `${((visibleRadioFrequency - view.low) / (view.high - view.low)) * 100}%`, left: axis - 5 }} />}
-      {contestPresentation && <svg className="band-map-spot-leaders" aria-hidden="true" width={width} height={chartHeight}>
+      <svg className="band-map-spot-leaders" aria-hidden="true" width={width} height={chartHeight}>
         {placed.map(({spot,lane,top,anchorTop,key}) => {
           const left=axis+laneWidth*(lane+0.5)-spotWidth/2;
-          return <g key={key} style={{color:contestBandMapSpotColor(spot)}}>
+          return <g key={key} style={{color:contestPresentation?contestBandMapSpotColor(spot):bandMapSpotColor(spot)}}>
             <path data-spot-id={String(spot.id)} d={`M ${axis} ${anchorTop} L ${left} ${top}`} />
             <circle cx={axis} cy={anchorTop} r={2} />
           </g>;
         })}
-      </svg>}
-      {placed.map(({ spot, lane, top, anchorTop, key }) => {
+      </svg>
+      {placed.map(({ spot, lane, top, key }) => {
         const color = contestPresentation?contestBandMapSpotColor(spot):bandMapSpotColor(spot);
-        const code = contestPresentation ? "" : opportunityCode(spot);
         const tooltip = `${text(spot.callsign)} · ${formatSpotFrequency(spot.frequencyKHz * 1000)} MHz · ${text(spot.mode)} · ${text(spot.callStatus)} · ${text(spot.dxccStatus)}${contestPresentation?` · ${contestPointDescription(spot)}`:""}${spot.country ? ` · ${countryDisplay(spot.country)}` : ""}${spot.comment ? ` · ${text(spot.comment)}` : ""}`;
         const centre = axis + laneWidth * (lane + 0.5);
-        return <Fragment key={key}>{!contestPresentation && <span className="band-map-spot-anchor" aria-hidden="true" style={{ top: anchorTop, left: axis - 4, width: Math.max(8, centre - axis + 4), color }} />}
-          <button type="button" className={`band-map-spot${contestPresentation && contestBandMapSpotWorked(spot) ? " is-worked" : ""}${contestPresentation&&contestBandMapSpotPending(spot)?" is-pending":""}${spot.marked ? " is-marked" : ""}${selectedSpotId === String(spot.id) ? " is-selected" : ""}`}
+        return <button key={key} type="button" className={`band-map-spot${contestPresentation && contestBandMapSpotWorked(spot) ? " is-worked" : ""}${contestPresentation&&contestBandMapSpotPending(spot)?" is-pending":""}${spot.marked ? " is-marked" : ""}${selectedSpotId === String(spot.id) ? " is-selected" : ""}`}
             style={{ top, left: centre, width: spotWidth, color }} title={tooltip} aria-label={`${tooltip}${spot.marked ? " · Marked" : ""}`}
             aria-current={selectedSpotId === String(spot.id) ? "true" : undefined} onClick={() => onSelect(spot)}
-             onContextMenu={event => onSpotContextMenu?.(spot, event)}><strong>{text(spot.callsign)}</strong>{spot.marked && !contestPresentation && <span aria-label="Marked">★</span>}{code&&<b>{code}</b>}</button></Fragment>;
+             onContextMenu={event => onSpotContextMenu?.(spot, event)}><strong>{text(spot.callsign)}</strong></button>;
       })}
       {hidden > 0 && <span className="band-map-overflow" role="status" aria-label={`${hidden} more spots; zoom in to separate labels`} title={`${hidden} more spots; zoom in to separate labels`}>{hidden} more · zoom in</span>}
     </div>
