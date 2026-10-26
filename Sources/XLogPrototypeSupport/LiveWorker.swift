@@ -128,6 +128,7 @@ public actor LiveWorker {
     private var rtcScores: RTCScoreReportingService?
     #if os(macOS)
     private let references: LiveReferenceMethods
+    private let cwDecode: LiveCWDecodeMethods
     #endif
     private let localAcceptance: Bool
     private let runtimeProfile: AppRuntimeProfile
@@ -233,6 +234,7 @@ public actor LiveWorker {
             backgroundOwnershipAllowed: { operatingModule == .normalLogging })
         #if os(macOS)
         references = LiveReferenceMethods(logbook: logbook)
+        cwDecode = LiveCWDecodeMethods(logbook: logbook)
         #endif
         let cluster = cluster ?? (logbook === LiveLogbookMethods.shared && operatingModule == .normalLogging
             ? .shared : LiveClusterMethods(logbook: logbook,
@@ -250,6 +252,9 @@ public actor LiveWorker {
 
     func beginTerminalShutdown() async {
         terminalShutdown = true
+        #if os(macOS)
+        await cwDecode.terminate()
+        #endif
         await contestLane?.shutdown()
         await pythonContestLane?.shutdown()
         await rtcScores?.terminate()
@@ -399,6 +404,9 @@ public actor LiveWorker {
                 throw WorkerFailure("invalid_request", "Expected a bounded, correlated request.")
             }
             id = requestID
+            if terminalShutdown && method.hasPrefix("cw_decode_") {
+                throw WorkerFailure("worker_stopping", "CW Decode is shutting down.")
+            }
             let requestOperatingModule: WorkerOperatingModule
             if let rawModule = envelope["operatingModule"] as? String {
                 guard let module = WorkerOperatingModule(rawValue: rawModule) else {
@@ -668,7 +676,12 @@ public actor LiveWorker {
                 #endif
             } else {
                 #if os(macOS)
-                if method == LiveConnectionDoctorMethods.method {
+                if method.hasPrefix("cw_decode_") {
+                    guard method != "cw_decode_start" || ownsProcessSessions else {
+                        throw WorkerFailure("cw_owner_required", "CW Decode requires the application worker owner.")
+                    }
+                    result = try await cwDecode.handle(method: method, params: params)
+                } else if method == LiveConnectionDoctorMethods.method {
                     result = try LiveConnectionDoctorMethods.handle(params)
                 } else if method.hasPrefix("reference_") {
                     result = try await references.handle(method: method, params: params)

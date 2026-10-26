@@ -1,0 +1,67 @@
+import Foundation
+import XCTest
+import XCWCore
+@testable import XCatIntegrationCore
+@testable import XLogPrototypeSupport
+#if os(macOS)
+final class LiveCWIQProviderTests:XCTestCase {
+    private func source(rate:Int=192000) throws -> CWSourceConfiguration {
+        try CWSourceConfiguration(radioID:"radio2",provider:.tciIQ,receiverID:"1",sampleRate:rate)
+    }
+    private func capture(token:UUID=UUID(),epoch:UInt64=1,rate:Int=192000) -> TCIIQCapture {
+        TCIIQCapture(streamToken:token,epoch:epoch,connectionGeneration:7,receiver:1,device:"SunSDR2DX",protocolVersion:"2.1",
+            centreHz:14025000,sampleRate:rate,lowerOffsetHz:-39000,upperOffsetHz:39000)
+    }
+    private func frame(samples:Int=16000,rate:Int=192000) throws -> TCIIQFrame {
+        var data=Data(repeating:0,count:64+samples*8)
+        for (offset,value):(Int,UInt32) in [(0,1),(4,UInt32(rate)),(8,3),(20,UInt32(samples*2)),(28,2)] {
+            for i in 0..<4{data[offset+i]=UInt8(truncatingIfNeeded:value>>(i*8))}
+        }
+        return try XCTUnwrap(TCIIQFrame.parse(data,protocolVersion:TCIVersion("2.1")))
+    }
+    func testPacketSplittingPreservesCaptureSampleClockAndResetsSequenceOnEpoch() async throws {
+        let pair=AsyncThrowingStream<TCIIQBlock,Error>.makeStream(bufferingPolicy:.bufferingOldest(2))
+        let sub=TCIIQSubscription(leaseID:UUID(),receiver:1,blocks:pair.stream),source=try source(),session=UUID(),first=capture()
+        let stream=LiveCWIQProvider.adapt(sub,source:source,sessionID:session,stop:{})
+        var iterator=stream.makeAsyncIterator()
+        pair.continuation.yield(TCIIQBlock(capture:first,sequence:0,firstSample:0,receivedMonotonicNS:1234,frame:try frame()))
+        let firstValue=try await iterator.next(),secondValue=try await iterator.next()
+        let a=try XCTUnwrap(firstValue),b=try XCTUnwrap(secondValue)
+        XCTAssertEqual(a.sampleCount,8192);XCTAssertEqual(b.sampleCount,7808)
+        XCTAssertEqual(a.firstSample,0);XCTAssertEqual(b.firstSample,8192)
+        XCTAssertEqual(a.sequence,0);XCTAssertEqual(b.sequence,1)
+        XCTAssertEqual(a.receivedMonotonicNS,1234);XCTAssertEqual(b.receivedMonotonicNS,1234)
+        XCTAssertEqual(a.descriptor.sessionID,session);XCTAssertEqual(a.descriptor.sourceID,source.id)
+        let changed=capture(epoch:2)
+        pair.continuation.yield(TCIIQBlock(capture:changed,sequence:0,firstSample:0,receivedMonotonicNS:2345,frame:try frame(samples:4)))
+        let changedValue=try await iterator.next(),c=try XCTUnwrap(changedValue)
+        XCTAssertEqual(c.sequence,0);XCTAssertEqual(c.firstSample,0);XCTAssertEqual(c.descriptor.streamToken,changed.streamToken)
+        XCTAssertFalse(c.descriptor.mappingQualified);XCTAssertNil(c.descriptor.spectralSign)
+        pair.continuation.finish();let end=try await iterator.next();XCTAssertNil(end)
+    }
+    func testDescriptorClipsCoverageAndRejectsUnrequestedRate() throws {
+        let session=UUID(),source=try source(rate:48000)
+        let value=try LiveCWIQProvider.descriptor(capture(rate:48000),source:source,sessionID:session)
+        XCTAssertEqual(value.usableLowerHz,14001000);XCTAssertEqual(value.usableUpperHz,14049000)
+        XCTAssertThrowsError(try LiveCWIQProvider.descriptor(capture(rate:96000),source:source,sessionID:session))
+        XCTAssertThrowsError(try value.frequency(offsetHz:1000))
+    }
+    func testMalformedCaptureFailsStreamAndReleasesOnlyItsLease() async throws {
+        let pair=AsyncThrowingStream<TCIIQBlock,Error>.makeStream(bufferingPolicy:.bufferingOldest(2)),stops=CWProviderStopCounter()
+        let stream=LiveCWIQProvider.adapt(TCIIQSubscription(leaseID:UUID(),receiver:1,blocks:pair.stream),
+            source:try source(rate:48000),sessionID:UUID(),stop:{await stops.increment()})
+        var iterator=stream.makeAsyncIterator()
+        pair.continuation.yield(TCIIQBlock(capture:capture(),sequence:0,firstSample:0,receivedMonotonicNS:0,frame:try frame(samples:4)))
+        do {_ = try await iterator.next();XCTFail("Mismatched capture must fail")}
+        catch {XCTAssertEqual(error as? CWContractError,.staleEpoch)}
+        for _ in 0..<100 {if await stops.value()>0{break};try await Task.sleep(nanoseconds:1_000_000)}
+        let count=await stops.value();XCTAssertEqual(count,1)
+        pair.continuation.finish()
+    }
+}
+private actor CWProviderStopCounter {
+    private var count=0
+    func increment(){count+=1}
+    func value()->Int{count}
+}
+#endif
