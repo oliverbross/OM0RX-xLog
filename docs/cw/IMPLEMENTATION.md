@@ -41,6 +41,39 @@ This ledger distinguishes implementation from qualification. Automatic local
 spots must remain disabled until G4 quality and RF mapping are qualified. The
 native spike is not a finished receiver or a promise of 32-track throughput.
 
+### Current source milestones, 26 October 2026
+
+The earlier table records kickoff evidence. Subsequent pushed source through
+`53049081` implements the following milestones; linked records supersede the
+earlier remaining-source descriptions where applicable.
+
+| Milestone | Implemented evidence | Remaining acceptance |
+| --- | --- | --- |
+| Compute supervision | One bounded native child, binary IQ ingress, hash checks, bounded output, failure/restart and Stop cancellation; [supervisor](COMPUTE_SUPERVISOR.md) | Exact-package crash/recovery and long soaks |
+| DSP and track orchestration | Independent signed-frequency carriers, FIR channelization/resampling, bounded track history and inference workers; [replay](NATIVE_REPLAY.md), [diagnostics](SIGNAL_DIAGNOSTICS.md) | Standard 32-track timing profile failed; controlled profiling and real corpus required |
+| Shared receive lifecycle | Source epochs, provider readback, freshness/TX quarantine, reconnect bounds; [lifecycle](SOURCE_LIFECYCLE.md) | Real sleep/wake, network loss and both-radio qualification |
+| Flex acquisition | Existing radio owner, physical discovery binding, Station/pan/channel inventory, explicit expiring resource handoff and owned VITA subscription; [Flex IQ](FLEX_IQ.md) | Live 8400 one/two spans, LAN/VPN discovery and packet continuity, RF orientation and usable bandwidth |
+| TCI acquisition | Existing socket/receiver leases, negotiated binary parser and DDS/source-width fences | Real SunSDR2 DX one/two local-radio spans, RF mapping, reconnect/sleep/wake |
+| Local spots | Typed local_cw history/classification, bounded single consumer and fresh-source rechecks; [spot output](SPOT_OUTPUT.md) | Production quality remains false; independent corpus calibration and real frequency mapping |
+| Loopback cluster | Bounded clients, queue/command/history limits, collision and loop guards; [server](LOCAL_CLUSTER_SERVER.md) | Real external logger and exact-package soak |
+| Main/detached view | Shared passive owner, source/server configuration, signal copy/diagnostics and partial/committed distinction; [UI](DECODE_UI.md) | Explicit Tune/Use-callsign routes and final installed functional acceptance |
+| Offline packaging | Pinned ORT 1.24.3 arm64, model, source archive/notices, loader relocation, nested signing and offline probe; [packaging](PACKAGING.md) | Public release/notarization, supported-architecture and full CW package qualification |
+
+The human authorized shipping contest updates with CW disabled. The signed
+1.3.28 candidate from `cc5d387f70ed0a2f7c9a98ab6b2d2666c062b570` passed
+packaging/provenance/signature checks with `experimentalEnabled: false` and
+`fixtureOnly: false`; [release record](../MACOS_1_3_28_RELEASE_2026-10-26.md).
+Native admission blocks capture, Flex handoff and listener startup, and disabled
+snapshots do not probe IQ capabilities. This is an interim contest release,
+not completion or reduced acceptance scope for the CW programme.
+
+For later hardware qualification the human identified a Flex 8400 with spare
+DAX IQ resources and offered VPN access to 192.168.0.199 in Slovakia. VPN
+availability, the SmartSDR Station name, bound discovery and usable IQ remain
+unverified. The current installed radio route uses the Remote Station Agent;
+it does not establish native IQ readiness. This CW task has not acquired live IQ
+or issued radio, RF, PTT, rotor, audio or recording test actions.
+
 ## Native compute contract v1
 
 One C++17 host using ONNX Runtime's C API via its RAII headers. One shared
@@ -74,9 +107,12 @@ This first ABI carries channel audio; raw IQ stays outside renderer/NDJSON.
 ## Reproduce the development spike
 
 ```sh
+python3 prototype/scripts/cw-macos.py prepare --fixture-only
 cmake -S native/cw-worker -B .build/cw-native \
-  -DCMAKE_PREFIX_PATH=/opt/homebrew/opt/onnxruntime -DCMAKE_BUILD_TYPE=Release
-cmake --build .build/cw-native -j 4
+  -DONNXRUNTIME_INCLUDE_DIR="$PWD/.build/cw-package/runtime/include" \
+  -DONNXRUNTIME_LIBRARY="$PWD/.build/cw-package/runtime/lib/libonnxruntime.1.24.3.dylib" \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_BUILD_WITH_INSTALL_RPATH=FALSE
+cmake --build .build/cw-native -j 2
 ctest --test-dir .build/cw-native --output-on-failure
 python3 Tests/fixtures/cw/generate.py .build/cw-fixtures
 python3 -m venv .build/cw-python
@@ -86,11 +122,12 @@ python3 native/cw-worker/verify_protocol.py .build/cw-native/xlog-cw-worker \
   vendor/deepcw-engine/model.onnx .build/cw-fixtures
 ```
 
-Development tools are not installed-product dependencies. The development binary
-currently links Homebrew ORT 1.30.0; this is explicit **development** provenance,
-not an accepted redistribution/runtime manifest. Package staging must copy and
-hash the exact runtime/notices, fix loader paths, sign nested code, verify offline
-loading and advance the app version through the coordinated packaging owner.
+Development tools are not installed-product dependencies. The earlier spike
+used Homebrew ORT 1.30.0; current engineering and Mac packaging use pinned official
+ORT 1.24.3 arm64. Fixture-only payloads cannot be staged into a real app and
+cannot enable production CW. The packager copies/hashes runtime and notices,
+fixes loader paths, signs nested code and verifies offline loading. Every app
+candidate advances its version through the coordinated canonical build owner.
 
 ## Current TCI ownership and qualification boundary
 
