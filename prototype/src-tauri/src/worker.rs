@@ -20,6 +20,11 @@ const PASSIVE_READ_TIMEOUT: Duration = Duration::from_secs(5);
 pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     let label = crate::workspace_windows::surface_role(label);
     validate_request(request)?;
+    if request["method"].as_str().is_some_and(|method| method.starts_with("cw_decode_")) {
+        return if matches!(label, "main" | "cw-decode") { Ok(()) }
+        else { Err("CW Decode requests belong to the main or CW Decode window.".into()) };
+    }
+    if label == "cw-decode" { return Err("CW Decode can only use its receive-only decoder service.".into()); }
     if request["method"].as_str().is_some_and(|method| method.starts_with("contest_multi_")) {
         return Err("Use the native group-authority or replica-sync owner for multi-operator requests.".into());
     }
@@ -229,6 +234,12 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
     }
     if ![
         "health",
+        "cw_decode_snapshot",
+        "cw_decode_configuration_save",
+        "cw_decode_start",
+        "cw_decode_stop",
+        "cw_decode_listener_start",
+        "cw_decode_listener_stop",
         "parse_adif",
         "self_test",
         "integration_self_test",
@@ -1076,7 +1087,7 @@ fn request_blocks_module_transition(request: &Value) -> bool {
         "health" | "workspace_status" | "settings_load" |
         "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot" |
         "spot_bridge_snapshot" | "wsjtx_snapshot" | "fldigi_snapshot" |
-        "cluster_snapshot" | "cluster_history" |
+        "cluster_snapshot" | "cluster_history" | "cw_decode_snapshot" |
         "opportunities_snapshot" | "opportunities_refresh" |
         "opportunities_dxpedition_snapshot" | "opportunities_dxpedition_refresh" |
         "spot_history_status" | "spot_history_query" | "spot_history_detail" | "reference_log_review" |
@@ -1136,7 +1147,7 @@ fn request_in_session(
             .map_err(|_| service_request_failure("timed out", control_request))
             .and_then(|value| value)
             .and_then(|value| validate_response(value, &id));
-        if timed_out && request_is_non_retiring_read(&request) {
+        if timed_out && request_keeps_worker_on_timeout(&request) {
             session.abandon(&id)?;
         }
         // Passive snapshots and lookup projections cannot change RF, antenna,
@@ -1145,7 +1156,7 @@ fn request_in_session(
         // routed to the now-dropped receiver; never kill the shared worker (or
         // turn an unrelated lifecycle receipt unknown) just because this read
         // reached its local deadline.
-        if reply.is_err() && !(timed_out && request_is_non_retiring_read(&request)) {
+        if reply.is_err() && !(timed_out && request_keeps_worker_on_timeout(&request)) {
             session.retire("Station service request failed; control outcome unknown");
         }
         let write_deadline = written
@@ -1177,7 +1188,7 @@ fn request_can_change_station_state(request: &Value) -> bool {
 
 fn request_is_non_retiring_read(request: &Value) -> bool {
     matches!(request["method"].as_str(), Some(
-        "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot" |
+        "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot" | "cw_decode_snapshot" |
         "lookup_call" | "logbook_previous" | "logbook_duplicate" |
         "logbook_matrix" | "cluster_history" | "cluster_snapshot" |
         "opportunities_snapshot" | "opportunities_refresh" |
@@ -1189,6 +1200,10 @@ fn request_is_non_retiring_read(request: &Value) -> bool {
         "contest_history_query" | "contest_history_query_cancel" | "contest_history_select" |
         "contest_log_page" | "contest_analytics" | "contest_recorder_changes" | "spot_history_status" | "spot_history_query" | "spot_history_detail" | "reference_log_review"
     ))
+}
+fn request_keeps_worker_on_timeout(request: &Value) -> bool {
+    request_is_non_retiring_read(request)
+        || request["method"].as_str().is_some_and(|method| method.starts_with("cw_decode_"))
 }
 
 fn request_timeout(request: &Value) -> Duration {
@@ -1220,6 +1235,31 @@ fn service_request_failure(phase: &str, control_request: bool) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn cw_decode_has_receive_only_authority_and_never_inherits_cw_output() {
+        for method in ["cw_decode_snapshot", "cw_decode_configuration_save", "cw_decode_start", "cw_decode_stop", "cw_decode_listener_start", "cw_decode_listener_stop"] {
+            let request = serde_json::json!({"id":"cw-read","method":method,"params":{}});
+            assert!(super::validate_request(&request).is_ok());
+            for label in ["main", "cw-decode"] { assert!(super::validate_surface(label, &request).is_ok(), "{label}:{method}"); }
+            for label in ["cw", "monitor", "settings", "station-control", "spot-history", "contest-setup", "unknown"] {
+                assert!(super::validate_surface(label, &request).is_err(), "{label}:{method}");
+            }
+            assert!(!super::request_can_change_station_state(&request));
+            assert!(super::request_keeps_worker_on_timeout(&request));
+            assert_eq!(super::request_blocks_module_transition(&request), method != "cw_decode_snapshot");
+        }
+        for method in ["station_action", "winkeyer_control", "logbook_operator_draft_apply", "secret_save", "cluster_connect"] {
+            assert!(super::validate_surface("cw-decode", &serde_json::json!({"id":"denied","method":method,"params":{}})).is_err(), "{method}");
+        }
+        assert!(super::validate_request(&serde_json::json!({"id":"denied","method":"cw_decode_set_quality_qualified","params":{}})).is_err());
+    }
+    #[cfg(unix)]
+    #[test]
+    fn cw_decode_timeout_keeps_radio_and_logbook_worker_alive() {
+        for method in ["cw_decode_snapshot", "cw_decode_start", "cw_decode_stop"] {
+            assert_passive_timeout_preserves_worker(method);
+        }
+    }
     #[test]
     fn worker_arguments_compose_runtime_profile_and_local_acceptance() {
         assert_eq!(super::worker_arguments(false, false), Vec::<&str>::new());

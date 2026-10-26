@@ -2397,6 +2397,14 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         return Err("Use the shared CW session for CW output controls.".into());
     }
     // This explicit role gate precedes every native special dispatcher too.
+    if method.starts_with("cw_decode_") {
+        worker::validate_surface(window.label(), &request)?;
+        let task_admission = module_admission.clone();
+        return tauri::async_runtime::spawn_blocking(move || {
+            let _module_admission = task_admission;
+            worker::request_existing(request)
+        }).await.map_err(|_| "CW Decode request failed".to_string())?;
+    }
     if matches!(workspace_windows::surface_role(window.label()), "monitor" | "log-qso" | "spot-history" | "world-map" | "dxpedition-map" | "band-maps" | "callsign-intelligence" | "previous-qsos" | "operating-goals" | "station-control" | "cw" | "rotor" | "station-status" | "propagation" | "station-identity" | "alerts" | "antenna") { worker::validate_surface(window.label(), &request)?; }
     if state.path.is_none() && matches!(method, "opportunities_snapshot" | "opportunities_refresh" | "opportunities_dxpedition_snapshot" | "opportunities_dxpedition_refresh") {
         worker::validate_surface(window.label(), &request)?;
