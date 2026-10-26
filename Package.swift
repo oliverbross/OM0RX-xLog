@@ -100,7 +100,7 @@ portableTargets.append(contentsOf: [
 #if os(macOS)
 // Developer-only passive instrument; never staged into the application bundle.
 portableProducts.append(.executable(name:"xlog-cw-flex-inspect",targets:["CWFlexInspect"]))
-portableTargets.append(.executableTarget(name:"CWFlexInspect",dependencies:["XCatIntegrationCore"],path:"tools/CWFlexInspect"))
+portableTargets.append(.executableTarget(name:"CWFlexInspect",dependencies:["XCatIntegrationCore"],path:"tools/CWFlexInspect",exclude:["README.md"]))
 #endif
 
 let package: Package

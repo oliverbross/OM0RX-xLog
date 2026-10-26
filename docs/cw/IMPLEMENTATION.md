@@ -74,6 +74,38 @@ unverified. The current installed radio route uses the Remote Station Agent;
 it does not establish native IQ readiness. This CW task has not acquired live IQ
 or issued radio, RF, PTT, rotor, audio or recording test actions.
 
+## Isolated follow-up source and integration evidence
+
+Follow-up commits on `codex/cw-skimmer` add retained callsign/control references,
+Normal Logging and contest callsign-only loading through their existing owners,
+committed-text Copy, evidence details, native per-track Mute, expiring signal
+estimates, fresh worker-load counts and requested/actual source coverage. The
+contest menu opens a context-bound CW Decode window sharing the receive service.
+Details and open recovery gates: [track actions](TRACK_SELECTION.md),
+[UI](DECODE_UI.md), [signal/load evidence](SIGNAL_DIAGNOSTICS.md).
+
+The developer-only [passive Flex inspector](../../tools/CWFlexInspect/README.md)
+was built and passed its no-network parser self-test and real-loopback metadata
+command allowlist test. The human expects Station **Red-Dingo** and offered the
+optional VPN route to **192.168.0.199**. This is not verified inventory. Both
+installed-mode acceptance owners released their live test hold; the human's
+VPN-ready indication remains required before the first twelve-second passive
+inspection. No live IQ or radio-control action has been taken by this CW chat.
+
+Merge `a462bc84` incorporates accepted canonical `main` through `cbc6a1f9` into
+the isolated branch, including the 1.3.32 playback and mode-switch corrections.
+Combined validation passed: **899 native tests**, **232 focused frontend tests**,
+TypeScript/Vite and all configured window-bundle checks. The CW Decode startup
+graph is **298,414 bytes**. The subsequent focused Swift run passed 25 XCTest
+cases plus 17 Swift Testing activation/reservation cases (42 total).
+
+This source remains isolated and unpackaged. Installed 1.3.32 remains the other
+chats' accepted contest build with CW disabled. Explicit Tune, opportunity
+annotations, selected-track scheduling, complete restart recovery, real source
+and RF mapping, held-out quality, measured standard capacity, external-client
+and 8/24-hour soak gates remain open. No reduced launch scope or completed CW
+release is claimed.
+
 ## Native compute contract v1
 
 One C++17 host using ONNX Runtime's C API via its RAII headers. One shared
