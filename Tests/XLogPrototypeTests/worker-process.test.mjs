@@ -8,14 +8,27 @@ import { test } from "node:test";
 const binary = process.env.XLOG_WORKER_BINARY || process.argv[2];
 assert.ok(binary, "Pass the built xlog-prototype-worker executable path.");
 
-function exercise(start, onLine, expectedCount, args = [], executable = binary) {
-  return new Promise((resolve, reject) => {
+async function exercise(start, onLine, expectedCount, args = [], executable = binary,
+                        { prepareHome = async () => {}, expectedExitCode = 0 } = {}) {
+  const home = await mkdtemp(join(tmpdir(), "xlog-worker-home-"));
+  try {
+    await prepareHome(home);
+    if (process.platform === "darwin" && !args.includes("--runtime-profile=contesting-test")) {
+      const contents = join(home, "Test.app", "Contents");
+      await mkdir(join(contents, "MacOS"), { recursive: true });
+      await writeFile(join(contents, "Info.plist"), `<?xml version="1.0"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.oliverbross.xlog.contesting-test</string></dict></plist>`);
+      const isolatedExecutable = join(contents, "MacOS", "xlog-prototype-worker");
+      await symlink(resolve(executable), isolatedExecutable);
+      executable = isolatedExecutable;
+      args = ["--runtime-profile=contesting-test", ...args];
+    }
+  return await new Promise((resolve, reject) => {
     // These are protocol/framing checks. Keep the real worker in the
     // contesting module so unrelated normal-log background providers do not
     // acquire shared application-support ownership during a disposable run.
     const child = spawn(executable, args, {
       stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env, XLOG_OPERATING_MODULE: "contesting" },
+      env: { ...process.env, XLOG_OPERATING_MODULE: "contesting", HOME: home, CFFIXED_USER_HOME: home },
     });
     let buffer = "";
     let stderr = "";
@@ -45,8 +58,8 @@ function exercise(start, onLine, expectedCount, args = [], executable = binary) 
       clearTimeout(timer);
       try {
         assert.equal(signal, null, `Worker terminated by ${signal}; stderr: ${stderr}`);
-        assert.equal(code, 0, stderr || "Worker exited unsuccessfully without diagnostics.");
-        assert.equal(stderr, "");
+        assert.equal(code, expectedExitCode, stderr || "Worker exited unsuccessfully without diagnostics.");
+        assert.equal(stderr, expectedExitCode === 0 ? "" : "Background delivery retirement failed.\n");
         assert.equal(buffer, "");
         assert.equal(responses.length, expectedCount);
         resolve(responses);
@@ -54,7 +67,41 @@ function exercise(start, onLine, expectedCount, args = [], executable = binary) 
     });
     start(child);
   });
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
 }
+
+test("accepted work drains after EOF through the real retirement path", async () => {
+  const responses = await exercise(child => {
+    for (const id of ["accepted-one", "accepted-two"]) {
+      child.stdin.write(JSON.stringify({ id, method: "health", params: {} }) + "\n");
+    }
+    child.stdin.end();
+  }, () => {}, 2);
+  assert.deepEqual(new Set(responses.map(response => response.id)), new Set(["accepted-one", "accepted-two"]));
+  assert.ok(responses.every(response => response.ok));
+});
+
+test("retained unconfirmed contest spots fail retirement; expired receipts retire locally", { skip: process.platform !== "darwin" }, async () => {
+  for (const [age, expectedExitCode] of [[0, 71], [1200, 0]]) {
+    const replies = await exercise(child => {
+      child.stdin.write(JSON.stringify({ id: "retained-spot", method: "health", params: {} }) + "\n");
+      child.stdin.end();
+    }, () => {}, 1, [], binary, {
+      expectedExitCode,
+      prepareHome: async home => {
+        const services = join(home, "Library", "Application Support", "OM0RX-xLog Integration Services");
+        await mkdir(services, { recursive: true });
+        await writeFile(join(services, "forwarded-radio-spots.json"), JSON.stringify({ version: 1, spots: [{
+          provider: "direct_agent", radioID: "radio1", callsign: "TEST1", frequencyHz: 7125000,
+          owner: "contesting", acceptedAt: Date.now() / 1000 - age,
+        }] }));
+      },
+    });
+    assert.equal(replies[0].ok, true);
+  }
+});
 
 test("NDJSON responds with stdin open, preserves correlation and accepts fragments", async () => {
   const responses = await exercise(child => {

@@ -19,6 +19,24 @@ public enum WorkerOperatingModule: String, Sendable, Equatable {
     }
 }
 
+/// Fixed exit codes expose retirement failures without copying station data or
+/// arbitrary service errors into the native process boundary.
+public enum LiveWorkerShutdownOutcome: Int32, Sendable {
+    case clean = 0
+    case onlineLogRecoveryFailed = 70
+    case contestSpotWithdrawalFailed = 71
+    case backgroundRetirementFailed = 72
+
+    static func resolve(onlineLogsRetired: Bool, contestSpotsRetired: Bool) -> Self {
+        switch (onlineLogsRetired, contestSpotsRetired) {
+        case (true, true): .clean
+        case (false, true): .onlineLogRecoveryFailed
+        case (true, false): .contestSpotWithdrawalFailed
+        case (false, false): .backgroundRetirementFailed
+        }
+    }
+}
+
 /// The persistent desktop boundary. Requests are correlated, bounded and never
 /// echoed into diagnostics. Creating a worker does not connect hardware or open
 /// the original application's database.
@@ -352,6 +370,10 @@ public actor LiveWorker {
     func drainPowerCapture() async { await powerDelivery.drain() }
 
     @discardableResult public func shutdown() async -> Bool {
+        await shutdownOutcome() == .clean
+    }
+
+    public func shutdownOutcome() async -> LiveWorkerShutdownOutcome {
         await beginTerminalShutdown()
         let onlineLogsRetired = await onlineLogs.terminate()
         var contestSpotsRetired = true
@@ -371,7 +393,7 @@ public actor LiveWorker {
             // process-wide station singletons remain outside acceptance scope.
             contestSpotsRetired = await cluster.terminate()
             await services.terminate()
-            return onlineLogsRetired && contestSpotsRetired
+            return .resolve(onlineLogsRetired: onlineLogsRetired, contestSpotsRetired: contestSpotsRetired)
         }
         #if os(macOS)
         if ownsProcessSessions {
@@ -391,7 +413,7 @@ public actor LiveWorker {
         contestSpotsRetired = await cluster.terminate()
         #endif
         await services.terminate()
-        return onlineLogsRetired && contestSpotsRetired
+        return .resolve(onlineLogsRetired: onlineLogsRetired, contestSpotsRetired: contestSpotsRetired)
     }
 
     public func response(to data: Data) async -> Data {
