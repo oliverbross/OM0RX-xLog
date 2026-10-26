@@ -505,15 +505,23 @@ function MainLiveApp() {
   }, [deskLayout.state.snapshot, deskLayout.state.pending, deskLayout.state.saving,
       deskLayout.state.conflict, deskLayout.state.workspaceChanged, separateWindows, workspace]);
   const acceptsInput = useCallback(() => !moduleTransitioning.current && !readingRadio.current && !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookWorkingRef.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput(), [draftSession, contactSession]);
-  const normalTransitionBlocked = useCallback(() => {
+  const normalTransitionBlockReason = useCallback(() => {
     const current = draftSession.getSnapshot(), contact = contactSession.getSnapshot(), mutation = logbookMutations.getSnapshot();
-    return Object.values(radioSettingsBlocked.current).some(Boolean) || readingRadio.current || !!readOperation.current || busyRef.current || logbookWorkingRef.current || layoutChanging.current || editorBufferPending.current || draftSession.dirty || !!contact.draft || !!mutation.pending || mutation.busy ||
-      current.activationFrozen || contact.activationFrozen || current.locked || contact.locked || !!current.pending || !!contact.pending ||
-      !!current.conflict || contact.conflict || current.workspaceChanged || contact.workspaceChanged;
+    if (Object.values(radioSettingsBlocked.current).some(Boolean)) return "Save or Revert the normal window's radio setup and check its pending connection operation.";
+    if (readingRadio.current || readOperation.current) return "Check the retained Read radio operation in the normal logging window.";
+    if (busyRef.current || logbookWorkingRef.current || layoutChanging.current || mutation.busy) return "Wait for the normal window's logbook or workspace action to finish.";
+    if (current.pending || contact.pending || mutation.pending || current.locked || contact.locked) return "Check the pending normal QSO, contact edit or Delete/Undo operation. Its receipt and draft are retained.";
+    if (current.conflict || contact.conflict || current.workspaceChanged || contact.workspaceChanged) return "Resolve the normal window's editor conflict or changed workspace. Its draft is retained.";
+    if (editorBufferPending.current) return "Finish the partial frequency, time or other buffered field in the normal logging window.";
+    if (draftSession.dirty) return "Save or resolve the unsaved QSO draft in the normal logging window. Its text is retained.";
+    if (contact.draft) return "Finish or cancel the logged-contact edit in the normal logging window.";
+    if (current.activationFrozen || contact.activationFrozen) return "The normal QSO editor's activation authority is not settled. Check its retained activation or registration status.";
+    return false;
   }, [draftSession, contactSession, logbookMutations]);
+  const normalTransitionBlocked = useCallback(() => !!normalTransitionBlockReason(), [normalTransitionBlockReason]);
   useEffect(() => prepareOperatingModuleTransition(() => normalModuleTransitionController(
-    normalTransitionBlocked, frozen => { moduleTransitioning.current = frozen; },
-  )), [normalTransitionBlocked]);
+    normalTransitionBlockReason, frozen => { moduleTransitioning.current = frozen; },
+  )), [normalTransitionBlockReason]);
   useEffect(() => protectOperatorDraftClose(normalTransitionBlocked,
   () => setError("Finish the draft fields and resolve unsaved or pending QSO changes before closing the Desk."), setError,
   closing => { mainClosing.current = closing; }, "close_main_window"), [normalTransitionBlocked]);

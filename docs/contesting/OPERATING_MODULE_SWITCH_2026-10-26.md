@@ -31,3 +31,11 @@ This is source/test evidence. No candidate was packaged or installed by this cha
 The production graph includes a 1,341-byte shared editor-preparation chunk after this repair. The fresh Logbook startup graph measures 404,998 bytes (130,274 gzip). Its local byte budget is 405,200, an increase of 1,400 bytes from 403,800 with 202 bytes of headroom. Other budgets and all main-workspace, map, IQ panel and CSS graph exclusion checks remain unchanged; the complete `npm run build` gate passes for all 24 detached surfaces.
 
 The combined gate also exposed a missing `cw-decode` entry in the TypeScript native-window status allowlist. The allowlist, public status type and expected-role test now include that existing Rust role in the exact native order; validation still rejects unknown roles. The 48 window-status/Workspace Settings cases pass, alongside all 29 rotor integration cases.
+
+## Installed 1.3.28 handover boundary
+
+Installed acceptance reached the normal-editor preparation guard. Read-only inspection of the application's WebKit local-storage journal found a retained normal-logging `clear` operation with base and expected revision 2915. Its local draft matches its saved base and contains a callsign; no callsign value is recorded here. The confirmed normal database has no receipt for that operation, and its canonical draft remains at revision 2915. No journal, receipt or database row was changed during diagnosis.
+
+This is protected pending work, not evidence of an empty contest draft being rejected. Returning to Normal Logging remains blocked until the operator decides whether to retain the normal draft or complete the original Clear. Its inactive normal-window bootstrap also prevents reaching that review through the current UI; that recovery deadlock remains an acceptance limitation, not a reason to silently clear or replay the operation.
+
+The guard now reports its specific pending-operation, unsaved-field, conflict, activation or radio-setup reason and uses direction-neutral wording. All original veto conditions remain in place. A software replacement may preserve this state, but must preserve the WebKit journal along with the database; replacement does not count as successful bidirectional handover acceptance.
