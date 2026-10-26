@@ -4,9 +4,11 @@ export type CWIQSource = { id: string; radioID: "radio1" | "radio2"; provider: "
 export type CWDecodeConfiguration = { version: 1; revision: string; sources: CWIQSource[]; listenerEnabled: boolean; listenerPort: number; automaticSpots: boolean };
 export type CWDescriptor = { sessionID: string; sourceID: string; radioID: string; receiverID: string; streamToken: string; epoch: string;
   provider: string; centreHz: number; sampleRate: number; mappingQualified: boolean; replay: boolean };
+export type CWTrackReference = { sessionID: string; sourceID: string; streamToken: string; epoch: string; trackID: string; revision: string; selectionID: string };
+export type CWTrackSelection = { reference: CWTrackReference; callsign: string };
 export type CWDecodeTrack = { sourceID: string; trackID: string; descriptor: CWDescriptor; revision: string; offsetHz: number; frequencyHz?: number;
   committed: string; provisional: string; ambiguous: boolean; inferenceMilliseconds?: number; spotRejection?: string;
-  estimatedWPM?: number; estimatedSNRDB?: number; snrReferenceHz?: number };
+  estimatedWPM?: number; estimatedSNRDB?: number; snrReferenceHz?: number; selection?: CWTrackSelection };
 export type CWCapability = { radioID: string; provider: string; ready: boolean; device?: string; protocolVersion?: string;
   receivers: { receiver: number; enabled?: boolean; centreHz?: number }[]; requestableSampleRates: number[]; transmitStateKnownOff?: boolean;
   inventoryRevision?: string; identity?: { serial: string; model: string; address: string; controlPort: number }; stationHandle?: number;
@@ -31,6 +33,16 @@ const descriptor = (value: unknown): value is CWDescriptor => object(value) && [
   ["radio1", "radio2"].includes(value.radioID) && typeof value.receiverID === "string" && value.receiverID.length <= 128 &&
   typeof value.epoch === "string" && counter.test(value.epoch) && ["tci_iq", "flex_dax_iq"].includes(value.provider) &&
   integer(value.centreHz, 100000, 1e9) && [48000, 96000, 192000].includes(value.sampleRate) && typeof value.mappingQualified === "boolean" && value.replay === false;
+const trackSelection = (track: Record<string, any>): boolean => {
+  if (track.selection === undefined) return true;
+  const selection = track.selection, reference = selection?.reference;
+  return !track.ambiguous && object(selection) && object(reference) && Object.keys(reference).length === 7 &&
+    ["sessionID", "sourceID", "streamToken", "trackID", "selectionID"].every(key => typeof reference[key] === "string" && uuid.test(reference[key])) &&
+    ["sessionID", "sourceID", "streamToken"].every(key => reference[key].toLowerCase() === track.descriptor[key].toLowerCase()) &&
+    reference.trackID.toLowerCase() === track.trackID.toLowerCase() && reference.epoch === track.descriptor.epoch && reference.revision === track.revision &&
+    typeof selection.callsign === "string" && selection.callsign.length >= 3 && selection.callsign.length <= 20 &&
+    /^(?=.*[A-Z])(?=.*[0-9])[A-Z0-9]+(?:\/[A-Z0-9]+)*$/.test(selection.callsign);
+};
 
 export function parseCWDecodeSnapshot(value: unknown): CWDecodeSnapshot {
   if (!object(value) || !["stopped", "preparing", "running", "recovering", "blocked", "stopping"].includes(value.state) ||
@@ -51,6 +63,7 @@ export function parseCWDecodeSnapshot(value: unknown): CWDecodeSnapshot {
     typeof track.revision === "string" && counter.test(track.revision) && typeof track.offsetHz === "number" && Number.isFinite(track.offsetHz) &&
     Math.abs(track.offsetHz) <= track.descriptor.sampleRate / 2 && typeof track.committed === "string" && track.committed.length <= 1024 &&
     typeof track.provisional === "string" && track.provisional.length <= 1024 && typeof track.ambiguous === "boolean" &&
+    trackSelection(track) &&
     (track.frequencyHz === undefined || track.descriptor.mappingQualified && integer(track.frequencyHz, 100000, 1e9)) &&
     (track.spotRejection === undefined || ["quality_not_qualified", "replay", "stale_source", "unmapped_frequency", "contaminated", "ambiguous", "insufficient_occurrences", "cooldown", "invalid_evidence"].includes(track.spotRejection)) &&
     (track.estimatedWPM === undefined || Number.isFinite(track.estimatedWPM) && track.estimatedWPM >= 5 && track.estimatedWPM <= 80) &&

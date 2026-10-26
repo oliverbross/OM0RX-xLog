@@ -42,6 +42,7 @@ public struct CWDecodeTrackSnapshot: Encodable, Sendable {
     public var estimatedWPM:Double?=nil
     public var estimatedSNRDB:Double?=nil
     public var snrReferenceHz:Int?=nil
+    public var selection:CWTrackSelection?=nil
 }
 public struct CWDecodeSessionSnapshot: Encodable, Sendable {
     public let sessionID: UUID?
@@ -66,6 +67,7 @@ public actor CWDecodeSession {
     private struct Track {
         var view: CWDecodeTrackSnapshot
         var transcript = CWTranscriptReconciler()
+        var selectionUpdatedNS:UInt64=0
     }
     private let provider: any CWIQSourceProviding
     private let compute: any CWComputeControlling
@@ -98,6 +100,30 @@ public actor CWDecodeSession {
             sources:sources.values.map(\.view).sorted{$0.configuration.id.uuidString<$1.configuration.id.uuidString},
             tracks:tracks.values.map(\.view).sorted{$0.trackID<$1.trackID},automaticSpotsQualified:spotPolicy.isQualityQualified,
             spotDeliveryDrops:spotDeliveryDrops)
+    }
+    /// Recheck both the provider and actor state after suspension. An RF target
+    /// is returned only for qualified mapping; callsign selection never tunes.
+    public func resolveSelection(_ reference:CWTrackReference,requireFrequency:Bool=false) async throws -> CWResolvedTrackSelection {
+        guard let key=tracks.first(where:{$0.value.view.selection?.reference==reference})?.key,
+              intent==reference.sessionID,state=="running",let track=tracks[key],
+              track.view.selection?.reference==reference,let source=sources[reference.sourceID],
+              source.view.state == .running,let lease=source.lease,let descriptor=source.view.descriptor,
+              descriptor==track.view.descriptor,!descriptor.replay else {throw CWTrackSelectionError.staleEvidence}
+        let current=await provider.current(source.view.configuration,sessionID:reference.sessionID,leaseID:lease)
+        let now=clock()
+        guard intent==reference.sessionID,state=="running",sources[reference.sourceID]?.lease==lease,
+              sources[reference.sourceID]?.view.state == .running,
+              sources[reference.sourceID]?.view.descriptor==descriptor,current==descriptor,
+              let retained=tracks[key],let selection=retained.view.selection,selection.reference==reference,
+              now>=source.lastReceipt,now-source.lastReceipt<=250_000_000,
+              now>=retained.selectionUpdatedNS,now-retained.selectionUpdatedNS<=2_000_000_000 else {
+            throw CWTrackSelectionError.staleEvidence
+        }
+        if requireFrequency && (!descriptor.mappingQualified || retained.view.frequencyHz==nil) {
+            throw CWTrackSelectionError.frequencyUnqualified
+        }
+        return CWResolvedTrackSelection(reference:reference,callsign:selection.callsign,radioID:descriptor.radioID,
+            provider:descriptor.provider,frequencyHz:descriptor.mappingQualified ? retained.view.frequencyHz:nil)
     }
     /// Recheck queued output against the live provider before each external
     /// classification/listener admission. Archived accepted spots remain history.
@@ -295,6 +321,20 @@ public actor CWDecodeSession {
         }
         if ambiguous {committed="";provisional="";reconciler.reset()}
         let frequency=descriptor.mappingQualified ? try? descriptor.frequency(offsetHz:value.offsetHz):nil
+        var selection=track?.view.selection,selectionUpdatedNS=track?.selectionUpdatedNS ?? 0
+        if decode != nil {
+            let recent=occurrences.filter{value.endSample >= $0.endSample && value.endSample-$0.endSample<=60*3200}
+            let candidates=Set(recent.map(\.callsign))
+            if !ambiguous,!descriptor.replay,candidates.count==1,let call=candidates.first,let trackID=UUID(uuidString:key) {
+                if selection?.callsign != call || track?.view.frequencyHz != frequency {
+                    selection=CWTrackSelection(reference:CWTrackReference(sessionID:id,sourceID:descriptor.sourceID,
+                        streamToken:descriptor.streamToken,epoch:descriptor.epoch,trackID:trackID,
+                        revision:String(value.revision),selectionID:UUID()),callsign:call)
+                }
+                selectionUpdatedNS=clock()
+            } else {selection=nil;selectionUpdatedNS=0}
+        }
+        if ambiguous {selection=nil;selectionUpdatedNS=0}
         var rejection=ambiguous ? CWSpotRejection.ambiguous.rawValue:track?.view.spotRejection
         if decode != nil,let trackID=UUID(uuidString:key) {
             let now=clock(),latest=occurrences.map(\.endSample).max() ?? value.endSample
@@ -319,8 +359,9 @@ public actor CWDecodeSession {
             revision:String(value.revision),offsetHz:value.offsetHz,
             frequencyHz:frequency,committed:committed,provisional:provisional,ambiguous:ambiguous,
             inferenceMilliseconds:decode?.inferenceMilliseconds,spotRejection:rejection,
-            estimatedWPM:decode?.estimatedWPM,estimatedSNRDB:decode?.estimatedSNRDB,snrReferenceHz:decode?.snrReferenceHz)
-        if tracks[key] != nil || tracks.count<32 {tracks[key]=Track(view:view,transcript:reconciler)}
+            estimatedWPM:decode?.estimatedWPM,estimatedSNRDB:decode?.estimatedSNRDB,snrReferenceHz:decode?.snrReferenceHz,
+            selection:selection)
+        if tracks[key] != nil || tracks.count<32 {tracks[key]=Track(view:view,transcript:reconciler,selectionUpdatedNS:selectionUpdatedNS)}
     }
 }
 #endif

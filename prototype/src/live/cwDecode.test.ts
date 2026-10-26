@@ -27,4 +27,19 @@ describe("native CW Decode projection", () => {
     fixture.capabilities.push(structuredClone(fixture.capabilities[0]));
     expect(() => parseCWDecodeSnapshot(fixture)).toThrow();
   });
+  it("accepts only a callsign selection pinned to the same unambiguous track and capture", () => {
+    const fixture = cwDecodeTrackFixture(), track = fixture.tracks[0];
+    track.selection = { callsign: "K1ABC", reference: { sessionID: track.descriptor.sessionID, sourceID: track.sourceID,
+      streamToken: track.descriptor.streamToken, epoch: track.descriptor.epoch, trackID: track.trackID,
+      revision: track.revision, selectionID: "60000000-0000-0000-0000-000000000001" } };
+    expect(parseCWDecodeSnapshot(fixture).tracks[0].selection?.callsign).toBe("K1ABC");
+    for (const [key, value] of [["streamToken", "70000000-0000-0000-0000-000000000001"], ["revision", "2"], ["epoch", "13"]] as const) {
+      const changed = structuredClone(fixture); changed.tracks[0].selection!.reference[key] = value;
+      expect(() => parseCWDecodeSnapshot(changed)).toThrow();
+    }
+    track.ambiguous = true;
+    expect(() => parseCWDecodeSnapshot(fixture)).toThrow();
+    track.ambiguous = false; track.selection.callsign = "CQ";
+    expect(() => parseCWDecodeSnapshot(fixture)).toThrow();
+  });
 });
