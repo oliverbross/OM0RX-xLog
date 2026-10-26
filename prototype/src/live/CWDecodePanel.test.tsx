@@ -81,4 +81,12 @@ describe("CW Decode shared native view", () => {
       radio_id: "radio1", panadapter_id: "40000000", inventory_revision: "7" });
     expect(owner.request.mock.calls.some(([method]) => method === "cw_decode_start")).toBe(false);
   });
+  it("keeps all capture and listener acquisition disabled in a gated build", async () => {
+    const fixture = cwDecodeFixture(); fixture.featureEnabled = false; fixture.configuration.listenerEnabled = true;
+    const owner = service(fixture); render(<CWDecodePanel request={owner.request} />);
+    await screen.findByText("CW Decode is disabled in this build while input and release qualification are incomplete.");
+    expect((screen.getByRole("button", { name: "Start decoding" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Start server" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(owner.request.mock.calls.every(([method]) => method === "cw_decode_snapshot")).toBe(true);
+  });
 });

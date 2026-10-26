@@ -6,6 +6,13 @@ Intel main application. The CW payload lane targets the accepted Apple Silicon
 application on macOS 14 or later. Intel, Windows and Linux packages need their own
 runtime and exact-package qualification.
 
+Production packages default to `experimentalEnabled: false`. The native owner
+rejects decoder Start, DAX handoff and listener Start, and does not probe IQ
+capabilities in a disabled build. Settings/Stop remain available. A deliberate
+engineering build can set `XLOG_CW_EXPERIMENTAL=1`; this does not qualify RF mapping
+or automatic spots. Incomplete CW engineering must not silently become an enabled
+feature in an otherwise ready contest update.
+
 `prototype/scripts/package-macos.sh` prepares the pinned native worker and stages
 its resources into the canonical candidate. `cw-macos.py` verifies the official
 ONNX Runtime 1.24.3 arm64 archive before selecting regular headers/library/notices.
@@ -29,7 +36,7 @@ An isolated payload fixture (without an application UI or Info.plist) can exerci
 staging before creating a versioned application candidate:
 
 ```sh
-python3 prototype/scripts/cw-macos.py prepare --runtime-archive /path/to/pinned-archive.tgz
+python3 prototype/scripts/cw-macos.py prepare --fixture-only --runtime-archive /path/to/pinned-archive.tgz
 mkdir -p .build/cw-payload-fixture/Contents/MacOS
 python3 prototype/scripts/cw-macos.py stage --bundle .build/cw-payload-fixture
 codesign --force --sign - --timestamp=none .build/cw-payload-fixture/Contents/Frameworks/libonnxruntime.dylib
@@ -42,6 +49,9 @@ The fixture check moves the payload into a path containing spaces and probes it
 again, then verifies rejection of a changed executable and a development rpath.
 A fixture signature does not imply a signed full-app candidate, installation,
 notarization, hardware acceptance, or the required 8-hour/24-hour soak runs.
+Fixture preparation records dirty-source paths and native input hashes, and its
+payload is rejected from a real application bundle. Production preparation
+requires a clean source tree. Fixture manifests cannot enable CW acquisition.
 
 Runtime source: [official 1.24.3 release assets](https://github.com/microsoft/onnxruntime/releases/expanded_assets/v1.24.3).
 The archive SHA-256 is `c255663d40755f84b1b86373bdb9870bb65f3a2c3d779b3d7ae31aaa00cebb4f`.

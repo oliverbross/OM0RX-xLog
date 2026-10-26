@@ -56,6 +56,13 @@ def source_commit():
     return commit
 
 
+def experimental_mode():
+    value = os.environ.get("XLOG_CW_EXPERIMENTAL", "0")
+    if value not in ("0", "1"):
+        raise ValueError("XLOG_CW_EXPERIMENTAL must be 0 or 1")
+    return value == "1"
+
+
 def payload_paths(bundle):
     contents = pathlib.Path(bundle).resolve() / "Contents"
     if not contents.is_dir():
@@ -85,10 +92,15 @@ def verify_links(executable, runtime):
             raise ValueError("CW payload raises the accepted macOS 14 deployment target")
 
 
-def prepare(archive):
+def prepare(archive, fixture_only=False):
     if platform.system() != "Darwin" or platform.machine() != "arm64":
         raise ValueError("This pinned CW packaging lane supports the accepted Apple Silicon app")
     commit = source_commit()
+    changes = run("git", "status", "--porcelain").splitlines()
+    if changes and not fixture_only:
+        raise ValueError("Application CW preparation requires a clean canonical source; use --fixture-only for disposable payload QA")
+    source_files = sorted((ROOT / "native/cw-worker").glob("*"))
+    source_hashes = {str(path.relative_to(ROOT)): digest(path) for path in source_files if path.is_file() and path.suffix in (".cpp", ".h", ".py", ".txt")}
     CACHE.mkdir(parents=True, exist_ok=True)
     archive = pathlib.Path(archive) if archive else CACHE / ARCHIVE
     if not archive.exists():
@@ -139,7 +151,13 @@ def prepare(archive):
     run("cmake", "--build", BUILD, "--target", "xlog-cw-worker", "-j2")
     if source_commit() != commit:
         raise ValueError("Source commit changed during the CW build; rebuild the selected candidate")
+    if any(digest(ROOT / name) != value for name, value in source_hashes.items()):
+        raise ValueError("Native sources changed during the CW build")
+    if not fixture_only and run("git", "status", "--porcelain"):
+        raise ValueError("Source checkout changed during application CW preparation")
     (CACHE / "build.json").write_text(json.dumps({"sourceCommit": commit, "architecture": "arm64", "runtimeArchiveSHA256": ARCHIVE_SHA,
+        "experimentalEnabled": experimental_mode(),
+        "fixtureOnly": fixture_only, "sourceChanges": changes, "nativeSourceSHA256": source_hashes,
         "packagingScriptSHA256": digest(__file__),
         "compiler": run("clang++", "--version").splitlines()[0], "sdk": run("xcrun", "--show-sdk-version")}, indent=2) + "\n")
 
@@ -151,6 +169,8 @@ def stage(bundle):
         raise ValueError("CW native build is from another source candidate")
     if build.get("packagingScriptSHA256") != digest(__file__):
         raise ValueError("Packaging script changed after CW preparation")
+    if build.get("fixtureOnly") and (contents / "Info.plist").exists():
+        raise ValueError("A disposable fixture payload cannot be staged into an application candidate")
     for directory in [executable.parent, runtime.parent, resources]:
         directory.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(BUILD / "xlog-cw-worker", executable)
@@ -176,8 +196,9 @@ def stage(bundle):
         shutil.copyfile(source, resources / name)
     # Ship the exact tracked implementation source alongside its binary/model.
     run("git", "archive", "--format=tar.gz", "--output=" + str(resources / "xlog-source.tar.gz"), source_commit())
-    (resources / "SOURCE.txt").write_text("OM0RX-xLog CW Decode source candidate " + source_commit() + "\n"
-        "Exact tracked xLog source, model and build scripts: xlog-source.tar.gz\n"
+    (resources / "SOURCE.txt").write_text("OM0RX-xLog CW Decode tracked source base " + source_commit() + "\n"
+        "Tracked xLog source, model and build scripts: xlog-source.tar.gz\n"
+        "Production packages require a clean source tree. Disposable fixtures record any source changes and input hashes in build-provenance.json.\n"
         "Model upstream: https://github.com/e04/deepcw-engine/tree/8e264d243bbd4467bd19f3f28292219405b47e0e\n"
         "Model license: MODEL-LICENSE (AGPL-3.0-only); xLog implementation license is in its source archive.\n"
         "Runtime: https://github.com/microsoft/onnxruntime/tree/3a728b75062256951b6e19ce718907cf1a1d4cf0\n"
@@ -197,6 +218,8 @@ def finalize(bundle):
     if provenance.get("packagingScriptSHA256") != digest(__file__):
         raise ValueError("Packaging script changed after CW preparation")
     manifest = {"version": 1, "sourceCommit": provenance["sourceCommit"], "runtimeVersion": VERSION,
+        "experimentalEnabled": provenance["experimentalEnabled"],
+        "fixtureOnly": provenance["fixtureOnly"],
         "executableSHA256": digest(executable), "runtimeSHA256": digest(runtime), "modelSHA256": MODEL_SHA}
     (resources / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     provenance.update({"phase": "final-component-signatures-before-outer-app-signature", "hashes": manifest,
@@ -229,9 +252,10 @@ if __name__ == "__main__":
     parser.add_argument("action", choices=["prepare", "stage", "finalize", "verify"])
     parser.add_argument("--bundle", type=pathlib.Path)
     parser.add_argument("--runtime-archive", type=pathlib.Path)
+    parser.add_argument("--fixture-only", action="store_true", help="Permit dirty-source QA only in a non-application payload fixture")
     args = parser.parse_args()
     if args.action == "prepare":
-        prepare(args.runtime_archive)
+        prepare(args.runtime_archive, args.fixture_only)
     elif args.bundle is None:
         parser.error("--bundle is required")
     else:

@@ -29,7 +29,7 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
     <header className="cw-decode-header"><div><h2>CW Decode</h2><p>Local IQ decoding · up to two monitoring spans</p></div>
       <div className="cw-decode-actions">
         <span className={`cw-decode-state state-${snapshot?.state ?? "stopped"}`}>{snapshot ? stateName(snapshot.state) : "Unavailable"}</span>
-        <button type="button" className="cw-decode-start" disabled={!snapshot || busy || active || !configured.length || !snapshot.resourcesAvailable}
+        <button type="button" className="cw-decode-start" disabled={!snapshot || snapshot.featureEnabled === false || busy || active || !configured.length || !snapshot.resourcesAvailable}
           onClick={() => snapshot && void command("cw_decode_start", { expected_revision: snapshot.configuration.revision })}><Play size={14} />Start decoding</button>
         <button type="button" disabled={!snapshot || !active && !busy} onClick={() => void command("cw_decode_stop")}><Square size={14} />Stop</button>
         <button type="button" disabled={!snapshot || busy} aria-expanded={editor !== null} onClick={edit}><Settings2 size={14} />Sources & server</button>
@@ -39,6 +39,7 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
     {error && <div className="cw-decode-error" role="alert"><span>{error}</span><button type="button" onClick={() => void refresh()}><RefreshCw size={14} />Read state</button></div>}
     {!snapshot ? <div className="cw-decode-empty"><h3>Waiting for the native CW service</h3><p>Open the main xLog window, then read the decoder state. Opening this view does not start capture.</p></div> : <>
       {!snapshot.resourcesAvailable && <p className="cw-decode-notice">The offline decoder is unavailable in this build. Install a complete CW Decode build before starting capture.</p>}
+      {snapshot.featureEnabled === false && <p className="cw-decode-notice">CW Decode is disabled in this build while input and release qualification are incomplete.</p>}
       {snapshot.failure && <p className="cw-decode-notice" role="alert">The decoder process is unavailable. Stop decoding, check the offline installation, then start again.</p>}
       {!snapshot.automaticSpotsQualified && <p className="cw-decode-quality">Automatic spots are off while live decoding quality and RF mapping await qualification.</p>}
       {snapshot.spotOutputFailure && <p className="cw-decode-notice" role="alert">A Local CW spot could not be delivered. Check the local cluster history and server state. IQ decoding continues.</p>}
@@ -46,9 +47,9 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
         const live = snapshot.sources.find(row => row.configuration.id === source.id), capability = snapshot.capabilities.find(row => row.radioID === source.radioID && row.provider === source.provider);
         return <div key={source.id}><strong>{cwSourceName(source)}</strong><span>{live ? stateName(live.state) : "Stopped"}</span>
           <span>{live?.descriptor ? mhz(live.descriptor.centreHz) : "IQ centre unavailable"} · {source.sampleRate / 1000} kHz</span>
-          {!capability?.ready && <small>Connect this radio in Radio Settings to receive IQ.</small>}
+          {!capability?.ready && snapshot.featureEnabled !== false && <small>Connect this radio in Radio Settings to receive IQ.</small>}
           {source.provider === "flex_dax_iq" && <FlexHandoff source={source} capability={capability} revision={snapshot.configuration.revision}
-            disabled={busy || active} command={command} />}
+            disabled={snapshot.featureEnabled === false || busy || active} command={command} />}
           {live?.failure && <small>{live.retryCount >= 3 ? "Retry limit reached. Stop, check the source, then start again." : `Source interrupted · retry ${live.retryCount} of 3`}</small>}
         </div>;
       }) : <div><strong>No monitoring spans selected</strong><span>Choose one or two IQ sources to begin.</span><button type="button" onClick={edit}>Choose sources</button></div>}</div>
@@ -79,7 +80,7 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
         </aside>}
       </div>
       <footer className="cw-decode-server"><div><strong>Local CW server · {stateName(snapshot.listener.state)}</strong><span>{snapshot.listener.address}:{snapshot.listener.port ?? snapshot.configuration.listenerPort} · {snapshot.listener.authenticatedClients}/{snapshot.listener.clients} clients logged in · {snapshot.listener.retainedSpots} retained spots</span></div>
-        <div className="cw-decode-actions"><button type="button" disabled={busy || serverActive || !snapshot.configuration.listenerEnabled} onClick={() => void command("cw_decode_listener_start", { expected_revision: snapshot.configuration.revision })}>Start server</button>
+        <div className="cw-decode-actions"><button type="button" disabled={snapshot.featureEnabled === false || busy || serverActive || !snapshot.configuration.listenerEnabled} onClick={() => void command("cw_decode_listener_start", { expected_revision: snapshot.configuration.revision })}>Start server</button>
           <button type="button" disabled={!serverActive && !busy} onClick={() => void command("cw_decode_listener_stop")}>Stop server</button></div>
       </footer>
     </>}

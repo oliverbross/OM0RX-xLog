@@ -10,9 +10,29 @@ struct CWBundleManifest: Codable, Sendable {
     let executableSHA256: String
     let runtimeSHA256: String
     let modelSHA256: String
+    var experimentalEnabled:Bool?=nil
+    var fixtureOnly:Bool?=nil
 }
 enum CWBundleResources {
     static func locate(executable: URL? = Bundle.main.executableURL) throws -> CWComputeResources {
+        let (contents,directory,manifest)=try validatedManifest(executable:executable)
+        let resources=CWComputeResources(executable:contents.appendingPathComponent("MacOS/xlog-cw-worker"),
+            model:directory.appendingPathComponent("model.onnx"),runtime:contents.appendingPathComponent("Frameworks/libonnxruntime.dylib"),
+            executableSHA256:manifest.executableSHA256,runtimeSHA256:manifest.runtimeSHA256,runtimeVersion:manifest.runtimeVersion)
+        guard FileManager.default.isExecutableFile(atPath:resources.executable.path) else {throw CWComputeError.resourceValidation}
+        for (file,maximum) in [(resources.executable,32*1024*1024),(resources.model,16*1024*1024),(resources.runtime,128*1024*1024),
+                               (directory.appendingPathComponent("model.onnx.json"),16384)] {
+            let values=try file.resourceValues(forKeys:[.isRegularFileKey,.isSymbolicLinkKey,.fileSizeKey])
+            guard values.isRegularFile==true,values.isSymbolicLink != true,
+                  let size=values.fileSize,size>0,size<=maximum else {throw CWComputeError.resourceValidation}
+        }
+        return resources
+    }
+    static func experimentalEnabled(executable:URL?=Bundle.main.executableURL)->Bool {
+        guard let manifest=try? validatedManifest(executable:executable).2 else{return false}
+        return manifest.experimentalEnabled==true && manifest.fixtureOnly != true
+    }
+    private static func validatedManifest(executable:URL?) throws -> (URL,URL,CWBundleManifest) {
         guard let executable,executable.deletingLastPathComponent().lastPathComponent=="MacOS",
               executable.deletingLastPathComponent().deletingLastPathComponent().lastPathComponent=="Contents" else {
             throw CWComputeError.resourceValidation
@@ -32,17 +52,7 @@ enum CWBundleResources {
               manifest.modelSHA256==CWSpotPolicy.modelSHA256,
               (1...32).contains(manifest.runtimeVersion.utf8.count),
               manifest.runtimeVersion.utf8.allSatisfy({(48...57).contains($0)||$0==46}) else {throw CWComputeError.resourceValidation}
-        let resources=CWComputeResources(executable:contents.appendingPathComponent("MacOS/xlog-cw-worker"),
-            model:directory.appendingPathComponent("model.onnx"),runtime:contents.appendingPathComponent("Frameworks/libonnxruntime.dylib"),
-            executableSHA256:manifest.executableSHA256,runtimeSHA256:manifest.runtimeSHA256,runtimeVersion:manifest.runtimeVersion)
-        guard FileManager.default.isExecutableFile(atPath:resources.executable.path) else {throw CWComputeError.resourceValidation}
-        for (file,maximum) in [(resources.executable,32*1024*1024),(resources.model,16*1024*1024),(resources.runtime,128*1024*1024),
-                               (directory.appendingPathComponent("model.onnx.json"),16384)] {
-            let values=try file.resourceValues(forKeys:[.isRegularFileKey,.isSymbolicLinkKey,.fileSizeKey])
-            guard values.isRegularFile==true,values.isSymbolicLink != true,
-                  let size=values.fileSize,size>0,size<=maximum else {throw CWComputeError.resourceValidation}
-        }
-        return resources
+        return(contents,directory,manifest)
     }
 }
 #endif

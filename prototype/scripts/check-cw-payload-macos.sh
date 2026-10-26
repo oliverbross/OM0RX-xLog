@@ -5,7 +5,7 @@ cd "$root"
 fixture="$root/.build/cw-payload-fixture"
 # This is a disposable native payload fixture, never an application candidate.
 test ! -e "$fixture/Contents/Info.plist"
-python3 prototype/scripts/cw-macos.py prepare "$@"
+python3 prototype/scripts/cw-macos.py prepare --fixture-only "$@"
 mkdir -p "$fixture/Contents/MacOS"
 python3 prototype/scripts/cw-macos.py stage --bundle "$fixture"
 codesign --force --sign - --timestamp=none "$fixture/Contents/Frameworks/libonnxruntime.dylib"

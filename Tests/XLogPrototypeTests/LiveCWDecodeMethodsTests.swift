@@ -7,7 +7,7 @@ final class LiveCWDecodeMethodsTests:XCTestCase {
     func testListenerPreferencesArePassiveAndStopCancelsPreparedStartWithoutModel() async throws {
         let gate=CWListenerPrepareGate(),provider=CWMethodsTestProvider()
         let owner=LiveCWDecodeMethods(configurationURL:file(),provider:provider,
-            resources:{throw CWComputeError.resourceValidation},prepareListener:{await gate.prepare()})
+            resources:{throw CWComputeError.resourceValidation},prepareListener:{await gate.prepare()},featureEnabled:{true})
         let initial=try await owner.handle(method:"cw_decode_snapshot",params:[:]),before=try configuration(initial)
         let next=try CWDecodeConfiguration(listenerEnabled:true,listenerPort:49193)
         let saved=try await save(owner,next,previous:before)
@@ -40,7 +40,7 @@ final class LiveCWDecodeMethodsTests:XCTestCase {
     }
     func testSnapshotIsPassiveAndMissingResourcesBlockStartBeforeIQ() async throws {
         let provider=CWMethodsTestProvider(),url=file()
-        let owner=LiveCWDecodeMethods(configurationURL:url,provider:provider,resources:{throw CWComputeError.resourceValidation})
+        let owner=LiveCWDecodeMethods(configurationURL:url,provider:provider,resources:{throw CWComputeError.resourceValidation},featureEnabled:{true})
         let initial=try await owner.handle(method:"cw_decode_snapshot",params:[:]),before=try configuration(initial)
         XCTAssertEqual(initial["resourcesAvailable"] as? Bool,false)
         XCTAssertFalse(FileManager.default.fileExists(atPath:url.path))
@@ -53,7 +53,7 @@ final class LiveCWDecodeMethodsTests:XCTestCase {
         await owner.terminate()
     }
     func testConfigurationUsesCASAndRejectsUnknownFields() async throws {
-        let owner=LiveCWDecodeMethods(configurationURL:file(),provider:CWMethodsTestProvider(),resources:{throw CWComputeError.resourceValidation})
+        let owner=LiveCWDecodeMethods(configurationURL:file(),provider:CWMethodsTestProvider(),resources:{throw CWComputeError.resourceValidation},featureEnabled:{true})
         let initial=try await owner.handle(method:"cw_decode_snapshot",params:[:]),before=try configuration(initial)
         let next=try CWDecodeConfiguration(listenerPort:7400)
         _ = try await save(owner,next,previous:before)
@@ -68,7 +68,7 @@ final class LiveCWDecodeMethodsTests:XCTestCase {
         await owner.terminate()
     }
     func testTerminateRejectsNewCommandsAndSnapshotParametersAreStrict() async throws {
-        let owner=LiveCWDecodeMethods(configurationURL:file(),provider:CWMethodsTestProvider(),resources:{throw CWComputeError.resourceValidation})
+        let owner=LiveCWDecodeMethods(configurationURL:file(),provider:CWMethodsTestProvider(),resources:{throw CWComputeError.resourceValidation},featureEnabled:{true})
         do {_ = try await owner.handle(method:"cw_decode_snapshot",params:["start":true]);XCTFail("Snapshot must remain passive")}
         catch {XCTAssertEqual((error as? WorkerFailure)?.code,"invalid_params")}
         await owner.terminate()
@@ -92,6 +92,17 @@ final class LiveCWDecodeMethodsTests:XCTestCase {
         }
         XCTAssertEqual(try CWBundleResources.locate(executable:executable).runtimeVersion,"1.24.3")
         XCTAssertThrowsError(try CWBundleResources.locate(executable:URL(fileURLWithPath:"/arbitrary/worker")))
+    }
+    func testDisabledBuildCannotStartIQListenerOrGrantHandoff() async throws {
+        let provider=CWMethodsTestProvider(),owner=LiveCWDecodeMethods(configurationURL:file(),provider:provider,featureEnabled:{false})
+        let snapshot=try await owner.handle(method:"cw_decode_snapshot",params:[:])
+        XCTAssertEqual(snapshot["featureEnabled"] as? Bool,false);XCTAssertEqual((snapshot["capabilities"] as? [Any])?.count,0)
+        for method in ["cw_decode_start","cw_decode_listener_start","cw_decode_flex_handoff"] {
+            do {_ = try await owner.handle(method:method,params:[:]);XCTFail("Disabled build must not acquire or listen")}
+            catch {XCTAssertEqual((error as? WorkerFailure)?.code,"cw_feature_disabled")}
+        }
+        let attempts=await provider.acquisitions();XCTAssertEqual(attempts,0)
+        _ = try await owner.handle(method:"cw_decode_stop",params:[:]);await owner.terminate()
     }
 }
 private actor CWMethodsTestProvider:CWIQSourceProviding {

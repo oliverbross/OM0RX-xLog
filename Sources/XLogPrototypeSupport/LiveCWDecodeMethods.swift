@@ -11,6 +11,7 @@ actor LiveCWDecodeMethods {
     private let prepareListener:@Sendable () async throws -> Void
     private let ingestSpot:@Sendable (CWConfirmedSpot,String) async throws -> Bool
     private let stationCallsign:@Sendable () throws -> String
+    private let featureEnabled:@Sendable ()->Bool
     private var publisher:Task<Void,Never>?
     private var spotOutputFailure:String?
     private var listenerIntent=UUID()
@@ -20,7 +21,8 @@ actor LiveCWDecodeMethods {
          provider: any CWIQSourceProviding = LiveCWIQProvider(),compute: any CWComputeControlling = CWComputeProcess(),
          resources: @escaping @Sendable () throws -> CWComputeResources = {try CWBundleResources.locate()},
          listener:CWLocalClusterServer = CWLocalClusterServer(),prepareListener:@escaping @Sendable () async throws -> Void = {},
-         ingestSpot:@escaping @Sendable (CWConfirmedSpot,String) async throws -> Bool = {_,_ in false}) {
+         ingestSpot:@escaping @Sendable (CWConfirmedSpot,String) async throws -> Bool = {_,_ in false},
+         featureEnabled:@escaping @Sendable ()->Bool={CWBundleResources.experimentalEnabled()}) {
         let url=configurationURL ?? (logbook === LiveLogbookMethods.shared
             ? FileManager.default.urls(for:.applicationSupportDirectory,in:.userDomainMask)[0]
                 .appendingPathComponent("OM0RX-xLog Integration Services/CWDecode/settings.json")
@@ -28,10 +30,14 @@ actor LiveCWDecodeMethods {
         store=CWConfigurationStore(url:url);session=CWDecodeSession(provider:provider,compute:compute,spotPolicy:CWSpotPolicy(origin:listener.instanceID));self.resources=resources
         self.listener=listener;self.prepareListener=prepareListener
         self.ingestSpot=ingestSpot;stationCallsign={try logbook.currentSettings().stationCall}
+        self.featureEnabled=featureEnabled
     }
     func terminate() async {terminated=true;publisher?.cancel();publisher=nil;listenerIntent=UUID();handoffIntent=UUID();await LiveStationMethods.cwFlexRevokeHandoffs();await listener.stop();await session.stop()}
     func handle(method: String,params: [String:Any]) async throws -> [String:Any] {
         guard !terminated else {throw WorkerFailure("worker_stopping","CW Decode is shutting down.")}
+        if ["cw_decode_start","cw_decode_listener_start","cw_decode_flex_handoff"].contains(method),!featureEnabled() {
+            throw WorkerFailure("cw_feature_disabled","CW Decode is disabled in this build while input and release qualification are incomplete.")
+        }
         if publisher==nil {
             let events=session.acceptedSpots
             publisher=Task{[weak self] in for await spot in events {guard !Task.isCancelled else{return};await self?.publish(spot)}}
@@ -119,9 +125,11 @@ actor LiveCWDecodeMethods {
         var result=try Self.object(snapshot)
         result["configuration"]=try Self.object(configuration)
         result["resourcesAvailable"]=(try? resources()) != nil
+        result["featureEnabled"]=featureEnabled()
         result["qualityStatus"]="awaiting_live_qualification"
         if let spotOutputFailure{result["spotOutputFailure"]=spotOutputFailure}
         result["listener"]=try Self.object(await listener.snapshot())
+        guard featureEnabled() else{result["capabilities"]=[];return result}
         async let first=LiveStationMethods.cwTCICapabilities(radioID:"radio1")
         async let second=LiveStationMethods.cwTCICapabilities(radioID:"radio2")
         async let flexFirst=LiveStationMethods.cwFlexCapabilities(radioID:"radio1")
