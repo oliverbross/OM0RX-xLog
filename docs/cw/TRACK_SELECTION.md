@@ -127,9 +127,7 @@ refusal at that milestone. Full live workflow acceptance and native-process
 restart recovery remain incomplete. Contest callsign loading is described below. This branch is excluded from
 the corrective contest releases, where CW stays disabled.
 
-## Track mute
-
-### Unreadable callsign journal
+## Unreadable callsign journal
 
 A missing callsign session journal permits a new explicit action. A present but
 malformed identity, including an empty or nil UUID, or a storage read failure
@@ -142,6 +140,8 @@ combined callsign/Tune suites pass 27 cases, and TypeScript validation passes.
 This closes the unreadable-journal admission bug; it does not complete native
 process restart, lost-window journal, expired contest intent or receipt-compaction
 recovery acceptance.
+
+## Track mute
 
 Every live track, including a call-less signal, has a separate native control
 reference. `cw_decode_track_mute` accepts only that exact retained reference,

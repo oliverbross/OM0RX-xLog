@@ -149,3 +149,19 @@ Transport closure and live-window release completed; no handoff, IQ, discovery,
 RF or installed-app action occurred. The subsequent offline correction strictly
 recognizes validated settings-only messages, retaining rather than creating
 state. Its red/green fixture evidence is documented in [Flex IQ](FLEX_IQ.md).
+
+## Receive-state correction verification: no TCP session
+
+After installation 1.3.36 was accepted, the readiness owner released its hold and
+the current Cluster UI owner granted one twelve-second metadata-only window.
+The inspector built from `c398f5a3` ran at `2026-10-26T14:02:14Z`. It reported
+only `Connecting to 192.168.0.199:4992` followed by `Stopped`, with `ready=false`,
+connection generation `-1`, inventory revision `0` and empty panadapter lists.
+It supplied no control transmit observation. The earlier human confirmation of
+VPN/Flex availability does not establish connectivity at this later attempt.
+
+The transport closed and both owners were notified that the window was released.
+No automatic retry, physical discovery, handoff, IQ, tune, RF, UI or installed-app
+action occurred. The result does not identify a network cause or exercise the
+receive-state correction on hardware. Its twelve loopback subscription tests and
+inspector no-network self-test remain source evidence only.

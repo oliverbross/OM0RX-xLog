@@ -158,6 +158,22 @@ then confirmed the VPN remained connected and the Flex awake. A further bounded
 passive retry is awaiting coordination with the current live owner; no receive,
 identity or acquisition gate has been bypassed.
 
+Later coordinated passive reads connected and attributed the receive-state
+discrepancy to global interlock configuration messages. `c398f5a3` retains prior
+state only across strictly validated settings-only messages; twelve loopback
+subscription tests and inspector build/self-test passed. Its subsequent
+coordinated hardware check at 14:02:14Z failed to establish TCP and therefore
+could not validate that correction on the radio. See the complete chronological
+[passive inspection receipt](FLEX_PASSIVE_INSPECTION_2026-10-26.md).
+
+`7872428f` prevents a malformed or unreadable retained callsign identity from
+being mistaken for no pending operation. Four red/green regression cases and
+the combined 27 callsign/Tune frontend cases pass; TypeScript passes. Complete
+action recovery remains open. Other chats report installed 1.3.36 accepted from
+`079570505b06f0a5aba403aa6105909148652c91`, with CW disabled. This CW branch remains
+isolated and unpackaged; no source or live qualification is implied by that
+contest-release acceptance.
+
 ## Native compute contract v1
 
 One C++17 host using ONNX Runtime's C API via its RAII headers. One shared
