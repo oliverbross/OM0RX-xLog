@@ -70,7 +70,7 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
               <td className="cw-decode-copy"><span>{track.committed}</span><span className="cw-decode-provisional" aria-label="Provisional text">{track.provisional}</span>{!track.committed && !track.provisional && <span className="cw-decode-placeholder">Waiting for copy</span>}</td>
               <td title={track.estimatedWPM === undefined ? "Speed has not been measured" : "Estimated from observed key-down durations using the PARIS timing unit"}>{track.estimatedWPM?.toFixed(1) ?? "—"}</td>
               <td title={track.estimatedSNRDB === undefined ? "Signal-to-noise ratio has not been measured" : "Estimated SNR relative to 2.5 kHz noise bandwidth; hardware calibration pending"}>{track.estimatedSNRDB === undefined ? "—" : `${track.estimatedSNRDB.toFixed(1)} dB`}</td>
-              <td>{track.ambiguous ? "Ambiguous" : track.committed ? "Committed + live tail" : "Provisional"}</td>
+              <td>{track.muted ? "Muted" : track.ambiguous ? "Ambiguous" : track.committed ? "Committed + live tail" : "Provisional"}</td>
             </tr>)}</tbody></table></div>
           {!tracks.length && <div className="cw-decode-empty"><h3>{active ? "Listening for CW signals" : "No live signals"}</h3>
             <p>{active ? "Signals appear after clean, continuous IQ and CW keying are detected. Retunes and transmit periods clear old copy." : "Select connected IQ sources and start decoding. The radio's tuning and transmit controls stay with its existing owner."}</p></div>}
@@ -81,6 +81,9 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
             <div><dt>RF mapping</dt><dd>{signal.descriptor.mappingQualified ? "Qualified" : "Unqualified"}</dd></div><div><dt>Model time</dt><dd>{signal.inferenceMilliseconds === undefined ? "Unavailable" : `${signal.inferenceMilliseconds.toFixed(0)} ms`}</dd></div></dl>
           <label>Committed text<textarea readOnly value={signal.committed} rows={5} /></label>
           <label>Provisional tail<textarea readOnly value={signal.provisional} rows={3} /></label>
+          <button type="button" disabled={snapshot.featureEnabled !== true || busy || signal.muted || !signal.controlReference || snapshot.state !== "running"}
+            onClick={() => void command("cw_decode_track_mute", { reference: signal.controlReference })}>Mute track</button>
+          {signal.muted && <p>This signal stays muted until it retires or decoding restarts. Its last text remains visible.</p>}
           <button type="button" disabled={!signal.committed} onClick={() => {
             void navigator.clipboard.writeText(signal.committed).then(() => setCopyNotice("Committed text copied.")).catch(() => setCopyNotice("Could not copy text. Select the committed text and copy it manually."));
           }}>Copy committed text</button>

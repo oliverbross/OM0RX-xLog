@@ -173,6 +173,24 @@ final class CWDecodeSessionTests: XCTestCase {
         XCTAssertNil(ambiguous.tracks.first?.estimatedSNRDB);XCTAssertNil(ambiguous.tracks.first?.selection)
         await session.stop()
     }
+    func testMuteNeedsRetainedControlEvidenceAndStopsSelectionAndLateDecode() async throws {
+        let (session,_,compute,_,_,capture)=try await selectionFixture()
+        let snapshot=await session.snapshot(),view=try XCTUnwrap(snapshot.tracks.first),reference=try XCTUnwrap(view.controlReference)
+        let forged=CWTrackReference(sessionID:reference.sessionID,sourceID:reference.sourceID,streamToken:reference.streamToken,
+            epoch:reference.epoch,trackID:reference.trackID,revision:reference.revision,selectionID:UUID())
+        do{try await session.mute(forged);XCTFail("Invented track mute accepted")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+        try await session.mute(reference)
+        let muted=await session.snapshot(),childMuted=await compute.isMuted(reference.trackID)
+        XCTAssertTrue(childMuted);XCTAssertEqual(muted.tracks.first?.muted,true);XCTAssertNil(muted.tracks.first?.selection)
+        let metadata=CWNativeTrack(kind:"decode",streamToken:capture.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased(),
+            epoch:1,trackID:view.trackID,revision:0,state:"provisional",firstSample:3200,endSample:22400,sourceFirstSample:0,
+            filterDelaySeconds:0.02,offsetHz:600,ambiguous:false,replay:false)
+        await compute.emit(.decode(CWNativeDecode(track:metadata,text:"",tokens:[],inferenceMilliseconds:10)))
+        try await Task.sleep(nanoseconds:5_000_000)
+        let late=await session.snapshot();XCTAssertEqual(late.tracks.first?.committed,view.committed);XCTAssertNil(late.tracks.first?.selection)
+        await session.stop()
+        do{try await session.mute(reference);XCTFail("Stopped mute accepted")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+    }
     private func selectionFixture(qualified:Bool=false,measured:Bool=false) async throws -> (CWDecodeSession,CWSessionTestProvider,CWSessionTestCompute,CWSessionTestClock,CWSourceConfiguration,CWStreamDescriptor) {
         let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),clock=CWSessionTestClock(),source=try source()
         let session=CWDecodeSession(provider:provider,compute:compute,clock:{clock.now()})
@@ -221,6 +239,9 @@ final class CWDecodeSessionTests: XCTestCase {
             let values=await collector.values(),spot=try XCTUnwrap(values.first)
             XCTAssertEqual(spot.callsign,"K1ABC");XCTAssertEqual(spot.originInstanceID,origin);XCTAssertEqual(spot.frequencyHz,14025600)
             let current=await session.canPublish(spot);XCTAssertTrue(current)
+            let snapshot=await session.snapshot(),view=try XCTUnwrap(snapshot.tracks.first),reference=try XCTUnwrap(view.controlReference)
+            try await session.mute(reference)
+            let muted=await session.canPublish(spot);XCTAssertFalse(muted)
             await provider.invalidate(a.id)
             let stale=await session.canPublish(spot);XCTAssertFalse(stale)
         } else {
@@ -247,6 +268,9 @@ private final class CWSessionTestClock:@unchecked Sendable {
     func advance(_ amount:UInt64){lock.lock();value+=amount;lock.unlock()}
 }
 private actor CWSessionTestCompute:CWComputeControlling {
+    private var muted:Set<UUID>=[]
+    func mute(_ descriptor:CWStreamDescriptor,trackID:UUID) {muted.insert(trackID)}
+    func isMuted(_ id:UUID)->Bool {muted.contains(id)}
     struct Counts {var starts=0,opens=0,sends=0,ends=0,stops=0}
     private var count=Counts(),fail=false
     private var events:AsyncThrowingStream<CWComputeEvent,Error>.Continuation?

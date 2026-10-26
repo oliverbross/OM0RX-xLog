@@ -126,3 +126,30 @@ across remount, mismatched/uncertain acknowledgement and disabled/contesting
 refusal. Full live workflow acceptance, native-process restart recovery and
 contesting callsign loading are not yet complete. This branch is excluded from
 the corrective contest releases, where CW stays disabled.
+
+## Track mute
+
+Every live track, including a call-less signal, has a separate native control
+reference. `cw_decode_track_mute` accepts only that exact retained reference,
+rechecks its provider and 250-ms input freshness after suspension, then suppresses
+selection/output before queuing compute control. Disabled builds reject it.
+
+The bounded XCW1 kind-8 frame carries the capture token/epoch and sixteen-byte
+track UUID only. The child cancels that track's pending job, skips future
+channelization/inference and discards queued or completing decode results. An
+already running ONNX inference may finish, but its result cannot escape. Other
+tracks and radio control remain independent. A missing native track is a no-op;
+the parent suppression remains conservative if acknowledgement is lost.
+
+Muting lasts for this track's lifetime. Last text remains readable; it is no
+longer a callsign action target. The UI states that retirement or decoder restart
+clears this mute. Up to 4,096 muted track UUIDs are retained per decoder session
+so a queued accepted spot cannot escape after its row retires. Exhaustion refuses
+another mute until decoding restarts; memory does not grow without a bound.
+
+Validation: fourteen session cases and seven live-method cases pass; accepted
+spot readmission is rejected after mute. Fourteen real-child/wire harness cases,
+native CTest 2/2, one Rust receive-only authority case, twenty-two frontend cases
+and TypeScript pass. Native replay continues IQ after muting and verifies other
+tracks, exact capture targeting and no subsequent muted decode output. This is
+source/replay evidence, not live-radio, capacity or release acceptance.

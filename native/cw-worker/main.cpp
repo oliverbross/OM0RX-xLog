@@ -134,6 +134,11 @@ int main(int argc,char** argv) {
         skimmer.open(token,epoch,int(rate),lower,upper,flags==1); continue;
       }
       if((kind==3||kind==6) && size==52 && !count) { skimmer.end(token); continue; }
+      if(kind==8 && size==68 && !count && !sequence && !first && !rate) {
+        const auto raw=hex(frame.data()+52,16);
+        const auto id=raw.substr(0,8)+"-"+raw.substr(8,4)+"-"+raw.substr(12,4)+"-"+raw.substr(16,4)+"-"+raw.substr(20);
+        skimmer.mute(token,epoch,id);continue;
+      }
       if(kind==5) {
         if(count==0 || count>16384 || size!=52+count*8) throw std::runtime_error("IQ scalar count mismatch");
         std::vector<std::complex<float>> iq(count);

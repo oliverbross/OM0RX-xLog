@@ -28,6 +28,7 @@ class Skimmer {
   void feed(const std::string& token,uint64_t epoch,uint64_t sequence,uint64_t first_sample,
             int actual_rate,const std::vector<std::complex<float>>& iq);
   void end(const std::string& token);
+  bool mute(const std::string& token,uint64_t epoch,const std::string& track_id);
   void stop();
   std::vector<SkimmerEvent> events();
   bool wait_idle(double timeout_seconds);

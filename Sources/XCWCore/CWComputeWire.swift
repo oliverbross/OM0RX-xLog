@@ -84,7 +84,7 @@ public enum CWComputeWire {
               let id=object["track_id"] as? String, id.isEmpty || UUID(uuidString:id) != nil,
               id.isEmpty ? ["stream","fault"].contains(kind) : true,
               let state=object["state"] as? String,
-              (["stream":["acquiring"],"track":["acquiring","ambiguous"],"decode":["provisional"],
+              (["stream":["acquiring"],"track":["acquiring","ambiguous","muted"],"decode":["provisional"],
                 "retired":["retired"],"fault":["inference_failed","discontinuity"]][kind] ?? []).contains(state) else { throw CWComputeError.invalidEvent }
         let delay=try number(object["filter_delay_seconds"]),offset=try number(object["offset_hz"])
         guard (0...1).contains(delay),abs(offset)<=192_000 else { throw CWComputeError.invalidEvent }
@@ -179,5 +179,11 @@ public enum CWComputeWire {
         return frame(header(kind:gap ? 6:3,token:descriptor.streamToken,epoch:epoch,sequence:0,first:0,rate:0,count:0))
     }
     public static func stop() -> Data { frame(header(kind:4,token:nil,epoch:0,sequence:0,first:0,rate:0,count:0)) }
+    public static func mute(_ descriptor:CWStreamDescriptor,trackID:UUID) throws -> Data {
+        guard let epoch=UInt64(descriptor.epoch),trackID != UUID(uuid:(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)) else {throw CWComputeError.invalidFrame}
+        var body=header(kind:8,token:descriptor.streamToken,epoch:epoch,sequence:0,first:0,rate:0,count:0)
+        var bytes=trackID.uuid;withUnsafeBytes(of:&bytes){body.append(contentsOf:$0)}
+        return frame(body)
+    }
     public static func metrics(sequence:UInt64) -> Data { frame(header(kind:7,token:nil,epoch:0,sequence:sequence,first:0,rate:0,count:0)) }
 }

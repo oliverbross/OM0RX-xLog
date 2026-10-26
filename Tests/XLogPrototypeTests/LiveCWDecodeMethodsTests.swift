@@ -97,7 +97,7 @@ final class LiveCWDecodeMethodsTests:XCTestCase {
         let provider=CWMethodsTestProvider(),owner=LiveCWDecodeMethods(configurationURL:file(),provider:provider,featureEnabled:{false})
         let snapshot=try await owner.handle(method:"cw_decode_snapshot",params:[:])
         XCTAssertEqual(snapshot["featureEnabled"] as? Bool,false);XCTAssertEqual((snapshot["capabilities"] as? [Any])?.count,0)
-        for method in ["cw_decode_start","cw_decode_listener_start","cw_decode_flex_handoff","cw_decode_resolve_selection"] {
+        for method in ["cw_decode_start","cw_decode_listener_start","cw_decode_flex_handoff","cw_decode_resolve_selection","cw_decode_track_mute"] {
             do {_ = try await owner.handle(method:method,params:[:]);XCTFail("Disabled build must not acquire or listen")}
             catch {XCTAssertEqual((error as? WorkerFailure)?.code,"cw_feature_disabled")}
         }

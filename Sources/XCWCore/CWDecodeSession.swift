@@ -9,6 +9,7 @@ public protocol CWComputeControlling: Sendable {
     func send(_ block: CWIQBlock) async throws
     func end(_ descriptor: CWStreamDescriptor, gap: Bool) async
     func stop() async
+    func mute(_ descriptor:CWStreamDescriptor,trackID:UUID) async throws
 }
 extension CWComputeProcess: CWComputeControlling {}
 
@@ -43,6 +44,8 @@ public struct CWDecodeTrackSnapshot: Encodable, Sendable {
     public var estimatedSNRDB:Double?=nil
     public var snrReferenceHz:Int?=nil
     public var selection:CWTrackSelection?=nil
+    public var controlReference:CWTrackReference?=nil
+    public var muted:Bool=false
 }
 public struct CWDecodeSessionSnapshot: Encodable, Sendable {
     public let sessionID: UUID?
@@ -85,6 +88,7 @@ public actor CWDecodeSession {
     private var state="stopped",failure: String?
     private var sources: [UUID:Source]=[:],tracks: [String:Track]=[:]
     private var retiredTracks: [String]=[]
+    private var mutedTracks:Set<UUID>=[]
     private var eventTask: Task<Void,Never>?,monitor: Task<Void,Never>?
     private var childAttempt=0
     public init(provider: any CWIQSourceProviding, compute: any CWComputeControlling = CWComputeProcess(),
@@ -133,23 +137,40 @@ public actor CWDecodeSession {
         return CWResolvedTrackSelection(reference:reference,callsign:selection.callsign,radioID:descriptor.radioID,
             provider:descriptor.provider,frequencyHz:descriptor.mappingQualified ? retained.view.frequencyHz:nil)
     }
+    public func mute(_ reference:CWTrackReference) async throws {
+        guard let key=tracks.first(where:{$0.value.view.controlReference==reference})?.key,
+              intent==reference.sessionID,state=="running",let source=sources[reference.sourceID],
+              source.view.state == .running,let lease=source.lease,let descriptor=source.view.descriptor,
+              tracks[key]?.view.descriptor==descriptor else {throw CWTrackSelectionError.staleEvidence}
+        let current=await provider.current(source.view.configuration,sessionID:reference.sessionID,leaseID:lease)
+        let now=clock()
+        guard intent==reference.sessionID,state=="running",current==descriptor,sources[reference.sourceID]?.lease==lease,
+              sources[reference.sourceID]?.view.descriptor==descriptor,tracks[key]?.view.controlReference==reference,
+              now>=source.lastReceipt,now-source.lastReceipt<=250_000_000 else {throw CWTrackSelectionError.staleEvidence}
+        guard mutedTracks.count<4096 || mutedTracks.contains(reference.trackID) else {throw CWComputeError.occupied}
+        // Local suppression precedes the pipe write and survives a lost child.
+        mutedTracks.insert(reference.trackID);tracks[key]?.view.muted=true;tracks[key]?.view.selection=nil
+        try await compute.mute(descriptor,trackID:reference.trackID)
+    }
     /// Recheck queued output against the live provider before each external
     /// classification/listener admission. Archived accepted spots remain history.
     public func canPublish(_ spot:CWConfirmedSpot) async -> Bool {
         guard spotPolicy.isQualityQualified,configuration?.automaticSpots==true,intent==spot.sessionID,
               let source=sources[spot.sourceID],let lease=source.lease,let descriptor=source.view.descriptor,
-              descriptor.streamToken==spot.streamToken,descriptor.epoch==spot.epoch,descriptor.mappingQualified else{return false}
+              descriptor.streamToken==spot.streamToken,descriptor.epoch==spot.epoch,descriptor.mappingQualified,
+              !mutedTracks.contains(spot.trackID) else{return false}
         let current=await provider.current(source.view.configuration,sessionID:spot.sessionID,leaseID:lease)
         let now=clock()
         return intent==spot.sessionID && sources[spot.sourceID]?.lease==lease &&
             sources[spot.sourceID]?.view.descriptor==descriptor && current==descriptor &&
-            now>=source.lastReceipt && now-source.lastReceipt<=250_000_000
+            now>=source.lastReceipt && now-source.lastReceipt<=250_000_000 &&
+            !mutedTracks.contains(spot.trackID)
     }
     public func start(configuration: CWDecodeConfiguration, resources: CWComputeResources) async throws {
         try configuration.validate()
         guard intent==nil,state != "stopping",!configuration.sources.isEmpty else {throw CWComputeError.occupied}
         let id=UUID();intent=id;self.configuration=configuration;self.resources=resources
-        state="preparing";failure=nil;childAttempt=0;tracks.removeAll();retiredTracks.removeAll()
+        state="preparing";failure=nil;childAttempt=0;tracks.removeAll();retiredTracks.removeAll();mutedTracks.removeAll()
         sources=Dictionary(uniqueKeysWithValues:configuration.sources.map {
             ($0.id,Source(view:CWDecodeSourceSnapshot(configuration:$0,state:.preparing,descriptor:nil,retryCount:0,failure:nil)))
         })
@@ -167,7 +188,7 @@ public actor CWDecodeSession {
         intent=nil;state="stopping";eventTask?.cancel();eventTask=nil;monitor?.cancel();monitor=nil
         await releaseAll()
         await compute.stop()
-        tracks.removeAll();retiredTracks.removeAll();state="stopped";failure=nil
+        tracks.removeAll();retiredTracks.removeAll();mutedTracks.removeAll();state="stopped";failure=nil
     }
     private func launchChild(id: UUID) async {
         guard intent==id,let resources else {return}
@@ -311,6 +332,7 @@ public actor CWDecodeSession {
             if retiredTracks.count>128 {retiredTracks.removeFirst(retiredTracks.count-128)}
             return
         }
+        if tracks[key]?.view.descriptor==descriptor,tracks[key]?.view.muted==true {return}
         guard !retiredTracks.contains(key),tracks[key].map({UInt64($0.view.revision).map{$0<=value.revision} ?? false}) ?? true else {return}
         var track=tracks[key]
         if track?.view.revision != String(value.revision) || track?.view.descriptor != descriptor {track=nil}
@@ -364,6 +386,10 @@ public actor CWDecodeSession {
             }
         }
         let preserveMetrics=decode==nil && !ambiguous
+        let controlReference=track?.view.controlReference ?? UUID(uuidString:key).map{trackID in
+            CWTrackReference(sessionID:id,sourceID:descriptor.sourceID,streamToken:descriptor.streamToken,epoch:descriptor.epoch,
+                trackID:trackID,revision:String(value.revision),selectionID:UUID())
+        }
         let view=CWDecodeTrackSnapshot(sourceID:descriptor.sourceID,trackID:key,descriptor:descriptor,
             revision:String(value.revision),offsetHz:value.offsetHz,
             frequencyHz:frequency,committed:committed,provisional:provisional,ambiguous:ambiguous,
@@ -371,7 +397,7 @@ public actor CWDecodeSession {
             estimatedWPM:ambiguous ? nil:(preserveMetrics ? track?.view.estimatedWPM:decode?.estimatedWPM),
             estimatedSNRDB:ambiguous ? nil:(preserveMetrics ? track?.view.estimatedSNRDB:decode?.estimatedSNRDB),
             snrReferenceHz:ambiguous ? nil:(preserveMetrics ? track?.view.snrReferenceHz:decode?.snrReferenceHz),
-            selection:selection)
+            selection:selection,controlReference:controlReference)
         if tracks[key] != nil || tracks.count<32 {
             tracks[key]=Track(view:view,transcript:reconciler,selectionUpdatedNS:selectionUpdatedNS,
                 metricsUpdatedNS:decode != nil ? clock():(track?.metricsUpdatedNS ?? 0))

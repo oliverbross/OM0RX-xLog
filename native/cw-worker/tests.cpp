@@ -118,6 +118,8 @@ int main(int argc,char** argv) {
     std::mt19937 random(728396); std::normal_distribution<float> noise(0,0.002f);
     uint64_t sequence=0,second_sequence=0;
     std::map<std::string,std::string> transcripts;
+    std::string mute_target;
+    bool muted_during_feed=false;
     for(size_t first=0;first<96000*10;first+=4096) {
       const size_t count=std::min(size_t(4096),size_t(96000*10)-first);
       std::vector<std::complex<float>> block(count);
@@ -140,11 +142,16 @@ int main(int argc,char** argv) {
         other[i]=std::complex<float>(std::polar(key,2*pi*8500*n/48000))+std::complex<float>(noise(random),noise(random));
       }
       skimmer.feed(second_source,9,second_sequence++,first/2,48000,other);
+      if(!muted_during_feed && first>=96000*8 && !mute_target.empty()) {
+        require(skimmer.mute(source,7,mute_target),"Mute during active source ingestion");muted_during_feed=true;
+      }
       require(skimmer.wait_idle(10),"Bounded inference drain");
       for(const auto& event:skimmer.events()) { if(event.kind=="track") std::cout<<"Track "<<event.offset_hz<<" "<<event.state<<"\n"; if(event.kind=="decode") {
+        require(!muted_during_feed || event.track_id!=mute_target,"No decode after mute during continued IQ");
         require((event.epoch==7 && event.stream_token==source)||(event.epoch==9&&event.stream_token==second_source),"Original capture identity on multitrack copy");
         require(event.replay,"Replay provenance on derived copy");
         transcripts[event.stream_token==second_source?"second":event.offset_hz>0?"positive":"negative"]=event.copy.text;
+        if(event.stream_token==source && event.offset_hz>0) mute_target=event.track_id;
         std::cout<<"IQ "<<event.offset_hz<<" Hz ["<<event.copy.text<<"]\n";
       } }
     }
@@ -153,6 +160,17 @@ int main(int argc,char** argv) {
     require(transcripts["negative"].find("DL1ABC")!=std::string::npos,"Negative IQ carrier independently decoded");
     require(transcripts["second"].find("DL1ABC")!=std::string::npos,"Independent second-rate span decoded");
     require(skimmer.metrics().tracks==3,"Independent carrier tracking, no mirrored station");
+    require(!mute_target.empty(),"Retained mute target exists");
+    require(muted_during_feed,"Mute exercised with continued IQ after admission");
+    require(!skimmer.mute(second_source,9,mute_target),"Mute cannot cross stream identity");
+    require(!skimmer.mute(source,8,mute_target),"Mute cannot cross capture epoch");
+    require(skimmer.mute(source,7,mute_target),"Mute retained track");
+    bool muted=false;
+    for(const auto& event:skimmer.events()) {
+      require(event.kind!="decode" || event.track_id!=mute_target,"Queued muted result cannot escape");
+      if(event.track_id==mute_target && event.state=="muted") muted=true;
+    }
+    require(muted,"Native mute acknowledges exact track");
     skimmer.feed(source,7,sequence+1,960000,96000,std::vector<std::complex<float>>(512));
     require(skimmer.metrics().sources==1,"A sample gap retires only its source");
     skimmer.feed(second_source,9,second_sequence,480000,48000,std::vector<std::complex<float>>(512));

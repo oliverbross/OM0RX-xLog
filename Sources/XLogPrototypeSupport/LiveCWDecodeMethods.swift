@@ -40,7 +40,7 @@ actor LiveCWDecodeMethods {
     func terminate() async {terminated=true;publisher?.cancel();publisher=nil;listenerIntent=UUID();handoffIntent=UUID();await LiveStationMethods.cwFlexRevokeHandoffs();await listener.stop();await session.stop()}
     func handle(method: String,params: [String:Any]) async throws -> [String:Any] {
         guard !terminated else {throw WorkerFailure("worker_stopping","CW Decode is shutting down.")}
-        if ["cw_decode_start","cw_decode_listener_start","cw_decode_flex_handoff","cw_decode_resolve_selection"].contains(method),!featureEnabled() {
+        if ["cw_decode_start","cw_decode_listener_start","cw_decode_flex_handoff","cw_decode_resolve_selection","cw_decode_track_mute"].contains(method),!featureEnabled() {
             throw WorkerFailure("cw_feature_disabled","CW Decode is disabled in this build while input and release qualification are incomplete.")
         }
         if publisher==nil {
@@ -48,6 +48,14 @@ actor LiveCWDecodeMethods {
             publisher=Task{[weak self] in for await spot in events {guard !Task.isCancelled else{return};await self?.publish(spot)}}
         }
         switch method {
+        case "cw_decode_track_mute":
+            guard Set(params.keys)==["reference"],let object=params["reference"] as? [String:Any],
+                  Set(object.keys)==["sessionID","sourceID","streamToken","epoch","trackID","revision","selectionID"] else{throw invalid()}
+            let reference:CWTrackReference
+            do{reference=try JSONDecoder().decode(CWTrackReference.self,from:JSONSerialization.data(withJSONObject:object))}catch{throw invalid()}
+            do{try await session.mute(reference)}catch CWTrackSelectionError.staleEvidence{
+                throw WorkerFailure("cw_selection_stale","This signal changed or expired. Select its current row again.")
+            }
         case "cw_decode_resolve_selection":
             guard Set(params.keys)==["reference","require_frequency"],let reference=params["reference"] as? [String:Any],
                   Set(reference.keys)==["sessionID","sourceID","streamToken","epoch","trackID","revision","selectionID"] else {throw invalid()}

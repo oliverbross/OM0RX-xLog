@@ -210,6 +210,10 @@ public actor CWComputeProcess {
         guard state=="ready" else {throw CWComputeError.stopped}
         try enqueue(Write(bytes:CWComputeWire.metrics(sequence:sequence),source:nil,durationNS:0,receivedNS:now))
     }
+    public func mute(_ descriptor:CWStreamDescriptor,trackID:UUID) throws {
+        guard state=="ready",sources[Self.key(descriptor)]==descriptor else {throw CWComputeError.invalidFrame}
+        try enqueue(Write(bytes:CWComputeWire.mute(descriptor,trackID:trackID),source:nil,durationNS:0,receivedNS:now))
+    }
     private func enqueue(_ value:Write) throws {
         guard writes.count<16,queuedBytes+value.bytes.count<=1_048_576 else {throw CWComputeError.inputOverflow}
         if let source=value.source {

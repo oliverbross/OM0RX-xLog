@@ -27,12 +27,14 @@ numeric header fields are little-endian. Shared 52-byte header:
 | 5 IQ | 52 + count×8 | interleaved float32 I,Q; 1–16384 pairs and no more than 125 ms at the opened rate |
 | 6 Gap | 52 | no payload; retire this token; a new StreamOpen is required |
 | 7 Metrics | 52 | no payload; reply echoes request sequence; does not start sources |
+| 8 MuteTrack | 68 | sequence/first/rate/count zero; 16-byte track UUID; suppress only this token/epoch/track until retirement |
 
 StreamOpen is mandatory before IQ. No conversion or guessing repairs a wrong
 epoch, sequence, sample position, sample rate or nonfinite block. Such a fault
 retires that source and leaves other sources alive. Framing errors terminate the
 compute process, leaving recovery to its supervisor. Sources are capped at two,
-tracks at 16 per source, inference at a fixed shared two-thread pool.
+tracks at 16 per source, inference at a fixed shared pool (four threads on Mac,
+two on other platforms). These ceilings do not establish qualified capacity.
 
 Output is NDJSON on stdout; bounded human diagnostics use stderr. `ready` reports
 actual runtime version, ABI and resource ceilings. Events are `stream`, `track`,

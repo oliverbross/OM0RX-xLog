@@ -36,6 +36,13 @@ final class CWWireHarnessTests:XCTestCase {
         XCTAssertEqual(le(CWComputeWire.stop(),10,2),4)
         XCTAssertEqual(le(CWComputeWire.metrics(sequence:UInt64.max),36,8),UInt64.max)
     }
+    func testMuteFrameCarriesOnlyCaptureAndTrackIdentity() throws {
+        let track=UUID(uuidString:"01234567-89ab-cdef-0123-456789abcdef")!
+        let frame=try CWComputeWire.mute(descriptor(),trackID:track)
+        XCTAssertEqual(le(frame,4,4),68);XCTAssertEqual(le(frame,10,2),8);XCTAssertEqual(le(frame,28,8),17)
+        XCTAssertEqual(le(frame,36,8),0);XCTAssertEqual(le(frame,44,8),0);XCTAssertEqual(le(frame,52,4),0);XCTAssertEqual(le(frame,56,4),0)
+        XCTAssertEqual(frame.subdata(in:60..<76),Data([1,35,69,103,137,171,205,239,1,35,69,103,137,171,205,239]))
+    }
     private func decode() -> [String:Any] {
         ["type":"decode","stream_token":"00112233445566778899aabbccddeeff","epoch":"17", "track_id":token.uuidString.lowercased(),
          "state":"provisional","first_sample":"0","end_sample":"19200","source_first_sample":"8192","filter_delay_seconds":0.02,

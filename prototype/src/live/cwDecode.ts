@@ -8,7 +8,7 @@ export type CWTrackReference = { sessionID: string; sourceID: string; streamToke
 export type CWTrackSelection = { reference: CWTrackReference; callsign: string; activation?: { sourceEpoch: string; spotVersion: string } };
 export type CWDecodeTrack = { sourceID: string; trackID: string; descriptor: CWDescriptor; revision: string; offsetHz: number; frequencyHz?: number;
   committed: string; provisional: string; ambiguous: boolean; inferenceMilliseconds?: number; spotRejection?: string;
-  estimatedWPM?: number; estimatedSNRDB?: number; snrReferenceHz?: number; selection?: CWTrackSelection };
+  estimatedWPM?: number; estimatedSNRDB?: number; snrReferenceHz?: number; selection?: CWTrackSelection; controlReference?: CWTrackReference; muted?: boolean };
 export type CWCapability = { radioID: string; provider: string; ready: boolean; device?: string; protocolVersion?: string;
   receivers: { receiver: number; enabled?: boolean; centreHz?: number }[]; requestableSampleRates: number[]; transmitStateKnownOff?: boolean;
   inventoryRevision?: string; identity?: { serial: string; model: string; address: string; controlPort: number }; stationHandle?: number;
@@ -21,7 +21,7 @@ export type CWDecodeSnapshot = { sessionID?: string; state: string; failure?: st
   tracks: CWDecodeTrack[]; capabilities: CWCapability[];
   listener: { state: string; address: string; port?: number; clients: number; authenticatedClients: number; retainedSpots: number;
     acceptedConnections: number; refusedConnections: number; slowDisconnects: number; protocolDisconnects: number } };
-export const cwDecodeMethods = ["cw_decode_snapshot", "cw_decode_configuration_save", "cw_decode_start", "cw_decode_stop", "cw_decode_listener_start", "cw_decode_listener_stop", "cw_decode_flex_handoff"] as const;
+export const cwDecodeMethods = ["cw_decode_snapshot", "cw_decode_configuration_save", "cw_decode_start", "cw_decode_stop", "cw_decode_listener_start", "cw_decode_listener_stop", "cw_decode_flex_handoff", "cw_decode_track_mute"] as const;
 export type CWDecodeMethod = typeof cwDecodeMethods[number];
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const counter = /^(0|[1-9][0-9]{0,19})$/;
@@ -46,6 +46,14 @@ const trackSelection = (track: Record<string, any>): boolean => {
     (selection.activation === undefined || object(selection.activation) && Object.keys(selection.activation).length === 2 &&
       ["sourceEpoch", "spotVersion"].every(key => typeof selection.activation[key] === "string" && uuid.test(selection.activation[key])));
 };
+const trackControl = (track: Record<string, any>): boolean => {
+  const reference = track.controlReference;
+  return (track.muted === undefined || typeof track.muted === "boolean") && (!track.muted || track.selection === undefined) &&
+    (reference === undefined || object(reference) && Object.keys(reference).length === 7 &&
+      ["sessionID", "sourceID", "streamToken", "trackID", "selectionID"].every(key => typeof reference[key] === "string" && uuid.test(reference[key])) &&
+      ["sessionID", "sourceID", "streamToken"].every(key => reference[key].toLowerCase() === track.descriptor[key].toLowerCase()) &&
+      reference.trackID.toLowerCase() === track.trackID.toLowerCase() && reference.epoch === track.descriptor.epoch && reference.revision === track.revision);
+};
 
 export function parseCWDecodeSnapshot(value: unknown): CWDecodeSnapshot {
   if (!object(value) || !["stopped", "preparing", "running", "recovering", "blocked", "stopping"].includes(value.state) ||
@@ -67,7 +75,7 @@ export function parseCWDecodeSnapshot(value: unknown): CWDecodeSnapshot {
     typeof track.revision === "string" && counter.test(track.revision) && typeof track.offsetHz === "number" && Number.isFinite(track.offsetHz) &&
     Math.abs(track.offsetHz) <= track.descriptor.sampleRate / 2 && typeof track.committed === "string" && track.committed.length <= 1024 &&
     typeof track.provisional === "string" && track.provisional.length <= 1024 && typeof track.ambiguous === "boolean" &&
-    trackSelection(track) &&
+    trackSelection(track) && trackControl(track) &&
     (track.frequencyHz === undefined || track.descriptor.mappingQualified && integer(track.frequencyHz, 100000, 1e9)) &&
     (track.spotRejection === undefined || ["quality_not_qualified", "replay", "stale_source", "unmapped_frequency", "contaminated", "ambiguous", "insufficient_occurrences", "cooldown", "invalid_evidence"].includes(track.spotRejection)) &&
     (track.estimatedWPM === undefined || Number.isFinite(track.estimatedWPM) && track.estimatedWPM >= 5 && track.estimatedWPM <= 80) &&
