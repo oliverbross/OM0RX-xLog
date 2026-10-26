@@ -222,15 +222,17 @@ describe("native band-map parity", () => {
     const plan = defaultContestBandPlan(["40m"]);
     const spots = [
       { ...spot("CW40", 7020, "40m"), comment: "CQ" },
-      { ...spot("DATA40", 7060, "40m"), comment: "CQ" },
-      { ...spot("PHONE40", 7120, "40m"), comment: "CQ" },
-      { ...spot("EXPLICITCW", 7150, "40m"), comment: "CW UP 1" },
+      { ...spot("DATA40", 7060, "40m"), mode: "RTTY", comment: "CQ" },
+      { ...spot("PHONE40", 7120, "40m"), mode: "SSB", comment: "CQ" },
+      { ...spot("EXPLICITCW", 7150, "40m"), mode: "SSB", comment: "CW UP 1" },
+      { ...spot("REPORTEDCW", 7155, "40m"), comment: "CQ" },
     ];
     render(<BandMaps compact contestPresentation storageNamespace="contest" contestBandPlan={plan}
       spots={spots} onSelect={vi.fn()} radioFrequencyHz={7_150_000} />);
     expect(screen.queryByRole("button", { name: /CW40 ·/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /DATA40 ·/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /EXPLICITCW ·/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /REPORTEDCW ·/ })).toBeNull();
     expect(screen.getByRole("button", { name: /PHONE40 ·/ })).toBeTruthy();
     expect(screen.getByText("7.050.0–7.200.0 MHz")).toBeTruthy();
   });
@@ -248,7 +250,7 @@ describe("native band-map parity", () => {
     const plan = defaultContestBandPlan(["40m"]);
     const spots = [
       { ...spot("CW40", 7020, "40m"), comment: "CQ" },
-      { ...spot("PHONE40", 7120, "40m"), comment: "CQ" },
+      { ...spot("PHONE40", 7120, "40m"), mode: "SSB", comment: "CQ" },
       { ...spot("EXPLICITCW", 7150, "40m"), comment: "CW UP 1" },
       { ...spot("PHONE20", 14200, "20m"), mode: "SSB", comment: "CQ" },
     ];
@@ -290,7 +292,7 @@ describe("native band-map parity", () => {
     const plan = defaultContestBandPlan(["40m"]);
     const spots = [
       { ...spot("CW40", 7020, "40m"), comment: "CQ" },
-      { ...spot("PHONE40", 7120, "40m"), comment: "CQ" },
+      { ...spot("PHONE40", 7120, "40m"), mode: "SSB", comment: "CQ" },
     ];
     const first = render(<BandMaps compact contestPresentation storageNamespace="contest.session-a" contestBandPlan={plan}
       contestBands={["40m"]} spots={spots} onSelect={vi.fn()} radioFrequencyHz={7_150_000}/>);
@@ -307,7 +309,7 @@ describe("native band-map parity", () => {
     const preferences: BandMapViewPreferences = { bands: ["40m"], followRadio: false, layout: "row", fontScale: 1, modes: ["cw"] };
     render(<BandMaps compact contestPresentation storageNamespace="contest.session-ssb" contestBandPlan={plan}
       contestBands={["40m"]} contestAllowedModes={["phone"]} preferences={preferences} onPreferencesChange={vi.fn()}
-      spots={[{ ...spot("CW40", 7020, "40m"), comment: "CQ" }, { ...spot("PHONE40", 7120, "40m"), comment: "CQ" }]}
+      spots={[{ ...spot("CW40", 7020, "40m"), comment: "CQ" }, { ...spot("PHONE40", 7120, "40m"), mode: "SSB", comment: "CQ" }]}
       onSelect={vi.fn()} radioFrequencyHz={7_150_000}/>);
     expect(screen.queryByRole("button", { name: /CW40 ·/ })).toBeNull();
     expect(screen.getByRole("button", { name: /PHONE40 ·/ })).toBeTruthy();

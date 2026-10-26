@@ -1269,8 +1269,12 @@ fn validate_entry_projection_v2(value: &Map<String, Value>) -> Result<(), String
 
 fn validate_manual_context(value: &Value) -> Result<(), String> {
     let manual = object(value, "manual contest context")?;
+    let mut required = manual.clone();
+    if let Some(complete) = required.remove("scoringComplete") {
+        boolean(&complete, "score completeness")?;
+    }
     exact(
-        manual,
+        &required,
         &[
             "operator",
             "cwSpeedWpm",
@@ -1780,8 +1784,12 @@ fn validate_statistics_score(value: &Value) -> Result<(), String> {
         return Ok(());
     }
     let score = object(value, "contest score")?;
+    let mut required = score.clone();
+    if let Some(complete) = required.remove("scoringComplete") {
+        boolean(&complete, "score completeness")?;
+    }
     exact(
-        score,
+        &required,
         &[
             "qsos",
             "points",
@@ -2266,8 +2274,12 @@ fn validate_cq_ww_statistics_row(value: &Value, total: bool) -> Result<(String, 
 
 fn validate_statistics_score_v3(value: &Value) -> Result<(), String> {
     let score = object(value, "contest score")?;
+    let mut required = score.clone();
+    if let Some(complete) = required.remove("scoringComplete") {
+        boolean(&complete, "score completeness")?;
+    }
     exact(
-        score,
+        &required,
         &[
             "qsos",
             "points",
@@ -3710,6 +3722,12 @@ mod tests {
     fn statistics_v3_is_exact_bounded_and_matches_the_not1mm_table() {
         let statistics = statistics_v3();
         assert!(validate_projection("propagation", &statistics).is_ok());
+
+        let mut partial = statistics.clone();
+        partial["score"]["scoringComplete"] = json!(false);
+        assert!(validate_projection("propagation", &partial).is_ok());
+        partial["score"]["scoringComplete"] = json!("yes");
+        assert!(validate_projection("propagation", &partial).is_err());
 
         let mut dupes = statistics.clone();
         for row in dupes["rows"].as_array_mut().unwrap() { row["dupes"] = json!(0); }

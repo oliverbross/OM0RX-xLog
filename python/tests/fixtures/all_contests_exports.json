@@ -1,0 +1,280 @@
+{
+  "cq_ww_cw": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 OM0RX         599 15     K1ABC         599 5"
+  },
+  "cq_ww_ssb": {
+    "cabrillo": "QSO:  7125 PH 2026-10-21 1000 OM0RX         57  15     K1ABC         58  5"
+  },
+  "cq_ww_rtty": {
+    "cabrillo": "QSO:  7080 RY 2026-10-21 1000 OM0RX         599 15 DX  K1ABC         599 05 CT"
+  },
+  "cq_wpx_cw": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 OM0RX         599 1      K1ABC         599 404"
+  },
+  "cq_wpx_ssb": {
+    "cabrillo": "QSO: 14250 PH 2026-10-21 1000 OM0RX         57  1      K1ABC         58  100"
+  },
+  "cq_wpx_rtty": {
+    "cabrillo": "QSO: 14080 RY 2026-10-21 1000 OM0RX         599 1      K1ABC         599 100"
+  },
+  "arrl_ss_cw": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 OM0RX         0001 A 67 CT K1ABC         0123 A 67 CT"
+  },
+  "arrl_ss_phone": {
+    "cabrillo": "QSO: 14250 PH 2026-10-21 1000 OM0RX         0001 A 67 CT K1ABC         0123 A 67 CT"
+  },
+  "arrl_dx_cw": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 OM0RX         599 100    K1ABC         599 CT"
+  },
+  "arrl_dx_ssb": {
+    "cabrillo": "QSO: 14250 PH 2026-10-21 1000 OM0RX         59  100    K1ABC         59  CT"
+  },
+  "naqp_cw": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 OM0RX         OLIVER DX K1ABC         JOHN        CT"
+  },
+  "naqp_ssb": {
+    "cabrillo": "QSO: 14250 PH 2026-10-21 1000 OM0RX         OLIVER DX K1ABC         JOHN        CT"
+  },
+  "naqp_rtty": {
+    "cabrillo": "QSO: 14080 RY 2026-10-21 1000 OM0RX         OLIVER DX K1ABC         JOHN        CT"
+  },
+  "phone_weekly_test": {
+    "cabrillo": "QSO: 14250 PH 2026-10-21 1000 OM0RX         OLIVER DX K1ABC         JOHN        CT"
+  },
+  "weekly_rtty": {
+    "cabrillo": "QSO: 14080 RY 2026-10-21 1000 OM0RX         OLIVER DX K1ABC         JOHN       CT"
+  },
+  "icwc_mst": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 OM0RX         OLIVER        1      K1ABC         BOB            12"
+  },
+  "cwt": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 OM0RX         599 OLIVER 1234 K1ABC         599 ALICE 100"
+  },
+  "cwo": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 OM0RX         1      OLIVER K1ABC         12    ALICE"
+  },
+  "k1usn_sst": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 OM0RX         OLIVER SD K1ABC         ALICE       CT"
+  },
+  "trans_tasman": {
+    "cabrillo": "QSO: 7025 CW 2026-10-21 1000 VK4ABC        599 001    ZL1ABC        599 012"
+  },
+  "oceania_dx_cw": {
+    "cabrillo": "QSO:  1825 CW 2026-10-21 1000 OM0RX         599 1      VK4ABC        599 12"
+  },
+  "oceania_dx_ssb": {
+    "cabrillo": "QSO:  1825 PH 2026-10-21 1000 OM0RX         59  1      VK4ABC        59  12"
+  },
+  "sac_cw": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 OM0RX         599 1      SM1ABC        599 101"
+  },
+  "sac_ssb": {
+    "cabrillo": "QSO: 14025 PH 2026-10-21 1000 OM0RX         59  1      SM1ABC        59  101"
+  },
+  "iaru_fieldday_r1_cw": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 OM0RX/P       599 1      DL1ABC        599 101"
+  },
+  "iaru_fieldday_r1_ssb": {
+    "cabrillo": "QSO: 14025 PH 2026-10-21 1000 OM0RX/P       59  1      DL1ABC        59  101"
+  },
+  "10_10_fall_cw": {
+    "cabrillo": "QSO: 28300 CW 2026-10-21 1000 OM0RX         599 OLIVER 12345 NT K1ABC         599 ALICE 12345 CT"
+  },
+  "10_10_spring_cw": {
+    "cabrillo": "QSO: 28300 CW 2026-10-21 1000 OM0RX         599 OLIVER 12345 NT K1ABC         599 ALICE 12345 CT"
+  },
+  "10_10_winter_phone": {
+    "cabrillo": "QSO: 28300 PH 2026-10-21 1000 OM0RX         59  OLIVER 12345 NT K1ABC         59  ALICE 12345 CT"
+  },
+  "10_10_summer_phone": {
+    "cabrillo": "QSO: 28300 PH 2026-10-21 1000 OM0RX         59  OLIVER 12345 NT K1ABC         59  ALICE 12345 CT"
+  },
+  "jidx_cw": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 OM0RX         599 15     JA1ABC        599 13"
+  },
+  "jidx_ph": {
+    "cabrillo": "QSO: 14025 PH 2026-10-21 1000 OM0RX         59  15     JA1ABC        59  13"
+  },
+  "aadx_cw": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 OM0RX         599 42     JA1ABC        599 21"
+  },
+  "aadx_ssb": {
+    "cabrillo": "QSO: 14025 PH 2026-10-21 1000 OM0RX         59  42     JA1ABC        59  21"
+  },
+  "cq_160_cw": {
+    "cabrillo": "QSO:  1825 CW 2026-10-21 1000 OM0RX         599 15     K1ABC         599 CT"
+  },
+  "cq_160_ssb": {
+    "cabrillo": "QSO:  1825 PH 2026-10-21 1000 OM0RX         59  15     K1ABC         59  CT"
+  },
+  "euhfc": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 OM0RX         599 82  DL1ABC        599 17"
+  },
+  "iaru_hf": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 OM0RX         599 28     DL1ABC        599 28"
+  },
+  "arrl_10m": {
+    "cabrillo": "QSO: 28025 CW 2026-10-21 1000 OM0RX         599 1      DL1ABC        599 1"
+  },
+  "arrl_160m": {
+    "cabrillo": "QSO:  1825 CW 2026-10-21 1000 OM0RX         599 15     DL1ABC        599 14"
+  },
+  "arrl_field_day": {
+    "cabrillo": "QSO: 14025 PH 2026-10-21 1000 OM0RX         1D ORG   K1ABC         2A  CT"
+  },
+  "arrl_rtty_ru": {
+    "cabrillo": "QSO: 14080 RY 2026-10-21 1000 OM0RX         599 1      K1ABC         599 CT"
+  },
+  "arrl_vhf_jan": {
+    "cabrillo": "QSO:   50 CW 2026-10-21 1000 OM0RX         JN88   K1ABC         FN31"
+  },
+  "arrl_vhf_jun": {
+    "cabrillo": "QSO:  144 PH 2026-10-21 1000 OM0RX         JN88   K1ABC         FN31"
+  },
+  "arrl_vhf_sep": {
+    "cabrillo": "QSO:   50 CW 2026-10-21 1000 OM0RX         JN88   K1ABC         FN31"
+  },
+  "ea_majestad_cw": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 OM0RX         599 1      EA1AAA        599 M"
+  },
+  "ea_majestad_ssb": {
+    "cabrillo": "QSO: 14025 PH 2026-10-21 1000 OM0RX         59  1      EA1AAA        59  M"
+  },
+  "ref_cw": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 OM0RX         599 1      F1AAA         599 75"
+  },
+  "ref_ssb": {
+    "cabrillo": "QSO: 14025 PH 2026-10-21 1000 OM0RX         59  1      F1AAA         59  75"
+  },
+  "rsgb_80m_cc": {
+    "cabrillo": "QSO:  3525 CW 2026-10-21 1000 OM0RX         599 1      K1ABC         599 1"
+  },
+  "rsgb_commonwealth_beru": {
+    "cabrillo": "QSO:  3525 CW 2026-10-21 1000 VE3ABC        599 1      G3AAA         599 101"
+  },
+  "es_field_day": {
+    "cabrillo": "QSO:  7025 CW 2026-10-21 1000 ES1ABC        599 001 HM ES5AAA        599 001 HM"
+  },
+  "es_ll_kv": {
+    "cabrillo": "QSO:  7025 CW 2026-10-21 1000 ES1ABC        599 1      K1ABC         599 1"
+  },
+  "es_manual_key": {
+    "cabrillo": "QSO:  7025 CW 2026-10-21 1000 ES1ABC        599 05001  K1ABC         599 05001"
+  },
+  "es_open": {
+    "cabrillo": "QSO:  7025 CW 2026-10-21 1000 ES1ABC        599 1      K1ABC         599 1"
+  },
+  "hadx": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 K1ABC         599 1      DL1ABC        599 1"
+  },
+  "helvetia": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 K1ABC         599 1      HB9ABC        599 ZH"
+  },
+  "pacc": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 K1ABC         599 1      PA1ABC        599 ZH"
+  },
+  "spdx": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 K1ABC         599 1      SP1ABC        599 A"
+  },
+  "ari_dx": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 K1ABC         599 1      I1ABC         599 RM"
+  },
+  "darc_xmas": {
+    "cabrillo": "QSO:  7025 CW 2026-10-21 1000 K1ABC         599 1      DL1ABC        599 A01"
+  },
+  "eudx": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 K1ABC         599 28     DL1ABC        599 28"
+  },
+  "lz-dx": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 K1ABC         599 28     LZ1ABC        599 SO"
+  },
+  "wag": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 K1ABC         599 1      DL1ABC        599 A01"
+  },
+  "ari_40_80": {
+    "cabrillo": "QSO:  7025 CW 2026-10-21 1000 OM0RX         599 RM     I1ABC         599 TO"
+  },
+  "ea_rtty": {
+    "cabrillo": "QSO:  7025 RY 2026-10-21 1000 OM0RX         599 1      EA1ABC        599 M"
+  },
+  "ok1wc": {
+    "cabrillo": "QSO:  7025 CW 2026-10-21 1000 OM0RX         599 1      DL1ABC        599 1"
+  },
+  "ssa_mt_cw": {
+    "cabrillo": "QSO:  7025 CW 2026-10-21 1000 OM0RX         599 001 JP75XX SM1ABC        599 001 JP75AA"
+  },
+  "ssa_mt_ssb": {
+    "cabrillo": "QSO:  7025 PH 2026-10-21 1000 OM0RX         59  001 JP75XX SM1ABC        59  001 JP75AA"
+  },
+  "dxpedition": {},
+  "general_logging": {},
+  "randomgram": {},
+  "qso_party_rst": {
+    "cabrillo": "QSO:  7025 CW 2026-10-21 1000 OM0RX         599    NIT             K1ABC         579    NEW"
+  },
+  "qso_party_sn": {
+    "cabrillo": "QSO:  7025 CW 2026-10-21 1000 OM0RX         1      NIT             K1ABC         42     NEW"
+  },
+  "ca_qso_party": {
+    "cabrillo": "QSO:  7025 CW 2026-10-21 1000 OM0RX         1      ORAN  K1ABC         101    ALAM"
+  },
+  "canada_day": {
+    "cabrillo": "QSO:  7025 CW 2026-10-21 1000 OM0RX         599 001 NT K1ABC         599 ON"
+  },
+  "cqws": {
+    "cabrillo": "QSO:  7025 CW 2026-10-21 1000 OM0RX         599 DX     K1ABC         599 FD"
+  },
+  "darc_schwaben": {
+    "cabrillo": "QSO: 144300 CW 2026-10-21 1000 OM0RX         599 T01          DL1ABC        599 T01 JN58"
+  },
+  "winter_field_day": {
+    "cabrillo": "QSO:  7025 CW 2026-10-21 1000 OM0RX         1O ORG   K1ABC         1O  EMA"
+  },
+  "agcw_qrp": {
+    "cabrillo": "QSO:  7025 CW 2026-10-21 1000 OM0RX         599 001 QRP NM K1ABC         599 101 QRP 1234"
+  },
+  "raem": {
+    "cabrillo": "QSO:  7025 CW 2026-10-21 1000 OM0RX         1      48N17O        K1ABC         101   40N74W"
+  },
+  "rda_contest": {
+    "cabrillo": "QSO:  7025 CW 2026-10-21 1000 OM0RX         599 1      UA3ABC        599 MO01"
+  },
+  "rdxc": {
+    "cabrillo": "QSO:  7025 CW 2026-10-21 1000 OM0RX         599 1      K1ABC         599 101"
+  },
+  "rsgb_iota": {
+    "cabrillo": "QSO:  7025 CW 2026-10-21 1000 OM0RX         599 0001 EU-005 K1ABC         599 0101 NA-001"
+  },
+  "stew_perry_topband": {
+    "cabrillo": "QSO:  1825 CW 2026-10-21 1000 OM0RX         JN88     K1ABC         FN20"
+  },
+  "ukeidx": {
+    "cabrillo": "QSO:  7025 CW 2026-10-21 1000 OM0RX         599 001 DX K1ABC         599 101 AB"
+  },
+  "wia_remembrance": {
+    "cabrillo": "QSO:  7025 CW 2026-10-21 1000 OM0RX         599 001    K1ABC         599 010"
+  },
+  "cq_ww_vhf": {
+    "cabrillo": "QSO:  144 CW 2026-10-21 1000 OM0RX         QG62   K1ABC         FN31"
+  },
+  "darc_vhf": {
+    "cabrillo": "QSO: 144300 CW 2026-10-21 1000 OM0RX         599 1      K1ABC         599 101    JO60AA",
+    "edi": "261021;1000;K1ABC;2;599;001;599;101;;JO60AA;443;; ; ;"
+  },
+  "john_moyle_field_day": {
+    "cabrillo": "QSO: 144 CW 2026-10-21 1000 VK4ABC        599 001    VK2AAB        599 101"
+  },
+  "labre_rs_digi": {
+    "cabrillo": "QSO: 14080 DG 2026-10-21 1000 OM0RX         jn88   K1ABC         GG40"
+  },
+  "nac_vhf": {
+    "cabrillo": "QSO: 144300 CW 2026-10-21 1000 OM0RX         599 1      K1ABC         599 101    JO60AA",
+    "edi": "261021;1000;K1ABC;2;599;001;599;101;;JO60AA;943;; ; ;"
+  },
+  "ta_vhf_uhf_contest": {
+    "edi": "261021;1000;K1ABC;2;59;001;59;101;;JO60AA;886;; ; ;"
+  },
+  "vhf_sprint": {
+    "cabrillo": "QSO:  144 CW 2026-10-21 1000 OM0RX         jn88   K1ABC         JO60"
+  }
+}

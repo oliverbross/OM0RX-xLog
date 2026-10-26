@@ -215,6 +215,12 @@ const statisticsProjectionV3 = { schemaVersion: 3, status: "ready", score: { qso
   rows: [{ band: "20m", qsos: 4, calls: 3, cw: 2, phone: 1, digital: 1, wpx: 2, points: 15 },
     { band: "40m", qsos: 2, calls: 2, cw: 2, phone: 0, digital: 0, wpx: 1, points: 6 }],
   total: { band: "TOTAL", qsos: 6, calls: 4, cw: 4, phone: 1, digital: 1, wpx: 3, points: 21 }, busy: false } as const;
+it("admits explicit partial score completeness and rejects non-boolean claims", () => {
+  expect(validContestSurfaceProjection("propagation", {...statisticsProjectionV3,
+    score:{...statisticsProjectionV3.score,scoringComplete:false}})).toBe(true);
+  expect(validContestSurfaceProjection("propagation", {...statisticsProjectionV3,
+    score:{...statisticsProjectionV3.score,scoringComplete:"yes"}})).toBe(false);
+});
 const ratesProjection = { schemaVersion: 1, status: "ready", lastHourQsoPerHour: 48, last10QsoPerHour: 72.5,
   last100QsoPerHour: null, sinceHourUTC: 19, sinceHourQso: 2, runQso: 210, searchAndPounceQso: 70, hourRunQso: 30,
   hourSearchAndPounceQso: 18, busy: false } as const;

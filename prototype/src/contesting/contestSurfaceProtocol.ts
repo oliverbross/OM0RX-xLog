@@ -83,7 +83,7 @@ export type ContestExchangeWarning = {fieldID:string;message:string;kind:"mismat
 export type ContestPluginLogRow = { qsoID: string; values: string[]; isDupe?: boolean; exchangeWarnings?:ContestExchangeWarning[];
   inlineEdits?: (ContestLogInlineEdit | null)[] };
 export type ContestManualContext = { operator: string; cwSpeedWpm: number | null; cwSpeedStepWpm: number; country: string | null; cqZone: number | null; ituZone: number | null;
-  headingDegrees: number | null; longPathHeadingDegrees: number | null; distanceKm: number | null; qsos: number; multipliers: number; total: number };
+  headingDegrees: number | null; longPathHeadingDegrees: number | null; distanceKm: number | null; qsos: number; multipliers: number; total: number; scoringComplete?: boolean };
 export type ContestEntryMultiplierStatus = "new-zone-and-country" | "new-zone" | "new-country" | "no-new-multiplier";
 export type ContestEntrySurfaceProjection = { schemaVersion: 1; status: "ready";
   manual?: ContestManualContext;
@@ -126,7 +126,7 @@ export type ContestCheckSurfaceProjection = { schemaVersion: 1; status: "ready";
     fields: { id: string; label: string; value: string }[] }[] }; busy: boolean };
 export type ContestStatisticsScore = null | {
   qsos: number; points: number; multipliers: number; claimedScore: number; multiplierLabels: string[];
-  multiplierDisplayLabels: string[]; sourceVerification: "verified" | "provisional" | "unverified" };
+  multiplierDisplayLabels: string[]; sourceVerification: "verified" | "provisional" | "unverified"; scoringComplete?: boolean };
 export type ContestStatisticsSurfaceProjectionV1 = { schemaVersion: 1; status: "ready";
   score: ContestStatisticsScore; busy: boolean };
 export type ContestStatisticsRow = { band: string; qsos: number; calls: number; cw: number; phone: number;
@@ -233,7 +233,8 @@ const pluginRowsValid = (value: unknown, columns: number, maximum: number) => Ar
     (!("inlineEdits" in row) || Array.isArray(row.inlineEdits) && row.inlineEdits.length === columns && row.inlineEdits.every(inlineEditValid)));
 const uniqueArray=(value:unknown,maximum:number,item:(value:unknown)=>boolean)=>Array.isArray(value)&&value.length>0&&
   value.length<=maximum&&value.every(item)&&new Set(value).size===value.length;
-const manualContextValid = (value: unknown) => record(value) && exact(value, ["operator", "cwSpeedWpm", "cwSpeedStepWpm", "country", "cqZone", "ituZone", "headingDegrees", "longPathHeadingDegrees", "distanceKm", "qsos", "multipliers", "total"]) &&
+const manualContextValid = (value: unknown) => record(value) && optionalKeys(value, ["operator", "cwSpeedWpm", "cwSpeedStepWpm", "country", "cqZone", "ituZone", "headingDegrees", "longPathHeadingDegrees", "distanceKm", "qsos", "multipliers", "total"], ["scoringComplete"]) &&
+  (value.scoringComplete === undefined || typeof value.scoringComplete === "boolean") &&
   text(value.operator, 32, true) && (value.country === null || text(value.country, 160, true)) &&
   typeof value.cwSpeedStepWpm === "number" && Number.isInteger(value.cwSpeedStepWpm) && value.cwSpeedStepWpm >= 1 && value.cwSpeedStepWpm <= 10 &&
   ["cwSpeedWpm", "cqZone", "ituZone", "headingDegrees", "longPathHeadingDegrees", "distanceKm"].every(key => value[key] === null || typeof value[key] === "number" && Number.isFinite(value[key]) && (value[key] as number) >= 0) &&
@@ -371,7 +372,8 @@ function validCheckProjection(value: Record<string, unknown>) {
 function validStatisticsScore(value: unknown, signedPoints = false) {
   const score = record(value) ? value : undefined;
   return value === null || !!score &&
-    exact(score, ["qsos", "points", "multipliers", "claimedScore", "multiplierLabels", "multiplierDisplayLabels", "sourceVerification"]) &&
+    optionalKeys(score, ["qsos", "points", "multipliers", "claimedScore", "multiplierLabels", "multiplierDisplayLabels", "sourceVerification"], ["scoringComplete"]) &&
+    (score.scoringComplete === undefined || typeof score.scoringComplete === "boolean") &&
     uint(score.qsos) && (signedPoints ? Number.isSafeInteger(score.points) : uint(score.points)) && uint(score.multipliers) &&
     uint(score.claimedScore) && texts(score.multiplierLabels, 10_000, 160) && texts(score.multiplierDisplayLabels, 10_000, 160) &&
     oneOf(score.sourceVerification, ["verified", "provisional", "unverified"]);

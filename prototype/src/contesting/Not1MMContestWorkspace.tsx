@@ -119,7 +119,7 @@ export function authoritativeChangeRevision(row:Record<string,unknown>):number{
 type ContestFunctionKey = "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F7" | "F8" | "F9" | "F10" | "F11" | "F12";
 type Request = (method: string, params?: Record<string, unknown>) => Promise<unknown>;
 type Field = { id: string; label: string; accessibleName: string; value: string; visible: boolean; readOnly: boolean; enabled: boolean };
-type Score = { qsos: number; points: number; countries: number; zones: number; multipliers?: number; uniqueCalls?: number; prefixes?: number; sections?: number; headquarters?: number; gridSquares?: number; states?: number; exchangeBandMultipliers?: number; rdaDistricts?: number; oblasts?: number; total: number };
+type Score = { qsos: number; points: number; countries: number; zones: number; multipliers?: number; uniqueCalls?: number; prefixes?: number; sections?: number; headquarters?: number; gridSquares?: number; states?: number; exchangeBandMultipliers?: number; rdaDistricts?: number; oblasts?: number; total: number; scoringComplete?: boolean; scoringLimitations?: string[] };
 type ContestBandDefinition = { id: string; lowHz: number; highHz: number; value: number };
 type ContestSurfaceMode = "CW" | "SSB" | "RTTY" | "AM" | "FM";
 type PythonContestExportFormat = "cabrillo" | "adif" | "edi";
@@ -351,9 +351,11 @@ function scoreSummary(score: Score | null, pluginID?: string) {
     : pluginID === "iaru_hf" ? [`${score.headquarters ?? 0} headquarters`, `${score.zones} zones`]
     : pluginID?.startsWith("cq_ww_") ? [`${score.countries} countries`, `${score.zones} zones`]
     : [`${score.multipliers ?? 0} multipliers (plugin)`];
+  if (score.scoringComplete === false) multiplierLabels.push(...(score.scoringLimitations ?? ["Some scoring information is unavailable."]));
   return { claimedScore: score.total, qsos: score.qsos, points: score.points,
+    ...(score.scoringComplete === false ? {scoringComplete:false} : {}),
     multipliers: score.multipliers ?? score.countries + score.zones, multiplierLabels,
-    multiplierDisplayLabels: multiplierLabels, sourceVerification: "verified" as const };
+    multiplierDisplayLabels: multiplierLabels, sourceVerification: score.scoringComplete === false ? "unverified" as const : "verified" as const };
 }
 
 function sameFields(left: Record<string, string>, right: Record<string, string>) {
@@ -2318,7 +2320,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const entryMultiplierCurrent = !configuredClient && frequencyHz === projection.frequencyHz &&
       ["callsign", "other_2"].every(id => (currentFields[id] ?? "").trim().toUpperCase() === (scoredFields[id] ?? "").trim().toUpperCase());
     const reservedSerial = projection.reservedSerial ?? null;
-    const visibleHostFields = projection.fields.filter(field => field.visible);
+    const visibleHostFields = projection.fields.filter(field => field.visible || reservedSerial !== null &&
+      field.id === projection.allocatedSerialFieldID).map(field => ({ ...field,
+      label: field.label.trim() || (field.id === "callsign" ? "Callsign" : field.id === "sent" ? "Sent report"
+        : field.id === "receive" ? "Received report" : field.id === projection.allocatedSerialFieldID ? "Sent serial" : "Exchange"),
+    }));
     const reportFields = visibleHostFields.filter(field => field.id === "sent" || field.id === "receive");
     const exchangeFields = visibleHostFields.filter(field => field.id !== "callsign" && field.id !== "sent" && field.id !== "receive");
     const receivedExchangeFields = exchangeFields.filter(field => !field.readOnly);
@@ -2352,7 +2358,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         headingDegrees:entryPathMetrics?.headingDegrees ?? pathContext?.headingDegrees ?? callContext?.headingDegrees ?? null,
         longPathHeadingDegrees:entryPathMetrics?.longPathHeadingDegrees ?? pathContext?.longPathHeadingDegrees ?? callContext?.longPathHeadingDegrees ?? null,
         distanceKm:entryPathMetrics?.distanceKm ?? pathContext?.distanceKm ?? callContext?.distanceKm ?? null, qsos:projection.score.qsos,
-        multipliers:projection.score.multipliers ?? projection.score.countries + projection.score.zones, total:projection.score.total},
+        multipliers:projection.score.multipliers ?? projection.score.countries + projection.score.zones, total:projection.score.total,
+        ...(projection.score.scoringComplete === false ? {scoringComplete:false} : {})},
       session: { name: activeSessionName, ruleName: projection.pluginName ?? projection.pluginID, mode: projection.mode },
       draft: {
         draftID: projection.draftID, revision: surfaceDraftRevision, callsign: currentFields.callsign ?? "",
@@ -2368,8 +2375,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
           : {state:"unchecked" as const,reason:"Awaiting the authoritative group duplicate check."}
           : { state: projection.duplicateChecking === false ? "unchecked" : projection.dupe ? "duplicate" : "clear", reason: projection.duplicateChecking === false
           ? "Duplicate checking disabled." : projection.dupe ? projection.dupeExplanation ?? "Worked in this contest." : "Clear for this contest." },
-        validation: { errors: [], warnings: !(currentFields.callsign ?? "").trim() || projection.countryResolved
-          ? [] : ["Country is unresolved; scoring credit may be zero."] },
+        validation: { errors: [], warnings: [...(projection.score.scoringLimitations ?? []),
+          ...(!(currentFields.callsign ?? "").trim() || projection.countryResolved
+          ? [] : ["Country is unresolved; scoring credit may be zero."])] },
         reservedSerial,exchangeWarnings:projection.exchangeWarnings??[],
         ...(entryMultiplierCurrent && projection.entryMultiplierStatus ? {multiplierStatus:projection.entryMultiplierStatus} : {}),
       },
@@ -2532,8 +2540,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     const reportState=rtcReportState(rtcStatus);
     unavailable["score-reporting"] = { schemaVersion: 1, status: "ready", score: scoreView,
       intervalMinutes: rtcStatus?.interval_minutes??Math.max(1,Math.min(60,Number(setup.preferences.rtcIntervalMinutes)||2)),
-      reportingEnabled: rtcStatus?.enabled===true, availability: contestingTest?"unavailable":"available",
-      reason: "HTTPS RTC posting is separate from local score display and N1MM UDP score packets.", service:rtcService,
+      reportingEnabled: rtcStatus?.enabled===true, availability: contestingTest||score?.scoringComplete===false?"unavailable":"available",
+      reason: score?.scoringComplete===false?"Score reporting is unavailable while this score is partial.":"HTTPS RTC posting is separate from local score display and N1MM UDP score packets.", service:rtcService,
       username:String(setup.preferences.rtcUsername??""),credentialSaved:rtcCredentialSaved,reportState,lastOutcome:rtcOutcome,
       nextAttempt:rtcStatus?.next_attempt??null,
       services: [
@@ -2890,6 +2898,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         else throw new Error("The callsign candidate set is unavailable.");
         return;
       case "score_configure": {
+        if (action.params.enabled && projection?.score.scoringComplete === false) throw new Error("This score is partial; score reporting is unavailable.");
         const urls={hamscore:"https://hamscore.com/postxml/",contestonlinescore:"https://contestonlinescore.com/post/"} as const;
         if(action.params.enabled&&(!action.params.username.trim()||(!action.params.password&& !rtcCredentialSaved)))
           throw new Error("Save the scoreboard username and password before enabling reports.");
@@ -2911,6 +2920,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
         setRTCStatus(status as RTCStatus);return;
       }
       case "score_send_now": {
+        if (projection?.score.scoringComplete === false) throw new Error("This score is partial; score reporting is unavailable.");
         const status=await request("contest_rtc_send_now");setRTCStatus(status as RTCStatus);return;
       }
       case "log_import_adif": {

@@ -27,13 +27,13 @@ export function ContestCandidates({ candidates, disabled, onSelect, className, s
 }
 
 type Score = { claimedScore: number; qsos: number; points: number; multipliers: number;
-  multiplierLabels: string[]; multiplierDisplayLabels?: string[]; sourceVerification: string };
+  multiplierLabels: string[]; multiplierDisplayLabels?: string[]; sourceVerification: string; scoringComplete?: boolean };
 export function ContestScoreSummary({ score, detached = false }: { score: Score | null; detached?: boolean }) {
   const labels = detached ? score?.multiplierDisplayLabels ?? []
     : score?.multiplierLabels.length ? (score.multiplierDisplayLabels?.length ? score.multiplierDisplayLabels : score.multiplierLabels) : [];
   if (detached && !score) return <p>No score available.</p>;
   return <><dl>{[
-    ["Claimed score", score?.claimedScore.toLocaleString() ?? "—"], ["QSOs", score?.qsos ?? "—"],
+    [score?.scoringComplete === false ? "Known score (partial)" : "Claimed score", score?.claimedScore.toLocaleString() ?? "—"], ["QSOs", score?.qsos ?? "—"],
     ["Points", score?.points ?? "—"], ["Multipliers", score?.multipliers ?? "—"],
   ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
     <div className={detached ? "contest-surface-results" : "contest-multipliers"}>

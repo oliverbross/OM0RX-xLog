@@ -54,3 +54,12 @@ it("shares score values while preserving empty and repeated multiplier presentat
   view.rerender(<ContestScoreSummary score={null}/>);
   expect(screen.getByText("No multipliers recorded.")).toBeTruthy();
 });
+
+it("labels incomplete scoring as a known partial total", () => {
+  render(<ContestScoreSummary score={{ claimedScore:7,qsos:1,points:7,multipliers:1,
+    multiplierLabels:["Brazilian UF is unavailable"],multiplierDisplayLabels:["Brazilian UF is unavailable"],
+    sourceVerification:"unverified",scoringComplete:false }} detached/>);
+  expect(screen.getByText("Known score (partial)")).toBeTruthy();
+  expect(screen.getByText("Brazilian UF is unavailable")).toBeTruthy();
+  expect(screen.queryByText("Claimed score")).toBeNull();
+});

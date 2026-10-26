@@ -288,7 +288,7 @@ function ScoreReporting({ projection, projectionRevision, send }: { projection: 
       <p>Review the current Python-owned score and the scoreboard settings required by the original workflow.</p></header>
     <div className="contest-score-reporting-summary" aria-label="Current contest score">
       <div><span>QSOs</span><strong>{score?.qsos ?? "—"}</strong></div><div><span>Points</span><strong>{score?.points ?? "—"}</strong></div>
-      <div><span>Multipliers</span><strong>{score?.multipliers ?? "—"}</strong></div><div><span>Claimed score</span><strong>{score?.claimedScore ?? "—"}</strong></div>
+      <div><span>Multipliers</span><strong>{score?.multipliers ?? "—"}</strong></div><div><span>{score?.scoringComplete===false?"Known score (partial)":"Claimed score"}</span><strong>{score?.claimedScore ?? "—"}</strong></div>
     </div>
     <fieldset disabled={pending||projection.availability!=="available"} aria-describedby="rtc-reporting-status"><legend>Online scoreboard</legend>
       <label><input aria-label="Periodically send XML score" type="checkbox" checked={projection.reportingEnabled}
@@ -892,7 +892,7 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
         aria-label={`${key} ${label}`} onClick={()=>operatorKey(key,operator.focusedField)}><kbd>{key}:</kbd> <span>{label}</span></button>;})}</div></details>}
         {operator&&!operator.outputAvailable&&!phoneMode&&<p role="status">{operator.outputUnavailableReason}</p>}</>}
     </div></div>
-    <div className="contest-surface-contact-footer"><div className="contest-surface-contact-path"><div aria-label="Contact heading, long path and distance">{projection.manual?.headingDegrees==null?"—":Math.round(projection.manual.headingDegrees)%360}° Hdg · LP {projection.manual?.longPathHeadingDegrees==null?"—":Math.round(projection.manual.longPathHeadingDegrees)%360}° / distance {projection.manual?.distanceKm==null?"—":Math.round(projection.manual.distanceKm).toLocaleString()} km</div><div aria-label="Country and zones">{projection.manual?.country??"—"} cq:{projection.manual?.cqZone??"—"} itu:{projection.manual?.ituZone??"—"}</div></div><output aria-label="QSOs and multipliers"><span>QSO / mults</span><strong>{projection.manual?.qsos??"—"}/{projection.manual?.multipliers??"—"}</strong></output><output aria-label="Score"><span>Score</span><strong>{projection.manual?.total??"—"}</strong></output></div>
+    <div className="contest-surface-contact-footer"><div className="contest-surface-contact-path"><div aria-label="Contact heading, long path and distance">{projection.manual?.headingDegrees==null?"—":Math.round(projection.manual.headingDegrees)%360}° Hdg · LP {projection.manual?.longPathHeadingDegrees==null?"—":Math.round(projection.manual.longPathHeadingDegrees)%360}° / distance {projection.manual?.distanceKm==null?"—":Math.round(projection.manual.distanceKm).toLocaleString()} km</div><div aria-label="Country and zones">{projection.manual?.country??"—"} cq:{projection.manual?.cqZone??"—"} itu:{projection.manual?.ituZone??"—"}</div></div><output aria-label="QSOs and multipliers"><span>QSO / mults</span><strong>{projection.manual?.qsos??"—"}/{projection.manual?.multipliers??"—"}</strong></output><output aria-label="Score"><span>{projection.manual?.scoringComplete===false?"Score (partial)":"Score"}</span><strong>{projection.manual?.total??"—"}</strong></output></div>
     </section>;
 }
 function Check({ projection, disabled, projectionRevision, receipts, send }: { projection: any; disabled: boolean;
@@ -958,7 +958,7 @@ function Statistics({ projection }: { projection: ContestStatisticsSurfaceProjec
         <th scope="row">{row.band}</th><td>{row.qsos.toLocaleString()}</td><td>{row.dupes?.toLocaleString()??"—"}</td><td>{row.points.toLocaleString()}</td>
         <td>{row.zones.toLocaleString()}</td><td>{row.countries.toLocaleString()}</td>
       </tr>)}</tbody></table></div>
-      <footer className="contest-surface-statistics-score"><span>Claimed score</span><strong>{projection.score?.claimedScore.toLocaleString()??"—"}</strong></footer>
+      <footer className="contest-surface-statistics-score"><span>{projection.score?.scoringComplete===false?"Known score (partial)":"Claimed score"}</span><strong>{projection.score?.claimedScore.toLocaleString()??"—"}</strong></footer>
     </section>;
   }
   const rows = [...projection.rows, projection.total];
