@@ -1,5 +1,8 @@
 # OM0RX-xLog roadmap
 
+Current consolidated planning entry point: [N1MM Next Level master plan](docs/planning/00_N1MM_NEXT_LEVEL_MASTER_PLAN.md).
+The award-directory proposal below is retained as historical scope; NL-33 owns its reconciliation and remaining acceptance.
+
 ## Award-directory cache
 
 The spot handoff already recognizes and logs structured POTA, SOTA, IOTA, WWFF and castle references. The next reference-data stage will add a local searchable directory cache for each programme so xLog can validate a reference and enrich it with its official name and coordinates.

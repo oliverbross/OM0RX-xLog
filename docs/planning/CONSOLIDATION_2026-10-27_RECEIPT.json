@@ -1,0 +1,296 @@
+{
+  "dateDarwin": "2026-10-27",
+  "sourceBeforeDocumentation": "03cf98ef78675901cf1ca96c0ddfb4190b6538a9",
+  "applicationSource": "079570505b06f0a5aba403aa6105909148652c91",
+  "applicationCodeEquivalent": true,
+  "gates": {
+    "frontend": {
+      "exit": 0,
+      "logSHA256": "234cb079202457566b992d478d6f5bde6cd829518d43f3a06c7a6c8f4f93d50f",
+      "summary": {
+        "vitestTests": 4529,
+        "vitestFiles": 307,
+        "nodeTests": 2
+      }
+    },
+    "python": {
+      "exit": 0,
+      "logSHA256": "03b789b7a6c3432d8429d8212968d81239f69fea0bed87e9b55d2f07da4d3520",
+      "summary": {
+        "tests": 408
+      }
+    },
+    "swift": {
+      "exit": 0,
+      "logSHA256": "a48a7080231023c8a90946bb64c73f189e1c285323e85d67b59e2cbf85ede393",
+      "summary": {
+        "xctestSuites": [
+          {
+            "name": "XStationIntegrationTests.xctest",
+            "executed": 23,
+            "skipped": 0,
+            "failures": 0
+          },
+          {
+            "name": "XLogPrototypeTests.xctest",
+            "executed": 520,
+            "skipped": 6,
+            "failures": 0
+          },
+          {
+            "name": "XContestStoreTests.xctest",
+            "executed": 83,
+            "skipped": 0,
+            "failures": 0
+          },
+          {
+            "name": "XContestCoreTests.xctest",
+            "executed": 227,
+            "skipped": 0,
+            "failures": 0
+          },
+          {
+            "name": "XClusterIntegrationTests.xctest",
+            "executed": 78,
+            "skipped": 0,
+            "failures": 0
+          },
+          {
+            "name": "XCatIntegrationTests.xctest",
+            "executed": 193,
+            "skipped": 0,
+            "failures": 0
+          },
+          {
+            "name": "XCWCoreTests.xctest",
+            "executed": 30,
+            "skipped": 0,
+            "failures": 0
+          }
+        ],
+        "swiftTestingSummaries": [],
+        "skipReasons": [
+          "Opt-in synthetic 68k full-snapshot/foreground contention benchmark",
+          "Opt-in synthetic 68k remote import benchmark",
+          "Opt-in synthetic bounded 68k merge/foreground benchmark",
+          "Real browser/LiveWorker acceptance is opt-in.",
+          "Set XLOG_SCP_LIVE_TEST=1 for the explicit provider acceptance check.",
+          "Windows Credential Manager requires a native Windows runner."
+        ]
+      }
+    },
+    "core": {
+      "exit": 0,
+      "logSHA256": "ac031079a749bb7c6eed6c7e69e54533e0f0b7fe96c8bf588ab25627620ab078",
+      "summary": {
+        "xctestSuites": [
+          {
+            "name": "XContestStoreTests.xctest",
+            "executed": 83,
+            "skipped": 0,
+            "failures": 0
+          },
+          {
+            "name": "XContestCoreTests.xctest",
+            "executed": 227,
+            "skipped": 0,
+            "failures": 0
+          }
+        ],
+        "swiftTestingSummaries": [
+          "Test run with 332 tests in 45 suites passed after 21.072 seconds.",
+          "Test run with 0 tests in 0 suites passed after 0.001 seconds.",
+          "Test run with 8 tests in 2 suites passed after 0.010 seconds."
+        ],
+        "skipReasons": []
+      }
+    },
+    "rust": {
+      "exit": 0,
+      "logSHA256": "2fc0e908e1a3ad39eebae64c09e6d906b92c733562c558a2371a5a3c9dc85116",
+      "summary": {
+        "testResults": [
+          "test result: ok. 889 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.88s",
+          "test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s"
+        ]
+      }
+    },
+    "worker": {
+      "exit": 0,
+      "logSHA256": "07f1d1738ea400784073b4edef30bd41d5fd16168032c08bbeb30072929b8f02",
+      "summary": {
+        "tests": 8
+      }
+    },
+    "build": {
+      "exit": 0,
+      "logSHA256": "f738dab1a2dc161a42f4f88395e4ed0ad792070adb2976e9a67955e90528d23a",
+      "summary": {
+        "typescript": true,
+        "vite": true,
+        "windowGraphs": 24
+      }
+    }
+  },
+  "exactPackagedPython": {
+    "passed": true,
+    "tests": 44,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "imports": {
+      "contest_host.host": "5afbbf289b72d3aa2b1367021ca255c1e4804e09a82de77525c4aacc5ab8357b",
+      "contest_host.analytics": "6e0ea395d1dd8d749dc67931f059c16da4833213df2ddff5c7acea7de248d5cd",
+      "contest_host.multipliers": "9d1db49403a08d0a694e9598b2d049f60266104a8347f518a87b5177f89529f2",
+      "contest_host.store": "6086f6b1df3f15d8290aa47d6a3560cfd82a4ebc57da472e47afb79366160ec0"
+    },
+    "disposableRemoved": true
+  },
+  "applicationBundles": [
+    {
+      "path": "/Applications/OM0RX-xLog.app",
+      "version": "1.3.36",
+      "source": "079570505b06f0a5aba403aa6105909148652c91",
+      "entries": 4075,
+      "componentHashes": 8,
+      "pythonSourceFilesCompared": 171,
+      "signature": "Developer ID / hardened runtime / deep strict verified",
+      "cwEnabled": false
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.3.36/OM0RX-xLog.app",
+      "version": "1.3.36",
+      "source": "079570505b06f0a5aba403aa6105909148652c91",
+      "entries": 4075,
+      "componentHashes": 8,
+      "pythonSourceFilesCompared": 171,
+      "signature": "Developer ID / hardened runtime / deep strict verified",
+      "cwEnabled": false
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app",
+      "version": "1.3.36",
+      "source": "079570505b06f0a5aba403aa6105909148652c91",
+      "entries": 4075,
+      "componentHashes": 8,
+      "pythonSourceFilesCompared": 171,
+      "signature": "Developer ID / hardened runtime / deep strict verified",
+      "cwEnabled": false
+    }
+  ],
+  "cleanup": {
+    "applied": true,
+    "paths": [
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/out",
+        "files": 12757,
+        "logicalBytes": 1698760391,
+        "directories": 1619,
+        "ownerUID": 501,
+        "openHandleCheck": "none"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/apple",
+        "files": 7565,
+        "logicalBytes": 1680586093,
+        "directories": 245,
+        "ownerUID": 501,
+        "openHandleCheck": "none"
+      },
+      {
+        "path": "/Users/oliver/.codex/worktrees/cluster-classic/OM0RX-xLog",
+        "files": 11172,
+        "logicalBytes": 257774201,
+        "directories": 765,
+        "ownerUID": 501,
+        "openHandleCheck": "none"
+      }
+    ],
+    "totals": {
+      "paths": 3,
+      "files": 31494,
+      "logicalBytes": 3637120685
+    },
+    "kept": [
+      "installed 1.3.36",
+      "verified immutable 1.3.36 rollback",
+      "staged signed 1.3.36",
+      "CW worktree/source/dependencies",
+      "all 7 stashes",
+      "private Git bundle",
+      "release evidence",
+      "all protected user-data/backups"
+    ]
+  },
+  "recovery": {
+    "refs": [
+      {
+        "ref": "refs/recovery/consolidation-20261027/stash-0-678beec8",
+        "sha": "678beec871217607e5e61202fb2ea6d92490869a",
+        "label": "On main: Analytics WIP preserved for urgent queued-transition 1.3.34"
+      },
+      {
+        "ref": "refs/recovery/consolidation-20261027/stash-1-b2c85bc1",
+        "sha": "b2c85bc1f92aecc71def6cda8bfebc8f9cf98bb9",
+        "label": "On main: Parent analytics WIP preserved for urgent mode-switch release"
+      },
+      {
+        "ref": "refs/recovery/consolidation-20261027/stash-2-2afc5889",
+        "sha": "2afc5889937d02495d74342581cb15f939c784af",
+        "label": "On codex/contest-main-layout: PDF review evidence from retired checkout"
+      },
+      {
+        "ref": "refs/recovery/consolidation-20261027/stash-3-848d46b1",
+        "sha": "848d46b13b983ffd103ddf7292ce33f2c5c20bb7",
+        "label": "On codex/implement-contest-recorder-m0m4: Recorder review evidence from retired checkout"
+      },
+      {
+        "ref": "refs/recovery/consolidation-20261027/stash-4-b93b0fa0",
+        "sha": "b93b0fa0fee397ace95f82cc13eed9e8fb6f33f8",
+        "label": "On codex/settings-session-safety: Retired settings draft preserved during canonical main consolidation"
+      },
+      {
+        "ref": "refs/recovery/consolidation-20261027/stash-5-a7c3dfa7",
+        "sha": "a7c3dfa7f36f67589a9f84fa87405ecbc91dfee3",
+        "label": "On main: contest-recorder M0-M4 checkpoint before authorized 1.3.17 Checking hotfix 2026-10-25"
+      },
+      {
+        "ref": "refs/recovery/consolidation-20261027/stash-6-07afdd21",
+        "sha": "07afdd217bf83afcd8dfbebcd566f2f474ccb185",
+        "label": "On main: classic cluster appearance workstream"
+      },
+      {
+        "ref": "refs/recovery/consolidation-20261027/cw-skimmer",
+        "sha": "3a28134caa6c6c981c5f2a564fa22a69d1bc7778",
+        "label": "cw-skimmer"
+      },
+      {
+        "ref": "refs/recovery/consolidation-20261027/classic-integrated",
+        "sha": "3fae3c4e0b87f46337f98f81d25e99375076317c",
+        "label": "classic-integrated"
+      }
+    ],
+    "bundle": "/Users/oliver/Documents/Backups/OM0RX-xLog/Consolidation-20261027/all-source-and-stashes.bundle",
+    "sha256": "ccb4db92a6e8593cd017fc47fb736d2618c43b7a39c42255466581bb92fe9e02",
+    "bytes": 49181199,
+    "verified": true,
+    "includesStashUntrackedParents": true,
+    "scope": "Private Git source/review backup only; no production data snapshot or app replacement."
+  },
+  "remainingWorkOwnerRows": 33,
+  "historicalEvidenceRecords": 643,
+  "historicalSourceOccurrences": 834,
+  "documentAndWiringChecks": {
+    "localLinksChecked": 863,
+    "workOwnerRows": 33,
+    "stashesUnchanged": true,
+    "recoveryRefsVerified": 9,
+    "applicationCodeUnchanged": true,
+    "freshFrontendContentHashedAssetNamesEmbedded": 174,
+    "scope": "Checks asset-name inventory in signed binary; not an independent reconstruction of every compressed payload byte."
+  },
+  "worktrees": "worktree /Users/oliver/Documents/Projects/OM0RX-xLog\nHEAD 03cf98ef78675901cf1ca96c0ddfb4190b6538a9\nbranch refs/heads/main\n\nworktree /Users/oliver/.codex/worktrees/cw-skimmer/OM0RX-xLog\nHEAD 3a28134caa6c6c981c5f2a564fa22a69d1bc7778\nbranch refs/heads/codex/cw-skimmer",
+  "stashesRetained": 7,
+  "newPackageOrInstallation": false,
+  "productionActions": "None: no production log edits/rescore, manual sync/upload, radio/PTT/RF, recording/playback or app restart."
+}
