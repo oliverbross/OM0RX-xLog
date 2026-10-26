@@ -407,12 +407,16 @@ async fn cw_callsign_request(window:tauri::WebviewWindow,app:tauri::AppHandle,st
         },
         cw_callsign_bridge::Action::Status(operation)=>{
             if cw_contest_callsign::owns(&operation){return tauri::async_runtime::spawn_blocking(move||cw_contest_callsign::status(&operation)).await.map_err(|_|"CW Entry status unavailable.".to_string())?;}
-            if !cw_track_selection::owns(&owner.source_epoch(&operation)?){return Err("This operation does not belong to CW callsign loading.".into());}
+            if !owner.source_epoch(&operation).is_ok_and(|source|cw_track_selection::owns(&source)){
+                return tauri::async_runtime::spawn_blocking(move||cw_callsign_bridge::durable_status(&operation)).await.map_err(|_|"CW receipt read unavailable.".to_string())?;
+            }
             cw_callsign_bridge::project(owner.status(&operation)?)
         },
         cw_callsign_bridge::Action::Reconcile(operation)=>{
             if cw_contest_callsign::owns(&operation){return tauri::async_runtime::spawn_blocking(move||cw_contest_callsign::status(&operation)).await.map_err(|_|"CW Entry status unavailable.".to_string())?;}
-            if !cw_track_selection::owns(&owner.source_epoch(&operation)?){return Err("This operation does not belong to CW callsign loading.".into());}
+            if !owner.source_epoch(&operation).is_ok_and(|source|cw_track_selection::owns(&source)){
+                return tauri::async_runtime::spawn_blocking(move||cw_callsign_bridge::durable_status(&operation)).await.map_err(|_|"CW receipt read unavailable.".to_string())?;
+            }
             tauri::async_runtime::spawn_blocking(move||cw_callsign_bridge::project(owner.reconcile(&operation)?)).await.map_err(|_|"CW action readback failed.".to_string())?
         }
     }

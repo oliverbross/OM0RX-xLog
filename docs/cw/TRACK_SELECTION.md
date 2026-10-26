@@ -141,6 +141,35 @@ This closes the unreadable-journal admission bug; it does not complete native
 process restart, lost-window journal, expired contest intent or receipt-compaction
 recovery acceptance.
 
+## Durable Normal Logging receipt read
+
+When the native source pool or activation coordinator no longer retains the
+original operation, an explicit status/reconcile request can read the existing
+worker's `spot_draft_cw_status`. It accepts only the operation UUID and verifies
+the stored command's CW callsign marker, command/receipt identities, current
+workspace generation and permitted draft-only phase. A general spot receipt
+cannot substitute for a CW receipt. Only the minimal action outcome is returned;
+historical draft content cannot overwrite later operator edits.
+
+This fallback does not start a worker, apply a draft, resolve a current signal,
+release a lease, write a tombstone, tune or dispatch another action. A missing
+receipt remains uncertain; an unfinished live reservation remains active. The
+existing workspace-load recovery can already mark interrupted records uncertain.
+The read does not promote those records to confirmed or clear the UI hold.
+
+Nineteen Swift draft/reservation cases pass, including service replacement,
+retained confirmed receipt, later draft edits, current active reservation,
+interrupted recovery, missing/unrelated records and malformed requests. A
+subsequent focused case also verifies that a changed workspace generation
+refuses the old receipt. Full native Rust validation passed 909 cases; the added
+passive-timeout case separately confirms no module-transition hold and retention
+of the shared worker after a late reply. Renderer worker surfaces cannot call
+the new receipt method directly.
+
+This is source/fixture evidence. Expired contest intents, missing or compacted
+receipts, lost-window journals, operator review of uncertain outcomes and full
+installed process-restart recovery remain open.
+
 ## Track mute
 
 Every live track, including a call-less signal, has a separate native control

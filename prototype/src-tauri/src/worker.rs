@@ -360,7 +360,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "logbook_operator_draft_qsy_clear",
         "logbook_operator_draft_radio_read",
         "logbook_operator_draft_radio_follow",
-        "spot_draft_apply", "spot_draft_status", "spot_draft_stage", "spot_draft_finish", "spot_draft_abandon",
+        "spot_draft_apply", "spot_draft_status", "spot_draft_stage", "spot_draft_finish", "spot_draft_abandon", "spot_draft_cw_status",
         "logbook_contact",
         "logbook_contact_apply",
         "logbook_contact_receipt",
@@ -1121,6 +1121,7 @@ fn request_using(request: Value, session: impl FnOnce() -> Result<Arc<Session>, 
 fn request_blocks_module_transition(request: &Value) -> bool {
     !matches!(request["method"].as_str(), Some(
         "health" | "workspace_status" | "settings_load" |
+        "spot_draft_cw_status" |
         "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot" |
         "spot_bridge_snapshot" | "wsjtx_snapshot" | "fldigi_snapshot" |
         "cluster_snapshot" | "cluster_history" | "cw_decode_snapshot" | "cw_decode_resolve_selection" | "cw_decode_resolve_signal" |
@@ -1225,6 +1226,7 @@ fn request_can_change_station_state(request: &Value) -> bool {
 fn request_is_non_retiring_read(request: &Value) -> bool {
     matches!(request["method"].as_str(), Some(
         "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot" | "cw_decode_snapshot" | "cw_decode_resolve_selection" | "cw_decode_resolve_signal" |
+        "spot_draft_cw_status" |
         "lookup_call" | "logbook_previous" | "logbook_duplicate" |
         "logbook_matrix" | "cluster_history" | "cluster_snapshot" |
         "opportunities_snapshot" | "opportunities_refresh" |
@@ -1297,6 +1299,16 @@ mod tests {
             assert_passive_timeout_preserves_worker(method);
         }
     }
+
+    #[cfg(unix)]
+    #[test]
+    fn cw_durable_receipt_read_is_passive_and_keeps_the_existing_worker() {
+        let request=json!({"method":"spot_draft_cw_status"});
+        assert!(!request_blocks_module_transition(&request));
+        assert!(!request_can_change_station_state(&request));
+        assert_eq!(request_timeout(&request),PASSIVE_READ_TIMEOUT);
+        assert_passive_timeout_preserves_worker("spot_draft_cw_status");
+    }
     #[test]
     fn worker_arguments_compose_runtime_profile_and_local_acceptance() {
         assert_eq!(super::worker_arguments(false, false), Vec::<&str>::new());
@@ -1324,10 +1336,10 @@ mod tests {
     }
     #[test]
     fn native_activation_journal_never_crosses_renderer_surfaces() {
-        for method in ["spot_draft_apply","spot_draft_status","spot_draft_stage","spot_draft_finish","spot_draft_abandon"] {
+        for method in ["spot_draft_apply","spot_draft_status","spot_draft_stage","spot_draft_finish","spot_draft_abandon","spot_draft_cw_status"] {
             let request=serde_json::json!({"id":"native-only","method":method,"params":{}});
             super::validate_request(&request).unwrap();
-            for label in ["main","monitor","log-qso","logbook","world-map","band-maps","dx-cluster","awards","spot-history","callsign-intelligence","settings"] {
+            for label in ["main","cw-decode","contest--cw-decode","contest-setup","monitor","log-qso","logbook","world-map","band-maps","dx-cluster","awards","spot-history","callsign-intelligence","settings"] {
                 assert!(super::validate_surface(label,&request).is_err(),"{label}:{method}");
             }
         }
@@ -2425,6 +2437,7 @@ mod tests {
     fn passive_reads_use_bounded_timeout_without_widening_mutation_policy() {
         for method in [
             "station_snapshot", "station_rotor_snapshot", "rotor_snapshot",
+            "spot_draft_cw_status",
             "lookup_call", "logbook_previous", "logbook_duplicate",
             "logbook_matrix", "cluster_history", "cluster_snapshot",
             "opportunities_snapshot", "opportunities_refresh",

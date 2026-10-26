@@ -174,6 +174,15 @@ action recovery remains open. Other chats report installed 1.3.36 accepted from
 isolated and unpackaged; no source or live qualification is implied by that
 contest-release acceptance.
 
+The Normal Logging callsign status/reconcile path now falls back to a minimal
+read of the existing worker's durable CW-marked draft receipt when the original
+native source pool is gone. It does not resubmit the action or expose/replace a
+historical draft. Missing/uncertain receipts remain held. Nineteen Swift
+draft/reservation cases, a subsequent workspace-generation refusal case, 909
+full native Rust cases and the separately added passive-timeout case pass.
+Complete contest, missing-journal and installed restart recovery remain open;
+see [track action recovery](TRACK_SELECTION.md).
+
 ## Native compute contract v1
 
 One C++17 host using ONNX Runtime's C API via its RAII headers. One shared

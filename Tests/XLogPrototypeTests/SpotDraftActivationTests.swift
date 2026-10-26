@@ -95,6 +95,59 @@ struct SpotDraftActivationTests {
         }
     }
 
+    @Test("CW receipt-only recovery survives worker replacement and cannot replace later draft edits")
+    func cwReceiptReadAfterRestart() throws {
+        try fixture { service, root in
+            var request=try command(snapshot(service));request["spot"]=cwSelection()
+            let applied=try service.handle(method:"spot_draft_apply",params:request)
+            var finish=try control(request,applied);finish["outcome"]="confirmed"
+            _ = try service.handle(method:"spot_draft_finish",params:finish)
+            let db=try service.openedDatabase(),current=try db.operatorDraft(initial:QSO(call:"",band:"20m",mode:"CW"))
+            var edited=current.qso;edited.call="K2XYZ";edited.comment="Later operator text"
+            _ = try db.applyOperatorDraft(OperatorDraftMutation(operationID:UUID(),draftID:current.qso.id,
+                expectedRevision:current.revision,action:.replace,qso:edited),nextDraft:QSO(call:"",band:"20m",mode:"CW"))
+            db.close()
+            let replacement=LiveLogbookMethods(supportDirectory:root,inheritNativePreferences:false)
+            defer {try? replacement.openedDatabase().close()}
+            let before=try snapshot(replacement)
+            let result=try replacement.handle(method:"spot_draft_cw_status",params:["operationID":try #require(request["operationID"])])
+            #expect(result["phase"] as? String == "confirmed")
+            #expect(result["reservationActive"] as? Bool == false)
+            #expect(result["draftOnly"] as? Bool == true);#expect(result["tuneConfirmed"] as? Bool == false)
+            #expect(result["rotor"] as? String == "not_requested");#expect(result["draft"]==nil)
+            #expect(NSDictionary(dictionary:before).isEqual(to:try snapshot(replacement)))
+            #expect((before["qso"] as? [String:Any])?["call"] as? String == "K2XYZ")
+            try JSONEncoder().encode(UUID()).write(to:replacement.workspaceDirectoryURL.appendingPathComponent("edit-generation.json"),options:.atomic)
+            #expect(throws:WorkerFailure.self){try replacement.handle(method:"spot_draft_cw_status",params:["operationID":try #require(request["operationID"])])}
+        }
+    }
+
+    @Test("CW receipt-only read withholds missing, unrelated, malformed and unfinished outcomes")
+    func cwReceiptReadBounds() throws {
+        try fixture { service, root in
+            let missing=try service.handle(method:"spot_draft_cw_status",params:["operationID":UUID().uuidString])
+            #expect(missing["phase"] as? String == "uncertain");#expect(missing["reservationActive"] as? Bool == false)
+            for params:[String:Any] in [["operationID":"bad"],["operationID":UUID().uuidString,"generation":UUID().uuidString],
+                ["operationID":"00000000-0000-0000-0000-000000000000"],["operationID":UUID().uuidString,"outcome":"confirmed"]] {
+                #expect(throws:WorkerFailure.self){try service.handle(method:"spot_draft_cw_status",params:params)}
+            }
+            let normal=try command(snapshot(service)),applied=try service.handle(method:"spot_draft_apply",params:normal)
+            #expect(throws:WorkerFailure.self){try service.handle(method:"spot_draft_cw_status",params:["operationID":try #require(normal["operationID"])])}
+            var finish=try control(normal,applied);finish["outcome"]="failed"
+            _ = try service.handle(method:"spot_draft_finish",params:finish)
+            var cw=try command(snapshot(service));cw["spot"]=cwSelection()
+            _ = try service.handle(method:"spot_draft_apply",params:cw)
+            let active=try service.handle(method:"spot_draft_cw_status",params:["operationID":try #require(cw["operationID"])])
+            #expect(active["phase"] as? String == "draft_applied");#expect(active["reservationActive"] as? Bool == true)
+            #expect(try service.openedDatabase().spotDraftActivationActive)
+            try service.openedDatabase().close()
+            let replacement=LiveLogbookMethods(supportDirectory:root,inheritNativePreferences:false)
+            defer {try? replacement.openedDatabase().close()}
+            let recovered=try replacement.handle(method:"spot_draft_cw_status",params:["operationID":try #require(cw["operationID"])])
+            #expect(recovered["phase"] as? String == "uncertain");#expect(recovered["reservationActive"] as? Bool == false)
+        }
+    }
+
     @Test("Apply is atomic, same-ID retries retain receipt, and a stage grants one send only")
     func replayAndStages() throws {
         try fixture { service, _ in

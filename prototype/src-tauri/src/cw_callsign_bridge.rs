@@ -41,6 +41,24 @@ pub fn project(value:Value)->Result<Value,String> {
     }
     Ok(result)
 }
+fn durable_status_with(operation:&str, read:impl FnOnce(Value)->Result<Value,String>)->Result<Value,String> {
+    id(operation)?;
+    let value=read(json!({"operationID":operation}))?;
+    if value["operationId"]!=operation{return Err("CW receipt read did not match the original action.".into());}
+    project(value)
+}
+/// Native-only read of an existing worker's durable CW-marked draft receipt.
+/// Missing/uncertain outcomes stay held. No source resolution or effect replay.
+pub fn durable_status(operation:&str)->Result<Value,String> {
+    let generation=crate::worker::generation();crate::worker::require_existing_generation(generation)?;
+    durable_status_with(operation,|params|{
+        let request=json!({"id":format!("cw-receipt-{}",uuid::Uuid::new_v4()),"method":"spot_draft_cw_status","params":params});
+        let response=crate::worker::request_existing_generation(request.clone(),generation)?;
+        if response["id"]!=request["id"] || response["ok"]!=true || !response["error"].is_null()
+            || crate::worker::generation()!=generation{return Err("CW receipt read is unavailable. No action was repeated.".into());}
+        Ok(response["result"].clone())
+    })
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -60,5 +78,19 @@ mod tests {
         let ack=json!({"operationId":operation,"phase":"confirmed","draftOnly":true,"tuneConfirmed":false,"reservationActive":false,"rotor":"not_requested","draft":{"qso":{"call":"PRIVATE"}}});
         let projected=project(ack.clone()).unwrap();assert!(projected.get("draft").is_none());
         let mut wrong=ack;wrong["tuneConfirmed"]=json!(true);assert!(project(wrong).is_err());
+    }
+    #[test]
+    fn durable_read_only_uses_original_identity_and_never_promotes_missing_or_unrelated_receipts() {
+        let operation=uuid::Uuid::new_v4().to_string();
+        let receipt=json!({"operationId":operation,"phase":"confirmed","reservationActive":false,"draftOnly":true,"tuneConfirmed":false,"rotor":"not_requested"});
+        let result=durable_status_with(&operation,|params|{assert_eq!(params,json!({"operationID":operation}));Ok(receipt.clone())}).unwrap();
+        assert_eq!(result,json!({"operationId":operation,"phase":"confirmed","reservationActive":false}));
+        let mut missing=receipt.clone();missing["phase"]=json!("uncertain");
+        assert_eq!(durable_status_with(&operation,|_|Ok(missing)).unwrap()["phase"],"uncertain");
+        let mut wrong=receipt.clone();wrong["operationId"]=json!(uuid::Uuid::new_v4().to_string());
+        assert!(durable_status_with(&operation,|_|Ok(wrong)).is_err());
+        let mut unrelated=receipt;unrelated["draftOnly"]=json!(false);
+        assert!(durable_status_with(&operation,|_|Ok(unrelated)).is_err());
+        assert!(durable_status_with("bad",|_|panic!("invalid identity reached worker")).is_err());
     }
 }
