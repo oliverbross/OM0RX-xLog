@@ -1,5 +1,15 @@
 # Wave 1 — Productivity source acceptance
 
+## Authorized candidate delivery follow-up — 27 October 2026
+
+The user subsequently authorized finishing native delivery/acceptance, without replacing the production installation. The original source checkpoint and results below remain historical evidence.
+
+- Note-recovery correction: `d84d2698`. Unreadable data has a distinct blocking error; ordinary notes reads cannot clear it. Raw data is retained until an explicit archive action has copied and verified the exact bytes. One focused malformed-record regression was added; the five notes/submission tests passed.
+- Native persistent rehearsal boundary: `388787379d835930f0634625830dc1ebc8111a20`. The shipping app accepts an explicit `--offline-contest-acceptance=<canonical-private-temp-root>` coordinate with a versioned UUID marker. It uses separate persistent WK storage/native identity and the existing restricted Swift runtime with the real bundled Python lane. Station/provider/CW output and startup are blocked; no mock shell or production preferences are used. Fifteen Swift profile tests and 890 Rust unit tests passed. An initial Rust fixture had nonprivate directory permissions and was corrected; the production guard was retained.
+- Unique candidate version: **1.3.37**, based on the exact implementation source above. Build only from the clean canonical `main` version commit containing this entry: `XLOG_CW_EXPERIMENTAL=0 CARGO_BUILD_JOBS=2 bash prototype/scripts/package-macos.sh`. The packager embeds that exact version-commit HEAD in native/distribution/Python/CW metadata. The post-build receipt will record the full packaging commit, signature and hashes before delivery is accepted.
+- Native graphical, Save-dialog, restart and combined-workload results are pending the single signed candidate. The production installation and 1.3.36 rollback remain untouched; Wave 2 is stopped.
+- Relevant source gates for this batch: 890 Rust unit tests and 15 Swift runtime-profile tests passed; Python application sources are unchanged from the accepted 422-case checkpoint. In the 338-case selected Vitest run, nine files passed all 144 cases, while the workspace file had 29 cascading failures after a timeout/publication wait. The unchanged workspace file then passed all 194 cases in isolation (`--maxWorkers=1`); its existing async-`act` warning remains recorded. These separate outcomes are not described as a clean first combined pass.
+
 27 October 2026, Australia/Darwin. This record closes the selected **source implementation** checkpoint and retains the unperformed delivery/physical gates. Wave 2 has not started.
 
 ## Identity and ownership
