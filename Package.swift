@@ -68,7 +68,7 @@ let portableProducts: [Product] = [
 ]
 var prototypeSupportDependencies: [Target.Dependency] = [
     .byName(name: liveCoreName), "CSQLitePrototype", "CPlatformVault",
-    "XClusterIntegrationCore", "XStationIntegrationCore", "XContestCore", "XContestStore",
+    "XClusterIntegrationCore", "XStationIntegrationCore", "XContestCore", "XContestStore", "XCWCore",
 ]
 prototypeSupportDependencies.append(contentsOf: portableCrypto)
 prototypeSupportDependencies.append(contentsOf: liveIntegrationDependencies)
