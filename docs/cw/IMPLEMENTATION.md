@@ -144,6 +144,20 @@ existing filter/timing contract; native CTest 2/2 and the real-child/wire harnes
 and inferred all tracks, but still coalesced 48 jobs, so capacity acceptance
 remains false. Exact measurements are in [signal diagnostics](SIGNAL_DIAGNOSTICS.md).
 
+Merge `014f37c7` brings accepted canonical 1.3.34 through `38295c6b` into this
+isolated branch, including deferred contest-marker cleanup and queued module
+switches. It does not merge CW into canonical or create an application candidate.
+Integration validation passed: **908 native Rust tests**, **57 focused frontend
+cases**, TypeScript/Vite/all configured window graph checks, and the selected
+Swift CW/session, local ingress, cluster bridge, spot retirement, shutdown and
+sync-journal suites (78 XCTest plus 27 Swift Testing cases). CW Decode startup
+remains 303,329 bytes. The pre-existing ContestSCPService Sendable warning remains.
+
+The latest passive Flex v2 run did not establish TCP connectivity. The human
+then confirmed the VPN remained connected and the Flex awake. A further bounded
+passive retry is awaiting coordination with the current live owner; no receive,
+identity or acquisition gate has been bypassed.
+
 ## Native compute contract v1
 
 One C++17 host using ONNX Runtime's C API via its RAII headers. One shared
