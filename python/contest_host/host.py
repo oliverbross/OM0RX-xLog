@@ -503,9 +503,9 @@ def coordination_identity(state):
         "referenceID": state["reference"]["id"], "station": state["station"],
         "settings": state["settings"],
     }
-    return {"pluginID": value["pluginID"], "sourceRevision": value["sourceRevision"],
     if state.get("scoringRevision"):
         value = {**value, "scoringRevision": state["scoringRevision"]}
+    return {"pluginID": value["pluginID"], "sourceRevision": value["sourceRevision"],
             "referenceID": value["referenceID"],
             "coordinationDigest": hashlib.sha256(canonical(value).encode()).hexdigest()}
 
@@ -2224,6 +2224,7 @@ class Host:
                 if state is None:
                     require(expected == 0, "Creation revision must be zero")
                     state = self.new_state(session_id, params)
+                    state["scoringRevision"] = None
                     new_session = True
                 else:
                     self.verify_engine(state)
@@ -2269,7 +2270,6 @@ class Host:
                 self.apply_fields(desk, params)
                 self.clear_received_fields_after_vfo_change(desk, params)
                 self.prefill(desk, reset_cq_ww_zone=(desk.callsign.text().strip().upper() != previous_call))
-                    state["scoringRevision"] = None
             elif method == "focus":
                 require(params.get("field") in INPUTS, "Unknown field")
                 desk.current_widget = params["field"]
@@ -2910,6 +2910,10 @@ class Host:
                 and type(state.get("run")) is bool,
                 "Incomplete persisted session state", "invalid_session")
         identifier(state["sessionID"])
+        require(state.get("scoringRevision") in {None, "26.10.26"}
+                and (state.get("scoringRevision") is None
+                     or state["pluginID"] in {"hadx", "pacc", "rsgb_iota"}),
+                "Unsupported persisted scoring revision", "engine_mismatch")
         require(isinstance(state["draft"].get("fields"), dict)
                 and isinstance(state["draft"].get("id"), str)
                 and type(state["draft"].get("frequencyHz")) is int
@@ -2955,10 +2959,6 @@ class Host:
         settings = deepcopy(params.get("settings", {}))
         require(isinstance(settings, dict), "Settings must be an object")
         apply_canonical_cq_ww_station_zone(plugin_id, station, settings)
-        require(state.get("scoringRevision") in {None, "26.10.26"}
-                and (state.get("scoringRevision") is None
-                     or state["pluginID"] in {"hadx", "pacc", "rsgb_iota"}),
-                "Unsupported persisted scoring revision", "engine_mismatch")
         if plugin_id == "wia_remembrance":
             local_offset = datetime.now().astimezone().utcoffset()
             settings.setdefault("ContestUTCOffsetMinutes",
@@ -3084,6 +3084,9 @@ class Host:
                 "name": text(params.get("name", PLUGINS[plugin_id]), 128),
                 "revision": 0, "engine": "not1mm-python", "pluginID": plugin_id,
                 "sourceRevision": SOURCE_REVISION, "schemaVersion": 1, "station": station, "settings": settings,
+                # Existing sessions have no marker and retain their pinned score.
+                # Setup edits/reopening never opt historical logs into new rules.
+                "scoringRevision": "26.10.26" if plugin_id in {"hadx", "pacc", "rsgb_iota"} else None,
                 "operatingMode": live_mode,
                 "roverLocation": "",
                 "operator": text(params.get("operator", call), 32), "reference": {"id": text(reference["id"]), "countries": countries},
@@ -3129,9 +3132,6 @@ class Host:
         state["draft"]["serial"] = serial
         if state["pluginID"] not in SSA_MT_PLUGINS:
             field = "sent" if state["pluginID"] in SENT_FIELD_SERIAL_PLUGINS else "other_1"
-                # Existing sessions have no marker and retain their pinned score.
-                # Setup edits/reopening never opt historical logs into new rules.
-                "scoringRevision": "26.10.26" if plugin_id in {"hadx", "pacc", "rsgb_iota"} else None,
             state["draft"]["fields"][field] = reserved_sent_exchange(state, serial)
 
     @staticmethod
