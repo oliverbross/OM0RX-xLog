@@ -54,14 +54,16 @@ export function RadioConnectionForm(p: RadioFormProps) {
   const provider = p.profile.provider, hamlib = provider === "hamlib", flex = provider === "direct_flex_lan", tci = provider === "direct_tci";
   const selected = models.find(model => model.manufacturer === p.profile.manufacturer && model.model === p.profile.model)?.id ?? (hamlib && !p.profile.manufacturer ? p.config.model : undefined);
   const connected = radioConnected(p.state), live = p.state?.radio?.snapshot;
-  const confirmedReceivers = connected && p.state?.selection.provider === "direct_tci" && Number.isInteger(live?.tci?.trx_count) && live!.tci.trx_count > 0 && live!.tci.trx_count <= 16 ? live!.tci.trx_count as number : 1;
+  const sameTCITarget = (() => { try { return !p.state?.reconnect_required && new URL(p.state?.tci?.endpoint ?? "").href === new URL(p.tci.endpoint).href; } catch { return false; } })();
+  const confirmedReceivers = connected && sameTCITarget && p.state?.selection.provider === "direct_tci" && Number.isInteger(live?.tci?.trx_count) && live!.tci.trx_count > 0 && live!.tci.trx_count <= 16 ? live!.tci.trx_count as number : 1;
   const configured = !!p.state?.profile || !!p.state?.base_url || !!p.state?.flex || !!p.state?.tci || !!p.state?.hamlib;
   const disabled = !p.state || p.busy || !!p.pending || p.conflict;
   const validPort = (port: number | undefined) => Number.isInteger(port) && port! > 0 && port! <= 65535;
+  const networkReady = (() => { try { const value = new URL(`tcp://${p.config.path}`); return !!value.hostname && validPort(Number(value.port)) && value.pathname === "" && !value.username && !value.password && !value.search && !value.hash; } catch { return false; } })();
   const valid = flex ? !!p.flex.host.trim() && validPort(p.flex.port) && !!p.flex.station_name.trim()
     : tci ? validTCIConfiguration(p.tci)
     : hamlib ? p.config.mode === "external" ? ["127.0.0.1", "localhost", "::1"].includes(p.config.host ?? "") && validPort(p.config.port)
-      : !!p.config.model && (p.config.model === 1 || !!p.config.path?.trim()) && (!p.config.baud || p.config.baud >= 300 && p.config.baud <= 921600)
+      : !!p.config.model && (p.config.model === 1 || !!p.config.path?.trim()) && (!network || networkReady) && (!p.config.baud || p.config.baud >= 300 && p.config.baud <= 921600)
     : /^https:\/\//.test(p.url.trim());
   const needsSave = p.dirty || !p.state?.profile;
   const chooseModel = (id: number) => {
@@ -78,10 +80,11 @@ export function RadioConnectionForm(p: RadioFormProps) {
     p.setTCI({ ...p.tci, endpoint: `${endpoint?.protocol ?? "ws:"}//${host}${suffix}` });
   };
   const path = p.config.path ?? "", separator = path.lastIndexOf(":"), networkHost = separator >= 0 ? path.slice(0, separator) : path, networkPort = separator >= 0 ? path.slice(separator + 1) : "";
+  const liveRoute = ({ direct_agent: "Remote Station Agent", direct_flex_lan: "FlexRadio network", direct_tci: "ExpertSDR TCI", hamlib: "CAT radio" } as Record<string, string>)[p.state?.selection.provider ?? ""];
   return <div className="radio-operator-form" aria-label={`${radioLabel(p.radioId)} setup`}>
     <div className="radio-settings-summary">
       <div><strong>{radioLabel(p.radioId)} · {p.state?.profile?.nickname || p.state?.profile?.model || "Radio setup"}</strong><small>{p.dirty ? "Unsaved changes" : configured ? p.state?.profile?.enabled === false ? "Disabled" : "Configured" : "Not configured"}</small></div>
-      <span className={`live-station-status ${connected ? "is-online" : "is-offline"}`} role="status"><i aria-hidden="true" />{p.busy ? "Working…" : connected ? "Connected" : live?.radio?.connected ? "Connection needs attention" : "Offline"}</span>
+      <span className={`live-station-status ${connected ? "is-online" : "is-offline"}`} role="status"><i aria-hidden="true" />{p.busy ? "Working…" : connected ? `Connected${p.state?.selection.provider !== provider && liveRoute ? ` · ${liveRoute}` : ""}` : live?.radio?.connected ? "Connection needs attention" : "Offline"}</span>
     </div>
     <p className="radio-operating-state">{p.state?.active_radio === p.radioId ? "Active for logging" : "Standby for logging"} · {p.state?.tx_owner === p.radioId ? "Has transmit control" : "Transmit control not held"}{connected && typeof live?.radio?.frequency_hz === "number" ? ` · ${(live.radio.frequency_hz / 1e6).toFixed(6)} MHz · ${live.radio.mode ?? ""}` : ""}</p>
     {p.state?.reconnect_required && connected && <p role="status">Saved — reconnect to apply. The previous connection is still live.</p>}

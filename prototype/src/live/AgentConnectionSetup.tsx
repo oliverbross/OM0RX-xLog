@@ -86,7 +86,8 @@ export function AgentConnectionSetup({ radioId, connections = false, legacyEndpo
     active.current = true; const stops: (() => void)[] = [];
     const focused = () => { void refresh(); };
     window.addEventListener("focus", focused);
-    void Promise.allSettled(["xlog:station-session", "xlog:station-selection"].map(name => listen(name, () => { void refresh(); }))).then(results => {
+    const events = ["xlog:station-session", "xlog:station-selection", ...(radioForm ? ["xlog:station-telemetry"] : [])];
+    void Promise.allSettled(events.map(name => listen(name, () => { void refresh(); }))).then(results => {
       for (const result of results) {
         if (result.status === "fulfilled") { if (active.current) stops.push(result.value); else result.value(); }
       }

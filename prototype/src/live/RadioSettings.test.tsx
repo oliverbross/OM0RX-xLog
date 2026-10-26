@@ -5,9 +5,9 @@ import RadioSettings from "./RadioSettings";
 import { RadioOperatingSelector } from "./RadioOperatingSelector";
 import type { RadioID, StationSession } from "./stationSession";
 
-const native = vi.hoisted(() => ({ invoke: vi.fn(), changed: [] as (() => void)[] }));
+const native = vi.hoisted(() => ({ invoke: vi.fn(), changed: [] as (() => void)[], events: [] as string[] }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke }));
-vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async (_event, changed) => { native.changed.push(changed); return vi.fn(); }) }));
+vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async (event, changed) => { native.events.push(event); native.changed.push(changed); return vi.fn(); }) }));
 let states: Record<RadioID, StationSession>;
 let unknown: string | null;
 const snapshot = (id: RadioID): StationSession => ({ radio_id: id, active_radio: "radio1", tx_owner: null, generation: `${id}-setup`, revision: 0, base_url: "", last_receipt: null,
@@ -17,7 +17,7 @@ const change = (label: string, value: string) => fireEvent.change(form().getByLa
 const flush = async () => { await act(async () => {}); };
 const actions = () => native.invoke.mock.calls.map(([, { params }]) => params).filter(p => !["snapshot", "serial_ports", "hamlib_catalogue"].includes(p.action));
 beforeEach(() => {
-  sessionStorage.clear(); native.invoke.mockReset(); native.changed = []; unknown = null;
+  sessionStorage.clear(); native.invoke.mockReset(); native.changed = []; native.events = []; unknown = null;
   states = { radio1: snapshot("radio1"), radio2: snapshot("radio2") };
   vi.spyOn(window, "confirm").mockReturnValue(true);
   native.invoke.mockImplementation(async (_command, { params: p }) => {
@@ -73,6 +73,20 @@ it("Save & Connect coordinates exact-slot save, handover and receive-only connec
   expect(actions().at(-1)).not.toHaveProperty("allow_transmit");
   expect(states.radio1.radio?.snapshot.radio.connected).toBe(true); expect(states.radio2.radio?.snapshot.radio.connected).toBe(true);
   expect(states.radio1.active_radio).toBe("radio1");
+});
+
+it("updates delayed native connection observations without focus, lifecycle writes or losing typed text", async () => {
+  render(<RadioSettings />); await flush();
+  change("Radio nickname", "Still typing");
+  states.radio1.radio = { provider: "direct_agent", selection_id: states.radio1.selection.selection_id!, selection_generation: 0,
+    snapshot: { radio: { connected: true, observed: true, frequency_hz: 14025000 }, station: { radio_stale: false } } };
+  expect(native.events).toContain("xlog:station-telemetry");
+  await act(async () => { native.events.forEach((name, index) => { if (name === "xlog:station-telemetry") native.changed[index](); }); });
+  expect(form().getByText("Connected", { selector: "span" })).toBeTruthy();
+  expect((form().getByLabelText("Radio nickname") as HTMLInputElement).value).toBe("Still typing");
+  states.radio1.radio.snapshot.station.radio_stale = true;
+  await act(async () => { native.events.forEach((name, index) => { if (name === "xlog:station-telemetry") native.changed[index](); }); });
+  expect(form().getByText("Connection needs attention")).toBeTruthy(); expect(actions()).toEqual([]);
 });
 
 it("Save stores the desired profile without selecting or disconnecting the live radio", async () => {
