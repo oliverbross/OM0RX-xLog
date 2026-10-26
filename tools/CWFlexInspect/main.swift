@@ -30,20 +30,28 @@ private struct Options {
 private actor Observations {
     var capabilities:FlexIQCapabilities?
     var observedAt:Date?
+    var controlTransmitObservation:ControlTransmitObservation?
     var messages:[String]=[]
-    func record(_ value:FlexIQCapabilities){capabilities=value;observedAt=Date()}
+    func record(_ value:FlexIQCapabilities,control:FlexRadioClient.TransmitObservation?){
+        capabilities=value;observedAt=Date()
+        controlTransmitObservation=control.map{ControlTransmitObservation(readAt:Date(),revision:String($0.revision),isConnected:$0.isConnected,isTransmitting:$0.isTransmitting)}
+    }
     func message(_ value:String){messages.append(String(value.prefix(160)));if messages.count>20{messages.removeFirst(messages.count-20)}}
     func report(_ options:Options)->Report {
         Report(host:options.host,stationRequested:options.station,requestedSeconds:options.seconds,
-            observedAt:observedAt,observedCapabilities:capabilities,messages:messages)
+            observedAt:observedAt,observedCapabilities:capabilities,controlTransmitObservation:controlTransmitObservation,messages:messages)
     }
 }
+private struct ControlTransmitObservation:Encodable {
+    let readAt:Date,revision:String,isConnected:Bool,isTransmitting:Bool
+}
 private struct Report:Encodable {
-    let instrument="xlog-cw-flex-passive-inspection-v1"
+    let instrument="xlog-cw-flex-passive-inspection-v2"
     let receiveOnly=true,iqAcquired=false,handoffGranted=false
     let host:String,stationRequested:String,requestedSeconds:Int
     let observedAt:Date?
     let observedCapabilities:FlexIQCapabilities?
+    let controlTransmitObservation:ControlTransmitObservation?
     let messages:[String]
 }
 @main struct CWFlexInspect {
@@ -68,8 +76,9 @@ private struct Report:Encodable {
             let reader=Task {
                 while !Task.isCancelled {
                     let capability=await client.iqCapabilities()
+                    let transmit=await client.transmitObservation()
                     guard !Task.isCancelled else{return}
-                    await observations.record(capability)
+                    await observations.record(capability,control:transmit)
                     do{try await Task.sleep(for:.milliseconds(500))}catch{return}
                 }
             }

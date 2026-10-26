@@ -59,3 +59,8 @@ acceptance. The human was asked whether other consumers have released this exact
 DAX IQ channel for exclusive receive-only qualification. Fresh receive-state,
 physical identity and subsequent IQ/mapping checks remain required; no stream
 was created while those facts were missing.
+
+The human subsequently confirmed channel 1 was released and available. The mode
+owner then reported a separate live mode-switch recovery and requested a hold on
+all further live network/app actions; this CW chat acknowledged that hold. The
+channel release does not establish receive state, physical identity or acquisition.

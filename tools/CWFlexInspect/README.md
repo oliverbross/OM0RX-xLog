@@ -11,6 +11,12 @@ It accepts numeric private/loopback IPv4 only; port is fixed at 4992. It does no
 load radio credentials or modify installed configuration. Connection retries and
 metadata reads stop with the bounded inspection. Its JSON is historical evidence
 collected before transport closure, not an active connection or IQ acceptance.
+Version 2 also reports the existing control owner's optional transmit observation
+with its own read timestamp and lossless revision. It is read after the IQ
+capabilities, so the two observations are not atomic. An omitted observation is
+unknown, not receive confirmation. This diagnostic does not weaken acquisition
+checks or issue additional commands. `readAt` is the inspector's read time,
+not the timestamp of the radio's interlock status or proof of its age.
 
 Offline preparation:
 
@@ -35,8 +41,12 @@ XLOG_PORTABLE_ONLY=1 swift run --skip-build xlog-cw-flex-inspect \
   --inspect --host 192.168.0.199 --station Red-Dingo --seconds 12
 ```
 
-The human says the Station name **should be Red-Dingo**; this is an expectation,
-not verified inventory. Keep the optional VPN off until the CW owner requests it.
+The human corrected the Station name to **OM0RX-WIN10**, and its owned DAX IQ 1
+inventory was observed in the second passive run. See the historical receipt in
+`docs/cw/FLEX_PASSIVE_INSPECTION_2026-10-26.md`. Its transmit-known-off flag was
+false, and no physical discovery identity was established. The human confirmed
+channel 1 was released, but the later mode-recovery live hold must settle before
+further network actions. Keep future inspections coordinated with the live owner.
 Avoid live inspection or a VPN change during installed two-direction operating
 module acceptance. The existing Remote Station Agent/Tailscale route is separate
 and must be assessed independently, without changing it for this instrument.
