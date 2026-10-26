@@ -90,7 +90,9 @@ command allowlist test. The human expects Station **Red-Dingo** and offered the
 optional VPN route to **192.168.0.199**. This is not verified inventory. Both
 installed-mode acceptance owners released their live test hold; the human's
 VPN-ready indication was then received. The single twelve-second passive
-inspection connected but found Maestro while waiting for Red-Dingo; see the
+inspection connected but found Maestro while waiting for Red-Dingo. A second
+coordinated run used the human's corrected OM0RX-WIN10 name and found its owned
+DAX IQ 1 / ANT1 panadapter at 7.074 MHz, with TX-known-off false; see the
 [historical inventory receipt](FLEX_PASSIVE_INSPECTION_2026-10-26.md). No live IQ
 or radio-control action has been taken by this CW chat.
 
