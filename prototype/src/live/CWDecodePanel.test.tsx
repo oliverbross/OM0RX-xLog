@@ -28,6 +28,9 @@ describe("CW Decode shared native view", () => {
     const owner = service(fixture); render(<CWDecodePanel request={owner.request} />);
     fireEvent.click(await screen.findByRole("button", { name: /Inspect signal/ }));
     expect(owner.request.mock.calls.every(([method]) => method === "cw_decode_snapshot")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Prioritize track" }));
+    await waitFor(() => expect(owner.request.mock.calls.some(([method]) => method === "cw_decode_track_focus")).toBe(true));
+    expect(owner.request.mock.calls.find(([method]) => method === "cw_decode_track_focus")![1]).toEqual({ reference: track.controlReference });
     fireEvent.click(screen.getByRole("button", { name: "Mute track" }));
     await waitFor(() => expect(owner.request.mock.calls.some(([method]) => method === "cw_decode_track_mute")).toBe(true));
     expect(owner.request.mock.calls.find(([method]) => method === "cw_decode_track_mute")![1]).toEqual({ reference: track.controlReference });

@@ -9,7 +9,7 @@ export type CWTrackSelection = { reference: CWTrackReference; callsign: string; 
 export type CWDecodeTrack = { sourceID: string; trackID: string; descriptor: CWDescriptor; revision: string; offsetHz: number; frequencyHz?: number;
   committed: string; provisional: string; ambiguous: boolean; inferenceMilliseconds?: number; spotRejection?: string;
   estimatedWPM?: number; estimatedSNRDB?: number; snrReferenceHz?: number; selection?: CWTrackSelection; controlReference?: CWTrackReference;
-  controlActivation?: { sourceEpoch: string; spotVersion: string }; muted?: boolean;
+  controlActivation?: { sourceEpoch: string; spotVersion: string }; muted?: boolean; priorityRequested?: boolean;
   opportunity?: { callStatus: string; dxccStatus: string } };
 export type CWCapability = { radioID: string; provider: string; ready: boolean; device?: string; protocolVersion?: string;
   receivers: { receiver: number; enabled?: boolean; centreHz?: number }[]; requestableSampleRates: number[]; transmitStateKnownOff?: boolean;
@@ -26,7 +26,7 @@ export type CWDecodeSnapshot = { sessionID?: string; state: string; failure?: st
   tracks: CWDecodeTrack[]; capabilities: CWCapability[];
   listener: { state: string; address: string; port?: number; clients: number; authenticatedClients: number; retainedSpots: number;
     acceptedConnections: number; refusedConnections: number; slowDisconnects: number; protocolDisconnects: number } };
-export const cwDecodeMethods = ["cw_decode_snapshot", "cw_decode_configuration_save", "cw_decode_start", "cw_decode_stop", "cw_decode_listener_start", "cw_decode_listener_stop", "cw_decode_flex_handoff", "cw_decode_track_mute"] as const;
+export const cwDecodeMethods = ["cw_decode_snapshot", "cw_decode_configuration_save", "cw_decode_start", "cw_decode_stop", "cw_decode_listener_start", "cw_decode_listener_stop", "cw_decode_flex_handoff", "cw_decode_track_mute", "cw_decode_track_focus"] as const;
 export type CWDecodeMethod = typeof cwDecodeMethods[number];
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const counter = /^(0|[1-9][0-9]{0,19})$/;
@@ -57,6 +57,7 @@ const trackSelection = (track: Record<string, any>): boolean => {
 const trackControl = (track: Record<string, any>): boolean => {
   const reference = track.controlReference;
   return (track.muted === undefined || typeof track.muted === "boolean") && (!track.muted || track.selection === undefined) &&
+    (track.priorityRequested === undefined || typeof track.priorityRequested === "boolean" && (!track.priorityRequested || reference !== undefined && !track.muted && !track.ambiguous)) &&
     (track.controlActivation === undefined || reference !== undefined && !track.muted && !track.ambiguous && track.frequencyHz !== undefined &&
       object(track.controlActivation) && Object.keys(track.controlActivation).length === 2 &&
       ["sourceEpoch", "spotVersion"].every(key => typeof track.controlActivation[key] === "string" && uuid.test(track.controlActivation[key]))) &&

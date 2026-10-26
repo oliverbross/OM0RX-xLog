@@ -10,6 +10,7 @@ public protocol CWComputeControlling: Sendable {
     func end(_ descriptor: CWStreamDescriptor, gap: Bool) async
     func stop() async
     func mute(_ descriptor:CWStreamDescriptor,trackID:UUID) async throws
+    func focus(_ descriptor:CWStreamDescriptor?,trackID:UUID?,revision:UInt64) async throws
     func metrics(sequence:UInt64) async throws
 }
 extension CWComputeProcess: CWComputeControlling {}
@@ -47,6 +48,7 @@ public struct CWDecodeTrackSnapshot: Encodable, Sendable {
     public var selection:CWTrackSelection?=nil
     public var controlReference:CWTrackReference?=nil
     public var muted:Bool=false
+    public var priorityRequested:Bool=false
 }
 public struct CWDecodeSessionSnapshot: Encodable, Sendable {
     public let sessionID: UUID?
@@ -96,6 +98,9 @@ public actor CWDecodeSession {
     private var sources: [UUID:Source]=[:],tracks: [String:Track]=[:]
     private var retiredTracks: [String]=[]
     private var mutedTracks:Set<UUID>=[]
+    private var priorityReference:CWTrackReference?
+    private var focusIntent=UUID()
+    private var focusChanging=false
     private var eventTask: Task<Void,Never>?,monitor: Task<Void,Never>?
     private var childAttempt=0
     private var computeGeneration:UUID?
@@ -116,6 +121,7 @@ public actor CWDecodeSession {
             sources:sources.values.map(\.view).sorted{$0.configuration.id.uuidString<$1.configuration.id.uuidString},
             tracks:tracks.values.map{track in
                 var view=track.view
+                view.priorityRequested=priorityReference != nil && priorityReference==view.controlReference && !view.muted && !view.ambiguous
                 if now<track.metricsUpdatedNS || now-track.metricsUpdatedNS>2_000_000_000 {
                     view.estimatedWPM=nil;view.estimatedSNRDB=nil;view.snrReferenceHz=nil
                 }
@@ -161,7 +167,33 @@ public actor CWDecodeSession {
         guard mutedTracks.count<4096 || mutedTracks.contains(reference.trackID) else {throw CWComputeError.occupied}
         // Local suppression precedes the pipe write and survives a lost child.
         mutedTracks.insert(reference.trackID);tracks[key]?.view.muted=true;tracks[key]?.view.selection=nil
+        if priorityReference==reference{priorityReference=nil}
         try await compute.mute(descriptor,trackID:reference.trackID)
+    }
+    public func focus(_ reference:CWTrackReference?) async throws {
+        guard !focusChanging else{throw CWComputeError.occupied}
+        focusChanging=true;defer{focusChanging=false}
+        let focus=UUID();focusIntent=focus
+        guard let reference else {
+            priorityReference=nil
+            if state=="running"{try await compute.focus(nil,trackID:nil,revision:0)}
+            return
+        }
+        guard let key=tracks.first(where:{$0.value.view.controlReference==reference})?.key,
+              intent==reference.sessionID,state=="running",let source=sources[reference.sourceID],
+              source.view.state == .running,let lease=source.lease,let descriptor=source.view.descriptor,
+              tracks[key]?.view.descriptor==descriptor,tracks[key]?.view.muted==false,tracks[key]?.view.ambiguous==false,
+              let revision=UInt64(reference.revision) else{throw CWTrackSelectionError.staleEvidence}
+        let current=await provider.current(source.view.configuration,sessionID:reference.sessionID,leaseID:lease)
+        let now=clock()
+        guard focusIntent==focus,intent==reference.sessionID,state=="running",current==descriptor,sources[reference.sourceID]?.lease==lease,
+              sources[reference.sourceID]?.view.descriptor==descriptor,tracks[key]?.view.controlReference==reference,
+              tracks[key]?.view.muted==false,tracks[key]?.view.ambiguous==false,
+              now>=source.lastReceipt,now-source.lastReceipt<=250_000_000 else{throw CWTrackSelectionError.staleEvidence}
+        try await compute.focus(descriptor,trackID:reference.trackID,revision:revision)
+        guard focusIntent==focus,intent==reference.sessionID,state=="running",tracks[key]?.view.controlReference==reference,
+              tracks[key]?.view.muted==false,tracks[key]?.view.ambiguous==false else{return}
+        priorityReference=reference
     }
     /// An RF target needs current capture proof even when no callsign decoded.
     /// This read never selects a radio, tunes, changes a draft or grants output.
@@ -198,7 +230,7 @@ public actor CWDecodeSession {
         try configuration.validate()
         guard intent==nil,state != "stopping",!configuration.sources.isEmpty else {throw CWComputeError.occupied}
         let id=UUID();intent=id;self.configuration=configuration;self.resources=resources
-        state="preparing";failure=nil;childAttempt=0;tracks.removeAll();retiredTracks.removeAll();mutedTracks.removeAll()
+        state="preparing";failure=nil;childAttempt=0;tracks.removeAll();retiredTracks.removeAll();mutedTracks.removeAll();priorityReference=nil
         sources=Dictionary(uniqueKeysWithValues:configuration.sources.map {
             ($0.id,Source(view:CWDecodeSourceSnapshot(configuration:$0,state:.preparing,descriptor:nil,retryCount:0,failure:nil)))
         })
@@ -216,11 +248,11 @@ public actor CWDecodeSession {
         intent=nil;computeGeneration=nil;load=nil;pendingMetrics=nil;state="stopping";eventTask?.cancel();eventTask=nil;monitor?.cancel();monitor=nil
         await releaseAll()
         await compute.stop()
-        tracks.removeAll();retiredTracks.removeAll();mutedTracks.removeAll();state="stopped";failure=nil
+        tracks.removeAll();retiredTracks.removeAll();mutedTracks.removeAll();priorityReference=nil;state="stopped";failure=nil
     }
     private func launchChild(id: UUID) async {
         guard intent==id,let resources else {return}
-        let generation=UUID();computeGeneration=generation;load=nil;pendingMetrics=nil;metricsRequestedNS=0
+        let generation=UUID();computeGeneration=generation;load=nil;pendingMetrics=nil;metricsRequestedNS=0;priorityReference=nil;focusIntent=UUID()
         do {
             let events=try await compute.start(resources:resources)
             guard intent==id else {await compute.stop();return}

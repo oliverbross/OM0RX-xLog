@@ -90,6 +90,9 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
             <div><dt>RF mapping</dt><dd>{signal.descriptor.mappingQualified ? "Qualified" : "Unqualified"}</dd></div><div><dt>Model time</dt><dd>{signal.inferenceMilliseconds === undefined ? "Unavailable" : `${signal.inferenceMilliseconds.toFixed(0)} ms`}</dd></div></dl>
           <label>Committed text<textarea readOnly value={signal.committed} rows={5} /></label>
           <label>Provisional tail<textarea readOnly value={signal.provisional} rows={3} /></label>
+          <button type="button" disabled={snapshot.featureEnabled !== true || busy || signal.muted || signal.ambiguous || !signal.controlReference || snapshot.state !== "running"}
+            onClick={() => void command("cw_decode_track_focus", { reference: signal.priorityRequested ? null : signal.controlReference })}>{signal.priorityRequested ? "Clear priority" : "Prioritize track"}</button>
+          {signal.priorityRequested && <p>Priority requested. Other ready tracks keep their turns.</p>}
           <button type="button" disabled={snapshot.featureEnabled !== true || busy || signal.muted || !signal.controlReference || snapshot.state !== "running"}
             onClick={() => void command("cw_decode_track_mute", { reference: signal.controlReference })}>Mute track</button>
           {signal.muted && <p>This signal stays muted until it retires or decoding restarts. Its last text remains visible.</p>}

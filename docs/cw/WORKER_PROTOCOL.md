@@ -13,7 +13,7 @@ numeric header fields are little-endian. Shared 52-byte header:
 | 2 | uint16 | message type below |
 | 4 | 16 bytes | opaque stream token; new UUID for every capture identity |
 | 20 | uint64 | capture epoch |
-| 28 | uint64 | input sequence / metrics request ID |
+| 28 | uint64 | input sequence / metrics request ID / FocusTrack revision |
 | 36 | uint64 | first absolute delivered source sample (IQ) or channel sample (mono) |
 | 44 | uint32 | sample rate |
 | 48 | uint32 | count: complex pairs for IQ, scalar samples for mono |
@@ -28,6 +28,8 @@ numeric header fields are little-endian. Shared 52-byte header:
 | 6 Gap | 52 | no payload; retire this token; a new StreamOpen is required |
 | 7 Metrics | 52 | no payload; reply echoes request sequence; does not start sources |
 | 8 MuteTrack | 68 | sequence/first/rate/count zero; 16-byte track UUID; suppress only this token/epoch/track until retirement |
+| 9 FocusTrack | 68 | sequence carries track revision; first/rate/count zero; 16-byte track UUID; bounded preference for this token/epoch/track/revision |
+| 10 ClearFocus | 52 | token, epoch, sequence, first, rate and count zero; restore ordinary ready-job order |
 
 StreamOpen is mandatory before IQ. No conversion or guessing repairs a wrong
 epoch, sequence, sample position, sample rate or nonfinite block. Such a fault

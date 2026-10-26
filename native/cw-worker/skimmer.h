@@ -29,6 +29,8 @@ class Skimmer {
             int actual_rate,const std::vector<std::complex<float>>& iq);
   void end(const std::string& token);
   bool mute(const std::string& token,uint64_t epoch,const std::string& track_id);
+  bool focus(const std::string& token,uint64_t epoch,const std::string& track_id,uint64_t revision);
+  void clear_focus();
   void stop();
   std::vector<SkimmerEvent> events();
   bool wait_idle(double timeout_seconds);

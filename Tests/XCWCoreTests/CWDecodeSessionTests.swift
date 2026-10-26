@@ -191,6 +191,35 @@ final class CWDecodeSessionTests: XCTestCase {
         await session.stop()
         do{try await session.mute(reference);XCTFail("Stopped mute accepted")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
     }
+    func testPriorityRequiresCurrentControlProofAndClearsWithoutMutingOrStopping() async throws {
+        let (session,provider,compute,clock,source,_)=try await selectionFixture()
+        let snapshot=await session.snapshot(),view=try XCTUnwrap(snapshot.tracks.first),reference=try XCTUnwrap(view.controlReference)
+        let forged=CWTrackReference(sessionID:reference.sessionID,sourceID:reference.sourceID,streamToken:reference.streamToken,
+            epoch:reference.epoch,trackID:reference.trackID,revision:reference.revision,selectionID:UUID())
+        do{try await session.focus(forged);XCTFail("Forged focus accepted")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+        try await session.focus(reference)
+        let focused=await compute.focusedTrack(),selected=await session.snapshot()
+        XCTAssertEqual(focused,reference.trackID);XCTAssertEqual(selected.tracks.first?.priorityRequested,true)
+        XCTAssertEqual(selected.tracks.first?.selection,view.selection);XCTAssertEqual(selected.state,"running")
+        try await session.focus(nil)
+        let cleared=await compute.focusedTrack(),plain=await session.snapshot();XCTAssertNil(cleared);XCTAssertEqual(plain.tracks.first?.priorityRequested,false)
+        clock.advance(300_000_000)
+        do{try await session.focus(reference);XCTFail("Stale input prioritized")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+        _ = try await provider.emit(source.id,receipt:clock.now())
+        await session.stop()
+        do{try await session.focus(reference);XCTFail("Stopped signal prioritized")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+    }
+    func testPrioritySerializesWindowRequestsAndStopFencesPendingProviderRead() async throws {
+        let (session,provider,compute,_,_,_)=try await selectionFixture()
+        let snapshot=await session.snapshot(),reference=try XCTUnwrap(snapshot.tracks.first?.controlReference)
+        await provider.setCurrentHold()
+        let request=Task{try await session.focus(reference)}
+        try await wait{await provider.currentWaiterCount()>0}
+        do{try await session.focus(nil);XCTFail("Concurrent priority controls were reordered")}catch{XCTAssertEqual(error as? CWComputeError,.occupied)}
+        await session.stop();await provider.resumeCurrent()
+        do{try await request.value;XCTFail("Priority survived Stop")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+        let focused=await compute.focusedTrack();XCTAssertNil(focused)
+    }
     func testLoadRequiresCurrentMetricsRequestAndExpiresOnPassiveRead() async throws {
         let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),clock=CWSessionTestClock()
         let session=CWDecodeSession(provider:provider,compute:compute,clock:{clock.now()})
@@ -317,6 +346,9 @@ private final class CWSessionTestClock:@unchecked Sendable {
     func advance(_ amount:UInt64){lock.lock();value+=amount;lock.unlock()}
 }
 private actor CWSessionTestCompute:CWComputeControlling {
+    private var focused:UUID?
+    func focus(_ descriptor:CWStreamDescriptor?,trackID:UUID?,revision:UInt64){focused=trackID}
+    func focusedTrack()->UUID?{focused}
     private var requestedMetrics:UInt64?
     func metrics(sequence:UInt64){requestedMetrics=sequence}
     func lastMetricsRequest()->UInt64?{requestedMetrics}

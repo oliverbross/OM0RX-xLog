@@ -214,6 +214,18 @@ public actor CWComputeProcess {
         guard state=="ready",sources[Self.key(descriptor)]==descriptor else {throw CWComputeError.invalidFrame}
         try enqueue(Write(bytes:CWComputeWire.mute(descriptor,trackID:trackID),source:nil,durationNS:0,receivedNS:now))
     }
+    public func focus(_ descriptor:CWStreamDescriptor?,trackID:UUID?,revision:UInt64) throws {
+        guard state=="ready" else{throw CWComputeError.stopped}
+        let bytes:Data
+        if let descriptor,let trackID {
+            guard sources[Self.key(descriptor)]==descriptor else{throw CWComputeError.invalidFrame}
+            bytes=try CWComputeWire.focus(descriptor,trackID:trackID,revision:revision)
+        } else {
+            guard descriptor==nil,trackID==nil,revision==0 else{throw CWComputeError.invalidFrame}
+            bytes=CWComputeWire.clearFocus()
+        }
+        try enqueue(Write(bytes:bytes,source:nil,durationNS:0,receivedNS:now))
+    }
     private func enqueue(_ value:Write) throws {
         guard writes.count<16,queuedBytes+value.bytes.count<=1_048_576 else {throw CWComputeError.inputOverflow}
         if let source=value.source {

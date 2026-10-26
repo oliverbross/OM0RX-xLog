@@ -186,4 +186,11 @@ public enum CWComputeWire {
         return frame(body)
     }
     public static func metrics(sequence:UInt64) -> Data { frame(header(kind:7,token:nil,epoch:0,sequence:sequence,first:0,rate:0,count:0)) }
+    public static func focus(_ descriptor:CWStreamDescriptor,trackID:UUID,revision:UInt64) throws -> Data {
+        guard let epoch=UInt64(descriptor.epoch),trackID != UUID(uuid:(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)) else{throw CWComputeError.invalidFrame}
+        var body=header(kind:9,token:descriptor.streamToken,epoch:epoch,sequence:revision,first:0,rate:0,count:0)
+        var bytes=trackID.uuid;withUnsafeBytes(of:&bytes){body.append(contentsOf:$0)}
+        return frame(body)
+    }
+    public static func clearFocus() -> Data {frame(header(kind:10,token:nil,epoch:0,sequence:0,first:0,rate:0,count:0))}
 }
