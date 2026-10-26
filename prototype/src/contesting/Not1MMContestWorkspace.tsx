@@ -1193,6 +1193,19 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
   };
 
   const result = async <T,>(method: string, params: Record<string, unknown> = {}) => unwrap<T>(await request(method, params));
+  const setupViewChanged = useCallback((view: SetupView | null) => {
+    onSetupViewChange?.(view);
+    if (view !== "Choose a Contest") return;
+    const generation = projectionRef.current?.workspaceGeneration ?? workspaceGeneration;
+    // Cold start opens the native-authoritative session first. Load the full
+    // chooser only on demand, without letting a late read cross workspaces.
+    void request("contest_sessions", {}).then(frame => {
+      const list = unwrap<{sessions: Session[]}>(frame);
+      if ((projectionRef.current?.workspaceGeneration ?? workspaceGeneration) === generation) setSessions(list.sessions);
+    }).catch(cause => {
+      if ((projectionRef.current?.workspaceGeneration ?? workspaceGeneration) === generation) setError(errorMessage(cause));
+    });
+  }, [request, onSetupViewChange, workspaceGeneration]);
   const partialQuery = (fields.callsign ?? "").trim().toUpperCase();
   useEffect(() => {
     if (!/^[A-Z0-9/]{3,32}$/.test(partialQuery)) { setLookupPathContext(null); return; }
@@ -3396,7 +3409,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
       preflightContext={{practice:Boolean(projection?.practice),referenceID:projection?.referenceID,scoringRevision:projection?.ruleIdentity?.version,
         selectedRadio:observedFrequencyHz===null?"Manual frequency; no selected radio receipt.":`${(observedFrequencyHz/1e6).toFixed(6)} MHz observed; output acceptance remains separate.`}}
       onOpen={session => openSession(session as Session)} onOpenSettings={openContestSetupService}
-      onOpenDialog={setupOnly ? openContestSetupDialog : undefined} onViewChange={onSetupViewChange}
+      onOpenDialog={setupOnly ? openContestSetupDialog : undefined} onViewChange={setupViewChanged}
       onOpenCallHistory={() => { if (!surfaceContext) { setError("Open a contest before opening Call History."); return; }
         if (!setupOnly) setManager(false); void openContestCallHistoryWindow(surfaceContext); }}/>
       : projection ? <><section className="contest-snapshot" aria-label="Contest identity"><div><span>Station</span><strong>{effectiveStationCall}</strong></div><div><span>Engine</span><strong>Not1MM Python</strong></div><div><span>Plugin</span><strong>{projection.pluginID}</strong></div><div><span>Revision</span><strong>{projection.revision}</strong></div><div><span>Source</span><small>{projection.sourceRevision.slice(0, 12)} · {projection.referenceID}</small></div></section>{detachedAvailable

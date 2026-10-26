@@ -4606,12 +4606,17 @@ it("prefers the Python host active contest when renderer storage is stale and mu
 
 it("strict native cold start opens only the supplied host-active contest without consulting renderer authority", async () => {
   const current = projection();
+  const otherSessionID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
   localStorage.setItem("xlog.contesting.not1mm.active-session.v1", "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
   const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
     const support = workspaceSupport(method, params, current); if (support) return support;
     if (method === "contest_scp_status") return unavailableSCP();
     if (method === "contest_history_status") return unavailableHistory();
     const result = method === "contest_catalog" ? {plugins:[{id:current.pluginID,name:"CQ WW CW"}]}
+      : method === "contest_sessions" ? {sessions:[
+          {sessionID:current.sessionID,workspaceGeneration:current.workspaceGeneration,name:"Current retained contest",pluginID:current.pluginID},
+          {sessionID:otherSessionID,workspaceGeneration:current.workspaceGeneration,name:"Other retained contest",pluginID:current.pluginID},
+        ]}
       : method === "contest_open" ? {projection:current}
       : method === "contest_log_page" ? {rows:[],offset:0,limit:20,total:0}
       : method === "contest_score" ? {sessionID:current.sessionID,revision:current.revision,score:current.score,matrices:{countries:[],zones:[]}}
@@ -4628,6 +4633,10 @@ it("strict native cold start opens only the supplied host-active contest without
     sessionID:current.sessionID,workspaceGeneration:current.workspaceGeneration,
   });
   expect(localStorage.getItem("xlog.contesting.not1mm.active-session.v1")).toBe(current.sessionID);
+  await userEvent.click(await screen.findByRole("button", {name:"Choose a Contest"}));
+  expect(await screen.findByText("Other retained contest")).toBeTruthy();
+  expect(screen.getByText("Current retained contest")).toBeTruthy();
+  expect(request.mock.calls.filter(([method]) => method === "contest_open")).toHaveLength(1);
 });
 
 it("shows a failed cold-start open and retries the same preserved contest", async () => {
