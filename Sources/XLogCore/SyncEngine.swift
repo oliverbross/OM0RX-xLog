@@ -17,6 +17,14 @@ public struct SyncHeldContactGroup: Equatable, Sendable {
     }
 }
 
+public struct SyncLocalChanges: Equatable, Sendable {
+    public var inserted = 0
+    public var updated = 0
+    public var markedDeleted = 0
+    public var baselineRepairs = 0
+    public init() {}
+}
+
 public struct SyncReport: Equatable, Sendable {
     public init() {}
     public var pushed = 0
@@ -26,6 +34,8 @@ public struct SyncReport: Equatable, Sendable {
     public var failed = 0
     public var held = 0
     public var heldGroups: [SyncHeldContactGroup] = []
+    /// Present only when the complete reconciliation returned committed totals.
+    public var localChanges: SyncLocalChanges?
 }
 
 /// Operational evidence only: no contact identities, destinations or credentials.
@@ -302,6 +312,7 @@ public actor SyncEngine {
         let run = try database.beginSyncReconciliation()
         defer { database.endSyncReconciliation(run) }
         var report = SyncReport()
+        var localChanges = SyncLocalChanges()
         let initialUpperRowID = try database.syncUpperRowID(run: run)
         var linkedCursor: Int64 = 0
         var linked: [QSO] = []
@@ -394,8 +405,12 @@ public actor SyncEngine {
         }
         for offset in stride(from: 0, to: remoteQSOs.count, by: 128) {
             try validateSyncRun()
-            report.conflicts += try database.mergeRemoteSyncStep(remoteQSOs[offset..<min(offset + 128, remoteQSOs.count)],
-                                                                 run: run, preservingLocal: held)
+            let step = try database.mergeRemoteSyncStepCounts(remoteQSOs[offset..<min(offset + 128, remoteQSOs.count)],
+                                                             run: run, preservingLocal: held)
+            report.conflicts += step.conflicts
+            localChanges.inserted += step.localChanges.inserted
+            localChanges.updated += step.localChanges.updated
+            localChanges.baselineRepairs += step.localChanges.baselineRepairs
             try await betweenReconciliationSteps()
         }
         report.pulled += remoteQSOs.count
@@ -407,6 +422,7 @@ public actor SyncEngine {
             let step = try database.reconcileRemoteDeletionStep(notIn: remoteIDs, after: deletionCursor,
                                                                 through: upperRowID, run: run)
             report.conflicts += step.conflicts; report.deleted += step.deleted
+            localChanges.markedDeleted += step.deleted
             deletionCursor = step.cursor
             try await betweenReconciliationSteps()
             if step.done { break }
@@ -495,6 +511,7 @@ public actor SyncEngine {
             }
         }
 
+        report.localChanges = localChanges
         return report
     }
 

@@ -693,11 +693,14 @@ actor LiveServiceMethods {
             let confirmed = receipt.confirmedCreates + receipt.confirmedUpdates + receipt.confirmedDeletes
             let unknown = receipt.uploadAttempts - confirmed
             let outcome = receipt.outcome == "running" && receipt.id != activeRunID ? "interrupted" : receipt.outcome
+            let localCountsComplete = receipt.finishedAt != nil && outcome == "completed"
+                && ["local_inserted", "local_updated", "local_marked_deleted", "baseline_repairs"].allSatisfy { receipt.reportCounts?[$0] != nil }
             return ["run_id": receipt.id.uuidString, "trigger": receipt.automatic ? "automatic" : "manual",
                 "directions": ["local_changes_to_wavelog", "wavelog_history_to_local"],
                 "started_at": ISO8601DateFormatter().string(from: receipt.startedAt),
                 "finished_at": receipt.finishedAt.map { ISO8601DateFormatter().string(from: $0) } as Any? ?? NSNull(),
                 "outcome": outcome, "report_counts": receipt.reportCounts as Any? ?? NSNull(),
+                "local_counts_complete": localCountsComplete,
                 "error_code": receipt.safeErrorCode as Any? ?? NSNull(),
                 "upload_tracking": receipt.uploadTracking, "upload_attempts": receipt.uploadTracking ? receipt.uploadAttempts as Any : NSNull(),
                 "confirmed_creates": receipt.uploadTracking ? receipt.confirmedCreates as Any : NSNull(),

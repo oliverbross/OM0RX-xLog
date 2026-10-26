@@ -1354,6 +1354,12 @@ public final class LogbookDatabase: @unchecked Sendable {
             if let report {
                 receipt.reportCounts = ["acknowledged_contacts": report.pushed, "remote_contacts_processed": report.pulled,
                     "deletions_reconciled": report.deleted, "conflicts": report.conflicts, "failures": report.failed, "held": report.held]
+                if outcome == "completed", let local = report.localChanges {
+                    receipt.reportCounts?["local_inserted"] = local.inserted
+                    receipt.reportCounts?["local_updated"] = local.updated
+                    receipt.reportCounts?["local_marked_deleted"] = local.markedDeleted
+                    receipt.reportCounts?["baseline_repairs"] = local.baselineRepairs
+                }
             }
         }
     }
@@ -3145,13 +3151,19 @@ public final class LogbookDatabase: @unchecked Sendable {
 
     @discardableResult
     public func mergeRemote(_ remote: QSO, preservingLocal: (QSO) -> Bool = { _ in false }) throws -> Bool {
+        try mergeRemoteEffect(remote, preservingLocal: preservingLocal) == .conflict
+    }
+
+    private enum RemoteMergeEffect { case unchanged, inserted, updated, baselineRepair, conflict }
+
+    private func mergeRemoteEffect(_ remote: QSO, preservingLocal: (QSO) -> Bool) throws -> RemoteMergeEffect {
         try withDatabaseLock {
             let linked = try remote.wavelogID.flatMap { try lookup(wavelogID: $0) }
-            if let linked, preservingLocal(linked) { return false }
+            if let linked, preservingLocal(linked) { return .unchanged }
             if let existing = linked, existing.isDirty {
-                if try remoteMatchesBaseline(remote, localID: existing.id) { return false }
+                if try remoteMatchesBaseline(remote, localID: existing.id) { return .unchanged }
                 try recordConflict(local: existing, remote: mergeRemoteFields(remote, preserving: existing))
-                return true
+                return .conflict
             }
             var value = remote
             var matched: QSO?
@@ -3165,9 +3177,9 @@ public final class LogbookDatabase: @unchecked Sendable {
             // adopting an already-linked row would erase one of those IDs.
             else if let existing = try lookupSemantic(value, unlinkedOnly: true, excluding: preservingLocal) {
                 if existing.isDirty {
-                    if try remoteMatchesBaseline(remote, localID: existing.id) { return false }
+                    if try remoteMatchesBaseline(remote, localID: existing.id) { return .unchanged }
                     try recordConflict(local: existing, remote: mergeRemoteFields(remote, preserving: existing))
-                    return true
+                    return .conflict
                 }
                 matched = existing
                 value = mergeRemoteFields(value, preserving: existing)
@@ -3177,15 +3189,22 @@ public final class LogbookDatabase: @unchecked Sendable {
             // fingerprint intentionally covers fewer fields. Retain the stored
             // timestamp only for comparison; a real change still gets a new one.
             // Missing, stale or damaged clean baselines still need save() to repair them.
-            if let existing = matched {
+            let beforeSave: QSO?
+            if let matched { beforeSave = matched }
+            else { beforeSave = try lookup(localID: value.id) }
+            var effect = RemoteMergeEffect.inserted
+            if let existing = beforeSave {
                 let candidate = normalizedForSave(value, markDirty: false, updatedAt: existing.updatedAt)
-                if candidate == existing,
-                   try remoteMatchesBaseline(candidate, localID: existing.id, invalidBaselineIsMismatch: true) {
-                    return false
+                if candidate == existing {
+                    let baselineMatches = try remoteMatchesBaseline(candidate, localID: existing.id, invalidBaselineIsMismatch: true)
+                    if matched != nil && baselineMatches { return .unchanged }
+                    effect = baselineMatches ? .unchanged : .baselineRepair
+                } else {
+                    effect = .updated
                 }
             }
             try save(value, markDirty: false)
-            return false
+            return effect
         }
     }
 
@@ -3240,18 +3259,29 @@ public final class LogbookDatabase: @unchecked Sendable {
 
     func mergeRemoteSyncStep(_ remotes: ArraySlice<QSO>, run: SyncDatabaseRun,
                              preservingLocal: (QSO) -> Bool) throws -> Int {
+        try mergeRemoteSyncStepCounts(remotes, run: run, preservingLocal: preservingLocal).conflicts
+    }
+
+    func mergeRemoteSyncStepCounts(_ remotes: ArraySlice<QSO>, run: SyncDatabaseRun,
+                                  preservingLocal: (QSO) -> Bool) throws -> SyncMergeStep {
         guard remotes.count <= 128 else { throw LogbookDatabaseError.syncRunChanged }
         return try withSyncDatabaseLock(run) {
             try execute("BEGIN IMMEDIATE;")
             do {
-                var conflicts = 0
+                var result = SyncMergeStep()
                 for remote in remotes {
                     try Task.checkCancellation()
-                    if try mergeRemote(remote, preservingLocal: preservingLocal) { conflicts += 1 }
+                    switch try mergeRemoteEffect(remote, preservingLocal: preservingLocal) {
+                    case .unchanged: break
+                    case .inserted: result.localChanges.inserted += 1
+                    case .updated: result.localChanges.updated += 1
+                    case .baselineRepair: result.localChanges.baselineRepairs += 1
+                    case .conflict: result.conflicts += 1
+                    }
                 }
                 try Task.checkCancellation()
                 try execute("COMMIT;")
-                return conflicts
+                return result
             } catch { try? execute("ROLLBACK;"); throw error }
         }
     }
@@ -3956,6 +3986,7 @@ private struct SyncedQSOState: Codable, Equatable {
 }
 
 struct SyncDatabaseRun: Equatable, Sendable { let id: UUID }
+struct SyncMergeStep: Sendable { var conflicts = 0; var localChanges = SyncLocalChanges() }
 struct SyncDeletionStep: Sendable { let cursor: Int64; let done: Bool; let conflicts: Int; let deleted: Int }
 struct SyncPendingStep: Sendable { let cursor: Int64; let done: Bool; let rows: [QSO] }
 

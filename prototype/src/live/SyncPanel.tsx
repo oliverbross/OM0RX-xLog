@@ -11,7 +11,7 @@ type Conflict = { id: string; revision: string; fields: Field[]; localQSO: Data;
 type HeldGroup = { identity: string; remote_ids: number[]; differing_fields: string[]; value_shapes: string[] };
 type SyncRun = { run_id: string; trigger: "automatic" | "manual"; outcome: string; started_at: string; finished_at: string | null;
   upload_tracking: boolean; upload_attempts: number | null; confirmed_creates: number | null; confirmed_updates: number | null;
-  confirmed_deletes: number | null; unknown_writes: number | null; upload_counts_complete: boolean; report_counts: Data | null };
+  confirmed_deletes: number | null; unknown_writes: number | null; upload_counts_complete: boolean; local_counts_complete?: boolean; report_counts: Data | null };
 const runOutcomes: Record<string, string> = { running: "Running", completed: "Completed", completed_with_failures: "Completed with failures",
   failed: "Failed", cancelled: "Cancelled", interrupted: "Interrupted · completion unknown" };
 const syncRunsFrom = (value: unknown): SyncRun[] => !Array.isArray(value) ? [] : value.slice(0, 100).filter((item): item is SyncRun =>
@@ -167,6 +167,9 @@ export default function SyncPanel({ request, onChanged, journalKey = "xlog.sync.
             {Number(run.unknown_writes) > 0 && <p className="sync-error">{run.unknown_writes} write attempts have an unknown outcome. Confirmed counts are partial.</p>}
           </> : <p>Upload counts unavailable for this run.</p>}
           {run.report_counts && <p>{run.report_counts.acknowledged_contacts} local contacts acknowledged · {run.report_counts.remote_contacts_processed} remote records processed · {run.report_counts.deletions_reconciled} deletions reconciled · {run.report_counts.failures} failures.</p>}
+          {run.local_counts_complete === true && run.report_counts ? <p>
+            Remote reconciliation: {run.report_counts.local_inserted} local contacts added · {run.report_counts.local_updated} local contacts updated · {run.report_counts.local_marked_deleted} local contacts marked deleted · {run.report_counts.baseline_repairs} baseline metadata repairs.
+          </p> : <p>Local change totals are unavailable for this run; they are not assumed to be zero.</p>}
           <p className="secondary">Acknowledged contacts can include unchanged records. Remote records processed are not a count of new local contacts.</p>
         </details>)}
     </section>}

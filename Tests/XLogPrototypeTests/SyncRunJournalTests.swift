@@ -39,6 +39,10 @@ final class SyncRunJournalTests: XCTestCase {
         XCTAssertEqual(receipt["confirmed_creates"] as? Int, 1)
         XCTAssertEqual(receipt["unknown_writes"] as? Int, 0)
         XCTAssertEqual(receipt["upload_counts_complete"] as? Bool, true)
+        XCTAssertEqual(receipt["local_counts_complete"] as? Bool, true)
+        let local = try XCTUnwrap(receipt["report_counts"] as? [String: Int])
+        XCTAssertEqual(local["local_inserted"], 0, "Uploading an existing local contact is not a new local insertion")
+        XCTAssertEqual(local["local_updated"], 0)
         XCTAssertEqual(try db.lookup(localID: baseline.id), baseline)
         XCTAssertEqual(try db.lookup(localID: outgoing.id)?.wavelogID, 42)
         await service.terminate()
@@ -68,12 +72,16 @@ final class SyncRunJournalTests: XCTestCase {
         XCTAssertEqual(receipt["trigger"] as? String, "automatic")
         XCTAssertEqual(receipt["upload_attempts"] as? Int, 0)
         XCTAssertEqual(receipt["upload_counts_complete"] as? Bool, true)
+        XCTAssertEqual(receipt["local_counts_complete"] as? Bool, true)
+        XCTAssertEqual((receipt["report_counts"] as? [String: Int])?["local_inserted"], 0)
         await service.terminate()
         let mock = LiveServiceMethods(logbook: fixture.logbook, operation: { _, _ in SyncReport() })
         _ = try await mock.handle(method: "sync_run", params: ["confirm_single_writer": true])
         let unobserved = try await finished(mock)["last_run"] as! [String: Any]
         XCTAssertTrue(unobserved["upload_attempts"] is NSNull)
         XCTAssertEqual(unobserved["upload_counts_complete"] as? Bool, false)
+        XCTAssertEqual(unobserved["local_counts_complete"] as? Bool, false)
+        XCTAssertNil((unobserved["report_counts"] as? [String: Int])?["local_inserted"])
         await mock.terminate()
     }
 
@@ -95,6 +103,8 @@ final class SyncRunJournalTests: XCTestCase {
         XCTAssertEqual(failed["outcome"] as? String, "completed_with_failures")
         XCTAssertEqual(failed["unknown_writes"] as? Int, 1)
         XCTAssertEqual(failed["upload_counts_complete"] as? Bool, false)
+        XCTAssertEqual(failed["local_counts_complete"] as? Bool, false)
+        XCTAssertNil((failed["report_counts"] as? [String: Int])?["local_inserted"])
         XCTAssertEqual(try db.lookup(localID: baseline.id), baseline)
         await service.terminate()
         let cancelled = LiveServiceMethods(logbook: fixture.logbook, operation: { database, _ in
@@ -130,6 +140,7 @@ final class SyncRunJournalTests: XCTestCase {
         XCTAssertEqual(receipt["outcome"] as? String, "interrupted")
         XCTAssertTrue(receipt["finished_at"] is NSNull)
         XCTAssertEqual(receipt["unknown_writes"] as? Int, 1)
+        XCTAssertEqual(receipt["local_counts_complete"] as? Bool, false)
         let copy = try reopened.openedDatabase()
         for _ in 0..<101 {
             let run = try copy.beginSyncRun(automatic: false)

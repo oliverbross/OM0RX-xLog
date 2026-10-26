@@ -25,6 +25,19 @@ const runFixture = () => ({ run_id: "run-1", trigger: "automatic", outcome: "com
   report_counts: { acknowledged_contacts: 12, remote_contacts_processed: 120, deletions_reconciled: 0, failures: 0 } });
 
 describe("durable synchronization provenance", () => {
+  it("shows measured local changes separately from remote rows and baseline repairs", async () => {
+    const run = { ...runFixture(), local_counts_complete: true, report_counts: { ...runFixture().report_counts,
+      remote_contacts_processed: 125, local_inserted: 3, local_updated: 120, local_marked_deleted: 2, baseline_repairs: 1 } };
+    render(<SyncPanel request={syncRequest(async () => ({ ...fixture(), recent_runs: [run] }))} onChanged={vi.fn()} />);
+    await screen.findByText(/Remote reconciliation: 3 local contacts added · 120 local contacts updated · 2 local contacts marked deleted · 1 baseline metadata repairs/);
+    expect(screen.getByText(/125 remote records processed/)).toBeTruthy();
+  });
+  it.each(["running", "interrupted", "failed", "completed"])("keeps missing local totals unknown for a %s receipt", async outcome => {
+    const run = { ...runFixture(), outcome, local_counts_complete: false };
+    render(<SyncPanel request={syncRequest(async () => ({ ...fixture(), recent_runs: [run] }))} onChanged={vi.fn()} />);
+    await screen.findByText("Local change totals are unavailable for this run; they are not assumed to be zero.");
+    expect(screen.queryByText(/Remote reconciliation:/)).toBeNull();
+  });
   it("distinguishes confirmed writes from acknowledged contacts and checked history", async () => {
     const request = syncRequest(async () => ({ ...fixture(), recent_runs: [runFixture()] }));
     render(<SyncPanel request={request} onChanged={vi.fn()} />);

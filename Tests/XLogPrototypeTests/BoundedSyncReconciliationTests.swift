@@ -101,6 +101,9 @@ final class BoundedSyncReconciliationTests: XCTestCase {
             await gate.resume()
             let report = try await job.value
             XCTAssertEqual(report.pulled, 400); XCTAssertEqual(report.conflicts, 2); XCTAssertEqual(report.deleted, 1)
+            XCTAssertEqual(report.localChanges?.inserted, 0)
+            XCTAssertEqual(report.localChanges?.updated, 398, "Foreground edits between chunks are not sync updates")
+            XCTAssertEqual(report.localChanges?.markedDeleted, 1)
             XCTAssertEqual(try db.lookup(localID: localEdit.id), editSnapshot)
             XCTAssertEqual(try db.lookup(localID: localDelete.id), deleteSnapshot)
             XCTAssertNotNil(try db.lookup(localID: absent.id)?.deletedAt)
@@ -112,6 +115,7 @@ final class BoundedSyncReconciliationTests: XCTestCase {
     func testCancellationAfterCommittedChunkSkipsDeletionAndIsResumable() async throws {
         try await withDatabase { db in
             let absent = remote(999); try db.mergeRemote(absent)
+            let receipt = try db.beginSyncRun(automatic: true)
             let (sync, session) = try engine(db); defer { session.invalidateAndCancel() }
             let gate = ReconciliationStepGate()
             await sync.setReconciliationStepObserver { await gate.step() }
@@ -119,11 +123,16 @@ final class BoundedSyncReconciliationTests: XCTestCase {
             defer { job.cancel(); Task { await gate.resume() } }
             try await gate.started(); job.cancel(); await gate.resume()
             do { _ = try await job.value; XCTFail("Cancelled sync completed") } catch is CancellationError {}
+            try db.finishSyncRun(receipt.id, outcome: "cancelled", report: nil, safeErrorCode: "cancelled")
+            XCTAssertNil(try db.syncRunReceipts()[0].reportCounts, "Committed partial chunks must not become fabricated completed totals")
             XCTAssertEqual(try db.count(), 129)
             XCTAssertNil(try db.lookup(localID: absent.id)?.deletedAt)
             let (retry, retrySession) = try engine(db); defer { retrySession.invalidateAndCancel() }
             let retried = try await retry.synchronize()
             XCTAssertEqual(retried.pulled, 400)
+            XCTAssertEqual(retried.localChanges?.inserted, 272)
+            XCTAssertEqual(retried.localChanges?.updated, 0)
+            XCTAssertEqual(retried.localChanges?.markedDeleted, 1)
             XCTAssertEqual(try db.count(), 400)
         }
     }
