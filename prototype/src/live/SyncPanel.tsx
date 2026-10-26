@@ -9,6 +9,17 @@ type Request = (method: string, params?: Data) => Promise<Data>;
 type Field = { key: string; label: string; local: string; remote: string };
 type Conflict = { id: string; revision: string; fields: Field[]; localQSO: Data; remoteQSO: Data };
 type HeldGroup = { identity: string; remote_ids: number[]; differing_fields: string[]; value_shapes: string[] };
+type SyncRun = { run_id: string; trigger: "automatic" | "manual"; outcome: string; started_at: string; finished_at: string | null;
+  upload_tracking: boolean; upload_attempts: number | null; confirmed_creates: number | null; confirmed_updates: number | null;
+  confirmed_deletes: number | null; unknown_writes: number | null; upload_counts_complete: boolean; report_counts: Data | null };
+const runOutcomes: Record<string, string> = { running: "Running", completed: "Completed", completed_with_failures: "Completed with failures",
+  failed: "Failed", cancelled: "Cancelled", interrupted: "Interrupted · completion unknown" };
+const syncRunsFrom = (value: unknown): SyncRun[] => !Array.isArray(value) ? [] : value.slice(0, 100).filter((item): item is SyncRun =>
+  !!item && typeof item === "object" && typeof item.run_id === "string" && ["automatic", "manual"].includes(item.trigger)
+  && Object.prototype.hasOwnProperty.call(runOutcomes, item.outcome) && typeof item.started_at === "string"
+  && typeof item.upload_tracking === "boolean" && typeof item.upload_counts_complete === "boolean"
+  && ["upload_attempts", "confirmed_creates", "confirmed_updates", "confirmed_deletes", "unknown_writes"].every(key =>
+    item[key] === null || Number.isSafeInteger(item[key]) && item[key] >= 0));
 type Props = { request: Request; onChanged: () => void; journalKey?: string };
 const errorText = (error: unknown) => error instanceof Error ? error.message : "The operation failed. Refresh the current sync state and retry.";
 const syncTime = (value: unknown) => typeof value === "string" && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString() : "—";
@@ -123,6 +134,7 @@ export default function SyncPanel({ request, onChanged, journalKey = "xlog.sync.
   };
   const conflicts: Conflict[] = state?.conflicts || [];
   const heldGroups = heldGroupsFrom(state?.held_groups);
+  const recentRuns = syncRunsFrom(state?.recent_runs);
   return <section className="live-sync sync-panel" aria-label="Wavelog synchronization">
     <h2>Wavelog synchronization</h2>
     <button type="button" disabled={busy || checkingSetup} onClick={() => { setError(""); void refresh(); }}>Refresh Sync state</button>
@@ -140,7 +152,25 @@ export default function SyncPanel({ request, onChanged, journalKey = "xlog.sync.
     <p className="secondary">{automatic ? "Saved for this logbook and Wavelog destination. Runs while xLog is open; failures retry with backoff." : "Enable once to keep this logbook synchronized whenever xLog is open."}{state?.running ? " Wait for the current run to finish before changing its schedule." : ""}</p>
     <div className="sync-evidence" role="status"><strong>{state?.status || "Reading sync state…"}</strong><span>Last finished: {syncTime(state?.finished_at)}</span><span>Next attempt: {automatic ? state?.running ? "After this run" : state?.next_attempt ? syncTime(state.next_attempt) : "Within 15 seconds" : "Not scheduled"}</span></div>
     {state && !verified && <p className="secondary" role="status">Sync state is being refreshed or is unavailable. Retained values are display only; actions are disabled.</p>}
-    {state?.finished_at && typeof state.pulled === "number" && <p className="secondary">{state.pushed} uploaded · {state.pulled.toLocaleString()} remote records checked · {state.deleted} deletions applied · {state.failed} failures</p>}
+    {state?.finished_at && typeof state.pulled === "number" && <p className="secondary">{state.pushed} local contacts acknowledged · {state.pulled.toLocaleString()} remote records checked · {state.deleted} deletions reconciled · {state.failed} failures</p>}
+    {state && <section aria-label="Sync run history">
+      <h2>Recent sync runs</h2>
+      <p className="secondary">Receipts survive restart; the newest 100 runs are retained. Earlier activity cannot be reconstructed from these receipts.</p>
+      {!recentRuns.length ? <p>No durable run receipts yet. Earlier upload counts are unknown.</p> : recentRuns.map((run, index) =>
+        <details className="sync-conflict" key={run.run_id} open={index === 0}>
+          <summary>{run.trigger === "automatic" ? "Automatic" : "Manual"} · {runOutcomes[run.outcome]} · {syncTime(run.started_at)}</summary>
+          <p>Directions: local changes to Wavelog; Wavelog history to this logbook.</p>
+          <p>Started: {syncTime(run.started_at)} · Finished: {run.finished_at ? syncTime(run.finished_at) : "Not confirmed"}</p>
+          {run.upload_tracking ? <>
+            <p>Confirmed remote writes: {run.confirmed_creates} creates · {run.confirmed_updates} updates · {run.confirmed_deletes} deletes.</p>
+            {!run.upload_counts_complete && <p className="secondary">Upload totals are incomplete. Counts show confirmed writes so far.</p>}
+            {Number(run.unknown_writes) > 0 && <p className="sync-error">{run.unknown_writes} write attempts have an unknown outcome. Confirmed counts are partial.</p>}
+          </> : <p>Upload counts unavailable for this run.</p>}
+          {run.report_counts && <p>{run.report_counts.acknowledged_contacts} local contacts acknowledged · {run.report_counts.remote_contacts_processed} remote records processed · {run.report_counts.deletions_reconciled} deletions reconciled · {run.report_counts.failures} failures.</p>}
+          <p className="secondary">Acknowledged contacts can include unchanged records. Remote records processed are not a count of new local contacts.</p>
+        </details>)}
+    </section>}
+    {state?.run_receipt_error && <p className="sync-error">{String(state.run_receipt_error)}</p>}
     {Number(state?.held) > 0 && <div className="sync-held">
       <p role="status"><strong>{Number(state?.held).toLocaleString()} Wavelog records held for review.</strong> The same logging identity appears under multiple distinct Wavelog record IDs. Confirmation services may legitimately update ADIF fields, but xLog cannot determine which exported row belongs to which ID. These contacts and their pending edits remain unchanged; other contacts continue to synchronize.</p>
       {heldGroups.length > 0 && <div className="sync-held-groups" aria-label="Held Wavelog record groups">{heldGroups.map(group => <details className="sync-held-group" key={`${group.identity}:${group.remote_ids.join(",")}`}>

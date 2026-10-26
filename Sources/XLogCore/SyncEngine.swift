@@ -28,6 +28,26 @@ public struct SyncReport: Equatable, Sendable {
     public var heldGroups: [SyncHeldContactGroup] = []
 }
 
+/// Operational evidence only: no contact identities, destinations or credentials.
+public struct SyncRunReceipt: Codable, Equatable, Sendable {
+    public let id: UUID
+    public let startedAt: Date
+    public let automatic: Bool
+    public var finishedAt: Date?
+    public var outcome: String = "running"
+    public var reportCounts: [String: Int]?
+    public var safeErrorCode: String?
+    public var uploadTracking = false
+    public var uploadAttempts = 0
+    public var confirmedCreates = 0
+    public var confirmedUpdates = 0
+    public var confirmedDeletes = 0
+
+    public init(automatic: Bool, startedAt: Date = Date()) {
+        id = UUID(); self.automatic = automatic; self.startedAt = startedAt
+    }
+}
+
 public struct RemoteHistoryPreview: Sendable {
     public let qsos: [QSO]
     public let remoteIDs: Set<Int>
@@ -49,6 +69,7 @@ public actor SyncEngine {
     private let database: LogbookDatabase
     private let client: WavelogClient
     private let validateRun: @Sendable () throws -> Void
+    private let receiptID: UUID?
     // Internal rendezvous permits deterministic scheduling tests without IPC.
     var betweenReconciliationSteps: @Sendable () async throws -> Void = { await Task.yield() }
     func setReconciliationStepObserver(_ observer: @escaping @Sendable () async throws -> Void) {
@@ -56,10 +77,11 @@ public actor SyncEngine {
     }
 
     public init(database: LogbookDatabase, configuration: WavelogConfiguration, session: URLSession = .shared,
-                validateRun: @escaping @Sendable () throws -> Void = {}) {
+                validateRun: @escaping @Sendable () throws -> Void = {}, receiptID: UUID? = nil) {
         self.database = database
         self.client = WavelogClient(configuration: configuration, session: session)
         self.validateRun = validateRun
+        self.receiptID = receiptID
     }
 
     /// Validates the same complete remote snapshot used by synchronization,
@@ -276,6 +298,7 @@ public actor SyncEngine {
 
     public func synchronize() async throws -> SyncReport {
         try validateSyncRun()
+        if let receiptID { try database.trackSyncRunUploads(receiptID) }
         let run = try database.beginSyncReconciliation()
         defer { database.endSyncReconciliation(run) }
         var report = SyncReport()
@@ -330,8 +353,10 @@ public actor SyncEngine {
                 let fields = WavelogQSOUpdate(current, comparedTo: comparison)
                 if !fields.isEmpty {
                     try validateForNetwork(run)
+                    try uploadAttempt(run: run)
                     let updated = try await client.updateQSO(id: remoteID, fields: fields)
                     try await verifyUpdate(fields, response: updated, id: remoteID, run: run)
+                    try uploadConfirmed("update")
                 }
                 try validateSyncRun()
                 try database.withSyncDatabaseLock(run) { try database.acknowledgeSynced(current) }
@@ -421,7 +446,10 @@ public actor SyncEngine {
                     // lost. The verified complete scan already proves absence.
                     if let remoteID = qso.wavelogID, remoteIDs.contains(remoteID) {
                         try validateForNetwork(run)
-                        try await client.deleteQSO(id: remoteID); report.deleted += 1
+                        try uploadAttempt(run: run)
+                        try await client.deleteQSO(id: remoteID)
+                        try uploadConfirmed("delete")
+                        report.deleted += 1
                     }
                     try validateSyncRun()
                     try database.withSyncDatabaseLock(run) { try database.acknowledgeSynced(qso) }
@@ -435,8 +463,10 @@ public actor SyncEngine {
                     let fields = WavelogQSOUpdate(qso, comparedTo: previous)
                     if !fields.isEmpty {
                         try validateForNetwork(run)
+                        try uploadAttempt(run: run)
                         let remote = try await client.updateQSO(id: remoteID, fields: fields)
                         try await verifyUpdate(fields, response: remote, id: remoteID, run: run)
+                        try uploadConfirmed("update")
                     }
                     try validateSyncRun()
                     try database.withSyncDatabaseLock(run) { try database.acknowledgeSynced(qso) }
@@ -448,10 +478,12 @@ public actor SyncEngine {
                         continue
                     }
                     try validateForNetwork(run)
+                    try uploadAttempt(run: run)
                     let remote = try await client.createQSO(create)
                     guard remote.representsSupportedCreate(of: qso) else {
                         throw WavelogClientError.writeVerificationFailed(id: remote.id)
                     }
+                    try uploadConfirmed("create")
                     try validateSyncRun()
                     try database.withSyncDatabaseLock(run) { try database.acknowledgeSynced(qso, wavelogID: remote.id) }
                 }
@@ -464,6 +496,17 @@ public actor SyncEngine {
         }
 
         return report
+    }
+
+    private func uploadAttempt(run: SyncDatabaseRun) throws {
+        if let receiptID { try database.recordSyncRunUpload(receiptID, confirmed: nil) }
+        // Journal I/O may yield to a foreground workspace change or cancellation.
+        // Revalidate before crossing the network boundary after that write.
+        try validateForNetwork(run)
+    }
+
+    private func uploadConfirmed(_ kind: String) throws {
+        if let receiptID { try database.recordSyncRunUpload(receiptID, confirmed: kind) }
     }
 
     private func verifyUpdate(_ fields: WavelogQSOUpdate, response: WavelogQSO,

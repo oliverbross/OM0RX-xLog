@@ -19,6 +19,56 @@ const fixture = () => ({ mutation_owner: { generation: "workspace-1", revision: 
 }], outbox: [{ id: "qso-1", call: "OM0RX", attempt_count: 2, waiting: false, has_error: true }] });
 afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); });
 
+const runFixture = () => ({ run_id: "run-1", trigger: "automatic", outcome: "completed", started_at: "2026-10-27T01:00:00Z",
+  finished_at: "2026-10-27T01:01:00Z", upload_tracking: true, upload_attempts: 2, confirmed_creates: 1,
+  confirmed_updates: 1, confirmed_deletes: 0, unknown_writes: 0, upload_counts_complete: true,
+  report_counts: { acknowledged_contacts: 12, remote_contacts_processed: 120, deletions_reconciled: 0, failures: 0 } });
+
+describe("durable synchronization provenance", () => {
+  it("distinguishes confirmed writes from acknowledged contacts and checked history", async () => {
+    const request = syncRequest(async () => ({ ...fixture(), recent_runs: [runFixture()] }));
+    render(<SyncPanel request={request} onChanged={vi.fn()} />);
+    await screen.findByText(/Confirmed remote writes: 1 creates · 1 updates · 0 deletes/);
+    expect(screen.getByText(/12 local contacts acknowledged · 120 remote records processed/)).toBeTruthy();
+    expect(screen.getByText(/Remote records processed are not a count of new local contacts/)).toBeTruthy();
+    expect(request.mock.calls.every(([method]) => method === "sync_status")).toBe(true);
+  });
+  it.each(["failed", "cancelled", "interrupted"])("keeps %s write outcomes unknown", async outcome => {
+    const run = { ...runFixture(), outcome, finished_at: null, confirmed_creates: 0, confirmed_updates: 0,
+      upload_attempts: 1, unknown_writes: 1, upload_counts_complete: false, report_counts: null };
+    render(<SyncPanel request={syncRequest(async () => ({ ...fixture(), recent_runs: [run] }))} onChanged={vi.fn()} />);
+    await screen.findByText(/1 write attempts have an unknown outcome/);
+    expect(screen.getByText(/Finished: Not confirmed/)).toBeTruthy();
+    if (outcome === "interrupted") expect(screen.getByText(/Interrupted · completion unknown/)).toBeTruthy();
+  });
+  it.each(["running", "interrupted"].flatMap(outcome => [0, 2].map(confirmed => ({ outcome, confirmed }))))(
+    "marks $outcome totals incomplete with $confirmed confirmed writes and no pending attempts", async ({ outcome, confirmed }) => {
+      const run = { ...runFixture(), outcome, finished_at: null, upload_attempts: confirmed,
+        confirmed_creates: confirmed, confirmed_updates: 0, unknown_writes: 0, upload_counts_complete: false };
+      render(<SyncPanel request={syncRequest(async () => ({ ...fixture(), recent_runs: [run] }))} onChanged={vi.fn()} />);
+      await screen.findByText("Upload totals are incomplete. Counts show confirmed writes so far.");
+      expect(screen.getByText(`Confirmed remote writes: ${confirmed} creates · 0 updates · 0 deletes.`)).toBeTruthy();
+      expect(screen.queryByText(/write attempts have an unknown outcome/)).toBeNull();
+    });
+  it("shows a completed zero-write run without an incomplete-count warning", async () => {
+    const run = { ...runFixture(), upload_attempts: 0, confirmed_creates: 0, confirmed_updates: 0 };
+    render(<SyncPanel request={syncRequest(async () => ({ ...fixture(), recent_runs: [run] }))} onChanged={vi.fn()} />);
+    await screen.findByText("Confirmed remote writes: 0 creates · 0 updates · 0 deletes.");
+    expect(screen.queryByText("Upload totals are incomplete. Counts show confirmed writes so far.")).toBeNull();
+  });
+  it("does not invent zero uploads for older activity or an untracked run", async () => {
+    const request = syncRequest(async () => ({ ...fixture(), recent_runs: [] }));
+    const view = render(<SyncPanel request={request} onChanged={vi.fn()} />);
+    await screen.findByText("No durable run receipts yet. Earlier upload counts are unknown.");
+    view.unmount();
+    const run = { ...runFixture(), upload_tracking: false, upload_attempts: null, confirmed_creates: null,
+      confirmed_updates: null, confirmed_deletes: null, unknown_writes: null, upload_counts_complete: false };
+    render(<SyncPanel request={syncRequest(async () => ({ ...fixture(), recent_runs: [run] }))} onChanged={vi.fn()} />);
+    await screen.findByText("Upload counts unavailable for this run.");
+    expect(screen.queryByText(/Confirmed remote writes:/)).toBeNull();
+  });
+});
+
 describe("Wavelog conflict merge", () => {
   it("keeps local mode passive and disables remote setup and synchronization", async () => {
     const request = syncRequest(async () => ({ ...fixture(), mode: "local", sync_available: false }));
@@ -131,7 +181,7 @@ describe("persistent automatic synchronization controls", () => {
     fireEvent.click(screen.getByText(/K8DLD · 17m · FT8/));
     expect(screen.getByText("174610, 174611")).toBeTruthy();
     expect(screen.getByText("QRZCOM_QSO_DOWNLOAD_DATE: empty and populated")).toBeTruthy();
-    expect(screen.getByText(/1 uploaded · 12 remote records checked/)).toBeTruthy();
+    expect(screen.getByText(/1 local contacts acknowledged · 12 remote records checked/)).toBeTruthy();
   });
 
   it("removes the started notice after a native wake reports failure", async () => {
