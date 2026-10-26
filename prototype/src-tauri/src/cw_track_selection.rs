@@ -83,7 +83,11 @@ pub fn snapshot(request:Value)->Result<Value,String> {
     if response["ok"]==true {
         { let mut feed=feed().lock().map_err(|_|"CW identities unavailable.")?;
           retain(&mut feed,worker,&mut response)?; }
-        response["result"]["operatingModule"]=json!(crate::operating_module::selected_worker_value()?);
+        let module=crate::operating_module::owner()?.snapshot()?;
+        if module["transitioning"]!=false{return Err("The operating module is changing. Read CW state after it completes.".into());}
+        crate::worker::require_existing_generation(worker)?;
+        response["result"]["operatingModule"]=module["selected"].clone();
+        response["result"]["operatingContext"]=module["context"].clone();
     }
     Ok(response)
 }

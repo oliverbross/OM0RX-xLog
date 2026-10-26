@@ -1,7 +1,7 @@
 # Retained CW track selection
 
 This branch adds retained native evidence and explicit callsign-only loading into
-the shared Normal Logging draft. Tune, contest entry integration and complete
+the shared Normal Logging draft and the fenced contest Entry. Tune and complete
 action recovery remain pending. This work does not qualify CW for release.
 
 A track gets an opaque selection reference only when committed aligned text
@@ -30,8 +30,7 @@ refusal, invented selection, stale input, changed provider, ambiguity and Stop
 during a suspended read. Four projection cases and production TypeScript passed.
 The existing automatic-spot production quality refusal remains tested and intact.
 
-Remaining integration: fenced contest `entry_set_text` through its sole main
-consumer; explicit Tune through the durable manual-tune owner with current source
+Remaining integration: explicit Tune through the durable manual-tune owner with current source
 and operating-radio admission; scoped window methods, UI and action recovery tests.
 
 ## Scoped read bridge
@@ -105,8 +104,9 @@ automatic draft change or station effect.
 ## Explicit Normal Logging action
 
 `cw_callsign_request` is restricted to main and CW Decode windows, the production
-runtime and Normal Logging admission. Apply requests accept four UUID identities
-only. The existing activation coordinator supplies the shared editor barrier,
+runtime and native operating-module admission. Apply requests accept four CW UUID
+identities plus the exact native operating-module/context fence from the snapshot.
+The Normal Logging activation coordinator supplies the shared editor barrier,
 CAS, durable receipt and exact reservation release. Live callsign evidence is
 revalidated at the database lane. The response projection excludes the draft and
 refuses any tune-confirmed or rotor-effect outcome.
@@ -123,8 +123,8 @@ semantics described above; no logged QSO or station command is created.
 Validation: 48 CW-filtered native cases and 20 frontend cases passed, including
 identity-only dispatch, rapid repeated click, passive mount, retained lost reply
 across remount, mismatched/uncertain acknowledgement and disabled/contesting
-refusal. Full live workflow acceptance, native-process restart recovery and
-contesting callsign loading are not yet complete. This branch is excluded from
+refusal at that milestone. Full live workflow acceptance and native-process
+restart recovery remain incomplete. Contest callsign loading is described below. This branch is excluded from
 the corrective contest releases, where CW stays disabled.
 
 ## Track mute
@@ -180,3 +180,46 @@ other. Five native pool/readback cases and strict frontend RF-token projection
 checks cover this boundary. The RF resolver is intentionally not yet called by
 an operating action; its unused-function compiler warning reflects the pending
 durable Tune integration. It grants no RF authority by itself.
+
+## Fenced contest callsign loading
+
+The same explicit Use callsign button routes by the native selected module.
+Contesting creates an identity-only `entry_cw_callsign` envelope for the existing
+sole Entry consumer. Native code freezes the active contest/session/workspace,
+Entry draft ID and semantic draft revision. Dirty, busy, uncertain or armed Entry
+state refuses admission. The renderer supplies no callsign, frequency or mode.
+
+When the sole owner takes the action, a separate native resolver checks the
+retained operation, the unchanged draft scope and current CW evidence again.
+Only `contest-setup` can call this resolver. The owner rechecks the scope and its
+latest output state after asynchronous readback, then performs the existing
+draft CAS with only the updated callsign field set. Reports, exchange and operating
+fields remain under their existing owners. It does not record an automatic heard
+spot, insert a QSO, tune, stop output or turn the rotor.
+
+Native CW output must be idle, without a retained/uncertain output lease, at
+admission and readback. A queued/taken CW callsign action also vetoes new native
+CW arm/send/contest output until the sole owner completes it. Operator output is
+refused rather than stopped by callsign loading. Follow Radio and automatic rotor
+permission are revoked through their existing owners; no station command is sent.
+
+Queued/taken receipts remain pending and never claim the draft was applied.
+Only the owner’s applied receipt confirms loading; rejection closes the action.
+Checking the original operation reads its receipt and never submits it again.
+Definite failures before queue admission return a closed failure. At most 4,096
+CW Entry intents are retained by a native process; exhaustion refuses new actions.
+Cross-process/expired-context recovery remains a separate open gate: unknown old
+operations stay blocked for review in Main Logging, without automatic replay.
+
+Validation: 57 CW-focused native cases, 25 callsign bridge/response/projection UI cases,
+four sole-Entry controller cases and TypeScript pass. The controller fixture
+checks field preservation, no Tune/Stop and refusal of a stale semantic revision;
+the other cases refuse armed, pending and uncertain output. These are source and
+fixture results, not installed app, hardware or complete CW acceptance.
+
+Both Normal Logging and Contesting clicks carry the exact native operating
+context observed in their snapshot. Native admission holds that module/context
+through the normal transaction or contest queue admission. A late click after a
+module switch cannot silently target the other entry. Missing/invalid module or
+context disables the UI action, and normal/contest operation identities cannot
+substitute for each other's retained routes.

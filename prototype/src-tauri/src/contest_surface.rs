@@ -115,6 +115,13 @@ pub fn retirement_ready() -> Result<(), String> {
     let state = state().lock().map_err(|_| "Contest surface state unavailable")?;
     retirement_ready_in(&state)
 }
+pub fn cw_callsign_pending()->bool{
+    state().lock().map_or(true,|state|cw_callsign_pending_in(&state))
+}
+fn cw_callsign_pending_in(state:&State)->bool{
+    state.panels.values().any(|panel|panel.receipts.iter().any(|(_,receipt)|
+        receipt.envelope["action"]=="entry_cw_callsign" && matches!(receipt.status,"queued"|"uncertain")))
+}
 
 fn retirement_ready_in(state: &State) -> Result<(), String> {
     let unresolved_receipt = state.panels.values().any(|panel| panel.receipts.iter()
@@ -786,6 +793,10 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
                 "entry field",
             )?;
             text_value(&params["value"], 160, true, "entry value")?;
+        }
+        "entry_cw_callsign" => {
+            draft(params,&["sourceEpoch","spotID","spotVersion"])?;
+            for key in ["sourceEpoch","spotID","spotVersion"]{canonical_uuid_value(&params[key],"CW native selection")?;}
         }
         "entry_set_exchange" => {
             draft(params, &["fieldID", "value"])?;
@@ -3218,6 +3229,25 @@ mod tests {
         );
         coerced["requestID"] = json!([REQUEST]);
         assert!(validate_action_envelope(&coerced).is_err());
+    }
+    #[test]
+    fn cw_callsign_actions_accept_only_native_identities_and_an_exact_entry_draft(){
+        let params=json!({"draftID":"draft","expectedDraftRevision":2,"sourceEpoch":OPERATING,"spotID":SESSION,"spotVersion":WORKSPACE});
+        assert!(validate_action_envelope(&action("entry_cw_callsign","active-qso",params.clone())).is_ok());
+        assert!(validate_action_envelope(&action("entry_cw_callsign","band-maps",params.clone())).is_err());
+        for (key,value) in [("callsign",json!("K1ABC")),("frequencyHz",json!(14025000)),("tune",json!(true))]{
+            let mut wrong=params.clone();wrong[key]=value;assert!(validate_action_envelope(&action("entry_cw_callsign","active-qso",wrong)).is_err());
+        }
+        let mut wrong=params;wrong["sourceEpoch"]=json!(17);assert!(validate_action_envelope(&action("entry_cw_callsign","active-qso",wrong)).is_err());
+    }
+    #[test]
+    fn unresolved_cw_callsign_intent_blocks_new_cw_output_until_owner_completion(){
+        let mut state=State::default();
+        let value=action("entry_cw_callsign","active-qso",json!({"draftID":"draft","expectedDraftRevision":2,"sourceEpoch":OPERATING,"spotID":SESSION,"spotVersion":WORKSPACE}));
+        for status in ["queued","uncertain","applied","rejected"]{
+            let mut panel=PanelState::default();panel.receipts.push_back((REQUEST.into(),retained_receipt(&value,status,None,7)));
+            state.panels.insert("active-qso".into(),panel);assert_eq!(cw_callsign_pending_in(&state),matches!(status,"queued"|"uncertain"));
+        }
     }
 
     #[test]

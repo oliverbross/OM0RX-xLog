@@ -1,8 +1,8 @@
 //! Explicit CW callsign intent. No renderer callsign, RF target or effect flag.
 use serde_json::{json,Value};
-pub enum Action {Apply(crate::spot_activation::Request),Status(String),Reconcile(String)}
+pub enum Action {Apply(crate::spot_activation::Request,String,crate::operating_module::OperatingModule),Status(String),Reconcile(String)}
 pub fn validate_surface(label:&str,isolated:bool,exiting:bool)->Result<(),String> {
-    if isolated||exiting||!matches!(label,"main"|"cw-decode") {Err("CW callsign actions are unavailable in this window.".into())} else {Ok(())}
+    if isolated||exiting||!matches!(label,"main"|"cw-decode"|"contest--cw-decode") {Err("CW callsign actions are unavailable in this window.".into())} else {Ok(())}
 }
 fn id(value:&str)->Result<(),String> {
     if uuid::Uuid::parse_str(value).is_ok_and(|id|!id.is_nil()){Ok(())}else{Err("CW action identity is invalid.".into())}
@@ -13,9 +13,11 @@ pub fn parse(mut value:Value)->Result<Action,String> {
     let action=object.remove("action").and_then(|v|v.as_str().map(str::to_owned)).ok_or("CW action is missing.")?;
     match action.as_str() {
         "apply"=>{
+            let context=object.remove("operatingContext").and_then(|value|value.as_str().map(str::to_owned)).ok_or("CW operating context is missing.")?;id(&context)?;
+            let module=serde_json::from_value(object.remove("operatingModule").ok_or("CW operating module is missing.")?).map_err(|_|"CW operating module is invalid.")?;
             let request:crate::spot_activation::Request=serde_json::from_value(value).map_err(|_|"CW selection accepts native identities only.")?;
             for value in [&request.operation_id,&request.source_epoch,&request.spot_id,&request.spot_version]{id(value)?;}
-            Ok(Action::Apply(request))
+            Ok(Action::Apply(request,context,module))
         },
         "status"|"reconcile"=>{
             if object.len()!=1 {return Err("CW status accepts one operation identity.".into());}
@@ -44,13 +46,14 @@ mod tests {
     use super::*;
     #[test]
     fn roles_never_inherit_general_qso_or_station_authority() {
-        for label in ["main","cw-decode"] {assert!(validate_surface(label,false,false).is_ok());assert!(validate_surface(label,true,false).is_err());assert!(validate_surface(label,false,true).is_err());}
+        for label in ["main","cw-decode","contest--cw-decode"] {assert!(validate_surface(label,false,false).is_ok());assert!(validate_surface(label,true,false).is_err());assert!(validate_surface(label,false,true).is_err());}
         for label in ["cw","station-control","contest--active-qso","settings",""]{assert!(validate_surface(label,false,false).is_err());}
     }
     #[test]
     fn requests_are_bounded_identity_only_and_acks_never_return_draft_fields() {
-        let request=json!({"action":"apply","operationId":uuid::Uuid::new_v4().to_string(),"sourceEpoch":uuid::Uuid::new_v4().to_string(),"spotId":uuid::Uuid::new_v4().to_string(),"spotVersion":uuid::Uuid::new_v4().to_string()});
-        assert!(matches!(parse(request.clone()).unwrap(),Action::Apply(_)));
+        let request=json!({"action":"apply","operationId":uuid::Uuid::new_v4().to_string(),"sourceEpoch":uuid::Uuid::new_v4().to_string(),"spotId":uuid::Uuid::new_v4().to_string(),"spotVersion":uuid::Uuid::new_v4().to_string(),"operatingContext":uuid::Uuid::new_v4().to_string(),"operatingModule":"normal_logging"});
+        assert!(matches!(parse(request.clone()).unwrap(),Action::Apply(..)));
+        for key in ["operatingContext","operatingModule"]{let mut missing=request.clone();missing.as_object_mut().unwrap().remove(key);assert!(parse(missing).is_err());}
         for (key,value) in [("call",json!("K1ABC")),("frequencyHz",json!(14025000)),("tune",json!(true))]{let mut bad=request.clone();bad[key]=value;assert!(parse(bad).is_err());}
         let operation=request["operationId"].clone();
         assert!(matches!(parse(json!({"action":"status","operationId":operation})).unwrap(),Action::Status(_)));

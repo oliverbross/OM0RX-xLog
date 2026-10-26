@@ -21,8 +21,9 @@ live projection; old reads or Start replies cannot overwrite a newer Stop.
 
 Native worker admission grants only the receive-only decoder namespace to main
 and CW Decode surfaces. It grants no transmit, tune, QSO mutation, secret or general cluster
-authority. A separate identity-only native command owns explicit Normal Logging
-callsign loading through the shared editor/CAS/receipt coordinator. Decoder timeout policy retains the logging/radio worker. The main
+authority. A separate identity-only native command owns explicit callsign loading
+through the Normal Logging editor/CAS/receipt coordinator or the sole contest
+Entry consumer. Decoder timeout policy retains the logging/radio worker. The main
 and Window-menu routes reuse the existing singleton window machinery.
 
 Original UI milestone verification: five component lifecycle/control tests, two bounded projection
@@ -51,15 +52,16 @@ and service. Every decoder request verifies its native URL has exactly one
 view/scope/operating-context/session/workspace tuple, then admits that tuple
 against current native contest authority. Renderer fields do not establish it.
 The window has no contest mutation, normal-draft, secret or station-control
-authority. Opening/closing it neither starts nor stops capture. Contest callsign
-loading remains disabled until its separate entry-owner integration is complete.
+authority. Opening/closing it neither starts nor stops capture. Callsign loading
+uses the separate, fenced native action described in the selection document;
+the decoder window never acquires raw contest mutation authority.
 Validation: 137 native workspace cases and the receive-only role case pass;
 thirteen navigation/lazy-loader cases and six selected contest startup/menu cases
 pass, including the CW menu intent after session restoration. TypeScript passes.
 No installed contest-window or live CW acceptance is claimed.
 
 Still outstanding: real Flex/SunSDR input qualification, qualified RF and quality
-evidence, hardware signal calibration, explicit Tune and contest callsign loading,
+evidence, hardware signal calibration, explicit Tune,
 complete process-restart action recovery, full CW package acceptance,
 external-client acceptance, measured capacity and the required soaks.
 This development UI does not claim the complete feature has shipped.

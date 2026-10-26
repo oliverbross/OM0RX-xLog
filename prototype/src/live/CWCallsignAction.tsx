@@ -27,8 +27,8 @@ export function CWCallsignAction({ signal, snapshot, request = requestCWCallsign
   const inFlight = useRef(false);
   const [pending, setPending] = useState(operation.current), [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<CWCallsignOutcome | null>(null), [error, setError] = useState("");
-  const eligible = snapshot.featureEnabled === true && snapshot.state === "running" && snapshot.operatingModule === "normal_logging" &&
-    !!signal?.selection?.activation && !signal.ambiguous;
+  const eligible = snapshot.featureEnabled === true && snapshot.state === "running" && ["normal_logging", "contesting"].includes(snapshot.operatingModule ?? "") &&
+    uuid(snapshot.operatingContext) && !!signal?.selection?.activation && !signal.ambiguous;
   const run = async (check: boolean) => {
     if (inFlight.current || (!check && (!eligible || operation.current)) || check && !operation.current) return;
     const id = check ? operation.current! : crypto.randomUUID();
@@ -37,7 +37,8 @@ export function CWCallsignAction({ signal, snapshot, request = requestCWCallsign
     try {
       const selection = signal?.selection;
       const params = check ? { action: "reconcile", operationId: id } : { action: "apply", operationId: id,
-        sourceEpoch: selection!.activation!.sourceEpoch, spotId: selection!.reference.trackID, spotVersion: selection!.activation!.spotVersion };
+        sourceEpoch: selection!.activation!.sourceEpoch, spotId: selection!.reference.trackID, spotVersion: selection!.activation!.spotVersion,
+        operatingModule:snapshot.operatingModule,operatingContext:snapshot.operatingContext };
       const next = parseCWCallsignOutcome(await request(params), id); setOutcome(next);
       if (["confirmed", "blocked", "failed"].includes(next.phase) && !next.reservationActive) {
         sessionStorage.removeItem(key); operation.current = null; setPending(null);
@@ -47,11 +48,11 @@ export function CWCallsignAction({ signal, snapshot, request = requestCWCallsign
   };
   return <div className="cw-decode-callsign" aria-label="CW callsign loading">
     <div className="cw-decode-actions"><button type="button" disabled={!eligible || busy || !!pending} onClick={() => void run(false)}
-      title="Load the observed callsign into the shared Normal Logging draft, preserving its frequency, mode and operator text.">Use callsign{signal?.selection ? ` ${signal.selection.callsign}` : ""}</button>
+      title="Load the observed callsign into the active logging entry, preserving its frequency, mode and operator text.">Use callsign{signal?.selection ? ` ${signal.selection.callsign}` : ""}</button>
       {pending && <button type="button" disabled={busy} onClick={() => void run(true)}>Check original action</button>}</div>
-    {snapshot.operatingModule !== "normal_logging" && <p>Callsign loading is available in Normal Logging.</p>}
+    {!snapshot.operatingModule && <p>Callsign loading requires an active logging module.</p>}
     {pending && <p role="status">{busy ? "Checking callsign loading…" : "The previous action needs a verified outcome before another callsign can be loaded."}</p>}
-    {outcome?.phase === "confirmed" && <p role="status">Callsign loaded into the shared draft. Frequency and mode are retained.</p>}
+    {outcome?.phase === "confirmed" && <p role="status">Callsign loaded into the logging entry. Frequency and mode are retained.</p>}
     {outcome && outcome.phase !== "confirmed" && !pending && <p role="status">{outcome.error || "Callsign loading was blocked. Review Main Logging before selecting again."}</p>}
     {outcome?.phase === "uncertain" && <p role="alert">Review Main Logging and check the original action. Its outcome is uncertain.</p>}
     {error && <p role="alert">{error}</p>}

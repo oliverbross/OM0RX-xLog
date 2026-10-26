@@ -26,6 +26,7 @@ mod spot_activation;
 mod spot_activation_backend;
 mod cw_track_selection;
 mod cw_callsign_bridge;
+mod cw_contest_callsign;
 mod qsy_clear;
 mod radio_read;
 mod manual_tune;
@@ -387,24 +388,39 @@ async fn activate_opportunity(window: tauri::WebviewWindow, app: tauri::AppHandl
 #[tauri::command]
 async fn cw_callsign_request(window:tauri::WebviewWindow,app:tauri::AppHandle,state:tauri::State<'_,acceptance::Acceptance>,params:serde_json::Value)->Result<serde_json::Value,String> {
     cw_callsign_bridge::validate_surface(window.label(),runtime_profile::isolated(state.path.is_some()),APP_EXITING.load(Ordering::Acquire))?;
+    if let Some(context)=contest_cw_decode_url_context(window.label(),&window.url().map_err(|error|error.to_string())?)? {contest_window_context::admit(&context)?;}
     let action=cw_callsign_bridge::parse(params)?;let owner=activation_owner(&app);
     match action {
-        cw_callsign_bridge::Action::Apply(request)=>{
+        cw_callsign_bridge::Action::Apply(request,context,module)=>{
             if !cw_track_selection::owns(&request.source_epoch){return Err("CW source changed. Select the current signal again.".into());}
-            let admission=operating_module::owner()?.admit_selected(operating_module::OperatingModule::NormalLogging)?;
+            let admission=operating_module::owner()?.admit(module,Some(&context))?;
+            if module==operating_module::OperatingModule::Contesting {
+                if owner.source_epoch(&request.operation_id).is_ok(){return Err("That callsign identity belongs to Normal Logging.".into());}
+                return tauri::async_runtime::spawn_blocking(move||{let _admission=admission;cw_contest_callsign::apply_outcome(&app,request)}).await
+                    .map_err(|_|"CW Entry outcome is unknown. Check the original action; no callsign was resubmitted.".to_string())?;
+            }
+            if cw_contest_callsign::owns(&request.operation_id){return Err("That callsign identity belongs to Contesting.".into());}
             radio_follow::revoke_silently();qsy_clear::retire_terminal();radio_read::retire_terminal();
             tauri::async_runtime::spawn_blocking(move||{let _admission=admission;cw_callsign_bridge::project(owner.activate(request)?)}).await
                 .map_err(|_|"CW callsign outcome is unknown. Check the original action before trying again.".to_string())?
         },
         cw_callsign_bridge::Action::Status(operation)=>{
+            if cw_contest_callsign::owns(&operation){return tauri::async_runtime::spawn_blocking(move||cw_contest_callsign::status(&operation)).await.map_err(|_|"CW Entry status unavailable.".to_string())?;}
             if !cw_track_selection::owns(&owner.source_epoch(&operation)?){return Err("This operation does not belong to CW callsign loading.".into());}
             cw_callsign_bridge::project(owner.status(&operation)?)
         },
         cw_callsign_bridge::Action::Reconcile(operation)=>{
+            if cw_contest_callsign::owns(&operation){return tauri::async_runtime::spawn_blocking(move||cw_contest_callsign::status(&operation)).await.map_err(|_|"CW Entry status unavailable.".to_string())?;}
             if !cw_track_selection::owns(&owner.source_epoch(&operation)?){return Err("This operation does not belong to CW callsign loading.".into());}
             tauri::async_runtime::spawn_blocking(move||cw_callsign_bridge::project(owner.reconcile(&operation)?)).await.map_err(|_|"CW action readback failed.".to_string())?
         }
     }
+}
+#[tauri::command]
+async fn cw_contest_callsign_resolve(window:tauri::WebviewWindow,state:tauri::State<'_,acceptance::Acceptance>,operation_id:String)->Result<serde_json::Value,String> {
+    cw_contest_callsign::validate_owner(window.label(),runtime_profile::isolated(state.path.is_some()),APP_EXITING.load(Ordering::Acquire))?;
+    tauri::async_runtime::spawn_blocking(move||cw_contest_callsign::resolve_for_owner(&operation_id)).await
+        .map_err(|_|"CW Entry evidence could not be read. No callsign was applied.".to_string())?
 }
 fn validate_radio_read(label: &str, isolated: bool, exiting: bool) -> Result<(), String> {
     if isolated || exiting || !matches!(label, "main" | "log-qso") {
@@ -2360,7 +2376,7 @@ async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow,
     // that one-shot admission; production output still requires live focus.
     let focused = live_focus || test_simulation && relayed_focus;
     if output_action
-        && SPOT_ACTIVATION.get().is_some_and(|owner| owner.snapshot().map_or(true, |state| state["reservationActive"] == true)) {
+        && (contest_surface::cw_callsign_pending() || SPOT_ACTIVATION.get().is_some_and(|owner| owner.snapshot().map_or(true, |state| state["reservationActive"] == true))) {
         return Err("Wait for the protected draft selection before arming or sending CW. Stop remains available.".into());
     }
     let owner = cw_session_backend::owner(&app);
@@ -4107,7 +4123,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![operating_module_status, operating_module_switch, operating_module_transition_ack, operating_module_transition_pending, worker_request, cw_session_request, contest_cw_speed_request, station_session_request, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
-            spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity, cw_callsign_request,
+            spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity, cw_callsign_request, cw_contest_callsign_resolve,
             operator_draft_read_radio,
             operator_draft_read_radio_recover,
             operator_draft_follow_snapshot, operator_draft_follow_set, operator_draft_follow_settled,
