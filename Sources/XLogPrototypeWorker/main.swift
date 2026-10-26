@@ -162,7 +162,7 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
     let retirement = acceptance == nil ? await liveWorker.shutdownOutcome() : .clean
     await backgroundServices.value
     await group.waitForAll()
-    if retirement != .clean {
+    if !retirement.permitsRestart {
         FileHandle.standardError.write(Data("Background delivery retirement failed.\n".utf8))
         exit(retirement.rawValue)
     }

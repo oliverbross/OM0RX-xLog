@@ -19,19 +19,26 @@ public enum WorkerOperatingModule: String, Sendable, Equatable {
     }
 }
 
-/// Fixed exit codes expose retirement failures without copying station data or
-/// arbitrary service errors into the native process boundary.
+/// Stable retirement outcomes; only fatal cases become process exit codes.
+/// Deferred radio-marker cleanup never copies station data into diagnostics.
 public enum LiveWorkerShutdownOutcome: Int32, Sendable {
     case clean = 0
     case onlineLogRecoveryFailed = 70
     case contestSpotWithdrawalFailed = 71
     case backgroundRetirementFailed = 72
+    case contestSpotCleanupDeferred = 73
+
+    /// Cosmetic marker receipts retain cleanup uncertainty across a restart.
+    /// Their removal is not a prerequisite for releasing station ownership.
+    public var permitsRestart: Bool {
+        self == .clean || self == .contestSpotCleanupDeferred
+    }
 
     static func resolve(onlineLogsRetired: Bool, contestSpotsRetired: Bool) -> Self {
         switch (onlineLogsRetired, contestSpotsRetired) {
         case (true, true): .clean
         case (false, true): .onlineLogRecoveryFailed
-        case (true, false): .contestSpotWithdrawalFailed
+        case (true, false): .contestSpotCleanupDeferred
         case (false, false): .backgroundRetirementFailed
         }
     }
@@ -370,7 +377,7 @@ public actor LiveWorker {
     func drainPowerCapture() async { await powerDelivery.drain() }
 
     @discardableResult public func shutdown() async -> Bool {
-        await shutdownOutcome() == .clean
+        await shutdownOutcome().permitsRestart
     }
 
     public func shutdownOutcome() async -> LiveWorkerShutdownOutcome {
@@ -391,26 +398,25 @@ public actor LiveWorker {
         if localAcceptance {
             // Only the injected local cluster/archive owner is retired here;
             // process-wide station singletons remain outside acceptance scope.
-            contestSpotsRetired = await cluster.terminate()
+            contestSpotsRetired = await cluster.terminate(deferRadioSpotCleanup: true)
             await services.terminate()
             return .resolve(onlineLogsRetired: onlineLogsRetired, contestSpotsRetired: contestSpotsRetired)
         }
         #if os(macOS)
         if ownsProcessSessions {
             await LiveSpotBridge.shared.stopForShutdown()
-            // Contest-owned radio spots must be withdrawn while their station
-            // transports are still available. Normal Logging starts only after
-            // this worker has retired.
-            contestSpotsRetired = await cluster.terminate()
+            // Seal/drain accepted publications, but leave cosmetic removal on
+            // its durable queue so station ownership can retire promptly.
+            contestSpotsRetired = await cluster.terminate(deferRadioSpotCleanup: true)
             await LiveRotorSession.shared.terminate()
             await LiveFlexSession.shared.terminate()
             await LiveTCISession.shared.terminate()
             await LiveStationSession.shared.terminate()
         } else {
-            contestSpotsRetired = await cluster.terminate()
+            contestSpotsRetired = await cluster.terminate(deferRadioSpotCleanup: true)
         }
         #else
-        contestSpotsRetired = await cluster.terminate()
+        contestSpotsRetired = await cluster.terminate(deferRadioSpotCleanup: true)
         #endif
         await services.terminate()
         return .resolve(onlineLogsRetired: onlineLogsRetired, contestSpotsRetired: contestSpotsRetired)

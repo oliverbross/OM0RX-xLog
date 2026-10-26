@@ -21,6 +21,7 @@ final class SpotInventoryStore {
             try execute("CREATE TABLE IF NOT EXISTS receipts (key TEXT PRIMARY KEY, payload BLOB NOT NULL, accepted_at REAL NOT NULL);")
             try execute("CREATE INDEX IF NOT EXISTS receipts_age ON receipts(accepted_at);")
             try execute("CREATE TABLE IF NOT EXISTS migration (version INTEGER PRIMARY KEY CHECK(version=1));")
+            try execute("CREATE TABLE IF NOT EXISTS pending_deliveries (key TEXT PRIMARY KEY, payload BLOB NOT NULL);")
         } catch { sqlite3_close(database); database = nil; throw error }
     }
 
@@ -49,10 +50,51 @@ final class SpotInventoryStore {
         }
     }
 
-    func accept(key: String, payload: Data, date: TimeInterval) throws {
+    func accept(key: String, payload: Data, date: TimeInterval, finishingDelivery: String? = nil) throws {
         try transaction {
             try put(key: key, payload: payload, date: date)
+            if let finishingDelivery { try removeDelivery(finishingDelivery) }
             try execute("DELETE FROM receipts WHERE key IN (SELECT key FROM receipts ORDER BY accepted_at DESC,key DESC LIMIT -1 OFFSET 4096);")
+        }
+    }
+
+    func beginDelivery(_ key: String, payload: Data) throws {
+        try transaction {
+            let count = try statement("SELECT count(*) FROM pending_deliveries;") { handle in
+                guard sqlite3_step(handle) == SQLITE_ROW else { throw failure() }
+                return sqlite3_column_int(handle, 0)
+            }
+            guard count < 256 else { throw failure() }
+            try retainDelivery(key, payload: payload)
+        }
+    }
+
+    func retainDelivery(_ key: String, payload: Data) throws {
+        try statement("INSERT INTO pending_deliveries VALUES(?,?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload;") { handle in
+            bind(key, to: 1, in: handle); bind(payload, to: 2, in: handle)
+            guard sqlite3_step(handle) == SQLITE_DONE else { throw failure() }
+        }
+    }
+
+    func pendingDeliveries() throws -> [Data] {
+        try statement("SELECT payload FROM pending_deliveries ORDER BY key;") { handle in
+            var rows: [Data] = []
+            var step = sqlite3_step(handle)
+            while step == SQLITE_ROW {
+                guard rows.count < 256, let bytes = sqlite3_column_blob(handle, 0),
+                      (1...4096).contains(Int(sqlite3_column_bytes(handle, 0))) else { throw failure() }
+                rows.append(Data(bytes: bytes, count: Int(sqlite3_column_bytes(handle, 0))))
+                step = sqlite3_step(handle)
+            }
+            guard step == SQLITE_DONE else { throw failure() }
+            return rows
+        }
+    }
+
+    func removeDelivery(_ key: String) throws {
+        try statement("DELETE FROM pending_deliveries WHERE key=?;") { handle in
+            bind(key, to: 1, in: handle)
+            guard sqlite3_step(handle) == SQLITE_DONE else { throw failure() }
         }
     }
 

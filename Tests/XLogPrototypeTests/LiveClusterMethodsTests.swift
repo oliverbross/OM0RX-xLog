@@ -218,6 +218,53 @@ struct LiveClusterMethodsTests {
         #expect(await cleanup.starts == 1)
     }
 
+    @Test("Workspace shutdown never waits for stalled cosmetic cleanup or starts removal")
+    func workspaceShutdownDoesNotWaitForCosmeticNetwork() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let configurationURL = root.appendingPathComponent("cluster.json")
+        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [], forwardSpotsToFlex: true)).write(to: configurationURL)
+        let cleanup = FreshContestDeliveryGate(), removal = FreshContestDeliveryGate()
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let cluster = LiveClusterMethods(logbook: logbook, configurationURL: configurationURL,
+            vault: UnavailableClusterTestVault(), forwardClassifiedIngressSpots: false,
+            spotForward: { _, _, _ in true }, spotRemove: { _, _ in
+                await removal.waitForAcceptance(); return false
+            }, beforeContestSpotPublication: { await cleanup.waitForAcceptance() },
+            deferPersistedContestSpots: { 1 })
+        _ = try await cluster.handle(method: "cluster_contest_radio_spots_publish", params: [
+            "publisher_id": UUID().uuidString, "publisher_started_at": 2, "publication_sequence": 1,
+            "action": "replace", "session_id": UUID().uuidString, "workspace_generation": UUID().uuidString,
+            "revision": 1, "configured_bands": ["40m"], "allowed_mode_groups": ["phone"],
+            "chunk_index": 0, "chunk_count": 1, "spots": [["spot_id": "fresh", "callsign": "DL1FRESH",
+                "frequency_hz": 7_125_000, "band": "40m", "mode": "SSB", "spotter": "W1AW", "comment": "",
+                "timestamp": Date().timeIntervalSinceReferenceDate, "points": 3, "dupe": false,
+                "multiplier_count": 0, "country_multiplier": false, "zone_multiplier": false]]])
+        for _ in 0..<200 {
+            if await cleanup.started() { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(await cleanup.started())
+        let worker = LiveWorker(logbook: logbook, localAcceptance: true, cluster: cluster)
+        let shutdown = Task {
+            let outcome = await worker.shutdownOutcome()
+            await cleanup.markRetired()
+            return outcome
+        }
+        for _ in 0..<200 {
+            if await cleanup.retirementCompleted() { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        let completedWithoutNetwork = await cleanup.retirementCompleted()
+        let attemptedRemoval = await removal.started()
+        await cleanup.release()
+        await removal.release()
+        #expect(completedWithoutNetwork)
+        #expect(!attemptedRemoval)
+        #expect(await shutdown.value == .contestSpotCleanupDeferred)
+    }
+
     @Test("Prior cutoff includes Normal Logging receipts accepted after service creation but excludes same-clock contest delivery")
     func priorCleanupCutoffStartsAtFirstContestAdmission() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -474,7 +521,7 @@ struct LiveClusterMethodsTests {
         #expect((await recorder.activeSnapshot()).isEmpty)
     }
 
-    @Test("Contest shutdown fails closed and retains retry state when radio spot withdrawal is rejected")
+    @Test("Contest shutdown permits restart and retains cosmetic cleanup without calling removal")
     func contestShutdownRetainsRejectedWithdrawal() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -504,15 +551,16 @@ struct LiveClusterMethodsTests {
         #expect(published["accepted"] as? Int == 1)
         await recorder.setRemovalAccepted(false)
         let worker = LiveWorker(logbook: logbook, localAcceptance: true, cluster: cluster)
-        #expect(await worker.shutdownOutcome() == .contestSpotWithdrawalFailed)
+        #expect(await worker.shutdownOutcome() == .contestSpotCleanupDeferred)
         #expect((await recorder.activeSnapshot()).count == 1)
+        #expect((await recorder.removed()).isEmpty)
 
         await recorder.setRemovalAccepted(true)
         #expect(await cluster.terminate() == true)
         #expect((await recorder.activeSnapshot()).isEmpty)
     }
 
-    @Test("Real worker retirement removes fresh persisted contest spots without loading cluster configuration")
+    @Test("Worker retirement defers fresh persisted spots without removal or loading cluster configuration")
     func freshPersistedContestRetirementWithoutClusterConfiguration() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -534,16 +582,20 @@ struct LiveClusterMethodsTests {
         let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
         let cluster = LiveClusterMethods(logbook: logbook, configurationURL: root.appendingPathComponent("absent-cluster.json"),
             vault: UnavailableClusterTestVault(), forwardClassifiedIngressSpots: false,
-            retirePersistedContestSpots: { _ = try await broker.retireContestForwardedSpots() })
+            retirePersistedContestSpots: { _ = try await broker.retireContestForwardedSpots() },
+            deferPersistedContestSpots: { try await broker.deferContestForwardedSpotsForShutdown() })
         let worker = LiveWorker(logbook: logbook, localAcceptance: true, cluster: cluster)
-        #expect(await worker.shutdownOutcome() == .clean)
+        #expect(await worker.shutdownOutcome() == .contestSpotCleanupDeferred)
         #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("absent-cluster.json").path))
-        #expect((await recorder.removed()).map(\.0.callsign) == ["DL1FRESH"])
+        #expect((await recorder.removed()).isEmpty)
         let inventory = try SpotInventoryStore(url: inventoryURL.appendingPathExtension("sqlite"))
+        #expect(try inventory.rows().count == 1)
+        #expect(await cluster.terminate())
+        #expect((await recorder.removed()).map(\.0.callsign) == ["DL1FRESH"])
         #expect(try inventory.rows().isEmpty)
     }
 
-    @Test("Worker retirement drains a delayed fresh acceptance before removing its exact durable receipt")
+    @Test("Worker retirement drains a delayed acceptance and retains it without remote removal")
     func retirementDrainsDelayedFreshContestAcceptance() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -566,7 +618,8 @@ struct LiveClusterMethodsTests {
             spotForward: { payload, provider, replacing in
                 try await broker.forward(payload.flexSpot(), provider: provider, replacingExisting: replacing)
             }, spotRemove: { payload, provider in try await broker.remove(payload.flexSpot(), provider: provider) },
-            retirePersistedContestSpots: { _ = try await broker.retireContestForwardedSpots() })
+            retirePersistedContestSpots: { _ = try await broker.retireContestForwardedSpots() },
+            deferPersistedContestSpots: { try await broker.deferContestForwardedSpotsForShutdown() })
         let publication = Task { try await cluster.handle(method: "cluster_contest_radio_spots_publish", params: [
             "publisher_id": UUID().uuidString, "publisher_started_at": 2, "publication_sequence": 1,
             "action": "replace", "session_id": UUID().uuidString, "workspace_generation": UUID().uuidString,
@@ -589,13 +642,13 @@ struct LiveClusterMethodsTests {
         try await Task.sleep(for: .milliseconds(40))
         #expect(!(await gate.retirementCompleted()))
         await gate.release()
-        #expect(await retirement.value == .clean)
+        #expect(await retirement.value == .contestSpotCleanupDeferred)
         let result = try await publication.value
         #expect(result["accepted"] as? Int == 0)
         #expect(result["rejected"] as? Int == 1)
-        #expect((await recorder.removed()).map(\.0.callsign) == ["DL1FRESH"])
+        #expect((await recorder.removed()).isEmpty)
         let inventory = try SpotInventoryStore(url: inventoryURL.appendingPathExtension("sqlite"))
-        #expect(try inventory.rows().isEmpty)
+        #expect(try inventory.rows().count == 1)
     }
 
     @Test("Contest module suppresses the unfiltered ingress radio publisher")

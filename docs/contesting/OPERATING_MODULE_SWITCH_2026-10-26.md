@@ -131,3 +131,36 @@ receipts remained afterward. No withdrawal was inferred from their count or age.
 The functional mode acceptance does not establish fresh contest-owned spot
 retirement or the cause of the earlier 1.3.29 worker failure; its guards and the
 new precise diagnostics remain intact.
+
+## Cosmetic spot cleanup must not prevent a requested switch
+
+The human subsequently reproduced the fresh contest-spot case on installed
+1.3.32: retirement could not confirm marker removal, so the operating module
+stayed unchanged and required a restart. The earlier two-direction acceptance
+did not exercise this condition and does not establish its resolution.
+
+Worker shutdown now seals the outgoing publisher and retains accepted spot
+receipts and unresolved delivery intents for later cleanup. It does not start
+remote marker removal, wait for prior cosmetic cleanup, or require an unavailable
+radio to acknowledge removal before releasing station ownership. A deferred
+cosmetic cleanup outcome permits the worker to exit successfully. Missing
+accepted replies, malformed replies, online-log recovery failures, real control
+operations and active output retain their existing retirement protections.
+
+Delivery intent is stored before the remote add and atomically promoted to an
+accepted receipt after acknowledgement. If promotion fails, the uncertainty is
+retained; marker compensation is also deferred. Unknown delivery intents are
+bounded and are not discarded using the accepted-marker expiry rule. TCI cleanup
+continues to protect another publisher's receipt for the same callsign.
+
+Regression checks cover fresh retained spots with no reachable remover, stalled
+prior cleanup, delayed admitted add acknowledgements and storage faults. The
+real worker process fixture now requires exit zero and an unchanged durable
+receipt for both fresh and expired contest-owned spots. These isolated checks
+use disposable homes and disable external I/O. The separately recorded new
+release acceptance supplies source identity and installed observations.
+
+Validation before the release: 39 broker XCTest cases, 26 cluster/shutdown
+Swift Testing cases, all 80 native worker tests and all eight real worker
+process cases passed. The post-acknowledgement storage-fault case proves that
+neither publication settlement nor deferred shutdown calls the gated remover.

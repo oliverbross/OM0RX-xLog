@@ -87,8 +87,8 @@ test("accepted work drains after EOF through the real retirement path", async ()
   assert.ok(responses.every(response => response.ok));
 });
 
-test("retained unconfirmed contest spots fail retirement; expired receipts retire locally", { skip: process.platform !== "darwin" }, async () => {
-  for (const [age, expectedExitCode] of [[0, 71], [1200, 0]]) {
+test("fresh and expired contest spot receipts never block worker retirement", { skip: process.platform !== "darwin" }, async () => {
+  for (const [age, expectedExitCode] of [[0, 0], [1200, 0]]) {
     const replies = await exercise(child => {
       child.stdin.write(JSON.stringify({ id: "retained-spot", method: "health", params: {} }) + "\n");
       child.stdin.end();
@@ -106,7 +106,7 @@ test("retained unconfirmed contest spots fail retirement; expired receipts retir
         const inventory = join(home, "Library", "Application Support", "OM0RX-xLog Integration Services", "forwarded-radio-spots.json.sqlite");
         const { stdout } = await runFile("/usr/bin/sqlite3", [inventory, "SELECT CAST(payload AS TEXT) FROM receipts;"]);
         const rows = stdout.trim() ? stdout.trim().split("\n").map(value => JSON.parse(value)) : [];
-        assert.equal(rows.length, age === 0 ? 1 : 0, "Unknown fresh withdrawal must retain its durable receipt.");
+        assert.equal(rows.length, 1, "Deferred cleanup must retain its durable receipt without attempting removal or expiry work.");
         if (age === 0) {
           assert.deepEqual([rows[0].provider, rows[0].radioID, rows[0].owner, rows[0].callsign, rows[0].frequencyHz],
             ["direct_agent", "radio1", "contesting", "TEST1", 7125000]);

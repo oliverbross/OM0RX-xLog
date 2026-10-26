@@ -436,6 +436,136 @@ final class LiveSpotBridgeTests: XCTestCase {
         XCTAssertEqual(recovered, 1)
     }
 
+    func testTerminalTCIRetirementDoesNotDeleteAnotherOwnersSameCallsign() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let inventoryURL = directory.appendingPathComponent("spots.json"), removals = ProviderRecorder()
+        let broker = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { _, _, _ in "radio2" },
+            targetedRemove: { spot, provider, radioID in
+                await removals.record("\(provider)|\(radioID ?? "missing")|\(spot.callsign)")
+            })
+        let contest = try spot(source: "xLog Contest")
+        let normal = try FlexSpot(frequencyHz: 7_125_000, callsign: contest.callsign, mode: "SSB", source: "xLog xCluster",
+            spotter: "", comment: "", timestamp: Int64(Date().timeIntervalSince1970), lifetimeSeconds: 600,
+            priority: 1, colorHex: "#AEB5B7")
+        _ = try await broker.forward(contest, provider: "direct_tci")
+        _ = try await broker.forward(normal, provider: "direct_tci")
+        do { _ = try await broker.retireContestForwardedSpots(); XCTFail("A callsign delete would erase the other owner") }
+        catch {}
+        let attempts = await removals.value()
+        XCTAssertEqual(attempts, [])
+        XCTAssertEqual((try storedInventory(at: inventoryURL)?["spots"] as? [[String: Any]])?.count, 2)
+    }
+
+    func testFailedAcceptedPersistenceDefersWithoutInlineRemoveAndSurvivesRestart() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let inventoryURL = directory.appendingPathComponent("spots.json"), removals = ProviderRecorder()
+        let gate = GatedDelivery(), completed = ProviderRecorder()
+        let broker = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { _, _, _ in
+            try rejectAcceptedReceiptWrites(at: inventoryURL)
+            return "radio2"
+        }, targetedRemove: { _, _, radioID in
+            await removals.record(radioID ?? "missing")
+            await gate.deliver()
+            throw WorkerFailure("station_rejected", "Fixture removal outcome is unknown.")
+        })
+        let value = try spot(source: "xLog Contest")
+        let forwarding = Task {
+            do { _ = try await broker.forward(value); return false }
+            catch { await completed.record("failed"); return true }
+        }
+        for _ in 0..<200 {
+            let finished = await completed.value(), enteredRemove = await gate.value()
+            if !finished.isEmpty || enteredRemove > 0 { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        let beforeRelease = await completed.value(), inlineRemovals = await removals.value()
+        XCTAssertEqual(beforeRelease, ["failed"], "Persistence failure must settle without waiting for cosmetic compensation.")
+        XCTAssertEqual(inlineRemovals, [])
+        await gate.release()
+        let failed = await forwarding.value
+        XCTAssertTrue(failed)
+        let store = try SpotInventoryStore(url: inventoryURL.appendingPathExtension("sqlite"))
+        XCTAssertEqual(try store.rows().count, 0)
+        let pending = try XCTUnwrap(try store.pendingDeliveries().first)
+        let identity = try XCTUnwrap(try JSONSerialization.jsonObject(with: pending) as? [String: Any])
+        XCTAssertEqual(identity["radioID"] as? String, "radio2")
+        XCTAssertEqual(identity["owner"] as? String, "contesting")
+        let deferred = try await broker.deferContestForwardedSpotsForShutdown()
+        XCTAssertEqual(deferred, 1, "This is retained uncertainty, never a withdrawn-spot acknowledgement.")
+        let beforeRestart = await removals.value()
+        XCTAssertEqual(beforeRestart, [], "Neither failed forwarding nor shutdown deferral may issue a remove RPC.")
+        let restarted = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { _, _, _ in "radio1" },
+            targetedRemove: { _, provider, radioID in
+                XCTAssertEqual(provider, "direct_agent"); XCTAssertEqual(radioID, "radio2")
+                await gate.deliver()
+            })
+        let restartedDeferred = try await restarted.deferContestForwardedSpotsForShutdown()
+        XCTAssertEqual(restartedDeferred, 1)
+        let cleanup = Task { try await restarted.retireContestForwardedSpots() }
+        await gate.waitStarted()
+        XCTAssertEqual(try store.pendingDeliveries().count, 1, "Explicit cleanup still waits for its real removal ACK.")
+        await gate.release()
+        let withdrawn = try await cleanup.value
+        XCTAssertEqual(withdrawn, 1)
+        XCTAssertTrue(try store.pendingDeliveries().isEmpty)
+    }
+
+    func testPrewireStorageFailureNeverSendsAndUnknownAddDoesNotExpireOrGuessRadio() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let invalidURL = directory.appendingPathComponent("invalid.json"), calls = ProviderRecorder()
+        try Data("invalid".utf8).write(to: invalidURL)
+        let rejected = SpotForwardBroker(inventoryURL: invalidURL, targetedDeliver: { _, _, _ in
+            await calls.record("add"); return "radio1"
+        }, targetedRemove: { _, _, _ in await calls.record("remove") })
+        do { _ = try await rejected.forward(spot(source: "xLog Contest")); XCTFail("Pre-wire journal failure must reject") }
+        catch {}
+        let beforeWire = await calls.value()
+        XCTAssertEqual(beforeWire, [])
+        let inventoryURL = directory.appendingPathComponent("unknown.json")
+        let unknown = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { _, _, _ in
+            throw WorkerFailure("station_rejected", "Fixture add outcome is unknown.")
+        }, targetedRemove: { _, _, _ in await calls.record("guessed remove") })
+        do { _ = try await unknown.forward(spot(source: "xLog Contest")); XCTFail("Unknown add should fail") }
+        catch {}
+        let restarted = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { _, _, _ in "radio1" },
+            targetedRemove: { _, _, _ in await calls.record("guessed remove") })
+        do { _ = try await restarted.retireContestForwardedSpots(); XCTFail("No radio identity permits no cleanup acknowledgement") }
+        catch let error as WorkerFailure { XCTAssertEqual(error.code, "spot_delivery_unknown") }
+        let deferred = try await restarted.deferContestForwardedSpotsForShutdown()
+        XCTAssertEqual(deferred, 1)
+        let afterRestart = await calls.value()
+        XCTAssertEqual(afterRestart, [])
+    }
+
+    func testShutdownDeferralNeverCallsRemoveAndKeepsFreshOwnerReceipts() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let inventoryURL = directory.appendingPathComponent("spots.json"), calls = ProviderRecorder(), gate = GatedDelivery()
+        let broker = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { _, _, _ in
+            await gate.deliver(); return "radio2"
+        }, targetedRemove: { _, _, _ in
+            XCTFail("Shutdown deferral must never enter a potentially blocked remove RPC")
+            await calls.record("remove")
+        })
+        let value = try spot(source: "xLog Contest")
+        let forwarding = Task { try await broker.forward(value) }
+        await gate.waitStarted()
+        let deferred = Task { try await broker.deferContestForwardedSpotsForShutdown() }
+        await gate.release()
+        _ = try await forwarding.value
+        let deferredCount = try await deferred.value
+        XCTAssertEqual(deferredCount, 1)
+        let attempts = await calls.value()
+        XCTAssertEqual(attempts, [])
+        XCTAssertEqual((try storedInventory(at: inventoryURL)?["spots"] as? [[String: Any]])?.count, 1)
+        do { _ = try await broker.forward(value, replacingExisting: true); XCTFail("Deferred owner must stay sealed") }
+        catch let error as WorkerFailure { XCTAssertEqual(error.code, "worker_stopping") }
+    }
+
     func testReplacementContestWorkerRetiresExpiredReceiptsWithoutBlockingOnRadioRemoval() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-contest-expired-recovery-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -633,11 +763,12 @@ final class LiveSpotBridgeTests: XCTestCase {
         }
     }
 
-    func testReplacementWorkerShutdownRetiresContestInventoryWithoutPublication() async throws {
+    func testReplacementWorkerShutdownDefersContestInventoryWithoutPublication() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-contest-shutdown-recovery-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: directory) }
         let inventoryURL = directory.appendingPathComponent("spots.json")
         let routing = TargetedSpotRouting(radio1Available: false)
+        let logbook = LiveLogbookMethods(supportDirectory: directory, inheritNativePreferences: false)
         func broker() -> SpotForwardBroker {
             SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { spot, provider, preferred in
                 try await routing.add(spot: spot, provider: provider, preferred: preferred)
@@ -648,10 +779,12 @@ final class LiveSpotBridgeTests: XCTestCase {
         func replacementWorker() -> LiveClusterMethods {
             let durableInventory = broker()
             return LiveClusterMethods(
-                logbook: LiveLogbookMethods(supportDirectory: directory, inheritNativePreferences: false),
+                logbook: logbook,
                 configurationURL: directory.appendingPathComponent("cluster.json"),
                 retirePersistedContestSpots: {
                     _ = try await durableInventory.withdrawContestForwardedSpots()
+                }, deferPersistedContestSpots: {
+                    try await durableInventory.deferContestForwardedSpotsForShutdown()
                 })
         }
         let contestSpot = try spot(priority: 5, source: "xLog Contest")
@@ -659,8 +792,13 @@ final class LiveSpotBridgeTests: XCTestCase {
         XCTAssertTrue(forwarded)
 
         await routing.setRemovalAccepted(false)
-        let failedRetirement = await replacementWorker().terminate()
-        XCTAssertFalse(failedRetirement)
+        let worker = LiveWorker(logbook: logbook, localAcceptance: true, cluster: replacementWorker())
+        let deferred = await worker.shutdownOutcome()
+        XCTAssertEqual(deferred, .contestSpotCleanupDeferred)
+        XCTAssertTrue(deferred.permitsRestart)
+        XCTAssertEqual((try storedInventory(at: inventoryURL)?["spots"] as? [[String: Any]])?.count, 1)
+        let deferredEvents = await routing.events()
+        XCTAssertEqual(deferredEvents, ["add:direct_agent:radio2:K1ABC:14074000"])
 
         await routing.setRemovalAccepted(true)
         let recoveredRetirement = await replacementWorker().terminate()
@@ -668,7 +806,6 @@ final class LiveSpotBridgeTests: XCTestCase {
         XCTAssertTrue(recoveredRetirement)
         XCTAssertEqual(events, [
             "add:direct_agent:radio2:K1ABC:14074000",
-            "remove:direct_agent:radio2:K1ABC:14074000",
             "remove:direct_agent:radio2:K1ABC:14074000",
         ])
     }
@@ -939,6 +1076,18 @@ private actor DeliveryCounter {
         if rejectFirst && count == 1 { throw NSError(domain: "test", code: 1) }
     }
     func value() -> Int { count }
+}
+
+private func rejectAcceptedReceiptWrites(at inventoryURL: URL) throws {
+    let store = try SpotInventoryStore(url: inventoryURL.appendingPathExtension("sqlite"))
+    try store.migrate { [] }
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
+    process.arguments = [inventoryURL.appendingPathExtension("sqlite").path,
+        "CREATE TRIGGER reject_receipt BEFORE INSERT ON receipts BEGIN SELECT RAISE(ABORT, 'fixture persistence failure'); END;"]
+    process.standardOutput = Pipe(); process.standardError = Pipe()
+    try process.run(); process.waitUntilExit()
+    guard process.terminationStatus == 0 else { throw WorkerFailure("fixture_failed", "Could not inject the disposable SQLite fault.") }
 }
 
 private actor ProviderRecorder {
