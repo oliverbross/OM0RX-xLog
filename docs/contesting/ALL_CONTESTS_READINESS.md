@@ -6,9 +6,9 @@ The live registry contains **94 definitions**: 89 named contests, three utility 
 
 Registry, live catalogue API and source-manifest registered-ID sets match exactly (94 each). There are 94 vendored Python plugin modules excluding `__init__`. Unregistered vendored modules outside this catalogue: none. No registered plugin lacks its vendored module.
 
-Lifecycle source HEAD: `128ee7afeac33168a3779dcc143006a1fd257dcf`. Report rendered at `0b0d256f5c22302b02949f9c4345391cfb6e9ff4`. Pinned Not1MM revision: `7c8b499225a73f7f8f792246881bd7aefc05452f`. Python runtime: `3.12.4 (main, Jun  8 2024, 04:51:36) [Clang 15.0.0 (clang-1500.1.0.2.5)]`. Exact tested source hashes, plugin bytes, export hashes, field descriptors and per-feature reasons are in the JSON companion.
+Lifecycle source HEAD: `75f735484bbb2acde5c9ee2d11f50747995eba5e`. Report rendered at `b17ad0f4b9dcc4703b10c0947d4238a4efafefc2`. Pinned Not1MM revision: `7c8b499225a73f7f8f792246881bd7aefc05452f`. Python runtime: `3.12.4 (main, Jun  8 2024, 04:51:36) [Clang 15.0.0 (clang-1500.1.0.2.5)]`. Exact tested source hashes, plugin bytes, export hashes, field descriptors and per-feature reasons are in the JSON companion.
 
-Verified source commit for every recorded lifecycle source path: `0b0d256f5c22302b02949f9c4345391cfb6e9ff4`. Each committed Git object matches the recorded tested SHA-256; this mapping is limited to the listed source paths.
+Verified source commit for every recorded lifecycle source path: `b17ad0f4b9dcc4703b10c0947d4238a4efafefc2`. Each committed Git object matches the recorded tested SHA-256; this mapping is limited to the listed source paths.
 
 The lifecycle source hashes match the files present when this report was generated.
 
@@ -22,9 +22,9 @@ The lifecycle checks configure a session, verify generated fields, commit and in
 
 The React tests use the current `Not1MMContestWorkspace` and `DetachedContestSurface`, real Python JSONL and disposable storage for each ID; native windows, output, recorder, SCP and network services are simulated/unavailable. The native test loops every registered fixture through the actual Swift `PythonContestLane`. Neither is a live installed-app rehearsal. The lifecycle runner dispatches the same real host implementation directly for detailed SQLite/export assertions; the JSONL and native checks separately establish the transport path.
 
-Saved React results: 97 passed / 0 failed. Native all-ID XCTest: PASS. Family runner in this lifecycle report: 331 tests, success=True; zero means the committed fixture inputs were reused and that family suite was not rerun by this invocation. Counts from overlapping suites must not be added.
+Saved broad React results: 4515 passed / 3 failed. Later affected-file retry: 191 passed / 0 failed. Matching named retry cases determine their current status; this does not turn the original broad invocation green. Native all-ID XCTest: PASS. Family runner in this lifecycle report: 331 tests, success=True; zero means the committed fixture inputs were reused and that family suite was not rerun by this invocation. Counts from overlapping suites must not be added.
 
-Full Python source suite: 394 tests; saved result PASS. Its log hash is captured separately from the lifecycle and append runs. This is source/test evidence; final packaging and installed-app acceptance remain separate.
+Full Python source suite: 408 tests; saved result PASS. Its log hash is captured separately from the lifecycle and append runs. This is source/test evidence; final packaging and installed-app acceptance remain separate.
 
 Append equivalence reports 40 fast-path IDs with comparisons out of 40 currently admitted; uncovered admitted IDs: none. The saved harness ran 126 family tests; overall suite outcome: PASS. Each optimized append is compared with a rolled-back full rebuild, including score components and contact point/multiplier assignments. Tied/backdated/correction/deletion cases remain covered by the family fixtures. John Moyle stays on full rebuild because prior multiplier assignments can change. See [shared consistency evidence](CROSS_CONTEST_CONSISTENCY_2026-10-26.md).
 
@@ -149,9 +149,9 @@ Core includes the feature checks in the JSON companion and the saved transport r
 
 All definitions have individual core and optional statuses with reasons in JSON. Utilities require their advertised ADIF lifecycle, not contest scoring or Cabrillo. QSO Party RST/SN are templates and are not certified sponsor definitions. Their fixture scoring is integration evidence only.
 
-Basic analytics counts/snapshot/paging are checked for every ID. Advanced credited multiplier/history adapters, finite Needed universes and retrospective duplicate annotations vary by family; unavailable dimensions remain unknown rather than zero. The shared consistency document identifies the tested CQ WW, WPX, Sweepstakes, NAQP/SST, unique-call, ARRL DX, IARU and RTTY adapters. A host descriptor advertising a matrix does not certify every detailed view for every configuration.
+Basic analytics counts/snapshot/paging are checked for every ID. The separate acquisition, corrected-log history, finite Needed and candidate Needed statuses below use the dedicated all-catalogue inventory with its verified complete bundled reference context, only after its prefix/rebuild suite and committed source hashes pass. The core lifecycle's smaller synthetic reference remains separate evidence in JSON. An aggregate PASS covers only those stated applicable snapshot dimensions, not every proposed advanced view. Open-ended identities, missing eligible lists, incompatible references, incomplete scoring and unreconciled/backdated scoring ownership retain explicit reasons; unavailable values are not zero. JSON preserves each Needed dimension and provenance. A supported configuration does not certify every entrant/category/reference.
 
-Recorded voice, CW output, digital engines/transports, recorder playback, multi-operator networking and hardware acceptance remain per-plugin UNVERIFIED where applicable. Existing simulated family tests can support macros/ESM and shared fixture audio supports recorder behavior; the catalogue run does not open RF/PTT/audio outputs or create local recording links for imported contacts. No output transport, station authority or safety owner was bypassed.
+Recorded voice, CW output, external digital engines, recording, multi-operator networking and physical hardware acceptance remain per-plugin UNVERIFIED where applicable. Shared current UI/native transport tests and actual bundled Hamlib Dummy receivers establish software behavior only. Human-confirmed playback on installed 1.3.32 is a separate device/recording-specific receipt in [the release record](../MACOS_1_3_32_RELEASE_2026-10-26.md); it does not certify a voice-keyer/transmitter chain or every plugin. The catalogue run does not open RF/PTT/audio outputs or create recording links for imported contacts.
 
 ## Per-definition setup and fixture appendix
 
@@ -171,6 +171,8 @@ Fixture: `test_call_history_host.CallHistoryHostTests.test_plugin_history_is_cle
 
 Multiplier view: UNVERIFIED — Host descriptor supports countries, zones; detailed per-plugin view assertions are separate from catalogue core checks. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### cq_ww_ssb
 
 **CQ WW SSB** — contest; family `cq-ww-zone-country`. Core **PASS**.
@@ -184,6 +186,8 @@ Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: D
 Fixture: `test_cq_ww_ssb_host.CQWWSSBHostTests.test_correction_delete_restart_and_cabrillo_ph_output`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — Host descriptor supports countries, zones; detailed per-plugin view assertions are separate from catalogue core checks. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### cq_ww_rtty
 
@@ -199,6 +203,8 @@ Fixture: `test_cq_ww_rtty_host.CQWWRTTYHostTests.test_correction_delete_restart_
 
 Multiplier view: UNVERIFIED — Host descriptor supports countries, zones; detailed per-plugin view assertions are separate from catalogue core checks. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### cq_wpx_cw
 
 **CQ WPX CW** — contest; family `wpx-prefix-serial`. Core **PASS**.
@@ -212,6 +218,8 @@ Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: W
 Fixture: `test_multi_operator_host.MultiOperatorHostTests.test_empty_replica_page_does_not_skip_later_contact_and_contest_number_is_local`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### cq_wpx_ssb
 
@@ -227,6 +235,8 @@ Fixture: `test_cq_wpx_ssb_host.CQWPXSSBHostTests.test_correction_delete_restart_
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### cq_wpx_rtty
 
 **CQ WPX RTTY** — contest; family `wpx-prefix-serial`. Core **PASS**.
@@ -240,6 +250,8 @@ Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: W
 Fixture: `test_next_rtty_plugins_host.CQWPXRTTYHostTests.test_esm_commits_with_fldigi_output`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### arrl_ss_cw
 
@@ -255,6 +267,8 @@ Fixture: `test_sweepstakes_host.SweepstakesHostTests.test_catalog_source_layout_
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### arrl_ss_phone
 
 **ARRL Sweepstakes Phone** — contest; family `sweepstakes-compound`. Core **PASS**.
@@ -268,6 +282,8 @@ Duplicate scope: Worked in this contest. (plugin type 1). Multiplier/bonus scope
 Fixture: `test_arrl_ss_phone_host.ARRLSweepstakesPhoneHostTests.test_original_bytes_catalog_fields_parser_and_setup_validation`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### arrl_dx_cw
 
@@ -283,6 +299,8 @@ Fixture: `test_next_cw_plugins_host.ARRLDXCWHostTests.test_original_run_esm_emit
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### arrl_dx_ssb
 
 **ARRL DX SSB** — contest; family `arrl-dx-domestic-or-dx`. Core **PASS**.
@@ -296,6 +314,8 @@ Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: E
 Fixture: `test_remaining_phone_plugins_host.ARRLDXSSBHostTests.test_original_source_layout_scoring_corrections_restart_and_export`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### naqp_cw
 
@@ -311,6 +331,8 @@ Fixture: `test_next_cw_plugins_host.NAQPCWHostTests.test_original_run_esm_emits_
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### naqp_ssb
 
 **NAQP SSB** — contest; family `name-spc`. Core **PASS**.
@@ -324,6 +346,8 @@ Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: S
 Fixture: `test_remaining_phone_plugins_host.NAQPSSBHostTests.test_original_source_layout_scoring_esm_corrections_and_export`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### naqp_rtty
 
@@ -339,6 +363,8 @@ Fixture: `test_next_rtty_plugins_host.NAQPRTTYHostTests.test_section_scoring_cor
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### phone_weekly_test
 
 **PHONE WEEKLY TEST** — contest; family `name-spc`. Core **PASS**.
@@ -352,6 +378,8 @@ Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: S
 Fixture: `test_remaining_phone_plugins_host.PhoneWeeklyTestHostTests.test_original_source_layout_scoring_esm_corrections_and_export`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### weekly_rtty
 
@@ -367,6 +395,8 @@ Fixture: `test_next_rtty_plugins_host.WeeklyRTTYHostTests.test_unique_call_scori
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### icwc_mst
 
 **ICWC Medium Speed Test** — contest; family `name-number-unique-call`. Core **PASS**.
@@ -380,6 +410,8 @@ Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: U
 Fixture: `test_mst_host.MSTHostTests.test_macro_esm_partial_failure_receipt_replay_and_serial`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### cwt
 
@@ -395,6 +427,8 @@ Fixture: `test_cwt_sst_host.CWTHostTests.test_correction_preserves_historical_se
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### cwo
 
 **CWOPS - Open** — contest; family `name-number-unique-call`. Core **PASS**.
@@ -408,6 +442,8 @@ Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: U
 Fixture: `test_cwo_host.CWOHostTests.test_esm_commit_receipt_replay_and_serial_progression`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### k1usn_sst
 
@@ -423,6 +459,8 @@ Fixture: `test_cwt_sst_host.K1USNSSTHostTests.test_correction_preserves_historic
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### trans_tasman
 
 **Trans Tasman CW** — contest; family `timed-or-location-repeat`. Core **PASS**.
@@ -437,6 +475,8 @@ Fixture: `test_trans_tasman_host.TransTasmanHostTests.test_blocks_duplicates_sco
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### oceania_dx_cw
 
 **Oceania DX CW** — contest; family `serial-dx-or-regional`. Core **PASS**.
@@ -447,9 +487,11 @@ Fixture station: `Call=OM0RX`. Setup/category: `ModeCategory=CW, OverlayCategory
 
 Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: Eligible Oceania WPX prefix per band; stored first-prefix flags. First-contact fixture: points=20, multipliers=1, total=20; exact callbacks are linked in JSON. Exports: cabrillo, adif.
 
-Fixture: `test_oceania_host.OceaniaHostTests.test_all_band_points_prefix_scopes_duplicates_and_geography`. Append: PASS — 14 fixture append comparisons; full score and per-contact fields..
+Fixture: `test_oceania_host.OceaniaHostTests.test_all_band_points_prefix_scopes_duplicates_and_geography`. Append: PASS — 15 fixture append comparisons; full score and per-contact fields..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### oceania_dx_ssb
 
@@ -465,6 +507,8 @@ Fixture: `test_oceania_host.OceaniaSSBHostTests.test_all_band_points_prefix_scop
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### sac_cw
 
 **SAC CW** — contest; family `serial-dx-or-regional`. Core **PASS**.
@@ -478,6 +522,8 @@ Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: E
 Fixture: `test_sac_host.SACCWHostTests.test_original_esm_commits_and_advances_serial`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### sac_ssb
 
@@ -493,6 +539,8 @@ Fixture: `test_sac_host.SACSSBHostTests.test_original_esm_commits_and_advances_s
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### iaru_fieldday_r1_cw
 
 **IARU FIELDDAY R1 DARC CW** — contest; family `field-day-class-or-serial`. Core **PASS**.
@@ -506,6 +554,8 @@ Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: C
 Fixture: `test_iaru_fieldday_host.FieldDayCWHostTests.test_original_esm_commits_and_advances_serial`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### iaru_fieldday_r1_ssb
 
@@ -521,6 +571,8 @@ Fixture: `test_iaru_fieldday_host.FieldDaySSBHostTests.test_original_esm_commits
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### 10_10_fall_cw
 
 **10 10 FALL CW** — contest; family `ten-ten-membership`. Core **PASS**.
@@ -534,6 +586,8 @@ Duplicate scope: Worked in this contest. (plugin type 1). Multiplier/bonus scope
 Fixture: `test_ten_ten_host.TenTenHostTests.test_correction_delete_row_specific_rescore_and_restart`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **NOT APPLICABLE**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **NOT APPLICABLE**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### 10_10_spring_cw
 
@@ -549,6 +603,8 @@ Fixture: `test_ten_ten_host.TenTenHostTests.test_correction_delete_row_specific_
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **NOT APPLICABLE**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **NOT APPLICABLE**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### 10_10_winter_phone
 
 **10 10 WINTER PHONE** — contest; family `ten-ten-membership`. Core **PASS**.
@@ -562,6 +618,8 @@ Duplicate scope: Worked in this contest. (plugin type 1). Multiplier/bonus scope
 Fixture: `test_ten_ten_host.TenTenHostTests.test_correction_delete_row_specific_rescore_and_restart`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **NOT APPLICABLE**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **NOT APPLICABLE**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### 10_10_summer_phone
 
@@ -577,6 +635,8 @@ Fixture: `test_ten_ten_host.TenTenHostTests.test_correction_delete_row_specific_
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **NOT APPLICABLE**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **NOT APPLICABLE**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### jidx_cw
 
 **JIDX CW** — contest; family `prefecture-or-zone`. Core **PASS**.
@@ -590,6 +650,8 @@ Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: N
 Fixture: `test_jidx_plugins_host.JIDXCWHostTests.test_numeric_exchange_validation_and_original_esm_commit`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Official English rules revision 2026-10 sections 5–7 support six bands including 160 m in both modes, JA/DX eligibility, per-band prefecture or country/zone credit, JD1 and maritime-mobile handling. These checks support the new scoringRevision=26.10.26 overlay; remaining sponsor clauses and full-edition certification remain unverified. Historical unmarked sessions retain their pinned behavior; see PATCHES.md.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 Operator setup for new marked sessions: Japanese land stations send their prefecture/island number (1–50); DX and maritime-mobile stations send their CQ zone (1–40). Enter the received value for the counterpart's role. These bounds apply to setup, commits and corrections; historical unmarked-session compatibility remains separate.
 
@@ -607,6 +669,8 @@ Fixture: `test_jidx_plugins_host.JIDXPhoneHostTests.test_numeric_exchange_valida
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Official English rules revision 2026-10 sections 5–7 support six bands including 160 m in both modes, JA/DX eligibility, per-band prefecture or country/zone credit, JD1 and maritime-mobile handling. These checks support the new scoringRevision=26.10.26 overlay; remaining sponsor clauses and full-edition certification remain unverified. Historical unmarked sessions retain their pinned behavior; see PATCHES.md.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 Operator setup for new marked sessions: Japanese land stations send their prefecture/island number (1–50); DX and maritime-mobile stations send their CQ zone (1–40). Enter the received value for the counterpart's role. These bounds apply to setup, commits and corrections; historical unmarked-session compatibility remains separate.
 
 ### aadx_cw
@@ -623,6 +687,8 @@ Fixture: `test_aadx_plugins_host.AADXCWHostTests.test_original_source_projection
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **UNVERIFIED**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### aadx_ssb
 
 **AADX SSB** — contest; family `age-and-asian-prefix`. Core **PASS**.
@@ -636,6 +702,8 @@ Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: A
 Fixture: `test_aadx_plugins_host.AADXSSBHostTests.test_original_source_projection_validation_and_esm`. Append: PASS — 3 fixture append comparisons; full score and per-contact fields..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **UNVERIFIED**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### cq_160_cw
 
@@ -651,6 +719,8 @@ Fixture: `test_cq_160_plugins_host.CQ160CWHostTests.test_original_scoring_rebuil
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### cq_160_ssb
 
 **CQ 160 SSB** — contest; family `160m-state-country`. Core **PASS**.
@@ -664,6 +734,8 @@ Duplicate scope: Worked in this contest. (plugin type 1). Multiplier/bonus scope
 Fixture: `test_cq_160_plugins_host.CQ160SSBHostTests.test_original_scoring_rebuild_restart_and_export`. Append: PASS — 6 fixture append comparisons; full score and per-contact fields..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### euhfc
 
@@ -679,6 +751,8 @@ Fixture: `test_euhfc_iaru_hf_host.EUHFCHostTests.test_original_scoring_band_mode
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### iaru_hf
 
 **IARU HF** — contest; family `itu-zone-or-hq`. Core **PASS**.
@@ -692,6 +766,8 @@ Duplicate scope: Worked on this band and mode. (plugin type 3). Multiplier/bonus
 Fixture: `test_euhfc_iaru_hf_host.IARUHFHostTests.test_original_points_zone_and_hq_multipliers_restart_and_export`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### arrl_10m
 
@@ -707,6 +783,8 @@ Fixture: `test_arrl_single_band_plugins_host.ARRL10MHostTests.test_catalog_proje
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### arrl_160m
 
 **ARRL 160-Meter** — contest; family `regional-serial-or-location`. Core **PASS**.
@@ -720,6 +798,8 @@ Duplicate scope: Worked in this contest. (plugin type 1). Multiplier/bonus scope
 Fixture: `test_arrl_single_band_plugins_host.ARRL160MHostTests.test_original_scoring_correction_delete_restart_and_cabrillo`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### arrl_field_day
 
@@ -735,6 +815,8 @@ Fixture: `test_arrl_field_rtty_vhf_host.ARRLFieldDayHostTests.test_am_fm_reports
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### arrl_rtty_ru
 
 **ARRL RTTY Roundup** — contest; family `regional-serial-or-location`. Core **PASS**.
@@ -748,6 +830,8 @@ Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: R
 Fixture: `test_arrl_field_rtty_vhf_host.ARRLRTTYRoundupHostTests.test_serial_multiplier_correction_restart_and_exports`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### arrl_vhf_jan
 
@@ -763,6 +847,8 @@ Fixture: `test_arrl_field_rtty_vhf_host.ARRLVHFHostTests.test_vhf_season_scoring
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### arrl_vhf_jun
 
 **ARRL VHF JUN** — contest; family `received-grid-by-band`. Core **PASS**.
@@ -776,6 +862,8 @@ Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: R
 Fixture: `test_arrl_field_rtty_vhf_host.ARRLVHFHostTests.test_vhf_am_fm_reports_scoring_and_cabrillo_are_phone_compatible`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### arrl_vhf_sep
 
@@ -791,6 +879,8 @@ Fixture: `test_arrl_field_rtty_vhf_host.ARRLVHFHostTests.test_vhf_season_scoring
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### ea_majestad_cw
 
 **His Maj. King of Spain Contest, CW** — contest; family `regional-serial-or-location`. Core **PASS**.
@@ -804,6 +894,8 @@ Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: D
 Fixture: `test_ea_majestad_plugins_host.KingOfSpainCWHostTests.test_scoring_correction_delete_restart_and_export`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### ea_majestad_ssb
 
@@ -819,6 +911,8 @@ Fixture: `test_ea_majestad_plugins_host.KingOfSpainSSBHostTests.test_scoring_cor
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### ref_cw
 
 **French REF DX contest - CW** — contest; family `french-department-or-serial`. Core **PASS**.
@@ -832,6 +926,8 @@ Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: F
 Fixture: `test_ref_plugins_host.REFCWHostTests.test_scoring_correction_delete_restart_and_export`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### ref_ssb
 
@@ -847,6 +943,8 @@ Fixture: `test_ref_plugins_host.REFSSBHostTests.test_scoring_correction_delete_r
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### rsgb_80m_cc
 
 **RSGB 80M CC** — contest; family `serial-dx-or-regional`. Core **PASS**.
@@ -860,6 +958,8 @@ Duplicate scope: Worked in this contest. (plugin type 1). Multiplier/bonus scope
 Fixture: `test_rsgb_plugins_host.RSGB80MCCHostTests.test_duplicate_correction_delete_restart_and_export`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **NOT APPLICABLE**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **NOT APPLICABLE**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### rsgb_commonwealth_beru
 
@@ -875,6 +975,8 @@ Fixture: `test_rsgb_plugins_host.RSGBCommonwealthBERUHostTests.test_esm_commits_
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **NOT APPLICABLE**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **NOT APPLICABLE**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### es_field_day
 
 **ES FIELD DAY** — contest; family `regional-timed-repeat`. Core **PASS**.
@@ -888,6 +990,8 @@ Duplicate scope: Worked on this band and mode in this configured 30-minute perio
 Fixture: `test_estonian_plugins_host.EstonianPluginHostTests.test_field_day_multiplier_and_open_correction_restart_export`. Append: PASS — 4 fixture append comparisons; full score and per-contact fields..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### es_ll_kv
 
@@ -903,6 +1007,8 @@ Fixture: `test_estonian_plugins_host.EstonianPluginHostTests.test_period_duplica
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### es_manual_key
 
 **ES MANUAL KEY** — contest; family `regional-timed-repeat`. Core **PASS**.
@@ -916,6 +1022,8 @@ Duplicate scope: Worked on this band and mode in this configured 15-minute perio
 Fixture: `test_estonian_plugins_host.EstonianPluginHostTests.test_period_duplicates_scoring_and_exchange_validation`. Append: PASS — 3 fixture append comparisons; full score and per-contact fields..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### es_open
 
@@ -931,6 +1039,8 @@ Fixture: `test_estonian_plugins_host.EstonianPluginHostTests.test_field_day_mult
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### hadx
 
 **HA DX** — contest; family `regional-serial-or-location`. Core **PASS**.
@@ -944,6 +1054,8 @@ Duplicate scope: Worked on this band and mode. (plugin type 3). Multiplier/bonus
 Fixture: `test_european_dx_plugins_host.EuropeanDxPluginTests.test_chronological_multiplier_callbacks_for_remaining_conditional_serial_families`. Append: PASS — 4 fixture append comparisons; full score and per-contact fields..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### helvetia
 
@@ -959,6 +1071,8 @@ Fixture: `test_european_dx_plugins_host.EuropeanDxPluginTests.test_chronological
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### pacc
 
 **PACC** — contest; family `regional-serial-or-location`. Core **PASS**.
@@ -972,6 +1086,8 @@ Duplicate scope: Worked on this band and mode. (plugin type 3). Multiplier/bonus
 Fixture: `test_european_dx_plugins_host.EuropeanDxPluginTests.test_chronological_multiplier_callbacks_for_remaining_conditional_serial_families`. Append: PASS — 4 fixture append comparisons; full score and per-contact fields..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### spdx
 
@@ -987,6 +1103,8 @@ Fixture: `test_european_dx_plugins_host.EuropeanDxPluginTests.test_scoring_persi
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### ari_dx
 
 **ARI International DX** — contest; family `regional-serial-or-location`. Core **PASS**.
@@ -1000,6 +1118,8 @@ Duplicate scope: Worked on this band and mode. (plugin type 3). Multiplier/bonus
 Fixture: `test_central_european_plugins_host.CentralEuropeanPluginTests.test_correction_rejects_plugin_invalid_historical_sent_exchange`. Append: PASS — 3 fixture append comparisons; full score and per-contact fields..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### darc_xmas
 
@@ -1015,6 +1135,8 @@ Fixture: `test_central_european_plugins_host.CentralEuropeanPluginTests.test_sco
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### eudx
 
 **EUDXC** — contest; family `regional-serial-or-location`. Core **PASS**.
@@ -1028,6 +1150,8 @@ Duplicate scope: Worked on this band and mode. (plugin type 3). Multiplier/bonus
 Fixture: `test_central_european_plugins_host.CentralEuropeanPluginTests.test_correction_preserves_historical_sent_exchange_and_run_metadata`. Append: PASS — 5 fixture append comparisons; full score and per-contact fields..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### lz-dx
 
@@ -1043,6 +1167,8 @@ Fixture: `test_central_european_plugins_host.CentralEuropeanPluginTests.test_cor
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### wag
 
 **WAG** — contest; family `regional-serial-or-location`. Core **PASS**.
@@ -1056,6 +1182,8 @@ Duplicate scope: Worked on this band and mode. (plugin type 3). Multiplier/bonus
 Fixture: `test_central_european_plugins_host.CentralEuropeanPluginTests.test_scoring_same_second_replay_exports_and_rtty_contract`. Append: PASS — 1 fixture append comparisons; full score and per-contact fields..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### ari_40_80
 
@@ -1071,6 +1199,8 @@ Fixture: `test_european_hf_plugins_host.EuropeanHFPluginTests.test_commit_score_
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### ea_rtty
 
 **EA RTTY** — contest; family `regional-serial-or-location`. Core **PASS**.
@@ -1084,6 +1214,8 @@ Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: D
 Fixture: `test_european_hf_plugins_host.EuropeanHFPluginTests.test_commit_score_correction_restart_export_and_historical_sent_exchange`. Append: PASS — 14 fixture append comparisons; full score and per-contact fields..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### ok1wc
 
@@ -1099,6 +1231,8 @@ Fixture: `test_european_hf_plugins_host.EuropeanHFPluginTests.test_commit_score_
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### ssa_mt_cw
 
 **SSA MT CW** — contest; family `grid-distance-or-square-bonus`. Core **PASS**.
@@ -1112,6 +1246,8 @@ Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: F
 Fixture: `test_european_hf_plugins_host.EuropeanHFPluginTests.test_commit_score_correction_restart_export_and_historical_sent_exchange`. Append: PASS — 5 fixture append comparisons; full score and per-contact fields..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### ssa_mt_ssb
 
@@ -1127,6 +1263,8 @@ Fixture: `test_european_hf_plugins_host.EuropeanHFPluginTests.test_commit_score_
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### dxpedition
 
 **DX-Pedition** — utility; family `utility-logging`. Core **PASS**.
@@ -1140,6 +1278,8 @@ Duplicate scope: Duplicate checking disabled. (plugin type 4). Multiplier/bonus 
 Fixture: `test_type4_utility_plugins_host.Type4UtilityPluginTests.test_dxpedition_prev_call_persists_between_native_esm_requests`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: NOT APPLICABLE — Utility has no required contest multiplier view. Sponsor edition: NOT APPLICABLE — Utility definition; no sponsor submission certification required.
+
+Analytics fixture: credited acquisition: **NOT APPLICABLE**; corrected-log score history: **NOT APPLICABLE**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **NOT APPLICABLE**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### general_logging
 
@@ -1155,6 +1295,8 @@ Fixture: `test_type4_utility_plugins_host.Type4UtilityPluginTests.test_exports_a
 
 Multiplier view: NOT APPLICABLE — Utility has no required contest multiplier view. Sponsor edition: NOT APPLICABLE — Utility definition; no sponsor submission certification required.
 
+Analytics fixture: credited acquisition: **NOT APPLICABLE**; corrected-log score history: **NOT APPLICABLE**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **NOT APPLICABLE**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### randomgram
 
 **RandomGram** — utility; family `utility-logging`. Core **PASS**.
@@ -1168,6 +1310,8 @@ Duplicate scope: Duplicate checking disabled. (plugin type 4). Multiplier/bonus 
 Fixture: `test_type4_utility_plugins_host.Type4UtilityPluginTests.test_exports_and_esm_function_keys`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: NOT APPLICABLE — Utility has no required contest multiplier view. Sponsor edition: NOT APPLICABLE — Utility definition; no sponsor submission certification required.
+
+Analytics fixture: credited acquisition: **NOT APPLICABLE**; corrected-log score history: **NOT APPLICABLE**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **NOT APPLICABLE**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### qso_party_rst
 
@@ -1183,6 +1327,8 @@ Fixture: `test_type4_utility_plugins_host.Type4UtilityPluginTests.test_correctio
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: NOT APPLICABLE — Generic QSO-party template; choose and verify the actual sponsor's rules independently.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### qso_party_sn
 
 **QSO PARTY SN** — generic-template; family `county-qso-party`. Core **PASS**.
@@ -1196,6 +1342,8 @@ Duplicate scope: Duplicate checking disabled. (plugin type 4). Multiplier/bonus 
 Fixture: `test_type4_utility_plugins_host.Type4UtilityPluginTests.test_draft_commit_edit_delete_restart_replay_and_historical_sent_fields`. Append: PASS — 10 fixture append comparisons; full score and per-contact fields..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: NOT APPLICABLE — Generic QSO-party template; choose and verify the actual sponsor's rules independently.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### ca_qso_party
 
@@ -1211,6 +1359,8 @@ Fixture: `test_first_remaining_plugins_host.FirstRemainingPluginTests.test_cqp_s
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### canada_day
 
 **CANADA DAY** — contest; family `regional-serial-or-location`. Core **PASS**.
@@ -1224,6 +1374,8 @@ Duplicate scope: Worked on this band and mode. (plugin type 3). Multiplier/bonus
 Fixture: `test_first_remaining_plugins_host.FirstRemainingPluginTests.test_each_plugin_lifecycle_recalculate_restart_and_exports`. Append: PASS — 2 fixture append comparisons; full score and per-contact fields..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### cqws
 
@@ -1239,6 +1391,8 @@ Fixture: `test_first_remaining_plugins_host.FirstRemainingPluginTests.test_cqws_
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Available official 2023 class/country/UF rules informed the overlay; 2026 edition is unknown. The explicit-UF one-point branch preserves legacy behavior without an established 2023 point-rule authority, so providing UF alone does not certify this branch.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### darc_schwaben
 
 **DARC SCHWABEN** — contest; family `regional-serial-or-location`. Core **PASS**.
@@ -1252,6 +1406,8 @@ Duplicate scope: Worked on this band and mode. (plugin type 3). Multiplier/bonus
 Fixture: `test_first_remaining_plugins_host.FirstRemainingPluginTests.test_darc_vhf_requires_locator_but_hf_does_not`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **NOT APPLICABLE**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **NOT APPLICABLE**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### winter_field_day
 
@@ -1267,6 +1423,8 @@ Fixture: `test_first_remaining_plugins_host.FirstRemainingPluginTests.test_each_
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### agcw_qrp
 
 **AGCW QRP** — contest; family `regional-serial-or-location`. Core **PASS**.
@@ -1280,6 +1438,8 @@ Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: N
 Fixture: `test_second_remaining_plugins_host.SecondRemainingPluginTests.test_all_eight_lifecycle_score_history_exports_and_restart`. Append: PASS — 5 fixture append comparisons; full score and per-contact fields..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### raem
 
@@ -1295,6 +1455,8 @@ Fixture: `test_second_remaining_plugins_host.SecondRemainingPluginTests.test_all
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **NOT APPLICABLE**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **NOT APPLICABLE**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### rda_contest
 
 **RDA Contest** — contest; family `regional-serial-or-location`. Core **PASS**.
@@ -1308,6 +1470,8 @@ Duplicate scope: Worked on this band and mode. (plugin type 3). Multiplier/bonus
 Fixture: `test_second_remaining_plugins_host.SecondRemainingPluginTests.test_all_eight_lifecycle_score_history_exports_and_restart`. Append: PASS — 5 fixture append comparisons; full score and per-contact fields..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### rdxc
 
@@ -1323,6 +1487,8 @@ Fixture: `test_second_remaining_plugins_host.SecondRemainingPluginTests.test_all
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### rsgb_iota
 
 **RSGB-IOTA** — contest; family `regional-serial-or-location`. Core **PASS**.
@@ -1336,6 +1502,8 @@ Duplicate scope: Worked on this band and mode. (plugin type 3). Multiplier/bonus
 Fixture: `test_second_remaining_plugins_host.SecondRemainingPluginTests.test_all_eight_lifecycle_score_history_exports_and_restart`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### stew_perry_topband
 
@@ -1351,6 +1519,8 @@ Fixture: `test_second_remaining_plugins_host.SecondRemainingPluginTests.test_all
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **NOT APPLICABLE**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **NOT APPLICABLE**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### ukeidx
 
 **UKEI-DX** — contest; family `regional-serial-or-location`. Core **PASS**.
@@ -1365,6 +1535,8 @@ Fixture: `test_second_remaining_plugins_host.SecondRemainingPluginTests.test_all
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **PASS**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### wia_remembrance
 
 **WIA REMEMBRANCE** — contest; family `timed-or-location-repeat`. Core **PASS**.
@@ -1378,6 +1550,8 @@ Duplicate scope: Worked on this band and mode within the preceding three hours. 
 Fixture: `test_second_remaining_plugins_host.SecondRemainingPluginTests.test_all_eight_lifecycle_score_history_exports_and_restart`. Append: NOT APPLICABLE — Not admitted to the generic chronological-append fast path; existing scoring owner retained..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **NOT APPLICABLE**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **NOT APPLICABLE**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 Operator setup: enter the literal number of years licensed as the sent exchange (for example `25` for an operator licensed for 25 years). The `#` appearing in this synthetic fixture is legacy compatibility evidence only; do not use it as the operating exchange. The additional literal-25 host lifecycle (`test_wia_literal_years_never_allocate_or_renumber_a_sent_serial`) and current React desk case verify that normal setup without reserving or renumbering a serial; see the acceptance record for their runs.
 
@@ -1395,6 +1569,8 @@ Fixture: `test_final_remaining_plugins_host.FinalRemainingPluginTests.test_cq_vh
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### darc_vhf
 
 **DARC VHF** — contest; family `grid-distance-or-square-bonus`. Core **PASS**.
@@ -1408,6 +1584,8 @@ Duplicate scope: Worked on this band and mode. (plugin type 3). Multiplier/bonus
 Fixture: `test_final_remaining_plugins_host.FinalRemainingPluginTests.test_grid_exchanges_are_strict_and_normalized`. Append: PASS — 3 fixture append comparisons; full score and per-contact fields..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **NOT APPLICABLE**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **NOT APPLICABLE**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### john_moyle_field_day
 
@@ -1423,6 +1601,8 @@ Fixture: `test_final_remaining_plugins_host.FinalRemainingPluginTests.test_jmmfd
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### labre_rs_digi
 
 **LABRE-RS Digi** — contest; family `received-grid-by-band`. Core **PASS**.
@@ -1436,6 +1616,8 @@ Duplicate scope: Worked on this band. (plugin type 2). Multiplier/bonus scope: R
 Fixture: `test_final_remaining_plugins_host.FinalRemainingPluginTests.test_grid_exchanges_are_strict_and_normalized`. Append: PASS — 1 fixture append comparisons; full score and per-contact fields..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### nac_vhf
 
@@ -1451,6 +1633,8 @@ Fixture: `test_final_remaining_plugins_host.FinalRemainingPluginTests.test_grid_
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ### ta_vhf_uhf_contest
 
 **TA VHF UHF** — contest; family `grid-distance-or-square-bonus`. Core **PASS**.
@@ -1464,6 +1648,8 @@ Duplicate scope: Worked on this band and mode. (plugin type 3). Multiplier/bonus
 Fixture: `test_final_remaining_plugins_host.FinalRemainingPluginTests.test_grid_exchanges_are_strict_and_normalized`. Append: PASS — 6 fixture append comparisons; full score and per-contact fields..
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
+
+Analytics fixture: credited acquisition: **NOT APPLICABLE**; corrected-log score history: **PASS**; available finite Needed dimensions: **NOT APPLICABLE**; candidate Needed: **NOT APPLICABLE**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
 
 ### vhf_sprint
 
@@ -1479,13 +1665,17 @@ Fixture: `test_final_remaining_plugins_host.FinalRemainingPluginTests.test_grid_
 
 Multiplier view: UNVERIFIED — No tested per-plugin detailed worked/needed view; plugin total remains authoritative. Sponsor edition: UNVERIFIED — Pinned integration and explicit fixture arithmetic do not certify the current organizer edition.
 
+Analytics fixture: credited acquisition: **PASS**; corrected-log score history: **PASS**; available finite Needed dimensions: **UNVERIFIED**; candidate Needed: **UNVERIFIED**. Per-dimension scope, provenance and unavailable reasons are retained in JSON.
+
 ## Reproduce and refresh
 
 Run only against synthetic disposable storage:
 
 ```sh
-/opt/local/bin/python3.12 tools/check_all_contests_readiness.py --family-tests --output .build/all-contests-readiness.json
-cd prototype && XLOG_CONTEST_PYTHON=/opt/local/bin/python3.12 npm exec vitest -- run src/contesting/AllContestsPythonDesk.test.tsx --reporter=json --outputFile=/tmp/xlog-all-contests-ui-final-accepted-results.json
+/opt/local/bin/python3.12 tools/check_all_contests_readiness.py --family-tests --output .build/all-contests-readiness-limits-final.json
+PYTHONPATH=python:python/tests /opt/local/bin/python3.12 -m unittest discover -s python/tests > /tmp/xlog-python-limits-final.log 2>&1
+XLOG_ANALYTICS_INVENTORY=/tmp/xlog-analytics-inventory-limits-final.json PYTHONPATH=python:python/tests /opt/local/bin/python3.12 -m unittest test_analytics test_cross_contest_consistency test_analytics_catalogue > /tmp/xlog-analytics-limits-final.log 2>&1
+cd prototype && XLOG_CONTEST_PYTHON=/opt/local/bin/python3.12 npm exec vitest -- run --maxWorkers=2 --testTimeout=15000 --reporter=json --outputFile=/tmp/xlog-frontend-limits-final-results.json
 # Run PythonCatalogueReadinessTests with the repository's native prototype test command.
 # Run tools/check_contest_append_equivalence.py and save its bounded result log.
 cd .. && /opt/local/bin/python3.12 tools/render_all_contests_readiness.py

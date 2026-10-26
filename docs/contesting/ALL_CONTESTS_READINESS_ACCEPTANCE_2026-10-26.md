@@ -1,5 +1,10 @@
 # All-contest source and release acceptance — 26 October 2026
 
+The later [remaining-limits acceptance](REMAINING_LIMITS_ACCEPTANCE_2026-10-26.md)
+records the expanded analytics, durable sync evidence and installed 1.3.34
+fresh-receipt handover. The refreshed complete matrix uses the final source gates
+listed there; the checkpoints and earlier release outcomes below remain historical.
+
 The canonical implementation is on `main` in `/Users/oliver/Documents/Projects/OM0RX-xLog`.
 The final source qualification checkpoint is `128ee7afeac33168a3779dcc143006a1fd257dcf`,
 following host corrections `a037ace046af05ce066d23802d94198661be4ba0`, initial
