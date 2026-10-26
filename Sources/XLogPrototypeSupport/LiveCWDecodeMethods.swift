@@ -95,6 +95,13 @@ actor LiveCWDecodeMethods {
         result["resourcesAvailable"]=(try? resources()) != nil
         result["qualityStatus"]="awaiting_live_qualification"
         result["listener"]=try Self.object(await listener.snapshot())
+        async let first=LiveStationMethods.cwTCICapabilities(radioID:"radio1")
+        async let second=LiveStationMethods.cwTCICapabilities(radioID:"radio2")
+        let capabilities=await [first,second]
+        result["capabilities"]=try zip(["radio1","radio2"],capabilities).map {radio,value -> [String:Any] in
+            var row=try value.map{try Self.object($0)} ?? ["ready":false,"receivers":[],"requestableSampleRates":[]]
+            row["radioID"]=radio;row["provider"]="tci_iq";return row
+        }
         return result
     }
     private static func object<T:Encodable>(_ value:T) throws -> [String:Any] {

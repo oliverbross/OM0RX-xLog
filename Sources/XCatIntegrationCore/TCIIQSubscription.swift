@@ -35,12 +35,12 @@ public struct TCIIQSubscription: Sendable {
     public let blocks: AsyncThrowingStream<TCIIQBlock, Error>
 }
 
-public struct TCIIQReceiverCapability: Sendable {
+public struct TCIIQReceiverCapability: Encodable, Sendable {
     public let receiver:Int
     public let enabled:Bool?
     public let centreHz:Int64?
 }
-public struct TCIIQCapabilities: Sendable {
+public struct TCIIQCapabilities: Encodable, Sendable {
     public let connectionGeneration:UInt64
     public let ready:Bool
     public let device:String?
