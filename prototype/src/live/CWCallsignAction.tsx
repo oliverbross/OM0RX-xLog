@@ -16,7 +16,10 @@ export function parseCWCallsignOutcome(value: any, operation: string): CWCallsig
   return value;
 }
 function retainedOperation(): string | null {
-  try { const value = sessionStorage.getItem(key); return uuid(value) ? value : null; } catch { return null; }
+  try {
+    const value = sessionStorage.getItem(key);
+    return value === null ? null : uuid(value) ? value : "unverified";
+  } catch { return "unverified"; }
 }
 /** An explicit click creates one identity. Lost acknowledgements retain it;
  * checking an outcome never resubmits the callsign or any station effect. */
@@ -30,7 +33,7 @@ export function CWCallsignAction({ signal, snapshot, request = requestCWCallsign
   const eligible = snapshot.featureEnabled === true && snapshot.state === "running" && ["normal_logging", "contesting"].includes(snapshot.operatingModule ?? "") &&
     uuid(snapshot.operatingContext) && !!signal?.selection?.activation && !signal.ambiguous;
   const run = async (check: boolean) => {
-    if (inFlight.current || (!check && (!eligible || operation.current)) || check && !operation.current) return;
+    if (inFlight.current || (!check && (!eligible || operation.current)) || check && !uuid(operation.current)) return;
     const id = check ? operation.current! : crypto.randomUUID();
     try { sessionStorage.setItem(key, id); } catch { setError("The action identity could not be retained. Callsign loading is unavailable."); return; }
     operation.current = id; setPending(id); inFlight.current = true; setBusy(true); setError(""); setOutcome(null);
@@ -49,9 +52,10 @@ export function CWCallsignAction({ signal, snapshot, request = requestCWCallsign
   return <div className="cw-decode-callsign" aria-label="CW callsign loading">
     <div className="cw-decode-actions"><button type="button" disabled={!eligible || busy || !!pending} onClick={() => void run(false)}
       title="Load the observed callsign into the active logging entry, preserving its frequency, mode and operator text.">Use callsign{signal?.selection ? ` ${signal.selection.callsign}` : ""}</button>
-      {pending && <button type="button" disabled={busy} onClick={() => void run(true)}>Check original action</button>}</div>
+      {pending && <button type="button" disabled={busy || !uuid(pending)} onClick={() => void run(true)}>Check original action</button>}</div>
     {!snapshot.operatingModule && <p>Callsign loading requires an active logging module.</p>}
     {pending && <p role="status">{busy ? "Checking callsign loading…" : "The previous action needs a verified outcome before another callsign can be loaded."}</p>}
+    {pending === "unverified" && <p role="alert">The retained callsign identity cannot be read. Review Main Logging before further callsign loading.</p>}
     {outcome?.phase === "confirmed" && <p role="status">Callsign loaded into the logging entry. Frequency and mode are retained.</p>}
     {outcome && outcome.phase !== "confirmed" && !pending && <p role="status">{outcome.error || "Callsign loading was blocked. Review Main Logging before selecting again."}</p>}
     {outcome?.phase === "uncertain" && <p role="alert">Review Main Logging and check the original action. Its outcome is uncertain.</p>}

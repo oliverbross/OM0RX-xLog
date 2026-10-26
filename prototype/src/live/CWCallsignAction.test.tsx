@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { CWCallsignAction, parseCWCallsignOutcome } from "./CWCallsignAction";
 import { cwDecodeTrackFixture } from "./cwDecode.fixtures";
 beforeEach(() => sessionStorage.clear());
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 function fixture() {
   const snapshot = cwDecodeTrackFixture(), signal = snapshot.tracks[0];
   snapshot.featureEnabled = true; snapshot.operatingModule = "normal_logging";
@@ -71,4 +71,21 @@ it("rejects extra authority or draft data in replies", () => {
   const operation = crypto.randomUUID();
   expect(() => parseCWCallsignOutcome({ operationId: operation, phase: "confirmed", reservationActive: false, draft: {} }, operation)).toThrow();
   expect(() => parseCWCallsignOutcome({ operationId: operation, phase: "tuning", reservationActive: true }, operation)).toThrow();
+});
+it.each(["invalid", "", "00000000-0000-0000-0000-000000000000"])("holds an unreadable retained callsign identity (%s) without overwriting it", raw => {
+  sessionStorage.setItem("xlog.cw.pending-callsign", raw);
+  const request = vi.fn(); render(<CWCallsignAction {...fixture()} request={request} />);
+  expect((screen.getByRole("button", { name: "Use callsign K1ABC" }) as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole("button", { name: "Check original action" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Use callsign K1ABC" }));
+  expect(request).not.toHaveBeenCalled();
+  expect(sessionStorage.getItem("xlog.cw.pending-callsign")).toBe(raw);
+  expect(screen.getByText(/The retained callsign identity cannot be read/)).toBeTruthy();
+});
+it("holds callsign loading when the retained identity cannot be read", () => {
+  vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("Unavailable"); });
+  const request = vi.fn(); render(<CWCallsignAction {...fixture()} request={request} />);
+  expect((screen.getByRole("button", { name: "Use callsign K1ABC" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Check original action" }));
+  expect(request).not.toHaveBeenCalled();
 });

@@ -129,6 +129,20 @@ the corrective contest releases, where CW stays disabled.
 
 ## Track mute
 
+### Unreadable callsign journal
+
+A missing callsign session journal permits a new explicit action. A present but
+malformed identity, including an empty or nil UUID, or a storage read failure
+now keeps callsign loading blocked. The unreadable value is preserved, and no
+invented identity is submitted for reconciliation. The operator is directed to
+review Main Logging. This matches the conservative Tune journal behavior.
+
+Four regression cases failed before the correction and pass afterward. The
+combined callsign/Tune suites pass 27 cases, and TypeScript validation passes.
+This closes the unreadable-journal admission bug; it does not complete native
+process restart, lost-window journal, expired contest intent or receipt-compaction
+recovery acceptance.
+
 Every live track, including a call-less signal, has a separate native control
 reference. `cw_decode_track_mute` accepts only that exact retained reference,
 rechecks its provider and 250-ms input freshness after suspension, then suppresses
