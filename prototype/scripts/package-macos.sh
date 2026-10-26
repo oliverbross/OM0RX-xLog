@@ -9,6 +9,7 @@ git diff --cached --quiet
 test -z "$(git ls-files --others --exclude-standard)"
 export XLOG_SOURCE_COMMIT="$(git rev-parse HEAD)"
 node --test prototype/scripts/mac-worker-packaging.check.mjs
+python3 prototype/scripts/cw-macos.py prepare
 bash prototype/scripts/build-worker.sh
 node prototype/scripts/stage-worker.mjs
 bash prototype/scripts/stage-hamlib-macos.sh
@@ -28,6 +29,7 @@ bundle="$root/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app"
 test "$(plutil -extract NSMicrophoneUsageDescription raw "$bundle/Contents/Info.plist")" = \
   "OM0RX-xLog records an operator-selected contest audio input and optional local voice-keyer messages."
 bash "$root/prototype/scripts/stage-contest-python-macos.sh" "$bundle"
+python3 "$root/prototype/scripts/cw-macos.py" stage --bundle "$bundle"
 binary_dir="$(XLOG_PORTABLE_ONLY=1 swift build --build-system xcode --package-path "$root" --scratch-path "$root/.build/prototype-worker" -c release --show-bin-path)"
 rm -rf "$bundle/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle" "$bundle/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle"
 ditto "$binary_dir/OM0RXXLogPrototype_XLogCore.bundle" "$bundle/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle"
@@ -66,6 +68,9 @@ sign_component "$bundle/Contents/Frameworks/Python.framework" "com.oliverbross.x
 "$bundle/Contents/Frameworks/Python.framework/Versions/3.12/bin/python3.12" -I -B \
   "$root/prototype/scripts/relocate-contest-python.py" --bundle "$bundle" --finalize-provenance
 sign_component "$bundle/Contents/MacOS/xlog-prototype-worker" "com.oliverbross.xlog.integration.worker"
+sign_component "$bundle/Contents/Frameworks/libonnxruntime.dylib" "com.oliverbross.xlog.integration.cw.runtime"
+sign_component "$bundle/Contents/MacOS/xlog-cw-worker" "com.oliverbross.xlog.integration.cw.worker"
+python3 "$root/prototype/scripts/cw-macos.py" finalize --bundle "$bundle"
 sign_component "$bundle/Contents/MacOS/rigctld" "com.oliverbross.xlog.integration.rigctld"
 sign_component "$bundle/Contents/MacOS/rotctld" "com.oliverbross.xlog.integration.rotctld"
 if [ "$signing_identity" = - ]; then
@@ -74,4 +79,5 @@ else
   codesign --force --options runtime --entitlements "$root/prototype/src-tauri/Recorder.entitlements" --timestamp --sign "$signing_identity" "$bundle"
 fi
 codesign --verify --deep --strict "$bundle"
+python3 "$root/prototype/scripts/cw-macos.py" verify --bundle "$bundle"
 printf 'OM0RX-xLog bundle verified (notarization separate): %s\n' "$bundle"
