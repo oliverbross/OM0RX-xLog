@@ -40,7 +40,11 @@ export function RadioConnectionForm(p: RadioFormProps) {
   useEffect(() => {
     let active = true;
     void stationSessionRequest<{ ports: { path: string; label: string }[] }>(p.radioId, { action: "serial_ports" }).then(value => {
-      if (active) { setPorts(value.ports.filter(port => typeof port.path === "string" && typeof port.label === "string")); setPortsError(false); }
+      if (!active) return;
+      if (!Array.isArray(value?.ports) || value.ports.some(port => !port || typeof port.path !== "string" || typeof port.label !== "string")) {
+        setPortsError(true); return;
+      }
+      setPorts(value.ports); setPortsError(false);
     }, () => { if (active) setPortsError(true); });
     return () => { active = false; };
   }, [p.radioId, portAttempt]);

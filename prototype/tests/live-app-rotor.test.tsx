@@ -15,6 +15,8 @@ const bridge = vi.hoisted(() => ({ request: vi.fn(), native: vi.fn(), tune: null
   telemetry: vi.fn(), stationTelemetry: vi.fn(), selectTelemetry: vi.fn(), intentId: null as string | null, activeRadio: "radio1" as "radio1" | "radio2" }));
 vi.mock("@tauri-apps/api/core", async original => ({ ...await original<typeof import("@tauri-apps/api/core")>(),
   invoke: (command: string, params: any) => command === "monitor_rotor_stop" ? bridge.native(command, params)
+    : command === "station_session_request" && params?.params?.action === "serial_ports" ? Promise.resolve({ ports: [] })
+    : command === "station_session_request" && params?.params?.action === "hamlib_catalogue" ? Promise.resolve({ models: [] })
     : command === "station_session_request" && params?.params?.action === "snapshot" ? Promise.resolve({ radio_id: params.params.radio_id, active_radio: bridge.activeRadio, tx_owner: null,
       generation: `${params.params.radio_id}-fixture`, revision: 1, base_url: "", last_receipt: null, selection: { provider: "direct_agent", generation: 1, selection_id: "fixture" } }) : Promise.resolve({}) }));
 vi.mock("@tauri-apps/api/event", async original => {
@@ -111,7 +113,7 @@ async function openRadioSettings() {
   if (!sidebar) throw new Error("Sidebar unavailable");
   fireEvent.click(within(sidebar).getByRole("button", { name: "Settings" }));
   fireEvent.click(await screen.findByRole("tab", { name: "Radio" }));
-  await screen.findByRole("tab", { name: "Radio 1" });
+  await screen.findByRole("tab", { name: /^Radio 1/ });
 }
 async function waitForDesk() {
   return screen.findByLabelText("Desk Frequency MHz");
@@ -610,10 +612,10 @@ it("hydrates the native radio choice before polling and leaves handover with the
   await act(async () => selected({ provider: "direct_flex_lan", generation: 7 }));
   await waitFor(() => expect(bridge.request.mock.calls.some(([method, params]) => method === "station_snapshot" && params.provider === "direct_flex_lan")).toBe(true));
   await openRadioSettings();
-  const radioOne = screen.getByRole("tabpanel", { name: "Radio 1" });
-  fireEvent.change(within(radioOne).getByLabelText("Shared radio provider"), { target: { value: "hamlib" } });
+  const radioOne = screen.getByRole("tabpanel", { name: /^Radio 1/ });
+  fireEvent.change(within(radioOne).getByLabelText("Interface"), { target: { value: "hamlib" } });
   expect(bridge.applySelection).not.toHaveBeenCalled();
-  expect(within(radioOne).getByLabelText("Shared Agent connection setup")).toBeTruthy();
+  expect(within(radioOne).getByLabelText("Serial port")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Use Local Hamlib" })).toBeNull();
   expect(bridge.applySelection).not.toHaveBeenCalled();
   expect(bridge.request.mock.calls.some(([method]) => ["station_disconnect", "hamlib_disconnect", "rotor_disconnect", "station_connect", "hamlib_connect"].includes(method))).toBe(false);
@@ -637,7 +639,7 @@ it("browses the standby radio without disconnecting or changing the active poll 
   render(<LiveApp />);
   await waitForDesk();
   await openRadioSettings();
-  fireEvent.click(screen.getByRole("tab", { name: "Radio 2" }));
+  fireEvent.click(screen.getByRole("tab", { name: /^Radio 2/ }));
   expect(bridge.request.mock.calls.some(([method]) => method === "hamlib_status")).toBe(false);
   expect(bridge.request.mock.calls.some(([method]) => method === "station_disconnect" || method === "hamlib_disconnect")).toBe(false);
   expect(localStorage.getItem("xlog.integration.provider")).toBeNull();
@@ -651,9 +653,11 @@ it("keeps provider browsing as a radio-settings draft until explicitly applied",
   render(<LiveApp />);
   await waitForDesk();
   await openRadioSettings();
-  const radioOne = screen.getByRole("tabpanel", { name: "Radio 1" });
-  fireEvent.change(within(radioOne).getByLabelText("Shared radio provider"), { target: { value: "direct_flex_lan" } });
-  expect(within(radioOne).getByRole("button", { name: "Apply shared radio selection" })).toBeTruthy();
+  const radioOne = screen.getByRole("tabpanel", { name: /^Radio 1/ });
+  fireEvent.change(within(radioOne).getByLabelText("Manufacturer"), { target: { value: "FlexRadio" } });
+  fireEvent.change(within(radioOne).getByLabelText("Radio 1 model"), { target: { value: "-107" } });
+  expect(within(radioOne).getByLabelText("Radio address")).toBeTruthy();
+  expect(within(radioOne).getByRole("button", { name: "Save & Connect" })).toBeTruthy();
   expect(localStorage.getItem("xlog.integration.provider")).toBeNull();
   expect(bridge.request.mock.calls.filter(([method]) => method === "station_disconnect")).toHaveLength(0);
   expect(bridge.request.mock.calls.some(([method, params]) => method === "station_snapshot" && params.provider === "direct_flex_lan")).toBe(false);

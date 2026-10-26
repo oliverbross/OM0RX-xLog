@@ -155,6 +155,18 @@ it("retains missing serial ports, exact legacy IDs and edited text on external i
   expect(form().getByText(/saved setup changed in another window/)).toBeTruthy(); expect(actions()).toEqual([]);
 });
 
+it.each([null, {}, { ports: null }, { ports: [null] }, { ports: [{ path: 7, label: "Invalid" }] }])
+  ("retains the saved serial route and reports malformed port listing %j", async reply => {
+    const original = native.invoke.getMockImplementation()!;
+    native.invoke.mockImplementation(async (command, args) => args.params.action === "serial_ports" ? reply : original(command, args));
+    states.radio1.selection.provider = "hamlib";
+    states.radio1.hamlib = { mode: "managed", model: 3073, path: "/dev/cu.saved" };
+    render(<RadioSettings />); await flush();
+    expect(form().getByText(/Port listing unavailable/)).toBeTruthy();
+    expect((form().getByLabelText("Serial port") as HTMLSelectElement).value).toBe("/dev/cu.saved");
+    expect(actions()).toEqual([]);
+  });
+
 it("routes operating selection explicitly and refuses switching while another radio holds TX control", async () => {
   states.radio1.tx_owner = "radio1"; states.radio2.tx_owner = "radio1";
   render(<RadioOperatingSelector />); await flush();

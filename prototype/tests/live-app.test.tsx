@@ -158,8 +158,9 @@ it.each(["missing", "unavailable", "pending"])("keeps Settings reachable with a 
   render(<LiveApp />);
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));
   const recovery = await screen.findByRole("region", { name: "Settings recovery" });
-  expect(within(recovery).getByRole("heading", { name: "Settings" })).toBeTruthy();
-  expect(within(recovery).getByLabelText("Shared Agent HTTPS URL")).toBeTruthy();
+  expect(within(recovery).getByRole("heading", { name: "Radios" })).toBeTruthy();
+  const radioOne = within(recovery).getByRole("tabpanel", { name: /^Radio 1/ });
+  expect(within(radioOne).getByLabelText("Station HTTPS address")).toBeTruthy();
   expect(screen.getByRole("main", { name: "Settings" })).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Save settings" })).toBeNull();
   await act(async () => nativeMenu.route?.("Operator Desk"));
@@ -287,7 +288,7 @@ it("native menu navigation preserves the draft and never changes equipment or st
     if (settingsRoute) {
       expect(screen.getByRole("tab", { name: "Radio" }).getAttribute("aria-selected")).toBe("true");
       const requestedRadio = title === "Radio 2 Settings" ? "Radio 2" : "Radio 1";
-      expect(screen.getByRole("tab", { name: requestedRadio }).getAttribute("aria-selected")).toBe("true");
+      expect(screen.getByRole("tab", { name: new RegExp(`^${requestedRadio}`) }).getAttribute("aria-selected")).toBe("true");
     }
   }
   expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("K1ABC");
