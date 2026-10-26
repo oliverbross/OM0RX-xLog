@@ -1255,9 +1255,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       if(Number.isSafeInteger(value)&&value>=0)return value;
       return sourceRows.length<=1?Number((next.score as Score)?.[key]):Number.NaN;
     };
-    const cqRow = (row: Data) => ({ band:String(row?.band ?? ""), qsos:Number(row?.qsos), points:Number(row?.points),
+    const dupeCount = (row:Data) => row?.dupes===undefined?{}:{dupes:row.dupes===null?null:Number(row.dupes)};
+    const cqRow = (row: Data) => ({ band:String(row?.band ?? ""), qsos:Number(row?.qsos), points:Number(row?.points), ...dupeCount(row),
       countries:cqMultiplier(row,"countries"), zones:cqMultiplier(row,"zones") });
-    const genericRow = (row: Data) => ({ band:String(row?.band ?? ""), qsos:Number(row?.qsos), calls:Number(row?.calls),
+    const genericRow = (row: Data) => ({ band:String(row?.band ?? ""), qsos:Number(row?.qsos), calls:Number(row?.calls), ...dupeCount(row),
       cw:Number(row?.cw), phone:Number(row?.phone), digital:Number(row?.digital), wpx:Number(row?.wpx), points:Number(row?.points) });
     const candidate = layout === "cq_ww"
       ? { schemaVersion:3 as const,status:"ready" as const,layout,score:scoreSummary(next.score as Score,current.pluginID),

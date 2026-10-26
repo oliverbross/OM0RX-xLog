@@ -35,6 +35,7 @@ from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, ARRL_VHF_PLUGINS, CENTRAL_E
                       SENT_FIELD_SERIAL_PLUGINS, SIMPLE_MULTIPLIER_PLUGINS, SSA_MT_PLUGINS, TEN_TEN_PLUGINS,
                       TYPE4_UTILITY_PLUGINS)
 from .statistics import calculate_statistics
+from .statistics_dupes import duplicate_flags
 from .multipliers import dimensions as multiplier_definitions, project as multiplier_dimensions, view_status as multiplier_view_status
 from .upstream import (adapt_cw_template, load_plugin, load_cw_macros, pinned_band_definitions,
                        split_macro_template, verify_source)
@@ -1613,10 +1614,11 @@ class Host:
                 desk = Desk(store, state, self.commit)
                 score_band = desk.database.score_band
                 rows = store.exec_sql_mult(
-                    "SELECT Band,Call,Mode,WPXPrefix,Points,IsMultiplier1,IsMultiplier2 FROM DXLOG WHERE ContestNR=?"
-                    + (" AND Band=?" if score_band is not None else ""),
-                    (store.current_contest, *(() if score_band is None else (score_band,))),
+                    "SELECT rowid AS source_order,* FROM DXLOG WHERE ContestNR=? ORDER BY TS,rowid",
+                    (store.current_contest,),
                 )
+                rows = [{**row, "is_dupe": flag} for row, flag in zip(rows, duplicate_flags(desk, rows))
+                        if score_band is None or row["Band"] == score_band]
                 score = desk.score()
                 dimension_rows = store.exec_sql_mult("SELECT rowid AS source_order,* FROM DXLOG WHERE ContestNR=? ORDER BY TS,rowid", (store.current_contest,)) if multiplier_definitions(state) else []
                 views, _, _ = multiplier_dimensions(dimension_rows, state, score, BAND_LABELS)

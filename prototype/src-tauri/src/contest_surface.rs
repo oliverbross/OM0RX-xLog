@@ -2189,6 +2189,7 @@ fn validate_statistics_projection_v3(value: &Map<String, Value>) -> Result<(), S
             .ok_or("The statistics points overflow.")?;
     }
     let total = validate_statistics_row_v3(&value["total"], true)?;
+    validate_statistics_dupe_totals(rows, &value["total"])?;
     if sums[0] != total.1[0]
         || sums[2] != total.1[2]
         || sums[3] != total.1[3]
@@ -2224,6 +2225,7 @@ fn validate_cq_ww_statistics_projection(value: &Map<String, Value>) -> Result<()
         }
     }
     let (_, total) = validate_cq_ww_statistics_row(&value["total"], true)?;
+    validate_statistics_dupe_totals(rows, &value["total"])?;
     if sums != total { return Err("The CQ WW statistics totals do not match the band rows.".into()); }
     let score = object(&value["score"], "contest score")?;
     if uint_value(&score["qsos"], MAX_SAFE_INTEGER, "contest score QSOs")? != total[0]
@@ -2235,10 +2237,11 @@ fn validate_cq_ww_statistics_projection(value: &Map<String, Value>) -> Result<()
 
 fn validate_cq_ww_statistics_row(value: &Value, total: bool) -> Result<(String, [u64; 4]), String> {
     let row = object(value, "CQ WW statistics row")?;
-    exact(row, &["band", "qsos", "points", "countries", "zones"], "CQ WW statistics row")?;
+    exact_optional(row, &["band", "qsos", "points", "countries", "zones"], &["dupes"], "CQ WW statistics row")?;
     let band = text_value(&row["band"], 16, false, "CQ WW statistics band")?;
     if (band == "TOTAL") != total { return Err("The CQ WW statistics band identifier is invalid.".into()); }
     let qsos = uint_value(&row["qsos"], MAX_SAFE_INTEGER, "CQ WW QSO count")?;
+    validate_statistics_dupe_count(row, qsos)?;
     let points = integer_value(&row["points"], "CQ WW points")?;
     if points < 0 { return Err("The CQ WW statistics points are invalid.".into()); }
     let countries = uint_value(&row["countries"], MAX_SAFE_INTEGER, "CQ WW country count")?;
@@ -2282,11 +2285,38 @@ fn validate_statistics_score_v3(value: &Value) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_statistics_dupe_count(row: &Map<String, Value>, qsos: u64) -> Result<(), String> {
+    if let Some(count) = row.get("dupes").filter(|count| !count.is_null()) {
+        uint_value(count, qsos, "statistics duplicate count")?;
+    }
+    Ok(())
+}
+
+fn validate_statistics_dupe_totals(rows: &[Value], total: &Value) -> Result<(), String> {
+    let Some(total) = total.get("dupes") else {
+        return if rows.iter().all(|row| row.get("dupes").is_none()) { Ok(()) }
+            else { Err("Missing statistics duplicate total".into()) };
+    };
+    let mut sum = 0_u64;
+    let mut unknown = false;
+    for row in rows {
+        match row.get("dupes") {
+            None => return Err("Missing statistics duplicate count".into()),
+            Some(Value::Null) => unknown = true,
+            Some(count) => sum = sum.checked_add(uint_value(count, MAX_SAFE_INTEGER, "statistics duplicate count")?)
+                .ok_or("Statistics duplicate total overflow")?,
+        }
+    }
+    if unknown && total.is_null() || !unknown && total.as_u64() == Some(sum) { Ok(()) }
+    else { Err("Statistics duplicate total does not match band rows".into()) }
+}
+
 fn validate_statistics_row_v3(value: &Value, total: bool) -> Result<(String, [u64; 6], i64), String> {
     let row = object(value, "statistics row")?;
-    exact(
+    exact_optional(
         row,
         &["band", "qsos", "calls", "cw", "phone", "digital", "wpx", "points"],
+        &["dupes"],
         "statistics row",
     )?;
     let band = text_value(&row["band"], 16, false, "statistics band")?;
@@ -2300,6 +2330,7 @@ fn validate_statistics_row_v3(value: &Value, total: bool) -> Result<(String, [u6
     let counts: [u64; 6] = counts
         .try_into()
         .map_err(|_| String::from("The statistics row is invalid."))?;
+    validate_statistics_dupe_count(row, counts[0])?;
     let classified = counts[2]
         .checked_add(counts[3])
         .and_then(|value| value.checked_add(counts[4]))
@@ -3663,6 +3694,19 @@ mod tests {
     fn statistics_v3_is_exact_bounded_and_matches_the_not1mm_table() {
         let statistics = statistics_v3();
         assert!(validate_projection("propagation", &statistics).is_ok());
+
+        let mut dupes = statistics.clone();
+        for row in dupes["rows"].as_array_mut().unwrap() { row["dupes"] = json!(0); }
+        dupes["rows"][0]["dupes"] = json!(1);
+        dupes["total"]["dupes"] = json!(1);
+        assert!(validate_projection("propagation", &dupes).is_ok());
+        dupes["total"]["dupes"] = json!(2);
+        assert!(validate_projection("propagation", &dupes).is_err());
+        dupes["rows"][0]["dupes"] = Value::Null;
+        dupes["total"]["dupes"] = Value::Null;
+        assert!(validate_projection("propagation", &dupes).is_ok());
+        dupes["rows"][0]["dupes"] = json!(-1);
+        assert!(validate_projection("propagation", &dupes).is_err());
 
         let mut empty = statistics.clone();
         empty["rows"] = json!([]);

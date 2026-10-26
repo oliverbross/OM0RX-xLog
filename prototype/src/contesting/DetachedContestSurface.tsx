@@ -953,9 +953,9 @@ function Statistics({ projection }: { projection: ContestStatisticsSurfaceProjec
     const rows=[...projection.rows,projection.total];
     return <section className="contest-surface-statistics contest-surface-statistics-v3" aria-label="CQ WW Statistics" aria-busy={projection.busy}>
       <div className="contest-surface-statistics-scroll" role="region" aria-label="CQ WW contest statistics" tabIndex={0}><table aria-label="CQ WW statistics"><thead><tr>
-        {(["BAND","QSO","PTS","ZN","CTY"] as const).map(label=><th key={label} scope="col">{label}</th>)}
+        {(["BAND","QSO","DUPES","PTS","ZN","CTY"] as const).map(label=><th key={label} scope="col">{label}</th>)}
       </tr></thead><tbody>{rows.map(row=><tr key={row.band} className={row.band==="TOTAL"?"contest-surface-statistics-total":undefined}>
-        <th scope="row">{row.band}</th><td>{row.qsos.toLocaleString()}</td><td>{row.points.toLocaleString()}</td>
+        <th scope="row">{row.band}</th><td>{row.qsos.toLocaleString()}</td><td>{row.dupes?.toLocaleString()??"—"}</td><td>{row.points.toLocaleString()}</td>
         <td>{row.zones.toLocaleString()}</td><td>{row.countries.toLocaleString()}</td>
       </tr>)}</tbody></table></div>
       <footer className="contest-surface-statistics-score"><span>Claimed score</span><strong>{projection.score?.claimedScore.toLocaleString()??"—"}</strong></footer>
@@ -964,9 +964,9 @@ function Statistics({ projection }: { projection: ContestStatisticsSurfaceProjec
   const rows = [...projection.rows, projection.total];
   return <section className="contest-surface-statistics contest-surface-statistics-v3" aria-label="Statistics" aria-busy={projection.busy}>
     <div className="contest-surface-statistics-scroll" role="region" aria-label="Scrollable contest statistics" tabIndex={0}><table aria-label="Contest statistics"><thead><tr>
-      {(["BAND", "QSO", "CALLS", "CW", "PH", "DI", "PFX/BAND", "PTS"] as const).map(label => <th key={label} scope="col">{label}</th>)}
+      {(["BAND", "QSO", "DUPES", "CALLS", "CW", "PH", "DI", "PFX/BAND", "PTS"] as const).map(label => <th key={label} scope="col">{label}</th>)}
     </tr></thead><tbody>{rows.map(row => <tr key={row.band} className={row.band === "TOTAL" ? "contest-surface-statistics-total" : undefined}>
-      <th scope="row">{row.band}</th><td>{row.qsos.toLocaleString()}</td><td>{row.calls.toLocaleString()}</td>
+      <th scope="row">{row.band}</th><td>{row.qsos.toLocaleString()}</td><td>{row.dupes?.toLocaleString()??"—"}</td><td>{row.calls.toLocaleString()}</td>
       <td>{row.cw.toLocaleString()}</td><td>{row.phone.toLocaleString()}</td><td>{row.digital.toLocaleString()}</td>
       <td>{row.wpx.toLocaleString()}</td><td>{row.points.toLocaleString()}</td>
     </tr>)}</tbody></table></div>

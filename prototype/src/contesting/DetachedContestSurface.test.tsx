@@ -464,10 +464,10 @@ it("renders Statistics v3 as the original compact table with TOTAL last", async 
   native.invoke.mockResolvedValue({...snapshot,panelID:"propagation",projection:view}); render(<DetachedContestSurface/>);
   const table = await screen.findByRole("table", {name:"Contest statistics"});
   expect(screen.getByRole("region", {name:"Scrollable contest statistics"}).getAttribute("tabindex")).toBe("0");
-  expect(Array.from(table.querySelectorAll("thead th")).map(cell=>cell.textContent)).toEqual(["BAND","QSO","CALLS","CW","PH","DI","PFX/BAND","PTS"]);
+  expect(Array.from(table.querySelectorAll("thead th")).map(cell=>cell.textContent)).toEqual(["BAND","QSO","DUPES","CALLS","CW","PH","DI","PFX/BAND","PTS"]);
   expect(Array.from(table.querySelectorAll("tbody tr")).map(row=>Array.from(row.children).map(cell=>cell.textContent))).toEqual([
-    ["20m","4","3","2","1","1","2","15"], ["40m","2","2","2","0","0","1","6"],
-    ["TOTAL","6","4","4","1","1","3","21"],
+    ["20m","4","—","3","2","1","1","2","15"], ["40m","2","—","2","2","0","0","1","6"],
+    ["TOTAL","6","—","4","4","1","1","3","21"],
   ]);
   expect(screen.queryByRole("heading")).toBeNull();
   expect(screen.queryByRole("button")).toBeNull();
@@ -479,14 +479,14 @@ it("renders the CQ WW score breakdown with zones, countries and claimed score", 
   window.history.replaceState({}, "", search.replace("view=active-qso", "view=propagation"));
   const view={schemaVersion:3,status:"ready",layout:"cq_ww",score:{qsos:6,points:21,multipliers:8,claimedScore:168,
     multiplierLabels:["4 countries","4 zones"],multiplierDisplayLabels:["4 countries","4 zones"],sourceVerification:"verified"},
-    rows:[{band:"20m",qsos:4,points:15,countries:3,zones:2},{band:"40m",qsos:2,points:6,countries:1,zones:2}],
-    total:{band:"TOTAL",qsos:6,points:21,countries:4,zones:4},busy:false} as const;
+    rows:[{band:"20m",qsos:4,dupes:1,points:15,countries:3,zones:2},{band:"40m",qsos:2,dupes:0,points:6,countries:1,zones:2}],
+    total:{band:"TOTAL",qsos:6,dupes:1,points:21,countries:4,zones:4},busy:false} as const;
   expect(validContestSurfaceProjection("propagation",view)).toBe(true);
   native.invoke.mockResolvedValue({...snapshot,panelID:"propagation",projection:view});render(<DetachedContestSurface/>);
   const table=await screen.findByRole("table",{name:"CQ WW statistics"});
-  expect(Array.from(table.querySelectorAll("thead th")).map(cell=>cell.textContent)).toEqual(["BAND","QSO","PTS","ZN","CTY"]);
+  expect(Array.from(table.querySelectorAll("thead th")).map(cell=>cell.textContent)).toEqual(["BAND","QSO","DUPES","PTS","ZN","CTY"]);
   expect(Array.from(table.querySelectorAll("tbody tr")).map(row=>Array.from(row.children).map(cell=>cell.textContent))).toEqual([
-    ["20m","4","15","2","3"],["40m","2","6","2","1"],["TOTAL","6","21","4","4"],
+    ["20m","4","1","15","2","3"],["40m","2","0","6","2","1"],["TOTAL","6","1","21","4","4"],
   ]);
   expect(screen.getByText("Claimed score").parentElement?.textContent).toContain("168");
 });

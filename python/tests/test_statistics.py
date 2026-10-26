@@ -40,7 +40,7 @@ class StatisticsTests(unittest.TestCase):
                          {"qsos": 22, "calls": 2, "cw": 5, "phone": 5, "digital": 9, "wpx": 2})
         self.assertEqual(by_band["0.0"], {"band": "0.0", "qsos": 1, "calls": 1, "cw": 0,
                                           "phone": 0, "digital": 0, "wpx": 1,
-                                          "countries": 0, "zones": 0, "points": 4})
+                                          "countries": 0, "zones": 0, "points": 4, "dupes": None})
         self.assertEqual(statistics["total"]["calls"], 3)
         self.assertEqual(statistics["total"]["wpx"], 5)
         self.assertEqual(statistics["total"]["qsos"], len(rows))
@@ -51,7 +51,7 @@ class StatisticsTests(unittest.TestCase):
     def test_empty(self):
         self.assertEqual(calculate_statistics([]), {"rows": [], "total": {
             "band": "TOTAL", "qsos": 0, "calls": 0, "cw": 0, "phone": 0,
-            "digital": 0, "wpx": 0, "countries": 0, "zones": 0, "points": 0,
+            "digital": 0, "wpx": 0, "countries": 0, "zones": 0, "points": 0, "dupes": 0,
         }})
 
 

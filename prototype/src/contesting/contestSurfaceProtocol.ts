@@ -127,8 +127,8 @@ export type ContestStatisticsScore = null | {
 export type ContestStatisticsSurfaceProjectionV1 = { schemaVersion: 1; status: "ready";
   score: ContestStatisticsScore; busy: boolean };
 export type ContestStatisticsRow = { band: string; qsos: number; calls: number; cw: number; phone: number;
-  digital: number; wpx: number; points: number };
-export type ContestCQWWStatisticsRow = { band: string; qsos: number; points: number; countries: number; zones: number };
+  digital: number; wpx: number; points: number; dupes?:number|null };
+export type ContestCQWWStatisticsRow = { band: string; qsos: number; points: number; countries: number; zones: number; dupes?:number|null };
 export type ContestStatisticsSurfaceProjectionV3 = { schemaVersion: 3; status: "ready"; score: ContestStatisticsScore; busy: boolean } & (
   { layout?: "generic"; rows: ContestStatisticsRow[]; total: ContestStatisticsRow } |
   { layout: "cq_ww"; rows: ContestCQWWStatisticsRow[]; total: ContestCQWWStatisticsRow });
@@ -376,15 +376,15 @@ function validStatisticsProjection(value: Record<string, unknown>) {
   return exact(value, ["schemaVersion", "status", "score", "busy"]) && typeof value.busy === "boolean" && validStatisticsScore(value.score);
 }
 function validStatisticsRow(value: unknown, total: boolean): value is ContestStatisticsRow {
-  if (!record(value) || !exact(value, ["band", "qsos", "calls", "cw", "phone", "digital", "wpx", "points"]) ||
+  if (!record(value) || !optionalKeys(value, ["band", "qsos", "calls", "cw", "phone", "digital", "wpx", "points"],["dupes"]) ||
       !text(value.band, 16) || (total ? value.band !== "TOTAL" : value.band === "TOTAL") ||
       !uint(value.qsos) || !uint(value.calls) || !uint(value.cw) || !uint(value.phone) || !uint(value.digital) || !uint(value.wpx) ||
-      !Number.isSafeInteger(value.points)) return false;
+      !Number.isSafeInteger(value.points) || !validDupeCount(value)) return false;
   return (value.calls as number) <= (value.qsos as number) && (value.wpx as number) <= (value.qsos as number) &&
     (value.cw as number) + (value.phone as number) + (value.digital as number) <= (value.qsos as number);
 }
 function validCQWWStatisticsRow(value: unknown, total: boolean): value is ContestCQWWStatisticsRow {
-  return record(value) && exact(value, ["band", "qsos", "points", "countries", "zones"]) && text(value.band, 16) &&
+  return record(value) && optionalKeys(value, ["band", "qsos", "points", "countries", "zones"],["dupes"]) && text(value.band, 16) && validDupeCount(value) &&
     (total ? value.band === "TOTAL" : value.band !== "TOTAL") && uint(value.qsos) && Number.isSafeInteger(value.points) &&
     uint(value.countries) && uint(value.zones) && (value.countries as number) <= (value.qsos as number) &&
     (value.zones as number) <= (value.qsos as number);
@@ -397,6 +397,7 @@ function validStatisticsProjectionV3(value: Record<string, unknown>) {
       !validStatisticsScore(value.score, true) || !Array.isArray(value.rows) || value.rows.length > 64 ||
       !value.rows.every(row => cqWW ? validCQWWStatisticsRow(row, false) : validStatisticsRow(row, false)) ||
       !(cqWW ? validCQWWStatisticsRow(value.total, true) : validStatisticsRow(value.total, true))) return false;
+  if (!consistentDupeTotals(value.rows as ContestStatisticsRow[],value.total as ContestStatisticsRow)) return false;
   if (cqWW) {
     const rows = value.rows as ContestCQWWStatisticsRow[], total = value.total as ContestCQWWStatisticsRow;
     if (new Set(rows.map(row => row.band)).size !== rows.length) return false;
@@ -417,6 +418,16 @@ function validStatisticsProjectionV3(value: Record<string, unknown>) {
       !(["qsos", "cw", "phone", "digital", "wpx", "points"] as const).every(key => total[key] === sums[key])) return false;
   const score = value.score as Exclude<ContestStatisticsScore, null> | null;
   return !!score && score.qsos === total.qsos && score.points === total.points;
+}
+function validDupeCount(row:Record<string,unknown>) {
+  return row.dupes==null||uint(row.dupes)&&(row.dupes as number)<=(row.qsos as number);
+}
+function consistentDupeTotals(rows:{dupes?:number|null}[],total:{dupes?:number|null}) {
+  if (total.dupes===undefined) return rows.every(row=>row.dupes===undefined);
+  if (rows.some(row=>row.dupes===undefined)) return false;
+  if (rows.some(row=>row.dupes===null)) return total.dupes===null;
+  const sum=rows.reduce((result,row)=>result+(row.dupes??0),0);
+  return Number.isSafeInteger(sum)&&total.dupes===sum;
 }
 function validLogProjection(value: Record<string, unknown>) {
   const page = record(value.page) ? value.page : undefined, editing = record(value.editing) ? value.editing : undefined;

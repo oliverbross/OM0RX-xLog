@@ -31,9 +31,13 @@ def calculate_statistics(rows, country_multiplier=None, zone_multiplier=None):
         band = _band(row.get("Band"))
         values = grouped.setdefault(band, {
             "qsos": 0, "calls": set(), "cw": 0, "phone": 0, "digital": 0,
-            "wpx": set(), "countries": 0, "zones": 0, "points": 0,
+            "wpx": set(), "countries": 0, "zones": 0, "points": 0, "dupes": 0,
         })
         values["qsos"] += 1
+        if row.get("is_dupe") is None:
+            values["dupes"] = None
+        elif values["dupes"] is not None:
+            values["dupes"] += int(bool(row["is_dupe"]))
         call = row.get("Call")
         if call is not None:
             values["calls"].add(call)
@@ -67,7 +71,7 @@ def calculate_statistics(rows, country_multiplier=None, zone_multiplier=None):
             "calls": len(values["calls"]), "cw": values["cw"],
             "phone": values["phone"], "digital": values["digital"],
             "wpx": len(values["wpx"]), "countries": values["countries"],
-            "zones": values["zones"], "points": values["points"],
+            "zones": values["zones"], "points": values["points"], "dupes": values["dupes"],
         })
     total = {
         "band": "TOTAL", "qsos": sum(row["qsos"] for row in result),
@@ -78,5 +82,6 @@ def calculate_statistics(rows, country_multiplier=None, zone_multiplier=None):
         "countries": sum(row["countries"] for row in result),
         "zones": sum(row["zones"] for row in result),
         "points": sum(row["points"] for row in result),
+        "dupes": None if any(row["dupes"] is None for row in result) else sum(row["dupes"] for row in result),
     }
     return {"rows": result, "total": total}
