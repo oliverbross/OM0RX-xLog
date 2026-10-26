@@ -64,3 +64,25 @@ The human subsequently confirmed channel 1 was released and available. The mode
 owner then reported a separate live mode-switch recovery and requested a hold on
 all further live network/app actions; this CW chat acknowledged that hold. The
 channel release does not establish receive state, physical identity or acquisition.
+
+## Inspector v2: connection not established
+
+After installed 1.3.34 passed its final protected-data/mode-switch audit, the
+readiness owner explicitly granted one further 12-second passive metadata
+window. This ran the built v2 instrument from source `7cc3a288`, with the working
+branch at `31153377`, still requesting `OM0RX-WIN10` at `192.168.0.199`.
+
+The report at `2026-10-26T11:05:47Z` contained only `Connecting to
+192.168.0.199:4992` and `Stopped`. No TCP-connected/session/Station announcement
+was recorded. Readiness was false, generation -1, inventory revision `0`, and
+both panadapter and handoff lists were empty. The optional control transmit
+observation was absent. Transmit-known-off, handoff-granted and IQ-acquired were
+all false. The inspector closed its own transport and released the live window.
+
+This did not reproduce the earlier reachable Station inventory and provides no
+new evidence about transmit state or DAX ownership. A subsequent local routing
+table query was blocked by the shell allowlist (`route` is not permitted); it
+was not executed or rerouted, and no additional allowlist entry was added.
+The human was asked to confirm the VPN and radio availability before another
+separately coordinated connection attempt. No cause of the connection failure
+is inferred from this run.
