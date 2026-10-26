@@ -44,7 +44,9 @@ export function RadioConnectionForm(p: RadioFormProps) {
     }, () => { if (active) setPortsError(true); });
     return () => { active = false; };
   }, [p.radioId, portAttempt]);
-  const models = useMemo(() => [...nativeModels, ...catalogue], [catalogue]);
+  // Slice-driver entries are not physical radios or implemented native slice binding.
+  // Saved IDs remain recoverable through the existing expert fallback.
+  const models = useMemo(() => [...nativeModels, ...catalogue.filter(model => !(model.manufacturer.toLowerCase() === "flexradio" && /slice\s+[a-h]\b/i.test(model.model)))], [catalogue]);
   const known = catalogue.find(model => model.id === p.config.model);
   // Hydrate legacy names from the exact saved ID, never from an address or a default.
   useEffect(() => {

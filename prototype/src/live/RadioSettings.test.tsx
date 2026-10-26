@@ -102,11 +102,13 @@ it("Save stores the desired profile without selecting or disconnecting the live 
 
 it("stops a coordinated connection on uncertainty and retains its operation across remount", async () => {
   unknown = "select";
-  let view = render(<RadioSettings />); await flush();
+  const blocked = vi.fn();
+  let view = render(<RadioSettings onDraftState={blocked} />); await flush();
   change("Manufacturer", "FlexRadio"); change("Radio 1 model", "-107"); change("Radio address", "192.168.1.50");
   fireEvent.click(form().getByRole("button", { name: "Save & Connect" })); await flush();
   expect(actions().map(p => p.action)).toEqual(["save_flex", "select"]);
   const pending = sessionStorage.getItem("xlog.station-session.radio1.pending"); expect(pending).toBeTruthy();
+  expect(blocked.mock.calls.filter(([id]) => id === "radio1").at(-1)).toEqual(["radio1", false]);
   view.unmount(); view = render(<RadioSettings />); await flush();
   expect(sessionStorage.getItem("xlog.station-session.radio1.pending")).toBe(pending);
   expect(form().getByRole("button", { name: "Check operation" })).toBeTruthy();
@@ -162,6 +164,18 @@ it("routes operating selection explicitly and refuses switching while another ra
   fireEvent.click(screen.getByRole("button", { name: /^R2/ })); await flush();
   expect(actions()).toEqual([{ action: "set_active_radio", radio_id: "radio2" }]);
   expect(screen.getByRole("button", { name: /^R2/ }).getAttribute("aria-pressed")).toBe("true");
+});
+
+it("clears a recovered routing read failure while retaining a refused TX handover message", async () => {
+  native.invoke.mockRejectedValueOnce(new Error("Temporary snapshot read failure"));
+  render(<RadioOperatingSelector />); await flush();
+  expect(screen.getByRole("alert").textContent).toMatch(/Temporary snapshot read failure/);
+  await act(async () => { native.changed.forEach(changed => changed()); });
+  expect(screen.queryByRole("alert")).toBeNull();
+  states.radio1.tx_owner = states.radio2.tx_owner = "radio1";
+  fireEvent.click(screen.getByRole("button", { name: /^R2/ })); await flush();
+  await act(async () => { native.changed.forEach(changed => changed()); });
+  expect(screen.getByRole("alert").textContent).toMatch(/has transmit control/);
 });
 
 it("follows a requested settings slot passively and exposes local refresh under diagnostics", async () => {

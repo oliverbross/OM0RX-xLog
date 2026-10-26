@@ -95,7 +95,9 @@ export function AgentConnectionSetup({ radioId, connections = false, legacyEndpo
     });
     return () => { active.current = false; readSequence.current++; stops.forEach(stop => stop()); window.removeEventListener("focus", focused); };
   }, []);
-  useEffect(() => { onDraftState?.(dirty.current || busy || sequenceBusy || !!pending); });
+  // Durable uncertain operations survive navigation; only local text and an
+  // operation still executing in this view need the presentation/close fence.
+  useEffect(() => { onDraftState?.(dirty.current || busy || sequenceBusy); });
   useEffect(() => () => onDraftState?.(false), []);
   const target = radioForm ? profile.provider : selectionTarget ?? providerTarget ?? (state?.selection.provider as StationProvider | null) ?? "direct_agent";
   const observation = receiveContext ? `${receiveContext.selection?.selection_id}:${receiveContext.selection?.control_revision}:${receiveContext.radio.received_at_ms}` : "";

@@ -4,7 +4,7 @@ import { loadStationSession, radioConnected, radioLabel, radioName, stationSessi
 
 /** Operating routing only. This never connects, arms or modifies a radio profile. */
 export function RadioOperatingSelector({ onSettings }: { onSettings?: (radioId: RadioID) => void }) {
-  const [sessions, setSessions] = useState<StationSession[]>([]), [error, setError] = useState(""), [busy, setBusy] = useState(false);
+  const [sessions, setSessions] = useState<StationSession[]>([]), [error, setError] = useState(""), [readError, setReadError] = useState(""), [busy, setBusy] = useState(false);
   const active = useRef(false), reading = useRef(false), again = useRef(false), switching = useRef(false);
   const refresh = async () => {
     if (reading.current) { again.current = true; return; }
@@ -13,9 +13,9 @@ export function RadioOperatingSelector({ onSettings }: { onSettings?: (radioId: 
       do {
         again.current = false;
         const next = await Promise.all([loadStationSession("radio1"), loadStationSession("radio2")]);
-        if (active.current) setSessions(next);
+        if (active.current) { setSessions(next); setReadError(""); }
       } while (active.current && again.current);
-    } catch { if (active.current) setError("Radio routing is unavailable. Check connection status in Settings."); }
+    } catch (cause) { if (active.current) setReadError(`Radio routing is unavailable. ${typeof cause === "string" ? cause : cause instanceof Error ? cause.message : "Check connection status in Settings."}`); }
     finally { reading.current = false; }
   };
   useEffect(() => {
@@ -49,6 +49,6 @@ export function RadioOperatingSelector({ onSettings }: { onSettings?: (radioId: 
         title={state?.active_radio === id ? "Active for logging" : `Use ${radioLabel(id)} for logging`}
         onClick={() => void choose(id)}>{id === "radio1" ? "R1" : "R2"} · {radioName(state ?? null)} · {radioConnected(state ?? null) ? "Connected" : "Offline"}</button>;
     })}
-    {error && <p role="alert">{error}{owner && onSettings && <button type="button" onClick={() => onSettings(owner)}>Open {radioLabel(owner)} settings</button>}</p>}
+    {(error || readError) && <p role="alert">{error || readError}{owner && onSettings && <button type="button" onClick={() => onSettings(owner)}>Open {radioLabel(owner)} settings</button>}</p>}
   </section>;
 }

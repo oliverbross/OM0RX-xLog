@@ -1384,13 +1384,14 @@ function MainLiveApp() {
       <WorkspaceModeSurface separateWindows={displayedSeparateWindows}>
       <>
       {!workspace?.workspace_exists && <>
-        {view === "Settings" && <section className="service-settings" aria-label="Settings recovery">
-          <h2>Settings</h2>
-          <p>Radio connection setup is available below. Logbook settings will be available after your workspace reconnects.</p>
+        {view === "Settings" && <section className="radio-settings-recovery" aria-label="Settings recovery">
           <RadioSettings onDraftState={(id, blocked) => { radioSettingsBlocked.current[id] = blocked; }} requestedRadioId={radioSettingsRequest.radioId} requestedRadioRevision={radioSettingsRequest.revision} />
         </section>}
-        <WorkspaceGate workspace={workspace} pending={workspacePending} busy={busy}
-          retry={() => void run(reload)} create={mode => void run(async () => { await request("workspace_create", { mode }); await reload(); })} />
+        {view === "Settings" ? <details className="radio-settings-disclosure"><summary>Logbook diagnostics</summary>
+          <WorkspaceGate workspace={workspace} pending={workspacePending} busy={busy}
+            retry={() => void run(reload)} create={mode => void run(async () => { await request("workspace_create", { mode }); await reload(); })} />
+        </details> : <WorkspaceGate workspace={workspace} pending={workspacePending} busy={busy}
+          retry={() => void run(reload)} create={mode => void run(async () => { await request("workspace_create", { mode }); await reload(); })} />}
       </>}
       {/* Spot History only reads archive diagnostics; editors still require a verified workspace. */}
       {(workspace?.workspace_exists === true || view === "Spot History" || view === "HF Prop live") && <>
