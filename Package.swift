@@ -60,7 +60,7 @@ let prototypeCoreTargets: [Target] = [
 ]
 #endif
 
-let portableProducts: [Product] = [
+var portableProducts: [Product] = [
     .library(name: "XCWCore", targets: ["XCWCore"]),
     .library(name: "XContestCore", targets: ["XContestCore"]),
     .library(name: "XContestStore", targets: ["XContestStore"]),
@@ -96,6 +96,12 @@ portableTargets.append(contentsOf: [
     .testTarget(name: "XContestCoreTests", dependencies: ["XContestCore"], exclude: ["SourceFixtures"]),
     .testTarget(name: "XContestStoreTests", dependencies: ["XContestStore", "XContestCore", "CSQLitePrototype"]),
 ])
+
+#if os(macOS)
+// Developer-only passive instrument; never staged into the application bundle.
+portableProducts.append(.executable(name:"xlog-cw-flex-inspect",targets:["CWFlexInspect"]))
+portableTargets.append(.executableTarget(name:"CWFlexInspect",dependencies:["XCatIntegrationCore"],path:"tools/CWFlexInspect"))
+#endif
 
 let package: Package
 if portableOnly {

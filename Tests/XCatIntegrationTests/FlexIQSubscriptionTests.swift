@@ -23,6 +23,17 @@ final class FlexIQSubscriptionTests:XCTestCase {
         let capabilities=await radio.iqCapabilities()
         try await radio.authorizeIQHandoff(panadapterID:id,inventoryRevision:capabilities.inventoryRevision)
     }
+    func testPassiveInventoryAndTransportCloseNeverAcquireOrReleaseRadioOutput() async throws {
+        let (radio,wire)=try await setup()
+        let capabilities=await radio.iqCapabilities();XCTAssertTrue(capabilities.ready);XCTAssertEqual(capabilities.panadapters.count,2)
+        await radio.stopTransportOnly()
+        let commands=await wire.commands
+        let allowed:Set<String>=["sub client all","sub slice all","sub radio all","sub tx all","keepalive enable","slice list","ping",
+                                 "sub pan all","sub audio_stream all","sub daxiq all","sub dax all"]
+        XCTAssertTrue(commands.allSatisfy{allowed.contains($0) || $0.hasPrefix("client bind client_id=")},"Unexpected command: \(commands)")
+        XCTAssertFalse(commands.contains{$0.hasPrefix("stream ") || $0.hasPrefix("client udpport")})
+        await wire.stop()
+    }
     private func next(_ subscription:FlexIQSubscription) async throws -> FlexIQBlock {
         try await withThrowingTaskGroup(of:FlexIQBlock.self) {group in
             group.addTask {var iterator=subscription.blocks.makeAsyncIterator();guard let block=try await iterator.next() else{throw FlexIQSubscriptionError.stopped};return block}
