@@ -1,5 +1,9 @@
 # Wave 1 — Productivity source and candidate acceptance
 
+## Replacement candidate acceptance — in progress
+
+The user superseded the one-candidate restriction for genuine blockers and authorized a replacement containing `3e68e1a0b2de1c61976b7bd1439d8cb7f9b6e019`. Canonical `main` was clean/current at `9c167c30214d21b2686ecae5695a771487a9a928` after fetch and fast-forward-only pull. **1.3.38** is the next unused version. Package from the clean canonical version commit containing this entry with `XLOG_CW_EXPERIMENTAL=0 CARGO_BUILD_JOBS=2 bash prototype/scripts/package-macos.sh`; that exact HEAD is embedded as source provenance and will be recorded in the final receipt. Preserve the unchanged 1.3.37 bundle and production 1.3.36 installation/rollback. Native acceptance is pending this replacement; Wave 2 remains stopped.
+
 ## Authorized candidate delivery follow-up — 27 October 2026
 
 The user subsequently authorized finishing native delivery/acceptance, without replacing the production installation. The original source checkpoint and results below remain historical evidence.
