@@ -141,12 +141,18 @@ supports an inference of background catch-up. Exact historical runs, per-run loc
 counts and upload activity cannot be reconstructed from the old in-memory report.
 The new journal does not retroactively prove attribution or zero uploads.
 
-## Pending final 1.3.35 acceptance
+## Qualified candidate and coordinated delivery
 
-**1.3.35 is planned and has not yet been built or accepted by this receipt.**
-The release owner must record the final source commit, uniquely versioned signed
-artifact, exact provenance/component hashes, packaging and window-graph results,
-and any authorized protected installation/startup checks. Further integrated
-source gates must identify their own checkpoint. Until those receipts are added,
-the installed evidence above remains specifically 1.3.34; this document makes no
-1.3.35 installation, hardware, notarization or operator-acceptance claim.
+Signed **1.3.35** passed packaging from exact canonical source
+`89d51e801c2a0bdfcb084ce97d4eba9e9de45225`, followed by eight actual bundled-worker
+process cases and 44 packaged-interpreter CQ WW/analytics tests, without skips.
+Its 4,075 retained bundle entries match, CW remains disabled, and all component
+provenance agrees. The [release record](../MACOS_1_3_35_RELEASE_2026-10-26.md)
+contains exact hashes, signature, the independently resolved transient-checkout
+incident and the 175-file clean-source frontend reproduction.
+
+This candidate remains uninstalled while a separately requested Classic/Modern
+cluster setting is prepared for the next version. One protected replacement is
+planned after that combined candidate qualifies, preserving the current draft.
+Until the later installation receipt exists, installed evidence remains specifically
+1.3.34. Physical hardware, notarization and 1.3.35 live acceptance are not claimed.
