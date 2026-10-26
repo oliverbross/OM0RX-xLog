@@ -46,10 +46,15 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
       {snapshot.failure && <p className="cw-decode-notice" role="alert">The decoder process is unavailable. Stop decoding, check the offline installation, then start again.</p>}
       {!snapshot.automaticSpotsQualified && <p className="cw-decode-quality">Automatic spots are off while live decoding quality and RF mapping await qualification.</p>}
       {snapshot.spotOutputFailure && <p className="cw-decode-notice" role="alert">A Local CW spot could not be delivered. Check the local cluster history and server state. IQ decoding continues.</p>}
+      <p aria-label="CW compute load">{snapshot.load ? `Tracks ${snapshot.load.tracks} · pending ${snapshot.load.pending} · inferring ${snapshot.load.inFlight} · coalesced ${snapshot.load.coalesced} · dropped events ${snapshot.load.droppedEvents}` : "Compute load unavailable"}</p>
       <div className="cw-decode-sources" aria-label="Monitoring spans">{configured.length ? configured.map(source => {
         const live = snapshot.sources.find(row => row.configuration.id === source.id), capability = snapshot.capabilities.find(row => row.radioID === source.radioID && row.provider === source.provider);
         return <div key={source.id}><strong>{cwSourceName(source)}</strong><span>{live ? stateName(live.state) : "Stopped"}</span>
-          <span>{live?.descriptor ? mhz(live.descriptor.centreHz) : "IQ centre unavailable"} · {source.sampleRate / 1000} kHz</span>
+          <span>Requested {source.sampleRate / 1000} kHz · {live?.descriptor ? `actual ${live.descriptor.sampleRate / 1000} kHz · centre ${mhz(live.descriptor.centreHz)}` : "actual rate and centre unavailable"}</span>
+          {live?.descriptor && <small>{live.descriptor.usableLowerHz !== undefined && live.descriptor.usableUpperHz !== undefined
+            ? live.descriptor.mappingQualified ? `Usable RF ${mhz(live.descriptor.usableLowerHz)} to ${mhz(live.descriptor.usableUpperHz)}`
+              : `Adapter usable width ${(live.descriptor.usableUpperHz - live.descriptor.usableLowerHz) / 1000} kHz · RF unqualified`
+            : "Usable coverage unavailable"}</small>}
           {!capability?.ready && snapshot.featureEnabled !== false && <small>Connect this radio in Radio Settings to receive IQ.</small>}
           {source.provider === "flex_dax_iq" && <FlexHandoff source={source} capability={capability} revision={snapshot.configuration.revision}
             disabled={snapshot.featureEnabled === false || busy || active} command={command} />}

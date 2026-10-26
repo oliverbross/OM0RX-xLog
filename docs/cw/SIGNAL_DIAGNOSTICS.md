@@ -31,6 +31,16 @@ See Apple's [vDSP_dotpr2 documentation](https://developer.apple.com/documentatio
 
 ## Replay load tool
 
+The shared view now distinguishes requested sample rate from the adapter's
+actual rate and reports its usable width. An unqualified RF mapping stays
+explicitly unqualified. The native worker's track, pending/in-flight inference,
+coalesced-job and dropped-event counts are read at most once per second, with
+one outstanding request and a two-second deadline. Missing/old load is unavailable,
+never an invented zero. Large counters cross JSON as decimal strings. Every
+child has a fresh generation fence, so late events from an earlier child cannot
+restore current load or source readiness. Fifteen focused session tests and
+sixteen frontend projection/panel cases pass, with TypeScript validation.
+
 The `cw-load-profile` CMake target accepts `model.onnx tracks_per_span seconds
 [workers]`. It generates two paced 96 ksample/s spans with synthetic CQ Morse and
 5 ms ramps. It neither connects to a radio nor emits spots. The report measures

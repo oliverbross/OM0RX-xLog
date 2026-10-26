@@ -3,6 +3,19 @@ import { parseCWDecodeSnapshot } from "./cwDecode";
 import { cwDecodeFixture, cwDecodeTrackFixture } from "./cwDecode.fixtures";
 
 describe("native CW Decode projection", () => {
+  it("keeps load counters lossless and bounded", () => {
+    const fixture = cwDecodeFixture(); fixture.load = { sources: 2, tracks: 32, pending: 16, inFlight: 4, coalesced: "18446744073709551615", droppedEvents: "0" };
+    expect(parseCWDecodeSnapshot(fixture).load?.coalesced).toBe("18446744073709551615");
+    fixture.load.coalesced = "18446744073709551616"; expect(() => parseCWDecodeSnapshot(fixture)).toThrow();
+    fixture.load.coalesced = "0"; fixture.load.inFlight = 5; expect(() => parseCWDecodeSnapshot(fixture)).toThrow();
+  });
+  it("validates adapter-reported usable coverage against the actual sample rate", () => {
+    const fixture = cwDecodeTrackFixture(), descriptor = fixture.tracks[0].descriptor;
+    descriptor.sampleRate = 24000; descriptor.usableLowerHz = descriptor.centreHz - 10000; descriptor.usableUpperHz = descriptor.centreHz + 10000;
+    expect(parseCWDecodeSnapshot(fixture).tracks[0].descriptor.sampleRate).toBe(24000);
+    descriptor.usableUpperHz = descriptor.centreHz + 13000; expect(() => parseCWDecodeSnapshot(fixture)).toThrow();
+    delete descriptor.usableUpperHz; expect(() => parseCWDecodeSnapshot(fixture)).toThrow();
+  });
   it("accepts passive and active native-shaped snapshots", () => {
     expect(parseCWDecodeSnapshot(cwDecodeFixture()).state).toBe("stopped");
     expect(parseCWDecodeSnapshot(cwDecodeTrackFixture()).tracks).toHaveLength(1);

@@ -10,6 +10,7 @@ public protocol CWComputeControlling: Sendable {
     func end(_ descriptor: CWStreamDescriptor, gap: Bool) async
     func stop() async
     func mute(_ descriptor:CWStreamDescriptor,trackID:UUID) async throws
+    func metrics(sequence:UInt64) async throws
 }
 extension CWComputeProcess: CWComputeControlling {}
 
@@ -55,6 +56,11 @@ public struct CWDecodeSessionSnapshot: Encodable, Sendable {
     public let tracks: [CWDecodeTrackSnapshot]
     public let automaticSpotsQualified: Bool
     public let spotDeliveryDrops:Int
+    public var load:CWDecodeLoadSnapshot?=nil
+}
+public struct CWDecodeLoadSnapshot:Encodable,Sendable {
+    public let sources:Int,tracks:Int,pending:Int,inFlight:Int
+    public let coalesced:String,droppedEvents:String
 }
 
 /// Shared by main and detached views. Only this actor owns source leases and
@@ -91,6 +97,9 @@ public actor CWDecodeSession {
     private var mutedTracks:Set<UUID>=[]
     private var eventTask: Task<Void,Never>?,monitor: Task<Void,Never>?
     private var childAttempt=0
+    private var computeGeneration:UUID?
+    private var load:CWDecodeLoadSnapshot?,loadReceiptNS:UInt64=0
+    private var metricsSequence:UInt64=0,metricsRequestedNS:UInt64=0,pendingMetrics:UInt64?
     public init(provider: any CWIQSourceProviding, compute: any CWComputeControlling = CWComputeProcess(),
                 clock: @escaping @Sendable () -> UInt64 = {DispatchTime.now().uptimeNanoseconds},
                 sleep: @escaping @Sendable (UInt64) async throws -> Void = {try await Task.sleep(nanoseconds:$0)},
@@ -111,7 +120,8 @@ public actor CWDecodeSession {
                 }
                 return view
             }.sorted{$0.trackID<$1.trackID},automaticSpotsQualified:spotPolicy.isQualityQualified,
-            spotDeliveryDrops:spotDeliveryDrops)
+            spotDeliveryDrops:spotDeliveryDrops,
+            load:state=="running" && now>=loadReceiptNS && now-loadReceiptNS<=2_000_000_000 ? load:nil)
     }
     /// Recheck both the provider and actor state after suspension. An RF target
     /// is returned only for qualified mapping; callsign selection never tunes.
@@ -185,13 +195,14 @@ public actor CWDecodeSession {
     }
     public func stop() async {
         guard state != "stopping" else {return}
-        intent=nil;state="stopping";eventTask?.cancel();eventTask=nil;monitor?.cancel();monitor=nil
+        intent=nil;computeGeneration=nil;load=nil;pendingMetrics=nil;state="stopping";eventTask?.cancel();eventTask=nil;monitor?.cancel();monitor=nil
         await releaseAll()
         await compute.stop()
         tracks.removeAll();retiredTracks.removeAll();mutedTracks.removeAll();state="stopped";failure=nil
     }
     private func launchChild(id: UUID) async {
         guard intent==id,let resources else {return}
+        let generation=UUID();computeGeneration=generation;load=nil;pendingMetrics=nil;metricsRequestedNS=0
         do {
             let events=try await compute.start(resources:resources)
             guard intent==id else {await compute.stop();return}
@@ -199,15 +210,16 @@ public actor CWDecodeSession {
                 do {
                     for try await event in events {
                         if Task.isCancelled {return}
-                        await self?.receive(event,id:id)
+                        await self?.receive(event,id:id,generation:generation)
                     }
-                    if !Task.isCancelled {await self?.childFailed(id:id)}
-                } catch {if !Task.isCancelled {await self?.childFailed(id:id)}}
+                    if !Task.isCancelled {await self?.childFailed(id:id,generation:generation)}
+                } catch {if !Task.isCancelled {await self?.childFailed(id:id,generation:generation)}}
             }
-        } catch {await childFailed(id:id)}
+        } catch {await childFailed(id:id,generation:generation)}
     }
-    private func childFailed(id: UUID) async {
-        guard intent==id else {return}
+    private func childFailed(id: UUID,generation:UUID) async {
+        guard intent==id,computeGeneration==generation else {return}
+        computeGeneration=nil;load=nil;pendingMetrics=nil
         state="recovering";failure="compute_unavailable"
         await releaseAll();await compute.stop()
         guard intent==id else {return}
@@ -299,17 +311,27 @@ public actor CWDecodeSession {
                 sources[source.id]?.view.state = .quarantined
             }
         }
+        let now=clock()
+        guard intent==id,state=="running",computeGeneration != nil,now>=metricsRequestedNS,
+              now-metricsRequestedNS>=1_000_000_000,metricsSequence<UInt64.max else{return}
+        if pendingMetrics != nil,now-metricsRequestedNS<2_000_000_000{return}
+        metricsSequence+=1;pendingMetrics=metricsSequence;metricsRequestedNS=now
+        do{try await compute.metrics(sequence:metricsSequence)}catch{load=nil;pendingMetrics=nil}
     }
     private static func token(_ descriptor: CWStreamDescriptor) -> String {
         descriptor.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased()
     }
-    private func receive(_ event: CWComputeEvent,id: UUID) async {
-        guard intent==id else {return}
+    private func receive(_ event: CWComputeEvent,id: UUID,generation:UUID) async {
+        guard intent==id,computeGeneration==generation else {return}
         switch event {
         case .ready:
             state="running";failure=nil
             for source in configuration?.sources ?? [] {beginSource(source,id:id)}
-        case .metrics:break
+        case .metrics(let value):
+            guard state=="running",pendingMetrics==value.requestSequence else{return}
+            pendingMetrics=nil;loadReceiptNS=clock()
+            load=CWDecodeLoadSnapshot(sources:value.sources,tracks:value.tracks,pending:value.pending,inFlight:value.inFlight,
+                coalesced:String(value.coalesced),droppedEvents:String(value.droppedEvents))
         case .track(let track):await receiveTrack(track,decode:nil,id:id)
         case .decode(let decode):await receiveTrack(decode.track,decode:decode,id:id)
         }

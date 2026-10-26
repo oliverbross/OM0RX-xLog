@@ -191,6 +191,24 @@ final class CWDecodeSessionTests: XCTestCase {
         await session.stop()
         do{try await session.mute(reference);XCTFail("Stopped mute accepted")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
     }
+    func testLoadRequiresCurrentMetricsRequestAndExpiresOnPassiveRead() async throws {
+        let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),clock=CWSessionTestClock()
+        let session=CWDecodeSession(provider:provider,compute:compute,clock:{clock.now()})
+        try await session.start(configuration:CWDecodeConfiguration(sources:[source()]),resources:resources)
+        try await wait{await compute.lastMetricsRequest() != nil}
+        let requested=await compute.lastMetricsRequest(),sequence=try XCTUnwrap(requested)
+        await compute.emit(.metrics(CWNativeMetrics(requestSequence:sequence+1,sources:1,tracks:8,pending:2,inFlight:4,coalesced:3,droppedEvents:0)))
+        try await Task.sleep(nanoseconds:5_000_000)
+        let wrong=await session.snapshot();XCTAssertNil(wrong.load)
+        await compute.emit(.metrics(CWNativeMetrics(requestSequence:sequence,sources:1,tracks:8,pending:2,inFlight:4,coalesced:UInt64.max,droppedEvents:0)))
+        try await wait{await session.snapshot().load != nil}
+        let current=await session.snapshot();XCTAssertEqual(current.load?.tracks,8);XCTAssertEqual(current.load?.inFlight,4)
+        XCTAssertEqual(current.load?.coalesced,"18446744073709551615")
+        clock.advance(2_000_000_001)
+        let expired=await session.snapshot();XCTAssertNil(expired.load)
+        await session.stop()
+        let stopped=await session.snapshot();XCTAssertNil(stopped.load)
+    }
     private func selectionFixture(qualified:Bool=false,measured:Bool=false) async throws -> (CWDecodeSession,CWSessionTestProvider,CWSessionTestCompute,CWSessionTestClock,CWSourceConfiguration,CWStreamDescriptor) {
         let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),clock=CWSessionTestClock(),source=try source()
         let session=CWDecodeSession(provider:provider,compute:compute,clock:{clock.now()})
@@ -268,6 +286,9 @@ private final class CWSessionTestClock:@unchecked Sendable {
     func advance(_ amount:UInt64){lock.lock();value+=amount;lock.unlock()}
 }
 private actor CWSessionTestCompute:CWComputeControlling {
+    private var requestedMetrics:UInt64?
+    func metrics(sequence:UInt64){requestedMetrics=sequence}
+    func lastMetricsRequest()->UInt64?{requestedMetrics}
     private var muted:Set<UUID>=[]
     func mute(_ descriptor:CWStreamDescriptor,trackID:UUID) {muted.insert(trackID)}
     func isMuted(_ id:UUID)->Bool {muted.contains(id)}

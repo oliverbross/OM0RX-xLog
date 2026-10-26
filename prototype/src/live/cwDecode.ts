@@ -3,7 +3,7 @@ import { workerRequest } from "../worker";
 export type CWIQSource = { id: string; radioID: "radio1" | "radio2"; provider: "tci_iq" | "flex_dax_iq"; receiverID: string; sampleRate: number };
 export type CWDecodeConfiguration = { version: 1; revision: string; sources: CWIQSource[]; listenerEnabled: boolean; listenerPort: number; automaticSpots: boolean };
 export type CWDescriptor = { sessionID: string; sourceID: string; radioID: string; receiverID: string; streamToken: string; epoch: string;
-  provider: string; centreHz: number; sampleRate: number; mappingQualified: boolean; replay: boolean };
+  provider: string; centreHz: number; sampleRate: number; mappingQualified: boolean; replay: boolean; usableLowerHz?: number; usableUpperHz?: number };
 export type CWTrackReference = { sessionID: string; sourceID: string; streamToken: string; epoch: string; trackID: string; revision: string; selectionID: string };
 export type CWTrackSelection = { reference: CWTrackReference; callsign: string; activation?: { sourceEpoch: string; spotVersion: string } };
 export type CWDecodeTrack = { sourceID: string; trackID: string; descriptor: CWDescriptor; revision: string; offsetHz: number; frequencyHz?: number;
@@ -17,6 +17,7 @@ export type CWDecodeSnapshot = { sessionID?: string; state: string; failure?: st
   operatingModule?: "normal_logging" | "contesting";
   spotOutputFailure?: string;
   featureEnabled?: boolean;
+  load?: { sources: number; tracks: number; pending: number; inFlight: number; coalesced: string; droppedEvents: string };
   configuration: CWDecodeConfiguration; sources: { configuration: CWIQSource; state: string; descriptor?: CWDescriptor; retryCount: number; failure?: string }[];
   tracks: CWDecodeTrack[]; capabilities: CWCapability[];
   listener: { state: string; address: string; port?: number; clients: number; authenticatedClients: number; retainedSpots: number;
@@ -33,7 +34,10 @@ const source = (value: unknown): value is CWIQSource => object(value) && uuid.te
 const descriptor = (value: unknown): value is CWDescriptor => object(value) && ["sessionID", "sourceID", "streamToken"].every(key => typeof value[key] === "string" && uuid.test(value[key])) &&
   ["radio1", "radio2"].includes(value.radioID) && typeof value.receiverID === "string" && value.receiverID.length <= 128 &&
   typeof value.epoch === "string" && counter.test(value.epoch) && ["tci_iq", "flex_dax_iq"].includes(value.provider) &&
-  integer(value.centreHz, 100000, 1e9) && [48000, 96000, 192000].includes(value.sampleRate) && typeof value.mappingQualified === "boolean" && value.replay === false;
+  integer(value.centreHz, 100000, 1e9) && [24000, 48000, 96000, 192000, 384000].includes(value.sampleRate) && typeof value.mappingQualified === "boolean" && value.replay === false &&
+  (value.usableLowerHz === undefined && value.usableUpperHz === undefined ||
+    integer(value.usableLowerHz, 1, 1e9) && integer(value.usableUpperHz, 1, 1e9) && value.usableLowerHz < value.usableUpperHz &&
+    value.usableLowerHz >= value.centreHz - value.sampleRate / 2 && value.usableUpperHz <= value.centreHz + value.sampleRate / 2);
 const trackSelection = (track: Record<string, any>): boolean => {
   if (track.selection === undefined) return true;
   const selection = track.selection, reference = selection?.reference;
@@ -60,6 +64,9 @@ export function parseCWDecodeSnapshot(value: unknown): CWDecodeSnapshot {
     typeof value.resourcesAvailable !== "boolean" || typeof value.automaticSpotsQualified !== "boolean" ||
     value.featureEnabled !== undefined && typeof value.featureEnabled !== "boolean" ||
     value.operatingModule !== undefined && !["normal_logging", "contesting"].includes(value.operatingModule) ||
+    value.load !== undefined && (!object(value.load) || !integer(value.load.sources, 0, 2) || !integer(value.load.tracks, 0, 32) ||
+      !integer(value.load.pending, 0, 32) || !integer(value.load.inFlight, 0, 4) ||
+      ![value.load.coalesced, value.load.droppedEvents].every(number => typeof number === "string" && counter.test(number) && BigInt(number) <= 18446744073709551615n)) ||
     value.spotOutputFailure !== undefined && value.spotOutputFailure !== "local_cw_output_unavailable" ||
     value.sessionID !== undefined && (typeof value.sessionID !== "string" || !uuid.test(value.sessionID))) throw new Error("CW Decode returned an invalid session state.");
   const config = value.configuration;
