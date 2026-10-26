@@ -91,3 +91,43 @@ tests pass, including paused-read overlap cases that allow the mode transition,
 paused real-mutation cases that keep it blocked until release, and RTC timeout
 recovery without worker retirement. Installed acceptance of this source fix and
 both mode directions still follows in a new uniquely versioned candidate.
+
+## Installed bidirectional acceptance on 1.3.32
+
+The final installed source is `fc8a5e0b329f3380201fc9e3b58b42b8aeea02fa`, with
+the mode classifier files unchanged from `9bf18416`. The signed 1.3.32 candidate
+also includes the separately qualified recorder playback fix. The
+[installed handover receipt](../MACOS_1_3_32_RELEASE_2026-10-26.md) was pushed as
+`9f5c891b`; it records source/component/signature checks and private evidence.
+
+Both live menu directions passed in one guarded attempt each. Return to Normal
+automatically restarted, closed all ten outgoing contest windows including
+Cluster and Recorder, and opened a usable Traditional Normal desk. The reciprocal
+Switch to Contesting automatically restarted into the same reviewed session and
+workspace with a new context and all nine saved core windows. Recorder stayed
+closed as intended for an explicitly opened utility outside the saved core
+registry. Fresh passive checks showed radio, rotor and cluster connected, 0 W
+output and rotor stopped. No manual restart, guard bypass, RF or rotor command
+was used. The app was left in Contest Main Logging with blank entry and recording
+stopped.
+
+The original Clear was not repeated. Normal activation legitimately seeded the
+blank draft and settled at revision 2917 without a pending action. Contest core
+fingerprints retained the human-reviewed 775 QSOs, 785 identities and 850 audit
+rows, with 957 points, 116 multipliers and score 111,012.
+
+The normal log retained every prior row identity with no deletions, but gained
+three clean remote-linked contacts and metadata/baseline updates on 120 existing
+contacts during Normal activation. Read-only checks verified the existing explicit
+one-minute Wavelog automatic-sync authorization against all source fences. Source
+scheduling, timestamps and row metadata support background catch-up as an
+inference; this version does not retain a durable historical automatic-run report,
+so exact run/upload totals are not asserted and strict normal-table equality is
+not claimed. The current additions/enrichment were preserved.
+
+The Return to Normal pre-probe had zero retained spot receipts. Twenty fresh
+Normal-owned receipts existed before the reciprocal switch, and Normal-owned
+receipts remained afterward. No withdrawal was inferred from their count or age.
+The functional mode acceptance does not establish fresh contest-owned spot
+retirement or the cause of the earlier 1.3.29 worker failure; its guards and the
+new precise diagnostics remain intact.
