@@ -130,3 +130,32 @@ buffer change does not alter the signed build's disabled CW flag or package an
 application candidate.
 The real-child Swift supervisor/wire harness also passed all 15 cases after the
 buffer change, including actual IQ decoding and source-scoped lifecycle checks.
+
+### Coordinated quiet-CPU repeat
+
+After installed 1.3.34 acceptance released the urgent mode-recovery holds, the
+readiness owner granted one approximately 20-second offline CPU window. Its
+agents and the mode/install owners held tests and compiles during this run.
+The installed application and its background services remained in their normal
+state; this was a coordinated build/test pause, not measured system-wide idle.
+
+The same command on pushed source `82776235` requested/delivered 15 seconds,
+reached and inferred all 32 tracks, and emitted 252 inference events. Results:
+
+| Measurement | Quiet repeat |
+| --- | ---: |
+| Wall duration | 15.7163 s |
+| Maximum input lateness | 21.6444 ms |
+| P95 decode age | 1,508.14 ms |
+| Maximum pending jobs | 32 |
+| Coalesced jobs | **36** |
+| Dropped events | 0 |
+| DSP ingress wall time | 3,239.48 ms |
+| Process CPU time | 37.1054 s |
+| Peak RSS | 312.344 MiB |
+
+The strict synthetic stability result remains **false**. The coalescing is not
+explained solely by the other chats' compiles; scheduling/inference capacity
+still requires investigation. No inference budget, window length, stride,
+admission criterion or pass threshold was relaxed. The CPU window was released
+immediately after this single run. No IQ/radio/network/UI action occurred.
