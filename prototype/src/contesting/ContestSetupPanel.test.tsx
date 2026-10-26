@@ -148,7 +148,7 @@ it("cancels isolated edits and restores the source when a dialog reopens", () =>
 it("uses separate new and edit forms in original order, including UTC start and station category", async () => {
   const p = props(); p.value.settings.SentExchange = "ACCEPTANCE TEST"; render(<ContestSetupPanel {...p}/>); open("New Contest");
   expect(screen.getByRole("region", { name: "Contest Setup" }).getAttribute("data-setup-view")).toBe("New Contest");
-  expect(Array.from(document.querySelectorAll(".contest-parameters label>span")).map(item => item.textContent)).toEqual(["Log Type", "Start UTC", "Operator", "Band", "Power", "Mode", "Overlay", "Station", "Assisted", "Transmitter", "Operators", "Soapbox"]);
+  expect(Array.from(document.querySelectorAll(".contest-parameters label>span")).map(item => item.textContent)).toEqual(["Log Type", "Start UTC", "End UTC", "Operator", "Band", "Power", "Mode", "Overlay", "Station", "Assisted", "Transmitter", "Operators", "Soapbox"]);
   expect(screen.getByRole("status").textContent).toContain("Sent CQ Zone: 15");
   fireEvent.change(screen.getByLabelText("Start UTC"), { target: { value: "2026-10-24T00:00:00" } });
   fireEvent.change(screen.getByLabelText("Station"), { target: { value: "PORTABLE" } });

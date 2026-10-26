@@ -6,6 +6,7 @@ import { ContestVoiceRecorder, inspectContestVoiceProfile, pickContestVoiceProfi
 import { decodeContestBandPlan, defaultContestBandPlan, encodeContestBandPlan, type ContestBandMode } from "./contestBandPlan";
 import { BAND_RANGES } from "../live/band";
 import "./ContestSetupPanel.css";
+import { contestSchedule, contestUTC } from "./contestSchedule";
 
 export type ContestSetupMacro = { mode: "R" | "S"; key: string; label: string; template: string };
 export type ContestSetupDocument = {
@@ -232,13 +233,18 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
   function open(next: SetupView) {
     const source = setupDraft(value);
     setDraft(next === "New Contest" ? { ...source,
-      settings: { ...source.settings, StartDate: currentUTCStart(), SentExchange: "" } } : source);
+      settings: { ...source.settings, StartDate: currentUTCStart(), EndDate: "", SentExchange: "" } } : source);
     setMessage(""); setView(next); setSelectedSession(activeSessionID ?? "");
   }
   function submit(event: FormEvent) {
     event.preventDefault();
     void run(async () => {
       const document = structuredClone(draft);
+      if (view === "New Contest" || view === "Edit Current Contest") {
+        const end = String(document.settings.EndDate ?? "").trim();
+        if (end && (!contestUTC(end) || !contestSchedule(document.pluginID, document.settings).contestEndAt))
+          throw new Error("End UTC must be a valid time after Start UTC.");
+      }
       const stationCQZone = String(document.station.CQZone ?? "").trim();
       if (view === "Station Settings" || cqWWStationZonePlugins.has(document.pluginID)) {
         if (!/^\d+$/.test(stationCQZone) || Number(stationCQZone) < 1 || Number(stationCQZone) > 40)
@@ -333,13 +339,19 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
         const bands = plugin?.supportedBands ?? [], currentBand = String(current.settings.BandCategory ?? "ALL");
         const band = currentBand === "ALL" || bands.some(item => item.toUpperCase() === currentBand) ? currentBand : "ALL";
         return { ...current, pluginID: event.target.value,
-          settings: { ...current.settings, SentExchange: "", ModeCategory: mode, BandCategory: band,
+          settings: { ...current.settings, EndDate: "", SentExchange: "", ModeCategory: mode, BandCategory: band,
             AssistedCategory: event.target.value === "cq_ww_ssb" ? "ASSISTED" : current.settings.AssistedCategory,
             OverlayCategory: plugin?.overlayChoices?.[0] ?? "N/A" },
           preferences: bands.length ? { ...current.preferences, bands: [...bands],
             contestBandSegments: encodeContestBandPlan(defaultContestBandPlan(bands)) } : current.preferences };
       }); }}>{catalog.map(plugin => <option key={plugin.id} value={plugin.id}>{plugin.name}</option>)}</select></label>
     {<label><span>Start UTC</span><input type="datetime-local" step="1" value={String(draft.settings.StartDate ?? "").replace(" ", "T")} onChange={event => update("settings", "StartDate", (event.target.value.length === 16 ? event.target.value + ":00" : event.target.value).replace("T", " "))}/></label>}
+    <label><span>End UTC</span><input type="datetime-local" step="1"
+      value={String(draft.settings.EndDate || contestSchedule(draft.pluginID,draft.settings).contestEndAt?.slice(0,19) || "").replace(" ","T")}
+      onChange={event=>update("settings","EndDate",(event.target.value.length===16?event.target.value+":00":event.target.value).replace("T"," "))}/></label>
+    <p className="contest-manual-stack">{cqWWStationZonePlugins.has(draft.pluginID) && !draft.settings.EndDate
+      ? "Finish defaults to 48 hours after Start UTC. Enter End UTC to override."
+      : "Set the full contest period in UTC. Remaining time appears in Rates."}</p>
     <hr/>
     {choice("settings", "OperatorCategory", "Operator", ["SINGLE-OP", "MULTI-OP", "MULTI-TWO", "CHECKLOG"])}
     {choice("settings", "BandCategory", "Band", ["ALL", ...supportedBandChoices.map(band => band.toUpperCase())])}

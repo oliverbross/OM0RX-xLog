@@ -3,6 +3,7 @@ import { BookOpen, Download, Radio, Trophy } from "lucide-react";
 import BandMaps, { deduplicateBandMapSpots, type BandMapSpot } from "../live/BandMaps";
 import ClusterPanel from "../live/ClusterPanel";
 import { bearingAndDistance } from "../MapGeography";
+import { contestSchedule } from "./contestSchedule";
 import { connectMapContext, type MapContext } from "../live/mapContext";
 import { useSharedCW } from "../live/useSharedCW";
 import { ContestAssistancePanel, type ContestSCPPanelSurface, type SCPSelectionScope } from "./ContestAssistancePanel";
@@ -2505,7 +2506,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
       searchAndPounceQso: Number(rates.searchAndPounceQso), hourRunQso: Number(rates.hourRunQso),
       hourSearchAndPounceQso: Number(rates.hourSearchAndPounceQso),
       hourly:(rates.hourly??[]).map((item:Data)=>({hourUTC:new Date(item.hourUTC).toISOString(),qsos:item.qsos})),
-      lastQsoAt:rates.lastQsoAt?new Date(rates.lastQsoAt).toISOString():null, busy: busy || retiring };
+      lastQsoAt:rates.lastQsoAt?new Date(rates.lastQsoAt).toISOString():null,
+      ...contestSchedule(setup.pluginID,setup.settings), busy: busy || retiring };
     const rtcService=setup.preferences.rtcURL==="https://contestonlinescore.com/post/"?"contestonlinescore":"hamscore";
     const rtcOutcome=rtcStatus?.last_outcome??"Score reporting is disabled.";
     const reportState=rtcReportState(rtcStatus);
@@ -2562,7 +2564,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, s
     busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, phoneSimulationAvailable, phoneOutputAvailable, phoneSimulationArmed,
     phoneSimulationPending, phoneReleaseUncertain, phoneSimulationTrace, rates, matrices, statistics, partial, partialQuery, historyCandidate, spots, cluster, configuredBands,
     bandDefinitions, bandLabels, digitalSnapshot,rtcStatus,rtcCredentialSaved,lookupPathContext,
-    setup.settings.SentExchange, setup.preferences.keyBindings, autoCQDeadlineMs, autoCQNowMs, autoCQDelaySeconds, selectedRadioFrequencyHz,observedFrequencyHz,
+    setup.settings.SentExchange, setup.settings.StartDate, setup.settings.EndDate, setup.pluginID, setup.preferences.keyBindings, autoCQDeadlineMs, autoCQNowMs, autoCQDelaySeconds, selectedRadioFrequencyHz,observedFrequencyHz,
     sharedSpots,visibleWorkflowSpots,currentEntryMapSpot,entryPathMetrics,effectiveSpotWorkflow.markedOnly,effectiveSpotWorkflow.showWorked,
     spotPointPreview,spotPointIdentity,selectedSpotId,configuredClient,authorityClientReady,authorityDupe,
     auxiliaryReads.log,auxiliaryReads.score,auxiliaryReads.rates,error,catalogLoadError,notice,surfaceDraftRevision]);

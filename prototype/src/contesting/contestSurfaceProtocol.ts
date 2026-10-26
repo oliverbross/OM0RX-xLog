@@ -136,7 +136,8 @@ export type ContestStatisticsSurfaceProjection = ContestStatisticsSurfaceProject
 export type ContestRatesSurfaceProjection = { schemaVersion: 1; status: "ready";
   lastHourQsoPerHour: number | null; last10QsoPerHour: number | null; last100QsoPerHour: number | null;
   sinceHourUTC: number; sinceHourQso: number; runQso: number; searchAndPounceQso: number;
-  hourRunQso: number; hourSearchAndPounceQso: number; hourly?:{hourUTC:string;qsos:number}[];lastQsoAt?:string|null; busy: boolean };
+  hourRunQso: number; hourSearchAndPounceQso: number; hourly?:{hourUTC:string;qsos:number}[];lastQsoAt?:string|null;
+  contestStartAt?:string|null;contestEndAt?:string|null; busy: boolean };
 export type ContestScoreReportingSurfaceProjection = { schemaVersion: 1; status: "ready";
   score: ContestStatisticsScore; intervalMinutes: number; reportingEnabled: boolean; availability: "available" | "unavailable";
   reason: string; service: "hamscore" | "contestonlinescore"; username: string; credentialSaved: boolean;
@@ -463,9 +464,11 @@ function validLogEditDetails(value: unknown): value is ContestLogEditDetails {
 function validRatesProjection(value: Record<string, unknown>) {
   const rateKeys = ["lastHourQsoPerHour", "last10QsoPerHour", "last100QsoPerHour"];
   const countKeys = ["sinceHourQso", "runQso", "searchAndPounceQso", "hourRunQso", "hourSearchAndPounceQso"];
-  return optionalKeys(value, ["schemaVersion", "status", ...rateKeys, "sinceHourUTC", ...countKeys, "busy"],["hourly","lastQsoAt"]) &&
+  return optionalKeys(value, ["schemaVersion", "status", ...rateKeys, "sinceHourUTC", ...countKeys, "busy"],["hourly","lastQsoAt","contestStartAt","contestEndAt"]) &&
     (value.hourly===undefined||Array.isArray(value.hourly)&&value.hourly.length<=168&&value.hourly.every(item=>record(item)&&exact(item,["hourUTC","qsos"])&&canonicalISO(item.hourUTC)&&uint(item.qsos)))&&
     (value.lastQsoAt===undefined||value.lastQsoAt===null||canonicalISO(value.lastQsoAt))&&
+    ["contestStartAt","contestEndAt"].every(key=>value[key]===undefined||value[key]===null||canonicalISO(value[key]))&&
+    (value.contestEndAt==null||typeof value.contestStartAt==="string"&&String(value.contestEndAt)>value.contestStartAt)&&
     rateKeys.every(key => value[key] === null || typeof value[key] === "number" && Number.isFinite(value[key]) && (value[key] as number) >= 0) &&
     uint(value.sinceHourUTC, 23) && countKeys.every(key => uint(value[key])) && typeof value.busy === "boolean";
 }

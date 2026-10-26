@@ -1907,7 +1907,7 @@ fn validate_native_rate_projection(value: &Map<String, Value>) -> Result<(), Str
             "hourSearchAndPounceQso",
             "busy",
         ],
-        &["hourly", "lastQsoAt"],
+        &["hourly", "lastQsoAt", "contestStartAt", "contestEndAt"],
         "native rate projection",
     )?;
     if let Some(hourly) = value.get("hourly") {
@@ -1920,6 +1920,16 @@ fn validate_native_rate_projection(value: &Map<String, Value>) -> Result<(), Str
     }
     if let Some(last) = value.get("lastQsoAt").filter(|value| !value.is_null()) {
         canonical_timestamp(last, "last QSO time")?;
+    }
+    for key in ["contestStartAt", "contestEndAt"] {
+        if let Some(timestamp) = value.get(key).filter(|value| !value.is_null()) {
+            canonical_timestamp(timestamp, "contest schedule time")?;
+        }
+    }
+    if let Some(end) = value.get("contestEndAt").and_then(Value::as_str) {
+        let start = value.get("contestStartAt").and_then(Value::as_str)
+            .ok_or("contest end requires a start time")?;
+        if end <= start { return Err("contest end must follow start".into()); }
     }
     for key in [
         "lastHourQsoPerHour",
@@ -3539,6 +3549,18 @@ mod tests {
             "hourly":[{"hourUTC":"2026-10-25T19:00:00.000Z","qsos":2}],"lastQsoAt":"2026-10-25T19:42:13.123Z"});
         assert!(validate_projection("monitor", &rates).is_ok());
         rates["lastQsoAt"] = Value::Null;
+        assert!(validate_projection("monitor", &rates).is_ok());
+        rates["contestStartAt"] = json!("2026-10-24T00:00:00.000Z");
+        rates["contestEndAt"] = json!("2026-10-26T00:00:00.000Z");
+        assert!(validate_projection("monitor", &rates).is_ok());
+        rates["contestEndAt"] = rates["contestStartAt"].clone();
+        assert!(validate_projection("monitor", &rates).is_err());
+        rates["contestEndAt"] = json!("2026-02-30T00:00:00.000Z");
+        assert!(validate_projection("monitor", &rates).is_err());
+        rates["contestEndAt"] = json!("2026-10-26T00:00:00.000Z");
+        rates["contestStartAt"] = Value::Null;
+        assert!(validate_projection("monitor", &rates).is_err());
+        rates["contestEndAt"] = Value::Null;
         assert!(validate_projection("monitor", &rates).is_ok());
         rates["hourly"][0]["qsos"] = json!(-1);
         assert!(validate_projection("monitor", &rates).is_err());
