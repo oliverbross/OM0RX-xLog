@@ -14,6 +14,7 @@ export type CWCapability = { radioID: string; provider: string; ready: boolean; 
   inventoryRevision?: string; identity?: { serial: string; model: string; address: string; controlPort: number }; stationHandle?: number;
   panadapters?: { id: string; clientHandle?: number; channel?: number; centreHz?: number; receiveAntenna?: string }[]; handoffPanadapters?: string[] };
 export type CWDecodeSnapshot = { sessionID?: string; state: string; failure?: string; automaticSpotsQualified: boolean; resourcesAvailable: boolean;
+  operatingModule?: "normal_logging" | "contesting";
   spotOutputFailure?: string;
   featureEnabled?: boolean;
   configuration: CWDecodeConfiguration; sources: { configuration: CWIQSource; state: string; descriptor?: CWDescriptor; retryCount: number; failure?: string }[];
@@ -50,6 +51,7 @@ export function parseCWDecodeSnapshot(value: unknown): CWDecodeSnapshot {
   if (!object(value) || !["stopped", "preparing", "running", "recovering", "blocked", "stopping"].includes(value.state) ||
     typeof value.resourcesAvailable !== "boolean" || typeof value.automaticSpotsQualified !== "boolean" ||
     value.featureEnabled !== undefined && typeof value.featureEnabled !== "boolean" ||
+    value.operatingModule !== undefined && !["normal_logging", "contesting"].includes(value.operatingModule) ||
     value.spotOutputFailure !== undefined && value.spotOutputFailure !== "local_cw_output_unavailable" ||
     value.sessionID !== undefined && (typeof value.sessionID !== "string" || !uuid.test(value.sessionID))) throw new Error("CW Decode returned an invalid session state.");
   const config = value.configuration;

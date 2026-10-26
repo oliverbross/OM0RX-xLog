@@ -69,8 +69,9 @@ pub fn snapshot(request:Value)->Result<Value,String> {
     let worker=crate::worker::generation();crate::worker::require_existing_generation(worker)?;
     let mut response=crate::worker::request_existing_generation(request,worker)?;
     if response["ok"]==true {
-        let mut feed=feed().lock().map_err(|_|"CW identities unavailable.")?;
-        retain(&mut feed,worker,&mut response)?;
+        { let mut feed=feed().lock().map_err(|_|"CW identities unavailable.")?;
+          retain(&mut feed,worker,&mut response)?; }
+        response["result"]["operatingModule"]=json!(crate::operating_module::selected_worker_value()?);
     }
     Ok(response)
 }

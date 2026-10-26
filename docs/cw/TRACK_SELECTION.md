@@ -1,8 +1,8 @@
 # Retained CW track selection
 
-This milestone adds a passive native evidence resolver. It does not add a Tune
-or Use-callsign button, mutate a draft, grant radio authority, or qualify CW.
-Those actions still need their separate existing-owner integration.
+This branch adds retained native evidence and explicit callsign-only loading into
+the shared Normal Logging draft. Tune, contest entry integration and complete
+action recovery remain pending. This work does not qualify CW for release.
 
 A track gets an opaque selection reference only when committed aligned text
 identifies one plausible transmitting callsign in the last sixty channel seconds.
@@ -30,8 +30,7 @@ refusal, invented selection, stale input, changed provider, ambiguity and Stop
 during a suspended read. Four projection cases and production TypeScript passed.
 The existing automatic-spot production quality refusal remains tested and intact.
 
-Remaining integration: callsign-only normal-draft semantics through the shared
-editor/CAS/receipt owner; fenced contest `entry_set_text` through its sole main
+Remaining integration: fenced contest `entry_set_text` through its sole main
 consumer; explicit Tune through the durable manual-tune owner with current source
 and operating-radio admission; scoped window methods, UI and action recovery tests.
 
@@ -70,8 +69,8 @@ receipt without reacquiring a lease.
 
 All seventeen activation/reservation tests passed, including two new cases for
 field preservation, station-effect refusal and malformed/mixed CW payloads.
-Native window action admission and the shared editor barrier integration are
-still required before exposing this command as an operator action.
+The explicit Normal Logging action below uses this command through the shared
+editor barrier and native window admission.
 
 ## Native window identity retention
 
@@ -85,7 +84,8 @@ starts a service to satisfy a passive snapshot.
 Resolution sends only the retained reference back to the same live worker and
 compares its full reply with the retained native target. It rechecks the pool and
 worker again after readback, then produces the callsign-only command without RF
-fields. It grants no draft mutation; the explicit window action is still pending.
+fields. This resolver itself grants no draft mutation; the explicit window action
+below owns that admission separately.
 Three focused native retention/readback cases and four frontend projection cases
 passed. TypeScript validation accompanies this boundary.
 
@@ -99,6 +99,30 @@ database actor, after any queued disk work and immediately before the existing
 CAS transaction. Non-owning or disabled workers cannot commit the CW payload.
 
 Ten activation-backend cases and one application-worker admission case covering
-both non-owner and disabled-owner configurations passed. The explicit CW window
-action and its UI/recovery integration remain pending; this boundary adds no
+both non-owner and disabled-owner configurations passed. This boundary adds no
 automatic draft change or station effect.
+
+## Explicit Normal Logging action
+
+`cw_callsign_request` is restricted to main and CW Decode windows, the production
+runtime and Normal Logging admission. Apply requests accept four UUID identities
+only. The existing activation coordinator supplies the shared editor barrier,
+CAS, durable receipt and exact reservation release. Live callsign evidence is
+revalidated at the database lane. The response projection excludes the draft and
+refuses any tune-confirmed or rotor-effect outcome.
+
+The shared panel shows the native callsign and an explicit Use callsign action.
+It requires an enabled build, running source and native activation identity.
+Mounting and selection do not act. One click creates one operation, retained in
+the window session before dispatch. Lost or malformed replies keep that identity;
+Check original action reconciles it without applying again. Confirmed closed
+results allow another selection. Unknown/uncertain results remain blocked and
+direct the operator to Main Logging. Frequency, mode and operator text retain the
+semantics described above; no logged QSO or station command is created.
+
+Validation: 48 CW-filtered native cases and 20 frontend cases passed, including
+identity-only dispatch, rapid repeated click, passive mount, retained lost reply
+across remount, mismatched/uncertain acknowledgement and disabled/contesting
+refusal. Full live workflow acceptance, native-process restart recovery and
+contesting callsign loading are not yet complete. This branch is excluded from
+the corrective contest releases, where CW stays disabled.

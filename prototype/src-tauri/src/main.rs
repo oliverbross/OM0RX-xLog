@@ -25,6 +25,7 @@ mod spot_editor_barrier;
 mod spot_activation;
 mod spot_activation_backend;
 mod cw_track_selection;
+mod cw_callsign_bridge;
 mod qsy_clear;
 mod radio_read;
 mod manual_tune;
@@ -382,6 +383,28 @@ async fn activate_opportunity(window: tauri::WebviewWindow, app: tauri::AppHandl
     let request = spot_activation::Request { operation_id, source_epoch, spot_id, spot_version };
     tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; owner.activate(request) }).await
         .map_err(|_| "Opportunity acknowledgement unavailable; inspect the existing operation before selecting again".to_string())?
+}
+#[tauri::command]
+async fn cw_callsign_request(window:tauri::WebviewWindow,app:tauri::AppHandle,state:tauri::State<'_,acceptance::Acceptance>,params:serde_json::Value)->Result<serde_json::Value,String> {
+    cw_callsign_bridge::validate_surface(window.label(),runtime_profile::isolated(state.path.is_some()),APP_EXITING.load(Ordering::Acquire))?;
+    let action=cw_callsign_bridge::parse(params)?;let owner=activation_owner(&app);
+    match action {
+        cw_callsign_bridge::Action::Apply(request)=>{
+            if !cw_track_selection::owns(&request.source_epoch){return Err("CW source changed. Select the current signal again.".into());}
+            let admission=operating_module::owner()?.admit_selected(operating_module::OperatingModule::NormalLogging)?;
+            radio_follow::revoke_silently();qsy_clear::retire_terminal();radio_read::retire_terminal();
+            tauri::async_runtime::spawn_blocking(move||{let _admission=admission;cw_callsign_bridge::project(owner.activate(request)?)}).await
+                .map_err(|_|"CW callsign outcome is unknown. Check the original action before trying again.".to_string())?
+        },
+        cw_callsign_bridge::Action::Status(operation)=>{
+            if !cw_track_selection::owns(&owner.source_epoch(&operation)?){return Err("This operation does not belong to CW callsign loading.".into());}
+            cw_callsign_bridge::project(owner.status(&operation)?)
+        },
+        cw_callsign_bridge::Action::Reconcile(operation)=>{
+            if !cw_track_selection::owns(&owner.source_epoch(&operation)?){return Err("This operation does not belong to CW callsign loading.".into());}
+            tauri::async_runtime::spawn_blocking(move||cw_callsign_bridge::project(owner.reconcile(&operation)?)).await.map_err(|_|"CW action readback failed.".to_string())?
+        }
+    }
 }
 fn validate_radio_read(label: &str, isolated: bool, exiting: bool) -> Result<(), String> {
     if isolated || exiting || !matches!(label, "main" | "log-qso") {
@@ -4067,7 +4090,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![operating_module_status, operating_module_switch, operating_module_transition_ack, operating_module_transition_pending, worker_request, cw_session_request, contest_cw_speed_request, station_session_request, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
-            spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity,
+            spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity, cw_callsign_request,
             operator_draft_read_radio,
             operator_draft_read_radio_recover,
             operator_draft_follow_snapshot, operator_draft_follow_set, operator_draft_follow_settled,

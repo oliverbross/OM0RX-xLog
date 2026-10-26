@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ExternalLink, Play, RefreshCw, Settings2, Square, X } from "lucide-react";
 import { cwSourceName, requestCWDecode, type CWCapability, type CWDecodeConfiguration, type CWDecodeSnapshot, type CWIQSource } from "./cwDecode";
 import { useCWDecode } from "./useCWDecode";
+import { CWCallsignAction, type CWCallsignRequest } from "./CWCallsignAction";
 import "./CWDecodePanel.css";
 
 const stateName = (state: string) => ({ stopped: "Stopped", preparing: "Preparing", acquiring: "Acquiring IQ", running: "Decoding", quarantined: "Waiting for fresh IQ",
@@ -9,13 +10,14 @@ const stateName = (state: string) => ({ stopped: "Stopped", preparing: "Preparin
 const mhz = (hz: number) => `${(hz / 1e6).toFixed(6)} MHz`;
 const offset = (hz: number) => `${hz >= 0 ? "+" : ""}${(hz / 1000).toFixed(3)} kHz`;
 
-export function CWDecodePanel({ detached = false, onUndock, request = requestCWDecode }: {
-  detached?: boolean; onUndock?: () => void; request?: typeof requestCWDecode;
+export function CWDecodePanel({ detached = false, onUndock, request = requestCWDecode, callsignRequest }: {
+  detached?: boolean; onUndock?: () => void; request?: typeof requestCWDecode; callsignRequest?: CWCallsignRequest;
 }) {
   const { snapshot, error, busy, refresh, command } = useCWDecode(request);
   const [editor, setEditor] = useState<CWDecodeConfiguration | null>(null), [selected, setSelected] = useState<string | null>(null), [sourceFilter, setSourceFilter] = useState("all");
   const tracks = useMemo(() => [...(snapshot?.tracks ?? [])].filter(track => sourceFilter === "all" || track.sourceID === sourceFilter)
-    .sort((a, b) => a.descriptor.radioID.localeCompare(b.descriptor.radioID) || a.sourceID.localeCompare(b.sourceID) || a.offsetHz - b.offsetHz), [snapshot?.tracks, sourceFilter]);
+    .sort((a, b) => a.descriptor.radioID.localeCompare(b.descriptor.radioID) || a.sourceID.localeCompare(b.sourceID) ||
+      (a.frequencyHz !== undefined && b.frequencyHz !== undefined ? a.frequencyHz - b.frequencyHz : a.offsetHz - b.offsetHz)), [snapshot?.tracks, sourceFilter]);
   const signal = snapshot?.tracks.find(track => track.trackID === selected);
   const edit = () => { if (snapshot) setEditor(structuredClone(snapshot.configuration)); };
   const save = async () => {
@@ -54,14 +56,16 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
         </div>;
       }) : <div><strong>No monitoring spans selected</strong><span>Choose one or two IQ sources to begin.</span><button type="button" onClick={edit}>Choose sources</button></div>}</div>
       {editor && <CWDecodeSettings value={editor} snapshot={snapshot} busy={busy} change={setEditor} save={save} close={() => setEditor(null)} />}
+      <CWCallsignAction signal={signal} snapshot={snapshot} request={callsignRequest} />
       <div className="cw-decode-workspace">
         <div className="cw-decode-signals"><div className="cw-decode-table-bar"><h3>Signals <span>{tracks.length}</span></h3>
           <label>Source<select value={sourceFilter} onChange={event => setSourceFilter(event.target.value)}><option value="all">All spans</option>
             {configured.map(source => <option key={source.id} value={source.id}>{cwSourceName(source)}</option>)}</select></label></div>
-          <div className="cw-decode-table-scroll"><table><thead><tr><th>Source</th><th>RF / offset</th><th>Decoded text</th><th>Est. WPM</th><th>Est. SNR</th><th>State</th></tr></thead>
+          <div className="cw-decode-table-scroll"><table><thead><tr><th>Source</th><th>RF / offset</th><th>Call</th><th>Decoded text</th><th>Est. WPM</th><th>Est. SNR</th><th>State</th></tr></thead>
             <tbody>{tracks.map(track => <tr key={track.trackID} aria-selected={selected === track.trackID}>
               <td><button type="button" onClick={() => setSelected(track.trackID)} aria-label={`Inspect signal ${offset(track.offsetHz)} on ${cwSourceName(track.descriptor)}`}>{cwSourceName(track.descriptor)}</button></td>
               <td className="cw-decode-frequency">{track.frequencyHz === undefined ? offset(track.offsetHz) : mhz(track.frequencyHz)}{track.frequencyHz === undefined && <small>RF unqualified</small>}</td>
+              <td>{track.selection?.callsign ?? "—"}</td>
               <td className="cw-decode-copy"><span>{track.committed}</span><span className="cw-decode-provisional" aria-label="Provisional text">{track.provisional}</span>{!track.committed && !track.provisional && <span className="cw-decode-placeholder">Waiting for copy</span>}</td>
               <td title={track.estimatedWPM === undefined ? "Speed has not been measured" : "Estimated from observed key-down durations using the PARIS timing unit"}>{track.estimatedWPM?.toFixed(1) ?? "—"}</td>
               <td title={track.estimatedSNRDB === undefined ? "Signal-to-noise ratio has not been measured" : "Estimated SNR relative to 2.5 kHz noise bandwidth; hardware calibration pending"}>{track.estimatedSNRDB === undefined ? "—" : `${track.estimatedSNRDB.toFixed(1)} dB`}</td>
