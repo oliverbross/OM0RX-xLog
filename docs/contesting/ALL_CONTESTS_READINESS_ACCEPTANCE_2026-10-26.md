@@ -102,7 +102,8 @@ the completed logs remained unchanged. Its single Return to Normal attempt was
 rejected before retirement with “Wait for the current operating action to finish
 before changing module.” The app and workers remained usable. This preflight veto
 did not exercise the new retirement diagnostics and does not establish a causal
-fix or either live mode direction. Follow-up remains active with the mode owner.
+fix or either live mode direction at that checkpoint. The installed 1.3.32
+follow-up below records the eventual functional acceptance.
 
 The corrective **1.3.31** candidate was built from
 `507ab9aed623641e24179e6db644b68501ca0873`, including passive-poll admission fix
@@ -117,18 +118,59 @@ and score **111,012**, with 68,560 normal QSOs. The completed correction was
 preserved; older score/audit fingerprints were not restored. The original normal
 Clear remains settled at blank revision 2916.
 
-No 1.3.31 mode attempt had been made when that receipt was recorded: an unexpected
-single CQ Zone character in an otherwise empty contest entry required a separate
-human input-intent clarification. Both installed directions remain **UNVERIFIED**
-pending that answer and the guarded attempt. This is distinct from the already
-completed original Clear. The optional direct-FLEX IQ VPN does not establish the
-state of the separate Agent/Tailscale connection; fresh passive evidence and spot
-receipt ages must accompany any eventual handover acceptance.
+No 1.3.31 mode attempt was made: an unexpected single CQ Zone character in an
+otherwise empty contest entry paused the attempt. Later fresh observation found
+both fields already empty; no installer cleared them, and no delayed answer should
+be applied to a later draft. A newer human-authorized audio task then took sole
+app/installation ownership for 1.3.32. The optional direct-FLEX IQ VPN does not
+establish the state of the separate Agent/Tailscale connection.
 
-CW Decode remains disabled. Packaging ownership transferred from the CW chat to
-the mode-switch chat for 1.3.30 and 1.3.31; the Rates chat remains the exclusive protected
-installation/UI owner. Provenance, signatures and component hashes refer to the
-exact handed-over bundles. No notarization or Intel-app acceptance is claimed.
+The final installed **1.3.32** candidate was packaged from exact canonical source
+`fc8a5e0b329f3380201fc9e3b58b42b8aeea02fa`. The
+[artifact, playback and mode acceptance record](../MACOS_1_3_32_RELEASE_2026-10-26.md)
+records matching component provenance, a deep strict Developer ID signature
+(CDHash `9eb1fd72723bff5d9b78c790b5c8ade82b361797`), the protected five-root
+793-file/35-database backup, and pushed final receipt `9f5c891b`. The package
+includes the native admission correction and separately authorized recorder
+playback correction; the frontend production build, 24 window graphs, worker
+self-test, Python relocation and CW offline checks passed.
+
+**Both live operating-module directions passed functionally on 1.3.32.** Normal
+Logging opened its intended workspace, and the reciprocal action restored the
+reviewed CQ WW session and nine saved core contest windows with fresh contexts
+and workers. Recorder remains an explicitly opened singleton utility. Its closed
+state after handover is the documented policy. Final Contest Main Logging had
+blank callsign/CQ Zone, 59/59 and recording stopped. Read-only snapshots matched
+the fresh reviewed contest baseline: 775 QSOs, 785 identities, 850 audit rows and
+replica-stage audit, with score 111,012. Stats showed 19 dupes after the human's
+completed correction; the older 18-dupe/960-point baseline is historical.
+
+Normal Logging is **not claimed unchanged** after activation. All 68,560 original
+normal-row identities remained present with zero deletions, while three clean,
+remote-linked contacts were added and 120 existing rows received metadata/baseline
+changes. The existing effective one-minute Wavelog automatic-sync authorization
+passed its workspace, generation, service, endpoint, station and revision fences.
+That authorization, the source's immediate Normal-only sync tick, remote-linked
+additions and timestamps support an inference of background catch-up. The exact
+historical run and any upload activity remain **UNVERIFIED**: completed-run counts
+were held in worker memory without a durable historical receipt. These additions
+and metadata were preserved without rollback; no new sync was requested to create
+evidence. The normal draft legitimately seeded retained radio metadata and settled
+at revision 2917 without pending work; the original Clear was not repeated.
+
+The accepted functional handovers do **not** establish fresh contest-owned spot
+withdrawal. The immediate pre-Return-to-Normal inventory contained zero accepted
+spot receipts. Normal-owned receipts observed around the reciprocal action do not
+prove contest retirement. The cause of the earlier 1.3.29 retirement failure also
+remains unproven. No synthetic spot, unknown-receipt clearing, provider retry or
+hardware command was used to fill these evidence gaps. Audible playback acceptance
+belongs to the separate audio task; no hardware/output acceptance is inferred here.
+
+CW Decode remains disabled and future CW work is isolated and unmerged. Packaging
+ownership transferred from the CW chat to the mode-switch chat for 1.3.30/1.3.31,
+then to the audio task for 1.3.32; live UI and installation ownership were explicitly
+handed over between those tasks. Provenance, signatures and component hashes refer
+to the exact handed-over bundles. No notarization or Intel-app acceptance is claimed.
 
 ## Protection and remaining operator acceptance
 
