@@ -156,6 +156,10 @@ impl OfflineAdapter {
                     .all(|key| value["context"]["binding"][*key] == current["binding"][*key])) {
                     return Err("Two lanes cannot claim the same exact receiver/VFO/slice target.".into());
                 }
+                if self.listening.as_deref() == Some(lane) && self.lanes.get(lane).is_some_and(|previous|
+                    previous["context"]["binding"] != current["binding"] || previous["context"]["bindingVersion"] != current["bindingVersion"]) {
+                    self.listening = None;
+                }
                 self.lanes.insert(lane.into(), json!({"context":current,"frequencyHz":null,"mode":null}));
             }
             "tune" | "listen" => {
@@ -237,6 +241,27 @@ mod tests {
         assert_eq!(owner.backend.events.lock().unwrap().len(), 0);
         let same_receiver = canonical("laneB", "radio1", "receiver1", "A");
         assert!(call(&mut owner, &same_receiver, "bind", json!({})).is_err());
+    }
+    #[test]
+    fn rebind_invalidates_only_changed_listening_route_and_draft_advance_preserves_it() {
+        let mut owner = OfflineAdapter::new();
+        let mut a = canonical("laneA", "radio1", "receiver1", "A"); let mut b = canonical("laneB", "radio2", "receiver2", "B");
+        call(&mut owner, &a, "bind", json!({})).unwrap(); call(&mut owner, &b, "bind", json!({})).unwrap();
+        call(&mut owner, &b, "listen", json!({})).unwrap();
+        let before_b = owner.snapshot().unwrap()["lanes"]["laneB"].clone();
+        a["bindingVersion"] = json!(2);
+        let other = call(&mut owner, &a, "bind", json!({})).unwrap();
+        assert_eq!(other["listenLaneID"], "laneB"); assert_eq!(other["lanes"]["laneB"], before_b);
+        b["draftID"] = json!("next-draft-b");
+        assert_eq!(call(&mut owner, &b, "bind", json!({})).unwrap()["listenLaneID"], "laneB");
+        b["bindingVersion"] = json!(2);
+        assert_eq!(call(&mut owner, &b, "bind", json!({})).unwrap()["listenLaneID"], Value::Null);
+        call(&mut owner, &b, "listen", json!({})).unwrap();
+        let before_a = owner.snapshot().unwrap()["lanes"]["laneA"].clone();
+        b["binding"]["receiverID"] = json!("receiver1"); b["binding"]["vfo"] = json!("A");
+        let changed = call(&mut owner, &b, "bind", json!({})).unwrap();
+        assert_eq!(changed["listenLaneID"], Value::Null); assert_eq!(changed["lanes"]["laneA"], before_a);
+        assert_eq!(changed["cw"]["armed"], false); assert!(owner.backend.events.lock().unwrap().is_empty());
     }
     #[test]
     fn one_tx_owner_requires_confirmed_release_and_stop_is_pinned_after_rebind() {
