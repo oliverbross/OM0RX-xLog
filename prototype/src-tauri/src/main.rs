@@ -796,9 +796,13 @@ fn append_application_settings(app: &tauri::AppHandle, menu: &Menu<tauri::Wry>) 
     // bypasses cancellable Tauri ExitRequested. Keep Cmd-Q and the existing
     // menu position, but enter our correlated draft/output preparation path.
     let cocoa_quit = PredefinedMenuItem::quit(app, None)?;
-    let position = application.items()?.iter().position(|item| item.id() == cocoa_quit.id())
+    // Predefined items have instance IDs, not stable IDs by command kind.
+    // Compare only predefined entries with the platform's exact Quit title.
+    let quit_title = cocoa_quit.text()?;
+    let position = application.items()?.iter().position(|item| item.as_predefined_menuitem()
+        .is_some_and(|item| item.text().is_ok_and(|title| title == quit_title)))
         .ok_or_else(|| tauri::Error::Io(std::io::Error::other("Application Quit item is unavailable")))?;
-    let guarded_quit = MenuItem::with_id(app, "workspace_guarded_quit", format!("Quit {app_name}"), true, Some("CmdOrCtrl+Q"))?;
+    let guarded_quit = MenuItem::with_id(app, "workspace_guarded_quit", quit_title, true, Some("CmdOrCtrl+Q"))?;
     application.remove_at(position)?;
     application.insert(&guarded_quit, position)?;
     Ok(())
