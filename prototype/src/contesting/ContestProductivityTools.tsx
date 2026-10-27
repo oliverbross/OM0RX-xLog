@@ -35,13 +35,14 @@ function NotesEditor({scope,request,disabled,onSave,onLast}:{scope:Scope;request
   const [saving,setSaving]=useState(false),[uncertain,setUncertain]=useState(false),[notice,setNotice]=useState("");
   const [recoveryFailure,setRecoveryFailure]=useState<{message:string;raw:string|null;key:string}|null>(null),[operations,setOperations]=useState<string[]>([]);
   const pendingKey=useRef<string|null>(null);
+  const pendingRaw=useRef<string|null>(null);
   const pending=useRef<{target:NoteTarget;text:string;noteID:string;editorID?:string}|null>(null),ticket=useRef(0);
   const readIdentity=`${identity}/${scope.laneID??"laneA"}`;
   const laneTarget:NoteLane=scope.laneID?{laneID:scope.laneID,bindingVersion:scope.bindingVersion,bindingGeneration:scope.bindingGeneration}:{};
   const laneLabel=scope.laneID?` · ${scope.laneID==="laneA"?"Lane A":"Lane B"}`:"";
   const recoveryKey=`xlog.contest.note-editor.v1/${identity}`;
   const attemptKeys=()=>Object.keys(localStorage).filter(name=>name===recoveryKey||name.startsWith(`${recoveryKey}/operation/`)&&!name.slice(`${recoveryKey}/operation/`.length).includes("/"));
-  const readRecovery=(selected?:string)=>{setAttemptTarget(null);setAttemptText("");pending.current=null;pendingKey.current=null;setUncertain(false);setRecoveryFailure(null);
+  const readRecovery=(selected?:string)=>{setAttemptTarget(null);setAttemptText("");pending.current=null;pendingKey.current=null;pendingRaw.current=null;setUncertain(false);setRecoveryFailure(null);
     let raw:string|null=null;
     let key=selected??recoveryKey;
     try{const keys=attemptKeys();setOperations(keys);
@@ -52,7 +53,7 @@ function NotesEditor({scope,request,disabled,onSave,onLast}:{scope:Scope;request
         saved.target.bindingVersion!==undefined&&(!Number.isSafeInteger(saved.target.bindingVersion)||saved.target.bindingVersion<0)||
         saved.target.bindingGeneration!==undefined&&saved.target.bindingGeneration!==null&&typeof saved.target.bindingGeneration!=="string"&&typeof saved.target.bindingGeneration!=="number"||
         saved.editorID!==undefined&&typeof saved.editorID!=="string")throw new Error("Invalid saved note identity.");
-      pending.current=saved;pendingKey.current=key;setAttemptTarget({identity:saved.target,label:`Recovered ${saved.target.qsoID?"QSO":"draft"} note`,sessionID:scope.sessionID,workspaceGeneration:scope.workspaceGeneration});setAttemptText(saved.text);setUncertain(true);
+      pending.current=saved;pendingKey.current=key;pendingRaw.current=raw;setAttemptTarget({identity:saved.target,label:`Recovered ${saved.target.qsoID?"QSO":"draft"} note`,sessionID:scope.sessionID,workspaceGeneration:scope.workspaceGeneration});setAttemptText(saved.text);setUncertain(true);
     }catch{setRecoveryFailure({message:"Saved note recovery data is unreadable. It has been preserved; resolve recovery before writing another note.",raw,key});}
   };
   useEffect(()=>{readRecovery();setOffset(0);},[identity]);
@@ -75,17 +76,21 @@ function NotesEditor({scope,request,disabled,onSave,onLast}:{scope:Scope;request
     if(!pending.current&&checkAttempt()){setSaving(false);return;}
     // The editor UUID is also the first operation ID: two windows recovering
     // the same editor cannot submit it under competing fresh save identities.
-    const operation=pending.current??{target:target.identity,text,noteID:retained.draft?.id??crypto.randomUUID(),editorID:retained.draft?.id},raw=JSON.stringify(operation);let attempted=false;
+    const recovered=pending.current!==null;
+    const operation=pending.current??{target:target.identity,text,noteID:retained.draft?.id??crypto.randomUUID(),editorID:retained.draft?.id},raw=JSON.stringify(operation);
+    const journalRaw=recovered?pendingRaw.current??raw:raw;let attempted=recovered;
     const operationKey=pendingKey.current??`${recoveryKey}/operation/${operation.noteID}`;
     try{retained.flush();const stored=localStorage.getItem(operationKey);
-      if(stored!==null&&stored!==raw)throw Error("Another attempted note is retained. Reconcile it before saving this draft; no recovery was overwritten.");
-      localStorage.setItem(operationKey,raw);if(localStorage.getItem(operationKey)!==raw)throw Error("Attempt journal could not be verified. Nothing was sent.");
-      pending.current=operation;pendingKey.current=operationKey;attempted=true;await onSave(operation.target,operation.text,operation.noteID);
-      if(localStorage.getItem(operationKey)!==raw)throw Error("Note saved, but its recovery changed. Reconcile the original identity.");
+      if(recovered?stored!==journalRaw:stored!==null&&stored!==raw)throw Error("Another attempted note is retained or its bytes changed. Reconcile the original identity; no recovery was overwritten.");
+      // A recovered journal is an opaque receipt: preserve its exact bytes,
+      // including valid JSON whitespace/escapes, until confirmed completion.
+      if(!recovered){localStorage.setItem(operationKey,raw);if(localStorage.getItem(operationKey)!==raw)throw Error("Attempt journal could not be verified. Nothing was sent.");}
+      pending.current=operation;pendingKey.current=operationKey;pendingRaw.current=journalRaw;attempted=true;await onSave(operation.target,operation.text,operation.noteID);
+      if(localStorage.getItem(operationKey)!==journalRaw)throw Error("Note saved, but its recovery changed. Reconcile the original identity.");
       if(operation.editorID)retained.complete(operation.editorID,operation.text);
       localStorage.removeItem(operationKey);readRecovery();setNotice("Note saved");}
     catch(cause){const confirmed=cause instanceof ContestServerError&&cause.outcome!=="uncertain";
-      if(confirmed){try{retained.restore(target,operation.text);if(operation.editorID)retained.complete(operation.editorID,operation.text);if(localStorage.getItem(operationKey)===raw)localStorage.removeItem(operationKey);pending.current=null;pendingKey.current=null;setAttemptTarget(null);}
+      if(confirmed){try{retained.restore(target,operation.text);if(operation.editorID)retained.complete(operation.editorID,operation.text);if(localStorage.getItem(operationKey)===journalRaw)localStorage.removeItem(operationKey);pending.current=null;pendingKey.current=null;pendingRaw.current=null;setAttemptTarget(null);}
         catch(storageError){setUncertain(true);setError(`${message(cause)} ${message(storageError)}`);return;}}
       setUncertain(attempted&&!confirmed);setError(message(cause));}finally{setSaving(false);}};
   const begin=(captured:CapturedNoteTarget)=>{try{retained.start(captured);setHidden(false);setNotice("");}catch(cause){setError(message(cause));}};

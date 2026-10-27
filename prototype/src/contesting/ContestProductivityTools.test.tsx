@@ -90,6 +90,23 @@ it("journals before sending and recovers the same uncertain note identity after 
   expect(screen.queryByRole("textbox", { name: "Operator note" })).toBeNull();
 });
 
+it("reconciles a valid recovered journal without rewriting its whitespace or Unicode escapes",async()=>{
+ const operation={target:{draftID:scope.draftID},text:"Lost reply Ω",noteID:"original-operation"};
+ const raw=JSON.stringify(operation,null,2).replace("Ω","\\u03a9");localStorage.setItem(journalKey,raw);
+ const save=vi.fn(async()=>{expect(localStorage.getItem(journalKey)).toBe(raw);});
+ render(<ContestNotesPanel {...noteProps(save)}/>);fireEvent.click(screen.getByRole("button",{name:"Reconcile same note"}));
+ await waitFor(()=>expect(save).toHaveBeenCalledWith(operation.target,operation.text,operation.noteID));await waitFor(()=>expect(localStorage.getItem(journalKey)).toBeNull());
+});
+
+it("keeps an uncertain save read-only if its retained journal changes or cannot be read",async()=>{
+ const operation={target:{draftID:scope.draftID},text:"Keep original uncertain bytes",noteID:"original-operation"},raw=JSON.stringify(operation);
+ localStorage.setItem(journalKey,raw);const save=vi.fn(async()=>{});render(<ContestNotesPanel {...noteProps(save)}/>);
+ localStorage.setItem(journalKey,raw+" ");fireEvent.click(screen.getByRole("button",{name:"Reconcile same note"}));
+ await screen.findByText(/its bytes changed/);expect(save).not.toHaveBeenCalled();expect((screen.getByLabelText("Operator note") as HTMLTextAreaElement).disabled).toBe(true);
+ expect(screen.queryByRole("button",{name:"Discard draft"})).toBeNull();expect(localStorage.getItem(journalKey)).toBe(raw+" ");
+ localStorage.setItem(journalKey,raw);
+});
+
 it("retains exact unsent text and original target across tab unmount, advancing entry and restart",async()=>{
  const save=vi.fn(async()=>{}),props=noteProps(save),mounted=render(<ContestNotesPanel {...props}/>);
  startNote("  First line\nŽluťoučký note, 73!  ");act(()=>flushUnfinishedEditors());

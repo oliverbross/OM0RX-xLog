@@ -65,7 +65,7 @@ The canonical-main batch delivered W14, W17, W18, advanced W08 and the explicitl
 
 ## Carry-forward work — all 33 retained owners
 
-**Bounded unfinished-work protection — 28 October:** the current canonical-main task owns the remaining editor-retention and controlled-close delta under **W06/W19/W21/W24**, reusing existing note receipts, local recovery, entry drafts and native preparation. [Dated acceptance](UNFINISHED_WORK_ACCEPTANCE_2026-10-28.md) owns exact retention guarantees, source/package/native results and limits. Candidate 1.3.56 is reserved after the documented 1.3.55 packaging gate failure; production remains accepted 1.3.54. This is not another feature wave or closure of unrelated W/NL obligations. OS shutdown and historical Clear attribution remain unverified.
+**Bounded unfinished-work protection — 28 October:** the current canonical-main task owns the remaining editor-retention and controlled-close delta under **W06/W19/W21/W24**, reusing existing note receipts, local recovery, entry drafts and native preparation. [Dated acceptance](UNFINISHED_WORK_ACCEPTANCE_2026-10-28.md) owns exact retention guarantees, source/package/native results and limits. Candidate 1.3.57 is reserved after the documented 1.3.55 packaging and 1.3.56 native uncertain-journal defects; production remains accepted 1.3.54. This is not another feature wave or closure of unrelated W/NL obligations. OS shutdown and historical Clear attribution remain unverified.
 
 The original IDs and substantive criteria are preserved below. Use their child matrices/ledgers for individual definitions and historical markers.
 
