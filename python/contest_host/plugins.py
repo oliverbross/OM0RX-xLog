@@ -38,9 +38,6 @@ class Plugin:
 
 
 PLUGIN_REGISTRY = MappingProxyType({
-    "wae_cw": Plugin("WAE CW", serial=True, bands=("80m", "40m", "20m", "15m", "10m"), manual_enter=True),
-    "wae_ssb": Plugin("WAE SSB", serial=True, modes=("SSB",), bands=("80m", "40m", "20m", "15m", "10m"), manual_enter=True),
-    "wae_rtty": Plugin("WAE RTTY", serial=True, modes=("RTTY",), bands=("80m", "40m", "20m", "15m", "10m"), manual_enter=True),
     "cq_ww_cw": Plugin("CQ WW CW", matrix_trackers=("countries", "zones")),
     "cq_ww_ssb": Plugin("CQ WW SSB", modes=("SSB",), matrix_trackers=("countries", "zones"),
                         manual_enter=True, clear_on_vfo_change=True, filter_spot_ranges=True,
@@ -261,6 +258,9 @@ PLUGIN_REGISTRY = MappingProxyType({
                                 "6cm", "3cm", "1.25cm", "6mm", "4mm", "2.5mm", "2mm", "1mm", "submm"),
                          modes=("CW", "SSB"), sent_exchange_hint="4-character grid square",
                          overlay_choices=("N/A",)),
+    "wae_cw": Plugin("WAE CW", serial=True, bands=("80m", "40m", "20m", "15m", "10m"), manual_enter=True),
+    "wae_ssb": Plugin("WAE SSB", serial=True, modes=("SSB",), bands=("80m", "40m", "20m", "15m", "10m"), manual_enter=True),
+    "wae_rtty": Plugin("WAE RTTY", serial=True, modes=("RTTY",), bands=("80m", "40m", "20m", "15m", "10m"), manual_enter=True),
 })
 PLUGINS = MappingProxyType({key: plugin.name for key, plugin in PLUGIN_REGISTRY.items()})
 CQ_WW_PLUGINS = frozenset({"cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty"})

@@ -27,7 +27,7 @@ The other **77** unverified NL-04 profiles remain deferred: `cq_ww_rtty`, `cq_wp
 
 ## Candidate build reservation
 
-**1.3.51** is the next unused version (retained inventory ends at 1.3.50). Its source is the clean canonical commit containing this version reservation, resolved and recorded immediately before packaging with `XLOG_SOURCE_COMMIT=$(git rev-parse HEAD)`. Packaging uses the established `prototype/scripts/package-macos.sh`, existing cached dependencies and Developer ID signing; native/distribution/Python/CW provenance and exact component/tree hashes will be independently verified in the retained receipt. This reservation is not a claim of successful build, gates or candidate acceptance. Production remains 1.3.50; no installation is authorized.
+**1.3.51** is the next unused version (retained inventory ends at 1.3.50). Its final source is resolved and recorded from clean canonical main immediately before packaging with `XLOG_SOURCE_COMMIT=$(git rev-parse HEAD)`. Packaging uses the established `prototype/scripts/package-macos.sh`, existing cached dependencies and Developer ID signing; native/distribution/Python/CW provenance and exact component/tree hashes will be independently verified in the retained receipt. This reservation is not a claim of successful build, gates or candidate acceptance. Production remains 1.3.50; no installation is authorized.
 
 ## Retained boundaries
 
@@ -95,3 +95,7 @@ The historical and later Clear initiators remain unresolved. Neither a new regre
 NL-32 automatic-sync failure diagnosis and NL-13/16 rotor command provenance remain open under their existing owners; no new evidence warrants repeating those investigations. Unsaved note editors remain view-local until saved. Private WebKit IDBKEY backup bytes were verified, but SQLite integrity was not established; no collation substitution/cache repair is permitted.
 
 W16, real engines/peers, physical radio/audio/rotor and platform qualification remain open. CW decoding, Reply and unqualified physical dual-lane routes remain restricted. Archive creation never means organizer submission. Production data/settings/recordings, installed app, backups, rollback bundles and recovery refs are protected.
+
+### Coherent source gates before packaging
+
+The full Python run executed 515 tests: 513 passed and two catalogue-order assertions failed because WAE had displaced the established 94-profile order. WAE is now appended, preserving the original default and family positions. The affected 28-case WPX/RTTY/registry/QTC rerun passes; the remaining 513-test evidence is reused within its scope. No production data was read as a fixture or rescored. Native gates passed 909 Rust unit and 26 integration cases; the affected compiled Swift PythonContestLane suite passed 16 cases. Full UI and packaged-native acceptance remain pending. No 1.3.51 bundle existed before this catalogue fix.
