@@ -820,6 +820,11 @@ function Entry({ projection, disabled, sending, context, projectionRevision, sen
   return <section className="contest-surface-entry" aria-label="Main Logging" onKeyDown={onKeyDown}><header>
     <div className="contest-surface-radio"><output aria-label="Current frequency">{projection.draft.frequencyHz == null ? "—" : (projection.draft.frequencyHz / 1_000).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<small> kHz</small></output>
       <strong>{projection.draft.mode}</strong></div><span aria-label={projection.manual?.operator?"Current operator":"Current operator unavailable"}>OP {projection.manual?.operator||"—"}</span><h1>{projection.session.name}</h1></header>
+    {projection.session.laneContext&&<p className="contest-source" aria-label="Selected operating lane">
+      <strong>{projection.session.laneContext.laneID==="laneA"?"Lane A":"Lane B"} · {projection.session.laneContext.mode}</strong>
+      {projection.session.laneContext.binding?` · ${projection.session.laneContext.binding.radioID} / ${projection.session.laneContext.binding.receiverID} / VFO ${projection.session.laneContext.binding.vfo}${projection.session.laneContext.binding.sliceID?` / slice ${projection.session.laneContext.binding.sliceID}`:""} · generation ${projection.session.laneContext.binding.generation}`:" · Receiver unbound"}
+      {` · binding ${projection.session.laneContext.bindingVersion}. Entry binding intent; listening and observed TX remain separate.`}
+    </p>}
     <ContestRecorderStrip/>
     {cwInputOpen&&<form className="contest-surface-cw-input" role="dialog" aria-label="Free-form CW input" onSubmit={sendCWInput}
       onKeyDown={onCWInputKeyDown}>

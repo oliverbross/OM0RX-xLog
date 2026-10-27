@@ -85,9 +85,11 @@ export type ContestPluginLogRow = { qsoID: string; values: string[]; isDupe?: bo
 export type ContestManualContext = { operator: string; cwSpeedWpm: number | null; cwSpeedStepWpm: number; country: string | null; cqZone: number | null; ituZone: number | null;
   headingDegrees: number | null; longPathHeadingDegrees: number | null; distanceKm: number | null; qsos: number; multipliers: number; total: number; scoringComplete?: boolean };
 export type ContestEntryMultiplierStatus = "new-zone-and-country" | "new-zone" | "new-country" | "no-new-multiplier";
+export type ContestEntryLaneContext = { mode:"SO2V"|"SO2R"; laneID:"laneA"|"laneB"; bindingVersion:number;
+  binding:null|{radioID:"radio1"|"radio2";receiverID:string;vfo:string;sliceID:string|null;generation:string|number} };
 export type ContestEntrySurfaceProjection = { schemaVersion: 1; status: "ready";
   manual?: ContestManualContext;
-  session: { name: string; ruleName: string; mode: string };
+  session: { name: string; ruleName: string; mode: string; laneContext?:ContestEntryLaneContext };
   draft: { draftID: string; revision: number; callsign: string; sentReport: string; receivedReport: string;
     receivedFields: ContestSurfaceReceivedField[]; frequencyHz: number | null; frequencyText: string; frequencyError: string;
     band: string; mode: string; dupe: { state: "unchecked" | "clear" | "duplicate"; reason: string };
@@ -255,12 +257,22 @@ const validReceivedFields = (value: unknown) => Array.isArray(value) && value.le
     (field.enabled === undefined || typeof field.enabled === "boolean") && (field.readOnly === undefined || typeof field.readOnly === "boolean");
 });
 
+function validEntryLaneContext(value:unknown) {
+  if(!record(value)||!exact(value,["mode","laneID","bindingVersion","binding"])||!oneOf(value.mode,["SO2V","SO2R"])||
+    !oneOf(value.laneID,["laneA","laneB"])||!uint(value.bindingVersion))return false;
+  const binding=value.binding;
+  return binding===null||record(binding)&&exact(binding,["radioID","receiverID","vfo","sliceID","generation"])&&
+    oneOf(binding.radioID,["radio1","radio2"])&&text(binding.receiverID,128)&&text(binding.vfo,128)&&
+    (binding.sliceID===null||text(binding.sliceID,128))&&(uint(binding.generation)||text(binding.generation,128));
+}
+
 function validEntryProjection(value: Record<string, unknown>) {
   const session = record(value.session) ? value.session : undefined, draftValue = record(value.draft) ? value.draft : undefined;
   const dupe = record(draftValue?.dupe) ? draftValue.dupe : undefined, validation = record(draftValue?.validation) ? draftValue.validation : undefined;
   return optionalKeys(value, ["schemaVersion", "status", "session", "draft", "busy", "dirty", "uncertain"], ["manual"]) &&
     (!("manual" in value) || manualContextValid(value.manual)) &&
-    !!session && exact(session, ["name", "ruleName", "mode"]) && text(session.name, 128) && text(session.ruleName, 128) && text(session.mode, 16) &&
+    !!session && optionalKeys(session, ["name", "ruleName", "mode"],["laneContext"]) && text(session.name, 128) && text(session.ruleName, 128) && text(session.mode, 16) &&
+    (session.laneContext===undefined||validEntryLaneContext(session.laneContext))&&
     !!draftValue && optionalKeys(draftValue, ["draftID", "revision", "callsign", "sentReport", "receivedReport", "receivedFields", "frequencyHz", "frequencyText", "frequencyError", "band", "mode", "dupe", "validation", "reservedSerial"],["exchangeWarnings", "multiplierStatus"]) &&
     (draftValue.multiplierStatus===undefined||oneOf(draftValue.multiplierStatus,["new-zone-and-country","new-zone","new-country","no-new-multiplier"]))&&
     (draftValue.exchangeWarnings===undefined||exchangeWarningsValid(draftValue.exchangeWarnings))&&

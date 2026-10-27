@@ -5,6 +5,17 @@ const base = { operatingContext: "00000000-0000-4000-8000-000000000001", scope: 
   sessionID: "00000000-0000-4000-8000-000000000002", workspaceGeneration: "00000000-0000-4000-8000-000000000003",
   projectionRevision: 4, requestID: "00000000-0000-4000-8000-000000000004" } as const;
 const draft = { draftID: "draft-1", expectedDraftRevision: 5 };
+it("admits finite explicit detached lane identity and rejects inferred transmit or active-radio aliases",()=>{
+  const laneContext:any={mode:"SO2V",laneID:"laneB",bindingVersion:2,binding:{radioID:"radio1",receiverID:"receiver2",vfo:"B",sliceID:null,generation:"connection-7"}};
+  const projection:any={schemaVersion:1,status:"ready",session:{name:"WPX",ruleName:"CQ WPX CW",mode:"CW",laneContext},
+    draft:{draftID:"b",revision:7,callsign:"DL2B",sentReport:"599",receivedReport:"599",receivedFields:[],frequencyHz:7025000,
+      frequencyText:"7025000",frequencyError:"",band:"40m",mode:"CW",dupe:{state:"clear",reason:""},validation:{errors:[],warnings:[]},reservedSerial:2},busy:false,dirty:false,uncertain:false};
+  expect(validContestSurfaceProjection("active-qso",projection)).toBe(true);
+  laneContext.binding.generation=7;expect(validContestSurfaceProjection("active-qso",projection)).toBe(true);
+  laneContext.binding.transmitting=true;expect(validContestSurfaceProjection("active-qso",projection)).toBe(false);
+  delete laneContext.binding.transmitting;laneContext.binding.radioID="active";
+  expect(validContestSurfaceProjection("active-qso",projection)).toBe(false);
+});
 const spot = {id:"spot-1",receivedAt:1,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,frequencyKHz:14025,
   frequencyText:"14025.0",callsign:"DL1ABC",comment:"CQ",band:"20m",mode:"CW",country:"Germany",adif:230,continent:"EU",
   cqZone:14,ituZone:28,callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,contestPoints:null,

@@ -47,6 +47,23 @@ beforeEach(()=>{vi.resetAllMocks();localStorage.clear();native.wake=null;native.
   return()=>{native.wakes=native.wakes.filter(wake=>wake!==callback);};});window.history.replaceState({},"",search);});
 afterEach(()=>{cleanup();window.history.replaceState({},"","/");});
 
+it("labels the selected lane and exact receiver intent without acquiring output on a lane publication",async()=>{
+  const laneContext={mode:"SO2R",laneID:"laneA",bindingVersion:3,binding:{radioID:"radio1",receiverID:"receiver1",vfo:"A",sliceID:null,generation:7}};
+  let view:any={...snapshot,projection:{...projection,session:{...projection.session,laneContext}}};
+  native.invoke.mockImplementation(async(command:string)=>command==="contest_surface_snapshot"?view:null);
+  render(<DetachedContestSurface/>);
+  const badge=await screen.findByLabelText("Selected operating lane");
+  expect(badge.textContent).toContain("Lane A · SO2R");
+  expect(badge.textContent).toContain("radio1 / receiver1 / VFO A · generation 7");
+  view={...view,projectionRevision:7,projection:{...view.projection,draft:{...projection.draft,draftID:"draft-b",callsign:"DL2B"},
+    session:{...projection.session,laneContext:{...laneContext,laneID:"laneB",binding:{...laneContext.binding,radioID:"radio2",generation:"connection-8"}}}}};
+  await act(async()=>native.wake?.());
+  await waitFor(()=>expect(badge.textContent).toContain("Lane B · SO2R"));
+  expect(badge.textContent).toContain("generation connection-8");
+  expect(screen.getByRole("textbox",{name:"Callsign"}).getAttribute("value")).toBe("DL2B");
+  expect(native.invoke.mock.calls.some(([command])=>["contest_surface_action","contest_lane_output_request","cw_session_request"].includes(command))).toBe(false);
+});
+
 it("maps only contest-projected located spots with CQ WW multiplier colors",()=>{
   const located={...sharedSpot,latitude:51,longitude:13};
   const projected=[

@@ -1313,9 +1313,28 @@ fn validate_manual_context(value: &Value) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_entry_lane_context(value: &Value) -> Result<(), String> {
+    let lane = object(value, "entry lane")?;
+    exact(lane, &["mode", "laneID", "bindingVersion", "binding"], "entry lane")?;
+    if !matches!(lane["mode"].as_str(), Some("SO2V" | "SO2R")) || !matches!(lane["laneID"].as_str(), Some("laneA" | "laneB")) {
+        return Err("Unknown operating lane.".into());
+    }
+    uint_value(&lane["bindingVersion"], MAX_SAFE_INTEGER, "lane binding revision")?;
+    if lane["binding"].is_null() { return Ok(()); }
+    let binding = object(&lane["binding"], "lane receiver binding")?;
+    exact(binding, &["radioID", "receiverID", "vfo", "sliceID", "generation"], "lane receiver binding")?;
+    if !matches!(binding["radioID"].as_str(), Some("radio1" | "radio2")) { return Err("Unknown lane radio slot.".into()); }
+    for key in ["receiverID", "vfo"] { text_value(&binding[key], 128, false, "lane receiver identity")?; }
+    if !binding["sliceID"].is_null() { text_value(&binding["sliceID"], 128, false, "lane slice identity")?; }
+    if binding["generation"].is_string() { text_value(&binding["generation"], 128, false, "lane connection generation")?; }
+    else { uint_value(&binding["generation"], MAX_SAFE_INTEGER, "lane connection generation")?; }
+    Ok(())
+}
+
 fn validate_entry_projection_body(value: &Map<String, Value>) -> Result<(), String> {
     let session = object(&value["session"], "entry session")?;
-    exact(session, &["name", "ruleName", "mode"], "entry session")?;
+    exact_optional(session, &["name", "ruleName", "mode"], &["laneContext"], "entry session")?;
+    if let Some(lane) = session.get("laneContext") { validate_entry_lane_context(lane)?; }
     for key in ["name", "ruleName"] {
         text_value(&session[key], 160, false, "entry session text")?;
     }
@@ -3113,6 +3132,20 @@ mod tests {
     const SESSION: &str = "20000000-0000-4000-8000-000000000001";
     const WORKSPACE: &str = "30000000-0000-4000-8000-000000000001";
     const REQUEST: &str = "40000000-0000-4000-8000-000000000001";
+    #[test]
+    fn detached_lane_identity_preserves_generation_type_and_never_accepts_output_authority() {
+        let mut lane = json!({"mode":"SO2R","laneID":"laneB","bindingVersion":2,"binding":{
+            "radioID":"radio2","receiverID":"receiver2","vfo":"B","sliceID":null,"generation":7}});
+        assert!(validate_entry_lane_context(&lane).is_ok());
+        lane["binding"]["generation"] = json!("connection-7");
+        assert!(validate_entry_lane_context(&lane).is_ok());
+        lane["binding"]["transmitting"] = json!(true);
+        assert!(validate_entry_lane_context(&lane).is_err());
+        lane["binding"] = Value::Null;
+        assert!(validate_entry_lane_context(&lane).is_ok());
+        lane["laneID"] = json!("active");
+        assert!(validate_entry_lane_context(&lane).is_err());
+    }
     fn context() -> ContestWindowContext {
         ContestWindowContext {
             operating_context: OPERATING.into(),
