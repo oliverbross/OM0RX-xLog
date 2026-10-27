@@ -41,6 +41,10 @@ The narrow correction reuses the existing correlated renderer preparation handsh
 
 Source gates: the UI run hit its wrapper deadline after 65 successful files; five ARRL DX cases passed on an unchanged isolated rerun after two initial failures. The unrun 267 files then passed 1,770 cases. Distinct combined coverage is **4,672 tests / 333 files**, not a single uninterrupted green command. The Quit correction passed **205 affected UI cases**, TypeScript, **910 Rust unit / 26 integration** cases and the existing correlated-ack/veto tests. These overlap earlier counts; unaffected Python and compiled Swift evidence is reused.
 
+**1.3.52 also failed native acceptance**, retained unchanged at clean source `be1133f70fb8ecb9481b3b5ace88e91bf4e05d96`, tree SHA-256 `73b08ec5bcb7cad00ed9a27b632793e3753e92d9f57827c14eda2a92ccb5c994`. Ordinary menu Quit again lost the unblurred `315` received exchange; the sequence stopped, with actual state/operation receipts preserved in `native52-quit-actual-observation.json`. The callsign, draft identity, serial 104, four contacts and zero output claims remained. The first read-only assertion failed and the shell subsequently reopened the same fixture; no lost field was silently restored or described as preserved. The idle reopened candidate was then quit normally.
+
+Owning dependency code establishes the missing connection: Muda 0.20.0 maps its predefined macOS Quit to Cocoa `terminate:`, and Tao 0.37.1's `applicationWillTerminate` exits without the cancellable Tauri `RequestExit` path. The narrow follow-up replaces that menu item in place, preserving its title and Command-Q, with an application-owned command that calls `app.exit(0)` and reaches the existing correlated preparation guard. No emergency Stop/release behavior or Escape binding changes. **1.3.53** is the necessary unused replacement; its exact clean source and native outcome remain pending. Dock/OS termination and abrupt crash durability are not inferred from menu/Command-Q evidence. This is unrelated to the unresolved historical Clear initiators.
+
 ## Retained boundaries
 
 ### W14 implementation checkpoint — source and early native, candidate pending

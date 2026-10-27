@@ -792,6 +792,15 @@ fn append_application_settings(app: &tauri::AppHandle, menu: &Menu<tauri::Wry>) 
     let settings = MenuItem::with_id(app, "workspace_screen_settings", "Settings…", true, Some("CmdOrCtrl+,"))?;
     let separator = PredefinedMenuItem::separator(app)?;
     application.insert_items(&[&settings, &separator], 2)?;
+    // Muda's predefined macOS Quit invokes Cocoa terminate: directly, which
+    // bypasses cancellable Tauri ExitRequested. Keep Cmd-Q and the existing
+    // menu position, but enter our correlated draft/output preparation path.
+    let cocoa_quit = PredefinedMenuItem::quit(app, None)?;
+    let position = application.items()?.iter().position(|item| item.id() == cocoa_quit.id())
+        .ok_or_else(|| tauri::Error::Io(std::io::Error::other("Application Quit item is unavailable")))?;
+    let guarded_quit = MenuItem::with_id(app, "workspace_guarded_quit", format!("Quit {app_name}"), true, Some("CmdOrCtrl+Q"))?;
+    application.remove_at(position)?;
+    application.insert(&guarded_quit, position)?;
     Ok(())
 }
 
@@ -3939,6 +3948,10 @@ fn main() {
             }
         })
         .on_menu_event(|app, event| {
+            if event.id().0 == "workspace_guarded_quit" {
+                app.exit(0);
+                return;
+            }
             if event.id().0 == MAIN_WORKSPACE_MENU_ID {
                 let app = app.clone();
                 tauri::async_runtime::spawn_blocking(move || {
