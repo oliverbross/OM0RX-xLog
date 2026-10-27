@@ -51,6 +51,16 @@ Separate unresolved gates: NL-06 capacity/coalescing; NL-07 physical Flex identi
 
 ## Remaining boundaries
 
+## First signed candidate and demonstrated replacement blocker
+
+Signed **1.3.47**, clean canonical source **`1e179ce40eed6b86b726ceaede6af961954fe3f1`**, is retained unchanged at `.build/releases/1.3.47/OM0RX-xLog.app`. Developer ID/deep/strict verification, eight component hashes, all bundled Python owner bytes and native/distribution/Python/CW provenance passed. The normalized 4,100-entry tree SHA-256 is `233f8bbe088db5bf82659a1a77eecc5f504a799c728da9ac6405f7b50e33d1fe`. The first build launcher hit its 120-second idle timeout before producing an app; the completed build resumed from the same clean source/cache with a longer deadline.
+
+**1.3.47 is not accepted.** Its actual two bundled workers rejected the commit/correction page with `replica_conflict`. Independent inspection of the actual Swift wire and a SQLite-affinity replay confirmed numerically equal `Freq`/`QSXFreq` `14025.0` versus `14025`, and `Band` `14.0` versus `14`. Textual canonical JSON equality incorrectly rejected these before-images. The raw page, exact diagnosis and both failed disposable stores are retained under `.build/releases/1.3.47/wave4-acceptance-evidence/failed-two-host-attempt/`. The updated rejection receipt SHA-256 is `3d5da208565359ad328b562cef7a78cba1a7a270da2ba0d9e0ed71c081424031`; no bundle was patched or relabelled.
+
+The narrowly scoped replica-image comparison now preserves exact numeric values across the JSON/SQLite boundary while continuing to reject boolean substitutions, changed values, missing keys and identity differences. Payload receipts/digests and the wire protocol remain unchanged. The transport-normalization regression failed before the fix; all 14 multi-operator Host cases passed afterward, including atomic rejection of a boolean-for-number substitution. Unaffected coherent gates above are reused. A new clean, uniquely versioned replacement and actual bundled/native completion remain required; installation stays unauthorized.
+
+## Remaining boundaries
+
 No live peers/accounts/providers, uploads, physical radio/PTT/RF/rotor, physical audio capture/playback, production migration/rescore or installation. Only isolated disposable storage and admitted loopback/fake transports may be used. Real external engines require demonstrably absent radio/audio/output configuration; otherwise their acceptance remains explicitly untested. Hardware-dependent checks cannot be inferred from software fixtures.
 
 Retain the unsaved-note tab-navigation limitation: an unsaved editor is view-local until Save. Retain the WebKit IndexedDB `IDBKEY` collation limitation: verified backup bytes do not constitute a successful SQL integrity check. Candidate identity, receipt, native results and exact remaining external gates will be recorded here before readiness is declared.

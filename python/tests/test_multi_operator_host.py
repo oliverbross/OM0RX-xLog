@@ -126,6 +126,31 @@ class MultiOperatorHostTests(unittest.TestCase):
             }})
         self.assertEqual(failure.exception.code, "stale_context")
 
+    def test_swift_json_integral_numbers_preserve_replica_before_image_fences(self):
+        reservation=self.reserve()
+        qso=uid()
+        committed=self.remote(action="commit",qsoID=qso,timestamp="2026-10-27 12:00:00",frequencyHz=14025000,
+                              serialRequestID=reservation["requestID"],fields={"callsign":"K1ABC","other_2":"101"})
+        self.remote(action="correct",qsoID=qso,baseRevision=committed["changeRevision"],fields={"other_2":"102"},reason="Transported correction")
+        changes=self.call("multi_changes",requestID=uid(),afterRevision=0,afterSequence=0,limit=100)
+        def swift_numbers(value):
+            if isinstance(value,dict):return {key:swift_numbers(item) for key,item in value.items()}
+            if isinstance(value,list):return [swift_numbers(item) for item in value]
+            return int(value) if type(value) is float and value.is_integer() else value
+        transported=swift_numbers(changes)
+        self.assertIs(type(transported["changes"][0]["after"]["Freq"]),int)
+        replica,workspace,projection=self.create_replica_session()
+        next_reservation=self.reserve()
+        tampered=deepcopy(transported)
+        tampered["changes"][1]["beforeIdentity"]["deleted"]=0
+        with self.assertRaises(HostError) as failure:self.apply_replica(replica,workspace,projection,tampered,next_reservation)
+        self.assertEqual(failure.exception.code,"replica_conflict")
+        self.assertEqual(self.host.database(replica).exec_sql("SELECT count(*) AS n FROM DXLOG")["n"],0)
+        applied,_=self.apply_replica(replica,workspace,projection,transported,next_reservation)
+        self.assertEqual(applied["projection"]["score"],self.call("projection")["projection"]["score"])
+        row=self.host.database(replica).exec_sql("SELECT NR FROM DXLOG WHERE ID=?",(qso,))
+        self.assertEqual(row["NR"],102)
+
     def test_remote_apply_dupe_conflicts_and_revision_cursor_changes_survive_restart(self):
         serial_request = uid()
         reservation = self.reserve(serial_request)

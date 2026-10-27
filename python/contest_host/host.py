@@ -186,6 +186,24 @@ def require(condition, message, code="invalid_request"):
         raise HostError(code, message)
 
 
+def replica_wire_equal(left, right):
+    """Exact JSON values across Swift's integral-number encoding and SQLite.
+
+    14025.0 and 14025 carry the same numeric value; booleans, strings, missing
+    keys and changed numeric values must still fail the before-image fence.
+    Keep payload receipts/digests unchanged: this applies only to replica images.
+    """
+    if type(left) is bool or type(right) is bool:
+        return type(left) is type(right) and left == right
+    if type(left) in {int, float} and type(right) in {int, float}:
+        return (type(left) is not float or math.isfinite(left)) and (type(right) is not float or math.isfinite(right)) and left == right
+    if isinstance(left, dict) and isinstance(right, dict):
+        return left.keys() == right.keys() and all(replica_wire_equal(left[key], right[key]) for key in left)
+    if isinstance(left, list) and isinstance(right, list):
+        return len(left) == len(right) and all(replica_wire_equal(a, b) for a, b in zip(left, right))
+    return type(left) is type(right) and left == right
+
+
 CQ_WW_STATION_ZONE_PLUGINS = {"cq_ww_cw", "cq_ww_ssb"}
 CQ_WW_SSB_LOG_COLUMNS = (
     "YYYY-MM-DD HH:MM:SS", "Call", "Freq", "Snt", "Rcv",
@@ -2295,7 +2313,7 @@ class Host:
                        store.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,)) or None)
             current_identity = (reconciled_identities.get(qso_id) if reconciling_history else
                                 self.replica_identity(store, qso_id))
-            require(canonical(current) == canonical(before) and canonical(current_identity) == canonical(before_identity),
+            require(replica_wire_equal(current, before) and replica_wire_equal(current_identity, before_identity),
                     "Replica contact differs from the authoritative before-image", "replica_conflict")
             require((kind == "commit" and before is None and after is not None) or
                     (kind == "correct" and before is not None and after is not None) or
@@ -2419,7 +2437,7 @@ class Host:
         self.rebuild(desk)
         for qso_id, expected in touched.items():
             actual = store.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,)) or None
-            if expected is not None and canonical(actual) != canonical(expected):
+            if expected is not None and not replica_wire_equal(actual, expected):
                 # The master audit image is authoritative. Rebuild first so
                 # correction side-effects reach other rows, then restore the
                 # exact changed row for future before-image fencing.
