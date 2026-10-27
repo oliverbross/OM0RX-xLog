@@ -1,0 +1,267 @@
+{
+  "cq_wpx_cw": {
+    "expectedExportRecords": {
+      "cabrillo": "QSO: 14025 CW 2026-10-21 1000 OM0RX         599 1      K1ABC         599 404"
+    },
+    "expectedFirstContact": {
+      "multipliers": 1,
+      "points": 3,
+      "total": 3
+    },
+    "fixture": {
+      "fields": {
+        "callsign": "K1ABC",
+        "other_1": "002",
+        "other_2": "404",
+        "receive": "599",
+        "sent": "599"
+      },
+      "firstRow": {
+        "Call": "K1ABC"
+      },
+      "fixture": "test_multi_operator_host.MultiOperatorHostTests.test_empty_replica_page_does_not_skip_later_contact_and_contest_number_is_local",
+      "mode": "CW",
+      "state": {
+        "draft": {
+          "frequencyHz": 14025000
+        },
+        "reference": {
+          "countries": {
+            "K1ABC": {
+              "continent": "NA",
+              "cq": 5,
+              "entity": "United States",
+              "itu": 8,
+              "primary_pfx": "K"
+            },
+            "OM0RX": {
+              "continent": "EU",
+              "cq": 15,
+              "entity": "Slovak Republic",
+              "itu": 28,
+              "primary_pfx": "OM"
+            }
+          },
+          "id": "test-cty-v1"
+        },
+        "settings": {
+          "ModeCategory": "CW",
+          "OverlayCategory": "N/A",
+          "SentExchange": "CONFIGURED"
+        },
+        "station": {
+          "Call": "OM0RX",
+          "GridSquare": "JN88"
+        }
+      }
+    }
+  },
+  "darc_vhf": {
+    "expectedExportRecords": {
+      "cabrillo": "QSO: 144300 CW 2026-10-21 1000 OM0RX         599 1      K1ABC         599 101    JO60AA",
+      "edi": "261021;1000;K1ABC;2;599;001;599;101;;JO60AA;443;; ; ;"
+    },
+    "expectedFirstContact": {
+      "multipliers": 0,
+      "points": 443,
+      "total": 443
+    },
+    "fixture": {
+      "fields": {
+        "callsign": "K1ABC",
+        "other_1": "001",
+        "other_2": "101 JO60AA",
+        "receive": "599",
+        "sent": "599"
+      },
+      "firstRow": {
+        "Call": "K1ABC"
+      },
+      "fixture": "test_final_remaining_plugins_host.FinalRemainingPluginTests.test_grid_exchanges_are_strict_and_normalized",
+      "mode": "CW",
+      "state": {
+        "draft": {
+          "frequencyHz": 144300000
+        },
+        "reference": {
+          "countries": {
+            "DL1ABC": {
+              "continent": "EU",
+              "cq": 14,
+              "entity": "Germany",
+              "itu": 28,
+              "primary_pfx": "DL"
+            },
+            "K1ABC": {
+              "continent": "NA",
+              "cq": 5,
+              "entity": "United States",
+              "itu": 8,
+              "primary_pfx": "K"
+            },
+            "OM0RX": {
+              "continent": "EU",
+              "cq": 15,
+              "entity": "Slovak Republic",
+              "itu": 28,
+              "primary_pfx": "OM"
+            },
+            "OM1ABC": {
+              "continent": "EU",
+              "cq": 15,
+              "entity": "Slovak Republic",
+              "itu": 28,
+              "primary_pfx": "OM"
+            }
+          },
+          "id": "final-seven-cty-v1"
+        },
+        "settings": {
+          "BandCategory": "ALL",
+          "ModeCategory": "CW",
+          "OperatorCategory": "SINGLE-OP",
+          "OverlayCategory": "N/A",
+          "PowerCategory": "LOW",
+          "SentExchange": "#",
+          "StartDate": "2026-10-21 00:00:00"
+        },
+        "station": {
+          "Call": "OM0RX",
+          "GridSquare": "JN88XX"
+        }
+      }
+    }
+  },
+  "naqp_cw": {
+    "expectedExportRecords": {
+      "cabrillo": "QSO: 14025 CW 2026-10-21 1000 OM0RX         OLIVER DX K1ABC         JOHN        CT"
+    },
+    "expectedFirstContact": {
+      "multipliers": 1,
+      "points": 1,
+      "total": 1
+    },
+    "fixture": {
+      "fields": {
+        "callsign": "K1ABC",
+        "other_1": "JOHN",
+        "other_2": "CT",
+        "receive": "599",
+        "sent": "599"
+      },
+      "firstRow": {
+        "Call": "K1ABC"
+      },
+      "fixture": "test_next_cw_plugins_host.NAQPCWHostTests.test_original_run_esm_emits_exchange_and_commits",
+      "mode": "CW",
+      "state": {
+        "draft": {
+          "frequencyHz": 14025000
+        },
+        "reference": {
+          "countries": {
+            "DL1ABC": {
+              "continent": "EU",
+              "cq": 14,
+              "entity": "Germany",
+              "itu": 28,
+              "primary_pfx": "DL"
+            },
+            "K1ABC": {
+              "continent": "NA",
+              "cq": 5,
+              "entity": "United States",
+              "itu": 8,
+              "primary_pfx": "K"
+            },
+            "OM0RX": {
+              "continent": "EU",
+              "cq": 15,
+              "entity": "Slovak Republic",
+              "itu": 28,
+              "primary_pfx": "OM"
+            },
+            "OM1ABC": {
+              "continent": "EU",
+              "cq": 15,
+              "entity": "Slovak Republic",
+              "itu": 28,
+              "primary_pfx": "OM"
+            }
+          },
+          "id": "test-cty-v1"
+        },
+        "settings": {
+          "BandCategory": "ALL",
+          "ModeCategory": "CW",
+          "OperatorCategory": "SINGLE-OP",
+          "OverlayCategory": "N/A",
+          "PowerCategory": "LOW",
+          "SentExchange": "OLIVER DX"
+        },
+        "station": {
+          "Call": "OM0RX",
+          "GridSquare": "JN88"
+        }
+      }
+    }
+  },
+  "wae_cw": {
+    "expectedExportRecords": {
+      "cabrillo": "QSO: 14025 CW 2026-10-21 1000 OM0RX 599 1 K1ABC 599 21"
+    },
+    "expectedFirstContact": {
+      "multipliers": 2,
+      "points": 1,
+      "total": 2
+    },
+    "fixture": {
+      "fields": {
+        "callsign": "K1ABC",
+        "other_1": "002",
+        "other_2": "21",
+        "receive": "599",
+        "sent": "599"
+      },
+      "firstRow": {
+        "Call": "K1ABC"
+      },
+      "fixture": "test_wave5_qtc_host.QTCTests.test_partial_batch_restart_receipt_replay_and_independent_score_export",
+      "mode": "CW",
+      "state": {
+        "draft": {
+          "frequencyHz": 14025000,
+          "mode": "CW"
+        },
+        "reference": {
+          "countries": {
+            "K1ABC": {
+              "continent": "NA",
+              "cq": 5,
+              "entity": "United States",
+              "itu": 8,
+              "primary_pfx": "K"
+            },
+            "OM0RX": {
+              "continent": "EU",
+              "cq": 15,
+              "entity": "Slovak Republic",
+              "itu": 28,
+              "primary_pfx": "OM"
+            }
+          },
+          "id": "test-cty-v1"
+        },
+        "settings": {
+          "ModeCategory": "CW",
+          "OverlayCategory": "N/A",
+          "SentExchange": "#"
+        },
+        "station": {
+          "Call": "OM0RX",
+          "GridSquare": "JN88"
+        }
+      }
+    }
+  }
+}

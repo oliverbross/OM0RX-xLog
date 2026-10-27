@@ -22,6 +22,7 @@ from .rates import calculate_rates
 from .analytics import AnalyticsCopies
 from .legacy_import import LegacyImportError, inspect_source, row_digest
 from .n1mm import N1MMOutput
+from .wae import DEFINITION_VERSION as WAE_DEFINITION_VERSION, RULE_EDITION as WAE_RULE_EDITION, PLUGINS as WAE_PLUGINS
 from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, ARRL_VHF_PLUGINS, CENTRAL_EUROPEAN_PLUGINS,
                       CONDITIONAL_SERIAL_PLUGINS,
                       CONFIGURED_SENTNR_PLUGINS, CQ_160_PLUGINS,
@@ -1031,8 +1032,8 @@ class Desk:
                                              self.state.get("replicaReservation", {}).get("requestID")),
                 "sourceRevision": SOURCE_REVISION,
                 "ruleIdentity": {"id": self.state["pluginID"].replace("_", "-"),
-                                 "version": self.state.get("scoringRevision") or "26.10.11",
-                                 "edition": "not1mm-python", "sourceRevision": SOURCE_REVISION},
+                                 "version": self.state.get("definitionVersion") or self.state.get("scoringRevision") or "26.10.11",
+                                 "edition": WAE_RULE_EDITION if self.state["pluginID"] in WAE_PLUGINS else "not1mm-python", "sourceRevision": SOURCE_REVISION},
                 "supportedBands": list(plugin.bands), "supportedModes": list(plugin.modes),
                 "allowDuplicateCommit": plugin.allow_duplicate_commit,
                 "digitalLoggingSupported": callable(getattr(self.contest, "ft8_handler", None)),
@@ -1514,6 +1515,12 @@ class Host:
             require(type(params.get("expectedRevision")) is int and params["expectedRevision"] == state["revision"],
                     "Contest snapshot changed; refresh before review", "stale_revision")
             if method == "strategy":
+                if params.get("section") == "developer":
+                    from .developer import TEMPLATES, describe, inspect_udc
+                    raw=params.get("udcText")
+                    require(raw is None or isinstance(raw,str) and len(raw.encode())<=65536, "UDC inspection exceeds the bounded text limit")
+                    require(raw is not None or params.get("templateID", "cq_wpx_cw") in TEMPLATES, "No reviewed developer template mapping is supplied for this definition")
+                    return inspect_udc(raw.encode()) if raw is not None else describe(params.get("templateID", "cq_wpx_cw"))
                 if params.get("section") == "vhf":
                     from .vhf import projection
                     return projection(Desk(store, state, self.commit), params)
@@ -3394,6 +3401,9 @@ class Host:
                 and isinstance(state["station"].get("Call"), str)
                 and "SentExchange" in state["settings"],
                 "Incomplete persisted session state", "invalid_session")
+        if state["pluginID"] in WAE_PLUGINS:
+            require(state.get("definitionVersion") == WAE_DEFINITION_VERSION,
+                    "This WAE definition version requires explicit compatibility review; retained contacts were not rescored", "engine_mismatch")
         # Optional analytical reference coordinates never gate the core log.
         # Creation validates them strictly; an old/incompatible coordinate is
         # retained and makes finite Needed unavailable without a migration.
@@ -3564,6 +3574,7 @@ class Host:
                 # Existing sessions have no marker and retain their pinned score.
                 # Setup edits/reopening never opt historical logs into new rules.
                 "scoringRevision": scoring_revision,
+                **({"definitionVersion":WAE_DEFINITION_VERSION} if plugin_id in WAE_PLUGINS else {}),
                 "operatingMode": live_mode,
                 "roverLocation": "",
                 "operator": text(params.get("operator", call), 32), "reference": {"id": text(reference["id"]), "countries": countries,

@@ -1,5 +1,25 @@
 # Contest plugin inventory and definition drafts
 
+## Current Python developer kit (Wave 5)
+
+The live application uses the current Python registry/Desk. The bounded kit below exports one of four existing reference examples (serial WPX, name/location NAQP, grid/distance DARC VHF, separate-journal WAE). It includes explicit field roles, valid and conditional examples, fixed independent score/export fixtures, versioned readiness/reference context, original callback bytes, the upstream license and a reproducible exact-file manifest. It does not install a new definition or certify generated rules.
+
+```sh
+python3 tools/contest_plugin_generator/python_template_kit.py --plugin cq_wpx_cw --output /tmp/new-python-contest-kit
+python3 tools/check_all_contests_readiness.py --plugin cq_wpx_cw --output /tmp/reference-lifecycle.json
+python3 -m unittest discover -s tools/contest_plugin_generator/tests -p test_python_template_kit.py -v
+```
+
+Use a fresh output directory. Review a deliberately changed identity/version, official dated participant/category rules, references, exchange roles, serial policy, correction/deletion/restart and independently expected exports before changing `python/contest_host/plugins.py` or its finite loader. Existing imported or completed sessions must not be rescored automatically. The manifest distinguishes the exact Git checkpoint and a modified working tree; bundled and pinned examples do not confer trust on a third-party modification. No downloaded Python loader exists in the application.
+
+UDC conversion is **deferred**, rather than approximated using the historical Swift converter. A diagnostic-only command retains exact original bytes, hashes every output and returns exit 2 for unsupported semantics:
+
+```sh
+python3 tools/contest_plugin_generator/python_template_kit.py --inspect-udc local-example.udc --output /tmp/new-udc-diagnostic
+```
+
+Bonus, QTC, dynamic exchange, expressions and imported control commands are never executed or silently translated. Productivity → Developer kit exposes the same read-only bundled manifest and text diagnostics. Developer installation remains explicit source review; general UDC and native N1MM database conversion remain separate scope. The older inventory/archive tooling below retains its own historical purpose and does not become a second live contest engine.
+
 This toolchain reads Python source with `ast.parse` and `ast.literal_eval`. It never imports a plugin, evaluates arbitrary expressions, or calls plugin functions. Comments are not treated as operational authority. The extractor records literal declarations, recognized UI wiring, contact mappings, function/dependency inventories, line spans and canonical AST fingerprints. A fingerprint is evidence that source shapes match; it is not proof that contest semantics match.
 
 Generate the pinned inventory and non-catalog Swift fixture:

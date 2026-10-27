@@ -42,6 +42,7 @@ import "./ContestProductivityTools.css";
 import { ContestReminders, type Sked, type PlannedMove } from "./ContestReminders";
 import { ContestQTC } from "./ContestQTC";
 import { ContestVHFDesk } from "./ContestVHFDesk";
+import { ContestDeveloperKit } from "./ContestDeveloperKit";
 import { ContestOpportunities } from "./ContestOpportunities";
 import { ContestMessageWorkbench } from "./ContestMessageWorkbench";
 import { ContestOperatingInfo } from "./ContestOperatingInfo";
@@ -3889,9 +3890,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
         ? !productivityOpen&&<section className="contest-welcome"><h2>Contest windows are ready</h2><p>Use the Contest menu to open and position Main Logging, Check Partial, Stats, Rates, Score Reporting, Messages, Logbook, Band Map, Cluster, Rotator, DXCC, Zone and Remote VFO windows.</p></section>
         : !productivityOpen&&<section className="contest-welcome"><h2>Preserved contest session</h2><p>This session predates detached contest windows for the current xLog workspace. Its Python/SQLite log is preserved; create a current-workspace contest before opening independent windows.</p></section>}</> : <section className="contest-welcome"><h2>Open a contest session</h2></section>}
     {productivityOpen&&projection&&<section className="contest-productivity-desk" aria-label="Productivity desk">
-      <nav className="contest-productivity-nav" aria-label="Productivity tools">{["Entry & stack","Check","Log & notes","Skeds","Opportunities","Info & time","Messages","QTC","VHF & sites","Submission"].map(tab=><button key={tab}
+      <nav className="contest-productivity-nav" aria-label="Productivity tools">{["Entry & stack","Check","Log & notes","Skeds","Opportunities","Info & time","Messages","QTC","VHF & sites","Developer kit","Submission"].map(tab=><button key={tab}
         type="button" aria-pressed={productivityTab===tab} onClick={()=>setProductivityTab(tab)}>{tab}</button>)}</nav>
       {dualContestLanes(projection)&&<p className="contest-source">Selected tools: {projection.operatingLanes!.keyboardLaneID==="laneA"?"Lane A":"Lane B"} · draft {projection.draftID.slice(0,8)}. Stack, notes, messages and loaded suggestions retain their captured lane.</p>}
+      {productivityTab==="Developer kit"&&<ContestDeveloperKit scope={projection} request={request as ContestRequest}/>}
       {productivityTab==="QTC"&&<ContestQTC scope={projection} request={request as ContestRequest} disabled={busy||retiring||configuredClient}
         onMutate={(action,values)=>savePlanning("contest_strategy_apply",{action,...values})} onEntry={()=>{setProductivityTab("Entry & stack");
           requestAnimationFrame(()=>{if(dualContestLanes(projection))document.querySelector<HTMLInputElement>(`[data-lane-id="${projection.operatingLanes!.keyboardLaneID}"] [data-contest-lane-field="callsign"]`)?.focus();

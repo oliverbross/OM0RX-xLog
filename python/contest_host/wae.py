@@ -11,6 +11,7 @@ import re
 
 PLUGINS = frozenset({"wae_cw", "wae_ssb", "wae_rtty"})
 RULE_EDITION = "DARC 2025-06-17 / 2026 event dates"
+DEFINITION_VERSION = "1.0.0"
 WAE_EU = frozenset("1A0 3A 4O 4U1I 4U1V 9A 9H C3 CT CU DL E7 EA EA6 EI ER ES EU F G GD GI GJ GM GM/s GU GW HA HB HB0 HV I IS IT JW JW/b JX LA LX LY LZ OE OH OH0 OJ0 OK OM ON OY OZ PA R1F RA RA2 S5 SM SP SV SV/A SV5 SV9 T7 TA1 TF TK UR YL YO YU Z6 Z3 ZA ZB".split())
 AREA_COUNTRIES = frozenset({"K", "VE", "VK", "ZL", "ZS", "JA", "BY", "PY"})
 
