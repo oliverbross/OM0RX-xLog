@@ -21,6 +21,8 @@ Coherent source gates: **468 Python tests**, **241 workspace/UI tests across sev
 
 ## Candidate and native acceptance
 
+Implementation source is **`d5761fb3b5d47e8e2c5787fdb5e46823f4f58f78`**, committed/pushed after the coherent source gates. The next unused application version is **1.3.40**. Packaging must run from the clean canonical version commit containing this entry with **`XLOG_CW_EXPERIMENTAL=0 CARGO_BUILD_JOBS=2 bash prototype/scripts/package-macos.sh`**. The existing packager embeds exact version-commit HEAD in native/distribution/Python/CW provenance; the retained receipt will record that full packaging SHA, signature and hashes before native acceptance. No production replacement is authorized.
+
 **In progress; no candidate acceptance is claimed yet.** Candidate source, version, signature, hashes, bundled provenance, real native sizing/focus, reminders/restart, occupied-draft protection, opportunities, timer boundaries, message import/preview/bank persistence and one bounded combined workload must be recorded before readiness. Reuse unaffected Wave 1 evidence; do not reinstall or repeat its full checklist.
 
 No installation, live connection/upload/capture, synthetic production QSO, completed-log rescore, radio/PTT/RF/rotor action or CW decoding enablement is authorized. Fake transports/disposable stores establish software behavior only. Stop before installation and Wave 3.
