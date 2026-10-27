@@ -128,6 +128,19 @@ class MessageTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             apply_message_mutation(current, "message_bank_activate", {"bankID": "missing"})
 
+    def test_activation_requires_host_defaults_when_no_setup_override_exists(self):
+        current = state()
+        defaults = current.pop("setup")
+        saved = apply_message_mutation(current, "message_bank_save", {"bank": self.imported()["bank"]})
+        bank_id = saved["banks"][0]["id"]
+        before = deepcopy(current)
+        with self.assertRaisesRegex(ValueError, "Canonical contest setup"):
+            apply_message_mutation(current, "message_bank_activate", {"bankID": bank_id})
+        self.assertEqual(current, before)
+        apply_message_mutation(current, "message_bank_activate", {"bankID": bank_id}, setup_document=defaults)
+        self.assertEqual(current["setup"]["preferences"], defaults["preferences"])
+        self.assertEqual(defaults["macros"][0]["template"], "CQ")
+
     def test_bounds_and_unavailable_serial_are_explicit(self):
         with self.assertRaises(ValueError):
             self.imported("x" * 65537)

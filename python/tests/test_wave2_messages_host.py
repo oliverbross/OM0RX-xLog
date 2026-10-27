@@ -99,6 +99,35 @@ class MessageHostTests(unittest.TestCase):
         self.assertEqual(after["reservedSerial"], before["reservedSerial"])
         self.assertEqual(self.call("log")["total"], 0)
 
+    def test_new_session_bank_activation_without_setup_save_uses_canonical_defaults(self):
+        # A real newly created session has no persisted setup override yet.
+        self.session, self.revision = uid(), 0
+        self.call("session_create", {"operationID": uid(), "pluginID": "cq_wpx_cw",
+            "station": {"Call": "OM0RX", "CQZone": "15", "GridSquare": "JN88"},
+            "frequencyHz": 14025000, "settings": {"SentExchange": "", "OperatorCategory": "SINGLE-OP", "BandCategory": "ALL", "PowerCategory": "LOW"},
+            "reference": {"id": "new-disposable-cty", "countries": {"OM0RX": {"entity": "Slovak Republic", "continent": "EU", "cq": 15, "itu": 28, "primary_pfx": "OM"}}}})
+        self.assertNotIn("setup", self.host.database(self.session).state(self.session))
+        before = self.call("projection")["projection"]
+        defaults = self.call("setup_get")["setup"]
+        imported = self.imported()
+        saved = self.mutate("contest_message_bank_save", bank=imported["bank"])
+        self.assertNotIn("setup", self.host.database(self.session).state(self.session))
+        operation = {"operationID": uid(), "bankID": saved["waveResult"]["banks"][0]["id"]}
+        with patch.object(Desk, "process_function_key", side_effect=AssertionError("activation emitted output")):
+            activated = self.call("contest_message_bank_activate", operation)
+        self.assertEqual(activated["actions"], [])
+        self.assertEqual(activated["setup"], {**defaults, "macros": imported["bank"]["macros"]})
+        for name in ("draftID", "fields", "reservedSerial", "frequencyHz", "mode", "run"):
+            self.assertEqual(activated["projection"][name], before[name], name)
+        self.assertEqual(self.call("log")["total"], 0)
+        self.host.close()
+        self.host = Host(self.root)
+        reopened = self.call("setup_get")["setup"]
+        self.assertEqual(reopened, activated["setup"])
+        replayed = self.call("contest_message_bank_activate", {**operation, "expectedRevision": saved["revision"]})
+        self.assertTrue(replayed["replayed"])
+        self.assertEqual(replayed["actions"], [])
+
 
 if __name__ == "__main__":
     unittest.main()

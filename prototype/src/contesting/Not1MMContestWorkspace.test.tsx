@@ -406,6 +406,53 @@ const projection = (revision = 1, values: Record<string, string> = {}) => ({
   ].map(([id, label, visible, value]) => ({ id, label, accessibleName: label, visible, value: values[id as string] ?? value, readOnly: false, enabled: true })),
 });
 
+it("keeps the focused Call enabled and preserves buffered typing during an automatic reminder claim",async()=>{
+  let current=projection(),claimed=false,releaseRead!:()=>void,releaseClaim!:()=>void;
+  const readGate=new Promise<void>(resolve=>{releaseRead=resolve;}),claimGate=new Promise<void>(resolve=>{releaseClaim=resolve;});
+  const sked={id:"passive-due-sked",callsign:"DL1ABC",text:"Return contact",frequencyHz:14025000,mode:"CW",radioID:"radio2",
+    dueUTC:"2026-01-01T00:00:00.000Z",status:"active",schedule:1,deliveredSchedule:null,deliveredUTC:null,note:"",source:"Operator plan",
+    createdUTC:"2025-12-31T23:59:00.000Z",updatedUTC:"2025-12-31T23:59:00.000Z",history:[]};
+  const strategy=()=>({version:1,skeds:[{...sked,deliveredSchedule:claimed?1:null}],moves:[],dueCount:1});
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    let result:any;
+    if(method==="contest_catalog")result={plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]};
+    else if(method==="contest_sessions")result={sessions:[]};
+    else if(method==="contest_create"||method==="contest_draft_get")result={projection:current};
+    else if(method==="contest_log_page")result={rows:[],total:0};
+    else if(method==="contest_score")result={score:current.score,matrices:{countries:[],zones:[]}};
+    else if(method==="contest_check_partial")result={query:params.query,rows:[],total:0};
+    else if(method==="contest_strategy"){await readGate;result=strategy();}
+    else if(method==="contest_operation_receipt")result={found:false};
+    else if(method==="contest_strategy_apply"){
+      expect(params.action).toBe("claim_due");await claimGate;claimed=true;
+      // The host only changes delivery metadata; its draft still predates typing.
+      current=projection(current.revision+1);
+      result={operationID:params.operationID,projection:current,actions:[],messages:[],waveResult:{...strategy(),notifications:[sked]}};
+    }else throw Error(`Unexpected focus regression request ${method}`);
+    return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();
+  await userEvent.click(screen.getByRole("button",{name:"Productivity desk"}));
+  const call=await screen.findByRole("textbox",{name:"Call"}) as HTMLInputElement;
+  act(()=>{call.focus();fireEvent.change(call,{target:{value:"K1HOLD"}});});
+  expect(document.activeElement).toBe(call);
+  await act(async()=>{releaseRead();});
+  await waitFor(()=>expect(request.mock.calls.filter(([method])=>method==="contest_strategy_apply")).toHaveLength(1));
+  expect(call.disabled).toBe(false);expect(document.activeElement).toBe(call);expect(call.value).toBe("K1HOLD");
+  fireEvent.change(call,{target:{value:"K1HOLDX"}});
+  expect(call.value).toBe("K1HOLDX");
+  await act(async()=>{releaseClaim();});
+  await waitFor(()=>expect(request.mock.calls.some(([method])=>method==="contest_draft_get")).toBe(true));
+  await waitFor(()=>expect(screen.getByText("1 contest reminder is due. Open Skeds to review.")).toBeTruthy());
+  expect(call.disabled).toBe(false);expect(document.activeElement).toBe(call);expect(call.value).toBe("K1HOLDX");
+  expect(surfaceOwner.current.projections["active-qso"].draft.callsign).toBe("K1HOLDX");
+  expect(workspaceProps.stationTune).not.toHaveBeenCalled();expect(nativeCW.execute).not.toHaveBeenCalled();
+  expect(request.mock.calls.some(([method])=>method==="contest_qso_commit")).toBe(false);
+});
+
 it.each(["contest_log_page", "contest_score", "contest_rates"] as const)(
   "recovers a first-call %s failure without blocking the other auxiliary panels", async failedMethod => {
     const current = { ...projection(), score:{qsos:1,points:3,countries:1,zones:1,multipliers:2,total:6} };

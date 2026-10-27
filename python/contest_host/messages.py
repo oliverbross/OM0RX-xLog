@@ -183,8 +183,12 @@ def message_projection(state):
     return {"banks": deepcopy(data.get("banks", [])), "activeBankID": data.get("activeBankID")}
 
 
-def apply_message_mutation(state, method, params):
-    """Called only inside the host's existing transaction/revision fence."""
+def apply_message_mutation(state, method, params, *, setup_document=None):
+    """Called inside the host transaction; host supplies its canonical default setup.
+
+    Newly created sessions have no persisted setup override until a setup edit
+    or message bank activation. Default construction stays with the host owner.
+    """
     data = deepcopy(state.get("messageWorkbench", {"banks": [], "activeBankID": None}))
     if method == "message_bank_save":
         bank = deepcopy(params.get("bank"))
@@ -227,7 +231,9 @@ def apply_message_mutation(state, method, params):
         # Reuse existing plugin-specific execution adapter, without executing anything.
         for row in rows:
             adapt_cw_template(state["pluginID"], row["template"])
-        setup = deepcopy(state["setup"])
+        setup = deepcopy(state.get("setup", setup_document))
+        if not isinstance(setup, dict):
+            raise ValueError("Canonical contest setup is required to activate this bank")
         setup["macros"] = rows
         state["setup"] = setup
         data["activeBankID"] = bank["id"]

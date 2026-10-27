@@ -2442,7 +2442,9 @@ class Host:
                         wave_result = deepcopy(plan)
                     else:
                         from .messages import apply_message_mutation
-                        wave_result = apply_message_mutation(state, method, params)
+                        message_setup = self.default_setup(state)
+                        message_setup["preferences"] = esm_preferences(message_setup["preferences"])
+                        wave_result = apply_message_mutation(state, method, params, setup_document=message_setup)
                         if method == "message_bank_activate":
                             desk = Desk(store, state, self.commit)
                 except ValueError as error:

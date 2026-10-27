@@ -742,6 +742,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
   const [projection, setProjection] = useState<Projection | null>(null), projectionRef = useRef<Projection | null>(null);
   const [productivityOpen,setProductivityOpen]=useState(false),[productivityTab,setProductivityTab]=useState("Entry & stack");
   const [reminderPrefill,setReminderPrefill]=useState<Partial<Sked>>({});
+  const [,refreshPlanningRecovery]=useState(0);
   const practiceTransitionRef=useRef(false);
   const logOrderRef=useRef({sort:"utc",direction:"descending"}),[logOrder,setLogOrder]=useState(logOrderRef.current);
   const typedFieldsRef=useRef<{draftID:string;fields:Set<string>}>({draftID:"",fields:new Set()});
@@ -2412,7 +2413,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     const base=projectionRef.current;if(!base||busyRef.current||retiring)throw Error("The contest owner is busy.");
     if(configuredClient)throw Error("Planning changes require the local authoritative desk.");
     assertNoPendingStack();const inputVersion=editVersionRef.current;
-    busyRef.current=true;setBusy(true);
+    const passiveClaim=method==="contest_strategy_apply"&&extra.action==="claim_due";
+    // Serialise the receipt without disabling the focused entry for a notification.
+    busyRef.current=true;if(!passiveClaim)setBusy(true);
     try{
       const changed=await planningMutation(base,method,{sessionID:base.sessionID,workspaceGeneration:base.workspaceGeneration,
         expectedRevision:base.revision,draftID:base.draftID,operationID:crypto.randomUUID(),...extra},result);
@@ -2424,7 +2427,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
         if(changed.effectiveMacros){setEffectiveMacros(changed.effectiveMacros);rememberSetup(changed.setup);}
       }
       return changed.waveResult;
-    }finally{busyRef.current=false;setBusy(false);}
+    }finally{busyRef.current=false;if(!passiveClaim)setBusy(false);refreshPlanningRecovery(value=>value+1);}
   };
   const loadReminder=async(item:Sked)=>{
     if(occupiedStackDraft(stackDraft()))throw Error("Entry is occupied. Park or finish it before loading this reminder.");
