@@ -54,6 +54,7 @@ import { planningMutation, planningRecoveryKey } from "./contestPlanningRecovery
 import { occupiedStackDraft } from "./contestCallStack";
 import { tuneContestReminder } from "./contestSpotTune";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { ContestOperatingLanes, type ContestLaneAction, type ContestOperatingLane } from "./ContestOperatingLanes";
 import { ContestCWCorrectionPanel } from "./ContestCWCorrectionPanel";
 import { assertContestLaneScope, captureContestLaneScope, contestLaneParams, contestLaneProjection, contestLaneSnapshot, contestLaneTuningBlockReason,
@@ -885,6 +886,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     }
   };
   const flushDraftRef = useRef<() => Promise<Projection | null>>(async () => projectionRef.current);
+  const flushAllDraftsRef = useRef<() => Promise<void>>(async () => {});
   const cw = useSharedCW(projection?.sessionID ?? "not1mm-no-session", retiring, setupOnly);
   projectionRef.current = projection; fieldsRef.current = fields;groupNetworkRef.current=groupNetwork;editingRef.current=editing;
   const selectedRadioFrequencyHz = !dualContestLanes(projection)&&!projection?.practice && typeof radioFrequencyHz === "number" && Number.isSafeInteger(radioFrequencyHz) &&
@@ -1532,12 +1534,19 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
       freeze: () => setRetiring(true), resume: () => setRetiring(false),
       prepare: async () => {
         if (busyRef.current || editing) throw new Error("Finish the current contest edit before changing operating module.");
-        await flushDraftRef.current();
+        await flushAllDraftsRef.current();
         await cw.controller.stop();
       },
     });
     return () => registerTransition(null);
   }, [registerTransition, editing, cw.controller]);
+
+  useEffect(()=>{
+    if(!setupOnly)return;let active=true,stop:(()=>void)|undefined;
+    void listen<string>("xlog:contesting-quit-blocked",event=>{if(active&&typeof event.payload==="string")setError(event.payload);})
+      .then(dispose=>{if(active)stop=dispose;else dispose();}).catch(()=>{});
+    return()=>{active=false;stop?.();};
+  },[setupOnly]);
 
   const mutate = async (method: string, base: Projection, extra: Record<string, unknown> = {}) => {
     const operationID = crypto.randomUUID();
@@ -1855,6 +1864,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     return changed.projection;
   };
   flushDraftRef.current = () => flushDraft();
+  flushAllDraftsRef.current = async () => {
+    const current=projectionRef.current;
+    if(current&&dualContestLanes(current)){
+      for(const lane of current.operatingLanes!.lanes)await flushLane(captureContestLaneScope(projectionRef.current!,lane.laneID));
+    }else await flushDraft();
+  };
   const runMutation = async (operation: (base: Projection) => Promise<MutationResult>, refreshViews = true,
     flushBuffered = true, preserveConcurrentEdits = false, throwFailures = false,
     consumeOutput?: (changed: MutationResult, origin: Projection) => Promise<MutationResult>, signal?: AbortSignal,

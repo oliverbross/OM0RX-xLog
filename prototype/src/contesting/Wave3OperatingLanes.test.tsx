@@ -88,6 +88,45 @@ it("real host persists independent lane typing, tunes nonfocused B explicitly, a
   }finally{cleanup();await host.close();}
 },20000);
 
+it.each(["SO1V","SO2R"])("existing renderer preparation saves unblurred %s fields without consuming drafts, serials or contacts",async mode=>{
+  const host=pythonHost(),sessionID=crypto.randomUUID(),workspaceGeneration=crypto.randomUUID();let transition:any;
+  const routes=[{radioID:"radio1",receiverID:"receiver1",vfo:"A",sliceID:null,generation:1},{radioID:"radio2",receiverID:"receiver1",vfo:"A",sliceID:null,generation:1}];
+  native.snapshot={simulated:true,externalIO:false,capabilities:{supported:true,routes},nativeContext:{workerGeneration:1},lanes:{},cw:{armed:false},listenLaneID:null,txLaneID:null};
+  try{
+    const made=await host.request("contest_session_create",{sessionID,workspaceGeneration,operationID:crypto.randomUUID(),expectedRevision:0,pluginID:"cq_wpx_cw",
+      station:fixture.state.station,settings:fixture.state.settings,reference:fixture.state.reference,frequencyHz:14_025_000,mode:"CW"});expect(made.ok).toBe(true);
+    let initial=made.result.projection;
+    if(mode==="SO2R")initial=(await host.request("contest_lanes_configure",{sessionID,workspaceGeneration,operationID:crypto.randomUUID(),expectedRevision:initial.revision,
+      mode:"SO2R",bindings:{laneA:routes[0],laneB:routes[1]}})).result.projection;
+    const view=render(<Not1MMContestWorkspace request={host.request} serviceRequest={async()=>({})} strictHostActive={{sessionID,workspaceGeneration}}
+      operatingContext="disposable-native-context" workspaceGeneration={workspaceGeneration} stationCall="OM0RX" contestingTest radioFrequencyHz={14_025_000}
+      registerTransition={value=>{transition=value;}} stationTune={async()=>{throw Error("Physical tune prohibited");}}
+      contestSpot={async()=>{throw Error("External spot publication prohibited");}} spots={[]} cluster={null}/>);
+    await waitFor(()=>expect(owner.current?.projections["active-qso"]?.status).toBe("ready"),{timeout:10000});
+    fireEvent.click(screen.getByRole("button",{name:"Productivity desk"}));
+    if(mode==="SO1V"){
+      fireEvent.change(screen.getByRole("textbox",{name:"Call"}),{target:{value:"K1HOLD"}});
+      fireEvent.change(screen.getByRole("textbox",{name:"Received Number"}),{target:{value:"315"}});
+      const before=(await host.request("contest_draft_get",{sessionID})).result.projection;
+      expect(before.fields.find((field:any)=>field.id==="other_2").value).toBe("");
+    }else{
+      for(const [lane,call,exchange] of [["laneA","K1LEFT","315"],["laneB","DL2RIGHT","416"]]){
+        fireEvent.change(view.container.querySelector(`[data-lane-id="${lane}"] [data-contest-lane-field="callsign"]`)!,{target:{value:call}});
+        fireEvent.change(view.container.querySelector(`[data-lane-id="${lane}"] [data-contest-lane-field="other_2"]`)!,{target:{value:exchange}});
+      }
+    }
+    await act(async()=>{transition.freeze();await transition.prepare();});
+    const after=(await host.request("contest_draft_get",{sessionID})).result.projection;
+    const lanes=mode==="SO2R"?after.operatingLanes.lanes:[after],original=mode==="SO2R"?initial.operatingLanes.lanes:[initial];
+    for(let index=0;index<lanes.length;index++){
+      expect(lanes[index].draftID).toBe(original[index].draftID);expect(lanes[index].reservedSerial).toBe(original[index].reservedSerial);
+      expect(lanes[index].fields.find((field:any)=>field.id==="other_2").value).toBe(index===0?"315":"416");
+    }
+    expect((await host.request("contest_log_page",{sessionID})).result.total).toBe(0);
+    expect(native.calls.filter(call=>["listen","requestTX","send","macro"].includes(call.action))).toEqual([]);
+  }finally{cleanup();await host.close();}
+},20000);
+
 it.each([14_026_000,14_025_000])("real Host preserves TX and RX %i and the other lane when unsupported Return CQ is requested",async receiveFrequencyHz=>{
   const host=pythonHost(),sessionID=crypto.randomUUID(),workspaceGeneration=crypto.randomUUID();
   const routes=[{radioID:"radio1",receiverID:"receiver1",vfo:"A",sliceID:null,generation:1},{radioID:"radio2",receiverID:"receiver1",vfo:"A",sliceID:null,generation:1}];

@@ -82,6 +82,8 @@ static CONTEST_SETUP_CREATION: Mutex<()> = Mutex::new(());
 static WORKSPACE_PRESENTATION: Mutex<bool> = Mutex::new(false);
 static FOREGROUND_PRESENTATION: Mutex<()> = Mutex::new(());
 static APP_EXITING: AtomicBool = AtomicBool::new(false);
+static CONTEST_QUIT_PREPARING: AtomicBool = AtomicBool::new(false);
+static CONTEST_QUIT_PREPARED: AtomicBool = AtomicBool::new(false);
 static MAIN_WORKSPACE_REOPENED: AtomicBool = AtomicBool::new(false);
 static SCP_IMPORT_ACTIVE: AtomicBool = AtomicBool::new(false);
 static HISTORY_PREVIEW_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -2648,10 +2650,15 @@ fn module_transition_editor(label: &str) -> bool {
 
 struct PreparedModuleTransition { request: String, windows: Vec<String> }
 
-fn prepare_module_transition(app: &tauri::AppHandle, _target: &str) -> Result<PreparedModuleTransition, String> {
+fn preparation_editor(label: &str, target: &str) -> bool {
+    if target == "quit-contesting" { label == CONTEST_SETUP_WINDOW }
+    else { module_transition_editor(label) }
+}
+
+fn prepare_module_transition(app: &tauri::AppHandle, target: &str) -> Result<PreparedModuleTransition, String> {
     // An absent renderer has no buffered text. Contest Setup may legitimately
     // have retired after its last child closed; inventory all surviving editors.
-    let windows = app.webview_windows().into_values().filter(|window| module_transition_editor(window.label())).collect::<Vec<_>>();
+    let windows = app.webview_windows().into_values().filter(|window| preparation_editor(window.label(), target)).collect::<Vec<_>>();
     let labels = windows.iter().map(|window| window.label().to_owned()).collect::<Vec<_>>();
     let preparation = operating_module_prepare::preparation();
     let request = preparation.begin(&labels)?;
@@ -2678,6 +2685,16 @@ fn finish_module_transition_preparation(app: &tauri::AppHandle, prepared: &Prepa
         }
     }
     operating_module_prepare::preparation().finish(&prepared.request);
+}
+
+/// Reuse the current contest owner's correlated flush/freeze acknowledgement.
+/// A failed or absent acknowledgement leaves the application and draft alive.
+/// This never restores a database or manufactures a contact/output action.
+fn prepare_contesting_quit(app: &tauri::AppHandle) -> Result<(), String> {
+    let prepared = prepare_module_transition(app, "quit-contesting")?;
+    let ready = contest_surface::retirement_ready();
+    finish_module_transition_preparation(app, &prepared, ready.is_err());
+    ready
 }
 
 fn unresolved_receipts(value: &serde_json::Value) -> bool {
@@ -4215,6 +4232,33 @@ fn main() {
         .build(context)
         .expect("Application failed to start")
         .run(|app, event| {
+            if let tauri::RunEvent::ExitRequested { api, .. } = &event {
+                if app.get_webview_window(CONTEST_SETUP_WINDOW).is_some()
+                    && !CONTEST_QUIT_PREPARED.load(Ordering::Acquire) {
+                    api.prevent_exit();
+                    if CONTEST_QUIT_PREPARING.compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire).is_ok() {
+                        let app = app.clone();
+                        tauri::async_runtime::spawn_blocking(move || {
+                            match prepare_contesting_quit(&app) {
+                                Ok(()) => {
+                                    CONTEST_QUIT_PREPARED.store(true, Ordering::Release);
+                                    CONTEST_QUIT_PREPARING.store(false, Ordering::Release);
+                                    app.exit(0);
+                                }
+                                Err(error) => {
+                                    CONTEST_QUIT_PREPARING.store(false, Ordering::Release);
+                                    eprintln!("Contest Quit cancelled; entry retained: {error}");
+                                    if let Some(window) = app.get_webview_window(CONTEST_SETUP_WINDOW) {
+                                        let _ = window.emit("xlog:contesting-quit-blocked", format!("Quit cancelled; your contest entry remains open. {error}"));
+                                        let _ = window.show(); let _ = window.set_focus();
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    return;
+                }
+            }
             if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
                 contest_recorder::shutdown();
                 if contest_voice::needs_shutdown_barrier() {
@@ -5178,6 +5222,19 @@ mod intelligence_window_tests {
             assert!(!super::local_history_reader(label, "cluster_history"));
         }
     }
+    #[test]
+    fn quit_preparation_uses_the_existing_contest_owner_without_requiring_unrelated_editors() {
+        assert!(super::preparation_editor(super::CONTEST_SETUP_WINDOW, "quit-contesting"));
+        for label in ["main", "logbook", "log-qso", "contesting-active-qso", "unknown"] {
+            assert!(!super::preparation_editor(label, "quit-contesting"));
+        }
+        for target in ["normal_logging", "contesting"] {
+            for label in ["main", "contest-setup", "logbook", "log-qso"] {
+                assert!(super::preparation_editor(label, target));
+            }
+        }
+    }
+
     #[test]
     fn intelligence_docks_to_the_existing_desk_without_a_new_main_screen() {
         assert_eq!(super::detached_dock_screen("previous-qsos").unwrap(), "operator-desk");
