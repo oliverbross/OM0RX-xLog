@@ -25,6 +25,37 @@ function startNote(text: string) {
 }
 afterEach(() => { vi.restoreAllMocks();flushUnfinishedEditors();cleanup(); localStorage.clear(); vi.clearAllMocks(); });
 
+it("retains independent unfinished lane and contest notes for explicit recovery without saving", async () => {
+  const save=vi.fn(async()=>{}),a={...scope,laneID:"laneA" as const},b={...scope,laneID:"laneB" as const,draftID:"draft-b"};
+  const mounted=render(<ContestNotesPanel {...noteProps(save)} scope={a}/>);
+  startNote("A exact Ω\n  original");fireEvent.click(screen.getByRole("button",{name:"Keep draft for later"}));
+  mounted.rerender(<ContestNotesPanel {...noteProps(save)} scope={b}/>);
+  startNote("B independent");fireEvent.click(screen.getByRole("button",{name:"Keep draft for later"}));
+  mounted.rerender(<ContestNotesPanel {...noteProps(save)} scope={{...scope,sessionID:"second-contest",draftID:"draft-c"}}/>);
+  startNote("C second contest");act(()=>flushUnfinishedEditors());
+  mounted.unmount();render(<ContestNotesPanel {...noteProps(save)} scope={b}/>);
+  const records=Object.keys(localStorage).filter(key=>key.includes("unsent-notes"));expect(records).toHaveLength(3);
+  const stored=records.map(key=>JSON.parse(localStorage.getItem(key)!));
+  expect(stored.find(row=>row.text.startsWith("A exact")).target).toMatchObject({sessionID:scope.sessionID,identity:{draftID:scope.draftID,laneID:"laneA"}});
+  expect(stored.find(row=>row.text==="B independent").target.identity).toEqual({draftID:"draft-b",laneID:"laneB"});
+  expect(stored.find(row=>row.text==="C second contest").target.sessionID).toBe("second-contest");
+  fireEvent.click(screen.getAllByRole("button",{name:"Recover retained draft"})[0]);
+  const recovered=(screen.getByRole("textbox",{name:"Operator note"}) as HTMLTextAreaElement).value;
+  expect(["A exact Ω\n  original","B independent"]).toContain(recovered);
+  fireEvent.click(screen.getByRole("button",{name:"Keep draft for later"}));
+  expect(Object.keys(localStorage).filter(key=>key.includes("unsent-notes"))).toHaveLength(3);expect(save).not.toHaveBeenCalled();
+});
+
+it("does not retire an editor when Keep draft for later cannot persist its last input",()=>{
+  render(<ContestNotesPanel {...noteProps(vi.fn(async()=>{}))}/>);startNote("Confirmed prefix");act(()=>flushUnfinishedEditors());
+  const original=Object.values(localStorage).find(value=>value.includes("Confirmed prefix"));
+  vi.spyOn(Storage.prototype,"setItem").mockImplementation(()=>{throw new Error("quota");});
+  fireEvent.change(screen.getByRole("textbox",{name:"Operator note"}),{target:{value:"Unretained suffix"}});
+  fireEvent.click(screen.getByRole("button",{name:"Keep draft for later"}));
+  expect((screen.getByRole("textbox",{name:"Operator note"}) as HTMLTextAreaElement).value).toBe("Unretained suffix");
+  expect(Object.values(localStorage)).toContain(original);expect(screen.getAllByRole("alert").some(node=>node.textContent?.includes("quota"))).toBe(true);
+});
+
 it("freezes a note's original lane and binding while the selected entry moves to another lane", async () => {
   const save = vi.fn(async (_target: NoteTarget, _text: string, _noteID: string) => {});
   const a = { ...scope, laneID: "laneA" as const, bindingVersion: 3, bindingGeneration: 9 };

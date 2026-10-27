@@ -56,6 +56,10 @@ export function useUnfinishedEditor<T>(prefix: string, valid: (target: unknown) 
     timer.current??=setTimeout(()=>{timer.current=undefined;try{flushRef.current();}catch{}},300);
   };
   const start=(target:T)=>{flush();if(current.current)throw Error("Keep or discard the existing draft before starting another note.");update(target,"");};
+  const keepForLater = () => {
+    flush(); // Only release this editor after its original record is verified.
+    current.current=null;original.current=null;setDraft(null);scan();
+  };
   const clear = () => {
     const value=current.current;if(!value)return;
     clearTimeout(timer.current);timer.current=undefined;
@@ -85,7 +89,7 @@ export function useUnfinishedEditor<T>(prefix: string, valid: (target: unknown) 
     if(raw!==null&&name){const value=JSON.parse(raw) as Draft<T>;if(value.id!==id||value.text!==text||!valid(value.target))throw Error("Original editor recovery changed; attempted note retained.");recover({key:name,raw,draft:value});return;}
     const next={schema:1 as const,id:crypto.randomUUID(),target,text};current.current=next;original.current=null;setDraft(next);flush();scan();
   };
-  return {draft,records,error,status,update,start,flush,clear,complete,restore,recover,archive,scan};
+  return {draft,records,error,status,update,start,flush,keepForLater,clear,complete,restore,recover,archive,scan};
 }
 
 export function UnfinishedEditorWarning(){

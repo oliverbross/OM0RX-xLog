@@ -109,6 +109,7 @@ function NotesEditor({scope,request,disabled,onSave,onLast}:{scope:Scope;request
       <button disabled={disabled||saving||!!recoveryFailure||!text.trim()||target.sessionID!==scope.sessionID||target.workspaceGeneration!==scope.workspaceGeneration} onClick={()=>void save()}>{uncertain?"Reconcile same note":"Save note"}</button>
       <button onClick={()=>void navigator.clipboard.writeText(text).catch(cause=>setError(message(cause)))}>Copy note draft</button>
       {!uncertain&&<><button disabled={saving} onClick={()=>{try{retained.flush();setHidden(true);}catch(cause){setError(message(cause));}}}>Cancel note (retain draft)</button>
+        <button disabled={saving} onClick={()=>{try{if(checkAttempt())return;retained.keepForLater();setHidden(false);}catch(cause){setError(message(cause));}}}>Keep draft for later</button>
         <button disabled={saving} onClick={()=>{try{if(checkAttempt())return;retained.clear();setHidden(false);}catch(cause){setError(message(cause));}}}>Discard draft</button></>}</div>}
     {error&&<p role="alert">{error}</p>}
     {notice&&<p role="status">{notice}</p>}
