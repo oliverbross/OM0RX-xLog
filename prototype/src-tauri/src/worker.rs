@@ -325,6 +325,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "contest_multi_contact_apply",
         "contest_multi_changes",
         "contest_multi_coordination",
+        "contest_network_pending",
         "contest_digital_select",
         "contest_multi_replica_apply",
         "contest_export_prepare",
@@ -1257,7 +1258,7 @@ fn request_is_non_retiring_read(request: &Value) -> bool {
         "logbook_matrix" | "cluster_history" | "cluster_snapshot" |
         "opportunities_snapshot" | "opportunities_refresh" |
         "opportunities_dxpedition_snapshot" | "opportunities_dxpedition_refresh" |
-        "wsjtx_snapshot" | "fldigi_snapshot" | "reference_resolve" | "contest_qso_get" | "contest_log_transfer_status" |
+        "wsjtx_snapshot" | "fldigi_snapshot" | "reference_resolve" | "contest_qso_get" | "contest_log_transfer_status" | "contest_network_pending" |
         "contest_export_prepare" | "contest_export_read" | "contest_export_release" | "contest_spot_points_preview" |
         "contest_scp_status" | "contest_scp_query" | "contest_scp_cancel" | "contest_scp_select" |
         "contest_history_status" | "contest_history_preview_page" | "contest_history_preview_cancel" |

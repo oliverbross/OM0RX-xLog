@@ -50,7 +50,16 @@ function dialogOwnedState(snapshot: SetupDialogSnapshot, kind: SetupDialogKind):
   if (kind === "macros") return snapshot.document.macros;
   if (kind === "keys") return snapshot.document.preferences.keyBindings;
   if (kind === "rover") return snapshot.auxiliary.roverLocation;
-  if (kind === "digital") return snapshot.auxiliary.digital;
+  if (kind === "digital") {
+    const value=snapshot.auxiliary.digital;
+    if (!value) return null;
+    // Native JSON key order and changing status text are not configuration changes.
+    return {configuration:{enabled:value.configuration.enabled,address:value.configuration.address,port:value.configuration.port,destination:value.configuration.destination},
+      running:value.running,receive_only:value.receive_only,contest_target_supported:value.contest_target_supported,
+      active_contest:value.active_contest?{session_id:value.active_contest.session_id,plugin_id:value.active_contest.plugin_id}:null,
+      fldigi:value.fldigi?{configuration:{receive_enabled:value.fldigi.configuration.receive_enabled,transmit_enabled:value.fldigi.configuration.transmit_enabled},
+        receive_supported:value.fldigi.receive_supported,transmit_supported:value.fldigi.transmit_supported,receive_running:value.fldigi.receive_running}:null};
+  }
   return { preferences: snapshot.document.preferences, network: snapshot.document.network };
 }
 

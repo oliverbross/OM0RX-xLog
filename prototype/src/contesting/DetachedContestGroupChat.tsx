@@ -15,7 +15,7 @@ export function DetachedContestGroupChat() {
     const refresh = async () => {
       try { const value = await readContestGroupChat(context); if (active) { setSnapshot(value); setError("");
         if(value.authority.status==="connected"||value.authority.role==="master"){const group=await requestContestGroupAuthority(context,"coordination",{action:"read"});if(active)setCoordination(group as ContestGroupCoordination);} } }
-      catch (cause) { if (active) setError(cause instanceof Error ? cause.message : "Group Chat is unavailable."); }
+      catch (cause) { if (active) setError(cause instanceof Error ? cause.message : typeof cause === "string" ? cause : "Group Chat is unavailable."); }
       finally { if (active) timer = setTimeout(() => void refresh(), 2000); }
     };
     void refresh(); return () => { active = false; clearTimeout(timer); };

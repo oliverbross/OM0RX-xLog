@@ -329,6 +329,17 @@ it("routes Digital logging changes through the existing setup owner", async () =
   expect(native.invoke).toHaveBeenCalledWith("contest_setup_dialog_request", { method:"complete",
     params:expect.objectContaining({requestID:"digital-1",ok:true}) });
 });
+it("accepts the native sorted digital snapshot without treating status text as configuration", async () => {
+  const digital={configuration:{enabled:false,address:"127.0.0.1",port:2237,destination:"active_contest" as const},running:false,status:"Off",receive_only:true,contest_target_supported:true,active_contest:{session_id:"session",plugin_id:"cq_ww_rtty"}};
+  const source={...snapshot(),auxiliary:{...snapshot().auxiliary,digital}};
+  const sorted=JSON.parse(JSON.stringify(source,(_key,value)=>value&&typeof value==="object"&&!Array.isArray(value)?Object.fromEntries(Object.keys(value).sort().map(key=>[key,value[key]])):value));
+  const saveDigital=vi.fn(async()=>{});let delivered=false;
+  native.invoke.mockImplementation(async(_command,{method})=>method==="next"&&!delivered?(delivered=true,{...sorted,requestID:"native-digital",kind:"digital",digital:{configuration:digital.configuration,action:"start"}}):method==="next"?null:source);
+  function Owner(){useContestSetupDialogs({enabled:true,context:source.context,document:source.document,auxiliary:{...source.auxiliary,digital:{...digital,status:"Receive evidence updated"}},save:vi.fn(),saveRover:vi.fn(),saveDigital,report:vi.fn()});return null;}
+  render(<Owner/>);
+  await waitFor(()=>expect(native.invoke).toHaveBeenCalledWith("contest_setup_dialog_request",{method:"complete",params:expect.objectContaining({requestID:"native-digital",ok:true})}));
+  expect(saveDigital).toHaveBeenCalledOnce();
+});
 it("returns a real Digital host rejection to the dialog receipt", async () => {
   const source = snapshot(), report = vi.fn(), failure = new Error("WSJT-X port is already in use");
   const pending = { ...source, requestID:"digital-failed", kind:"digital", digital:{

@@ -62,6 +62,7 @@ impl AuthorityOperation {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AuthorityRequest {
+    #[serde(rename = "requestID")]
     pub request_id: String,
     pub operation: AuthorityOperation,
     pub params: Value,
@@ -1558,6 +1559,14 @@ fn post_packet(configuration: &Configuration, contact: Value) -> Result<(String,
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn native_coordination_accepts_the_renderer_request_id_spelling() {
+        let request:super::AuthorityRequest=serde_json::from_value(serde_json::json!({"requestID":"11111111-1111-4111-8111-111111111111","operation":"coordination","params":{"action":"read"}})).unwrap();
+        assert_eq!(request.operation,super::AuthorityOperation::Coordination);
+        assert_eq!(request.request_id,"11111111-1111-4111-8111-111111111111");
+        assert!(crate::worker::validate_surface("contest-setup",&serde_json::json!({"id":"pending-read","method":"contest_network_pending","params":{}})).is_ok());
+        assert!(crate::worker::validate_surface("contest--group-chat",&serde_json::json!({"id":"pending-read","method":"contest_network_pending","params":{}})).is_err());
+    }
     #[test]
     #[cfg(unix)]
     fn two_local_group_sockets_use_the_explicit_loopback_interface() {

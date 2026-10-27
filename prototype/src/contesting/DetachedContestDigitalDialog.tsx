@@ -29,7 +29,7 @@ export function DetachedContestDigitalDialog() {
     if (!validWSJTXConfiguration(configuration)) return;
     setSaving(true); setError("");
     try { await saveContestDigitalDialog(snapshot, { configuration, fldigi_configuration: fldigiDraft, action }); await closeContestSetupDialog(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Digital logging settings could not be saved."); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : typeof cause === "string" ? cause : "Digital logging settings could not be saved."); }
     finally { setSaving(false); }
   };
   const digital = snapshot?.auxiliary.digital;

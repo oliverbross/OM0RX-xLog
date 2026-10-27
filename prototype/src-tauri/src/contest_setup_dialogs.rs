@@ -52,7 +52,14 @@ fn owned_state<'a>(kind: &str, document: &'a Value, auxiliary: &'a Value) -> Val
         "macros" => document["macros"].clone(),
         "keys" => document["preferences"]["keyBindings"].clone(),
         "rover" => auxiliary["roverLocation"].clone(),
-        "digital" => auxiliary["digital"].clone(),
+        "digital" => {
+            let value=&auxiliary["digital"];
+            if value.is_null() { return Value::Null; }
+            json!({"configuration":value["configuration"],"running":value["running"],"receive_only":value["receive_only"],
+                "contest_target_supported":value["contest_target_supported"],"active_contest":value["active_contest"],
+                "fldigi":if value["fldigi"].is_null(){Value::Null}else{json!({"configuration":value["fldigi"]["configuration"],
+                    "receive_supported":value["fldigi"]["receive_supported"],"transmit_supported":value["fldigi"]["transmit_supported"],"receive_running":value["fldigi"]["receive_running"]})}})
+        },
         _ => json!({"preferences":document["preferences"],"network":document["network"]}),
     }
 }
@@ -74,6 +81,11 @@ fn owner(label: &str) -> Result<(), String> {
 }
 impl State {
     fn settle(&mut self, request: Value, ok: bool, message: &str) -> Value {
+        // Every admitted attempt consumes its draft, including a rejected save.
+        // A freshly reopened dialog must receive a usable new revision.
+        if let Some(snapshot)=self.snapshot.as_mut().filter(|s|s["epoch"]==request["epoch"]) {
+            snapshot["revision"]=json!(snapshot["revision"].as_u64().unwrap_or(0)+1);
+        }
         let result = json!({"requestID":request["requestID"],"status":if ok {"saved"} else {"rejected"},"message":message});
         self.receipts.push((request["kind"].as_str().unwrap_or("").into(), request, result.clone()));
         if self.receipts.len() > 32 { self.receipts.remove(0); }
@@ -120,11 +132,6 @@ impl State {
                 if !self.snapshot.as_ref().is_some_and(|s| s["epoch"] == params["epoch"]) { return Err("Setup owner expired.".into()); }
                 if !self.pending.as_ref().is_some_and(|p| p["requestID"] == params["requestID"]) { return Err("Setup request expired.".into()); }
                 let pending = self.pending.take().unwrap();
-                // Consume the draft revision even if its values did not change.
-                // An uncertain client cannot submit a second write from the same draft.
-                if params["ok"] == true {
-                    if let Some(snapshot) = self.snapshot.as_mut() { snapshot["revision"] = json!(snapshot["revision"].as_u64().unwrap_or(0) + 1); }
-                }
                 Ok(self.settle(pending, params["ok"] == true, params["message"].as_str().unwrap_or("Setup save failed.")))
             }
             "snapshot" => {
@@ -230,6 +237,26 @@ mod tests {
         invalid_destination["digital"] = json!({"configuration":{"enabled":false,"address":"127.0.0.1","port":2237,
             "destination":"another_contest"},"action":"start"});
         assert!(s.request("contest-setup-digital","submit",invalid_destination).is_err());
+    }
+    #[test]
+    fn rejected_attempt_requires_reopen_but_fresh_snapshot_can_retry() {
+        let mut s=State::default();let snapshot=publish(&mut s);let p=submission(&snapshot);
+        s.request("contest-setup-station","submit",p.clone()).unwrap();
+        s.request("contest-setup","complete",json!({"epoch":"owner-1","requestID":"save-1","ok":false,"message":"Confirmed refusal"})).unwrap();
+        let mut stale=p;stale["requestID"]=json!("stale-retry");
+        assert!(s.request("contest-setup-station","submit",stale).is_err());
+        let fresh=s.request("contest-setup-station","snapshot",Value::Null).unwrap();
+        assert!(fresh["revision"].as_u64()>snapshot["revision"].as_u64());
+        let mut next=submission(&fresh);next["requestID"]=json!("fresh-retry");
+        assert_eq!(s.request("contest-setup-station","submit",next).unwrap()["status"],"pending");
+    }
+    #[test]
+    fn digital_status_churn_is_not_an_owned_configuration_change() {
+        let original=json!({"digital":{"configuration":{"enabled":false,"address":"127.0.0.1","port":2237,"destination":"active_contest"},"running":false,"status":"Off"}});
+        let mut changed=original.clone();changed["digital"]["status"]=json!("Fresh evidence");
+        assert_eq!(owned_state("digital",&doc(),&original),owned_state("digital",&doc(),&changed));
+        changed["digital"]["configuration"]["port"]=json!(2238);
+        assert_ne!(owned_state("digital",&doc(),&original),owned_state("digital",&doc(),&changed));
     }
     #[test]
     fn fences_changed_document_context_and_owner() {
