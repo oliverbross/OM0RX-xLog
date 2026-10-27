@@ -342,5 +342,38 @@ class LaneHostTests(unittest.TestCase):
         self.assertEqual(self.read("contest_log_page", limit=1)["rows"][0]["ID"], known["laneB"])
 
 
+    def test_each_lane_projects_its_own_function_keys_and_band_from_the_same_authority(self):
+        self.serial_session()
+        self.configure()
+        setup = self.read("setup_get")["setup"]
+        setup["macros"] = [
+            {"mode": "R", "key": "F8", "label": "Run Roger", "template": "R"},
+            {"mode": "S", "key": "F8", "label": "S&P log and TU", "template": "{CALL} {SENTNR} TU {LOGIT}{WIPE}"},
+        ]
+        self.mutate("setup_save", setup=setup)
+        self.lane_mutation("contest_run_state", "laneA", run=True)
+        self.lane_mutation("contest_draft_apply", "laneB", frequencyHz=7025000,
+                           fields={"callsign": "DL1ABC", "other_2": "123"})
+        before = self.host.database(self.session).state(self.session)
+        serials_before = {key: row["reservedSerial"] for key, row in self.lanes().items()}
+        top = self.read("contest_draft_get")["projection"]
+        lanes = {row["laneID"]: row for row in top["operatingLanes"]["lanes"]}
+        explicit_b = self.read("contest_draft_get", workspaceGeneration=self.workspace,
+                               laneID="laneB", bindingVersion=lanes["laneB"]["bindingVersion"])["projection"]
+        self.assertEqual(top["selectedLaneID"], "laneA")
+        self.assertTrue(top["run"])
+        self.assertFalse(explicit_b["run"])
+        self.assertEqual(lanes["laneA"]["functionKeys"], top["functionKeys"])
+        self.assertEqual(lanes["laneB"]["functionKeys"], explicit_b["functionKeys"])
+        self.assertEqual(next(item["label"] for item in lanes["laneB"]["functionKeys"] if item["id"] == "F8"), "S&P log and TU")
+        self.assertEqual(next(item["label"] for item in top["functionKeys"] if item["id"] == "F8"), "Run Roger")
+        self.assertEqual((lanes["laneA"]["band"], lanes["laneB"]["band"]), (14, 7))
+        self.assertEqual(lanes["laneB"]["band"], explicit_b["band"])
+        self.assertEqual(top["score"], explicit_b["score"])
+        self.assertEqual({key: row["reservedSerial"] for key, row in self.lanes().items()}, serials_before)
+        self.assertEqual(self.host.database(self.session).state(self.session), before)
+        self.assertEqual(self.read("log")["total"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()

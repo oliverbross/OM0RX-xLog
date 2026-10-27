@@ -1074,7 +1074,7 @@ class Desk:
                 other.pop("laneState", None)  # One ordinary plugin Desk, not a second log/score owner.
                 view = Desk(self.database, other, self._commit).projection()
             lane.update({key: deepcopy(view[key]) for key in ("fields", "mode", "frequencyHz", "run", "focus", "reservedSerial",
-                                                              "dupe", "dupeExplanation", "exchangeWarnings")})
+                                                              "dupe", "dupeExplanation", "exchangeWarnings", "functionKeys", "band")})
         return result
 
     def entry_policy(self):
