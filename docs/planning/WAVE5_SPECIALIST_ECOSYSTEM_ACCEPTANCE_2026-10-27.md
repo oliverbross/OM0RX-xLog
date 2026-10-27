@@ -25,6 +25,10 @@ The other **77** unverified NL-04 profiles remain deferred: `cq_ww_rtty`, `cq_wp
 4. W08: family-mapped reviewed imports with stable identity/serial preservation; immutable exact-byte submission archives using existing preflight/native Save ownership.
 5. Selected W19 above, existing Analytics integration, native compact/focus inspection early, then relevant gates and signed clean-main candidate. Actual bundled Python, restart, exports/archives and one bounded workload rehearsal are required before readiness.
 
+## Candidate build reservation
+
+**1.3.51** is the next unused version (retained inventory ends at 1.3.50). Its source is the clean canonical commit containing this version reservation, resolved and recorded immediately before packaging with `XLOG_SOURCE_COMMIT=$(git rev-parse HEAD)`. Packaging uses the established `prototype/scripts/package-macos.sh`, existing cached dependencies and Developer ID signing; native/distribution/Python/CW provenance and exact component/tree hashes will be independently verified in the retained receipt. This reservation is not a claim of successful build, gates or candidate acceptance. Production remains 1.3.50; no installation is authorized.
+
 ## Retained boundaries
 
 ### W14 implementation checkpoint — source and early native, candidate pending
