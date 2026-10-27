@@ -269,7 +269,9 @@ public actor LiveWorker {
             ingestSpot:{spot,call in try await cluster.ingestLocalCW(spot,stationCallsign:call)})
         #endif
         self.contactRefresher = contactRefresher ?? { try await cluster.refreshContacts() }
-        let opportunityMethods = opportunityMethods ?? LiveOpportunitiesMethods(logbook: logbook, clusterSpots: { await cluster.currentSpotRowsIfStarted() })
+        let opportunityMethods = opportunityMethods ?? LiveOpportunitiesMethods(logbook: logbook,
+            dxpeditionHistory: { try await cluster.dxpeditionHistory(callsigns: $0) },
+            clusterSpots: { await cluster.currentSpotRowsIfStarted() })
         opportunities = opportunityMethods
         operatingGoals = LiveOperatingGoalMethods(logbook: logbook, opportunities: opportunityMethods)
         self.localAcceptance = localAcceptance
