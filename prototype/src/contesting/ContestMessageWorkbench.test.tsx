@@ -43,6 +43,24 @@ it("stages an explicit dialect with rejected rows visible and Save blocked", asy
   expect(screen.getByText("Retained original import")).toBeTruthy();
   expect(p.onMutate).not.toHaveBeenCalled();
 });
+it("restores a saved N1MM dialect and restages its exact retained original source", async () => {
+  const p = props(), source = "# Run messages\r\nF1 CQ,CQ *\r\n# S&P messages\r\nF12 TU,! #\r\n";
+  const saved: MessageBank = { ...bank(), name: "Wave2 native N1MM", dialect: "n1mm", original: source };
+  p.request = vi.fn(async method => method === "contest_message_import"
+    ? { bank: saved, canSave: true, report: [{ line: 2, status: "translated", message: "N1MM draft staged" }] }
+    : { banks: [saved], activeBankID: null });
+  render(<ContestMessageWorkbench {...p}/>);
+  await screen.findByRole("option", { name: "Wave2 native N1MM" });
+  expect((screen.getByLabelText("File dialect") as HTMLSelectElement).value).toBe("not1mm");
+  fireEvent.change(screen.getByLabelText("Saved bank"), { target: { value: saved.id } });
+  fireEvent.click(screen.getByRole("button", { name: "Load saved draft" }));
+  expect((screen.getByLabelText("File dialect") as HTMLSelectElement).value).toBe("n1mm");
+  fireEvent.click(screen.getByRole("button", { name: "Stage import and report" }));
+  await waitFor(() => expect(p.request).toHaveBeenCalledWith("contest_message_import", {
+    dialect: "n1mm", source, name: "Wave2 native N1MM", scope,
+  }));
+  expect(p.onMutate).not.toHaveBeenCalled();
+});
 it("binds preview to supplied next call and simulated serial and never mutates", async () => {
   const p = props();
   p.request = vi.fn(async (method, params) => method === "contest_message_preview" ? {
