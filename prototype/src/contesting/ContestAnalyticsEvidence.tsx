@@ -3,6 +3,7 @@ import type {AnalyticsDataset} from './contestAnalytics';
 import {analyticalCandidate,inspectLearningEvidence,type LearningEvidence} from './analyticsEvidenceModel';
 import type {Drill} from './ContestAnalyticsCharts';
 import type {AnalyticsExport} from './contestAnalyticsExport';
+import { UnfinishedRecovery, useUnfinishedEditor } from './unfinishedEditors';
 
 export function AnalyticsCandidateEvidence({dataset,onDrill}:{dataset:AnalyticsDataset;onDrill:Drill}){
  const [source,setSource]=useState(''),[band,setBand]=useState('20m'),[zone,setZone]=useState(''),[points,setPoints]=useState(3);
@@ -20,21 +21,38 @@ export function AnalyticsCandidateEvidence({dataset,onDrill}:{dataset:AnalyticsD
  </section>;
 }
 
-export function AnalyticsLearningEvidence({dataset,onDrill,exportState}:{dataset:AnalyticsDataset;onDrill:Drill;exportState:AnalyticsExport}){
- const [text,setText]=useState(''),[review,setReview]=useState<{evidence:LearningEvidence;sha256:string}|null>(null),[error,setError]=useState('');
+export function AnalyticsLearningEvidence(props:{dataset:AnalyticsDataset;onDrill:Drill;exportState:AnalyticsExport}){
+ return <LearningEditor key={`${props.dataset.meta.workspaceGeneration}/${props.dataset.meta.sessionID}`} {...props}/>;
+}
+type LearningTarget={identity:string;sessionID:string;workspaceGeneration:string;referenceID:string;sourceRevision:string};
+function validLearningTarget(value:unknown):value is LearningTarget {
+ return !!value&&typeof value==='object'&&['identity','sessionID','workspaceGeneration','referenceID','sourceRevision'].every(key=>typeof (value as Record<string,unknown>)[key]==='string');
+}
+function LearningEditor({dataset,onDrill,exportState}:{dataset:AnalyticsDataset;onDrill:Drill;exportState:AnalyticsExport}){
+ const retained=useUnfinishedEditor(`xlog.contest.learning-editor.v1/${dataset.meta.workspaceGeneration}/${dataset.meta.sessionID}`,validLearningTarget,1048576);
+ const text=retained.draft?.text??'',target=retained.draft?.target;
+ const currentTarget:LearningTarget={identity:dataset.meta.identity,sessionID:dataset.meta.sessionID,workspaceGeneration:dataset.meta.workspaceGeneration,referenceID:dataset.meta.referenceID,sourceRevision:dataset.meta.sourceRevision};
+ const compatible=!target||Object.entries(currentTarget).every(([key,value])=>target[key as keyof LearningTarget]===value);
+ const setText=(value:string)=>retained.update(currentTarget,value);
+ const [review,setReview]=useState<{evidence:LearningEvidence;sha256:string}|null>(null),[error,setError]=useState('');
  const ticket=useRef(0);
  useEffect(()=>{ticket.current++;setReview(null);setError('');},[dataset.meta.identity,text]);
- const inspect=async()=>{const id=++ticket.current;setReview(null);setError('');try{const evidence=inspectLearningEvidence(dataset,text);
+ const inspect=async()=>{const id=++ticket.current;setReview(null);setError('');try{retained.flush();if(!compatible)throw Error('Draft belongs to an older analysis snapshot. Copy or discard it explicitly; it cannot be applied to this snapshot.');const evidence=inspectLearningEvidence(dataset,text);
    const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));if(ticket.current===id)setReview({evidence,sha256:Array.from(new Uint8Array(digest),n=>n.toString(16).padStart(2,'0')).join('')});
  }catch(cause){if(ticket.current===id)setError(String(cause));}};
  const template={schemaVersion:1,format:'xlog-learning-evidence',logIdentity:dataset.meta.identity,source:'Operator transcription; organizer format not verified',findings:dataset.contacts[0]?[{qsoID:dataset.contacts[0].id,status:'operator-note',note:''}]:[]};
  return <section className="analytics-section"><h2>Read-only adjudication / learning evidence</h2><p>Import normalized annotations against this exact immutable log identity. Source claims are unverified; accepted/rejected labels do not alter score, duplicate ownership or contacts. Official LCR/UBN dialect conversion remains unsupported.</p>
-   <button onClick={()=>{setText(JSON.stringify(template,null,2));setReview(null);}}>Show identity-bound evidence template</button>
-   <label>Original learning evidence<textarea aria-label="Original learning evidence" value={text} maxLength={1048576} rows={6} onChange={event=>{setText(event.target.value);setReview(null);}}/></label>
-   <button disabled={!text} onClick={()=>void inspect()}>Inspect learning evidence without correction</button>{error&&<p role="alert">{error}</p>}
-   {review&&<><p>{review.evidence.findings.length} annotations · source {review.evidence.source} · SHA-256 {review.sha256}. View-local until exported; no log changes.</p>
+   <UnfinishedRecovery editor={retained}/>
+   {target&&<p>Draft analysis identity {target.identity} · reference {target.referenceID}. Not exported.</p>}
+   {!compatible&&<p role="alert">Retained text belongs to another analysis snapshot. Copy or discard it explicitly; no text was rebound.</p>}
+   <button disabled={!!text||!compatible||exportState.pending} onClick={()=>{setText(JSON.stringify(template,null,2));setReview(null);}}>Show identity-bound evidence template</button>
+   <label>Original learning evidence<textarea aria-label="Original learning evidence" value={text} disabled={!compatible||exportState.pending} maxLength={1048576} rows={6} onChange={event=>{setText(event.target.value);setReview(null);}}/></label>
+   {retained.draft&&<><button onClick={()=>void navigator.clipboard.writeText(text).catch(cause=>setError(String(cause)))}>Copy annotation draft</button>
+     <button disabled={exportState.pending} onClick={()=>{try{retained.clear();setReview(null);}catch(cause){setError(String(cause));}}}>Discard draft</button></>}
+   <button disabled={!text||!compatible||exportState.pending} onClick={()=>void inspect()}>Inspect learning evidence without correction</button>{error&&<p role="alert">{error}</p>}
+   {review&&compatible&&<><p>{review.evidence.findings.length} annotations · source {review.evidence.source} · SHA-256 {review.sha256}. Retained locally until explicitly exported; no log changes.</p>
      <ul>{['accepted','not-in-log','exchange','duplicate','operator-note'].map(status=>{const rows=review.evidence.findings.filter(row=>row.status===status);return rows.length>0&&<li key={status}><button onClick={()=>onDrill(`${status} · unverified external/operator evidence`,rows.map(row=>row.qsoID))}>{status} · {rows.length} contributing contacts</button></li>;})}</ul>
-     <button disabled={exportState.pending} onClick={()=>void exportState.save('xlog-learning-review.json',()=>JSON.stringify({snapshotIdentity:dataset.meta.identity,sessionID:dataset.meta.sessionID,referenceID:dataset.meta.referenceID,sourceRevision:dataset.meta.sourceRevision,sourceSHA256:review.sha256,sourceText:text,evidence:review.evidence,contactMutations:0,sourceClaimsVerified:false},null,2))}>Save read-only learning review</button>
+     <button disabled={exportState.pending} onClick={()=>{try{retained.flush();const draftID=retained.draft!.id;void exportState.save('xlog-learning-review.json',()=>JSON.stringify({snapshotIdentity:dataset.meta.identity,sessionID:dataset.meta.sessionID,referenceID:dataset.meta.referenceID,sourceRevision:dataset.meta.sourceRevision,sourceSHA256:review.sha256,sourceText:text,evidence:review.evidence,contactMutations:0,sourceClaimsVerified:false},null,2)).then(result=>{if(result==='Export saved.'){try{retained.complete(draftID,text);setReview(null);}catch(cause){setError(String(cause));}}});}catch(cause){setError(String(cause));}}}>Save read-only learning review</button>
      <details><summary>Reviewed annotations</summary><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{JSON.stringify(review.evidence,null,2)}</pre></details></>}
  </section>;
 }

@@ -9,6 +9,11 @@ import { AnalyticsCompare } from "./ContestAnalyticsCompare";
 import { AnalyticsCandidateEvidence,AnalyticsLearningEvidence } from "./ContestAnalyticsEvidence";
 import "./ContestAnalyticsWindow.css";
 import { listenToAudio } from "./contestRecorder";
+import { flushUnfinishedEditors, UnfinishedEditorWarning } from "./unfinishedEditors";
+import { invoke, isTauri } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { TauriEvent } from "@tauri-apps/api/event";
+import { prepareOperatingModuleTransition } from "../operatingModulePreparation";
 
 const tabs=[{id:"overview",label:"Overview",icon:Activity},{id:"explorer",label:"Timeline & Explorer",icon:BarChart3},{id:"multipliers",label:"Multipliers",icon:Target},{id:"performance",label:"Operating Performance",icon:Users},{id:"compare",label:"Compare",icon:Layers},{id:"quality",label:"Quality & Review",icon:ListChecks}] as const;
 type Tab=typeof tabs[number]["id"];
@@ -16,15 +21,28 @@ const errorText=(cause:unknown)=>cause instanceof Error?cause.message:String(cau
 
 export function ContestAnalyticsWindow({read=readAnalytics,initialSnapshot}:{read?:AnalyticsRead;initialSnapshot?:AnalyticsSnapshot}){
   const exportState=useAnalyticsExport();
+  const exporting=useRef(false);exporting.current=exportState.pending;
   const [snapshot,setSnapshot]=useState<AnalyticsSnapshot|null>(initialSnapshot??null),[dataset,setDataset]=useState<AnalyticsDataset|null>(null),[result,setResult]=useState<AnalyticsResult|null>(null);
   const [filters,setFilters]=useState<AnalyticsFilters>(defaultAnalyticsFilters),[tab,setTab]=useState<Tab>("overview"),[live,setLive]=useState(true),[busy,setBusy]=useState(false),[analyzing,setAnalyzing]=useState(false),[error,setError]=useState(""),[progress,setProgress]=useState("");
   const [drill,setDrill]=useState<{title:string;ids:string[]}|null>(null),[advanced,setAdvanced]=useState(false),[goal,setGoal]=useState(0),[measure,setMeasure]=useState<"qsos"|"points"|"multipliers"|"score">("qsos");
   const workerRef=useRef<Worker|null>(null),requestRef=useRef(0),snapshotRef=useRef(snapshot),filtersRef=useRef(filters),abortRef=useRef<AbortController|null>(null),busyRef=useRef(false),mounted=useRef(true),drillRef=useRef<HTMLElement|null>(null);
   snapshotRef.current=snapshot;filtersRef.current=filters;
+  const learningDataset=useRef<AnalyticsDataset|null>(null);if(dataset)learningDataset.current=dataset;
+  useEffect(()=>{
+    if(!isTauri())return;
+    const prepare=()=>{flushUnfinishedEditors();if(exporting.current)throw Error("Finish the active report export before closing Analytics.");};
+    let inert=false,active=true,stop:(()=>void)|undefined;
+    const moduleStop=prepareOperatingModuleTransition(()=>({freeze:()=>{inert=document.body.inert;document.body.inert=true;},prepare:async()=>prepare(),resume:()=>{document.body.inert=inert;}}));
+    void getCurrentWindow().listen(TauriEvent.WINDOW_CLOSE_REQUESTED,()=>{
+      try{prepare();void invoke("close_learning_window").catch(cause=>setError(errorText(cause)));}catch(cause){setError(errorText(cause));}
+    }).then(dispose=>{if(active)stop=dispose;else dispose();}).catch(cause=>setError(`Close protection unavailable: ${errorText(cause)}`));
+    return()=>{active=false;stop?.();moduleStop();};
+  },[]);
   const update=useCallback((patch:Partial<AnalyticsFilters>)=>{setFilters(current=>({...current,...patch}));setDrill(null);},[]);
   useEffect(()=>{if(dataset){if(!dataset.scoreHistory&&measure==="score"||!hasMultiplierAdapter(dataset.meta)&&measure==="multipliers")setMeasure("qsos");if(!hasMultiplierAdapter(dataset.meta)&&filters.measure==="multipliers")update({measure:"qsos"});}},[dataset,measure,filters.measure,update]);
   const refresh=useCallback(async()=>{
     if(busyRef.current)return;
+    try{flushUnfinishedEditors();}catch(cause){setError(errorText(cause));return;}
     busyRef.current=true;setBusy(true);setError("");setProgress("Copying the contest log…");setDrill(null);
     const abort=new AbortController();abortRef.current?.abort();abortRef.current=abort;
     try{const next=await collectAnalytics(read,abort.signal,setProgress);if(!mounted.current)return;
@@ -61,6 +79,7 @@ export function ContestAnalyticsWindow({read=readAnalytics,initialSnapshot}:{rea
   const metric=measure==="qsos"?"Logged contacts":measure==="points"?"Stored QSO points":measure==="multipliers"?"New category multipliers":"Reconstructed category score growth";
   const status=busy?progress:analyzing?"Calculating this view…":dataset?`${dataset.meta.total.toLocaleString()} contacts · Snapshot ${utcText(Date.parse(dataset.meta.capturedAt))} UTC`:"Open a contest session, then refresh analytics.";
   return <main className="contest-analytics" aria-label="Contest Analytics" aria-busy={locked}>
+    <UnfinishedEditorWarning/>
     <header className="analytics-header"><div className="analytics-title"><BarChart3 size={27} aria-hidden="true"/><div><h1>Contest Analytics</h1><p>{dataset?`${dataset.meta.stationCall} · ${dataset.meta.name}`:"OM0RX-xLog · Contest analysis"}</p></div></div><div className="analytics-actions"><label className="analytics-live"><input type="checkbox" checked={live} onChange={e=>setLive(e.target.checked)}/><Activity size={14}/> Live refresh</label><button onClick={()=>void refresh()} disabled={busy}><RefreshCw size={15}/> {busy?"Loading…":"Refresh"}</button><button disabled={!dataset||locked||exportState.pending} onClick={()=>dataset&&void exportState.save(`xlog-${dataset.meta.pluginID}-analytics.json`,()=>JSON.stringify(analyticsReport(dataset,filters),null,2))}><Download size={15}/> Export report</button><button disabled={!dataset||locked||exportState.pending} onClick={()=>void exportState.print()}>Print / PDF</button></div></header>
     <div className="analytics-status" role="status"><span className={busy||analyzing?"analytics-attention":""}>{status}</span><span>Read-only · Local contest data</span></div>
     {(exportState.pending||exportState.message)&&<p role="status" className="analytics-note">{exportState.pending?exportState.pendingLabel:exportState.message}</p>}
@@ -68,7 +87,7 @@ export function ContestAnalyticsWindow({read=readAnalytics,initialSnapshot}:{rea
     {error&&<p role="alert" className="analytics-error">{error} <button disabled={busy} onClick={()=>void refresh()}>Retry</button></p>}
     {dataset&&<>
       <div className="analytics-scope"><span>Claimed category <strong>{category}</strong></span><span>Viewing <strong>{filters.scope==="category"?"Claimed category":"All logged bands"}{filters.band!=="all"?` · ${filters.band}`:""}</strong></span><span>Host score remains authoritative</span></div>
-      <nav className="analytics-tabs" aria-label="Analytics sections">{tabs.map(({id,label,icon:Icon})=><button key={id} aria-current={tab===id?"page":undefined} onClick={()=>setTab(id)}><Icon size={16}/>{label}</button>)}</nav>
+      <nav className="analytics-tabs" aria-label="Analytics sections">{tabs.map(({id,label,icon:Icon})=><button key={id} aria-current={tab===id?"page":undefined} onClick={()=>{try{flushUnfinishedEditors();setTab(id);}catch(cause){setError(errorText(cause));}}}><Icon size={16}/>{label}</button>)}</nav>
       <fieldset className="analytics-filters" disabled={locked}><legend><Filter size={13}/> Display filters</legend>
         {(["band","mode","operator","style","continent"] as const).map(key=><label key={key}>{key==="style"?"Run / S&P":key[0].toUpperCase()+key.slice(1)}<select aria-label={`Analytics ${key}`} value={filters[key]} onChange={e=>update({[key]:e.target.value})}><option value="all">All {key==="style"?"styles":key+"s"}</option>{choices[key]?.map((value:string)=><option key={value}>{value}</option>)}</select></label>)}
         <label>Scoring scope<select aria-label="Analytics scoring scope" value={filters.scope} onChange={e=>update({scope:e.target.value as "all"|"category"})}><option value="all">All logged bands</option><option value="category">Claimed category</option></select></label><label>Inclusion<select aria-label="Analytics inclusion" value={filters.basis} onChange={e=>update({basis:e.target.value as "logged"|"nondupe"})}><option value="logged">All logged QSOs</option><option value="nondupe">Known nonduplicate</option></select></label>
@@ -94,12 +113,13 @@ export function ContestAnalyticsWindow({read=readAnalytics,initialSnapshot}:{rea
       {tab==="multipliers"&&<><AnalyticsMultipliers dataset={dataset} result={result} onDrill={onDrill}/><AnalyticsCandidateEvidence dataset={dataset} onDrill={onDrill}/></>}
       {tab==="performance"&&<AnalyticsPerformance dataset={dataset} result={result} filters={filters} onDrill={onDrill}/>}
       {tab==="compare"&&<AnalyticsCompare dataset={dataset} filters={filters} onDrill={onDrill}/>}
-      {tab==="quality"&&<><AnalyticsQuality dataset={dataset} result={result} onDrill={onDrill}/><AnalyticsLearningEvidence dataset={dataset} onDrill={onDrill} exportState={exportState}/></>}
+      {tab==="quality"&&<AnalyticsQuality dataset={dataset} result={result} onDrill={onDrill}/>}
       <section className="analytics-section"><header><div><h2>Listen to this UTC interval</h2><p>Uses this dataset’s durable log identity and displayed time extent. Capture gaps and unmatched reference logs remain unavailable.</p></div><button disabled={locked||!result.buckets.length} onClick={()=>{const first=result.buckets[0],last=result.buckets.at(-1);if(first&&last)void listenToAudio({logId:dataset.meta.sessionID,fromUtcMs:first.start,toUtcMs:last.end}).catch(cause=>setError(errorText(cause)));}}>Listen to interval…</button></header></section>
       {drill&&<div ref={drillRef as React.RefObject<HTMLDivElement>}><AnalyticsDrilldown logId={dataset.meta.sessionID} title={drill.title} contacts={selectedContacts} exportState={exportState} onClose={()=>setDrill(null)}/></div>}
       <footer className="analytics-footer"><span>Revision {dataset.meta.revision} · {dataset.meta.referenceID} · Corrected claimed log</span><button onClick={()=>{setTab("quality");setDrill(null);}}>View calculation basis & coverage</button></footer>
       </>}
     </>}
+    {learningDataset.current&&<div hidden={tab!=="quality"}><AnalyticsLearningEvidence dataset={learningDataset.current} onDrill={onDrill} exportState={exportState}/></div>}
     {!dataset&&!busy&&!analyzing&&!error&&<div className="analytics-empty"><BarChart3 size={32}/><h2>A clear view of your contest</h2><p>Open a contest session and refresh to explore its complete log.</p></div>}
     {busy&&<div className="analytics-loading"><RefreshCw size={22}/><p>{progress}</p><button onClick={()=>{abortRef.current?.abort();setProgress("Cancelled. Refresh when ready.");}}>Cancel</button></div>}
   </main>;

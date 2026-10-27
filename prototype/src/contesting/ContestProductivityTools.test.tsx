@@ -4,9 +4,11 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { ContestNotesPanel, ContestSubmissionPanel, type NoteTarget } from "./ContestProductivityTools";
 import { ContestServerError } from "./client";
 import type { ContestRequest, ContestWorkerResponse } from "./types";
+import { flushUnfinishedEditors } from "./unfinishedEditors";
 
 const scope = { sessionID: "source-session", workspaceGeneration: "workspace", revision: 7, draftID: "draft-original" };
 const journalKey = `xlog.contest.note-editor.v1/${scope.sessionID}/${scope.workspaceGeneration}`;
+const operationRaw=()=>localStorage.getItem(Object.keys(localStorage).find(key=>key.startsWith(`${journalKey}/operation/`))??journalKey);
 const emptyNotes = vi.fn(async () => ({ id: "notes", ok: true as const, result: { rows: [], total: 0 } })) as unknown as ContestRequest;
 const last = vi.fn(async () => ({ qsoID: "last-qso", callsign: "K1ABC" }));
 function deferred<T>() {
@@ -21,7 +23,7 @@ function startNote(text: string) {
   fireEvent.click(screen.getByRole("button", { name: "Note current" }));
   fireEvent.change(screen.getByRole("textbox", { name: "Operator note" }), { target: { value: text } });
 }
-afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); });
+afterEach(() => { vi.restoreAllMocks();flushUnfinishedEditors();cleanup(); localStorage.clear(); vi.clearAllMocks(); });
 
 it("freezes a note's original lane and binding while the selected entry moves to another lane", async () => {
   const save = vi.fn(async (_target: NoteTarget, _text: string, _noteID: string) => {});
@@ -63,7 +65,7 @@ it("preserves malformed note recovery and blocks overwrite until explicitly arch
 
 it("journals before sending and recovers the same uncertain note identity after remount", async () => {
   const onSave = vi.fn(async (target: NoteTarget, text: string, noteID: string) => {
-    expect(JSON.parse(localStorage.getItem(journalKey)!)).toEqual({ target, text, noteID });
+    expect(JSON.parse(operationRaw()!)).toMatchObject({ target, text, noteID, editorID:expect.any(String) });
     throw new Error("Reply lost after save");
   });
   const props = noteProps(onSave), mounted = render(<ContestNotesPanel {...props}/>);
@@ -88,6 +90,60 @@ it("journals before sending and recovers the same uncertain note identity after 
   expect(screen.queryByRole("textbox", { name: "Operator note" })).toBeNull();
 });
 
+it("retains exact unsent text and original target across tab unmount, advancing entry and restart",async()=>{
+ const save=vi.fn(async()=>{}),props=noteProps(save),mounted=render(<ContestNotesPanel {...props}/>);
+ startNote("  First line\nŽluťoučký note, 73!  ");act(()=>flushUnfinishedEditors());
+ expect(screen.getByText(/Draft retained locally/)).toBeTruthy();expect(localStorage.getItem(journalKey)).toBeNull();
+ mounted.unmount();render(<ContestNotesPanel {...props} scope={{...scope,draftID:"next",revision:9}}/>);
+ expect((screen.getByLabelText("Operator note") as HTMLTextAreaElement).value).toBe("  First line\nŽluťoučký note, 73!  ");
+ fireEvent.click(screen.getByRole("button",{name:"Save note"}));await waitFor(()=>expect(save).toHaveBeenCalledOnce());
+ expect(save.mock.calls[0]).toEqual([{draftID:"draft-original"},"  First line\nŽluťoučký note, 73!  ",expect.any(String)]);
+ expect(Object.keys(localStorage).filter(key=>key.includes("unsent-notes"))).toHaveLength(0);
+});
+
+it("Cancel retains a draft while deliberate Discard removes only that editor record",()=>{
+ render(<ContestNotesPanel {...noteProps(vi.fn(async()=>{}))}/>);startNote("keep me");
+ fireEvent.click(screen.getByRole("button",{name:"Cancel note (retain draft)"}));
+ expect(screen.queryByLabelText("Operator note")).toBeNull();
+ fireEvent.click(screen.getByRole("button",{name:"Resume retained note"}));
+ expect((screen.getByLabelText("Operator note") as HTMLTextAreaElement).value).toBe("keep me");
+ localStorage.setItem("unrelated-recovery","retain");fireEvent.click(screen.getByRole("button",{name:"Discard draft"}));
+ expect(screen.queryByLabelText("Operator note")).toBeNull();expect(localStorage.getItem("unrelated-recovery")).toBe("retain");
+});
+
+it("a delayed Last-QSO selection cannot erase an editor opened while it was reading",async()=>{
+ const lastReply=deferred<{qsoID:string;callsign:string}>();
+ render(<ContestNotesPanel {...noteProps(vi.fn(async()=>{}))} onLast={()=>lastReply.promise}/>);
+ fireEvent.click(screen.getByRole("button",{name:"Note last QSO"}));startNote("newly typed original bytes");
+ await act(async()=>{lastReply.resolve({qsoID:"last",callsign:"K1ABC"});await lastReply.promise;});
+ expect((screen.getByLabelText("Operator note") as HTMLTextAreaElement).value).toBe("newly typed original bytes");
+ expect(screen.getByText(/Keep or discard the existing draft/)).toBeTruthy();
+});
+
+it("switching sessions recovers each original note without assigning it to the other session",()=>{
+ const props=noteProps(vi.fn(async()=>{})),mounted=render(<ContestNotesPanel {...props}/>);startNote("session A");
+ mounted.rerender(<ContestNotesPanel {...props} scope={{...scope,sessionID:"other-session",draftID:"other-draft"}}/>);
+ expect(screen.queryByLabelText("Operator note")).toBeNull();startNote("session B");
+ mounted.rerender(<ContestNotesPanel {...props}/>);
+ expect((screen.getByLabelText("Operator note") as HTMLTextAreaElement).value).toBe("session A");expect(screen.getByText(/Bound to Current draft draft-or/)).toBeTruthy();
+});
+
+it("failed draft writes stay visible, block controlled navigation and never send a note",()=>{
+ const save=vi.fn(async()=>{});render(<ContestNotesPanel {...noteProps(save)}/>);startNote("recover these bytes");
+ const write=vi.spyOn(Storage.prototype,"setItem").mockImplementation(()=>{throw Error("quota full");});
+ expect(()=>flushUnfinishedEditors()).toThrow(/quota full/);expect(screen.getByLabelText("Operator note")).toBeTruthy();
+ fireEvent.click(screen.getByRole("button",{name:"Save note"}));expect(save).not.toHaveBeenCalled();
+ write.mockRestore();flushUnfinishedEditors();expect(Object.values(localStorage).join()).toContain("recover these bytes");
+});
+
+it("keeps simultaneous attempted operations separate, including the legacy uncertain journal",async()=>{
+ const save=vi.fn(async()=>{});render(<ContestNotesPanel {...noteProps(save)}/>);startNote("second editor");
+ const raw=JSON.stringify({target:{draftID:"original"},text:"first editor",noteID:"retained-operation"});localStorage.setItem(journalKey,raw);
+ fireEvent.click(screen.getByRole("button",{name:"Save note"}));await screen.findByRole("button",{name:"Reconcile same note"});expect(save).not.toHaveBeenCalled();
+ expect(localStorage.getItem(journalKey)).toBe(raw);
+ expect((screen.getByLabelText("Operator note") as HTMLTextAreaElement).value).toBe("first editor");
+});
+
 it("keeps Note-current bound to its original draft when the entry advances before a delayed save", async () => {
   const saved = deferred<void>();
   const onSave = vi.fn((_target: NoteTarget, _text: string, _noteID: string) => saved.promise);
@@ -98,7 +154,7 @@ it("keeps Note-current bound to its original draft when the entry advances befor
   expect(onSave).toHaveBeenCalledOnce();
   expect(onSave.mock.calls[0][0]).toEqual({ draftID: "draft-original" });
   mounted.rerender(<ContestNotesPanel {...props} scope={{ ...scope, draftID: "third-caller", revision: 9 }}/>);
-  expect(JSON.parse(localStorage.getItem(journalKey)!).target).toEqual({ draftID: "draft-original" });
+  expect(JSON.parse(operationRaw()!).target).toEqual({ draftID: "draft-original" });
   await act(async () => { saved.resolve(); await saved.promise; });
   expect(onSave).toHaveBeenCalledOnce();
   expect(localStorage.getItem(journalKey)).toBeNull();

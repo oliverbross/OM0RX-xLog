@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LogicalSize } from "@tauri-apps/api/dpi";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { operatingModuleStatus } from "../operatingModule";
 import { prepareOperatingModuleTransition } from "../operatingModulePreparation";
@@ -13,6 +13,8 @@ import type { ContestTransitionController } from "./ContestWorkspace";
 import type { SetupView } from "./ContestSetupPanel";
 import { stepContestVFO, tuneContestSpot } from "./contestSpotTune";
 import { postContestSpot } from "./contestSurfaceNative";
+import { TauriEvent } from "@tauri-apps/api/event";
+import { flushUnfinishedEditors } from "./unfinishedEditors";
 
 type Data = Record<string, any>;
 type MenuHandler = (route: string) => boolean | Promise<boolean>;
@@ -103,6 +105,7 @@ export function DetachedContestSetupSurface() {
   const [context, setContext] = useState<{ operatingContext: string; workspaceGeneration: string; stationCall: string; contestingTest: boolean } | null>(null);
   const [station, setStation] = useState<Data | null>(null), [cluster, setCluster] = useState<Data | null>(null);
   const [error, setError] = useState("");
+  const [closeError,setCloseError]=useState("");
   const menuHandler = useRef<MenuHandler | null>(null), readiness = useRef(new Set<() => void>());
   const transitionController = useRef<ContestTransitionController | null>(null);
   const resizeFrame = useRef(0);
@@ -210,17 +213,29 @@ export function DetachedContestSetupSurface() {
     return () => { readiness.current.delete(retry); };
   }), []);
   useEffect(() => prepareOperatingModuleTransition(() => transitionController.current), []);
+  useEffect(()=>{
+    if(!isTauri())return;
+    let active=true,closing=false,stop:(()=>void)|undefined;
+    void getCurrentWindow().listen(TauriEvent.WINDOW_CLOSE_REQUESTED,()=>{
+      if(closing)return;const controller=transitionController.current;
+      if(!controller){setCloseError("The contest editor is still loading. Keep this window open.");return;}
+      closing=true;controller.freeze();
+      void(async()=>{try{flushUnfinishedEditors();await controller.prepare();await invoke("hide_prepared_contest_owner");setCloseError("");}
+        catch(cause){setCloseError(message(cause));}finally{controller.resume();closing=false;}})();
+    }).then(dispose=>{if(active)stop=dispose;else dispose();}).catch(cause=>setCloseError(`Close protection unavailable: ${message(cause)}`));
+    return()=>{active=false;stop?.();};
+  },[]);
 
   if (!context) return <main className="contest-workspace" aria-label="Contest Setup">
     <header className="contest-header"><div><h1>Contest Setup</h1><p>Detached contest session owner</p></div></header>
     {error ? <p className="contest-alert is-error" role="alert">{error}</p> : <p role="status">Loading contest setup…</p>}
   </main>;
-  return <Not1MMContestWorkspace setupOnly request={contestRequest}
+  return <>{closeError&&<p role="alert" className="contest-alert is-error">Close cancelled; unfinished work remains open. {closeError}</p>}<Not1MMContestWorkspace setupOnly request={contestRequest}
     serviceRequest={request} stationTune={tuneContestSpot} stationStep={stepContestVFO} rotorStop={context.contestingTest?undefined:stopObservedContestRotor} contestSpot={postContestSpot} operatingContext={context.operatingContext} workspaceGeneration={context.workspaceGeneration}
     stationCall={context.stationCall} contestingTest={context.contestingTest} radioFrequencyHz={station?.radio?.frequency_hz}
     spots={contestClusterSpots(cluster)} cluster={cluster}
     strictHostActive={strictHostActive} registerTransition={registerTransition}
-    registerMenuRoute={registerMenuRoute} onSetupViewChange={resizeForSetupView}/>;
+    registerMenuRoute={registerMenuRoute} onSetupViewChange={resizeForSetupView}/></>;
 }
 
 export default DetachedContestSetupSurface;

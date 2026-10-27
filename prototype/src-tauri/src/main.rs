@@ -49,6 +49,8 @@ mod detached_acceptance;
 mod workspace_windows;
 mod workspace_window_runtime;
 mod canvas_close;
+#[cfg(target_os = "macos")]
+mod macos_termination;
 mod operating_module;
 mod operating_module_prepare;
 mod module_restart_intent;
@@ -2658,13 +2660,13 @@ fn operating_module_transition_pending(window: tauri::WebviewWindow) -> Result<O
 }
 
 fn module_transition_editor(label: &str) -> bool {
-    matches!(label, "main" | CONTEST_SETUP_WINDOW | "log-qso" | "logbook")
+    matches!(label, "main" | CONTEST_SETUP_WINDOW | "log-qso" | "logbook") || label == contest_analytics::WINDOW
 }
 
 struct PreparedModuleTransition { request: String, windows: Vec<String> }
 
 fn preparation_editor(label: &str, target: &str) -> bool {
-    if target == "quit-contesting" { label == CONTEST_SETUP_WINDOW }
+    if target == "quit-contesting" { label == CONTEST_SETUP_WINDOW || label == contest_analytics::WINDOW }
     else { module_transition_editor(label) }
 }
 
@@ -2704,10 +2706,23 @@ fn finish_module_transition_preparation(app: &tauri::AppHandle, prepared: &Prepa
 /// A failed or absent acknowledgement leaves the application and draft alive.
 /// This never restores a database or manufactures a contact/output action.
 fn prepare_contesting_quit(app: &tauri::AppHandle) -> Result<(), String> {
-    let prepared = prepare_module_transition(app, "quit-contesting")?;
+    let target=if app.get_webview_window(CONTEST_SETUP_WINDOW).is_some(){"quit-contesting"}else{"quit-normal"};
+    let prepared = prepare_module_transition(app, target)?;
     let ready = contest_surface::retirement_ready();
     finish_module_transition_preparation(app, &prepared, ready.is_err());
     ready
+}
+
+#[tauri::command]
+fn close_learning_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    if window.label()!=contest_analytics::WINDOW{return Err("Only Analytics can acknowledge its editor close.".into());}
+    window.destroy().map_err(|error|error.to_string())
+}
+
+#[tauri::command]
+fn hide_prepared_contest_owner(window: tauri::WebviewWindow) -> Result<(), String> {
+    if window.label()!=CONTEST_SETUP_WINDOW{return Err("Only Contest Setup can acknowledge its editor close.".into());}
+    window.hide().map_err(|error|error.to_string())
 }
 
 fn unresolved_receipts(value: &serde_json::Value) -> bool {
@@ -3877,6 +3892,11 @@ fn main() {
     let builder = tauri::Builder::default()
         .menu(workspace_menu)
         .on_window_event(|window, event| {
+            if window.label()==contest_analytics::WINDOW || window.label()==CONTEST_SETUP_WINDOW {
+                // The renderer flushes annotations before acknowledging close.
+                // A missing listener leaves the editor available.
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event { api.prevent_close(); }
+            }
             if window.label() == "main" {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     let labels = window.app_handle().webview_windows().into_keys().collect::<Vec<_>>();
@@ -4122,6 +4142,8 @@ fn main() {
         .manage(contest_group_chat::GroupChat::default())
         .manage(contest_log_transfer::LegacySourceLease::default())
         .setup(|app| {
+            #[cfg(target_os="macos")]
+            macos_termination::install(app.handle()).map_err(std::io::Error::other)?;
             let module_path = if let Some(root) = runtime_profile::offline_root() { root.join("native") }
                 else { app.path().app_data_dir().map_err(std::io::Error::other)? };
             operating_module::install(module_path).map_err(std::io::Error::other)?;
@@ -4210,7 +4232,7 @@ fn main() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![operating_module_status, operating_module_switch, operating_module_transition_ack, operating_module_transition_pending, worker_request, cw_session_request, contest_cw_speed_request, station_session_request, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
+        .invoke_handler(tauri::generate_handler![hide_prepared_contest_owner, close_learning_window, operating_module_status, operating_module_switch, operating_module_transition_ack, operating_module_transition_pending, worker_request, cw_session_request, contest_cw_speed_request, station_session_request, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity,
             operator_draft_read_radio,
@@ -4250,7 +4272,7 @@ fn main() {
         .expect("Application failed to start")
         .run(|app, event| {
             if let tauri::RunEvent::ExitRequested { api, .. } = &event {
-                if app.get_webview_window(CONTEST_SETUP_WINDOW).is_some()
+                if app.webview_windows().keys().any(|label|module_transition_editor(label))
                     && !CONTEST_QUIT_PREPARED.load(Ordering::Acquire) {
                     api.prevent_exit();
                     if CONTEST_QUIT_PREPARING.compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire).is_ok() {
@@ -4269,6 +4291,7 @@ fn main() {
                                         let _ = window.emit("xlog:contesting-quit-blocked", format!("Quit cancelled; your contest entry remains open. {error}"));
                                         let _ = window.show(); let _ = window.set_focus();
                                     }
+                                    show_module_switch_error(&app,&format!("Quit cancelled; unfinished work remains open. {error}"));
                                 }
                             }
                         });
@@ -5242,6 +5265,10 @@ mod intelligence_window_tests {
     #[test]
     fn quit_preparation_uses_the_existing_contest_owner_without_requiring_unrelated_editors() {
         assert!(super::preparation_editor(super::CONTEST_SETUP_WINDOW, "quit-contesting"));
+        assert!(super::preparation_editor(crate::contest_analytics::WINDOW, "quit-contesting"));
+        for label in ["main","log-qso","logbook",crate::contest_analytics::WINDOW] {
+            assert!(super::preparation_editor(label,"quit-normal"));
+        }
         for label in ["main", "logbook", "log-qso", "contesting-active-qso", "unknown"] {
             assert!(!super::preparation_editor(label, "quit-contesting"));
         }

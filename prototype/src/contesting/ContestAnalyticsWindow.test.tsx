@@ -8,6 +8,9 @@ import { saveAnalyticsFile } from "./contestAnalyticsExport";
 
 const native=vi.hoisted(()=>({invoke:vi.fn(),isTauri:vi.fn(()=>true)}));
 vi.mock("@tauri-apps/api/core",()=>native);
+const lifecycle=vi.hoisted(()=>({close:null as (()=>void)|null,controller:null as (()=>{prepare:()=>Promise<void>})|null}));
+vi.mock("@tauri-apps/api/window",()=>({getCurrentWindow:()=>({listen:vi.fn(async(_event:string,callback:()=>void)=>{lifecycle.close=callback;return ()=>{};})})}));
+vi.mock("../operatingModulePreparation",()=>({prepareOperatingModuleTransition:(controller:typeof lifecycle.controller)=>{lifecycle.controller=controller;return ()=>{};}}));
 vi.mock("./contestRecorder",async importOriginal=>({...await importOriginal<typeof import("./contestRecorder")>(),recorderRequest:vi.fn(async()=>({}))}));
 
 class AnalysisWorker {
@@ -16,9 +19,19 @@ class AnalysisWorker {
   terminate(){this.terminated=true;}
 }
 beforeEach(()=>{vi.stubGlobal("Worker",AnalysisWorker);native.invoke.mockReset();native.isTauri.mockReturnValue(true);});
-afterEach(()=>{cleanup();vi.unstubAllGlobals();vi.restoreAllMocks();vi.useRealTimers();});
+afterEach(()=>{vi.restoreAllMocks();cleanup();localStorage.clear();vi.unstubAllGlobals();vi.useRealTimers();});
 const snapshot={meta:analyticsFixtureMeta,rows:analyticsFixtureRows};
 describe("Contest Analytics interaction",()=>{
+  it("retains the last annotation on tab navigation and vetoes native close/preparation when storage fails",async()=>{
+    render(<ContestAnalyticsWindow initialSnapshot={snapshot}/>);fireEvent.click(await screen.findByRole("button",{name:"Quality & Review"}));
+    fireEvent.change(screen.getByLabelText("Original learning evidence"),{target:{value:"last unfinished annotation"}});
+    const write=vi.spyOn(Storage.prototype,"setItem").mockImplementation(()=>{throw Error("quota exhausted");});
+    fireEvent.click(screen.getByRole("button",{name:"Overview"}));expect(screen.getByRole("button",{name:"Quality & Review"}).getAttribute("aria-current")).toBe("page");
+    await expect(lifecycle.controller!().prepare()).rejects.toThrow(/quota exhausted/);
+    act(()=>lifecycle.close!());expect(native.invoke).not.toHaveBeenCalledWith("close_learning_window");
+    write.mockRestore();native.invoke.mockResolvedValue(undefined);act(()=>lifecycle.close!());await waitFor(()=>expect(native.invoke).toHaveBeenCalledWith("close_learning_window"));
+    expect(Object.values(localStorage).join()).toContain("last unfinished annotation");
+  });
   it("shows the host nonproduct score and separately labelled points and multiplier values",async()=>{
     const nonproduct={meta:{...analyticsFixtureMeta,cqWW:false,pluginID:"es_manual_key",hostEvidence:true,multiplierAdapter:true,total:1,
       score:{qsos:1,points:30,multipliers:0,total:45},

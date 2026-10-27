@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { BookOpen, Download, Radio, Trophy } from "lucide-react";
+import { flushUnfinishedEditors, UnfinishedEditorWarning } from "./unfinishedEditors";
 import BandMaps, { deduplicateBandMapSpots, type BandMapSpot } from "../live/BandMaps";
 import ClusterPanel from "../live/ClusterPanel";
 import { bearingAndDistance } from "../MapGeography";
@@ -1453,6 +1454,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setError("");
     try {
+      flushUnfinishedEditors();
       if (projectionRef.current?.sessionID !== session.sessionID) await flushDraftRef.current();
       const opened = await result<{ projection: Projection }>("contest_open", {
         sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration,
@@ -1534,6 +1536,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
       freeze: () => setRetiring(true), resume: () => setRetiring(false),
       prepare: async () => {
         if (busyRef.current || editing) throw new Error("Finish the current contest edit before changing operating module.");
+        flushUnfinishedEditors();
         await flushAllDraftsRef.current();
         await cw.controller.stop();
       },
@@ -2259,6 +2262,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setError("");
     try {
+      flushUnfinishedEditors();
       await flushDraft(projectionRef.current, operationFrequencyHz ?? projectionRef.current?.frequencyHz ?? null);
       if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(workspaceGeneration))
         throw new Error("The current xLog workspace identity is unavailable. Reopen the workspace before creating a contest.");
@@ -2288,6 +2292,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     if (saved) { rememberSetup(document); setEffectiveMacros(savedMacros); }
   };
   const createPractice=async()=>{
+    flushUnfinishedEditors();
     const base=projectionRef.current;if(!base||busyRef.current)throw new Error("Open a source contest before creating Practice.");
     const key=`xlog.contest.practice-create.v1/${base.workspaceGeneration}/${base.sessionID}`;
     const pending=localStorage.getItem(key),params=pending?JSON.parse(pending):{sessionID:crypto.randomUUID(),workspaceGeneration:base.workspaceGeneration,
@@ -3702,6 +3707,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
   useEffect(() => {
     if (!registerMenuRoute) return;
     const handle = async (route: string) => {
+      flushUnfinishedEditors();
       if (["contest-dialog-operator", "contest-dialog-station", "contest-dialog-configuration", "contest-dialog-digital", "contest-dialog-macros", "contest-dialog-keys", "contest-dialog-rover", "contest-dialog-about"].includes(route)) {
         if (["contest-dialog-macros", "contest-dialog-keys"].includes(route) && startupPending) return false;
         if (["contest-dialog-macros", "contest-dialog-keys"].includes(route) && !projectionRef.current) { setManager(true); setError(`Open a contest session before editing ${route === "contest-dialog-keys" ? "keys" : "macros"}.`); return true; }
@@ -3906,8 +3912,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
         ? !productivityOpen&&<section className="contest-welcome"><h2>Contest windows are ready</h2><p>Use the Contest menu to open and position Main Logging, Check Partial, Stats, Rates, Score Reporting, Messages, Logbook, Band Map, Cluster, Rotator, DXCC, Zone and Remote VFO windows.</p></section>
         : !productivityOpen&&<section className="contest-welcome"><h2>Preserved contest session</h2><p>This session predates detached contest windows for the current xLog workspace. Its Python/SQLite log is preserved; create a current-workspace contest before opening independent windows.</p></section>}</> : <section className="contest-welcome"><h2>Open a contest session</h2></section>}
     {productivityOpen&&projection&&<section className="contest-productivity-desk" aria-label="Productivity desk">
+      <UnfinishedEditorWarning/>
       <nav className="contest-productivity-nav" aria-label="Productivity tools">{["Entry & stack","Check","Log & notes","Skeds","Opportunities","Info & time","Messages","QTC","VHF & sites","Developer kit","Historical import","Submission"].map(tab=><button key={tab}
-        type="button" aria-pressed={productivityTab===tab} onClick={()=>setProductivityTab(tab)}>{tab}</button>)}</nav>
+        type="button" aria-pressed={productivityTab===tab} onClick={()=>{try{flushUnfinishedEditors();setProductivityTab(tab);}catch(cause){setError(errorMessage(cause));}}}>{tab}</button>)}</nav>
       {dualContestLanes(projection)&&<p className="contest-source">Selected tools: {projection.operatingLanes!.keyboardLaneID==="laneA"?"Lane A":"Lane B"} · draft {projection.draftID.slice(0,8)}. Stack, notes, messages and loaded suggestions retain their captured lane.</p>}
       {productivityTab==="Developer kit"&&<ContestDeveloperKit scope={projection} request={request as ContestRequest}/>}
       {productivityTab==="Historical import"&&<ContestHistoricalImport scope={projection} request={request as ContestRequest} disabled={busy||retiring||configuredClient}

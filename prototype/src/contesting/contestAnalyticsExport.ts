@@ -20,7 +20,7 @@ export function useAnalyticsExport(){
   const perform=async(label:string,waiting:string,action:()=>Promise<string>)=>{
     if(active.current)return;
     active.current=true;setPending(true);setPendingLabel(waiting);setMessage("");setError("");
-    try{setMessage(await action());}
+    try{const outcome=await action();setMessage(outcome);return outcome;}
     catch(cause){setError(`${label} failed: ${cause instanceof Error?cause.message:String(cause)}`);}
     finally{active.current=false;setPending(false);}
   };

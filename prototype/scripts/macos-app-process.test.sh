@@ -16,6 +16,8 @@ sleep() { :; }
 stop_macos_app '/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype'
 [[ "$terminated" == '101' ]]
 [[ "$(macos_app_pids '/tmp/OM0RX Test.app/Contents/MacOS/xlog-prototype')" == '103' ]]
+verify_macos_app_stopped '/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype'
+if verify_macos_app_stopped '/tmp/OM0RX Test.app/Contents/MacOS/xlog-prototype' 2>/dev/null; then exit 1; fi
 
 # A process that ignores TERM prevents replacement instead of continuing with
 # the old executable still mapped from the rollback bundle.
@@ -25,6 +27,7 @@ if stop_macos_app '/tmp/OM0RX Test.app/Contents/MacOS/xlog-prototype' 2>/dev/nul
   exit 1
 fi
 ps() { return 1; }
+if verify_macos_app_stopped '/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype'; then exit 1; fi
 if stop_macos_app '/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype'; then
   printf 'Expected failed process inventory to stop installation.\n' >&2
   exit 1

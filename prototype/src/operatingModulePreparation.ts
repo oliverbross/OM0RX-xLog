@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { flushUnfinishedEditors } from "./contesting/unfinishedEditors";
 
 export type OperatingModuleTransitionController = {
   freeze: () => void;
@@ -27,6 +28,7 @@ export function prepareOperatingModuleTransition(controller: () => OperatingModu
     current.freeze();
     let ready = false, reason: string | undefined;
     try {
+      flushUnfinishedEditors();
       await current.prepare();
       if (active && !cancelled.has(request)) {
         preparedRequest = request;
