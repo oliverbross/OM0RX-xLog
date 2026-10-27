@@ -994,7 +994,7 @@ class Desk:
         replica = staged_replica or bound_replica
         staged_reservation = (json.loads(staged_replica["reservation_json"])
                               if staged_replica and staged_replica["reservation_json"] else None)
-        return {"sessionID": self.state["sessionID"], "engine": "not1mm-python",
+        result = {"sessionID": self.state["sessionID"], "engine": "not1mm-python",
                 "practice": deepcopy(self.state.get("practice")),
                 "pluginID": self.state["pluginID"], "pluginName": PLUGINS[self.state["pluginID"]],
                 "reservedSerial": self.current_sn if requires_serial(self.state) else None,
@@ -1059,7 +1059,21 @@ class Desk:
                 "countryResolved": bool(self.cty_lookup(call)), "history": self.history_info.text(),
                 "exchangeWarnings": self.exchange_warnings(),
                 "columns": (list(CQ_WW_SSB_LOG_COLUMNS) if self.state["pluginID"] == "cq_ww_ssb"
-                            else self.contest.columns), "score": self.score()}
+                             else self.contest.columns), "score": self.score()}
+        from .lanes import metadata, select as select_lane
+        result.update(metadata(self.state, result))
+        for lane in result.get("operatingLanes", {}).get("lanes", []):
+            lane["draftRevision"] = self.state["revision"]
+            if lane["laneID"] == result["selectedLaneID"]:
+                view = result
+            else:
+                other = deepcopy(self.state)
+                select_lane(other, {"laneID": lane["laneID"], "workspaceGeneration": workspace_generation(other)}, require)
+                other.pop("laneState", None)  # One ordinary plugin Desk, not a second log/score owner.
+                view = Desk(self.database, other, self._commit).projection()
+            lane.update({key: deepcopy(view[key]) for key in ("fields", "mode", "frequencyHz", "run", "focus", "reservedSerial",
+                                                              "dupe", "dupeExplanation", "exchangeWarnings")})
+        return result
 
     def entry_policy(self):
         """Keep the proven phone defaults; operator overrides are explicit."""
@@ -1172,7 +1186,8 @@ class Desk:
 
 class Host:
     MUTATIONS = {"session_create", "legacy_import", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "digital_ingest", "qso_correct", "qso_delete", "setup_save", "rover_location", "recalculate", "country_reconcile", "multi_contact_apply", "multi_replica_apply", "note_save", "strategy_apply", "message_bank_save", "message_bank_activate", "operating_plan_save"}
-    REPLICA_BLOCKED = {"legacy_import", "esm", "function_key", "qso_commit", "digital_ingest",
+    MUTATIONS |= {"lanes_configure", "lane_context", "lane_select"}
+    REPLICA_BLOCKED = {"legacy_import", "esm", "function_key", "qso_commit", "digital_ingest", "lanes_configure", "lane_context", "lane_select",
                        "qso_correct", "qso_delete", "recalculate", "country_reconcile", "setup_save", "rover_location",
                        "multi_contact_apply"}
 
@@ -1425,6 +1440,9 @@ class Host:
         state = store.state(session_id)
         require(state is not None, "Session does not exist", "not_found")
         self.verify_engine(state)
+        from .lanes import select as select_lane
+        if "laneID" in params or method in {"session_open", "projection", "cw_context"}:
+            select_lane(state, params, require, mandatory=method == "cw_context")
         if method in {"strategy", "message_import", "message_preview", "message_banks", "operating_info"}:
             require(params.get("workspaceGeneration") == workspace_generation(state), "Strategy workspace changed", "stale_context")
             require(type(params.get("expectedRevision")) is int and params["expectedRevision"] == state["revision"],
@@ -1730,7 +1748,9 @@ class Host:
         if method == "cw_context":
             require(not state.get("practice"), "Practice sessions have native output disabled", "practice_output_disabled")
             require(operating_mode(state) == "CW", "This contest does not support CW output", "unsupported_mode")
+            from .lanes import attribution
             return {"sessionID": session_id, "revision": state["revision"],
+                    **({"laneContext": attribution(state)} if state.get("laneState") else {}),
                     "draftID": state["draft"]["id"], "stationCall": state["station"]["Call"],
                     "fields": desk.values(), "frequencyHz": state["draft"]["frequencyHz"],
                     "cwFormatting": cw_formatting_preferences(state.get("setup", {}).get("preferences", {})),
@@ -1769,6 +1789,9 @@ class Host:
                 page = log_query(store, current, params, require, cq_ww_duplicate_projection(current["pluginID"]))
                 for row in page["rows"]:
                     self.add_legacy_provenance(store, row)
+                    lane = store.exec_sql("SELECT attribution FROM xlog_qso_lane WHERE qso_id=?", (row["ID"],))
+                    if current.get("laneState") or lane:
+                        row["laneAttribution"] = json.loads(lane["attribution"]) if lane else None
                 self.add_exchange_warnings(store, current, page["rows"])
                 return page
             finally:
@@ -1777,6 +1800,14 @@ class Host:
             from .productivity import read_notes
             require(params.get("workspaceGeneration") == workspace_generation(state), "Notes workspace changed", "stale_context")
             require(params.get("expectedRevision") == state["revision"], "Notes snapshot changed", "stale_revision")
+            if params.get("laneID") is not None:
+                limit, offset = params.get("limit", 50), params.get("offset", 0)
+                require(type(limit) is int and 1 <= limit <= 100 and type(offset) is int and offset >= 0, "Invalid notes page")
+                predicate = "coalesce(dl.lane_id,json_extract(ql.attribution,'$.laneID'))=?"
+                joins = " FROM xlog_note n LEFT JOIN xlog_draft_lane dl ON dl.draft_id=n.draft_id LEFT JOIN xlog_qso_lane ql ON ql.qso_id=n.qso_id "
+                return {"sessionID": session_id, "workspaceGeneration": workspace_generation(state), "revision": state["revision"],
+                        "total": store.exec_sql("SELECT count(*) AS n" + joins + "WHERE " + predicate, (params["laneID"],))["n"],
+                        "rows": store.exec_sql_mult("SELECT n.*,d.Call AS callsign,d.TS AS workedAt" + joins + "LEFT JOIN DXLOG d ON d.ID=n.qso_id WHERE " + predicate + " ORDER BY n.revision DESC,n.id ASC LIMIT ? OFFSET ?", (params["laneID"], limit, offset))}
             return read_notes(store, state, params, require)
         if method == "export":
             return self.export(desk)
@@ -2411,8 +2442,39 @@ class Host:
             legacy_summary = None
             if method == "legacy_import":
                 legacy_summary = self.import_legacy(store, state, params)
+            from .lanes import select as select_lane, ENTRY_METHODS
+            action_lane = select_lane(state, params, require, mandatory=method in ENTRY_METHODS or method == "note_save"
+                                      or method == "strategy_apply" and params.get("action") == "sked_load")
+            if state.get("laneState", {}).get("mode", "SO1V") != "SO1V" and method in ENTRY_METHODS - {"lane_select"}:
+                require(params.get("draftID") == state["draft"]["id"], "Lane draft changed", "stale_draft")
+                if method in {"esm", "function_key"}:
+                    require(state["laneState"]["lanes"][action_lane]["binding"] is not None,
+                            "Bind the lane to an explicit radio/receiver before output", "lane_unbound")
             desk = Desk(store, state, self.commit)
-            if method in {"strategy_apply", "message_bank_save", "message_bank_activate", "operating_plan_save"}:
+            if method == "lanes_configure":
+                from .lanes import configure, snapshot
+                require(params.get("workspaceGeneration") == workspace_generation(state), "Lane workspace changed", "stale_context")
+                def make_second_lane():
+                    second = deepcopy(state)
+                    second.pop("laneState", None)
+                    second["draft"]["id"] = str(uuid.uuid4())
+                    second["draft"].pop("receiveFrequencyHz", None)
+                    second["draft"]["prevCall"] = ""
+                    second["esmCallSent"], second["focus"], second["run"] = "", "callsign", False
+                    clean = Desk(store, second, self.commit)
+                    clean.clear_inputs()
+                    clean.persist()
+                    self.reserve_serial(store, second)
+                    return snapshot(second)
+                configure(state, params, require, make_second_lane)
+                desk = Desk(store, state, self.commit)
+            elif method == "lane_select":
+                require(state.get("laneState") is not None, "Configure operating lanes first")
+                state["laneState"]["keyboardLaneID"] = action_lane
+            elif method == "lane_context":
+                from .lanes import context
+                context(state, params, require)
+            elif method in {"strategy_apply", "message_bank_save", "message_bank_activate", "operating_plan_save"}:
                 require(params.get("workspaceGeneration") == workspace_generation(state), "Strategy workspace changed", "stale_context")
                 try:
                     if method == "strategy_apply":
@@ -2841,13 +2903,21 @@ class Host:
                 # Host-owned restriction survives setup changes and receipt replay.
                 desk.actions = []
             desk.persist()
+            from .lanes import checkpoint, attribution
+            checkpoint(state)
+            action_context = attribution(state)
             if state.get("strategy", {}).get("moves"):
                 from .strategy import reconcile_worked
                 reconcile_worked(state, store.exec_sql_mult("SELECT ID,Call,Band,Mode FROM DXLOG WHERE ContestNR=?", (store.current_contest,)), BAND_LABELS)
             state["revision"] += 1
+            if state.get("laneState"):
+                select_lane(state, {"laneID": state["laneState"]["keyboardLaneID"], "workspaceGeneration": workspace_generation(state)}, require)
             store.save_state(state)
+            projection_desk = Desk(store, state, self.commit) if state.get("laneState") else desk
             result = {"operationID": operation, "sessionID": session_id, "revision": state["revision"],
-                      "projection": desk.projection(), "actions": desk.actions, "messages": desk.messages, "replayed": False}
+                      "projection": projection_desk.projection(), "actions": desk.actions, "messages": desk.messages, "replayed": False}
+            if action_context:
+                result.update(laneID=action_context["laneID"], bindingVersion=action_context["bindingVersion"])
             if method == "digital_ingest":
                 result.update({"digitalDuplicate": False, "qsoID": committed[0]})
             if method == "setup_save":
@@ -2868,6 +2938,8 @@ class Host:
                 result["legacyImport"] = legacy_summary
             for index, action in enumerate(result["actions"]):
                 action["actionID"] = f"{operation}:{index}"
+                if action_context:
+                    action.update(laneID=action_context["laneID"], bindingVersion=action_context["bindingVersion"], laneBinding=action_context["binding"])
             store.conn.execute("INSERT INTO xlog_operation VALUES(?,?,?)", (operation, payload, canonical(result)))
             store.finish(True)
             self.remember_active_session(session_id)
@@ -3362,6 +3434,10 @@ class Host:
 
     def apply_fields(self, desk, params, allow_reserved_serial_change=False):
         require(params.get("draftID", desk.state["draft"]["id"]) == desk.state["draft"]["id"], "Draft changed", "stale_draft")
+        if "receiveFrequencyHz" in params:
+            receive = params["receiveFrequencyHz"]
+            require(receive is None or type(receive) is int and 100_000 <= receive <= 100_000_000_000, "Receive frequency must be integer Hz or unknown")
+            desk.state["draft"]["receiveFrequencyHz"] = receive
         if "mode" in params:
             mode = params["mode"]
             modes = PLUGIN_REGISTRY[desk.state["pluginID"]].modes
@@ -3936,6 +4012,10 @@ class Host:
         chronological_append = not previous or previous["TS"] < timestamp
         contact = desk.contact_for(fields, qso_id, timestamp,
                                    frequency or desk.state["draft"]["frequencyHz"], base=base, operator=operator)
+        from .lanes import attribution
+        lane_context = attribution(desk.state) if self._note_binding_allowed else None
+        if lane_context and lane_context["receiveFrequencyHz"] is not None:
+            contact["QSXFreq"] = lane_context["receiveFrequencyHz"] / 1000
         if desk.state["pluginID"] == "cq_ww_ssb":
             country = str(contact.get("CountryPrefix", "")).strip().upper()
             zone = str(contact.get("ZN", "")).strip()
@@ -3957,6 +4037,11 @@ class Host:
             raise HostError("qso_collision", "QSO identity or timestamp/call already exists") from error
         country = desk.state["reference"]["countries"].get(contact["Call"])
         desk.database.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,0)", (qso_id, canonical(fields), canonical(country)))
+        if lane_context:
+            desk.database.conn.execute("INSERT INTO xlog_qso_lane VALUES(?,?)", (qso_id, canonical(lane_context)))
+            if requires_serial(desk.state):
+                desk.database.conn.execute("UPDATE xlog_serial SET qso_id=? WHERE draft_id=? AND scope=? AND qso_id IS NULL",
+                                           (qso_id, desk.state["draft"]["id"], serial_scope(desk.state, desk.state["draft"]["frequencyHz"])))
         if self._note_binding_allowed:
             # External/digital contacts temporarily borrow a Desk but do not
             # consume the operator's Entry; they must never claim its notes.
@@ -4201,6 +4286,17 @@ class Host:
             desk.database.conn.execute("UPDATE xlog_qso_identity SET raw_fields=?,country=? WHERE id=?", (canonical(updated), canonical(country), qso_id))
         self.rebuild(desk)
         after = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,)) or None
+        if after and ("frequencyHz" in params or "receiveFrequencyHz" in params):
+            lane_row = desk.database.exec_sql("SELECT attribution FROM xlog_qso_lane WHERE qso_id=?", (qso_id,))
+            if lane_row:
+                lane_context = json.loads(lane_row["attribution"])
+                lane_context["transmitFrequencyHz"] = round(float(after["Freq"]) * 1000)
+                if "receiveFrequencyHz" in params:
+                    lane_context["receiveFrequencyHz"] = params["receiveFrequencyHz"]
+                    lane_context["splitEvidence"] = "operator_correction"
+                receive = lane_context["receiveFrequencyHz"]
+                lane_context["split"] = receive != lane_context["transmitFrequencyHz"] if receive is not None else None
+                desk.database.conn.execute("UPDATE xlog_qso_lane SET attribution=? WHERE qso_id=?", (canonical(lane_context), qso_id))
         if method != "qso_delete" and legacy:
             desk.database.conn.execute(
                 "UPDATE xlog_legacy_row_receipt SET current_fields=? WHERE target_qso_id=?",
@@ -4394,6 +4490,11 @@ class Host:
                 note = ("SOAPBOX: Known score (partial): " + CQWS_UF_LIMITATION + "\r\n").encode("utf-8")
                 require(payload.count(b"END-OF-LOG:") == 1, "CQWS export terminator is invalid", "export_failed")
                 files[0].write_bytes(payload.replace(b"END-OF-LOG:", note + b"END-OF-LOG:"))
+            if export_format == "adif":
+                from .lanes import augment_adif
+                known = {row["qso_id"]: json.loads(row["attribution"]) for row in desk.database.exec_sql_mult("SELECT * FROM xlog_qso_lane")}
+                if known:
+                    files[0].write_bytes(augment_adif(files[0].read_bytes(), desk.database.fetch_all_contacts_asc(), known, require))
             require(files[0].stat().st_size <= maximum,
                     "Use a chunked export route for this log" if maximum == 512000 else "Prepared export exceeds the native save limit",
                     "export_too_large")

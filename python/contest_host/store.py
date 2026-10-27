@@ -49,6 +49,8 @@ class Store(DataBase):
             CREATE TABLE IF NOT EXISTS xlog_operation(operation_id TEXT PRIMARY KEY, payload TEXT NOT NULL, result TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_output_claim(operation_id TEXT PRIMARY KEY);
             CREATE TABLE IF NOT EXISTS xlog_draft_contact(draft_id TEXT PRIMARY KEY, qso_id TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS xlog_draft_lane(draft_id TEXT PRIMARY KEY, lane_id TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS xlog_qso_lane(qso_id TEXT PRIMARY KEY, attribution TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_note(id TEXT PRIMARY KEY, draft_id TEXT, qso_id TEXT,
                 body TEXT NOT NULL, created_utc TEXT NOT NULL, revision INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_serial(draft_id TEXT NOT NULL, serial INTEGER NOT NULL,
@@ -235,6 +237,10 @@ class Store(DataBase):
         return json.loads(row["state"]) if row else None
 
     def save_state(self, state):
+        from .lanes import checkpoint
+        checkpoint(state)
+        for lane_id, lane in state.get("laneState", {}).get("lanes", {}).items():
+            self.conn.execute("INSERT OR IGNORE INTO xlog_draft_lane VALUES(?,?)", (lane["draft"]["id"], lane_id))
         self.conn.execute("INSERT INTO xlog_session VALUES(?,?) ON CONFLICT(id) DO UPDATE SET state=excluded.state", (state["sessionID"], canonical(state)))
 
     def callhistory_status(self):
