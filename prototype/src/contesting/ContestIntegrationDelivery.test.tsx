@@ -16,8 +16,9 @@ describe("optional integration delivery",()=>{
     render(<ContestIntegrationDelivery scope={scope} request={request as ContestRequest} disabled={false}/>);
     const button=await screen.findByRole("button",{name:"Review retry contactreplace"});
     expect(screen.getByText("Sent · remote result unverified")).toBeTruthy();
-    fireEvent.click(button);expect(confirm).toHaveBeenCalled();expect(request).toHaveBeenCalledTimes(1);
-    confirm.mockReturnValue(true);fireEvent.click(button);
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(button);expect(confirm).not.toHaveBeenCalled();expect(request).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("checkbox",{name:/I reviewed the consumer/}));fireEvent.click(button);
     await waitFor(()=>expect(request).toHaveBeenCalledWith("contest_n1mm_retry",{...scope,deliveryID:row.id,sha256:row.sha256,expectedAttempts:1,confirmUncertain:true}));
   });
   it("cannot paint an old session's delayed retry onto the new session",async()=>{
@@ -26,7 +27,9 @@ describe("optional integration delivery",()=>{
     const request=vi.fn((method:string,params:any)=>method==="contest_n1mm_retry"?new Promise(resolve=>{finish=resolve;}):
       Promise.resolve({ok:true,result:params.sessionID===scope.sessionID?result:{...result,rows:[]}}));
     const view=render(<ContestIntegrationDelivery scope={scope} request={request as ContestRequest} disabled={false}/>);
-    fireEvent.click(await screen.findByRole("button",{name:"Review retry contactreplace"}));
+    await screen.findByRole("button",{name:"Review retry contactreplace"});
+    fireEvent.click(screen.getByRole("checkbox",{name:/I reviewed the consumer/}));
+    fireEvent.click(screen.getByRole("button",{name:"Review retry contactreplace"}));
     view.rerender(<ContestIntegrationDelivery scope={{sessionID:"session-b",workspaceGeneration:"workspace-b"}} request={request as ContestRequest} disabled={false}/>);
     await screen.findByText("No optional datagram attempts are recorded for this session.");
     await act(async()=>finish({ok:true,result}));
