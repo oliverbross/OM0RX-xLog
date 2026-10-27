@@ -394,6 +394,38 @@ final class LiveSpotHistoryMethods: @unchecked Sendable {
         }
     }
 
+    /// Bounded exact-call history for DXMap. Archived observations are display
+    /// evidence only: no native activation token or station command is returned.
+    func dxpeditionRows(callsigns: [String], now: Date = Date()) async throws -> [[String: Any]] {
+        let calls = Array(Set(callsigns)).sorted().prefix(256)
+        guard !calls.isEmpty, FileManager.default.fileExists(atPath: url.path) else { return [] }
+        return try await withCheckedThrowingContinuation { continuation in
+            reader.async {
+                do {
+                    guard self.lock.withLock({ self.accepting }) else { throw WorkerFailure("worker_stopping", "Spot History has shut down.") }
+                    let database: SpotHistoryDatabase
+                    if let existing = self.readDatabase { database = existing }
+                    else { database = try SpotHistoryDatabase(url: self.url); self.readDatabase = database }
+                    var result: [[String: Any]] = []
+                    for call in calls {
+                        let rows = try database.query(.init(call: call, from: now.addingTimeInterval(-48 * 3_600), to: now.addingTimeInterval(60), limit: 100)).rows
+                        var slots = Set<String>()
+                        let distinct = rows.filter { slots.insert("\($0.band)|\($0.mode)").inserted }
+                        let retained = Array((distinct + rows.filter { row in !distinct.contains { $0.id == row.id } }).prefix(15))
+                        result += retained.map { row in
+                            ["id": "history:\(row.id.uuidString)", "callsign": row.callsign,
+                             "frequencyKHz": row.frequencyKHz, "band": row.band, "mode": row.mode,
+                             "receivedAt": (row.reportedAt ?? row.arrivedAt).timeIntervalSinceReferenceDate,
+                             "spotter": row.spotter, "comment": row.comment, "country": row.country,
+                             "archived": true] as [String: Any]
+                        }
+                    }
+                    continuation.resume(returning: result)
+                } catch { continuation.resume(throwing: error) }
+            }
+        }
+    }
+
     private static func query(_ params: [String: Any], stats: Bool) throws -> SpotHistoryQuery {
         let keys: Set<String> = ["call", "spotter", "match", "from", "to", "band", "mode", "source", "limit", "cursor", "watermark"]
         guard Set(params.keys).isSubset(of: keys) else { throw invalid() }

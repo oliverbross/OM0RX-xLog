@@ -555,6 +555,10 @@ public actor LiveClusterMethods {
         return object["spots"] as? [[String: Any]] ?? []
     }
 
+    func dxpeditionHistory(callsigns: [String]) async throws -> [[String: Any]] {
+        try await historyService().dxpeditionRows(callsigns: callsigns)
+    }
+
     /// Called after local QSO mutations, import, restore or remote reconciliation.
     public func refreshContacts() async throws {
         try requireRunning()

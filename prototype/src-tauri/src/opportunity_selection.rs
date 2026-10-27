@@ -32,6 +32,12 @@ fn retain(feeds: &mut Feeds, worker: u64, method: &str, response: &mut Value) ->
         let id = row["id"].as_str().filter(|id| !id.is_empty() && id.len() <= 128).ok_or("Opportunity identity is invalid")?.to_owned();
         let key = (snapshot_method.to_owned(), id);
         if retained.contains_key(&key) { return Err("Opportunity identity is ambiguous".into()); }
+        // Recently ended operations and prefix-only announcements remain visible
+        // but cannot acquire native draft-selection authority.
+        if row["draft_load_allowed"].as_bool() == Some(false) {
+            row.as_object_mut().ok_or("Opportunity row is invalid")?.remove("activation");
+            continue;
+        }
         let version = feeds.rows.get(&key).filter(|prior| prior.worker == worker && prior.row == *row)
             .map(|prior| prior.version.clone()).unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         retained.insert(key, Retained { worker, row:row.clone(), version:version.clone(), snapshot_method:snapshot_method.into() });
@@ -68,6 +74,14 @@ pub fn resolve(request: &crate::spot_activation::Request) -> Result<Value, Strin
 mod tests {
     use super::*;
     fn response() -> Value { json!({"ok":true,"result":{"items":[{"id":"pota:1","callsign":"OM0RX/P","frequency_hz":14074000}]}}) }
+    #[test]
+    fn informational_expeditions_never_receive_native_selection_authority() {
+        let mut feeds = Feeds { epoch:uuid::Uuid::new_v4().to_string(), rows:BTreeMap::new() };
+        let mut info = response(); info["result"]["items"][0]["draft_load_allowed"] = json!(false);
+        retain(&mut feeds, 1, "opportunities_dxpedition_snapshot", &mut info).unwrap();
+        assert!(feeds.rows.is_empty());
+        assert!(info["result"]["items"][0]["activation"].is_null());
+    }
     #[test]
     fn identities_survive_equal_reads_but_change_with_row_or_worker_and_retire_removed_rows() {
         let mut feeds = Feeds { epoch:uuid::Uuid::new_v4().to_string(), rows:BTreeMap::new() };

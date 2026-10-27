@@ -112,7 +112,7 @@ struct LiveOpportunitiesMethodsTests {
         }
     }
 
-    @Test("DXpedition refresh is narrow to its two catalogue providers")
+    @Test("DXpedition refresh is narrow to its catalogues and primary Club Log enrichment")
     func dxpeditionRefreshBoundary() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -125,7 +125,7 @@ struct LiveOpportunitiesMethodsTests {
         let actor = LiveOpportunitiesMethods(logbook: logbook, session: session, clusterSpots: { [] })
         let result = try await actor.handle(method: "opportunities_dxpedition_refresh", params: ["source": "all"])
         let sources = try #require(result["sources"] as? [[String: Any]])
-        #expect(Set(sources.compactMap { $0["source"] as? String }) == Set(["adxo", "425dxn"]))
+        #expect(Set(sources.compactMap { $0["source"] as? String }) == Set(["adxo", "425dxn", "clublog"]))
         #expect(sources.allSatisfy { $0["last_attempt"] is String })
         let shared = try await actor.handle(method: "opportunities_snapshot", params: [:])
         let sharedSources = try #require(shared["sources"] as? [[String: Any]])
@@ -177,7 +177,8 @@ struct LiveOpportunitiesMethodsTests {
             name: "DX1ABC, DX2ABC: Island (OC-001)", frequencyHz: nil, mode: "", observedAt: now,
             expiresAt: now.addingTimeInterval(86_400), source: "425DXN Worldwide DX Calendar", sourceURL: "", comment: "",
             startsAt: now.addingTimeInterval(-86_400), endsAt: now.addingTimeInterval(86_400), callsigns: ["DX1ABC", "DX2ABC"], qslRoute: "via M0OXO")
-        var future = item; future.id = "calendar:future"; future.startsAt = now.addingTimeInterval(3_600)
+        var future = item; future.id = "calendar:future"; future.startsAt = now.addingTimeInterval(2 * 86_400)
+        future.endsAt = now.addingTimeInterval(3 * 86_400); future.expiresAt = future.endsAt!
         var unlocated = item; unlocated.id = "calendar:unknown"; unlocated.reference = ""; unlocated.name = "Unknown island"; unlocated.callsigns = ["DX3ABC"]
         let cache = logbook.workspaceDirectoryURL.appendingPathComponent("Opportunities", isDirectory: true)
         try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: false)
@@ -287,7 +288,7 @@ struct LiveOpportunitiesMethodsTests {
         #expect(mapResponse["ok"] as? Bool == true)
         let map = try #require(mapResponse["result"] as? [String: Any])
         #expect(map["surface"] as? String == "dxpedition_map")
-        #expect((map["sources"] as? [[String: Any]])?.count == 2)
+        #expect((map["sources"] as? [[String: Any]])?.count == 3)
         await worker.beginTerminalShutdown()
         let stopped = try #require(JSONSerialization.jsonObject(with: await worker.response(to: request)) as? [String: Any])
         #expect((stopped["error"] as? [String: Any])?["code"] as? String == "worker_stopping")
@@ -398,7 +399,7 @@ private final class EmptyOpportunityProjectionFeed: URLProtocol {
     override func startLoading() {
         let adxo = request.url?.path.hasSuffix("/adxoplain.html") == true
         let response = HTTPURLResponse(url: request.url!, statusCode: 200,
-            httpVersion: "HTTP/1.1", headerFields: ["Content-Type": adxo ? "text/html" : "application/json"])!
+            httpVersion: "HTTP/1.1", headerFields: ["Content-Type": adxo || request.url?.host == "clublog.org" ? "text/html" : "application/json"])!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         let body = adxo ? "<p>Jan 1, 2020 - Dec 31, 2099</p><p>DXCC: Fixture</p><p>Callsign: TEST1</p>" : "[]"
         client?.urlProtocol(self, didLoad: Data(body.utf8))

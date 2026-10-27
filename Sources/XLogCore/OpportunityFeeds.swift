@@ -21,6 +21,9 @@ public struct PublicOpportunity: Codable, Equatable, Sendable {
     public var endsAt: Date?
     public var callsigns: [String]?
     public var qslRoute: String?
+    public var qsoTotal: Int64?
+    public var lastQSO: Date?
+    public var sourceNames: [String]?
 
     public init(id: String, kind: String, callsign: String, reference: String, name: String,
                 frequencyHz: Int64?, mode: String, observedAt: Date, expiresAt: Date,
@@ -45,6 +48,7 @@ public enum OpportunityFeedError: Error, Equatable {
 public enum OpportunityFeedParser {
     public static func parse(_ data: Data, source: String, observedAt: Date) throws -> [PublicOpportunity] {
         if source == "adxo" { return try adxo(data, observedAt: observedAt) }
+        if source == "clublog" { return try clubLog(data, observedAt: observedAt) }
         guard (1...2_097_152).contains(data.count),
               let raw = try? JSONSerialization.jsonObject(with: data),
               let rows = rows(raw), rows.count <= 2_000 else {
@@ -167,23 +171,92 @@ public enum OpportunityFeedParser {
             guard let rawCall = fields["Callsign"] else { continue }
             let upperCall = rawCall.uppercased()
             let callRange = NSRange(upperCall.startIndex..<upperCall.endIndex, in: upperCall)
-            let aliases = callPattern.matches(in: upperCall, range: callRange).compactMap { result -> String? in
+            var aliases = callPattern.matches(in: upperCall, range: callRange).compactMap { result -> String? in
                 guard let value = Range(result.range, in: upperCall) else { return nil }
                 let call = String(upperCall[value]); return validCall(call) ? call : nil
             }
+            // Publishers sometimes announce a prefix in Callsign, then explicitly
+            // list the licensed portable calls after "as". Never admit operators
+            // after "By", QSL managers, or arbitrary prefix matches as aliases.
+            let info = fields["Info"] ?? ""
+            if let clause = info.range(of: #"(?i)\bas\s+([^;]+)"#, options: .regularExpression) {
+                let announced = String(info[clause]).uppercased()
+                let matches = callPattern.matches(in: announced, range: NSRange(announced.startIndex..<announced.endIndex, in: announced))
+                let portable = matches.compactMap { match -> String? in
+                    guard let range = Range(match.range, in: announced) else { return nil }
+                    let value = String(announced[range])
+                    return value.contains("/") && validCall(value) ? value : nil
+                }
+                if !portable.isEmpty { aliases = portable + aliases.filter { !portable.contains($0) && isOperatingCall($0) } }
+            }
+            if aliases.isEmpty, upperCall.range(of: #"^[A-Z0-9]{2,4}$"#, options: .regularExpression) != nil,
+               upperCall.rangeOfCharacter(from: .decimalDigits) != nil { aliases = [upperCall] }
             guard let call = aliases.first else { continue }
             recognizedRows += 1
             let endOfDay = end.addingTimeInterval(86_400 - 0.001)
             let horizon = calendar.date(byAdding: .day, value: 30, to: calendar.startOfDay(for: observedAt))!
-            guard endOfDay >= calendar.startOfDay(for: observedAt), start <= horizon else { continue }
+            guard endOfDay >= observedAt.addingTimeInterval(-48 * 3_600), start <= horizon else { continue }
             let day = formatter.string(from: start).replacingOccurrences(of: " ", with: "-")
             rows.append(PublicOpportunity(id: "adxo:\(day):\(call)", kind: "dxpedition", callsign: call,
-                reference: "", name: fields["DXCC"] ?? "", frequencyHz: nil, mode: "", observedAt: observedAt,
+                reference: iotaReference(in: info) ?? "", name: fields["DXCC"] ?? "", frequencyHz: nil, mode: "", observedAt: observedAt,
                 expiresAt: endOfDay, source: "NG3K ADXO", sourceURL: sourceURL("adxo"), comment: fields["Info"] ?? "",
                 startsAt: start, endsAt: endOfDay, callsigns: aliases, qslRoute: fields["QSL"]))
         }
         guard recognizedRows > 0 else { throw OpportunityFeedError.noUsableRows }
         return Array(rows.prefix(500))
+    }
+
+    public static func isOperatingCall(_ call: String) -> Bool {
+        validCall(call) && call.range(of: #"[0-9][A-Z]"#, options: .regularExpression) != nil
+    }
+
+    /// Primary Club Log public expedition API: call, last QSO (UTC), total.
+    /// A malformed response never erases the last validated enrichment cache.
+    private static func clubLog(_ data: Data, observedAt: Date) throws -> [PublicOpportunity] {
+        guard data.count <= 2_097_152,
+              let rows = try JSONSerialization.jsonObject(with: data) as? [[Any]], rows.count <= 10_000 else {
+            throw OpportunityFeedError.invalidBody
+        }
+        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0); formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"; formatter.isLenient = false
+        let result = rows.compactMap { row -> PublicOpportunity? in
+            guard row.count == 3, let call = row[0] as? String, validCall(call),
+                  let timestamp = row[1] as? String, let last = formatter.date(from: timestamp),
+                  last <= observedAt.addingTimeInterval(60),
+                  let total = Int64(String(describing: row[2])), total >= 0 else { return nil }
+            var item = PublicOpportunity(id: "clublog:\(call)", kind: "enrichment", callsign: call, reference: "", name: "",
+                frequencyHz: nil, mode: "", observedAt: observedAt, expiresAt: observedAt.addingTimeInterval(25 * 3_600),
+                source: "Club Log", sourceURL: sourceURL("clublog"), comment: "")
+            item.qsoTotal = total; item.lastQSO = last
+            return item
+        }
+        guard rows.isEmpty || !result.isEmpty else { throw OpportunityFeedError.schemaChanged }
+        return result
+    }
+
+    /// Merge exact published aliases only when dated occurrences overlap. Keep
+    /// distinct return visits, stable native IDs and every contributing source.
+    public static func mergedDXpeditions(_ input: [PublicOpportunity]) -> [PublicOpportunity] {
+        var merged: [PublicOpportunity] = []
+        for item in input.sorted(by: { ($0.source == "NG3K ADXO" ? 0 : 1, $0.id) < ($1.source == "NG3K ADXO" ? 0 : 1, $1.id) }) {
+            let aliases = Set(item.callsigns ?? [item.callsign])
+            let index = merged.firstIndex { prior in
+                !aliases.isDisjoint(with: Set(prior.callsigns ?? [prior.callsign])) &&
+                max(item.startsAt ?? item.observedAt, prior.startsAt ?? prior.observedAt) <= min(item.endsAt ?? item.expiresAt, prior.endsAt ?? prior.expiresAt)
+            }
+            guard let index else { var value = item; value.sourceNames = [item.source]; merged.append(value); continue }
+            var prior = merged[index]
+            prior.callsigns = [prior.callsign] + Set((prior.callsigns ?? [prior.callsign]) + Array(aliases)).subtracting([prior.callsign]).sorted()
+            prior.startsAt = min(prior.startsAt ?? prior.observedAt, item.startsAt ?? item.observedAt)
+            prior.endsAt = max(prior.endsAt ?? prior.expiresAt, item.endsAt ?? item.expiresAt)
+            prior.expiresAt = max(prior.expiresAt, item.expiresAt)
+            prior.sourceNames = Array(Set((prior.sourceNames ?? [prior.source]) + [item.source])).sorted()
+            if prior.qslRoute == nil { prior.qslRoute = item.qslRoute }
+            if prior.reference.isEmpty { prior.reference = item.reference }
+            if prior.comment.isEmpty { prior.comment = item.comment }
+            merged[index] = prior
+        }
+        return merged
     }
 
     /// Only explicit programme references; never infer an island from a prefix.
@@ -246,6 +319,7 @@ public enum OpportunityFeedParser {
         case "wwff": return "https://spots.wwff.co/static/spots.json"
         case "wwbota": return "https://api.wwbota.org/spots/?age=3"
         case "adxo": return "https://www.ng3k.com/Misc/adxoplain.html"
+        case "clublog": return "https://clublog.org/expeditions.php?api=1"
         default: return "https://www.425dxn.org/dx4win.php"
         }
     }

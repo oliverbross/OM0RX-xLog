@@ -22,12 +22,16 @@ actor LiveOpportunitiesMethods {
     private let logbook: LiveLogbookMethods
     private let session: URLSession
     private let clusterSpots: () async -> [[String: Any]]
+    private let dxpeditionHistory: ([String]) async throws -> [[String: Any]]
+    private var historyCache: (key: String, at: Date, rows: [[String: Any]])?
+    private var historyState = "unavailable"
     private var loaded = false
     private var feeds: [String: Feed] = [:]
     private var refreshing: [String: Task<Void, Never>] = [:]
     private var terminated = false
     private var cachedDirectory: (path: String, identity: String, value: ActivationReferenceDirectory)?
     private let names = ["adxo", "425dxn", "pota", "sota", "wwff", "wwbota"]
+    private let dxSources = ["adxo", "425dxn", "clublog"]
     private let timestampFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -35,11 +39,13 @@ actor LiveOpportunitiesMethods {
     }()
 
     init(logbook: LiveLogbookMethods = .shared, session: URLSession? = nil,
+         dxpeditionHistory: @escaping ([String]) async throws -> [[String: Any]] = { _ in [] },
          clusterSpots: @escaping () async -> [[String: Any]] = {
              await LiveClusterMethods.shared.currentSpotRowsIfStarted()
          }) {
         self.logbook = logbook
         self.clusterSpots = clusterSpots
+        self.dxpeditionHistory = dxpeditionHistory
         if let session { self.session = session }
         else {
             let config = URLSessionConfiguration.ephemeral
@@ -60,8 +66,8 @@ actor LiveOpportunitiesMethods {
         case "opportunities_refresh", "opportunities_dxpedition_refresh":
             guard Set(params.keys).isSubset(of: ["source", "automatic"]), let source = params["source"] as? String,
                   params["automatic"] == nil || params["automatic"] is Bool,
-                  names.contains(source) || source == "all" else { throw invalid() }
-            let refreshNames = method == "opportunities_dxpedition_refresh" ? ["adxo", "425dxn"] : names
+                  (names + dxSources).contains(source) || source == "all" else { throw invalid() }
+            let refreshNames = method == "opportunities_dxpedition_refresh" ? dxSources : names
             guard source == "all" || refreshNames.contains(source) else { throw invalid() }
             if source == "all" {
                 let automatic = params["automatic"] as? Bool ?? true
@@ -114,12 +120,16 @@ actor LiveOpportunitiesMethods {
             guard let url = URL(string: OpportunityFeedParser.sourceURL(source)) else { throw OpportunityFeedError.invalidBody }
             var request = URLRequest(url: url)
             request.timeoutInterval = 15
-            let html = source == "adxo"
+            // Club Log's JSON API deliberately returns text/html.
+            let html = source == "adxo" || source == "clublog"
             request.setValue(html ? "text/html" : "application/json", forHTTPHeaderField: "Accept")
             let data = try await OpportunityDownload.fetch(request, configuration: session.configuration, format: html ? .html : .json)
             let items = try OpportunityFeedParser.parse(data, source: source, observedAt: Date())
             guard !terminated, !Task.isCancelled else { return }
-            prior.items = items
+            let recent = prior.items.filter { old in
+                old.kind == "dxpedition" && old.expiresAt > Date().addingTimeInterval(-48 * 3_600) && !items.contains { $0.id == old.id }
+            }
+            prior.items = Array((items + recent).prefix(source == "clublog" ? 10_000 : 500))
             prior.lastSuccess = Date()
             prior.safeError = nil
             feeds[source] = prior
@@ -134,8 +144,22 @@ actor LiveOpportunitiesMethods {
 
     private func snapshot(dxpeditionOnly: Bool = false) async throws -> [String: Any] {
         let now = Date()
-        var all = names.flatMap { feeds[$0]?.items ?? [] }.filter { $0.expiresAt > now }
-        if dxpeditionOnly { all = all.filter { $0.kind == "dxpedition" } }
+        var all = names.flatMap { feeds[$0]?.items ?? [] }.filter {
+            $0.expiresAt > now || dxpeditionOnly && $0.kind == "dxpedition" && $0.expiresAt > now.addingTimeInterval(-48 * 3_600)
+        }
+        if dxpeditionOnly { all = OpportunityFeedParser.mergedDXpeditions(all.filter { $0.kind == "dxpedition" }) }
+        var archived: [[String: Any]] = []
+        if dxpeditionOnly {
+            let calls = Set(all.flatMap { $0.callsigns ?? [$0.callsign] }).sorted()
+            let key = logbook.workspaceDirectoryURL.path + "|" + calls.joined(separator: ",")
+            if let cache = historyCache, cache.key == key, now.timeIntervalSince(cache.at) < 30 { archived = cache.rows }
+            else {
+                do {
+                    archived = try await dxpeditionHistory(calls)
+                    historyCache = (key, now, archived); historyState = "ready"
+                } catch { historyState = "unavailable" }
+            }
+        }
         // Cluster rows supplement official data. Their source and reference
         // evidence remain distinct; an unvalidated comment is not a park name.
         let spots = await clusterSpots()
@@ -176,6 +200,7 @@ actor LiveOpportunitiesMethods {
         let history = try database.opportunityReferenceHistory()
         let byReference = Dictionary(uniqueKeysWithValues: history.map { ("\($0.kind.lowercased()):\($0.reference.uppercased())", $0) })
         let classification = try? logbook.clusterClassificationSnapshot()
+        let countries = classification?.resolver.reachableCountryEndpoints(at: now) ?? []
         let directory = try activationDirectory()
         let selected = Array(all.sorted { $0.observedAt > $1.observedAt }.prefix(dxpeditionOnly ? 500 : 300))
         let items: [[String: Any]] = selected.map { item in
@@ -196,7 +221,14 @@ actor LiveOpportunitiesMethods {
             let frequency = latestSpot.flatMap { ($0["frequencyKHz"] as? Double).map { Int64(($0 * 1_000).rounded()) } } ?? item.frequencyHz
             let areaLocation = directoryLocation && kind == .iota
             let referenceStatus = kind.map { !directory.hasData(for: $0) ? "not_installed" : match == nil ? "not_found" : "verified" } ?? "not_applicable"
-            let country = classification?.resolver.resolve(callsign, at: item.startsAt ?? item.observedAt)
+            let resolvedCountry = classification?.resolver.resolve(callsign, at: item.startsAt ?? item.observedAt)
+            let declaredName = item.name.components(separatedBy: ":").last ?? item.name
+            let namedCountry = countries.first { normalizedEntity($0.name) == normalizedEntity(declaredName) }
+            let country = dxpeditionOnly ? namedCountry ?? resolvedCountry : resolvedCountry
+            let entityLocation = dxpeditionOnly && country?.latitude != nil && country?.longitude != nil
+            let enrichment = (feeds["clublog"]?.items ?? []).filter { aliases.contains($0.callsign) &&
+                $0.expiresAt > now && ($0.lastQSO ?? .distantPast) >= (item.startsAt ?? .distantPast) &&
+                ($0.lastQSO ?? .distantFuture) <= (item.endsAt ?? item.expiresAt) }.max { ($0.lastQSO ?? .distantPast) < ($1.lastQSO ?? .distantPast) }
             let modeHistory = country.flatMap { entity in
                 classification.map { $0.index.dxccModeHistory(adif: entity.adif) }
             }
@@ -219,11 +251,17 @@ actor LiveOpportunitiesMethods {
                     "frequency_hz": frequency as Any? ?? NSNull(), "mode": latestSpot?["mode"] as? String ?? item.mode,
                     "observed_at": iso(item.observedAt), "expires_at": iso(item.expiresAt),
                     "source": item.source, "source_url": item.sourceURL, "comment": item.comment,
+                    "source_names": item.sourceNames ?? [item.source],
+                    "draft_load_allowed": OpportunityFeedParser.isOperatingCall(item.callsign) && item.expiresAt > now,
+                    "qso_total": enrichment?.qsoTotal as Any? ?? NSNull(),
+                    "last_qso_at": enrichment?.lastQSO.map(iso) as Any? ?? NSNull(),
+                    "enrichment_at": enrichment.map { iso($0.observedAt) } as Any? ?? NSNull(),
+                    "enrichment_stale": feeds["clublog"]?.safeError != nil || now.timeIntervalSince(feeds["clublog"]?.lastSuccess ?? .distantPast) > 300,
                     "reference_status": referenceStatus,
-                    "latitude": (directoryLocation ? match?.latitude : feedLocation ? item.latitude : nil) as Any? ?? NSNull(),
-                    "longitude": (directoryLocation ? match?.longitude : feedLocation ? item.longitude : nil) as Any? ?? NSNull(),
-                    "location_source": areaLocation ? "IOTA group centre — approximate area, not station position" : directoryLocation ? "Reference directory" : feedLocation ? "Public feed" : "No published coordinates",
-                    "location_accuracy": areaLocation ? "reference_area" : directoryLocation || feedLocation ? "reference_position" : "unavailable",
+                    "latitude": (directoryLocation ? match?.latitude : feedLocation ? item.latitude : entityLocation ? country?.latitude : nil) as Any? ?? NSNull(),
+                    "longitude": (directoryLocation ? match?.longitude : feedLocation ? item.longitude : entityLocation ? country?.longitude : nil) as Any? ?? NSNull(),
+                    "location_source": areaLocation ? "IOTA group centre — approximate area, not station position" : directoryLocation ? "Reference directory" : feedLocation ? "Public feed" : entityLocation ? "DXCC entity centre — approximate, not station position" : "No published coordinates",
+                    "location_accuracy": areaLocation || entityLocation ? "reference_area" : directoryLocation || feedLocation ? "reference_position" : "unavailable",
                     "activity": calendar ? latestSpot == nil ? "scheduled" : "spotted_operation" : "live_spot",
                     "starts_at": item.startsAt.map(iso) as Any? ?? NSNull(),
                     "ends_at": calendar ? iso(item.endsAt ?? item.expiresAt) as Any : NSNull(),
@@ -239,7 +277,7 @@ actor LiveOpportunitiesMethods {
                          "worked_count": cell.workedCount, "confirmed_count": cell.confirmedCount] as [String: Any]
                     } ?? []] as [String: Any]
         }
-        let sourceNames = dxpeditionOnly ? ["adxo", "425dxn"] : names
+        let sourceNames = dxpeditionOnly ? dxSources : names
         let sources: [[String: Any]] = sourceNames.map { source in
             let feed = feeds[source] ?? Feed()
             let age = feed.lastSuccess.map { now.timeIntervalSince($0) }
@@ -253,9 +291,17 @@ actor LiveOpportunitiesMethods {
                     "safe_error": feed.safeError as Any? ?? NSNull()] as [String: Any]
         }
         return ["generated_at": iso(now), "items": items, "total_available": all.count,
-                "history_state": "ready", "sources": sources,
+                "history_state": dxpeditionOnly ? historyState : "ready", "observations": archived, "sources": sources,
                 "selection_tunes": false, "transmit": false,
                 "surface": dxpeditionOnly ? "dxpedition_map" : "opportunities"]
+    }
+
+    private func normalizedEntity(_ value: String) -> String {
+        value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+            .replacingOccurrences(of: #"\([^)]*\)"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"\bst\.?\s"#, with: "saint ", options: .regularExpression)
+            .replacingOccurrences(of: #"\b(?:islands?|is|i)\b"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"[^a-z0-9]"#, with: "", options: .regularExpression)
     }
 
     private func cacheURL(createDirectory: Bool = true) throws -> URL {
@@ -298,7 +344,7 @@ actor LiveOpportunitiesMethods {
             let data = try Data(contentsOf: url)
             guard data.count <= 8_388_608 else { throw invalid() }
             feeds = try JSONDecoder().decode([String: Feed].self, from: data)
-            feeds = feeds.filter { names.contains($0.key) }
+            feeds = feeds.filter { (names + dxSources).contains($0.key) }
         }
         loaded = true
     }
