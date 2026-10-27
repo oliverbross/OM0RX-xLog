@@ -1,8 +1,38 @@
-# Wave 1 — Productivity source and candidate acceptance
+# Wave 1 — Productivity source, candidate and installation acceptance
 
-## Final result — Wave 1 candidate ready for installation
+## Final result — authorized 1.3.39 installation verified
 
-**Candidate 1.3.39**, exact clean canonical packaging source **`fcf267358308ccd87928a4477d05303bed538b08`**, is retained at **`.build/releases/1.3.39/OM0RX-xLog.app`**. The finite Wave 1 native acceptance below passed. Installation was not performed; production remains 1.3.36. This result supersedes the historical 1.3.37 blocker below. **Wave 2 has not started.**
+On **27 October 2026**, the user explicitly authorized installation of the already accepted **1.3.39**, exact packaging source **`fcf267358308ccd87928a4477d05303bed538b08`**. It is now installed and running at **`/Applications/OM0RX-xLog.app`**. Canonical main was clean and current after fetch/fast-forward-only pull at `510ffd1fd1d1f187026788745b981f95b9ba3b81`. No rebuild, version bump or repeat of completed candidate acceptance tests was performed. **Wave 2 has not started.**
+
+### Retained identity and safe shutdown
+
+The retained candidate's Developer ID deep/strict signature, all **4,084** normalized tree entries, component hashes and embedded native/distribution/Python/CW provenance matched its acceptance receipts. The installed copy independently matched the same tree, eight recorded component hashes and exact source, with deep/strict signature verification passing again after the smoke check. Team **4WCMQ4U946**, Hardened Runtime and the candidate hashes/CDHash recorded below remain the installed identity. CW experimental and fixture-only flags remain false.
+
+Preflight found the installed bundle was still **1.3.36**, but the running unisolated runtime came from retained **1.3.38**. This observation was reported and the current production state was treated as authoritative; no historical data snapshot was restored. The real Normal Logging UI had an empty callsign and all **16** visible input fields matched the complete durable native/WebKit draft at revision **2987**. Recorder visibly reported **Capture stopped / Stopped**, playback was inactive, radios were offline, and no pending draft/logbook/contact-edit mutation or power intent was found. The normal sync outbox was empty. Ordinary application Quit completed; no force-quit, signal fallback, draft clearing or guard bypass was used. A broadened inventory found no app, Swift worker or Python contest host left running. Both complete draft objects still matched exactly after shutdown.
+
+### Fresh verified backup and retained rollback
+
+Fresh private backup: **`/Users/oliver/Documents/Backups/OM0RX-xLog/Wave1-1.3.39-before-install-20261027T102146+0930`**. The existing closed-application backup procedure copied the four Application Support roots (`OM0RX-xLog-Integrated Preview`, `OM0RX-xLog Integration Services`, `com.oliverbross.xlog.integration`, `Contesting`) and separate `WebKit/com.oliverbross.xlog.integration` root, including SQLite sidecars, normal/contest stores, settings, recordings, identities and journals. It contains **810 files/links, 9,808,950,343 bytes and 39 integrity-checked SQLite databases**. Source/copy SHA-256 manifests matched before installation and again before reopening; integrity/table-fingerprint checks used disposable copies so archived WAL/SHM bytes remained intact. Private directories/files use 700/600 permissions. Backup `manifest.json` SHA-256: **`3547abffacbdededa5495eef6bbed48d93d90acca74f935d5ebbccff208cc0c2`**.
+
+The existing `prototype/scripts/install-macos.sh` replacement procedure completed with exit zero using the retained candidate, preserving the former installed **1.3.36** as **`/Applications/OM0RX-xLog-previous-20261027T005436Z-78155.app`**. Its eight recorded component hashes matched the pre-install backup. The separate known-good **`.build/releases/1.3.36/OM0RX-xLog.app`** and its recovery information were retained unchanged; both rollback copies passed signature checks, and their native SHA-256 remains **`17dda844ca2f242c7e2523a902f160ad3b069c874f91bf3db4d1855708b39e13`**. All **nine recovery refs** still match the preservation receipt. Older candidate bundles and backups were retained. No rollback or production-data restore was necessary.
+
+### Bounded installed smoke check
+
+| Check | Demonstrated installed result |
+| --- | --- |
+| Installed identity/startup | Actual app and worker executable paths were under `/Applications/OM0RX-xLog.app`; native About displayed **Version 1.3.39 (1.3.39)**. Embedded provenance and installed bytes matched the accepted source above. |
+| Normal logbook/draft | Existing logbook opened with **69,341 visible contacts** (69,342 stored rows including deleted state). Empty callsign, original frequency/settings and full native/WebKit revision-2987 draft remained exact, with no pending action or power intent. |
+| Existing contest | Native Contest Setup/Main Logging opened the existing **CQ WW SSB** session with **775 contacts / 116 multipliers**. No contact entry, correction or rescore was performed. |
+| Productivity/window operation | Setup opened **Productivity desk** with **Entry & stack, Check, Log & notes, Submission**. Existing Main Logging and Setup windows operated normally; native About opened/closed. The normal controlled mode restarts completed, and the app was returned to the original **Normal Logging** workspace. Candidate sizing/focus and functional acceptance below were reused. |
+| Data/settings/recordings | Read-only snapshots after first reopen, contest inspection and return to Normal Logging matched every protected contact/revision/identity/audit/receipt table selected by the existing procedure. **690 settings/media files (7,583,368,703 bytes)** and **12 settings tables** were checked. Recordings and saved configuration matched the backup. The sole file difference was the radio session journal: revision **1859→1862**, three automatic startup `connect`/`acknowledged` receipts added and three terminal receipts compacted by the existing bounded journal. Retained receipt objects and all configuration/profile/generation fields were unchanged. No manual connect, radio/output or provider-write action was requested. |
+
+No synthetic contacts, completed-log rescore, manual sync/upload, recording, playback, radio/PTT/RF, rotor or CW arm/send action was performed. Existing settings were preserved; automatic connection receipt changes above are reported rather than described as byte-for-byte runtime immutability. The app is left open in Normal Logging. This smoke check does not extend the candidate's platform, organizer-rule, provider, physical station/audio or accessibility qualification.
+
+Installation receipts are **`.build/installation-1.3.39-independent.json`** and **`.build/installation-1.3.39-completed.json`**. The fresh private backup retains the completed receipt, installed-tree/before-reopen verification, three protected-data comparisons, full pre/post draft evidence, settings/media comparison, private native smoke transcripts and procedure scripts/logs. Candidate acceptance receipts below remain historical, separate records; their original `installationPerformed: false` is not rewritten. **Installation and bounded startup verification are complete. Stop before Wave 2.**
+
+## Accepted candidate checkpoint — before installation authorization
+
+**Candidate 1.3.39**, exact clean canonical packaging source **`fcf267358308ccd87928a4477d05303bed538b08`**, is retained at **`.build/releases/1.3.39/OM0RX-xLog.app`**. The finite Wave 1 native acceptance below passed. At this candidate checkpoint installation had not been performed and the installed bundle was 1.3.36. This result superseded the historical 1.3.37 blocker below; the later authorized installation is recorded above. **Wave 2 has not started.**
 
 ### Demonstrated native results
 
@@ -41,7 +71,7 @@ Evidence is retained in `.build/releases/1.3.39/WAVE1_CANDIDATE_RECEIPT.json`, `
 
 Installed 1.3.36 and its rollback Info.plist/native hashes, all nine recovery refs, and the recorded components of retained **1.3.37 and 1.3.38** still match their receipts. Production logs, settings and recordings were not opened or modified by the acceptance workflow. No installer, provider write, radio/PTT/RF, rotor, CW arm/send, physical capture or playback action was performed.
 
-The finite Wave 1 candidate checklist is complete within the demonstrated scope above. Separate installation authorization, notarization, Intel execution, mixed-DPI/multiple-display/accessibility audits, physical station/audio/provider qualification, current organizer-rule verification and the fuller retained W01/W08/W21/W24 packages remain outside this local candidate acceptance. They are not reclassified as passed. **Stop here: Wave 1 candidate ready for installation; Wave 2 has not started.**
+The finite Wave 1 candidate checklist is complete within the demonstrated scope above. At this checkpoint, separate installation authorization, notarization, Intel execution, mixed-DPI/multiple-display/accessibility audits, physical station/audio/provider qualification, current organizer-rule verification and the fuller retained W01/W08/W21/W24 packages remained outside local candidate acceptance. Installation was subsequently authorized and completed as recorded above; the other gates are not reclassified as passed. **Candidate checkpoint: Wave 1 candidate ready for installation; Wave 2 had not started.**
 
 ### Replacement build history
 
