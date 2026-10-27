@@ -1,5 +1,6 @@
 /** Manual assistance only: this module never tunes, transmits, scores, or reserves serials. */
-export type CallStackScope = { sessionID: string; workspaceGeneration: string };
+export type CallStackScope = { sessionID: string; workspaceGeneration: string;
+  laneID?: "laneA" | "laneB"; bindingVersion?: number; bindingGeneration?: string | number | null };
 export type CallStackFragment = { value: string; source: "heard" };
 export type CallStackItem = { id: string; revision: number; callsign: string;
   fragments: Record<string, CallStackFragment> };
@@ -33,20 +34,31 @@ export type CallStackPorts = {
   changed?(state: CallStackState): void;
   id?(): string;
 };
-const sameScope = (a: CallStackScope, b: CallStackScope) => a.sessionID === b.sessionID && a.workspaceGeneration === b.workspaceGeneration;
+const laneID = (scope: CallStackScope) => scope.laneID ?? "laneA";
+const sameScope = (a: CallStackScope, b: CallStackScope) => a.sessionID === b.sessionID
+  && a.workspaceGeneration === b.workspaceGeneration && laneID(a) === laneID(b);
+const sameBinding = (a: CallStackScope, b: CallStackScope) => a.bindingVersion === b.bindingVersion
+  && a.bindingGeneration === b.bindingGeneration;
 const normalizedCall = (value: string) => value.trim().toUpperCase();
 export const partialStackCall = (call: string) => call.includes("?");
 export function emptyCallStack(scope: CallStackScope): CallStackState {
   return { ...scope, schemaVersion: 1, revision: 0, items: [], selectedID: null, pending: null };
 }
 export function callStackStorageKey(scope: CallStackScope) {
-  return `xlog.contest.call-stack.v1/${scope.workspaceGeneration}/${scope.sessionID}`;
+  const legacy = `xlog.contest.call-stack.v1/${scope.workspaceGeneration}/${scope.sessionID}`;
+  return laneID(scope) === "laneB" ? `${legacy}/laneB` : legacy;
 }
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function strings(value: unknown): value is Record<string, string> {
   return record(value) && Object.values(value).every(item => typeof item === "string");
+}
+function validLaneScope(value: Record<string, unknown>) {
+  return (value.laneID === undefined || value.laneID === "laneA" || value.laneID === "laneB")
+    && (value.bindingVersion === undefined || Number.isSafeInteger(value.bindingVersion) && Number(value.bindingVersion) >= 0)
+    && (value.bindingGeneration === undefined || value.bindingGeneration === null || typeof value.bindingGeneration === "string"
+      || typeof value.bindingGeneration === "number" && Number.isFinite(value.bindingGeneration));
 }
 function validItem(value: unknown): value is CallStackItem {
   if (!record(value) || typeof value.id !== "string" || !value.id || !Number.isSafeInteger(value.revision) || Number(value.revision) < 0 ||
@@ -55,7 +67,7 @@ function validItem(value: unknown): value is CallStackItem {
     record(fragment) && fragment.source === "heard" && typeof fragment.value === "string" && fragment.value.length <= 128);
 }
 function validDraft(value: unknown): value is CallStackDraft {
-  return record(value) && typeof value.sessionID === "string" && typeof value.workspaceGeneration === "string" &&
+  return record(value) && validLaneScope(value) && typeof value.sessionID === "string" && typeof value.workspaceGeneration === "string" &&
     typeof value.draftID === "string" && Number.isSafeInteger(value.revision) && strings(value.fields) && strings(value.defaults) &&
     Array.isArray(value.heardFieldIDs) && value.heardFieldIDs.every(id => typeof id === "string") &&
     (value.receivedFieldIDs === undefined || Array.isArray(value.receivedFieldIDs) && value.receivedFieldIDs.every(id => typeof id === "string"));
@@ -65,7 +77,7 @@ export function restoreCallStack(raw: string | null, scope: CallStackScope): Cal
   if (raw === null) return emptyCallStack(scope);
   let value: unknown; try { value = JSON.parse(raw); } catch { throw new Error("Call Stack recovery data is unreadable; preserve it before continuing."); }
   const fail = () => { throw new Error("Call Stack recovery data does not match this contest; preserve it before continuing."); };
-  if (!record(value) || value.schemaVersion !== 1 || !sameScope(value as CallStackState, scope) ||
+  if (!record(value) || !validLaneScope(value) || value.schemaVersion !== 1 || !sameScope(value as CallStackState, scope) ||
       !Number.isSafeInteger(value.revision) || Number(value.revision) < 0 || !Array.isArray(value.items) || value.items.length > 128 ||
       !value.items.every(validItem) || new Set(value.items.map(item => item.id)).size !== value.items.length ||
       !(value.selectedID === null || typeof value.selectedID === "string" && value.items.some(item => item.id === value.selectedID))) return fail();
@@ -181,7 +193,8 @@ export class ContestCallStack {
   private async confirm(result: CallStackResult) {
     const pending = this.state.pending;
     if (!pending || pending.phase === "committed" || result.operationID !== pending.operation.operationID ||
-        !sameScope(result.draft, this.state) || result.draft.revision <= pending.operation.draft.revision)
+        !sameScope(result.draft, this.state) || !sameBinding(result.draft, pending.operation.draft)
+        || result.draft.revision <= pending.operation.draft.revision)
       throw new Error("The Call Stack receipt does not match the pending operation; retain it for recovery.");
     if (pending.phase === "commit") {
       if (!result.qsoID || result.draft.draftID === pending.operation.draft.draftID)
@@ -200,7 +213,8 @@ export class ContestCallStack {
   private async continueCommitted() {
     const pending = this.state.pending; if (!pending || pending.phase !== "committed") return;
     const current = this.draft();
-    if (current.draftID !== pending.draft.draftID || current.revision !== pending.draft.revision || occupiedStackDraft(current))
+    if (current.draftID !== pending.draft.draftID || current.revision !== pending.draft.revision
+        || !sameBinding(current, pending.draft) || occupiedStackDraft(current))
       throw new Error("The contact is saved. Entry changed before loading next; keep the queue and resolve it explicitly.");
     await this.performLoad(current, pending.transition, true);
   }
@@ -213,7 +227,11 @@ export class ContestCallStack {
     try {
       const result = await this.ports.receipt(structuredClone(pending.operation));
       if (result) await this.confirm(result);
-      else if (retryMissing) await this.execute(pending.operation);
+      else if (retryMissing) {
+        if (!sameBinding(this.draft(), pending.operation.draft))
+          throw new Error("The original lane binding changed. The pending operation is preserved; resolve its original receipt before loading or logging again.");
+        await this.execute(pending.operation);
+      }
       else throw new Error("The original operation is still unconfirmed. Entry and queue are preserved; retry only this operation.");
     } finally { this.active = false; }
   }

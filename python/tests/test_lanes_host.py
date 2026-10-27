@@ -324,6 +324,23 @@ class LaneHostTests(unittest.TestCase):
             self.read("contest_output_claim", operationID=changed["operationID"], revision=changed["revision"])
         self.assertEqual(error.exception.code, "output_consumed")
 
+    def test_last_qso_lane_filter_excludes_other_lane_and_unknown_history_without_changing_whole_log(self):
+        self.mutate("qso_commit", qsoID=fixtures.uid(), timestamp="2026-10-28 06:00:00", fields={"callsign": "K1ABC", "other_2": "5"})
+        self.configure()
+        known = {"laneA": fixtures.uid(), "laneB": fixtures.uid()}
+        self.lane_mutation("contest_qso_commit", "laneA", qsoID=known["laneA"], timestamp="2026-10-28 06:01:00",
+                           fields={"callsign": "DL1ABC", "other_2": "14"})
+        self.lane_mutation("contest_qso_commit", "laneB", qsoID=known["laneB"], timestamp="2026-10-28 06:02:00",
+                           fields={"callsign": "OM1ABC", "other_2": "15"})
+        for lane_id in ("laneA", "laneB"):
+            lane = self.lanes()[lane_id]
+            last = self.read("contest_log_page", workspaceGeneration=self.workspace, expectedRevision=self.revision,
+                             laneID=lane_id, bindingVersion=lane["bindingVersion"], offset=0, limit=1)
+            self.assertEqual(last["total"], 1)
+            self.assertEqual(last["rows"][0]["ID"], known[lane_id])
+        self.assertEqual(self.read("contest_log_page")["total"], 3)
+        self.assertEqual(self.read("contest_log_page", limit=1)["rows"][0]["ID"], known["laneB"])
+
 
 if __name__ == "__main__":
     unittest.main()

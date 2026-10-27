@@ -99,6 +99,53 @@ describe("manual Call Stack assistance", () => {
 });
 
 describe("Call Stack durable transition recovery", () => {
+  it("keeps legacy/A storage stable, isolates lane B and restores content across a binding change", () => {
+    const a = fixture(), b = fixture();
+    const scopeA = { ...scope, laneID: "laneA" as const, bindingVersion: 3, bindingGeneration: 12 };
+    const scopeB = { ...scope, laneID: "laneB" as const, bindingVersion: 5, bindingGeneration: "radio-b-generation" };
+    a.setDraft({ ...a.draft(), ...scopeA }); b.setDraft({ ...b.draft(), ...scopeB, draftID: "draft-b" });
+    const queueA = a.controller(emptyCallStack(scopeA)), queueB = b.controller(emptyCallStack(scopeB));
+    queueA.add("K1ONLYA"); queueB.add("K2ONLYB");
+    expect(callStackStorageKey(scopeA)).toBe(callStackStorageKey(scope));
+    expect(callStackStorageKey(scopeB)).toBe(`${callStackStorageKey(scope)}/laneB`);
+    const reboundB = { ...scopeB, bindingVersion: 6, bindingGeneration: "reconnected-b" };
+    expect(restoreCallStack(JSON.stringify(b.saved()), reboundB).items.map(item => item.callsign)).toEqual(["K2ONLYB"]);
+    expect(restoreCallStack(JSON.stringify(a.saved()), scope).items.map(item => item.callsign)).toEqual(["K1ONLYA"]);
+    expect(() => restoreCallStack(JSON.stringify(a.saved()), scopeB)).toThrow("does not match");
+    expect(() => restoreCallStack(JSON.stringify(b.saved()), scopeA)).toThrow("does not match");
+  });
+  it("retains the original lane binding through lost-reply restart and never loads next into a rebound receiver", async () => {
+    const f = fixture(), oldBinding = { laneID: "laneB" as const, bindingVersion: 2, bindingGeneration: 17 };
+    f.setDraft({ ...f.draft(), ...oldBinding });
+    const stack = f.controller(emptyCallStack({ ...scope, ...oldBinding })); stack.add("K2NEXT");
+    const mutate = f.ports.mutate;
+    f.ports.mutate = async operation => { const result = await mutate(operation); if (operation.kind === "commit") throw new Error("lost lane reply"); return result; };
+    await expect(stack.logAndNext()).rejects.toThrow("lost lane reply");
+    const pending = clone(stack.snapshot().pending);
+    const rebound = { ...oldBinding, bindingVersion: 3, bindingGeneration: "new-generation" };
+    f.setDraft({ ...f.draft(), ...rebound });
+    const restored = restoreCallStack(JSON.stringify(f.saved()), { ...scope, ...rebound });
+    expect(restored.pending).toEqual(pending);
+    const restarted = f.controller(restored);
+    await expect(restarted.recover()).rejects.toThrow("Entry changed");
+    expect(restarted.snapshot().pending).toMatchObject({ phase: "committed", draft: oldBinding });
+    expect(restarted.snapshot().items.map(item => item.callsign)).toEqual(["K2NEXT"]);
+    expect(f.counts()).toEqual({ commits: 1, loads: 0 });
+    expect(f.operations[0].draft).toMatchObject(oldBinding);
+  });
+  it("preserves an unconfirmed original operation instead of rebinding a deliberate retry", async () => {
+    const f = fixture(), oldBinding = { laneID: "laneB" as const, bindingVersion: 4, bindingGeneration: "old" };
+    f.setDraft({ ...f.draft(), ...oldBinding });
+    const stack = f.controller(emptyCallStack({ ...scope, ...oldBinding })); stack.add("K2NEXT");
+    f.ports.mutate = async () => { throw new Error("request interrupted"); };
+    await expect(stack.logAndNext()).rejects.toThrow("request interrupted");
+    const pending = clone(stack.snapshot().pending);
+    f.setDraft({ ...f.draft(), bindingVersion: 5, bindingGeneration: "new" });
+    const retry = f.controller(restoreCallStack(JSON.stringify(f.saved()), f.draft()));
+    await expect(retry.recover(true)).rejects.toThrow("original lane binding changed");
+    expect(retry.snapshot().pending).toEqual(pending);
+    expect(f.operations).toEqual([]);
+  });
   it("preserves current entry and queue after a definite invalid/rejected save", async () => {
     const f = fixture(), stack = f.controller(); stack.add("K2TWO"); const before = clone(f.draft());
     f.ports.mutate = async () => { throw "rejected"; };

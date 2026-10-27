@@ -68,3 +68,22 @@ it("reads synchronous owner refs between durable commit and load before React re
   expect(current.fields.callsign).toBe("K1NEXT"); expect(current.fields.other_1).toBe("8");
   expect(p.onError).not.toHaveBeenCalled();
 });
+
+it("remounts on lane identity, keeping independent queues through lane switches, reconnect and restart", () => {
+  const p = props(), a = { ...p.draft, laneID: "laneA" as const, bindingVersion: 1, bindingGeneration: 3 };
+  const b = { ...p.draft, laneID: "laneB" as const, draftID: "draft-b", bindingVersion: 4, bindingGeneration: "radio-b" };
+  const view = render(<ContestCallStackOwner {...p} draft={a}/>); add("K1ONLYA");
+  view.rerender(<ContestCallStackOwner {...p} draft={b}/>);
+  expect(screen.queryByRole("button", { name: "K1ONLYA" })).toBeNull();
+  add("K2ONLYB");
+  expect(localStorage.getItem(callStackStorageKey(a))).toContain("K1ONLYA");
+  expect(localStorage.getItem(callStackStorageKey(b))).toContain("K2ONLYB");
+  view.rerender(<ContestCallStackOwner {...p} draft={a}/>);
+  expect(screen.getByRole("button", { name: "K1ONLYA" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "K2ONLYB" })).toBeNull();
+  view.unmount();
+  render(<ContestCallStackOwner {...p} draft={{ ...b, bindingVersion: 5, bindingGeneration: 99 }}/>);
+  expect(screen.getByRole("button", { name: "K2ONLYB" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "K1ONLYA" })).toBeNull();
+  expect(p.mutate).not.toHaveBeenCalled();
+});

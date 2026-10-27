@@ -23,6 +23,19 @@ function startNote(text: string) {
 }
 afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); });
 
+it("freezes a note's original lane and binding while the selected entry moves to another lane", async () => {
+  const save = vi.fn(async (_target: NoteTarget, _text: string, _noteID: string) => {});
+  const a = { ...scope, laneID: "laneA" as const, bindingVersion: 3, bindingGeneration: 9 };
+  const b = { ...scope, laneID: "laneB" as const, bindingVersion: 8, bindingGeneration: "receiver-b", draftID: "draft-b", revision: 8 };
+  const mounted = render(<ContestNotesPanel {...noteProps(save)} scope={a}/>);
+  startNote("Heard on receiver A");
+  mounted.rerender(<ContestNotesPanel {...noteProps(save)} scope={b}/>);
+  fireEvent.click(screen.getByRole("button", { name: "Save note" }));
+  await waitFor(() => expect(save).toHaveBeenCalledOnce());
+  expect(save.mock.calls[0][0]).toEqual({ draftID: scope.draftID, laneID: "laneA", bindingVersion: 3, bindingGeneration: 9 });
+  expect(emptyNotes).toHaveBeenCalledWith("contest_notes", expect.objectContaining({ laneID: "laneB", bindingVersion: 8, bindingGeneration: "receiver-b" }));
+});
+
 it("preserves malformed note recovery and blocks overwrite until explicitly archived despite successful notes reads", async () => {
   const raw = '{"text":"original recovery fragment"';
   localStorage.setItem(journalKey, raw);

@@ -26,6 +26,10 @@ def log_query(store, state, params, require, duplicate_projection):
     query = params.get("query", "")
     require(isinstance(query, str) and len(query.encode("utf-8")) <= 128, "Invalid log query")
     predicate, values = "d.ContestNR=?", [store.current_contest]
+    if params.get("laneID") is not None:
+        require(params["laneID"] in {"laneA", "laneB"}, "Choose an explicit logging lane")
+        predicate += " AND EXISTS(SELECT 1 FROM xlog_qso_lane l WHERE l.qso_id=d.ID AND json_extract(l.attribution,'$.loggingLaneID')=?)"
+        values.append(params["laneID"])
     if query:
         # Escape LIKE metacharacters: this is a literal callsign contains query.
         predicate += " AND d.Call LIKE ? ESCAPE '\\'"

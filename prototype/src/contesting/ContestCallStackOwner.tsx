@@ -5,7 +5,8 @@ import { ContestCallStack, callStackStorageKey, occupiedStackDraft, partialStack
   type CallStackResult, type CallStackState } from "./contestCallStack";
 
 export function callStackClassificationScope(draft: CallStackDraft) {
-  return `${draft.workspaceGeneration}/${draft.sessionID}/${draft.draftID}/${draft.revision}`;
+  const legacy = `${draft.workspaceGeneration}/${draft.sessionID}/${draft.draftID}/${draft.revision}`;
+  return draft.laneID ? `${legacy}/${draft.laneID}/${draft.bindingVersion ?? "unknown"}/${draft.bindingGeneration ?? "unknown"}` : legacy;
 }
 export type ContestCallStackOwnerProps = {
   draft: CallStackDraft;
@@ -25,12 +26,16 @@ function message(cause: unknown) { return cause instanceof Error ? cause.message
 
 /** UI lifecycle for the one existing Python session owner, with no request or native transport of its own. */
 export function ContestCallStackOwner(props: ContestCallStackOwnerProps) {
+  return <ScopedContestCallStackOwner key={callStackStorageKey(props.draft)} {...props}/>;
+}
+function ScopedContestCallStackOwner(props: ContestCallStackOwnerProps) {
   const latest = useRef(props); latest.current = props;
   const [published, setPublished] = useState<CallStackState | null>(null);
   const [classifications, setClassifications] = useState<CallStackClassification[]>([]);
   const holder = useMemo(() => {
     try {
-      const scope = { sessionID: props.draft.sessionID, workspaceGeneration: props.draft.workspaceGeneration };
+      const scope = { sessionID: props.draft.sessionID, workspaceGeneration: props.draft.workspaceGeneration,
+        ...(props.draft.laneID ? { laneID: props.draft.laneID } : {}) };
       const key = callStackStorageKey(scope), state = restoreCallStack(localStorage.getItem(key), scope);
       const controller = new ContestCallStack(state, {
         getDraft: () => latest.current.getDraft?.() ?? latest.current.draft,
@@ -48,7 +53,8 @@ export function ContestCallStackOwner(props: ContestCallStackOwnerProps) {
     if (holder.error) latest.current.onError(holder.error);
   }, [holder]);
   const state = holder.controller && published?.sessionID === props.draft.sessionID &&
-    published.workspaceGeneration === props.draft.workspaceGeneration ? published : holder.controller?.snapshot();
+    published.workspaceGeneration === props.draft.workspaceGeneration && (published.laneID ?? "laneA") === (props.draft.laneID ?? "laneA")
+    ? published : holder.controller?.snapshot();
   const classificationScope = props.classificationScope ?? callStackClassificationScope(props.draft);
   useEffect(() => {
     let active = true; setClassifications([]);
