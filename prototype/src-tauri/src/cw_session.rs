@@ -245,13 +245,7 @@ impl Session {
                     || action["kind"] != "function_key" {
                     return Err("Contest output identity could not be verified.".into());
                 }
-                let rst = format_contest_rst(action["fields"]["sent"].as_str().ok_or("Pinned contest CW report unavailable")?, &canonical["cwFormatting"])?;
-                let serial = format_contest_serial(action["sentSerial"].as_str().ok_or("Pinned contest CW serial unavailable")?, &canonical["cwFormatting"])?;
-                let mut frozen = canonical.clone();
-                frozen["context"] = json!({"MYCALL":action["stationCall"],"CALL":action["fields"]["callsign"],
-                    "RST":rst,"EXCHANGE":action["sentExchange"],
-                    "SERIAL":serial,"SENTNR":serial,"NAME":"","GRID":canonical["context"]["GRID"]});
-                messages.push(expand_template(&frozen, action["template"].as_str().ok_or("Pinned contest CW template unavailable")?,
+                messages.push(render_contest_action(action, &canonical["cwFormatting"], &canonical["context"]["GRID"],
                     target["limit"].as_u64().unwrap_or(80) as usize)?);
             }
             let text = messages.join(" ");
@@ -429,6 +423,14 @@ fn format_contest_serial(serial: &str, formatting: &Value) -> Result<String, Str
     if result.len() < width { result = format!("{}{}", padding.repeat(width - result.len()), result); }
     Ok(result)
 }
+pub(crate) fn render_contest_action(action: &Value, formatting: &Value, grid: &Value, limit: usize) -> Result<String, String> {
+    let rst = format_contest_rst(action["fields"]["sent"].as_str().ok_or("Pinned contest CW report unavailable")?, formatting)?;
+    let serial = format_contest_serial(action["sentSerial"].as_str().ok_or("Pinned contest CW serial unavailable")?, formatting)?;
+    let frozen = json!({"context":{"MYCALL":action["stationCall"],"CALL":action["fields"]["callsign"],
+        "RST":rst,"EXCHANGE":action["sentExchange"],"SERIAL":serial,"SENTNR":serial,"NAME":"","GRID":grid}});
+    expand_template(&frozen, action["template"].as_str().ok_or("Pinned contest CW template unavailable")?, limit)
+}
+
 fn expand(canonical: &Value, id: u64, limit: usize) -> Result<String, String> {
     let macro_value = canonical["profile"]["macros"].as_array().and_then(|values| values.iter().find(|value| value["id"] == id && value["enabled"] == true)).ok_or("This macro is disabled or is not saved.")?;
     let source = macro_value["text"].as_str().ok_or("Invalid CW template")?;

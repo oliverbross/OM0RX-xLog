@@ -62,6 +62,7 @@ mod contest_group_replica;
 mod contest_log_transfer;
 mod contest_log_review;
 mod contest_analytics;
+mod contest_lane_output;
 mod contest_voice;
 mod contest_recorder;
 mod contest_recorder_store;
@@ -3405,6 +3406,98 @@ fn validate_contest_surface_main_caller(label: &str) -> Result<(), String> {
     else { Err("Only the detached Contest Setup owner can own contest surface actions.".into()) }
 }
 
+// The entry owner supplies intent, but the already-running Python host supplies
+// the route. A late renderer reply cannot choose a new draft or worker here.
+fn canonical_contest_lane(response: &serde_json::Value, params: &serde_json::Value,
+    generation: u64, operating_context: &str) -> Result<serde_json::Value, String> {
+    if response["ok"] != true { return Err("The contest lane could not be read; no output was admitted.".into()); }
+    let projection = &response["result"]["projection"];
+    if projection["sessionID"] != params["sessionID"] || projection["workspaceGeneration"] != params["workspaceGeneration"] {
+        return Err("The contest session changed; no old lane action was admitted.".into());
+    }
+    let lane = projection["operatingLanes"]["lanes"].as_array()
+        .and_then(|lanes| lanes.iter().find(|lane| lane["laneID"] == params["laneID"]));
+    let (draft, version, binding) = if let Some(lane) = lane {
+        (lane["draftID"].clone(), lane["bindingVersion"].clone(), lane["binding"].clone())
+    } else if params["action"] == "capabilities" && params["laneID"] == "laneA" && projection.get("operatingLanes").is_none() {
+        (projection["draftID"].clone(), serde_json::json!(0), serde_json::Value::Null)
+    } else { return Err("That operating lane is no longer available.".into()); };
+    Ok(serde_json::json!({"sessionID":projection["sessionID"],"workspaceGeneration":projection["workspaceGeneration"],
+        "laneID":params["laneID"],"draftID":draft,"bindingVersion":version,"binding":binding,
+        "workerGeneration":generation,"operatingContext":operating_context}))
+}
+
+fn claimed_contest_lane_macro(params: &serde_json::Value, current: &serde_json::Value,
+    claimed: &serde_json::Value, formatting: &serde_json::Value) -> Result<(serde_json::Value, String), String> {
+    if claimed["claimed"] != true || claimed["operationID"] != params["operationID"] {
+        return Err("The original macro output was not claimed; never replay it.".into());
+    }
+    let actions = claimed["actions"].as_array().filter(|actions| !actions.is_empty() && actions.len() <= 12)
+        .ok_or("No bounded CW macro actions were claimed")?;
+    let mut texts = Vec::new();
+    for (index, action) in actions.iter().enumerate() {
+        if action["kind"] != "function_key" || action["sessionID"] != current["sessionID"]
+            || action["workspaceGeneration"] != current["workspaceGeneration"] || action["laneID"] != current["laneID"]
+            || action["bindingVersion"] != current["bindingVersion"] || action["laneBinding"] != current["binding"]
+            || action["draftID"] != params["draftID"] || action["originDraftID"] != params["draftID"]
+            || action["actionID"] != format!("{}:{index}", params["operationID"].as_str().unwrap_or("")) {
+            return Err("The claimed macro belongs to another lane, binding or original draft. It was consumed without output.".into());
+        }
+        texts.push(cw_session::render_contest_action(action, formatting, &serde_json::json!(""), 128)?);
+    }
+    let text = texts.join(" ");
+    if text.len() > 128 { return Err("The claimed macro exceeds this fake provider's whole-message limit.".into()); }
+    let mut origin = current.clone();
+    origin["draftID"] = params["draftID"].clone();
+    Ok((origin, text))
+}
+
+#[tauri::command]
+async fn contest_lane_output_request(window: tauri::WebviewWindow, params: serde_json::Value) -> Result<serde_json::Value, String> {
+    let operating_context = params["operatingContext"].as_str().ok_or("Missing lane operating context")?.to_owned();
+    let _context = contest_surface_main_context(&window, &operating_context,
+        params["sessionID"].as_str().ok_or("Missing lane session")?,
+        params["workspaceGeneration"].as_str().ok_or("Missing lane workspace")?)?;
+    let admission = Arc::new(operating_module::owner()?.admit(operating_module::OperatingModule::Contesting, Some(&operating_context))?);
+    tauri::async_runtime::spawn_blocking(move || {
+        let _admission = admission;
+        let mut intent = params.clone();
+        intent.as_object_mut().ok_or("Invalid lane request")?.remove("operatingContext");
+        // Stop always addresses the retained owner, even after its draft has
+        // advanced. It cannot acquire or redirect a target.
+        if intent["action"] == "stop" {
+            return contest_lane_output::request(&intent, &serde_json::Value::Null, runtime_profile::offline_root().is_some());
+        }
+        let (generation, response) = worker::request_existing_with_generation(serde_json::json!({
+            "id":uuid::Uuid::new_v4().to_string(),"method":"contest_draft_get",
+            "params":{"sessionID":params["sessionID"],"workspaceGeneration":params["workspaceGeneration"],
+                "laneID":params["laneID"],"bindingVersion":params["bindingVersion"]}}))?;
+        let mut canonical = canonical_contest_lane(&response, &params, generation, &operating_context)?;
+        if intent["action"] == "macro" {
+            if runtime_profile::offline_root().is_none() { return Err("Two-lane macro output is unqualified for physical providers.".into()); }
+            if params["bindingVersion"] != canonical["bindingVersion"] || params["binding"] != canonical["binding"]
+                || params["workerGeneration"] != generation {
+                return Err("The macro lane binding or worker changed before output claim.".into());
+            }
+            let read = worker::request_existing_generation(serde_json::json!({"id":uuid::Uuid::new_v4().to_string(),
+                "method":"contest_cw_context","params":{"sessionID":params["sessionID"],"workspaceGeneration":params["workspaceGeneration"],
+                    "laneID":params["laneID"],"bindingVersion":params["bindingVersion"]}}), generation)?;
+            if read["ok"] != true { return Err("The scoped CW context is unavailable; no macro output was claimed.".into()); }
+            let claim = worker::request_existing_generation(serde_json::json!({"id":uuid::Uuid::new_v4().to_string(),
+                "method":"contest_output_claim","params":{"sessionID":params["sessionID"],
+                    "operationID":params["operationID"],"revision":params["revision"]}}), generation)?;
+            if claim["ok"] != true { return Err("The macro output claim failed or was already consumed; never replay it.".into()); }
+            let (origin, text) = claimed_contest_lane_macro(&params, &canonical, &claim["result"], &read["result"]["cwFormatting"])?;
+            canonical = origin;
+            intent["action"] = serde_json::json!("send");
+            intent["text"] = serde_json::json!(text);
+            intent.as_object_mut().unwrap().remove("revision");
+        }
+        worker::require_existing_generation(generation)?;
+        contest_lane_output::request(&intent, &canonical, runtime_profile::offline_root().is_some())
+    }).await.map_err(|_| "Contest lane output task failed".to_owned())?
+}
+
 #[tauri::command]
 fn contest_surface_owner_claim(window: tauri::WebviewWindow, operating_context: String,
     session_i_d: String, workspace_generation: String, owner_epoch: String) -> Result<serde_json::Value, String> {
@@ -4087,7 +4180,7 @@ fn main() {
             workspace_windows_status, workspace_windows_reconcile, contest_window_open, contest_window_toggle, contest_contact_editor_open, contest_contact_editor_close, contest_surface_context_close, contest_setup_service_open,
             contest_log_review::contest_log_review_read,
             contest_analytics::contest_analytics_read,
-            contest_analytics::contest_analytics_export,
+            contest_analytics::contest_analytics_export, contest_lane_output_request,
         contest_analytics::contest_messages_export,
             contest_analytics::contest_analytics_print,
             open_contest_recorder, contest_recorder::contest_recorder_request, contest_recorder::contest_recorder_stop_replay,
@@ -4155,6 +4248,41 @@ fn main() {
 
 #[cfg(test)]
 mod workspace_layout_tests {
+    #[test]
+    fn lane_macro_receipt_keeps_original_draft_after_logging_and_rejects_cross_lane() {
+        use serde_json::json;
+        let binding = json!({"radioID":"radio2","receiverID":"receiver1","vfo":"A","sliceID":null,"generation":1});
+        let params = json!({"operationID":"12345678-1234-4234-8234-123456789abc","draftID":"original-b"});
+        let current = json!({"sessionID":"session","workspaceGeneration":"workspace","laneID":"laneB",
+            "bindingVersion":2,"binding":binding,"draftID":"next-b","workerGeneration":7,"operatingContext":"current"});
+        let claim = json!({"claimed":true,"operationID":params["operationID"],"actions":[{
+            "kind":"function_key","actionID":"12345678-1234-4234-8234-123456789abc:0","sessionID":"session",
+            "workspaceGeneration":"workspace","laneID":"laneB","bindingVersion":2,"laneBinding":binding,
+            "draftID":"original-b","originDraftID":"original-b","template":"{CALL} {SENTNR}",
+            "fields":{"callsign":"K1OLD","sent":"599"},"stationCall":"OM0RX","sentSerial":"0042","sentExchange":"#"}]});
+        let formatting = json!({"cwRSTFormat":"599","cwSerialPaddingCharacter":"0","cwSerialOne":"1",
+            "cwSerialNine":"9","cwSerialZero":"0","cwSerialPaddingLength":4});
+        let (origin, text) = super::claimed_contest_lane_macro(&params, &current, &claim, &formatting).unwrap();
+        assert_eq!(origin["draftID"], "original-b");
+        assert_eq!(text, "K1OLD 0042");
+        let mut forged = claim.clone(); forged["actions"][0]["laneID"] = json!("laneA");
+        assert!(super::claimed_contest_lane_macro(&params, &current, &forged, &json!({})).is_err());
+        forged = claim.clone(); forged["actions"][0]["draftID"] = json!("next-b");
+        assert!(super::claimed_contest_lane_macro(&params, &current, &forged, &json!({})).is_err());
+    }
+
+    #[test]
+    fn lane_canonical_comes_from_requested_host_lane_not_keyboard_selection() {
+        use serde_json::json;
+        let params = json!({"sessionID":"session","workspaceGeneration":"workspace","laneID":"laneB","action":"tune"});
+        let response = json!({"ok":true,"result":{"projection":{"sessionID":"session","workspaceGeneration":"workspace",
+            "draftID":"a","selectedLaneID":"laneA","operatingLanes":{"lanes":[{"laneID":"laneB","draftID":"b","bindingVersion":3,"binding":{"radioID":"radio2"}}]}}}});
+        let actual = super::canonical_contest_lane(&response, &params, 7, "context").unwrap();
+        assert_eq!(actual["draftID"], "b"); assert_eq!(actual["workerGeneration"], 7);
+        let mut wrong_session = response.clone(); wrong_session["result"]["projection"]["sessionID"] = json!("replacement");
+        assert!(super::canonical_contest_lane(&wrong_session, &params, 7, "context").is_err());
+    }
+
     #[test]
     fn successful_contest_open_does_not_wait_for_or_fail_with_window_presentation() {
         let (started, saw_start) = std::sync::mpsc::channel();
