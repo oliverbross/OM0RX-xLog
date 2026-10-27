@@ -4088,6 +4088,7 @@ fn main() {
             contest_log_review::contest_log_review_read,
             contest_analytics::contest_analytics_read,
             contest_analytics::contest_analytics_export,
+        contest_analytics::contest_messages_export,
             contest_analytics::contest_analytics_print,
             open_contest_recorder, contest_recorder::contest_recorder_request, contest_recorder::contest_recorder_stop_replay,
             contest_log_review::contest_log_review_open_log,

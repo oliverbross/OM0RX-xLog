@@ -1171,7 +1171,7 @@ class Desk:
 
 
 class Host:
-    MUTATIONS = {"session_create", "legacy_import", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "digital_ingest", "qso_correct", "qso_delete", "setup_save", "rover_location", "recalculate", "country_reconcile", "multi_contact_apply", "multi_replica_apply", "note_save"}
+    MUTATIONS = {"session_create", "legacy_import", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "digital_ingest", "qso_correct", "qso_delete", "setup_save", "rover_location", "recalculate", "country_reconcile", "multi_contact_apply", "multi_replica_apply", "note_save", "strategy_apply", "message_bank_save", "message_bank_activate", "operating_plan_save"}
     REPLICA_BLOCKED = {"legacy_import", "esm", "function_key", "qso_commit", "digital_ingest",
                        "qso_correct", "qso_delete", "recalculate", "country_reconcile", "setup_save", "rover_location",
                        "multi_contact_apply"}
@@ -1425,6 +1425,34 @@ class Host:
         state = store.state(session_id)
         require(state is not None, "Session does not exist", "not_found")
         self.verify_engine(state)
+        if method in {"strategy", "message_import", "message_preview", "message_banks", "operating_info"}:
+            require(params.get("workspaceGeneration") == workspace_generation(state), "Strategy workspace changed", "stale_context")
+            require(type(params.get("expectedRevision")) is int and params["expectedRevision"] == state["revision"],
+                    "Contest snapshot changed; refresh before review", "stale_revision")
+            if method == "strategy":
+                from .strategy import projection, reconcile_worked
+                reviewed = deepcopy(state)
+                try:
+                    projection(reviewed, now_utc=params.get("nowUTC"))
+                    reconcile_worked(reviewed, store.exec_sql_mult("SELECT ID,Call,Band,Mode FROM DXLOG WHERE ContestNR=?", (store.current_contest,)), BAND_LABELS)
+                    return projection(reviewed, now_utc=params.get("nowUTC"))
+                except ValueError as error:
+                    raise HostError("invalid_request", str(error)) from error
+            if method == "operating_info":
+                from .operating_rules import calculate
+                try:
+                    return calculate(Desk(store, state, self.commit), {"now": datetime.now(UTC).isoformat(), **params})
+                except ValueError as error:
+                    raise HostError("invalid_request", str(error)) from error
+            from .messages import import_message_bank, preview_message, message_projection
+            try:
+                if method == "message_import":
+                    return import_message_bank(params)
+                if method == "message_preview":
+                    return preview_message(state, params, Desk(store, state, self.commit).projection())
+                return message_projection(state)
+            except ValueError as error:
+                raise HostError("invalid_request", str(error)) from error
         if method == "recorder_changes":
             from .recorder import changes
             return changes(store, state, params, require)
@@ -1524,7 +1552,7 @@ class Host:
                         "limit": limit, "total": total, "rows": rows}
             finally:
                 store.conn.rollback()
-        if method == "spot_points_preview":
+        if method in {"spot_points_preview", "opportunities"}:
             base_fields = {"sessionID", "workspaceGeneration", "expectedRevision", "spots"}
             require(set(params) in (base_fields, base_fields | {"countries", "referenceID"}),
                     "Unexpected spot points preview fields")
@@ -1576,6 +1604,11 @@ class Host:
                                         "multiplierCount": None, "countryMultiplier": None,
                                         "zoneMultiplier": None, "reason": "unsupported_band"})
                         continue
+                    if method == "opportunities" and str(current["settings"].get("BandCategory", "ALL")).upper() not in {"ALL", str(BAND_LABELS.get(desk.band(frequency))).upper()}:
+                        results.append({"spotID": spot_id, "points": None, "dupe": None,
+                                        "multiplierCount": None, "countryMultiplier": None,
+                                        "zoneMultiplier": None, "reason": "ineligible_category"})
+                        continue
                     category = current["settings"]["ModeCategory"]
                     if (category in {"CW", "SSB", "AM", "FM"} and mode != category
                             or category in {"DIGITAL", *RTTY_MODES} and mode in {"CW", "SSB", "AM", "FM"}):
@@ -1611,12 +1644,16 @@ class Host:
                         require(type(points) in {int, float} and math.isfinite(points) and points >= 0,
                                 "Plugin returned invalid spot points")
                         before_score = desk.score()
+                        opportunity = {}
                         desk.database.conn.execute("SAVEPOINT spot_preview")
                         try:
                             contact["ContestNR"] = store.current_contest
                             desk.database.exec_sql_insert("DXLOG", contact, commit=False)
                             after_score = desk.score()
                             multiplier_count = max(0, after_score["multipliers"] - before_score["multipliers"])
+                            if method == "opportunities":
+                                from .opportunities import details
+                                opportunity = details(store, preview, contact, before_score, after_score, BAND_LABELS)
                         finally:
                             desk.database.conn.execute("ROLLBACK TO spot_preview")
                             desk.database.conn.execute("RELEASE spot_preview")
@@ -1625,11 +1662,17 @@ class Host:
                                         "multiplierCount": multiplier_count,
                                         "countryMultiplier": after_score["countries"] > before_score["countries"] if cq_ww else None,
                                         "zoneMultiplier": after_score["zones"] > before_score["zones"] if cq_ww else None,
-                                        "reason": None})
+                                        "reason": None, **opportunity,
+                                        **({"inferredExchange": {key: value for key, value in fields.items()
+                                                                 if key != "callsign" and value.strip()}}
+                                           if method == "opportunities" else {})})
                     except (HostError, ValueError, TypeError, AttributeError, ArithmeticError):
                         results.append({"spotID": spot_id, "points": None, "dupe": dupe,
                                         "multiplierCount": None, "countryMultiplier": None,
                                         "zoneMultiplier": None, "reason": "scoring_unavailable"})
+                if method == "opportunities":
+                    from .opportunities import explain
+                    results = explain(results)
                 return {"sessionID": session_id, "workspaceGeneration": workspace_generation(current),
                         "revision": current["revision"], "spots": results}
             finally:
@@ -2369,7 +2412,42 @@ class Host:
             if method == "legacy_import":
                 legacy_summary = self.import_legacy(store, state, params)
             desk = Desk(store, state, self.commit)
-            if method == "note_save":
+            if method in {"strategy_apply", "message_bank_save", "message_bank_activate", "operating_plan_save"}:
+                require(params.get("workspaceGeneration") == workspace_generation(state), "Strategy workspace changed", "stale_context")
+                try:
+                    if method == "strategy_apply":
+                        from .strategy import mutate as strategy_mutate, projection as strategy_projection
+                        if params.get("action") == "sked_load":
+                            require(params.get("draftID") == state["draft"]["id"], "Draft changed", "stale_draft")
+                            item = next((row for row in state.get("strategy", {}).get("skeds", []) if row["id"] == params.get("itemID")), None)
+                            require(item is not None and item["status"] in {"active", "dismissed"}, "This reminder is no longer loadable")
+                            empty = Desk(store, deepcopy(state), self.commit)
+                            empty.clear_inputs()
+                            require(not desk.callsign.text().strip() and all(
+                                getattr(desk, name).text().strip() == getattr(empty, name).text().strip()
+                                for name in INPUTS if name not in {"sent", "callsign"} and not getattr(desk, name).read_only),
+                                "Entry is occupied. Park or finish it before loading a reminder", "occupied_draft")
+                            self.apply_fields(desk, {"draftID": state["draft"]["id"], "fields": {**empty.values(), "callsign": item["callsign"]},
+                                                    **({"frequencyHz": item["frequencyHz"]} if item["frequencyHz"] else {}),
+                                                    **({"mode": "SSB" if item["mode"] in {"USB", "LSB"} else item["mode"]} if item["mode"] else {})})
+                            wave_result = strategy_projection(state)
+                        else:
+                            wave_result = strategy_mutate(state, params, require, now_utc=params.get("nowUTC") or datetime.now(UTC).isoformat())
+                    elif method == "operating_plan_save":
+                        plan = params.get("plan")
+                        require(isinstance(plan, dict) and set(plan) == {"ruleProfileID", "note"}, "Invalid operating plan")
+                        require(plan["ruleProfileID"] in {"", "wpx-2026-single-op", "wpx-2026-multi-one"}, "Unsupported operating rule profile")
+                        text(plan["note"], 4096)
+                        state["operatingPlan"] = deepcopy(plan)
+                        wave_result = deepcopy(plan)
+                    else:
+                        from .messages import apply_message_mutation
+                        wave_result = apply_message_mutation(state, method, params)
+                        if method == "message_bank_activate":
+                            desk = Desk(store, state, self.commit)
+                except ValueError as error:
+                    raise HostError("invalid_request", str(error)) from error
+            elif method == "note_save":
                 from .productivity import save_note
                 require(params.get("workspaceGeneration") == workspace_generation(state), "Note workspace changed", "stale_context")
                 save_note(store, state, params, require)
@@ -2761,6 +2839,9 @@ class Host:
                 # Host-owned restriction survives setup changes and receipt replay.
                 desk.actions = []
             desk.persist()
+            if state.get("strategy", {}).get("moves"):
+                from .strategy import reconcile_worked
+                reconcile_worked(state, store.exec_sql_mult("SELECT ID,Call,Band,Mode FROM DXLOG WHERE ContestNR=?", (store.current_contest,)), BAND_LABELS)
             state["revision"] += 1
             store.save_state(state)
             result = {"operationID": operation, "sessionID": session_id, "revision": state["revision"],
@@ -2770,6 +2851,11 @@ class Host:
             if method == "setup_save":
                 result["setup"] = deepcopy(state["setup"])
                 result["effectiveMacros"] = self.effective_macros(state)
+            if method in {"strategy_apply", "message_bank_save", "message_bank_activate", "operating_plan_save"}:
+                result["waveResult"] = wave_result
+                if method == "message_bank_activate":
+                    result["setup"] = deepcopy(state["setup"])
+                    result["effectiveMacros"] = self.effective_macros(state)
             if method == "multi_contact_apply":
                 result.update({"requestID": operation, "qsoID": qso_id, "action": action,
                                "changeRevision": store.latest_qso_revision(qso_id),

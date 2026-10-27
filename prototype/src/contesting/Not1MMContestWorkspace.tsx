@@ -39,6 +39,15 @@ import { ContestReverseHistoryPanel } from "./ContestReverseHistoryPanel";
 import { ContestVisibleDupesheet } from "./ContestVisibleDupesheet";
 import { ContestNotesPanel, ContestSubmissionPanel, type NoteTarget } from "./ContestProductivityTools";
 import "./ContestProductivityTools.css";
+import { ContestReminders, type Sked, type PlannedMove } from "./ContestReminders";
+import { ContestOpportunities } from "./ContestOpportunities";
+import { ContestMessageWorkbench } from "./ContestMessageWorkbench";
+import { ContestOperatingInfo } from "./ContestOperatingInfo";
+import { RatesClock } from "./ContestSecondaryPanels";
+import { planningMutation, planningRecoveryKey } from "./contestPlanningRecovery";
+import { occupiedStackDraft } from "./contestCallStack";
+import { tuneContestReminder } from "./contestSpotTune";
+import { invoke } from "@tauri-apps/api/core";
 
 type Data = Record<string, any>;
 type RTCStatus={configured:boolean;enabled:boolean;service:string|null;username:string;interval_minutes:number;posting:boolean;
@@ -732,6 +741,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     bandDefinitions.map(band => [String(band.value), band.id])), [bandDefinitions]);
   const [projection, setProjection] = useState<Projection | null>(null), projectionRef = useRef<Projection | null>(null);
   const [productivityOpen,setProductivityOpen]=useState(false),[productivityTab,setProductivityTab]=useState("Entry & stack");
+  const [reminderPrefill,setReminderPrefill]=useState<Partial<Sked>>({});
   const practiceTransitionRef=useRef(false);
   const logOrderRef=useRef({sort:"utc",direction:"descending"}),[logOrder,setLogOrder]=useState(logOrderRef.current);
   const typedFieldsRef=useRef<{draftID:string;fields:Set<string>}>({draftID:"",fields:new Set()});
@@ -2394,6 +2404,39 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     }catch(cause){if(cause instanceof ContestServerError&&cause.outcome!=="uncertain")localStorage.removeItem(key);throw cause;}
     finally{busyRef.current=false;setBusy(false);}
   };
+  const planningRequest=useCallback(async(method:string,params:Record<string,unknown>)=>{
+    const base=projectionRef.current;if(!base)throw Error("Open a contest session.");
+    return result<any>(method,{sessionID:base.sessionID,workspaceGeneration:base.workspaceGeneration,expectedRevision:base.revision,...params});
+  },[request]);
+  const savePlanning=async(method:string|null,extra:Record<string,unknown>={})=>{
+    const base=projectionRef.current;if(!base||busyRef.current||retiring)throw Error("The contest owner is busy.");
+    if(configuredClient)throw Error("Planning changes require the local authoritative desk.");
+    assertNoPendingStack();const inputVersion=editVersionRef.current;
+    busyRef.current=true;setBusy(true);
+    try{
+      const changed=await planningMutation(base,method,{sessionID:base.sessionID,workspaceGeneration:base.workspaceGeneration,
+        expectedRevision:base.revision,draftID:base.draftID,operationID:crypto.randomUUID(),...extra},result);
+      if(!changed)return null;
+      const latest=await result<{projection:Projection}>("contest_draft_get",{sessionID:base.sessionID});
+      if(projectionRef.current?.sessionID===base.sessionID&&projectionRef.current.workspaceGeneration===base.workspaceGeneration){
+        const loading=method==="contest_strategy_apply"&&extra.action==="sked_load";
+        acceptProjection(latest.projection,loading?inputVersion:Number.MIN_SAFE_INTEGER);
+        if(changed.effectiveMacros){setEffectiveMacros(changed.effectiveMacros);rememberSetup(changed.setup);}
+      }
+      return changed.waveResult;
+    }finally{busyRef.current=false;setBusy(false);}
+  };
+  const loadReminder=async(item:Sked)=>{
+    if(occupiedStackDraft(stackDraft()))throw Error("Entry is occupied. Park or finish it before loading this reminder.");
+    return savePlanning("contest_strategy_apply",{action:"sked_load",itemID:item.id});
+  };
+  const loadOpportunity=async(item:{callsign:string;frequencyHz:number;mode:string})=>{
+    if(occupiedStackDraft(stackDraft()))throw Error("Entry is occupied. Park or finish it before loading an opportunity.");
+    await runMutation(base=>mutate("contest_draft_apply",base,{fields:{...clearedContestFields(base,base.mode),callsign:item.callsign},
+      frequencyHz:item.frequencyHz,mode:item.mode,manualStackLoad:true}),false,false,true,true);
+  };
+  const prepareSked=(item:Partial<Sked|PlannedMove>)=>{setReminderPrefill({callsign:item.callsign,text:item.text,
+    frequencyHz:item.frequencyHz,mode:item.mode,radioID:item.radioID,note:item.note,source:item.source});setProductivityTab("Skeds");};
   const focusField = (field: string) => {
     focusRef.current = field;
     if (projectionRef.current?.focus === field || busyRef.current || retiring) return;
@@ -3416,8 +3459,37 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
         ? !productivityOpen&&<section className="contest-welcome"><h2>Contest windows are ready</h2><p>Use the Contest menu to open and position Main Logging, Check Partial, Stats, Rates, Score Reporting, Messages, Logbook, Band Map, Cluster, Rotator, DXCC, Zone and Remote VFO windows.</p></section>
         : !productivityOpen&&<section className="contest-welcome"><h2>Preserved contest session</h2><p>This session predates detached contest windows for the current xLog workspace. Its Python/SQLite log is preserved; create a current-workspace contest before opening independent windows.</p></section>}</> : <section className="contest-welcome"><h2>Open a contest session</h2></section>}
     {productivityOpen&&projection&&<section className="contest-productivity-desk" aria-label="Productivity desk">
-      <nav className="contest-productivity-nav" aria-label="Productivity tools">{["Entry & stack","Check","Log & notes","Submission"].map(tab=><button key={tab}
+      <nav className="contest-productivity-nav" aria-label="Productivity tools">{["Entry & stack","Check","Log & notes","Skeds","Opportunities","Info & time","Messages","Submission"].map(tab=><button key={tab}
         type="button" aria-pressed={productivityTab===tab} onClick={()=>setProductivityTab(tab)}>{tab}</button>)}</nav>
+      <ContestReminders scope={projection} request={request as ContestRequest} disabled={busy||retiring||configuredClient} visible={productivityTab==="Skeds"}
+        prefill={{callsign:fields.callsign??"",frequencyHz:projection.frequencyHz,mode:projection.mode,source:"Current contest draft",...reminderPrefill}}
+        onMutate={(action,values)=>savePlanning("contest_strategy_apply",{action,nowUTC:new Date().toISOString(),...values})}
+        onLoad={loadReminder} onLoadAndTune={async(item,radioID)=>{assertStationAction();await loadReminder(item);
+          if(!item.frequencyHz)throw Error("Choose a frequency before tuning.");await tuneContestReminder(radioID,item.frequencyHz,item.mode);}}/>
+      {productivityTab==="Skeds"&&<button type="button" disabled={busy||retiring} onClick={()=>void(async()=>{
+        const base=projectionRef.current;if(!base)return;
+        const page=await result<Data>("contest_log_page",{sessionID:base.sessionID,expectedRevision:base.revision,offset:0,limit:1});
+        if(!page.rows.length)throw Error("No last QSO is available.");
+        if(projectionRef.current?.sessionID!==base.sessionID||projectionRef.current.revision!==base.revision)return;
+        const row=page.rows[0];prepareSked({callsign:row.Call,frequencyHz:Math.round(Number(row.Freq)*1000),
+          mode:["USB","LSB"].includes(row.Mode)?"SSB":row.Mode,source:`Last committed QSO ${row.ID} · ${row.TS} UTC`});
+        setNotice("Last QSO is ready as a new sked source. Choose New sked to review it.");
+      })().catch(cause=>setError(errorMessage(cause)))}>Prepare last-QSO sked</button>}
+      {localStorage.getItem(planningRecoveryKey(projection))&&<button type="button" disabled={busy||retiring} onClick={()=>void savePlanning(null).catch(cause=>setError(errorMessage(cause)))}>Recover saved planning action</button>}
+      {productivityTab==="Opportunities"&&<ContestOpportunities scope={projection} request={request as ContestRequest} spots={previewWorkflowSpots}
+        bands={bandDefinitions.filter(band=>configuredBands.includes(band.id)&&activeSupportedBands.includes(band.id)&&
+          ["ALL",band.id.toUpperCase()].includes(String(setup.settings.BandCategory??"ALL").toUpperCase())).map(band=>({id:band.id,
+            frequencyHz:band.lowHz+Math.min(band.highHz-band.lowHz,projection.mode==="SSB"?150000:25000)}))}
+        mode={projection.mode} currentCall={fields.callsign??""} disabled={busy||retiring||configuredClient}
+        onMutate={(action,values)=>savePlanning("contest_strategy_apply",{action,nowUTC:new Date().toISOString(),...values})} onLoad={loadOpportunity} onSked={prepareSked}/>}
+      {productivityTab==="Info & time"&&<><RatesClock lastQsoAt={rates?.lastQsoAt?new Date(rates.lastQsoAt).toISOString():null}
+        {...contestSchedule(setup.pluginID,setup.settings,rates?.lastQsoAt)}/><ContestOperatingInfo scope={projection} request={request as ContestRequest}
+        onPlanSave={async plan=>{await savePlanning("contest_operating_plan_save",{plan});}}/></>}
+      {productivityTab==="Messages"&&<ContestMessageWorkbench scope={{mode:projection.mode as "CW"|"SSB"|"RTTY",contest:projection.pluginID,operator:setup.operator}}
+        effectiveMacros={effectiveMacros??[]} draft={{id:projection.draftID,fields}} serial={projection.reservedSerial}
+        disabled={busy||retiring||configuredClient} request={planningRequest} onMutate={(method,values)=>savePlanning(method,values)}
+        onExport={async(content,filename)=>{const saved=await invoke<{saved:boolean;cancelled:boolean}>("contest_messages_export",{filename,content});
+          setNotice(saved.saved?"Message bank exported.":"Message export cancelled.");}}/>}
       {productivityTab==="Entry & stack"&&<>{entryPanel}<ContestCallStackOwner draft={stackDraft()} getDraft={()=>stackDraft()} disabled={busy||retiring||configuredClient}
         mutate={mutateStack} receipt={recoverStack} onError={setError} rejected={cause=>cause instanceof ContestServerError&&cause.outcome!=="uncertain"}
         classify={async(items,draft,scope)=>{const active=projectionRef.current;if(!active||active.sessionID!==draft.sessionID)throw new Error("Stack scope changed.");

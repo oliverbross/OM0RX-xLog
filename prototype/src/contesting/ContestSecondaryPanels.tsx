@@ -9,7 +9,7 @@ const twoDigit=(value:number)=>String(value).padStart(2,"0");
 const clockText=(date:Date,utc:boolean)=>utc
   ?`${twoDigit(date.getUTCHours())}:${twoDigit(date.getUTCMinutes())}:${twoDigit(date.getUTCSeconds())}`
   :`${twoDigit(date.getHours())}:${twoDigit(date.getMinutes())}:${twoDigit(date.getSeconds())}`;
-function RatesClock({lastQsoAt,contestStartAt,contestEndAt,contestScheduleSource}:Pick<ContestRatesSurfaceProjection,"lastQsoAt"|"contestStartAt"|"contestEndAt"|"contestScheduleSource">) {
+export function RatesClock({lastQsoAt,contestStartAt,contestEndAt,contestScheduleSource}:Pick<ContestRatesSurfaceProjection,"lastQsoAt"|"contestStartAt"|"contestEndAt"|"contestScheduleSource">) {
   const [now,setNow]=useState(()=>new Date());
   useEffect(()=>{const timer=window.setInterval(()=>setNow(new Date()),1_000);return()=>window.clearInterval(timer);},[]);
   const utc=clockText(now,true),local=clockText(now,false),last=lastQsoAt?Date.parse(lastQsoAt):NaN,

@@ -464,7 +464,7 @@ actor PythonContestLane {
                 result["referenceID"] = reference.version
             }
         }
-        if method == "contest_spot_points_preview", result["countries"] == nil,
+        if ["contest_spot_points_preview", "contest_opportunities"].contains(method), result["countries"] == nil,
            let spots = result["spots"] as? [[String: Any]] {
             var countries: [String: [String: Any]] = [:]
             for spot in spots {

@@ -1,11 +1,23 @@
 import { expect, it, vi } from "vitest";
-import { createContestSpotTuner, createContestVFOStepper } from "./contestSpotTune";
+import { createContestSpotTuner, createContestVFOStepper, createContestReminderTuner } from "./contestSpotTune";
 
 const station = (active = "radio1", provider: string | null = "direct_flex_lan") => ({
   radio_id:"radio1", active_radio:active, tx_owner:null, generation:"setup", revision:3, base_url:"", last_receipt:null,
   selection:{provider,generation:7,selection_id:"selection",control_revision:11}, worker_generation:5,
   radio:{provider,selection_id:"selection",selection_generation:7,snapshot:{generation:13}},
 }) as any;
+
+it("routes a reminder only to its explicit target and retains an unresolved tune",async()=>{
+  const tune=vi.fn(async()=>({accepted:true,confirmed:true})),check=vi.fn(async()=>{}),review=vi.fn();
+  const session=vi.fn(()=>({getSnapshot:()=>({pending:null}),check,tune,review} as any));
+  const load=vi.fn(async()=>({...station("radio1"),radio_id:"radio2"}));
+  await createContestReminderTuner({load,session})("radio2",7_145_000,"SSB");
+  expect(load).toHaveBeenCalledExactlyOnceWith("radio2");expect(session).toHaveBeenCalledExactlyOnceWith("radio2");
+  expect(tune).toHaveBeenCalledExactlyOnceWith("direct_flex_lan",7_145_000,"SSB");
+  tune.mockClear();session.mockImplementation(()=>({getSnapshot:()=>({pending:"unresolved"}),check,tune,review} as any));
+  await expect(createContestReminderTuner({load,session})("radio2",7_145_000,"SSB")).rejects.toThrow(/previous tune receipt/);
+  expect(tune).not.toHaveBeenCalled();expect(review).not.toHaveBeenCalled();
+});
 
 it("tunes the current active radio through the durable manual-tune session", async () => {
   const tune = vi.fn(async () => ({accepted:true,confirmed:true}));

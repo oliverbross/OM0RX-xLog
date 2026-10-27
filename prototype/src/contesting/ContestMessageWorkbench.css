@@ -1,0 +1,12 @@
+.contest-message-workbench { display: grid; gap: 12px; min-width: 0; }
+.contest-message-workbench fieldset { display: flex; flex-wrap: wrap; gap: 10px; min-width: 0; border: 1px solid var(--contest-border, #64748b); }
+.contest-message-workbench label { display: grid; gap: 4px; min-width: 160px; flex: 1; }
+.contest-message-workbench textarea { width: 100%; box-sizing: border-box; font-family: monospace; }
+.contest-message-workbench label:has(textarea), .contest-message-workbench details, .contest-message-workbench ul, .contest-message-workbench [role="status"] { flex-basis: 100%; }
+.contest-message-actions { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+.contest-message-scroll { overflow-x: auto; width: 100%; }
+.contest-message-workbench table { width: 100%; border-collapse: collapse; }
+.contest-message-workbench th, .contest-message-workbench td { padding: 4px; text-align: left; }
+.contest-message-workbench td:last-child { width: 70%; }
+.contest-message-workbench td input { width: 100%; min-width: 120px; box-sizing: border-box; }
+.contest-message-workbench pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; }

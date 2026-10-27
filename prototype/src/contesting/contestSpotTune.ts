@@ -57,6 +57,16 @@ export const createContestSpotTuner = ({ load, session }: Dependencies = default
 
 export const tuneContestSpot = createContestSpotTuner();
 
+/** An operator-selected reminder target never falls back to the active radio. */
+export const createContestReminderTuner=({load,session}:Dependencies=defaults)=>async(radioId:RadioID,frequencyHz:number,mode:string)=>{
+  const current=await load(radioId),provider=current.selection.provider;
+  if(!provider||!providers.has(provider as StationProvider))throw new Error("Refresh and select the explicit reminder radio before tuning.");
+  const tune=session(radioId);if(tune.getSnapshot().pending)await tune.check();
+  if(tune.getSnapshot().pending)throw new Error("Review the previous tune receipt; this reminder remains open.");
+  return tune.tune(provider as StationProvider,frequencyHz,mode);
+};
+export const tuneContestReminder=createContestReminderTuner();
+
 /** Step from one exact observed VFO state through the durable manual-tune owner. */
 export const createContestVFOStepper = ({load,session}:Dependencies=defaults)=>async(direction:"up"|"down")=>{
   const {current,radioId,provider}=await activeStation(load),source=observedVFO(current);

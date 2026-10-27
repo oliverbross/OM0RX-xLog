@@ -61,7 +61,7 @@ fn save_export(path: Option<PathBuf>, extension: &str, content: &str) -> Result<
 }
 
 #[cfg(target_os = "macos")]
-async fn choose_export(window: tauri::WebviewWindow, filename: String, _extension: &str) -> Result<Option<PathBuf>, String> {
+async fn choose_export(window: tauri::WebviewWindow, filename: String, _extension: &str, purpose: &'static str) -> Result<Option<PathBuf>, String> {
     use objc2::MainThreadMarker;
     use objc2_app_kit::{NSModalResponseOK, NSSavePanel};
     use objc2_foundation::NSString;
@@ -71,7 +71,7 @@ async fn choose_export(window: tauri::WebviewWindow, filename: String, _extensio
         else { MainThreadMarker::new().ok_or("Analytics export chooser is unavailable.").map(|main| {
             let panel = NSSavePanel::savePanel(main);
             panel.setNameFieldStringValue(&NSString::from_str(&filename));
-            panel.setMessage(Some(&NSString::from_str("Save the displayed analytical copy. The contest log remains unchanged.")));
+            panel.setMessage(Some(&NSString::from_str(purpose)));
             if panel.runModal() == NSModalResponseOK {
                 panel.URL().and_then(|url| url.path()).map(|path| PathBuf::from(path.to_string()))
             } else { None }
@@ -84,10 +84,10 @@ async fn choose_export(window: tauri::WebviewWindow, filename: String, _extensio
 }
 
 #[cfg(not(target_os = "macos"))]
-async fn choose_export(_window: tauri::WebviewWindow, filename: String, extension: &str) -> Result<Option<PathBuf>, String> {
+async fn choose_export(_window: tauri::WebviewWindow, filename: String, extension: &str, purpose: &'static str) -> Result<Option<PathBuf>, String> {
     let extension = extension.to_owned();
     tauri::async_runtime::spawn_blocking(move || rfd::FileDialog::new()
-        .set_title("Save Analytics report").set_file_name(filename)
+        .set_title(purpose).set_file_name(filename)
         .add_filter("Analytics report", &[extension]).save_file())
         .await.map_err(|_| "Analytics export chooser is unavailable.".to_string())
 }
@@ -97,11 +97,29 @@ pub async fn contest_analytics_export(window: tauri::WebviewWindow, filename: St
     let extension = validate_export(window.label(), &filename, &content)?;
     if crate::APP_EXITING.load(Ordering::Acquire) { return Err("Analytics export is unavailable during shutdown.".into()); }
     let _lease = ExportLease::acquire()?;
-    let path = choose_export(window, filename, extension).await?;
+    let path = choose_export(window, filename, extension, "Save the displayed analytical copy. The contest log remains unchanged.").await?;
     tauri::async_runtime::spawn_blocking(move || {
         if crate::APP_EXITING.load(Ordering::Acquire) { return Err("Analytics export is unavailable during shutdown.".into()); }
         save_export(path, extension, &content)
     }).await.map_err(|_| "Analytics export task failed.".to_string())?
+}
+
+fn validate_messages_export(label: &str, filename: &str, content: &str) -> Result<(), String> {
+    if label != "contest-setup" { return Err("Only Contest Setup owns message bank exports.".into()); }
+    if filename != "messages-not1mm.txt" || content.is_empty() || content.len() > 65536 || content.contains('\0') {
+        return Err("Choose a bounded Not1MM message bank text export.".into());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn contest_messages_export(window: tauri::WebviewWindow, filename: String, content: String) -> Result<Value, String> {
+    validate_messages_export(window.label(), &filename, &content)?;
+    if crate::APP_EXITING.load(Ordering::Acquire) { return Err("Message export is unavailable during shutdown.".into()); }
+    let _lease = ExportLease::acquire()?;
+    let path = choose_export(window, filename, "txt", "Export the reviewed Not1MM message bank. This does not save or activate it.").await?;
+    tauri::async_runtime::spawn_blocking(move || save_export(path, "txt", &content))
+        .await.map_err(|_| "Message export failed.".to_string())?
 }
 
 fn dispatch_print(label: &str, exiting: bool, print: impl FnOnce() -> Result<(), String>) -> Result<(), String> {
@@ -205,6 +223,18 @@ mod tests {
         }
         for content in ["", "invalid JSON", "{}\0"] { assert!(validate_export(WINDOW, "report.json", content).is_err()); }
         assert!(validate_export(WINDOW, "report.csv", &"x".repeat(MAX_EXPORT_BYTES + 1)).is_err());
+    }
+
+    #[test]
+    fn message_export_is_setup_owned_bounded_text_without_activation() {
+        assert!(validate_messages_export("contest-setup", "messages-not1mm.txt", "R|F1|CQ|CQ {MYCALL}").is_ok());
+        for label in [WINDOW, "main", "contest--active-qso"] {
+            assert!(validate_messages_export(label, "messages-not1mm.txt", "text").is_err());
+        }
+        for (filename, content) in [("../messages-not1mm.txt", "text"), ("messages-not1mm.txt", ""), ("messages-not1mm.txt", "text\0")] {
+            assert!(validate_messages_export("contest-setup", filename, content).is_err());
+        }
+        assert!(validate_messages_export("contest-setup", "messages-not1mm.txt", &"x".repeat(65537)).is_err());
     }
 
     #[test]

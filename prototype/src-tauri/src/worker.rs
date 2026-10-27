@@ -286,6 +286,16 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "contest_log_page",
         "contest_notes",
         "contest_note_save",
+        "contest_strategy",
+        "contest_strategy_apply",
+        "contest_opportunities",
+        "contest_operating_info",
+        "contest_operating_plan_save",
+        "contest_message_import",
+        "contest_message_preview",
+        "contest_message_banks",
+        "contest_message_bank_save",
+        "contest_message_bank_activate",
         "contest_submission_preflight",
         "contest_assistance_reverse",
         "contest_assistance_dupesheet",
@@ -1133,6 +1143,8 @@ fn request_blocks_module_transition(request: &Value) -> bool {
         "spot_history_status" | "spot_history_query" | "spot_history_detail" | "reference_log_review" |
         "contest_catalog" | "contest_sessions" | "contest_draft_get" |
         "contest_qso_get" | "contest_operation_receipt" | "contest_log_page" |
+        "contest_strategy" | "contest_opportunities" | "contest_operating_info" |
+        "contest_message_import" | "contest_message_preview" | "contest_message_banks" |
         "contest_notes" | "contest_submission_preflight" | "contest_assistance_reverse" | "contest_assistance_dupesheet" |
         "contest_log_transfer_status" | "contest_score" | "contest_spot_points_preview" |
         "contest_rates" | "contest_analytics" | "contest_recorder_changes" | "contest_rtc_status" | "contest_check_partial" | "contest_setup_get" |
@@ -1239,6 +1251,8 @@ fn request_is_non_retiring_read(request: &Value) -> bool {
         "contest_scp_status" | "contest_scp_query" | "contest_scp_cancel" | "contest_scp_select" |
         "contest_history_status" | "contest_history_preview_page" | "contest_history_preview_cancel" |
         "contest_history_query" | "contest_history_query_cancel" | "contest_history_select" |
+        "contest_strategy" | "contest_opportunities" | "contest_operating_info" |
+        "contest_message_import" | "contest_message_preview" | "contest_message_banks" |
         "contest_log_page" | "contest_notes" | "contest_submission_preflight" | "contest_assistance_reverse" | "contest_assistance_dupesheet" |
         "contest_analytics" | "contest_recorder_changes" | "contest_rtc_status" | "spot_history_status" | "spot_history_query" | "spot_history_detail" | "reference_log_review"
     ))

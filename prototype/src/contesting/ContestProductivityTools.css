@@ -22,6 +22,11 @@
 .contest-call-stack header>label { flex-direction:row; align-items:center; }
 .contest-note-editor { margin:12px 0; }
 .contest-productivity-desk [role=alert] { color:#ffb1a9; }
+.contest-opportunity-scroll { overflow:auto; max-height:340px; }
+.contest-opportunity-scroll table { min-width:600px; }
+.contest-opportunity-scroll small { display:block; }
+.contest-productivity-desk label { min-width:0; }
+.contest-productivity-desk input,.contest-productivity-desk select { max-width:100%; }
 @container contest-workspace (max-width:650px) {
   .contest-productivity-desk .contest-entry-fields,.contest-productivity-desk .contest-entry-context { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .contest-productivity-desk .contest-entry-fields .contest-call { grid-column:1/-1; }

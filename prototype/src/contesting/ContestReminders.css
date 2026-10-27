@@ -1,0 +1,9 @@
+.contest-reminders .contest-sked-editor{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-block:12px}
+.contest-sked-editor label{display:flex;flex-direction:column;gap:4px}.contest-sked-wide{grid-column:1/-1}
+.contest-sked-editor input,.contest-sked-editor select,.contest-sked-editor textarea{min-width:0;width:100%;box-sizing:border-box}
+.contest-sked-list{list-style:none;padding:0;display:grid;gap:5px;max-height:300px;overflow:auto}
+.contest-sked-list button{width:100%;text-align:left;white-space:normal}.contest-sked-list button span{display:block;font-size:.9em;opacity:.85}
+.contest-sked-list button[aria-pressed=true]{outline:2px solid var(--accent,#69a8df);outline-offset:-2px}
+.contest-sked-detail{border-top:1px solid var(--border,#555);padding-top:8px}.contest-sked-detail p{overflow-wrap:anywhere}
+.contest-reminder-announcement:empty{display:none}.contest-reminder-announcement{display:block;padding:8px;color:var(--text-primary,inherit)}
+.contest-reminders[hidden]{display:none}
