@@ -14,12 +14,12 @@ const initial = () => ({
   rstSent: "599", rstReceived: "599", extraFields: { APP_XLOG_NOTE: "retained" },
   customQSOKey: { retain: true },
 });
-function Harness({ save = vi.fn(), lookup = null, previous = [], request, onReadRadio, automaticStationMetadata, isEditing }: { save?: () => void; lookup?: Record<string, any> | null; previous?: Record<string, any>[];
+function Harness({ save = vi.fn(), clear = vi.fn(), lookup = null, previous = [], request, onReadRadio, automaticStationMetadata, isEditing }: { save?: () => void; clear?: () => void; lookup?: Record<string, any> | null; previous?: Record<string, any>[];
   request?: (method: string, params?: Record<string, any>) => Promise<any>; onReadRadio?: () => Promise<void> | void;
   automaticStationMetadata?: Array<{label: string; value: string; provenance: "observed" | "configured" | "selected"}>; isEditing?: boolean }) {
   const [draft, setDraft] = useState<Record<string, any> | null>(initial());
   const [follow, setFollow] = useState(true);
-  return <><QSOEditor draft={draft} setDraft={setDraft} save={save} clear={() => setDraft(initial())} busy={false} lookup={lookup} previous={previous} follow={follow} setFollow={setFollow} request={request} onReadRadio={onReadRadio} automaticStationMetadata={automaticStationMetadata} isEditing={isEditing} /><output data-testid="draft">{JSON.stringify(draft)}</output></>;
+  return <><QSOEditor draft={draft} setDraft={setDraft} save={save} clear={() => { clear(); setDraft(initial()); }} busy={false} lookup={lookup} previous={previous} follow={follow} setFollow={setFollow} request={request} onReadRadio={onReadRadio} automaticStationMetadata={automaticStationMetadata} isEditing={isEditing} /><output data-testid="draft">{JSON.stringify(draft)}</output></>;
 }
 const value = () => JSON.parse(screen.getByTestId("draft").textContent || "{}");
 beforeEach(() => localStorage.clear());
@@ -261,8 +261,8 @@ describe("QSOEditor", () => {
     expect(value()).toEqual(initial());
   });
   it("opens the full-width photo in a safe full-size modal, traps focus, closes on Escape and restores focus", () => {
-    const save = vi.fn(), photo = "https://cdn-bio.qrz.com/e/ea7eu/photo.jpg";
-    render(<Harness save={save} lookup={{ call: "EA7EU", imageURL: photo, source: "QRZ XML" }} />);
+    const save = vi.fn(), clear = vi.fn(), photo = "https://cdn-bio.qrz.com/e/ea7eu/photo.jpg";
+    render(<Harness save={save} clear={clear} lookup={{ call: "EA7EU", imageURL: photo, source: "QRZ XML" }} />);
     const trigger = screen.getByRole("button", { name: "View full-size QRZ photo for EA7EU" });
     expect(trigger.getAttribute("aria-haspopup")).toBe("dialog");
     expect(editorCSS).not.toContain("width:176px"); expect(editorCSS).not.toContain("max-height:208px");
@@ -274,7 +274,7 @@ describe("QSOEditor", () => {
     fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true }); expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Close photo" }));
     fireEvent.keyDown(dialog, { key: "Enter", metaKey: true }); expect(save).not.toHaveBeenCalled();
     fireEvent.keyDown(dialog, { key: "Escape" }); expect(screen.queryByRole("dialog")).toBeNull(); expect(document.activeElement).toBe(trigger);
-    expect(value()).toEqual(initial());
+    expect(value()).toEqual(initial()); expect(clear).not.toHaveBeenCalled(); expect(save).not.toHaveBeenCalled();
   });
   it("closes the photo on explicit close, image failure or changed callsign without reopening a stale image", () => {
     const profile = { call: "EA7EU", imageURL: "https://cdn-bio.qrz.com/e/ea7eu/photo.jpg", source: "QRZ XML" };

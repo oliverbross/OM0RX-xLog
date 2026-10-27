@@ -2017,6 +2017,7 @@ it("opens its bounded CW composer and routes text through the fenced active-QSO 
     if(command==="contest_surface_action")return {requestID:args.requestID,status:"applied"};
     throw new Error(command);
   });
+  const originalDraft=structuredClone(view.projection.draft);
   render(<DetachedContestSurface/>);await screen.findByRole("region",{name:"Main Logging"});
   const launchField=screen.getByLabelText("RCV");launchField.focus();fireEvent.keyDown(launchField,{key:"k",ctrlKey:true});
   let input=await screen.findByLabelText("Send CW text");expect(document.activeElement).toBe(input);
@@ -2026,11 +2027,40 @@ it("opens its bounded CW composer and routes text through the fenced active-QSO 
   expect(fireEvent.keyDown(input,{key:" "})).toBe(true);expect(fireEvent.keyDown(input,{key:"Enter"})).toBe(true);
   expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&args.action==="entry_operator_key")).toBe(false);
   fireEvent.keyDown(input,{key:"Escape"});await waitFor(()=>expect(screen.queryByLabelText("Send CW text")).toBeNull());expect(document.activeElement).toBe(launchField);
+  expect(view.projection.draft).toEqual(originalDraft);
+  expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe(originalDraft.callsign);
+  expect((screen.getByLabelText("Received exchange 1") as HTMLInputElement).value).toBe(originalDraft.receivedFields[0].value);
+  expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&
+    ["entry_clear","entry_commit","entry_send_cw_text","entry_operator_key"].includes(args.action))).toBe(false);
   fireEvent.keyDown(launchField,{key:"k",ctrlKey:true});input=await screen.findByLabelText("Send CW text");
   fireEvent.change(input,{target:{value:"CQ TEST DE OM0RX"}});fireEvent.submit(input.closest("form")!);
   await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="entry_send_cw_text")?.[1])
     .toMatchObject({panelID:"active-qso",action:"entry_send_cw_text",params:{draftID:"draft-1",expectedDraftRevision:5,value:"CQ TEST DE OM0RX"}}));
   await waitFor(()=>expect(document.activeElement).toBe(launchField));
+});
+
+it.each(["Escape","Stop"])("deliberate %s requests only Stop and preserves the populated contest draft",async control=>{
+  const view={...snapshot,projection:{...projection,schemaVersion:2,
+    draft:{...projection.draft,frequencyHz:14025000,frequencyError:""},
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
+    operator:{output:"test-simulation",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"run",status:"armed",pending:null,
+      focusedField:"callsign",...tabMaps,functionKeys:[],
+      readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
+  const originalDraft=structuredClone(view.projection.draft),actions:Record<string,any>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return view;
+    if(command==="contest_surface_action"){actions.push(args);return {requestID:args.requestID,status:"applied"};}
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const call=await screen.findByLabelText("Callsign");
+  if(control==="Escape")fireEvent.keyDown(call,{key:"Escape"});
+  else fireEvent.click(screen.getByRole("button",{name:/^Stop/}));
+  await waitFor(()=>expect(actions).toHaveLength(1));
+  expect(actions[0]).toMatchObject({action:"entry_operator_key",params:{key:"Escape",draftID:originalDraft.draftID}});
+  expect(view.projection.draft).toEqual(originalDraft);
+  expect((call as HTMLInputElement).value).toBe(originalDraft.callsign);
+  expect((screen.getByLabelText("Received exchange 1") as HTMLInputElement).value).toBe(originalDraft.receivedFields[0].value);
+  expect(actions.some(action=>["entry_clear","entry_commit"].includes(action.action))).toBe(false);
 });
 
 it("steps long numeric exchanges without losing precision",async()=>{

@@ -13,6 +13,15 @@ function Harness({ request = vi.fn(async method => method === "logbook_matrix" ?
 }
 const draft = () => JSON.parse(screen.getByTestId("draft").textContent || "{}");
 afterEach(cleanup);
+it("preserves a populated native draft on Escape and reserves clearing for the deliberate Clear control", () => {
+  const clear = vi.fn(), save = vi.fn(); render(<Harness clear={clear} save={save} />);
+  const before = structuredClone(draft()), comment = screen.getByLabelText("Desk Comment");
+  comment.focus(); fireEvent.keyDown(comment, { key: "Escape" });
+  expect(document.activeElement).toBe(screen.getByLabelText("Desk Callsign"));
+  expect(draft()).toEqual(before); expect(clear).not.toHaveBeenCalled(); expect(save).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Clear QSO" }));
+  expect(clear).toHaveBeenCalledTimes(1); expect(save).not.toHaveBeenCalled();
+});
 it("shows all native top-strip fields and actions together with the three panels", async () => {
   render(<Harness />);
   for (const name of ["Active QSO", "Callsign & DXCC intelligence", "Rotor"]) expect(screen.getByRole("heading", { name })).toBeTruthy();

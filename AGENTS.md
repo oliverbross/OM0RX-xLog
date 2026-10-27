@@ -9,3 +9,10 @@
 - Package or install OM0RX-xLog only from this canonical checkout, never from another worktree.
 - Remove or archive temporary worktrees and artifacts only after confirming that they contain no unique work.
 - See `docs/DEVELOPMENT_WORKFLOW.md` for the operational checklist.
+
+## Native UI automation
+
+- Bind the exact application path and verify the current window/control before input. Derive accessibility indices from the latest observation; never reuse an index from an earlier tree after another observation.
+- Do not send Escape as a blind menu/dialog reset or retry it when dismissal is uncertain. Use the currently observed menu's supported `Cancel` secondary action or the dialog's explicit Close/Cancel control, then verify dismissal and draft preservation. Stop that UI sequence if the control/context cannot be verified.
+- Deliberate Escape testing belongs to a verified entry/control in disposable storage. Preserve operator shortcuts and emergency Stop/release behavior; this automation rule does not disable Escape or change operating bindings.
+- After ordinary Quit, inspect process state before querying an app binding again: an observation can relaunch the application. Do not force-quit or bypass an unsaved-work guard.
