@@ -43,7 +43,7 @@ fn capabilities(offline: bool) -> Value {
     json!({"supported":offline,"simulated":offline,"externalIO":false,"physicalQualified":false,
         "reason":if offline { "Marked offline fake routes only; no RF, audio, device or provider connection." } else { "Exact lane receiver/VFO/output route is not qualified. Existing SO1V controls remain available separately." },
         "routes":if offline {routes()} else {vec![]},"wholeString":true,"incrementalCancellation":false,"earlySend":false,
-        "singleTransmitter":true,"voice":false,"listeningAudio":false})
+        "singleTransmitter":true,"voice":false,"listeningAudio":false,"splitProgramming":false})
 }
 
 struct FakeBackend { canonical: Mutex<Value>, target: Mutex<Value>, events: Mutex<Vec<Value>>, uncertain_stop: AtomicBool }
@@ -110,6 +110,10 @@ impl OfflineAdapter {
         }
         let current = context(canonical)?;
         let requested = context(params)?;
+        if action == "tune" && !canonical["receiveFrequencyHz"].is_null()
+            && (canonical["receiveFrequencyHz"] != canonical["frequencyHz"] || params["frequencyHz"] != canonical["receiveFrequencyHz"]) {
+            return Err("This lane has distinct RX/TX frequencies, but exact split programming is unsupported; no tuning action was taken.".into());
+        }
         let native = native_context(canonical)?;
         if self.native["workerGeneration"].as_u64().is_some_and(|old| native["workerGeneration"].as_u64().unwrap() < old)
             || native["operatingContext"].as_str().is_some_and(|id| self.retired_contexts.contains(id)) {
@@ -227,6 +231,29 @@ mod tests {
     }
     fn stop(owner: &mut OfflineAdapter, ctx: &Value, outcome: &str) -> Value {
         owner.request(&json!({"action":"stop","sessionID":ctx["sessionID"],"workspaceGeneration":ctx["workspaceGeneration"],"laneID":ctx["laneID"],"stopOutcome":outcome}), &Value::Null).unwrap()
+    }
+    #[test]
+    fn unsupported_explicit_rx_tx_split_rejects_tune_without_any_effect() {
+        let mut owner = OfflineAdapter::new(); let a = canonical("laneA", "radio1", "receiver1", "A");
+        call(&mut owner, &a, "bind", json!({})).unwrap();
+        call(&mut owner, &a, "tune", json!({"frequencyHz":14025000,"mode":"CW"})).unwrap();
+        let before = owner.snapshot().unwrap();
+        let mut split = a.clone(); split["frequencyHz"] = json!(14025000);
+        split["receiveFrequencyHz"] = json!(14026000);
+        let mut params = a.clone();
+        params.as_object_mut().unwrap().remove("operatingContext");
+        params["action"] = json!("tune");
+        params["frequencyHz"] = json!(14025000); params["mode"] = json!("CW");
+        let error = owner.request(&params, &split).unwrap_err();
+        assert!(error.contains("split programming is unsupported"));
+        assert_eq!(owner.snapshot().unwrap(), before, "Unsupported split cannot change frequency, listening, TX or ownership metadata");
+        split["receiveFrequencyHz"] = json!(14025000);
+        params["frequencyHz"] = json!(14027000);
+        assert!(owner.request(&params, &split).unwrap_err().contains("split programming is unsupported"));
+        assert_eq!(owner.snapshot().unwrap(), before, "A requested TX retune cannot silently move an explicitly fixed RX even when current RX equals TX");
+        assert!(owner.backend.events.lock().unwrap().is_empty());
+        assert_eq!(capabilities(true)["splitProgramming"], false);
+        assert_eq!(capabilities(false)["splitProgramming"], false);
     }
     #[test]
     fn nonfocus_tune_listen_never_change_other_lane_or_acquire_tx() {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { spawn } from "node:child_process";
 import { mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -84,6 +84,51 @@ it("real host persists independent lane typing, tunes nonfocused B explicitly, a
     const rows=(await host.request("contest_log_page",{sessionID})).result.rows;
     expect(Object.fromEntries(rows.map((row:any)=>[row.Call,Number(row.SentNr)]))).toEqual({K1LEFT:initial[0].reservedSerial,DL2RIGHT:initial[1].reservedSerial});
     expect(native.calls.filter(call=>["listen","requestTX","send","macro"].includes(call.action))).toEqual([]);
+    expect(prohibited).not.toHaveBeenCalled();
+  }finally{cleanup();await host.close();}
+},20000);
+
+it.each([14_026_000,14_025_000])("real Host preserves TX and RX %i and the other lane when unsupported Return CQ is requested",async receiveFrequencyHz=>{
+  const host=pythonHost(),sessionID=crypto.randomUUID(),workspaceGeneration=crypto.randomUUID();
+  const routes=[{radioID:"radio1",receiverID:"receiver1",vfo:"A",sliceID:null,generation:1},{radioID:"radio2",receiverID:"receiver1",vfo:"A",sliceID:null,generation:1}];
+  native.snapshot={simulated:true,externalIO:false,capabilities:{supported:true,splitProgramming:false,routes},nativeContext:{workerGeneration:1},lanes:{},cw:{armed:false},listenLaneID:null,txLaneID:null};
+  const prohibited=vi.fn(async()=>{throw Error("Active-radio fallback prohibited");});
+  try{
+    const made=await host.request("contest_session_create",{sessionID,workspaceGeneration,operationID:crypto.randomUUID(),expectedRevision:0,
+      pluginID:"cq_wpx_cw",station:fixture.state.station,settings:fixture.state.settings,reference:fixture.state.reference,frequencyHz:14_025_000,mode:"CW"});expect(made.ok).toBe(true);
+    let projection=(await host.request("contest_lanes_configure",{sessionID,workspaceGeneration,operationID:crypto.randomUUID(),expectedRevision:made.result.projection.revision,
+      mode:"SO2R",bindings:{laneA:routes[0],laneB:routes[1]}})).result.projection;
+    const mutateB=async(method:string,values:Record<string,unknown>={})=>{
+      const b=projection.operatingLanes.lanes[1],result=await host.request(method,{sessionID,workspaceGeneration,operationID:crypto.randomUUID(),expectedRevision:projection.revision,
+        laneID:"laneB",bindingVersion:b.bindingVersion,draftID:b.draftID,...values});expect(result.ok,JSON.stringify(result)).toBe(true);projection=result.result.projection;
+    };
+    await mutateB("contest_draft_apply",{fields:{callsign:"DL2SPLIT",other_2:"456"},frequencyHz:14_025_000,receiveFrequencyHz});
+    await mutateB("contest_lane_context",{cqContext:{rememberedCQFrequencyHz:14_023_000}});
+    await mutateB("contest_lane_select");
+    render(<Not1MMContestWorkspace request={host.request} serviceRequest={async()=>({})} strictHostActive={{sessionID,workspaceGeneration}}
+      operatingContext="disposable-native-context" workspaceGeneration={workspaceGeneration} stationCall="OM0RX" contestingTest radioFrequencyHz={7_111_000}
+      stationTune={prohibited} contestSpot={prohibited} spots={[]} cluster={null}/>);
+    await waitFor(()=>expect(owner.current?.projections["active-qso"]?.status).toBe("ready"),{timeout:10000});
+    fireEvent.click(screen.getByRole("button",{name:"Productivity desk"}));
+    const b=within(screen.getByRole("region",{name:"Lane B"}));
+    expect((b.getByRole("textbox",{name:"Lane B frequency Hz"}) as HTMLInputElement).value).toBe("14025000");
+    expect((b.getByRole("textbox",{name:"Lane B receive frequency Hz"}) as HTMLInputElement).value).toBe(String(receiveFrequencyHz));
+    expect((b.getByRole("button",{name:"Tune here"}) as HTMLButtonElement).disabled).toBe(receiveFrequencyHz!==14_025_000);
+    expect((b.getByRole("button",{name:"Return CQ"}) as HTMLButtonElement).disabled).toBe(true);
+    expect(b.getByText(/Split programming is unavailable/)).toBeTruthy();
+    const before=(await host.request("contest_draft_get",{sessionID})).result.projection;
+    fireEvent.click(b.getByRole("button",{name:"Return CQ"}));
+    if(receiveFrequencyHz!==14_025_000)fireEvent.click(b.getByRole("button",{name:"Tune here"}));
+    // A retained detached command must be rejected too; disabled buttons alone are insufficient.
+    const entry=owner.current.projections["active-qso"];
+    await act(async()=>{await expect(owner.current.handle({operatingContext:"disposable-native-context",scope:"contesting",sessionID,workspaceGeneration,
+      panelID:"active-qso",projectionRevision:entry.draft.revision,requestID:crypto.randomUUID(),action:"entry_return_cq_frequency",
+      params:{draftID:before.draftID,expectedDraftRevision:entry.draft.revision}})).rejects.toThrow("Split programming is unavailable");});
+    const after=(await host.request("contest_draft_get",{sessionID})).result.projection;
+    expect(after.revision).toBe(before.revision);
+    expect(after.operatingLanes).toEqual(before.operatingLanes);
+    expect(after.operatingLanes.lanes[1]).toMatchObject({frequencyHz:14_025_000,receiveFrequencyHz});
+    expect(native.calls.filter(call=>call.action!=="capabilities")).toEqual([]);
     expect(prohibited).not.toHaveBeenCalled();
   }finally{cleanup();await host.close();}
 },20000);

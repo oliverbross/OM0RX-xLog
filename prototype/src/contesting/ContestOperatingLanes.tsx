@@ -1,5 +1,6 @@
 import type { KeyboardEvent, ReactNode } from "react";
 import { ContestTextField } from "./ContestPresentation";
+import { contestLaneTuningBlockReason } from "./contestLaneScope";
 import { contestKeyChord, resolveContestKeyBinding, type ContestKeyBinding,
   type ContestKeyBindingAction, type ContestKeyBindingContext } from "./contestKeyBindings";
 import "./ContestOperatingLanes.css";
@@ -80,6 +81,11 @@ export function ContestOperatingLanes(props: ContestOperatingLanesProps) {
 function Lane({ lane, disabled, entryLaneID, listeningLaneID, requestedTransmitLaneID, onAction, renderLaneTools }: ContestOperatingLanesProps & { lane: ContestOperatingLane }) {
   const name = lane.label || laneName(lane.laneID), blocked = Boolean(disabled || lane.disabled);
   const binding = lane.binding, routeAvailable = Boolean(binding && !["stale", "unavailable"].includes(binding.status ?? "configured"));
+  const tuningFacts = { frequencyHz: lane.frequencyText === undefined ? lane.frequencyHz : Number(lane.frequencyText),
+    receiveFrequencyHz: lane.receiveFrequencyText === undefined ? lane.receiveFrequencyHz
+      : lane.receiveFrequencyText.trim() ? Number(lane.receiveFrequencyText) : null };
+  const tuneBlockedReason = contestLaneTuningBlockReason(tuningFacts),
+    returnBlockedReason = lane.rememberedCQHz == null ? null : contestLaneTuningBlockReason(tuningFacts, lane.rememberedCQHz);
   const context: ContestLaneActionContext = { laneID: lane.laneID, draftID: lane.draftID,
     bindingVersion: lane.bindingVersion, bindingGeneration: binding?.generation ?? null };
   const send = (action: LaneIntent) => onAction({ ...context, ...action } as ContestLaneAction);
@@ -95,7 +101,8 @@ function Lane({ lane, disabled, entryLaneID, listeningLaneID, requestedTransmitL
     if (action) {
       consume();
       const outputBlocked = action.startsWith("SEND_F") && (!routeAvailable || !lane.canSend);
-      const tuneBlocked = ["RETURN_CQ_FREQUENCY", "TUNE_SPOT", "VFO_UP", "VFO_DOWN"].includes(action) && !routeAvailable;
+      const tuneBlocked = ["RETURN_CQ_FREQUENCY", "TUNE_SPOT", "VFO_UP", "VFO_DOWN"].includes(action) && !routeAvailable
+        || action === "RETURN_CQ_FREQUENCY" && Boolean(returnBlockedReason);
       if (!blocked && !outputBlocked && !tuneBlocked && (action !== "LOG_NOW" || lane.canLog))
         send({ kind: "key-binding", action, fieldID });
       return;
@@ -141,16 +148,17 @@ function Lane({ lane, disabled, entryLaneID, listeningLaneID, requestedTransmitL
       <label><input type="radio" name={`${lane.laneID}-style`} checked={!lane.run} disabled={blocked} onChange={() => send({ kind: "run-change", value: false })}/>S&amp;P</label>
       <span>CQ {frequency(lane.rememberedCQHz)}</span>
       <button type="button" disabled={blocked || lane.frequencyHz == null} onClick={() => send({ kind: "remember-cq" })}>Remember CQ</button>
-      <button type="button" disabled={blocked || !routeAvailable || lane.rememberedCQHz == null} onClick={() => send({ kind: "return-cq" })}>Return CQ</button>
+      <button type="button" disabled={blocked || !routeAvailable || lane.rememberedCQHz == null || Boolean(returnBlockedReason)} onClick={() => send({ kind: "return-cq" })}>Return CQ</button>
     </div>
     <div className="contest-operating-lane-actions">
-      <button type="button" disabled={blocked || !routeAvailable || lane.frequencyHz == null} onClick={() => send({ kind: "tune" })}>Tune here</button>
+      <button type="button" disabled={blocked || !routeAvailable || lane.frequencyHz == null || Boolean(tuneBlockedReason)} onClick={() => send({ kind: "tune" })}>Tune here</button>
       <button type="button" disabled={blocked || !routeAvailable} onClick={() => send({ kind: "listen" })}>Listen here</button>
       <button type="button" disabled={blocked || !routeAvailable} onClick={() => send({ kind: "request-tx" })}>Request TX here</button>
       <button type="button" disabled={!lane.canStop} onClick={() => send({ kind: "stop" })}>Stop {name}</button>
       <button type="button" disabled={blocked} onClick={() => send({ kind: "clear" })}>Wipe {name}</button>
       <button type="button" className="contest-primary" disabled={blocked || !lane.canLog} onClick={() => send({ kind: "log" })}>Log {name}</button>
     </div>
+    {(tuneBlockedReason || returnBlockedReason) && <p className="contest-operating-lane-unavailable">{tuneBlockedReason || returnBlockedReason}</p>}
     {lane.functionKeys?.length ? <details className="contest-operating-lane-macros"><summary>{name} function keys</summary><div>{lane.functionKeys.map(key => <button key={key.key} type="button"
       disabled={blocked || !routeAvailable || !lane.canSend} onClick={() => send({ kind: "function-key", key: key.key })}>{key.key}: {key.label}</button>)}</div></details> : null}
     {!lane.canSend && <p className="contest-operating-lane-unavailable">{lane.outputUnavailableReason || "Output unavailable; review this lane's radio and output settings."}</p>}

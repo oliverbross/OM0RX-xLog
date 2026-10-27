@@ -50,7 +50,7 @@ import { tuneContestReminder } from "./contestSpotTune";
 import { invoke } from "@tauri-apps/api/core";
 import { ContestOperatingLanes, type ContestLaneAction, type ContestOperatingLane } from "./ContestOperatingLanes";
 import { ContestCWCorrectionPanel } from "./ContestCWCorrectionPanel";
-import { assertContestLaneScope, captureContestLaneScope, contestLaneParams, contestLaneProjection, contestLaneSnapshot,
+import { assertContestLaneScope, captureContestLaneScope, contestLaneParams, contestLaneProjection, contestLaneSnapshot, contestLaneTuningBlockReason,
   dualContestLanes, mergeContestLaneBuffer, type CapturedContestLaneScope, type ContestLaneBuffer,
   type ContestLaneID, type ContestLaneProjectionSource } from "./contestLaneScope";
 
@@ -1707,10 +1707,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
           case "remember-cq":admitLaneResult(await mutate("contest_lane_context",base,{...contestLaneParams(scope),
             cqContext:{...contestLaneSnapshot(base,scope.laneID).cqContext,rememberedCQFrequencyHz:base.frequencyHz}}),scope);break;
           case "return-cq":case "tune":case "listen":case "request-tx":{
+            const lane=contestLaneSnapshot(base,scope.laneID),target=action.kind==="return-cq"?Number(lane.cqContext?.rememberedCQFrequencyHz):base.frequencyHz;
+            if(action.kind==="return-cq"&&(!Number.isSafeInteger(target)||target<=0))throw Error("No remembered CQ frequency is available in this lane.");
+            const blocked=(action.kind==="return-cq"||action.kind==="tune")&&contestLaneTuningBlockReason(lane,target);
+            if(blocked)throw Error(blocked);
             const context=nativeLaneContext(scope);await bindNativeLane(context);
             if(action.kind==="return-cq"){
-              const hz=Number(contestLaneSnapshot(base,scope.laneID).cqContext?.rememberedCQFrequencyHz);
-              if(!Number.isSafeInteger(hz)||hz<=0)throw Error("No remembered CQ frequency is available in this lane.");
+              const hz=target;
               acceptLaneNative(await requestContestLaneOutput(context,"tune",{frequencyHz:hz,mode:base.mode}));
               const buffer=laneBuffer(scope);buffer.frequencyText=String(hz);
               admitLaneResult(await mutate("contest_draft_apply",base,{...contestLaneParams(scope),frequencyHz:hz}),scope,structuredClone(buffer));
@@ -3321,6 +3324,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
         if(dualContestLanes(active)){
           const scope=captureContestLaneScope(active);await enqueueLane(scope,async base=>{
             const hz=Number(contestLaneSnapshot(base,scope.laneID).cqContext?.rememberedCQFrequencyHz);if(!Number.isSafeInteger(hz)||hz<=0)throw Error("No remembered CQ frequency is available in this lane.");
+            const blocked=contestLaneTuningBlockReason(contestLaneSnapshot(base,scope.laneID),hz);if(blocked)throw Error(blocked);
             const context=nativeLaneContext(scope);await bindNativeLane(context);acceptLaneNative(await requestContestLaneOutput(context,"tune",{frequencyHz:hz,mode:base.mode}));
             const buffer=laneBuffer(scope);buffer.frequencyText=String(hz);admitLaneResult(await mutate("contest_draft_apply",base,{...contestLaneParams(scope),frequencyHz:hz}),scope,structuredClone(buffer));});return;
         }

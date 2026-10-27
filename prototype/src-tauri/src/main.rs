@@ -3417,14 +3417,17 @@ fn canonical_contest_lane(response: &serde_json::Value, params: &serde_json::Val
     }
     let lane = projection["operatingLanes"]["lanes"].as_array()
         .and_then(|lanes| lanes.iter().find(|lane| lane["laneID"] == params["laneID"]));
-    let (draft, version, binding) = if let Some(lane) = lane {
-        (lane["draftID"].clone(), lane["bindingVersion"].clone(), lane["binding"].clone())
+    let (draft, version, binding, frequency, receive_frequency) = if let Some(lane) = lane {
+        (lane["draftID"].clone(), lane["bindingVersion"].clone(), lane["binding"].clone(),
+            lane["frequencyHz"].clone(), lane["receiveFrequencyHz"].clone())
     } else if params["action"] == "capabilities" && params["laneID"] == "laneA" && projection.get("operatingLanes").is_none() {
-        (projection["draftID"].clone(), serde_json::json!(0), serde_json::Value::Null)
+        (projection["draftID"].clone(), serde_json::json!(0), serde_json::Value::Null,
+            projection["frequencyHz"].clone(), serde_json::Value::Null)
     } else { return Err("That operating lane is no longer available.".into()); };
     Ok(serde_json::json!({"sessionID":projection["sessionID"],"workspaceGeneration":projection["workspaceGeneration"],
         "laneID":params["laneID"],"draftID":draft,"bindingVersion":version,"binding":binding,
-        "workerGeneration":generation,"operatingContext":operating_context}))
+        "workerGeneration":generation,"operatingContext":operating_context,
+        "frequencyHz":frequency,"receiveFrequencyHz":receive_frequency}))
 }
 
 fn claimed_contest_lane_macro(params: &serde_json::Value, current: &serde_json::Value,
@@ -4276,9 +4279,10 @@ mod workspace_layout_tests {
         use serde_json::json;
         let params = json!({"sessionID":"session","workspaceGeneration":"workspace","laneID":"laneB","action":"tune"});
         let response = json!({"ok":true,"result":{"projection":{"sessionID":"session","workspaceGeneration":"workspace",
-            "draftID":"a","selectedLaneID":"laneA","operatingLanes":{"lanes":[{"laneID":"laneB","draftID":"b","bindingVersion":3,"binding":{"radioID":"radio2"}}]}}}});
+            "draftID":"a","selectedLaneID":"laneA","operatingLanes":{"lanes":[{"laneID":"laneB","draftID":"b","bindingVersion":3,"binding":{"radioID":"radio2"},"frequencyHz":7025000,"receiveFrequencyHz":7026000}]}}}});
         let actual = super::canonical_contest_lane(&response, &params, 7, "context").unwrap();
         assert_eq!(actual["draftID"], "b"); assert_eq!(actual["workerGeneration"], 7);
+        assert_eq!(actual["frequencyHz"], 7025000); assert_eq!(actual["receiveFrequencyHz"], 7026000);
         let mut wrong_session = response.clone(); wrong_session["result"]["projection"]["sessionID"] = json!("replacement");
         assert!(super::canonical_contest_lane(&wrong_session, &params, 7, "context").is_err());
     }

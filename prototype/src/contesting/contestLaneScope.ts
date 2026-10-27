@@ -12,6 +12,14 @@ export type CapturedContestLaneScope = { sessionID: string; workspaceGeneration:
   draftID: string; bindingVersion: number; bindingGeneration: string | number | null };
 
 export const dualContestLanes = (source: ContestLaneProjectionSource | null | undefined) => Boolean(source?.operatingLanes && source.operatingLanes.mode !== "SO1V");
+/** The current native route programs one frequency only; RX/TX log facts are never rewritten to fit it. */
+export function contestLaneTuningBlockReason(lane: { frequencyHz: number | null; receiveFrequencyHz?: number | null },
+  targetHz: number | null = lane.frequencyHz): string | null {
+  const rx = lane.receiveFrequencyHz;
+  return rx != null && (rx !== lane.frequencyHz || rx !== targetHz)
+    ? "Split programming is unavailable on this route. RX/TX log values are preserved; Tune here and Return CQ cannot separate them."
+    : null;
+}
 export function contestLaneSnapshot(source: ContestLaneProjectionSource, laneID = source.operatingLanes?.keyboardLaneID ?? "laneA") {
   const lane = source.operatingLanes?.lanes.find(item => item.laneID === laneID);
   if (!lane) throw Error("The requested operating lane is unavailable. Refresh the contest session.");

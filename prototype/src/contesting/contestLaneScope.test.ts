@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { assertContestLaneScope, captureContestLaneScope, contestLaneProjection, mergeContestLaneBuffer,
+import { assertContestLaneScope, captureContestLaneScope, contestLaneProjection, contestLaneTuningBlockReason, mergeContestLaneBuffer,
   type ContestLaneProjectionSource, type ContestLaneSnapshot } from "./contestLaneScope";
 
 function source(): ContestLaneProjectionSource {
@@ -9,6 +9,17 @@ function source(): ContestLaneProjectionSource {
   return { sessionID: "session", workspaceGeneration: "workspace", draftID: "draft-laneA", revision: 4,
     operatingLanes: { version: 1, mode: "SO2R", keyboardLaneID: "laneA", lanes: [lane("laneA", "K1ABC"), lane("laneB", "DL2ABC")] } };
 }
+it("refuses existing and prospective split tuning without rewriting log facts", () => {
+  const split = { frequencyHz: 14_025_000, receiveFrequencyHz: 14_026_000 };
+  expect(contestLaneTuningBlockReason(split)).toContain("Split programming is unavailable");
+  expect(contestLaneTuningBlockReason(split, split.receiveFrequencyHz)).toBeTruthy();
+  const simplex = { frequencyHz: 14_025_000, receiveFrequencyHz: 14_025_000 };
+  expect(contestLaneTuningBlockReason(simplex)).toBeNull();
+  expect(contestLaneTuningBlockReason(simplex, 14_023_000)).toBeTruthy();
+  expect(contestLaneTuningBlockReason({ frequencyHz: 14_025_000 }, 14_023_000)).toBeNull();
+  expect(contestLaneTuningBlockReason({ ...simplex, receiveFrequencyHz: null }, 14_023_000)).toBeNull();
+  expect(split).toEqual({ frequencyHz: 14_025_000, receiveFrequencyHz: 14_026_000 });
+});
 it("keeps an explicit nonfocused projection and rejects every changed lane identity including generation type", () => {
   const s = source(), scope = captureContestLaneScope(s, "laneB");
   expect(contestLaneProjection(s, "laneB").draftID).toBe("draft-laneB");

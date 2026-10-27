@@ -25,6 +25,24 @@ function props(): ContestOperatingLanesProps {
 }
 const contextB = { laneID: "laneB", draftID: "draft-laneB", bindingVersion: 7, bindingGeneration: "generation-b" };
 
+it("blocks unsupported split from buffered RX edits and Return CQ before it creates a split", () => {
+  const p = props(); p.lanes[1].receiveFrequencyText = "7026000";
+  const view = render(<ContestOperatingLanes {...p}/>), b = within(screen.getByRole("region", { name: "Lane B" }));
+  expect((b.getByRole("button", { name: "Tune here" }) as HTMLButtonElement).disabled).toBe(true);
+  expect((b.getByRole("button", { name: "Return CQ" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(b.getByText(/Split programming is unavailable/)).toBeTruthy();
+  fireEvent.click(b.getByRole("button", { name: "Tune here" }));
+  fireEvent.click(b.getByRole("button", { name: "Return CQ" }));
+  expect(p.onAction).not.toHaveBeenCalled();
+  p.lanes[1].receiveFrequencyText = "7025000";
+  p.lanes[1].keyBindings = [{ context: "*", key: "Alt+Q", action: "RETURN_CQ_FREQUENCY" }];
+  view.rerender(<ContestOperatingLanes {...p}/>);
+  expect((b.getByRole("button", { name: "Tune here" }) as HTMLButtonElement).disabled).toBe(false);
+  expect((b.getByRole("button", { name: "Return CQ" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.keyDown(b.getByRole("textbox", { name: "Lane B Callsign" }), { key: "q", code: "KeyQ", altKey: true });
+  expect(p.onAction).not.toHaveBeenCalled();
+});
+
 it("shows independent drafts, serials, route bindings and four separate focus/RX/TX facts", () => {
   render(<ContestOperatingLanes {...props()}/>);
   expect((screen.getByRole("textbox", { name: "Lane A Callsign" }) as HTMLInputElement).value).toBe("K1ABC");
