@@ -1514,6 +1514,9 @@ class Host:
             require(type(params.get("expectedRevision")) is int and params["expectedRevision"] == state["revision"],
                     "Contest snapshot changed; refresh before review", "stale_revision")
             if method == "strategy":
+                if params.get("section") == "vhf":
+                    from .vhf import projection
+                    return projection(Desk(store, state, self.commit), params)
                 if params.get("section") == "qtc":
                     from .wae import projection
                     state = deepcopy(state)
@@ -1932,17 +1935,26 @@ class Host:
                     "Contest changed before submission review", "stale_revision")
             export_format = params.get("format", "cabrillo")
             require(export_format in PLUGIN_REGISTRY[state["pluginID"]].export_formats, "Unsupported submission format")
-            filename, payload = self.export_artifact(desk, 32 * 1024 * 1024, export_format)
-            return submission_preflight(desk, export_format, filename, payload)
+            filename, payload = self.export_artifact(desk, 32 * 1024 * 1024, export_format, params.get("siteID"))
+            if export_format == "edi":
+                from .vhf import edi_scope
+                scoped = edi_scope(desk, params.get("siteID"), require)
+                reviewed = submission_preflight(scoped, export_format, filename, payload, scoped.database.fetch_all_contacts_asc())
+            else:
+                reviewed = submission_preflight(desk, export_format, filename, payload)
+            if params.get("siteID") is not None:
+                reviewed["manifest"]["siteID"] = params["siteID"]
+                reviewed["checks"].append({"id":"site", "status":"review", "message":"Site-specific EDI subset; other sites remain in the authoritative log."})
+            return reviewed
         if method == "export_prepare":
-            require({"sessionID"} <= set(params) <= {"sessionID", "format", "expectedRevision"},
+            require({"sessionID"} <= set(params) <= {"sessionID", "format", "expectedRevision", "siteID"},
                     "Unexpected contest export fields")
             require("expectedRevision" not in params or type(params["expectedRevision"]) is int
                     and params["expectedRevision"] == state["revision"], "Contest changed after submission review", "stale_revision")
             require(len(self.exports) < 8, "Release another prepared export first", "export_busy")
             export_format = params.get("format", "cabrillo")
             require(export_format in {"cabrillo", "adif", "edi"}, "Unsupported contest export format")
-            filename, payload = self.export_artifact(desk, 32 * 1024 * 1024, export_format)
+            filename, payload = self.export_artifact(desk, 32 * 1024 * 1024, export_format, params.get("siteID"))
             require(bool(payload), "Plugin export was empty", "export_failed")
             artifact_id = str(uuid.uuid4())
             prepared = {"artifactID": artifact_id, "sessionID": session_id,
@@ -2601,7 +2613,22 @@ class Host:
                 try:
                     if method == "strategy_apply":
                         from .strategy import mutate as strategy_mutate, projection as strategy_projection
-                        if str(params.get("action", "")).startswith("qtc_"):
+                        if params.get("action") in {"site_activate", "beacon_add", "transverter_save"}:
+                            from .vhf import mutate as vhf_mutate
+                            def occupied_sites():
+                                from .lanes import select
+                                for lane_id in state.get("laneState", {}).get("lanes", {"laneA": {}}):
+                                    candidate = deepcopy(state)
+                                    if candidate.get("laneState"):
+                                        select(candidate, {"laneID":lane_id,"workspaceGeneration":workspace_generation(candidate)}, require)
+                                    current = Desk(store,candidate,self.commit)
+                                    empty = Desk(store,deepcopy(candidate),self.commit);empty.clear_inputs()
+                                    self.prefill(empty)
+                                    if any(getattr(current,name).text().strip() != getattr(empty,name).text().strip() for name in INPUTS if not getattr(current,name).read_only):
+                                        return True
+                                return False
+                            wave_result = vhf_mutate(desk, params, require, occupied_sites)
+                        elif str(params.get("action", "")).startswith("qtc_"):
                             from .wae import mutate as qtc_mutate
                             if "countries" in params:
                                 require(params.get("referenceID") == state["reference"]["id"], "QTC country reference changed", "reference_mismatch")
@@ -4213,6 +4240,8 @@ class Host:
             raise HostError("qso_collision", "QSO identity or timestamp/call already exists") from error
         country = desk.state["reference"]["countries"].get(contact["Call"])
         desk.database.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,0)", (qso_id, canonical(fields), canonical(country)))
+        from .vhf import bind_contact
+        bind_contact(desk.database, desk.state, qso_id)
         if lane_context:
             desk.database.conn.execute("INSERT INTO xlog_qso_lane VALUES(?,?)", (qso_id, canonical(lane_context)))
             if requires_serial(desk.state):
@@ -4630,7 +4659,7 @@ class Host:
                 "zones": store.exec_sql_mult("SELECT ZN AS value,Band AS band,count(*) AS qsos FROM DXLOG WHERE ContestNR=? GROUP BY ZN,Band ORDER BY ZN,Band", params)}
 
     @staticmethod
-    def export_artifact(desk, maximum, export_format="cabrillo"):
+    def export_artifact(desk, maximum, export_format="cabrillo", site_id=None):
         require(export_format in PLUGIN_REGISTRY[desk.state["pluginID"]].export_formats,
                 f"{PLUGIN_REGISTRY[desk.state['pluginID']].name} does not provide {export_format.upper()} export",
                 "export_unsupported")
@@ -4641,6 +4670,10 @@ class Host:
             return f'{desk.station["Call"]}-{desk.contest.cabrillo_name}.log', payload
         if export_format == "edi":
             validate_edi_start(desk.state["settings"])
+            from .vhf import edi_scope
+            desk = edi_scope(desk, site_id, require)
+        else:
+            require(site_id is None, "Site subsets are supported only for EDI")
         # The pinned plugin writes only inside this explicit private destination.
         with TemporaryDirectory(prefix="export-", dir=Path(desk.database.database).parent) as directory:
             desk.export_directory = Path(directory)

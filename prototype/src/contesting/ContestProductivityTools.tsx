@@ -71,20 +71,28 @@ export function ContestNotesPanel({scope,request,disabled,onSave,onLast}:{scope:
 
 type Preflight={revision:number;checks:{id:string;status:string;message:string}[];manifest:Record<string,unknown>};
 export function ContestSubmissionPanel({scope,request,formats,disabled,onExport}:{scope:Scope;request:ContestRequest;formats:string[];disabled:boolean;
-    onExport(format:"cabrillo"|"adif"|"edi",expectedRevision:number,expectedSHA256:string):Promise<unknown>}) {
+    onExport(format:"cabrillo"|"adif"|"edi",expectedRevision:number,expectedSHA256:string,siteID?:string):Promise<unknown>}) {
   const [format,setFormat]=useState(formats.includes("cabrillo")?"cabrillo":formats[0]??"adif"),[review,setReview]=useState<Preflight|null>(null),[error,setError]=useState("");
   const [reading,setReading]=useState(false);const ticket=useRef(0);
+  const [sites,setSites]=useState<{id:string;name:string;locator:string;contacts:number}[]>([]),[siteID,setSiteID]=useState("");
   const identity=`${scope.sessionID}/${scope.workspaceGeneration}`;
   useEffect(()=>{ticket.current++;setReview(null);setError("");setReading(false);},[identity,scope.revision]);
+  useEffect(()=>{setSiteID("");},[identity]);
+  useEffect(()=>{let active=true;setSites([]);if(format==="edi")void read<{sites:typeof sites}>(request,"contest_strategy",{
+    sessionID:scope.sessionID,workspaceGeneration:scope.workspaceGeneration,expectedRevision:scope.revision,section:"vhf",
+  }).then(value=>{if(active)setSites(value.sites);},cause=>{if(active)setError(message(cause));});return()=>{active=false;};},[identity,scope.revision,format,request]);
   const preflight=async()=>{const current=++ticket.current;setReading(true);setError("");try{const value=await read<Preflight>(request,"contest_submission_preflight",{
-    sessionID:scope.sessionID,workspaceGeneration:scope.workspaceGeneration,expectedRevision:scope.revision,format,
+    sessionID:scope.sessionID,workspaceGeneration:scope.workspaceGeneration,expectedRevision:scope.revision,format,...(format==="edi"&&siteID?{siteID}:{}),
   });if(ticket.current===current)setReview(value);}catch(cause){if(ticket.current===current)setError(message(cause));}finally{if(ticket.current===current)setReading(false);}};
   return <section className="contest-productivity-section" aria-label="Submission preflight"><h2>Submission preflight</h2><p>Review the complete log and exact export digest. Saving a file leaves submission status as “not submitted”.</p>
     <div className="contest-productivity-actions"><label>Output format<select aria-label="Submission format" value={format} onChange={event=>{ticket.current++;setReading(false);setFormat(event.target.value);setReview(null);}}>{formats.map(item=><option key={item} value={item}>{item.toUpperCase()}</option>)}</select></label>
+      {format==="edi"&&sites.length>0&&<label>EDI station site<select aria-label="EDI station site" value={siteID} onChange={event=>{ticket.current++;setReading(false);setSiteID(event.target.value);setReview(null);}}>
+        <option value="">Whole log (one historical locator required)</option>{sites.map(site=><option key={site.id} value={site.id} disabled={!site.contacts}>{site.name||site.id.slice(0,8)} · {site.locator} · {site.contacts} contacts</option>)}</select></label>}
       <button disabled={disabled||reading} onClick={()=>void preflight()}>Review submission</button></div>
     {error&&<p role="alert">{error}</p>}{review&&<><ul>{review.checks.map(item=><li key={item.id}><strong>{item.status.toUpperCase()}</strong> · {item.message}</li>)}</ul>
       <p>Revision {review.revision} · {String(review.manifest.byteLength)} bytes · SHA-256 <code>{String(review.manifest.sha256)}</code></p>
-      <div className="contest-productivity-actions"><button disabled={disabled||review.revision!==scope.revision} onClick={()=>void onExport(format as "cabrillo"|"adif"|"edi",review.revision,String(review.manifest.sha256)).catch(cause=>setError(message(cause)))}>Save reviewed export</button>
+      <div className="contest-productivity-actions"><button disabled={disabled||review.revision!==scope.revision} onClick={()=>{const selected=typeof review.manifest.siteID==="string"?review.manifest.siteID:undefined;
+        void(selected?onExport(format as "edi",review.revision,String(review.manifest.sha256),selected):onExport(format as "cabrillo"|"adif"|"edi",review.revision,String(review.manifest.sha256))).catch(cause=>setError(message(cause)));}}>Save reviewed export</button>
         <button onClick={()=>void navigator.clipboard.writeText(JSON.stringify(review.manifest,null,2)).catch(cause=>setError(message(cause)))}>Copy export manifest</button></div>
       <details><summary>Export manifest</summary><pre>{JSON.stringify(review.manifest,null,2)}</pre></details></>}
   </section>;

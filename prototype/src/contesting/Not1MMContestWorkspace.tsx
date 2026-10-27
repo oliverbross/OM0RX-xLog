@@ -41,6 +41,7 @@ import { ContestNotesPanel, ContestSubmissionPanel, type NoteTarget } from "./Co
 import "./ContestProductivityTools.css";
 import { ContestReminders, type Sked, type PlannedMove } from "./ContestReminders";
 import { ContestQTC } from "./ContestQTC";
+import { ContestVHFDesk } from "./ContestVHFDesk";
 import { ContestOpportunities } from "./ContestOpportunities";
 import { ContestMessageWorkbench } from "./ContestMessageWorkbench";
 import { ContestOperatingInfo } from "./ContestOperatingInfo";
@@ -2412,7 +2413,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
   };
 
   const exportLog = async (format: PythonContestExportFormat, throwFailures = false, completion?: {
-      operatingContext:string;sessionID:string;workspaceGeneration:string;requestID:string;projectionRevision:number },expectedRevision?:number,expectedSHA256?:string) => {
+      operatingContext:string;sessionID:string;workspaceGeneration:string;requestID:string;projectionRevision:number },expectedRevision?:number,expectedSHA256?:string,siteID?:string) => {
     const active = projectionRef.current;
     if (!active || busyRef.current) return;
     const exportFormats=active.exportFormats??["cabrillo","adif"];
@@ -2423,7 +2424,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     busyRef.current = true; setBusy(true); setError("");
     try {
       const prepared = await result<ContestExportSavePrepared & { filename?: string }>("contest_export_prepare", { sessionID: active.sessionID, format,
-        ...(expectedRevision===undefined?{}:{expectedRevision}) });
+        ...(expectedRevision===undefined?{}:{expectedRevision}),...(siteID?{siteID}:{}) });
       if(expectedSHA256&&prepared.sha256!==expectedSHA256){await result("contest_export_release",{sessionID:active.sessionID,workspaceGeneration:active.workspaceGeneration,exportID:prepared.artifactID});
         throw new Error("Export bytes changed after review. Run submission preflight again before saving.");}
       nativeOwnsCompletion = completion !== undefined;
@@ -2707,19 +2708,23 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     return result<any>(method,{sessionID:base.sessionID,workspaceGeneration:base.workspaceGeneration,expectedRevision:base.revision,...laneParams,...params});
   },[request]);
   const savePlanning=async(method:string|null,extra:Record<string,unknown>={})=>{
-    const base=projectionRef.current;if(!base||busyRef.current||retiring)throw Error("The contest owner is busy.");
+    let base=projectionRef.current;if(!base||busyRef.current||retiring)throw Error("The contest owner is busy.");
     if(configuredClient)throw Error("Planning changes require the local authoritative desk.");
     assertNoPendingStack();const inputVersion=editVersionRef.current;
     const passiveClaim=method==="contest_strategy_apply"&&extra.action==="claim_due";
     // Serialise the receipt without disabling the focused entry for a notification.
     busyRef.current=true;if(!passiveClaim)setBusy(true);
     try{
+      if(extra.action==="site_activate"){
+        if(dualContestLanes(base)){for(const lane of base.operatingLanes!.lanes)await flushLane(captureContestLaneScope(projectionRef.current!,lane.laneID));base=projectionRef.current!;}
+        else base=(await flushDraft(base))!;
+      }
       const changed=await planningMutation(base,method,{sessionID:base.sessionID,workspaceGeneration:base.workspaceGeneration,
         expectedRevision:base.revision,draftID:base.draftID,operationID:crypto.randomUUID(),...extra},result);
       if(!changed)return null;
       const latest=await result<{projection:Projection}>("contest_draft_get",{sessionID:base.sessionID});
       if(projectionRef.current?.sessionID===base.sessionID&&projectionRef.current.workspaceGeneration===base.workspaceGeneration){
-        const loading=method==="contest_strategy_apply"&&extra.action==="sked_load";
+        const loading=method==="contest_strategy_apply"&&["sked_load","site_activate"].includes(String(extra.action));
         acceptProjection(latest.projection,loading?inputVersion:Number.MIN_SAFE_INTEGER);
         if(changed.effectiveMacros){setEffectiveMacros(changed.effectiveMacros);rememberSetup(changed.setup);}
       }
@@ -3884,13 +3889,23 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
         ? !productivityOpen&&<section className="contest-welcome"><h2>Contest windows are ready</h2><p>Use the Contest menu to open and position Main Logging, Check Partial, Stats, Rates, Score Reporting, Messages, Logbook, Band Map, Cluster, Rotator, DXCC, Zone and Remote VFO windows.</p></section>
         : !productivityOpen&&<section className="contest-welcome"><h2>Preserved contest session</h2><p>This session predates detached contest windows for the current xLog workspace. Its Python/SQLite log is preserved; create a current-workspace contest before opening independent windows.</p></section>}</> : <section className="contest-welcome"><h2>Open a contest session</h2></section>}
     {productivityOpen&&projection&&<section className="contest-productivity-desk" aria-label="Productivity desk">
-      <nav className="contest-productivity-nav" aria-label="Productivity tools">{["Entry & stack","Check","Log & notes","Skeds","Opportunities","Info & time","Messages","QTC","Submission"].map(tab=><button key={tab}
+      <nav className="contest-productivity-nav" aria-label="Productivity tools">{["Entry & stack","Check","Log & notes","Skeds","Opportunities","Info & time","Messages","QTC","VHF & sites","Submission"].map(tab=><button key={tab}
         type="button" aria-pressed={productivityTab===tab} onClick={()=>setProductivityTab(tab)}>{tab}</button>)}</nav>
       {dualContestLanes(projection)&&<p className="contest-source">Selected tools: {projection.operatingLanes!.keyboardLaneID==="laneA"?"Lane A":"Lane B"} · draft {projection.draftID.slice(0,8)}. Stack, notes, messages and loaded suggestions retain their captured lane.</p>}
       {productivityTab==="QTC"&&<ContestQTC scope={projection} request={request as ContestRequest} disabled={busy||retiring||configuredClient}
         onMutate={(action,values)=>savePlanning("contest_strategy_apply",{action,...values})} onEntry={()=>{setProductivityTab("Entry & stack");
           requestAnimationFrame(()=>{if(dualContestLanes(projection))document.querySelector<HTMLInputElement>(`[data-lane-id="${projection.operatingLanes!.keyboardLaneID}"] [data-contest-lane-field="callsign"]`)?.focus();
             else fieldRefs.current.callsign?.focus();});}}/>}
+      {productivityTab==="VHF & sites"&&<ContestVHFDesk scope={{...projection,bandLabel:bandDefinitions.find(band=>band.value===projection.band)?.id}} request={request as ContestRequest} disabled={busy||retiring||configuredClient}
+        onMutate={(action,values)=>savePlanning("contest_strategy_apply",{action,...values})}
+        canMapTune={dualContestLanes(projection)&&laneCapabilities?.capabilities?.transverterMapping?.available===true}
+        onTune={async(mapping,origin)=>{const current=projectionRef.current;
+          if(!current||current.sessionID!==origin.sessionID||current.workspaceGeneration!==origin.workspaceGeneration||current.draftID!==origin.draftID||current.selectedLaneID!==origin.selectedLaneID)
+            throw Error("The reviewed transverter lane or draft changed. Review its mapping again.");
+          const scope=captureContestLaneScope(current);
+          return enqueueLane(scope,async base=>{if(base.frequencyHz!==origin.frequencyHz)throw Error("The reviewed RF changed; review the updated entry before tuning IF.");
+            const context=nativeLaneContext(scope);await bindNativeLane(context);
+            return acceptLaneNative(await requestContestLaneOutput(context,"transverter_tune",{mapping,rfFrequencyHz:origin.frequencyHz,mode:base.mode}));});}}/>}
       <ContestReminders scope={projection} request={request as ContestRequest} disabled={busy||retiring||configuredClient} visible={productivityTab==="Skeds"}
         prefill={{callsign:fields.callsign??"",frequencyHz:projection.frequencyHz,mode:projection.mode,source:"Current contest draft",...reminderPrefill}}
         onMutate={(action,values)=>savePlanning("contest_strategy_apply",{action,nowUTC:new Date().toISOString(),...values})}
@@ -3955,7 +3970,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
             if(!page.rows.length)throw new Error(origin?"No committed QSO with known attribution is available in this lane.":"Log a QSO before adding a last-QSO note.");
             return {qsoID:page.rows[0].ID,callsign:page.rows[0].Call,...(origin?{laneID:origin.laneID,bindingVersion:origin.bindingVersion,bindingGeneration:origin.bindingGeneration}:{})};}}/></>}
       {productivityTab==="Submission"&&<ContestSubmissionPanel scope={projection} request={request as ContestRequest} formats={projection.exportFormats??["cabrillo","adif"]}
-        disabled={busy||retiring} onExport={(format,revision,digest)=>exportLog(format,true,undefined,revision,digest)}/>}
+        disabled={busy||retiring} onExport={(format,revision,digest,siteID)=>exportLog(format,true,undefined,revision,digest,siteID)}/>}
     </section>}
     <div hidden aria-hidden="true">{checkPanel}</div>
   </main>;

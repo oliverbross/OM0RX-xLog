@@ -43,7 +43,32 @@ fn capabilities(offline: bool) -> Value {
     json!({"supported":offline,"simulated":offline,"externalIO":false,"physicalQualified":false,
         "reason":if offline { "Marked offline fake routes only; no RF, audio, device or provider connection." } else { "Exact lane receiver/VFO/output route is not qualified. Existing SO1V controls remain available separately." },
         "routes":if offline {routes()} else {vec![]},"wholeString":true,"incrementalCancellation":false,"earlySend":false,
-        "singleTransmitter":true,"voice":false,"listeningAudio":false,"splitProgramming":false})
+        "singleTransmitter":true,"voice":false,"listeningAudio":false,"splitProgramming":false,
+        "transverterMapping": {"provider":"test-simulation","available":offline,"ifLowHz":100000,"ifHighHz":1000000000,"spectralInversion":false}})
+}
+
+fn transverter_if(params: &Value, canonical: &Value) -> Result<u64, String> {
+    let rf = params["rfFrequencyHz"].as_u64().filter(|n| (100_000..=7_500_000_000_000).contains(n)).ok_or("Invalid declared transverter RF")?;
+    if params["rfFrequencyHz"] != canonical["frequencyHz"] { return Err("The reviewed RF draft changed; no IF command was sent.".into()); }
+    if !canonical["receiveFrequencyHz"].is_null() && canonical["receiveFrequencyHz"] != canonical["frequencyHz"] {
+        return Err("Split RF/IF programming is unavailable for this route.".into());
+    }
+    let map = &params["mapping"];
+    if map.as_object().is_none_or(|v|v.len()!=5 || v.keys().any(|k| !["band","loHz","inverted","ifLowHz","ifHighHz"].contains(&k.as_str()))) {
+        return Err("Use the exact reviewed transverter mapping.".into());
+    }
+    if map["band"].as_str().is_none_or(|v|v.is_empty()||v.len()>16) || map["inverted"].as_bool().is_none() {
+        return Err("Transverter band and spectral orientation are required.".into());
+    }
+    if map["band"].as_str().and_then(|v|v.parse::<f64>().ok()).filter(|v|v.is_finite()&&*v>0.0) != canonical["band"].as_f64() {
+        return Err("Mapping band differs from the authoritative RF entry band.".into());
+    }
+    if map["inverted"] == true { return Err("This provider does not support spectral inversion/mode translation; no IF command was sent.".into()); }
+    let lo = map["loHz"].as_u64().filter(|n|*n<=7_500_000_000_000).ok_or("Invalid transverter LO")?;
+    let low = map["ifLowHz"].as_u64().filter(|n|(100_000..=1_000_000_000).contains(n)).ok_or("IF minimum exceeds the selected provider capability")?;
+    let high = map["ifHighHz"].as_u64().filter(|n|(100_000..=1_000_000_000).contains(n)).ok_or("IF maximum exceeds the selected provider capability")?;
+    if low > high { return Err("Invalid provider IF interval".into()); }
+    rf.checked_sub(lo).filter(|n|(low..=high).contains(n)).ok_or("Mapped IF is outside the selected provider interval".into())
 }
 
 struct FakeBackend { canonical: Mutex<Value>, target: Mutex<Value>, events: Mutex<Vec<Value>>, uncertain_stop: AtomicBool }
@@ -147,7 +172,7 @@ impl OfflineAdapter {
         }
         fake_binding(&current["binding"])?;
         let mut allowed = CONTEXT_KEYS.to_vec();
-        match action { "tune" => allowed.extend(["frequencyHz", "mode"]), "send" => allowed.extend(["text", "operationID"]),
+        match action { "tune" => allowed.extend(["frequencyHz", "mode"]), "transverter_tune" => allowed.extend(["rfFrequencyHz","mapping","mode"]), "send" => allowed.extend(["text", "operationID"]),
             "bind" | "listen" | "requestTX" => {}, _ => return Err("Unknown finite contest lane action.".into()) }
         if params.as_object().is_none_or(|v| v.keys().any(|k| !allowed.contains(&k.as_str()))) { return Err("Unexpected contest lane action fields.".into()); }
         let lane = lane_id(&current["laneID"])?;
@@ -166,12 +191,15 @@ impl OfflineAdapter {
                 }
                 self.lanes.insert(lane.into(), json!({"context":current,"frequencyHz":null,"mode":null}));
             }
-            "tune" | "listen" => {
+            "tune" | "listen" | "transverter_tune" => {
+                let mapped = if action == "transverter_tune" {Some(transverter_if(params,canonical)?)} else {None};
                 let lane_state = self.lanes.get_mut(lane).filter(|v| v["context"] == current).ok_or("Bind this exact lane before tuning or listening")?;
-                if action == "tune" {
-                    let hz = params["frequencyHz"].as_u64().filter(|n| (100_000..=1_000_000_000).contains(n)).ok_or("Invalid fake tuning frequency")?;
+                if action == "tune" || action == "transverter_tune" {
+                    let hz = mapped.or_else(||params["frequencyHz"].as_u64()).filter(|n| (100_000..=1_000_000_000).contains(n)).ok_or("Invalid fake tuning frequency")?;
                     let mode = params["mode"].as_str().filter(|v| matches!(*v, "CW" | "SSB" | "RTTY")).ok_or("Invalid fake tuning mode")?;
                     lane_state["frequencyHz"] = json!(hz); lane_state["mode"] = json!(mode);
+                    lane_state["rfFrequencyHz"] = if mapped.is_some(){params["rfFrequencyHz"].clone()}else{json!(hz)};
+                    lane_state["transverterMapping"] = if mapped.is_some(){params["mapping"].clone()}else{Value::Null};
                 } else { self.listening = Some(lane.into()); }
             }
             "requestTX" => {
@@ -219,6 +247,30 @@ pub fn request(params: &Value, canonical: &Value, offline: bool) -> Result<Value
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn transverter_routes_only_valid_if_to_exact_fake_lane_without_widening_provider_or_rf_attribution() {
+        let mut owner = OfflineAdapter::new();
+        let mut a = canonical("laneA","radio1","receiver1","A");
+        a["frequencyHz"] = json!(10_368_000_000u64); a["band"] = json!(10000);
+        call(&mut owner,&a,"bind",json!({})).unwrap();
+        let mapping=json!({"band":"10000","loHz":10_224_000_000u64,"inverted":false,"ifLowHz":140000000,"ifHighHz":148000000});
+        let extra=json!({"mapping":mapping,"rfFrequencyHz":10_368_000_000u64,"mode":"CW"});
+        let result=call(&mut owner,&a,"transverter_tune",extra.clone()).unwrap();
+        assert_eq!(result["lanes"]["laneA"]["frequencyHz"],144000000);
+        assert_eq!(result["lanes"]["laneA"]["rfFrequencyHz"],10_368_000_000u64);
+        assert!(result["txLaneID"].is_null()); assert!(result["listenLaneID"].is_null());
+        assert_eq!(result["events"].as_array().unwrap().len(),0);
+        for key in ["loHz","ifHighHz","inverted","band","rfFrequencyHz"] {
+            let mut invalid=extra.clone();
+            match key {"loHz"=>invalid["mapping"][key]=json!(1),"ifHighHz"=>invalid["mapping"][key]=json!(2_000_000_000u64),
+                "inverted"=>invalid["mapping"][key]=json!(true),"band"=>invalid["mapping"][key]=json!("20m"),_=>invalid[key]=json!(10_369_000_000u64)};
+            assert!(call(&mut owner,&a,"transverter_tune",invalid).is_err(),"{key}");
+            assert_eq!(owner.snapshot().unwrap()["lanes"]["laneA"]["frequencyHz"],144000000);
+        }
+        let mut split=a.clone();split["receiveFrequencyHz"]=json!(10_369_000_000u64);
+        assert!(call(&mut owner,&split,"transverter_tune",extra.clone()).is_err());
+        assert!(request(&extra,&a,false).is_err());
+    }
     fn canonical(lane: &str, radio: &str, receiver: &str, vfo: &str) -> Value {
         json!({"sessionID":"fixture-session","workspaceGeneration":"fixture-workspace","laneID":lane,"draftID":format!("draft-{lane}"),
             "bindingVersion":1,"workerGeneration":4,"operatingContext":"operating-context-1", "binding":{"radioID":radio,"receiverID":receiver,"vfo":vfo,"sliceID":null,"generation":1}})
@@ -226,6 +278,7 @@ mod tests {
     fn call(owner: &mut OfflineAdapter, ctx: &Value, action: &str, extra: Value) -> Result<Value, String> {
         let mut params = ctx.clone(); params["action"] = json!(action);
         params.as_object_mut().unwrap().remove("operatingContext");
+        for key in ["band","frequencyHz","receiveFrequencyHz"] {params.as_object_mut().unwrap().remove(key);}
         for (key, value) in extra.as_object().unwrap() { params[key] = value.clone(); }
         owner.request(&params, ctx)
     }

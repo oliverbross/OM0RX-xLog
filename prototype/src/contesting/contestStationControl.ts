@@ -4,11 +4,12 @@ type NativeRequest = (command: string, args: Record<string, unknown>) => Promise
 export type ContestLaneBinding = { radioID: "radio1" | "radio2"; receiverID: string; vfo: string; sliceID: string | null; generation: number | string };
 export type ContestLaneOutputContext = { sessionID: string; workspaceGeneration: string; laneID: "laneA" | "laneB";
   draftID: string; bindingVersion: number; binding: ContestLaneBinding | null; operatingContext: string; workerGeneration?: number };
-export type ContestLaneOutputAction = "capabilities" | "bind" | "tune" | "listen" | "requestTX" | "send" | "macro" | "stop";
+export type ContestLaneOutputAction = "capabilities" | "bind" | "tune" | "transverter_tune" | "listen" | "requestTX" | "send" | "macro" | "stop";
+export type ContestTransverterMapping={band:string;loHz:number;inverted:boolean;ifLowHz:number;ifHighHz:number};
 
 /** Explicit lane route only. Native admission decides whether an exact provider exists. */
 export async function requestContestLaneOutput(context: ContestLaneOutputContext, action: ContestLaneOutputAction,
-  values: { frequencyHz?: number; mode?: string; text?: string; operationID?: string; revision?: number; stopOutcome?: "confirmed" | "uncertain" } = {}, request: NativeRequest = invoke) {
+  values: { frequencyHz?: number; rfFrequencyHz?:number;mapping?:ContestTransverterMapping;mode?: string; text?: string; operationID?: string; revision?: number; stopOutcome?: "confirmed" | "uncertain" } = {}, request: NativeRequest = invoke) {
   if (!["laneA", "laneB"].includes(context.laneID) || !Number.isSafeInteger(context.bindingVersion) || context.bindingVersion < 0) throw Error("Invalid contest lane context.");
   if (!context.operatingContext) throw Error("Native operating context is required for lane actions.");
   if (action !== "stop" && action !== "capabilities" && !context.binding) throw Error("Bind this lane to an exact radio receiver and VFO first.");

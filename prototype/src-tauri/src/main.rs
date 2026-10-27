@@ -3430,7 +3430,8 @@ fn canonical_contest_lane(response: &serde_json::Value, params: &serde_json::Val
     Ok(serde_json::json!({"sessionID":projection["sessionID"],"workspaceGeneration":projection["workspaceGeneration"],
         "laneID":params["laneID"],"draftID":draft,"bindingVersion":version,"binding":binding,
         "workerGeneration":generation,"operatingContext":operating_context,
-        "frequencyHz":frequency,"receiveFrequencyHz":receive_frequency}))
+        "frequencyHz":frequency,"receiveFrequencyHz":receive_frequency,
+        "band":lane.map(|value|value["band"].clone()).unwrap_or_else(||projection["band"].clone())}))
 }
 
 fn claimed_contest_lane_macro(params: &serde_json::Value, current: &serde_json::Value,

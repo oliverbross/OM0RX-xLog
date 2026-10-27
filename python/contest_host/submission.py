@@ -2,13 +2,16 @@
 import hashlib
 
 
-def submission_preflight(desk, export_format, filename, payload):
+def submission_preflight(desk, export_format, filename, payload, selected_rows=None):
     state, store = desk.state, desk.database
     settings = state["settings"]
     extent = store.exec_sql("SELECT count(*) AS count,min(TS) AS firstUTC,max(TS) AS lastUTC FROM DXLOG WHERE ContestNR=?",
                             (store.current_contest,))
     other_band = store.exec_sql("SELECT count(*) AS count FROM DXLOG WHERE ContestNR=? AND Band<>?",
                                 (store.current_contest, desk.band(state["draft"]["frequencyHz"])))["count"]
+    if selected_rows is not None:
+        extent = {"count":len(selected_rows),"firstUTC":min((row["TS"] for row in selected_rows),default=None),"lastUTC":max((row["TS"] for row in selected_rows),default=None)}
+        other_band = sum(row["Band"] != desk.band(state["draft"]["frequencyHz"]) for row in selected_rows)
     score = desk.score()
     checks = []
 
@@ -38,5 +41,7 @@ def submission_preflight(desk, export_format, filename, payload):
         "sentExchange": settings.get("SentExchange"), "scoringComplete": score.get("scoringComplete", True),
         "practice": bool(state.get("practice")), "submissionStatus": "not-submitted",
     }
+    if selected_rows is not None:
+        manifest["selectedQSOIDs"] = [row["ID"] for row in selected_rows]
     return {"sessionID": state["sessionID"], "workspaceGeneration": state["workspaceGeneration"],
             "revision": state["revision"], "checks": checks, "manifest": manifest}
