@@ -51,6 +51,11 @@ class Store(DataBase):
             CREATE TABLE IF NOT EXISTS xlog_draft_contact(draft_id TEXT PRIMARY KEY, qso_id TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_draft_lane(draft_id TEXT PRIMARY KEY, lane_id TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_qso_lane(qso_id TEXT PRIMARY KEY, attribution TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS xlog_n1mm_delivery(
+                id TEXT PRIMARY KEY, operation_id TEXT NOT NULL, revision INTEGER NOT NULL,
+                destination TEXT NOT NULL, kind TEXT NOT NULL, qso_id TEXT NOT NULL,
+                packet BLOB NOT NULL, sha256 TEXT NOT NULL, outcome TEXT NOT NULL,
+                error TEXT NOT NULL, attempts INTEGER NOT NULL, updated_utc TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_note(id TEXT PRIMARY KEY, draft_id TEXT, qso_id TEXT,
                 body TEXT NOT NULL, created_utc TEXT NOT NULL, revision INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_serial(draft_id TEXT NOT NULL, serial INTEGER NOT NULL,

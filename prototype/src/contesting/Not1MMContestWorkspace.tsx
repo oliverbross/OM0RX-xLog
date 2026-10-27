@@ -43,6 +43,7 @@ import { ContestReminders, type Sked, type PlannedMove } from "./ContestReminder
 import { ContestOpportunities } from "./ContestOpportunities";
 import { ContestMessageWorkbench } from "./ContestMessageWorkbench";
 import { ContestOperatingInfo } from "./ContestOperatingInfo";
+import { ContestIntegrationDelivery } from "./ContestIntegrationDelivery";
 import { RatesClock } from "./ContestSecondaryPanels";
 import { planningMutation, planningRecoveryKey } from "./contestPlanningRecovery";
 import { occupiedStackDraft } from "./contestCallStack";
@@ -3900,7 +3901,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
         onMutate={(action,values)=>savePlanning("contest_strategy_apply",{action,nowUTC:new Date().toISOString(),...values})} onLoad={loadOpportunity} onSked={prepareSked}/>}
       {productivityTab==="Info & time"&&<><RatesClock lastQsoAt={rates?.lastQsoAt?new Date(rates.lastQsoAt).toISOString():null}
         {...contestSchedule(setup.pluginID,setup.settings,rates?.lastQsoAt)}/><ContestOperatingInfo scope={projection} request={request as ContestRequest}
-        onPlanSave={async plan=>{await savePlanning("contest_operating_plan_save",{plan});}}/></>}
+        onPlanSave={async plan=>{await savePlanning("contest_operating_plan_save",{plan});}}/>
+        <ContestIntegrationDelivery scope={{sessionID:projection.sessionID,workspaceGeneration:projection.workspaceGeneration}} request={request as ContestRequest} disabled={busy||retiring}/></>}
       {productivityTab==="Messages"&&<ContestMessageWorkbench scope={{mode:projection.mode as "CW"|"SSB"|"RTTY",contest:projection.pluginID,operator:setup.operator}}
         effectiveMacros={effectiveMacros??[]} draft={{id:projection.draftID,fields}} serial={projection.reservedSerial}
         disabled={busy||retiring||configuredClient} request={planningRequest} onMutate={(method,values)=>savePlanning(method,values)}

@@ -293,6 +293,8 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "contest_strategy_apply",
         "contest_opportunities",
         "contest_operating_info",
+        "contest_n1mm_delivery",
+        "contest_n1mm_retry",
         "contest_operating_plan_save",
         "contest_message_import",
         "contest_message_preview",
@@ -1146,7 +1148,7 @@ fn request_blocks_module_transition(request: &Value) -> bool {
         "spot_history_status" | "spot_history_query" | "spot_history_detail" | "reference_log_review" |
         "contest_catalog" | "contest_sessions" | "contest_draft_get" |
         "contest_qso_get" | "contest_operation_receipt" | "contest_log_page" |
-        "contest_strategy" | "contest_opportunities" | "contest_operating_info" |
+        "contest_strategy" | "contest_opportunities" | "contest_operating_info" | "contest_n1mm_delivery" |
         "contest_message_import" | "contest_message_preview" | "contest_message_banks" |
         "contest_notes" | "contest_submission_preflight" | "contest_assistance_reverse" | "contest_assistance_dupesheet" |
         "contest_log_transfer_status" | "contest_score" | "contest_spot_points_preview" |
@@ -1254,7 +1256,7 @@ fn request_is_non_retiring_read(request: &Value) -> bool {
         "contest_scp_status" | "contest_scp_query" | "contest_scp_cancel" | "contest_scp_select" |
         "contest_history_status" | "contest_history_preview_page" | "contest_history_preview_cancel" |
         "contest_history_query" | "contest_history_query_cancel" | "contest_history_select" |
-        "contest_strategy" | "contest_opportunities" | "contest_operating_info" |
+        "contest_strategy" | "contest_opportunities" | "contest_operating_info" | "contest_n1mm_delivery" |
         "contest_message_import" | "contest_message_preview" | "contest_message_banks" |
         "contest_log_page" | "contest_notes" | "contest_submission_preflight" | "contest_assistance_reverse" | "contest_assistance_dupesheet" |
         "contest_analytics" | "contest_recorder_changes" | "contest_rtc_status" | "spot_history_status" | "spot_history_query" | "spot_history_detail" | "reference_log_review"
@@ -2480,12 +2482,12 @@ mod tests {
 
     #[test]
     fn review_reads_do_not_block_module_transitions_or_retire_on_timeout() {
-        for method in ["contest_log_page", "contest_analytics", "contest_recorder_changes", "contest_rtc_status", "wsjtx_snapshot", "fldigi_snapshot", "spot_history_status", "spot_history_query", "spot_history_detail", "reference_log_review"] {
+        for method in ["contest_log_page", "contest_analytics", "contest_recorder_changes", "contest_rtc_status", "contest_n1mm_delivery", "wsjtx_snapshot", "fldigi_snapshot", "spot_history_status", "spot_history_query", "spot_history_detail", "reference_log_review"] {
             let request = json!({"method":method});
             assert!(!request_blocks_module_transition(&request), "{method}");
             assert!(request_is_non_retiring_read(&request), "{method}");
         }
-        for method in ["contest_rtc_configure", "contest_rtc_send_now", "contest_recorder_index_segment", "contest_qso_commit", "cluster_contest_radio_spots_publish", "wsjtx_start", "fldigi_send"] {
+        for method in ["contest_rtc_configure", "contest_rtc_send_now", "contest_n1mm_retry", "contest_recorder_index_segment", "contest_qso_commit", "cluster_contest_radio_spots_publish", "wsjtx_start", "fldigi_send"] {
             let request = json!({"method":method});
             assert!(request_blocks_module_transition(&request), "{method}");
             assert!(!request_is_non_retiring_read(&request), "{method}");

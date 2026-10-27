@@ -1204,7 +1204,8 @@ class Host:
         self._operation = None
         self._n1mm_events = None
         self._note_binding_allowed = False
-        self.n1mm = N1MMOutput()
+        self._n1mm_delivery_store = None
+        self.n1mm = N1MMOutput(on_delivery=self.record_n1mm_delivery)
         # The trusted native launcher grants this only in the production profile.
         self.n1mm_udp_allowed = os.environ.get("XLOG_CONTEST_N1MM_UDP_ALLOWED") == "1"
 
@@ -1216,14 +1217,20 @@ class Host:
     @staticmethod
     def n1mm_contact(state, row):
         network = n1mm_preferences(state.get("setup", {}).get("network", {}))
-        operator = network["operatorName"] or str(row.get("Operator", state["operator"]))
+        operator = str(row.get("Operator") or "")
         frequency = str(round(float(row.get("Freq", 0)) * 100))
+        lane = row.get("_n1mm_lane") or {}
+        receive = lane.get("receiveFrequencyHz")
+        receive_frequency = str(receive // 10) if receive is not None else "" if lane else frequency
+        radio = (lane.get("binding") or {}).get("radioID")
         return {
             "contestname": str(row.get("ContestName", "")).replace("-", ""),
             "contestnr": row.get("ContestNR", 1), "timestamp": row.get("TS", ""),
-            "mycall": operator, "operator": operator, "band": row.get("Band", ""),
-            "rxfreq": frequency, "txfreq": frequency, "mode": row.get("Mode", ""),
+            "mycall": row.get("StationPrefix") or state["station"].get("Call", ""), "operator": operator, "band": row.get("Band", ""),
+            "rxfreq": receive_frequency, "txfreq": frequency, "mode": row.get("Mode", ""),
             "call": row.get("Call", ""), "oldcall": row.get("_n1mm_oldcall", row.get("Call", "")),
+            "oldtimestamp": row.get("_n1mm_oldtimestamp", row.get("TS", "")),
+            "SentExchange": state["settings"].get("SentExchange", ""),
             "countryprefix": row.get("CountryPrefix", ""), "wpxprefix": row.get("WPXPrefix", ""),
             "stationprefix": row.get("StationPrefix", state["station"].get("Call", "")),
             "continent": row.get("Continent", ""), "snt": row.get("SNT", ""),
@@ -1234,7 +1241,7 @@ class Host:
             "zone": row.get("ZN", ""), "prec": row.get("Prec", ""), "ck": row.get("CK", ""),
             "ismultiplier1": row.get("IsMultiplier1", 0), "ismultiplier2": row.get("IsMultiplier2", 0),
             "ismultiplier3": row.get("IsMultiplier3", 0), "points": row.get("Points", 0),
-            "radionr": row.get("RadioNR", "1") or "1", "RoverLocation": row.get("RoverLocation", ""),
+            "radionr": radio[-1] if radio in {"radio1", "radio2"} else row.get("RadioNR", "") or "", "RoverLocation": row.get("RoverLocation", ""),
             "RadioInterfaced": row.get("RadioInterfaced", 0), "NetworkedCompNr": row.get("NetworkedCompNr", 0),
             "IsOriginal": row.get("IsOriginal", 1), "NetBiosName": socket.gethostname(),
             "IsRunQSO": row.get("IsRunQSO", 0), "Run1Run2": row.get("Run1Run2", ""),
@@ -1242,10 +1249,29 @@ class Host:
             "ID": row.get("ID", ""), "IsClaimedQso": row.get("CLAIMEDQSO", 1),
         }
 
+    def record_n1mm_delivery(self, destination, kind, values, packet, outcome, error):
+        store = self._n1mm_delivery_store
+        if store is None:
+            return
+        operation = self._operation
+        qso_id = str(values.get("ID", ""))
+        identity = hashlib.sha256(canonical([operation, destination, kind, qso_id]).encode()).hexdigest()
+        # This optional post-commit journal cannot roll back the contact. Failed
+        # intent persistence stops that packet; it never fabricates remote storage.
+        with store.conn:
+            store.conn.execute("""INSERT INTO xlog_n1mm_delivery VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+                ON CONFLICT(id) DO UPDATE SET outcome=excluded.outcome,error=excluded.error,
+                attempts=xlog_n1mm_delivery.attempts+?,updated_utc=excluded.updated_utc""",
+                (identity, operation, self._n1mm_delivery_revision, destination, kind, qso_id,
+                 packet, hashlib.sha256(packet).hexdigest(), outcome, error,
+                 int(outcome == "attempting"), now(), int(outcome == "attempting")))
+
     def publish_n1mm(self, state, method, params, desk, previous_network):
         if not self.n1mm_udp_allowed or state.get("practice"):
             return
         try:
+            self._n1mm_delivery_store = desk.database
+            self._n1mm_delivery_revision = state["revision"]
             config = n1mm_preferences(state.get("setup", {}).get("network", {}))
             if not config["enabled"]:
                 return
@@ -1254,9 +1280,15 @@ class Host:
                              or method == "draft_apply" and bool({"frequencyHz", "mode"} & set(params))
                              or method == "setup_save" and not (previous["enabled"] and previous["radio"]))
             if config["radio"] and radio_changed:
-                frequency = str(state["draft"]["frequencyHz"] // 10)
+                frequency = str((state["draft"].get("receiveFrequencyHz") or state["draft"]["frequencyHz"]) // 10)
+                transmit = str(state["draft"]["frequencyHz"] // 10)
+                from .lanes import attribution
+                lane = attribution(state) or {}
+                radio = (lane.get("binding") or {}).get("radioID")
                 self.n1mm.radio(config["radioDestinations"], {
-                    "StationName": config["stationName"], "Freq": frequency, "TXFreq": frequency,
+                    "StationName": config["stationName"], "Freq": frequency, "TXFreq": transmit,
+                    "IsSplit": str(frequency != transmit),
+                    **({"RadioNr": radio[-1]} if radio in {"radio1", "radio2"} else {}),
                     "Mode": operating_mode(state), "OpCall": config["operatorName"] or state["operator"],
                     "IsRunning": str(state["run"]),
                 })
@@ -1280,10 +1312,15 @@ class Host:
                         "ID": row.get("ID", ""),
                     })
                 else:
+                    known = desk.database.exec_sql("SELECT attribution FROM xlog_qso_lane WHERE qso_id=?", (row["ID"],))
+                    if known:
+                        row = {**row, "_n1mm_lane": json.loads(known["attribution"])}
                     self.n1mm.contact(config["contactDestinations"], self.n1mm_contact(state, row),
                                       replace=event == "replace")
             if config["score"] and (self._n1mm_events or method in {"recalculate", "setup_save"}):
                 score = desk.score()
+                if score.get("scoringComplete") is False:
+                    return  # Never publish a partial known subtotal as a complete score.
                 settings = state["settings"]
                 self.n1mm.score(config["scoreDestinations"], {
                     "contest": desk.contest.cabrillo_name, "call": state["station"].get("Call", ""),
@@ -1297,6 +1334,8 @@ class Host:
         except Exception:
             # A best-effort UDP publication cannot make a committed mutation uncertain.
             logging.exception("N1MM UDP publication failed")
+        finally:
+            self._n1mm_delivery_store = None
 
     @property
     def active_session_path(self):
@@ -1476,6 +1515,45 @@ class Host:
         if method == "recorder_changes":
             from .recorder import changes
             return changes(store, state, params, require)
+        if method in {"n1mm_delivery", "n1mm_retry"}:
+            require(params.get("workspaceGeneration") == workspace_generation(state), "Delivery workspace changed", "stale_context")
+            if method == "n1mm_retry":
+                require(type(params.get("expectedAttempts")) is int and params["expectedAttempts"] >= 0,
+                        "Review the exact delivery attempt count")
+                require(self.n1mm_udp_allowed and not state.get("practice"), "Optional output is unavailable", "output_disabled")
+                require(params.get("confirmUncertain") is True, "Review the consumer before retrying an uncertain datagram")
+                row = store.exec_sql("SELECT * FROM xlog_n1mm_delivery WHERE id=?", (params.get("deliveryID"),))
+                require(row is not None and row["sha256"] == params.get("sha256"), "Reviewed delivery changed", "stale_delivery")
+                config = n1mm_preferences(state.get("setup", {}).get("network", {}))
+                category = {"RadioInfo": "radio", "contactinfo": "contact", "contactreplace": "contact",
+                            "contactdelete": "contact", "lookupinfo": "lookup", "scoreinfo": "score"}[row["kind"]]
+                require(config["enabled"] and config[category] and row["destination"] in config[category + "Destinations"].split(),
+                        "The original optional-output destination is no longer enabled", "stale_delivery")
+                newest = store.latest_qso_revision(row["qso_id"]) if row["qso_id"] else state["revision"]
+                require(newest <= row["revision"], "A newer contact or session snapshot supersedes this packet", "stale_delivery")
+                require(isinstance(self.n1mm, N1MMOutput), "The native delivery transport is unavailable")
+                try:
+                    self.n1mm.validate_packet(row["packet"])
+                except ValueError as error:
+                    raise HostError("invalid_delivery", str(error)) from error
+                with store.conn:
+                    changed = store.conn.execute("UPDATE xlog_n1mm_delivery SET outcome='attempting',error='',attempts=attempts+1,updated_utc=? WHERE id=? AND attempts=?",
+                                                 (now(), row["id"], params.get("expectedAttempts"))).rowcount
+                    require(changed == 1, "Another attempt already advanced this delivery; review it again", "stale_delivery")
+                outcome, failure = "sent_unverified", ""
+                try:
+                    address, port = row["destination"].split(":")
+                    with self.n1mm.socket_factory(family=socket.AF_INET, type=socket.SOCK_DGRAM) as udp:
+                        udp.sendto(row["packet"], (address, int(port)))
+                except (OSError, ValueError, TypeError) as error:
+                    outcome, failure = "failed", str(error)[:512]
+                with store.conn:
+                    store.conn.execute("UPDATE xlog_n1mm_delivery SET outcome=?,error=?,updated_utc=? WHERE id=?",
+                                       (outcome, failure, now(), row["id"]))
+            rows = store.exec_sql_mult("SELECT id,operation_id,revision,destination,kind,qso_id,sha256,outcome,error,attempts,updated_utc FROM xlog_n1mm_delivery ORDER BY updated_utc DESC,rowid DESC LIMIT 100")
+            return {"sessionID": session_id, "rows": rows, "remotePersistenceVerified": False,
+                    "scorePublicationComplete": Desk(store, state, self.commit).score().get("scoringComplete") is not False,
+                    "retryPolicy": "No automatic replay. A sent or interrupted UDP attempt may already have arrived; review the consumer before retrying."}
         if method == "analytics":
             require(params.get("workspaceGeneration") == workspace_generation(state),
                     "Analytics workspace changed", "stale_context")
@@ -4320,6 +4398,7 @@ class Host:
             emitted = deepcopy(before if method == "qso_delete" else after)
             if method != "qso_delete":
                 emitted["_n1mm_oldcall"] = before["Call"]
+                emitted["_n1mm_oldtimestamp"] = before["TS"]
             self._n1mm_events.append(("delete" if method == "qso_delete" else "replace",
                                       emitted))
         for name in INPUTS:

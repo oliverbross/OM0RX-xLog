@@ -38,6 +38,14 @@ class Recorder:
 
 
 class N1MMOutputTests(unittest.TestCase):
+    def test_invalid_optional_packet_does_not_block_an_independent_valid_packet(self):
+        sent, receipts = [], []
+        output = N1MMOutput(lambda **_: Datagram(sent), lambda *row: receipts.append(row))
+        output.contact("127.0.0.1:12061", {"comment": "invalid\x00xml"})
+        output.score("127.0.0.1:12063", {"score": 9})
+        self.assertEqual([fromstring(packet).tag for packet, _ in sent], ["scoreinfo"])
+        self.assertEqual([row[-2] for row in receipts], ["failed", "attempting", "sent_unverified"])
+
     def test_all_packet_roots_and_space_separated_destinations_are_intercepted(self):
         sent = []
         output = N1MMOutput(lambda **_: Datagram(sent))
@@ -162,6 +170,51 @@ class N1MMHostTests(unittest.TestCase):
         setup["network"]["n1mmContactDestinations"] = "bad_name.example:12061"
         with self.assertRaisesRegex(HostError, "Invalid N1MM contact destination"):
             self.mutate("setup_save", setup=setup)
+
+    def test_historical_operator_station_split_and_old_timestamp_are_distinct(self):
+        state = self.host.database(self.session).state(self.session)
+        values = self.host.n1mm_contact(state, {"ID": uid(), "Operator": "OLDOP", "StationPrefix": "OM0RX/P",
+            "Freq": 7025, "TS": "2026-10-27 00:02:00", "_n1mm_oldtimestamp": "2026-10-26 23:59:00",
+            "SentNr": "007", "_n1mm_lane": {"binding": {"radioID": "radio2"}, "receiveFrequencyHz": 7026000}})
+        self.assertEqual((values["mycall"], values["operator"], values["rxfreq"], values["txfreq"], values["radionr"]),
+                         ("OM0RX/P", "OLDOP", "702600", "702500", "2"))
+        self.assertEqual((values["sntnr"], values["oldtimestamp"], values["SentExchange"]),
+                         ("007", "2026-10-26 23:59:00", "15"))
+        values = self.host.n1mm_contact(state, {"Freq": 7025, "_n1mm_lane": {"receiveFrequencyHz": None}})
+        self.assertEqual((values["rxfreq"], values["operator"], values["radionr"]), ("", "", ""))
+
+    def test_failed_destination_is_durable_independent_and_reviewed_retry_is_fenced(self):
+        sent = []
+        class FailFirstDestination(Datagram):
+            def sendto(self, packet, destination):
+                if destination[0] == "127.0.0.1":
+                    raise OSError("synthetic optional consumer unavailable")
+                super().sendto(packet, destination)
+        self.host.n1mm = N1MMOutput(lambda **_: FailFirstDestination(sent), self.host.record_n1mm_delivery)
+        qso = uid()
+        self.mutate("qso_commit", qsoID=qso, timestamp="2026-10-27 00:00:00", fields={"callsign": "K1ABC", "other_2": "5"})
+        self.assertEqual(len(self.call("log", {"sessionID": self.session})["rows"]), 1)
+        status = self.call("n1mm_delivery", {"sessionID": self.session, "workspaceGeneration": self.workspace})
+        contact = [row for row in status["rows"] if row["kind"] == "contactinfo"]
+        self.assertEqual({row["outcome"] for row in contact}, {"failed", "sent_unverified"})
+        self.assertFalse(status["remotePersistenceVerified"])
+        self.assertTrue(any(fromstring(packet).tag == "contactinfo" for packet, _ in sent))
+        failed = next(row for row in contact if row["outcome"] == "failed")
+        self.host.close(); self.host = Host(self.root)
+        self.host.n1mm = N1MMOutput(lambda **_: Datagram(sent), self.host.record_n1mm_delivery)
+        params = {"sessionID": self.session, "workspaceGeneration": self.workspace, "deliveryID": failed["id"],
+                  "sha256": failed["sha256"], "expectedAttempts": 1, "confirmUncertain": True}
+        retried = self.call("n1mm_retry", params)
+        updated = next(row for row in retried["rows"] if row["id"] == failed["id"])
+        self.assertEqual((updated["outcome"], updated["attempts"]), ("sent_unverified", 2))
+        self.assertEqual(len(self.call("log", {"sessionID": self.session})["rows"]), 1)
+        with self.assertRaises(HostError) as error:
+            self.call("n1mm_retry", params)
+        self.assertEqual(error.exception.code, "stale_delivery")
+        self.mutate("qso_correct", qsoID=qso, fields={"callsign": "OM0RX"}, reason="supersede old output")
+        with self.assertRaises(HostError) as error:
+            self.call("n1mm_retry", {**params, "expectedAttempts": 2})
+        self.assertEqual(error.exception.code, "stale_delivery")
 
 
 if __name__ == "__main__":

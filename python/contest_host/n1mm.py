@@ -11,7 +11,7 @@ RADIO_INFO = {
     "app": "NOT1MM", "StationName": "", "RadioNr": "1", "Freq": "", "TXFreq": "",
     "Mode": "", "OpCall": "", "IsRunning": "False", "FocusEntry": "0", "EntryWindowHwnd": "0",
     "Antenna": "1", "Rotors": "", "FocusRadioNr": "1", "IsStereo": "False", "IsSplit": "False",
-    "ActiveRadioNr": "1", "IsTransmitting": "False", "FunctionKeyCaption": "", "RadioName": "Brad",
+    "ActiveRadioNr": "1", "IsTransmitting": "False", "FunctionKeyCaption": "", "RadioName": "",
     "AuxAntSelected": "-1", "AuxAntSelectedName": "",
 }
 
@@ -58,20 +58,33 @@ def xml_packet(root_name, payload):
 class N1MMOutput:
     """Send one XML datagram to each whitespace-separated ``host:port`` destination."""
 
-    def __init__(self, socket_factory=socket.socket):
+    def __init__(self, socket_factory=socket.socket, on_delivery=None):
         self.socket_factory = socket_factory
+        self.on_delivery = on_delivery
 
     def send(self, destinations, payload, root_name):
         packet = xml_packet(root_name, payload)
         for connection in destinations.split():
+            def record(outcome, error=""):
+                if self.on_delivery:
+                    self.on_delivery(connection, root_name, payload, packet, outcome, error)
             try:
+                self.validate_packet(packet)
                 address, raw_port = connection.split(":")
                 port = int(raw_port)
+                record("attempting")  # A crash after this point is uncertain, never an ACK.
                 with self.socket_factory(family=socket.AF_INET, type=socket.SOCK_DGRAM) as udp:
                     udp.sendto(packet, (address, port))
+                record("sent_unverified")
             except (OSError, TypeError, ValueError) as error:
                 # Optional telemetry must never change the committed contest result.
                 LOGGER.warning("N1MM UDP output failed for %s: %s", connection, error)
+                record("failed", str(error)[:512])
+
+    @staticmethod
+    def validate_packet(packet):
+        if len(packet) > 32768 or any(byte < 32 and byte not in (9, 10, 13) for byte in packet):
+            raise ValueError("N1MM XML exceeds the bounded packet or contains invalid controls")
 
     def radio(self, destinations, values):
         self.send(destinations, {**deepcopy(RADIO_INFO), **values}, "RadioInfo")
