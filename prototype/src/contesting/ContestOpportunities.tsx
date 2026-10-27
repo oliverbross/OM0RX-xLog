@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ContestRequest } from "./types";
 import type { ContestSurfaceSpot } from "./contestSurfaceProtocol";
 import type { PlannedMove, StrategyProjection, StrategyScope, StrategyMutation } from "./ContestReminders";
+import { formatSpotAge, useSpotAgeClock } from "../live/spotAge";
 
 type Candidate = {spotID:string;callsign:string;frequencyHz:number;mode:string};
 type Dimension = {dimension:string;label:string;value:string;scope:string};
@@ -25,6 +26,7 @@ export function ContestOpportunities({scope,request,spots,bands,mode,currentCall
   disabled:boolean;onMutate:StrategyMutation;onLoad(item:{callsign:string;frequencyHz:number;mode:string}):Promise<unknown>;
   onSked(item:Partial<PlannedMove>):void;
 }){
+  const ageClock=useSpotAgeClock();
   const opportunities=useMemo(()=>unifyContestOpportunities(spots).filter(row=>bands.some(band=>band.id===row.band)),[spots,bands]);
   const [selected,setSelected]=useState(""),[call,setCall]=useState(""),[band,setBand]=useState(""),[radio,setRadio]=useState("");
   const [data,setData]=useState<StrategyProjection|null>(null),[previews,setPreviews]=useState<Record<string,Preview>>({}),[error,setError]=useState(""),[working,setWorking]=useState(false);
@@ -55,9 +57,9 @@ export function ContestOpportunities({scope,request,spots,bands,mode,currentCall
     <p>Observations are grouped by call, band and mode. Conditional gains are not guaranteed results or expected probabilities. Shared new multipliers are not additive.</p>
     {error&&<p role="alert">{error}</p>}
     <div className="contest-opportunity-scroll"><table><thead><tr><th>Opportunity</th><th>Evidence</th><th>Plugin review</th><th>Conditional score gain</th></tr></thead><tbody>
-      {opportunities.map(row=>{const preview=previews[row.id],age=Math.max(0,Math.floor((Date.now()-Math.max(...row.observations.map(item=>item.receivedAt)))/60000));return <tr key={row.id}>
+      {opportunities.map(row=>{const preview=previews[row.id],age=formatSpotAge(Math.max(...row.observations.map(item=>item.receivedAt)),ageClock);return <tr key={row.id}>
         <th scope="row"><button type="button" aria-pressed={selected===row.id} onClick={()=>setSelected(row.id)}>{row.callsign} · {row.band}/{row.mode}</button></th>
-        <td>{row.observations.length} observations · {age} min · {[...new Set(row.observations.map(item=>item.source||item.clusterName))].join(", ")}</td>
+        <td>{row.observations.length} observations · {age} · {[...new Set(row.observations.map(item=>item.source||item.clusterName))].join(", ")}</td>
         <td>{label(preview)} · duplicate: {preview?.dupe===true?"yes":preview?.dupe===false?"no":"unknown"}</td><td>{preview?.conditionalScoreGain??"Unknown"}
           {preview?.newDimensions.map(item=><small key={JSON.stringify(item)}> {item.label} {item.value} / {item.scope}{(shared.get(JSON.stringify(item))??0)>1?" · shared, nonadditive":""}</small>)}</td>
       </tr>;})}</tbody></table></div>{!opportunities.length&&<p>No eligible observations. Cluster, Band Map and Needed remain available.</p>}

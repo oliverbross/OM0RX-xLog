@@ -11,7 +11,7 @@ type Candidate={spotID:string;callsign:string;frequencyHz:number;mode:string};
 type Review={spotID:string;dupe:boolean|null;points:number|null;multiplierCount:number|null;reason:string|null;conditionalScoreGain:number|null;
   newDimensions:{dimension:string;label:string;value:string;scope:string}[];dimensionsVerified:boolean;inferredExchange:Record<string,string>;valueBasis:string;exchangeProvenance:string};
 function spot(id:string,values:Partial<ContestSurfaceSpot>={}):ContestSurfaceSpot {
-  return {id,receivedAt:Date.now()-60_000,clusterName:"Cluster A",spotter:"W1AAA",spotterContinent:"NA",frequencyKHz:14025,frequencyText:"14025.0",
+  return {id,receivedAt:Date.now()/1000-978_307_200-60,clusterName:"Cluster A",spotter:"W1AAA",spotterContinent:"NA",frequencyKHz:14025,frequencyText:"14025.0",
     callsign:"K1ABC",comment:"CQ",band:"20m",mode:"CW",country:"United States",adif:291,continent:"NA",cqZone:5,ituZone:8,
     callStatus:"new",dxccStatus:"new",workedBefore:0,specialTags:[],score:5,contestPoints:null,contestDupe:null,contestMultiplierCount:null,
     contestCountryMultiplier:null,contestZoneMultiplier:null,scoreReasons:[],aggregateCount:1,aggregateSpotters:["W1AAA"],source:"DX cluster",
@@ -36,8 +36,9 @@ function fixture(spots:ContestSurfaceSpot[],custom:(candidate:Candidate)=>Partia
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
 
 it("groups supporting observations into one call/band/mode and uses the newest frequency",async()=>{
-  const observations=[spot("older",{mode:"USB",receivedAt:1000,frequencyKHz:14250,source:"Cluster A"}),
-    spot("newer",{callsign:" k1abc ",mode:"LSB",receivedAt:2000,frequencyKHz:14255,source:"Cluster B"}),
+  const now=Date.now()/1000-978_307_200;
+  const observations=[spot("older",{mode:"USB",receivedAt:now-120,frequencyKHz:14250,source:"Cluster A"}),
+    spot("newer",{callsign:" k1abc ",mode:"LSB",receivedAt:now-60,frequencyKHz:14255,source:"Cluster B"}),
     spot("other-band",{band:"40m",mode:"SSB",frequencyKHz:7125}),spot("cw",{mode:"CW"}),spot("invalid",{callsign:"INVALID CALL"})];
   const unified=unifyContestOpportunities(observations);
   expect(unified).toHaveLength(3);
@@ -46,6 +47,22 @@ it("groups supporting observations into one call/band/mode and uses the newest f
   const button=await screen.findByRole("button",{name:"K1ABC · 20m/SSB"}),row=button.closest("tr")!;
   expect(row.textContent).toContain("2 observations");expect(row.textContent).toContain("Cluster A, Cluster B");
   expect(screen.getAllByRole("button",{name:"K1ABC · 20m/SSB"})).toHaveLength(1);
+});
+
+it("shows native Apple-reference observation ages using the newest report and the shared unknown-age label",async()=>{
+  const nowUTC=Date.parse("2026-10-27T12:00:00Z"),nativeNow=nowUTC/1000-978_307_200;
+  vi.spyOn(Date,"now").mockReturnValue(nowUTC);
+  const options=fixture([spot("older",{receivedAt:nativeNow-600}),spot("latest",{receivedAt:nativeNow-75}),
+    spot("fresh",{callsign:"DL1ABC",receivedAt:nativeNow-15}),spot("future",{callsign:"K2ABC",receivedAt:nativeNow+30}),
+    spot("invalid",{callsign:"K3ABC",receivedAt:Number.NaN})]);
+  render(<ContestOpportunities {...options}/>);
+  const ageFor=(call:string)=>within(screen.getByRole("button",{name:`${call} · 20m/CW`}).closest("tr")!).getAllByRole("cell")[0].textContent;
+  await screen.findByRole("button",{name:"K1ABC · 20m/CW"});
+  expect(ageFor("K1ABC")).toContain("2 observations · 1 min ·");
+  expect(ageFor("DL1ABC")).toContain("1 observations · Now ·");
+  expect(ageFor("K2ABC")).toContain("1 observations · Now ·");
+  expect(ageFor("K3ABC")).toContain("1 observations · — ·");
+  expect(options.onLoad).not.toHaveBeenCalled();expect(options.onMutate).not.toHaveBeenCalled();
 });
 
 it("feed refresh and selection never load, plan or route; explicit load and sked preparation use the selected opportunity",async()=>{
