@@ -17,3 +17,18 @@ it("reviews an exact instance and token without invoking an output method",async
  expect(service.mock.calls.every(([method])=>!method.includes("send")&&!method.includes("reply"))).toBe(true);
  expect((screen.getByRole("button",{name:"Reply unavailable"}) as HTMLButtonElement).disabled).toBe(true);
 });
+it("requires an event-and-lane-bound review without a browser confirmation dialog",async()=>{
+ const confirm=vi.spyOn(window,"confirm").mockReturnValue(false);
+ const event={id:"completed-1",sender:"127.0.0.1:5001",instanceEvidence:"Verify external app",packet:{CALL:"W1AW",BAND:"20m",MODE:"RTTY"}};
+ const service=vi.fn(async(method:string)=>method==="wsjtx_snapshot"?{decodes:[]}:method==="fldigi_snapshot"?{completed:[event],receive_running:true}:{});
+ const view=render(<ContestDigitalOperating scope={scope} serviceRequest={service} onApply={vi.fn()} disabled={false}/>);
+ const accept=await screen.findByRole("button",{name:"Accept completed QSO"});
+ expect((accept as HTMLButtonElement).disabled).toBe(true);
+ fireEvent.click(screen.getByRole("checkbox",{name:/I verified the external app, exchange and target lane/}));
+ view.rerender(<ContestDigitalOperating scope={{...scope,bindingVersion:5}} serviceRequest={service} onApply={vi.fn()} disabled={false}/>);
+ expect((screen.getByRole("button",{name:"Accept completed QSO"}) as HTMLButtonElement).disabled).toBe(true);
+ fireEvent.click(await screen.findByRole("checkbox",{name:/I verified the external app, exchange and target lane/}));
+ fireEvent.click(screen.getByRole("button",{name:"Accept completed QSO"}));
+ await waitFor(()=>expect(service).toHaveBeenCalledWith("fldigi_accept_completed",{id:"completed-1",sessionID:"s",workspaceGeneration:"w",laneID:"laneB",bindingVersion:5}));
+ expect(confirm).not.toHaveBeenCalled();confirm.mockRestore();
+});
