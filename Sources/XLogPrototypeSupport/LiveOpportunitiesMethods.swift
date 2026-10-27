@@ -18,6 +18,7 @@ actor LiveOpportunitiesMethods {
         var lastSuccess: Date?
         var lastAttempt: Date?
         var safeError: String? = nil
+        var parserVersion: Int?
     }
     private let logbook: LiveLogbookMethods
     private let session: URLSession
@@ -105,7 +106,8 @@ actor LiveOpportunitiesMethods {
         // create overlapping downloads or a tight retry loop.
         let interval: TimeInterval = ["adxo", "425dxn"].contains(source) && feeds[source]?.safeError == nil ? 6 * 3_600 : 60
         let oldCalendar = source == "425dxn" && feeds[source]?.items.contains(where: { $0.startsAt == nil }) == true
-        if automatic, !oldCalendar, let attempt = feeds[source]?.lastAttempt, Date().timeIntervalSince(attempt) < interval { return }
+        let needsUpgrade = ["adxo", "425dxn"].contains(source) && feeds[source]?.safeError == nil && feeds[source]?.parserVersion != 2
+        if automatic, !oldCalendar, !needsUpgrade, let attempt = feeds[source]?.lastAttempt, Date().timeIntervalSince(attempt) < interval { return }
         let task = Task { await self.fetch(source) }
         refreshing[source] = task
         await task.value
@@ -127,9 +129,10 @@ actor LiveOpportunitiesMethods {
             let items = try OpportunityFeedParser.parse(data, source: source, observedAt: Date())
             guard !terminated, !Task.isCancelled else { return }
             let recent = prior.items.filter { old in
-                old.kind == "dxpedition" && old.expiresAt > Date().addingTimeInterval(-48 * 3_600) && !items.contains { $0.id == old.id }
+                old.kind == "dxpedition" && old.expiresAt <= Date() && old.expiresAt > Date().addingTimeInterval(-48 * 3_600) && !items.contains { $0.id == old.id }
             }
             prior.items = Array((items + recent).prefix(source == "clublog" ? 10_000 : 500))
+            prior.parserVersion = 2
             prior.lastSuccess = Date()
             prior.safeError = nil
             feeds[source] = prior

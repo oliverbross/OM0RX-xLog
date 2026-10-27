@@ -136,6 +136,28 @@ struct LiveOpportunitiesMethodsTests {
         }
     }
 
+    @Test("A pre-repair catalogue cache refreshes immediately despite its six-hour success cooldown")
+    func upgradesOldCatalogue() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let now = Date()
+        let old = PublicOpportunity(id: "old-prefix", kind: "dxpedition", callsign: "HR5", reference: "", name: "Honduras", frequencyHz: nil,
+            mode: "", observedAt: now, expiresAt: now.addingTimeInterval(86_400), source: "NG3K ADXO", sourceURL: "", comment: "")
+        let cache = logbook.workspaceDirectoryURL.appendingPathComponent("Opportunities")
+        try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: false)
+        try JSONEncoder().encode(["adxo": FixtureFeed(items: [old], lastSuccess: now, lastAttempt: now)])
+            .write(to: cache.appendingPathComponent("public-feed-cache.json"))
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [EmptyOpportunityProjectionFeed.self]
+        let session = URLSession(configuration: config); defer { session.invalidateAndCancel() }
+        let actor = LiveOpportunitiesMethods(logbook: logbook, session: session, clusterSpots: { [] })
+        let result = try await actor.handle(method: "opportunities_dxpedition_refresh", params: ["source": "adxo", "automatic": true])
+        let rows = try #require(result["items"] as? [[String: Any]])
+        #expect(rows.contains { $0["callsign"] as? String == "TEST1" })
+        #expect(!rows.contains { $0["callsign"] as? String == "HR5" })
+    }
+
     @Test("Every shared public programme and the DX calendar retain their source evidence")
     func portableProgrammeParsing() throws {
         let now = Date(timeIntervalSince1970: 1_791_763_200)

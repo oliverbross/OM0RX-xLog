@@ -241,6 +241,7 @@ public enum OpportunityFeedParser {
         for item in input.sorted(by: { ($0.source == "NG3K ADXO" ? 0 : 1, $0.id) < ($1.source == "NG3K ADXO" ? 0 : 1, $1.id) }) {
             let aliases = Set(item.callsigns ?? [item.callsign])
             let index = merged.firstIndex { prior in
+                (item.reference.isEmpty || prior.reference.isEmpty || item.reference == prior.reference) &&
                 !aliases.isDisjoint(with: Set(prior.callsigns ?? [prior.callsign])) &&
                 max(item.startsAt ?? item.observedAt, prior.startsAt ?? prior.observedAt) <= min(item.endsAt ?? item.expiresAt, prior.endsAt ?? prior.expiresAt)
             }
