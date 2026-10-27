@@ -122,7 +122,18 @@ public enum AppRuntimeProfile: Equatable, Sendable {
 
     var contestN1MMUDPAllowed: Bool {
         if case .production = self { return true }
-        return false
+        return connectedLoopbackAcceptance
+    }
+
+    /// Additional receive/loopback fixtures are admitted only by the already
+    /// validated private offline root. This never enables station/output services.
+    var connectedLoopbackAcceptance: Bool {
+        guard case .contestingTest(let root)=self,root.lastPathComponent=="worker",
+              root.deletingLastPathComponent().lastPathComponent.hasPrefix("xlog-wave1-"),
+              let data=try? Data(contentsOf:root.deletingLastPathComponent().appendingPathComponent(".xlog-offline-acceptance.json")),data.count<=1024,
+              let marker=try? JSONSerialization.jsonObject(with:data) as? [String:Any],marker["schema"] as? Int==1,
+              marker["connectedLoopback"] as? Bool==true else{return false}
+        return true
     }
 
     var supportDirectory: URL? {

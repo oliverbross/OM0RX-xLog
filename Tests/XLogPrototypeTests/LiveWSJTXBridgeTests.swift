@@ -67,6 +67,21 @@ final class LiveWSJTXBridgeTests: XCTestCase {
         var data = Data(); append(0xadbccbda, to: &data); append(3, to: &data); append(type, to: &data)
         append(id, to: &data); if type == 12 { append(adif, to: &data) }; return data
     }
+    private func reviewDecode(_ bridge:LiveWSJTXBridge,lease:WSJTXContestDestination,provider:@escaping @Sendable () async throws -> WSJTXContestDestination,importer:@escaping @Sendable (ADIFRecord,WSJTXContestDestination) async throws -> Bool) async throws {
+        var status=datagram(type:1)
+        for value in [UInt32(0),14_074_000]{append(value,to:&status)}
+        for value in ["FT8","","","FT8"]{append(value,to:&status)}
+        status.append(contentsOf:[0,0,0]);append(0,to:&status);append(0,to:&status)
+        for value in ["OM0RX","JN88",""]{append(value,to:&status)}
+        await bridge.ingest(status)
+        var decode=datagram(type:2);decode.append(1);append(UInt32(UInt64(Date().timeIntervalSince1970*1000)%86_400_000),to:&decode)
+        append(UInt32(bitPattern:-12),to:&decode);append(0x3fc00000,to:&decode);append(0,to:&decode);append(500,to:&decode)
+        append("~",to:&decode);append("CQ VK8AA PH57",to:&decode);decode.append(contentsOf:[0,0]);await bridge.ingest(decode)
+        let snapshot=try await bridge.handle(method:"wsjtx_snapshot",params:[:],route:.contestSurfaceOrdinaryLogbook,contestDestinationProvider:provider,contestImporter:importer)
+        let row=try XCTUnwrap((snapshot["decodes"] as? [[String:Any]])?.first)
+        let selection=try await bridge.handle(method:"wsjtx_select",params:["decodeID":row["id"]!,"sessionID":lease.sessionID,"workspaceGeneration":lease.workspaceGeneration,"laneID":lease.laneID,"bindingVersion":lease.bindingVersion],route:.contestSurfaceOrdinaryLogbook,contestDestinationProvider:provider,contestImporter:importer)
+        XCTAssertEqual(selection["transmitted"] as? Bool,false);XCTAssertEqual(selection["snr"] as? Int32,-12)
+    }
 
     func testDocumentedLoggedADIFEnvelopeIsParsedAndOtherTypesAreIgnored() throws {
         let value = try XCTUnwrap(try WSJTXMessageParser.loggedADIF(from: datagram()))
@@ -201,6 +216,11 @@ final class LiveWSJTXBridgeTests: XCTestCase {
         XCTAssertEqual(unrelatedWindowSnapshot["logging_destination"] as? String, "active_contest",
             "An unscoped poll from another detached window must not retire the trusted contest destination.")
         XCTAssertEqual(unrelatedWindowSnapshot["running"] as? Bool, true)
+        await bridge.ingest(datagram())
+        XCTAssertEqual(state.imports,0,"Unselected engine completion cannot enter the contest")
+        try await reviewDecode(bridge,lease:lease,provider:provider,importer:contestImporter)
+        await bridge.ingest(datagram(id:"other-engine"))
+        XCTAssertEqual(state.imports,0,"Competing instance cannot borrow the selected engine destination")
         await bridge.ingest(datagram()); await bridge.ingest(datagram())
         let active = try await bridge.handle(method: "wsjtx_snapshot", params: [:], route: .contestSurfaceOrdinaryLogbook,
             contestDestinationProvider: provider, contestImporter: contestImporter)

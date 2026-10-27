@@ -44,6 +44,7 @@ pub enum AuthorityOperation {
     DupeInquiry,
     ContactApply,
     Changes,
+    Coordination,
 }
 
 impl AuthorityOperation {
@@ -53,6 +54,7 @@ impl AuthorityOperation {
             Self::DupeInquiry => "contest_multi_dupe_inquiry",
             Self::ContactApply => "contest_multi_contact_apply",
             Self::Changes => "contest_multi_changes",
+            Self::Coordination => "contest_multi_coordination",
         }
     }
 }
@@ -71,6 +73,7 @@ pub struct AuthoritySnapshot {
     pub role: &'static str,
     pub status: &'static str,
     pub master_station: Option<String>,
+    #[serde(rename="sessionID")]
     pub session_id: Option<String>,
     pub workspace_generation: Option<String>,
     pub lease_expires_at_ms: Option<u64>,
@@ -513,11 +516,18 @@ impl GroupChat {
     pub fn authority_request(
         &self,
         context: &str,
-        request: AuthorityRequest,
+        mut request: AuthorityRequest,
     ) -> Result<Value, String> {
         validate_request_id(&request.request_id)?;
         if !request.params.is_object() {
             return Err("The authority request parameters are invalid.".into());
+        }
+        if request.operation == AuthorityOperation::Coordination {
+            let slot = self.0.lock().map_err(|_| "Group network owner unavailable")?;
+            let owner = slot.as_ref().ok_or("Group network unavailable")?;
+            if owner.context != context { return Err("Expired group context".into()); }
+            if request.params.get("senderStation").is_some() { return Err("The native owner supplies station identity".into()); }
+            request.params.as_object_mut().unwrap().insert("senderStation".into(), Value::String(owner.configuration.station_name.clone()));
         }
         let digest = authority_request_digest(&request)?;
         let (state, socket, destination, packet, direct) = {
@@ -977,6 +987,31 @@ fn validate_configuration(value: &Configuration) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(unix)]
+fn bind_group_socket(interface:Ipv4Addr,port:u16)->Result<UdpSocket,String>{
+    use std::os::fd::{FromRawFd,AsRawFd};
+    let fd=unsafe{libc::socket(libc::AF_INET,libc::SOCK_DGRAM,0)};
+    if fd<0{return Err(std::io::Error::last_os_error().to_string());}
+    let socket=unsafe{UdpSocket::from_raw_fd(fd)};
+    let reuse:libc::c_int=1;
+    for option in [libc::SO_REUSEADDR,libc::SO_REUSEPORT]{
+        if unsafe{libc::setsockopt(socket.as_raw_fd(),libc::SOL_SOCKET,option,&reuse as *const _ as *const _,std::mem::size_of_val(&reuse) as _)}!=0{return Err(std::io::Error::last_os_error().to_string());}
+    }
+    let mut address:libc::sockaddr_in=unsafe{std::mem::zeroed()};address.sin_family=libc::AF_INET as _;address.sin_port=port.to_be();
+    #[cfg(target_os="macos")] {address.sin_len=std::mem::size_of_val(&address) as _;}
+    if unsafe{libc::bind(socket.as_raw_fd(),&address as *const _ as *const _,std::mem::size_of_val(&address) as _)}!=0{return Err(std::io::Error::last_os_error().to_string());}
+    if !interface.is_unspecified(){
+        let outbound=libc::in_addr{s_addr:u32::from_ne_bytes(interface.octets())};
+        if unsafe{libc::setsockopt(socket.as_raw_fd(),libc::IPPROTO_IP,libc::IP_MULTICAST_IF,&outbound as *const _ as *const _,std::mem::size_of_val(&outbound) as _)}!=0{return Err(std::io::Error::last_os_error().to_string());}
+    }
+    Ok(socket)
+}
+#[cfg(not(unix))]
+fn bind_group_socket(interface:Ipv4Addr,port:u16)->Result<UdpSocket,String>{
+    if !interface.is_unspecified(){return Err("Explicit outgoing multicast interfaces remain unqualified on this platform.".into());}
+    UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED,port)).map_err(|e|e.to_string())
+}
+
 fn start_worker(
     configuration: &Configuration,
     state: Arc<Mutex<SharedState>>,
@@ -989,10 +1024,7 @@ fn start_worker(
         .interface
         .parse()
         .map_err(|_| "Group multicast interface is invalid.")?;
-    let socket = UdpSocket::bind(SocketAddrV4::new(
-        Ipv4Addr::UNSPECIFIED,
-        configuration.multicast_port,
-    ))
+    let socket = bind_group_socket(interface,configuration.multicast_port)
     .map_err(|error| {
         format!(
             "Group Chat could not bind UDP port {}: {error}",
@@ -1039,7 +1071,8 @@ fn start_worker(
                     expire_authority_lease(&mut current.authority);
                 }
                 match receive.recv_from(&mut datagram) {
-                    Ok((length, _)) if length <= MAX_AUTHORITY_DATAGRAM_BYTES => {
+                    Ok((length, source)) if length <= MAX_AUTHORITY_DATAGRAM_BYTES => {
+                        if interface.is_loopback() && !source.ip().is_loopback(){continue;}
                         if let Some(reply) = process_authority_wire(
                             &datagram[..length],
                             &receiver_configuration,
@@ -1217,6 +1250,7 @@ where
                 || validate_request_id(&frame.request_id).is_err()
                 || validate_text(&frame.station_id, MAX_SENDER_BYTES, "Authority station").is_err()
                 || frame.params.as_object().is_none()
+                || frame.operation == AuthorityOperation::Coordination && frame.params["senderStation"] != frame.station_id
                 || frame.auth_tag != lease_auth_tag(&lease.token, &request_auth_material(&frame))
             {
                 return None;
@@ -1524,6 +1558,20 @@ fn post_packet(configuration: &Configuration, contact: Value) -> Result<(String,
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    #[cfg(unix)]
+    fn two_local_group_sockets_use_the_explicit_loopback_interface() {
+        use std::time::Duration;
+        let interface=std::net::Ipv4Addr::LOCALHOST;
+        let first=super::bind_group_socket(interface,0).unwrap();
+        let port=first.local_addr().unwrap().port();
+        let second=super::bind_group_socket(interface,port).unwrap();
+        let group=std::net::Ipv4Addr::new(239,255,42,4);
+        for socket in [&first,&second]{socket.join_multicast_v4(&group,&interface).unwrap();socket.set_multicast_loop_v4(true).unwrap();socket.set_read_timeout(Some(Duration::from_secs(1))).unwrap();}
+        let payload=b"wave4-loopback-only";
+        first.send_to(payload,(group,port)).unwrap();
+        for socket in [&first,&second]{let mut packet=[0;64];let(count,source)=socket.recv_from(&mut packet).unwrap();assert_eq!(&packet[..count],payload);assert!(source.ip().is_loopback());}
+    }
     use super::*;
     fn configuration(enabled: bool) -> Configuration {
         Configuration {

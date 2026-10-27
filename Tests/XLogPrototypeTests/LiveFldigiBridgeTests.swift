@@ -25,6 +25,7 @@ private actor FakeFldigiRPC: FldigiXMLRPCCalling {
     }
     func release() { continuation?.resume(); continuation = nil }
     func recorded() -> [(String, String?)] { calls }
+    func receivedText() async throws -> (text:String,instance:String,version:String){("CQ K1ABC 599 CT","fake-fldigi-A","4.2-fixture")}
 }
 
 private final class FldigiIdentityState: @unchecked Sendable {
@@ -63,9 +64,58 @@ final class LiveFldigiBridgeTests: XCTestCase {
         XCTAssertEqual(receiver.started?.0, "127.0.0.1"); XCTAssertEqual(receiver.started?.1, 9_876)
         let adif = "<CALL:5>VK8AA<QSO_DATE:8>20261021<TIME_ON:6>120000<BAND:3>20M<MODE:4>RTTY<EOR>"
         await bridge.ingest(Data(adif.utf8)); await bridge.ingest(Data(adif.utf8))
-        let snapshot = try await bridge.handle(method: "fldigi_snapshot", params: [:], receiveDestination: lease,
+        var snapshot = try await bridge.handle(method: "fldigi_snapshot", params: [:], receiveDestination: lease,
             transmitDestination: lease, contestImporter: importer)
+        XCTAssertEqual(snapshot["imported_count"] as? Int,0)
+        var row=try XCTUnwrap((snapshot["completed"] as? [[String:Any]])?.first)
+        let scope:[String:Any]=["sessionID":lease.sessionID,"workspaceGeneration":lease.workspaceGeneration,"laneID":lease.laneID,"bindingVersion":lease.bindingVersion]
+        snapshot=try await bridge.handle(method:"fldigi_accept_completed",params:scope.merging(["id":row["id"]!]){_,new in new},receiveDestination:lease,transmitDestination:lease,contestImporter:importer)
+        await bridge.ingest(Data(adif.utf8))
+        snapshot=try await bridge.handle(method:"fldigi_snapshot",params:[:],receiveDestination:lease,transmitDestination:lease,contestImporter:importer)
+        row=try XCTUnwrap((snapshot["completed"] as? [[String:Any]])?.first)
+        snapshot=try await bridge.handle(method:"fldigi_accept_completed",params:scope.merging(["id":row["id"]!]){_,new in new},receiveDestination:lease,transmitDestination:lease,contestImporter:importer)
         XCTAssertEqual(snapshot["imported_count"] as? Int, 1); XCTAssertEqual(snapshot["duplicate_count"] as? Int, 1)
+    }
+
+    func testReceivedTextSelectionIsExactNontransmittingAndRetiredWithContext() async throws {
+        let rpc=FakeFldigiRPC(),lease=destination(),bridge=LiveFldigiBridge(configurationURL:FileManager.default.temporaryDirectory.appendingPathComponent("fldigi-\(UUID().uuidString).json"),externalIOAllowed:{true},rpc:rpc)
+        let text=try await bridge.handle(method:"fldigi_rx_text",params:[:],receiveDestination:lease,transmitDestination:nil,contestImporter:nil)
+        let selection=try await bridge.handle(method:"fldigi_select",params:["id":text["id"]!,"token":"CT"],receiveDestination:lease,transmitDestination:nil,contestImporter:nil)
+        XCTAssertEqual(selection["value"] as? String,"CT");XCTAssertEqual(selection["transmitted"] as? Bool,false)
+        await XCTAssertThrowsErrorAsync(try await bridge.handle(method:"fldigi_select",params:["id":text["id"]!,"token":"NOT-IN-TEXT"],receiveDestination:lease,transmitDestination:nil,contestImporter:nil))
+        await XCTAssertThrowsErrorAsync(try await bridge.handle(method:"fldigi_select",params:["id":text["id"]!,"token":"CT"],receiveDestination:destination(),transmitDestination:nil,contestImporter:nil))
+        let calls=await rpc.recorded();XCTAssertTrue(calls.isEmpty)
+    }
+
+    func testPendingCompletionSurvivesRestartWithoutAutoCommitOrReceiveRearm() async throws {
+        let root=FileManager.default.temporaryDirectory.appendingPathComponent("xlog-fldigi-recovery-\(UUID().uuidString)")
+        defer{try? FileManager.default.removeItem(at:root)}
+        let path=root.appendingPathComponent("fldigi.json"),lease=destination()
+        let first=LiveFldigiBridge(configurationURL:path,externalIOAllowed:{true},receiverFactory:{_,_ in FakeFldigiReceiver()},rpc:FakeFldigiRPC())
+        let importer:@Sendable (ADIFRecord,WSJTXContestDestination) async throws -> Bool={_,_ in false}
+        _ = try await first.handle(method:"fldigi_configure",params:["configuration":["receive_enabled":true,"transmit_enabled":false]],receiveDestination:lease,transmitDestination:nil,contestImporter:importer)
+        _ = try await first.handle(method:"fldigi_start",params:[:],receiveDestination:lease,transmitDestination:nil,contestImporter:importer)
+        await first.ingest(Data("<CALL:5>K1ABC<MODE:4>RTTY<QSO_DATE:8>20261027<TIME_ON:6>120000<FREQ:6>14.080<EOR>".utf8))
+        await first.stopForShutdown()
+        let second=LiveFldigiBridge(configurationURL:path,externalIOAllowed:{true},receiverFactory:{_,_ in FakeFldigiReceiver()},rpc:FakeFldigiRPC())
+        let snapshot=try await second.handle(method:"fldigi_snapshot",params:[:],receiveDestination:lease,transmitDestination:nil,contestImporter:importer)
+        XCTAssertEqual(snapshot["receive_running"] as? Bool,false);XCTAssertEqual(snapshot["imported_count"] as? Int,0)
+        XCTAssertEqual((snapshot["completed"] as? [[String:Any]])?.count,1)
+        let row=(snapshot["completed"] as! [[String:Any]])[0]
+        await XCTAssertThrowsErrorAsync(try await second.handle(method:"fldigi_accept_completed",params:["id":row["id"]!,"sessionID":lease.sessionID,"workspaceGeneration":lease.workspaceGeneration,"laneID":lease.laneID,"bindingVersion":lease.bindingVersion],receiveDestination:lease,transmitDestination:nil,contestImporter:importer))
+    }
+
+    func testMalformedCompletedRecoveryStaysRawAndBlocksOverwrite() async throws {
+        let root=FileManager.default.temporaryDirectory.appendingPathComponent("xlog-fldigi-bad-recovery-\(UUID().uuidString)")
+        defer{try? FileManager.default.removeItem(at:root)}
+        try FileManager.default.createDirectory(at:root,withIntermediateDirectories:false)
+        let path=root.appendingPathComponent("fldigi.json"),recovery=path.appendingPathExtension("completed.json"),raw=Data("{unreadable retained evidence".utf8),lease=destination()
+        try raw.write(to:recovery)
+        let bridge=LiveFldigiBridge(configurationURL:path,externalIOAllowed:{true},receiverFactory:{_,_ in FakeFldigiReceiver()},rpc:FakeFldigiRPC())
+        _ = try await bridge.handle(method:"fldigi_configure",params:["configuration":["receive_enabled":true,"transmit_enabled":false]],receiveDestination:lease,transmitDestination:nil,contestImporter:{_,_ in false})
+        await XCTAssertThrowsErrorAsync(try await bridge.handle(method:"fldigi_start",params:[:],receiveDestination:lease,transmitDestination:nil,contestImporter:{_,_ in false}))
+        let snapshot=try await bridge.handle(method:"fldigi_snapshot",params:[:],receiveDestination:lease,transmitDestination:nil,contestImporter:nil)
+        XCTAssertTrue(snapshot["recovery_error"] is String);XCTAssertEqual(try Data(contentsOf:recovery),raw)
     }
 
     func testTransmitCallsMainTXThenAddsOriginalFormattedText() async throws {

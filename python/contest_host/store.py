@@ -48,6 +48,9 @@ class Store(DataBase):
             CREATE TABLE IF NOT EXISTS xlog_session(id TEXT PRIMARY KEY, state TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_operation(operation_id TEXT PRIMARY KEY, payload TEXT NOT NULL, result TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_output_claim(operation_id TEXT PRIMARY KEY);
+            CREATE TABLE IF NOT EXISTS xlog_group_peer(station TEXT PRIMARY KEY,payload TEXT NOT NULL,confirmed_utc TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS xlog_group_retired(station TEXT NOT NULL,boot TEXT NOT NULL,PRIMARY KEY(station,boot));
+            CREATE TABLE IF NOT EXISTS xlog_group_directed(id TEXT PRIMARY KEY,sender TEXT NOT NULL,target TEXT NOT NULL,payload TEXT NOT NULL,created_utc TEXT NOT NULL,acknowledged_utc TEXT);
             CREATE TABLE IF NOT EXISTS xlog_draft_contact(draft_id TEXT PRIMARY KEY, qso_id TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_draft_lane(draft_id TEXT PRIMARY KEY, lane_id TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_qso_lane(qso_id TEXT PRIMARY KEY, attribution TEXT NOT NULL);
@@ -64,6 +67,7 @@ class Store(DataBase):
             CREATE TABLE IF NOT EXISTS xlog_qso_identity(id TEXT PRIMARY KEY, raw_fields TEXT NOT NULL, country TEXT, deleted INTEGER NOT NULL DEFAULT 0);
             CREATE TABLE IF NOT EXISTS xlog_digital_receipt(semantic_identity TEXT PRIMARY KEY,
                 qso_id TEXT NOT NULL UNIQUE, operation_id TEXT NOT NULL UNIQUE);
+            CREATE TABLE IF NOT EXISTS xlog_digital_event(qso_id TEXT PRIMARY KEY,packet TEXT NOT NULL,context TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_qso_audit(sequence INTEGER PRIMARY KEY, revision INTEGER NOT NULL,
                 operation_id TEXT NOT NULL, qso_id TEXT NOT NULL, kind TEXT NOT NULL,
                 before_json TEXT, after_json TEXT, reason TEXT NOT NULL,

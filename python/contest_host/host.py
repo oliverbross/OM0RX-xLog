@@ -1189,6 +1189,7 @@ class Desk:
 class Host:
     MUTATIONS = {"session_create", "legacy_import", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "digital_ingest", "qso_correct", "qso_delete", "setup_save", "rover_location", "recalculate", "country_reconcile", "multi_contact_apply", "multi_replica_apply", "note_save", "strategy_apply", "message_bank_save", "message_bank_activate", "operating_plan_save"}
     MUTATIONS |= {"lanes_configure", "lane_context", "lane_select"}
+    MUTATIONS |= {"digital_select"}
     REPLICA_BLOCKED = {"legacy_import", "esm", "function_key", "qso_commit", "digital_ingest", "lanes_configure", "lane_context", "lane_select",
                        "qso_correct", "qso_delete", "recalculate", "country_reconcile", "setup_save", "rover_location",
                        "multi_contact_apply"}
@@ -1205,7 +1206,8 @@ class Host:
         self._n1mm_events = None
         self._note_binding_allowed = False
         self._n1mm_delivery_store = None
-        self.n1mm = N1MMOutput(on_delivery=self.record_n1mm_delivery)
+        self.n1mm_loopback_only = os.environ.get("XLOG_CONTEST_N1MM_LOOPBACK_ONLY") == "1"
+        self.n1mm = N1MMOutput(on_delivery=self.record_n1mm_delivery,loopback_only=self.n1mm_loopback_only)
         # The trusted native launcher grants this only in the production profile.
         self.n1mm_udp_allowed = os.environ.get("XLOG_CONTEST_N1MM_UDP_ALLOWED") == "1"
 
@@ -1534,6 +1536,7 @@ class Host:
                 require(isinstance(self.n1mm, N1MMOutput), "The native delivery transport is unavailable")
                 try:
                     self.n1mm.validate_packet(row["packet"])
+                    require(not self.n1mm_loopback_only or row["destination"].split(":")[0]=="127.0.0.1", "Disposable retry requires loopback", "output_disabled")
                 except ValueError as error:
                     raise HostError("invalid_delivery", str(error)) from error
                 with store.conn:
@@ -1564,7 +1567,7 @@ class Host:
         if method in {"assistance_reverse", "assistance_dupesheet"}:
             from .assistance import read_assistance
             return read_assistance(store, state, method, params, lambda current: Desk(store, current, self.commit), require)
-        if method in {"multi_serial_reserve", "multi_dupe_inquiry", "multi_changes"}:
+        if method in {"multi_serial_reserve", "multi_dupe_inquiry", "multi_changes", "multi_coordination"}:
             return self.coordinate(store, state, method, params)
         if method == "rates":
             # Capture the revision, log and clock in one SQLite read snapshot.
@@ -2022,7 +2025,13 @@ class Host:
             require(params.get("workspaceGeneration") == workspace_generation(current),
                     "Multi-operator workspace changed", "stale_context")
             common = {"sessionID", "workspaceGeneration", "requestID"}
-            if method == "multi_serial_reserve":
+            if method == "multi_coordination":
+                from .coordination import coordinate
+                result = coordinate(store, current, params, require, authority_identity(current))
+                if params.get("action") == "read":
+                    store.finish(True)
+                    return result
+            elif method == "multi_serial_reserve":
                 require(set(params) == common | {"frequencyHz"}, "Unexpected shared serial fields")
                 require(requires_serial(current), "This contest does not use serial numbers", "serial_unsupported")
                 frequency = params.get("frequencyHz")
@@ -2494,7 +2503,7 @@ class Host:
             else:
                 require(state is not None, "Session does not exist", "not_found")
                 self.verify_engine(state)
-                if method in {"digital_ingest", "country_reconcile", "multi_contact_apply", "multi_replica_apply"}:
+                if method in {"digital_ingest", "digital_select", "country_reconcile", "multi_contact_apply", "multi_replica_apply"}:
                     require(params.get("workspaceGeneration") == workspace_generation(state),
                             "Contact destination belongs to another workspace", "stale_context")
                 if method == "digital_ingest":
@@ -2527,7 +2536,7 @@ class Host:
                                       or method == "strategy_apply" and params.get("action") == "sked_load")
             from .lanes import attribution as lane_attribution
             origin_context = lane_attribution(state)
-            if state.get("laneState", {}).get("mode", "SO1V") != "SO1V" and method in ENTRY_METHODS - {"lane_select"}:
+            if state.get("laneState", {}).get("mode", "SO1V") != "SO1V" and method in ENTRY_METHODS - {"lane_select", "digital_ingest"}:
                 require(params.get("draftID") == state["draft"]["id"], "Lane draft changed", "stale_draft")
                 if method in {"esm", "function_key"}:
                     require(state["laneState"]["lanes"][action_lane]["binding"] is not None,
@@ -2597,6 +2606,19 @@ class Host:
                 from .productivity import save_note
                 require(params.get("workspaceGeneration") == workspace_generation(state), "Note workspace changed", "stale_context")
                 save_note(store, state, params, require)
+            elif method == "digital_select":
+                require(params.get("draftID") == state["draft"]["id"], "Digital selection draft changed", "stale_draft")
+                field=params.get("fieldID")
+                descriptors={item["id"]:item for item in desk.projection()["fields"]}
+                require(field in descriptors and not descriptors[field].get("readOnly"), "Choose a writable plugin field")
+                value=text(params.get("value"),128).strip()
+                require(value and not any(ord(c)<32 for c in value), "Choose a bounded received token")
+                baseline=Desk(store,deepcopy(state),self.commit);baseline.clear_inputs()
+                require(getattr(desk,field).text().strip() in {"",getattr(baseline,field).text().strip()},
+                        "That draft field is occupied. Preserve it before selecting received text", "occupied_draft")
+                self.apply_fields(desk,{"draftID":state["draft"]["id"],"fields":{**desk.values(),field:value}})
+                state.setdefault("digitalSelections",[]).append({"fieldID":field,"value":value,"source":text(params.get("source"),512),"draftID":state["draft"]["id"],"laneID":action_lane})
+                state["digitalSelections"]=state["digitalSelections"][-100:]
             elif method == "draft_apply":
                 previous_call = desk.callsign.text().strip().upper()
                 self.apply_fields(desk, params)
@@ -2881,9 +2903,23 @@ class Host:
                             "Digital country reference does not match the contact")
                     state["reference"]["countries"][call] = country
                 committed = []
+                from .lanes import snapshot as entry_snapshot
+                entry_before=entry_snapshot(state)
                 def commit_digital(current):
                     require(not committed, "Original digital handler attempted more than one commit")
                     qso_id = str(uuid.UUID(params["semanticIdentity"][:32]))
+                    if requires_serial(state):
+                        actual=packet.get("STX","")
+                        require(actual.isdigit() and 0<int(actual)<=2**63-1,
+                                "The external completion needs its actual sent serial", "external_serial_required")
+                        scope=serial_scope(state,self.digital_frequency(packet))
+                        held=store.exec_sql("SELECT draft_id FROM xlog_serial WHERE scope=? AND serial=?",(scope,int(actual)))
+                        existing=store.exec_sql("SELECT ID FROM DXLOG WHERE ContestNR=? AND CAST(SentNr AS INTEGER)=?"+
+                            (" AND Band=?" if scope.startswith("band:") else "")+" LIMIT 1",
+                            (store.current_contest,int(actual),Desk.band(self.digital_frequency(packet))) if scope.startswith("band:") else (store.current_contest,int(actual)))
+                        require(not held and not existing,"That actual sent serial is already reserved or logged; reconcile the external event before continuing", "external_serial_conflict")
+                        store.conn.execute("INSERT INTO xlog_serial(draft_id,serial,operation_id,scope,qso_id) VALUES(?,?,?,?,?)",
+                                           ("external:"+qso_id,int(actual),operation,scope,qso_id))
                     # The original digital handlers populate an otherwise empty
                     # contact before saving it. Stamp the same contest ownership
                     # metadata as an operator-entered new contact before passing
@@ -2896,7 +2932,7 @@ class Host:
                         "Run1Run2": 1,
                     })
                     self.commit(current, qso_id, self.digital_timestamp(packet),
-                                base=current.contact, frequency=self.digital_frequency(packet))
+                                base=current.contact, frequency=self.digital_frequency(packet),digital_packet=packet)
                     committed.append(qso_id)
                 desk._commit = commit_digital
                 set_self = getattr(desk.contest, "set_self", None)
@@ -2905,6 +2941,15 @@ class Host:
                 plugin_handler(packet)
                 require(len(committed) == 1, "Original digital handler did not commit the contact",
                         "digital_handler_failed")
+                store.conn.execute("INSERT INTO xlog_digital_event VALUES(?,?,?)",(committed[0],canonical(packet),canonical(origin_context)))
+                if origin_context:
+                    attribution=deepcopy(origin_context)
+                    attribution.update(transmitFrequencyHz=self.digital_frequency(packet),receiveFrequencyHz=None,split=None,splitEvidence="unknown",frequencyEvidence="external_completed_adif")
+                    store.conn.execute("INSERT INTO xlog_qso_lane VALUES(?,?)",(committed[0],canonical(attribution)))
+                for key,value in entry_before.items():
+                    if value is None:state.pop(key,None)
+                    else:state[key]=value
+                desk=Desk(store,state,self.commit)
                 store.conn.execute("INSERT INTO xlog_digital_receipt VALUES(?,?,?)",
                                    (params["semanticIdentity"], committed[0], operation))
             elif method in {"qso_correct", "qso_delete"}:
@@ -3985,7 +4030,7 @@ class Host:
                    "QSO_DATE", "TIME_ON", "QSO_DATE_OFF", "TIME_OFF", "BAND", "FREQ",
                    "STATION_CALLSIGN", "MY_GRIDSQUARE", "CONTEST_ID", "SRX", "SRX_STRING",
                    "STX", "STX_STRING", "CLASS", "ARRL_SECT", "STATE", "CQZ", "ITUZ",
-                   "NAME", "TX_PWR", "OPERATOR", "MY_CITY", "MY_STATE", "COUNTRY"}
+                   "NAME", "TX_PWR", "OPERATOR", "MY_CITY", "MY_STATE", "COUNTRY", "APP_XLOG_EXTERNAL_INSTANCE"}
         require(set(packet) <= allowed and all(isinstance(value, str) and len(value.encode("utf-8")) <= 512
                                                for value in packet.values()),
                 "Digital contact contains unsupported or oversized fields")
@@ -3995,6 +4040,8 @@ class Host:
         packet["CALL"] = call
         self.digital_frequency(packet)
         self.digital_timestamp(packet)
+        require(not packet.get("STATION_CALLSIGN") or packet["STATION_CALLSIGN"].upper()==state["station"]["Call"].upper(),
+                "The external completed event belongs to another station", "stale_context")
         require(packet.get("MODE") or packet.get("SUBMODE"), "Digital contact mode is required")
         return packet
 
@@ -4078,7 +4125,7 @@ class Host:
         desk.current_sn = serial
         state["replicaReservation"] = {key: deepcopy(reservation[key]) for key in keys - {"authority"}}
 
-    def commit(self, desk, qso_id=None, timestamp=None, base=None, frequency=None, operator=None):
+    def commit(self, desk, qso_id=None, timestamp=None, base=None, frequency=None, operator=None, digital_packet=None):
         fields = desk.values()
         require(re.fullmatch(r"[A-Z0-9/]{3,32}", desk.parsed_call()) is not None, "Complete callsign required")
         self.validate_exchange(desk, fields)
@@ -4096,6 +4143,11 @@ class Host:
         chronological_append = not previous or previous["TS"] < timestamp
         contact = desk.contact_for(fields, qso_id, timestamp,
                                    frequency or desk.state["draft"]["frequencyHz"], base=base, operator=operator)
+        if digital_packet is not None:
+            for source,target in (("RST_SENT","SNT"),("RST_RCVD","RCV"),("STATION_CALLSIGN","StationPrefix"),("OPERATOR","Operator")):
+                if digital_packet.get(source):contact[target]=digital_packet[source]
+            if requires_serial(desk.state) and digital_packet.get("STX"):contact["SentNr"]=digital_packet["STX"]
+            contact["Mode"]=digital_packet.get("SUBMODE") or digital_packet["MODE"]
         from .lanes import attribution
         lane_context = attribution(desk.state) if self._note_binding_allowed else None
         if lane_context and lane_context["receiveFrequencyHz"] is not None:
@@ -4143,7 +4195,8 @@ class Host:
                    after_identity=identity_after, revision=desk.state["revision"] + 1)
         if self._n1mm_events is not None:
             self._n1mm_events.append(("contact", deepcopy(contact)))
-        self.advance_draft(desk)
+        if digital_packet is None:
+            self.advance_draft(desk)
 
     @staticmethod
     def recalculate_append(desk, contact):
@@ -4578,8 +4631,9 @@ class Host:
             if export_format == "adif":
                 from .lanes import augment_adif
                 known = {row["qso_id"]: json.loads(row["attribution"]) for row in desk.database.exec_sql_mult("SELECT * FROM xlog_qso_lane")}
-                if known:
-                    files[0].write_bytes(augment_adif(files[0].read_bytes(), desk.database.fetch_all_contacts_asc(), known, require))
+                digital={row["qso_id"]:json.loads(row["packet"]) for row in desk.database.exec_sql_mult("SELECT * FROM xlog_digital_event")}
+                if known or digital:
+                    files[0].write_bytes(augment_adif(files[0].read_bytes(), desk.database.fetch_all_contacts_asc(), known, require,digital))
             require(files[0].stat().st_size <= maximum,
                     "Use a chunked export route for this log" if maximum == 512000 else "Prepared export exceeds the native save limit",
                     "export_too_large")

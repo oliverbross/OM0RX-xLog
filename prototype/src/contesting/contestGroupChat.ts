@@ -10,7 +10,10 @@ export type ContestGroupAuthoritySnapshot = {
   masterStation: string | null; sessionID: string | null; workspaceGeneration: string | null;
   leaseExpiresAtMs: number | null; reconnectCursor: number;
 };
-export type ContestGroupAuthorityOperation = "serialReserve" | "dupeInquiry" | "contactApply" | "changes";
+export type ContestGroupAuthorityOperation = "serialReserve" | "dupeInquiry" | "contactApply" | "changes" | "coordination";
+export type ContestGroupCoordination = ContestGroupAuthorityResult & { senderStation:string;observedUTC:string;
+  peers:{station:string;operator:string;role:string;band:string;mode:string;laneID:string;cursor:number;queue:number;context:string;confirmedUTC:string}[];
+  directed:{id:string;sender:string;target:string;kind:string;body:string;call:string;frequencyHz:number;mode:string;laneID:string;createdUTC:string;acknowledgedUTC:string|null}[] };
 export type ContestGroupAuthorityIdentity = { sessionID:string; workspaceGeneration:string; pluginID:string; sourceRevision:string; referenceID:string; coordinationDigest:string };
 export type ContestGroupReplicaCursor = { revision:number; sequence:number };
 export type ContestGroupAuthorityResult = Record<string, unknown> & { requestID:string; authority:ContestGroupAuthorityIdentity };
@@ -45,6 +48,9 @@ function validAuthorityResult(operation:ContestGroupAuthorityOperation, value:un
   if(operation==="dupeInquiry")return typeof item.isDupe==="boolean"&&typeof item.call==="string"&&typeof item.mode==="string"&&
     typeof item.timestamp==="string"&&typeof item.band==="string";
   if(operation==="contactApply")return uuid.test(String(item.qsoID))&&["commit","correct","delete"].includes(String(item.action))&&uint(item.changeRevision);
+  if(operation==="coordination")return typeof item.senderStation==="string"&&typeof item.observedUTC==="string"&&item.draftMutation===false&&item.outputArmed===false&&item.offlineSerialGuarantee===false&&
+    Array.isArray(item.peers)&&item.peers.length<=64&&item.peers.every(peer=>!!peer&&typeof peer==="object"&&["station","operator","role","band","mode","laneID","context","confirmedUTC"].every(key=>typeof peer[key]==="string"&&bytes(peer[key])<=128)&&uint(peer.cursor)&&uint(peer.queue))&&
+    Array.isArray(item.directed)&&item.directed.length<=100&&item.directed.every(message=>!!message&&typeof message==="object"&&uuid.test(message.id)&&["sender","target","kind","body","call","mode","laneID","createdUTC"].every(key=>typeof message[key]==="string"&&bytes(message[key])<=512)&&uint(message.frequencyHz)&&(message.acknowledgedUTC===null||typeof message.acknowledgedUTC==="string"));
   if(!uint(item.afterRevision)||!uint(item.afterSequence)||!uint(item.currentRevision)||!uint(item.nextRevision)||!uint(item.nextSequence)||
       typeof item.hasMore!=="boolean"||!Array.isArray(item.changes)||item.changes.length>100)return false;
   return item.changes.every(raw=>{if(!raw||typeof raw!=="object"||Array.isArray(raw))return false;const change=raw as Record<string,unknown>;

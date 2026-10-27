@@ -3170,7 +3170,7 @@ fn contest_group_chat_context(window: &tauri::WebviewWindow, operating_context: 
 }
 
 fn with_contest_group_chat_external_io<T>(operation: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
-    runtime_profile::require_external_io_disabled()?;
+    runtime_profile::require_group_io()?;
     operation()
 }
 
@@ -3179,6 +3179,7 @@ fn contest_group_chat_configure(window: tauri::WebviewWindow,
     state: tauri::State<'_, contest_group_chat::GroupChat>, operating_context: String,
     session_i_d: String, workspace_generation: String,
     configuration: contest_group_chat::Configuration) -> Result<contest_group_chat::Snapshot, String> {
+    if runtime_profile::connected_loopback() && configuration.enabled && configuration.interface!="127.0.0.1" {return Err("Disposable connected acceptance requires the loopback interface.".into());}
     let _module_admission = operating_module::owner()?.admit(
         operating_module::OperatingModule::Contesting, Some(&operating_context))?;
     let context = contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
@@ -3242,9 +3243,11 @@ async fn contest_group_authority_request(app: tauri::AppHandle, window: tauri::W
     request: contest_group_chat::AuthorityRequest) -> Result<serde_json::Value, String> {
     let _module_admission = operating_module::owner()?.admit(
         operating_module::OperatingModule::Contesting, Some(&operating_context))?;
-    let context = contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
+    let context = if request.operation==contest_group_chat::AuthorityOperation::Coordination && window.label()=="contest--group-chat" {
+        contest_group_chat_context(&window,&operating_context,&session_i_d,&workspace_generation)?
+    } else { contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)? };
     contest_group_replica::validate_renderer_authority_request(request.operation)?;
-    runtime_profile::require_external_io_disabled()?;
+    runtime_profile::require_group_io()?;
     let key = format!("{}/{}/{}", context.operating_context, context.session_id, context.workspace_generation);
     tauri::async_runtime::spawn_blocking(move || app.state::<contest_group_chat::GroupChat>()
         .authority_request(&key, request)).await.map_err(|_| "Group authority task failed.".to_string())?
@@ -3257,7 +3260,7 @@ async fn contest_group_replica_sync_page(app: tauri::AppHandle, window: tauri::W
     let _module_admission = operating_module::owner()?.admit(
         operating_module::OperatingModule::Contesting, Some(&operating_context))?;
     let context = contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
-    runtime_profile::require_external_io_disabled()?;
+    runtime_profile::require_group_io()?;
     request.validate()?;
     let key = format!("{}/{}/{}", context.operating_context, context.session_id, context.workspace_generation);
     let generation = worker::existing_generation()?;
@@ -3784,6 +3787,23 @@ async fn close_logbook_window(window: tauri::WebviewWindow) -> Result<(), String
     window.destroy().map_err(|error| error.to_string())
 }
 
+fn start_retained_contest_workspace(app:&tauri::AppHandle)->Result<(),String>{
+    if let Some(main)=app.get_webview_window("main"){main.hide().map_err(|error|error.to_string())?;}
+    let startup_app=app.clone();
+    tauri::async_runtime::spawn_blocking(move||match query_host_active_contest(){
+        Ok(active)=>{
+            if let Err(error)=ensure_contest_setup_window_for(&startup_app,active.is_none(),active.as_ref(),false){eprintln!("Contest startup unavailable: {error}");}
+            else if let Err(error)=fulfill_module_restart_intent(&startup_app){eprintln!("Could not replay the retained Contest destination: {error}");}
+        },
+        Err(error)=>{
+            eprintln!("Active contest startup query unavailable: {error}");
+            if let Err(error)=ensure_contest_setup_window_for(&startup_app,true,None,false){eprintln!("Contest Setup recovery unavailable: {error}");}
+            else if let Err(error)=fulfill_module_restart_intent(&startup_app){eprintln!("Could not replay the retained Contest destination: {error}");}
+        }
+    });
+    Ok(())
+}
+
 fn main() {
     #[cfg(target_os = "macos")]
     if std::env::args().collect::<Vec<_>>().get(1).is_some_and(|a| a == "--recorder-acceptance") {
@@ -4146,30 +4166,12 @@ fn main() {
                     }
                     workspace_window_runtime::refresh(app.handle(), false).map_err(std::io::Error::other)?;
                 } else {
-                    if let Some(main) = app.get_webview_window("main") {
-                        main.hide().map_err(std::io::Error::other)?;
-                    }
-                    let startup_app = app.handle().clone();
-                    tauri::async_runtime::spawn_blocking(move || match query_host_active_contest() {
-                        Ok(active) => {
-                            if let Err(error) = ensure_contest_setup_window_for(
-                                &startup_app, active.is_none(), active.as_ref(), false,
-                            ) {
-                                eprintln!("Contest startup unavailable: {error}");
-                            } else if let Err(error) = fulfill_module_restart_intent(&startup_app) {
-                                eprintln!("Could not replay the retained Contest destination: {error}");
-                            }
-                        }
-                        Err(error) => {
-                            eprintln!("Active contest startup query unavailable: {error}");
-                            if let Err(setup_error) = ensure_contest_setup_window_for(&startup_app, true, None, false) {
-                                eprintln!("Contest Setup recovery unavailable: {setup_error}");
-                            } else if let Err(intent_error) = fulfill_module_restart_intent(&startup_app) {
-                                eprintln!("Could not replay the retained Contest destination: {intent_error}");
-                            }
-                        }
-                    });
+                    start_retained_contest_workspace(app.handle()).map_err(std::io::Error::other)?;
                 }
+            } else if runtime_profile::offline_root().is_some() && !normal_module {
+                // Use the real contest owner in the marked disposable route,
+                // without starting any production station/background services.
+                start_retained_contest_workspace(app.handle()).map_err(std::io::Error::other)?;
             }
             Ok(())
         })

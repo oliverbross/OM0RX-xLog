@@ -211,6 +211,37 @@ class CQWWRTTYHostTests(unittest.TestCase):
         line = next(line.split() for line in export.splitlines() if line.startswith("QSO:"))
         self.assertEqual(line[5:], ["OM0RX", "599", "15", "DX", "K1ABC", "599", "04", "MA"])
 
+    def test_external_completion_preserves_occupied_entry_and_raw_sent_evidence(self):
+        self.mutate("draft_apply",fields={"callsign":"DL1TEST","sent":"599","receive":"599","other_1":"14","other_2":"DX"})
+        before=self.read("projection")["projection"]
+        packet={"CALL":"K1ABC","MODE":"RTTY","FREQ":"14.080000","QSO_DATE":"20261027","TIME_ON":"081500","RST_SENT":"579","RST_RCVD":"589","CQZ":"5","STATE":"CT","STX":"41","APP_XLOG_EXTERNAL_INSTANCE":"wsjtx/127.0.0.1:54321/Engine-A"}
+        result=self.mutate("digital_ingest",workspaceGeneration=self.workspace,semanticIdentity="2"*64,packet=packet)
+        after=result["projection"]
+        self.assertEqual(after["draftID"],before["draftID"])
+        self.assertEqual(after["fields"],before["fields"])
+        row=self.read("log")["rows"][0]
+        self.assertEqual((row["SNT"],row["RCV"]),("579","589"))
+        stored=self.host.database(self.session).exec_sql("SELECT packet FROM xlog_digital_event WHERE qso_id=?",(result["qsoID"],))
+        import json
+        self.assertEqual(json.loads(stored["packet"]),packet)
+        prepared=self.read("export_prepare",format="adif")
+        chunk=self.read("export_read",exportID=prepared["artifactID"],workspaceGeneration=self.workspace,offset=0,length=prepared["byteLength"])
+        import base64
+        exported=base64.b64decode(chunk["dataBase64"]).decode("utf-8")
+        self.assertIn("<STX:2>41",exported)
+        self.assertIn("APP_XLOG_EXTERNAL_INSTANCE",exported)
+        self.assertEqual(exported.upper().count("<MODE:"),1)
+        # A genuine later contest duplicate has a different external event ID.
+        later={**packet,"TIME_ON":"081600"}
+        self.mutate("digital_ingest",workspaceGeneration=self.workspace,semanticIdentity="3"*64,packet=later)
+        self.assertEqual(self.read("log")["total"],2)
+
+    def test_received_token_cannot_overwrite_occupied_or_retired_fields(self):
+        projection=self.read("projection")["projection"]
+        self.mutate("digital_select",workspaceGeneration=self.workspace,draftID=projection["draftID"],fieldID="callsign",value="K1ABC",source="fldigi/instance/snapshot")
+        with self.assertRaises(HostError):self.mutate("digital_select",workspaceGeneration=self.workspace,draftID=projection["draftID"],fieldID="callsign",value="W1AW",source="other")
+        with self.assertRaises(HostError):self.mutate("digital_select",workspaceGeneration=self.workspace,draftID=uid(),fieldID="other_2",value="CT",source="other")
+
     def test_original_digital_handler_commits_once_and_semantic_duplicate_replays(self):
         semantic = "1" * 64
         packet = {"CALL": "K1ABC", "MODE": "RTTY", "FREQ": "14.080000",

@@ -1,12 +1,15 @@
-public struct WSJTXContestDestination: Equatable, Sendable {
+public struct WSJTXContestDestination: Codable, Equatable, Sendable {
     public let sessionID: String
     public let workspaceGeneration: String
     public let pluginID: String
     public let sourceRevision: String
+    public let laneID: String
+    public let bindingVersion: Int
 
-    public init(sessionID: String, workspaceGeneration: String, pluginID: String, sourceRevision: String) {
+    public init(sessionID: String, workspaceGeneration: String, pluginID: String, sourceRevision: String, laneID: String = "laneA", bindingVersion: Int = 0) {
         self.sessionID = sessionID; self.workspaceGeneration = workspaceGeneration
         self.pluginID = pluginID; self.sourceRevision = sourceRevision
+        self.laneID = laneID; self.bindingVersion = bindingVersion
     }
 }
 
@@ -253,6 +256,9 @@ public actor LiveWSJTXBridge {
     private var status = "Off"
     private let ingress = SpotIngressGate(limit: 64)
     private var activity = WSJTXActivity()
+    private var decodeDesk = WSJTXDecodeDesk()
+    private var selectedInstance: (sender:String,instance:String)?
+    private var selectedDecodeID: String?
     private var activityClassificationKey = ""
     private var activityClassificationRevision: UInt64 = 0
 
@@ -264,7 +270,7 @@ public actor LiveWSJTXBridge {
              try LiveLogbookMethods.shared.importLoggedADIF($0)
          },
          classificationLogbook: LiveLogbookMethods? = nil,
-         externalIOAllowed: @escaping @Sendable () -> Bool = { AppRuntimeProfile.current.externalIOAllowed },
+          externalIOAllowed: @escaping @Sendable () -> Bool = { AppRuntimeProfile.current.externalIOAllowed || AppRuntimeProfile.current.connectedLoopbackAcceptance },
          receiverFactory: @escaping @Sendable (@escaping @Sendable (Data, String) -> Void,
                                                 @escaping @Sendable (String) -> Void) -> WSJTXDatagramReceiving = {
              WSJTXUDPReceiver(onDatagram: $0, onEvent: $1)
@@ -321,6 +327,18 @@ public actor LiveWSJTXBridge {
         case "wsjtx_snapshot":
             try require(params, allowed: [])
             return try snapshot(route: route, availableContest: availableContest)
+        case "wsjtx_select":
+            try require(params, allowed: ["decodeID", "sessionID", "workspaceGeneration", "laneID", "bindingVersion"], required: ["decodeID", "sessionID", "workspaceGeneration", "laneID", "bindingVersion"])
+            guard receiver != nil, let destination=availableContest, destination==contestDestination,
+                  params["sessionID"] as? String==destination.sessionID,params["workspaceGeneration"] as? String==destination.workspaceGeneration,
+                  params["laneID"] as? String==destination.laneID,params["bindingVersion"] as? Int==destination.bindingVersion,
+                  let decodeID=params["decodeID"] as? String else{throw WorkerFailure("stale_context","Review the current contest and explicit lane before selecting a decode.")}
+            var selected=try decodeDesk.select(decodeID,now:UInt64(Date().timeIntervalSince1970*1000))
+            selectedInstance=(selected["sender"] as! String,selected["instanceID"] as! String)
+            selectedDecodeID=decodeID
+            selected["sessionID"]=destination.sessionID;selected["workspaceGeneration"]=destination.workspaceGeneration
+            selected["laneID"]=destination.laneID;selected["bindingVersion"]=destination.bindingVersion
+            selected["state"]="selected_candidate";selected["transmitted"]=false;return selected
         case "wsjtx_configure":
             try require(params, allowed: ["configuration"], required: ["configuration"])
             try requireStartAvailable()
@@ -375,6 +393,8 @@ public actor LiveWSJTXBridge {
         receivedCount += 1
         do {
             if let message = try WSJTXActivityMessage.parse(data) {
+                try decodeDesk.receive(data,sender:sender,now:UInt64(Date().timeIntervalSince1970*1000))
+                if case .close=message,selectedInstance?.sender==sender,selectedInstance?.instance==message.instance{selectedInstance=nil}
                 activity.receive(message, sender: sender, now: UInt64(Date().timeIntervalSince1970 * 1000))
                 return
             }
@@ -384,9 +404,14 @@ public actor LiveWSJTXBridge {
             let duplicate: Bool
             let imported: Int
             if let destination = contestDestination, let contestImporter {
+                guard selectedInstance?.sender==sender,selectedInstance?.instance==message.instanceID else{throw WorkerFailure("digital_instance_required","Select a fresh decode from this exact engine instance before accepting its completed contact.")}
+                guard let selectedDecodeID else{throw WorkerFailure("stale_decode","Review a current decode first.")}
+                _ = try decodeDesk.select(selectedDecodeID,now:UInt64(Date().timeIntervalSince1970*1000))
                 let records = ADIFParser().records(in: message.text)
                 guard records.count == 1, records[0].fields.count <= 64 else { throw WSJTXMessageError.invalid }
-                duplicate = try await contestImporter(records[0], destination)
+                var record=records[0]
+                record.fields["APP_XLOG_EXTERNAL_INSTANCE"]="wsjtx/\(sender)/\(message.instanceID)"
+                duplicate = try await contestImporter(record, destination)
                 imported = duplicate ? 0 : 1
             } else {
                 let result = try importer(message.text)
@@ -437,11 +462,13 @@ public actor LiveWSJTXBridge {
     private func stopReceiver() {
         receiverGeneration = nil; receiver?.stop(); receiver = nil
         activity.reset()
+        decodeDesk.reset();selectedInstance=nil;selectedDecodeID=nil
     }
 
     private func retireContestDestination() {
         contestDestination = nil
         contestImporter = nil
+        selectedInstance=nil;selectedDecodeID=nil
     }
 
     private func requireStartAvailable() throws {
@@ -495,6 +522,8 @@ public actor LiveWSJTXBridge {
                 "running": receiver != nil, "received_count": receivedCount, "imported_count": importedCount,
                 "duplicate_count": duplicateCount, "ignored_count": ignoredCount, "rejected_count": rejectedCount,
                 "dropped_count": ingress.droppedCount, "status": status, "receive_only": true,
+                "decodes":decodeDesk.snapshot(now:now),"selected_instance":selectedInstance.map{["sender":$0.sender,"instanceID":$0.instance]} as Any? ?? NSNull(),
+                "completion_policy":"An explicit selected instance may submit a completed ADIF event. Selection is not a durable QSO. Restart retires the selection.",
                 "activity": activity.snapshot(now: now, available: receiver != nil,
                     classificationRevision: activityClassificationRevision, classifications: classifications)]
     }
@@ -534,6 +563,7 @@ public actor LiveWSJTXBridge {
     }
 
     private func validate(_ value: WSJTXBridgeConfiguration) throws {
+        if AppRuntimeProfile.current.connectedLoopbackAcceptance,value.address != "127.0.0.1"{throw invalid()}
         var parsed = in_addr()
         guard value.address.utf8.count <= 45,
               value.address.withCString({ inet_pton(AF_INET, $0, &parsed) }) == 1 else { throw invalid() }

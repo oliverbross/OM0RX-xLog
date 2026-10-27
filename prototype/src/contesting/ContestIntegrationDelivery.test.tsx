@@ -12,7 +12,7 @@ afterEach(()=>{cleanup();vi.restoreAllMocks();});
 describe("optional integration delivery",()=>{
   it("requires a fresh explicit uncertainty confirmation and sends the reviewed hash/attempt",async()=>{
     const confirm=vi.spyOn(window,"confirm").mockReturnValue(false);
-    const request=vi.fn(async()=>({ok:true,result}));
+    const request=vi.fn(async()=>({id:"read",ok:true as const,result}));
     render(<ContestIntegrationDelivery scope={scope} request={request as ContestRequest} disabled={false}/>);
     const button=await screen.findByRole("button",{name:"Review retry contactreplace"});
     expect(screen.getByText("Sent · remote result unverified")).toBeTruthy();

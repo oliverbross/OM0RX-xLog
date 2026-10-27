@@ -1,0 +1,12 @@
+{
+  "reviewedDate": "2026-10-27",
+  "snapshotRoot": ".build/wave4-protocol-sources",
+  "sources": [
+    {"contract": "WSJT-X UDP schema 2/3", "edition": "v3.0.2 NetworkMessage.hpp", "url": "https://raw.githubusercontent.com/WSJTX/wsjtx/v3.0.2/Network/NetworkMessage.hpp", "sha256": "fd73b7f92fc0f66ea8f12a147b59a6072408c24656735d59df772dc55a5eeb62", "bytes": 28045},
+    {"contract": "N1MM external UDP broadcasts", "edition": "dated official documentation snapshot", "url": "https://n1mmwp.hamdocs.com/appendices/external-udp-broadcasts/", "sha256": "83296f24954cdfb41e1ee3bb58977d00ba3b6ee1ee2769bf8c22e66a5cafeeb6", "bytes": 140207},
+    {"contract": "fldigi XML-RPC socket services", "edition": "dated official developer API snapshot", "url": "https://sourceforge.net/p/fldigi/wiki/api_for_xmlrpc_socket_services/", "sha256": "094eb69fa10cc7342fd27ac2b2ed680ccf5baacebb4a2ca7f23158872ffcd1ac", "bytes": 140738},
+    {"contract": "ADIF mode/submode and sent exchange", "edition": "3.1.6, updated 2025-09-15", "url": "https://www.adif.org.uk/316/ADIF_316_annotated.htm", "sha256": "1d8f51069aea08b93fbc9ec94b49c4f568f774e05759f9e6148bd1149f382aa2", "bytes": 646642}
+  ],
+  "groupProtocol": {"identity": "xlog-contest-authority-v1", "owner": "prototype/src-tauri/src/contest_group_chat.rs", "qualification": "Trusted LAN authority/lease; not Internet authentication. UDP transport acknowledgement is not verified contact persistence."},
+  "qualification": "Independent loopback fixtures and retained packet/digest evidence are required. These primary definitions alone do not qualify a real engine, consumer, station, RF route or submission."
+}

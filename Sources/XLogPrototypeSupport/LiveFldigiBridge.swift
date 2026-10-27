@@ -1,10 +1,17 @@
 #if os(macOS)
 import Foundation
 import CryptoKit
+#if canImport(FoundationXML)
+import FoundationXML
+#endif
 import XLogCore
 
 protocol FldigiXMLRPCCalling: Sendable {
     func call(method: String, string: String?) async throws
+    func receivedText() async throws -> (text:String,instance:String,version:String)
+}
+extension FldigiXMLRPCCalling {
+    func receivedText() async throws -> (text:String,instance:String,version:String) {throw WorkerFailure("fldigi_rx_unsupported","This fldigi transport does not expose non-destructive received text.")}
 }
 
 private final class FldigiXMLRPCClient: FldigiXMLRPCCalling, @unchecked Sendable {
@@ -12,6 +19,18 @@ private final class FldigiXMLRPCClient: FldigiXMLRPCCalling, @unchecked Sendable
 
     func call(method: String, string: String?) async throws {
         let parameter = string.map { "<params><param><value><string>\(Self.escape($0))</string></value></param></params>" } ?? "<params/>"
+        _ = try await read(method:method,parameter:parameter,requireValue:false)
+    }
+    func receivedText() async throws -> (text:String,instance:String,version:String) {
+        let name=try await read(method:"fldigi.name"),version=try await read(method:"fldigi.version"),directory=try await read(method:"fldigi.config_dir")
+        guard let length=Int(try await read(method:"text.get_rx_length")),length>=0,length<=100_000_000 else{throw WorkerFailure("fldigi_rpc_failed","Invalid fldigi receive length.")}
+        let count=min(length,8192),start=max(0,length-count)
+        let encoded=try await read(method:"text.get_rx",parameter:"<params><param><value><int>\(start)</int></value></param><param><value><int>\(count)</int></value></param></params>")
+        guard let bytes=Data(base64Encoded:encoded,options:.ignoreUnknownCharacters),bytes.count<=32768,let text=String(data:bytes,encoding:.utf8)else{throw WorkerFailure("fldigi_rpc_failed","Invalid fldigi received text.")}
+        let instance=SHA256.hash(data:Data((name+"/"+version+"/"+directory).utf8)).map{String(format:"%02x",$0)}.joined()
+        return (text,instance,version)
+    }
+    private func read(method:String,parameter:String="<params/>",requireValue:Bool=true) async throws -> String {
         let body = "<?xml version=\"1.0\"?><methodCall><methodName>\(method)</methodName>\(parameter)</methodCall>"
         guard body.utf8.count <= 16_384 else { throw WorkerFailure("fldigi_invalid", "The fldigi command is too large.") }
         var request = URLRequest(url: endpoint)
@@ -23,6 +42,10 @@ private final class FldigiXMLRPCClient: FldigiXMLRPCCalling, @unchecked Sendable
               let text = String(data: data, encoding: .utf8), text.contains("<methodResponse>"), !text.contains("<fault>") else {
             throw WorkerFailure("fldigi_rpc_failed", "fldigi rejected the XML-RPC command.")
         }
+        guard !text.contains("<!DOCTYPE"),!text.contains("<!ENTITY")else{throw WorkerFailure("fldigi_rpc_failed","Unsupported XML entity declaration.")}
+        let reader=FldigiValue();let parser=XMLParser(data:data);parser.delegate=reader;parser.shouldResolveExternalEntities=false
+        guard parser.parse(),reader.values.count==1 || !requireValue && reader.values.isEmpty else{throw WorkerFailure("fldigi_rpc_failed","Invalid typed XML-RPC response.")}
+        return reader.values.first ?? ""
     }
 
     private static func escape(_ value: String) -> String {
@@ -33,10 +56,20 @@ private final class FldigiXMLRPCClient: FldigiXMLRPCCalling, @unchecked Sendable
             .replacingOccurrences(of: "'", with: "&apos;")
     }
 }
+private final class FldigiValue:NSObject,XMLParserDelegate {
+    var values:[String]=[],current:String?,text=""
+    func parser(_ parser:XMLParser,didStartElement name:String,namespaceURI:String?,qualifiedName:String?,attributes:[String:String]){if ["string","base64","int","i4"].contains(name){current=name;text=""}}
+    func parser(_ parser:XMLParser,foundCharacters string:String){if current != nil{text+=string}}
+    func parser(_ parser:XMLParser,didEndElement name:String,namespaceURI:String?,qualifiedName:String?){if name==current{values.append(text);current=nil}}
+}
 
 private struct FldigiConfiguration: Codable, Equatable {
     var receiveEnabled = false
     var transmitEnabled = false
+}
+private struct FldigiCompleted:Codable {
+    let id:String,packet:[String:String],sender:String,destination:WSJTXContestDestination,at:Date
+    var record:ADIFRecord{ADIFRecord(fields:packet)}
 }
 
 public actor LiveFldigiBridge {
@@ -58,6 +91,9 @@ public actor LiveFldigiBridge {
     private var contestImporter: (@Sendable (ADIFRecord, WSJTXContestDestination) async throws -> Bool)?
     private var receivedCount = 0, importedCount = 0, duplicateCount = 0, rejectedCount = 0
     private var status = "Off"
+    private var rxText: (id:String,text:String,instance:String,version:String,at:Date,destination:WSJTXContestDestination)?
+    private var completed: [FldigiCompleted] = []
+    private var completedRecoveryError:String?
     private let ingress = SpotIngressGate(limit: 64)
 
     init(configurationURL: URL? = nil,
@@ -71,6 +107,15 @@ public actor LiveFldigiBridge {
         self.externalIOAllowed = externalIOAllowed
         self.receiverFactory = receiverFactory
         self.rpc = rpc
+        let recovery=self.configurationURL.appendingPathExtension("completed.json")
+        if FileManager.default.fileExists(atPath:recovery.path){
+            do{
+                guard try recovery.resourceValues(forKeys:[.isSymbolicLinkKey]).isSymbolicLink != true else{throw WSJTXMessageError.invalid}
+                let data=try Data(contentsOf:recovery);guard data.count<=1_048_576 else{throw WSJTXMessageError.invalid}
+                completed=try JSONDecoder().decode([FldigiCompleted].self,from:data)
+                guard completed.count<=100 else{throw WSJTXMessageError.invalid}
+            }catch{completed=[];completedRecoveryError="Unreadable completed-event recovery was preserved. Resolve it before receiving or accepting another event."}
+        }
     }
 
     public func stopForShutdown() async {
@@ -96,6 +141,31 @@ public actor LiveFldigiBridge {
         switch method {
         case "fldigi_snapshot":
             try require(params, allowed: [])
+        case "fldigi_accept_completed":
+            try require(params,allowed:["id","sessionID","workspaceGeneration","laneID","bindingVersion"],required:["id","sessionID","workspaceGeneration","laneID","bindingVersion"])
+            guard receiver != nil,let destination=receiveDestination,contestDestination==destination,let row=completed.first(where:{$0.id==params["id"] as? String}),row.destination==destination,
+                  params["sessionID"] as? String==destination.sessionID,params["workspaceGeneration"] as? String==destination.workspaceGeneration,
+                  params["laneID"] as? String==destination.laneID,params["bindingVersion"] as? Int==destination.bindingVersion,
+                  completedRecoveryError==nil,let contestImporter else{throw WorkerFailure("stale_context","Review the current completed fldigi event and explicit lane.")}
+            let generation=receiverGeneration
+            var record=row.record;record.fields["APP_XLOG_EXTERNAL_INSTANCE"]="fldigi/observed-udp/\(row.sender)/operator-reviewed"
+            let duplicate=try await contestImporter(record,destination)
+            guard generation==receiverGeneration,contestDestination==destination else{throw WorkerFailure("stale_context","The fldigi completion context changed.")}
+            importedCount += duplicate ? 0:1;duplicateCount += duplicate ? 1:0
+            completed.removeAll{$0.id==row.id};try saveCompleted();status=duplicate ? "External event already committed; receipt reconciled.":"Reviewed external event durably committed."
+        case "fldigi_rx_text":
+            try require(params,allowed:[])
+            guard externalIOAllowed() || AppRuntimeProfile.current.connectedLoopbackAcceptance,!terminalShutdown,let destination=receiveDestination else{throw WorkerFailure("digital_unsupported","Received-text access needs an admitted digital contest.")}
+            let generation=transmitGeneration,received=try await rpc.receivedText()
+            guard generation==transmitGeneration,!terminalShutdown else{throw WorkerFailure("stale_context","The fldigi receive context changed.")}
+            let id=UUID().uuidString;rxText=(id,received.text,received.instance,received.version,Date(),destination)
+            return ["id":id,"text":received.text,"instanceID":received.instance,"engineVersion":received.version,"receivedAtMS":Date().timeIntervalSince1970*1000,"state":"received_evidence","transmitted":false]
+        case "fldigi_select":
+            try require(params,allowed:["id","token"],required:["id","token"])
+            guard let evidence=rxText,evidence.id==params["id"] as? String,evidence.destination==receiveDestination,Date().timeIntervalSince(evidence.at)<=60,
+                  let token=params["token"] as? String,!token.isEmpty,token.utf8.count<=128,evidence.text.components(separatedBy:.whitespacesAndNewlines).contains(token) else{throw WorkerFailure("stale_decode","Review fresh fldigi text and select an exact received token.")}
+            return ["value":token,"source":"fldigi/\(evidence.instance)/\(evidence.id)","laneID":evidence.destination.laneID,"bindingVersion":evidence.destination.bindingVersion,
+                    "sessionID":evidence.destination.sessionID,"workspaceGeneration":evidence.destination.workspaceGeneration,"transmitted":false]
         case "fldigi_configure":
             try require(params, allowed: ["configuration"], required: ["configuration"])
             guard let object = params["configuration"] as? [String: Any],
@@ -175,10 +245,13 @@ public actor LiveFldigiBridge {
             guard let text = String(data: data, encoding: .utf8), text != "NONE" else { throw invalid() }
             let records = ADIFParser().records(in: text)
             guard records.count == 1, records[0].fields.count <= 64 else { throw invalid() }
-            let duplicate = try await contestImporter(records[0], destination)
-            guard receiverGeneration == generation, contestDestination == destination else { return }
-            if duplicate { duplicateCount += 1; status = "fldigi contact already exists; duplicate suppressed." }
-            else { importedCount += 1; status = "Logged 1 fldigi contact to the active contest." }
+            guard contestDestination==destination else{return}
+            if !completed.contains(where:{$0.sender==sender&&$0.record.fields==records[0].fields}){
+                guard completed.count<100 else{throw WorkerFailure("digital_inbox_full","Review retained completions before receiving more.")}
+                completed.append(FldigiCompleted(id:UUID().uuidString,packet:records[0].fields,sender:sender,destination:destination,at:Date()))
+                try saveCompleted()
+            }
+            status="Externally completed fldigi event awaiting explicit instance/destination review; not logged."
         } catch let failure as ContestLaneError where ["stale_context", "contest_session_inactive"].contains(failure.code) {
             guard receiverGeneration == generation else { return }
             rejectedCount += 1; stopReceiver(); retireDestination()
@@ -190,7 +263,8 @@ public actor LiveFldigiBridge {
     }
 
     private func startReceiver() throws {
-        guard externalIOAllowed(), !terminalShutdown else {
+        guard completedRecoveryError==nil else{throw WorkerFailure("digital_recovery_required",completedRecoveryError!)}
+        guard externalIOAllowed() || AppRuntimeProfile.current.connectedLoopbackAcceptance, !terminalShutdown else {
             throw WorkerFailure("external_io_disabled", "External services are disabled in OM0RX-xLog Contesting Test.")
         }
         if receiver != nil { return }
@@ -204,7 +278,14 @@ public actor LiveFldigiBridge {
     }
 
     private func stopReceiver() { receiverGeneration = nil; receiver?.stop(); receiver = nil }
-    private func retireDestination() { contestDestination = nil; contestImporter = nil }
+    private func retireDestination() { contestDestination = nil; contestImporter = nil; rxText=nil }
+    private func saveCompleted() throws {
+        guard completedRecoveryError==nil else{throw WorkerFailure("digital_recovery_required",completedRecoveryError!)}
+        let path=configurationURL.appendingPathExtension("completed.json")
+        if FileManager.default.fileExists(atPath:path.path),try path.resourceValues(forKeys:[.isSymbolicLinkKey]).isSymbolicLink==true{throw WorkerFailure("unsafe_configuration","Completed-event recovery cannot use a symbolic link.")}
+        try JSONEncoder().encode(completed).write(to:path,options:.atomic)
+        try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:path.path)
+    }
     private func returnToReceive() async {
         guard externalIOAllowed() else { return }
         try? await rpc.call(method: "main.rx", string: nil)
@@ -233,6 +314,9 @@ public actor LiveFldigiBridge {
                 "receive_supported": receiveDestination != nil, "transmit_supported": transmitDestination != nil,
                 "receive_running": receiver != nil, "received_count": receivedCount, "imported_count": importedCount,
                 "duplicate_count": duplicateCount, "rejected_count": rejectedCount, "status": status,
+                "completed":completed.filter{$0.destination==receiveDestination}.map{["id":$0.id,"sender":$0.sender,"packet":$0.packet,"state":"externally_completed_pending_review","instanceEvidence":"UDP has no engine identity; verify the external app before accepting"] as [String:Any]},
+                "recovery_error":completedRecoveryError as Any? ?? NSNull(),
+                "retained_completed_count":completed.count,
                 "udp_endpoint": "127.0.0.1:9876", "xmlrpc_endpoint": "http://127.0.0.1:7362/RPC2"]
     }
 

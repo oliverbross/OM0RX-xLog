@@ -44,8 +44,8 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     if label == "contest-setup" {
         return if matches!(request["method"].as_str(), Some("health" | "workspace_status" | "settings_load" | "station_snapshot" | "cluster_snapshot" | "cluster_contest_radio_spots_publish" | "lookup_call")) {
             Ok(())
-        } else if matches!(request["method"].as_str(), Some("wsjtx_snapshot" | "wsjtx_configure" | "wsjtx_start" | "wsjtx_stop"
-            | "fldigi_snapshot" | "fldigi_configure" | "fldigi_start" | "fldigi_stop" | "fldigi_send")) {
+        } else if matches!(request["method"].as_str(), Some("wsjtx_snapshot" | "wsjtx_select" | "wsjtx_configure" | "wsjtx_start" | "wsjtx_stop"
+            | "fldigi_snapshot" | "fldigi_rx_text" | "fldigi_select" | "fldigi_accept_completed" | "fldigi_configure" | "fldigi_start" | "fldigi_stop" | "fldigi_send")) {
             Ok(())
         } else { Err("Contest Setup can only read shared station context and own contest sessions.".into()) };
     }
@@ -238,8 +238,8 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
     let method = request["method"].as_str().ok_or("Method is required")?;
     let trusted_contest_digital_scope = request["operatingModule"] == "contesting"
         && matches!(method,
-            "wsjtx_snapshot" | "wsjtx_configure" | "wsjtx_start" | "wsjtx_stop" |
-            "fldigi_snapshot" | "fldigi_configure" | "fldigi_start" | "fldigi_stop" | "fldigi_send");
+            "wsjtx_snapshot" | "wsjtx_select" | "wsjtx_configure" | "wsjtx_start" | "wsjtx_stop" |
+            "fldigi_snapshot" | "fldigi_rx_text" | "fldigi_select" | "fldigi_accept_completed" | "fldigi_configure" | "fldigi_start" | "fldigi_stop" | "fldigi_send");
     if object
         .keys()
         .any(|key| !["id", "method", "params"].contains(&key.as_str())
@@ -324,6 +324,8 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "contest_multi_dupe_inquiry",
         "contest_multi_contact_apply",
         "contest_multi_changes",
+        "contest_multi_coordination",
+        "contest_digital_select",
         "contest_multi_replica_apply",
         "contest_export_prepare",
         "contest_export_read",
@@ -438,8 +440,12 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "wsjtx_snapshot",
         "wsjtx_configure",
         "wsjtx_start",
+        "wsjtx_select",
         "wsjtx_stop",
         "fldigi_snapshot",
+        "fldigi_rx_text",
+        "fldigi_select",
+        "fldigi_accept_completed",
         "fldigi_configure",
         "fldigi_start",
         "fldigi_stop",

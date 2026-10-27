@@ -48,6 +48,12 @@ pub(crate) fn configure_offline(args: Vec<String>, config: &mut tauri::utils::co
     Ok(())
 }
 pub(crate) fn offline_root() -> Option<&'static std::path::Path> { OFFLINE.get().map(|(root,_)| root.as_path()) }
+pub(crate) fn connected_loopback() -> bool {
+    offline_root().and_then(|root|std::fs::read(root.join(".xlog-offline-acceptance.json")).ok())
+        .filter(|bytes|bytes.len()<=1024).and_then(|bytes|serde_json::from_slice::<serde_json::Value>(&bytes).ok())
+        .is_some_and(|marker|marker["schema"]==1&&marker["connectedLoopback"]==true)
+}
+pub(crate) fn require_group_io() -> Result<(),String> {if connected_loopback(){Ok(())}else{require_external_io_disabled()}}
 pub(crate) fn offline_webview(builder: tauri::WebviewWindowBuilder<'_, tauri::Wry, tauri::AppHandle>) -> tauri::WebviewWindowBuilder<'_, tauri::Wry, tauri::AppHandle> {
     #[cfg(target_os = "macos")]
     if let Some((_, id)) = OFFLINE.get() { return builder.data_store_identifier(*id.as_bytes()); }
@@ -85,6 +91,7 @@ pub(crate) fn validate_contesting_test_cw(label: &str, action: &str) -> Result<(
 }
 
 pub(crate) fn allows_worker_method(method: &str, local_acceptance: bool) -> bool {
+    if connected_loopback() && matches!(method,"wsjtx_snapshot"|"wsjtx_configure"|"wsjtx_start"|"wsjtx_stop"|"wsjtx_select"|"fldigi_snapshot"|"fldigi_rx_text"|"fldigi_select"|"fldigi_accept_completed"|"fldigi_configure"|"fldigi_start"|"fldigi_stop"){return true;}
     profile_allows_worker_method(method, local_acceptance, CONTESTING_TEST || offline_root().is_some())
 }
 fn profile_allows_worker_method(method: &str, local_acceptance: bool, restricted: bool) -> bool {

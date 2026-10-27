@@ -10,6 +10,7 @@ export type ContestMethod =
   | "contest_strategy" | "contest_strategy_apply" | "contest_opportunities"
   | "contest_operating_info" | "contest_operating_plan_save"
   | "contest_n1mm_delivery" | "contest_n1mm_retry"
+  | "contest_digital_select"
   | "contest_message_import" | "contest_message_preview" | "contest_message_banks"
   | "contest_message_bank_save" | "contest_message_bank_activate"
   | "contest_export_prepare" | "contest_export_read" | "contest_export_release"

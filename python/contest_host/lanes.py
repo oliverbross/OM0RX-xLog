@@ -9,7 +9,7 @@ import json
 import re
 
 LANE_IDS = ("laneA", "laneB")
-ENTRY_METHODS = {"draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "lane_context", "lane_select"}
+ENTRY_METHODS = {"draft_apply", "digital_select", "digital_ingest", "focus", "run_state", "esm", "function_key", "qso_commit", "lane_context", "lane_select"}
 CONTEXT_KEYS = ("draft", "run", "focus", "esmCallSent", "operatingMode")
 
 
@@ -155,35 +155,44 @@ def attribution(state):
             "receiveFrequencyHz": receive, "transmitFrequencyHz": transmit}
 
 
-def augment_adif(payload, rows, attributions, require):
+def augment_adif(payload, rows, attributions, require, digital_events=None):
     """Add known logging-lane and explicit RX facts to the pinned writer output.
 
     Walk length-framed tags so a literal <EOR> inside an operator comment cannot
     be confused with a record boundary. The caller uses the writer's exact row
     ordering and checks record count before associating any metadata.
     """
-    if not attributions:
+    digital_events=digital_events or {}
+    if not attributions and not digital_events:
         return payload
     content = payload.decode("utf-8")
-    boundaries, position = [], 0
+    boundaries, position, fields_in_record = [], 0, []
     while match := re.search(r"<([^<>]+)>", content[position:]):
         start = position + match.start()
         position += match.end()
         tag = match.group(1).split(":")
         if len(tag) > 1 and tag[1].isdigit():
             position += int(tag[1])
+            fields_in_record.append((tag[0].upper(),start,position))
         elif tag[0].upper() == "EOR":
-            boundaries.append(start)
+            boundaries.append((start,fields_in_record));fields_in_record=[]
     require(len(boundaries) == len(rows), "ADIF record count differs from the authoritative log", "export_failed")
-    for offset, row in reversed(list(zip(boundaries, rows))):
+    for (offset, existing), row in reversed(list(zip(boundaries, rows))):
         known = attributions.get(row["ID"])
-        if known is None:
-            continue
-        fields = {"APP_XLOG_LOGGING_LANE": known["loggingLaneID"]}
-        if known.get("receiveFrequencyHz") is not None:
+        fields = {"APP_XLOG_LOGGING_LANE": known["loggingLaneID"]} if known else {}
+        if known and known.get("receiveFrequencyHz") is not None:
             receive = float(row.get("QSXFreq") or 0) / 1000
             if receive > 0:
                 fields["FREQ_RX"] = f"{receive:.6f}"
-        addition = "".join(f"<{key}:{len(value)}>{value}\r\n" for key, value in fields.items())
+        packet=digital_events.get(row["ID"])
+        if packet:
+            # ADIF mode/submode and actual sent serial are immutable external
+            # evidence. Received corrections remain the authoritative row's.
+            fields.update({key:packet[key] for key in ("MODE","SUBMODE","STX","STX_STRING","APP_XLOG_EXTERNAL_INSTANCE") if packet.get(key)})
+            fields["APP_XLOG_EXTERNAL_ADIF"]=json.dumps(packet,ensure_ascii=False,separators=(",",":"))
+        addition = "".join(f"<{key}:{len(str(value))}>{value}\r\n" for key, value in fields.items())
         content = content[:offset] + addition + content[offset:]
+        for key,start,end in reversed(existing):
+            if packet and key in fields:
+                content=content[:start]+content[end:]
     return content.encode("utf-8")

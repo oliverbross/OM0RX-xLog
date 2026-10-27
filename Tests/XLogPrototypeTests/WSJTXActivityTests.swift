@@ -37,6 +37,22 @@ final class WSJTXActivityTests: XCTestCase {
         activity.snapshot(now: at ?? now, available: true)["spots"] as! [[String: Any]]
     }
 
+    func testDecodeDeskPreservesReportsAndInvalidatesExpiredOrChangedInstance() throws {
+        var desk=WSJTXDecodeDesk()
+        try desk.receive(status(),sender:"127.0.0.1:5000",now:now)
+        try desk.receive(decode(),sender:"127.0.0.1:5000",now:now)
+        try desk.receive(status(id:"second"),sender:"127.0.0.1:5001",now:now)
+        try desk.receive(decode(id:"second"),sender:"127.0.0.1:5001",now:now)
+        let rows=desk.snapshot(now:now);XCTAssertEqual(rows.count,2)
+        let id=rows.first{$0["instanceID"] as? String=="WSJT-X"}!["id"] as! String
+        let selected=try desk.select(id,now:now);XCTAssertEqual(selected["deltaSeconds"] as? Double,0.1)
+        XCTAssertEqual(selected["frequencyHz"] as? UInt64,14_074_500)
+        try desk.receive(packet(3),sender:"127.0.0.1:5000",now:now)
+        XCTAssertThrowsError(try desk.select(id,now:now))
+        XCTAssertEqual(desk.snapshot(now:now).count,1)
+        XCTAssertTrue(desk.snapshot(now:now+60_001).isEmpty)
+    }
+
     func testSchemasTwoAndThreeSupportReceiveOnlyActivityWithoutNegotiation() throws {
         for schema in [UInt64(2), 3] {
             var activity = WSJTXActivity()

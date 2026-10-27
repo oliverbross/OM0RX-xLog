@@ -44,6 +44,7 @@ import { ContestOpportunities } from "./ContestOpportunities";
 import { ContestMessageWorkbench } from "./ContestMessageWorkbench";
 import { ContestOperatingInfo } from "./ContestOperatingInfo";
 import { ContestIntegrationDelivery } from "./ContestIntegrationDelivery";
+import { ContestDigitalOperating } from "./ContestDigitalOperating";
 import { RatesClock } from "./ContestSecondaryPanels";
 import { planningMutation, planningRecoveryKey } from "./contestPlanningRecovery";
 import { occupiedStackDraft } from "./contestCallStack";
@@ -164,6 +165,7 @@ type Projection = ContestLaneProjectionSource & {
   ruleIdentity?: { id: string; version: string; edition: string; sourceRevision: string };
   supportedBands?: string[]; supportedModes?: string[]; allowDuplicateCommit?: boolean;
   fldigiReceiveSupported?: boolean; fldigiTransmitSupported?: boolean; fldigiTransmitAvailable?: boolean;
+  digitalLoggingSupported?: boolean;
   columns?: string[];
   exchangeWarnings?:import("./contestSurfaceProtocol").ContestExchangeWarning[];
   history: string; score: Score; operator?: string; roverLocation?: string; cwSpeedWpm?: number | null;
@@ -742,6 +744,7 @@ function boundedFldigiSnapshot(value: unknown): NonNullable<ContestDigitalSnapsh
 export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: stationTunePort, stationStep: stationStepPort, rotorStop, contestSpot: contestSpotPort, operatingContext, workspaceGeneration, stationCall, radioFrequencyHz, spots, cluster,
   selectedSpotId, onSelectedSpot, onSetupViewChange, registerTransition, registerMenuRoute, strictHostActive = null, setupOnly = false, contestingTest = false }: Props) {
   const [catalog, setCatalog] = useState<Data[]>([]), [sessions, setSessions] = useState<Session[]>([]);
+  const groupPresenceRef=useRef({bootID:crypto.randomUUID(),sequence:0});
   const [bandDefinitions, setBandDefinitions] = useState<ContestBandDefinition[]>(fallbackBandDefinitions);
   const bandLabels = useMemo<Record<string, string>>(() => Object.fromEntries(
     bandDefinitions.map(band => [String(band.value), band.id])), [bandDefinitions]);
@@ -1534,7 +1537,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
 
   const mutate = async (method: string, base: Projection, extra: Record<string, unknown> = {}) => {
     const operationID = crypto.randomUUID();
-    const laneScope=dualContestLanes(base)&&["contest_draft_apply","contest_focus","contest_run_state","contest_esm","contest_function_key","contest_qso_commit","contest_lane_context","contest_lane_select"].includes(method)
+    const laneScope=dualContestLanes(base)&&["contest_draft_apply","contest_digital_select","contest_focus","contest_run_state","contest_esm","contest_function_key","contest_qso_commit","contest_lane_context","contest_lane_select"].includes(method)
       ?contestLaneParams(captureContestLaneScope(base,base.selectedLaneID??base.operatingLanes!.keyboardLaneID)):{};
     const payload = { sessionID: base.sessionID, operationID, expectedRevision: base.revision, draftID: base.draftID, ...laneScope, ...extra };
     try {
@@ -3651,6 +3654,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
             workspaceGeneration: current.workspaceGeneration, limit: 100 }));
         if (pending.sessionID !== current.sessionID || pending.workspaceGeneration !== current.workspaceGeneration || !Array.isArray(pending.contacts))
           throw new Error("The contest contact publication queue is stale or malformed.");
+        if(snapshot.authority.role==="master"||snapshot.authority.status==="connected"){
+          await requestContestGroupAuthority(surfaceContext,"coordination",{action:"presence",presence:{
+            ...groupPresenceRef.current,sequence:++groupPresenceRef.current.sequence,operator:setup.operator,
+            role:snapshot.authority.role,band:bandDefinitions.find(band=>current.frequencyHz>=band.lowHz&&current.frequencyHz<band.highHz)?.id??"",
+            mode:current.mode,laneID:current.selectedLaneID??"laneA",cursor:current.replicaCursor?.revision??current.revision,
+            queue:pending.contacts.length,context:`${current.pluginID}/${current.referenceID}`}});
+        }
         for (const contact of pending.contacts) {
           if (stopped) return;
           await publishContestGroupContact(surfaceContext, contact);
@@ -3737,6 +3747,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
   const cwPanel = () => {
     if(projection?.practice)return <p role="status">Practice · native keyer, voice, modem and station output disabled. Manual logging is available.</p>;
     if (!projection || projection.mode === "SSB" && !phoneOutputAvailable) return null;
+    if(!["CW","SSB"].includes(projection.mode)&&!fldigiPanelReady)return <section className="contest-operator" aria-label="fldigi controls"><strong>ESM and fldigi</strong>
+      <p>fldigi macro output is unavailable. Enable the supported fldigi transmit path in Digital Logging Setup before sending. Manual logging and received-text selection remain separate.</p>
+      <div className="contest-operator-keys">{projection.functionKeys.map(key=><button type="button" key={key.id} disabled>{key.id}</button>)}</div></section>;
     const phone = projection.mode === "SSB" && phoneOutputAvailable;
     const armed = phoneReleaseBlocking ? phoneSimulationArmed || Boolean(phoneReleaseUncertain) : phone ? phoneSimulationArmed : fldigiPanelReady || cw.state.armed;
     const title = fldigiPanelReady ? "ESM and fldigi" : phone ? "ESM and Phone" : "ESM and CW";
@@ -3908,7 +3921,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
         disabled={busy||retiring||configuredClient} request={planningRequest} onMutate={(method,values)=>savePlanning(method,values)}
         onExport={async(content,filename)=>{const saved=await invoke<{saved:boolean;cancelled:boolean}>("contest_messages_export",{filename,content});
           setNotice(saved.saved?"Message bank exported.":"Message export cancelled.");}}/>}
-      {productivityTab==="Entry & stack"&&<>{laneConfigurationPanel}{entryPanel}<ContestCallStackOwner draft={stackDraft()} getDraft={()=>stackDraft(projectionRef.current,undefined,projection.operatingLanes?.keyboardLaneID)} disabled={busy||retiring||configuredClient}
+      {productivityTab==="Entry & stack"&&<>{laneConfigurationPanel}{entryPanel}{projection.digitalLoggingSupported&&<ContestDigitalOperating scope={projection} serviceRequest={serviceRequest} disabled={busy||retiring||configuredClient}
+        onApply={async values=>{const base=projectionRef.current;if(!base||!sameFields(fieldsRef.current,projectionFields(base)))throw Error("Preserve the current edited draft before loading digital evidence.");await runMutation(current=>mutate("contest_digital_select",current,{workspaceGeneration:base.workspaceGeneration,...values}),true,false,true,true);}}/>}
+        <ContestCallStackOwner draft={stackDraft()} getDraft={()=>stackDraft(projectionRef.current,undefined,projection.operatingLanes?.keyboardLaneID)} disabled={busy||retiring||configuredClient}
         mutate={mutateStack} receipt={recoverStack} onError={setError} rejected={cause=>cause instanceof ContestServerError&&cause.outcome!=="uncertain"}
         classify={async(items,draft,scope)=>{const active=projectionRef.current;if(!active||active.sessionID!==draft.sessionID)throw new Error("Stack scope changed.");
           const view=draft.laneID?contestLaneProjection(active,draft.laneID):active;

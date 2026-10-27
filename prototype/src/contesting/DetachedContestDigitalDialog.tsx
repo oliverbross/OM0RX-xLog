@@ -48,7 +48,7 @@ export function DetachedContestDigitalDialog() {
         </select></label></div>
         : <p role="status">The xLog WSJT-X host is not available. Reopen Contest Setup after the station service is ready.</p>}
       <p className="digital-reference">Original Not1MM defaults: <code>224.0.0.1:2237</code>. xLog also permits <code>127.0.0.1</code> for one-computer operation.</p>
-      <p className="digital-safety">This listener does not send decodes, replies, CAT commands, or PTT. Configure WSJT-X/JTDX radio control independently.</p>
+      <p className="digital-safety">Review decodes in Productivity → Entry &amp; stack. Select binds the exact current instance and lane; completed ADIF is a separate event. Reply remains unavailable without a qualified output/release contract. This listener sends no CAT or PTT.</p>
       {digital?.contest_target_supported && digital.active_contest && <p className="digital-safety">Active contest routes through the original <code>{digital.active_contest.plugin_id}</code> digital handler. Changing or closing that contest stops this listener; late packets are rejected.</p>}
     </section>
     <section aria-labelledby="fldigi-heading"><div className="digital-section-heading"><div><h2 id="fldigi-heading">fldigi</h2><p>Receive logged ADIF on loopback UDP and send admitted F1–F12 text through loopback XML-RPC.</p></div><strong>{digital?.fldigi?.receive_running ? "Receiving" : fldigiDraft.transmit_enabled ? "Transmit enabled" : "Stopped"}</strong></div>
@@ -59,7 +59,7 @@ export function DetachedContestDigitalDialog() {
           checked={fldigiDraft.transmit_enabled} disabled={!digital?.fldigi?.transmit_supported}
           onChange={event => setFldigiDraft({...fldigiDraft,transmit_enabled:event.target.checked})}/></label></div>
       <dl><div><dt>Logged ADIF UDP</dt><dd><code>{digital?.fldigi?.udp_endpoint ?? "127.0.0.1:9876"}</code></dd></div><div><dt>XML-RPC</dt><dd><code>{digital?.fldigi?.xmlrpc_endpoint ?? "http://127.0.0.1:7362/RPC2"}</code></dd></div><div><dt>Text order</dt><dd><code>main.tx</code>, then <code>text.add_tx</code></dd></div></dl>
-      <p className="digital-safety">Receive is available only when the active plugin has its original logged-QSO handler. Transmit is separate: <code>^M</code> becomes a newline and <code>^r</code> returns fldigi to receive.</p>
+      <p className="digital-safety">Review non-destructive received text and completed ADIF in Productivity → Entry &amp; stack. UDP does not identify the fldigi instance: verify the external app and explicitly accept its completed event. Transmit is separate: <code>^M</code> becomes a newline and <code>^r</code> returns fldigi to receive.</p>
     </section>
     {error && <p role="alert" className="digital-error">{error}</p>}
     <footer><button type="button" disabled={saving} onClick={() => void closeContestSetupDialog()}>Cancel</button>

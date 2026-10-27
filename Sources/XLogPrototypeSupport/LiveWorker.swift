@@ -456,7 +456,8 @@ public actor LiveWorker {
                 }
                 try LocalAcceptanceSession.validate(method: method, params: params)
             }
-            if !runtimeProfile.externalIOAllowed, !Self.testProfileAllows(method) {
+            if !runtimeProfile.externalIOAllowed, !Self.testProfileAllows(method),
+               !(runtimeProfile.connectedLoopbackAcceptance && ["wsjtx_snapshot","wsjtx_configure","wsjtx_start","wsjtx_stop","wsjtx_select","fldigi_snapshot","fldigi_rx_text","fldigi_select","fldigi_accept_completed","fldigi_configure","fldigi_start","fldigi_stop"].contains(method)) {
                 throw WorkerFailure("external_io_disabled", "External services and station I/O are disabled in OM0RX-xLog Contesting Test.")
             }
             if ["sync_run", "sync_configure", "sync_retry", "sync_resolve"].contains(method) {
@@ -486,6 +487,7 @@ public actor LiveWorker {
                     health["credentials_accessed"] = false
                     health["live_cluster"] = false
                     health["station_io"] = false
+                    health["loopback_fixture_io"] = runtimeProfile.connectedLoopbackAcceptance
                 } else if operatingModule == .contesting {
                     health["mode"] = "contesting"
                     health["isolated_workspace"] = false

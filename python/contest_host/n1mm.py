@@ -58,9 +58,10 @@ def xml_packet(root_name, payload):
 class N1MMOutput:
     """Send one XML datagram to each whitespace-separated ``host:port`` destination."""
 
-    def __init__(self, socket_factory=socket.socket, on_delivery=None):
+    def __init__(self, socket_factory=socket.socket, on_delivery=None, loopback_only=False):
         self.socket_factory = socket_factory
         self.on_delivery = on_delivery
+        self.loopback_only = loopback_only
 
     def send(self, destinations, payload, root_name):
         packet = xml_packet(root_name, payload)
@@ -71,6 +72,8 @@ class N1MMOutput:
             try:
                 self.validate_packet(packet)
                 address, raw_port = connection.split(":")
+                if self.loopback_only and address != "127.0.0.1":
+                    raise ValueError("Disposable connected acceptance permits only loopback UDP")
                 port = int(raw_port)
                 record("attempting")  # A crash after this point is uncertain, never an ACK.
                 with self.socket_factory(family=socket.AF_INET, type=socket.SOCK_DGRAM) as udp:

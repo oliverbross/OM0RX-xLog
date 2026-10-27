@@ -185,7 +185,9 @@ actor PythonContestLane {
                 "The active contest has no original Not1MM digital logging handler.")
         }
         return .init(sessionID: sessionID, workspaceGeneration: workspaceGeneration,
-                     pluginID: pluginID, sourceRevision: sourceRevision)
+                     pluginID: pluginID, sourceRevision: sourceRevision,
+                     laneID: projection["selectedLaneID"] as? String ?? "laneA",
+                     bindingVersion: projection["bindingVersion"] as? Int ?? 0)
     }
 
     func fldigiTransmitDestination() throws -> WSJTXContestDestination {
@@ -224,6 +226,7 @@ actor PythonContestLane {
                 "expectedRevision": revision,
                 "semanticIdentity": semanticIdentity,
                 "packet": record.fields,
+                "laneID":destination.laneID,"bindingVersion":destination.bindingVersion,
             ]
             if let country = countryWire(call) { params["countries"] = [call: country] }
             let result = try await perform(method: "contest_digital_ingest", params: params)
@@ -643,6 +646,7 @@ actor PythonContestLane {
         ]
         if let sslCertificateFileURL { environment["SSL_CERT_FILE"] = sslCertificateFileURL.path }
         if n1mmUDPAllowed { environment["XLOG_CONTEST_N1MM_UDP_ALLOWED"] = "1" }
+        if AppRuntimeProfile.current.connectedLoopbackAcceptance { environment["XLOG_CONTEST_N1MM_LOOPBACK_ONLY"] = "1" }
         return environment
     }
 

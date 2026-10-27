@@ -95,6 +95,20 @@ class RTTYHostCase(unittest.TestCase):
 
 
 class CQWPXRTTYHostTests(RTTYHostCase):
+    def test_external_actual_serial_conflict_and_future_reservations_share_one_ledger(self):
+        before=self.read("projection")["projection"]
+        packet={"CALL":"K1ABC","MODE":"RTTY","FREQ":"14.080000","QSO_DATE":"20261027","TIME_ON":"081500","STX":"1","SRX":"12","RST_SENT":"599","RST_RCVD":"599"}
+        with self.assertRaisesRegex(HostError,"reserved"):
+            self.mutate("digital_ingest",workspaceGeneration=self.workspace,semanticIdentity="4"*64,packet=packet)
+        packet["STX"]="41"
+        first=self.mutate("digital_ingest",workspaceGeneration=self.workspace,semanticIdentity="5"*64,packet=packet)
+        self.assertEqual(self.read("log")["rows"][0]["SentNr"],41)
+        self.assertEqual(first["projection"]["draftID"],before["draftID"])
+        self.assertEqual(first["projection"]["fields"],before["fields"])
+        self.assertTrue(self.mutate("digital_ingest",workspaceGeneration=self.workspace,semanticIdentity="5"*64,packet=packet)["digitalDuplicate"])
+        self.mutate("qso_commit",timestamp="2026-10-27 08:16:00",fields={"callsign":"DL1ABC","other_2":"13"})
+        self.assertEqual(self.read("projection")["projection"]["reservedSerial"],42)
+
     plugin_id = "cq_wpx_rtty"
     sent_exchange = "IGNORED BY SERIAL OWNER"
 
