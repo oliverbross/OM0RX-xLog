@@ -57,6 +57,10 @@ The NL rows are deduplicated **workstream owners**, not named human assignees. B
 
 Keep code completion separate from sponsor-rule verification, native installed behavior, live account integration, physical station acceptance and platform acceptance. A fixture pass never closes a physical gate. A hardware gate need not block unrelated software work. Do not change an accepted restriction into a feature or a failure just to simplify a status report.
 
+## Wave 5 active ownership
+
+The current canonical-main batch owns W14, W17, W18, advanced W08 and the explicitly selected W19 children in the [Wave 5 acceptance record](WAVE5_SPECIALIST_ECOSYSTEM_ACCEPTANCE_2026-10-27.md). Existing Python/session, import/export, station and Analytics owners remain authoritative. Selection was recorded before implementation; all other NL-02–04 children retain individual dispositions. Production 1.3.50 and all earlier physical/provider restrictions remain unchanged. Candidate acceptance is pending; installation is outside this batch.
+
 ## Carry-forward work — all 33 retained owners
 
 The original IDs and substantive criteria are preserved below. Use their child matrices/ledgers for individual definitions and historical markers.
