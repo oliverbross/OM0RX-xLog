@@ -49,8 +49,6 @@ The excluded `codex/cw-skimmer` tip `3a28134caa6c6c981c5f2a564fa22a69d1bc7778` r
 
 Separate unresolved gates: NL-06 capacity/coalescing; NL-07 physical Flex identity/IQ mapping/continuity/LAN-VPN (last TCP attempt failed); NL-08 real SunSDR2 DX/ExpertSDR3 dual-receiver packets, reconnect/sleep and TX quarantine; NL-09 consented real-IQ independent whole-call held-out corpus and false-spot calibration; NL-10 exact-package lifecycle/action receipts/external consumer/8–24-hour soaks. Independent authorized offline fixtures may proceed without closing these gates. CW decoding and automatic local CW spots stay disabled. No second decoder or new Flex/TCI audio transport is introduced.
 
-## Remaining boundaries
-
 ## First signed candidate and demonstrated replacement blocker
 
 Signed **1.3.47**, clean canonical source **`1e179ce40eed6b86b726ceaede6af961954fe3f1`**, is retained unchanged at `.build/releases/1.3.47/OM0RX-xLog.app`. Developer ID/deep/strict verification, eight component hashes, all bundled Python owner bytes and native/distribution/Python/CW provenance passed. The normalized 4,100-entry tree SHA-256 is `233f8bbe088db5bf82659a1a77eecc5f504a799c728da9ac6405f7b50e33d1fe`. The first build launcher hit its 120-second idle timeout before producing an app; the completed build resumed from the same clean source/cache with a longer deadline.
