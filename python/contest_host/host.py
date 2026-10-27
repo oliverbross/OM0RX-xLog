@@ -1515,6 +1515,9 @@ class Host:
             require(type(params.get("expectedRevision")) is int and params["expectedRevision"] == state["revision"],
                     "Contest snapshot changed; refresh before review", "stale_revision")
             if method == "strategy":
+                if params.get("section") == "adif_preview":
+                    from .adif_import import review
+                    return review(self,store,state,params,require)[0]
                 if params.get("section") == "archive_inspect":
                     from .submission_archive import inspect
                     return inspect(text(params.get("sourcePath"),4096),require)
@@ -2647,7 +2650,10 @@ class Host:
                 try:
                     if method == "strategy_apply":
                         from .strategy import mutate as strategy_mutate, projection as strategy_projection
-                        if params.get("action") in {"site_activate", "beacon_add", "transverter_save"}:
+                        if params.get("action") == "adif_import":
+                            from .adif_import import apply
+                            wave_result = apply(self,store,state,params,require)
+                        elif params.get("action") in {"site_activate", "beacon_add", "transverter_save"}:
                             from .vhf import mutate as vhf_mutate
                             def occupied_sites():
                                 from .lanes import select
@@ -3643,6 +3649,7 @@ class Host:
             serial = reservation["serial"]
         else:
             serial = store.exec_sql("SELECT coalesce(max(serial),0)+1 AS serial FROM xlog_serial WHERE scope=?", (scope,))["serial"]
+            serial = max(serial,state.get("historicalSerialFloor",0)+1)
             store.conn.execute("INSERT INTO xlog_serial(draft_id,serial,operation_id,scope) VALUES(?,?,?,?)",
                                (state["draft"]["id"], serial, self._operation, scope))
         state["draft"]["serial"] = serial
@@ -4232,6 +4239,9 @@ class Host:
 
     def commit(self, desk, qso_id=None, timestamp=None, base=None, frequency=None, operator=None, digital_packet=None):
         fields = desk.values()
+        if requires_serial(desk.state) and desk.state.get("historicalSerialFloor") and base is None:
+            require(not desk.database.exec_sql("SELECT ID FROM DXLOG WHERE CAST(SentNr AS INTEGER)=?",(desk.state["draft"].get("serial"),)),
+                    "The preserved draft serial is already present in an imported historical contact. Preserve any actual sent exchange and deliberately finish/reconcile this draft before using a fresh serial.","historical_serial_conflict")
         require(re.fullmatch(r"[A-Z0-9/]{3,32}", desk.parsed_call()) is not None, "Complete callsign required")
         self.validate_exchange(desk, fields)
         if desk.state["pluginID"] == "darc_schwaben" \
@@ -4748,6 +4758,7 @@ class Host:
                 from .lanes import augment_adif
                 known = {row["qso_id"]: json.loads(row["attribution"]) for row in desk.database.exec_sql_mult("SELECT * FROM xlog_qso_lane")}
                 digital={row["qso_id"]:json.loads(row["packet"]) for row in desk.database.exec_sql_mult("SELECT * FROM xlog_digital_event")}
+                digital.update({row["qso_id"]:json.loads(row["source"])["raw"] for row in desk.database.exec_sql_mult("SELECT * FROM xlog_adif_import")})
                 if known or digital:
                     files[0].write_bytes(augment_adif(files[0].read_bytes(), desk.database.fetch_all_contacts_asc(), known, require,digital))
             require(files[0].stat().st_size <= maximum,

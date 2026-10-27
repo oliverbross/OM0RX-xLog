@@ -966,6 +966,9 @@ def adif_context_fields(desk, contact):
     site = desk.database.exec_sql("SELECT site FROM xlog_qso_site WHERE qso_id=?", (contact["ID"],))
     if site:
         fields["APP_XLOG_SITE"] = site["site"]
+    imported = desk.database.exec_sql("SELECT source FROM xlog_adif_import WHERE qso_id=?",(contact["ID"],))
+    if imported:
+        fields["APP_XLOG_IMPORT_SOURCE"] = imported["source"]
     exchange = {key: contact[key] for key in (
         "SentNr", "NR", "Name", "Exchange1", "CK", "Prec", "Sect", "GridSquare", "ZN", "MiscText"
     ) if key in contact and contact[key] not in (None, "")}

@@ -188,7 +188,7 @@ def augment_adif(payload, rows, attributions, require, digital_events=None):
         if packet:
             # ADIF mode/submode and actual sent serial are immutable external
             # evidence. Received corrections remain the authoritative row's.
-            fields.update({key:packet[key] for key in ("MODE","SUBMODE","STX","STX_STRING","APP_XLOG_EXTERNAL_INSTANCE") if packet.get(key)})
+            fields.update({key:packet[key] for key in ("MODE","SUBMODE","STX","STX_STRING","STATION_CALLSIGN","OPERATOR","MY_GRIDSQUARE","FREQ_RX","APP_XLOG_EXTERNAL_INSTANCE") if packet.get(key)})
             fields["APP_XLOG_EXTERNAL_ADIF"]=json.dumps(packet,ensure_ascii=False,separators=(",",":"))
         addition = "".join(f"<{key}:{len(str(value))}>{value}\r\n" for key, value in fields.items())
         content = content[:offset] + addition + content[offset:]

@@ -460,7 +460,8 @@ actor PythonContestLane {
             var countries: [String: [String: Any]] = [:]
             let qtcCounterpart = ["contest_strategy", "contest_strategy_apply"].contains(method)
                 ? result["counterpart"] as? String : nil
-            for rawCall in [fields?["callsign"] as? String, observedCall, qtcCounterpart].compactMap({ $0 }) {
+            let importCall = ((result["record"] as? [String: Any])?["raw"] as? [String: Any])?["CALL"] as? String
+            for rawCall in [fields?["callsign"] as? String, observedCall, qtcCounterpart, importCall].compactMap({ $0 }) {
                 let call = rawCall.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
                 if !call.isEmpty, let country = countryWire(call) { countries[call] = country }
             }

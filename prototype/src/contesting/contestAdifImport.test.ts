@@ -1,5 +1,6 @@
+// @vitest-environment jsdom
 import { expect, it } from "vitest";
-import { contestADIFImport } from "./contestAdifImport";
+import { contestADIFImport,historicalADIFRecords } from "./contestAdifImport";
 
 const bytes=(value:string)=>new TextEncoder().encode(value).buffer;
 
@@ -29,4 +30,12 @@ it("rejects a wrong contest, invalid zone, and a truncated record before import"
   await expect(contestADIFImport(bytes(base.replace("CQ-WW-SSB","CQ-WW-CW!")))).rejects.toThrow("not CQ-WW-SSB");
   await expect(contestADIFImport(bytes(base.replace("<CQZ:2>20","<CQZ:2>41")))).rejects.toThrow("invalid CQ zone");
   await expect(contestADIFImport(bytes(base.replace("<CALL:4>LZ9W","<CALL:8>LZ9W")))).rejects.toThrow();
+});
+
+it("uses the shared ADI/ADX decoder and retains raw serials, submode and extension metadata without row identities",async()=>{
+  const document='<ADX><HEADER><ADIF_VER>3.1.7</ADIF_VER></HEADER><RECORDS><RECORD><CALL>K1ABC</CALL><STX>00101</STX><MODE>RTTY</MODE><SUBMODE>RTTY</SUBMODE><APP PROGRAMID="VENDOR" FIELDNAME="SOURCE" TYPE="S">opaque</APP></RECORD></RECORDS></ADX>';
+  const records=await historicalADIFRecords(bytes(document),'utf-8');
+  expect(records[0].raw).toMatchObject({CALL:'K1ABC',STX:'00101',MODE:'RTTY',SUBMODE:'RTTY',APP_VENDOR_SOURCE:'opaque'});
+  expect(records[0].metadata?.extensions.APP_VENDOR_SOURCE).toBeTruthy();expect(records[0].sourceSHA256).toMatch(/^[a-f0-9]{64}$/);
+  await expect(historicalADIFRecords(bytes('<CALL:4>K1AB'),'utf-8')).rejects.toThrow();
 });

@@ -1,4 +1,15 @@
-import { decodeADIFDocument } from "../live/adifTransfer";
+import { decodeADIFDocument, type ADIFFieldMetadata, type ADIFImportEncoding } from "../live/adifTransfer";
+
+export type HistoricalADIFRecord={raw:Record<string,string>;metadata:ADIFFieldMetadata|null;sourceSHA256:string};
+export async function historicalADIFRecords(bytes:ArrayBuffer,encoding:ADIFImportEncoding):Promise<HistoricalADIFRecord[]>{
+  const document=decodeADIFDocument(bytes,encoding),parsed=records(document.text);
+  const sourceSHA256=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)),byte=>byte.toString(16).padStart(2,"0")).join("");
+  return parsed.map((record,index)=>{
+    const item={raw:Object.fromEntries(record),metadata:document.fieldMetadata[index]??null,sourceSHA256};
+    if(new TextEncoder().encode(JSON.stringify(item)).length>20000)throw Error(`Contact ${index+1} exceeds the native import frame bound. Nothing was imported.`);
+    return item;
+  });
+}
 
 export type ContestADIFImportRecord = {
   qsoID: string;
