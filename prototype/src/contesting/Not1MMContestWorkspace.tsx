@@ -3972,7 +3972,20 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
             if(!page.rows.length)throw new Error(origin?"No committed QSO with known attribution is available in this lane.":"Log a QSO before adding a last-QSO note.");
             return {qsoID:page.rows[0].ID,callsign:page.rows[0].Call,...(origin?{laneID:origin.laneID,bindingVersion:origin.bindingVersion,bindingGeneration:origin.bindingGeneration}:{})};}}/></>}
       {productivityTab==="Submission"&&<ContestSubmissionPanel scope={projection} request={request as ContestRequest} formats={projection.exportFormats??["cabrillo","adif"]}
-        disabled={busy||retiring} onExport={(format,revision,digest,siteID)=>exportLog(format,true,undefined,revision,digest,siteID)}/>}
+        disabled={busy||retiring} onExport={(format,revision,digest,siteID)=>exportLog(format,true,undefined,revision,digest,siteID)}
+        onRecordingIndex={async()=>{const active=projectionRef.current;if(!active)throw Error("Open a contest.");
+          const base={logID:active.sessionID,observedAtUTC:new Date().toISOString(),audioIncluded:false,completeMediaInventory:false};
+          try{const status:any=await invoke("contest_recorder_request",{request:{action:"status"}});
+            if(status.context?.logId!==active.sessionID||!Array.isArray(status.captures))throw Error("Recorder context/index is unavailable for this log.");
+            const captures=status.captures.filter((item:any)=>(item.logId??item.log_id)===active.sessionID).map((item:any)=>({logID:active.sessionID,captureID:item.captureId??item.capture_id}));
+            const index={...base,status:"registered-capture-IDs-only",source:"native Recorder status",captures};
+            if(new TextEncoder().encode(JSON.stringify(index)).length>12000)throw Error("Recorder index exceeds the snapshot bound; no partial list was substituted.");return index;
+          }catch(cause){return {...base,status:"unavailable",reason:errorMessage(cause)};}}}
+        onArchive={async prepared=>{const active=projectionRef.current;if(!active||active.sessionID!==prepared.sessionID||active.workspaceGeneration!==prepared.workspaceGeneration||busyRef.current||retiring)
+            throw Error("The reviewed archive context changed.");busyRef.current=true;setBusy(true);try{const saved=await nativeContestExportSave(prepared);
+              if(saved.status==="failed")throw Error(saved.message);setNotice(saved.status==="saved"?`Saved immutable archive ${saved.filename}; not submitted.`:"Archive save cancelled.");return saved;
+            }finally{busyRef.current=false;setBusy(false);}}}
+        onInspectArchive={()=>invoke("contest_archive_choose_preview")}/>}
     </section>}
     <div hidden aria-hidden="true">{checkPanel}</div>
   </main>;

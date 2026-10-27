@@ -141,3 +141,20 @@ it("drops submission preflight replies after the log revision advances and expor
   fireEvent.click(screen.getByRole("button", { name: "Save reviewed export" }));
   expect(onExport).toHaveBeenCalledWith("cabrillo", 8, "b".repeat(64));
 });
+
+it("saves the frozen reviewed archive receipt and releases an obsolete archive without publishing it",async()=>{
+  const prepared={artifactID:"archive-id",sessionID:scope.sessionID,workspaceGeneration:scope.workspaceGeneration,revision:7,byteLength:900,sha256:"c".repeat(64),format:"archive" as const,filename:"review.zip"};
+  const request=vi.fn(async()=>({id:"archive",ok:true,result:{revision:7,checks:[],manifest:{sha256:"a".repeat(64),byteLength:100},prepared,archiveManifest:{submissionStatus:"not-submitted"}}})) as unknown as ContestRequest;
+  const onArchive=vi.fn(async()=>{}),onExport=vi.fn(async()=>{}),onRecordingIndex=vi.fn(async()=>({audioIncluded:false,status:"unavailable"}));
+  const mounted=render(<ContestSubmissionPanel scope={scope} request={request} formats={["adif"]} disabled={false} onArchive={onArchive} onExport={onExport} onRecordingIndex={onRecordingIndex}/>);
+  fireEvent.click(screen.getByRole("button",{name:"Review immutable archive"}));
+  await screen.findByRole("button",{name:"Save reviewed immutable archive"});
+  expect(request).toHaveBeenCalledWith("contest_submission_preflight",expect.objectContaining({archive:true,recordingIndex:{audioIncluded:false,status:"unavailable"}}));
+  fireEvent.click(screen.getByRole("button",{name:"Save reviewed immutable archive"}));
+  await waitFor(()=>expect(onArchive).toHaveBeenCalledWith(prepared));expect(onExport).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button",{name:"Review immutable archive"}));
+  await screen.findByRole("button",{name:"Save reviewed immutable archive"});
+  mounted.rerender(<ContestSubmissionPanel scope={{...scope,revision:8}} request={request} formats={["adif"]} disabled={false} onArchive={onArchive} onExport={onExport}/>);
+  expect(screen.queryByRole("button",{name:"Save reviewed immutable archive"})).toBeNull();
+  expect(request).toHaveBeenCalledWith("contest_export_release",{sessionID:scope.sessionID,workspaceGeneration:scope.workspaceGeneration,exportID:"archive-id"});
+});

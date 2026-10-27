@@ -100,7 +100,7 @@ fn validate_transfer(
 }
 
 #[cfg(target_os = "macos")]
-async fn choose_legacy_file(window: tauri::WebviewWindow) -> Result<Option<PathBuf>, String> {
+async fn choose_legacy_file(window: tauri::WebviewWindow, archive: bool) -> Result<Option<PathBuf>, String> {
     use objc2::MainThreadMarker;
     use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
     use objc2_foundation::NSString;
@@ -115,7 +115,7 @@ async fn choose_legacy_file(window: tauri::WebviewWindow) -> Result<Option<PathB
                 panel.setAllowsMultipleSelection(false);
                 panel.setCanCreateDirectories(false);
                 panel.setMessage(Some(&NSString::from_str(
-                    "Choose a legacy Not1MM SQLite database",
+                    if archive {"Choose an immutable xLog submission ZIP for read-only verification"}else{"Choose a legacy Not1MM SQLite database"},
                 )));
                 if panel.runModal() == NSModalResponseOK {
                     panel.URL().and_then(|url| url.path()).map(|path| PathBuf::from(path.to_string()))
@@ -130,10 +130,10 @@ async fn choose_legacy_file(window: tauri::WebviewWindow) -> Result<Option<PathB
 }
 
 #[cfg(not(target_os = "macos"))]
-async fn choose_legacy_file(_window: tauri::WebviewWindow) -> Result<Option<PathBuf>, String> {
-    tauri::async_runtime::spawn_blocking(|| rfd::FileDialog::new()
-        .set_title("Choose a legacy Not1MM SQLite database")
-        .add_filter("Not1MM SQLite", &["sqlite", "sqlite3", "db"])
+async fn choose_legacy_file(_window: tauri::WebviewWindow, archive: bool) -> Result<Option<PathBuf>, String> {
+    tauri::async_runtime::spawn_blocking(move || rfd::FileDialog::new()
+        .set_title(if archive {"Inspect immutable submission ZIP"}else{"Choose a legacy Not1MM SQLite database"})
+        .add_filter("Contest source", if archive {&["zip"]}else{&["sqlite", "sqlite3", "db"]})
         .set_can_create_directories(false).pick_file()).await
         .map_err(|_| "Legacy Not1MM chooser failed.".to_string())
 }
@@ -185,7 +185,7 @@ pub async fn contest_legacy_choose_preview(
     admit(window.label())?;
     let generation = crate::worker::existing_generation()?;
     let app = window.app_handle().clone();
-    let selected = choose_legacy_file(window).await?;
+    let selected = choose_legacy_file(window, false).await?;
     let Some(path) = selected else {
         return Ok(None);
     };
@@ -305,6 +305,24 @@ pub async fn contest_legacy_import(
     .await
     .map_err(|_| "Contest window context task failed".to_string())??;
     Ok(value)
+}
+
+#[tauri::command]
+pub async fn contest_archive_choose_preview(window: tauri::WebviewWindow) -> Result<Option<Value>, String> {
+    if window.label()!="contest-setup" {return Err("Open Productivity Submission to inspect a submission archive.".into());}
+    let context=crate::contest_window_context::active()?;
+    let generation=crate::worker::existing_generation()?;
+    let Some(path)=choose_legacy_file(window,true).await? else {return Ok(None)};
+    if path.extension().and_then(|value|value.to_str()).is_none_or(|v|!v.eq_ignore_ascii_case("zip")) {return Err("Choose a submission ZIP; no files were changed.".into());}
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::contest_window_context::admit(&context)?;
+        crate::worker::require_existing_generation(generation)?;
+        let current=request("contest_draft_get",json!({"sessionID":context.session_id}),generation)?;
+        let reviewed=request("contest_strategy",json!({"sessionID":context.session_id,"workspaceGeneration":context.workspace_generation,
+            "expectedRevision":current["projection"]["revision"],"section":"archive_inspect","sourcePath":path.to_string_lossy()}),generation)?;
+        crate::contest_window_context::admit(&context)?;
+        Ok(Some(reviewed))
+    }).await.map_err(|_|"Archive inspection task failed".to_string())?
 }
 
 #[cfg(test)]

@@ -14,6 +14,7 @@ pub enum ExportFormat {
     Cabrillo,
     Adif,
     Edi,
+    Archive,
 }
 
 impl ExportFormat {
@@ -22,6 +23,7 @@ impl ExportFormat {
             Self::Cabrillo => "log",
             Self::Adif => "adi",
             Self::Edi => "edi",
+            Self::Archive => "zip",
         }
     }
 }
@@ -366,6 +368,7 @@ fn validate_format(bytes: &[u8], format: ExportFormat) -> Result<(), String> {
         }
         ExportFormat::Adif => valid_adif(bytes),
         ExportFormat::Edi => valid_edi(bytes),
+        ExportFormat::Archive => bytes.starts_with(b"PK\x03\x04") && bytes.len()>=22 && bytes[bytes.len()-22..].starts_with(b"PK\x05\x06"),
     };
     if valid {
         Ok(())
@@ -1433,6 +1436,19 @@ mod tests {
             assert!(validate_format(invalid, ExportFormat::Edi).is_err());
         }
         assert!(validate_format(&not1mm_adif_bytes(), ExportFormat::Edi).is_err());
+    }
+
+    #[test]
+    fn archive_is_saved_as_exact_reviewed_bytes_and_rejects_non_zip_before_dialog() {
+        let mut data = b"PK\x03\x04frozen data".to_vec();
+        data.extend_from_slice(b"PK\x05\x06"); data.extend_from_slice(&[0;18]);
+        let mut worker = TestWorker::new(data.clone());
+        worker.coordinate.format = ExportFormat::Archive;
+        let (result, dialog, writes) = run(&worker,&TestAdmission::passing(),Some(PathBuf::from("review.zip")),false);
+        assert_eq!(result.status,SaveStatus::Saved);
+        assert_eq!(*dialog.lock().unwrap(),1);
+        assert_eq!(writes.lock().unwrap().as_slice(),&[(PathBuf::from("review.zip"),data)]);
+        assert!(validate_format(&bytes(),ExportFormat::Archive).is_err());
     }
 
     #[test]

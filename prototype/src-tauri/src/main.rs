@@ -4194,6 +4194,7 @@ fn main() {
             contest_log_review::contest_log_review_correct_call,
             contest_log_transfer::contest_log_transfer_context, contest_log_transfer::contest_log_transfer_request,
             contest_log_transfer::contest_legacy_choose_preview, contest_log_transfer::contest_legacy_import,
+            contest_log_transfer::contest_archive_choose_preview,
             contest_setup_dialog_open, contest_setup_dialog_request,
             contest_group_chat_configure, contest_group_chat_snapshot, contest_group_chat_send,
             contest_group_network_snapshot, contest_group_network_publish, contest_group_network_acknowledgements,

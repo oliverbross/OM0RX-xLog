@@ -59,6 +59,12 @@ WAE's newly introduced first-party definition now pins version **1.0.0** and its
 
 Focused checks: **3** deterministic developer-kit/source-oracle/unsupported-input tests, **2** real-host read-only/version-compatibility tests, **1** UI nonexecution test and TypeScript passed. Logs: `/tmp/xlog-wave5-kit.log`, `/tmp/xlog-wave5-kit-host.log`, `/tmp/xlog-wave5-kit-ui.log`, `/tmp/xlog-wave5-kit-tsc.log`. Final signed-candidate bundled-resource/native inspection remains pending.
 
+### W08 archive implementation checkpoint — source, candidate pending
+
+Submission preflight can freeze a bounded immutable ZIP containing the exact reviewed export, checks, manifest, authoritative contacts, notes, explicit site/lane provenance and separate QTC/import journals when present. The recording index contains registered IDs only when available, explicitly excludes audio, and discloses unavailable/incomplete inventory. It is not a media backup. The shared native Save owner publishes the frozen bytes exclusively without overwriting an existing destination. The native Open dialog supports read-only archive inspection: bounded members, safe names, exact member set and hashes, no extraction, restore, executable commands or organizer submission. Internal consistency must be compared with the trusted outer Save digest; an archive is not a signature.
+
+Focused checks passed: **2** Python freeze/restart/tamper regressions, **7** productivity UI tests, **24** native export-owner tests and TypeScript. Historical contact correction does not change the retained export/archive bytes. Stable-candidate Save-dialog byte comparison and graphical reopen remain pending. Advanced family import is a separate unfinished W08 slice.
+
 The historical and later Clear initiators remain unresolved. Neither a new regression nor Escape causation is established. All graphical work uses fresh accessibility targets in marked disposable storage; explicit observed Cancel/Close only. No production UI or production-data fixtures are authorized.
 
 NL-32 automatic-sync failure diagnosis and NL-13/16 rotor command provenance remain open under their existing owners; no new evidence warrants repeating those investigations. Unsaved note editors remain view-local until saved. Private WebKit IDBKEY backup bytes were verified, but SQLite integrity was not established; no collation substitution/cache repair is permitted.

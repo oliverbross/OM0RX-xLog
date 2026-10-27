@@ -1515,6 +1515,9 @@ class Host:
             require(type(params.get("expectedRevision")) is int and params["expectedRevision"] == state["revision"],
                     "Contest snapshot changed; refresh before review", "stale_revision")
             if method == "strategy":
+                if params.get("section") == "archive_inspect":
+                    from .submission_archive import inspect
+                    return inspect(text(params.get("sourcePath"),4096),require)
                 if params.get("section") == "developer":
                     from .developer import TEMPLATES, describe, inspect_udc
                     raw=params.get("udcText")
@@ -1942,6 +1945,30 @@ class Host:
                     "Contest changed before submission review", "stale_revision")
             export_format = params.get("format", "cabrillo")
             require(export_format in PLUGIN_REGISTRY[state["pluginID"]].export_formats, "Unsupported submission format")
+            if params.get("archive") is True:
+                require(len(self.exports)<8,"Release another prepared export first","export_busy")
+                from .submission_archive import build
+                store.conn.execute('BEGIN')
+                try:
+                    current=store.state(session_id)
+                    require(current["revision"]==state["revision"],"Contest changed before archive snapshot","stale_revision")
+                    archive_desk=Desk(store,current,self.commit)
+                    selected=None
+                    if export_format=="edi":
+                        from .vhf import edi_scope
+                        archive_desk=edi_scope(archive_desk,params.get("siteID"),require)
+                        selected=archive_desk.database.fetch_all_contacts_asc()
+                    filename,payload=self.export_artifact(archive_desk,32*1024*1024,export_format)
+                    review=submission_preflight(archive_desk,export_format,filename,payload,selected)
+                    if params.get("siteID") is not None:review["manifest"]["siteID"]=params["siteID"]
+                    frozen,archive_manifest=build(Desk(store,current,self.commit),review,payload,params.get("recordingIndex"),require)
+                finally:
+                    store.conn.rollback()
+                artifact_id=str(uuid.uuid4());digest=hashlib.sha256(frozen).hexdigest()
+                prepared={"artifactID":artifact_id,"sessionID":session_id,"workspaceGeneration":workspace_generation(state),"revision":state["revision"],
+                          "byteLength":len(frozen),"sha256":digest,"format":"archive","filename":f'{state["pluginID"]}-r{state["revision"]}-{digest[:12]}.zip'}
+                self.exports[artifact_id]={"prepared":prepared,"bytes":frozen}
+                return {**review,"archiveManifest":archive_manifest,"prepared":prepared}
             filename, payload = self.export_artifact(desk, 32 * 1024 * 1024, export_format, params.get("siteID"))
             if export_format == "edi":
                 from .vhf import edi_scope
