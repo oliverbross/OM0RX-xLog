@@ -721,6 +721,8 @@ class Desk:
             return
         if mode in DIGITAL_OUTPUT_MODES:
             self.record_fldigi_output(rendered)
+            if self.state.get("laneState"):
+                self.actions[-1].update(context)
             return
         if mode != "CW":
             return
@@ -2445,6 +2447,8 @@ class Host:
             from .lanes import select as select_lane, ENTRY_METHODS
             action_lane = select_lane(state, params, require, mandatory=method in ENTRY_METHODS or method == "note_save"
                                       or method == "strategy_apply" and params.get("action") == "sked_load")
+            from .lanes import attribution as lane_attribution
+            origin_context = lane_attribution(state)
             if state.get("laneState", {}).get("mode", "SO1V") != "SO1V" and method in ENTRY_METHODS - {"lane_select"}:
                 require(params.get("draftID") == state["draft"]["id"], "Lane draft changed", "stale_draft")
                 if method in {"esm", "function_key"}:
@@ -2938,8 +2942,10 @@ class Host:
                 result["legacyImport"] = legacy_summary
             for index, action in enumerate(result["actions"]):
                 action["actionID"] = f"{operation}:{index}"
-                if action_context:
-                    action.update(laneID=action_context["laneID"], bindingVersion=action_context["bindingVersion"], laneBinding=action_context["binding"])
+                if origin_context:
+                    original_draft = origin_context["draftID"]
+                    action.update(laneID=origin_context["laneID"], bindingVersion=origin_context["bindingVersion"], laneBinding=origin_context["binding"],
+                                  originDraftID=original_draft, draftID=original_draft, workspaceGeneration=origin_context["workspaceGeneration"])
             store.conn.execute("INSERT INTO xlog_operation VALUES(?,?,?)", (operation, payload, canonical(result)))
             store.finish(True)
             self.remember_active_session(session_id)

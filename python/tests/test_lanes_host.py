@@ -288,6 +288,42 @@ class LaneHostTests(unittest.TestCase):
         sked = self.read("contest_strategy", workspaceGeneration=self.workspace, expectedRevision=self.revision)["skeds"][0]
         self.assertEqual(sked["status"], "active")
 
+    def test_logit_wipe_output_keeps_original_draft_serial_route_and_is_claimed_once_after_restart(self):
+        self.serial_session()
+        self.configure()
+        setup = self.read("setup_get")["setup"]
+        setup["macros"] = [{"mode": "S", "key": "F8", "label": "Log then TU", "template": "{CALL} {EXCHANGE} TU {LOGIT}{WIPE}"}]
+        self.mutate("setup_save", setup=setup)
+        before = self.lanes()["laneB"]
+        params = {"sessionID": self.session, "workspaceGeneration": self.workspace, "operationID": fixtures.uid(),
+                  "expectedRevision": self.revision, "laneID": "laneB", "bindingVersion": before["bindingVersion"],
+                  "draftID": before["draftID"], "key": "F8", "fields": {"callsign": "K1ABC", "other_2": "123"}}
+        changed = self.call("contest_function_key", params)
+        action = changed["actions"][0]
+        after = next(lane for lane in changed["projection"]["operatingLanes"]["lanes"] if lane["laneID"] == "laneB")
+        self.assertNotEqual(after["draftID"], before["draftID"])
+        self.assertEqual(after["fields"][0]["value"], "")
+        self.assertEqual((action["originDraftID"], action["draftID"], action["workspaceGeneration"]),
+                         (before["draftID"], before["draftID"], self.workspace))
+        self.assertEqual((action["laneID"], action["bindingVersion"], action["laneBinding"]),
+                         ("laneB", before["bindingVersion"], binding_b))
+        self.assertEqual(action["fields"]["callsign"], "K1ABC")
+        self.assertEqual(action["sentSerial"], str(before["reservedSerial"]).zfill(3))
+        self.assertEqual(self.read("log")["total"], 1)
+        self.restart()
+        receipt = self.read("contest_operation_receipt", operationID=changed["operationID"])
+        self.assertTrue(receipt["found"])
+        self.assertEqual(receipt["result"]["actions"], [])
+        claimed = self.read("contest_output_claim", operationID=changed["operationID"], revision=changed["revision"])
+        self.assertEqual(claimed["actions"], changed["actions"])
+        replayed = self.call("contest_function_key", params)
+        self.assertTrue(replayed["replayed"])
+        self.assertEqual(replayed["actions"], [])
+        self.assertEqual(self.read("log")["total"], 1)
+        with self.assertRaises(HostError) as error:
+            self.read("contest_output_claim", operationID=changed["operationID"], revision=changed["revision"])
+        self.assertEqual(error.exception.code, "output_consumed")
+
 
 if __name__ == "__main__":
     unittest.main()

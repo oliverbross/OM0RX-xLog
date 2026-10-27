@@ -148,7 +148,8 @@ def attribution(state):
     lane = saved["lanes"][lane_id]
     receive = state["draft"].get("receiveFrequencyHz")
     transmit = state["draft"]["frequencyHz"]
-    return {"laneID": lane_id, "loggingLaneID": lane_id, "bindingVersion": lane["bindingVersion"], "binding": deepcopy(lane["binding"]),
+    return {"laneID": lane_id, "loggingLaneID": lane_id, "draftID": state["draft"]["id"], "workspaceGeneration": state.get("workspaceGeneration"),
+            "bindingVersion": lane["bindingVersion"], "binding": deepcopy(lane["binding"]),
             "bindingEvidence": "operator_intent", "physicalRadioEvidence": "unverified", "frequencyEvidence": "entry_context",
             "splitEvidence": "operator_entry" if receive is not None else "unknown", "split": receive != transmit if receive is not None else None,
             "receiveFrequencyHz": receive, "transmitFrequencyHz": transmit}
