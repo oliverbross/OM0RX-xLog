@@ -458,7 +458,9 @@ actor PythonContestLane {
             let observedCall = method == "contest_draft_apply" && result["observedVFOChange"] as? Bool == true
                 ? result["observedSpotCallsign"] as? String : nil
             var countries: [String: [String: Any]] = [:]
-            for rawCall in [fields?["callsign"] as? String, observedCall].compactMap({ $0 }) {
+            let qtcCounterpart = ["contest_strategy", "contest_strategy_apply"].contains(method)
+                ? result["counterpart"] as? String : nil
+            for rawCall in [fields?["callsign"] as? String, observedCall, qtcCounterpart].compactMap({ $0 }) {
                 let call = rawCall.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
                 if !call.isEmpty, let country = countryWire(call) { countries[call] = country }
             }

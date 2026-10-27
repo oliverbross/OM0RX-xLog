@@ -7,6 +7,7 @@ branches. These pinned-behavior examples do not certify every current rulebook.
 """
 
 EXPECTED = {
+    "wae_cw": (1, 2, 2), "wae_ssb": (1, 2, 2), "wae_rtty": (1, 2, 2),
     "cq_ww_cw": (3, 2, 6), "cq_ww_ssb": (3, 2, 6), "cq_ww_rtty": (3, 3, 9),
     "cq_wpx_cw": (3, 1, 3), "cq_wpx_ssb": (3, 1, 3), "cq_wpx_rtty": (3, 1, 3),
     "arrl_ss_cw": (2, 1, 2), "arrl_ss_phone": (2, 1, 2),

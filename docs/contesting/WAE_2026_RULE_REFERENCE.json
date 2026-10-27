@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "source": "https://www.darc.de/der-club/referate/conteste/wae-dx-contest/en/wae-rules/",
+  "retrievedDate": "2026-10-27",
+  "pageEdition": "2025-06-17",
+  "eventYear": 2026,
+  "sha256": "9693e5e843a6bfb054deafe2004d55384c0224a764816c66248f5f13e54c668c",
+  "byteLength": 94008,
+  "localEvidence": ".build/wave5/rules/darc-wae-rules.html",
+  "verifiedSections": [
+    "5 exchange and continental eligibility",
+    "6 WAE country list/call areas/band weights",
+    "7 QTC traffic and Cabrillo order",
+    "8 score",
+    "12 RTTY exceptions"
+  ],
+  "summary": {
+    "qtcCounterpartQuota": 10,
+    "batchItems": [
+      1,
+      10
+    ],
+    "qtcCredit": "one per acknowledged item; separate from QSO rows",
+    "cwSsb": "non-European sender to WAE-European receiver",
+    "rtty": "send/receive across different continents; combined counterpart quota",
+    "score": "(credited QSO points + acknowledged QTC points) * weighted country/call-area multipliers"
+  },
+  "limits": [
+    "Physical output and bidirectional digital engines unqualified",
+    "Organizer upload/acceptance not performed",
+    "Category operating-time and band-change enforcement not certified by this accounting slice"
+  ]
+}

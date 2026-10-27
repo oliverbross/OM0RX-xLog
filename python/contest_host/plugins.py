@@ -38,6 +38,9 @@ class Plugin:
 
 
 PLUGIN_REGISTRY = MappingProxyType({
+    "wae_cw": Plugin("WAE CW", serial=True, bands=("80m", "40m", "20m", "15m", "10m"), manual_enter=True),
+    "wae_ssb": Plugin("WAE SSB", serial=True, modes=("SSB",), bands=("80m", "40m", "20m", "15m", "10m"), manual_enter=True),
+    "wae_rtty": Plugin("WAE RTTY", serial=True, modes=("RTTY",), bands=("80m", "40m", "20m", "15m", "10m"), manual_enter=True),
     "cq_ww_cw": Plugin("CQ WW CW", matrix_trackers=("countries", "zones")),
     "cq_ww_ssb": Plugin("CQ WW SSB", modes=("SSB",), matrix_trackers=("countries", "zones"),
                         manual_enter=True, clear_on_vfo_change=True, filter_spot_ranges=True,

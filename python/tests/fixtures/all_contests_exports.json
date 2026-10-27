@@ -276,5 +276,14 @@
   },
   "vhf_sprint": {
     "cabrillo": "QSO:  144 CW 2026-10-21 1000 OM0RX         jn88   K1ABC         JO60"
+  },
+  "wae_cw": {
+    "cabrillo": "QSO: 14025 CW 2026-10-21 1000 OM0RX 599 1 K1ABC 599 21"
+  },
+  "wae_ssb": {
+    "cabrillo": "QSO: 14025 PH 2026-10-21 1000 OM0RX 59 1 K1ABC 59 21"
+  },
+  "wae_rtty": {
+    "cabrillo": "QSO: 14025 RY 2026-10-21 1000 OM0RX 599 1 K1ABC 599 21"
   }
 }

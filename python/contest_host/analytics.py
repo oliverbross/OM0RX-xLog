@@ -43,6 +43,8 @@ def score_history(rows, state, score, support, available, desk):
     reason = "Corrected category log reconstruction; not an immutable record of what the operator saw."
     unavailable = lambda message: ({"status": "UNVERIFIED", "reason": message, "model": kind}, {})
     if kind is None:
+        if plugin.startswith("wae_"):
+            return unavailable("WAE score includes the separate QTC journal; QSO-only chronological growth is not a verified history model.")
         return ({"status": "NOT APPLICABLE", "reason": "Utility definition has no contest claimed-score history.", "model": None}, {})
     if score.get("scoringComplete") is False:
         return unavailable("The host reports incomplete scoring; score growth is unavailable until the missing evidence is established.")

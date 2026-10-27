@@ -35,9 +35,12 @@ def verify_source():
     if _verified:
         return
     manifest = json.loads((VENDOR.parent / "source-manifest.json").read_text(encoding="utf-8"))
-    if manifest.get("registeredPlugins") != list(PLUGIN_REGISTRY):
+    from .wae import PLUGINS as FIRST_PARTY_PLUGINS
+    if manifest.get("registeredPlugins") != [key for key in PLUGIN_REGISTRY if key not in FIRST_PARTY_PLUGINS]:
         raise RuntimeError("Pinned Not1MM registered plugins differ from the supported registry")
     for plugin_id in PLUGIN_REGISTRY:
+        if plugin_id in FIRST_PARTY_PLUGINS:
+            continue
         if f"not1mm/plugins/{plugin_id}.py" not in manifest["sha256"]:
             raise RuntimeError(f"Pinned Not1MM plugin source hash is missing: {plugin_id}")
     for relative, expected in manifest["sha256"].items():
@@ -152,6 +155,9 @@ def load_plugin(plugin_id="cq_ww_cw"):
     if plugin_id not in PLUGIN_REGISTRY:
         raise ValueError("Unsupported pinned plugin")
     verify_source()
+    from .wae import PLUGINS as WAE_PLUGINS, plugin as wae_plugin
+    if plugin_id in WAE_PLUGINS:
+        return wae_plugin(plugin_id, load_plugin("cq_wpx_cw"))
     if str(VENDOR) not in sys.path:
         sys.path.insert(0, str(VENDOR))
     import_module("not1mm.lib")

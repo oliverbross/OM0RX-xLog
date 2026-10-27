@@ -85,6 +85,8 @@ APPEND_RECALCULATION_PLUGINS = frozenset({
 # The block callback can reassign an earlier flag after tied contacts. Preserve
 # the full-rebuild authority until a bounded append rule proves row equivalence.
 FULL_REBUILD_APPEND_PLUGINS = frozenset({"john_moyle_field_day"})
+APPEND_RECALCULATION_PLUGINS |= frozenset({"wae_cw", "wae_ssb", "wae_rtty"})
+FULL_REBUILD_APPEND_PLUGINS |= frozenset({"wae_cw", "wae_ssb", "wae_rtty"})
 ESTONIAN_REGIONS = frozenset({
     "HM", "HR", "IV", "JG", "JR", "LN", "LV", "PL",
     "PU", "RP", "SR", "TA", "TL", "VC", "VO", "VP",
@@ -1111,6 +1113,9 @@ class Desk:
                 "leaveRunOnRetune": plugin.clear_on_vfo_change and clear != "off"}
 
     def score(self):
+        if self.state["pluginID"].startswith("wae_"):
+            from .wae import score
+            return score(self)
         if self.state["pluginID"] == "nac_vhf":
             points = self.database.fetch_points().get("Points") or 0
             squares = self.contest.show_mults(self)
@@ -1509,6 +1514,14 @@ class Host:
             require(type(params.get("expectedRevision")) is int and params["expectedRevision"] == state["revision"],
                     "Contest snapshot changed; refresh before review", "stale_revision")
             if method == "strategy":
+                if params.get("section") == "qtc":
+                    from .wae import projection
+                    state = deepcopy(state)
+                    if "countries" in params:
+                        require(params.get("referenceID") == state["reference"]["id"], "QTC country reference changed", "reference_mismatch")
+                        additions = self.countries(deepcopy(params["countries"]))
+                        state["reference"]["countries"].update({call: info for call, info in additions.items() if call not in state["reference"]["countries"]})
+                    return projection(Desk(store, state, self.commit), params)
                 from .strategy import projection, reconcile_worked
                 reviewed = deepcopy(state)
                 try:
@@ -2588,7 +2601,14 @@ class Host:
                 try:
                     if method == "strategy_apply":
                         from .strategy import mutate as strategy_mutate, projection as strategy_projection
-                        if params.get("action") == "sked_load":
+                        if str(params.get("action", "")).startswith("qtc_"):
+                            from .wae import mutate as qtc_mutate
+                            if "countries" in params:
+                                require(params.get("referenceID") == state["reference"]["id"], "QTC country reference changed", "reference_mismatch")
+                                additions = self.countries(deepcopy(params["countries"]))
+                                state["reference"]["countries"].update({call: info for call, info in additions.items() if call not in state["reference"]["countries"]})
+                            wave_result = qtc_mutate(desk, params, require)
+                        elif params.get("action") == "sked_load":
                             require(params.get("draftID") == state["draft"]["id"], "Draft changed", "stale_draft")
                             item = next((row for row in state.get("strategy", {}).get("skeds", []) if row["id"] == params.get("itemID")), None)
                             require(item is not None and item["status"] in {"active", "dismissed"}, "This reminder is no longer loadable")
@@ -3682,7 +3702,9 @@ class Host:
 
     @staticmethod
     def validate_exchange(desk, fields):
-        if desk.state["pluginID"] == "cq_ww_rtty":
+        if desk.state["pluginID"].startswith("wae_"):
+            require(re.fullmatch(r"[0-9]{1,9}", fields["other_2"]) is not None, "WAE received serial must be numeric; use 000 only when no serial was sent")
+        elif desk.state["pluginID"] == "cq_ww_rtty":
             require(fields["other_1"].isdigit() and 1 <= int(fields["other_1"]) <= 40,
                     "CQ zone must be 1 to 40")
             country = desk.cty_lookup(desk.callsign.text())
@@ -4612,6 +4634,11 @@ class Host:
         require(export_format in PLUGIN_REGISTRY[desk.state["pluginID"]].export_formats,
                 f"{PLUGIN_REGISTRY[desk.state['pluginID']].name} does not provide {export_format.upper()} export",
                 "export_unsupported")
+        if desk.state["pluginID"].startswith("wae_") and export_format == "cabrillo":
+            from .wae import export
+            payload = export(desk)
+            require(len(payload) <= maximum, "WAE export exceeds the save limit", "export_too_large")
+            return f'{desk.station["Call"]}-{desk.contest.cabrillo_name}.log', payload
         if export_format == "edi":
             validate_edi_start(desk.state["settings"])
         # The pinned plugin writes only inside this explicit private destination.
