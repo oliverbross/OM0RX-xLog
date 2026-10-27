@@ -53,6 +53,6 @@ One native Log It committed disposable **K1W2GUI**, QSO **`78cee6e4-d3f6-432e-87
 
 One further demonstrated defect requires executable replacement: native observations use Apple-reference seconds, but the new Opportunities age rendered them as Unix milliseconds (about 29 million minutes). The narrow correction reuses the existing spot-age formatter and clock. A focused regression covers newest grouped native timestamps, fresh/future and invalid values; **all seven opportunity tests and TypeScript passed**. Unchanged backend, rule, message, workload and Wave 1 evidence is reused.
 
-**Final replacement/native restart acceptance remains in progress.** No installation is authorized.
+The age fix source is **`add5d272623aaf331bf0412e8aaa184d6802961e`**. The next unused replacement version is **1.3.42**, packaged from the clean canonical version commit containing this entry with the same disabled-CW packaging command. Exact packaging HEAD, retained hashes and final native/restart results follow in its receipt. **Final native acceptance remains in progress.** No installation is authorized.
 
 No installation, live connection/upload/capture, synthetic production QSO, completed-log rescore, radio/PTT/RF/rotor action or CW decoding enablement is authorized. Fake transports/disposable stores establish software behavior only. Stop before installation and Wave 3.
