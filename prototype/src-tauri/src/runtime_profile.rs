@@ -37,15 +37,22 @@ fn offline_coordinate(args: &[String]) -> Result<Option<(std::path::PathBuf, uui
 pub(crate) fn configure_offline(args: Vec<String>, config: &mut tauri::utils::config::Config) -> Result<(), String> {
     if let Some((root, id)) = offline_coordinate(&args)? {
         config.identifier = format!("com.oliverbross.xlog.wave1-acceptance.{}", id.simple());
-        for window in &mut config.app.windows {
-            window.title = "OM0RX-xLog — disposable offline acceptance".into();
-            window.data_store_identifier = Some(*id.as_bytes());
-        }
+        configure_offline_windows(config, id);
         config.app.security.csp = Some(tauri::utils::config::Csp::Policy(
             "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ipc: http://ipc.localhost; worker-src 'self' blob:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'".into()));
         OFFLINE.set((root, id)).map_err(|_| "Offline acceptance already configured")?;
     }
     Ok(())
+}
+fn configure_offline_windows(config: &mut tauri::utils::config::Config, id: uuid::Uuid) {
+    for window in &mut config.app.windows {
+        window.title = format!("OM0RX-xLog — disposable offline acceptance {id}");
+        window.data_store_identifier = Some(*id.as_bytes());
+        // Tauri 2.12's config-to-WebviewAttributes conversion omits this ID.
+        // Never auto-create a default-store main view, even briefly: setup and
+        // reopen must use main_workspace's explicit offline_webview builder.
+        window.create = false;
+    }
 }
 pub(crate) fn offline_root() -> Option<&'static std::path::Path> { OFFLINE.get().map(|(root,_)| root.as_path()) }
 pub(crate) fn connected_loopback() -> bool {
@@ -136,6 +143,18 @@ mod tests {
         for method in ["contest_qso_commit", "contest_operation_receipt", "contest_notes", "contest_analytics", "settings_load"] {
             assert!(profile_allows_worker_method(method, false, true), "{method}");
         }
+    }
+
+    #[test]
+    fn offline_bootstrap_defers_default_store_views_to_the_explicit_builder() {
+        let mut config = tauri::utils::config::Config::default();
+        config.app.windows.push(tauri::utils::config::WindowConfig::default());
+        let id = uuid::Uuid::new_v4();
+        configure_offline_windows(&mut config, id);
+        assert!(config.app.windows.iter().all(|window| !window.create));
+        assert!(config.app.windows.iter().all(|window| window.data_store_identifier == Some(*id.as_bytes())));
+        assert!(config.app.windows[0].title.contains(&id.to_string()));
+        assert!(!config.app.windows[0].incognito, "restart acceptance requires the private persistent store");
     }
 
     #[test]

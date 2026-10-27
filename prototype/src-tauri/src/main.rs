@@ -4225,10 +4225,15 @@ fn main() {
                 } else {
                     start_retained_contest_workspace(app.handle()).map_err(std::io::Error::other)?;
                 }
-            } else if runtime_profile::offline_root().is_some() && !normal_module {
-                // Use the real contest owner in the marked disposable route,
-                // without starting any production station/background services.
-                start_retained_contest_workspace(app.handle()).map_err(std::io::Error::other)?;
+            } else if runtime_profile::offline_root().is_some() {
+                // Config-created WebViews do not carry the offline data-store
+                // ID in this Tauri version. Build through the explicit owner
+                // before any renderer can read a production recovery journal.
+                if normal_module {
+                    ensure_main_workspace(app.handle()).map_err(std::io::Error::other)?;
+                } else {
+                    start_retained_contest_workspace(app.handle()).map_err(std::io::Error::other)?;
+                }
             }
             Ok(())
         })
