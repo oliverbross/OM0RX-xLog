@@ -28,6 +28,8 @@ The development app quit normally with no output request. Production app/worker 
 
 The integrated desk checkpoint is **`228da5ac92e1b47fcf8ca28f366039b623a74e3f`**. Coherent source gates passed: **487 Python tests**, **901 Rust unit / 26 integration tests**, **240 integrated desk/tool UI cases**, **281 detached-window/protocol cases**, **16 station/correction cases**, and TypeScript. The separate focused runs overlap these totals. The actual Host/UI regression demonstrates independent typing, explicit nonfocused B tuning while keyboard focus stays A, and B/A commits using the original shared serials 002/001 exactly once. Existing React act warnings, SQLite datetime deprecations and visibly unverified Analytics categories are retained; passing tests do not close those unrelated evidence gaps.
 
+One subsequent finite routing correction invalidates the listening selection when its receiver binding/version changes, while preserving the other lane and a draft-only advance on the same receiver. Its focused compiled regression passed; the unaffected coherent gates above are reused.
+
 The next unused application version is **1.3.44**. The existing packager must run from clean canonical `main` with **`XLOG_CW_EXPERIMENTAL=0 CARGO_BUILD_JOBS=2 bash prototype/scripts/package-macos.sh`** after the version commit. Native/distribution/Python/CW provenance must identify that full exact packaging HEAD. The retained candidate receipt must verify signature, component/tree hashes and canonical Python bytes before the remaining native checklist can be closed. Production installation is not authorized.
 
 - Early real native layout: compact/expanded independent lanes, focus and custom shortcuts, detached Main Logging, operator-chosen geometry.
