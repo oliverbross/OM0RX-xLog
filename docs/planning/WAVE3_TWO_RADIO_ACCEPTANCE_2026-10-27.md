@@ -1,6 +1,53 @@
-# Wave 3 — Two-radio depth acceptance
+# Wave 3 — Two-radio depth candidate and installation acceptance
 
-**Final disposition — 27 October 2026: Wave 3 candidate ready for installation.** Signed **1.3.46**, exact clean canonical application source **`ea530290b52901da59d34a8aef4390433af8573e`**, completed the finite software/native acceptance below. It is **not installed**. Production remains accepted 1.3.43. Earlier in-progress sections and rejected candidates are retained as stage history; physical qualification and deferred extensions remain open.
+**Current disposition — 27 October 2026: authorized installation verified.** Signed **1.3.46**, exact application source **`ea530290b52901da59d34a8aef4390433af8573e`**, is installed and running at `/Applications/OM0RX-xLog.app`. Candidate acceptance below remains a separate historical checkpoint. Physical qualification, the unsaved-note limitation and deferred extensions remain open. Wave 4 has not started.
+
+## Authorized installation — 1.3.46 verified
+
+The user authorized installation of the retained candidate, then separately requested removal of older versions from `/Applications`. Canonical `main` was clean/current after fetch and fast-forward-only pull at **`a302b14d344bbb13adc7a7623eb53641750a42c6`**. There was no rebuild, version bump, repeated candidate suite, production test-data import or new feature work. The unchanged candidate receipt still records candidate acceptance with `installationPerformed: false`; installation is recorded separately in **`.build/installation-1.3.46-independent.json`** and **`.build/installation-1.3.46-completed.json`**. Completed receipt SHA-256: **`ace89d56323d9bcdb88ed7505e00764f16fd2ff618e1e72631680a62afb8b035`**.
+
+### Identity, idle state and schema compatibility
+
+The retained candidate's **4,098-entry tree**, eight component hashes, hardened Developer ID signature and native/distribution/Python/CW provenance matched its acceptance receipt exactly. The installed tree independently matched the retained candidate, including root permissions. Tree SHA-256 remains **`7cc02d3a71f77ee2a1482f4cd52673b6b4d926f5b9d998d587efc78cb8b73447`**. CW experimental/fixture flags remain false.
+
+Security.framework process-guest/signing checks identified the actual running app and worker. Before ordinary Quit, production PIDs **56073/56080** matched accepted 1.3.43 runtime signatures. Final installed PIDs **5311/5318** run from the installed paths with app/worker CDHashes **`66db4deb0f9c037650d89bce88b03d0244148a6d`** / **`7e6ac9d3912243be3322b4b1303147dd2dda0eea`**, matching the candidate bytes. The unchanged Swift worker code identity is shared with the previous release; full bundle/Python/native provenance identifies the accepted source. Ordinary workspace transitions restarted the installed runtime as expected. Native About showed **1.3.46 (1.3.46)**.
+
+The initial native window inventory had only the original Normal Logging/Operator Desk window: no open note editor. Recorder inspection showed capture stopped and no active playback; CW was disarmed. The complete revision-**2987** native draft and WebKit journal matched, with no pending mutation or power intent. One existing unreadable note-recovery record was an **archived** `/unreadable/` record, not an active recovery item; it was preserved. No active saved note-recovery item existed. Ordinary Quit completed without force, clearing or a bypass; complete draft/journal equality passed again after Quit.
+
+Source/schema review found only two additive Python sidecar tables, `xlog_draft_lane` and `xlog_qso_lane`, with no changed existing columns or normal-store schema. All **11** existing production session states lacked `laneState`. After the smoke check, every state object remained exact; old schema definitions remained exact and any newly created lane tables were empty. This supports **app-only rollback to 1.3.43 for this unchanged SO1V state**, not a blanket downgrade claim after future two-lane configuration. No rollback or database restore was needed. A later rollback must recheck compatibility and safe idle state; older production databases must not be restored without separate approval.
+
+### Fresh backup and removal of older application-folder copies
+
+Fresh private backup: **`/Users/oliver/Documents/Backups/OM0RX-xLog/Wave3-1.3.46-before-install-20261027T155530+0930`**. The established closed-app procedure copied the four Application Support roots (`OM0RX-xLog-Integrated Preview`, `OM0RX-xLog Integration Services`, `com.oliverbross.xlog.integration`, `Contesting`) and separate `WebKit/com.oliverbross.xlog.integration` root. Normal/contest stores, settings, recordings, SQLite sidecars and existing queue/note recovery records were covered. **1,271 files/links / 9,857,429,123 bytes** matched source/copy SHA-256 inventories, including a repeat comparison immediately before reopen. Private permissions are 700/600. Manifest SHA-256: **`c6339036d51728f778b285c168320eff27cc5a820b3700f1aca0563855d3106c`**.
+
+**58 of 59 SQLite databases passed quick_check** on disposable copies. One WebKit IndexedDB cache requires the private `IDBKEY` collation, unavailable in standard SQLite: its exact closed source/copy bytes were verified, but its SQLite integrity check remains explicitly **unverified**. No substitute collation, source repair or production-data restore was attempted. The first failed checker log was retained; the existing copies were reverified and the manifest completed without recopying or changing production data. Queue/note LocalStorage checks were separate and passed.
+
+`prototype/scripts/install-macos.sh` completed successfully, initially preserving 1.3.43 at `/Applications/OM0RX-xLog-previous-20261027T062942Z-4833.app`. In response to the user's later application-folder request, **all three older xLog bundles were atomically relocated**, with complete before/after tree and deep/strict signature verification, to the backup's **`Applications-Rollback/`** directory:
+
+| Retained version | Current rollback/recovery location |
+| --- | --- |
+| **1.3.43**, immediate rollback, source `1adbca9008d8b354cbee20d3860dafbaf84f4dfe` | `Applications-Rollback/OM0RX-xLog-previous-20261027T062942Z-4833.app` under the fresh backup above |
+| 1.3.39 | `Applications-Rollback/OM0RX-xLog-previous-20261027T033253Z-55799.app` under that backup |
+| Known-good 1.3.36 | `Applications-Rollback/OM0RX-xLog-previous-20261027T005436Z-78155.app` under that backup; separate canonical `.build/releases/1.3.36/OM0RX-xLog.app` remains unchanged |
+
+Only **`/Applications/OM0RX-xLog.app` / 1.3.46** remains in that folder. xBridge, xCat and xCluster are different applications and were left in place. No older bundle was permanently deleted, no data directory was relocated, and all **nine recovery refs** remained exact. The relocation manifest/tree records are retained at **`.build/installation-1.3.46-archive.json`** and the archive's `relocation-receipt.json`. Historical receipts retain their then-current paths; this mapping records the authorized later relocation.
+
+### Bounded installed smoke result
+
+| Check | Demonstrated installed result |
+| --- | --- |
+| Normal logbook / full draft | **69,351 visible contacts**, 69,352 stored rows; normal logbook opens. Complete native/WebKit revision-2987 draft, all fields and journal metadata match the pre-Quit snapshot; no pending mutation or power intent. |
+| Existing contest / SO1V | CQ WW SSB opens at **775 QSOs / 116 multipliers / score 111,012 / revision 12,286**, unchanged. Existing S&P entry, function keys and ordinary Main Logging remain available. No contact, serial reservation, rescore or saved setup change was made. |
+| Productivity tools | Wave 1 Entry & stack, Check, Log & notes, Submission and Wave 2 Skeds, Opportunities, Info & time, Messages opened. Existing SSB messages remained present. No bank activation/import, reminder/plan save or rule-profile adoption occurred. |
+| Wave 3 capability boundary | Native review states **“physical lane qualification is unavailable.”** SO1V remains selected; **SO2V and SO2R are disabled** in the native menu. No Save operating lanes, receiver/audio change or output arm action occurred. All 11 production states remain unconfigured SO1V; no fake bindings or acceptance state were imported. |
+| Persistence / protected data | Three protected-table comparisons passed. All **11 session state objects**—drafts, configuration, message banks, plans and reminders—match exactly. Four preexisting queue/archived-recovery records match. **692 settings/media files (7,583,372,798 bytes)** and **12 settings tables** were checked; saved profiles and recordings remained preserved. |
+| Window/focus / original workspace | About, ordinary native window navigation, Main Logging and the existing desk/tool focus operate correctly. The app returned to **Normal Logging → Operator Desk → Traditional**, with original frequency/band/mode and complete draft preserved. No saved profile was switched. |
+
+Saved service settings automatically resumed normal startup work: **three acknowledged radio-connect receipts** (revision 1865 → 1868, with three terminal receipts compacted), a rotor **connect operation-ID refresh** with identical action/status/configuration, Cluster connections and public propagation/cache refreshes. Rotor UI readbacks remained stopped; no motion command was initiated by this task. The initial conservative rotor-file mismatch and its read-only classification are retained. **Two automatic sync runs** were observed, one cancelled and one running, with **zero upload attempts and zero confirmed creates/updates/deletes** at observation; no manual sync was triggered. Continuous runtime/cache/database byte immutability is not claimed.
+
+No manual provider write or sync/upload was triggered. No output arm, retune, PTT/RF, rotor-motion, recording or playback action was initiated; saved automatic connection activity is recorded above. Physical dual-radio/output/audio qualification remains separately authorized, fake admission remains restricted to marked disposable storage, and CW decoding stays disabled. **Unsaved-note follow-up remains open:** an editor is view-local until Save; changing its tab does not make it durable. No note-editor feature change was made during installation. The WebKit cache collation limit, notarization/Intel and wider display/accessibility limits remain recorded.
+
+Private backup evidence retains native smoke transcripts/screenshots, full before/after drafts, installed-tree/runtime checks, protected-data/settings comparisons, schema/queue/recovery proof, startup detail, relocation records and procedure logs. **Installation verification is complete. Stop before Wave 4 and physical dual-radio qualification.**
 
 ## Authorized scope and protected baseline
 
