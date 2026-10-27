@@ -39,6 +39,10 @@ Three demonstrated acceptance blockers require a replacement executable:
 
 The isolated app quit normally. Production 1.3.39 processes remained running. The closed disposable worker/WK state, pending action, native transcripts/screenshots, export and helper/build/test logs are preserved. No old bundle was patched/relabelled; no installation, production-data restore or physical/live action occurred. Source gates unaffected by these narrow fixes are reused; affected checks and final packaging/native acceptance must pass on the uniquely versioned replacement.
 
+Replacement fix source **`d02d6fd106991fb5f0013451420b537eca6df56a`** is committed/pushed. Affected checks passed **16 message Python cases**, **10 opportunity/message UI cases**, the **one new focused parent-workspace reminder claim regression** (194 unaffected cases skipped), and TypeScript. The initial default-setup regression exposed a missing default ESM preference projection; the final fix reuses both canonical host setup and ESM defaults, and the corrected 16-case run passed. Unaffected full Python/Rust/workspace evidence above is reused rather than repeatedly rebuilt.
+
+The necessary replacement is **1.3.41**, packaged from the clean canonical version commit containing this entry with the same disabled-CW command above. Its receipt must record exact packaging HEAD/provenance and final native results before readiness. Retained 1.3.40 remains a distinct earlier artifact.
+
 **In progress; no candidate acceptance is claimed yet.** Candidate source, version, signature, hashes, bundled provenance, real native sizing/focus, reminders/restart, occupied-draft protection, opportunities, timer boundaries, message import/preview/bank persistence and one bounded combined workload must be recorded before readiness. Reuse unaffected Wave 1 evidence; do not reinstall or repeat its full checklist.
 
 No installation, live connection/upload/capture, synthetic production QSO, completed-log rescore, radio/PTT/RF/rotor action or CW decoding enablement is authorized. Fake transports/disposable stores establish software behavior only. Stop before installation and Wave 3.
