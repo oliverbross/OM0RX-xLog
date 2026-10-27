@@ -23,6 +23,39 @@ rda_contest rdxc ukeidx cq_ww_vhf john_moyle_field_day labre_rs_digi vhf_sprint"
 ADDITIVE_HISTORY = (NO_MULTIPLIER_PLUGINS - {"dxpedition", "general_logging", "randomgram", "raem"}) | TEN_TEN_PLUGINS | {"rsgb_80m_cc", "rsgb_commonwealth_beru", "nac_vhf"}
 
 
+def aadx_history(rows,state,score,desk):
+    """Linear model of the pinned rebuild, including its shared-last-dupe flag.
+
+    This describes the current engine; it does not repair/replace its multiplier
+    policy. Original SQLite and draft widgets are never changed.
+    """
+    model='aadx-pinned-prefix-rebuild'
+    unavailable=lambda reason:({'status':'UNVERIFIED','reason':reason,'model':model},{})
+    own=state['reference']['countries'].get(state['station']['Call'])
+    if not own:return unavailable('Station entity is unresolved; AADX branch cannot be established.')
+    asian=own['continent']=='AS';points,count,events=0,0,{}
+    seen,earliest=set(),{}
+    saved_contact,saved_dupe=desk.contact,desk.contact_is_dupe
+    try:
+        for row in rows:
+            try:datetime.strptime(row['TS'],'%Y-%m-%d %H:%M:%S')
+            except (ValueError,TypeError):return unavailable('Invalid UTC prevents prefix reconstruction.')
+            value=finite(row.get('Points'));country=state['reference']['countries'].get(row['Call'])
+            if value is None or not country:return unavailable('Stored points or historical entity evidence is missing.')
+            dupe_key=(row['Call'],row['Band']);dupe=dupe_key in seen;seen.add(dupe_key)
+            desk.contact=row;desk.contact_is_dupe=0
+            intrinsic=desk.contest.points(desk)
+            key=(row['CountryPrefix'] if asian else row['WPXPrefix'],row['Band'])
+            first=earliest.setdefault(key,row['TS'])
+            if first==row['TS'] and (country['entity'].upper()!=own['entity'].upper() if asian else intrinsic>0):count+=1
+            points+=value
+            events[row['ID']]=points*(count if asian or not dupe else 0)
+    finally:desk.contact,desk.contact_is_dupe=saved_contact,saved_dupe
+    if points!=score['points'] or abs(next(reversed(events.values()),0)-score['total'])>1e-8:
+        return unavailable('Pinned prefix arithmetic does not reconcile with the current authoritative score.')
+    return ({'status':'PASS','model':model,'initialScore':0,'reason':'Corrected-log reconstruction of the pinned AADX rebuild, including non-Asian prefix multiplier reset when the final contact is a duplicate; not the historical operator display or sponsor certification.'},events)
+
+
 def score_history(rows, state, score, support, available, desk):
     """Corrected-log events from explicit pinned arithmetic, never a universal product."""
     plugin, marked = state["pluginID"], state.get("scoringRevision") == "26.10.26"
@@ -48,10 +81,10 @@ def score_history(rows, state, score, support, available, desk):
         return ({"status": "NOT APPLICABLE", "reason": "Utility definition has no contest claimed-score history.", "model": None}, {})
     if score.get("scoringComplete") is False:
         return unavailable("The host reports incomplete scoring; score growth is unavailable until the missing evidence is established.")
+    if plugin in {'aadx_cw','aadx_ssb'}:
+        return aadx_history(rows,state,score,desk)
     if kind not in {"stored-points", "station-latitude-factor"} and not available:
         return unavailable("Credited identities do not reconcile; score growth is unavailable.")
-    if plugin in {"aadx_cw", "aadx_ssb"} and any(row.get("host_dupe") is True for row in rows):
-        return unavailable("The pinned AADX rebuild can change earlier points when a prefix ends in a duplicate; stored-row growth does not establish prefix/full-rebuild equivalence.")
     bonus = 0
     if kind == "points-plus-seniority-times-identities-plus-one":
         try: bonus = 3 * int(str(state["station"].get("LicenseClass", "")).strip()[:2])
@@ -100,7 +133,8 @@ def feature_statuses(state, score, available, history, needed):
             "scoreHistory": history,
             "neededUniverse": {"status": "PASS" if any(view["status"] == "PASS" for view in needed) else "NOT APPLICABLE" if no_identities or needed and all(view["status"] == "NOT APPLICABLE" for view in needed) else "UNVERIFIED",
                 "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions." if needed else "No finite eligible Needed universe is supplied for this definition."},
-            "candidateNeeded": {"status": "NOT APPLICABLE" if no_identities else "UNVERIFIED", "reason": "This analytical copy contains no candidate spot/exchange evidence; existing station-owned spot preview is separate."}}
+            "candidateNeeded": {"status": "PASS" if state['pluginID'] in {'cq_ww_cw','cq_ww_ssb'} and available else "NOT APPLICABLE" if no_identities else "UNVERIFIED",
+                "reason": "Bounded analytical adapter: explicitly selected saved contact supplies country evidence; proposed band/received zone/points remain assumptions. Unknown new calls/exchanges stay unverified. Existing live station preview is separate." if state['pluginID'] in {'cq_ww_cw','cq_ww_ssb'} and available else "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."}}
 
 
 def identity(store, state):

@@ -26,6 +26,13 @@ NAQP_DATA_REFERENCE = {"id": "ncj-naqp-location-tokens", "version": "2026-10-18"
     "sourceSHA256": "6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d",
     "source": "https://ncjweb.com/NAQP-Paper-Log-Form.pdf"}
 
+SST_US=frozenset('AL AR AZ CA CO CT DC DE FL GA IA ID IL IN KS KY LA MA MD ME MI MN MO MS MT NC ND NE NH NJ NM NV NY OH OK OR PA RI SC SD TN TX UT VA VT WA WI WV WY'.split())
+SST_CA=frozenset('AB BC LB MB NB NF NS NT NU ON PE QC SK YT'.split())
+SST_REFERENCE={'id':'k1usn-sst-subdivision-tokens','version':'2026-10-18','source':'https://www.k1usn.com/sst_faq.html',
+               'sourceSHA256':'e942c3ccfb46bd7391fb982f5c666863172c8287fdd0ebcb35f8b2989903126f',
+               'embeddedTableSHA256':'36ee41e13cae55ca81e7fbba3f48836b682167a3d859753d1c91553ae8a35920',
+               'rulesSHA256':'2a54b5ad26aa0342ee6036e07bf39df5c22d4176f6c91913fe5bcf4b3ebe04b8'}
+
 # The ARRL 2026 multiplier-table tokens are different from NAQP's provinces:
 # retain LB/NF here; never canonicalize a stored Sect/NR to change its score.
 ARRL_STATE_PROVINCE_CODES = frozenset("""AL AZ AR CA CO CT DC DE FL GA ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY
@@ -424,6 +431,13 @@ def needed_views(rows, state, views, band_labels):
             provenance = "NCJ 2026 paper-form location tokens; pinned raw Sect identities and aliases are retained without rescoring"
             source_coordinate = NAQP_DATA_REFERENCE
             universe_scope = "published-location-tokens-as-pinned-Sect-keys"
+        if state['pluginID']=='k1usn_sst' and definition.id=='spc':
+            valid=all(str(row.get('Sect',''))=='DX' and bool(row.get('CountryPrefix')) and str(row.get('CountryPrefix')) not in {'K','VE'} or
+                      str(row.get('CountryPrefix',''))=='K' and str(row.get('Sect','')) in SST_US or
+                      str(row.get('CountryPrefix',''))=='VE' and str(row.get('Sect','')) in SST_CA for row in rows)
+            universe=tuple(sorted(SST_US|SST_CA)) if valid else ()
+            complete=False;source_coordinate=SST_REFERENCE;universe_scope='reviewed-subdivisions-only-pinned-raw-Sect'
+            provenance='Reviewed K1USN 49 lower-48/DC and 14 Canadian logger tokens only. Official DXCC branch is absent from the pinned Python scorer; NL alias is not merged. This limited list is not complete official scoring.'
         if state["pluginID"] in {"arrl_ss_cw", "arrl_ss_phone", "arrl_160m"} and definition.id == "section":
             universe, source_coordinate = tuple(sorted(ARRL_SECTIONS)), ARRL_SECTION_REFERENCE
             provenance = "Existing reviewed ARRL/RAC section tokens; exact received Sect/Exchange1 keys, without merging historical aliases"

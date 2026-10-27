@@ -6,6 +6,7 @@ import { AnalyticsExplorer, AnalyticsTimeline, type Drill } from "./ContestAnaly
 import { AnalyticsDrilldown, AnalyticsMultipliers, AnalyticsPerformance, AnalyticsQuality } from "./ContestAnalyticsDetails";
 import { useAnalyticsExport } from "./contestAnalyticsExport";
 import { AnalyticsCompare } from "./ContestAnalyticsCompare";
+import { AnalyticsCandidateEvidence,AnalyticsLearningEvidence } from "./ContestAnalyticsEvidence";
 import "./ContestAnalyticsWindow.css";
 import { listenToAudio } from "./contestRecorder";
 
@@ -90,10 +91,10 @@ export function ContestAnalyticsWindow({read=readAnalytics,initialSnapshot}:{rea
         <section className="analytics-section"><header><div><h2>Band contribution</h2><p>Contacts, points and geographic reach in the displayed scope.</p></div></header><div className="analytics-table-scroll"><table><thead><tr><th>Band</th><th>Contacts</th><th>Distinct calls</th><th>QSO points</th><th>Points / QSO</th><th>Countries</th><th>New category mults</th></tr></thead><tbody>{(choices.band??[]).map((band:string)=>{const selected=new Set(result.summary.ids),rows=dataset.contacts.filter(q=>q.band===band&&selected.has(q.id)),sum=aggregate(rows);return <tr key={band}><th><button onClick={()=>onDrill(`${band} · current view`,sum.ids)}>{band}</button></th><td>{sum.qsos}</td><td>{sum.calls}</td><td>{numberText(sum.points)}</td><td>{sum.qsos?numberText(sum.points/sum.qsos,2):"—"}</td><td>{sum.countries}</td><td>{hasMultiplierAdapter(dataset.meta)?sum.multipliers:"Unavailable"}</td></tr>;})}</tbody></table></div><p className="analytics-note">Distinct country counts differ from country-band multipliers. Category score is not a sum of separately scored bands.</p></section>
       </>}
       {tab==="explorer"&&<AnalyticsExplorer result={result} filters={filters} onChange={update} onDrill={onDrill} multiplierSupported={hasMultiplierAdapter(dataset.meta)}/>}
-      {tab==="multipliers"&&<AnalyticsMultipliers dataset={dataset} result={result} onDrill={onDrill}/>}
+      {tab==="multipliers"&&<><AnalyticsMultipliers dataset={dataset} result={result} onDrill={onDrill}/><AnalyticsCandidateEvidence dataset={dataset} onDrill={onDrill}/></>}
       {tab==="performance"&&<AnalyticsPerformance dataset={dataset} result={result} filters={filters} onDrill={onDrill}/>}
       {tab==="compare"&&<AnalyticsCompare dataset={dataset} filters={filters} onDrill={onDrill}/>}
-      {tab==="quality"&&<AnalyticsQuality dataset={dataset} result={result} onDrill={onDrill}/>}
+      {tab==="quality"&&<><AnalyticsQuality dataset={dataset} result={result} onDrill={onDrill}/><AnalyticsLearningEvidence dataset={dataset} onDrill={onDrill} exportState={exportState}/></>}
       <section className="analytics-section"><header><div><h2>Listen to this UTC interval</h2><p>Uses this dataset’s durable log identity and displayed time extent. Capture gaps and unmatched reference logs remain unavailable.</p></div><button disabled={locked||!result.buckets.length} onClick={()=>{const first=result.buckets[0],last=result.buckets.at(-1);if(first&&last)void listenToAudio({logId:dataset.meta.sessionID,fromUtcMs:first.start,toUtcMs:last.end}).catch(cause=>setError(errorText(cause)));}}>Listen to interval…</button></header></section>
       {drill&&<div ref={drillRef as React.RefObject<HTMLDivElement>}><AnalyticsDrilldown logId={dataset.meta.sessionID} title={drill.title} contacts={selectedContacts} exportState={exportState} onClose={()=>setDrill(null)}/></div>}
       <footer className="analytics-footer"><span>Revision {dataset.meta.revision} · {dataset.meta.referenceID} · Corrected claimed log</span><button onClick={()=>{setTab("quality");setDrill(null);}}>View calculation basis & coverage</button></footer>
