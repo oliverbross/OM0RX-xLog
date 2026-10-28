@@ -1,0 +1,15 @@
+{
+  "source": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogApp/AppModel.swift",
+  "sourceSHA256": "31342b5954c3b2ffb15a8b98a25f32b7bb7f35e13a7eebc9c28b717952fd4d39",
+  "methods": [
+    "importADIF",
+    "exportADIF"
+  ],
+  "extractedSHA256": "3cb44287973aa60ddea7ab846c114aa34a4d05fb705a1849e9e00ae30f9188fa",
+  "stubs": [
+    "NSOpenPanel",
+    "NSSavePanel",
+    "AppBanner",
+    "surrounding model including fetch-limit-equivalent reload"
+  ]
+}

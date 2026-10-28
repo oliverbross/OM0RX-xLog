@@ -1,0 +1,79 @@
+{
+  "command": [
+    "swiftc",
+    "-emit-library",
+    "-o",
+    "/tmp/xlog-review-verification-20261028-12824393/native/libReviewNative.dylib",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/debug/XLogPrototypeSupport.o",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/debug/XLogCore.o",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/debug/XCatIntegrationCore.o",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/debug/XClusterIntegrationCore.o",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/debug/XStationIntegrationCore.o",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/debug/XContestCore.o",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/debug/XContestStore.o",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/debug/XCWCore.o",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/debug/CCWProcess.o",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/debug/CClusterSocket.o",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/debug/CCurlBackup.o",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/debug/CPlatformVault.o",
+    "-framework",
+    "Security",
+    "-framework",
+    "Network",
+    "-framework",
+    "LocalAuthentication",
+    "-lsqlite3",
+    "-lcurl",
+    "-lz"
+  ],
+  "objects": [
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/out/Products/Debug/XLogPrototypeSupport.o",
+      "sha256": "708c77b8efa631ee4760c60ab8d1eeeef2c708d8b74bd0284d0c18ffbd89be8c"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/out/Products/Debug/XLogCore.o",
+      "sha256": "07dd05f5d2883b27e0bf528022db7944fdd5870fdac40d75bd1300803f2994ba"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/out/Products/Debug/XCatIntegrationCore.o",
+      "sha256": "8782279bb3a3b3ed734fc1bf803a358464c86e52bb0d986d7e10087457007ffa"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/out/Products/Debug/XClusterIntegrationCore.o",
+      "sha256": "0a8bc9a5a3e2ad49cee601679ed5c6a15cce5b60bdc766d96e8e388635fa4dc3"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/out/Products/Debug/XStationIntegrationCore.o",
+      "sha256": "9fc5a53305bfd5edf2c95765ffd7987f973255d5baa103d0cb746bf256d17c0a"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/out/Products/Debug/XContestCore.o",
+      "sha256": "437c7f448c908d8c70ca5ba735b0e56474c823d01e98f13a8c37154c6d858319"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/out/Products/Debug/XContestStore.o",
+      "sha256": "934b1a8eb1b71418fcf3ac65e022e3f59c8379c917e139ff7431ed5b6488da3d"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/out/Products/Debug/XCWCore.o",
+      "sha256": "75e57bd3868099c47fa6485c16092faa986095a496d551c2301182b5fd245140"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/out/Products/Debug/CCWProcess.o",
+      "sha256": "788ecefe541ca235542168a2418790f5f09369a0bb9fb4db9a4bbce3dc7bb9e3"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/out/Products/Debug/CClusterSocket.o",
+      "sha256": "d2746eac8ee7a36892c03cb9a2a8b66aeda276dff0cf8728209442b9ae9a2306"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/out/Products/Debug/CCurlBackup.o",
+      "sha256": "3ff54e9e1763aeec1496f2b1e5fe25aa5a8f1aea87d6c29c93f96ac3e562bab4"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/out/Products/Debug/CPlatformVault.o",
+      "sha256": "a0229fd47af1eb3db5420657e40d6bead35263cc5b27e4086bf4e5c5f027c272"
+    }
+  ]
+}

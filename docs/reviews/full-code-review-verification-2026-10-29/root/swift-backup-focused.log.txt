@@ -1,0 +1,27 @@
+Building for debugging...
+[Computing dependencies]
+[1 / 5]
+[1 / 43] XLogCore
+Build complete! (1.27 sec.)
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite RemoteBackupRetentionReviewTests started.
+◇ Test onlyExactPinnedVerifiedObjectsBecomeStableCandidates() started.
+✔ Test onlyExactPinnedVerifiedObjectsBecomeStableCandidates() passed after 0.002 seconds.
+◇ Test legacyProoflessReceiptsDoNotConsumeTheVerifiedKeepMinimum() started.
+✔ Test legacyProoflessReceiptsDoNotConsumeTheVerifiedKeepMinimum() passed after 0.001 seconds.
+◇ Test priorDeletionClaimsAreVisibleButNeverCandidates() started.
+✔ Test priorDeletionClaimsAreVisibleButNeverCandidates() passed after 0.001 seconds.
+◇ Test ambiguousBackupAndRemoteObjectIdentitiesAlwaysRemainProtected() started.
+✔ Test ambiguousBackupAndRemoteObjectIdentitiesAlwaysRemainProtected() passed after 0.001 seconds.
+◇ Test clockAnomaliesPreventEveryCandidateAndTiesAreStable() started.
+✔ Test clockAnomaliesPreventEveryCandidateAndTiesAreStable() passed after 0.001 seconds.
+◇ Test pinnedObjectsRequireValidatedSyntaxAndVerifiedOutcomes() started.
+✔ Test pinnedObjectsRequireValidatedSyntaxAndVerifiedOutcomes() passed after 0.001 seconds.
+◇ Test readOnlyHistoryPreservesPinnedEvidenceAndLegacyReceiptsAcrossRestart() started.
+✔ Test readOnlyHistoryPreservesPinnedEvidenceAndLegacyReceiptsAcrossRestart() passed after 0.011 seconds.
+◇ Test interruptedAndCorruptHistoryCannotProduceVerifiedEvidence() started.
+✔ Test interruptedAndCorruptHistoryCannotProduceVerifiedEvidence() passed after 0.003 seconds.
+✔ Suite RemoteBackupRetentionReviewTests passed after 0.020 seconds.
+✔ Test run with 8 tests in 1 suite passed after 0.020 seconds.

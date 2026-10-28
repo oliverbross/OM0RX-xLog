@@ -1,0 +1,9 @@
+/tmp/xlog-review-verification-20261028-12824393/root/verify_legacy_methods.swift:15:77: warning: 'init(contentsOf:)' was deprecated in macOS 15: Use `init(contentsOf:encoding:)` instead [#DeprecatedDeclaration]
+13 |         panel.allowedContentTypes = [.data]
+14 |         panel.allowsMultipleSelection = false
+15 |         guard panel.runModal() == .OK, let url = panel.url, let text = try? String(contentsOf: url) else { return }
+   |                                                                             `- warning: 'init(contentsOf:)' was deprecated in macOS 15: Use `init(contentsOf:encoding:)` instead [#DeprecatedDeclaration]
+16 |         let records = ADIFParser().records(in: text)
+17 |         do {
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>

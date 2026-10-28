@@ -1,0 +1,61 @@
+{
+  "rows" : [
+    {
+      "calls" : [
+        "main.rx"
+      ],
+      "configuration" : "never_configured",
+      "lifecycle" : "shutdown"
+    },
+    {
+      "calls" : [
+        "main.rx"
+      ],
+      "configuration" : "never_configured",
+      "lifecycle" : "workspace_change"
+    },
+    {
+      "calls" : [
+        "main.rx"
+      ],
+      "configuration" : "disabled",
+      "lifecycle" : "shutdown"
+    },
+    {
+      "calls" : [
+        "main.rx"
+      ],
+      "configuration" : "disabled",
+      "lifecycle" : "workspace_change"
+    },
+    {
+      "calls" : [
+        "main.rx"
+      ],
+      "configuration" : "receive_only",
+      "lifecycle" : "shutdown"
+    },
+    {
+      "calls" : [
+        "main.rx"
+      ],
+      "configuration" : "receive_only",
+      "lifecycle" : "workspace_change"
+    },
+    {
+      "calls" : [
+
+      ],
+      "configuration" : "external_io_disabled",
+      "lifecycle" : "shutdown"
+    },
+    {
+      "calls" : [
+
+      ],
+      "configuration" : "external_io_disabled",
+      "lifecycle" : "workspace_change"
+    }
+  ],
+  "source" : "actual compiled XLogPrototypeSupport; fake RPC\/receiver only; no neighboring stubs"
+}

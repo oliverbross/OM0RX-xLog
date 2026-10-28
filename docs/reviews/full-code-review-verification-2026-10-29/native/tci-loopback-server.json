@@ -1,0 +1,8 @@
+{
+  "port": 55051,
+  "fixture": "/tmp/xlog-review-verification-20261028-12824393/native/tci-loopback-1108",
+  "events": [
+    "handshake",
+    "closed"
+  ]
+}

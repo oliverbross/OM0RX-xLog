@@ -1,0 +1,33 @@
+{
+  "limitation": "Original official schema cannot compile in xmllint because one unrelated NZ subdivision regex uses unsupported lookahead. Derived schema removes exactly that unused pattern facet. No field-name rules changed. These test documents contain no NZ subdivision fields. This is bounded validation, not blanket exact-XSD validation.",
+  "relaxed": [
+    {
+      "parent": "{http://www.w3.org/2001/XMLSchema}restriction",
+      "pattern": "[nN][zZ]_[rR][eE][gG][iI][oO][nN][sS]:[a-zA-Z]([ \\-](?=[a-zA-Z])|[a-zA-Z]){4,16}/[a-zA-Z]([ \\-](?=[a-zA-Z])|[a-zA-Z]){3,20}"
+    }
+  ],
+  "results": [
+    {
+      "field": "NAME",
+      "unknownRecordElementNames": [],
+      "derivedSchemaExit": 0,
+      "stderr": "/tmp/xlog-review-verification-20261028-12824393/frontend/NAME.adx validates\n"
+    },
+    {
+      "field": "GUEST_OP",
+      "unknownRecordElementNames": [
+        "GUEST_OP"
+      ],
+      "derivedSchemaExit": 3,
+      "stderr": "/tmp/xlog-review-verification-20261028-12824393/frontend/GUEST_OP.adx:3: element GUEST_OP: Schemas validity error : Element 'GUEST_OP': This element is not expected.\n/tmp/xlog-review-verification-20261028-12824393/frontend/GUEST_OP.adx fails to validate\n"
+    },
+    {
+      "field": "VE_PROV",
+      "unknownRecordElementNames": [
+        "VE_PROV"
+      ],
+      "derivedSchemaExit": 3,
+      "stderr": "/tmp/xlog-review-verification-20261028-12824393/frontend/VE_PROV.adx:3: element VE_PROV: Schemas validity error : Element 'VE_PROV': This element is not expected.\n/tmp/xlog-review-verification-20261028-12824393/frontend/VE_PROV.adx fails to validate\n"
+    }
+  ]
+}

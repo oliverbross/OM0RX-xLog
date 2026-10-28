@@ -1,0 +1,20 @@
+{
+  "afterReclassifySameSequence": {
+    "cursor": 2,
+    "esmLinked": false,
+    "links": 1
+  },
+  "initial": {
+    "cursor": 2,
+    "directLinked": true,
+    "esmLinked": false,
+    "links": 1
+  },
+  "reopenReplay": {
+    "cursor": 2,
+    "directLinked": true,
+    "esmLinked": false,
+    "links": 1
+  },
+  "source": "actual unchanged recorder store; synthetic PCM and audit fixtures; no audio device"
+}

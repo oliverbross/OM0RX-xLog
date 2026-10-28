@@ -1,0 +1,16 @@
+[package]
+name = "review-recorder-verification"
+version = "1.3.60"
+edition = "2021"
+
+[[bin]]
+name = "review-recorder-verification"
+path = "verify_recorder_store.rs"
+
+[dependencies]
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = { version = "=1.0.154" }
+sha2 = { version = "=0.10.9" }
+tempfile = { version = "=3.27.0" }
+libc = { version = "=0.2.190" }
+uuid = { version = "=1.28.0", features = ["v4"] }

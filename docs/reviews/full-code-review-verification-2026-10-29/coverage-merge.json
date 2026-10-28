@@ -1,0 +1,683 @@
+{
+  "increments": [
+    {
+      "area": "root",
+      "path": "Sources/XLogCore/RemoteBackupOwner.swift",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "fully reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "1-87"
+    },
+    {
+      "area": "root",
+      "path": "Sources/XLogCore/RemoteBackupScheduler.swift",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "fully reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "1-344"
+    },
+    {
+      "area": "root",
+      "path": "Sources/XLogCore/RemoteBackupAuthorization.swift",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "fully reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "1-213"
+    },
+    {
+      "area": "root",
+      "path": "Sources/XLogCore/RemoteBackupRetentionReview.swift",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "fully reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "1-202"
+    },
+    {
+      "area": "root",
+      "path": "Sources/XLogCore/BackupManager.swift",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "290-666"
+    },
+    {
+      "area": "root",
+      "path": "Sources/XLogCore/SyncEngine.swift",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "571-764"
+    },
+    {
+      "area": "root",
+      "path": "Sources/XLogCore/LogbookDatabase.swift",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "1899-1964"
+    },
+    {
+      "area": "root",
+      "path": "Sources/XLogPrototypeSupport/LiveLogbookMethods.swift",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "1-225,569-713,755-812,1870-2055"
+    },
+    {
+      "area": "root",
+      "path": "Sources/XLogApp/AppModel.swift",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "380-445,988-1045"
+    },
+    {
+      "area": "root",
+      "path": "Sources/XLogApp/WorkspaceViews.swift",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "1-160"
+    },
+    {
+      "area": "root",
+      "path": "Sources/XLogCore/QSOADIF.swift",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "130-170"
+    },
+    {
+      "area": "root",
+      "path": "Tests/XLogPrototypeTests/OperatorDraftTests.swift",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "69-100"
+    },
+    {
+      "area": "root",
+      "path": "Tests/XLogCoreTests/RemoteBackupOwnerTests.swift",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "fully reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "1-337"
+    },
+    {
+      "area": "root",
+      "path": "Tests/XLogCoreTests/BackupEnvelopeTests.swift",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "fully reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "1-181"
+    },
+    {
+      "area": "native",
+      "path": "Sources/XLogPrototypeSupport/LiveWorker.swift",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "50-60,163-195,249-295,328-424"
+    },
+    {
+      "area": "native",
+      "path": "Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+      "baselineDepth": "fully reviewed",
+      "reportedPassDepth": "fully reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "1-393 (first pass); registry26-66,routing100-222 rechallenged"
+    },
+    {
+      "area": "native",
+      "path": "Sources/XLogPrototypeSupport/LiveStationSession.swift",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "195-282,294-390,568-620,988-1090"
+    },
+    {
+      "area": "native",
+      "path": "Sources/XLogPrototypeSupport/LiveFlexSession.swift",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "41-69,115-135,174-259"
+    },
+    {
+      "area": "native",
+      "path": "Sources/XLogPrototypeSupport/LiveTCISession.swift",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "1-100,135-175,230-295"
+    },
+    {
+      "area": "native",
+      "path": "Sources/XLogPrototypeSupport/LiveFldigiBridge.swift",
+      "baselineDepth": "fully reviewed",
+      "reportedPassDepth": "fully reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "1-340 (first pass);121-131,134-232,289-292 rechallenged"
+    },
+    {
+      "area": "native",
+      "path": "Sources/XLogPrototypeSupport/NativeDraftPowerGate.swift",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "fully reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "1-207"
+    },
+    {
+      "area": "native",
+      "path": "Sources/XLogPrototypeSupport/LiveCWDecodeMethods.swift",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "1-95"
+    },
+    {
+      "area": "native",
+      "path": "Sources/XLogPrototypeSupport/LiveOnlineLogDeliveryService.swift",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "1-175,211-264"
+    },
+    {
+      "area": "native",
+      "path": "Sources/XLogPrototypeSupport/LiveRemoteBackupService.swift",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "180-260"
+    },
+    {
+      "area": "native",
+      "path": "Sources/XLogPrototypeSupport/LivePublicServiceMethods.swift",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "scanned only",
+      "cumulativeDepth": "scanned only",
+      "ranges": "terminate33-36 search hits"
+    },
+    {
+      "area": "native",
+      "path": "Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "244-270,shutdown/stopProcess search hits"
+    },
+    {
+      "area": "native",
+      "path": "Sources/XCatIntegrationCore/RemoteAgentClient.swift",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "130-175,330-356,484-534,646-694"
+    },
+    {
+      "area": "native",
+      "path": "Sources/XCatIntegrationCore/FlexRadioClient.swift",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "115-170"
+    },
+    {
+      "area": "native",
+      "path": "Sources/XCatIntegrationCore/TCIWebSocketSession.swift",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "328-410"
+    },
+    {
+      "area": "native",
+      "path": "Sources/XLogPrototypeWorker/main.swift",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "94-180 (first pass);158-169 rechallenged"
+    },
+    {
+      "area": "native",
+      "path": "prototype/src-tauri/src/main.rs",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "2700-2815,3470-3665,4321-4356"
+    },
+    {
+      "area": "native",
+      "path": "prototype/src-tauri/src/worker.rs",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "1021-1044; first-pass lifecycle/read paths reconsulted"
+    },
+    {
+      "area": "native",
+      "path": "prototype/src-tauri/src/station_selection.rs",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "922-933 (rechallenged)"
+    },
+    {
+      "area": "native",
+      "path": "prototype/src-tauri/src/contest_voice.rs",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "782-818"
+    },
+    {
+      "area": "native",
+      "path": "prototype/src-tauri/src/contest_recorder.rs",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "1-174,418-520"
+    },
+    {
+      "area": "native",
+      "path": "prototype/src-tauri/src/contest_recorder_store.rs",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "300-440,650-788,1035-1110"
+    },
+    {
+      "area": "native",
+      "path": "Tests/XLogPrototypeTests/LiveFTPBackupPresentationTests.swift",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "scanned only",
+      "cumulativeDepth": "scanned only",
+      "ranges": "190-229"
+    },
+    {
+      "area": "native",
+      "path": "Tests/XLogPrototypeTests/LiveTCISessionTests.swift",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "scanned only",
+      "cumulativeDepth": "scanned only",
+      "ranges": "connect fixture39 search hit"
+    },
+    {
+      "area": "native",
+      "path": "Sources/CSQLitePrototype/module.modulemap",
+      "baselineDepth": "not reviewed",
+      "reportedPassDepth": "fully reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "1-5"
+    },
+    {
+      "area": "frontend",
+      "path": "prototype/src/live/adifTransfer.ts",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "fully reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "1-645"
+    },
+    {
+      "area": "frontend",
+      "path": "prototype/src/live/LogbookPanel.tsx",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "fully reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "1-280,392-557"
+    },
+    {
+      "area": "frontend",
+      "path": "prototype/src/live/operatorDraftSession.ts",
+      "baselineDepth": "fully reviewed",
+      "reportedPassDepth": "fully reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "114-225; previous226-498 rechallenged against callers and targeted tests"
+    },
+    {
+      "area": "frontend",
+      "path": "prototype/src/live/logbookContactSession.ts",
+      "baselineDepth": "fully reviewed",
+      "reportedPassDepth": "fully reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "84-227"
+    },
+    {
+      "area": "frontend",
+      "path": "prototype/src/live/QSOEditorCore.tsx",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "101-123,159,200-202,274-275,319; caller/validity challenge"
+    },
+    {
+      "area": "frontend",
+      "path": "prototype/src/live/OperatorDesk.tsx",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "37-46,70-100"
+    },
+    {
+      "area": "frontend",
+      "path": "prototype/src/live/DetachedQSOSurface.tsx",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "173-209; conditional component routing/snapshot props"
+    },
+    {
+      "area": "frontend",
+      "path": "prototype/src/LiveApp.tsx",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "1112-1137,1300-1475"
+    },
+    {
+      "area": "frontend",
+      "path": "prototype/src/contesting/Not1MMContestWorkspace.tsx",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "2690-2775"
+    },
+    {
+      "area": "frontend",
+      "path": "prototype/src/live/adifTransfer.test.ts",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "1-120,300-455,560-717,718-770"
+    },
+    {
+      "area": "frontend",
+      "path": "Sources/XLogPrototypeSupport/LiveLogbookMethods.swift",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "1000-1135"
+    },
+    {
+      "area": "frontend",
+      "path": "Sources/XLogCore/ADIF.swift",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "511-584"
+    },
+    {
+      "area": "frontend",
+      "path": "Sources/XLogCore/QSOADIF.swift",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "115-188"
+    },
+    {
+      "area": "frontend",
+      "path": "Sources/XLogApp/AppModel.swift",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "395-425,1000-1035"
+    },
+    {
+      "area": "frontend",
+      "path": "Sources/XLogApp/OM0RXXLogApp.swift",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "55"
+    },
+    {
+      "area": "frontend",
+      "path": "Sources/XLogApp/WorkspaceViews.swift",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "31"
+    },
+    {
+      "area": "contest",
+      "path": "python/contest_host/host.py",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "830-849, 2060-2449, 2750-2904, 3359-3642, 3643-3658, 3782-4141, 4189-4255"
+    },
+    {
+      "area": "contest",
+      "path": "python/contest_host/store.py",
+      "baselineDepth": "fully reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "376-389"
+    },
+    {
+      "area": "contest",
+      "path": "python/contest_host/adif_import.py",
+      "baselineDepth": "fully reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "112-143"
+    },
+    {
+      "area": "contest",
+      "path": "python/contest_host/wae.py",
+      "baselineDepth": "fully reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "1-93"
+    },
+    {
+      "area": "contest",
+      "path": "python/contest_host/recorder.py",
+      "baselineDepth": "fully reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "1-125"
+    },
+    {
+      "area": "contest",
+      "path": "python/contest_host/upstream.py",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "135-808, 818-1012"
+    },
+    {
+      "area": "contest",
+      "path": "python/contest_host/multipliers.py",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "fully reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "1-534"
+    },
+    {
+      "area": "contest",
+      "path": "python/tests/test_review_replica_authority.py",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "fully reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "all"
+    },
+    {
+      "area": "contest",
+      "path": "python/tests/test_recorder.py",
+      "baselineDepth": "fully reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "recorder classification assertions"
+    },
+    {
+      "area": "contest",
+      "path": "python/tests/test_multi_operator_host.py",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "authority/serial fixture contracts"
+    },
+    {
+      "area": "contest",
+      "path": "python/tests/test_review_adif_import.py",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "historical floor and import receipt cases"
+    },
+    {
+      "area": "contest",
+      "path": "python/tests/test_host.py",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "test_esm_disabled_enter_commits_without_output_and_manual_keys_still_work"
+    },
+    {
+      "area": "contest",
+      "path": "python/tests/test_cq_ww_ssb_host.py",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "test_ssb_run_and_s_and_p_esm_emit_voice_intents_and_commit"
+    },
+    {
+      "area": "contest",
+      "path": "prototype/src/contesting/Not1MMContestWorkspace.tsx",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "1582, 1803-1831, 2732-2755, 3920-3923"
+    },
+    {
+      "area": "contest",
+      "path": "prototype/src/contesting/ContestHistoricalImport.tsx",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "fully reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "all"
+    },
+    {
+      "area": "contest",
+      "path": "prototype/src-tauri/src/main.rs",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "2383-2450, 2623-2633, 3297-3338"
+    },
+    {
+      "area": "contest",
+      "path": "prototype/src-tauri/src/worker.rs",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "236-334"
+    },
+    {
+      "area": "contest",
+      "path": "prototype/src-tauri/src/contest_group_replica.rs",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "1-240"
+    },
+    {
+      "area": "contest",
+      "path": "prototype/src-tauri/src/contest_group_chat.rs",
+      "baselineDepth": "scanned only",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "42-85"
+    },
+    {
+      "area": "contest",
+      "path": "prototype/src-tauri/src/contest_recorder.rs",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "84-108"
+    },
+    {
+      "area": "contest",
+      "path": "prototype/src-tauri/src/contest_recorder_store.rs",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "682-721"
+    },
+    {
+      "area": "contest",
+      "path": "Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+      "baselineDepth": "partially reviewed",
+      "reportedPassDepth": "partially reviewed",
+      "cumulativeDepth": "partially reviewed",
+      "ranges": "362-484"
+    },
+    {
+      "area": "contest",
+      "path": "Sources/XLogCore/Resources/cty.csv",
+      "baselineDepth": "not reviewed",
+      "reportedPassDepth": "scanned only",
+      "cumulativeDepth": "scanned only",
+      "ranges": "176"
+    },
+    {
+      "area": "contest",
+      "path": "docs/contesting/WAE_2026_RULE_REFERENCE.json",
+      "baselineDepth": "fully reviewed",
+      "reportedPassDepth": "fully reviewed",
+      "cumulativeDepth": "fully reviewed",
+      "ranges": "all"
+    },
+    {
+      "area": "contest",
+      "path": "python/vendor/not1mm/upstream/not1mm/plugins/qso_party_rst.py",
+      "baselineDepth": "excluded",
+      "reportedPassDepth": "scanned only",
+      "cumulativeDepth": "excluded",
+      "ranges": "140-184"
+    }
+  ],
+  "nonBaselineContextOnly": [
+    {
+      "area": "native",
+      "reason": "No new manual source inspection; baseline depth retained",
+      "path": "Sources/XLogPrototypeSupport/WorkerProtocol.swift",
+      "status": "fully reviewed",
+      "ranges": "1-208 (first pass)",
+      "notes": "No changes or second execution; earlier request/newline false positive remains rejected."
+    },
+    {
+      "area": "contest",
+      "reason": "No new manual source inspection; baseline depth retained",
+      "path": "python/tests/test_wave5_qtc_host.py",
+      "depth": "not-reviewed",
+      "focus": "executed in 41-test focused run; first-pass manual depth unchanged"
+    },
+    {
+      "area": "contest",
+      "reason": "No new manual source inspection; baseline depth retained",
+      "path": "python/tests/test_wave5_adif_host.py",
+      "depth": "not-reviewed",
+      "focus": "executed in 41-test focused run; first-pass manual depth unchanged"
+    },
+    {
+      "area": "contest",
+      "path": ".build/wave5/rules/darc-wae-rules.html",
+      "depth": "partial",
+      "ranges": [
+        "call-area rule and Japanese example"
+      ],
+      "focus": "retained official rule example; full file hash matches tracked reference; not fetched anew"
+    },
+    {
+      "area": "contest",
+      "path": "python/vendor/not1mm/**",
+      "depth": "excluded",
+      "focus": "Routine manual vendored source review remains excluded; first-party adapters and specific boundaries examined instead"
+    }
+  ]
+}

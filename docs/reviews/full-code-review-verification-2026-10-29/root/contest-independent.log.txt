@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/tmp/xlog-review-verification-20261028-12824393/contest/verify_contracts.py", line 19, in <module>
+    from contest_host.host import Host, HostError
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/contest_host/host.py", line 3, in <module>
+    from datetime import datetime, UTC
+ImportError: cannot import name 'UTC' from 'datetime' (/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/datetime.py)

@@ -1,0 +1,1 @@
+Second verification of CR-002, CR-003 and native CR-007 at documentation HEAD12824393f2799f21c223fadcb19d03305a5bf2f8, application source unchanged from4bd554a25951ddc995b4bef1715d3df12918a07b. Isolated evidence only; no app/test/config edits.

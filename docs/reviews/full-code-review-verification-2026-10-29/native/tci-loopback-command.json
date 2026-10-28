@@ -1,0 +1,19 @@
+[
+  "swift",
+  "-I",
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/prototype-tests/debug",
+  "-I",
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/CSQLitePrototype",
+  "-I",
+  "/tmp/xlog-review-verification-20261028-12824393/native",
+  "-L",
+  "/tmp/xlog-review-verification-20261028-12824393/native",
+  "-lReviewNative",
+  "-Xlinker",
+  "-rpath",
+  "-Xlinker",
+  "/tmp/xlog-review-verification-20261028-12824393/native",
+  "/tmp/xlog-review-verification-20261028-12824393/native/verify_tci_shutdown.swift",
+  "/tmp/xlog-review-verification-20261028-12824393/native/tci-loopback-1108",
+  "55051"
+]

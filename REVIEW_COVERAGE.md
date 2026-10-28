@@ -1,10 +1,13 @@
-# Full application review coverage — 28 October 2026
+# Full application review coverage — verified 29 October 2026
 
 **Status: INCOMPLETE manual review.** This stage maps the tracked repository,
-executes broad checks and records ten substantiated defects. It does not claim a
+retains first-pass broad checks, deepens selected workflows and records twelve
+substantiated defects after second verification. It does not claim a
 semantic audit of every file or line. No fixes were implemented.
 
-Reviewed source: clean canonical `main` at `4bd554a25951ddc995b4bef1715d3df12918a07b`.
+Verification baseline: clean canonical `main` at
+`12824393f2799f21c223fadcb19d03305a5bf2f8`; application source is unchanged from
+`4bd554a25951ddc995b4bef1715d3df12918a07b`.
 `origin/main` was fetched and fast-forward checked. No initial uncommitted changes
 existed. New review reports and isolated evidence are the only intended changes;
 older records are preserved. The inventory is frozen to the source baseline and
@@ -15,7 +18,7 @@ Findings, architecture, workflow traces, commands/results and remediation are in
 
 ## Per-file ledger
 
-[REVIEW_INVENTORY.tsv](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-2026-10-28/REVIEW_INVENTORY.tsv)
+[REVIEW_INVENTORY.tsv](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/REVIEW_INVENTORY.tsv)
 has one row for **every one of the 2,347 tracked baseline files**, with line/byte
 counts, scope, depth, inspected ranges/contracts and separate check annotations.
 Paths are relative to `/Users/oliver/Documents/Projects/OM0RX-xLog`. This is the
@@ -23,12 +26,23 @@ authoritative exact remaining-file list. Passing tests never upgrade manual dept
 
 | Depth | Meaning | All files | First-party source/test/config/tooling |
 | --- | --- | ---: | ---: |
-| Fully reviewed | Complete file inspected in context for scoped contracts/failure paths; not certification of all possible behavior | 87 | 81 |
-| Partially reviewed | Selected functions/ranges/workflows; remaining semantics open | 79 | 72 |
-| Scanned only | Structural/pattern inspection or targeted search; no full semantic walkthrough | 1,435 | 1,434 |
-| Not reviewed | Inventory only | 617 | 25 |
+| Fully reviewed | Complete file inspected in context for scoped contracts/failure paths; not certification of all possible behavior | 100 | 94 |
+| Partially reviewed | Selected functions/ranges/workflows; remaining semantics open | 93 | 86 |
+| Scanned only | Structural/pattern inspection or targeted search; no full semantic walkthrough | 1,410 | 1,408 |
+| Not reviewed | Inventory only | 615 | 24 |
 | Excluded | Specific reason recorded per file | 129 | 2 |
 | **Total** | | **2,347** | **1,614** |
+
+Second-pass manual inspection revisited **70 distinct baseline files**, changing
+the cumulative depth of 30. Fully reviewed files increased 87→100; partial 79→93;
+scan-only 1,435→1,410; unreviewed 617→615. Depth never increases merely because a
+suite ran. Exact merges and unchanged-depth observations are in
+[coverage-merge.json](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/coverage-merge.json); baseline counts and denominator
+are retained in [coverage-summary.json](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/coverage-summary.json).
+The 62 first-pass review-only files already tracked at `12824393` and all new review
+artifacts are outside this frozen 2,347-file application/support denominator.
+The [original ledger](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-2026-10-28/REVIEW_INVENTORY.tsv)
+and first-pass evidence remain unchanged.
 
 Scope taxonomy: 1,614 source/test/config/tooling files, 79 resource/data files,
 542 supporting documentation/data/media files, 112 vendor files. The exclusion
@@ -47,19 +61,22 @@ individually validated. Scans do not satisfy the semantic-review backlog.
 | Area | Examined / executed | Remaining |
 | --- | --- | --- |
 | Architecture/workflow/manifests | Entry points, target/platform declarations, clean source state, role/identity/trust boundaries | Historical release descriptions are inconsistent; installed state not inferred |
-| React frontend | 814-file bounded inventory, draft/contact journals, input/close barriers, transport, selected import/sync/contest/time paths; actual React probes, full tests, build/audit and limited reruns | Most controllers/windows/settings/maps/awards/propagation/codecs/tests remain scan-only |
+| React frontend | 814-file bounded inventory, draft/contact journals, input/close barriers, transport, selected import/sync/contest/time paths; second pass completes ADIF/ADX codec and LogbookPanel source reads, rechecks canonical remounts, metadata whitelists and contact/draft reconciliation; 1408 focused tests pass | Most controllers/windows/settings/maps/awards/propagation/tests remain scan-only |
 | Rust/Tauri | IPC/generation/deadlines, main exit, station/release and recorder consumers, isolation/CSP/capabilities; 913 + 26 tests pass | Most command/provider/lifecycle combinations need full semantic tracing; no native GUI |
-| Swift station/CW/cluster/C | Registry routing, agent lifecycle/releases/capture, fldigi/WSJT-X boundaries, selected CW queues/loopback; fake-RPC probe | Complete FLEX/TCI/Remote Agent reconnect/parsing, keyer/CAT/rotor, sockets/vault and decoder audit |
+| Swift station/CW/cluster/C | Registry routing, agent lifecycle/releases/capture, fldigi/WSJT-X boundaries, selected CW queues/loopback; real-module eight-case fake-RPC matrix and loopback TCI connection through worker shutdown | Complete FLEX/TCI/Remote Agent reconnect/parsing, keyer/CAT/rotor, sockets/vault and decoder audit |
 | Normal persistence | Selected database transaction/schema/import/sync/draft paths; complete OperatorDraft contract; real SQLite Save/reopen/receipt and legacy import probes | Many contact/power/delivery/cache mutations and test oracles remain partial/scanned; contention/crash/scale acceptance open |
-| Sync/services | Wavelog request/readback, JSON/ADIF consistency, ambiguity holding, merge/deletion/ack, selected LoTW/reference/cache/cloud/FTP | Full joins/fingerprints/service contracts and failure matrix; no live accounts |
-| Backups | Seal/path capture/materialization, staged SQLite verification, recovery/rollback/incomplete marker, local adapters, FTP/TLS/OneDrive boundary | Full authorization/retention/retry/restore owner and all transports; no personal backup/cloud operation |
-| Python contests | Loader/provenance and selected dispatch/mutation/receipt/import/export/score/recorder/serial/replica; 537 tests and real Host probes | Host validators, overlays, multipliers/analytics/message/strategy tails and test assertions |
+| Sync/services | Wavelog request/readback, JSON/ADIF consistency, ambiguity holding, merge/deletion/ack, selected LoTW/reference/cache/cloud/FTP | Remaining service/fingerprint/failure combinations; ADIF/JSON join/matching 571–764 now inspected; no live accounts |
+| Backups | Seal/path capture/materialization, staged SQLite verification, recovery/rollback/incomplete marker, local adapters, FTP/TLS/OneDrive boundary; core authorization, scheduler, snapshot owner and retention/deletion coordinator now fully read | Host/transport/retry/restore combinations remain partial; no personal backup/cloud operation |
+| Python contests | Loader/provenance and selected dispatch/mutation/receipt/import/export/score/recorder/serial/replica; first-pass 537 tests and real Host probes; continued setup/engine/new-state/exchange validators and overlay ranges; multipliers.py fully read | Full Host/upstream, analytics/message/strategy tails and remaining test assertions still open |
 | All catalog entries | All **97** definitions exercised: **1,353 PASS / 5 NOT APPLICABLE**, zero failures in finite lifecycle checker | Not every sponsor rule/category/physical output/export submission; WAE bug survives checker |
-| Swift contest core/store | All three store source files and persistence contracts fully read; selected rollback/revision/serial/concurrency/snapshot tests; Swift suites pass | Most rule packs, exporters/projections/loaders and platform branches; inactive VHF compatibility question |
-| Retained SwiftUI | Default product/build route, selected forms/UTC/import/restore, actual core import-loop probe | Most AppModel/view/provider/restore failure paths; no native launch |
+| Swift contest core/store | All three store source files and persistence contracts fully read; selected rollback/revision/serial/concurrency/snapshot tests; first-pass Swift suites pass | Most rule packs, exporters/projections/loaders and platform branches; inactive VHF compatibility question |
+| Retained SwiftUI | Default product/build route, selected forms/UTC/import/restore, exact import/export method probes with chooser/model scaffolding; unfiltered export cap and nil-database import success confirmed | Most AppModel/view/provider/restore failure paths; no native launch |
 | Build/release/CI | Manifest/lock integration, job/platform selection, pins, Mac package/install/rollback/Hamlib recipes; shell syntax | All platform/staging/notarization/installer/supply-chain branches; no release script executed |
 
-Bounded reviewer records are preserved in `subreviews/`; root CR IDs supersede
+Second-pass records are preserved under
+[the verification evidence index](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/README.md) in `frontend/`, `native/`,
+`contest/` and `root/`, with separate per-file increments. First-pass bounded
+reviewer records remain in the original `subreviews/`; root CR IDs supersede
 their local IDs. Root checked findings against source, callers, guards and probes.
 The ledger merges explicit inspection; it does not claim each full file was read
 twice independently.
@@ -89,14 +106,32 @@ twice independently.
 
 ## Validation and continuation
 
-Full outputs, including failures, are in `checks/`; commands are in the evidence
-README and CODE_REVIEW.md. Swift native/portable runs pass but overlap; their
+First-pass full outputs, including failures, remain in the original `checks/`;
+commands are in the evidence README and CODE_REVIEW.md. Swift native/portable runs pass but overlap; their
 counts are not unique coverage. Python 537 and Rust 913 + 26 pass. Frontend
 build/typecheck and registry audit pass. Initial `npm test` has 4,705 passes and
 two 5-second timeouts; targeted 2/2 and full affected-file 195/195 reruns pass.
 There was no later all-green full-suite run. Final isolated UI regressions fail
 their intended-behavior assertions and reproduce CR-008/010. SQLite/Host probes
 assert counterexamples; their exit 0 is not a product-correctness result.
+
+Second-pass focused outcomes: Swift draft 12/12 and backup policy 37/37 pass;
+Python 41/41 and frontend 1408/1408 existing tests pass. Actual service/Host/native
+counterexamples persist through the stated replay/reopen controls. React intended
+behavior still has 3 expected failures; 6 fixture/control checks pass in the combined
+independent run. Official ADX bytes were retrieved twice with identical SHA256;
+exact xmllint validation is blocked by an unrelated schema regex, and the bounded
+derived-schema limitation is explicit in CR-012. No full suite/build/audit was
+repeated. No focused result erases the initial full frontend timeout failures.
+
+New full text coverage includes ADIF/ADX codec, LogbookPanel, native draft power
+gate, Python multipliers, historical-import UI, backup authorization/scheduler/
+snapshot owner/retention coordinator and selected test-oracle files. Continued
+partial coverage includes SyncEngine join/matching, BackupManager restore/envelope
+and SQLite boundaries, native provider retirement/watchdog/recorder consumption,
+Host authority/exchange/overlays and retained SwiftUI orchestration. The ledger
+is authoritative about exact files/ranges; this is not a full line-by-line second
+read of every file previously marked fully reviewed.
 
 Exact remaining work, in order:
 
@@ -111,12 +146,12 @@ Exact remaining work, in order:
    do not extrapolate this run to power-loss durability.
 3. Reconcile historical import with authority/replica audit/identity/serial/cursors,
    digest changes/rejoin/replay. Finish Host validators, `upstream.py` overlays,
-   `multipliers.py`, analytics/messages/strategy and remaining Swift rule/export/
+   remaining multiplier integration/test oracles, analytics/messages/strategy and Swift rule/export/
    resource/platform paths. Supplement 97 lifecycle seeds with independent current
    sponsor/category edge-case oracles.
 4. Review remaining `LiveApp.tsx`, `Not1MMContestWorkspace.tsx`, detached contest
-   protocols/controllers, settings journals, ADIF/ADX/export metadata, detached
-   window transitions, maps/classification/awards/propagation/accessibility and
+   protocols/controllers, settings journals, remaining import/export integration and
+   independent schema oracles (codec source now full), detached window transitions, maps/classification/awards/propagation/accessibility and
    malformed/recovery states. Complete retained SwiftUI orchestration separately.
 5. Complete native/C provider parsing/cancellation/reconnect/cleanup, recorder and
    group-network paths; verify upstream corpus and Rust/native runtime/model

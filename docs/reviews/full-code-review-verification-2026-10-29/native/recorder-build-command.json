@@ -1,0 +1,21 @@
+[
+  "rustc",
+  "--edition=2021",
+  "/tmp/xlog-review-verification-20261028-12824393/native/verify_recorder_store.rs",
+  "-L",
+  "dependency=/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/debug/deps",
+  "-o",
+  "/tmp/xlog-review-verification-20261028-12824393/native/verify_recorder_store",
+  "--extern",
+  "serde=/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/debug/deps/libserde-039e88fd5906841a.rlib",
+  "--extern",
+  "serde_json=/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/debug/deps/libserde_json-6db312b9855a6de0.rlib",
+  "--extern",
+  "sha2=/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/debug/deps/libsha2-d3092ce05b28862e.rlib",
+  "--extern",
+  "tempfile=/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/debug/deps/libtempfile-56940326ac485eed.rlib",
+  "--extern",
+  "libc=/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/debug/deps/liblibc-610d14f5af175b69.rlib",
+  "--extern",
+  "uuid=/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/debug/deps/libuuid-14cf8441fe0584a4.rlib"
+]

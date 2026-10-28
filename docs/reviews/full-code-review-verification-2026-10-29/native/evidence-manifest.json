@@ -1,0 +1,158 @@
+{
+  "documentationHEAD": "12824393f2799f21c223fadcb19d03305a5bf2f8",
+  "applicationBaseline": "4bd554a25951ddc995b4bef1715d3df12918a07b",
+  "files": [
+    {
+      "path": "Cargo.lock",
+      "bytes": 10698,
+      "sha256": "3bcc9dfaa08a0b8f42474ace13d3f1dab94266cc4c5a820312d87d040fb4ce3a"
+    },
+    {
+      "path": "Cargo.toml",
+      "bytes": 423,
+      "sha256": "72ae9dedc6559e49d80f024bdf4e889fe00974e79aa61b780c0bce7382a48147"
+    },
+    {
+      "path": "README.md",
+      "bytes": 244,
+      "sha256": "45239e7a29ba1809cddbf1152b4d8f5d60292a9e6b9de1dbc0579fd34a415b56"
+    },
+    {
+      "path": "build_native_library.py",
+      "bytes": 1140,
+      "sha256": "0ee756bdc686050439c0c66c07509cf155ca31faa06ee2b0160eb9e8f795de5d"
+    },
+    {
+      "path": "build_recorder_probe.py",
+      "bytes": 924,
+      "sha256": "0ab1c37aed8c696f08282b7d86aabc73a65c1f68d9eef0f5589ea55f0f310706"
+    },
+    {
+      "path": "coverage.json",
+      "bytes": 6604,
+      "sha256": "c0a2f31657023bf220859c92fb4340e44f76ee1cb1197f56eef904101ab54a9a"
+    },
+    {
+      "path": "fldigi-module.log",
+      "bytes": 1166,
+      "sha256": "cca9238db756a2babf9e55f580a5915b9d86e043222c3788e8db941c7c5bae3b"
+    },
+    {
+      "path": "make_evidence_manifest.py",
+      "bytes": 1655,
+      "sha256": "28457c44f9891eae2f0b3cfe0d8e325c7f884f1720ec85ce41c21edfaea49056"
+    },
+    {
+      "path": "module.modulemap",
+      "bytes": 523,
+      "sha256": "23fb5056a87d19368bdfaa6c3930f2e03f0bc900c45283c08a0254a589d04d35"
+    },
+    {
+      "path": "native-library-build.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "native-library-command.json",
+      "bytes": 4092,
+      "sha256": "225c585828f0c4e1bdda7e9d8985b5288ecfa2bb683d1a1e8c610585f300f1f8"
+    },
+    {
+      "path": "prepare_recorder_package.py",
+      "bytes": 1029,
+      "sha256": "c69135c0a81a2e569a77f86ff7e62d2ccbf2f06c0df0bac6d3aed85a66fb9078"
+    },
+    {
+      "path": "recorder-build-command.json",
+      "bytes": 1153,
+      "sha256": "87d789618af8a88898bf52cc4542b055004103c08644e91822ca2fa8d8ceef29"
+    },
+    {
+      "path": "recorder-build.log",
+      "bytes": 2532,
+      "sha256": "61db017963a2891b2705604402f32460c6c669eae5f94d8e94d54ff6fbdc5160"
+    },
+    {
+      "path": "recorder-store.log",
+      "bytes": 4224,
+      "sha256": "f7223beb9761e8c7b494444a0f7af4fd0112ccf02c4f96a6ddf952fc88123f98"
+    },
+    {
+      "path": "registry-lifecycle.log",
+      "bytes": 808,
+      "sha256": "7eef9cc5595a1d1998124450a950e38a950c61f61fb5a07b6116c4a5400e57b4"
+    },
+    {
+      "path": "run_tci_shutdown.py",
+      "bytes": 2740,
+      "sha256": "f2963639aff8930d0c2e986614e8edaf49d239a51ae02ad2dca42ad07b9d2cae"
+    },
+    {
+      "path": "tci-loopback-command.json",
+      "bytes": 613,
+      "sha256": "e3016e6f5c14d86946c76936eb1922e2480090e710c9d803da0b1c8288733d5d"
+    },
+    {
+      "path": "tci-loopback-result.log",
+      "bytes": 1500,
+      "sha256": "1ef1e053750bf2b73a78d9f2db21720eb3abd8be14d4e8b66808503eb916cb2a"
+    },
+    {
+      "path": "tci-loopback-server.json",
+      "bytes": 158,
+      "sha256": "5f41b2d4ef1327f98acfc5cd61252c6fc58a0223eaffbae4064058c860966ff1"
+    },
+    {
+      "path": "verification-matrix.md",
+      "bytes": 10769,
+      "sha256": "5cf60bb3f86771551f482a14a8068398da36d4bd8ae7209590d7fcc58ff6b7ce"
+    },
+    {
+      "path": "verify_fldigi_module.swift",
+      "bytes": 2412,
+      "sha256": "d6420d91e364502f7649d1fd3695ea250350d9d148a205fc34a646378b4205fd"
+    },
+    {
+      "path": "verify_recorder_store.rs",
+      "bytes": 2744,
+      "sha256": "6980efad2242179fd4f42720fd7770361fc04ad155ad156ef7aa02ef1cecf25e"
+    },
+    {
+      "path": "verify_registry_lifecycle.swift",
+      "bytes": 2569,
+      "sha256": "f829df6957ff8318df58d1e1ded900529afa869e4eb435f911afd5288d5325f6"
+    },
+    {
+      "path": "verify_tci_shutdown.swift",
+      "bytes": 2369,
+      "sha256": "4ab02d333c7ba95a970ccf458046aa2d50bc6903914e75df9ec34ad7b6897803"
+    }
+  ],
+  "excludedGeneratedArtifacts": [
+    "libReviewNative.dylib and compiled native probe executable",
+    "cargo-target build outputs",
+    "private worker and fldigi fixture stores",
+    "loopback runtime marker directories",
+    "synthetic PCM recorder fixture audio/journals"
+  ],
+  "dispositions": [
+    {
+      "finding": "CR-002",
+      "disposition": "confirmed with narrowed module-switch trigger",
+      "severity": "High",
+      "evidence": "actual-module shutdown state plus connected loopback TCI; output cleanup consequence remains source-supported, no RF proof"
+    },
+    {
+      "finding": "CR-003",
+      "disposition": "confirmed",
+      "severity": "Medium",
+      "evidence": "actual-module eight-case fake-RPC matrix, no neighboring stubs"
+    },
+    {
+      "finding": "CR-007-native",
+      "disposition": "confirmed",
+      "severity": "Medium",
+      "evidence": "unchanged Rust store with synthetic PCM; local-origin gating and durable cursor skip reproduced"
+    }
+  ]
+}

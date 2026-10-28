@@ -1,0 +1,58 @@
+{
+  "routedSnapshotAfterShutdown" : {
+    "allow_transmit" : false,
+    "available" : false,
+    "capabilities" : {
+      "read_only" : false,
+      "receive_control_only" : true,
+      "requires_transmit_opt_in" : false,
+      "supported_commands" : [
+
+      ]
+    },
+    "generated_at" : null,
+    "generation" : 1,
+    "propagation" : null,
+    "radio" : null,
+    "radio_id" : "radio1",
+    "rotor" : null,
+    "source" : "direct_tci",
+    "station" : {
+      "allowed_actions" : [
+
+      ],
+      "available" : false,
+      "commissioned" : false,
+      "radio_known" : false,
+      "radio_stale" : true,
+      "supported_commands" : [
+
+      ]
+    },
+    "tci" : {
+      "availability" : "synchronizing",
+      "channel" : null,
+      "channel_count" : null,
+      "device" : null,
+      "failure" : null,
+      "filter_lower_hz" : null,
+      "filter_scope" : "trx",
+      "filter_upper_hz" : null,
+      "observation_sequence" : 2,
+      "program" : null,
+      "protocol_version" : null,
+      "read_only" : false,
+      "receive_control_only" : true,
+      "receive_only" : null,
+      "split_observed_at" : null,
+      "supported_modulations" : null,
+      "trx" : null,
+      "trx_count" : null
+    },
+    "transport_state" : "synchronizing"
+  },
+  "scope" : "actual compiled modules and loopback-only stdlib fake WebSocket; no radio commands or hardware",
+  "shutdownOutcome" : 0,
+  "websocketClosedAfterExplicitRoutedDisconnect" : true,
+  "websocketClosedAfterWorkerShutdown" : false
+}

@@ -1,0 +1,4 @@
+module CCWProcess { header "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/CCWProcess/include/CCWProcess.h" export * }
+module CClusterSocket { header "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/CClusterSocket/include/CClusterSocket.h" export * }
+module CCurlBackup { header "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/CCurlBackup/include/CCurlBackup.h" export * }
+module CPlatformVault { header "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/CPlatformVault/include/CPlatformVault.h" export * }

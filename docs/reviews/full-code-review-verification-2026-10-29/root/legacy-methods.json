@@ -1,0 +1,12 @@
+{
+  "exportBanner" : "Exported 2000 QSOs",
+  "exportedCount" : 2000,
+  "firstBanner" : "Imported 2 ADIF records",
+  "firstCount" : 1,
+  "fixtureRoot" : "\/var\/folders\/16\/764mp1kj32zbx8rslnb76mpr0000gn\/T\/xlog-second-pass-legacy-D17A9D3B-B3CD-42EF-839D-8DC0F9148489",
+  "nilDatabaseBanner" : "Imported 2 ADIF records",
+  "repeatCount" : 2,
+  "sourceBoundary" : "Exact importADIF\/exportADIF method bodies; chooser and surrounding model scaffolding stubbed",
+  "totalDatabaseCount" : 2003,
+  "visibleCount" : 2000
+}

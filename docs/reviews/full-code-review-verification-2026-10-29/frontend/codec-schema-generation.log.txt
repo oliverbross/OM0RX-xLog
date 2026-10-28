@@ -1,0 +1,8 @@
+
+ RUN  v5.0.3 /private/tmp/xlog-review-verification-20261028-12824393/frontend
+
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  00:03:16
+   Duration  595ms (environment 87%, transform 8%, tests 2%, import 2%, worker 1%)

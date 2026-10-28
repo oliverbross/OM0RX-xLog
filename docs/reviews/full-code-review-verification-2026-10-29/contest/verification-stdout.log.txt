@@ -1,0 +1,150 @@
+{
+  "CR-004": {
+    "baselinePairedSync": "PASS",
+    "independentRoots": true,
+    "masterNetworkRole": "master",
+    "replicaNetworkRole": "client",
+    "importReplayedWithoutNewContact": true,
+    "reopenPreservesSameInvalidPage": true,
+    "failure": {
+      "code": "invalid_request",
+      "message": "Replica change kind is invalid"
+    },
+    "failureAfterReopen": {
+      "code": "invalid_request",
+      "message": "Replica change kind is invalid"
+    },
+    "wrongAuthorityRejected": {
+      "code": "authority_mismatch",
+      "message": "Replica contest configuration differs from the authority"
+    },
+    "rejectedApplyPreservesAllCoreTablesAndHasNoReceipt": true,
+    "masterContacts": 1,
+    "replicaContacts": 0,
+    "auditKind": "adif_import",
+    "afterIdentity": null
+  },
+  "CR-005": {
+    "masterNetworkEnabled": true,
+    "historicalFloor": 2,
+    "grantedSerial": 2,
+    "replaySerial": 2,
+    "reopenReplaySerial": 2,
+    "rejectedCommit": {
+      "code": "historical_serial_conflict",
+      "message": "The preserved draft serial is already present in an imported historical contact. Preserve any actual sent exchange and deliberately finish/reconcile this draft before using a fresh serial."
+    },
+    "commitRollbackAllCoreTables": true,
+    "followingNewGrant": 3,
+    "localNextSerialControl": 3,
+    "physicalTransmissionTested": false
+  },
+  "CR-006": {
+    "modes": [
+      {
+        "plugin": "wae_cw",
+        "score": {
+          "qsos": 3,
+          "points": 3,
+          "qtcPoints": 0,
+          "countries": 2,
+          "zones": 0,
+          "multipliers": 4,
+          "total": 12,
+          "scoringComplete": true,
+          "scoringLimitation": "",
+          "ruleEdition": "DARC 2025-06-17 / 2026 event dates"
+        },
+        "cabrilloClaimedScore": 12,
+        "expected": 6,
+        "bothExplicitPortableOverridesScore": 6,
+        "reopenScore": 12,
+        "originalCommitReplayAddsNoRowsOrActions": true
+      },
+      {
+        "plugin": "wae_ssb",
+        "score": {
+          "qsos": 3,
+          "points": 3,
+          "qtcPoints": 0,
+          "countries": 2,
+          "zones": 0,
+          "multipliers": 4,
+          "total": 12,
+          "scoringComplete": true,
+          "scoringLimitation": "",
+          "ruleEdition": "DARC 2025-06-17 / 2026 event dates"
+        },
+        "cabrilloClaimedScore": 12,
+        "expected": 6,
+        "bothExplicitPortableOverridesScore": 6,
+        "reopenScore": 12,
+        "originalCommitReplayAddsNoRowsOrActions": true
+      },
+      {
+        "plugin": "wae_rtty",
+        "score": {
+          "qsos": 3,
+          "points": 3,
+          "qtcPoints": 0,
+          "countries": 2,
+          "zones": 0,
+          "multipliers": 4,
+          "total": 12,
+          "scoringComplete": true,
+          "scoringLimitation": "",
+          "ruleEdition": "DARC 2025-06-17 / 2026 event dates"
+        },
+        "cabrilloClaimedScore": 12,
+        "expected": 6,
+        "bothExplicitPortableOverridesScore": 6,
+        "reopenScore": 12,
+        "originalCommitReplayAddsNoRowsOrActions": true
+      }
+    ],
+    "retainedOfficialRulesSHA256": "9693e5e843a6bfb054deafe2004d55384c0224a764816c66248f5f13e54c668c",
+    "matchesTrackedReference": true,
+    "ruleExample": "JR4, 7M4 und 7K4 count as JA4",
+    "bundledJapanCTYRow": "JA,Japan,339,AS,25,45,36.40,-138.38,-9.0,7J 7K 7L 7M 7N 8J 8K 8L 8M 8N JA JE JF JG JH JI JJ JK JL JM JN JO JP JQ JR JS;",
+    "currentLiveSponsorRetrieval": "Not repeated; retained hash-verified official edition is application-pinned authority"
+  },
+  "CR-007": {
+    "routes": [
+      {
+        "route": "enabled",
+        "operationMethod": "esm",
+        "auditKind": "commit",
+        "local": false,
+        "replayedActions": [],
+        "reopenAuditIdentical": true,
+        "contacts": 1
+      },
+      {
+        "route": "disabled",
+        "operationMethod": "esm",
+        "auditKind": "commit",
+        "local": false,
+        "replayedActions": [],
+        "reopenAuditIdentical": true,
+        "contacts": 1
+      },
+      {
+        "route": "logit",
+        "operationMethod": "function_key",
+        "auditKind": "commit",
+        "local": false,
+        "replayedActions": [],
+        "reopenAuditIdentical": true,
+        "contacts": 1
+      }
+    ],
+    "physicalRecorderOrOutputTested": false,
+    "nativeStoreConsumerVerification": "Coordinated native agent owns actual unchanged Rust consumer harness"
+  },
+  "source": {
+    "head": "12824393f2799f21c223fadcb19d03305a5bf2f8",
+    "runDataRoot": "/private/tmp/xlog-review-verification-20261028-12824393/contest/data-56bd2487-ddc2-4300-b146-f835fac3f631",
+    "applicationMutation": false,
+    "realTransportsUsed": false
+  }
+}

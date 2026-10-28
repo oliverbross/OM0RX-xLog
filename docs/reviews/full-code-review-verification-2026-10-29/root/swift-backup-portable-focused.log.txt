@@ -1,0 +1,98 @@
+Building for debugging...
+[Computing dependencies]
+[1 / 55] XStationIntegrationTests-product
+Build complete! (0.95 sec.)
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite RemoteBackupAuthorizationPortableTests started.
+◇ Test defaultOffAndExactApprovalSurviveRestart() started.
+✔ Test defaultOffAndExactApprovalSurviveRestart() passed after 0.010 seconds.
+◇ Test explicitRecurrenceRevisionAndDestinationFences() started.
+✔ Test explicitRecurrenceRevisionAndDestinationFences() passed after 0.006 seconds.
+◇ Test workspaceRotationInvalidatesOldConsentAndPlans() started.
+✔ Test workspaceRotationInvalidatesOldConsentAndPlans() passed after 0.005 seconds.
+◇ Test revocationIsDurableAndCannotBeOverwrittenByStaleOwner() started.
+✔ Test revocationIsDurableAndCannotBeOverwrittenByStaleOwner() passed after 0.005 seconds.
+◇ Test independentOwnersCannotApproveTheSameConfigurationRevisionTwice() started.
+✔ Test independentOwnersCannotApproveTheSameConfigurationRevisionTwice() passed after 0.003 seconds.
+◇ Test corruptConfigurationAndAbandonedLockFailClosed() started.
+✔ Test corruptConfigurationAndAbandonedLockFailClosed() passed after 0.004 seconds.
+◇ Test legacyNumericOperationAndScheduleRecordsNeverAcquireUUIDAuthority() started.
+✔ Test legacyNumericOperationAndScheduleRecordsNeverAcquireUUIDAuthority() passed after 0.010 seconds.
+✔ Suite RemoteBackupAuthorizationPortableTests passed after 0.046 seconds.
+◇ Suite RemoteBackupOwnerPortableTests started.
+◇ Test recurringDriverUsesFreshIdentityAndExactContextAcrossIntervals() started.
+✔ Test recurringDriverUsesFreshIdentityAndExactContextAcrossIntervals() passed after 0.066 seconds.
+◇ Test defaultOnceAndFailureNeverRearm(failed:) started.
+◇ Test case passing 1 argument failed → false to defaultOnceAndFailureNeverRearm(failed:) started.
+◇ Test case passing 1 argument failed → true to defaultOnceAndFailureNeverRearm(failed:) started.
+✔ Test defaultOnceAndFailureNeverRearm(failed:) with 2 test cases passed after 0.071 seconds.
+◇ Test preparedClaimModeRejectsRecurringBeforeEnablingOrCapturing() started.
+✔ Test preparedClaimModeRejectsRecurringBeforeEnablingOrCapturing() passed after 0.023 seconds.
+◇ Test recurringUncertainOutcomeCannotRearm() started.
+✔ Test recurringUncertainOutcomeCannotRearm() passed after 0.034 seconds.
+◇ Test stopOrClockJumpDuringExecutionPreventsRearm(stop:) started.
+◇ Test case passing 1 argument stop → false to stopOrClockJumpDuringExecutionPreventsRearm(stop:) started.
+◇ Test case passing 1 argument stop → true to stopOrClockJumpDuringExecutionPreventsRearm(stop:) started.
+✔ Test stopOrClockJumpDuringExecutionPreventsRearm(stop:) with 2 test cases passed after 0.064 seconds.
+◇ Test defaultOffThenFreshFrozenClaimAndNoReplay() started.
+✔ Test defaultOffThenFreshFrozenClaimAndNoReplay() passed after 0.035 seconds.
+◇ Test clockReviewPrecedesCapture(delta:) started.
+◇ Test case passing 1 argument delta → -1.0 to clockReviewPrecedesCapture(delta:) started.
+◇ Test case passing 1 argument delta → 86401.0 to clockReviewPrecedesCapture(delta:) started.
+✔ Test clockReviewPrecedesCapture(delta:) with 2 test cases passed after 0.052 seconds.
+◇ Test stopAndConcurrentTickCannotIssueDuringCapture() started.
+✔ Test stopAndConcurrentTickCannotIssueDuringCapture() passed after 0.029 seconds.
+◇ Test thrownExecutorPersistsUncertainty() started.
+✔ Test thrownExecutorPersistsUncertainty() passed after 0.038 seconds.
+◇ Test captureFailureDoesNotReserveAndCanBeRetried() started.
+✔ Test captureFailureDoesNotReserveAndCanBeRetried() passed after 0.029 seconds.
+◇ Test concurrentFreshClaimsIssueOnceAcrossSchedulers() started.
+✔ Test concurrentFreshClaimsIssueOnceAcrossSchedulers() passed after 0.025 seconds.
+◇ Test interruptedFreshReservationBlocksAnotherFreshID() started.
+✔ Test interruptedFreshReservationBlocksAnotherFreshID() passed after 0.026 seconds.
+✔ Suite RemoteBackupOwnerPortableTests passed after 0.498 seconds.
+◇ Suite RemoteBackupRetentionReviewTests started.
+◇ Test onlyExactPinnedVerifiedObjectsBecomeStableCandidates() started.
+✔ Test onlyExactPinnedVerifiedObjectsBecomeStableCandidates() passed after 0.004 seconds.
+◇ Test legacyProoflessReceiptsDoNotConsumeTheVerifiedKeepMinimum() started.
+✔ Test legacyProoflessReceiptsDoNotConsumeTheVerifiedKeepMinimum() passed after 0.001 seconds.
+◇ Test priorDeletionClaimsAreVisibleButNeverCandidates() started.
+✔ Test priorDeletionClaimsAreVisibleButNeverCandidates() passed after 0.001 seconds.
+◇ Test ambiguousBackupAndRemoteObjectIdentitiesAlwaysRemainProtected() started.
+✔ Test ambiguousBackupAndRemoteObjectIdentitiesAlwaysRemainProtected() passed after 0.001 seconds.
+◇ Test clockAnomaliesPreventEveryCandidateAndTiesAreStable() started.
+✔ Test clockAnomaliesPreventEveryCandidateAndTiesAreStable() passed after 0.001 seconds.
+◇ Test pinnedObjectsRequireValidatedSyntaxAndVerifiedOutcomes() started.
+✔ Test pinnedObjectsRequireValidatedSyntaxAndVerifiedOutcomes() passed after 0.001 seconds.
+◇ Test readOnlyHistoryPreservesPinnedEvidenceAndLegacyReceiptsAcrossRestart() started.
+✔ Test readOnlyHistoryPreservesPinnedEvidenceAndLegacyReceiptsAcrossRestart() passed after 0.006 seconds.
+◇ Test interruptedAndCorruptHistoryCannotProduceVerifiedEvidence() started.
+✔ Test interruptedAndCorruptHistoryCannotProduceVerifiedEvidence() passed after 0.002 seconds.
+✔ Suite RemoteBackupRetentionReviewTests passed after 0.015 seconds.
+◇ Suite RemoteBackupSchedulerPortableTests started.
+◇ Test defaultOffAndDeterministicDueClaimSurviveRestart() started.
+✔ Test defaultOffAndDeterministicDueClaimSurviveRestart() passed after 0.032 seconds.
+◇ Test disableIsDurableAndNoIntervalCannotEnable() started.
+✔ Test disableIsDurableAndNoIntervalCannotEnable() passed after 0.032 seconds.
+◇ Test clockAnomaliesRequireExplicitReenable(delta:) started.
+◇ Test case passing 1 argument delta → -1.0 to clockAnomaliesRequireExplicitReenable(delta:) started.
+◇ Test case passing 1 argument delta → 86401.0 to clockAnomaliesRequireExplicitReenable(delta:) started.
+✔ Test clockAnomaliesRequireExplicitReenable(delta:) with 2 test cases passed after 0.087 seconds.
+◇ Test unfinishedOrUncertainWorkBlocksReplacementAndReplay() started.
+✔ Test unfinishedOrUncertainWorkBlocksReplacementAndReplay() passed after 0.033 seconds.
+◇ Test completedWorkRequiresFreshPlanAndCannotReuseClaimedID() started.
+✔ Test completedWorkRequiresFreshPlanAndCannotReuseClaimedID() passed after 0.046 seconds.
+◇ Test abandonedLockAndCorruptScheduleFailClosed() started.
+✔ Test abandonedLockAndCorruptScheduleFailClosed() passed after 0.031 seconds.
+◇ Test reservationBeforeInterruptedClaimSaveNeverReplays() started.
+✔ Test reservationBeforeInterruptedClaimSaveNeverReplays() passed after 0.028 seconds.
+◇ Test concurrentOwnersIssueOnlyOneClaim() started.
+✔ Test concurrentOwnersIssueOnlyOneClaim() passed after 0.028 seconds.
+◇ Test missingScheduleCannotHideAnUnknownDestinationClaim() started.
+✔ Test missingScheduleCannotHideAnUnknownDestinationClaim() passed after 0.036 seconds.
+◇ Test staleContextAndInvalidClockNeverClaim() started.
+✔ Test staleContextAndInvalidClockNeverClaim() passed after 0.025 seconds.
+✔ Suite RemoteBackupSchedulerPortableTests passed after 0.383 seconds.
+✔ Test run with 37 tests in 4 suites passed after 0.944 seconds.

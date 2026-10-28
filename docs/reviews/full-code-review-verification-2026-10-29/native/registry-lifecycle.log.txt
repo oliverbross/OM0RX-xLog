@@ -1,0 +1,25 @@
+{
+  "after" : {
+    "radio1\/direct_agent" : "accepted",
+    "radio1\/direct_flex_lan" : "accepted",
+    "radio1\/direct_tci" : "accepted",
+    "radio2\/direct_agent" : "accepted",
+    "radio2\/direct_flex_lan" : "accepted",
+    "radio2\/direct_tci" : "accepted"
+  },
+  "before" : {
+    "radio1\/direct_agent" : "accepted",
+    "radio1\/direct_flex_lan" : "accepted",
+    "radio1\/direct_tci" : "accepted",
+    "radio2\/direct_agent" : "accepted",
+    "radio2\/direct_flex_lan" : "accepted",
+    "radio2\/direct_tci" : "accepted"
+  },
+  "scope" : "actual compiled modules; no connections or service startup; all global external I\/O disabled",
+  "sharedAfter" : {
+    "direct_agent" : "worker_stopping",
+    "direct_flex_lan" : "worker_stopping",
+    "direct_tci" : "accepted"
+  },
+  "shutdownOutcome" : 0
+}

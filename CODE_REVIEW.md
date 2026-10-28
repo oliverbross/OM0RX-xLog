@@ -1,23 +1,48 @@
-# Application code review — 28 October 2026
+# Application code review — second verification, 29 October 2026
 
-**Reviewed source:** clean canonical `main` at `4bd554a25951ddc995b4bef1715d3df12918a07b`.
-`origin/main` was fetched and fast-forward checked before inspection. There were
-no initial uncommitted changes. Application version declarations are 1.3.60;
-installed application identity was not inspected.
+**Verification baseline:** clean canonical `main` at
+`12824393f2799f21c223fadcb19d03305a5bf2f8`, fetched and fast-forward checked.
+Application source is unchanged from the first-pass baseline
+`4bd554a25951ddc995b4bef1715d3df12918a07b`; intervening work added review documents
+only. Version declarations remain 1.3.60. Installed application identity was not inspected.
 
-**Disposition: INCOMPLETE full-codebase manual review; actionable review stage delivered.**
-Ten findings follow: **2 High, 7 Medium, 1 Low**. Every promoted finding was
-independently checked by the coordinating reviewer. Eight have isolated executable
-reproductions; CR-002 is supported by a complete static ownership/lifecycle trace;
-CR-009 reproduces the production core plus the caller's exact data-handling loop,
-without invoking its native file chooser. No application code, existing tests,
-dependencies or configuration were modified. Earlier review records are preserved.
+**Disposition: INCOMPLETE full-codebase manual review; second verification stage delivered.**
+The ten original findings are retained, with corrected scope and stronger evidence.
+Two additional export defects were found while continuing partial coverage:
+**12 findings — 2 High, 9 Medium, 1 Low**. No severity change was warranted after
+checking the reachable impact and working safeguards. No application code, existing
+tests, dependencies or configuration was changed.
 
-The scope includes existing code, not just a commit diff. A complete tracked-file
-inventory, inspection depth, exclusions and remaining work are in
-[REVIEW_COVERAGE.md](/Users/oliver/Documents/Projects/OM0RX-xLog/REVIEW_COVERAGE.md).
-Durable reproduction sources, outputs, suite logs and subreview records are in
-[the evidence directory](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-2026-10-28).
+The second pass challenged callers, admission/ownership, rollback/replay, test
+oracles and relevant React/Swift/SQLite/XML behavior. Root independently reran the
+service timestamp, configured Host, real-module registry/fldigi, actual-source Rust
+recorder, React and schema counterexamples. Loopback-TCI evidence was cross-checked against
+the unchanged implementation and its bounded reviewer artifacts. This is source
+and isolated-fixture evidence, without installed UI, provider-account or RF acceptance.
+
+The cumulative exact coverage and remaining work are in
+[REVIEW_COVERAGE.md](/Users/oliver/Documents/Projects/OM0RX-xLog/REVIEW_COVERAGE.md). First-pass reports are recoverable at
+`12824393`; [first-pass evidence](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-2026-10-28)
+is unchanged. New scripts, results, logs, reviewer matrices and the cumulative
+ledger are in [second-pass evidence](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/README.md). Older findings below
+retain first-pass reproduction details and add explicitly dated verification.
+
+## Second-pass disposition
+
+| Finding | Result / severity | Caller, safeguard and test challenge |
+| --- | --- | --- |
+| CR-001 | Confirmed High | Actual `LiveLogbookMethods.handle` admits the manual draft; real SQLite Save, receipt replay and reopen preserve the wrong start. Existing 12-test draft suite passes because the manual case ends before Save. |
+| CR-002 | Confirmed High; trigger narrowed | Actual compiled worker retires shared actors, leaving registry actors active; actual loopback TCI remains connected. Normal module switch has an output-idle veto, so active-PTT switch is excluded from the trigger. Ordinary Quit uses a different guard. |
+| CR-003 | Confirmed Medium | Actual compiled actor sends `main.rx` in six never-configured/disabled/receive-only lifecycle cases; external-I/O-disabled controls send none. Process ownership does not establish external transmit ownership. |
+| CR-004 | Confirmed Medium | Configured independent authority/client baseline works; exact imported change page fails after reopen. Authority/cursor guards and full compared-table rollback work but cannot translate the legitimate event. |
+| CR-005 | Confirmed Medium | Configured master grants and durably replays imported serial 2; local control grants 3. Later `historical_serial_conflict` rejection prevents a duplicate database commit. No peer-transmit claim. |
+| CR-006 | Confirmed Medium | Actual CW/SSB/RTTY scores and Cabrillo claims are 12 versus pinned-rule 6; portable /4 correction is a passing control. Pinned sponsor edition, not fresh sponsor certification. |
+| CR-007 | Confirmed Medium | Real ESM-enabled, disabled-ESM Enter and LOGIT commits are misclassified; actual Rust store skips even a supplied marker and persists cursor 2. Contacts/audio remain retained. |
+| CR-008 | Confirmed Medium | Valid canonical manual snapshots fail both Full→Simple and Full→Simple→Full display assertions in real React components; conditional component-type changes remount local state. Save is unnecessary to prove this finding. |
+| CR-009 | Confirmed Medium | Exact production method body with chooser/model scaffolding repeats the real-core skip/duplicate defect; nil database also reports success. Modern importer has separate safeguards. |
+| CR-010 | Confirmed Low | Source-labelled samples pass native-facing frontend validity checks; radio sample is mislabeled, amplifier control passes. No changed numeric power established. |
+| CR-011 | New Medium | Unfiltered retained SwiftUI logbook 2,003 → loaded 2,000 → exported 2,000; toolbar/menu invoke the same unscoped method. Modern frozen-snapshot export is separate. |
+| CR-012 | New Medium | Actual writer emits two names absent from the original official 3.1.7 record vocabulary. Original XSD compilation is blocked by an unrelated regex; bounded derived-schema control and exact-name comparison agree. |
 
 ## Findings
 
@@ -59,11 +84,20 @@ transaction, revision, power-capture and operation-replay behavior.
 reopen. Assert stored/exported start and explicit end, with automatic blank/spot
 Save as a control. Address CR-008 in the same manual-time acceptance journey.
 
+**Second verification:** [actual service result](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/root/manual-service.json)
+uses the real mutation handler, a private empty workspace, matching revision and
+generation, and no service stubs. Acknowledged `automaticStart:false` is ignored
+at Save; replay/reopen retains one wrong row. With explicit historical end retained,
+the resulting duration is negative. The renderer also refreshes automatic times
+before flushing `.replace`, which can clear canonical provenance; remediation must
+define one frontend/native time-intent contract, rather than merely moving a boolean.
+See [caller analysis](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/frontend/VERIFICATION_REVIEW.md).
+
 ### CR-002 — Worker lifecycle hooks target different radio instances from command routing
 
 **High — the connected owners' existing release/retirement path is bypassed.
-Confidence: high. Verification: supported by static cross-component analysis;
-actual RF behavior was not tested.**
+Confidence: high. Verification: actual compiled-module lifecycle and connected
+loopback-resource probes plus cross-component source analysis; RF was not tested.**
 
 Locations: [LiveWorker.swift:374](/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:374)
 and [LiveWorker.swift:414](/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:414),
@@ -77,7 +111,7 @@ The `.shared` actors are separate allocations (`LiveStationSession.swift:199`,
 singletons instead of the registry objects that own the connections.
 
 Trigger: use a routed direct-agent slot and acquire GUI PTT or carrier Tune, then
-quit or retire the worker without explicit disconnect. Worker EOF invokes
+quit normally or reach worker EOF without explicit disconnect. Worker EOF invokes
 `shutdownOutcome` (`Sources/XLogPrototypeWorker/main.swift:158–162`), but does not
 reach that connected actor's `terminate` → `shutdown` → `stop` chain.
 `LiveStationSession.swift:988–1008` contains the intended owned CW/Tune/PTT release
@@ -105,11 +139,28 @@ owned releases run, receive-only observers send no controls, both slots become
 terminal, and no replacement starts. Cover ordinary EOF, pending acquisition
 and operating-module retirement. Hardware acceptance is a subsequent boundary.
 
+**Second verification / scope correction:**
+[full ownership and fallback challenge](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/native/verification-matrix.md)
+records actual compiled-module results and a real WebSocket connected only to a
+disposable loopback server. `shutdownOutcome == 0` leaves that routed TCI resource
+open; explicit routed disconnect closes it. OS process exit would close the socket;
+no leak beyond process exit or transmitter state was demonstrated. Passive TCI
+disconnect remains admitted even after terminal state and is not itself diagnostic.
+
+Rust `main.rs:2734–2769` vetoes operating-module switch while PTT/Tune/CW and other
+output duties remain; **active PTT during a normally admitted module switch is not
+a supported trigger**. Ordinary Quit's editor-flush route at 2710–2715 has no matching
+general output-idle veto. Owned CW/voice shutdown does not cover every GUI PTT/Tune
+session. Provider observation watchdog/transport stop is distinct from the owner's
+explicit release calls; no destructor/registry-wide release fallback was found.
+High remains appropriate for bypassing the existing owned-output cleanup attempt;
+the physical consequence remains unverified.
+
 ### CR-003 — Ordinary shutdown sends fldigi receive control without xLog transmit ownership
 
 **Medium — can interrupt an independently operating fldigi instance. Confidence:
 high. Verification: reproduced with the actual unmodified bridge actor, fake RPC
-and small neighboring-interface stubs; no real network or radio.**
+and receiver only, with no neighboring-interface stubs; no real provider or radio.**
 
 Locations: [LiveFldigiBridge.swift:121](/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveFldigiBridge.swift:121),
 `stopForShutdown` / `suspendForWorkspaceChange`, and `returnToReceive` at 289–292;
@@ -135,6 +186,12 @@ uncertain release information. Define explicit operator emergency Stop separatel
 **Regression:** never-configured, disabled and receive-only shutdown/workspace
 changes send no XML-RPC controls; owned/pending transmit duties still release,
 without affecting a replaced or unrelated engine instance.
+
+**Second verification:** [eight-case real-module matrix](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/native/fldigi-module.log.txt)
+eliminates the first-pass neighboring-stub limitation. Six lifecycle/configuration
+combinations send exactly `main.rx`; both disabled-external-I/O controls send none.
+Fake RPC and receiver isolate the actor, so interruption of a real external fldigi
+session is the reachable risk supported by the command contract, not an observed RF event.
 
 ### CR-004 — Historical contest import emits changes that replica catch-up cannot consume
 
@@ -175,6 +232,14 @@ from local output and recorder attribution. **Regression:** paired Host import,
 catch-up, repeat/restart and later correction/deletion; assert identical contacts,
 cursor continuity and zero replayed output actions.
 
+**Second verification:** [configured caller/authority trace](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/contest/VERIFICATION.md)
+and [independent Host rerun](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/root/contest-independent-py312.log.txt)
+first establish successful baseline sync with a valid grant. The exact ordinary
+import change page then fails before/after both Hosts reopen. Rejected apply leaves
+all ten compared core tables and operation receipts unchanged; wrong authority
+also rejects. UI and native gates prohibit clients, but admit master import and
+preserve the event payload. The missing identity image is independently confirmed.
+
 ### CR-005 — Shared serial allocation ignores historical imports
 
 **Medium — authority can issue a valid-looking serial already used in its log.
@@ -207,6 +272,13 @@ reservations/receipts, including uncertain ones; do not silently renumber sent
 exchanges. **Regression:** historical import followed by multiple local/shared
 allocations, request replay, reopen, concurrent peers and applicable per-band
 scopes; every new allocation exceeds the appropriate floor and commits correctly.
+
+**Second verification:** configured-master grant 2 survives exact receipt replay
+and reopen; the next fresh grant is3. A local allocator control advances to3 after
+the same import. Rejected remote commit rolls back all compared tables. The finding
+is the unusable authoritative grant and replay contract; CR-004 prevents assuming
+ordinary peer catch-up/transmission succeeds. See
+[configured Host results](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/contest/verification-results.json).
 
 ### CR-006 — WAE multiplier extraction mistakes a national-prefix digit for the call area
 
@@ -243,11 +315,18 @@ existing WAE sessions before rescoring. **Regression:** JR4/7K4/7M4 equivalence,
 distinct areas, portable calls, missing evidence, corrections, reopen and Cabrillo
 claimed-score output for CW/SSB/RTTY.
 
+**Second verification:** all three WAE modes produce `scoringComplete:true`,
+score 12 and Cabrillo `CLAIMED-SCORE: 12`; explicit /4 corrections produce 6. Ordinary
+call correction, exact replay and reopen retain the corresponding outcome. Bundled
+CTY recognizes all three calls as Japan. The retained sponsor bytes again match
+the tracked reference hash; current sponsor currency was not re-certified.
+See [mode/export/control results](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/contest/verification-results.json).
+
 ### CR-007 — ESM-logged contacts are classified as remote for recorder bookmarks
 
 **Medium — ordinary Enter/ESM contacts miss automatic audio links. Confidence:
-high. Verification: real Host reproduction and static Rust consumer trace. Audio
-capture itself and native playback were not exercised.**
+high. Verification: real Host commits and actual unchanged Rust store with
+synthetic PCM. Physical audio capture and native playback were not exercised.**
 
 Locations: [recorder.py:28](/Users/oliver/Documents/Projects/OM0RX-xLog/python/contest_host/recorder.py:28),
 `changes`; [contest_recorder.rs:88](/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/src/contest_recorder.rs:88),
@@ -273,6 +352,16 @@ contacts excluded. **Regression:** recorder-enabled ESM and LOGIT commits,
 admission/catch-up/restart/replay, correction/delete and remote/import controls;
 assert one link at the correct recording location with no duplicate or replayed
 transmit intent.
+
+**Second verification:** real configured Host paths cover enabled ESM, disabled
+ESM Enter and F12 LOGIT, with exact replay/reopen. The
+[actual-source Rust probe](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/native/verify_recorder_store.rs)
+supplies synthetic PCM and a valid marker even for `local:false`; no link is made,
+while a direct `local:true` control links. Cursor2 survives reopen/replay and later
+reclassification of the consumed sequence cannot repair the omission. This excludes
+missing marker or fallback alone as the explanation. Root independently reran
+the offline Cargo harness and asserted the printed state with `root/assert_results.py`. See
+[consumer result](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/native/recorder-store.log.txt).
 
 ### CR-008 — Editor remounts discard acknowledged manual-time display intent
 
@@ -305,11 +394,20 @@ snapshot/session/editor props; retain valid local edits during transitions.
 **Regression:** Full↔Simple, main Desk↔full editor, detached reopen and process
 restart, asserting display and final stored time for manual and automatic drafts.
 
+**Second verification:** [independent React run](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/root/frontend-independent.log.txt)
+confirms both directions with a snapshot accepted by `validScopedSnapshot`, correct
+manual start and canonical flag. React remounts the different component types;
+initial state/effects use `!isEditing`, and props omit the canonical flag. Existing
+historical-contact edit tests exercise `isEditing:true`, a different path. The
+main-submit automatic refresh/native-replace interaction is a remediation dependency
+shared with CR-001, not an additional promoted timestamp defect.
+
 ### CR-009 — Legacy SwiftUI import silently skips records and duplicates repeated imports
 
 **Medium — misleading success and avoidable duplicate contacts in a retained
-application product. Confidence: high. Verification: actual XLogCore/SQLite with
-the caller's exact import loop; native chooser/banner were inspected statically.**
+application product. Confidence: high. Verification: actual XLogcore/SQLite with
+the exact production method body with chooser/model scaffolding; native GUI
+was not launched.**
 
 Location: [AppModel.swift:993](/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogApp/AppModel.swift:993),
 `importADIF`, especially 1000–1006. This is the SwiftUI `om0rx-xlog` product built
@@ -337,6 +435,14 @@ partial import succeeded completely. **Regression:** mixed valid/invalid records
 repeat import, mid-batch SQLite failure/rollback, malformed suffix and nil/closed
 database; assert correct counts, preserved original records and idempotent retry.
 
+**Second verification:** [exact-method results](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/root/legacy-methods.json)
+executes the unchanged extracted `importADIF` body, including success-banner logic,
+against real core/SQLite. Only native chooser and surrounding model scaffolding are
+substituted; [source/extract hashes](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/root/legacy-method-source.json) preserve
+the boundary. Mixed input stores 1/announces 2; repeating stores 2; nil database still
+announces 2 because optional chaining performs no write and throws no error. No
+whole-batch transaction, duplicate policy or outer caller guard repairs this route.
+
 ### CR-010 — Captured radio power is labeled as KPA500 amplifier output
 
 **Low — incorrect source attribution; no numeric power corruption established.
@@ -357,6 +463,78 @@ Evidence: the second isolated regression in `results/root-ui-reproductions.txt`.
 **Fix:** derive the label from the retained sample source, without guessing from
 the current station configuration. **Regression:** both allowed sources in
 enabled/disabled states and unknown-source behavior.
+
+**Second verification:** source and context labels are aligned so both radio
+and amplifier samples pass `validDraftPower` and `validScopedSnapshot`. The amplifier
+label is a passing control; radio still receives KPA500. This remains Low because
+the defect is source attribution, with no numeric or transmit behavior established.
+See [independent formatter/component run](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/root/frontend-independent.log.txt).
+
+### CR-011 — Retained SwiftUI ADIF export silently stops at the 2,000-row view cap
+
+**Medium — incomplete interchange file from an unfiltered logbook export.
+Confidence: high. Verification: exact production export method, real SQLite/core,
+native chooser and surrounding model scaffolding substituted.**
+
+Locations: [AppModel.swift:1015](/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogApp/AppModel.swift:1015),
+`exportADIF`, and `reload/searchChanged` at 406/419.
+The array being exported is loaded with `database.fetch(limit: 2_000, search: search)`.
+The exporter serializes only `qsos`; it never requests remaining contacts. Both
+the toolbar at `WorkspaceViews.swift:31` and application menu at
+`OM0RXXLogApp.swift:55` call this method with an unscoped “Export ADIF…” label.
+No cap warning, explicit current-page scope or follow-up page load was found.
+
+Reproduction: a disposable database contains 2,003 contacts and an empty search.
+The actual reload query loads 2,000; the extracted unchanged export method writes
+2,000 records and reports “Exported 2000 QSOs”, omitting 3. This survives a possible
+filtered-export interpretation because the reproduction is unfiltered. The count
+banner reports what was written but does not disclose incomplete database coverage.
+Source contacts remain intact; this is incomplete export, not database deletion.
+The modern React/Tauri exporter uses a separate frozen-snapshot/page contract and
+is not implicated. [Results](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/root/legacy-methods.json) and
+[exact-source fixture generator](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/root/prepare_legacy_method_probe.py).
+
+**Fix:** choose and disclose the intended export scope, freeze the matching database
+set and serialize all bounded pages independently of the view's display limit.
+**Regression:** unfiltered and explicitly filtered logs above 2,000 contacts,
+including exact boundary, export count/identity equality and safe cancellation.
+
+### CR-012 — ADX export emits deprecated field names outside its declared schema
+
+**Medium — schema-enforcing consumers can reject an ordinary export containing
+retained older fields. Confidence: high for vocabulary mismatch; exact validator
+limitations are explicit below.**
+
+Locations: [adifTransfer.ts:93](/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src/live/adifTransfer.ts:93),
+`:106`, `ADIFExportDocument.append:354` and `finish:393`.
+The `standardADXFields` set includes `GUEST_OP` and `VE_PROV` and writes them as
+literal RECORD child elements while declaring ADIF 3.1.7. Neither name appears in
+the 179 allowed RECORD element names of the [official 3.1.7 XSD](https://adif.org/317/adx317.xsd);
+the application set contains 181, with exactly these two extras. Imported extra
+fields survive `QSO.adifRecord` (`QSOADIF.swift:145–147`), so the export route is reachable.
+The default USERDEF preservation path and metadata guards do not run for these
+names because they are incorrectly classified as standard.
+
+Actual writer fixtures produce NAME (control), GUEST_OP and VE_PROV documents.
+All roundtrip through the app's decoder, explaining why mirrored acceptance tests
+miss the mismatch. Root independently retrieved identical official bytes:
+SHA-256 `ce7a86832f7be4a232d2c1ae7432925feb2be8506cba24345b7e3ad994a87331`.
+Exact original-XSD validation with xmllint is **blocked at schema compilation** by
+an unrelated New Zealand regex lookahead, including for NAME. A derived schema
+removing exactly that unused pattern facet, without changing any field declaration,
+validates NAME and rejects both legacy elements. None of these fixtures uses the
+relaxed subdivision field. This is bounded structural validation, not an unqualified
+original-XSD validation pass; direct name comparison uses the original schema.
+See [vocabulary comparison](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/frontend/schema-check.json),
+[original validator failure](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/frontend/schema-validation-results.json) and
+[independent bounded validation](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/root/schema-independent.log.txt).
+
+Original contacts are retained. ADI is a fallback for applicable records; no external
+consumer rejection was exercised. **Fix:** use the declared ADX version's exact
+vocabulary and a deliberate lossless conversion/extension policy for deprecated
+fields; do not silently discard them. **Regression:** independent official-schema
+vocabulary oracle, both legacy fields, valid standard/USERDEF controls and explicit
+version/conversion behavior, rather than writer/reader roundtrip alone.
 
 ## Architecture and trust boundaries
 
@@ -407,7 +585,7 @@ identities, receipts and logs should contain metadata rather than secrets.
 | Journey | Examined path and result |
 | --- | --- |
 | Normal QSO entry | React buffers/journal → shared draft revision → Swift mutation validation → contact/draft/receipt transaction → reopen/replay. CR-001 and CR-008 break manual-time fidelity. |
-| ADIF import/export | Modern bounded preview/duplicate plan/generation/SQLite import; retained SwiftUI parser loop; Python historical mappings/rebuild/serial floor/audit. CR-004/005/009 expose different integration omissions. Complete ADX/export codecs remain partial. |
+| ADIF import/export | Modern bounded preview/duplicate plan/generation/SQLite import; retained SwiftUI parser loop; Python historical mappings/rebuild/serial floor/audit. CR-004/005/009 expose different integration omissions. The completed codec pass adds CR-012; retained SwiftUI export adds CR-011. |
 | Synchronization | Wavelog JSON+ADIF snapshot joins, stable metadata/ID checks, held ambiguity groups, merge/deletion steps, pending writes, post-write verification and submitted-snapshot acknowledgements. No live provider operation; deeper join/restore/failure matrix remains incomplete. |
 | Backup/restore | Sealed package capture, staged SQLite verification, pre-restore recovery copy, edit-generation retirement, incomplete-restore marker, component replacement/rollback and disabled prospective delivery. Actual restore checked by existing disposable tests; no personal backup was opened. |
 | Contest logging | Plugin-derived draft/ESM → transactional audit/receipt → score/export and recorder audit consumer. All catalog lifecycle fixtures exercised; CR-006/007 survive those checks. |
@@ -415,7 +593,7 @@ identities, receipts and logs should contain metadata rather than secrets.
 | Radio/CW/rotor lifecycle | Native owner/admission → worker generation → selected provider → owned release/EOF. CR-002/003 identify lifetime/authority disagreements. Physical I/O not exercised. |
 | Multiwindow recovery | Canonical snapshots, local journals, pending receipts, input/close barriers and editor mode remount. React component checks executed; no native AX/installed-window check. |
 
-## Checks and actual results
+## First-pass checks and actual results
 
 Commands ran from the repository root unless a working directory is shown. Full
 captured output is retained under the evidence directory's `checks/`; normal
@@ -452,6 +630,30 @@ core/actor checks without changing tool policy. Initial missing-module/Vite
 fixture-resolution errors were harness setup failures, corrected before counting
 the final probes; they are not application test failures.
 
+## Second-pass checks and actual results
+
+These checks ran against unchanged application source at `12824393`. Full suites,
+build/audits and the 97-definition lifecycle sweep above are **first-pass** results;
+they were not repeated or replaced by focused successes.
+
+| Check / command | Actual result and limit |
+| --- | --- |
+| `git fetch origin main`; fast-forward-only merge; source diff `4bd554a`→`12824393` | Already current; clean start; application diff empty. |
+| `XLOG_PORTABLE_ONLY=1 swift test --scratch-path .build/prototype-tests --no-parallel --filter OperatorDraftTests` | PASS 12. Existing suite misses manual Save. |
+| Same command, `--filter "RemoteBackup(Owner\|Scheduler\|Authorization\|RetentionReview)"` | PASS 37 in 4 suites, 0.944s. Earlier narrower selector ran only 8 retention tests; not counted as additional unique tests. Fake sources/executors, no cloud operation. |
+| Configured real-Host `verify_contracts.py` with Python 3.12 | PASS defect/control assertions, independently rerun; authority baseline, full compared-table rollback, receipt/reopen and mode/export checks. System Python 3.9 initially failed importing UTC before the probe; corrected interpreter, preserved setup failure. |
+| Focused existing Python tests listed in [command record](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/contest/commands-and-results.md) | PASS 41, 19.224s; whole 537-test suite not repeated. |
+| Five existing frontend codec/logbook/draft/contact/mutation files | PASS 1408; all five files listed in frontend verification record. |
+| Strengthened isolated React/writer/submit checks, independent `-t VERIFY` rerun | 3 expected regression failures (CR-008 twice, CR-010 radio), 6 passes (amp control, 3 writer fixtures, 2 modeled submit probes), 45 skipped. Failures assert intended behavior; passes generating invalid XML are not product-correctness claims. |
+| Actual compiled Swift registry/fldigi probes | PASS counterexample assertions, root independently rerun. Production objects linked into temporary module; no neighboring actor stubs. |
+| Routed TCI loopback resource; actual-source offline Rust recorder | PASS bounded counterexample assertions. Handshake/close only; synthetic PCM, no physical device/playback. |
+| Exact service Save/reopen and extracted legacy methods | PASS counterexample assertions; actual service has no stubs, legacy methods have declared chooser/model scaffolding. |
+| Official ADX schema retrieval, original/derived structural checks | Identical schema hashes. Original xmllint compile blocked; original-name comparison plus bounded one-facet-derived validation confirms two unsupported tags. |
+
+All sources/results and exact build/interpreter commands are in
+[the second-pass evidence index](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/README.md). First-pass timing failures,
+missing cargo-audit, provider limits and setup diagnostics remain visible.
+
 ## False-positive audit and verification limits
 
 - A preliminary mocked detached-Save test showed stale automatic time. It was
@@ -473,6 +675,18 @@ the final probes; they are not application test failures.
   the continued contest review had effective rollback and identity fences; no
   additional defect was asserted. Inactive >100 GHz VHF definition/store-limit
   differences remain a compatibility question, not an active-product bug.
+- The broad active-output module-switch interpretation of CR-002 was corrected:
+  the actual idle veto prevents that trigger. The wrong lifecycle owner remains
+  reachable through ordinary Quit/EOF and is independently reproduced.
+- A new suspected duplicate-update extension-sidecar loss was rejected for the
+  exposed route: renderer/native editable-field whitelists exclude arbitrary
+  APP/USERDEF names, and the planner retains/validates target metadata. A direct
+  helper accepting arbitrary names is insufficient to establish caller reachability.
+- The main-submit automatic timestamp/provenance mismatch is recorded as a joint
+  CR-001/008 remediation dependency, not counted as a third timestamp finding.
+- Backup sidecar-removal concerns were not promoted: reviewed restore callers
+  close the database first; staged verification/rollback remains present. Complete
+  crash/transport/provider combinations remain open.
 - Earlier R01–R08 review repairs were checked as historical context; these are not
   re-reported as still-open defects.
 
@@ -508,7 +722,8 @@ live (403); the finding is grounded in the hash-matched retained edition.
    decision (CR-006), and recorder commit provenance across Python/Rust (CR-007).
 5. Bring the retained SwiftUI importer onto shared validation (CR-009), or make
    an explicit product-support decision; do not silently exclude its current
-   default-build product from maintenance. Correct CR-010's source label.
+   default-build product from maintenance. Correct CR-010's source label. Repair the retained exporter cap (CR-011) and
+    ADX vocabulary/conversion policy (CR-012) with independent export oracles.
 6. Complete the semantic-review backlog listed per file and by subsystem in
    REVIEW_COVERAGE.md. Resolve test timing and Rust/native dependency-advisory
    gaps. Native UI/provider/hardware qualification follows only under AGENTS.md's
@@ -520,4 +735,4 @@ fixes have regression oracles, consolidate registry lifecycle APIs, time-provena
 types, serial allocation and audit-event vocabulary at their existing owners.
 Update stale overlapping README/status release descriptions so current product
 and historical acceptance can be identified reliably. These improvements are
-separate from the ten defects above.
+separate from the twelve defects above.

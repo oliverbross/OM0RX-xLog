@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "baselineFiles": 2347,
+  "secondPassInspectedFiles": 70,
+  "changedDepthFiles": 30,
+  "findingCounts": {
+    "High": 2,
+    "Medium": 9,
+    "Low": 1
+  },
+  "checkedLocalLinks": 54,
+  "reportTableCellCounts": "valid",
+  "applicationChanges": [],
+  "firstPassEvidenceUnchanged": true,
+  "rootIndependentResults": "assert_results.py passed",
+  "scope": "Documentation and isolated reproduction artifacts only; full audit remains incomplete"
+}

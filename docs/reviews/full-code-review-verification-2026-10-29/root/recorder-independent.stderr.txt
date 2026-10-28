@@ -1,0 +1,66 @@
+warning: struct `Snapshot` is never constructed
+   --> /Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/src/contest_recorder_store.rs:208:12
+    |
+208 | pub struct Snapshot {
+    |            ^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `verified` is never used
+   --> /Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/src/contest_recorder_store.rs:274:4
+    |
+274 | fn verified(path: &Path, segment: &Segment) -> bool {
+    |    ^^^^^^^^
+
+warning: methods `manual`, `recover`, `media_path`, `snapshot`, and `coverage` are never used
+   --> /Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/src/contest_recorder_store.rs:625:12
+    |
+318 | impl Archive {
+    | ------------ methods in this implementation
+...
+625 |     pub fn manual(&mut self, note: &str) -> Result<Link> {
+    |            ^^^^^^
+...
+726 |     pub fn recover(&mut self) -> Result<()> {
+    |            ^^^^^^^
+...
+807 |     pub fn media_path(&self, segment: &Segment) -> PathBuf {
+    |            ^^^^^^^^^^
+...
+814 |     pub fn snapshot(&self) -> Snapshot {
+    |            ^^^^^^^^
+...
+823 |     pub fn coverage(&self, start: u64, end: u64) -> String {
+    |            ^^^^^^^^
+
+warning: methods `coverage`, `media_path`, `read_pcm`, `export`, and `export_cancellable` are never used
+   --> /Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/src/contest_recorder_store.rs:832:12
+    |
+831 | impl Snapshot {
+    | ------------- methods in this implementation
+832 |     pub fn coverage(&self, start: u64, end: u64) -> String {
+    |            ^^^^^^^^
+...
+835 |     pub fn media_path(&self, segment: &Segment) -> PathBuf {
+    |            ^^^^^^^^^^
+...
+843 |     pub fn read_pcm(&self, start: u64, end: u64) -> Result<Vec<i16>> {
+    |            ^^^^^^^^
+...
+885 |     pub fn export(&self, parent: &Path, include_notes: bool) -> Result<PathBuf> {
+    |            ^^^^^^
+...
+892 |     pub fn export_cancellable(
+    |            ^^^^^^^^^^^^^^^^^^
+
+warning: function `coverage` is never used
+   --> /Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/src/contest_recorder_store.rs:976:4
+    |
+976 | fn coverage(dir: &Path, m: &Manifest, start: u64, end: u64) -> String {
+    |    ^^^^^^^^
+
+warning: function `read_range` is never used
+    --> /Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/src/contest_recorder_store.rs:1015:4
+     |
+1015 | fn read_range(
+     |    ^^^^^^^^^^

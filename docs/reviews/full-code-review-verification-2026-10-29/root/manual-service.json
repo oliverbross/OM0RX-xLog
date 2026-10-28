@@ -1,0 +1,13 @@
+{
+  "automaticBeforeSave" : false,
+  "boundary" : "actual LiveLogbookMethods.handle; no stubs",
+  "receiptReopenedEqual" : true,
+  "replayedReceiptEqual" : true,
+  "requestedEnd" : "2023-11-14T22:23:20Z",
+  "requestedStart" : "2023-11-14T22:13:20Z",
+  "rowCount" : 1,
+  "savedDurationSeconds" : -93197246,
+  "savedEnd" : "2023-11-14T22:23:20Z",
+  "savedStart" : "2026-10-28T14:30:46Z",
+  "supportRoot" : "\/var\/folders\/16\/764mp1kj32zbx8rslnb76mpr0000gn\/T\/xlog-second-pass-service-FE6832BF-CC1E-4A7B-8CE4-FB6783F14015"
+}

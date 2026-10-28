@@ -1,0 +1,25 @@
+{
+  "sourceURL": "https://adif.org/317/adx317.xsd",
+  "schemaVersion": "3.1.7.0",
+  "sha256": "ce7a86832f7be4a232d2c1ae7432925feb2be8506cba24345b7e3ad994a87331",
+  "schemaRecordFields": 179,
+  "typescriptFields": 181,
+  "missingFromFrontend": [],
+  "extraFrontendFields": [
+    "GUEST_OP",
+    "VE_PROV"
+  ],
+  "selectedTypeDefinitions": {
+    "String": "<xs:simpleType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"String\">\n    <xs:restriction base=\"xs:string\">\n      <xs:pattern value=\"[ -~]*\" />\n      <xs:whiteSpace value=\"preserve\" />\n    </xs:restriction>\n  </xs:simpleType>\n  \n  ",
+    "MultilineString": "<xs:simpleType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"MultilineString\">\n    <xs:restriction base=\"xs:string\">\n      <xs:pattern value=\"([\\r\\n -~])*\" />\n      <xs:whiteSpace value=\"preserve\" />\n    </xs:restriction>\n  </xs:simpleType>\n  \n  ",
+    "IntlString": "<xs:simpleType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"IntlString\">\n    <xs:restriction base=\"xs:string\">\n      <xs:pattern value=\"[^\\r\\n]*\" />\n      <xs:whiteSpace value=\"preserve\" />\n    </xs:restriction>\n  </xs:simpleType>\n  \n  ",
+    "IntlMultilineString": "<xs:simpleType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"IntlMultilineString\">\n    <xs:restriction base=\"xs:string\">\n      <xs:whiteSpace value=\"preserve\" />\n    </xs:restriction>\n  </xs:simpleType>\n  \n  ",
+    "Number": "<xs:simpleType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"Number\">\n    <xs:restriction base=\"xs:decimal\">\n      <xs:pattern value=\"[0-9\\.\\-]+\" />\n    </xs:restriction>\n  </xs:simpleType>\n\n  ",
+    "NumberGE0": "<xs:simpleType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"NumberGE0\">\n    <xs:restriction base=\"Number\">\n      <xs:minInclusive value=\"0\" />\n    </xs:restriction>\n  </xs:simpleType>\n\n  ",
+    "Integer": "<xs:simpleType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"Integer\">\n    <xs:restriction base=\"xs:decimal\">\n      <xs:pattern value=\"[0-9\\-]+\" />\n    </xs:restriction>\n  </xs:simpleType>\n\n  ",
+    "IntegerGE0": "<xs:simpleType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"IntegerGE0\">\n    <xs:restriction base=\"Integer\">\n      <xs:minInclusive value=\"0\" />\n    </xs:restriction>\n  </xs:simpleType>\n\n  ",
+    "PositiveInteger": "<xs:simpleType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"PositiveInteger\">\n    <xs:restriction base=\"xs:decimal\">\n      <xs:pattern value=\"[0-9]+\" />\n      <xs:minInclusive value=\"1\" />\n    </xs:restriction>\n  </xs:simpleType>\n\n  ",
+    "Location": "<xs:simpleType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"Location\">\n    <xs:restriction base=\"xs:string\">\n      <xs:pattern value=\"[eEwWnNsS](0[0-9][0-9]|1[0-7][0-9]|180) [0-5][0-9]\\.[0-9]{3}\" />\n      <xs:whiteSpace value=\"preserve\" />\n    </xs:restriction>\n  </xs:simpleType>\n\n  \n\n  ",
+    "DataTypeIndicator": "<xs:simpleType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"DataTypeIndicator\">\n    <xs:restriction base=\"xs:string\">\n      <xs:pattern value=\"[bBnNsSiIdDtTiImMgGeElL]\" />\n      <xs:whiteSpace value=\"preserve\" />\n    </xs:restriction>\n  </xs:simpleType>\n  \n  "
+  }
+}

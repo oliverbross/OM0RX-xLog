@@ -1,0 +1,110 @@
+Building for debugging...
+[Computing dependencies]
+[Pre-planning 1 / 768]
+[Planning deferred tasks]
+[1 / 5]
+[2 / 6] XCWCore
+[11 / 47]
+[14 / 47]
+[17 / 47]
+[21 / 47]
+[23 / 47]
+[27 / 47]
+[29 / 47]
+[30 / 47]
+[33 / 47]
+[37 / 47]
+[38 / 47]
+[39 / 47]
+[40 / 47]
+[42 / 47]
+[43 / 47] XCWCore
+[49 / 50] XCWCoreTests-product
+[50 / 52] XCWCoreTests-product
+[60 / 88]
+[65 / 88]
+[70 / 88]
+[71 / 88]
+[73 / 88]
+[75 / 88]
+[77 / 88]
+[78 / 88]
+[79 / 88]
+[81 / 88]
+[82 / 88]
+[83 / 88]
+[84 / 88]
+[85 / 88] XCWCoreTests-product
+[89 / 90] XCWCoreTests-product
+[92 / 92] XCWCore-product
+[99 / 150] XStationIntegrationCore
+[105 / 153]
+[111 / 157] XContestCoreTests-product
+[113 / 158] XCatIntegrationCore
+[113 / 158] XLogCore
+[117 / 162]
+[118 / 162] XClusterIntegrationCore
+[124 / 163] XContestStore
+[126 / 166]
+[127 / 166] XStationIntegrationTests-product
+[130 / 164] XContestStore
+[137 / 167] XContestCoreTests-product
+[143 / 170] XCatIntegrationCore
+[146 / 170] XClusterIntegrationTests-product
+[148 / 170] XClusterIntegrationTests-product
+[152 / 173] XContestStoreTests-product
+[153 / 173] XCatIntegrationTests-product
+[155 / 173] XClusterIntegrationTests-product
+[160 / 176] XContestCoreTests-product
+[162 / 176] XContestStoreTests-product
+[164 / 177] XLogCore
+[172 / 186] XLogCore
+[174 / 188] XCatIntegrationTests-product
+[179 / 190] XLogPrototypeSupport
+/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift:43:70: warning: converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+ 41 |          validatePrivateRoot: @escaping @Sendable () throws -> Void,
+ 42 |          beforeReplacementPublish: @escaping @Sendable () async -> Void = {},
+ 43 |          providerFetch: @escaping ProviderFetch = ContestSCPProvider.fetchLatest,
+    |                                                                      `- warning: converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+ 44 |          writeAtomically: @escaping AtomicWriter = { data, url in try data.write(to: url, options: [.atomic]) },
+ 45 |          validateScope: @escaping ScopeValidator) throws {
+[182 / 192] XLogPrototypeSupport
+[189 / 196] XLogPrototypeTests-product
+[189 / 196] xlog-prototype-worker-product
+[192 / 197] xlog-prototype-worker-product
+[193 / 199] xlog-prototype-worker-product
+[195 / 200] xlog-prototype-worker-product
+[195 / 201] XLogPrototypeTests-product
+[198 / 202] XLogPrototypeTests-product
+[203 / 205] XLogPrototypeTests-product
+Build complete! (27.10 sec.)
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Durable operator draft and retry receipts" started.
+◇ Test "New drafts and mode changes use conventional voice and CW reports" started.
+✔ Test "New drafts and mode changes use conventional voice and CW reports" passed after 0.018 seconds.
+◇ Test "A second connection and a reopened service see the same acknowledged draft" started.
+✔ Test "A second connection and a reopened service see the same acknowledged draft" passed after 0.010 seconds.
+◇ Test "Save uses the button time for an automatic start while a manual historical start is preserved" started.
+✔ Test "Save uses the button time for an automatic start while a manual historical start is preserved" passed after 0.011 seconds.
+◇ Test "A stale window cannot replace newer text or clear the next draft" started.
+✔ Test "A stale window cannot replace newer text or clear the next draft" passed after 0.019 seconds.
+◇ Test "Lost Save acknowledgement is recoverable after restart without another insert or reset" started.
+✔ Test "Lost Save acknowledgement is recoverable after restart without another insert or reset" passed after 0.009 seconds.
+◇ Test "Independent simultaneous Save attempts commit exactly one contact" started.
+✔ Test "Independent simultaneous Save attempts commit exactly one contact" passed after 0.012 seconds.
+◇ Test "Receipt-write failure rolls back the contact and draft advance together" started.
+✔ Test "Receipt-write failure rolls back the contact and draft advance together" passed after 0.012 seconds.
+◇ Test "Draft API cannot overwrite a logged contact or import sync identity" started.
+✔ Test "Draft API cannot overwrite a logged contact or import sync identity" passed after 0.008 seconds.
+◇ Test "Partial calls can be drafted but invalid or oversized records cannot be logged" started.
+✔ Test "Partial calls can be drafted but invalid or oversized records cannot be logged" passed after 0.009 seconds.
+◇ Test "Transient receipts are bounded while Save receipts survive backup and later edits" started.
+✔ Test "Transient receipts are bounded while Save receipts survive backup and later edits" passed after 0.081 seconds.
+◇ Test "Worker exposes conflict snapshots, validates revisions and serves durable receipts offline" started.
+✔ Test "Worker exposes conflict snapshots, validates revisions and serves durable receipts offline" passed after 0.065 seconds.
+◇ Test "A terminated live worker cannot create or mutate an operator draft" started.
+✔ Test "A terminated live worker cannot create or mutate an operator draft" passed after 0.002 seconds.
+✔ Suite "Durable operator draft and retry receipts" passed after 0.263 seconds.
+✔ Test run with 12 tests in 1 suite passed after 0.263 seconds.

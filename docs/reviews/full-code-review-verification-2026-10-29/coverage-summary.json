@@ -1,0 +1,29 @@
+{
+  "applicationSource": "4bd554a25951ddc995b4bef1715d3df12918a07b",
+  "verificationHEAD": "12824393f2799f21c223fadcb19d03305a5bf2f8",
+  "totalFiles": 2347,
+  "depthCounts": {
+    "not reviewed": 615,
+    "partially reviewed": 93,
+    "fully reviewed": 100,
+    "scanned only": 1410,
+    "excluded": 129
+  },
+  "firstPartyDepthCounts": {
+    "not reviewed": 24,
+    "partially reviewed": 86,
+    "fully reviewed": 94,
+    "scanned only": 1408,
+    "excluded": 2
+  },
+  "scopeCounts": {
+    "first-party source/test/config/tooling": 1614,
+    "supporting documentation/data/media": 542,
+    "resource/data; contracts and loaders in scope": 79,
+    "vendored; boundary/provenance review only": 112
+  },
+  "filesWithSecondPassInspection": 70,
+  "depthChangedFiles": 30,
+  "reviewOnlyFilesAtVerificationHEAD": 62,
+  "inventoryPolicy": "Frozen2347 application/support baseline;62 first-pass review-only files at12824393 plus new second-pass artifacts excluded from denominator; no scope expansion from repeated reports."
+}

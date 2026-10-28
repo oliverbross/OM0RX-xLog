@@ -1,0 +1,51 @@
+{
+  "schema": "xlog-contest-review-verification-v1",
+  "head": "12824393f2799f21c223fadcb19d03305a5bf2f8",
+  "applicationBaseline": "4bd554a25951ddc995b4bef1715d3df12918a07b",
+  "applicationDiffEmpty": true,
+  "findings": [
+    {
+      "id": "CR-004", "disposition": "retain", "severity": "Medium", "confidence": "high",
+      "locations": ["python/contest_host/adif_import.py:131", "python/contest_host/host.py:2190", "python/contest_host/host.py:2358", "python/contest_host/host.py:2372"],
+      "supportedPath": "Configured master historical-import UI -> strategy_apply(adif_import) -> authority changes -> native prepared replica apply -> Python apply_replica",
+      "reproduced": ["independent configured master/client roots", "successful baseline sync including shared reservation", "real master historical import", "exact page rejected before and after reopen", "import receipt replay creates no extra QSO"],
+      "safeguards": ["client-side import correctly blocked", "wrong authority digest rejected", "all compared core tables unchanged after rejection", "no rejected apply receipt or open transaction"],
+      "impact": "One legitimately produced import event blocks incremental catch-up at its cursor",
+      "limits": "No live LAN relay or installed UI tested; fail-closed rejection retains master and replica data",
+      "recommendation": "Emit replication-compatible insert/identity images or explicitly enforce the unsupported workflow before import, with recovery"
+    },
+    {
+      "id": "CR-005", "disposition": "retain", "severity": "Medium", "confidence": "high",
+      "locations": ["python/contest_host/store.py:376", "python/contest_host/host.py:2121", "python/contest_host/host.py:3643", "python/contest_host/adif_import.py:128"],
+      "supportedPath": "Configured master typed authority serial-reserve RPC -> Host coordinate -> Store.reserve_shared_serial",
+      "reproduced": ["master imports sent serial 2", "authoritative shared grant returns 2", "same receipt returns 2 on replay and reopen", "following fresh shared grant returns 3", "local allocator control returns next serial 3"],
+      "safeguards": ["remote commit rejects historical_serial_conflict", "all compared core tables unchanged on rejected commit", "CR-004 separately prevents normal post-import replica catch-up"],
+      "impact": "Authority grant and commit contracts disagree; incorrect grant is durably replayed",
+      "limits": "No peer transmission or accepted duplicate QSO claimed; do not raise severity based on hypothetical RF",
+      "recommendation": "Unify local/shared allocation against historicalSerialFloor with receipt-safe replay"
+    },
+    {
+      "id": "CR-006", "disposition": "retain", "severity": "Medium", "confidence": "high",
+      "locations": ["python/contest_host/wae.py:40"],
+      "supportedPath": "Normal CW/SSB/RTTY draft commits with bundled CTY facts -> WAE multiplier key -> projection/rebuild/export",
+      "reproduced": ["JR4AAA, 7K4ABC, 7M4XYZ score 12 instead of 6 in all three WAE modes", "scoringComplete true", "Cabrillo claimed score 12", "explicit /4 corrections produce 6", "restored original call reintroduces score 12 after reopen", "old commit replay adds no contacts/actions"],
+      "safeguards": ["normal country hydration recognizes Japan", "rule-edition persisted guard checked", "retained official rules hash exactly matches tracked reference"],
+      "impact": "Inflated multiplier count and exported claimed score",
+      "limits": "Pinned DARC 2025-06-17 edition for 2026 events; no new sponsor fetch, no QTC or physical acceptance",
+      "recommendation": "Use sponsor-defined numerical area, with portable override regression cases in all WAE modes"
+    },
+    {
+      "id": "CR-007", "disposition": "retain", "severity": "Medium", "confidence": "high",
+      "locations": ["python/contest_host/recorder.py:28", "prototype/src-tauri/src/contest_recorder.rs:84", "prototype/src-tauri/src/contest_recorder_store.rs:682", "prototype/src-tauri/src/contest_recorder_store.rs:721"],
+      "supportedPath": "Normal enabled/disabled ESM Enter or saved LOGIT function key -> Host real commit -> persisted audit -> native catch-up store",
+      "reproduced": ["three real entry routes create one QSO each with audit commit/local=false", "receipt replay actions empty", "reopen retains audit classification", "actual unchanged Rust store skips local=false with valid marker", "local=true direct control links", "cursor advances durably and replay does not repair"],
+      "safeguards": ["native admission does not alias ESM/F-key methods", "periodic catch-up reaches local gate before marker/timestamp fallback", "local=true control proves marker/PCM fixture usable", "remote/imported events must remain nonlocal"],
+      "impact": "Locally entered QSOs lack automatic audio bookmarks",
+      "limits": "Contacts and audio retained; synthetic PCM only, no audio device or installed UI acceptance",
+      "recommendation": "Carry actual local-commit provenance and recorder admission across ESM/F-key paths without classifying remote/imported events as local"
+    }
+  ],
+  "newFindingsPromoted": [],
+  "focusedTests": {"passed": 41, "seconds": 19.224, "fullSuiteRerun": false},
+  "evidence": ["verify_contracts.py", "verification-results.json", "verification-stdout.log", "focused-tests.log", "../native/recorder-store.log", "../native/verify_recorder_store.rs"]
+}
