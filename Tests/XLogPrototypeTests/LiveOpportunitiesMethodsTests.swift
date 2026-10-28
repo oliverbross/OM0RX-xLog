@@ -12,6 +12,22 @@ import XLogPortableCore
 
 @Suite("Isolated opportunities projection")
 struct LiveOpportunitiesMethodsTests {
+    @Test("Default cluster projection is constructible without starting a transport")
+    func defaultClusterProjection() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let service = LiveOpportunitiesMethods(logbook: logbook)
+        let result = try await service.handle(method: "opportunities_snapshot", params: [:])
+        #expect(result["selection_tunes"] as? Bool == false)
+        #expect(result["transmit"] as? Bool == false)
+        await service.terminate()
+        await #expect(throws: WorkerFailure.self) {
+            try await service.handle(method: "opportunities_snapshot", params: [:])
+        }
+    }
+
     @Test("Programme tags do not turn WWFF, SOTA or castle references into POTA")
     func distinctProgrammeReferences() {
         for comment in ["KFF-3017", "KFF-2099 FFF-0001", "WCA F-01234", "SOTA W1/AB-1234"] {

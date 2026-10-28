@@ -41,11 +41,13 @@ actor LiveOpportunitiesMethods {
 
     init(logbook: LiveLogbookMethods = .shared, session: URLSession? = nil,
          dxpeditionHistory: @escaping ([String]) async throws -> [[String: Any]] = { _ in [] },
-         clusterSpots: @escaping () async -> [[String: Any]] = {
-             await LiveClusterMethods.shared.currentSpotRowsIfStarted()
-         }) {
+         clusterSpots: (() async -> [[String: Any]])? = nil) {
         self.logbook = logbook
-        self.clusterSpots = clusterSpots
+        // Construct the actor callback here, rather than in the caller's
+        // nonisolated default-argument context. It reads retained rows only.
+        self.clusterSpots = clusterSpots ?? {
+            await LiveClusterMethods.shared.currentSpotRowsIfStarted()
+        }
         self.dxpeditionHistory = dxpeditionHistory
         if let session { self.session = session }
         else {
