@@ -1,0 +1,15 @@
+{
+  "worker_sha256": "dc75453e1cd58fcd6b8b96098168ff245670dbac2bf8cec5b2346880dc3eb1aa",
+  "extracted_ranges": [
+    [
+      20,
+      177
+    ],
+    [
+      236,
+      503
+    ]
+  ],
+  "extracted_sha256": "eb0eb98f45d6fe3ae4db5b99085eb8fb416a06e378665b12ec47ef134ace91df",
+  "stub": "workspace_windows::surface_role(label) returns label; literal main and log-qso are already canonical surface roles"
+}

@@ -1,0 +1,28 @@
+{
+  "currentScenarioSHA256": "58a23e58386bdc6a21493cac7517168b967d2086c78618794f6457a329e2c399",
+  "archivedExecutionSource": "58da5d49359f7333852b04037a134ab04167be7b",
+  "operations": 78,
+  "actualWorkspaceGenerationValues": [
+    "f1198dec-dd17-4fb4-ba3f-56249fe30f8c"
+  ],
+  "negativeErrorCodes": {
+    "workspace_required": 1,
+    "payload_conflict": 2,
+    "invalid_request": 1,
+    "stale_revision": 1,
+    "external_io_disabled": 4
+  },
+  "reportedAssertion": true,
+  "currentSourceEvidence": "All scenario workspaceGeneration arguments use the one valid draft generation; only stale expectedRevision is injected at line122. Parent label conflates both controls at line521.",
+  "boundary": "Rechecked actual raw ledger for byte-identical current scenario; not a new process run or evidence that native generation safeguards fail.",
+  "baselineControl": {
+    "source": "530de4c4e4b23281ec60585cc7a2e5ca011476fb",
+    "sourceSHA256": "7ceb68c40b11c55355ceb6258ed404191fe59fd374a863d103f2c94603a7bfa0",
+    "explicitWrongGenerationAtLines537to539": [
+      "  sessionID: wpxSession, workspaceGeneration: \"f1111111-2222-4333-9444-555555555555\",",
+      "  expectedRevision: wpxRevision, qsoID: wpxCommit.qso.qsoID,",
+      "}), \"stale_workspace\");"
+    ]
+  },
+  "origin": "Phase5 current-protocol fixture migration removed explicit stale_workspace negativecase while retaining the combined passbit; test-evidence regression, no claimed product generationguard defect."
+}

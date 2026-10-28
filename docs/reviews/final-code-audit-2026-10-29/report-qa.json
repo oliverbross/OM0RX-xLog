@@ -1,0 +1,18 @@
+{
+  "scope": "All three scoped reviewers rechecked the consolidated report against their own source and actual proof evidence; no code edits or new runtime operations.",
+  "persistence": {
+    "result": "FA-001/002 mechanisms, severity, safeguards and original dispositions confirmed.",
+    "precisionApplied": "Replica proof fixture has other precached calls; both tested calls are absent. It reproduces the native reference gap without an exclusively station-only fixture."
+  },
+  "radio": {
+    "result": "FA-004/005 mechanisms, test counts, original dispositions and execution limits confirmed.",
+    "precisionApplied": "Primitive power proof assumes active Radio 1; native caller trace separately establishes inactive publication without changing routing."
+  },
+  "frontend": {
+    "result": "FA-003/006, test/control counts, baseline boundary, static-only native rejection and original dispositions confirmed.",
+    "precisionApplied": [
+      "Existing 1,486 tests used repository Vite config and native loader; scratch configs apply to counterexamples.",
+      "Native Save uses current.automaticStart independently of next-draft mode; no incorrect ordering-before-next-draft-creation claim."
+    ]
+  }
+}

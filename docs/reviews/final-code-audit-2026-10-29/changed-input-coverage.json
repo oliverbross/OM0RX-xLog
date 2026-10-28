@@ -1,0 +1,662 @@
+[
+  {
+    "file": ".github/workflows/contest-portability.yml",
+    "sha256": "44a9e3263842ef15f798b7ccdb9e6da89f649484206792baac4ab55189dbda23",
+    "reviewers": [
+      "root"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "root-coverage.json"
+    ]
+  },
+  {
+    "file": "Package.swift",
+    "sha256": "f59e13d1cb74c8570a6a6b9b3a59e66133ad4358647f634ed3087a2c8948dfe4",
+    "reviewers": [
+      "radio"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/radio/coverage.json"
+    ]
+  },
+  {
+    "file": "Sources/XCWCore/CWComputeWire.swift",
+    "sha256": "2ae4f3069c06a0c1355a52e2819650df6fbcd8cddb873096cbb6ecf28edfff05",
+    "reviewers": [
+      "radio"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/radio/coverage.json"
+    ]
+  },
+  {
+    "file": "Sources/XLogApp/AppModel.swift",
+    "sha256": "5ea2e305b4d08103b0809fd49f829f7a7229191fc65bf2340767b30c7a7c773d",
+    "reviewers": [
+      "frontend"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/frontend/coverage.json"
+    ]
+  },
+  {
+    "file": "Sources/XLogCore/ADIF.swift",
+    "sha256": "fe43ae60eb7fe83865657dc5661493311204dcf18bd39b1f7115780d9360193e",
+    "reviewers": [
+      "persistence"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/persistence/coverage.json"
+    ]
+  },
+  {
+    "file": "Sources/XLogCore/LogbookDatabase.swift",
+    "sha256": "bac645ba76ff58fffe465129733d3dcd2b1220ce99edb46284aed2cf5bb98b2b",
+    "reviewers": [
+      "persistence"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/persistence/coverage.json"
+    ]
+  },
+  {
+    "file": "Sources/XLogPrototypeSupport/LiveFldigiBridge.swift",
+    "sha256": "a3932fd831c3b754763d5d73edb6f2efa8ce512d3058123007656ef5becd7bb1",
+    "reviewers": [
+      "radio"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/radio/coverage.json"
+    ]
+  },
+  {
+    "file": "Sources/XLogPrototypeSupport/LiveOpportunitiesMethods.swift",
+    "sha256": "cacd9127938839fa3abe0242272a84956e25b4a19328b94065a5ab5342289ca9",
+    "reviewers": [
+      "radio"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/radio/coverage.json"
+    ]
+  },
+  {
+    "file": "Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+    "sha256": "79db644c24d774971a9a31f7168627db32ea5774214647187d17794dca3f73fe",
+    "reviewers": [
+      "radio"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/radio/coverage.json"
+    ]
+  },
+  {
+    "file": "Sources/XLogPrototypeSupport/LiveStationSession.swift",
+    "sha256": "4c03e304c8abdd976e5ef238e88aab13570e0f2a40c161b160e1db93d7f3afa0",
+    "reviewers": [
+      "radio"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/radio/coverage.json"
+    ]
+  },
+  {
+    "file": "Sources/XLogPrototypeSupport/LiveWorker.swift",
+    "sha256": "de17fe5434823c048f80c1da5c92f7bf2c6c176d0451fb370a94094fcc7d8d9a",
+    "reviewers": [
+      "radio"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/radio/coverage.json"
+    ]
+  },
+  {
+    "file": "Sources/XLogPrototypeSupport/NativeDraftPowerGate.swift",
+    "sha256": "08c75039a58e7b9b63c4cd4ed3ca4f7e15f9fa08effa8d983a6a22ea857f527e",
+    "reviewers": [
+      "radio"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/radio/coverage.json"
+    ]
+  },
+  {
+    "file": "Tests/XCWCoreTests/CWComputeWirePrimitiveTests.swift",
+    "sha256": "687429b31910701c356a5b24df939ee8354a1b00a3ce7e3f98da2a7f1f4f574b",
+    "reviewers": [
+      "radio"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "agents/radio/coverage.json"
+    ]
+  },
+  {
+    "file": "Tests/XLogPrototypeTests/LegacyADIFTransferTests.swift",
+    "sha256": "ce3ac811e543ac59b8348e3175a283fee492629206e80a87ff5ee8e19828f032",
+    "reviewers": [
+      "persistence"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "agents/persistence/coverage.json"
+    ]
+  },
+  {
+    "file": "Tests/XLogPrototypeTests/LiveClusterMethodsTests.swift",
+    "sha256": "768e3fefe40faa4ecfad8ee5047c1cea610a091852624be607da7bbe66074ae9",
+    "reviewers": [
+      "radio"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "agents/radio/coverage.json"
+    ]
+  },
+  {
+    "file": "Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift",
+    "sha256": "fabf4eb4f0ee5e27bfaab789ab1ae90fbbd8e53db82d60f8c36bfc4a4772b9ff",
+    "reviewers": [
+      "radio"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "agents/radio/coverage.json"
+    ]
+  },
+  {
+    "file": "Tests/XLogPrototypeTests/LiveOpportunitiesMethodsTests.swift",
+    "sha256": "a35e974247c0fc7aec9b254ebf107d383c3b192ccbe481e4dc5af513828932f6",
+    "reviewers": [
+      "radio"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "agents/radio/coverage.json"
+    ]
+  },
+  {
+    "file": "Tests/XLogPrototypeTests/LiveTCISessionTests.swift",
+    "sha256": "d83d1862aad148891aac50ea523ead91f7d0e415a4fcce428739729a39645174",
+    "reviewers": [
+      "radio"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "agents/radio/coverage.json"
+    ]
+  },
+  {
+    "file": "Tests/XLogPrototypeTests/OperatorDraftTests.swift",
+    "sha256": "d917ace17f18ebc56b31d58b5268cc88364075851c72db56c27f8006117bb397",
+    "reviewers": [
+      "persistence"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "agents/persistence/coverage.json"
+    ]
+  },
+  {
+    "file": "Tests/XLogPrototypeTests/StationRadioRegistryTests.swift",
+    "sha256": "5ee40d6f6ce22d89836e831b862c4c11de4e0f1014c00d34a438b1c2964d205d",
+    "reviewers": [
+      "radio"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "agents/radio/coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/package-lock.json",
+    "sha256": "527b256030de0eb664c771b2a82275e8e83532d2f32d12167f3a5b5b6279609a",
+    "reviewers": [
+      "frontend"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/frontend/coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/scripts/accept-contest-naqp-operator-browser.mjs",
+    "sha256": "846655fd29310d71cfb4aa943302c65bcdf431672783e462bd2cb90fd73d63c7",
+    "reviewers": [
+      "root"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "root-coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/scripts/accept-contesting-worker-process.mjs",
+    "sha256": "99f7a837d92d62d62464ff3b4c998cf585a6ee240c30431761213ec407677dea",
+    "reviewers": [
+      "root"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "root-coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/scripts/contesting-worker-current-scenario.mjs",
+    "sha256": "58a23e58386bdc6a21493cac7517168b967d2086c78618794f6457a329e2c399",
+    "reviewers": [
+      "root"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "root-coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/scripts/relocate-contest-python.py",
+    "sha256": "1cb20812dd8b7dad447104963fad782a5e65a1a2ce01b04ce2e5c52acbc9c2cc",
+    "reviewers": [
+      "root"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "root-coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/scripts/test-contest-python-relocation.py",
+    "sha256": "3cdd8e056a200903790eeaf9fa5e81bb00d06306854aecca8763d09521ce2152",
+    "reviewers": [
+      "root"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "root-coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/src-tauri/Cargo.lock",
+    "sha256": "0659bbd18a42b8578c48c9303ee686e88cbaebb89850aec4a823102f067304c0",
+    "reviewers": [
+      "root"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "root-coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/src-tauri/src/contest_recorder.rs",
+    "sha256": "f87be9bd8c68ab98a9a1363a6d1d87a1604dddb0a3a315151fffc34bdc826303",
+    "reviewers": [
+      "persistence"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/persistence/coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/src-tauri/src/durable_file.rs",
+    "sha256": "d1bf1ccbc91d2dc09aac55a5623d9d8bc6dc66d7d5dc4063b6a626893e820140",
+    "reviewers": [
+      "persistence"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/persistence/coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/src-tauri/src/main.rs",
+    "sha256": "440e4aeb188434881ecd2277851382d459728892050b3e05f39fb12097947ef1",
+    "reviewers": [
+      "root"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "root-coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/src-tauri/src/module_restart_intent.rs",
+    "sha256": "0ad9e52bbe8d169b530b890890620ab4768ac9547552f5b19eb6e761152599d1",
+    "reviewers": [
+      "persistence"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/persistence/coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/src-tauri/src/operating_module.rs",
+    "sha256": "32c64b9378b5983d729239f08e5004e72ebf56de3301eb8c5b15398b56c27722",
+    "reviewers": [
+      "persistence"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/persistence/coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/src/LiveApp.tsx",
+    "sha256": "aca30b8a5f6d0fe450d2a4fcbfd7eaac5578657393be210502bb71cc9b157e1f",
+    "reviewers": [
+      "frontend"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/frontend/coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/src/contesting/ContestOperatorPanel.test.tsx",
+    "sha256": "8fed42951c19498e4fcb3bafc04dc956008e35bcaa2278656d6a6970fa20e20a",
+    "reviewers": [
+      "frontend"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "agents/frontend/coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/src/contesting/ContestWorkspace.arrlDX.test.tsx",
+    "sha256": "d10c81a86a8e118d82e0bb756471c3a02f57a52545d7a64a1e109e7dabacb794",
+    "reviewers": [
+      "frontend"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "agents/frontend/coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/src/live/DetachedQSOSurface.test.tsx",
+    "sha256": "4cbcaa2b22327030f241fc95d60d3aff76a9e4753cf3be50a134496e1d9277cc",
+    "reviewers": [
+      "frontend"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "agents/frontend/coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/src/live/DetachedQSOSurface.tsx",
+    "sha256": "6d73ab193e420b819d4af011dc53d5459e4e35361eea0230546b638d2a5f8fa1",
+    "reviewers": [
+      "frontend"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/frontend/coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/src/live/OperatorDesk.tsx",
+    "sha256": "84946de269644f2a6bebee560900d294788d78a39711ac7e0b998f8c77f497f7",
+    "reviewers": [
+      "frontend"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/frontend/coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/src/live/OperatorDraftTime.test.tsx",
+    "sha256": "06d11ed60f3fc8d12b39afe2fe64c0dce95017f23df229d7fcf542a56800fd07",
+    "reviewers": [
+      "frontend"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "agents/frontend/coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/src/live/QSOEditorCore.tsx",
+    "sha256": "7e26e81e81e8b4af406a6641b76d3d609563e5067d0acc1b73f58ba6acce882c",
+    "reviewers": [
+      "frontend"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/frontend/coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/src/live/QSOEditorPower.test.tsx",
+    "sha256": "13393d2aeff73198d25f2d3436fb8093b98227b472bd27e3a5b7f87dbe20c791",
+    "reviewers": [
+      "frontend"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "agents/frontend/coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/src/live/adifTransfer.schema.test.ts",
+    "sha256": "a02faaafdccfb6849180f2940af10af277a872505c9be73c5c85187b4055ab8e",
+    "reviewers": [
+      "frontend"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "agents/frontend/coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/src/live/adifTransfer.test.ts",
+    "sha256": "1efd1d8d22e624f70c2655511d7e9bcb44ec0bd813274f3c0c33094af7bed919",
+    "reviewers": [
+      "frontend"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "agents/frontend/coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/src/live/adifTransfer.ts",
+    "sha256": "659b5261783d9fc74ca0a7972e2168083b02dc6d60cfc31dfb8d23ce83a8fa97",
+    "reviewers": [
+      "frontend"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/frontend/coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/src/live/operatorDraftSession.ts",
+    "sha256": "b5f2a27b26536d864e094692aa96e9d0698e2fb61a6c7f6be89cd08c5f4edb21",
+    "reviewers": [
+      "frontend"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/frontend/coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/tests/fixtures/adx317.README.md",
+    "sha256": "6263a57cff1a9c6f97fe68f3aae23e93235e612c99da78198142f1723a4ff503",
+    "reviewers": [
+      "frontend"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "agents/frontend/coverage.json"
+    ]
+  },
+  {
+    "file": "prototype/tests/fixtures/adx317.xsd.gz",
+    "sha256": "294c0e78734c9bfdeada8df9a840239bc34b69e6b6d858ada465960a2a950a85",
+    "reviewers": [
+      "frontend"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "agents/frontend/coverage.json"
+    ]
+  },
+  {
+    "file": "python/contest_host/adif_import.py",
+    "sha256": "865d4e4e9cc833197927e92f767b7439313d3ca39fbadd5075aed8cff1f3d9f3",
+    "reviewers": [
+      "persistence"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/persistence/coverage.json"
+    ]
+  },
+  {
+    "file": "python/contest_host/developer.py",
+    "sha256": "82b83091c2dcda2604abb6ba6f379488950166ea6bbe34d9e6ac1f63d215be24",
+    "reviewers": [
+      "persistence"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/persistence/coverage.json"
+    ]
+  },
+  {
+    "file": "python/contest_host/host.py",
+    "sha256": "53e6d8c7a0cf7e0c00f4ea315143b24c0af2ee435c31b674e2455b482ed5b78c",
+    "reviewers": [
+      "persistence"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/persistence/coverage.json"
+    ]
+  },
+  {
+    "file": "python/contest_host/recorder.py",
+    "sha256": "543a49c94d25c13c500c6e3ec84152b4d0e8418acf5db423386406e544fc3d32",
+    "reviewers": [
+      "persistence"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/persistence/coverage.json"
+    ]
+  },
+  {
+    "file": "python/contest_host/store.py",
+    "sha256": "fbf41de8bf97416a3a5ce1135908fac89283c278cd25e1c52bbb108525c411ab",
+    "reviewers": [
+      "persistence"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/persistence/coverage.json"
+    ]
+  },
+  {
+    "file": "python/contest_host/wae.py",
+    "sha256": "124e7dc0d670b5b01d25e3ae65b3ec550e7a091072898fe448aebc2e92b831a5",
+    "reviewers": [
+      "persistence"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "agents/persistence/coverage.json"
+    ]
+  },
+  {
+    "file": "python/tests/test_recorder.py",
+    "sha256": "82caf2aab86daae7cb8b08960e54f1043aeebe0409b102f9667838d6b57b1574",
+    "reviewers": [
+      "persistence"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "agents/persistence/coverage.json"
+    ]
+  },
+  {
+    "file": "python/tests/test_remediation_import_replica.py",
+    "sha256": "aefadd4922a5e533363440f6237a63d1694db0e78d76d0b3efad13eb2aefc458",
+    "reviewers": [
+      "persistence"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "agents/persistence/coverage.json"
+    ]
+  },
+  {
+    "file": "python/tests/test_remediation_wae.py",
+    "sha256": "7c89772a221d0a39ec6747f115e5b7fd9031f06dcf56a0879a61e48959d1c454",
+    "reviewers": [
+      "persistence"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "agents/persistence/coverage.json"
+    ]
+  },
+  {
+    "file": "python/tests/test_reviewed_security_patches.py",
+    "sha256": "0645a487106937e5d32be05e5aed18f0336cd0f31836c2a507edaf77d1f9a229",
+    "reviewers": [
+      "root"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "root-coverage.json"
+    ]
+  },
+  {
+    "file": "python/tests/test_wave5_developer_host.py",
+    "sha256": "62c688916034d5246efa9f6204f5cf6f69070eddc5c405a8ac8502b9fbe462c0",
+    "reviewers": [
+      "persistence"
+    ],
+    "depth": "Changed test/fixture bodies, oracles and relevant setup inspected; execution scope in reviewer ledger",
+    "ledger": [
+      "agents/persistence/coverage.json"
+    ]
+  },
+  {
+    "file": "tools/check_portable_iq_sources.py",
+    "sha256": "56d5ec87968c79fe9bce5a3d573783d47aa4aa292eb0c7c6fce26f69cc863533",
+    "reviewers": [
+      "root"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "root-coverage.json"
+    ]
+  },
+  {
+    "file": "tools/check_reviewed_security_patches.py",
+    "sha256": "a11ef6e290680efaacf148edccebf74077181e1b89f6cd64796ebec7a0980464",
+    "reviewers": [
+      "root"
+    ],
+    "depth": "Changed functions/declarations reviewed with named callers and safeguards; exact depth and remaining file ranges in reviewer ledger",
+    "ledger": [
+      "root-coverage.json"
+    ]
+  }
+]

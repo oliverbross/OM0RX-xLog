@@ -1,0 +1,9 @@
+{
+  "observedUTC": "2026-10-28T23:28:20.337095+00:00",
+  "auditedSourceHead": "0ce97a12bb06f1fb7c501c3f1286ae9bb1aca450",
+  "trackedInputs": 1832,
+  "mismatches": [],
+  "repositoryWasCleanBeforeArchive": true,
+  "verification": "Every preserved input rehashed before any audit/report repository write; final validation repeats the comparison.",
+  "exclusions": "No binary, SQLite/sidecar, dependency symlink, runtime fixture directory or Swift build tree archived."
+}

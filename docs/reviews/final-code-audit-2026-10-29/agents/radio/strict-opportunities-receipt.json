@@ -1,0 +1,24 @@
+{
+  "command": [
+    "swiftc",
+    "-typecheck",
+    "-strict-concurrency=complete",
+    "-warn-concurrency",
+    "-I",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final/out/Products/Debug",
+    "-Xcc",
+    "-fmodule-map-file=/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/CSQLitePrototype/module.modulemap",
+    "-Xcc",
+    "-fmodule-map-file=/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final/out/Intermediates.noindex/GeneratedModuleMaps/CCurlBackup.modulemap",
+    "-Xcc",
+    "-fmodule-map-file=/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final/out/Intermediates.noindex/GeneratedModuleMaps/CCWProcess.modulemap",
+    "-Xcc",
+    "-fmodule-map-file=/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final/out/Intermediates.noindex/GeneratedModuleMaps/CClusterSocket.modulemap",
+    "-Xcc",
+    "-fmodule-map-file=/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final/out/Intermediates.noindex/GeneratedModuleMaps/CPlatformVault.modulemap",
+    "/tmp/xlog-phase6-20261029-0ce97a12/agents/radio/ActualOpportunities.swift"
+  ],
+  "sourceSHA256": "cacd9127938839fa3abe0242272a84956e25b4a19328b94065a5ab5342289ca9",
+  "exitCode": 0,
+  "scope": "Verbatim current opportunities source body plus import of real neighboring internal helpers; not a full package rebuild."
+}

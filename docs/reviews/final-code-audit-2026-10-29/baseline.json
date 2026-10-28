@@ -1,0 +1,9 @@
+{
+  "sourceHead": "0ce97a12bb06f1fb7c501c3f1286ae9bb1aca450",
+  "observedUTC": "2026-10-28T22:38:32.657109+00:00",
+  "trackedCodeInputs": 1832,
+  "changeBaseline": "530de4c4e4b23281ec60585cc7a2e5ca011476fb",
+  "changedInputs": 60,
+  "initialTrackedCodeInputs": 1743,
+  "scopeExpansion": "Whole prototype subtree includes independent ADX schema fixture/package lock and packaging scripts/resources, plus all tracked code/support prefixes; originalhashesunchanged."
+}

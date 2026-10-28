@@ -1,0 +1,20 @@
+{
+  "observedUTC": "2026-10-28T23:38:59.705871+00:00",
+  "auditedSourceHead": "0ce97a12bb06f1fb7c501c3f1286ae9bb1aca450",
+  "executionHead": "0ce97a12bb06f1fb7c501c3f1286ae9bb1aca450",
+  "applicationSupportInputsRehashed": 1832,
+  "sourceMismatches": [],
+  "changedInputsAccountedFor": 60,
+  "importedArtifactsVerified": 96,
+  "jsonFilesParsed": 25,
+  "reportLocalLinksChecked": 49,
+  "findingHeadings": 7,
+  "originalFindingVerdicts": 12,
+  "reportSHA256": "b4ec929f38cfa5b0989c72320f6e337a82b8f485ddf5a00bb151839778830104",
+  "originalNodeModulesInode": 560040948,
+  "originalCWDirectoryInode": 589158794,
+  "originalDistFilesAndHashesPreserved": 180,
+  "gitChangesLimitedToAuditOutputs": true,
+  "result": "PASS",
+  "boundary": "Documentation/evidence integrity and preservation, not an application test or release acceptance."
+}

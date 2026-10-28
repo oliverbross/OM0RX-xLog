@@ -1,0 +1,40 @@
+{
+  "declaredSources": [
+    "XCatError.swift",
+    "PropagationConditions.swift",
+    "TCIProtocol.swift",
+    "TCIIQFrame.swift",
+    "FlexIQTransport.swift",
+    "FlexIQResources.swift",
+    "FlexIQSubscription.swift"
+  ],
+  "existingRegressionTests": [
+    "CWIQParserTests.swift",
+    "FlexIQIdentityTests.swift",
+    "FlexIQResourceTests.swift"
+  ],
+  "sourceSHA256": {
+    "Sources/XCatIntegrationCore/XCatError.swift": "ef3b78bfe2c98ab122e500bc7cd8191383389ae4a7a1b78dea4e4bf41768bd38",
+    "Sources/XCatIntegrationCore/PropagationConditions.swift": "eb1595a87e64b744c63bbf63cd39ca3aecc0703131221b369b73f30747497dc6",
+    "Sources/XCatIntegrationCore/TCIProtocol.swift": "3734de6cd7d5d4682a477fff0730f1b4ab5096be16acfee667fe885ef0718734",
+    "Sources/XCatIntegrationCore/TCIIQFrame.swift": "4fab85ee68d3e8803846cb3db6ee437d34491de879f10819f68ba1eac7cabac4",
+    "Sources/XCatIntegrationCore/FlexIQTransport.swift": "dcb21edc24c91d6e3e797c0ec6ffaae93f0ac03f9c88155f5fdb1a8d54ee8058",
+    "Sources/XCatIntegrationCore/FlexIQResources.swift": "167a79b936ed934173c1734249eb1edc8e0d8ff4dbff45ff92aff1542c877f9b",
+    "Sources/XCatIntegrationCore/FlexIQSubscription.swift": "82d9a19ec5c9a5957a0385e103371404fdc61bb70a8a3062b1c72db0293e3202",
+    "Tests/XCatIntegrationTests/CWIQParserTests.swift": "4965c3c4ebdba1952770f99077d9b1837f779f3df42f70e24465ca0266032125",
+    "Tests/XCatIntegrationTests/FlexIQIdentityTests.swift": "98cc07b6f68b31fd4219899e7ac9d8738cb11895c10370563eaab275f947316f",
+    "Tests/XCatIntegrationTests/FlexIQResourceTests.swift": "e8085258a9692617c5c4cb050a34080b3c037571e6c08e46d71b8b4c8c2f7edb"
+  },
+  "command": [
+    "swift",
+    "test",
+    "--package-path",
+    "/tmp/xlog-phase6-20261029-0ce97a12/agents/radio/portable-iq",
+    "--scratch-path",
+    "/tmp/xlog-phase6-20261029-0ce97a12/agents/radio/portable-iq/build",
+    "--jobs",
+    "2",
+    "--no-parallel"
+  ],
+  "exitCode": 0
+}

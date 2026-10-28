@@ -1,0 +1,214 @@
+{
+  "sourceHead": "0ce97a12bb06f1fb7c501c3f1286ae9bb1aca450",
+  "diffBase": "530de4c4e4b23281ec60585cc7a2e5ca011476fb",
+  "changedInputCount": 60,
+  "trackedPreservedInputs": 1832,
+  "rootChangedCoverage": [
+    {
+      "file": "prototype/scripts/accept-contesting-worker-process.mjs",
+      "ranges": [
+        "1-541"
+      ],
+      "functions": [
+        "WorkerProcess constructor/start/call/close and lifecycle helpers",
+        "main acceptance runner, runtime/provenance/fixture helpers"
+      ],
+      "depth": "Complete source, including changed bodies/callers; actual historical current-scenario ledger challenged independently; FA-007"
+    },
+    {
+      "file": "prototype/scripts/contesting-worker-current-scenario.mjs",
+      "ranges": [
+        "1-171"
+      ],
+      "functions": [
+        "runCurrentContestScenario and nested request/response/mutation helpers"
+      ],
+      "depth": "Complete source and actual prior 78-operation ledger; no new process acceptance run"
+    },
+    {
+      "file": "prototype/scripts/relocate-contest-python.py",
+      "ranges": [
+        "1-372"
+      ],
+      "functions": [
+        "packaging_source_names",
+        "validated_bundle_target",
+        "main and closure/CA/loader/self-test helpers"
+      ],
+      "depth": "Complete source, changed function bodies and callers; 12 fresh relocation/provenance cases pass"
+    },
+    {
+      "file": "prototype/scripts/test-contest-python-relocation.py",
+      "ranges": [
+        "1-190"
+      ],
+      "depth": "Complete source and 12 actual cases freshly executed"
+    },
+    {
+      "file": "prototype/scripts/accept-contest-naqp-operator-browser.mjs",
+      "ranges": [
+        "1-447"
+      ],
+      "functions": [
+        "select",
+        "click",
+        "createNAQPCase",
+        "acceptance runner and all call sites"
+      ],
+      "depth": "Complete source, changed browser interactions/oracles and callers; no browser execution"
+    },
+    {
+      "file": "tools/check_reviewed_security_patches.py",
+      "ranges": [
+        "1-49"
+      ],
+      "depth": "Complete policy implementation and current four lock floors; seven fresh unit tests pass"
+    },
+    {
+      "file": "python/tests/test_reviewed_security_patches.py",
+      "ranges": [
+        "1-44"
+      ],
+      "depth": "Complete test bodies; seven fresh cases pass"
+    },
+    {
+      "file": "tools/check_portable_iq_sources.py",
+      "ranges": [
+        "1-61"
+      ],
+      "depth": "Complete manifest-derived slice guard; actual source slice freshly compiled by radio reviewer"
+    },
+    {
+      "file": ".github/workflows/contest-portability.yml",
+      "ranges": [
+        "changed diff",
+        "317-415"
+      ],
+      "depth": "Changed CI generation/discovery/execution and guard wiring read; no fresh CI execution"
+    },
+    {
+      "file": "prototype/src-tauri/Cargo.lock",
+      "ranges": [
+        "complete remediation-range diff"
+      ],
+      "depth": "Four reviewed version patches and existing-edge resolution diff read; no entire dependency implementation audit"
+    },
+    {
+      "file": "prototype/src-tauri/src/main.rs",
+      "ranges": [
+        "changed module declaration",
+        "2068-2089",
+        "2200-2310",
+        "2384-2494",
+        "2620-2805",
+        "4250-4405"
+      ],
+      "depth": "Changed durable_file declaration plus typed request admission, role gate, selection/active routing, raw action rejection, module-switch and ordinary Quit caller paths"
+    }
+  ],
+  "rootAdditionalRanges": {
+    "Sources/XLogApp/AppModel.swift": [
+      "910-950",
+      "1090-1178",
+      "1625-1660"
+    ],
+    "Sources/XLogApp/SettingsView.swift": [
+      "445-496"
+    ],
+    "Sources/XLogCore/SyncEngine.swift": [
+      "1-118",
+      "245-430",
+      "550-568"
+    ],
+    "Sources/XLogCore/BackupManager.swift": [
+      "306-353",
+      "521-557"
+    ],
+    "Sources/XLogCore/LogbookDatabase.swift": [
+      "531-555",
+      "3133-3182",
+      "3301-3344"
+    ],
+    "Sources/XLogPrototypeSupport/LiveLogbookMethods.swift": [
+      "1460-1492"
+    ],
+    "Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift": [
+      "439-482"
+    ],
+    "python/contest_host/host.py": [
+      "2394-2448",
+      "2524-2555"
+    ],
+    "Sources/XLogPrototypeSupport/LiveWorker.swift": [
+      "370-460",
+      "555-597"
+    ],
+    "Sources/XLogPrototypeSupport/LiveStationMethods.swift": [
+      "1-150"
+    ],
+    "Sources/XLogPrototypeSupport/NativeDraftPowerGate.swift": [
+      "1-174"
+    ],
+    "Sources/XLogPrototypeSupport/LiveFlexSession.swift": [
+      "173-265"
+    ],
+    "prototype/src-tauri/src/worker.rs": [
+      "1-190",
+      "638-775",
+      "1010-1056",
+      "1902-1922"
+    ],
+    "prototype/src-tauri/src/radio_slots.rs": [
+      "1-205"
+    ],
+    "prototype/src-tauri/src/station_selection.rs": [
+      "1-165",
+      "205-238",
+      "408-451"
+    ],
+    "prototype/src-tauri/src/manual_tune.rs": [
+      "45-160"
+    ],
+    "prototype/src/live/DetachedQSOSurface.tsx": [
+      "1-36",
+      "120-203"
+    ],
+    "prototype/src/live/useDuplicateContact.ts": [
+      "1-38"
+    ],
+    "Package.swift": [
+      "complete manifest"
+    ],
+    "prototype/package.json": [
+      "complete manifest"
+    ],
+    "prototype/src-tauri/Cargo.toml": [
+      "complete manifest"
+    ],
+    "prototype/src-tauri/tauri.conf.json": [
+      "complete configuration"
+    ]
+  },
+  "architectureInventory": "71 native Rust module files inventoried; entrypoints/manifests and critical boundary paths reviewed. Not all module implementations fully read.",
+  "releaseCriteriaSources": [
+    "AGENTS.md",
+    "docs/DEVELOPMENT_WORKFLOW.md",
+    "docs/P1_RUNTIME_ACCEPTANCE.md",
+    "docs/P1_RUNTIME_PACKAGING_GAPS.md",
+    "docs/planning/WAVE4_CONNECTED_OPERATION_ACCEPTANCE_2026-10-27.md"
+  ],
+  "priorReportsRead": [
+    "CODE_REVIEW.md",
+    "REVIEW_COVERAGE.md",
+    "REMEDIATION_TRACKER.md",
+    "REGRESSION_TEST_REPORT.md",
+    "STABILITY_REPORT.md"
+  ],
+  "limits": [
+    "Every assigned changed production function body read; named callers, safeguards and test oracles challenged. Full body reading does not certify every behavior or callee.",
+    "Changed tests reviewed through their changed bodies/oracles and relevant fixture setup, not all historical tests in large files.",
+    "Untouched application source, all migrations/outbox/provider behavior, large UI child components and third-party implementations remain partial.",
+    "No new whole-app build/full suite, sanitizer, memory soak, live network/radio/provider/native UI or platform runtime acceptance.",
+    "No application/test/configuration edits; only final audit and evidence archive are authorized outputs."
+  ]
+}

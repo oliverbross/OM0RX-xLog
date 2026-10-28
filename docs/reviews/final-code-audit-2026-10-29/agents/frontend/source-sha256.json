@@ -1,0 +1,10 @@
+{
+  "Sources/XLogApp/AppModel.swift": "5ea2e305b4d08103b0809fd49f829f7a7229191fc65bf2340767b30c7a7c773d",
+  "prototype/package-lock.json": "527b256030de0eb664c771b2a82275e8e83532d2f32d12167f3a5b5b6279609a",
+  "prototype/src/LiveApp.tsx": "aca30b8a5f6d0fe450d2a4fcbfd7eaac5578657393be210502bb71cc9b157e1f",
+  "prototype/src/live/operatorDraftSession.ts": "b5f2a27b26536d864e094692aa96e9d0698e2fb61a6c7f6be89cd08c5f4edb21",
+  "prototype/src/live/QSOEditorCore.tsx": "7e26e81e81e8b4af406a6641b76d3d609563e5067d0acc1b73f58ba6acce882c",
+  "prototype/src/live/OperatorDesk.tsx": "84946de269644f2a6bebee560900d294788d78a39711ac7e0b998f8c77f497f7",
+  "prototype/src/live/DetachedQSOSurface.tsx": "6d73ab193e420b819d4af011dc53d5459e4e35361eea0230546b638d2a5f8fa1",
+  "prototype/src/live/adifTransfer.ts": "659b5261783d9fc74ca0a7972e2168083b02dc6d60cfc31dfb8d23ce83a8fa97"
+}

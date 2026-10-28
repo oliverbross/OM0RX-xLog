@@ -1,0 +1,2 @@
+import react from "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/node_modules/@vitejs/plugin-react/dist/index.js";
+export default {root:"/private/tmp/xlog-phase6-20261029-0ce97a12/agents/frontend",plugins:[react()],server:{fs:{allow:["/Users/oliver/Documents/Projects/OM0RX-xLog/prototype","/private/tmp/xlog-phase6-20261029-0ce97a12/agents/frontend"]}},test:{include:["manual-remount.test.tsx"],maxWorkers:1}};

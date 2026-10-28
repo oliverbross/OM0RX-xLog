@@ -1,0 +1,1013 @@
+{
+  "revision": "0ce97a12bb06f1fb7c501c3f1286ae9bb1aca450",
+  "baseline": "530de4c4e4b23281ec60585cc7a2e5ca011476fb",
+  "mode": "read-only source audit; scratch-only probes; no GUI or hardware",
+  "every_assigned_changed_function_listed": true,
+  "changed_functions": [
+    {
+      "file": "prototype/src/LiveApp.tsx",
+      "function": "MainLiveApp",
+      "range": [
+        217,
+        1477
+      ],
+      "changed_lines": [
+        1333,
+        1436
+      ],
+      "depth": "complete function body read in bounded windows; changed time/save/navigation paths and selected safety/IPC/journal interactions deeply traced; not every behavior or callee certified",
+      "actual_ranges": [
+        [
+          217,
+          1477
+        ]
+      ],
+      "callers": [
+        "LiveApp209-214"
+      ],
+      "callees": [
+        "OperatorDraftSession.edit/flush/commit",
+        "OperatorDesk152",
+        "QSOEditor wrapper -> QSOEditorCore121",
+        "LogbookContactSession.edit/save",
+        "useSpotEditor",
+        "useFollowRadio",
+        "workerRequest",
+        "manualTuneSession",
+        "amplifierTransitionSession"
+      ],
+      "tests_inspected": [
+        "DetachedQSOSurface.test85-113 analogous canonical-time path",
+        "OperatorDesk.test35-58",
+        "QSOEditor.test",
+        "operatorDraftSession.test",
+        "operatorDraftTransport.test"
+      ],
+      "tests_executed": [
+        "component/session suites; no rendered MainLiveApp integration fixture"
+      ],
+      "verdict": "defined canonical mode prevents automatic submit stamping; preflush base/draft display divergence also statically possible; PH6-FE-001",
+      "body_read_complete": true,
+      "previous_actual_ranges": [
+        [
+          250,
+          360
+        ],
+        [
+          380,
+          465
+        ],
+        [
+          620,
+          711
+        ],
+        [
+          795,
+          833
+        ],
+        [
+          926,
+          962
+        ],
+        [
+          1065,
+          1156
+        ],
+        [
+          1302,
+          1345
+        ],
+        [
+          1370,
+          1390
+        ],
+        [
+          1432,
+          1445
+        ]
+      ],
+      "completion_read_windows": [
+        [
+          217,
+          249
+        ],
+        [
+          361,
+          379
+        ],
+        [
+          466,
+          520
+        ],
+        [
+          521,
+          567
+        ],
+        [
+          568,
+          619
+        ],
+        [
+          712,
+          753
+        ],
+        [
+          754,
+          794
+        ],
+        [
+          834,
+          879
+        ],
+        [
+          880,
+          925
+        ],
+        [
+          963,
+          1012
+        ],
+        [
+          1013,
+          1064
+        ],
+        [
+          1157,
+          1205
+        ],
+        [
+          1206,
+          1253
+        ],
+        [
+          1254,
+          1301
+        ],
+        [
+          1346,
+          1369
+        ],
+        [
+          1391,
+          1411
+        ],
+        [
+          1412,
+          1431
+        ],
+        [
+          1432,
+          1445
+        ],
+        [
+          1446,
+          1464
+        ],
+        [
+          1465,
+          1477
+        ]
+      ],
+      "caller_read_ranges": [
+        [
+          197,
+          216
+        ]
+      ],
+      "completion_report": "MAIN_BODY_COMPLETION.md",
+      "reviewed_source_copy": "MainLiveApp-reviewed-source.txt",
+      "additional_confirmed_findings_on_completion": 0
+    },
+    {
+      "file": "prototype/src/live/operatorDraftSession.ts",
+      "function": "validDraftSnapshot",
+      "range": [
+        47,
+        53
+      ],
+      "changed_lines": [
+        50,
+        51
+      ],
+      "depth": "complete function and journal, mutation, receipt, power, lifecycle and replay callers read",
+      "actual_file_ranges": [
+        [
+          1,
+          499
+        ]
+      ],
+      "callers": [
+        "validScopedSnapshot95",
+        "readDraftJournal106",
+        "OperatorDraftSession.receiveSnapshot255",
+        "acceptCurrent262",
+        "verifiedReceipt291",
+        "reconcilePending405",
+        "useSpotEditor snapshot boundary"
+      ],
+      "tests_inspected": [
+        "operatorDraftSession.test",
+        "operatorDraftPowerSession.test",
+        "DetachedQSOSurface.test",
+        "QSOEditorPower.test"
+      ],
+      "tests_executed": [
+        "operatorDraftSession36",
+        "operatorDraftPowerSession14",
+        "DetachedQSOSurface49",
+        "QSOEditorPower10"
+      ],
+      "verdict": "primitive optional boolean validation retained; malformed value rejection and canonical metadata acceptance pass; no additional receipt/replay issue established",
+      "body_read_complete": true
+    },
+    {
+      "file": "prototype/src/live/OperatorDesk.tsx",
+      "function": "DeskQSO",
+      "range": [
+        37,
+        128
+      ],
+      "changed_lines": [
+        37,
+        43,
+        46,
+        47,
+        101
+      ],
+      "depth": "entire function including buffers, time changes, save, read-radio guard and UI controls read",
+      "actual_file_ranges": [
+        [
+          1,
+          156
+        ]
+      ],
+      "callers": [
+        "OperatorDesk152-155",
+        "MainLiveApp deskProps1332-1338",
+        "DetachedQSOSurface192-196"
+      ],
+      "tests_inspected": [
+        "OperatorDesk.test",
+        "DetachedQSOSurface.test85-113,237-238"
+      ],
+      "tests_executed": [
+        "OperatorDesk21",
+        "DetachedQSOSurface49",
+        "scratch manual-remount5"
+      ],
+      "verdict": "acknowledged canonical mode fixed; native-owned Save wired; PH6-FE-001 preflush mode edge; PH6-FE-002 duplicate boundary omission",
+      "body_read_complete": true
+    },
+    {
+      "file": "prototype/src/live/QSOEditorCore.tsx",
+      "function": "draftPowerDescription",
+      "range": [
+        103,
+        119
+      ],
+      "changed_lines": [
+        113,
+        114,
+        115
+      ],
+      "depth": "complete function plus actual field render, matching contact and power validation caller paths",
+      "callers": [
+        "QSOEditorCore field328",
+        "QSOEditor re-export"
+      ],
+      "tests_inspected": [
+        "QSOEditorPower capturedPower9-20, source cases66-78"
+      ],
+      "tests_executed": [
+        "QSOEditorPower10",
+        "operatorDraftPowerSession14"
+      ],
+      "verdict": "CR-010 root cause repaired; valid radio and amplifier samples on/off labels and power value preservation pass",
+      "body_read_complete": true
+    },
+    {
+      "file": "prototype/src/live/QSOEditorCore.tsx",
+      "function": "QSOEditor",
+      "range": [
+        121,
+        430
+      ],
+      "changed_lines": [
+        122,
+        128,
+        165,
+        166,
+        280,
+        281,
+        282,
+        283,
+        284
+      ],
+      "depth": "entire function read, time input/layout/reset/save paths deeply traced; matrix/profile security and async cancellation inspected",
+      "actual_file_ranges": [
+        [
+          1,
+          432
+        ]
+      ],
+      "callers": [
+        "QSOEditor wrapper1-13",
+        "MainLiveApp1435-1445",
+        "DetachedQSOSurface197-209"
+      ],
+      "tests_inspected": [
+        "QSOEditor.test",
+        "QSOEditorPower.test",
+        "DetachedQSOSurface.test",
+        "operatorDraftSession.test"
+      ],
+      "tests_executed": [
+        "QSOEditor37",
+        "QSOEditorPower10",
+        "DetachedQSOSurface49",
+        "scratch manual-remount5"
+      ],
+      "verdict": "automatic source no longer converted to manual via submit; PH6-FE-001 preflush display edge and PH6-FE-002 duplicate boundary omission",
+      "body_read_complete": true
+    },
+    {
+      "file": "prototype/src/live/DetachedQSOSurface.tsx",
+      "function": "DetachedQSOSurface",
+      "range": [
+        32,
+        211
+      ],
+      "changed_lines": [
+        193,
+        198
+      ],
+      "depth": "complete component, request wrapper, mode/remount, journal/recovery/close/flush/read-radio guards reviewed",
+      "actual_file_ranges": [
+        [
+          1,
+          211
+        ]
+      ],
+      "callers": [
+        "LiveApp separate surface routing",
+        "windowSurface log-qso role"
+      ],
+      "callees": [
+        "OperatorDraftSession",
+        "DeskQSO",
+        "QSOEditorCore",
+        "requestOperatorDraft",
+        "workerRequest",
+        "useSpotEditor",
+        "protectOperatorDraftClose"
+      ],
+      "tests_inspected": [
+        "DetachedQSOSurface.test85-113,237-238 and remainder targeted suite"
+      ],
+      "tests_executed": [
+        "DetachedQSOSurface49",
+        "scratch current5",
+        "scratch baseline3"
+      ],
+      "verdict": "original acknowledged remount repaired; PH6-FE-001 local preflush mode edge; PH6-FE-002 read whitelist mismatch",
+      "body_read_complete": true
+    },
+    {
+      "file": "prototype/src/live/adifTransfer.ts",
+      "function": "adxToADI",
+      "range": [
+        495,
+        609
+      ],
+      "changed_lines": [
+        528,
+        529
+      ],
+      "nested_changed_function": {
+        "name": "field",
+        "range": [
+          524,
+          549
+        ]
+      },
+      "depth": "complete function and nested field, export classification, metadata checks and caller framing read",
+      "actual_file_ranges": [
+        [
+          35,
+          107
+        ],
+        [
+          209,
+          284
+        ],
+        [
+          300,
+          490
+        ],
+        [
+          495,
+          646
+        ]
+      ],
+      "callers": [
+        "decodeADIF437",
+        "decodeADIFDocument401-404",
+        "LogbookPanel.importFile291-315"
+      ],
+      "tests_inspected": [
+        "adifTransfer.test legacy elements545-553, metadata380-475 and type/structure controls",
+        "adifTransfer.schema.test1-36"
+      ],
+      "tests_executed": [
+        "adifTransfer1314",
+        "adifTransfer.schema1",
+        "static XSD exact vocabulary comparison"
+      ],
+      "verdict": "CR-012 repaired; exact179 standard vocabulary matches independent pinned schema; deprecated literals accepted for import and re-exported as USERDEF",
+      "body_read_complete": true
+    },
+    {
+      "file": "Sources/XLogApp/AppModel.swift",
+      "function": "importADIF",
+      "range": [
+        993,
+        1008
+      ],
+      "depth": "entire changed function and exact bounded UTF8/document/atomic helper entry reviewed; menu callers searched",
+      "callers": [
+        "WorkspaceViews30",
+        "OM0RXXLogApp54"
+      ],
+      "callees": [
+        "ADIFImportPreview.fileText ADIF.swift379-396",
+        "LogbookDatabase.importADIFDocument ADIF.swift643-655",
+        "reload AppModel403-415"
+      ],
+      "tests_inspected": [
+        "LegacyADIFTransferTests.mixedInvalidInputAndRepeatImportHaveTruthfulAtomicCounts",
+        "laterSQLiteFailureRollsBackEarlierRowsAndRetryIsSafe",
+        "fileReaderRejectsInvalidUTF8AndLimitsBeforeImport"
+      ],
+      "tests_executed_by_this_agent": [],
+      "verdict": "CR-009 source root cause repaired; core durable proof delegated to persistence agent; no chooser runtime claim",
+      "body_read_complete": true
+    },
+    {
+      "file": "Sources/XLogApp/AppModel.swift",
+      "function": "exportADIF",
+      "range": [
+        1010,
+        1024
+      ],
+      "depth": "entire changed function and snapshot/document helper read; display capped fetch callers contrasted",
+      "callers": [
+        "WorkspaceViews31",
+        "OM0RXXLogApp55"
+      ],
+      "callees": [
+        "adifExportSnapshot ADIF.swift659-661",
+        "ADIFExportSnapshot.init611-617",
+        "document619-626"
+      ],
+      "tests_inspected": [
+        "LegacyADIFTransferTests.entireLogExportExceedsDisplayCapAndRetainsFrozenScope"
+      ],
+      "tests_executed_by_this_agent": [],
+      "verdict": "CR-011 source root cause repaired; fresh database/helper execution owned by persistence agent; no native chooser runtime claim",
+      "body_read_complete": true
+    }
+  ],
+  "changed_non_function_items": [
+    {
+      "file": "prototype/src/live/operatorDraftSession.ts",
+      "range": [
+        18,
+        18
+      ],
+      "item": "DraftSnapshot automaticStart optional type",
+      "verdict": "typed canonical metadata reaches renderer"
+    },
+    {
+      "file": "prototype/src/live/QSOEditorCore.tsx",
+      "range": [
+        37,
+        39
+      ],
+      "item": "QSOEditorProps automaticStart",
+      "verdict": "defined mode supplied by native production callers"
+    },
+    {
+      "file": "prototype/src/live/OperatorDesk.tsx",
+      "range": [
+        18,
+        21
+      ],
+      "item": "Props automaticStart",
+      "verdict": "forwarded by OperatorDesk spread and direct detached caller"
+    },
+    {
+      "file": "prototype/src/live/adifTransfer.ts",
+      "range": [
+        89,
+        106
+      ],
+      "item": "standardADXFields",
+      "verdict": "all179 exact schema-standard fields, no deprecated literal record tags"
+    },
+    {
+      "file": "prototype/package-lock.json",
+      "ranges": [
+        [
+          382,
+          634
+        ],
+        [
+          2025,
+          2057
+        ]
+      ],
+      "item": "rolldown/bindings1.2.15 and oxc0.155.0",
+      "verdict": "static dependency coherence verified, no fresh clean npm build; REG-P4-001 emission acceptance unverified"
+    }
+  ],
+  "additional_actual_source_review": [
+    {
+      "file": "prototype/src/live/useDuplicateContact.ts",
+      "ranges": [
+        [
+          1,
+          38
+        ]
+      ],
+      "depth": "full hook + native route; fresh PH6-FE-002"
+    },
+    {
+      "file": "prototype/src/worker.ts",
+      "ranges": [
+        [
+          1,
+          202
+        ]
+      ],
+      "depth": "complete transport/source, detached helper guards; workerRequest/framedWorkerRequest deeply traced"
+    },
+    {
+      "file": "prototype/src/live/operatorDraftTransport.ts",
+      "ranges": [
+        [
+          1,
+          31
+        ]
+      ],
+      "depth": "complete correlated worker rejection/unknown outcome distinction"
+    },
+    {
+      "file": "prototype/src-tauri/src/worker.rs",
+      "ranges": [
+        [
+          20,
+          177
+        ],
+        [
+          236,
+          252
+        ],
+        [
+          488,
+          510
+        ],
+        [
+          866,
+          898
+        ],
+        [
+          1904,
+          1919
+        ]
+      ],
+      "depth": "production role/request gate and process path; broad signatures/test names scanned; no full body/security audit"
+    },
+    {
+      "file": "prototype/src-tauri/src/main.rs",
+      "ranges": [
+        [
+          2374,
+          2458
+        ],
+        [
+          2624,
+          2695
+        ]
+      ],
+      "depth": "typed worker dispatch admission/role gates and operating-module preparation; no complete native owner audit"
+    },
+    {
+      "file": "prototype/src-tauri/capabilities/default.json",
+      "ranges": [
+        [
+          1,
+          7
+        ]
+      ],
+      "depth": "full bundled window/core permission capability"
+    },
+    {
+      "file": "prototype/src-tauri/tauri.conf.json",
+      "ranges": [
+        [
+          1,
+          22
+        ]
+      ],
+      "depth": "CSP and startup URL search; no runtime CSP test"
+    },
+    {
+      "file": "prototype/src/live/DetachedSettingsSurface.tsx",
+      "ranges": [
+        [
+          1,
+          87
+        ]
+      ],
+      "depth": "full component/request allowlist/journal/reload orchestration; not full child settings sessions"
+    },
+    {
+      "file": "prototype/src/live/DetachedAwardsSurface.tsx",
+      "ranges": [
+        [
+          1,
+          16
+        ]
+      ],
+      "depth": "full retained read-only wrapper; not complete AwardsPanel"
+    },
+    {
+      "file": "prototype/src/live/DetachedWorldMapSurface.tsx",
+      "ranges": [
+        [
+          1,
+          23
+        ]
+      ],
+      "depth": "full map wrapper and activation caller"
+    },
+    {
+      "file": "prototype/src/live/useMapContext.ts",
+      "ranges": [
+        [
+          1,
+          45
+        ]
+      ],
+      "depth": "complete hook, stale report/selection/activation/docking gates"
+    },
+    {
+      "file": "prototype/src/contesting/Not1MMContestWorkspace.tsx",
+      "ranges": [
+        [
+          94,
+          141
+        ],
+        [
+          1779,
+          1844
+        ]
+      ],
+      "depth": "partial pending operation journal/authority/retry review; signatures/search elsewhere; most4022line component not read"
+    },
+    {
+      "file": "prototype/src/live/LogbookPanel.tsx",
+      "ranges": [
+        [
+          286,
+          316
+        ],
+        [
+          355,
+          394
+        ]
+      ],
+      "depth": "import decode/metadata frames/preview context; frozen export loop and file generation"
+    },
+    {
+      "file": "Sources/XLogCore/ADIF.swift",
+      "ranges": [
+        [
+          370,
+          414
+        ],
+        [
+          610,
+          662
+        ]
+      ],
+      "depth": "file helper and snapshot/import helper full functions; complete parser/database import implementation independently owned"
+    },
+    {
+      "file": "Sources/XLogCore/LogbookDatabase.swift",
+      "ranges": [
+        [
+          1904,
+          1918
+        ],
+        [
+          1943,
+          1967
+        ]
+      ],
+      "depth": "exact current native manual replace + save timestamp contract only"
+    },
+    {
+      "file": "Sources/XLogPrototypeSupport/LiveLogbookMethods.swift",
+      "ranges": [
+        [
+          975,
+          1000
+        ]
+      ],
+      "depth": "existing normalized bounded duplicate service route"
+    },
+    {
+      "file": "prototype/scripts/check-window-bundles.mjs",
+      "ranges": [
+        [
+          36,
+          79
+        ]
+      ],
+      "depth": "budget search; unchanged405200Logbook threshold; no build execution"
+    }
+  ],
+  "evidence": {
+    "existing_tests": {
+      "passed": 1486,
+      "files": 9
+    },
+    "current_scratch": {
+      "intentional_requirement_failures": 1,
+      "characterization_passes": 4
+    },
+    "baseline_frontend_scratch": {
+      "intentional_requirement_failures": 1,
+      "characterization_passes": 2
+    },
+    "source_hashes": "source-sha256.json",
+    "schema_lock_proof": "static-proofs.json",
+    "raw_diff": "diff.txt"
+  },
+  "unverified": [
+    "fresh clean npm-lock Vite build/byte emission",
+    "native AppModel chooser interaction",
+    "full native worker IPC execution",
+    "arbitrary slow native acknowledgment for detached mode switch (disabled while pending)",
+    "rendered MainLiveApp preflush reproduction",
+    "full scalar independent XSD validation",
+    "production installed/RF/provider acceptance",
+    "repository-wide unchanged frontend/function coverage; all assigned changed function bodies read, not all behaviors certified"
+  ],
+  "tool_blockers": [
+    "outside-project lean-ctx config/skill reads denied; no overrides made",
+    "scratch Rust executable name not allowlisted; combined compile/run rejected before any segment"
+  ],
+  "security_followup": {
+    "report": "SECURITY_FOLLOWUP.md",
+    "new_findings": 0,
+    "depth": "bounded critical text/URL sink and native activation/journal trace; not exhaustive security audit",
+    "sink_inventory": "security-sinks.txt",
+    "actual_ranges": [
+      {
+        "file": "prototype/src/Map.tsx",
+        "ranges": [
+          [
+            327,
+            355
+          ],
+          [
+            412,
+            476
+          ]
+        ],
+        "depth": "complete popup text sink/marker recreation and click callback; static attribution URL search602,740"
+      },
+      {
+        "file": "prototype/src/live/DetachedDXpeditionMapSurface.tsx",
+        "ranges": [
+          [
+            53,
+            84
+          ],
+          [
+            115,
+            164
+          ]
+        ],
+        "depth": "response bound, URL filter, complete Detail render external URLs and user action controls"
+      },
+      {
+        "file": "prototype/src/live/OpportunitiesPanel.tsx",
+        "ranges": [
+          [
+            24,
+            32
+          ],
+          [
+            213,
+            250
+          ],
+          [
+            276,
+            305
+          ]
+        ],
+        "depth": "URL allowlist, text render, stale async cancellation subset; no full component audit"
+      },
+      {
+        "file": "prototype/src/live/AwardsPanel.tsx",
+        "ranges": [
+          [
+            1,
+            125
+          ]
+        ],
+        "depth": "programme normalization, text/URL detail sinks; remainder not reviewed"
+      },
+      {
+        "file": "prototype/src/contesting/ContestOperatingInfo.tsx",
+        "ranges": [
+          [
+            1,
+            85
+          ]
+        ],
+        "depth": "asynchronous scope identity and external rule anchors; lower controls not reviewed"
+      },
+      {
+        "file": "python/contest_host/operating_rules.py",
+        "ranges": [
+          [
+            5,
+            6
+          ],
+          [
+            65,
+            66
+          ]
+        ],
+        "depth": "constant sponsor URL producer searched/read, not full rules module"
+      },
+      {
+        "file": "prototype/src/live/settingsSession.ts",
+        "ranges": [
+          [
+            1,
+            211
+          ]
+        ],
+        "depth": "entire state/journal/receipt/retry class source read; no malicious storage fuzzing"
+      },
+      {
+        "file": "prototype/src/live/readRadioJournal.ts",
+        "ranges": [
+          [
+            1,
+            15
+          ]
+        ],
+        "depth": "complete invalid and legacy journal parsing"
+      },
+      {
+        "file": "prototype/src/live/spotActivation.ts",
+        "ranges": [
+          [
+            1,
+            103
+          ]
+        ],
+        "depth": "complete snapshot validator/editor freeze/readiness/reconcile lifecycle"
+      },
+      {
+        "file": "prototype/src/live/mapContext.ts",
+        "ranges": [
+          [
+            1,
+            76
+          ]
+        ],
+        "depth": "complete retained context validation/snapshot ordering/wake lifecycle"
+      },
+      {
+        "file": "prototype/src/live/ServiceSettings.tsx",
+        "ranges": [
+          [
+            36,
+            84
+          ]
+        ],
+        "depth": "complete Credential component local secret state/presence/read/save/remove flow"
+      },
+      {
+        "file": "prototype/src-tauri/src/main.rs",
+        "ranges": [
+          [
+            267,
+            431
+          ]
+        ],
+        "depth": "native typed activation and read/follow/recovery admission checks"
+      },
+      {
+        "file": "prototype/src-tauri/src/radio_read.rs",
+        "ranges": [
+          [
+            77,
+            107
+          ],
+          [
+            415,
+            427
+          ]
+        ],
+        "depth": "legacy/scoped recover-only receipt path; not entire read owner"
+      },
+      {
+        "file": "prototype/src-tauri/src/spot_activation.rs",
+        "ranges": [
+          [
+            10,
+            19
+          ],
+          [
+            149,
+            207
+          ],
+          [
+            224,
+            243
+          ]
+        ],
+        "depth": "identity admission, preparation source revalidation, typed control staging"
+      },
+      {
+        "file": "prototype/src-tauri/src/spot_activation_backend.rs",
+        "ranges": [
+          [
+            230,
+            246
+          ],
+          [
+            303,
+            328
+          ]
+        ],
+        "depth": "native report source resolve and worker/selection checks at tune admission"
+      },
+      {
+        "file": "prototype/src-tauri/src/cluster_session.rs",
+        "ranges": [
+          [
+            270,
+            313
+          ]
+        ],
+        "depth": "fresh native retained report identity lookup"
+      },
+      {
+        "file": "prototype/src-tauri/src/opportunity_selection.rs",
+        "ranges": [
+          [
+            1,
+            102
+          ]
+        ],
+        "depth": "entire production bounded feed identity pool retain/resolve; initial tests read; remaining tests not reviewed"
+      },
+      {
+        "file": "prototype/node_modules/react-dom/cjs/react-dom-client.development.js",
+        "ranges": [
+          [
+            3348,
+            3350
+          ]
+        ],
+        "depth": "local installed sanitizeURL search only; not remote webview runtime proof"
+      }
+    ],
+    "rejected_leads": [
+      "map publisher HTML injection",
+      "non-HTTPS protocol from filtered public-feed and lookup URLs",
+      "renderer supplied report payload bypassing native retained identity",
+      "legacy ReadRadio journal replaying radio effect",
+      "normal Settings Credential value entering form journals"
+    ],
+    "remaining_limits": [
+      "external navigation/new-window runtime behavior",
+      "complete per-native-command authorization",
+      "feed redirect/SSRF policy",
+      "full recursive malicious JSON DoS",
+      "all Settings/rotor/backup recovery owners",
+      "all LiveApp and Not1MM async branches"
+    ]
+  },
+  "every_assigned_changed_production_function_body_read": true,
+  "all_changed_function_behaviors_certified": false
+}
