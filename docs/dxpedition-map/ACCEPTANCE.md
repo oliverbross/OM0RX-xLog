@@ -1,5 +1,7 @@
 # DXpedition Map acceptance record
 
+Current repair evidence: [28 October 2026 parity repair acceptance](REPAIR_ACCEPTANCE_2026-10-28.md). It supersedes the older missing-enrichment/location/history statements below; packaged and physical-radio gates remain explicitly separate.
+
 The historical gates below describe archived feature source `ef32793f` from the
 independent `codex/dxpedition-map` branch. They are not test results for the current
 canonical integration. No packaged/installed acceptance is inferred from that

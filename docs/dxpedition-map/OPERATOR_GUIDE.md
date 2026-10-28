@@ -7,6 +7,7 @@ change the contest draft. **Tune & load** and **Load callsign** use the existing
 Normal Logging activation owner; the operating-module guard rejects them while
 Contesting is active. Use the contest's own Cluster/Band Map actions for contest
 draft loading and tuning.
+The DXMap action buttons explain this restriction and are disabled while Contesting or a module transition is active.
 
 - Status tabs are cumulative: Active includes Live; Recent includes Live, Active, and scheduled-on-air operations.
 - Band chips describe observed cluster bands, not advertised expedition plans. Search matches callsign, published alias, or entity.
@@ -14,6 +15,10 @@ draft loading and tuning.
 - **Tune & load** beside a frequency revalidates that retained cluster report, loads the actual reported alias into the shared draft, and tunes the currently selected receiver through the normal activation transaction.
 - **Load callsign** appears for a catalogue operation with no retained frequency. It changes the shared draft only and sends no station command.
 - `stale/unavailable` means the native cluster projection cannot currently authorize an action. Refreshing or reconnecting does not queue an old tune for later replay.
-- Source badges distinguish fresh, cached/stale, and failed providers. Missing Club Log totals, QSO rate, watchers, coordinates, or QSL information display as unavailable rather than zero.
+- Callsign labels remain visible on the map at world zoom. Green is Live, amber Active, orange Recent, cyan scheduled On air and purple dashed Upcoming. Labels include an observed frequency when one exists; displaced labels retain a line to their geographic anchor. Marker/card selection opens details only.
+- ADXO and 425DXN entries for the same dated operation are reconciled. Explicit operating aliases such as HR5/F2JD are used for live joins; an incomplete announcement can still be browsed without loading a partial callsign into the draft.
+- Source badges distinguish fresh, cached/stale, and failed providers. Club Log supplies published totals and last-QSO times where available; those dates also contribute to activity age. Your worked/confirmed history remains a separate local-log section.
+- Historical frequencies survive normal shared-cluster eviction through Spot History. A history-only row is labelled and cannot tune. Reports that were never recorded cannot be reconstructed.
+- Approximate entity/IOTA positions are labelled as areas, rather than exact expedition station locations. Missing QSO rate, watchers, coordinates or QSL information display as unavailable rather than zero.
 
 The window keeps its own status/band/language and map-camera preferences. It shares catalogue, cluster, draft, and selected-radio owners with the rest of xLog.
