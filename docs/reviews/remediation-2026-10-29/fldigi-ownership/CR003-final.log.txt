@@ -1,0 +1,83 @@
+Building for debugging...
+[Computing dependencies]
+[1 / 30] XContestCoreTests-product
+[2 / 7] XLogPrototypeTests-product
+[4 / 9] XLogPrototypeTests-product
+[10 / 14] XLogPrototypeTests-product
+[12 / 14] XLogPrototypeTests-product
+Build complete! (8.15 sec.)
+Test Suite 'Selected tests' started at 2026-10-29 00:53:44.557.
+Test Suite 'XStationIntegrationTests.xctest' started at 2026-10-29 00:53:44.560.
+Test Suite 'XStationIntegrationTests.xctest' passed at 2026-10-29 00:53:44.560.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:53:44.560.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.003) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:53:44.639.
+Test Suite 'XLogPrototypeTests.xctest' started at 2026-10-29 00:53:44.641.
+Test Suite 'LiveFldigiBridgeTests' started at 2026-10-29 00:53:44.641.
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testAutomaticLifecycleNeverControlsUnownedFldigi]' started.
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testAutomaticLifecycleNeverControlsUnownedFldigi]' passed (0.018 seconds).
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testAutomaticShutdownRetainsPendingTXDutyUntilLateAttemptRetires]' started.
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testAutomaticShutdownRetainsPendingTXDutyUntilLateAttemptRetires]' passed (0.002 seconds).
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testContestingTestNeverStartsReceiveOrSendsXMLRPC]' started.
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testContestingTestNeverStartsReceiveOrSendsXMLRPC]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testContestSwitchAfterTXReturnsToReceiveWithoutSendingText]' started.
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testContestSwitchAfterTXReturnsToReceiveWithoutSendingText]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testDisablingTransmitRetiresPendingOutputAndReturnsToReceive]' started.
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testDisablingTransmitRetiresPendingOutputAndReturnsToReceive]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testExplicitEmergencyStopStillSendsRXWithoutPriorTransmitDuty]' started.
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testExplicitEmergencyStopStillSendsRXWithoutPriorTransmitDuty]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testFailureAndStopPreventTextSendAndStaleContextIsRejected]' started.
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testFailureAndStopPreventTextSendAndStaleContextIsRejected]' passed (0.002 seconds).
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testInvalidLaterActionNeverPartiallyTransmitsTheBundle]' started.
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testInvalidLaterActionNeverPartiallyTransmitsTheBundle]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testLoopbackReceiveRoutesOneBoundedADIFThroughContestLease]' started.
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testLoopbackReceiveRoutesOneBoundedADIFThroughContestLease]' passed (0.004 seconds).
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testMalformedCompletedRecoveryStaysRawAndBlocksOverwrite]' started.
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testMalformedCompletedRecoveryStaysRawAndBlocksOverwrite]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testOwnedLifecycleReleasesOnceAndUncertainReleaseBlocksNewOutputUntilExplicitStop]' started.
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testOwnedLifecycleReleasesOnceAndUncertainReleaseBlocksNewOutputUntilExplicitStop]' passed (0.002 seconds).
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testPendingCompletionSurvivesRestartWithoutAutoCommitOrReceiveRearm]' started.
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testPendingCompletionSurvivesRestartWithoutAutoCommitOrReceiveRearm]' passed (0.002 seconds).
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testReceivedTextSelectionIsExactNontransmittingAndRetiredWithContext]' started.
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testReceivedTextSelectionIsExactNontransmittingAndRetiredWithContext]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testTransmitCallsMainTXThenAddsOriginalFormattedText]' started.
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testTransmitCallsMainTXThenAddsOriginalFormattedText]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testWorkspaceRetirementDuringPendingTextCannotStartTheNextAction]' started.
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testWorkspaceRetirementDuringPendingTextCannotStartTheNextAction]' passed (0.002 seconds).
+Test Suite 'LiveFldigiBridgeTests' passed at 2026-10-29 00:53:44.683.
+	 Executed 15 tests, with 0 failures (0 unexpected) in 0.041 (0.042) seconds
+Test Suite 'XLogPrototypeTests.xctest' passed at 2026-10-29 00:53:44.683.
+	 Executed 15 tests, with 0 failures (0 unexpected) in 0.041 (0.042) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:53:44.683.
+	 Executed 15 tests, with 0 failures (0 unexpected) in 0.041 (0.043) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:53:44.786.
+Test Suite 'XContestStoreTests.xctest' started at 2026-10-29 00:53:44.788.
+Test Suite 'XContestStoreTests.xctest' passed at 2026-10-29 00:53:44.788.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:53:44.788.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:53:44.895.
+Test Suite 'XContestCoreTests.xctest' started at 2026-10-29 00:53:44.896.
+Test Suite 'XContestCoreTests.xctest' passed at 2026-10-29 00:53:44.896.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:53:44.896.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:53:45.000.
+Test Suite 'XClusterIntegrationTests.xctest' started at 2026-10-29 00:53:45.001.
+Test Suite 'XClusterIntegrationTests.xctest' passed at 2026-10-29 00:53:45.001.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:53:45.002.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:53:45.105.
+Test Suite 'XCatIntegrationTests.xctest' started at 2026-10-29 00:53:45.106.
+Test Suite 'XCatIntegrationTests.xctest' passed at 2026-10-29 00:53:45.106.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:53:45.106.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:53:45.208.
+Test Suite 'XCWCoreTests.xctest' started at 2026-10-29 00:53:45.209.
+Test Suite 'XCWCoreTests.xctest' passed at 2026-10-29 00:53:45.209.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:53:45.209.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds

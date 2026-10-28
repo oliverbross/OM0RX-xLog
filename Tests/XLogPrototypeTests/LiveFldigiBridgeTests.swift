@@ -16,11 +16,12 @@ private actor FakeFldigiRPC: FldigiXMLRPCCalling {
     var calls: [(String, String?)] = []
     var failureMethod: String?
     var gateMainTX = false
+    var gateText = false
     private var continuation: CheckedContinuation<Void, Never>?
 
     func call(method: String, string: String?) async throws {
         calls.append((method, string))
-        if gateMainTX && method == "main.tx" { await withCheckedContinuation { continuation = $0 } }
+        if gateMainTX && method == "main.tx" || gateText && method == "text.add_tx" { await withCheckedContinuation { continuation = $0 } }
         if failureMethod == method { throw WorkerFailure("test_failure", "failed") }
     }
     func release() { continuation?.resume(); continuation = nil }
@@ -35,6 +36,122 @@ private final class FldigiIdentityState: @unchecked Sendable {
 }
 
 final class LiveFldigiBridgeTests: XCTestCase {
+    func testAutomaticLifecycleNeverControlsUnownedFldigi() async throws {
+        for lifecycle in ["shutdown", "workspace"] {
+            for state in ["never", "disabled", "receive", "enabled-unused"] {
+                let root = FileManager.default.temporaryDirectory.appendingPathComponent("fldigi-unowned-\(UUID())")
+                defer { try? FileManager.default.removeItem(at: root) }
+                let rpc = FakeFldigiRPC(), lease = destination()
+                let bridge = LiveFldigiBridge(configurationURL: root.appendingPathComponent("fldigi.json"),
+                    externalIOAllowed: { true }, receiverFactory: { _, _ in FakeFldigiReceiver() }, rpc: rpc)
+                if state != "never" {
+                    _ = try await bridge.handle(method: "fldigi_configure", params: ["configuration": [
+                        "receive_enabled": state == "receive", "transmit_enabled": state == "enabled-unused"]],
+                        receiveDestination: lease, transmitDestination: lease, contestImporter: { _, _ in false })
+                }
+                if state == "receive" {
+                    _ = try await bridge.handle(method: "fldigi_start", params: [:], receiveDestination: lease,
+                        transmitDestination: lease, contestImporter: { _, _ in false })
+                }
+                if lifecycle == "shutdown" { await bridge.stopForShutdown() } else { await bridge.suspendForWorkspaceChange() }
+                let calls = await rpc.recorded()
+                XCTAssertTrue(calls.isEmpty, "Automatic \(lifecycle) controlled \(state) external engine")
+            }
+        }
+    }
+
+    func testOwnedLifecycleReleasesOnceAndUncertainReleaseBlocksNewOutputUntilExplicitStop() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("fldigi-owned-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let rpc = FakeFldigiRPC(), lease = destination()
+        let bridge = LiveFldigiBridge(configurationURL: root.appendingPathComponent("fldigi.json"), externalIOAllowed: { true }, rpc: rpc)
+        let configure: [String: Any] = ["configuration": ["receive_enabled": false, "transmit_enabled": true]]
+        _ = try await bridge.handle(method: "fldigi_configure", params: configure, receiveDestination: nil, transmitDestination: lease, contestImporter: nil)
+        _ = try await bridge.handle(method: "fldigi_send", params: ["actions": [action(lease)]], receiveDestination: nil, transmitDestination: lease, contestImporter: nil)
+        await rpc.setFailureMethodForTesting("main.rx")
+        await bridge.suspendForWorkspaceChange()
+        _ = try await bridge.handle(method: "fldigi_configure", params: configure, receiveDestination: nil, transmitDestination: lease, contestImporter: nil)
+        let snapshot = try await bridge.handle(method: "fldigi_snapshot", params: [:], receiveDestination: nil, transmitDestination: lease, contestImporter: nil)
+        XCTAssertEqual(snapshot["transmit_release_required"] as? Bool, true)
+        XCTAssertEqual(snapshot["transmit_release_uncertain"] as? Bool, true)
+        do {
+            _ = try await bridge.handle(method: "fldigi_send", params: ["actions": [action(lease)]], receiveDestination: nil, transmitDestination: lease, contestImporter: nil)
+            XCTFail("Uncertain release allowed new output")
+        } catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "fldigi_release_required") }
+        await rpc.setFailureMethodForTesting(nil)
+        let stopped = try await bridge.handle(method: "fldigi_stop", params: [:], receiveDestination: nil, transmitDestination: lease, contestImporter: nil)
+        XCTAssertEqual(stopped["transmit_release_required"] as? Bool, false)
+        XCTAssertEqual(stopped["transmit_release_uncertain"] as? Bool, false)
+        await bridge.stopForShutdown()
+        let calls = await rpc.recorded()
+        XCTAssertEqual(calls.map(\.0), ["main.tx", "text.add_tx", "main.rx", "main.rx"])
+    }
+
+    func testAutomaticShutdownRetainsPendingTXDutyUntilLateAttemptRetires() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("fldigi-pending-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let rpc = FakeFldigiRPC(), lease = destination()
+        let bridge = LiveFldigiBridge(configurationURL: root.appendingPathComponent("fldigi.json"), externalIOAllowed: { true }, rpc: rpc)
+        _ = try await bridge.handle(method: "fldigi_configure", params: ["configuration": ["receive_enabled": false, "transmit_enabled": true]],
+            receiveDestination: nil, transmitDestination: lease, contestImporter: nil)
+        await rpc.setGateForTesting(true)
+        let pending = Task { try await bridge.handle(method: "fldigi_send", params: ["actions": [self.action(lease)]],
+            receiveDestination: nil, transmitDestination: lease, contestImporter: nil) }
+        while await rpc.recorded().isEmpty { await Task.yield() }
+        await bridge.stopForShutdown()
+        await rpc.release()
+        do { _ = try await pending.value; XCTFail("Retired output continued") }
+        catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "stale_context") }
+        let calls = await rpc.recorded()
+        XCTAssertEqual(calls.map(\.0), ["main.tx", "main.rx", "main.rx"])
+        await bridge.stopForShutdown()
+        let repeated = await rpc.recorded()
+        XCTAssertEqual(repeated.count, calls.count)
+    }
+
+    func testExplicitEmergencyStopStillSendsRXWithoutPriorTransmitDuty() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("fldigi-emergency-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let rpc = FakeFldigiRPC(), bridge = LiveFldigiBridge(configurationURL: root.appendingPathComponent("fldigi.json"), externalIOAllowed: { true }, rpc: rpc)
+        _ = try await bridge.handle(method: "fldigi_stop", params: [:], receiveDestination: nil, transmitDestination: nil, contestImporter: nil)
+        let calls = await rpc.recorded()
+        XCTAssertEqual(calls.map(\.0), ["main.rx"])
+    }
+
+    func testWorkspaceRetirementDuringPendingTextCannotStartTheNextAction() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("fldigi-text-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let rpc = FakeFldigiRPC(), lease = destination()
+        let bridge = LiveFldigiBridge(configurationURL: root.appendingPathComponent("fldigi.json"), externalIOAllowed: { true }, rpc: rpc)
+        _ = try await bridge.handle(method: "fldigi_configure", params: ["configuration": ["receive_enabled": false, "transmit_enabled": true]],
+            receiveDestination: nil, transmitDestination: lease, contestImporter: nil)
+        await rpc.setTextGateForTesting()
+        let pending = Task { try await bridge.handle(method: "fldigi_send", params: ["actions": [self.action(lease), self.action(lease)]],
+            receiveDestination: nil, transmitDestination: lease, contestImporter: nil) }
+        while await rpc.recorded().count < 2 { await Task.yield() }
+        await bridge.suspendForWorkspaceChange()
+        await rpc.release()
+        do { _ = try await pending.value; XCTFail("Retired bundle continued") }
+        catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "stale_context") }
+        let calls = await rpc.recorded()
+        XCTAssertEqual(calls.map(\.0), ["main.tx", "text.add_tx", "main.rx", "main.rx"])
+    }
+
+    func testInvalidLaterActionNeverPartiallyTransmitsTheBundle() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("fldigi-invalid-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let rpc = FakeFldigiRPC(), lease = destination()
+        let bridge = LiveFldigiBridge(configurationURL: root.appendingPathComponent("fldigi.json"), externalIOAllowed: { true }, rpc: rpc)
+        _ = try await bridge.handle(method: "fldigi_configure", params: ["configuration": ["receive_enabled": false, "transmit_enabled": true]],
+            receiveDestination: nil, transmitDestination: lease, contestImporter: nil)
+        var malformed = action(lease); malformed["payloadSHA256"] = "wrong"
+        await XCTAssertThrowsErrorAsync(try await bridge.handle(method: "fldigi_send", params: ["actions": [action(lease), malformed]],
+            receiveDestination: nil, transmitDestination: lease, contestImporter: nil))
+        await bridge.stopForShutdown()
+        let calls = await rpc.recorded()
+        XCTAssertTrue(calls.isEmpty)
+    }
+
     private func destination(_ id: String = UUID().uuidString.lowercased()) -> WSJTXContestDestination {
         .init(sessionID: id, workspaceGeneration: UUID().uuidString.lowercased(),
               pluginID: "cq_ww_rtty", sourceRevision: "source")
@@ -206,6 +323,7 @@ final class LiveFldigiBridgeTests: XCTestCase {
 private extension FakeFldigiRPC {
     func setFailureMethodForTesting(_ value: String?) { failureMethod = value }
     func setGateForTesting(_ value: Bool) { gateMainTX = value }
+    func setTextGateForTesting() { gateText = true }
 }
 
 private func XCTAssertThrowsErrorAsync<T>(_ expression: @autoclosure () async throws -> T,

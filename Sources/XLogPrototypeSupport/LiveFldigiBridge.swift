@@ -95,6 +95,12 @@ public actor LiveFldigiBridge {
     private var completed: [FldigiCompleted] = []
     private var completedRecoveryError:String?
     private let ingress = SpotIngressGate(limit: 64)
+    // Set before an admitted TX request can reach RPC. A lost reply retains
+    // the duty; configuration alone never grants cleanup of another engine.
+    private var transmitDuty: UUID?
+    private var sendInFlight = false
+    private var releasesInFlight = 0
+    private var releaseUncertain = false
 
     init(configurationURL: URL? = nil,
          externalIOAllowed: @escaping @Sendable () -> Bool = { AppRuntimeProfile.current.externalIOAllowed },
@@ -200,7 +206,7 @@ public actor LiveFldigiBridge {
             stopReceiver(); retireDestination(); transmitGeneration = UUID()
             var next = try load(); next.receiveEnabled = false; next.transmitEnabled = false
             try save(next); configuration = next; status = "Off"
-            await returnToReceive()
+            await returnToReceive(emergency: true)
         case "fldigi_send":
             try require(params, allowed: ["actions"], required: ["actions"])
             guard externalIOAllowed(), !terminalShutdown else {
@@ -211,19 +217,33 @@ public actor LiveFldigiBridge {
                 throw WorkerFailure("fldigi_transmit_disabled", "Enable fldigi macro transmit for this contest first.")
             }
             guard let actions = params["actions"] as? [[String: Any]], (1...Self.maximumActions).contains(actions.count) else { throw invalid() }
+            let payloads = try actions.map { try validate(action: $0, destination: destination) }
+            guard !sendInFlight, releasesInFlight == 0, !releaseUncertain else {
+                throw WorkerFailure("fldigi_release_required", "Wait for pending output and use Stop to confirm receive before transmitting again.")
+            }
             let generation = transmitGeneration
-            for action in actions {
-                let payload = try validate(action: action, destination: destination)
-                do { try await rpc.call(method: "main.tx", string: nil) }
-                catch { await returnToReceive(); throw error }
-                let currentDestination = try? await transmitDestinationProvider?()
-                guard generation == transmitGeneration, !terminalShutdown, destination == transmitDestination,
-                      transmitDestinationProvider == nil || currentDestination == destination else {
-                    await returnToReceive()
-                    throw WorkerFailure("stale_context", "The contest or fldigi output lease changed before text was sent.")
+            let duty = UUID()
+            transmitDuty = duty; sendInFlight = true
+            defer { sendInFlight = false }
+            do {
+                for payload in payloads {
+                    guard generation == transmitGeneration, !terminalShutdown else {
+                        throw WorkerFailure("stale_context", "The fldigi output lease was retired.")
+                    }
+                    try await rpc.call(method: "main.tx", string: nil)
+                    let currentDestination = try? await transmitDestinationProvider?()
+                    guard generation == transmitGeneration, !terminalShutdown, destination == transmitDestination,
+                          transmitDestinationProvider == nil || currentDestination == destination else {
+                        throw WorkerFailure("stale_context", "The contest or fldigi output lease changed before text was sent.")
+                    }
+                    try await rpc.call(method: "text.add_tx", string: payload)
+                    guard generation == transmitGeneration, !terminalShutdown else {
+                        throw WorkerFailure("stale_context", "The fldigi output lease changed while text was pending.")
+                    }
                 }
-                do { try await rpc.call(method: "text.add_tx", string: payload) }
-                catch { await returnToReceive(); throw error }
+            } catch {
+                await returnToReceive(duty: duty, retiringSend: true)
+                throw error
             }
             status = "Sent \(actions.count) fldigi macro\(actions.count == 1 ? "" : "s")."
         default:
@@ -286,9 +306,23 @@ public actor LiveFldigiBridge {
         try JSONEncoder().encode(completed).write(to:path,options:.atomic)
         try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:path.path)
     }
-    private func returnToReceive() async {
-        guard externalIOAllowed() else { return }
-        try? await rpc.call(method: "main.rx", string: nil)
+    private func returnToReceive(duty: UUID? = nil, retiringSend: Bool = false, emergency: Bool = false) async {
+        let expected = duty ?? transmitDuty
+        guard emergency || expected != nil else { return }
+        guard externalIOAllowed() else { releaseUncertain = expected != nil; return }
+        releasesInFlight += 1
+        defer { releasesInFlight -= 1 }
+        do {
+            try await rpc.call(method: "main.rx", string: nil)
+            // RX may overtake a pending TX/text RPC. That send must retire and
+            // issue its own final release before this duty can be forgotten.
+            if transmitDuty == expected, !sendInFlight || retiringSend {
+                transmitDuty = nil; releaseUncertain = false
+            }
+        } catch {
+            releaseUncertain = true
+            status = "fldigi receive release is unconfirmed; use Stop to retry before transmitting."
+        }
     }
 
     private func validate(action: [String: Any], destination: WSJTXContestDestination) throws -> String {
@@ -313,6 +347,7 @@ public actor LiveFldigiBridge {
         return ["configuration": ["receive_enabled": config.receiveEnabled, "transmit_enabled": config.transmitEnabled],
                 "receive_supported": receiveDestination != nil, "transmit_supported": transmitDestination != nil,
                 "receive_running": receiver != nil, "received_count": receivedCount, "imported_count": importedCount,
+                "transmit_release_required": transmitDuty != nil, "transmit_release_uncertain": releaseUncertain,
                 "duplicate_count": duplicateCount, "rejected_count": rejectedCount, "status": status,
                 "completed":completed.filter{$0.destination==receiveDestination}.map{["id":$0.id,"sender":$0.sender,"packet":$0.packet,"state":"externally_completed_pending_review","instanceEvidence":"UDP has no engine identity; verify the external app before accepting"] as [String:Any]},
                 "recovery_error":completedRecoveryError as Any? ?? NSNull(),

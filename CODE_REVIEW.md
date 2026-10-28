@@ -164,6 +164,8 @@ the physical consequence remains unverified.
 
 ### CR-003 — Ordinary shutdown sends fldigi receive control without xLog transmit ownership
 
+**Remediation status:** Fixed and Verified. See REMEDIATION_TRACKER.md for the implementation, tests and limits.
+
 **Medium — can interrupt an independently operating fldigi instance. Confidence:
 high. Verification: reproduced with the actual unmodified bridge actor, fake RPC
 and receiver only, with no neighboring-interface stubs; no real provider or radio.**

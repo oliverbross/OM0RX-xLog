@@ -1,0 +1,65 @@
+Building for debugging...
+[Computing dependencies]
+[1 / 4] CCWProcess
+[2 / 7] XLogPrototypeTests-product
+[4 / 9] XLogPrototypeTests-product
+[10 / 14] XLogPrototypeTests-product
+[12 / 14] XLogPrototypeTests-product
+Build complete! (7.45 sec.)
+Test Suite 'Selected tests' started at 2026-10-29 00:51:12.949.
+Test Suite 'XStationIntegrationTests.xctest' started at 2026-10-29 00:51:12.951.
+Test Suite 'XStationIntegrationTests.xctest' passed at 2026-10-29 00:51:12.951.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:51:12.951.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.003) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:51:13.034.
+Test Suite 'XLogPrototypeTests.xctest' started at 2026-10-29 00:51:13.036.
+Test Suite 'LiveFldigiBridgeTests' started at 2026-10-29 00:51:13.036.
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testAutomaticLifecycleNeverControlsUnownedFldigi]' started.
+/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift:57: error: -[XLogPrototypeTests.LiveFldigiBridgeTests testAutomaticLifecycleNeverControlsUnownedFldigi] : XCTAssertTrue failed - Automatic shutdown controlled never external engine
+/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift:57: error: -[XLogPrototypeTests.LiveFldigiBridgeTests testAutomaticLifecycleNeverControlsUnownedFldigi] : XCTAssertTrue failed - Automatic shutdown controlled disabled external engine
+/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift:57: error: -[XLogPrototypeTests.LiveFldigiBridgeTests testAutomaticLifecycleNeverControlsUnownedFldigi] : XCTAssertTrue failed - Automatic shutdown controlled receive external engine
+/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift:57: error: -[XLogPrototypeTests.LiveFldigiBridgeTests testAutomaticLifecycleNeverControlsUnownedFldigi] : XCTAssertTrue failed - Automatic shutdown controlled enabled-unused external engine
+/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift:57: error: -[XLogPrototypeTests.LiveFldigiBridgeTests testAutomaticLifecycleNeverControlsUnownedFldigi] : XCTAssertTrue failed - Automatic workspace controlled never external engine
+/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift:57: error: -[XLogPrototypeTests.LiveFldigiBridgeTests testAutomaticLifecycleNeverControlsUnownedFldigi] : XCTAssertTrue failed - Automatic workspace controlled disabled external engine
+/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift:57: error: -[XLogPrototypeTests.LiveFldigiBridgeTests testAutomaticLifecycleNeverControlsUnownedFldigi] : XCTAssertTrue failed - Automatic workspace controlled receive external engine
+/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift:57: error: -[XLogPrototypeTests.LiveFldigiBridgeTests testAutomaticLifecycleNeverControlsUnownedFldigi] : XCTAssertTrue failed - Automatic workspace controlled enabled-unused external engine
+Test Case '-[XLogPrototypeTests.LiveFldigiBridgeTests testAutomaticLifecycleNeverControlsUnownedFldigi]' failed (1.093 seconds).
+Test Suite 'LiveFldigiBridgeTests' failed at 2026-10-29 00:51:14.129.
+	 Executed 1 test, with 8 failures (0 unexpected) in 1.093 (1.093) seconds
+Test Suite 'XLogPrototypeTests.xctest' failed at 2026-10-29 00:51:14.129.
+	 Executed 1 test, with 8 failures (0 unexpected) in 1.093 (1.093) seconds
+Test Suite 'Selected tests' failed at 2026-10-29 00:51:14.129.
+	 Executed 1 test, with 8 failures (0 unexpected) in 1.093 (1.095) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:51:14.230.
+Test Suite 'XContestStoreTests.xctest' started at 2026-10-29 00:51:14.232.
+Test Suite 'XContestStoreTests.xctest' passed at 2026-10-29 00:51:14.232.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:51:14.232.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:51:14.330.
+Test Suite 'XContestCoreTests.xctest' started at 2026-10-29 00:51:14.331.
+Test Suite 'XContestCoreTests.xctest' passed at 2026-10-29 00:51:14.331.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:51:14.331.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:51:14.430.
+Test Suite 'XClusterIntegrationTests.xctest' started at 2026-10-29 00:51:14.431.
+Test Suite 'XClusterIntegrationTests.xctest' passed at 2026-10-29 00:51:14.431.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:51:14.431.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:51:14.528.
+Test Suite 'XCatIntegrationTests.xctest' started at 2026-10-29 00:51:14.530.
+Test Suite 'XCatIntegrationTests.xctest' passed at 2026-10-29 00:51:14.530.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:51:14.530.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:51:14.625.
+Test Suite 'XCWCoreTests.xctest' started at 2026-10-29 00:51:14.626.
+Test Suite 'XCWCoreTests.xctest' passed at 2026-10-29 00:51:14.626.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:51:14.626.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Note: Some test targets reported failures:
+  - XLogPrototypeTests (XCTest)
