@@ -2524,9 +2524,15 @@ class Host:
         operation = identifier(params.get("requestID") if method == "multi_contact_apply"
                                else params.get("operationID"))
         payload = canonical({"method": method, "params": params})
+        # Strategy shares the transaction owner but only these actions change
+        # contact/accounting/station authority. Local plans remain writable.
+        action = params.get("action")
+        replica_blocked = method in self.REPLICA_BLOCKED or (method == "strategy_apply" and
+            isinstance(action, str) and (action in {"adif_import", "site_activate", "transverter_save"}
+                                         or action.startswith("qtc_")))
         store.begin()
         try:
-            if method in self.REPLICA_BLOCKED and store.replica():
+            if replica_blocked and store.replica():
                 raise HostError("replica_read_only",
                                 "This contest is bound to a master; contacts and contest semantics are read-only")
             previous = store.exec_sql("SELECT payload,result FROM xlog_operation WHERE operation_id=?", (operation,))
@@ -2538,7 +2544,7 @@ class Host:
                 return result
             state = store.state(session_id)
             previous_n1mm_network = deepcopy(state.get("setup", {}).get("network", {})) if state else {}
-            if state is not None and store.replica() and method in self.REPLICA_BLOCKED:
+            if state is not None and store.replica() and replica_blocked:
                 raise HostError("replica_read_only",
                                 "This contest is bound to a master; contacts and contest semantics are read-only")
             expected = params.get("expectedRevision", 0)
