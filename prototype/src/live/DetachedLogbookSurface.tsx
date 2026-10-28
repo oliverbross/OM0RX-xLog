@@ -54,7 +54,7 @@ export function DetachedLogbookSurface() {
   useEffect(() => { void run(async () => { await contacts.refresh(); await mutations.reconcile(); }); }, [contacts, mutations, run]);
   const cannotClose = useCallback(() => (!!contacts.getSnapshot().draft || contacts.getSnapshot().locked ||
     contacts.getSnapshot().activationFrozen || !!mutations.getSnapshot().pending || mutations.getSnapshot().busy || workingRef.current || tableBusyRef.current), [contacts, mutations]);
-  const explainClose = useCallback(() => setError("Finish or cancel the contact edit and resolve pending operations before closing or docking this window."), []);
+  const explainClose = useCallback(() => setError("Resolve edits and pending actions before closing or docking."), []);
   useEffect(() => protectLogbookClose(cannotClose, explainClose, setError), [cannotClose, explainClose]);
   const tableWorking = useCallback((value: boolean) => { tableBusyRef.current = value; setTableBusy(value); }, []);
   useEffect(() => {
