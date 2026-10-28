@@ -41,13 +41,14 @@ Statuses use the requested vocabulary. `Not Fixed` means still pending in this a
 
 ## CR-004 — Medium
 
-- **Status:** Not Fixed.
+- **Status:** Fixed and Verified.
 - **Root cause:** Historical-import audit lacks replication-compatible kind and identity images.
-- **Files modified:** None yet. Planned scope: python/contest_host/adif_import.py; host.py; authority/replica tests.
-- **Fix:** Pending implementation.
-- **Regression tests:** Pending.
-- **Verification commands/results:** Not run for remediation yet; prior review evidence is not fix verification.
-- **Remaining limitations:** Finding remains open. All production/provider/hardware boundaries above remain unverified.
+- **Files modified:** `python/contest_host/adif_import.py`, `host.py`; `python/tests/test_remediation_import_replica.py`.
+- **Fix:** Persist the import's exact durable after-identity in its existing transaction. Project internal adif_import audit events as insertion-kind commit only in the authority change wire format, retaining distinct local import provenance/recorder exclusion. Old valid imports missing identity are projected from the first following mutation's before-identity, or the current identity only when there is no later mutation; missing evidence fails closed. No audit, import provenance, old operation receipt, cursor or contact is rewritten by compatibility projection.
+- **Regression tests:** Four real configured paired-Host regressions: clean baseline then import/catch-up/exact replay/reopen/correction/delete; pre-fix unchanged import after reopen; pre-fix import followed by correction and deletion; missing identity rejection with full-table rollback and no invented provenance. Checks exact row/identity equivalence, outputActions empty and immutable authority audit. Existing client-write/authority, importer, recorder and coordination tests retained.
+- **Verification commands/results:** Valid pre-fix fixture reproduced Replica change kind is invalid; initial temporary-root symlink setup was corrected by canonicalizing the disposable root. Focused Python command (`PYTHONPATH=python:python/tests XLOG_CONTEST_N1MM_UDP_ALLOWED=0 python3.12 -B -m unittest -v test_remediation_import_replica test_review_replica_authority test_wave5_adif_host test_review_adif_import test_recorder`) PASS24/11.098s; `test_multi_operator_host test_group_coordination` PASS16/4.662s. `git diff --check` PASS. A new test initially treated the legitimate read-operation receipt as an audit rewrite; its oracle now checks the audit rows themselves.
+- **Remaining limitations:** No connected LAN/native UI or external outputs. Already cached pre-upgrade multi_changes receipts remain immutable; issue a fresh read request ID after upgrading. Irrecoverable legacy identity history still rejects explicitly rather than guessing; operator-reviewed recovery/rejoin is required. Original historical raw interchange/source metadata remains authority-local under the existing replica protocol; this fix guarantees the existing contact/identity stream, not a new full-backup replication format.
+- **Evidence:** [stage logs](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/remediation-2026-10-29/import-replication).
 
 ## CR-005 — Medium
 

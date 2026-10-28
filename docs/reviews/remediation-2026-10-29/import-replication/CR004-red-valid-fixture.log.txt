@@ -1,0 +1,63 @@
+test_legacy_import_identity_is_reconstructed_before_later_correction (test_remediation_import_replica.ImportedReplicaTests.test_legacy_import_identity_is_reconstructed_before_later_correction) ... ERROR
+test_legacy_missing_identity_fails_closed_without_inventing_provenance (test_remediation_import_replica.ImportedReplicaTests.test_legacy_missing_identity_fails_closed_without_inventing_provenance) ... FAIL
+test_new_import_catchup_replay_reopen_and_followup_changes (test_remediation_import_replica.ImportedReplicaTests.test_new_import_catchup_replay_reopen_and_followup_changes) ... ERROR
+
+======================================================================
+ERROR: test_legacy_import_identity_is_reconstructed_before_later_correction (test_remediation_import_replica.ImportedReplicaTests.test_legacy_import_identity_is_reconstructed_before_later_correction)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_remediation_import_replica.py", line 93, in test_legacy_import_identity_is_reconstructed_before_later_correction
+    self.correct(qso)
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_remediation_import_replica.py", line 112, in correct
+    self.call(master, "qso_correct", **self.params(master), qsoID=qso, fields=fields, reason="fixture correction")
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_remediation_import_replica.py", line 38, in call
+    return host.dispatch({"id": uid(), "method": method, "params": deepcopy(params)})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/contest_host/host.py", line 1506, in dispatch
+    return self.mutate(store, session_id, method, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/contest_host/host.py", line 3067, in mutate
+    self.change(desk, method, params)
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/contest_host/host.py", line 4472, in change
+    require(bool(operator.strip()), "Operator is required")
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/contest_host/host.py", line 189, in require
+    raise HostError(code, message)
+contest_host.host.HostError: Operator is required
+
+======================================================================
+ERROR: test_new_import_catchup_replay_reopen_and_followup_changes (test_remediation_import_replica.ImportedReplicaTests.test_new_import_catchup_replay_reopen_and_followup_changes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_remediation_import_replica.py", line 81, in test_new_import_catchup_replay_reopen_and_followup_changes
+    page = self.sync()
+           ^^^^^^^^^^^
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_remediation_import_replica.py", line 60, in sync
+    result = self.call(replica, "multi_replica_apply", **params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_remediation_import_replica.py", line 38, in call
+    return host.dispatch({"id": uid(), "method": method, "params": deepcopy(params)})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/contest_host/host.py", line 1506, in dispatch
+    return self.mutate(store, session_id, method, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/contest_host/host.py", line 3069, in mutate
+    replica_cursor = self.apply_replica(desk, params)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/contest_host/host.py", line 2358, in apply_replica
+    require(kind in {"commit", "correct", "delete"}, "Replica change kind is invalid")
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/contest_host/host.py", line 189, in require
+    raise HostError(code, message)
+contest_host.host.HostError: Replica change kind is invalid
+
+======================================================================
+FAIL: test_legacy_missing_identity_fails_closed_without_inventing_provenance (test_remediation_import_replica.ImportedReplicaTests.test_legacy_missing_identity_fails_closed_without_inventing_provenance)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_remediation_import_replica.py", line 105, in test_legacy_missing_identity_fails_closed_without_inventing_provenance
+    with self.assertRaises(HostError) as error: self.page()
+AssertionError: HostError not raised
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.725s
+
+FAILED (failures=1, errors=2)

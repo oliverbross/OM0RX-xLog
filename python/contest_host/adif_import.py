@@ -128,5 +128,6 @@ def apply(host,store,state,params,require):
     if requires_serial(state):state['historicalSerialFloor']=max(state.get('historicalSerialFloor',0),int(reviewed['fields']['other_1']))
     host.rebuild(desk)
     after=store.exec_sql('SELECT * FROM DXLOG WHERE ID=?',(qso_id,))
-    host.audit(store,qso_id,'adif_import',None,after,'Explicit reviewed historical ADIF import',revision=state['revision']+1)
+    host.audit(store,qso_id,'adif_import',None,after,'Explicit reviewed historical ADIF import',
+               revision=state['revision']+1,after_identity=host.replica_identity(store,qso_id))
     return {'qsoID':qso_id,'status':'imported','outputActions':[]}

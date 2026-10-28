@@ -1,0 +1,46 @@
+test_legacy_import_identity_is_reconstructed_before_later_correction (test_remediation_import_replica.ImportedReplicaTests.test_legacy_import_identity_is_reconstructed_before_later_correction) ... FAIL
+test_legacy_missing_identity_fails_closed_without_inventing_provenance (test_remediation_import_replica.ImportedReplicaTests.test_legacy_missing_identity_fails_closed_without_inventing_provenance) ... ok
+test_new_import_catchup_replay_reopen_and_followup_changes (test_remediation_import_replica.ImportedReplicaTests.test_new_import_catchup_replay_reopen_and_followup_changes) ... ok
+test_historical_import_cannot_write_replica_contacts_or_receipts (test_review_replica_authority.ReplicaStrategyAuthorityTests.test_historical_import_cannot_write_replica_contacts_or_receipts) ... ok
+test_qtc_family_cannot_fork_replica_accounting (test_review_replica_authority.ReplicaStrategyAuthorityTests.test_qtc_family_cannot_fork_replica_accounting) ... ok
+test_site_semantics_blocked_but_beacon_observations_remain_local (test_review_replica_authority.ReplicaStrategyAuthorityTests.test_site_semantics_blocked_but_beacon_observations_remain_local) ... ok
+test_actual_serials_repeat_restart_and_occupied_draft_preserved_without_reservations (test_wave5_adif_host.HistoricalImportTests.test_actual_serials_repeat_restart_and_occupied_draft_preserved_without_reservations) ... ok
+test_identity_conflict_and_existing_serial_are_explicit_without_draft_renumbering (test_wave5_adif_host.HistoricalImportTests.test_identity_conflict_and_existing_serial_are_explicit_without_draft_renumbering) ... ok
+test_mismatch_unknown_mapping_and_invalid_rx_reject_before_apply (test_wave5_adif_host.HistoricalImportTests.test_mismatch_unknown_mapping_and_invalid_rx_reject_before_apply) ... ok
+test_name_location_and_grid_families_keep_original_station_and_site (test_wave5_adif_host.HistoricalImportTests.test_name_location_and_grid_families_keep_original_station_and_site) ... ok
+test_actual_serials_repeat_restart_and_occupied_draft_preserved_without_reservations (test_wave5_adif_host.HistoricalImportTests.test_actual_serials_repeat_restart_and_occupied_draft_preserved_without_reservations) ... ok
+test_identity_conflict_and_existing_serial_are_explicit_without_draft_renumbering (test_wave5_adif_host.HistoricalImportTests.test_identity_conflict_and_existing_serial_are_explicit_without_draft_renumbering) ... ok
+test_mismatch_unknown_mapping_and_invalid_rx_reject_before_apply (test_wave5_adif_host.HistoricalImportTests.test_mismatch_unknown_mapping_and_invalid_rx_reject_before_apply) ... ok
+test_name_location_and_grid_families_keep_original_station_and_site (test_wave5_adif_host.HistoricalImportTests.test_name_location_and_grid_families_keep_original_station_and_site) ... ok
+test_all_admitted_serial_definitions_export_and_import_their_own_bytes (test_review_adif_import.ReviewImportTests.test_all_admitted_serial_definitions_export_and_import_their_own_bytes) ... ok
+test_explicit_invalid_serial_is_not_replaced_by_text_fallback (test_review_adif_import.ReviewImportTests.test_explicit_invalid_serial_is_not_replaced_by_text_fallback) ... ok
+test_historical_import_then_actual_contact_correction_and_prepared_bytes (test_review_adif_import.ReviewImportTests.test_historical_import_then_actual_contact_correction_and_prepared_bytes) ... ok
+test_original_digital_completion_then_contact_correction_and_prepared_bytes (test_review_adif_import.ReviewImportTests.test_original_digital_completion_then_contact_correction_and_prepared_bytes) ... ok
+test_original_naqp_sent_exchange_reaches_cabrillo (test_review_adif_import.ReviewImportTests.test_original_naqp_sent_exchange_reaches_cabrillo) ... ok
+test_string_serials_match_our_export_contract_and_reimport_once (test_review_adif_import.ReviewImportTests.test_string_serials_match_our_export_contract_and_reimport_once) ... ok
+test_commit_retry_invalid_commit_and_read_only_pages (test_recorder.RecorderAuditTests.test_commit_retry_invalid_commit_and_read_only_pages) ... ok
+test_correction_delete_pagination_preserve_original_images (test_recorder.RecorderAuditTests.test_correction_delete_pagination_preserve_original_images) ... ok
+test_untrusted_parameters_are_bounded_and_do_not_change_log (test_recorder.RecorderAuditTests.test_untrusted_parameters_are_bounded_and_do_not_change_log) ... ok
+
+======================================================================
+FAIL: test_legacy_import_identity_is_reconstructed_before_later_correction (test_remediation_import_replica.ImportedReplicaTests.test_legacy_import_identity_is_reconstructed_before_later_correction)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_remediation_import_replica.py", line 97, in test_legacy_import_identity_is_reconstructed_before_later_correction
+    self.assertEqual(tuple(store.conn.iterdump()), retained, "Compatibility projection rewrote authority history")
+AssertionError: Tuples differ: ('BEG[71452 chars];', 'INSERT INTO "xlog_operation" VALUES(\'f15[11606 chars]IT;') != ('BEG[71452 chars];', 'CREATE TABLE xlog_output_claim(operation_[7463 chars]IT;')
+
+First differing element 281:
+'INSERT INTO "xlog_operation" VALUES(\'f15[4094 chars]\');'
+'CREATE TABLE xlog_output_claim(operation_[17 chars]EY);'
+
+First tuple contains 1 additional elements.
+First extra element 302:
+'COMMIT;'
+
+Diff is 83738 characters long. Set self.maxDiff to None to see it. : Compatibility projection rewrote authority history
+
+----------------------------------------------------------------------
+Ran 23 tests in 9.184s
+
+FAILED (failures=1)

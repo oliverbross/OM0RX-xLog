@@ -2184,12 +2184,20 @@ class Host:
                                            if row["before_identity_json"] else None)
                         after_identity = (json.loads(row["after_identity_json"])
                                           if row["after_identity_json"] else None)
+                        kind = row["kind"]
+                        if kind == "adif_import":
+                            # Import provenance stays distinct locally (not a
+                            # recorder/output commit), but the existing wire
+                            # protocol represents an inserted contact as commit.
+                            kind = "commit"
+                            if after_identity is None:
+                                after_identity = self.legacy_import_replica_identity(store, row, after_image)
                     except (TypeError, ValueError, json.JSONDecodeError) as error:
                         raise HostError("replica_change_unsupported",
                                         "Legacy contact audit image is invalid") from error
                     changes.append({"sequence": row["sequence"], "revision": row["revision"],
                                     "requestID": row["operation_id"], "qsoID": row["qso_id"],
-                                    "kind": row["kind"], "before": before, "after": after_image,
+                                    "kind": kind, "before": before, "after": after_image,
                                     "reason": row["reason"], "beforeIdentity": before_identity,
                                     "afterIdentity": after_identity})
                 if "afterSequence" in params:
@@ -2226,6 +2234,34 @@ class Host:
         require(type(revision) is int and revision >= 0 and type(sequence) is int and sequence >= 0,
                 f"Invalid {name} replica cursor", "stale_cursor")
         return revision, sequence
+
+    @staticmethod
+    def legacy_import_replica_identity(store, audit, after):
+        """Project old import events without rewriting durable audit/receipts.
+
+        The first subsequent mutation's before-image is the identity at import.
+        Only an unchanged final event may use the current identity. Never borrow
+        a later corrected/deleted identity to fill an earlier missing image.
+        """
+        qso_id = audit["qso_id"]
+        require(isinstance(after, dict) and after.get("ID") == qso_id and
+                store.exec_sql("SELECT qso_id FROM xlog_adif_import WHERE qso_id=?", (qso_id,)),
+                "Historical import provenance is unavailable", "replica_change_unsupported")
+        following = store.exec_sql(
+            "SELECT before_identity_json FROM xlog_qso_audit WHERE qso_id=? AND sequence>? ORDER BY sequence LIMIT 1",
+            (qso_id, audit["sequence"]))
+        if following:
+            require(following["before_identity_json"] is not None,
+                    "Historical import identity requires explicit recovery", "replica_change_unsupported")
+            identity = json.loads(following["before_identity_json"])
+        else:
+            require(store.exec_sql("SELECT ID FROM DXLOG WHERE ID=?", (qso_id,)),
+                    "Historical import contact is unavailable", "replica_change_unsupported")
+            identity = Host.replica_identity(store, qso_id)
+        require(isinstance(identity, dict) and set(identity) == {"rawFields", "country", "deleted"}
+                and isinstance(identity["rawFields"], dict) and identity["deleted"] is False,
+                "Historical import identity is unavailable", "replica_change_unsupported")
+        return identity
 
     @staticmethod
     def replica_identity(store, qso_id):

@@ -203,6 +203,8 @@ session is the reachable risk supported by the command contract, not an observed
 
 ### CR-004 — Historical contest import emits changes that replica catch-up cannot consume
 
+**Remediation status:** Fixed and Verified. See REMEDIATION_TRACKER.md for the implementation, tests and limits.
+
 **Medium — a successful authority-side import can block subsequent replica
 catch-up. Confidence: high. Verification: reproduced with independent real Host
 roots and synthetic SQLite stores.**
