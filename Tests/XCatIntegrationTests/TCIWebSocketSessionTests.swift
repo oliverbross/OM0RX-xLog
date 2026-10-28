@@ -1678,16 +1678,16 @@ final class TCIWebSocketSessionTests: XCTestCase {
         let ready = try await waitForObservation(session) { $0.availability == .available }
         XCTAssertEqual(ready.generation, 1)
 
+        let sentSignal = XCTestExpectation(description: "explicit receive command reached fake transport")
+        await connection.notifySend(sentSignal)
         let pending = Task {
             try await session.tuneReceive(
                 frequencyHz: 7_100_000, mode: "USB", expectedGeneration: 1,
                 timeoutNanoseconds: 1_000_000_000
             )
         }
-        for _ in 0..<2_000 {
-            if await connection.sentTexts().count == 1 { break }
-            await Task.yield()
-        }
+        let commandSent = await XCTWaiter.fulfillment(of: [sentSignal], timeout: 10)
+        XCTAssertEqual(commandSent, .completed)
         let sent = await connection.sentTexts()
         XCTAssertEqual(sent, ["VFO:0,0,7100000;MODULATION:0,USB;"])
         time.advance(1)
@@ -1956,6 +1956,7 @@ private actor FakeTCIWebSocketConnection: TCIWebSocketConnection {
     private var waiter: CheckedContinuation<TCIWebSocketMessage, Error>?
     private var closures = 0
     private var sent: [String] = []
+    private var sendSignal: XCTestExpectation?
     private var closed = false
     private let closeResumesReceive: Bool
 
@@ -1972,7 +1973,11 @@ private actor FakeTCIWebSocketConnection: TCIWebSocketConnection {
     func send(text: String) async throws {
         guard !closed else { throw FakeTransportFailure.closed }
         sent.append(text)
+        sendSignal?.fulfill()
+        sendSignal = nil
     }
+
+    func notifySend(_ expectation: XCTestExpectation) { sendSignal = expectation }
 
     func close() async {
         closures += 1
