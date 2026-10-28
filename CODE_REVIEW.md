@@ -1,6 +1,6 @@
 # Application code review — second verification, 29 October 2026
 
-**Phase 3 remediation:** Current fix statuses and new verification are in [REMEDIATION_TRACKER.md](/Users/oliver/Documents/Projects/OM0RX-xLog/REMEDIATION_TRACKER.md). The review narrative/evidence below describes its recorded pre-fix baseline.
+**Phase 3 remediation:** All twelve confirmed findings are Fixed and Verified within the recorded source/fixture limits. Current implementation, final integration results and remaining recovery/acceptance limitations are in [REMEDIATION_TRACKER.md](/Users/oliver/Documents/Projects/OM0RX-xLog/REMEDIATION_TRACKER.md). The review narrative/evidence below describes its recorded pre-fix baseline.
 
 **Verification baseline:** clean canonical `main` at
 `12824393f2799f21c223fadcb19d03305a5bf2f8`, fetched and fast-forward checked.
@@ -12,8 +12,8 @@ only. Version declarations remain 1.3.60. Installed application identity was not
 The ten original findings are retained, with corrected scope and stronger evidence.
 Two additional export defects were found while continuing partial coverage:
 **12 findings — 2 High, 9 Medium, 1 Low**. No severity change was warranted after
-checking the reachable impact and working safeguards. No application code, existing
-tests, dependencies or configuration was changed.
+checking the reachable impact and working safeguards. During the second review stage, no application code, existing
+tests, dependencies or configuration was changed; Phase 3 changes are recorded above.
 
 The second pass challenged callers, admission/ownership, rollback/replay, test
 oracles and relevant React/Swift/SQLite/XML behavior. Root independently reran the

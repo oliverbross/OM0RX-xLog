@@ -1,0 +1,30 @@
+
+> om0rx-xlog-p1-prototype@1.3.60 test
+> npm run test:node && vitest run --maxWorkers=1
+
+
+> om0rx-xlog-p1-prototype@1.3.60 test:node
+> node --test scripts/contesting-worker-acceptance-qso.node-test.mjs
+
+✔ builds an entity-free correction while preserving immutable contact identity (0.790042ms)
+✔ rejects harness edits to immutable fields (0.453834ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 46.68725
+
+ RUN  v5.0.3 /Users/oliver/Documents/Projects/OM0RX-xLog/prototype
+
+
+ Test Files  339 passed (339)
+      Tests  4721 passed (4721)
+   Start at  01:46:54
+   Duration  411.45s (tests 76%, environment 16%, import 6%, transform 2%)
+
+    Isolate  339 workers spawned · ~256ms startup each (spawn + environment, per file)
+             at least ~86.61s faster with isolate: false — reuses workers across files instead of one per file
+

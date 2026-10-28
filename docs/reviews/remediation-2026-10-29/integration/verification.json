@@ -1,0 +1,79 @@
+{
+  "sourceCommit": "d60895176bfb3b7fc0e27e94a39752860a73bf1d",
+  "applicationSourceCommit": "11db003d35b9b16e7c4b80cfbe57cb556879951f",
+  "python": {
+    "command": "PYTHONPATH=python XLOG_CONTEST_N1MM_UDP_ALLOWED=0 python3.12 -B -m unittest discover -s python/tests -v",
+    "exitCode": 0,
+    "passed": 549,
+    "seconds": 237.938
+  },
+  "readiness": {
+    "command": "XLOG_CONTEST_N1MM_UDP_ALLOWED=0 python3.12 -B tools/check_all_contests_readiness.py --output /tmp/xlog-remediation-20261029/all-contests-readiness.json",
+    "exitCode": 0,
+    "plugins": 97,
+    "checks": {
+      "PASS": 1353,
+      "NOT APPLICABLE": 5
+    }
+  },
+  "swift": {
+    "command": "swift test --no-parallel",
+    "exitCode": 0,
+    "xctestCases": 315,
+    "xctestSkipped": 0,
+    "xctestExecutables": [
+      5,
+      83,
+      227
+    ],
+    "swiftTestingPassed": 340
+  },
+  "portableSwift": {
+    "command": "XLOG_PORTABLE_ONLY=1 swift test --scratch-path .build/prototype-tests --no-parallel",
+    "exitCode": 0,
+    "xctestCases": 1171,
+    "xctestSkipped": 6,
+    "xctestExecutables": [
+      23,
+      537,
+      83,
+      227,
+      78,
+      193,
+      30
+    ],
+    "swiftTestingPassed": 536
+  },
+  "rust": {
+    "command": "cargo test --locked --manifest-path prototype/src-tauri/Cargo.toml",
+    "exitCode": 0,
+    "unitPassed": 914,
+    "integrationPassed": 26
+  },
+  "frontend": {
+    "command": "npm test (prototype/)",
+    "exitCode": 0,
+    "nodePassed": 2,
+    "vitestFilesPassed": 339,
+    "vitestPassed": 4721
+  },
+  "initialFrontend": {
+    "exitCode": 1,
+    "nodePassed": 2,
+    "vitestPassed": 4720,
+    "vitestFailed": 1,
+    "cause": "Existing ARRL DX fixture used getByRole before asynchronous editor appeared. Unchanged file independently passed5; test now awaits the same textbox and retains all assertions. Commit d6089517. Both original failure and focused runs preserved."
+  },
+  "builds": {
+    "nativeProduct": "swift build --product om0rx-xlog: PASS, legacy-adif stage,52.22s",
+    "frontend": "npm run build: PASS TypeScript/Vite/unchanged bundle budgets, power-attribution stage",
+    "laterChange": "Only the ARRL DX test readiness await changed after the final application build; no application source or build configuration changed."
+  },
+  "versions": {
+    "python": "Python 3.12.4",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0",
+    "rust": "rustc 1.98.0 (88d9e12ae 2026-08-18) (Homebrew)",
+    "node": "v24.11.1",
+    "npm": "11.6.3"
+  }
+}

@@ -1,0 +1,30 @@
+        role="status"
+      >
+        Loading saved contest layout…
+      </p>
+    </main>
+  </div>
+</body>
+ ❯ Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/contesting/ContestWorkspace.arrlDX.test.tsx:58:27
+     56|   const create = request.mock.calls.find(([method]) => method === "con…
+     57|   expect(create.payload.station).toEqual(payload.station);
+     58|   fireEvent.change(screen.getByRole("textbox", { name: "Contest callsi…
+       |                           ^
+     59|   const receivedLocation = screen.getByLabelText("Received State or pr…
+     60|   const receivedPower = screen.getByLabelText("Received Power") as HTM…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 338 passed (339)
+      Tests  1 failed | 4720 passed (4721)
+   Start at  01:37:39
+   Duration  425.81s (tests 77%, environment 16%, import 6%, transform 2%)
+
+    Isolate  339 workers spawned · ~257ms startup each (spawn + environment, per file)
+             at least ~86.85s faster with isolate: false — reuses workers across files instead of one per file
+

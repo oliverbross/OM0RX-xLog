@@ -1,0 +1,9 @@
+# Phase 3 integration verification — 29 October 2026
+
+The twelve confirmed findings are fixed within the source/fixture limits recorded in the root REMEDIATION_TRACKER.md. `verification.json` identifies the application source, final test commit, exact commands/results and runtime versions. `final-audit.json` hashes every changed source/test/fixture and checks original evidence preservation, current readiness source hashes, twelve statuses and report links. The earlier Python, Rust and Swift runs exercised the same component files as the final commit; the final two application changes affect only the renderer.
+
+Each `.log.gz` retains the complete raw command output; `.summary.txt` is a convenience excerpt. The first frontend run failed one existing asynchronous test (4,720 passed); the unmodified file passed independently, then its immediate lookup was changed to await the same editor control, preserving every assertion. The complete post-fix run passes 4,721 Vitest tests and 2 Node tests. Both full runs and both focused follow-ups are retained. No test was disabled or threshold raised.
+
+Portable Swift has six skips: three opt-in 68k benchmarks, browser/LiveWorker acceptance, a live SCP provider download, and Windows Credential Manager on macOS. No installed UI, provider account, real radio/audio device, RF, external watchdog, sponsor submission or production-data acceptance was attempted. Native product build and frontend static/build/budget logs are preserved in the `legacy-adif` and `power-attribution` sibling stages. The original ADIF schema compilation limitation and bounded vocabulary oracle remain documented in the `adx-schema` stage.
+
+The wider semantic audit remains incomplete. These results verify the named remediations and exercised regression contracts, not every possible defect in every repository file.

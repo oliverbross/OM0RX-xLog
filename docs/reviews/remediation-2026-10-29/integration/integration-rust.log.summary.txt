@@ -1,0 +1,30 @@
+running 26 tests
+test hamlib::tests::capability_parser_preserves_repeated_keys ... ok
+test hamlib::tests::invalid_reconnect_config_is_rejected_before_releasing_existing_session ... ok
+test hamlib::tests::external_mode_refuses_non_loopback ... ok
+test hamlib::tests::macro_controls_require_the_exact_generation_when_supplied ... ok
+test hamlib::tests::model_parser_preserves_names_and_maturity ... ok
+test hamlib::tests::parser_handles_multiline_extended_frame ... ok
+test hamlib::tests::parser_rejects_wrong_command_and_unterminated_reply ... ok
+test hamlib::tests::rejected_tx_on_command_keeps_possible_ownership_until_release ... ok
+test hamlib::tests::serial_options_are_closed_and_map_to_hamlib_tokens ... ok
+test hamlib::tests::disconnect_keeps_session_when_owned_ptt_release_is_unverified ... ok
+test hamlib::tests::exact_receive_control_rejects_unconfirmed_readback ... ok
+test hamlib::tests::exact_receive_control_sends_no_write_without_idle_vfo_a ... ok
+test hamlib::tests::status_retires_dead_external_session_without_any_control_replay ... ok
+test hamlib::tests::rejected_vfo_or_split_probe_never_starts_simplex_writes ... ok
+test hamlib::tests::shutdown_releases_only_session_owned_tx ... ok
+test opt_in_dummy_daemons_read_back_radio_and_rotor ... ok
+test radio_slots::tests::fixed_ids_are_closed ... ok
+test radio_slots::tests::route_change_policy_allows_same_slot_but_fences_any_owned_tx ... ok
+test hamlib::tests::exact_receive_controls_confirm_idle_vfo_a_and_the_requested_target ... ok
+test radio_slots::tests::transmit_lease_is_global_and_exact ... ok
+test hamlib::tests::transmitting_ptt_probe_never_starts_simplex_writes ... ok
+test hamlib::tests::tx_off_ack_with_on_readback_keeps_owned_release ... ok
+test hamlib::tests::simplex_aborts_before_frequency_and_mode_when_ownership_ack_is_wrong ... ok
+test hamlib::tests::logging_snapshot_refreshes_frequency_mode_split_and_tx_frequency_together ... ok
+test hamlib::tests::framed_tcp_read_handles_fragmentation_without_losing_next_reply ... ok
+test hamlib::tests::stale_macro_send_and_stop_never_reach_the_transport ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+

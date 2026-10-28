@@ -4,7 +4,7 @@ Started 29 October 2026 on clean canonical `main` at `530de4c4e4b23281ec60585cc7
 
 Work proceeds by severity and shared dependencies: CR-001/008, CR-002, CR-003, contest replication/serial/scoring/recorder, retained imports/exports, ADX and power attribution. Each logical completed change is tested, committed and pushed immediately. No production data, installed application, live provider account or physical station is used. Source/build verification does not establish native UI, RF, external watchdog or sponsor submission acceptance. Review evidence directories remain immutable.
 
-Statuses use the requested vocabulary. `Not Fixed` means still pending in this active phase; it is not a decision to abandon the finding.
+All twelve confirmed findings (2 High, 9 Medium, 1 Low) are **Fixed and Verified** within the source/fixture boundaries below. None is Blocked or Not Fixed. This does not claim an exhaustive defect-free application or retrospective repair of historical data.
 
 ## CR-001 — High
 
@@ -66,7 +66,7 @@ Statuses use the requested vocabulary. `Not Fixed` means still pending in this a
 - **Status:** Fixed and Verified.
 - **Root cause:** WAE extracts the first prefix digit instead of sponsor-defined Japanese numerical area.
 - **Files modified:** `python/contest_host/wae.py`, `host.py`, `developer.py`; `python/tests/test_remediation_wae.py`, `test_wave5_developer_host.py`; `docs/contesting/WAE_NUMERICAL_AREA_REMEDIATION_2026-10-29.md`.
-- **Fix:** Use the digit after Japanese national-prefix letters for digit-prefixed Japanese calls, retaining explicit portable-area precedence. New definition1.0.1 uses the corrected policy. Retained1.0.0 sessions keep their old numerical results on reads/reopen, visibly incomplete and barred from a new Cabrillo claim until the existing explicit Recalculate action transactionally adopts1.0.1. ADIF remains available. New definition participates in authority identity so old-policy peers cannot silently share scoring authority; developer metadata follows the version constant.
+- **Fix:** Use the digit after Japanese national-prefix letters for digit-prefixed Japanese calls, retaining explicit portable-area precedence. New definition1.0.1 uses the corrected policy. Retained1.0.0 sessions keep their old numerical results on reads/reopen, visibly incomplete and barred from a new Cabrillo claim until the existing explicit Recalculate action transactionally adopts 1.0.1. ADIF remains available. New definition participates in authority identity so old-policy peers cannot silently share scoring authority; developer metadata follows the version constant.
 - **Regression tests:** Independent JR4/7K4/7M4 arithmetic for actual CW/SSB/RTTY Hosts (3points×2multiplier=6), Cabrillo claim6, portable /9 correction12, restore/reopen6; prefix-family table controls; retained1.0.0 total12 marked incomplete with no implicit rewrite, ADIF available/Cabrillo blocked; explicit Recalculate/replay adopts6 while preserving contact identities and draft and changing authority digest. Unsupported arbitrary definition markers remain rejected.
 - **Verification commands/results:** New arithmetic/migration tests fail before fix. `PYTHONPATH=python:python/tests XLOG_CONTEST_N1MM_UDP_ALLOWED=0 python3.12 -B -m unittest -v test_remediation_wae test_wave5_qtc_host test_multi_operator_host test_group_coordination test_wave5_developer_host` PASS26/8.168s. `git diff --check` PASS. First run exposed missing legacy Cabrillo gate; it was implemented rather than dropping the assertion.
 - **Remaining limitations:** Pinned sponsor edition only; no new sponsor currency/submission acceptance. Existing operator data was not opened or migrated. Retained sessions require explicit review/adoption. Bound replicas need coordinated software/policy adoption and a fresh matching baseline session; no automatic destructive binding/history migration. Old cached receipts remain unchanged and are not fresh score projections.
@@ -137,3 +137,32 @@ Statuses use the requested vocabulary. `Not Fixed` means still pending in this a
 - **Verification commands/results:** `npx vitest run src/live/adifTransfer.schema.test.ts src/live/adifTransfer.test.ts src/live/LogbookPanel.transfer.test.tsx` PASS1341 tests/3 files,13.47s. `npm run build` PASS TypeScript, Vite and unchanged window budgets. Initial export-only edit exposed five legacy-input test failures, corrected by retaining deprecated input support; a later old export assertion was corrected. Initial final build exceeded Logbook budget by2 bytes; equivalent anchored parser matching restored the existing budget without changing accepted names. `git diff --check` PASS.
 - **Remaining limitations:** Pinned ADIF3.1.7.0 vocabulary verification, not sponsor submission acceptance or exhaustive XSD validation. Original official XSD has an unrelated NZ lookahead that libxml2 cannot compile; the fixture is unmodified and that pre-existing limitation remains documented. Already exported files are not rewritten.
 - **Evidence:** [stage logs](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/remediation-2026-10-29/adx-schema).
+
+
+## Completion and integration verification — 29 October 2026
+
+All twelve confirmed, actionable findings are implemented and individually verified. Ten logical remediation commits, followed by the integration test readiness correction, were committed and pushed on canonical main. Application source is `11db003d35b9b16e7c4b80cfbe57cb556879951f`; the final test/source checkout is `d60895176bfb3b7fc0e27e94a39752860a73bf1d`. The subsequent closing commit adds documentation/evidence only. No candidate was packaged or installed, so the application version remains 1.3.60.
+
+| Verification | Result |
+| --- | --- |
+| Full Python unittest discovery, contest UDP disabled | PASS 549 tests, 237.938s |
+| All-catalogue readiness | PASS 97/97 plugins; 1,353 checks PASS, 5 NOT APPLICABLE |
+| `swift test --no-parallel` | PASS 315 XCTest and 340 Swift Testing cases; no skips |
+| Full portable Swift command from integration manifest | PASS 1,171 XCTest cases including 6 skips, plus 536 Swift Testing cases |
+| Locked Rust test suite | PASS 914 unit and 26 integration tests |
+| Final `npm test` | PASS 339 files/4,721 Vitest tests and 2 Node tests |
+| Native product build | PASS `swift build --product om0rx-xlog`, 52.22s |
+| Frontend static/build/budget checks | PASS `npm run build`; TypeScript, Vite and all unchanged window budgets |
+| Evidence, reports and source provenance | PASS original review evidence unchanged, all stage hashes, twelve statuses, local report links and readiness source hashes |
+
+Counts are executions in each suite, with overlap between normal and portable Swift. The six portable skips are three opt-in 68k benchmarks, browser/LiveWorker acceptance, live SCP download and Windows Credential Manager on macOS. They remain unverified. The initial full frontend run had 4,720 passes and one existing test readiness failure: the session title appeared before the callsign editor. Its unchanged file passed independently; commit `d6089517` awaits that same textbox before input, preserving all assertions. The focused file and entire final suite then passed. No test was disabled or budget raised. Full raw initial/final logs are retained.
+
+Earlier integration runs identify earlier commits because Python, Rust and Swift checks began before the last renderer changes. The final audit verifies their component files and the readiness source hashes are identical to the final checkout. Current changed source/test/fixture hashes and all implementation commits are recorded in [integration evidence](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/remediation-2026-10-29/integration).
+
+### Remaining limitations and operator-facing compatibility
+
+- No unresolved confirmed finding remains in this twelve-finding scope. The wider manual application audit remains incomplete as recorded in REVIEW_COVERAGE.md; passing suites do not upgrade its per-file semantic coverage.
+- Existing WAE 1.0.0 sessions retain their old calculation until explicit Recalculate adopts 1.0.1; Cabrillo is blocked while adoption is required. Bound replicas need the documented matching-version rebaseline. No production migration/recalculation was performed. See `docs/contesting/WAE_NUMERICAL_AREA_REMEDIATION_2026-10-29.md`.
+- Existing issued serial receipts, old cached change-page receipts, historical contacts and recorder cursors/bookmarks are preserved. Previously skipped recorder bookmarks are not automatically backfilled; conflicting old serial grants require reconciliation, and cached pre-upgrade change reads require a fresh request ID. Legacy imports without recoverable identity evidence still fail closed. Per-finding entries describe these boundaries.
+- Retained SwiftUI import now rejects invalid documents atomically and enforces strict UTF-8/32 MiB; export explicitly includes the entire non-deleted logbook. Large-file UI latency/memory was not qualified. Existing exported files are not rewritten. ADX is verified against the pinned 3.1.7 vocabulary; the original XSD's unrelated regex compilation limitation remains.
+- No production data/configuration, installed app, live provider account, real radio/audio device or RF operation was used. Forced process/OS termination, external watchdog/release behavior, station recovery and sponsor submission acceptance remain unverified. Source/build checks are not installed or hardware acceptance.
