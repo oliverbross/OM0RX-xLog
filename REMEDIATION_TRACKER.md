@@ -107,13 +107,14 @@ Statuses use the requested vocabulary. `Not Fixed` means still pending in this a
 
 ## CR-010 — Low
 
-- **Status:** Not Fixed.
+- **Status:** Fixed and Verified.
 - **Root cause:** Captured-power description hardcodes an amplifier source label.
-- **Files modified:** None yet. Planned scope: prototype/src/live/QSOEditorCore.tsx; power description tests.
-- **Fix:** Pending implementation.
-- **Regression tests:** Pending.
-- **Verification commands/results:** Not run for remediation yet; prior review evidence is not fix verification.
-- **Remaining limitations:** Finding remains open. All production/provider/hardware boundaries above remain unverified.
+- **Files modified:** `prototype/src/live/QSOEditorCore.tsx`, `QSOEditorPower.test.tsx`.
+- **Fix:** Build captured-output attribution from selectedSample.source: radio_output displays radio output; kpa500_output retains KPA500 output. Enabled/off suffixes, selected watts, manual/fallback handling and capture logic are unchanged.
+- **Regression tests:** Four new on/off cases for both source types assert validDraftPower and validScopedSnapshot before rendering, correct source label and unchanged input/stored watts. Strengthened the existing captured KPA500 fixture with complete session/contact/context evidence. Existing manual, fallback, stale-contact, editing, detached and time-intent controls retained. Both radio-source cases failed before the fix; amplifier controls passed.
+- **Verification commands/results:** `npx vitest run src/live/QSOEditorPower.test.tsx src/live/OperatorDraftTime.test.tsx src/live/DetachedQSOSurface.test.tsx` PASS64 tests/3 files,18.81s. `npm run build` PASS TypeScript, Vite and unchanged bundle budgets. `git diff --check` PASS.
+- **Remaining limitations:** Synthetic valid snapshots and source build only; no meter, hardware, RF or installed UI qualification. The change corrects evidence attribution without claiming calibrated wattage or changing acquisition/persistence.
+- **Evidence:** [stage logs](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/remediation-2026-10-29/power-attribution).
 
 ## CR-011 — Medium
 

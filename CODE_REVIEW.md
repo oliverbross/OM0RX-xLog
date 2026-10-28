@@ -465,6 +465,8 @@ whole-batch transaction, duplicate policy or outer caller guard repairs this rou
 
 ### CR-010 — Captured radio power is labeled as KPA500 amplifier output
 
+**Remediation status:** Fixed and Verified. See REMEDIATION_TRACKER.md for the implementation, tests and limits.
+
 **Low — incorrect source attribution; no numeric power corruption established.
 Confidence: high. Verification: actual frontend formatter reproduction.**
 

@@ -110,7 +110,10 @@ export function draftPowerDescription(draft: Data, power?: DraftPowerState | nul
     contact.band === String(draft.band ?? "").trim().toLowerCase() && contact.mode === String(draft.mode ?? "").trim().toUpperCase() &&
     (contact.frequencyHz ?? null) === (draft.frequencyHz ?? null);
   if (!sameContact) return "Waiting for the current contact to be saved.";
-  if (power.selectedSample) return power.enabled ? "Captured KPA500 output · retained for this contact." : "Captured KPA500 output · automatic capture off.";
+  if (power.selectedSample) {
+    const source = power.selectedSample.source === "radio_output" ? "radio" : "KPA500";
+    return `Captured ${source} output · ${power.enabled ? "retained for this contact." : "automatic capture off."}`;
+  }
   if (!power.enabled) return "Automatic capture off.";
   return power.activeScope ? "Default fallback · no measured output captured." : "Default fallback · measured output unavailable.";
 }

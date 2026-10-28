@@ -1,0 +1,350 @@
+
+ RUN  v5.0.3 /Users/oliver/Documents/Projects/OM0RX-xLog/prototype
+
+ ❯ src/live/QSOEditorPower.test.tsx (10 tests | 2 failed) 568ms
+   × attributes valid retained radio_output evidence with capture enabled=true 39ms
+   × attributes valid retained radio_output evidence with capture enabled=false 34ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/live/QSOEditorPower.test.tsx > attributes valid retained radio_output evidence with capture enabled=true
+TestingLibraryElementError: Unable to find an element with the text: Captured radio output · retained for this contact.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <section
+      aria-label="Log QSO"
+      class="qso-editor"
+    >
+      <div
+        class="qso-editor-main"
+      >
+        <form
+          novalidate=""
+        >
+          <div
+            class="qso-canvas-shell"
+          >
+            <div
+              aria-label="QSO canvas arrangement"
+              class="qso-canvas-toolbar"
+            >
+              <button
+                aria-pressed="false"
+                disabled=""
+                type="button"
+              >
+                <svg
+                  aria-hidden="true"
+                  class="lucide lucide-move-diagonal2"
+                  fill="none"
+                  height="14"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                  width="14"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M19 13v6h-6"
+                  />
+                  <path
+                    d="M5 11V5h6"
+                  />
+                  <path
+                    d="m5 5 14 14"
+                  />
+                </svg>
+                Arrange panels
+              </button>
+              <span>
+                Expand this window to arrange panels.
+              </span>
+            </div>
+            <div
+              class="qso-canvas is-compact"
+              style=""
+            >
+              <div
+                aria-label="Active contact panel"
+                class="qso-canvas-panel"
+                style=""
+              >
+                <div
+                  class="qso-canvas-panel-content"
+                >
+                  <section
+                    aria-labelledby="qso-active-title"
+                    class="qso-active"
+                  >
+                    <header
+                      class="qso-panel-header"
+                    >
+                      <h2
+                        id="qso-active-title"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          class="lucide lucide-radio"
+                          fill="none"
+                          height="15"
+                          stroke="currentColor"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          viewBox="0 0 24 24"
+                          width="15"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"
+                          />
+                          <path
+                            d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"
+                          />
+                          <circle
+                            cx="12"
+                            cy="12"
+                            r="2"
+                          />
+                          <path
+                            d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"
+                          />
+                          <path
+                            d="M19.1 4.9C23 8.8 23 15.1 19.1 19"
+                          />
+                        </svg>
+                        Active contact
+                      </h2>
+                    </header>
+                    <div
+                      class="qso-primary"
+                    >
+                      <label
+                        class="qso-field qso-call"
+                      >
+                        <span>
+                          Callsign
+                        </span>
+                        <input
+                          aria-label="Callsign"
+                          autocomplete="off"
+                          maxlength="32"
+                          spellcheck="false"
+                          value="EA7EU"
+                        />
+                      </label>
+                      <label
+                        class="qso-field qso-frequency"
+                      >
+                        <span>
+                          Frequency MHz
+                        </span>
+                        <input
+                          aria-label="Frequency MHz"
+                          inputmode="decimal"
+                          value="14.025000"
+                        />
+                      </label>
+                      <label
+                        class="qso-field"
+                      >
+                        <span>
+                          Band
+                        </span>
+                        <select
+                          aria-label="Band"
+                        >
+                          <option
+                            value=""
+               ...
+ ❯ Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/live/QSOEditorPower.test.tsx:74:19
+     72|     render(<Harness state={state} />);
+     73|     const label = source === "radio_output" ? "radio" : "KPA500";
+     74|     expect(screen.getByText(`Captured ${label} output · ${enabled ? "r…
+       |                   ^
+     75|     expect((screen.getByLabelText("TX power W") as HTMLInputElement).v…
+     76|     expect(JSON.parse(screen.getByTestId("power-draft").textContent!).…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/live/QSOEditorPower.test.tsx > attributes valid retained radio_output evidence with capture enabled=false
+TestingLibraryElementError: Unable to find an element with the text: Captured radio output · automatic capture off.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <section
+      aria-label="Log QSO"
+      class="qso-editor"
+    >
+      <div
+        class="qso-editor-main"
+      >
+        <form
+          novalidate=""
+        >
+          <div
+            class="qso-canvas-shell"
+          >
+            <div
+              aria-label="QSO canvas arrangement"
+              class="qso-canvas-toolbar"
+            >
+              <button
+                aria-pressed="false"
+                disabled=""
+                type="button"
+              >
+                <svg
+                  aria-hidden="true"
+                  class="lucide lucide-move-diagonal2"
+                  fill="none"
+                  height="14"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                  width="14"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M19 13v6h-6"
+                  />
+                  <path
+                    d="M5 11V5h6"
+                  />
+                  <path
+                    d="m5 5 14 14"
+                  />
+                </svg>
+                Arrange panels
+              </button>
+              <span>
+                Expand this window to arrange panels.
+              </span>
+            </div>
+            <div
+              class="qso-canvas is-compact"
+              style=""
+            >
+              <div
+                aria-label="Active contact panel"
+                class="qso-canvas-panel"
+                style=""
+              >
+                <div
+                  class="qso-canvas-panel-content"
+                >
+                  <section
+                    aria-labelledby="qso-active-title"
+                    class="qso-active"
+                  >
+                    <header
+                      class="qso-panel-header"
+                    >
+                      <h2
+                        id="qso-active-title"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          class="lucide lucide-radio"
+                          fill="none"
+                          height="15"
+                          stroke="currentColor"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          viewBox="0 0 24 24"
+                          width="15"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"
+                          />
+                          <path
+                            d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"
+                          />
+                          <circle
+                            cx="12"
+                            cy="12"
+                            r="2"
+                          />
+                          <path
+                            d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"
+                          />
+                          <path
+                            d="M19.1 4.9C23 8.8 23 15.1 19.1 19"
+                          />
+                        </svg>
+                        Active contact
+                      </h2>
+                    </header>
+                    <div
+                      class="qso-primary"
+                    >
+                      <label
+                        class="qso-field qso-call"
+                      >
+                        <span>
+                          Callsign
+                        </span>
+                        <input
+                          aria-label="Callsign"
+                          autocomplete="off"
+                          maxlength="32"
+                          spellcheck="false"
+                          value="EA7EU"
+                        />
+                      </label>
+                      <label
+                        class="qso-field qso-frequency"
+                      >
+                        <span>
+                          Frequency MHz
+                        </span>
+                        <input
+                          aria-label="Frequency MHz"
+                          inputmode="decimal"
+                          value="14.025000"
+                        />
+                      </label>
+                      <label
+                        class="qso-field"
+                      >
+                        <span>
+                          Band
+                        </span>
+                        <select
+                          aria-label="Band"
+                        >
+                          <option
+                            value=""
+               ...
+ ❯ Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/live/QSOEditorPower.test.tsx:74:19
+     72|     render(<Harness state={state} />);
+     73|     const label = source === "radio_output" ? "radio" : "KPA500";
+     74|     expect(screen.getByText(`Captured ${label} output · ${enabled ? "r…
+       |                   ^
+     75|     expect((screen.getByLabelText("TX power W") as HTMLInputElement).v…
+     76|     expect(JSON.parse(screen.getByTestId("power-draft").textContent!).…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 8 passed (10)
+   Start at  01:36:10
+   Duration  1.39s (tests 44%, environment 34%, transform 11%, import 11%)

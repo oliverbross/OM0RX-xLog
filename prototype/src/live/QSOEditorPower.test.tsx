@@ -4,10 +4,19 @@ import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import QSOEditor from "./QSOEditor";
 import type { DraftPowerIntent, DraftPowerState } from "./operatorDraftSession";
+import { validDraftPower, validScopedSnapshot } from "./operatorDraftSession";
 
 afterEach(cleanup);
 const power = (manualOverride = false, enabled = true): DraftPowerState => ({ revision: 1, enabled, fallback: "100", manualOverride, selectedValue: "100",
   contact: { workspaceID: "00000000-0000-4000-8000-000000000001", draftID: "draft-1", call: "EA7EU", band: "20m", mode: "CW", frequencyHz: 14_025_000 } });
+const capturedPower = (source: "radio_output" | "kpa500_output", enabled = true): DraftPowerState => {
+  const state = power(false, enabled), sessionID = "00000000-0000-4000-8000-000000000002", time = "2026-10-14T00:00:01Z";
+  const watts = source === "radio_output" ? 55 : 500;
+  return { ...state, selectedValue: String(watts), selectedContact: { ...state.contact },
+    selectedSample: { source, unit: "W", watts, sessionID, observedAt: time, radioObservedAt: time, amplifierObservedAt: time, receivedAt: time },
+    selectedContext: { providerID: source === "radio_output" ? "tci" : "direct_agent", selectionID: "fixture", sessionID,
+      sessionStartedAt: "2026-10-14T00:00:00Z", source: "direct_agent", meterSource: source } };
+};
 function Harness({ state = power(), intent, editing = false, manual = vi.fn(), automatic = vi.fn() }: {
   state?: DraftPowerState | null; intent?: DraftPowerIntent | null; editing?: boolean;
   manual?: (value: string) => void; automatic?: () => void }) {
@@ -44,9 +53,7 @@ it("does not imply automatic capture is enabled when the profile is OFF", () => 
 });
 
 it("labels actual captured evidence as retained and fallback/unavailable without inventing RF", () => {
-  const captured = power(); captured.selectedValue = "500";
-  captured.selectedSample = { source: "kpa500_output", unit: "W", watts: 500, sessionID: "00000000-0000-4000-8000-000000000002",
-    observedAt: "2026-10-14T00:00:01Z", radioObservedAt: "2026-10-14T00:00:01Z", amplifierObservedAt: "2026-10-14T00:00:00Z", receivedAt: "2026-10-14T00:00:01Z" };
+  const captured = capturedPower("kpa500_output");
   const view = render(<Harness state={captured} />);
   expect(screen.getByText("Captured KPA500 output · retained for this contact.")).toBeTruthy();
   expect((screen.getByLabelText("TX power W") as HTMLInputElement).value).toBe("500");
@@ -55,6 +62,19 @@ it("labels actual captured evidence as retained and fallback/unavailable without
   expect(screen.queryByText(/Captured KPA500/)).toBeNull();
   view.rerender(<Harness state={null} />); expect(screen.getByText("Automatic capture off.")).toBeTruthy();
 });
+
+it.each([["radio_output", true], ["radio_output", false], ["kpa500_output", true], ["kpa500_output", false]] as const)(
+  "attributes valid retained %s evidence with capture enabled=%s", (source, enabled) => {
+    const state = capturedPower(source, enabled);
+    expect(validDraftPower(state)).toBe(true);
+    expect(validScopedSnapshot({ generation: state.contact.workspaceID, revision: 1,
+      qso: { id: state.contact.draftID, call: "EA7EU", band: "20m", mode: "CW", frequencyHz: 14_025_000, txPower: state.selectedValue }, power: state })).toBe(true);
+    render(<Harness state={state} />);
+    const label = source === "radio_output" ? "radio" : "KPA500";
+    expect(screen.getByText(`Captured ${label} output · ${enabled ? "retained for this contact." : "automatic capture off."}`)).toBeTruthy();
+    expect((screen.getByLabelText("TX power W") as HTMLInputElement).value).toBe(state.selectedValue);
+    expect(JSON.parse(screen.getByTestId("power-draft").textContent!).txPower).toBe(state.selectedValue);
+  });
 
 it("keeps logged-contact edits on their original handler and hides capture controls", () => {
   const manual = vi.fn(), automatic = vi.fn(); render(<Harness state={power(true)} editing manual={manual} automatic={automatic} />);

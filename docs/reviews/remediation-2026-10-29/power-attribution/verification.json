@@ -1,0 +1,21 @@
+{
+  "logs": [
+    "CR010-red.log",
+    "CR010-vitest.log",
+    "CR010-build.log"
+  ],
+  "findings": [
+    {
+      "id": "CR-010",
+      "severity": "Low",
+      "status": "Fixed and Verified",
+      "files": "`prototype/src/live/QSOEditorCore.tsx`, `QSOEditorPower.test.tsx`.",
+      "fix": "Build captured-output attribution from selectedSample.source: radio_output displays radio output; kpa500_output retains KPA500 output. Enabled/off suffixes, selected watts, manual/fallback handling and capture logic are unchanged.",
+      "tests": "Four new on/off cases for both source types assert validDraftPower and validScopedSnapshot before rendering, correct source label and unchanged input/stored watts. Strengthened the existing captured KPA500 fixture with complete session/contact/context evidence. Existing manual, fallback, stale-contact, editing, detached and time-intent controls retained. Both radio-source cases failed before the fix; amplifier controls passed.",
+      "verification": "`npx vitest run src/live/QSOEditorPower.test.tsx src/live/OperatorDraftTime.test.tsx src/live/DetachedQSOSurface.test.tsx` PASS64 tests/3 files,18.81s. `npm run build` PASS TypeScript, Vite and unchanged bundle budgets. `git diff --check` PASS.",
+      "limits": "Synthetic valid snapshots and source build only; no meter, hardware, RF or installed UI qualification. The change corrects evidence attribution without claiming calibrated wattage or changing acquisition/persistence."
+    }
+  ],
+  "baseCommit": "ceed093012865c94c24d9937868546a88e55241e",
+  "sourceDiffSHA256": "e676698dc7e366f32f92a9597ee4f667f8f1d5522966972138e7c5c1ea4dbb81"
+}
