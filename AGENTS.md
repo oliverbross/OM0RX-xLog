@@ -12,6 +12,8 @@
 
 ## Native UI automation
 
+- Before an isolated launch, validate every fixture enum against its owning source type (operating module: `normal_logging` or `contesting`, never `normal`). Launch explicitly with the intended private-root argument. Before **any** GUI/AX/path binding or observation, use process-only inspection to verify the exact live launch PID, executable and complete private-root arguments, including the worker's matching coordinates. An expected path or returned launch PID alone is insufficient.
+- **Hard stop:** if the isolated launch exits, panics, cannot be positively identified, or lacks any required isolation coordinate, preserve its evidence and stop that UI sequence. Never obtain an app/path binding to discover whether it survived: that observation can relaunch the candidate without arguments in production mode. A corrected fixture requires a separate explicit isolated launch and fresh process verification before binding; no production fallback.
 - Bind the exact application path and verify the current window/control before input. Derive accessibility indices from the latest observation; never reuse an index from an earlier tree after another observation.
 - Do not send Escape as a blind menu/dialog reset or retry it when dismissal is uncertain. Use the currently observed menu's supported `Cancel` secondary action or the dialog's explicit Close/Cancel control, then verify dismissal and draft preservation. Stop that UI sequence if the control/context cannot be verified.
 - Deliberate Escape testing belongs to a verified entry/control in disposable storage. Preserve operator shortcuts and emergency Stop/release behavior; this automation rule does not disable Escape or change operating bindings.
