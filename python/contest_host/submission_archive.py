@@ -41,6 +41,10 @@ def build(desk, review, export_bytes, recording_index, require):
               'submissionStatus':'not-submitted','authorityContacts':len(rows),'exportManifest':review['manifest'],
               'files':{name:{'sha256':hashlib.sha256(raw).hexdigest(),'byteLength':len(raw)} for name,raw in sorted(payloads.items())}}
     payloads['manifest.json']=encoded(manifest)
+    # inspect() includes the manifest in expanded size; never write an archive
+    # that our own bounded reader must reject.
+    require(sum(len(raw) for raw in payloads.values())<=LIMIT,
+            'Submission snapshot including its manifest exceeds the 32 MiB archive bound; nothing was truncated')
     stream=BytesIO()
     with zipfile.ZipFile(stream,'w',compression=zipfile.ZIP_DEFLATED) as archive:
         for name,raw in sorted(payloads.items()):

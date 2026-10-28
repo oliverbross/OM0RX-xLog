@@ -1,12 +1,36 @@
 import Foundation
 
 private func adifDate(day: String, time: String) -> Date? {
+    // ADIF Time is HHMM or HHMMSS. Padding arbitrary input also truncates
+    // overlong values, silently turning malformed data into another timestamp.
+    guard day.utf8.count == 8, day.utf8.allSatisfy({ (48...57).contains($0) }),
+          [4, 6].contains(time.utf8.count),
+          time.utf8.allSatisfy({ (48...57).contains($0) }) else { return nil }
     let formatter = DateFormatter()
     formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.calendar = Calendar(identifier: .gregorian)
     formatter.timeZone = TimeZone(secondsFromGMT: 0)
     formatter.dateFormat = "yyyyMMddHHmmss"
     formatter.isLenient = false
-    return formatter.date(from: day + time.padding(toLength: 6, withPad: "0", startingAt: 0))
+    let text = day + (time.utf8.count == 4 ? time + "00" : time)
+    guard let value = formatter.date(from: text),
+          formatter.string(from: value) == text else { return nil }
+    return value
+}
+
+private func adifEndDate(start: Date, day: String?, time: String?) -> Date? {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.calendar = Calendar(identifier: .gregorian)
+    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+    formatter.dateFormat = "yyyyMMdd"
+    let endDay = day ?? formatter.string(from: start)
+    formatter.dateFormat = "HHmmss"
+    guard let value = adifDate(day: endDay, time: time ?? formatter.string(from: start)) else { return nil }
+    // With no QSO_DATE_OFF, ADIF defines a duration under 24 hours. Compare
+    // whole seconds so a legacy fractional start cannot invent a midnight wrap.
+    let wholeSecondStart = Date(timeIntervalSince1970: start.timeIntervalSince1970.rounded(.down))
+    return day == nil && value < wholeSecondStart ? value.addingTimeInterval(86_400) : value
 }
 
 private func adifFrequency(_ text: String) -> Int64? {
@@ -37,8 +61,8 @@ public extension QSO {
         }
         let end: Date?
         if record["QSO_DATE_OFF"] != nil || record["TIME_OFF"] != nil {
-            guard let value = adifDate(day: record["QSO_DATE_OFF"] ?? dateText,
-                                       time: record["TIME_OFF"] ?? timeText) else { return nil }
+            guard let value = adifEndDate(start: start, day: record["QSO_DATE_OFF"],
+                                         time: record["TIME_OFF"]) else { return nil }
             end = value
         } else {
             end = nil
@@ -100,18 +124,10 @@ public extension QSO {
     /// an explicit contact update performs the durable normalization.
     func backfillingADIFFields() -> QSO {
         var value = self
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
         if value.end == nil,
-           let day = extraFields["QSO_DATE_OFF"] ?? extraFields["TIME_OFF"].map({ _ in
-               formatter.dateFormat = "yyyyMMdd"
-               return formatter.string(from: start)
-           }),
-           let parsed = adifDate(day: day, time: extraFields["TIME_OFF"] ?? {
-               formatter.dateFormat = "HHmmss"
-               return formatter.string(from: start)
-           }()) {
+           extraFields["QSO_DATE_OFF"] != nil || extraFields["TIME_OFF"] != nil,
+           let parsed = adifEndDate(start: start, day: extraFields["QSO_DATE_OFF"],
+                                    time: extraFields["TIME_OFF"]) {
             value.end = parsed
         }
         let backfillsReceiveFrequency = value.receiveFrequencyHz == nil && extraFields["FREQ_RX"] != nil

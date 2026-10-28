@@ -188,11 +188,26 @@ def augment_adif(payload, rows, attributions, require, digital_events=None):
         if packet:
             # ADIF mode/submode and actual sent serial are immutable external
             # evidence. Received corrections remain the authoritative row's.
-            fields.update({key:packet[key] for key in ("MODE","SUBMODE","STX","STX_STRING","STATION_CALLSIGN","OPERATOR","MY_GRIDSQUARE","FREQ_RX","APP_XLOG_EXTERNAL_INSTANCE") if packet.get(key)})
+            fields.update({key:packet[key] for key in ("MODE","SUBMODE","STX","STX_STRING","STATION_CALLSIGN","MY_GRIDSQUARE","APP_XLOG_EXTERNAL_INSTANCE") if packet.get(key)})
+            # Operator and RX frequency are editable contact facts. Keep the
+            # original packet below, but do not let it undo an explicit edit.
+            if "OPERATOR" in packet:
+                if row.get("Operator"):
+                    fields["OPERATOR"] = str(row["Operator"])
+            if "FREQ_RX" in packet:
+                receive = float(row.get("QSXFreq") or 0) / 1000
+                if receive > 0:
+                    fields["FREQ_RX"] = f"{receive:.6f}"
+                else:
+                    fields.pop("FREQ_RX", None)
             fields["APP_XLOG_EXTERNAL_ADIF"]=json.dumps(packet,ensure_ascii=False,separators=(",",":"))
+        replaced = set(fields)
+        if packet:
+            # An intentional clear must also remove a pre-existing output tag.
+            replaced.update(key for key in ("OPERATOR", "FREQ_RX") if key in packet)
         addition = "".join(f"<{key}:{len(str(value))}>{value}\r\n" for key, value in fields.items())
         content = content[:offset] + addition + content[offset:]
         for key,start,end in reversed(existing):
-            if packet and key in fields:
+            if key in replaced:
                 content=content[:start]+content[end:]
     return content.encode("utf-8")
