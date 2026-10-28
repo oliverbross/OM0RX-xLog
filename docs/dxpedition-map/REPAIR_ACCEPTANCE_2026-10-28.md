@@ -9,9 +9,17 @@ Canonical source changes are pushed on `main`:
 - `d96c8c4f`: one-time old-catalogue parser refresh, retirement of withdrawn active records, and explicit IOTA conflict protection.
 - `9e6fd02e`: permanent callsign/status/frequency callouts, collision displacement, historical activity and local history/details, disabled contest actions, narrow layout and regression tests.
 
-The final shared-map follow-up gives an exact selected occurrence ID precedence over the prior callsign when centring the map; separate visits no longer centre on the earlier visit. Ended-operation messaging is distinct from an unpublished-callsign announcement.
+The final shared-map follow-up, `97ceb629`, gives an exact selected occurrence ID precedence over the prior callsign when centring the map; separate visits no longer centre on the earlier visit. Ended-operation messaging is distinct from an unpublished-callsign announcement.
 
 The separate Finish-Line chat owns the version, canonical package, signing and native UI lane. It requested a frozen tested source handoff for the combined 1.3.58 candidate. No app was packaged or installed by the DXMap repair chat, and no native UI or radio was used during these repairs. Installed acceptance must be recorded against the exact resulting package separately.
+
+## Combined candidate and native smoke
+
+Finish-Line retained the signed **1.3.58** candidate from exact canonical source **`1225274b4c0f5890a03ceb63159cd5577bc32b57`**, comprising the frozen DXMap handoff plus version/provenance reservation. It verified Developer ID signing, deep/strict signature validation and component source provenance. The retained 4,113-entry bundle has tree SHA-256 `5dab8b32846057455f1b52c8fe9f9276c415446ee4d0dbba49fe5d54d3d8175c`. Package receipt: `.build/releases/1.3.58/UNFINISHED_WORK_CANDIDATE_RECEIPT.json`.
+
+Its actual native **Window > DXpedition Map** route opened `tauri://localhost/index.html?view=dxpedition-map` in the retained candidate under PID 37958 and a fresh private root. Search, status/band filters, expedition list and interactive world map loaded. The owner closed the observed DXMap window and verified that the normal logging draft fields remained unchanged. Receipt `.build/unfinished-continuation/dxmap-native-smoke.json` records **`PASS_BOUNDED_NATIVE_WINDOW_BUNDLE_SMOKE`**, zero activation commands and external I/O disabled. The unavailable catalogue in this profile was expected; this check establishes packaged window/route loading, while the live-feed/marker comparison below remains separate evidence.
+
+No production installation occurred. Finish-Line's wider unfinished-work reliability acceptance was still in progress when this DXMap result was recorded; the bounded map pass does not declare the overall candidate ready for installation.
 
 ## Checks
 
