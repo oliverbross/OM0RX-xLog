@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     fs,
-    io::Write,
     path::PathBuf,
     sync::{Condvar, Mutex, OnceLock},
     time::Duration,
@@ -310,27 +309,8 @@ impl Owner {
 }
 
 fn publish_preference(path: &PathBuf, bytes: &[u8]) -> Result<(), String> {
-    let parent = path
-        .parent()
-        .ok_or("Operating module location unavailable")?;
-    fs::create_dir_all(parent)
-        .map_err(|error| format!("Could not prepare the operating-module preference: {error}"))?;
-    let mut temporary = tempfile::NamedTempFile::new_in(parent)
-        .map_err(|error| format!("Could not prepare the operating-module preference: {error}"))?;
-    temporary
-        .write_all(bytes)
-        .and_then(|_| temporary.as_file().sync_all())
-        .map_err(|error| format!("Could not save the operating-module preference: {error}"))?;
-    temporary.persist(path).map_err(|error| {
-        format!(
-            "Could not publish the operating-module preference: {}",
-            error.error
-        )
-    })?;
-    fs::File::open(parent)
-        .and_then(|directory| directory.sync_all())
-        .map_err(|error| format!("Could not sync the operating-module preference directory: {error}"))?;
-    Ok(())
+    crate::durable_file::publish(path, bytes)
+        .map_err(|error| format!("Could not publish the operating-module preference: {error}"))
 }
 
 pub fn worker_module(request: &Value) -> Option<OperatingModule> {
@@ -768,6 +748,26 @@ mod tests {
         let reopened = Owner::load(directory.path().to_path_buf()).unwrap();
         assert_eq!(reopened.snapshot().unwrap()["selected"], "contesting");
         assert_eq!(OperatingModule::Contesting.worker_value(), "contesting");
+        let context = reopened.snapshot().unwrap()["context"].as_str().unwrap().to_owned();
+        let target = reopened.begin("normal_logging", &context).unwrap();
+        reopened.commit(target).unwrap();
+        let normal = Owner::load(directory.path().to_path_buf()).unwrap();
+        assert_eq!(normal.snapshot().unwrap()["selected"], "normal_logging");
+    }
+
+    #[test]
+    fn invalid_preference_destination_preserves_selection_and_restart_fence() {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = Owner::load(directory.path().to_path_buf()).unwrap();
+        fs::create_dir(&owner.path).unwrap();
+        fs::write(owner.path.join("retained"), b"untouched").unwrap();
+        let context = owner.snapshot().unwrap()["context"].as_str().unwrap().to_owned();
+        let target = owner.begin("contesting", &context).unwrap();
+        assert!(owner.commit(target).is_err());
+        let snapshot = owner.snapshot().unwrap();
+        assert_eq!(snapshot["selected"], "normal_logging");
+        assert_eq!(snapshot["transitioning"], true);
+        assert_eq!(fs::read(owner.path.join("retained")).unwrap(), b"untouched");
     }
 
     #[test]

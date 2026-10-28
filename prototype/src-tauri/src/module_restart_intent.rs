@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{fs, io::Write, path::{Path, PathBuf}};
+use std::{fs, path::{Path, PathBuf}};
 
 const VERSION: u8 = 1;
 const FILE_NAME: &str = "operating-module-restart-intent.json";
@@ -73,23 +73,11 @@ pub fn decision(contesting: bool, setup_ready: bool, contest_admitted: bool,
 
 fn path(directory: &Path) -> PathBuf { directory.join(FILE_NAME) }
 
-fn sync_directory(directory: &Path) -> Result<(), String> {
-    fs::File::open(directory).and_then(|file| file.sync_all())
-        .map_err(|error| format!("Could not make the restart destination durable: {error}"))
-}
-
 pub fn publish(directory: &Path, destination: Destination) -> Result<(), String> {
-    fs::create_dir_all(directory)
-        .map_err(|error| format!("Could not prepare the restart destination: {error}"))?;
     let bytes = serde_json::to_vec(&Persisted { version: VERSION, destination })
         .map_err(|error| error.to_string())?;
-    let mut temporary = tempfile::NamedTempFile::new_in(directory)
-        .map_err(|error| format!("Could not prepare the restart destination: {error}"))?;
-    temporary.write_all(&bytes).and_then(|_| temporary.as_file().sync_all())
-        .map_err(|error| format!("Could not save the restart destination: {error}"))?;
-    temporary.persist(path(directory)).map_err(|error|
-        format!("Could not publish the restart destination: {}", error.error))?;
-    sync_directory(directory)
+    crate::durable_file::publish(&path(directory), &bytes)
+        .map_err(|error| format!("Could not publish the restart destination: {error}"))
 }
 
 pub fn load(directory: &Path) -> Result<Option<Destination>, String> {
@@ -111,14 +99,27 @@ pub fn consume(directory: &Path, expected: Destination) -> Result<(), String> {
     if current != Some(expected) {
         return Err("The saved restart destination changed before it could be opened.".into());
     }
-    fs::remove_file(path(directory))
-        .map_err(|error| format!("Could not consume the restart destination: {error}"))?;
-    sync_directory(directory)
+    crate::durable_file::remove(&path(directory))
+        .map_err(|error| format!("Could not consume the restart destination: {error}"))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn replacement_and_consumption_preserve_unicode_parent_and_current_destination() {
+        let root = tempfile::tempdir().unwrap();
+        let directory = root.path().join("stanica-žluť-電台");
+        publish(&directory, Destination::ContestLogTransfer).unwrap();
+        publish(&directory, Destination::NormalMain).unwrap();
+        assert_eq!(load(&directory).unwrap(), Some(Destination::NormalMain));
+        assert!(consume(&directory, Destination::ContestLogTransfer).is_err());
+        assert_eq!(load(&directory).unwrap(), Some(Destination::NormalMain));
+        consume(&directory, Destination::NormalMain).unwrap();
+        assert_eq!(load(&directory).unwrap(), None);
+        assert_eq!(fs::read_dir(directory).unwrap().count(), 0);
+    }
 
     #[test]
     fn intent_is_durable_and_consumed_only_by_the_expected_destination() {

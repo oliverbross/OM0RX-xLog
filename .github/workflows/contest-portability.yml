@@ -326,17 +326,23 @@ jobs:
           admission_tests="$(cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test contesting_test_native_admission_tests:: -- --list)"
           passive_read_test="$(cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy -- --list)"
           module_tests="$(cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test operating_module::tests:: -- --list)"
+          durable_tests="$(cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test durable_file::tests:: -- --list)"
+          restart_intent_tests="$(cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test module_restart_intent::tests:: -- --list)"
           shutdown_tests="$(cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test worker::tests::shutdown_ -- --list)"
           printf '%s\n%s\n%s\n%s\n%s\n' "$export_tests" "$admission_tests" "$passive_read_test" "$module_tests" "$shutdown_tests"
           test "$(printf '%s\n' "$export_tests" | grep -c '^contest_export::tests::')" -ge 1
           test "$(printf '%s\n' "$admission_tests" | grep -c '^contesting_test_native_admission_tests::')" -eq 7
           test "$(printf '%s\n' "$passive_read_test" | grep -c '^worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy: test$')" -eq 1
           test "$(printf '%s\n' "$module_tests" | grep -c '^operating_module::tests::')" -ge 1
+          test "$(printf '%s\n' "$durable_tests" | grep -c '^durable_file::tests::')" -eq 3
+          test "$(printf '%s\n' "$restart_intent_tests" | grep -c '^module_restart_intent::tests::')" -ge 1
           test "$(printf '%s\n' "$shutdown_tests" | grep -c '^worker::tests::shutdown_')" -ge 1
           cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test contest_export::tests::
           cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test contesting_test_native_admission_tests::
           cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy
           cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test operating_module::tests::
+          cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test durable_file::tests::
+          cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test module_restart_intent::tests::
           cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test worker::tests::shutdown_
       - name: Discover and run bounded native contest tests (Windows)
         if: runner.os == 'Windows'
@@ -349,6 +355,8 @@ jobs:
             @{ Name = 'admission'; Filter = 'contesting_test_native_admission_tests::'; Pattern = '^contesting_test_native_admission_tests::'; Count = 7 },
             @{ Name = 'passive read'; Filter = 'worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy'; Pattern = '^worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy: test$'; Count = 1 },
             @{ Name = 'operating module'; Filter = 'operating_module::tests::'; Pattern = '^operating_module::tests::'; Count = 0 },
+            @{ Name = 'durable file'; Filter = 'durable_file::tests::'; Pattern = '^durable_file::tests::'; Count = 3 },
+            @{ Name = 'restart intent'; Filter = 'module_restart_intent::tests::'; Pattern = '^module_restart_intent::tests::'; Count = 0 },
             @{ Name = 'worker shutdown'; Filter = 'worker::tests::shutdown_'; Pattern = '^worker::tests::shutdown_'; Count = 6 }
           )
           foreach ($entry in $filters) {

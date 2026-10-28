@@ -52,6 +52,7 @@ mod canvas_close;
 #[cfg(target_os = "macos")]
 mod macos_termination;
 mod operating_module;
+mod durable_file;
 mod operating_module_prepare;
 mod module_restart_intent;
 mod contest_window_context;
