@@ -360,7 +360,7 @@ jobs:
             @{ Name = 'operating module'; Filter = 'operating_module::tests::'; Pattern = '^operating_module::tests::'; Count = 0 },
             @{ Name = 'durable file'; Filter = 'durable_file::tests::'; Pattern = '^durable_file::tests::'; Count = 3 },
             @{ Name = 'restart intent'; Filter = 'module_restart_intent::tests::'; Pattern = '^module_restart_intent::tests::'; Count = 0 },
-            @{ Name = 'worker shutdown'; Filter = 'worker::tests::shutdown_'; Pattern = '^worker::tests::shutdown_'; Count = 6 }
+            @{ Name = 'worker shutdown'; Filter = 'worker::tests::shutdown_'; Pattern = '^worker::tests::shutdown_'; Count = 7 }
           )
           foreach ($entry in $filters) {
             $discovered = & cargo test --locked --jobs 2 --target-dir $target --bin xlog-prototype --features contesting-test $entry.Filter -- --list 2>&1
