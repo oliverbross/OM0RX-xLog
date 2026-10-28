@@ -1,5 +1,6 @@
 """Boundary tests complement the real relocated-runtime staging smoke."""
 import importlib.util
+import plistlib
 from pathlib import Path
 import shutil
 import tempfile
@@ -12,6 +13,48 @@ spec.loader.exec_module(relocation)
 
 
 class RelocationBoundaryTests(unittest.TestCase):
+    def bootstrap(self, root):
+        bundle = root / "bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app"
+        (bundle / "Contents").mkdir(parents=True)
+        with (bundle / "Contents/Info.plist").open("wb") as stream:
+            plistlib.dump({"CFBundleIdentifier": "com.oliverbross.xlog.contesting-test",
+                          "CFBundleExecutable": "xlog-prototype-worker", "LSMinimumSystemVersion": "14.0"}, stream)
+        return bundle
+
+    def test_explicit_private_bootstrap_does_not_relax_production_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            bundle = self.bootstrap(root)
+            self.assertEqual(relocation.validated_bundle_target(bundle, root), (bundle, "14.0"))
+            with self.assertRaisesRegex(RuntimeError, "Unexpected candidate bundle"):
+                relocation.validated_bundle_target(bundle)
+            with self.assertRaisesRegex(RuntimeError, "Unexpected acceptance bootstrap"):
+                relocation.validated_bundle_target(bundle, root / "bootstrap")
+
+    def test_canonical_system_tmp_bootstrap_is_accepted(self):
+        with tempfile.TemporaryDirectory(dir="/tmp") as directory:
+            root = Path(directory).resolve()
+            bundle = self.bootstrap(root)
+            self.assertEqual(relocation.validated_bundle_target(bundle, root), (bundle, "14.0"))
+
+    def test_private_bootstrap_rejects_wrong_identity_links_and_existing_runtime(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            bundle = self.bootstrap(root)
+            info = bundle / "Contents/Info.plist"
+            original = info.read_bytes()
+            with info.open("wb") as stream:
+                plistlib.dump({"CFBundleIdentifier": "com.oliverbross.xlog", "LSMinimumSystemVersion": "14.0"}, stream)
+            with self.assertRaisesRegex(RuntimeError, "identity is invalid"):
+                relocation.validated_bundle_target(bundle, root)
+            info.write_bytes(original)
+            alias = root / "alias.app"; alias.symlink_to(bundle)
+            with self.assertRaisesRegex(RuntimeError, "Unexpected acceptance bootstrap"):
+                relocation.validated_bundle_target(alias, root)
+            (bundle / "Contents/Resources/Not1MM").mkdir(parents=True)
+            with self.assertRaisesRegex(RuntimeError, "destination must be new"):
+                relocation.validated_bundle_target(bundle, root)
+
     def system_ca_bundle(self):
         source = relocation.SYSTEM_CA_BUNDLE
         if not source.is_file():

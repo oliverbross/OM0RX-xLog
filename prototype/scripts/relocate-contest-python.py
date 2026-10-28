@@ -17,7 +17,8 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[2]
 MACHO = {bytes.fromhex(value) for value in ("feedface", "cefaedfe", "feedfacf", "cffaedfe", "cafebabe", "bebafeca", "cafebabf", "bfbafeca")}
 NON_RUNTIME_MACHO_SUFFIXES = {".a", ".o"}
-PACKAGING_SCRIPTS = {"package-macos.sh", "package-contesting-test-macos.sh"}
+TEST_BOOTSTRAP_SCRIPT = "accept-contesting-worker-process.mjs"
+PACKAGING_SCRIPTS = {"package-macos.sh", "package-contesting-test-macos.sh", TEST_BOOTSTRAP_SCRIPT}
 CA_BUNDLE_RELATIVE = Path("Versions/3.12/etc/openssl/cert.pem")
 SYSTEM_CA_BUNDLE = Path("/etc/ssl/cert.pem")
 MIN_CA_BUNDLE_BYTES = 1_024
@@ -277,21 +278,48 @@ def self_test(framework, host_root):
         return {"relocated": True, "modules": json.loads(checked.stdout), "catalog": "cq_ww_cw", "externalLibrariesLoaded": False}
 
 
+def validated_bundle_target(bundle, acceptance_root=None):
+    """Keep production output bounds; allow only an explicitly isolated test fixture."""
+    bundle = bundle.absolute()
+    if acceptance_root is None:
+        parent = ROOT / "prototype/src-tauri/target/release/bundle/macos"
+        require(bundle.parent == parent and bundle.suffix == ".app" and not bundle.is_symlink(), "Unexpected candidate bundle")
+        require(bundle.resolve().parent == parent.resolve(), "Candidate escapes build output")
+    else:
+        root = acceptance_root.absolute()
+        require(root == root.resolve() and root.is_dir(), "Acceptance root must be an existing canonical directory")
+        disposable_roots = (Path(tempfile.gettempdir()).resolve(), Path("/tmp").resolve(), (ROOT / ".build").resolve())
+        require(any(root.is_relative_to(parent) for parent in disposable_roots),
+                "Acceptance root is outside disposable storage")
+        expected = root / "bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app"
+        require(bundle == expected and bundle.resolve() == expected and not bundle.is_symlink(),
+                "Unexpected acceptance bootstrap bundle")
+    with (bundle / "Contents/Info.plist").open("rb") as stream:
+        info = plistlib.load(stream)
+    if acceptance_root is not None:
+        require(info.get("CFBundleIdentifier") == "com.oliverbross.xlog.contesting-test" and
+                info.get("CFBundleExecutable") == "xlog-prototype-worker", "Acceptance bootstrap identity is invalid")
+        require(not (bundle / "Contents/Frameworks/Python.framework").exists() and
+                not (bundle / "Contents/Resources/Not1MM").exists(), "Acceptance runtime destination must be new")
+    target = info.get("LSMinimumSystemVersion")
+    require(isinstance(target, str), "App deployment target is missing")
+    return bundle, target
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--source-framework", type=Path)
     parser.add_argument("--finalize-provenance", action="store_true")
     parser.add_argument("--packaging-script", default="package-macos.sh")
+    parser.add_argument("--acceptance-root", type=Path)
     args = parser.parse_args()
     packaging_sources = packaging_source_names(args.packaging_script)
-    bundle = args.bundle.absolute()
-    parent = ROOT / "prototype/src-tauri/target/release/bundle/macos"
-    require(bundle.parent == parent and bundle.suffix == ".app" and not bundle.is_symlink(), "Unexpected candidate bundle")
-    require(bundle.resolve().parent == parent.resolve(), "Candidate escapes build output")
-    with (bundle / "Contents/Info.plist").open("rb") as stream:
-        target = plistlib.load(stream).get("LSMinimumSystemVersion")
-    require(isinstance(target, str), "App deployment target is missing")
+    require((args.acceptance_root is not None) == (args.packaging_script == TEST_BOOTSTRAP_SCRIPT),
+            "Acceptance staging requires its explicit root and script identity")
+    require(args.acceptance_root is None or not args.finalize_provenance,
+            "Acceptance staging cannot finalize a production signature")
+    bundle, target = validated_bundle_target(args.bundle, args.acceptance_root)
     framework = bundle / "Contents/Frameworks/Python.framework"
     host_root = bundle / "Contents/Resources/Not1MM/python"
     manifest = bundle / "Contents/Resources/Not1MM/python-runtime.json"
