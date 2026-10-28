@@ -9,11 +9,13 @@ Canonical source changes are pushed on `main`:
 - `d96c8c4f`: one-time old-catalogue parser refresh, retirement of withdrawn active records, and explicit IOTA conflict protection.
 - `9e6fd02e`: permanent callsign/status/frequency callouts, collision displacement, historical activity and local history/details, disabled contest actions, narrow layout and regression tests.
 
+The final shared-map follow-up gives an exact selected occurrence ID precedence over the prior callsign when centring the map; separate visits no longer centre on the earlier visit. Ended-operation messaging is distinct from an unpublished-callsign announcement.
+
 The separate Finish-Line chat owns the version, canonical package, signing and native UI lane. It requested a frozen tested source handoff for the combined 1.3.58 candidate. No app was packaged or installed by the DXMap repair chat, and no native UI or radio was used during these repairs. Installed acceptance must be recorded against the exact resulting package separately.
 
 ## Checks
 
-- Focused frontend: **55 passed**, six files (DX model/surface/styles, actual shared Map DOM, MapSpots and marker layout). The Map test verifies world-zoom labels, status/frequency text, preservation of MapLibre positioning classes, independent same-call occurrence selection and passive interaction.
+- Focused frontend: **56 passed**, six files (DX model/surface/styles, actual shared Map DOM, MapSpots and marker layout). The Map test verifies world-zoom labels, status/frequency text, preservation of MapLibre positioning classes, exact occurrence camera selection and passive interaction. The surface tests distinguish historical/ended information from unpublished announcements.
 - Swift projection/parser/history/transport/concurrency: **24 reported tests passed** across four suites; the opt-in network check is skipped by default. After the final cache-retention correction, the two migration/occurrence checks passed again. The real worker construction and held-download logging-concurrency checks also passed after history injection.
 - Rust opportunity-selection identity pool: **6 passed**, including no native authority for recently ended/prefix-only informational records.
 - Full `npm run build`: TypeScript, Vite and every existing window graph/CSS/startup-budget check passed. No budget was changed. Final output is preserved as `xlog-dxmap-final-build.log` in the evidence directory below.

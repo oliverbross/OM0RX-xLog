@@ -33,7 +33,7 @@ const text = {
     shown: "shown", currentUpcoming: "current / upcoming", unmapped: "unmapped", noRadio: "No selected radio", selectedReceiver: "selected receiver",
     list: "DXpedition list", map: "Expedition map", statusFilter: "Status filter", bandFilter: "Observed band filter", inspect: "Inspect expedition", locations: "Catalogue and configured-cluster positions",
     history: "Your log", worked: "worked", confirmed: "confirmed", lastQSO: "Last QSO in Club Log", archive: "Spot history", archived: "History only — tuning unavailable",
-    moduleBlocked: "Tune & load is available in Normal Logging. Use the contest Cluster or Band Map while Contesting.", checkingModule: "Checking operating mode…", catalogueOnly: "Announcement only — complete operating callsign not yet published",
+    moduleBlocked: "Tune & load is available in Normal Logging. Use the contest Cluster or Band Map while Contesting.", checkingModule: "Checking operating mode…", catalogueOnly: "Announcement only — complete operating callsign not yet published", ended: "Operation ended — historical information only",
     currentSource: "current", staleSource: "stale", unavailableSource: "unavailable", publishedPosition: "Published catalogue position", clusterPosition: "Approximate cluster entity position", noPosition: "No published coordinates" },
   it: { title: "Mappa DXpedition", all: "Tutte", live: "Live", active: "Attive", recent: "Recenti", upcoming: "Future",
     search: "Cerca nominativo, alias o entità", refresh: "Aggiorna fonti", details: "Dettagli operazione", observations: "Frequenze recenti",
@@ -45,7 +45,7 @@ const text = {
     shown: "mostrate", currentUpcoming: "correnti / future", unmapped: "senza mappa", noRadio: "Nessuna radio selezionata", selectedReceiver: "ricevitore selezionato",
     list: "Elenco DXpedition", map: "Mappa spedizioni", statusFilter: "Filtro stato", bandFilter: "Filtro banda osservata", inspect: "Esamina spedizione", locations: "Posizioni da catalogo e cluster configurato",
     history: "Il tuo log", worked: "collegati", confirmed: "confermati", lastQSO: "Ultimo QSO in Club Log", archive: "Storico spot", archived: "Solo storico — sintonia non disponibile",
-    moduleBlocked: "Sintonia e caricamento disponibili in Normal Logging. In contest usa Cluster o Band Map del contest.", checkingModule: "Verifica modalità operativa…", catalogueOnly: "Solo annuncio — nominativo operativo completo non ancora pubblicato",
+    moduleBlocked: "Sintonia e caricamento disponibili in Normal Logging. In contest usa Cluster o Band Map del contest.", checkingModule: "Verifica modalità operativa…", catalogueOnly: "Solo annuncio — nominativo operativo completo non ancora pubblicato", ended: "Operazione terminata — solo informazioni storiche",
     currentSource: "corrente", staleSource: "obsoleta", unavailableSource: "non disponibile", publishedPosition: "Posizione pubblicata nel catalogo", clusterPosition: "Posizione approssimativa dell’entità dal cluster", noPosition: "Coordinate non pubblicate" },
 } as const;
 const statusFilters: DXpeditionStatusFilter[] = ["all", "live", "active", "recent", "upcoming"];
@@ -152,7 +152,7 @@ function Detail({ operation, shown, now, locale, radio, closeButtonRef, onClose,
         <small>{spot.callsign}{spot.spotter ? ` · ${spot.spotter}` : ""}{spot.comment ? ` · ${spot.comment}` : ""}</small></div>
       <button type="button" title={!spot.activation ? t.archived : actionReason} disabled={tuning || !!actionReason || !spot.activation} onClick={() => onTune(spot)}>{spot.activation ? t.tune : t.archived}</button>
     </div>)}</div>
-    {!operation.draftLoadAllowed && <p className="dxp-notes">{t.catalogueOnly}</p>}
+    {!operation.draftLoadAllowed && <p className="dxp-notes">{operation.endsAt && operation.endsAt < now ? t.ended : t.catalogueOnly}</p>}
     {!operation.observations.length && <button type="button" className="dxp-load-call" disabled={loading || !!actionReason || !operation.activation || !operation.draftLoadAllowed} onClick={onLoad}>{t.load}</button>}
     <h3>{t.observedBands}</h3><div className="dxp-band-grid">{["160m", "80m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m"].map(band => <span key={band}><b>{band}</b>{[...(operation.bands.get(band) ?? [])].join(" · ") || "—"}</span>)}</div>
     <div className="dxp-links">{links.map(([label, href]) => <a key={label} href={href} target="_blank" rel="noreferrer">{label}</a>)}{sourceURL && <a href={sourceURL} target="_blank" rel="noreferrer">{t.source}</a>}</div>

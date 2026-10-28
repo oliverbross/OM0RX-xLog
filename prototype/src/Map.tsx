@@ -284,7 +284,8 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
   if (currentSelected) selectedCallRef.current = normalizedMapCall(currentSelected.call);
   else if (previousSelectionRef.current !== selected || selected === null) selectedCallRef.current = null;
   previousSelectionRef.current = selected;
-  const selectedSpot = mappedSpots.find(spot => spot.id === selected || spot.call === selectedCallRef.current);
+  const selectedSpot = mappedSpots.find(spot => spot.id === selected)
+    ?? mappedSpots.find(spot => spot.call === selectedCallRef.current);
   const homeRef = useRef(home);
   const targetRef = useRef(target);
   const routeLabelPointRef = useRef<Coordinate | null>(null);

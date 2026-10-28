@@ -138,3 +138,13 @@ it("shows retained archive frequencies without giving them tuning authority", as
   expect(screen.getByText("21.025000 MHz")).toBeTruthy();
   expect(screen.getByRole("button", { name: /History only/ }).hasAttribute("disabled")).toBe(true);
 });
+
+it("explains an ended operation without claiming its known callsign is unpublished", async () => {
+  api.worker.mockResolvedValue({ result: { ...snapshot, items: [{ ...snapshot.items[0], ends_at: "2026-10-23T23:59:00Z",
+    last_qso_at: "2026-10-23T23:58:00Z", draft_load_allowed: false }] } });
+  render(<DetachedDXpeditionMapSurface />);
+  fireEvent.click((await screen.findByText("VK9X1")).closest("button")!);
+  expect(screen.getByText(/Operation ended/)).toBeTruthy();
+  expect(screen.queryByText(/complete operating callsign not yet published/)).toBeNull();
+  expect(screen.getByRole("button", { name: "Load callsign" }).hasAttribute("disabled")).toBe(true);
+});

@@ -127,7 +127,7 @@ const spot = (changes: Partial<MapSpot> = {}): MapSpot => ({
 it("renders callsign, status and frequency callouts at world zoom and keeps same-call occurrences independently selectable", () => {
   const onSpot = vi.fn();
   const first = spot({ id: "visit1", callStatus: "live", statusHex: "#3ee58d" });
-  const future = spot({ id: "visit2", call: first.call, callStatus: "upcoming", mhz: 0, locationOnly: true });
+  const future = spot({ id: "visit2", call: first.call, callStatus: "upcoming", mhz: 0, locationOnly: true, lon: 18, lat: -12 });
   const view = render(<WorldMap selected={null} data={[first, future]} expeditionLabels onSpot={onSpot} compact />);
   const pins = view.container.querySelectorAll<HTMLButtonElement>(".dxp-pin");
   expect(harness.maps[0].getZoom()).toBeLessThan(3);
@@ -141,6 +141,8 @@ it("renders callsign, status and frequency callouts at world zoom and keeps same
   expect(onSpot).not.toHaveBeenCalled();
   fireEvent.click(pins[1]);
   expect(onSpot).toHaveBeenCalledWith(expect.objectContaining({ id: "visit2" }));
+  view.rerender(<WorldMap selected="visit2" data={[first, future]} expeditionLabels onSpot={onSpot} compact />);
+  expect(harness.maps[0].easeCalls.at(-1).center).toEqual([18, -12]);
 });
 beforeEach(() => {
   localStorage.clear();
