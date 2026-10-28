@@ -96,13 +96,14 @@ Statuses use the requested vocabulary. `Not Fixed` means still pending in this a
 
 ## CR-009 — Medium
 
-- **Status:** Not Fixed.
+- **Status:** Fixed and Verified.
 - **Root cause:** Retained SwiftUI import bypasses shared preview, transactional deduplication and truthful result accounting.
-- **Files modified:** None yet. Planned scope: Sources/XLogApp/AppModel.swift; shared import tests.
-- **Fix:** Pending implementation.
-- **Regression tests:** Pending.
-- **Verification commands/results:** Not run for remediation yet; prior review evidence is not fix verification.
-- **Remaining limitations:** Finding remains open. All production/provider/hardware boundaries above remain unverified.
+- **Files modified:** `Sources/XLogCore/ADIF.swift`, `Sources/XLogApp/AppModel.swift`; `Tests/XLogPrototypeTests/LegacyADIFTransferTests.swift` (shared with CR-011).
+- **Fix:** Retained SwiftUI import now rejects missing databases, reads bounded strict UTF-8, validates the complete document before writing, and uses the existing atomic/deduplicated importBatch transaction. Success reports actual imported and skipped duplicate counts. Invalid documents and later SQLite failures cannot leave a partial import; generic imports retain existing delivery exclusion and arbitrary ADIF fields.
+- **Regression tests:** Four shared transfer regressions cover mixed valid/invalid records, malformed suffix, repeated imports and stable identity, preserved APP_TEST, closed database rejection, actual second-row SQLite trigger failure/rollback/retry, invalid UTF-8 and file bounds, and full frozen export beyond the display cap.
+- **Verification commands/results:** `XLOG_PORTABLE_ONLY=1 swift test --scratch-path .build/prototype-tests --no-parallel --filter 'LegacyADIFTransfer|ADIFPlanning|ADIFImport|LogbookContact'` PASS16 tests/2 suites, 2.446s (four new transfer tests plus twelve contact lifecycle controls); `swift build --product om0rx-xlog` PASS52.22s, compiling the actual retained SwiftUI entry points. `git diff --check` PASS.
+- **Remaining limitations:** No native file chooser or production workspace operated. Import intentionally rejects the entire invalid document instead of silently accepting a prefix; users must correct invalid records before retry. UTF-8 and 32 MiB limit match the modern transfer boundary. Retained SwiftUI path remains synchronous; large-file UI latency/memory and installed-app acceptance were not measured. Existing data is not rewritten.
+- **Evidence:** [stage logs](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/remediation-2026-10-29/legacy-adif).
 
 ## CR-010 — Low
 
@@ -116,13 +117,14 @@ Statuses use the requested vocabulary. `Not Fixed` means still pending in this a
 
 ## CR-011 — Medium
 
-- **Status:** Not Fixed.
+- **Status:** Fixed and Verified.
 - **Root cause:** Retained SwiftUI export serializes only the display-capped array.
-- **Files modified:** None yet. Planned scope: Sources/XLogApp/AppModel.swift; shared export tests.
-- **Fix:** Pending implementation.
-- **Regression tests:** Pending.
-- **Verification commands/results:** Not run for remediation yet; prior review evidence is not fix verification.
-- **Remaining limitations:** Finding remains open. All production/provider/hardware boundaries above remain unverified.
+- **Files modified:** `Sources/XLogApp/AppModel.swift`; `Tests/XLogPrototypeTests/LegacyADIFTransferTests.swift` (shared with CR-009).
+- **Fix:** Export uses the shared database adifExportSnapshot(.all) instead of the search/display-limited qsos collection. The chooser explicitly identifies all non-deleted logbook contacts as scope; count comes from the frozen snapshot and file replacement remains atomic. Missing database is an explicit error.
+- **Regression tests:** Create2003 contacts, demonstrate the display fetch cap2000, compare every frozen export contact ID with the complete source set, add another contact after freezing and parse the original snapshot back to exactly2003 records with no late contact. Shared import and revision-fenced contact tests provide neighboring controls.
+- **Verification commands/results:** Shared CR-009 command PASS16 tests/2 suites, including all four new transfer tests; actual `swift build --product om0rx-xlog` PASS52.22s. `git diff --check` PASS.
+- **Remaining limitations:** No native chooser/installed app or production data used. All scope is explicit and preserves the existing exclusion of deleted contacts. Snapshot is one database read view; very large export UI latency/memory and filesystem power-loss durability are not qualified.
+- **Evidence:** [stage logs](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/remediation-2026-10-29/legacy-adif).
 
 ## CR-012 — Medium
 

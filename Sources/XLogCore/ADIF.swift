@@ -372,6 +372,28 @@ private extension String {
 /// A read-only review result. Complete records remain visible after a malformed
 /// suffix, but no plan can be made until every diagnostic has been resolved.
 public struct ADIFImportPreview: Sendable {
+    public static let maximumFileBytes = 32 * 1024 * 1024
+
+    /// File callers use the same strict UTF-8 parser as the bounded IPC path.
+    /// Read at most the file limit plus one byte, including a growing input.
+    public static func fileText(at url: URL, maximumBytes: Int = maximumFileBytes) throws -> String {
+        guard maximumBytes > 0, maximumBytes <= maximumFileBytes else {
+            throw ADIFDocumentImportError(message: "Invalid ADIF file limit.")
+        }
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        var data = Data()
+        while let chunk = try handle.read(upToCount: min(65_536, maximumBytes + 1 - data.count)), !chunk.isEmpty {
+            data.append(chunk)
+            guard data.count <= maximumBytes else {
+                throw ADIFDocumentImportError(message: "ADIF input exceeds the 32 MiB file limit. No contacts were imported.")
+            }
+        }
+        guard let text = String(data: data, encoding: .utf8) else {
+            throw ADIFDocumentImportError(message: "ADIF input must be valid UTF-8. No contacts were imported.")
+        }
+        return text
+    }
     public struct Issue: Equatable, Sendable {
         public let recordNumber: Int
         public let message: String
@@ -604,7 +626,35 @@ public struct ADIFExportSnapshot: Sendable {
     }
 }
 
+public struct ADIFDocumentImportError: Error, LocalizedError {
+    public let message: String
+    public var errorDescription: String? { message }
+}
+
+public struct ADIFDocumentImportResult: Sendable {
+    public let recordCount: Int
+    public let importedCount: Int
+    public var skippedCount: Int { recordCount - importedCount }
+}
+
 public extension LogbookDatabase {
+    /// Validate the complete document before the existing atomic/deduplicated
+    /// import. Generic imports never enroll contacts in prospective delivery.
+    func importADIFDocument(_ text: String) throws -> ADIFDocumentImportResult {
+        let preview = ADIFImportPreview(text: text, maximumBytes: ADIFImportPreview.maximumFileBytes, maximumRecords: 1_000_000)
+        if let issue = preview.issues.first {
+            throw ADIFDocumentImportError(message: "ADIF record \(issue.recordNumber): \(issue.message) No contacts were imported.")
+        }
+        let contacts = try preview.records.map { record -> QSO in
+            guard let qso = QSO(adif: record) else {
+                throw ADIFDocumentImportError(message: "ADIF contact could not be converted. No contacts were imported.")
+            }
+            return qso
+        }
+        let imported = try importBatch(contacts)
+        return ADIFDocumentImportResult(recordCount: preview.records.count, importedCount: imported)
+    }
+
     /// fetchAll is one SQLite statement, so the exported scope has one read view.
     func adifExportSnapshot(scope: ADIFExportSnapshot.Scope) throws -> ADIFExportSnapshot {
         ADIFExportSnapshot(contacts: try fetchAll(), scope: scope)

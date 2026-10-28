@@ -991,31 +991,35 @@ final class AppModel: ObservableObject {
     }
 
     func importADIF() {
+        guard let database else {
+            banner = AppBanner(message: "Open a workspace logbook before importing ADIF.", kind: .error)
+            return
+        }
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.data]
         panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url, let text = try? String(contentsOf: url) else { return }
-        let records = ADIFParser().records(in: text)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
-            for record in records {
-                if var qso = QSO(adif: record) {
-                    qso.isDirty = true
-                    try database?.save(qso)
-                }
-            }
-            banner = AppBanner(message: "Imported \(records.count) ADIF records", kind: .success)
+            let text = try ADIFImportPreview.fileText(at: url)
+            let result = try database.importADIFDocument(text)
+            banner = AppBanner(message: "Imported \(result.importedCount) QSOs; skipped \(result.skippedCount) duplicate records", kind: .success)
             reload()
         } catch { banner = AppBanner(message: error.localizedDescription, kind: .error) }
     }
 
     func exportADIF() {
+        guard let database else {
+            banner = AppBanner(message: "Open a workspace logbook before exporting ADIF.", kind: .error)
+            return
+        }
         let panel = NSSavePanel()
         panel.nameFieldStringValue = "OM0RX-xLog-export.adi"
+        panel.message = "Exports all non-deleted contacts in this logbook, including contacts outside the current search."
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        let body = qsos.map(\.adifRecord.adifDocument).joined()
         do {
-            try body.write(to: url, atomically: true, encoding: .utf8)
-            banner = AppBanner(message: "Exported \(qsos.count) QSOs", kind: .success)
+            let snapshot = try database.adifExportSnapshot(scope: .all)
+            try snapshot.document.write(to: url, atomically: true, encoding: .utf8)
+            banner = AppBanner(message: "Exported \(snapshot.records.count) QSOs from the entire logbook", kind: .success)
         } catch { banner = AppBanner(message: error.localizedDescription, kind: .error) }
     }
 

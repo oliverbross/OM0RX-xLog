@@ -422,6 +422,8 @@ shared with CR-001, not an additional promoted timestamp defect.
 
 ### CR-009 — Legacy SwiftUI import silently skips records and duplicates repeated imports
 
+**Remediation status:** Fixed and Verified. See REMEDIATION_TRACKER.md for the implementation, tests and limits.
+
 **Medium — misleading success and avoidable duplicate contacts in a retained
 application product. Confidence: high. Verification: actual XLogcore/SQLite with
 the exact production method body with chooser/model scaffolding; native GUI
@@ -489,6 +491,8 @@ the defect is source attribution, with no numeric or transmit behavior establish
 See [independent formatter/component run](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/root/frontend-independent.log.txt).
 
 ### CR-011 — Retained SwiftUI ADIF export silently stops at the 2,000-row view cap
+
+**Remediation status:** Fixed and Verified. See REMEDIATION_TRACKER.md for the implementation, tests and limits.
 
 **Medium — incomplete interchange file from an unfiltered logbook export.
 Confidence: high. Verification: exact production export method, real SQLite/core,
