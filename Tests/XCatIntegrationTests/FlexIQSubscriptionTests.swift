@@ -3,11 +3,15 @@ import XCTest
 @testable import XCatIntegrationCore
 #if os(macOS)
 @preconcurrency import Network
+import Darwin
 
 final class FlexIQSubscriptionTests:XCTestCase {
     private func setup() async throws -> (FlexRadioClient,FlexIQFixtureRadio) {
-        let wire=FlexIQFixtureRadio(),port=try await wire.start()
+        let wire=FlexIQFixtureRadio()
+        addTeardownBlock { await wire.stop() }
+        let port=try await wire.start()
         let radio=FlexRadioClient(host:"127.0.0.1",port:port,stationName:"Fixture")
+        addTeardownBlock { await radio.stopTransportOnly() }
         await radio.start()
         for _ in 0..<200 {
             let capability=await radio.iqCapabilities()
@@ -159,7 +163,9 @@ private extension FlexRadioClient {
 }
 private actor FlexIQFixtureRadio {
     private let queue=DispatchQueue(label:"xlog.fixture.flex-iq")
-    private var listener:NWListener?,connection:NWConnection?,udp:NWConnection?
+    private var listener:NWListener?,connection:NWConnection?
+    private var udpSocket:Int32 = -1
+    private var udpDestination:sockaddr_in?
     private var ready=false,buffer=Data(),pump:Task<Void,Never>?
     private var streams:[UInt32:(Int,UInt8)]=[:]
     private var held=false,pendingCreate:Int?
@@ -200,9 +206,19 @@ private actor FlexIQFixtureRadio {
             status("display pan 0x40000001 client_handle=0x1234 daxiq_channel=2 center=7.025000 rxant=ANT1")
         }
         if body.hasPrefix("client udpport "),let port=UInt16(body.split(separator:" ").last!) {
-            let parameters=NWParameters.udp;parameters.requiredLocalEndpoint = .hostPort(host:"127.0.0.1",port:4991)
-            let udp=NWConnection(host:"127.0.0.1",port:NWEndpoint.Port(rawValue:port)!,using:parameters)
-            self.udp=udp;udp.start(queue:queue)
+            // The receiver requires the radio's exact source port. Bind it
+            // synchronously and check every datagram; the old NW sender ignored
+            // readiness/send failures and left port 4991 held after a test threw.
+            let fd=Darwin.socket(AF_INET,SOCK_DGRAM,0)
+            guard fd >= 0 else { XCTFail("Fixture UDP socket: \(errno)"); return }
+            var local=sockaddr_in();local.sin_len=UInt8(MemoryLayout<sockaddr_in>.size)
+            local.sin_family=sa_family_t(AF_INET);local.sin_port=UInt16(4991).bigEndian
+            local.sin_addr.s_addr=inet_addr("127.0.0.1")
+            let bound=withUnsafePointer(to:&local) { pointer in
+                pointer.withMemoryRebound(to:sockaddr.self,capacity:1) { Darwin.bind(fd,$0,socklen_t(MemoryLayout<sockaddr_in>.size)) }
+            }
+            guard bound == 0 else { let error=errno;Darwin.close(fd);XCTFail("Fixture UDP bind: \(error)");return }
+            udpSocket=fd;local.sin_port=port.bigEndian;udpDestination=local
             pump=Task{[weak self] in while !Task.isCancelled {try? await Task.sleep(for:.milliseconds(10));guard !Task.isCancelled else{return};await self?.emit()}}
         }
         if body.hasPrefix("stream create ") {
@@ -231,9 +247,17 @@ private actor FlexIQFixtureRadio {
                 var value=word.bigEndian;withUnsafeBytes(of:&value){data.append(contentsOf:$0)}
             }
             data.append(Data(repeating:0,count:8192));streams[id]=(rate,(counter+1)%16)
-            udp?.send(content:data,completion:.contentProcessed{_ in})
+            guard udpSocket >= 0,var destination=udpDestination else { return }
+            let written=data.withUnsafeBytes { bytes in
+                withUnsafePointer(to:&destination) { pointer in
+                    pointer.withMemoryRebound(to:sockaddr.self,capacity:1) {
+                        Darwin.sendto(udpSocket,bytes.baseAddress,data.count,0,$0,socklen_t(MemoryLayout<sockaddr_in>.size))
+                    }
+                }
+            }
+            if written != data.count { XCTFail("Fixture UDP send: \(errno), bytes \(written)/\(data.count)");pump?.cancel();return }
         }
     }
-    func stop(){pump?.cancel();pump=nil;udp?.cancel();udp=nil;connection?.cancel();connection=nil;listener?.cancel();listener=nil}
+    func stop(){pump?.cancel();pump=nil;if udpSocket >= 0 { Darwin.close(udpSocket);udpSocket = -1 };udpDestination=nil;connection?.cancel();connection=nil;listener?.cancel();listener=nil}
 }
 #endif
