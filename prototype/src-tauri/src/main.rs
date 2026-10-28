@@ -2684,6 +2684,7 @@ fn prepare_module_transition(app: &tauri::AppHandle, target: &str) -> Result<Pre
         preparation.wait(&request, Duration::from_secs(10))
     })();
     if let Err(error) = result {
+        eprintln!("Workspace preparation cancel pid={} request={request} reason={error}", std::process::id());
         for window in &windows { let _ = window.emit("xlog:operating-module-cancel", serde_json::json!({"request":request})); }
         preparation.finish(&request);
         return Err(error);
@@ -2692,6 +2693,7 @@ fn prepare_module_transition(app: &tauri::AppHandle, target: &str) -> Result<Pre
 }
 
 fn finish_module_transition_preparation(app: &tauri::AppHandle, prepared: &PreparedModuleTransition, resume: bool) {
+    eprintln!("Workspace preparation finish pid={} request={} resume={resume}", std::process::id(), prepared.request);
     if resume {
         for label in &prepared.windows {
             if let Some(window) = app.get_webview_window(label) {
@@ -2804,6 +2806,7 @@ fn switch_operating_module(app: &tauri::AppHandle, target: &str, context: &str,
         return Ok(rejected(error));
     }
     let owner = operating_module::owner()?;
+    eprintln!("Workspace switch request pid={} target={target} context={context} worker={}", std::process::id(), worker::generation());
     let source = if owner.snapshot()?["selected"] == "contesting" {
         operating_module::OperatingModule::Contesting
     } else {
@@ -2835,6 +2838,12 @@ fn switch_operating_module(app: &tauri::AppHandle, target: &str, context: &str,
         finish_module_transition_preparation(app, &prepared, true);
         return Ok(rejected(format!("Operating module was not changed. {error}")));
     }
+    if let Err(error) = operating_module_prepare::preparation().authorize_restart(&prepared.request) {
+        owner.cancel();
+        finish_module_transition_preparation(app, &prepared, true);
+        return Ok(rejected(error));
+    }
+    eprintln!("Workspace switch retire pid={} request={} worker={}", std::process::id(), prepared.request, worker::generation());
     if let Err(error) = retire_for_module_restart(app) {
         finish_module_transition_preparation(app, &prepared, false);
         return Ok(failed(format!("Operating module was not changed. {error} Restart xLog before retrying because station-service retirement may have started.")));
@@ -2843,6 +2852,7 @@ fn switch_operating_module(app: &tauri::AppHandle, target: &str, context: &str,
         finish_module_transition_preparation(app, &prepared, false);
         return Ok(failed(format!("Operating module was not changed. {error} Restart xLog before retrying because station services were retired.")));
     }
+    eprintln!("Workspace switch committed pid={} request={} target={target:?}", std::process::id(), prepared.request);
     let destination = restart_destination.unwrap_or(match target {
         operating_module::OperatingModule::NormalLogging => module_restart_intent::Destination::NormalMain,
         operating_module::OperatingModule::Contesting => module_restart_intent::Destination::contest_route("contest-setup")?,
@@ -2854,7 +2864,9 @@ fn switch_operating_module(app: &tauri::AppHandle, target: &str, context: &str,
             return Ok(failed(format!("The operating module changed, but its requested destination was not retained. {error} Restart xLog and open the Contest action again.")));
         }
     }
-    finish_module_transition_preparation(app, &prepared, false);
+    // ExitRequested must consume the same preflight, not ask frozen editors to
+    // flush a second time after the worker and its admission have retired.
+    eprintln!("Workspace switch restart pid={} request={} target={target:?}", std::process::id(), prepared.request);
     app.restart()
 }
 
@@ -4276,8 +4288,10 @@ fn main() {
         .build(context)
         .expect("Application failed to start")
         .run(|app, event| {
-            if let tauri::RunEvent::ExitRequested { api, .. } = &event {
-                if app.webview_windows().keys().any(|label|module_transition_editor(label))
+            if let tauri::RunEvent::ExitRequested { api, code, .. } = &event {
+                let prepared_restart = operating_module_prepare::preparation().take_restart(*code == Some(tauri::RESTART_EXIT_CODE));
+                eprintln!("Workspace exit pid={} code={code:?} prepared_restart={prepared_restart:?}", std::process::id());
+                if prepared_restart.is_none() && app.webview_windows().keys().any(|label|module_transition_editor(label))
                     && !CONTEST_QUIT_PREPARED.load(Ordering::Acquire) {
                     api.prevent_exit();
                     if CONTEST_QUIT_PREPARING.compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire).is_ok() {

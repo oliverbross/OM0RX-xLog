@@ -15,6 +15,7 @@ export function prepareOperatingModuleTransition(controller: () => OperatingModu
   let active = true, preparedRequest: string | null = null, preparingRequest: string | null = null;
   const cancelled = new Set<string>();
   const stops: Array<() => void> = [];
+  let resumeCurrent: (() => void) | null = null;
 
   const prepare = async (request: string) => {
     const current = controller();
@@ -25,6 +26,9 @@ export function prepareOperatingModuleTransition(controller: () => OperatingModu
     }
     preparingRequest = request;
     current.freeze();
+    let resumed = false;
+    const resume = () => { if (!resumed) { resumed = true; current.resume(); } };
+    resumeCurrent = resume;
     let ready = false, reason: string | undefined;
     try {
       await current.prepare();
@@ -32,11 +36,11 @@ export function prepareOperatingModuleTransition(controller: () => OperatingModu
         preparedRequest = request;
         ready = true;
       } else {
-        current.resume();
+        resume();
       }
     } catch (cause) {
       reason = cause instanceof Error ? cause.message : String(cause);
-      current.resume();
+      resume();
     } finally {
       preparingRequest = null;
     }
@@ -45,7 +49,7 @@ export function prepareOperatingModuleTransition(controller: () => OperatingModu
     } catch {
       if (ready && preparedRequest === request) {
         preparedRequest = null;
-        current.resume();
+        resume();
       }
     }
   };
@@ -58,7 +62,7 @@ export function prepareOperatingModuleTransition(controller: () => OperatingModu
       const request = event.payload?.request;
       if (typeof request !== "string") return;
       cancelled.add(request);
-      if (request === preparedRequest || request === preparingRequest) controller()?.resume();
+      if (request === preparedRequest || request === preparingRequest) resumeCurrent?.();
       if (request === preparedRequest) preparedRequest = null;
     }),
   ]).then(async dispose => {
@@ -72,7 +76,7 @@ export function prepareOperatingModuleTransition(controller: () => OperatingModu
 
   return () => {
     active = false;
-    if (preparedRequest !== null || preparingRequest !== null) controller()?.resume();
+    if (preparedRequest !== null || preparingRequest !== null) resumeCurrent?.();
     stops.forEach(stop => stop());
   };
 }

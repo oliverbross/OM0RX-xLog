@@ -8,6 +8,30 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: api.listen }));
 
 beforeEach(() => { vi.resetAllMocks(); api.invoke.mockResolvedValue(undefined); });
 
+it("resumes the captured editor once on timeout, ignores its late success, and permits explicit retry", async () => {
+  const handlers = new Map<string, (event: { payload: { request: string } }) => void>();
+  api.listen.mockImplementation(async (name: string, handler: any) => { handlers.set(name, handler); return vi.fn(); });
+  let settle!: () => void;
+  const first = { freeze: vi.fn(), prepare: vi.fn(() => new Promise<void>(resolve => { settle = resolve; })), resume: vi.fn() };
+  const next = { freeze: vi.fn(), prepare: vi.fn(async () => undefined), resume: vi.fn() };
+  let controller = first;
+  const dispose = prepareOperatingModuleTransition(() => controller);
+  await Promise.resolve();
+  handlers.get("xlog:operating-module-prepare")!({ payload: { request: "timeout" } });
+  controller = next;
+  handlers.get("xlog:operating-module-cancel")!({ payload: { request: "timeout" } });
+  expect(first.resume).toHaveBeenCalledOnce();
+  expect(next.resume).not.toHaveBeenCalled();
+  settle();
+  await vi.waitFor(() => expect(api.invoke).toHaveBeenCalledWith("operating_module_transition_ack", { request: "timeout", ready: false }));
+  expect(first.resume).toHaveBeenCalledOnce();
+  handlers.get("xlog:operating-module-prepare")!({ payload: { request: "retry" } });
+  await vi.waitFor(() => expect(api.invoke).toHaveBeenCalledWith("operating_module_transition_ack", { request: "retry", ready: true }));
+  expect(next.prepare).toHaveBeenCalledOnce();
+  dispose();
+  expect(next.resume).toHaveBeenCalledOnce();
+});
+
 it("freezes and flushes before acknowledging, then resumes only a cancelled request", async () => {
   const handlers = new Map<string, (event: { payload: { request: string } }) => void>();
   api.listen.mockImplementation(async (name: string, handler: (event: { payload: { request: string } }) => void) => {
@@ -23,8 +47,31 @@ it("freezes and flushes before acknowledging, then resumes only a cancelled requ
   expect(controller.freeze).toHaveBeenCalledOnce();
   expect(controller.prepare).toHaveBeenCalledOnce();
   expect(controller.resume).not.toHaveBeenCalled();
+  // A second Quit preflight after retirement is legitimately refused by the
+  // frozen editor. Native restart must carry the first successful request.
+  handlers.get("xlog:operating-module-prepare")!({ payload: { request: "post-retirement-quit" } });
+  await vi.waitFor(() => expect(api.invoke).toHaveBeenCalledWith("operating_module_transition_ack", {
+    request: "post-retirement-quit", ready: false,
+  }));
+  expect(controller.prepare).toHaveBeenCalledOnce();
   handlers.get("xlog:operating-module-cancel")!({ payload: { request: "transition-a" } });
   expect(controller.resume).toHaveBeenCalledOnce();
+  dispose();
+});
+
+it("waits for supported persistence before readiness without replaying it", async () => {
+  const handlers = new Map<string, (event: { payload: { request: string } }) => void>();
+  api.listen.mockImplementation(async (name: string, handler: any) => { handlers.set(name, handler); return vi.fn(); });
+  let settle!: () => void;
+  const controller = { freeze: vi.fn(), prepare: vi.fn(() => new Promise<void>(resolve => { settle = resolve; })), resume: vi.fn() };
+  const dispose = prepareOperatingModuleTransition(() => controller);
+  await Promise.resolve();
+  handlers.get("xlog:operating-module-prepare")!({ payload: { request: "flush" } });
+  handlers.get("xlog:operating-module-prepare")!({ payload: { request: "flush" } });
+  expect(api.invoke).not.toHaveBeenCalledWith("operating_module_transition_ack", expect.anything());
+  settle();
+  await vi.waitFor(() => expect(api.invoke).toHaveBeenCalledWith("operating_module_transition_ack", { request: "flush", ready: true }));
+  expect(controller.prepare).toHaveBeenCalledOnce();
   dispose();
 });
 

@@ -4880,6 +4880,9 @@ mod tests {
         state.panels.insert("active-qso".into(), PanelState { projection:None,
             receipts:VecDeque::from([(REQUEST.into(), retained_receipt(&json!({"action":"entry_commit"}), "queued", None, 1))]) });
         assert!(retirement_ready_in(&state).is_err());
+        state.panels.get_mut("active-qso").unwrap().receipts[0].1.status = "uncertain";
+        assert!(retirement_ready_in(&state).is_err());
+        assert_eq!(state.panels["active-qso"].receipts[0].0, REQUEST);
         state.panels.get_mut("active-qso").unwrap().receipts[0].1.status = "applied";
         assert!(retirement_ready_in(&state).is_ok());
         state.focused_actions.insert(REQUEST.into());
