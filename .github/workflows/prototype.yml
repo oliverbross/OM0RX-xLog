@@ -50,6 +50,11 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: prototype/package-lock.json
+      - name: Install supported contest Python before native tests
+        uses: actions/setup-python@v5
+        id: contest-python
+        with:
+          python-version: '3.12.4'
       - name: Restore native dependency/build cache
         uses: actions/cache/restore@v4
         with:
@@ -99,12 +104,14 @@ jobs:
         if: runner.os != 'Windows'
         env:
           XLOG_PORTABLE_ONLY: '1'
-        run: swift test --scratch-path .build/prototype-tests
+          XLOG_CONTEST_PYTHON: ${{ steps.contest-python.outputs.python-path }}
+        run: swift test --scratch-path .build/prototype-tests --no-parallel
       - name: Test portable Swift core (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         env:
           XLOG_PORTABLE_ONLY: '1'
+          XLOG_CONTEST_PYTHON: ${{ steps.contest-python.outputs.python-path }}
           # Random fixture identities only, removed by the test's exact cleanup.
           XLOG_TEST_NATIVE_VAULT: '1'
         run: |
@@ -168,11 +175,6 @@ jobs:
         run: npx tauri build --no-bundle
       - name: Collect resolved dependency inventory and notices
         run: node prototype/scripts/distribution-metadata.mjs
-      - name: Install packageable Python runtime
-        if: runner.os == 'macOS'
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12.4'
       - name: Package macOS application
         if: runner.os == 'macOS'
         env:

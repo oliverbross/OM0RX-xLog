@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import XCTest
 import XClusterIntegrationCore
 @testable import XLogPrototypeSupport
 
@@ -603,6 +604,7 @@ struct LiveClusterMethodsTests {
         let configurationURL = root.appendingPathComponent("cluster.json"), inventoryURL = root.appendingPathComponent("spots.json")
         try JSONEncoder().encode(ClusterSessionConfiguration(servers: [], forwardSpotsToFlex: true)).write(to: configurationURL)
         let gate = FreshContestDeliveryGate(), recorder = ClusterRadioSpotRecorder()
+        let retirementStarted = XCTestExpectation(description: "cluster retirement reached its durable drain")
         let broker = SpotForwardBroker(inventoryURL: inventoryURL, targetedDeliver: { _, _, _ in
             await gate.waitForAcceptance(); return "radio2"
         }, targetedRemove: { spot, provider, radioID in
@@ -619,7 +621,10 @@ struct LiveClusterMethodsTests {
                 try await broker.forward(payload.flexSpot(), provider: provider, replacingExisting: replacing)
             }, spotRemove: { payload, provider in try await broker.remove(payload.flexSpot(), provider: provider) },
             retirePersistedContestSpots: { _ = try await broker.retireContestForwardedSpots() },
-            deferPersistedContestSpots: { try await broker.deferContestForwardedSpotsForShutdown() })
+            deferPersistedContestSpots: {
+                retirementStarted.fulfill()
+                return try await broker.deferContestForwardedSpotsForShutdown()
+            })
         let publication = Task { try await cluster.handle(method: "cluster_contest_radio_spots_publish", params: [
             "publisher_id": UUID().uuidString, "publisher_started_at": 2, "publication_sequence": 1,
             "action": "replace", "session_id": UUID().uuidString, "workspace_generation": UUID().uuidString,
@@ -639,7 +644,10 @@ struct LiveClusterMethodsTests {
             await gate.markRetired()
             return outcome
         }
-        try await Task.sleep(for: .milliseconds(40))
+        // Wait for the actual retirement boundary, not a scheduler-dependent
+        // delay while earlier worker owners are still shutting down.
+        let retirementStart = await XCTWaiter.fulfillment(of: [retirementStarted], timeout: 10)
+        #expect(retirementStart == .completed)
         #expect(!(await gate.retirementCompleted()))
         await gate.release()
         #expect(await retirement.value == .contestSpotCleanupDeferred)
