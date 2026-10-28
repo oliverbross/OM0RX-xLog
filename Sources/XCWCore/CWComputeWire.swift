@@ -1,6 +1,8 @@
 // Copyright © 2026 Oliver Bross OM0RX. SPDX-License-Identifier: GPL-3.0-only
 import Foundation
+#if canImport(CoreFoundation)
 import CoreFoundation
+#endif
 
 public enum CWComputeError: Error, Equatable, Sendable {
     case invalidEvent, invalidFrame, resourceValidation, occupied, spawnFailed(Int32)
@@ -66,7 +68,7 @@ public enum CWComputeWire {
         return number
     }
     private static func number(_ value:Any?) throws -> Double {
-        guard let number=value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(), number.doubleValue.isFinite else { throw CWComputeError.invalidEvent }
+        guard let number=value as? NSNumber, !isJSONBoolean(number), number.doubleValue.isFinite else { throw CWComputeError.invalidEvent }
         return number.doubleValue
     }
     private static func integer(_ value:Any?,range:ClosedRange<Int>) throws -> Int {
@@ -75,8 +77,20 @@ public enum CWComputeWire {
         return Int(number)
     }
     private static func boolean(_ value:Any?) throws -> Bool {
-        guard let number=value as? NSNumber, CFGetTypeID(number)==CFBooleanGetTypeID() else { throw CWComputeError.invalidEvent }
+        guard let number=value as? NSNumber, isJSONBoolean(number) else { throw CWComputeError.invalidEvent }
         return number.boolValue
+    }
+    private static func isJSONBoolean(_ number:NSNumber) -> Bool {
+        #if canImport(CoreFoundation)
+        CFGetTypeID(number)==CFBooleanGetTypeID()
+        #else
+        isFoundationBoolean(number)
+        #endif
+    }
+    // Match the portable backend's canonical Foundation boolean check. Numeric
+    // Int8/UInt8 values must not become booleans through objCType or Bool casts.
+    static func isFoundationBoolean(_ number:NSNumber) -> Bool {
+        number === NSNumber(value:true) || number === NSNumber(value:false)
     }
     private static func track(_ object:[String:Any],kind:String) throws -> CWNativeTrack {
         guard let token=object["stream_token"] as? String, token.utf8.count==32,
