@@ -26,12 +26,21 @@ final class NativeDraftPowerGate: @unchecked Sendable {
     private var epoch: UInt64 = 0
     private var provider: String?
     private var selectionID: String?
-    private var sourceID: UUID?
-    private var endpointID: String?
-    private var sequence: UInt64 = 0
-    private var sessionID: UUID?
-    private var startedAt: Date?
-    private var ready = false
+    private struct Source {
+        let id: UUID
+        let endpointID: String
+        var sequence: UInt64 = 0
+        var sessionID: UUID?
+        var startedAt: Date?
+        var ready = false
+    }
+    private var radioID = "radio1"
+    private var sources: [String: Source] = [:]
+    private var sourceID: UUID? { sources[radioID]?.id }
+    private var endpointID: String? { sources[radioID]?.endpointID }
+    private var sessionID: UUID? { sources[radioID]?.sessionID }
+    private var startedAt: Date? { sources[radioID]?.startedAt }
+    private var ready: Bool { sources[radioID]?.ready == true }
     private var suspended = false
     private var terminated = false
     private var lease: Lease?
@@ -45,21 +54,22 @@ final class NativeDraftPowerGate: @unchecked Sendable {
         lock.withLock { self.changed = changed; self.received = received }
     }
 
-    func select(provider: String?, selectionID: String?) {
+    func select(provider: String?, selectionID: String?, radioID: String = "radio1") {
         let callback = lock.withLock { () -> (@Sendable () -> Void)? in
-            guard !terminated else { return nil }
-            guard self.provider != provider || self.selectionID != selectionID else { return nil }
+            guard !terminated, ["radio1", "radio2"].contains(radioID) else { return nil }
+            guard self.provider != provider || self.selectionID != selectionID || self.radioID != radioID else { return nil }
             self.provider = provider; self.selectionID = selectionID
+            self.radioID = radioID
             retire(); return changed
         }
         callback?()
     }
 
-    func attach(sourceID: UUID, endpointID: String) {
+    func attach(sourceID: UUID, endpointID: String, radioID: String = "radio1") {
         let callback = lock.withLock { () -> (@Sendable () -> Void)? in
-            guard !terminated else { return nil }
-            self.sourceID = sourceID; self.endpointID = endpointID
-            sequence = 0; sessionID = nil; startedAt = nil; ready = false
+            guard !terminated, ["radio1", "radio2"].contains(radioID) else { return nil }
+            sources[radioID] = Source(id: sourceID, endpointID: endpointID)
+            guard self.radioID == radioID else { return nil }
             retire(); return changed
         }
         callback?()
@@ -67,18 +77,22 @@ final class NativeDraftPowerGate: @unchecked Sendable {
 
     func connection(sourceID: UUID, sequence: UInt64, sessionID: UUID, startedAt: Date?, ready: Bool) {
         let callback = lock.withLock { () -> (@Sendable () -> Void)? in
-            guard !terminated, self.sourceID == sourceID, sequence > self.sequence else { return nil }
-            self.sequence = sequence
-            guard self.sessionID != sessionID || self.startedAt != startedAt || self.ready != ready else { return nil }
-            self.sessionID = sessionID; self.startedAt = startedAt; self.ready = ready
+            guard !terminated, let slot = sources.first(where: { $0.value.id == sourceID })?.key,
+                  var source = sources[slot], sequence > source.sequence else { return nil }
+            let contextChanged = source.sessionID != sessionID || source.startedAt != startedAt || source.ready != ready
+            source.sequence = sequence; source.sessionID = sessionID; source.startedAt = startedAt; source.ready = ready
+            sources[slot] = source
+            guard contextChanged, slot == radioID else { return nil }
             retire(); return changed
         }
         callback?()
     }
 
-    func detach() {
+    func detach(radioID: String = "radio1") {
         let callback = lock.withLock { () -> (@Sendable () -> Void)? in
-            sourceID = nil; endpointID = nil; ready = false; retire(); return changed
+            sources.removeValue(forKey: radioID)
+            guard self.radioID == radioID else { return nil }
+            retire(); return changed
         }
         callback?()
     }

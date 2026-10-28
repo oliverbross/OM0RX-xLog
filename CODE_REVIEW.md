@@ -99,6 +99,8 @@ See [caller analysis](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/f
 
 ### CR-002 — Worker lifecycle hooks target different radio instances from command routing
 
+**Remediation status:** Fixed and Verified. See REMEDIATION_TRACKER.md for the implementation, tests and limits.
+
 **High — the connected owners' existing release/retirement path is bypassed.
 Confidence: high. Verification: actual compiled-module lifecycle and connected
 loopback-resource probes plus cross-component source analysis; RF was not tested.**

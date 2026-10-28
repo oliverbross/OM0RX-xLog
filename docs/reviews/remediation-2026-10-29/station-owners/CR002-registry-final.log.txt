@@ -1,0 +1,64 @@
+Building for debugging...
+[Computing dependencies]
+[1 / 19] XLogPrototypeSupport
+[2 / 7] XLogPrototypeTests-product
+[4 / 9] XLogPrototypeTests-product
+[9 / 13] XLogPrototypeTests-product
+[11 / 13] XLogPrototypeTests-product
+Build complete! (8.14 sec.)
+Test Suite 'Selected tests' started at 2026-10-29 00:46:48.026.
+Test Suite 'XStationIntegrationTests.xctest' started at 2026-10-29 00:46:48.029.
+Test Suite 'XStationIntegrationTests.xctest' passed at 2026-10-29 00:46:48.029.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:46:48.029.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.003) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:46:48.109.
+Test Suite 'XLogPrototypeTests.xctest' started at 2026-10-29 00:46:48.110.
+Test Suite 'StationRadioRegistryTests' started at 2026-10-29 00:46:48.110.
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testPowerSourcesRemainBoundToTheirSelectedRadioAcrossOtherSlotReconnectAndDetach]' started.
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testPowerSourcesRemainBoundToTheirSelectedRadioAcrossOtherSlotReconnectAndDetach]' passed (0.003 seconds).
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testWorkerRegistersBothRoutedAgentsAndRetiresEverySlotWithoutGlobalServices]' started.
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testWorkerRegistersBothRoutedAgentsAndRetiresEverySlotWithoutGlobalServices]' passed (0.303 seconds).
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testWorkerReleasesOwnedFlexTuneButOnlyStopsPassiveSlotTransport]' started.
+/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift:177: error: -[XLogPrototypeTests.StationRadioRegistryTests testWorkerReleasesOwnedFlexTuneButOnlyStopsPassiveSlotTransport] : failed: caught error: "WorkerFailure(code: "invalid_params", message: "Invalid direct FLEX parameters.")"
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testWorkerReleasesOwnedFlexTuneButOnlyStopsPassiveSlotTransport]' failed (1.499 seconds).
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testWorkerRetiresConnectedTCIWithoutSendingReceiveOrTransmitControls]' started.
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testWorkerRetiresConnectedTCIWithoutSendingReceiveOrTransmitControls]' passed (0.279 seconds).
+Test Suite 'StationRadioRegistryTests' failed at 2026-10-29 00:46:50.195.
+	 Executed 4 tests, with 1 failure (1 unexpected) in 2.084 (2.085) seconds
+Test Suite 'XLogPrototypeTests.xctest' failed at 2026-10-29 00:46:50.195.
+	 Executed 4 tests, with 1 failure (1 unexpected) in 2.084 (2.085) seconds
+Test Suite 'Selected tests' failed at 2026-10-29 00:46:50.195.
+	 Executed 4 tests, with 1 failure (1 unexpected) in 2.084 (2.086) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:46:50.296.
+Test Suite 'XContestStoreTests.xctest' started at 2026-10-29 00:46:50.297.
+Test Suite 'XContestStoreTests.xctest' passed at 2026-10-29 00:46:50.297.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:46:50.297.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:46:50.392.
+Test Suite 'XContestCoreTests.xctest' started at 2026-10-29 00:46:50.393.
+Test Suite 'XContestCoreTests.xctest' passed at 2026-10-29 00:46:50.393.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:46:50.393.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:46:50.490.
+Test Suite 'XClusterIntegrationTests.xctest' started at 2026-10-29 00:46:50.491.
+Test Suite 'XClusterIntegrationTests.xctest' passed at 2026-10-29 00:46:50.491.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:46:50.491.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:46:50.590.
+Test Suite 'XCatIntegrationTests.xctest' started at 2026-10-29 00:46:50.591.
+Test Suite 'XCatIntegrationTests.xctest' passed at 2026-10-29 00:46:50.591.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:46:50.591.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:46:50.689.
+Test Suite 'XCWCoreTests.xctest' started at 2026-10-29 00:46:50.690.
+Test Suite 'XCWCoreTests.xctest' passed at 2026-10-29 00:46:50.690.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:46:50.690.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Note: Some test targets reported failures:
+  - XLogPrototypeTests (XCTest)

@@ -217,7 +217,7 @@ actor LiveStationSession {
     private var connectionGeneration: UInt64 = 0
     private var powerEvents: StationPowerSessionEventSource?
     private var powerSession = StationPowerSessionState()
-    private var powerCapture: NativeDraftPowerGate?
+    private(set) var powerCapture: NativeDraftPowerGate?
     private var powerSessionID: UUID { powerSession.sessionID }
     private var powerSessionStartedAt: Date? { powerSession.startedAt }
     private var catServers: EmbeddedCATServers?
@@ -341,7 +341,7 @@ actor LiveStationSession {
             powerSession = StationPowerSessionState()
             powerEvents = nextPowerEvents
             capture?.attach(sourceID: nextPowerEvents.id,
-                endpointID: "direct_agent:" + SHA256.hash(data: Data(endpoint.utf8)).map { String(format: "%02x", $0) }.joined())
+                endpointID: "direct_agent:" + SHA256.hash(data: Data(endpoint.utf8)).map { String(format: "%02x", $0) }.joined(), radioID: radioID)
             let current = client
             client = nil
             transportState = .stopped
@@ -583,7 +583,7 @@ actor LiveStationSession {
         lifecycleTransitions += 1
         defer { lifecycleTransitions -= 1 }
         connectionGeneration &+= 1
-        powerCapture?.detach()
+        powerCapture?.detach(radioID: radioID)
         powerSession = StationPowerSessionState()
         powerEvents = nil
         let current = client

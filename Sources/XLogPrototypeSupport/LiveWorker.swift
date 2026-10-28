@@ -161,6 +161,7 @@ public actor LiveWorker {
     /// Only the process singleton owns hardware/service singletons. Disposable
     /// workers used by acceptance and unit tests must never terminate them.
     private let ownsProcessSessions: Bool
+    private let stationRegistry: StationRadioRegistry?
     private let contactRefresher: @Sendable () async throws -> Void
     private var contactRefreshPending = false
     private var workspaceTransitionCount = 0
@@ -180,7 +181,8 @@ public actor LiveWorker {
           runtimeProfile: AppRuntimeProfile = .production,
           operatingModule: WorkerOperatingModule = .normalLogging,
           contestDeclarativeDefinitions: [ContestDeclarativeDefinition]? = nil,
-          pythonContestConfiguration: PythonContestHostConfiguration? = nil) {
+          pythonContestConfiguration: PythonContestHostConfiguration? = nil,
+          stationRegistry: StationRadioRegistry? = nil) {
         self.powerCapture = powerCapture
         self.powerDelivery = powerDelivery
         self.logbookMethods = logbook
@@ -278,6 +280,7 @@ public actor LiveWorker {
         self.runtimeProfile = runtimeProfile
         self.operatingModule = operatingModule
         self.ownsProcessSessions = ownsProcessSessions
+        self.stationRegistry = stationRegistry ?? (ownsProcessSessions && !localAcceptance ? .shared : nil)
     }
 
     func beginTerminalShutdown() async {
@@ -371,7 +374,7 @@ public actor LiveWorker {
         powerCapture.install(changed: { delivery.enqueue { await lane.reconcilePower() } },
                              received: { reading in delivery.enqueue { await lane.capturePower(reading) } })
         #if os(macOS)
-        if registerStation && ownsProcessSessions { await LiveStationSession.shared.installPowerCapture(powerCapture) }
+        if registerStation { await stationRegistry?.installPowerCapture(powerCapture) }
         #endif
         await lane.reconcilePower()
     }
@@ -411,14 +414,14 @@ public actor LiveWorker {
             // its durable queue so station ownership can retire promptly.
             contestSpotsRetired = await cluster.terminate(deferRadioSpotCleanup: true)
             await LiveRotorSession.shared.terminate()
-            await LiveFlexSession.shared.terminate()
-            await LiveTCISession.shared.terminate()
-            await LiveStationSession.shared.terminate()
         } else {
             contestSpotsRetired = await cluster.terminate(deferRadioSpotCleanup: true)
         }
         #else
         contestSpotsRetired = await cluster.terminate(deferRadioSpotCleanup: true)
+        #endif
+        #if os(macOS)
+        await stationRegistry?.terminate()
         #endif
         await services.terminate()
         return .resolve(onlineLogsRetired: onlineLogsRetired, contestSpotsRetired: contestSpotsRetired)
@@ -509,7 +512,7 @@ public actor LiveWorker {
                 guard runtimeProfile == .production, operatingModule == .contesting else {
                     throw WorkerFailure("inactive_operating_module", "Contest tuning belongs to the inactive operating module.")
                 }
-                let tuned = try await LiveStationMethods.handle("station_tune", params: params)
+                let tuned = try await LiveStationMethods.handle("station_tune", params: params, registry: stationRegistry ?? .shared)
                 return encode(["id": id, "ok": true, "result": tuned])
             }
             #endif
@@ -581,7 +584,7 @@ public actor LiveWorker {
                 // radio disconnect while a long import holds the logbook lane.
                 if sequence > powerSelectionSequence[radioID, default: 0] {
                     powerSelectionSequence[radioID] = sequence
-                    powerCapture.select(provider: selectedProvider, selectionID: selectionID)
+                    powerCapture.select(provider: selectedProvider, selectionID: selectionID, radioID: radioID)
                     result = ["accepted": true]
                 } else {
                     // A delayed startup publication cannot restore the context
@@ -721,7 +724,7 @@ public actor LiveWorker {
                 } else if method.hasPrefix("reference_") {
                     result = try await references.handle(method: method, params: params)
                 } else if method.hasPrefix("station_") {
-                    result = try await LiveStationMethods.handle(method, params: params)
+                result = try await LiveStationMethods.handle(method, params: params, registry: stationRegistry ?? .shared)
                 } else if method.hasPrefix("spot_bridge_") {
                     result = try await LiveSpotBridge.shared.handle(method: method, params: params)
                 } else if method.hasPrefix("wsjtx_") {

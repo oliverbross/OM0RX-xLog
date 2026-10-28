@@ -1,0 +1,303 @@
+Building for debugging...
+[Computing dependencies]
+[1 / 2] XCWCoreTests-product
+[2 / 22] XLogPrototypeSupport
+[7 / 27] XLogPrototypeSupport
+[9 / 29] XLogPrototypeSupport
+/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift:43:70: warning: converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+ 41 |          validatePrivateRoot: @escaping @Sendable () throws -> Void,
+ 42 |          beforeReplacementPublish: @escaping @Sendable () async -> Void = {},
+ 43 |          providerFetch: @escaping ProviderFetch = ContestSCPProvider.fetchLatest,
+    |                                                                      `- warning: converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+ 44 |          writeAtomically: @escaping AtomicWriter = { data, url in try data.write(to: url, options: [.atomic]) },
+ 45 |          validateScope: @escaping ScopeValidator) throws {
+[15 / 33] XLogPrototypeSupport
+[20 / 38] xlog-prototype-worker-product
+[22 / 40] xlog-prototype-worker-product
+[23 / 40] XLogPrototypeSupport
+[23 / 40] xlog-prototype-worker-product
+[24 / 40] XLogPrototypeSupport
+[26 / 40] XLogPrototypeSupport
+[29 / 39] xlog-prototype-worker-product
+[31 / 40] xlog-prototype-worker-product
+[31 / 42] XLogPrototypeTests-product
+[40 / 51] XLogPrototypeTests-product
+[41 / 51] XLogPrototypeTests-product
+[44 / 50] XLogPrototypeTests-product
+[46 / 50] XLogPrototypeTests-product
+[48 / 50] XLogPrototypeTests-product
+Build complete! (39.36 sec.)
+Test Suite 'Selected tests' started at 2026-10-29 00:44:29.942.
+Test Suite 'XStationIntegrationTests.xctest' started at 2026-10-29 00:44:29.944.
+Test Suite 'XStationIntegrationTests.xctest' passed at 2026-10-29 00:44:29.944.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:44:29.944.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:44:30.026.
+Test Suite 'XLogPrototypeTests.xctest' started at 2026-10-29 00:44:30.027.
+Test Suite 'LiveFlexSessionTests' started at 2026-10-29 00:44:30.027.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testAckWithoutFreshReadbackNeverConfirmsTune]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testAckWithoutFreshReadbackNeverConfirmsTune]' passed (0.259 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testCancelInterruptsOwnedTuneReadbackAndConfirmsOnlyFreshRelease]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testCancelInterruptsOwnedTuneReadbackAndConfirmsOnlyFreshRelease]' passed (0.057 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testCarrierTuneUsesExactBackendGenerationAndFreshInterlockConfirmation]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testCarrierTuneUsesExactBackendGenerationAndFreshInterlockConfirmation]' passed (0.013 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testCWGenerationFenceRejectsStaleSendAndStopBeforeDeviceWrite]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testCWGenerationFenceRejectsStaleSendAndStopBeforeDeviceWrite]' passed (0.012 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testCWReleaseRejectsUnrelatedSnapshotWithoutFreshInterlock]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testCWReleaseRejectsUnrelatedSnapshotWithoutFreshInterlock]' passed (0.271 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testExternalTransmitIsNeverClaimedOrReleasedByReadOnlySession]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testExternalTransmitIsNeverClaimedOrReleasedByReadOnlySession]' passed (0.012 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testGUIOffInterruptsPendingOnAndOlderOnCannotPublishLateSuccess]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testGUIOffInterruptsPendingOnAndOlderOnCannotPublishLateSuccess]' passed (0.121 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testGUIPTTConfirmsFreshInterlockAndOffDoesNotReleaseCWOrUnrelatedTune]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testGUIPTTConfirmsFreshInterlockAndOffDoesNotReleaseCWOrUnrelatedTune]' passed (0.012 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testHeldNativeTuneCannotKeyAfterANewerCancelArrivesFirst]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testHeldNativeTuneCannotKeyAfterANewerCancelArrivesFirst]' passed (0.016 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testManualVFOFrequencyAndSplitControlsRequireObservedReadback]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testManualVFOFrequencyAndSplitControlsRequireObservedReadback]' passed (0.200 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testMissingAProofBlocksTuneBeforeAnyWrite]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testMissingAProofBlocksTuneBeforeAnyWrite]' passed (0.015 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testOwnedCWIsClearedBeforePTTReleaseOnDisconnect]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testOwnedCWIsClearedBeforePTTReleaseOnDisconnect]' passed (0.011 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testOwnedReleaseFailureRetainsConnectionAndObligationUntilObservedOff]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testOwnedReleaseFailureRetainsConnectionAndObligationUntilObservedOff]' passed (0.290 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testProviderClaimPreventsCrossProviderConnectUntilRelease]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testProviderClaimPreventsCrossProviderConnectUntilRelease]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testReadOnlyDisconnectDoesNotSendAnyRFRelease]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testReadOnlyDisconnectDoesNotSendAnyRFRelease]' passed (0.016 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testReceiveModeTargetsObservedVFOAAndRequiresFreshReadback]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testReceiveModeTargetsObservedVFOAAndRequiresFreshReadback]' passed (0.053 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testReceiveSideWriteRequiresKnownIdleInterlock]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testReceiveSideWriteRequiresKnownIdleInterlock]' passed (0.012 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testReconnectCannotSupersedeAnInFlightControl]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testReconnectCannotSupersedeAnInFlightControl]' passed (0.291 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testRFPowerCommandRejectionCannotConfirmCachedValue]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testRFPowerCommandRejectionCannotConfirmCachedValue]' passed (0.014 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testRFPowerCommandResponseIsOnlyACKEvidence]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testRFPowerCommandResponseIsOnlyACKEvidence]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testRFPowerFreshStatusConfirmsBoundaryValuesAndCapability]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testRFPowerFreshStatusConfirmsBoundaryValuesAndCapability]' passed (0.016 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testRFPowerMatchingStaleReadbackOrFreshMismatchDoesNotConfirm]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testRFPowerMatchingStaleReadbackOrFreshMismatchDoesNotConfirm]' passed (0.557 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testRFPowerRejectsInvalidValuesBeforeWrite]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testRFPowerRejectsInvalidValuesBeforeWrite]' passed (0.012 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testRFPowerRequiresFreshMatchingStatusNotJustACKOrUnrelatedSnapshot]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testRFPowerRequiresFreshMatchingStatusNotJustACKOrUnrelatedSnapshot]' passed (0.293 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testRFPowerStatusParserAcceptsOnlyBoundedTransmitField]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testRFPowerStatusParserAcceptsOnlyBoundedTransmitField]' passed (0.003 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testRFPowerWriteRequiresObservedIdleInterlock]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testRFPowerWriteRequiresObservedIdleInterlock]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testTransmitRequiresExplicitSliceRolesAndInterlockEvidence]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testTransmitRequiresExplicitSliceRolesAndInterlockEvidence]' passed (0.025 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testTransmitRequiresOptInAndInvalidHostIsRejectedBeforeFactory]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testTransmitRequiresOptInAndInvalidHostIsRejectedBeforeFactory]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testTransportLossInvalidatesObservedStateBeforeFurtherControls]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testTransportLossInvalidatesObservedStateBeforeFurtherControls]' passed (0.027 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testTuneLeavesBReceiveAndTransmitOnlyAfterFreshAProof]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testTuneLeavesBReceiveAndTransmitOnlyAfterFreshAProof]' passed (0.150 seconds).
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testUnownedGUIOffNeverCancelsAnOwnedCarrierTune]' started.
+Test Case '-[XLogPrototypeTests.LiveFlexSessionTests testUnownedGUIOffNeverCancelsAnOwnedCarrierTune]' passed (0.017 seconds).
+Test Suite 'LiveFlexSessionTests' passed at 2026-10-29 00:44:32.811.
+	 Executed 31 tests, with 0 failures (0 unexpected) in 2.779 (2.784) seconds
+Test Suite 'LiveStationMethodsTests' started at 2026-10-29 00:44:32.811.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testAgentCredentialCacheBoundsBackgroundFailuresButPermitsInteractiveRecovery]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testAgentCredentialCacheBoundsBackgroundFailuresButPermitsInteractiveRecovery]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testAgentCredentialCacheReadsAMissingTokenOnlyOnceInBackground]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testAgentCredentialCacheReadsAMissingTokenOnlyOnceInBackground]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testAgentCredentialCacheReadsAStoredTokenOnlyOncePerWorker]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testAgentCredentialCacheReadsAStoredTokenOnlyOncePerWorker]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testAgentCredentialCacheUsesNewExplicitCredentialWithoutReadingStorage]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testAgentCredentialCacheUsesNewExplicitCredentialWithoutReadingStorage]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testCancelRejectsReplacedBackendBeforeAnyTransportAndRetainedCapabilityAllowsOnlyRelease]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testCancelRejectsReplacedBackendBeforeAnyTransportAndRetainedCapabilityAllowsOnlyRelease]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testCarrierCancelRetiresEveryOlderPreparationWithoutAcquiringReleaseAuthority]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testCarrierCancelRetiresEveryOlderPreparationWithoutAcquiringReleaseAuthority]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testCarrierReleaseRequiresAnAuthoritativeRXObservationAfterTheCommandBarrier]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testCarrierReleaseRequiresAnAuthoritativeRXObservationAfterTheCommandBarrier]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testCarrierTuneRejectsReplacedBackendBeforeAnyTransport]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testCarrierTuneRejectsReplacedBackendBeforeAnyTransport]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testCWAndTuneHaveTheirOwnReleaseObligations]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testCWAndTuneHaveTheirOwnReleaseObligations]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testDirectAgentConsumesExplicitRadioIdentityBeforeExactPayloadValidation]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testDirectAgentConsumesExplicitRadioIdentityBeforeExactPayloadValidation]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testDirectEndpointRequiresCredentialFreeHTTPS]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testDirectEndpointRequiresCredentialFreeHTTPS]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testDirectRotorAndSpotRejectMalformedRequestsBeforeTransport]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testDirectRotorAndSpotRejectMalformedRequestsBeforeTransport]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testEndpointIsBoundedToLoopback]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testEndpointIsBoundedToLoopback]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testExactAgentReceiveConfirmationRequiresANewerAuthoritativeIdleVFOAObservation]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testExactAgentReceiveConfirmationRequiresANewerAuthoritativeIdleVFOAObservation]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testGUIPTTOffNativeTokenRetiresOlderOnBeforeAnyAgentTransport]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testGUIPTTOffNativeTokenRetiresOlderOnBeforeAnyAgentTransport]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testGUIPTTRequiresNewerProofAndCannotClearOtherReleaseSources]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testGUIPTTRequiresNewerProofAndCannotClearOtherReleaseSources]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testIndependentRotorSnapshotDoesNotRequireRadioIdentity]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testIndependentRotorSnapshotDoesNotRequireRadioIdentity]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testJSONBooleanCannotBecomeANumericPort]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testJSONBooleanCannotBecomeANumericPort]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testMalformedStationCommandsFailBeforeTransport]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testMalformedStationCommandsFailBeforeTransport]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testMalformedStationConnectFailsBeforeTransport]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testMalformedStationConnectFailsBeforeTransport]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testManualSimplexRejectsReplacedConnectionBeforeAnyTransport]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testManualSimplexRejectsReplacedConnectionBeforeAnyTransport]' passed (0.109 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testManualTuneConfirmationWaitsForTransmitVFOToFollow]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testManualTuneConfirmationWaitsForTransmitVFOToFollow]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testMonitoringDoesNotAcquireTransmitReleaseObligations]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testMonitoringDoesNotAcquireTransmitReleaseObligations]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testNativeOrderedCancelRejectsAnOlderTuneDeliveredAfterIt]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testNativeOrderedCancelRejectsAnOlderTuneDeliveredAfterIt]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testNativeOrderedStandbyRejectsOlderOperateAndTuneBeforeTransport]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testNativeOrderedStandbyRejectsOlderOperateAndTuneBeforeTransport]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testOperateIsNotClassifiedAsAnRFProducingTransmitControl]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testOperateIsNotClassifiedAsAnRFProducingTransmitControl]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testRadioSpotModesUseConcreteFlexSidebands]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testRadioSpotModesUseConcreteFlexSidebands]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testRemoteCWGenerationFenceRejectsRequestsBeforeConnecting]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testRemoteCWGenerationFenceRejectsRequestsBeforeConnecting]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testSimplexConfirmationRequiresPTTOff]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testSimplexConfirmationRequiresPTTOff]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testStandbyRetainedCapabilityDoesNotRequireObservationOrCommissioning]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testStandbyRetainedCapabilityDoesNotRequireObservationOrCommissioning]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testUncertainTransmitAttemptStillRequiresRelease]' started.
+Test Case '-[XLogPrototypeTests.LiveStationMethodsTests testUncertainTransmitAttemptStillRequiresRelease]' passed (0.000 seconds).
+Test Suite 'LiveStationMethodsTests' passed at 2026-10-29 00:44:32.939.
+	 Executed 31 tests, with 0 failures (0 unexpected) in 0.123 (0.127) seconds
+Test Suite 'LiveTCISessionTests' started at 2026-10-29 00:44:32.939.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testAdapterPreservesProducerTimeInsteadOfRestampingDelivery]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testAdapterPreservesProducerTimeInsteadOfRestampingDelivery]' passed (0.003 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testExplicitConnectRequiresDiscoveryAndReadyAndPollDoesNotRefreshReceiptTime]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testExplicitConnectRequiresDiscoveryAndReadyAndPollDoesNotRefreshReceiptTime]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testExplicitSpotOutputUsesOfficialTCIFrameWithoutClaimingDisplayReadback]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testExplicitSpotOutputUsesOfficialTCIFrameWithoutClaimingDisplayReadback]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testExplicitTuneUsesSavedAddressAndReturnsOnlyAfterAuthoritativeReadback]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testExplicitTuneUsesSavedAddressAndReturnsOnlyAfterAuthoritativeReadback]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testFilterBridgeRejectsMalformedTargetsAndConfirmsOnlyExactSavedTRXReadback]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testFilterBridgeRejectsMalformedTargetsAndConfirmsOnlyExactSavedTRXReadback]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testFlexAndTCIReceiveSlotsStayIndependentAndTCIDisconnectDoesNotReleaseFlex]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testFlexAndTCIReceiveSlotsStayIndependentAndTCIDisconnectDoesNotReleaseFlex]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testNewWrapperGenerationRejectsLateOldConnectionUpdates]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testNewWrapperGenerationRejectsLateOldConnectionUpdates]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testOnlyValidConfiguredOrGlobalEvidenceRefreshesRadioTimestamp]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testOnlyValidConfiguredOrGlobalEvidenceRefreshesRadioTimestamp]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testProviderClaimExcludesBothDirectionsAndReleaseIsLeaseScoped]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testProviderClaimExcludesBothDirectionsAndReleaseIsLeaseScoped]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testShutdownRetiresPendingConnectAndClosesLateConnection]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testShutdownRetiresPendingConnectAndClosesLateConnection]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testSnapshotSaveAndDeniedMethodsNeverConnect]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testSnapshotSaveAndDeniedMethodsNeverConnect]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testSplitReceiptIsIndependentTRXScopedAndClearedAcrossConnections]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testSplitReceiptIsIndependentTRXScopedAndClearedAcrossConnections]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTransportFailureNeverReconnectsOrReplays]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTransportFailureNeverReconnectsOrReplays]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTuneRejectsStaleGenerationAndUnknownTransmitStateWithoutWriting]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTuneRejectsStaleGenerationAndUnknownTransmitStateWithoutWriting]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testWorkerRouterRecognizesTCIWithoutFallingThroughToAgentOrLoopback]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testWorkerRouterRecognizesTCIWithoutFallingThroughToAgentOrLoopback]' passed (0.000 seconds).
+Test Suite 'LiveTCISessionTests' passed at 2026-10-29 00:44:32.953.
+	 Executed 15 tests, with 0 failures (0 unexpected) in 0.013 (0.014) seconds
+Test Suite 'StationRadioRegistryTests' started at 2026-10-29 00:44:32.953.
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testPowerSourcesRemainBoundToTheirSelectedRadioAcrossOtherSlotReconnectAndDetach]' started.
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testPowerSourcesRemainBoundToTheirSelectedRadioAcrossOtherSlotReconnectAndDetach]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testWorkerRegistersBothRoutedAgentsAndRetiresEverySlotWithoutGlobalServices]' started.
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testWorkerRegistersBothRoutedAgentsAndRetiresEverySlotWithoutGlobalServices]' passed (0.304 seconds).
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testWorkerReleasesOwnedFlexTuneButOnlyStopsPassiveSlotTransport]' started.
+/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/StationRadioRegistryTests.swift:0: error: -[XLogPrototypeTests.StationRadioRegistryTests testWorkerReleasesOwnedFlexTuneButOnlyStopsPassiveSlotTransport] : failed: caught error: "Error Domain=NSCocoaErrorDomain Code=4 "“registry-flex-948FF6C1-6A8B-4F63-B4F0-E9858EA59E7C” couldn’t be removed." UserInfo={NSUserStringVariant=(
+    Remove
+), NSFilePath=/var/folders/16/764mp1kj32zbx8rslnb76mpr0000gn/T/registry-flex-948FF6C1-6A8B-4F63-B4F0-E9858EA59E7C, NSURL=file:///var/folders/16/764mp1kj32zbx8rslnb76mpr0000gn/T/registry-flex-948FF6C1-6A8B-4F63-B4F0-E9858EA59E7C, NSUnderlyingError=0x78feb22d30 {Error Domain=NSPOSIXErrorDomain Code=2 "No such file or directory"}}"
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testWorkerReleasesOwnedFlexTuneButOnlyStopsPassiveSlotTransport]' failed (1.625 seconds).
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testWorkerRetiresConnectedTCIWithoutSendingReceiveOrTransmitControls]' started.
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testWorkerRetiresConnectedTCIWithoutSendingReceiveOrTransmitControls]' passed (0.274 seconds).
+Test Suite 'StationRadioRegistryTests' failed at 2026-10-29 00:44:35.158.
+	 Executed 4 tests, with 1 failure (1 unexpected) in 2.204 (2.205) seconds
+Test Suite 'WorkerTerminalShutdownTests' started at 2026-10-29 00:44:35.158.
+Test Case '-[XLogPrototypeTests.WorkerTerminalShutdownTests testOrdinaryDisconnectDoesNotMakeSessionTerminal]' started.
+Test Case '-[XLogPrototypeTests.WorkerTerminalShutdownTests testOrdinaryDisconnectDoesNotMakeSessionTerminal]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.WorkerTerminalShutdownTests testQueuedAndLaterConnectAreRejectedAfterTerminalEOFWithoutNetwork]' started.
+Test Case '-[XLogPrototypeTests.WorkerTerminalShutdownTests testQueuedAndLaterConnectAreRejectedAfterTerminalEOFWithoutNetwork]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.WorkerTerminalShutdownTests testWorkerRejectsStationRequestsWhileOtherResponsesCanDrain]' started.
+Test Case '-[XLogPrototypeTests.WorkerTerminalShutdownTests testWorkerRejectsStationRequestsWhileOtherResponsesCanDrain]' passed (0.002 seconds).
+Test Suite 'WorkerTerminalShutdownTests' passed at 2026-10-29 00:44:35.161.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
+Test Suite 'XLogPrototypeTests.xctest' failed at 2026-10-29 00:44:35.161.
+	 Executed 84 tests, with 1 failure (1 unexpected) in 5.122 (5.133) seconds
+Test Suite 'Selected tests' failed at 2026-10-29 00:44:35.161.
+	 Executed 84 tests, with 1 failure (1 unexpected) in 5.122 (5.135) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:44:35.278.
+Test Suite 'XContestStoreTests.xctest' started at 2026-10-29 00:44:35.279.
+Test Suite 'XContestStoreTests.xctest' passed at 2026-10-29 00:44:35.279.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:44:35.279.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:44:35.391.
+Test Suite 'XContestCoreTests.xctest' started at 2026-10-29 00:44:35.392.
+Test Suite 'XContestCoreTests.xctest' passed at 2026-10-29 00:44:35.392.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:44:35.392.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:44:35.507.
+Test Suite 'XClusterIntegrationTests.xctest' started at 2026-10-29 00:44:35.509.
+Test Suite 'XClusterIntegrationTests.xctest' passed at 2026-10-29 00:44:35.509.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:44:35.509.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:44:35.621.
+Test Suite 'XCatIntegrationTests.xctest' started at 2026-10-29 00:44:35.622.
+Test Suite 'XCatIntegrationTests.xctest' passed at 2026-10-29 00:44:35.622.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:44:35.622.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:44:35.735.
+Test Suite 'XCWCoreTests.xctest' started at 2026-10-29 00:44:35.737.
+Test Suite 'XCWCoreTests.xctest' passed at 2026-10-29 00:44:35.737.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:44:35.737.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Nonblocking native power admission and durable peak watermark" started.
+◇ Test "SQLite writer contention cannot delay source detach or terminal revocation" started.
+◇ Test case passing 1 argument terminal → false to "SQLite writer contention cannot delay source detach or terminal revocation" started.
+◇ Test case passing 1 argument terminal → true to "SQLite writer contention cannot delay source detach or terminal revocation" started.
+✔ Test "SQLite writer contention cannot delay source detach or terminal revocation" with 2 test cases passed after 0.168 seconds.
+◇ Test "A held service lock cannot delay source detach" started.
+✔ Test "A held service lock cannot delay source detach" passed after 0.035 seconds.
+◇ Test "An admitted reading may commit after revoke; later old readings are no-ops" started.
+✔ Test "An admitted reading may commit after revoke; later old readings are no-ops" passed after 0.032 seconds.
+◇ Test "Freshness is evaluated after waiting for the SQLite write transaction" started.
+✔ Test "Freshness is evaluated after waiting for the SQLite write transaction" passed after 2.322 seconds.
+◇ Test "Durable peak discards duplicate/lower work, preserves queued peaks, and rejects newly reordered readings" started.
+✔ Test "Durable peak discards duplicate/lower work, preserves queued peaks, and rejects newly reordered readings" passed after 0.038 seconds.
+◇ Test "Failed writes never establish a peak watermark or suppress the next lower valid reading" started.
+✔ Test "Failed writes never establish a peak watermark or suppress the next lower valid reading" passed after 0.039 seconds.
+◇ Test "Invalid evidence and unchanged durable acknowledgments cannot poison observation chronology" started.
+✔ Test "Invalid evidence and unchanged durable acknowledgments cannot poison observation chronology" passed after 0.031 seconds.
+✔ Suite "Nonblocking native power admission and durable peak watermark" passed after 2.668 seconds.
+◇ Suite "Worker-owned power capture without a renderer" started.
+◇ Test "Contesting background ownership cannot arm or mutate the Normal Logging power draft" started.
+✔ Test "Contesting background ownership cannot arm or mutate the Normal Logging power draft" passed after 0.033 seconds.
+◇ Test "Native callback burst retains the short peak and Save commits its provenance" started.
+✔ Test "Native callback burst retains the short peak and Save commits its provenance" passed after 0.058 seconds.
+◇ Test "Wrong observed TX frequency/mode and retired source never capture" started.
+✔ Test "Wrong observed TX frequency/mode and retired source never capture" passed after 0.050 seconds.
+◇ Test "Manual intent including blank survives callbacks; explicit resume rearms" started.
+✔ Test "Manual intent including blank survives callbacks; explicit resume rearms" passed after 0.064 seconds.
+◇ Test "Provider fence and terminal shutdown retire emission/commit eligibility" started.
+✔ Test "Provider fence and terminal shutdown retire emission/commit eligibility" passed after 0.056 seconds.
+◇ Test "Save waits for the already emitted callback prefix" started.
+✔ Test "Save waits for the already emitted callback prefix" passed after 0.098 seconds.
+✔ Suite "Worker-owned power capture without a renderer" passed after 0.363 seconds.
+◇ Suite "Native power selection ordering" started.
+◇ Test "Delayed startup contexts cannot overwrite newer selection or revocation" started.
+✔ Test "Delayed startup contexts cannot overwrite newer selection or revocation" passed after 0.001 seconds.
+◇ Test "Sequence rejects booleans, fractions, strings, zero and unsafe integers" started.
+✔ Test "Sequence rejects booleans, fractions, strings, zero and unsafe integers" passed after 0.001 seconds.
+◇ Test "TCI selection metadata is acknowledged without granting draft power capture" started.
+✔ Test "TCI selection metadata is acknowledged without granting draft power capture" passed after 0.001 seconds.
+✔ Suite "Native power selection ordering" passed after 0.004 seconds.
+✔ Test run with 16 tests in 3 suites passed after 3.036 seconds.
+Note: Some test targets reported failures:
+  - XLogPrototypeTests (XCTest)

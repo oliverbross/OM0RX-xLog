@@ -375,7 +375,7 @@ private final class TCIClock: @unchecked Sendable {
     func now() -> Date { lock.lock(); defer { lock.unlock() }; return value }
     func advance(_ seconds: TimeInterval) { lock.lock(); defer { lock.unlock() }; value.addTimeInterval(seconds) }
 }
-private actor TCIFixtureSocket: TCIWebSocketConnection {
+actor TCIFixtureSocket: TCIWebSocketConnection {
     private var messages: [TCIWebSocketMessage] = []
     private var waiter: CheckedContinuation<TCIWebSocketMessage, Error>?
     private var closes = 0, closed = false
@@ -397,7 +397,7 @@ private actor TCIFixtureSocket: TCIWebSocketConnection {
     func closeCount() -> Int { closes }
     func sentTexts() -> [String] { sent }
 }
-private actor TCIFixtureConnector: TCIWebSocketConnecting {
+actor TCIFixtureConnector: TCIWebSocketConnecting {
     private var sockets: [TCIFixtureSocket], calls = 0
     init(_ sockets: [TCIFixtureSocket]) { self.sockets = sockets }
     func connect(to endpoint: URL) async throws -> any TCIWebSocketConnection { calls += 1; guard !sockets.isEmpty else { throw TCIFixtureError.closed }; return sockets.removeFirst() }

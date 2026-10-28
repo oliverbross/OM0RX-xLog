@@ -1,0 +1,63 @@
+Building for debugging...
+[Computing dependencies]
+[1 / 5]
+[1 / 23] XClusterIntegrationTests-product
+Build complete! (1.14 sec.)
+Test Suite 'Selected tests' started at 2026-10-29 00:46:04.588.
+Test Suite 'XStationIntegrationTests.xctest' started at 2026-10-29 00:46:04.591.
+Test Suite 'XStationIntegrationTests.xctest' passed at 2026-10-29 00:46:04.591.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:46:04.591.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.003) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:46:04.667.
+Test Suite 'XLogPrototypeTests.xctest' started at 2026-10-29 00:46:04.668.
+Test Suite 'StationRadioRegistryTests' started at 2026-10-29 00:46:04.668.
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testPowerSourcesRemainBoundToTheirSelectedRadioAcrossOtherSlotReconnectAndDetach]' started.
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testPowerSourcesRemainBoundToTheirSelectedRadioAcrossOtherSlotReconnectAndDetach]' passed (0.005 seconds).
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testWorkerRegistersBothRoutedAgentsAndRetiresEverySlotWithoutGlobalServices]' started.
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testWorkerRegistersBothRoutedAgentsAndRetiresEverySlotWithoutGlobalServices]' passed (0.305 seconds).
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testWorkerReleasesOwnedFlexTuneButOnlyStopsPassiveSlotTransport]' started.
+/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/StationRadioRegistryTests.swift:0: error: -[XLogPrototypeTests.StationRadioRegistryTests testWorkerReleasesOwnedFlexTuneButOnlyStopsPassiveSlotTransport] : failed: caught error: "Error Domain=NSCocoaErrorDomain Code=4 "“registry-flex-85734CB1-AC4B-470C-90A6-FE2CB1E45694” couldn’t be removed." UserInfo={NSUserStringVariant=(
+    Remove
+), NSFilePath=/var/folders/16/764mp1kj32zbx8rslnb76mpr0000gn/T/registry-flex-85734CB1-AC4B-470C-90A6-FE2CB1E45694, NSURL=file:///var/folders/16/764mp1kj32zbx8rslnb76mpr0000gn/T/registry-flex-85734CB1-AC4B-470C-90A6-FE2CB1E45694, NSUnderlyingError=0x775aab00c0 {Error Domain=NSPOSIXErrorDomain Code=2 "No such file or directory"}}"
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testWorkerReleasesOwnedFlexTuneButOnlyStopsPassiveSlotTransport]' failed (0.464 seconds).
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testWorkerRetiresConnectedTCIWithoutSendingReceiveOrTransmitControls]' started.
+Test Case '-[XLogPrototypeTests.StationRadioRegistryTests testWorkerRetiresConnectedTCIWithoutSendingReceiveOrTransmitControls]' passed (0.298 seconds).
+Test Suite 'StationRadioRegistryTests' failed at 2026-10-29 00:46:05.741.
+	 Executed 4 tests, with 1 failure (1 unexpected) in 1.073 (1.073) seconds
+Test Suite 'XLogPrototypeTests.xctest' failed at 2026-10-29 00:46:05.741.
+	 Executed 4 tests, with 1 failure (1 unexpected) in 1.073 (1.073) seconds
+Test Suite 'Selected tests' failed at 2026-10-29 00:46:05.741.
+	 Executed 4 tests, with 1 failure (1 unexpected) in 1.073 (1.074) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:46:05.856.
+Test Suite 'XContestStoreTests.xctest' started at 2026-10-29 00:46:05.857.
+Test Suite 'XContestStoreTests.xctest' passed at 2026-10-29 00:46:05.857.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:46:05.857.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:46:05.964.
+Test Suite 'XContestCoreTests.xctest' started at 2026-10-29 00:46:05.966.
+Test Suite 'XContestCoreTests.xctest' passed at 2026-10-29 00:46:05.966.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:46:05.967.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:46:06.072.
+Test Suite 'XClusterIntegrationTests.xctest' started at 2026-10-29 00:46:06.073.
+Test Suite 'XClusterIntegrationTests.xctest' passed at 2026-10-29 00:46:06.073.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:46:06.073.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:46:06.180.
+Test Suite 'XCatIntegrationTests.xctest' started at 2026-10-29 00:46:06.181.
+Test Suite 'XCatIntegrationTests.xctest' passed at 2026-10-29 00:46:06.181.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:46:06.181.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-10-29 00:46:06.287.
+Test Suite 'XCWCoreTests.xctest' started at 2026-10-29 00:46:06.289.
+Test Suite 'XCWCoreTests.xctest' passed at 2026-10-29 00:46:06.289.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-29 00:46:06.289.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+Note: Some test targets reported failures:
+  - XLogPrototypeTests (XCTest)
