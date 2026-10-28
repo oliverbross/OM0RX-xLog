@@ -24,10 +24,13 @@ class ImportedReplicaTests(unittest.TestCase):
         self.addCleanup(lambda: [host.close() for host in self.hosts])
         self.session, self.workspace = uid(), uid()
         self.config = json.loads((Path(__file__).parent / "fixtures/all_contests_lifecycle.json").read_text())["cq_wpx_cw"]["state"]
+        station = self.config["station"]["Call"]
+        reference = {**self.config["reference"],
+                     "countries": {station: self.config["reference"]["countries"][station]}}
         for host, master in zip(self.hosts, (True, False)):
             self.call(host, "session_create", sessionID=self.session, workspaceGeneration=self.workspace,
                 operationID=uid(), expectedRevision=0, pluginID="cq_wpx_cw", station=self.config["station"],
-                settings=self.config["settings"], reference=self.config["reference"],
+                settings=self.config["settings"], reference=reference,
                 frequencyHz=self.config["draft"]["frequencyHz"], mode="CW")
             setup = self.call(host, "setup_get", sessionID=self.session)["setup"]
             setup["network"].update(multiEnabled=True, multiMaster=master, stationName="MASTER" if master else "CLIENT")
@@ -65,13 +68,15 @@ class ImportedReplicaTests(unittest.TestCase):
         self.cursor = params["toCursor"]
         return page
 
-    def imported(self):
+    def imported(self, call="K1ABC", serial=101, time="100000"):
         params = self.params(self.hosts[0])
         params.update(action="adif_import", record={"raw": {
-            "CONTEST_ID": "CQ-WPX-CW", "STATION_CALLSIGN": self.config["station"]["Call"], "CALL": "K1ABC",
-            "QSO_DATE": "20261021", "TIME_ON": "100000", "FREQ": "14.025", "MODE": "CW",
-            "RST_SENT": "599", "RST_RCVD": "579", "STX": "101", "SRX": "202", "OPERATOR": self.config["station"]["Call"]},
-            "metadata": None, "sourceSHA256": "a" * 64})
+            "CONTEST_ID": "CQ-WPX-CW", "STATION_CALLSIGN": self.config["station"]["Call"], "CALL": call,
+            "QSO_DATE": "20261021", "TIME_ON": time, "FREQ": "14.025", "MODE": "CW",
+            "RST_SENT": "599", "RST_RCVD": "579", "STX": str(serial), "SRX": "202", "OPERATOR": self.config["station"]["Call"]},
+            "metadata": None, "sourceSHA256": "a" * 64},
+            countries={call: self.config["reference"]["countries"]["K1ABC"]},
+            referenceID=self.config["reference"]["id"])
         result = self.call(self.hosts[0], "strategy_apply", **params)
         self.assertEqual(result["actions"], [])
         self.assertTrue(self.call(self.hosts[0], "strategy_apply", **params)["replayed"])
@@ -87,6 +92,56 @@ class ImportedReplicaTests(unittest.TestCase):
             events = self.call(host, "recorder_changes", sessionID=self.session, afterSequence=0, limit=200)["events"]
             self.assertTrue(events and all(event["local"] is False for event in events))
         self.followup(qso)
+
+    def test_separate_enriched_import_pages_preserve_prior_scores_and_history(self):
+        for host in self.hosts:
+            self.assertEqual(set(host.database(self.session).state(self.session)["reference"]["countries"]),
+                             {self.config["station"]["Call"]})
+        first = self.imported("K9XYZ")
+        self.sync(); self.assert_same(first)
+        replica = self.hosts[1].database(self.session)
+        first_identity = self.hosts[1].replica_identity(replica, first)
+        retained_audit = replica.exec_sql_mult("SELECT * FROM xlog_qso_audit ORDER BY sequence")
+        retained_receipts = replica.exec_sql_mult("SELECT * FROM xlog_operation ORDER BY operation_id")
+        for index, root in enumerate(self.roots):
+            self.hosts[index].close(); self.hosts[index] = Host(root)
+        second = self.imported("K8XYZ", serial=102, time="100100")
+        self.sync()
+        self.assert_same(first); self.assert_same(second)
+        for host in self.hosts:
+            score = self.call(host, "projection", sessionID=self.session)["projection"]["score"]
+            # Two different US prefixes, each worth 3 intercontinental 20m points.
+            self.assertEqual((score["points"], score["multipliers"], score["total"]), (6, 2, 12))
+        replica = self.hosts[1].database(self.session)
+        self.assertEqual(replica.exec_sql_mult("SELECT * FROM xlog_qso_audit WHERE sequence<=? ORDER BY sequence",
+                                              (retained_audit[-1]["sequence"],)), retained_audit)
+        for receipt in retained_receipts:
+            self.assertEqual(replica.exec_sql("SELECT * FROM xlog_operation WHERE operation_id=?",
+                                             (receipt["operation_id"],)), receipt)
+        self.assertEqual(self.hosts[1].replica_identity(replica, first), first_identity)
+        for index, root in enumerate(self.roots):
+            self.hosts[index].close(); self.hosts[index] = Host(root)
+        self.correct(first)
+        page = self.sync()  # Includes exact operation replay on the replica.
+        self.assertEqual([change["kind"] for change in page["changes"]], ["correct"])
+        self.assert_same(first); self.assert_same(second)
+        for host in self.hosts:
+            self.assertEqual(self.call(host, "projection", sessionID=self.session)["projection"]["score"]["total"], 12)
+
+    def test_invalid_replica_country_rolls_back_rows_reference_and_receipts(self):
+        first = self.imported("K9XYZ"); self.sync()
+        second = self.imported("K8XYZ", serial=102, time="100100")
+        page = self.page()
+        page["changes"][0]["afterIdentity"]["country"] = {"entity": "incomplete"}
+        replica = self.hosts[1]
+        store = replica.database(self.session)
+        before = tuple(store.conn.iterdump())
+        with self.assertRaises(HostError):
+            self.call(replica, "multi_replica_apply", **self.params(replica), authority=page["authority"],
+                fromCursor=self.cursor, toCursor={"revision": page["nextRevision"], "sequence": page["nextSequence"]},
+                historyComplete=True, changes=page["changes"])
+        self.assertEqual(tuple(store.conn.iterdump()), before)
+        self.sync(); self.assert_same(first); self.assert_same(second)
 
     def test_legacy_unchanged_import_survives_reopen_without_rewriting_audit(self):
         qso = self.imported(); store = self.hosts[0].database(self.session)

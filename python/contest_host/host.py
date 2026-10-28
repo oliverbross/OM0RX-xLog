@@ -4625,6 +4625,17 @@ class Host:
     @staticmethod
     def rebuild(desk):
         rows = desk.database.fetch_all_contacts_asc()
+        if desk.database.replica():
+            # Replica identities retain the authority's country facts across
+            # pages/restarts. Rebuild needs those facts for untouched rows too;
+            # a native per-import resolver only enriched the authority's cache.
+            for identity in desk.database.exec_sql_mult(
+                    "SELECT d.Call,i.country FROM DXLOG d JOIN xlog_qso_identity i ON i.id=d.ID "
+                    "WHERE d.ContestNR=? AND i.deleted=0 ORDER BY d.TS,d.rowid",
+                    (desk.database.current_contest,)):
+                country = json.loads(identity["country"]) if identity["country"] else None
+                if country is not None:
+                    desk.state["reference"]["countries"].update(Host.countries({identity["Call"]: country}))
         points, duplicate_ids = {}, set()
         configured_sent_exchange = desk.state["settings"].get("SentExchange", "")
         replay_received_exchange = desk.other_2.text()
