@@ -18,6 +18,8 @@
 
 Use the existing marked disposable native route for keyboard acceptance, with the exact bundle path, canonical private temporary root, unique WebKit identity and disabled external I/O verified before input. Do not substitute a production app or widen a station/provider guard to make a test pass.
 
+Before entering any disposable text, verify the initial main window actually uses the marked WebKit store (not just the worker root); its offline title must include the marker UUID. Retain a foreign-workspace journal without applying/discarding it. If supported recovery would replace that journal, preserve the guard and use a fresh positively isolated fixture. Never patch a retained signed bundle to fix isolation.
+
 1. Read the current full accessibility state. Verify the exact window, menu/dialog and intended control; extract indices from that observation. A prior index is invalid after another observation, even if its number still exists.
 2. For a native menu, use its exposed `Cancel` secondary action. For a dialog, use its observed Close/Cancel control. Verify the resulting window and preserved draft. Empty filtered output, a stale menu tree or an unavailable screenshot is uncertainty, not permission to send Escape or click an estimated location.
 3. Never retry blind Escape for dismissal. Deliberate Escape from a verified operator entry remains an applicable shortcut/Stop test; keep it separate from dismissal. Preserve emergency output stopping, confirmed release and uncertain-release restrictions.
