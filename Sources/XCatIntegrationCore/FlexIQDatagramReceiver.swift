@@ -36,11 +36,6 @@ actor FlexIQDatagramReceiver {
         next.stateUpdateHandler={[weak self] state in Task{await self?.state(state)}}
         let admission=FlexIQConnectionAdmission(),peer=self.peer,sourcePort=self.sourcePort
         next.newConnectionHandler={[weak self] connection in
-            #if DEBUG
-            if ProcessInfo.processInfo.environment["XLOG_IQ_FIXTURE_DIAGNOSTICS"] == "1" {
-                print("IQ_UDP_ENDPOINT actual=\(connection.endpoint) expected=\(peer):\(sourcePort)")
-            }
-            #endif
             // Reject unrelated peers before allocating a Task. At most one
             // peer can be admitted for the lifetime of this destination.
             guard case let .hostPort(host,port)=connection.endpoint,host==peer,port==sourcePort,admission.claim() else{connection.cancel();return}

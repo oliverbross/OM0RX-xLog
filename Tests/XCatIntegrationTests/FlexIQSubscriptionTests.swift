@@ -182,7 +182,8 @@ private actor FlexIQFixtureRadio {
     private var udpSocket:Int32 = -1
     private var udpDestination:sockaddr_in?
     private(set) var sentDatagrams=0
-    private var ready=false,buffer=Data(),pump:Task<Void,Never>?
+    private var ready=false,buffer=Data(),pump:DispatchSourceTimer?
+    private let sampleQueue=DispatchQueue(label:"xlog.fixture.flex-iq.samples",qos:.userInteractive)
     private var streams:[UInt32:(Int,UInt8)]=[:]
     private var held=false,pendingCreate:Int?
     private(set) var commands:[String]=[]
@@ -235,7 +236,14 @@ private actor FlexIQFixtureRadio {
             }
             guard bound == 0 else { let error=errno;Darwin.close(fd);XCTFail("Fixture UDP bind: \(error)");return }
             udpSocket=fd;local.sin_port=port.bigEndian;udpDestination=local
-            pump=Task{[weak self] in while !Task.isCancelled {try? await Task.sleep(for:.milliseconds(10));guard !Task.isCancelled else{return};await self?.emit()}}
+            // macOS-14 CI coalesces Task.sleep(10ms) to 30–50ms. That is
+            // slower than three 1024-sample packets at 96k and correctly trips
+            // the real continuity gate. Supply the advertised fixture cadence;
+            // do not weaken production freshness/quarantine to fit the runner.
+            let timer=DispatchSource.makeTimerSource(flags:.strict,queue:sampleQueue)
+            timer.schedule(deadline:.now(),repeating:.nanoseconds(10_666_667),leeway:.nanoseconds(0))
+            timer.setEventHandler {[weak self] in Task(priority:.high) { await self?.emit() }}
+            pump=timer;timer.resume()
         }
         if body.hasPrefix("stream create ") {
             if held{pendingCreate=sequence;return}
