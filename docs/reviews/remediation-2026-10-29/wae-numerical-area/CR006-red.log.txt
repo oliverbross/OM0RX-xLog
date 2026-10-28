@@ -1,0 +1,120 @@
+test_all_wae_modes_share_numerical_area_and_export_correct_claim (test_remediation_wae.WAEAreaTests.test_all_wae_modes_share_numerical_area_and_export_correct_claim) ...
+  test_all_wae_modes_share_numerical_area_and_export_correct_claim (test_remediation_wae.WAEAreaTests.test_all_wae_modes_share_numerical_area_and_export_correct_claim) (plugin='wae_cw') ... FAIL
+  test_all_wae_modes_share_numerical_area_and_export_correct_claim (test_remediation_wae.WAEAreaTests.test_all_wae_modes_share_numerical_area_and_export_correct_claim) (plugin='wae_ssb') ... FAIL
+  test_all_wae_modes_share_numerical_area_and_export_correct_claim (test_remediation_wae.WAEAreaTests.test_all_wae_modes_share_numerical_area_and_export_correct_claim) (plugin='wae_rtty') ... FAIL
+test_legacy_score_is_retained_incomplete_until_explicit_recalculate (test_remediation_wae.WAEAreaTests.test_legacy_score_is_retained_incomplete_until_explicit_recalculate) ... FAIL
+test_national_prefix_digit_is_not_portable_area (test_remediation_wae.WAEAreaTests.test_national_prefix_digit_is_not_portable_area) ...
+  test_national_prefix_digit_is_not_portable_area (test_remediation_wae.WAEAreaTests.test_national_prefix_digit_is_not_portable_area) (call='7K4ABC') ... FAIL
+  test_national_prefix_digit_is_not_portable_area (test_remediation_wae.WAEAreaTests.test_national_prefix_digit_is_not_portable_area) (call='7M4XYZ') ... FAIL
+  test_national_prefix_digit_is_not_portable_area (test_remediation_wae.WAEAreaTests.test_national_prefix_digit_is_not_portable_area) (call='7L1ABC') ... FAIL
+  test_national_prefix_digit_is_not_portable_area (test_remediation_wae.WAEAreaTests.test_national_prefix_digit_is_not_portable_area) (call='8J3ABC') ... FAIL
+
+======================================================================
+FAIL: test_all_wae_modes_share_numerical_area_and_export_correct_claim (test_remediation_wae.WAEAreaTests.test_all_wae_modes_share_numerical_area_and_export_correct_claim) (plugin='wae_cw')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_remediation_wae.py", line 40, in test_all_wae_modes_share_numerical_area_and_export_correct_claim
+    self.assertEqual((score["points"], score["multipliers"], score["total"]), (3, 2, 6))
+AssertionError: Tuples differ: (3, 4, 12) != (3, 2, 6)
+
+First differing element 1:
+4
+2
+
+- (3, 4, 12)
++ (3, 2, 6)
+
+======================================================================
+FAIL: test_all_wae_modes_share_numerical_area_and_export_correct_claim (test_remediation_wae.WAEAreaTests.test_all_wae_modes_share_numerical_area_and_export_correct_claim) (plugin='wae_ssb')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_remediation_wae.py", line 40, in test_all_wae_modes_share_numerical_area_and_export_correct_claim
+    self.assertEqual((score["points"], score["multipliers"], score["total"]), (3, 2, 6))
+AssertionError: Tuples differ: (3, 4, 12) != (3, 2, 6)
+
+First differing element 1:
+4
+2
+
+- (3, 4, 12)
++ (3, 2, 6)
+
+======================================================================
+FAIL: test_all_wae_modes_share_numerical_area_and_export_correct_claim (test_remediation_wae.WAEAreaTests.test_all_wae_modes_share_numerical_area_and_export_correct_claim) (plugin='wae_rtty')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_remediation_wae.py", line 40, in test_all_wae_modes_share_numerical_area_and_export_correct_claim
+    self.assertEqual((score["points"], score["multipliers"], score["total"]), (3, 2, 6))
+AssertionError: Tuples differ: (3, 4, 12) != (3, 2, 6)
+
+First differing element 1:
+4
+2
+
+- (3, 4, 12)
++ (3, 2, 6)
+
+======================================================================
+FAIL: test_legacy_score_is_retained_incomplete_until_explicit_recalculate (test_remediation_wae.WAEAreaTests.test_legacy_score_is_retained_incomplete_until_explicit_recalculate)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_remediation_wae.py", line 58, in test_legacy_score_is_retained_incomplete_until_explicit_recalculate
+    self.assertFalse(score["scoringComplete"])
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_national_prefix_digit_is_not_portable_area (test_remediation_wae.WAEAreaTests.test_national_prefix_digit_is_not_portable_area) (call='7K4ABC')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_remediation_wae.py", line 77, in test_national_prefix_digit_is_not_portable_area
+    self.assertEqual(wae.multiplier(state, {"Call": call, "CountryPrefix": "JA"}), expected)
+AssertionError: 'JA7' != 'JA4'
+- JA7
+?   ^
++ JA4
+?   ^
+
+
+======================================================================
+FAIL: test_national_prefix_digit_is_not_portable_area (test_remediation_wae.WAEAreaTests.test_national_prefix_digit_is_not_portable_area) (call='7M4XYZ')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_remediation_wae.py", line 77, in test_national_prefix_digit_is_not_portable_area
+    self.assertEqual(wae.multiplier(state, {"Call": call, "CountryPrefix": "JA"}), expected)
+AssertionError: 'JA7' != 'JA4'
+- JA7
+?   ^
++ JA4
+?   ^
+
+
+======================================================================
+FAIL: test_national_prefix_digit_is_not_portable_area (test_remediation_wae.WAEAreaTests.test_national_prefix_digit_is_not_portable_area) (call='7L1ABC')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_remediation_wae.py", line 77, in test_national_prefix_digit_is_not_portable_area
+    self.assertEqual(wae.multiplier(state, {"Call": call, "CountryPrefix": "JA"}), expected)
+AssertionError: 'JA7' != 'JA1'
+- JA7
+?   ^
++ JA1
+?   ^
+
+
+======================================================================
+FAIL: test_national_prefix_digit_is_not_portable_area (test_remediation_wae.WAEAreaTests.test_national_prefix_digit_is_not_portable_area) (call='8J3ABC')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_remediation_wae.py", line 77, in test_national_prefix_digit_is_not_portable_area
+    self.assertEqual(wae.multiplier(state, {"Call": call, "CountryPrefix": "JA"}), expected)
+AssertionError: 'JA8' != 'JA3'
+- JA8
+?   ^
++ JA3
+?   ^
+
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.721s
+
+FAILED (failures=8)

@@ -294,6 +294,8 @@ ordinary peer catch-up/transmission succeeds. See
 
 ### CR-006 — WAE multiplier extraction mistakes a national-prefix digit for the call area
 
+**Remediation status:** Fixed and Verified. See REMEDIATION_TRACKER.md for the implementation, tests and limits.
+
 **Medium — incorrect authoritative scores reported as complete. Confidence:
 high. Verification: real Host reproduction plus hash-verified retained official
 rule evidence.**

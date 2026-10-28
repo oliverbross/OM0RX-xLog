@@ -30,7 +30,7 @@ class DeveloperTests(unittest.TestCase):
         try:
             qtc.create_wae();qtc.log('K1ABC','21')
             store=qtc.host.database(qtc.session);state=store.state(qtc.session)
-            self.assertEqual(state['definitionVersion'],'1.0.0')
+            self.assertEqual(state['definitionVersion'],'1.0.1')
             state['definitionVersion']='unreviewed-local-definition';store.save_state(state);store.conn.commit()
             rows=store.exec_sql_mult('SELECT * FROM DXLOG');before=store.conn.total_changes
             with self.assertRaises(HostError):qtc.read('session_open')

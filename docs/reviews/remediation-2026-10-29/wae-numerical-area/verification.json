@@ -1,0 +1,21 @@
+{
+  "logs": [
+    "CR006-red.log",
+    "CR006-python.log",
+    "CR006-verified.log"
+  ],
+  "findings": [
+    {
+      "id": "CR-006",
+      "severity": "Medium",
+      "status": "Fixed and Verified",
+      "files": "`python/contest_host/wae.py`, `host.py`, `developer.py`; `python/tests/test_remediation_wae.py`, `test_wave5_developer_host.py`; `docs/contesting/WAE_NUMERICAL_AREA_REMEDIATION_2026-10-29.md`.",
+      "fix": "Use the digit after Japanese national-prefix letters for digit-prefixed Japanese calls, retaining explicit portable-area precedence. New definition1.0.1 uses the corrected policy. Retained1.0.0 sessions keep their old numerical results on reads/reopen, visibly incomplete and barred from a new Cabrillo claim until the existing explicit Recalculate action transactionally adopts1.0.1. ADIF remains available. New definition participates in authority identity so old-policy peers cannot silently share scoring authority; developer metadata follows the version constant.",
+      "tests": "Independent JR4/7K4/7M4 arithmetic for actual CW/SSB/RTTY Hosts (3points\u00d72multiplier=6), Cabrillo claim6, portable /9 correction12, restore/reopen6; prefix-family table controls; retained1.0.0 total12 marked incomplete with no implicit rewrite, ADIF available/Cabrillo blocked; explicit Recalculate/replay adopts6 while preserving contact identities and draft and changing authority digest. Unsupported arbitrary definition markers remain rejected.",
+      "verification": "New arithmetic/migration tests fail before fix. `PYTHONPATH=python:python/tests XLOG_CONTEST_N1MM_UDP_ALLOWED=0 python3.12 -B -m unittest -v test_remediation_wae test_wave5_qtc_host test_multi_operator_host test_group_coordination test_wave5_developer_host` PASS26/8.168s. `git diff --check` PASS. First run exposed missing legacy Cabrillo gate; it was implemented rather than dropping the assertion.",
+      "limits": "Pinned sponsor edition only; no new sponsor currency/submission acceptance. Existing operator data was not opened or migrated. Retained sessions require explicit review/adoption. Bound replicas need coordinated software/policy adoption and a fresh matching baseline session; no automatic destructive binding/history migration. Old cached receipts remain unchanged and are not fresh score projections."
+    }
+  ],
+  "baseCommit": "5a0fa0f7cb0a943918ec62df5255622850ad5fb7",
+  "sourceDiffSHA256": "a98b2284fb82315e9def67769cfb21d2d49ff0bac825369146660b6549b68b50"
+}

@@ -7,6 +7,7 @@ import re
 from .plugins import PLUGIN_REGISTRY
 from .upstream import VENDOR, load_plugin
 from .multipliers import dimensions
+from .wae import DEFINITION_VERSION as WAE_DEFINITION_VERSION
 
 TEMPLATES = ("cq_wpx_cw", "naqp_cw", "darc_vhf", "wae_cw")
 KIT_VERSION = "1.0.0"
@@ -30,7 +31,7 @@ def describe(plugin_id):
             "adapterSHA256":{name:hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest() for name in ("host.py","upstream.py","store.py")},
             "dimensions":[asdict(value) for value in dimensions({**example["fixture"]["state"],"pluginID":plugin_id})],
             "reference":example["fixture"]["state"]["reference"],
-            "definitionVersion":"1.0.0" if plugin_id.startswith("wae_") else example["fixture"]["state"].get("scoringRevision") or "pinned upstream; preserve legacy session marker",
+            "definitionVersion":WAE_DEFINITION_VERSION if plugin_id.startswith("wae_") else example["fixture"]["state"].get("scoringRevision") or "pinned upstream; preserve legacy session marker",
             "cabrilloName":module.cabrillo_name, "fieldRoles":roles, "example":example,
             "conditionalExamples":[{"condition":"unknown country/exchange/locator", "expectation":"preserve unknown evidence; no invented score or Needed identity"},
                                    {"condition":"existing definition updated", "expectation":"explicit source/version review; do not rescore completed sessions automatically"}],

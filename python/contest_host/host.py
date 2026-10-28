@@ -22,7 +22,7 @@ from .rates import calculate_rates
 from .analytics import AnalyticsCopies
 from .legacy_import import LegacyImportError, inspect_source, row_digest
 from .n1mm import N1MMOutput
-from .wae import DEFINITION_VERSION as WAE_DEFINITION_VERSION, RULE_EDITION as WAE_RULE_EDITION, PLUGINS as WAE_PLUGINS
+from .wae import DEFINITION_VERSION as WAE_DEFINITION_VERSION, LEGACY_DEFINITION_VERSION as WAE_LEGACY_DEFINITION_VERSION, RULE_EDITION as WAE_RULE_EDITION, PLUGINS as WAE_PLUGINS
 from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, ARRL_VHF_PLUGINS, CENTRAL_EUROPEAN_PLUGINS,
                       CONDITIONAL_SERIAL_PLUGINS,
                       CONFIGURED_SENTNR_PLUGINS, CQ_160_PLUGINS,
@@ -543,6 +543,8 @@ def coordination_identity(state):
     }
     if state.get("scoringRevision"):
         value = {**value, "scoringRevision": state["scoringRevision"]}
+    if state["pluginID"] in WAE_PLUGINS and state.get("definitionVersion") == WAE_DEFINITION_VERSION:
+        value = {**value, "definitionVersion": WAE_DEFINITION_VERSION}
     return {"pluginID": value["pluginID"], "sourceRevision": value["sourceRevision"],
             "referenceID": value["referenceID"],
             "coordinationDigest": hashlib.sha256(canonical(value).encode()).hexdigest()}
@@ -2954,6 +2956,10 @@ class Host:
                 # draft unchanged while the original plugin rebuilds points and
                 # multiplier fields in timestamp order.
                 fields = desk.values()
+                if state["pluginID"] in WAE_PLUGINS:
+                    # Explicit, receipt-fenced adoption; reads/reopen never
+                    # silently rescore retained 1.0.0 sessions.
+                    state["definitionVersion"] = WAE_DEFINITION_VERSION
                 self.rebuild(desk)
                 for name, value in fields.items():
                     getattr(desk, name).setText(value)
@@ -3477,7 +3483,7 @@ class Host:
                 and "SentExchange" in state["settings"],
                 "Incomplete persisted session state", "invalid_session")
         if state["pluginID"] in WAE_PLUGINS:
-            require(state.get("definitionVersion") == WAE_DEFINITION_VERSION,
+            require(state.get("definitionVersion") in {WAE_DEFINITION_VERSION, WAE_LEGACY_DEFINITION_VERSION},
                     "This WAE definition version requires explicit compatibility review; retained contacts were not rescored", "engine_mismatch")
         # Optional analytical reference coordinates never gate the core log.
         # Creation validates them strictly; an old/incompatible coordinate is
@@ -4754,6 +4760,9 @@ class Host:
                 f"{PLUGIN_REGISTRY[desk.state['pluginID']].name} does not provide {export_format.upper()} export",
                 "export_unsupported")
         if desk.state["pluginID"].startswith("wae_") and export_format == "cabrillo":
+            require(desk.state.get("definitionVersion") == WAE_DEFINITION_VERSION,
+                    "Review the retained WAE score and use Recalculate before creating a Cabrillo claim",
+                    "scoring_review_required")
             from .wae import export
             payload = export(desk)
             require(len(payload) <= maximum, "WAE export exceeds the save limit", "export_too_large")
