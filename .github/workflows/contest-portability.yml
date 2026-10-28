@@ -128,6 +128,9 @@ jobs:
           "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin" >> $env:GITHUB_PATH
       - name: Record native Swift toolchain
         run: swift --version
+      - name: Verify non-macOS pure IQ source slice on macOS
+        if: runner.os == 'macOS'
+        run: python3 tools/check_portable_iq_sources.py --output "${{ runner.temp }}/portable-iq-manifest"
       - name: Verify contest test discovery (macOS and Linux)
         if: runner.os != 'Windows'
         shell: bash

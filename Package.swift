@@ -37,15 +37,17 @@ let sqlitePkgConfig: String? = "sqlite3"
 let liveCoreName = "XLogPortableCore"
 let liveIntegrationDependencies: [Target.Dependency] = ["XCatIntegrationCore"]
 let prototypeCoreTargets: [Target] = [
-    // Public propagation reuses the native parser; radio/network owners remain
-    // excluded until their separate portable implementation is accepted.
+    // Propagation and pure IQ parsing/metadata share the native implementation.
+    // Radio/network owners remain excluded from this portable source slice.
     .target(name: "XCatIntegrationCore", exclude: [
         "Models.swift", "DXSpot.swift", "SmartLinkRadioClient.swift", "CATCommandProcessor.swift", "SimulatedRadio.swift",
         "RemoteStationConfiguration.swift", "FlexRadioClient.swift", "Rotator.swift",
         "RigCtlCommandProcessor.swift", "RemoteAgentModels.swift", "RemoteAgentClient.swift",
         "TCPCommandServer.swift", "LegacyXCATClient.swift", "SmartLinkBroker.swift",
-        "SmartLinkAuth.swift", "RemoteAgentAuth.swift"
-    ], sources: ["XCatError.swift", "PropagationConditions.swift", "TCIProtocol.swift"]),
+        "SmartLinkAuth.swift", "RemoteAgentAuth.swift", "FlexRadioClient+IQ.swift",
+        "FlexIQDatagramReceiver.swift", "TCIIQSubscription.swift"
+    ], sources: ["XCatError.swift", "PropagationConditions.swift", "TCIProtocol.swift",
+                 "TCIIQFrame.swift", "FlexIQTransport.swift", "FlexIQResources.swift", "FlexIQSubscription.swift"]),
     .target(name: "XLogPortableCore", dependencies: portableCrypto + ["CSQLitePrototype"], path: "Sources/XLogCore",
         exclude: ["DXCCBoundaries.swift", "FlexSpotForwarder.swift",
                   "QRZClient.swift", "ReferenceDataUpdater.swift", "SecretStore.swift",
