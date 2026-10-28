@@ -4765,8 +4765,9 @@ class Host:
                 known = {row["qso_id"]: json.loads(row["attribution"]) for row in desk.database.exec_sql_mult("SELECT * FROM xlog_qso_lane")}
                 digital={row["qso_id"]:json.loads(row["packet"]) for row in desk.database.exec_sql_mult("SELECT * FROM xlog_digital_event")}
                 digital.update({row["qso_id"]:json.loads(row["source"])["raw"] for row in desk.database.exec_sql_mult("SELECT * FROM xlog_adif_import")})
-                if known or digital:
-                    files[0].write_bytes(augment_adif(files[0].read_bytes(), desk.database.fetch_all_contacts_asc(), known, require,digital))
+                serial_grid_contest = desk.contest.cabrillo_name if desk.state["pluginID"] in SERIAL_GRID6_PLUGINS else None
+                if known or digital or serial_grid_contest:
+                    files[0].write_bytes(augment_adif(files[0].read_bytes(), desk.database.fetch_all_contacts_asc(), known, require,digital,serial_grid_contest))
             require(files[0].stat().st_size <= maximum,
                     "Use a chunked export route for this log" if maximum == 512000 else "Prepared export exceeds the native save limit",
                     "export_too_large")

@@ -155,7 +155,7 @@ def attribution(state):
             "receiveFrequencyHz": receive, "transmitFrequencyHz": transmit}
 
 
-def augment_adif(payload, rows, attributions, require, digital_events=None):
+def augment_adif(payload, rows, attributions, require, digital_events=None, serial_grid_contest=None):
     """Add known logging-lane and explicit RX facts to the pinned writer output.
 
     Walk length-framed tags so a literal <EOR> inside an operator comment cannot
@@ -163,7 +163,7 @@ def augment_adif(payload, rows, attributions, require, digital_events=None):
     ordering and checks record count before associating any metadata.
     """
     digital_events=digital_events or {}
-    if not attributions and not digital_events:
+    if not attributions and not digital_events and not serial_grid_contest:
         return payload
     content = payload.decode("utf-8")
     boundaries, position, fields_in_record = [], 0, []
@@ -180,6 +180,10 @@ def augment_adif(payload, rows, attributions, require, digital_events=None):
     for (offset, existing), row in reversed(list(zip(boundaries, rows))):
         known = attributions.get(row["ID"])
         fields = {"APP_XLOG_LOGGING_LANE": known["loggingLaneID"]} if known else {}
+        if serial_grid_contest:
+            # These pinned writers omit the received grid and use a display
+            # label/empty contest ID. Export the existing row's actual facts.
+            fields.update(CONTEST_ID=serial_grid_contest, GRIDSQUARE=row["Exchange1"], MY_GRIDSQUARE=row["MiscText"])
         if known and known.get("receiveFrequencyHz") is not None:
             receive = float(row.get("QSXFreq") or 0) / 1000
             if receive > 0:
