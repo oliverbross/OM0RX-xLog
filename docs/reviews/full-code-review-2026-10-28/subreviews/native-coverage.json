@@ -1,0 +1,1388 @@
+[
+  {
+    "path": "Sources/CCWProcess/CCWProcess.c",
+    "status": "fully reviewed",
+    "notes": "Full source; spawn descriptor isolation, pipe cleanup, child reaping.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/CCWProcess/include/CCWProcess.h",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/CClusterSocket/ClusterSocket.c",
+    "status": "fully reviewed",
+    "notes": "Full source; cancellation, Winsock references, SIGPIPE, deadlines, partial socket writes.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/CClusterSocket/include/CClusterSocket.h",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/CCurlBackup/CCurlBackup.c",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/CCurlBackup/include/CCurlBackup.h",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/CPlatformVault/PlatformVault.c",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/CPlatformVault/include/CPlatformVault.h",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCWCore/CWClientOutputQueue.swift",
+    "status": "fully reviewed",
+    "notes": "Full source; queue byte and oldest-entry deadlines.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCWCore/CWClusterClientProtocol.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCWCore/CWComputeProcess.swift",
+    "status": "fully reviewed",
+    "notes": "Full source; resource hashes, bounded queues, child spawn/retirement and backpressure.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCWCore/CWComputeWire.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCWCore/CWConfiguration.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCWCore/CWContracts.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCWCore/CWDecodeSession.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCWCore/CWLocalClusterServer.swift",
+    "status": "fully reviewed",
+    "notes": "Full source; listener/client admission, output queue lifecycle, dedupe and history limits.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCWCore/CWLocalEndpointGuard.swift",
+    "status": "fully reviewed",
+    "notes": "Full source; listener/inbound atomic admission and local DNS self-loop prevention.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCWCore/CWSpotPolicy.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCWCore/CWSpotWire.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCWCore/CWTranscript.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/CATCommandProcessor.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/DXSpot.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/FlexIQDatagramReceiver.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/FlexIQResources.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/FlexIQSubscription.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/FlexIQTransport.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/FlexRadioClient+IQ.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/FlexRadioClient.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/LegacyXCATClient.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/Models.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/PropagationConditions.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/RemoteAgentAuth.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/RemoteAgentClient.swift",
+    "status": "scanned only",
+    "notes": "API map and execute533-573 retry/generation path only.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/RemoteAgentModels.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/RemoteStationConfiguration.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/RigCtlCommandProcessor.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/Rotator.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/SimulatedRadio.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/SmartLinkAuth.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/SmartLinkBroker.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/SmartLinkRadioClient.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/TCIIQFrame.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/TCIIQSubscription.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/TCIProtocol.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/TCIWebSocketSession.swift",
+    "status": "scanned only",
+    "notes": "API/structure map only; full parser/lifecycle not manually reviewed.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/TCPCommandServer.swift",
+    "status": "partially reviewed",
+    "notes": "Full source and EmbeddedCATServers caller inspected; per-connection transmit/disconnect flow traced; test sources not fully read.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XCatIntegrationCore/XCatError.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XClusterIntegrationCore/ClusterAddressResolver.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XClusterIntegrationCore/ClusterClassificationIndex.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XClusterIntegrationCore/ClusterCountryDirectory.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XClusterIntegrationCore/ClusterPortableConnection.swift",
+    "status": "scanned only",
+    "notes": "Complete source read, no full caller/test analysis; bounded connection/reconnect/partial write scan.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XClusterIntegrationCore/ClusterSessionService.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XClusterIntegrationCore/ClusterSpotObservation.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XClusterIntegrationCore/ClusterTCPTransport.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XClusterIntegrationCore/Models.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XClusterIntegrationCore/SpecialRule.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XClusterIntegrationCore/SpotLogic.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/AppRuntimeProfile.swift",
+    "status": "scanned only",
+    "notes": "Runtime mode/private-root coordinate excerpts; not full.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/CWBundleResources.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/CWConfigurationStore.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/CallsignEnrichment.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/Contesting/CQWWCountryReferenceMaterializer.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/Contesting/ContestADIFExport.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/Contesting/ContestAssistanceLane.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/Contesting/ContestCallHistoryService.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/Contesting/ContestExportArtifactCache.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/Contesting/ContestExportLane.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/Contesting/ContestExportService.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/Contesting/ContestLogTransferService.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/Contesting/ContestRecorderAcceptance.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/Contesting/ContestSCPProvider.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/Contesting/PythonContestAssistanceLane.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/Contesting/PythonContestCallHistoryLane.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+    "status": "partially reviewed",
+    "notes": "Native digital destination/ingress97-240 cross-contract inspection only; assigned contest reviewer owns broader coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/EmbeddedCATServers.swift",
+    "status": "partially reviewed",
+    "notes": "Full source; listener setup, guarded mutation authorization and client disconnect release traced; provider interactions only targeted.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/IntegrationMethods.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveCWDecodeMethods.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveCWIQProvider.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveClusterMethods.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveConnectionDoctorMethods.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveDropboxBackupAccountOwner.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveDropboxBackupCredentials.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveFTPBackupPresentation.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveFldigiBridge.swift",
+    "status": "fully reviewed",
+    "notes": "Full source and relevant worker/tests/contracts; reproduced lifecycle unowned RX with actual actor source plus interface stubs.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveFlexSession.swift",
+    "status": "partially reviewed",
+    "notes": "API map, explicit termination/retirement174-259, IQ90-130, control/ownership searches; large remainder not reviewed.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveLogbookMethods.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveOnlineLogDeliveryService.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveOperatingGoalMethods.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveOpportunitiesMethods.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LivePublicServiceMethods.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveReferenceMethods.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveRemoteBackupCommands.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveRemoteBackupPresentation.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveRemoteBackupService.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveRotorSession.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveServiceMethods.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveSpotBridge.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveSpotHistoryMethods.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+    "status": "fully reviewed",
+    "notes": "Full source; provider routing, independent registry identities, claims, parameter validation and control paths.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveStationSession.swift",
+    "status": "partially reviewed",
+    "notes": "Session identities195-243, connect294-390, shutdown568-620, control860-1009, CAT1011-1090; remaining production/test contracts not fully reviewed.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveTCISession.swift",
+    "status": "scanned only",
+    "notes": "Shared-vs-registry identity and caller searches only.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveWSJTXBridge.swift",
+    "status": "partially reviewed",
+    "notes": "Complete source read; generation/destination/ingress/import flow traced; neighboring activity/parser implementations and tests not fully reviewed.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveWorker.swift",
+    "status": "partially reviewed",
+    "notes": "Relevant architecture, startup capture, service dispatch, EOF shutdown and workspace transition paths; root separately reviews data/service paths.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LocalAcceptanceSession.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LocalContactHistory.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LocalLogbookSelfTest.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LogReviewReferences.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/NativeCredentialStore.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/NativeDraftPowerGate.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/OperatingGoals.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/OpportunityDownload.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/RTCScoreReportingService.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/ReferenceCheckPlan.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/ReferenceRefreshLease.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/RotorObservation.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/SelfTest.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/SpotInventoryStore.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/SyncAuthorization.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/WSJTXActivity.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/WSJTXDecodeDesk.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/WorkerProtocol.swift",
+    "status": "fully reviewed",
+    "notes": "Full source; bounded frames and validation; request newline mismatch disproved.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/WorkspaceCredentialStore.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XStationIntegrationCore/ConnectionDoctor.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XStationIntegrationCore/StationContractDiagnostics.swift",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XStationIntegrationCore/StationContracts.swift",
+    "status": "fully reviewed",
+    "notes": "Full source; structural validation, snapshot freshness, target/capability matching.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XStationIntegrationCore/TuneCoordinator.swift",
+    "status": "fully reviewed",
+    "notes": "Full source; generation/time fences, timeout/state transitions, readback matching and outcomes.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/Cargo.lock",
+    "status": "scanned only",
+    "notes": "Locked dependency resolution compiled/tested; no manual lockfile or current vulnerability audit.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/Cargo.toml",
+    "status": "fully reviewed",
+    "notes": "Full manifest and feature/build profile inspected; locked tests pass; advisory tool unavailable.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/Info.contesting-test.plist",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/Info.plist",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/Recorder.entitlements",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/build.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/capabilities/contest-analytics.json",
+    "status": "fully reviewed",
+    "notes": "Full capability surface inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/capabilities/contest-setup-dialogs.json",
+    "status": "fully reviewed",
+    "notes": "Full capability surface inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/capabilities/contest-setup-owner.json",
+    "status": "fully reviewed",
+    "notes": "Full capability surface inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/capabilities/default.json",
+    "status": "fully reviewed",
+    "notes": "Full capability surface inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/icons/128x128.png",
+    "status": "excluded",
+    "notes": "Binary/icon assets excluded from routine source review; native asset packaging not visually inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/icons/128x128@2x.png",
+    "status": "excluded",
+    "notes": "Binary/icon assets excluded from routine source review; native asset packaging not visually inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/icons/32x32.png",
+    "status": "excluded",
+    "notes": "Binary/icon assets excluded from routine source review; native asset packaging not visually inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/icons/64x64.png",
+    "status": "excluded",
+    "notes": "Binary/icon assets excluded from routine source review; native asset packaging not visually inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/icons/Square107x107Logo.png",
+    "status": "excluded",
+    "notes": "Binary/icon assets excluded from routine source review; native asset packaging not visually inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/icons/Square142x142Logo.png",
+    "status": "excluded",
+    "notes": "Binary/icon assets excluded from routine source review; native asset packaging not visually inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/icons/Square150x150Logo.png",
+    "status": "excluded",
+    "notes": "Binary/icon assets excluded from routine source review; native asset packaging not visually inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/icons/Square284x284Logo.png",
+    "status": "excluded",
+    "notes": "Binary/icon assets excluded from routine source review; native asset packaging not visually inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/icons/Square30x30Logo.png",
+    "status": "excluded",
+    "notes": "Binary/icon assets excluded from routine source review; native asset packaging not visually inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/icons/Square310x310Logo.png",
+    "status": "excluded",
+    "notes": "Binary/icon assets excluded from routine source review; native asset packaging not visually inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/icons/Square44x44Logo.png",
+    "status": "excluded",
+    "notes": "Binary/icon assets excluded from routine source review; native asset packaging not visually inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/icons/Square71x71Logo.png",
+    "status": "excluded",
+    "notes": "Binary/icon assets excluded from routine source review; native asset packaging not visually inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/icons/Square89x89Logo.png",
+    "status": "excluded",
+    "notes": "Binary/icon assets excluded from routine source review; native asset packaging not visually inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/icons/StoreLogo.png",
+    "status": "excluded",
+    "notes": "Binary/icon assets excluded from routine source review; native asset packaging not visually inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/icons/icon.icns",
+    "status": "excluded",
+    "notes": "Binary/icon assets excluded from routine source review; native asset packaging not visually inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/icons/icon.ico",
+    "status": "excluded",
+    "notes": "Binary/icon assets excluded from routine source review; native asset packaging not visually inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/icons/icon.png",
+    "status": "excluded",
+    "notes": "Binary/icon assets excluded from routine source review; native asset packaging not visually inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/icons/xlog-app-icon-master.png",
+    "status": "excluded",
+    "notes": "Binary/icon assets excluded from routine source review; native asset packaging not visually inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/acceptance.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/alerts.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/amplifier_transition.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/auto_rotor.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/auto_rotor_reconcile.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/canvas_close.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/carrier_tune.rs",
+    "status": "partially reviewed",
+    "notes": "Output acquisition/intent and journal structure1-215 inspected; rest searched only.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/cluster_session.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/connection_doctor.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/contest_analytics.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/contest_export.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/contest_group_chat.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/contest_group_replica.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/contest_lane_output.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/contest_log_review.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/contest_log_transfer.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/contest_recorder.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/contest_recorder_acceptance.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/contest_recorder_audio.rs",
+    "status": "partially reviewed",
+    "notes": "Input/output route validation and callback queue1-185 inspected; remainder not reviewed.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/contest_recorder_store.rs",
+    "status": "partially reviewed",
+    "notes": "Path/file safety, atomic JSON and recorder configuration1-180 inspected; remainder belongs to root investigation/not fully reviewed here.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/contest_setup_dialogs.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/contest_setup_services.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/contest_surface.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/contest_voice.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/contest_window_context.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/contest_window_state.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/cw_session.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/cw_session_backend.rs",
+    "status": "partially reviewed",
+    "notes": "Canonical context, target, output/capability gates1-180 inspected; remainder not reviewed.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/detached_acceptance.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/detached_geometry.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/dx_alerts.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/hamlib.rs",
+    "status": "partially reviewed",
+    "notes": "Ownership/drop, device/slot/lifecycle initial160 lines reviewed; remainder only test/grep scan.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/hf_propagation.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/logbook_events.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/macos_termination.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/main.rs",
+    "status": "partially reviewed",
+    "notes": "Role/module/worker command dispatch2380-2570, output handlers2000-2166, exit lifecycle4270-4356 deeply traced; API map and searches; most other code not manually reviewed.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/manual_rotor.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/manual_tune.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/map_context.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/module_restart_intent.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/monitor_context.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/operating_module.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/operating_module_prepare.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/opportunity_selection.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/propagation_session.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/ptt_session.rs",
+    "status": "partially reviewed",
+    "notes": "Acquisition, independent release, receipt collision/reconciliation lines1-485 examined; source excerpts truncated portions and remaining backend/tests not fully reviewed.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/qsy_clear.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/radio_follow.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/radio_read.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/radio_release.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/radio_slots.rs",
+    "status": "fully reviewed",
+    "notes": "Full source; shared TX lease, routing lock order and durable active slot; tests executed.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/rotor.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/rotor_session.rs",
+    "status": "partially reviewed",
+    "notes": "Saved intent, validation, durability, restart/replay guards1-185 reviewed; remaining implementation/tests not reviewed.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/rotor_telemetry.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/runtime_profile.rs",
+    "status": "scanned only",
+    "notes": "Runtime isolation coordinate and allowlist source excerpts/API checks; output truncation means not full.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/spot_activation.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/spot_activation_backend.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/spot_editor_barrier.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/spot_identity.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/station_identity.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/station_selection.rs",
+    "status": "partially reviewed",
+    "notes": "Generation/control call-site searches and shutdown915-935 inspected; rest only targeted tests/search hits.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/station_session.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/station_telemetry.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/tci_filter.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/window_geometry.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/winkeyer.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/worker.rs",
+    "status": "partially reviewed",
+    "notes": "Production implementation lines1-1297 inspected deeply, targeted tests/allowlists queried; full suite run; remaining inline tests not manually reviewed.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/workspace_navigation.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/workspace_window_runtime.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/src/workspace_windows.rs",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/tauri.conf.json",
+    "status": "fully reviewed",
+    "notes": "Full native config/CSP/bundle identity inspected.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/tauri.contesting-test.conf.json",
+    "status": "not reviewed",
+    "notes": "Inventoried; no meaningful manual review in this bounded native pass. Suite execution alone does not establish manual coverage.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "prototype/src-tauri/tests/hamlib_dummy.rs",
+    "status": "partially reviewed",
+    "notes": "Full test read and suite run; opt-in daemon behavior requires environment variables and was not exercised.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Sources/XLogPrototypeWorker/main.swift",
+    "status": "partially reviewed",
+    "notes": "Complete source read; service loop admission, EOF and worker shutdown lifecycle traced. Neighboring modes/tests not fully reviewed.",
+    "reviewer": "native_shell_review"
+  },
+  {
+    "path": "Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift",
+    "status": "partially reviewed",
+    "notes": "Tests1-176 and targeted assertions examined; entire Swift suite runs under root; no test covers never-configured shutdown ownership.",
+    "reviewer": "native_shell_review"
+  }
+]

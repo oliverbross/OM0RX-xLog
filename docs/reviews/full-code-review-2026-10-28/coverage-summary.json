@@ -1,0 +1,26 @@
+{
+  "source": "4bd554a25951ddc995b4bef1715d3df12918a07b",
+  "root": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "totalFiles": 2347,
+  "depthCounts": {
+    "not reviewed": 617,
+    "partially reviewed": 79,
+    "fully reviewed": 87,
+    "scanned only": 1435,
+    "excluded": 129
+  },
+  "firstPartyDepthCounts": {
+    "not reviewed": 25,
+    "partially reviewed": 72,
+    "fully reviewed": 81,
+    "scanned only": 1434,
+    "excluded": 2
+  },
+  "scopeCounts": {
+    "first-party source/test/config/tooling": 1614,
+    "supporting documentation/data/media": 542,
+    "resource/data; contracts and loaders in scope": 79,
+    "vendored; boundary/provenance review only": 112
+  },
+  "patternHits": 2570
+}

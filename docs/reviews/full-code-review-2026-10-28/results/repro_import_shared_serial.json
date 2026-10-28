@@ -1,0 +1,29 @@
+{
+  "historicalSerialFloor": 2,
+  "existingSentSerials": [
+    2
+  ],
+  "sharedReservation": {
+    "sessionID": "c66e8540-d49d-47f3-81d8-3e94bc268107",
+    "workspaceGeneration": "bdbfecf8-7c4e-4a11-9420-c7c1ca39d1c0",
+    "requestID": "2c62035c-50ce-479c-beac-d3e75d0d1566",
+    "revision": 2,
+    "scope": "contest",
+    "serial": 2,
+    "sentExchange": "002",
+    "allocatedFieldID": "other_1",
+    "authority": {
+      "sessionID": "c66e8540-d49d-47f3-81d8-3e94bc268107",
+      "workspaceGeneration": "bdbfecf8-7c4e-4a11-9420-c7c1ca39d1c0",
+      "pluginID": "cq_wpx_cw",
+      "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
+      "referenceID": "test-cty-v1",
+      "coordinationDigest": "57bab48a0292a1b584ac0d8f36e5a300ff787fe22a0ceeff47c2f097492b02f2"
+    },
+    "replayed": false
+  },
+  "remoteCommitRejection": {
+    "code": "historical_serial_conflict",
+    "message": "The preserved draft serial is already present in an imported historical contact. Preserve any actual sent exchange and deliberately finish/reconcile this draft before using a fresh serial."
+  }
+}

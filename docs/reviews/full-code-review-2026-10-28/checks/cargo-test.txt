@@ -1,0 +1,1092 @@
+   Compiling objc2-exception-helper v0.1.1
+   Compiling aws-lc-sys v0.46.0
+   Compiling objc2 v0.6.5
+   Compiling mac-notification-sys v0.6.15
+   Compiling xlog-prototype v1.3.60 (/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri)
+   Compiling objc2-foundation v0.3.2
+   Compiling wry v0.57.0
+   Compiling block2 v0.6.2
+   Compiling objc2-core-audio-types v0.3.2
+   Compiling dispatch2 v0.3.1
+   Compiling objc2-core-foundation v0.3.2
+   Compiling aws-lc-rs v1.18.2
+   Compiling rustls v0.23.45
+   Compiling rustls-webpki v0.103.15
+   Compiling tokio-rustls v0.26.5
+   Compiling rustls-platform-verifier v0.7.1
+   Compiling hyper-rustls v0.27.10
+   Compiling reqwest v0.13.5
+   Compiling objc2-quartz-core v0.3.2
+   Compiling objc2-core-audio v0.3.2
+   Compiling objc2-audio-toolbox v0.3.2
+   Compiling notify-rust v4.18.2
+   Compiling objc2-app-kit v0.3.2
+   Compiling coreaudio-rs v0.14.2
+   Compiling cpal v0.18.2
+   Compiling objc2-web-kit v0.3.2
+   Compiling tao v0.37.1
+   Compiling muda v0.20.0
+   Compiling window-vibrancy v0.8.1
+   Compiling tauri-runtime v2.12.1
+   Compiling tauri-runtime-wry v2.12.1
+   Compiling tauri v2.12.3
+   Compiling tauri-plugin-notification v2.6.0
+   Compiling tauri-plugin-single-instance v2.5.3
+warning: function `valid` is never used
+  --> tests/../src/radio_slots.rs:17:8
+   |
+17 | pub fn valid(value: &str) -> bool {
+   |        ^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: struct `Routing` is never constructed
+  --> tests/../src/radio_slots.rs:29:8
+   |
+29 | struct Routing {
+   |        ^^^^^^^
+
+warning: static `ROUTING` is never used
+  --> tests/../src/radio_slots.rs:34:8
+   |
+34 | static ROUTING: OnceLock<Mutex<Option<Routing>>> = OnceLock::new();
+   |        ^^^^^^^
+
+warning: function `load` is never used
+  --> tests/../src/radio_slots.rs:56:4
+   |
+56 | fn load(app: &tauri::AppHandle) -> Result<Routing, String> {
+   |    ^^^^
+
+warning: function `persist` is never used
+  --> tests/../src/radio_slots.rs:78:4
+   |
+78 | fn persist(routing: &Routing) -> Result<(), String> {
+   |    ^^^^^^^
+
+warning: function `with_routing` is never used
+   --> tests/../src/radio_slots.rs:100:4
+    |
+100 | fn with_routing<T>(
+    |    ^^^^^^^^^^^^
+
+warning: function `active` is never used
+   --> tests/../src/radio_slots.rs:114:8
+    |
+114 | pub fn active(app: &tauri::AppHandle) -> Result<String, String> {
+    |        ^^^^^^
+
+warning: function `set_active` is never used
+   --> tests/../src/radio_slots.rs:118:8
+    |
+118 | pub fn set_active(app: &tauri::AppHandle, radio_id: &str) -> Result<Value, String> {
+    |        ^^^^^^^^^^
+
+warning: function `claim_active_tx` is never used
+   --> tests/../src/radio_slots.rs:139:8
+    |
+139 | pub fn claim_active_tx(app: &tauri::AppHandle, radio_id: &str) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^^^
+
+warning: `xlog-prototype` (test "hamlib_dummy") generated 9 warnings
+warning: function `contest_setup_dialog_kind` is never used
+  --> src/workspace_navigation.rs:62:8
+   |
+62 | pub fn contest_setup_dialog_kind(route: &str) -> Option<&'static str> {
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: associated items `as_str` and `parse` are never used
+  --> src/workspace_windows.rs:12:18
+   |
+11 | impl WorkspaceWindowScope {
+   | ------------------------- associated items in this implementation
+12 |     pub const fn as_str(self) -> &'static str {
+   |                  ^^^^^^
+...
+18 |     pub fn parse(value: &str) -> Result<Self, String> {
+   |            ^^^^^
+
+warning: methods `begin` and `begin_restart` are never used
+   --> src/operating_module.rs:209:12
+    |
+ 90 | impl Owner {
+    | ---------- methods in this implementation
+...
+209 |     pub fn begin(&self, target: &str, context: &str) -> Result<OperatingModule, String> {
+    |            ^^^^^
+...
+215 |     pub fn begin_restart(&self, target: &str, context: &str) -> Result<OperatingModule, String> {
+    |            ^^^^^^^^^^^^^
+
+warning: function `prepare` is never used
+   --> src/contest_voice.rs:231:8
+    |
+231 | pub fn prepare(
+    |        ^^^^^^^
+
+warning: methods `media_path` and `coverage` are never used
+   --> src/contest_recorder_store.rs:807:12
+    |
+318 | impl Archive {
+    | ------------ methods in this implementation
+...
+807 |     pub fn media_path(&self, segment: &Segment) -> PathBuf {
+    |            ^^^^^^^^^^
+...
+823 |     pub fn coverage(&self, start: u64, end: u64) -> String {
+    |            ^^^^^^^^
+
+warning: `xlog-prototype` (bin "xlog-prototype") generated 5 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 15s
+     Running unittests src/main.rs (prototype/src-tauri/target/debug/deps/xlog_prototype-31caed3936eddef0)
+
+running 913 tests
+test acceptance::tests::local_acceptance_allows_only_read_only_spot_history_methods ... ok
+test acceptance::tests::local_map_acceptance_uses_only_private_workspace_context_and_preferences ... ok
+test acceptance::tests::local_acceptance_cannot_reach_native_hardware_or_external_sources ... ok
+test acceptance::tests::normal_windows_do_not_allocate_acceptance_contexts ... ok
+test acceptance::tests::desk_acceptance_sizing_is_exact_isolated_main_only ... ok
+test acceptance::tests::native_window_controls_require_isolation_main_and_known_bounded_kind ... ok
+test acceptance::tests::normal_launch_has_no_acceptance ... ok
+test acceptance::tests::large_log_requires_explicit_native_gate_and_complete_measurements ... ok
+test acceptance::tests::success_requires_observed_ui_worker_and_multiple_boolean_checks ... ok
+test acceptance::tests::report_cli_rejects_missing_relative_and_duplicate_targets ... ok
+test alerts::tests::changed_selection_unknown_sources_and_unmodeled_providers_never_claim_all_clear ... ok
+test acceptance::tests::isolated_runs_have_distinct_singleton_and_application_namespaces ... ok
+test alerts::tests::clear_unknown_and_unmodeled_alarm_text_are_not_active_alarm_counts ... ok
+test acceptance::tests::only_acceptance_windows_use_ephemeral_browser_storage ... ok
+test alerts::tests::closed_retained_aggregation_exposes_codes_not_worker_text_or_control ... ok
+test alerts::tests::narrow_passive_admission_never_initializes_a_source ... ok
+test acceptance::tests::integrated_local_report_requires_real_workflow_checks_and_gpu_evidence ... ok
+test acceptance::tests::evidence_payload_is_bounded ... ok
+test amplifier_transition::tests::amplifier_operate_ignores_telemetry_freshness_and_policy_fields ... ok
+test amplifier_transition::tests::amplifier_confirmed_worker_rejection_is_terminal_and_keeps_its_detail ... ok
+test amplifier_transition::tests::amplifier_rollback_failure_detail_is_retained_unknown ... ok
+test amplifier_transition::tests::amplifier_native_preparation_is_shared_across_renderers_and_never_relabels_old_intent ... ok
+test amplifier_transition::tests::amplifier_invalid_journal_target_and_failed_review_are_fail_closed ... ok
+test amplifier_transition::tests::amplifier_concurrent_operate_and_standby_finalize_exact_ids_in_reverse_order ... ok
+test amplifier_transition::tests::amplifier_urgent_stale_standby_requires_exact_authority_not_readiness ... ok
+test amplifier_transition::tests::amplifier_known_not_sent_failure_is_terminal_and_retryable ... ok
+test auto_rotor::tests::exhausted_epoch_stays_off_without_wrapping_or_revalidating_old_permits ... ok
+test auto_rotor::tests::disconnected_readback_preserves_intent_but_removes_turn_eligibility ... ok
+test auto_rotor::tests::coordinator_rechecks_revoked_permission_at_driver_admission ... ok
+test auto_rotor::tests::exhausted_target_sequence_revokes_instead_of_retaining_an_old_permit ... ok
+test auto_rotor::tests::failed_spot_tune_remains_blocked_after_same_call_notes_write ... ok
+test auto_rotor::tests::in_flight_canonical_write_blocks_old_read_and_notes_do_not_repeat_a_turn ... ok
+test auto_rotor::tests::invalid_or_mismatched_lookup_and_changed_read_never_dispatch ... ok
+test auto_rotor::tests::lost_motion_reply_disarms_without_replay ... ok
+test auto_rotor::tests::manual_revoke_and_canonical_mutation_during_lookup_cancel_permission ... ok
+test auto_rotor::tests::native_stop_revokes_and_automatic_backend_failure_stays_uncertain ... ok
+test auto_rotor::tests::obsolete_dispatch_failure_cannot_disarm_or_overwrite_newer_explicit_arm ... ok
+test auto_rotor::tests::pending_arm_epoch_cannot_cross_manual_stop_but_new_explicit_arm_can ... ok
+test auto_rotor::tests::reconcile_error_is_visible_only_for_its_current_armed_epoch ... ok
+test auto_rotor::tests::restart_off_and_activation_requires_current_confirmation ... ok
+test auto_rotor::tests::saved_band_policy_blocks_lookup_and_motion_in_the_native_owner ... ok
+test auto_rotor::tests::saved_radio_startup_rebases_only_the_exact_disarmed_epoch ... ok
+test auto_rotor::tests::stale_confirmation_and_same_call_new_workspace_cannot_turn ... ok
+test auto_rotor::tests::stop_between_arm_read_and_atomic_admission_never_restores_permission ... ok
+test auto_rotor::tests::unavailable_optional_rotor_does_not_block_activation_confirmation ... ok
+test amplifier_transition::tests::amplifier_storage_failures_never_dispatch_or_publish_false_terminal ... ok
+test auto_rotor_reconcile::tests::wake_during_error_publication_is_not_lost_and_does_not_start_parallel_work ... ok
+test auto_rotor::tests::unavailable_readback_keeps_intent_but_blocks_an_existing_permit_before_motion ... ok
+test canvas_close::tests::accepted_close_requests_cannot_claim_completion_while_native_windows_remain ... ok
+test auto_rotor_reconcile::tests::shutdown_during_lookup_returns_without_waiting_and_suppresses_late_events ... ok
+test auto_rotor::tests::revocation_does_not_wait_for_admitted_driver_and_stop_stays_after_goto ... ok
+test canvas_close::tests::preflight_veto_or_timeout_closes_nothing_and_success_includes_manual_band_instances ... ok
+test auto_rotor_reconcile::tests::many_wakes_while_lookup_is_blocked_drain_exactly_one_latest_followup ... ok
+test canvas_close::tests::all_editors_must_acknowledge_exact_request_and_veto_is_preserved ... ok
+test carrier_tune::tests::flex_requires_exact_fresh_confirmed_tx_and_cw_carrier_reservation_is_shared ... ok
+test carrier_tune::tests::cw_and_carrier_races_are_nonblocking_in_both_orders ... ok
+test carrier_tune::tests::carrier_admission_requires_exact_fresh_idle_consent_policy_and_no_cw ... ok
+test cluster_session::tests::cached_reads_still_validate_parameters_and_failed_snapshots_retain_last_good_data ... ok
+test cluster_session::tests::a_slow_command_cannot_accumulate_pollers_or_be_replayed_during_shutdown ... ok
+test cluster_session::tests::commands_publish_without_a_main_renderer_and_are_never_retried ... ok
+test cluster_session::tests::contest_connection_actions_and_renderers_reuse_one_serialized_owner ... ok
+test cluster_session::tests::contest_radio_publication_receipts_preserve_the_cluster_projection ... ok
+test carrier_tune::tests::cold_start_persisted_unknown_blocks_radio_cw_before_any_renderer_read ... ok
+test cluster_session::tests::contest_setup_posts_one_bounded_dx_command_and_test_profile_never_reaches_transport ... ok
+test cluster_session::tests::failed_cluster_reads_still_sample_passive_activity_each_cycle ... ok
+test cluster_session::tests::invalid_command_snapshot_cannot_leave_the_previous_projection_marked_live ... ok
+test cluster_session::tests::first_direct_reply_has_native_tokens_and_old_worker_payload_is_never_relabelled ... ok
+test cluster_session::tests::multiple_renderers_reuse_one_verified_snapshot ... ok
+test cluster_session::tests::qsy_transaction_fence_vetoes_a_new_cluster_selection_until_release ... ok
+test cluster_session::tests::replacement_worker_is_resumed_once_per_generation_with_exact_resume_request ... ok
+test cluster_session::tests::selection_is_only_a_known_spot_not_a_radio_command ... ok
+test cluster_session::tests::shutdown_rejects_requests_and_late_results ... ok
+test cluster_session::tests::startup_resume_initialization_busy_is_rejected_before_transport_then_confirms ... ok
+test cluster_session::tests::startup_resumes_once_and_periodic_refreshes_are_passive_snapshots ... ok
+test connection_doctor::tests::adapter_strips_identifiers_values_errors_and_secrets_before_projection ... ok
+test cluster_session::tests::surface_capabilities_are_explicit ... ok
+test carrier_tune::tests::crash_and_storage_failures_stay_unknown_without_duplicate_send ... ok
+test connection_doctor::tests::export_authorization_requires_exact_doctor_window_before_any_dialog_or_write ... ok
+test connection_doctor::tests::export_is_deterministic_and_rejects_all_untyped_source_content ... ok
+test connection_doctor::tests::validates_exact_surface_and_returns_only_correlated_projected_result ... ok
+test connection_doctor::tests::incoherent_or_unselected_context_fails_closed_without_source_values ... ok
+test carrier_tune::tests::durable_carrier_admission_never_replays_and_unknown_blocks_only_acquisition ... ok
+test contest_analytics::tests::analytics_export_has_one_dialog_owner_and_releases_after_completion ... ok
+test contest_analytics::tests::analytics_only_accepts_its_own_bounded_copy_reads ... ok
+test contest_analytics::tests::analytics_export_validates_window_text_and_file_type ... ok
+test contest_analytics::tests::analytics_print_is_window_scoped_and_preserves_dispatch_errors ... ok
+test contest_analytics::tests::message_export_is_setup_owned_bounded_text_without_activation ... ok
+test contest_export::tests::admission_requires_setup_owner_profile_and_nonexiting_state ... ok
+test contest_export::tests::aborting_async_waiter_does_not_release_running_blocking_save_lease ... ok
+test contest_export::tests::archive_is_saved_as_exact_reviewed_bytes_and_rejects_non_zip_before_dialog ... ok
+test contest_export::tests::cancel_writes_nothing_and_releases_prepared_artifact ... ok
+test connection_doctor::tests::native_export_cancellation_write_failure_and_exclusive_ownership ... ok
+test contest_export::tests::declared_format_must_match_downloaded_artifact_before_dialog ... ok
+test contest_export::tests::corrupt_or_oversized_artifact_fails_before_dialog_or_publish ... ok
+test contest_export::tests::failed_initial_admission_never_reaches_worker_dialog_or_publisher ... ok
+test contest_export::tests::disk_failure_is_reported_and_retains_artifact ... ok
+test contest_export::tests::native_save_lease_is_exclusive ... ok
+test contest_analytics::tests::analytics_export_cancellation_atomic_replace_and_failure_preserve_other_files ... ok
+test contest_export::tests::offline_export_requires_active_contest_setup_and_retains_other_fences ... ok
+test contest_export::tests::original_not1mm_adif_passes_the_native_format_boundary_and_is_published ... ok
+test contest_export::tests::postpublication_release_failure_does_not_downgrade_saved_result ... ok
+test contest_export::tests::original_not1mm_edi_passes_the_native_format_boundary_and_is_published ... ok
+test contest_export::tests::prepared_and_result_wire_contract_uses_exact_artifact_id_and_optional_filename ... ok
+test contest_export::tests::queued_blocking_save_reserves_lease_before_operation_starts ... ok
+test contest_export::tests::queued_dialog_shutdown_creates_no_panel_or_file ... ok
+test contest_export::tests::multichunk_download_is_reassembled_before_dialog_and_reverified ... ok
+test contest_export::tests::restart_or_postdialog_admission_failure_never_publishes_and_retains_artifact ... ok
+test contest_export::tests::save_outcomes_map_to_terminal_contest_action_receipts ... ok
+test contest_export::tests::saved_result_is_truthful_and_uses_original_revision_bytes ... ok
+test contest_export::tests::sha256_and_base64_are_strict ... ok
+test contest_group_chat::tests::accepts_only_group_chat_from_the_pinned_renfield_multicast_protocol ... ok
+test contest_group_chat::tests::authority_duplicate_and_lost_frames_are_retry_safe_and_correlated ... ok
+test contest_group_chat::tests::authority_rejects_invalid_lease_tag_and_stale_workspace_before_dispatch ... ok
+test contest_export::tests::published_save_completes_while_worker_release_is_blocked ... ok
+test contest_group_chat::tests::authority_lease_loss_revokes_pending_and_reconnect_replays_from_cursor ... ok
+test contest_group_chat::tests::authority_rejects_other_contest_on_shared_multicast_before_adoption_or_dispatch ... ok
+test contest_group_chat::tests::contest_identity_is_required_when_enabled_and_always_bounded ... ok
+test contest_group_chat::tests::disabled_owner_never_binds_or_sends ... ok
+test contest_export::tests::exclusive_publication_preserves_existing_destination_and_cleans_temporary_file ... ok
+test contest_group_chat::tests::native_coordination_accepts_the_renderer_request_id_spelling ... ok
+test contest_group_chat::tests::history_is_bounded_and_keeps_arrival_order ... ok
+test contest_group_chat::tests::pinned_serial_and_dupe_queries_are_explicitly_fail_closed ... ok
+test contest_group_chat::tests::post_publication_preserves_historical_operator_during_handoff_retry ... ok
+test contest_group_chat::tests::post_publication_requires_a_bounded_historical_operator ... ok
+test contest_group_chat::tests::rejects_unbounded_non_ascii_and_non_chat_datagrams ... ok
+test contest_group_chat::tests::restart_and_stale_or_foreign_frames_cannot_retire_a_new_session_contact ... ok
+test contest_group_chat::tests::persistence_is_verified_only_by_ok_contact_apply_and_resets_with_lease ... ok
+test contest_group_chat::tests::simultaneous_peer_serial_requests_never_create_local_authority ... ok
+test contest_group_chat::tests::same_master_process_restart_rebinds_to_newer_lease_and_retries_persisted_request ... ok
+test contest_group_chat::tests::validates_multicast_settings_and_operator_only_when_enabled ... ok
+test contest_group_chat::tests::wire_is_ascii_json_and_round_trips_unicode ... ok
+test contest_group_chat::tests::two_peers_record_only_their_unverified_transport_acknowledgements ... ok
+test contest_group_chat::tests::two_local_group_sockets_use_the_explicit_loopback_interface ... ok
+test contest_group_replica::tests::exact_authority_page_is_owned_by_the_local_apply_request ... ok
+test contest_group_replica::tests::authored_identity_waits_across_full_intervening_page_for_its_commit ... ok
+test contest_group_replica::tests::final_page_without_authored_commit_fails_and_retains_pending_identity ... ok
+test contest_group_replica::tests::mismatched_page_and_renderer_authored_pairs_are_rejected ... ok
+test contest_group_replica::tests::renderer_routes_cannot_read_or_apply_authoritative_pages ... ok
+test contest_group_replica::tests::serial_payload_is_derived_only_from_the_correlated_authority_reply ... ok
+test contest_lane_output::tests::fake_binding_capabilities_and_generation_types_are_exact_and_production_never_dispatches ... ok
+test contest_lane_output::tests::nonfocus_tune_listen_never_change_other_lane_or_acquire_tx ... ok
+test contest_lane_output::tests::consumed_whole_string_operation_never_replays_on_same_or_rearmed_lane ... ok
+test contest_lane_output::tests::native_worker_restart_disarms_exact_old_target_and_never_accepts_late_worker_requests ... ok
+test contest_lane_output::tests::transverter_routes_only_valid_if_to_exact_fake_lane_without_widening_provider_or_rf_attribution ... ok
+test contest_lane_output::tests::rebind_invalidates_only_changed_listening_route_and_draft_advance_preserves_it ... ok
+test contest_lane_output::tests::one_tx_owner_requires_confirmed_release_and_stop_is_pinned_after_rebind ... ok
+test contest_lane_output::tests::uncertain_release_across_operating_context_change_retains_owner_and_blocks_new_arm ... ok
+test contest_lane_output::tests::unsupported_explicit_rx_tx_split_rejects_tune_without_any_effect ... ok
+test contest_log_review::tests::only_review_window_and_read_methods_are_admitted ... ok
+test contest_log_transfer::tests::only_the_dedicated_window_is_admitted ... ok
+test contest_log_transfer::tests::transfer_route_allows_only_exact_stable_contracts ... ok
+test contest_log_transfer::tests::legacy_import_retry_ids_are_stable_and_scoped ... ok
+test contest_export::tests::shutdown_or_restart_after_temp_flush_cleans_owned_temp_and_does_not_publish ... ok
+test contest_recorder::tests::queued_replay_never_restarts_after_stop_or_newer_admission ... ok
+test contest_recorder::tests::recorder_capabilities_reject_station_writes_paths_and_analytics_capture ... ok
+test contest_recorder::tests::retained_transmit_in_either_radio_slot_inhibits_listening ... ok
+test contest_recorder_audio::tests::callback_clamps_pcm_preserves_stereo_and_reports_bounded_queue_overrun ... ok
+test contest_recorder_audio::tests::pause_seek_channel_selection_and_listening_gain_leave_samples_unchanged ... ok
+test contest_recorder_audio::tests::playback_survives_underruns_but_device_failure_stops_and_retains_reason ... ok
+test contest_recorder_audio::tests::replay_cancellation_and_delayed_callbacks_cannot_restart_sound ... ok
+test amplifier_transition::tests::amplifier_crash_unknown_review_and_malformed_reply_binding ... ok
+test contest_recorder::tests::active_recovery_and_stale_stop_are_rejected_before_file_mutation ... ok
+test cluster_session::tests::start_is_idempotent_and_does_not_depend_on_a_renderer_timer ... ok
+test contest_recorder_store::tests::corrupt_missing_symlink_and_volume_replacement_are_rejected ... ok
+test contest_recorder_store::tests::crash_partial_recovery_preserves_original_and_reports_torn_frame ... ok
+test contest_recorder::tests::bookmark_paging_searches_the_full_durable_index ... ok
+test contest_recorder_store::tests::low_disk_refuses_start_without_pruning_and_riff_overflow_is_rejected ... ok
+test contest_recorder::tests::exact_log_identity_and_ambiguous_clock_capture_intervals_never_cross_link ... ok
+test contest_recorder::tests::previous_capture_reconciles_delayed_commit_correction_and_delete ... ok
+test contest_recorder_store::tests::journal_torn_tail_keeps_backup_and_manual_bookmark_survives_restart ... ok
+test contest_recorder_store::tests::remote_contacts_never_inherit_local_audio_and_pending_tail_is_truthful ... ok
+test contest_recorder_store::tests::rename_before_manifest_is_adopted_without_overwrite ... ok
+test contest_setup_dialogs::tests::admits_only_owner_and_dialog_operations ... ok
+test contest_setup_dialogs::tests::deduplicates_requests_and_preserves_single_writer ... ok
+test contest_setup_dialogs::tests::dialogs_have_only_their_finite_core_capability ... ok
+test contest_setup_dialogs::tests::digital_requests_are_bounded_and_owned ... ok
+test contest_setup_dialogs::tests::exposes_compact_distinct_windows ... ok
+test contest_setup_dialogs::tests::digital_status_churn_is_not_an_owned_configuration_change ... ok
+test contest_setup_dialogs::tests::fences_changed_document_context_and_owner ... ok
+test contest_setup_dialogs::tests::only_owner_or_main_logging_opon_can_open_dialogs ... ok
+test contest_setup_dialogs::tests::rejected_attempt_requires_reopen_but_fresh_snapshot_can_retry ... ok
+test contest_setup_dialogs::tests::station_save_ignores_unrelated_owner_projection_churn_but_rejects_station_conflicts ... ok
+test contest_setup_services::tests::only_setup_can_navigate_to_the_finite_service_owners ... ok
+test contest_surface::tests::action_queue_marks_taken_work_uncertain_and_never_replays_duplicate_ids ... ok
+test contest_surface::tests::action_schema_rejects_unknown_fields_coercion_wrong_panel_and_old_numeric_frequency ... ok
+test contest_surface::tests::assistance_projection_requires_owner_resolvable_candidate_ids ... ok
+test contest_surface::tests::completed_escape_receipts_reuse_only_the_reserved_escape_capacity ... ok
+test contest_surface::tests::contest_diagnostics_are_deduplicated_bounded_and_merged_only_into_messages ... ok
+test contest_surface::tests::advisory_warnings_timeline_and_available_multiplier_spots_are_bounded ... ok
+test contest_surface::tests::contest_rotor_target_uses_only_the_retained_active_entry_projection ... ok
+test contest_surface::tests::contest_spot_selection_is_scoped_revision_fenced_and_schema_bounded ... ok
+test contest_surface::tests::context_registration_and_invalidation_are_exact ... ok
+test contest_surface::tests::detached_lane_identity_preserves_generation_type_and_never_accepts_output_authority ... ok
+test contest_surface::tests::entry_multiplier_status_is_optional_and_finite ... ok
+test contest_surface::tests::entry_operator_actions_are_typed_and_revision_fenced ... ok
+test contest_surface::tests::entry_policy_and_unavailable_reasons_are_explicit_and_bounded ... ok
+test contest_surface::tests::entry_v2_accepts_cq_ww_space_next_and_rejects_invalid_maps ... ok
+test contest_surface::tests::escape_accepts_an_older_ready_projection_but_rejects_future_and_expired_contexts ... ok
+test contest_surface::tests::escape_has_a_separate_bounded_at_most_once_lane_without_touching_fifo_work ... ok
+test contest_surface::tests::entry_v2_projects_resolved_sent_exchange_and_simulation_state_exactly ... ok
+test contest_surface::tests::escape_lane_is_bounded_and_context_replacement_purges_it ... ok
+test contest_surface::tests::log_contact_metadata_edits_match_the_typescript_surface_contract ... ok
+test contest_surface::tests::multiplier_navigation_and_callsign_commands_keep_exact_action_contracts ... ok
+test contest_surface::tests::operating_module_retirement_blocks_only_unresolved_contest_work ... ok
+test contest_surface::tests::partial_candidate_actions_are_revision_fenced_and_never_replayed ... ok
+test contest_surface::tests::partial_columns_require_unique_bounded_candidates ... ok
+test contest_surface::tests::passive_panel_changes_keep_exact_semantic_draft_actions_and_receipts_valid ... ok
+test contest_surface::tests::projection_schemas_are_exact_and_unavailable_roles_have_no_ready_shape ... ok
+test contest_surface::tests::raw_entry_and_log_frequency_text_keep_bounded_invalid_intermediate_edits ... ok
+test contest_surface::tests::rate_and_statistics_projections_reject_noncanonical_or_inconsistent_snapshots ... ok
+test contest_surface::tests::rejected_completion_replay_requires_the_exact_terminal_coordinate ... ok
+test contest_surface::tests::relayed_operator_focus_is_exact_one_shot_and_rejects_unfocused_submission ... ok
+test contest_surface::tests::setup_publication_replay_accepts_only_the_exact_current_projection ... ok
+test contest_surface::tests::score_credentials_are_not_retained_in_action_receipts ... ok
+test contest_surface::tests::stale_context_and_capacity_failures_do_not_mutate_admission_state ... ok
+test contest_surface::tests::timed_multiplier_scope_preserves_utc_and_mode_without_widening_radio_bands ... ok
+test contest_surface::tests::statistics_v3_is_exact_bounded_and_matches_the_not1mm_table ... ok
+test contest_surface::tests::unavailable_projection_cannot_enqueue_actions ... ok
+test contest_surface::tests::unresolved_receipts_block_eviction_and_retired_ids_never_replay ... ok
+test contest_voice::tests::consumed_tombstones_survive_more_than_256_actions_until_scope_changes ... ok
+test contest_voice::tests::managed_profile_rejects_inconsistent_pcm_headers ... ok
+test contest_voice::tests::managed_profile_rejects_malformed_audio_and_symbolic_link_slots ... ok
+test contest_voice::tests::batch_caps_aggregate_segments_and_binds_the_exact_manifest ... ok
+test contest_voice::tests::managed_profile_rejects_oversized_slot_before_reading_it ... ok
+test contest_voice::tests::managed_profile_writes_inspects_and_previews_only_bounded_slots ... ok
+test contest_voice::tests::prepare_acquire_release_prepare_replay_is_tombstoned_in_scope ... ok
+test contest_voice::tests::queued_acquisition_is_retained_by_the_shutdown_barrier ... ok
+test contest_voice::tests::maps_slash_explicitly_and_rejects_every_unsupported_character ... ok
+test contest_voice::tests::resolves_not1mm_character_and_bracket_wavs_in_order ... ok
+test contest_voice::tests::shutdown_waits_for_late_acquisition_then_releases_owned_ptt ... ok
+test contest_voice::tests::test_profile_and_non_owner_never_admit_io ... ok
+test contest_voice::tests::stale_context_digest_missing_or_malformed_audio_fail_closed ... ok
+test contest_window_context::tests::contest_surface_mutation_admission_blocks_switch_after_context_validation ... ok
+test contest_window_context::tests::late_reply_cannot_reinstate_prior_session_or_operating_context ... ok
+test contest_window_context::tests::python_create_projection_establishes_the_same_exact_context ... ok
+test contest_window_context::tests::malformed_mismatched_and_inactive_inputs_fail_closed ... ok
+test contest_window_context::tests::successful_worker_open_establishes_exact_context_and_close_invalidates_it ... ok
+test contest_window_state::tests::every_session_restores_the_standard_contest_desk_alongside_remembered_tools ... ok
+test contest_window_state::tests::malformed_or_unknown_state_fails_closed_without_replacing_it ... ok
+test contest_recorder_store::tests::recovery_output_before_manifest_can_be_retried_and_partial_outputs_are_retained ... ok
+test contest_window_state::tests::migrates_the_legacy_empty_state_to_the_useful_contest_desk ... ok
+test cw_session::tests::canonical_revision_change_disarms_and_uses_only_new_qso_context ... ok
+test cw_session::tests::canvas_idle_reservation_rejects_armed_cw_without_stop_and_blocks_new_admission ... ok
+test contest_window_state::tests::quarantines_the_removed_legacy_alerts_surface_without_reopening_it ... ok
+test cw_session::tests::child_transition_cannot_hide_a_pending_send_or_admit_duplicate_close ... ok
+test cw_session::tests::child_close_retains_unknown_output_and_late_old_window_cleanup_cannot_revoke_replacement ... ok
+test cw_session::tests::contest_controller_routes_only_to_entry_and_requires_the_active_contest ... ok
+test cw_session::tests::contest_cw_formatting_matches_original_not1mm_without_changing_raw_values ... ok
+test cw_session::tests::contest_entry_executes_one_esm_with_its_own_native_lease ... ok
+test cw_session::tests::contest_entry_focus_retirement_and_sequencing_remain_native ... ok
+test cw_session::tests::contest_esm_uses_frozen_host_call_after_log_clears_draft_and_keeps_validated_lease ... ok
+test cw_session::tests::contest_output_claim_survives_lost_send_and_rearming_cannot_replay_it ... ok
+test cw_session::tests::contest_output_formats_the_frozen_rst_and_serial_only_at_native_expansion ... ok
+test cw_session::tests::contest_polling_does_not_cancel_owned_transition_but_stop_revokes_inflight_output ... ok
+test cw_session::tests::contest_replay_and_authority_change_never_send ... ok
+test cw_session::tests::cw_admission_is_closed_to_other_surfaces_isolation_shutdown_and_raw_actions ... ok
+test cw_session::tests::contest_text_uses_the_armed_contest_lease_without_a_host_macro_mutation ... ok
+test cw_session::tests::delayed_focus_cleanup_cannot_retire_a_new_registration_of_the_same_renderer_client ... ok
+test cw_session::tests::cw_observer_snapshot_and_focus_retirement_never_stop_another_windows_lease ... ok
+test cw_session::tests::expiry_and_exact_connection_generation_block_send ... ok
+test cw_session::tests::focus_loss_window_destruction_and_missing_heartbeat_revoke_leases ... ok
+test cw_session::tests::late_winkeyer_arm_is_released_after_stop_and_cannot_restore_a_lease ... ok
+test cw_session::tests::failed_stop_does_not_leak_destroyed_or_unregistered_clients_or_release_the_guard ... ok
+test cw_session::tests::lost_ack_retains_guard_and_never_replays_text ... ok
+test cw_session::tests::macro_validation_rejects_injection_missing_tokens_and_output_limits ... ok
+test cw_session::tests::stale_observations_and_duplicate_requests_never_dispatch ... ok
+test cw_session::tests::stop_is_immediate_and_releases_again_after_late_send ... ok
+test cw_session::tests::winkeyer_intents_continue_from_backend_and_unregister_releases_arm ... ok
+test cw_session_backend::tests::contesting_test_simulator_accepts_only_bounded_non_external_output_shape ... ok
+test cw_session::tests::two_clients_cannot_share_or_steal_an_arm_lease ... ok
+test cw_session_backend::tests::independent_winkeyer_needs_no_radio_and_radio_selection_stays_exact ... ok
+test cw_session_backend::tests::malformed_acknowledgements_are_uncertain_and_cannot_be_accepted ... ok
+test contest_window_state::tests::remembers_exact_open_contest_set_across_process_lifetimes ... ok
+test cw_session_backend::tests::selected_radio_cw_vetoes_carrier_pending_owned_release_and_active_tx ... ok
+test detached_acceptance::tests::archive_absence_requires_current_renderer_step_and_actual_main_destruction ... ok
+test cw_session_backend::tests::radio_release_preserves_strict_flex_schema_and_exact_target_identity ... ok
+test detached_acceptance::tests::editor_steps_are_retained_only_for_the_logbook_and_cannot_be_issued_by_children ... ok
+test detached_acceptance::tests::no_window_can_write_or_read_another_windows_steps ... ok
+test detached_acceptance::tests::only_main_can_arm_the_archive_absence_step ... ok
+test detached_acceptance::tests::retained_steps_are_scoped_and_reads_do_not_advance_them ... ok
+test detached_acceptance::tests::unknown_large_actions_and_exhausted_revisions_do_not_mutate_steps ... ok
+test detached_geometry::tests::cancelled_close_during_monitor_recovery_preserves_preference_and_later_tracking ... ok
+test detached_geometry::tests::cancelled_close_keeps_geometry_tracking_for_later_moves_and_final_destroy ... ok
+test detached_geometry::tests::concurrent_writers_keep_every_window_entry ... ok
+test detached_geometry::tests::final_flush_during_recovery_retains_preferred_monitor ... ok
+test detached_geometry::tests::corrupt_or_future_document_is_not_overwritten ... ok
+test detached_geometry::tests::idle_observation_has_no_write_and_wayland_backend_detection_is_conservative ... ok
+test dx_alerts::tests::comment_condition_is_literal_case_insensitive_and_combines_with_other_conditions ... ok
+test contest_recorder_store::tests::export_independently_decodes_order_and_preserves_original_hashes ... ok
+test dx_alerts::tests::comment_condition_migrates_unrestricted_and_rejects_unbounded_or_hidden_text ... ok
+test dx_alerts::tests::cq_activity_uses_same_rules_with_independent_baseline_repeat_merge_and_expiry ... ok
+test dx_alerts::tests::comment_filtered_reports_retain_latest_matching_evidence_without_replay ... ok
+test detached_geometry::tests::final_flush_saves_pending_move_and_late_debounce_cannot_replace_it ... ok
+test dx_alerts::tests::default_is_off_and_first_projection_only_establishes_a_baseline ... ok
+test dx_alerts::tests::legacy_cluster_rules_cannot_start_matching_cq_and_malformed_sources_fail_closed ... ok
+test dx_alerts::tests::explicit_test_uses_enabled_delivery_and_retains_a_bounded_failure ... ok
+test dx_alerts::tests::cq_classification_refresh_updates_metadata_without_replaying_retained_reports ... ok
+test dx_alerts::tests::native_delivery_is_opt_in_and_rate_limited_without_replaying_spots ... ok
+test dx_alerts::tests::queued_notifications_are_all_attempted_and_first_failure_is_retained ... ok
+test dx_alerts::tests::named_rules_merge_new_source_reports_and_stable_identity_blocks_snapshot_replay ... ok
+test dx_alerts::tests::safe_globs_and_surface_gate_are_explicit ... ok
+test dx_alerts::tests::retention_purges_advance_revision_and_publish_once_on_reads_or_observations ... ok
+test dx_alerts::tests::reconnect_rebaselines_without_replaying_reports_as_alerts ... ok
+test dx_alerts::tests::selected_clear_accepts_200_identities_and_absent_ids_are_idempotent_without_publish ... ok
+test dx_alerts::tests::selected_clear_rejects_invalid_duplicate_oversized_and_stale_requests_without_mutation ... ok
+test detached_geometry::tests::migration_preserves_original_and_merges_independent_window_writes ... ok
+test dx_alerts::tests::save_is_revision_checked_atomic_and_invalid_rules_never_replace_saved_state ... ok
+test dx_alerts::tests::selected_clear_preserves_unselected_arrivals_rules_baselines_seen_reports_and_delivery_limits ... ok
+test dx_alerts::tests::test_and_clear_are_dashboard_only_and_publishing_is_bounded ... ok
+test hamlib::tests::capability_parser_preserves_repeated_keys ... ok
+test dx_alerts::tests::version_one_settings_migrate_delivery_off_and_reject_sound_without_popup ... ok
+test hamlib::tests::disconnect_keeps_session_when_owned_ptt_release_is_unverified ... ok
+test hamlib::tests::exact_receive_control_rejects_unconfirmed_readback ... ok
+test hamlib::tests::exact_receive_control_sends_no_write_without_idle_vfo_a ... ok
+test hamlib::tests::external_mode_refuses_non_loopback ... ok
+test hamlib::tests::invalid_reconnect_config_is_rejected_before_releasing_existing_session ... ok
+test dx_alerts::tests::source_metadata_changes_advance_once_even_without_matching_entries ... ok
+test hamlib::tests::macro_controls_require_the_exact_generation_when_supplied ... ok
+test hamlib::tests::model_parser_preserves_names_and_maturity ... ok
+test hamlib::tests::parser_handles_multiline_extended_frame ... ok
+test hamlib::tests::parser_rejects_wrong_command_and_unterminated_reply ... ok
+test hamlib::tests::exact_receive_controls_confirm_idle_vfo_a_and_the_requested_target ... ok
+test hamlib::tests::rejected_tx_on_command_keeps_possible_ownership_until_release ... ok
+test hamlib::tests::rejected_vfo_or_split_probe_never_starts_simplex_writes ... ok
+test hamlib::tests::logging_snapshot_refreshes_frequency_mode_split_and_tx_frequency_together ... ok
+test hamlib::tests::serial_options_are_closed_and_map_to_hamlib_tokens ... ok
+test hamlib::tests::shutdown_releases_only_session_owned_tx ... ok
+test hamlib::tests::simplex_aborts_before_frequency_and_mode_when_ownership_ack_is_wrong ... ok
+test hamlib::tests::framed_tcp_read_handles_fragmentation_without_losing_next_reply ... ok
+test hamlib::tests::status_retires_dead_external_session_without_any_control_replay ... ok
+test hamlib::tests::transmitting_ptt_probe_never_starts_simplex_writes ... ok
+test hamlib::tests::tx_off_ack_with_on_readback_keeps_owned_release ... ok
+test hf_propagation::tests::endpoints_are_allowlisted_and_wspr_inputs_are_bounded ... ok
+test hf_propagation::tests::own_call_is_sanitized_before_entering_clickhouse ... ok
+test hf_propagation::tests::rbn_verification_challenge_is_recognized_without_masking_other_errors ... ok
+test intelligence_window_tests::intelligence_history_exemption_is_local_and_method_specific ... ok
+test intelligence_window_tests::quit_preparation_uses_the_existing_contest_owner_without_requiring_unrelated_editors ... ok
+test intelligence_window_tests::intelligence_docks_to_the_existing_desk_without_a_new_main_screen ... ok
+test logbook_events::tests::durable_logbook_revision_wakes_after_background_import_without_a_sync_completion ... ok
+test logbook_events::tests::each_completion_wakes_once_including_partial_and_total_failures ... ok
+test logbook_events::tests::application_owner_starts_once_and_idle_wait_is_interruptible_and_terminal ... ok
+test logbook_events::tests::errors_and_running_results_never_invalidate_or_consume_a_completion ... ok
+test logbook_events::tests::logical_clock_schedules_only_after_a_response_and_retries_errors ... ok
+test logbook_events::tests::monitor_reads_only_summary_and_wakes_once_for_success_partial_and_failed_completions ... ok
+test logbook_events::tests::publication_admission_is_serialized_with_shutdown ... ok
+test logbook_events::tests::slow_read_never_overlaps_and_shutdown_does_not_wait_for_ipc_or_publish_its_late_result ... ok
+test logbook_events::tests::sync_refresh_errors_invalidate_once_and_recovery_does_not_consume_completion ... ok
+test logbook_events::tests::sync_refresh_uses_one_native_summary_schedule_and_separate_completion_cursor ... ok
+test logbook_events::tests::worker_replacement_errors_and_idle_summary_do_not_erase_deduplication ... ok
+test logbook_events::tests::sync_refresh_shutdown_rejects_late_summary_wakes_without_waiting_for_worker_io ... ok
+test logbook_events::tests::writes_invalidate_but_read_and_hardware_requests_do_not ... ok
+test manual_rotor::tests::exact_params_and_fresh_observation_are_required ... ok
+test manual_rotor::tests::acknowledgement_binds_owner_generation_exact_target_and_backend_acceptance ... ok
+test manual_rotor::tests::only_live_control_surfaces_can_use_the_owner ... ok
+test manual_tune::tests::admission_fences_connection_selection_staleness_and_transmitting ... ok
+test manual_tune::tests::manual_tune_target_normalization_is_native_and_strict ... ok
+test manual_tune::tests::relative_step_requires_the_exact_fresh_source_vfo ... ok
+test manual_tune::tests::acknowledgement_or_wrong_target_cannot_confirm_a_manual_tune ... ok
+test map_context::tests::invalidation_fences_a_late_reply_and_failures_are_not_cached ... ok
+test manual_tune::tests::tci_requires_receive_only_authoritative_target_without_inventing_tx_state ... ok
+test map_context::tests::held_old_worker_metadata_cannot_be_cached_under_a_new_generation ... ok
+test hamlib::tests::stale_macro_send_and_stop_never_reach_the_transport ... ok
+test map_context::tests::isolated_adapter_rejects_a_normal_native_process_before_worker_access ... ok
+test map_context::tests::passive_map_reads_cannot_reselect_or_publish_an_obsolete_provider ... ok
+test map_context::tests::map_scope_is_exact_and_isolation_never_starts_owners ... ok
+test map_context::tests::repeated_readers_share_cache_and_invalidation_refreshes_once ... ok
+test module_restart_intent::tests::corrupt_and_unsupported_intents_fail_closed_without_being_deleted ... ok
+test module_restart_intent::tests::route_decision_never_opens_before_contesting_context_admission ... ok
+test monitor_context::tests::a_control_between_retained_reads_invalidates_the_radio_without_hiding_the_rotor ... ok
+test monitor_context::tests::action_scope_cannot_choose_a_provider_or_send_other_commands ... ok
+test module_restart_intent::tests::intent_is_durable_and_consumed_only_by_the_expected_destination ... ok
+test monitor_context::tests::busy_unset_or_changed_selection_cannot_hide_independent_rotor ... ok
+test monitor_context::tests::isolated_reads_cannot_call_production_owners_and_wrong_roles_call_neither ... ok
+test monitor_context::tests::provider_mismatch_and_independent_failures_fail_closed_per_source ... ok
+test module_restart_intent::tests::normal_main_waits_for_the_authoritative_module_restart_before_opening ... ok
+test monitor_context::tests::role_and_isolation_are_checked_before_owner_access ... ok
+test monitor_context::tests::retained_reads_preserve_original_timestamps_and_do_not_select_or_control ... ok
+test monitor_context::tests::station_control_can_read_but_never_inherits_monitor_actions ... ok
+test monitor_context::tests::stable_same_provider_with_old_selection_radio_is_unavailable ... ok
+test monitor_context::tests::station_status_reads_are_narrow_passive_and_never_inherit_monitor_controls ... ok
+test operating_module::tests::active_admissions_must_drain_before_a_transition_begins ... ok
+test operating_module::tests::begin_rejects_stale_unknown_and_already_selected_targets_without_changing_state ... ok
+test operating_module::tests::classification_keeps_reads_shared_and_mutations_exclusive ... ok
+test operating_module::tests::commit_requires_the_begun_target_and_rotates_context ... ok
+test operating_module::tests::delayed_contest_open_blocks_a_module_switch_until_its_admission_retires ... ok
+test operating_module::tests::explicit_workspace_restart_rotates_context_even_when_module_is_already_selected ... ok
+test operating_module::tests::failed_publication_preserves_state_and_previous_preference_bytes_fail_closed ... ok
+test operating_module::tests::queued_restart_timeout_preserves_live_work_and_reopens_admission ... ok
+test operating_module::tests::requested_restart_seals_new_work_and_finishes_after_admitted_work_drains ... ok
+test operating_module::tests::only_a_missing_preference_defaults_to_normal_logging ... ok
+test operating_module::tests::scoped_and_shared_admission_obey_the_selected_module ... ok
+test operating_module::tests::persisted_selection_binds_the_next_worker_generation_after_restart ... ok
+test operating_module::tests::stale_context_and_inactive_module_fail_closed_across_away_and_back ... ok
+test operating_module::tests::target_validation_is_explicit ... ok
+test operating_module::tests::transition_blocks_new_scoped_and_shared_work_until_cancelled ... ok
+test operating_module_prepare::tests::every_open_editor_must_prepare_but_absent_controllers_do_not_block ... ok
+test operating_module_prepare::tests::exact_acknowledgement_is_required_and_veto_is_preserved ... ok
+test operating_module_prepare::tests::only_one_preparation_can_own_the_renderer_at_a_time ... ok
+test operating_module_prepare::tests::restart_exit_uses_exact_preparation_once_and_never_bypasses_ordinary_quit ... ok
+test opportunity_selection::tests::ambiguous_or_unbounded_feed_cannot_replace_canonical_identity_map ... ok
+test opportunity_selection::tests::concurrent_views_keep_independent_tokens_for_same_id_and_retire_only_their_own_rows ... ok
+test opportunity_selection::tests::identities_survive_equal_reads_but_change_with_row_or_worker_and_retire_removed_rows ... ok
+test opportunity_selection::tests::informational_expeditions_never_receive_native_selection_authority ... ok
+test opportunity_selection::tests::refresh_rows_are_revalidated_against_the_read_only_snapshot_method ... ok
+test propagation_session::tests::explicit_concurrent_refreshes_have_one_fetch_and_shared_terminal_projection ... ok
+test opportunity_selection::tests::invalid_projection_cannot_retire_either_views_tokens ... ok
+test propagation_session::tests::failed_refresh_retains_timestamps_without_replay_and_shutdown_discards_late_results ... ok
+test propagation_session::tests::freshness_checks_fetch_once_then_reuse_until_expired_while_manual_refresh_bypasses_ttl ... ok
+test propagation_session::tests::malformed_source_data_is_not_published_and_projection_contains_only_public_fields ... ok
+test propagation_session::tests::passive_reads_and_scope_cannot_fetch_or_grant_device_authority ... ok
+test ptt_session::tests::ptt_native_on_admission_requires_exact_fresh_policy_off_retains_stale_authority ... ok
+test ptt_session::tests::ptt_ack_requires_newer_backend_proof_and_review_never_clears_duty ... ok
+test ptt_session::tests::ptt_known_readiness_rejection_has_no_durable_release_duty_or_dispatch ... ok
+test ptt_session::tests::ptt_off_and_cancel_retire_old_preparations_and_share_atomic_cw_tune_gate ... ok
+test ptt_session::tests::ptt_previous_app_worker_one_cannot_alias_new_app_retired_worker_one ... ok
+test ptt_session::tests::ptt_restart_dedupe_collision_no_replay_and_retained_owner_only_off ... ok
+test qsy_clear::tests::arbitrary_split_tx_is_ignored_and_two_rx_observations_confirm ... ok
+test qsy_clear::tests::changed_epoch_or_selection_vetoes_before_worker_mutation ... ok
+test qsy_clear::tests::reconnect_stale_and_selection_or_command_epoch_changes_only_seed_a_baseline ... ok
+test qsy_clear::tests::transaction_applies_once_only_after_editor_admission_and_precommit ... ok
+test amplifier_transition::tests::amplifier_durable_identity_restart_collision_and_terminal_compaction_do_not_replay ... ok
+test radio_follow::tests::buffered_dirty_veto_and_editor_reload_disable_without_mutating ... ok
+test radio_follow::tests::hamlib_uses_only_fresh_retained_frequency_mode_and_connection_generation ... ok
+test radio_follow::tests::detached_editor_admission_and_exact_terminal_settlement_gate_the_next_update ... ok
+test radio_follow::tests::native_editor_reload_rebinds_settlement_but_never_rearms_follow ... ok
+test radio_follow::tests::permission_epoch_prevents_delayed_enable_and_pending_disable_prevents_mutation ... ok
+test radio_follow::tests::observation_rejects_stale_disconnected_transmitting_and_wrong_selection_provenance ... ok
+test radio_follow::tests::silent_revocation_disables_permission_without_an_error_message ... ok
+test radio_follow::tests::repeats_are_ignored_but_mode_only_change_is_followed ... ok
+test radio_follow::tests::split_observation_uses_actual_tx_and_retains_rx_as_separate_evidence ... ok
+test radio_follow::tests::starts_off_and_coalesces_to_one_newest_observation_without_main_or_radio_reads ... ok
+test radio_follow::tests::unknown_outcome_is_retained_and_never_replayed_under_a_new_operation ... ok
+test radio_follow::tests::worker_workspace_selection_and_control_epoch_drift_disable_permission ... ok
+test radio_read::tests::exact_receipt_confirms_one_editor_admitted_read ... ok
+test radio_read::tests::competing_read_cannot_shadow_the_active_barrier ... ok
+test radio_read::tests::explicit_radio_reads_target_the_selected_slot_and_request_logging_evidence ... ok
+test radio_read::tests::invalid_identity_and_unavailable_observation_are_rejected ... ok
+test radio_read::tests::missing_editor_registration_and_mismatched_receipt_fail_closed ... ok
+test radio_read::tests::recovery_uses_the_original_workspace_receipt_without_reading_or_mutating_radio ... ok
+test ptt_session::tests::ptt_retired_worker_recovery_is_explicit_durable_exact_and_never_dispatches_off ... ok
+test radio_release::tests::concurrent_release_finalizes_exact_id_and_malformed_reply_is_unknown ... ok
+test radio_release::tests::only_live_radio_release_surfaces_and_typed_targets_are_admitted ... ok
+test radio_release::tests::failed_storage_never_dispatches_and_pending_restart_is_unknown ... ok
+test radio_slots::tests::fixed_ids_are_closed ... ok
+test radio_release::tests::admission_dedupe_collision_restart_and_review_never_replay ... ok
+test radio_slots::tests::route_change_policy_allows_same_slot_but_fences_any_owned_tx ... ok
+test radio_slots::tests::transmit_lease_is_global_and_exact ... ok
+test rotor::tests::automatic_arm_reports_connection_and_observation_recovery_without_dispatching_motion ... ok
+test rotor::tests::automatic_dispatch_rejects_replaced_or_absent_worker_before_any_backend ... ok
+test rotor::tests::automatic_intent_id_is_correlated_only_to_its_accepted_motion ... ok
+test rotor::tests::azimuth_elevation_and_park_are_preserved_for_hamlib_only ... ok
+test rotor::tests::explicit_arm_between_startup_observations_survives_failure_without_motion_eligibility ... ok
+test rotor::tests::failed_snapshot_revokes_same_generation_manual_goto_before_motion_dispatch ... ok
+test module_restart_intent::tests::every_registered_contest_menu_route_round_trips_and_replays_at_the_right_gate ... ok
+test rotor::tests::local_dispatch_uses_existing_local_owner_without_contacting_or_starting_worker ... ok
+test rotor::tests::invalid_intent_ids_are_rejected_before_backend_dispatch ... ok
+test rotor::tests::manual_dispatch_keeps_hamlib_worker_independent_and_pins_native_generation ... ok
+test radio_release::tests::post_dispatch_storage_failure_retains_unknown_and_flex_requires_observed_release ... ok
+test rotor::tests::lost_goto_reply_still_fences_old_motion_and_requires_stop ... ok
+test rotor::tests::manual_turn_fences_pending_same_owner_auto_intent_before_backend_dispatch ... ok
+test rotor::tests::native_dispatch_keeps_exact_generation_when_replacement_races_after_check ... ok
+test rotor::tests::one_owner_survives_radio_handover_and_blocks_other_backend ... ok
+test rotor::tests::native_monitor_stop_can_pass_an_inflight_snapshot_without_device_read_of_its_own ... ok
+test rotor::tests::native_monitor_stop_uses_current_same_owner_generation_without_presnapshot_or_retries ... ok
+test rotor::tests::retired_worker_rejects_local_turn_even_when_its_generation_counter_has_not_changed ... ok
+test ptt_session::tests::ptt_storage_failure_malformed_reply_and_terminal_retention ... ok
+test rotor::tests::ordinary_warmup_snapshot_then_stable_startup_observations_can_arm ... ok
+test rotor::tests::replacement_connection_invalidates_old_generation_without_replaying_turn ... ok
+test rotor::tests::same_owner_native_replacement_rejects_old_legacy_and_versioned_turns ... ok
+test rotor::tests::native_monitor_stop_preserves_serialized_driver_order_behind_a_pending_goto ... ok
+test rotor::tests::snapshot_non_observation_preserves_armed_intent_but_removes_turn_eligibility ... ok
+test rotor::tests::stale_generation_and_legacy_bypass_are_rejected ... ok
+test rotor::tests::startup_connection_is_fenced_by_an_owner_and_cannot_be_motion ... ok
+test rotor::tests::stop_invalidates_old_motion_intent_even_when_reply_is_lost ... ok
+test rotor::tests::startup_connection_preserves_reserved_arm_but_explicit_connect_revokes_it ... ok
+test rotor::tests::uncertain_connect_keeps_owner_until_explicit_retirement ... ok
+test rotor::tests::slow_snapshot_cannot_delay_stop_or_publish_pre_stop_readback ... ok
+test rotor_session::tests::delayed_startup_observation_becomes_ready_without_motion ... ok
+test rotor_session::tests::configuration_save_or_restore_during_load_cancels_startup_without_a_receipt ... ok
+test rotor_session::tests::automatic_policy_defaults_on_for_legacy_settings_and_preserves_explicit_off ... ok
+test rotor_session::tests::explicit_off_during_startup_observation_wait_cannot_be_overwritten ... ok
+test rotor_session::tests::explicit_connect_rejects_stale_configuration_or_provider_before_journaling ... ok
+test rotor_session::tests::failed_receipt_storage_cannot_open_a_rotor_connection ... ok
+test rotor_session::tests::explicit_disconnect_suppresses_startup_after_restart ... ok
+test rotor_session::tests::startup_observation_timeout_stays_passive ... ok
+test rotor_session::tests::acknowledged_resume_can_connect_again_next_launch_without_replaying_previous_identity ... ok
+test rotor_session::tests::policy_save_does_not_make_an_uncertain_receipt_match_new_configuration ... ok
+test rotor_session::tests::startup_skips_empty_forgotten_or_unsupported_configurations_and_shutdown ... ok
+test rotor_session::tests::startup_resumes_shared_saved_dcu1_once_and_only_opens_a_connection ... ok
+test rotor_telemetry::tests::child_retained_reads_do_not_create_start_or_refresh_a_poller ... ok
+test rotor_telemetry::tests::failed_reads_retain_last_good_but_remove_availability ... ok
+test rotor_session::tests::policy_only_save_preserves_acknowledged_connection_for_next_launch ... ok
+test rotor_telemetry::tests::malformed_and_uncorrelated_replies_are_unavailable ... ok
+test rotor_telemetry::tests::only_live_station_views_may_subscribe ... ok
+test rotor_telemetry::tests::shutdown_discards_inflight_response_without_publishing ... ok
+test rotor_session::tests::connection_setting_save_revokes_next_launch_resume ... ok
+test rotor_telemetry::tests::snapshot_reads_never_poll_or_write ... ok
+test runtime_profile::tests::offline_bootstrap_defers_default_store_views_to_the_explicit_builder ... ok
+test runtime_profile::tests::production_build_does_not_claim_test_identity ... ok
+test spot_activation::tests::concurrent_clicks_remain_exact_receipts_without_stealing_global_lifecycle ... ok
+test runtime_profile::tests::offline_acceptance_requires_private_marked_temporary_storage_and_blocks_outputs ... ok
+test spot_activation::tests::concurrent_window_rejection_retains_its_status_without_releasing_the_active_operation ... ok
+test spot_activation::tests::draft_precedes_effect_and_same_operation_never_replays ... ok
+test spot_activation::tests::every_closed_terminal_wake_has_released_the_editor_barrier_and_admission_slot ... ok
+test spot_activation::tests::every_uncertain_wake_already_contains_protection_and_reconcile_releases_barrier_first ... ok
+test spot_activation::tests::explicit_conflict_proves_no_reservation_and_does_not_send_effects ... ok
+test rotor_telemetry::tests::repeated_start_has_one_polling_owner ... ok
+test spot_activation::tests::lost_apply_reply_keeps_editors_frozen_until_receipt_only_reconciliation ... ok
+test spot_activation::tests::lost_terminal_reply_recovers_confirmed_snapshot_without_tune_replay ... ok
+test spot_activation::tests::lost_tune_reply_never_turns_or_retunes_and_releases_exact_reservation ... ok
+test spot_activation::tests::malformed_apply_replies_hold_possible_reservation_until_status_only_recovery ... ok
+test spot_activation::tests::missing_identity_cannot_retire_a_different_live_reservation ... ok
+test spot_activation::tests::missing_identity_retirement_cannot_replay_it_and_allows_a_new_explicit_selection ... ok
+test spot_activation::tests::nil_operation_is_rejected_before_it_can_create_an_unrecoverable_receipt ... ok
+test rotor_session::tests::startup_requires_exact_saved_configuration_revision_workspace_generation_and_owner ... ok
+test spot_activation::tests::nonterminal_protection_cannot_be_reconciled_while_apply_or_tune_is_running ... ok
+test spot_activation::tests::opportunity_uses_the_same_journal_and_barrier_but_never_stages_station_effects ... ok
+test spot_activation::tests::receipt_absence_cannot_release_protection_until_late_apply_is_tombstoned ... ok
+test spot_activation::tests::rejected_radio_admission_is_failed_not_uncertain_and_never_dispatches ... ok
+test spot_activation::tests::opportunity_editor_admission_and_lost_finish_recovery_never_authorize_a_tune ... ok
+test spot_activation::tests::rotor_failure_retains_confirmed_tune_and_marker_precedes_effect ... ok
+test spot_activation::tests::repeated_or_unknown_rotor_admission_never_sends_a_turn ... ok
+test spot_activation::tests::source_change_while_apply_or_stage_waits_prevents_tune_and_releases_draft ... ok
+test spot_activation::tests::uncertain_release_does_not_expire_editor_freeze ... ok
+test spot_activation::tests::unregistered_editor_prevents_all_writes_and_radio_effects ... ok
+test spot_activation_backend::tests::automatic_bearing_uses_existing_precise_native_lookup_not_cty_only_route ... ok
+test spot_activation_backend::tests::native_hamlib_tune_mode_mapping_matches_embedded_contract_without_transmit_commands ... ok
+test spot_activation_backend::tests::only_pre_dispatch_worker_failures_are_definitively_not_admitted ... ok
+test spot_activation_backend::tests::missing_retirement_tombstones_before_canonical_read_and_never_dispatches_effects ... ok
+test spot_activation_backend::tests::replacement_worker_never_relabels_absent_or_live_reservation_as_safe ... ok
+test spot_activation_backend::tests::orphan_receipt_releases_only_its_exact_lease_without_staging_or_replaying_effects ... ok
+test spot_activation_backend::tests::receipt_must_match_operation_workspace_draft_revision_and_native_target ... ok
+test spot_activation_backend::tests::selection_comparison_ignores_notification_noise_not_control_or_source_identity ... ok
+test spot_editor_barrier::tests::missing_editor_or_veto_prevents_admission_and_preserves_membership ... ok
+test spot_activation_backend::tests::worker_envelope_is_exact_and_never_turns_unknown_success_into_confirmation ... ok
+test spot_editor_barrier::tests::every_exact_instance_must_acknowledge_and_old_finish_cannot_release_new_operation ... ok
+test spot_editor_barrier::tests::native_destruction_retires_registration_but_never_releases_an_admitted_operation ... ok
+test spot_editor_barrier::tests::no_editor_case_is_authorized_only_by_native_empty_membership ... ok
+test spot_editor_barrier::tests::reload_or_timeout_fails_closed_but_cannot_expire_an_admitted_operation ... ok
+test spot_identity::tests::invalid_or_duplicate_source_reports_never_authorize_tuning ... ok
+test spot_identity::tests::prefilter_only_report_survives_visible_filter_and_ambiguous_rows_lose_old_tokens ... ok
+test spot_identity::tests::prefilter_projection_and_visible_row_share_one_native_identity ... ok
+test station_identity::tests::antenna_schema_rejects_incomplete_unknown_or_duplicate_profile_values ... ok
+test spot_identity::tests::unchanged_report_keeps_identity_but_semantic_change_removal_and_worker_replacement_revoke_it ... ok
+test station_identity::tests::antenna_uses_the_same_canonical_settings_fence_without_defaults_or_private_fields ... ok
+test station_identity::tests::settings_and_workspace_changes_fence_old_or_inflight_reads_without_trusting_write_receipts ... ok
+test station_identity::tests::unobserved_workspace_generation_changes_fail_closed_instead_of_ordering_opaque_ids ... ok
+test station_identity::tests::passive_snapshot_contains_no_defaults_or_private_settings_and_cannot_read_or_write ... ok
+test station_identity::tests::worker_retirement_replacement_and_late_lower_revisions_cannot_resurrect_old_identity ... ok
+test station_selection::tests::activation_excludes_nonurgent_controls_but_preserves_release_and_cleans_up_after_unknown_reply ... ok
+test station_selection::tests::activation_admission_rechecks_source_without_sending_or_consuming_revision_on_rejection ... ok
+test station_selection::tests::admitted_monitor_action_excludes_handover_without_holding_selection_lock_over_transport ... ok
+test station_selection::tests::bootstrap_snapshot_does_not_acquire_the_foreground_control_mutex ... ok
+test station_selection::tests::bootstrap_captured_before_handover_is_sequence_fenced ... ok
+test station_selection::tests::amplifier_standby_retires_held_operate_and_carrier_with_native_ordered_tokens ... ok
+test station_selection::tests::carrier_reservation_blocks_nonurgent_controls_but_cancel_retires_its_revision ... ok
+test station_selection::tests::busy_handover_blocks_second_handover_and_radio_writes_without_queueing ... ok
+test station_selection::tests::child_receive_control_checks_selection_identity_and_control_revision_before_admission ... ok
+test station_selection::tests::delayed_startup_cannot_replace_a_newer_handover_context ... ok
+test station_selection::tests::checked_handover_rejects_prior_identity_after_a_b_a_and_after_restart ... ok
+test station_selection::tests::delayed_startup_context_cannot_rearm_a_disconnected_source ... ok
+test station_selection::tests::durable_release_lane_keeps_exact_selection_fence_and_bypasses_nonurgent_tune_fences ... ok
+test station_selection::tests::durable_selection_wins_over_stale_renderer_and_reads_never_control ... ok
+test rotor_session::tests::uncertain_connect_restores_once_per_new_process_or_worker_generation_without_motion ... ok
+test station_selection::tests::failed_fence_never_retires_radio_and_restores_previous_context ... ok
+test station_selection::tests::first_start_from_saved_notification_recovers_even_when_original_notice_is_superseded ... ok
+test station_selection::tests::failed_retirement_restores_exact_previous_identity_without_rotating ... ok
+test station_selection::tests::failed_next_notification_rolls_back_saved_choice_before_restoring_context ... ok
+test station_selection::tests::first_worker_start_during_handover_never_reacquires_its_state_or_supersedes_null ... ok
+test station_selection::tests::handover_fences_before_retirement_and_rotates_identity_only_on_switch ... ok
+test station_selection::tests::handover_retires_exact_radio_once_and_rejects_stale_generation ... ok
+test station_selection::tests::malformed_file_and_invalid_authority_do_not_silently_reset_choice ... ok
+test station_selection::tests::in_flight_control_blocks_handover_but_not_an_urgent_control_to_same_radio ... ok
+test station_selection::tests::obsolete_bootstrap_exits_while_handover_holds_selection_state ... ok
+test station_selection::tests::malformed_saved_identity_is_not_overwritten_or_notified ... ok
+test station_selection::tests::optional_failure_is_visible_without_blocking_reads_or_ordinary_controls ... ok
+test station_selection::tests::manual_tune_rejects_a_b_a_and_consumed_control_epochs_without_dispatch ... ok
+test station_selection::tests::monitor_action_admission_rejects_old_identity_even_after_returning_to_same_provider ... ok
+test station_selection::tests::disconnect_never_depends_on_power_notifications_or_changes_its_result ... ok
+test station_selection::tests::radio1_starts_unconfigured_when_no_v1_selection_exists ... ok
+test station_selection::tests::previous_worker_ack_cannot_mark_replacement_ready_and_disconnect_stays_prompt ... ok
+test station_selection::tests::prior_radio_control_or_reconnect_invalidates_activation_preparation ... ok
+test station_selection::tests::pending_optional_publication_holds_no_selection_lock_and_is_coalesced ... ok
+test station_selection::tests::qsy_epoch_fence_blocks_selection_and_nonurgent_commands_but_not_release_controls ... ok
+test station_selection::tests::replacement_bootstraps_same_saved_identity_once_without_a_renderer_read ... ok
+test station_selection::tests::replacement_bootstrap_waits_for_mandatory_reconnect_without_superseding_null ... ok
+test station_selection::tests::replacement_failure_is_nonfatal_coalesced_and_unset_does_not_default ... ok
+test station_selection::tests::reconnect_invalidates_before_transport_then_restores_stable_choice ... ok
+test station_selection::tests::restart_receive_control_uses_exact_dispatch_and_consumes_the_control_epoch_once ... ok
+test station_selection::tests::selection_reads_cannot_supersede_a_mandatory_reconnect_fence ... ok
+test station_selection::tests::rollback_failure_mirrors_the_persisted_next_native_authority_for_recovery ... ok
+test station_selection::tests::saved_startup_auto_rebase_never_blocks_the_independent_station_connect ... ok
+test station_selection::tests::save_failure_keeps_old_choice_and_never_connects_either_radio ... ok
+test station_selection::tests::saved_startup_migrates_identity_once_and_only_notifies_worker ... ok
+test station_selection::tests::slot_owner_routes_every_radio_request_and_rejects_cross_slot_targets ... ok
+test station_selection::tests::shared_tci_lifecycle_is_exactly_fenced_and_selection_publication_is_metadata_only ... ok
+test station_selection::tests::shutdown_prevents_commands_initialization_and_late_handover_commit ... ok
+test station_selection::tests::shared_hamlib_lifecycle_rejects_old_identity_and_generation_after_returning_to_hamlib ... ok
+test station_selection::tests::status_retained_selection_reads_never_default_persist_or_notify ... ok
+test station_session::tests::catalogue_failure_never_exposes_raw_errors_or_accepts_unmatched_response ... ok
+test station_selection::tests::shared_flex_lifecycle_rejects_stale_generation_identity_and_provider ... ok
+test station_session::tests::child_and_main_admit_only_shared_agent_lifecycle_and_passive_setup ... ok
+test station_selection::tests::tci_filter_rejects_stale_selection_and_consumed_control_epoch ... ok
+test station_selection::tests::startup_connect_cannot_override_intervening_controls_or_provider_handover ... ok
+test station_session::tests::contest_windows_admit_only_durable_manual_tune_operations ... ok
+test station_selection::tests::unsuccessful_or_mismatched_retirement_keeps_prior_choice ... ok
+test station_session::tests::connection_admission_is_persisted_before_dispatch_and_never_replayed ... ok
+test station_session::tests::endpoints_reject_access_bearing_values_and_invalid_setup_never_dispatches ... ok
+test station_session::tests::exact_slot_passive_lists_cannot_turn_into_device_or_lifecycle_requests ... ok
+test station_session::tests::explicit_catalogue_has_only_fixed_radio_inventory_authority_and_no_journal_mutation ... ok
+test station_session::tests::disabled_profile_never_autoconnects_or_changes_transmit_intent ... ok
+test station_session::tests::flex_setup_rejects_secrets_public_addresses_and_malformed_numeric_hosts_without_dispatch ... ok
+test station_session::tests::child_and_main_replay_one_admitted_operation_without_duplicate_dispatch ... ok
+test station_session::tests::failed_journal_write_cannot_dispatch_a_connection ... ok
+test station_session::tests::credential_rejections_are_terminal_passive_and_never_auto_resumed ... ok
+test station_session::tests::hamlib_invalid_or_secret_setup_and_unknown_lifecycle_never_replay ... ok
+test station_session::tests::flex_unknown_outcome_and_failed_storage_never_replay_or_dispatch ... ok
+test station_session::tests::legacy_v1_state_loads_without_tci_and_tci_setup_is_passive_bounded_and_credential_free ... ok
+test station_session::tests::manual_rotor_lost_reply_and_failed_pre_dispatch_storage_never_repeat ... ok
+test station_session::tests::lost_acknowledgement_and_crash_admission_remain_inspectable_unknowns ... ok
+test station_session::tests::manual_rotor_goto_is_journaled_once_and_restart_only_reads_its_receipt ... ok
+test station_session::tests::manual_tune_lost_reply_and_failed_storage_never_repeat_or_dispatch ... ok
+test station_session::tests::noncredential_connect_failures_remain_unknown_and_resumable ... ok
+test station_session::tests::opt_in_two_slot_saved_profiles_connect_real_bundled_dummy_receivers_independently ... ok
+test station_session::tests::post_dispatch_persistence_failure_keeps_unknown_receipt_in_memory ... ok
+test station_session::tests::manual_tune_journals_before_dispatch_and_replays_confirmed_or_unknown_after_restart ... ok
+test station_session::tests::radio1_starts_empty_when_no_v1_session_exists ... ok
+test station_session::tests::provider_selection_journals_before_dispatch_and_recovers_without_repeating_retirement ... ok
+test station_session::tests::receive_controls_reject_unsupported_targets_and_failed_storage_without_dispatch ... ok
+test contest_recorder_store::tests::mono_stereo_rotation_and_frozen_replay_inspect_every_sample ... ok
+test station_session::tests::receive_only_connect_intent_stays_receive_only_at_startup_and_after_worker_replacement ... ok
+test station_session::tests::receive_controls_journal_exact_targets_before_dispatch_and_never_replay_unknowns ... ok
+test station_session::tests::setup_uncertainty_survives_later_saves_and_review_is_durable_without_confirming_or_replaying ... ok
+test station_session::tests::shared_setup_is_durable_revision_fenced_and_exactly_replayed ... ok
+test station_session::tests::slot_labels_save_atomically_without_transport_and_preserve_legacy_configuration_and_receipts ... ok
+test station_session::tests::shared_flex_setup_is_durable_and_lifecycle_uses_saved_setup_with_fresh_consent ... ok
+test station_session::tests::shared_hamlib_setup_is_passive_durable_and_lifecycle_uses_only_saved_configuration ... ok
+test station_session::tests::startup_without_a_prior_connect_receipt_resumes_receive_only_once ... ok
+test contest_recorder_store::tests::actual_python_commit_correction_delete_retry_and_durable_admission ... ok
+test station_session::tests::startup_and_worker_restart_respect_explicit_disconnect_and_forget ... ok
+test station_session::tests::startup_does_not_connect_unselected_unsaved_or_invalid_radios ... ok
+test station_session::tests::v1_journal_migrates_to_radio1_v2_without_replaying_pending_work ... ok
+test station_session::tests::tci_lifecycle_journals_once_never_replays_and_never_auto_resumes ... ok
+test station_telemetry::tests::command_fence_blocks_polling_until_all_controls_finish ... ok
+test station_session::tests::tci_filter_durable_receipts_never_replay_and_review_is_exact ... ok
+test station_telemetry::tests::cw_speed_admission_rechecks_current_idle_connection_and_capability_under_its_lock ... ok
+test station_telemetry::tests::direct_agent_spot_tune_ignores_current_band_and_accepts_atomic_or_legacy_capability ... ok
+test station_telemetry::tests::exact_receive_admission_requires_fresh_known_receive_vfo_connection_and_capability_without_io ... ok
+test station_telemetry::tests::failure_retains_display_data_and_stopped_owner_cannot_restart ... ok
+test station_telemetry::tests::late_pre_command_and_pre_handover_reads_are_discarded ... ok
+test station_telemetry::tests::monitor_cancel_remains_possible_during_stale_disconnected_or_inflight_observation ... ok
+test station_telemetry::tests::native_monitor_admission_checks_freshness_identity_policy_and_transmit_permission_without_io ... ok
+test station_telemetry::tests::reads_are_passive_and_startup_cannot_reverse_handover ... ok
+test station_telemetry::tests::retained_radio_snapshot_keeps_the_worker_that_produced_it_after_read_failure ... ok
+test station_session::tests::v2_slot_journal_repairs_only_absent_radio_identity ... ok
+test station_telemetry::tests::scopes_and_providers_are_explicit ... ok
+test station_telemetry::tests::same_provider_new_selection_identity_retires_observation_and_stale_bootstrap_cannot_undo_it ... ok
+test station_telemetry::tests::shutdown_rejects_inflight_reads_and_never_publishes_them ... ok
+test station_telemetry::tests::status_retained_reads_never_create_start_select_or_refresh_a_poller ... ok
+test station_telemetry::tests::write_classification_excludes_readbacks_and_rotor ... ok
+test tci_filter::tests::filter_admission_fences_selection_connection_freshness_and_transmit ... ok
+test station_telemetry::tests::repeated_start_owns_one_loop_and_snapshot_reads_do_not_poll ... ok
+test station_telemetry::tests::spot_tune_waits_for_post_control_telemetry_refresh ... ok
+test window_geometry::tests::default_size_migration_preserves_position_custom_sizes_and_maximized_state ... ok
+test tci_filter::tests::strict_filter_targets_and_authoritative_reply ... ok
+test window_geometry::tests::chrome_uses_destination_dpi_when_clamping_to_a_smaller_work_area ... ok
+test window_geometry::tests::explicit_move_after_recovery_establishes_new_preference ... ok
+test window_geometry::tests::legacy_bounds_migrate_without_inventing_original_dpi ... ok
+test window_geometry::tests::legacy_origin_survives_wayland_resize_without_inventing_old_dpi ... ok
+test window_geometry::tests::logical_size_and_relative_origin_survive_dpi_and_display_rearrangement ... ok
+test window_geometry::tests::maximizing_never_replaces_normal_bounds ... ok
+test window_geometry::tests::minimum_fits_small_scaled_work_area_and_recovers_nominal_constraints ... ok
+test window_geometry::tests::missing_duplicate_names_invalid_scales_and_empty_topology_are_safe ... ok
+test window_geometry::tests::removal_clamps_chrome_but_preserves_preferred_position_on_reconnect ... ok
+test window_geometry::tests::unknown_versions_and_bad_geometry_are_rejected ... ok
+test window_geometry::tests::wayland_size_changes_preserve_preferred_display_origin_and_dpi ... ok
+test window_geometry::tests::wayland_first_capture_has_no_invented_origin_and_uses_current_monitor_for_size_recovery ... ok
+test winkeyer::tests::actor_ignores_expired_request_and_handles_speed_as_atomic_command ... ok
+test winkeyer::tests::actor_open_failure_never_arms_or_opens_a_replacement ... ok
+test winkeyer::tests::actor_eof_attempts_owned_release_without_replaying_text ... ok
+test winkeyer::tests::arm_expiry_cancels_owned_message_without_clearing_unowned_input ... ok
+test winkeyer::tests::completion_needs_busy_then_settled_idle_not_early_idle ... ok
+test winkeyer::tests::explicit_fresh_arm_and_consumed_intents ... ok
+test winkeyer::tests::failed_handshake_releases_host_mode_only_with_known_command_boundary ... ok
+test winkeyer::tests::handshake_has_no_keying_configuration_or_reset ... ok
+test winkeyer::tests::only_main_surface_can_connect_arm_or_send ... ok
+test winkeyer::tests::partial_write_loses_parser_boundary_and_forbids_retry_or_clear ... ok
+test winkeyer::tests::actor_stop_preempts_queued_arm_and_send_and_closes_without_unowned_clear ... ok
+test winkeyer::tests::stale_status_releases_once_and_never_replays ... ok
+test winkeyer::tests::stale_generation_cannot_target_new_session ... ok
+test winkeyer::tests::status_polls_do_not_restart_output_settle_timer ... ok
+test winkeyer::tests::status_tags_and_all_wk1_bits ... ok
+test winkeyer::tests::stop_discards_tail_and_retains_ownership_until_idle_settles ... ok
+test winkeyer::tests::unsupported_revision_closes_without_text ... ok
+test winkeyer::tests::xoff_pauses_tail_and_breakin_discards_without_clearing_paddles ... ok
+test worker::callsign_intelligence_can_only_read_canonical_context_and_evidence ... ok
+test worker::tests::abandoned_late_reply_tombstones_are_bounded_and_exact ... ok
+test worker::tests::alerts_child_cannot_read_or_control_worker_services ... ok
+test worker::tests::admits_only_the_native_contest_scope_for_digital_worker_requests ... ok
+test worker::tests::antenna_child_cannot_seed_settings_or_reach_worker_or_hardware_authority ... ok
+test worker::tests::bounded_backlog_and_duplicate_ids ... ok
+test worker::tests::bounds_request_size ... ok
+test worker::tests::concurrent_reuser_cannot_return_before_generation_announcement_finishes ... ok
+test station_session::tests::uncertain_connect_intent_restores_once_per_new_process_or_worker_generation_without_rf_action ... ok
+test worker::tests::connection_doctor_projection_is_reserved_for_the_typed_native_adapter ... ok
+test worker::tests::contest_history_activation_is_admitted_without_expanding_renderer_authority ... ok
+test worker::tests::contest_log_transfer_routes_are_explicit_and_only_status_is_a_passive_read ... ok
+test worker::tests::contest_owner_can_resolve_typed_unspotted_calls_without_logbook_mutation_authority ... ok
+test worker::tests::contest_setup_routes_the_visible_digital_logging_commands_only_to_its_owner ... ok
+test worker::tests::contest_lane_methods_are_explicitly_admitted_only_on_setup_owner_surface ... ok
+test worker::tests::cty_preview_is_only_available_to_logbook_surfaces ... ok
+test worker::tests::cw_child_has_no_raw_worker_or_device_authority ... ok
+test worker::tests::cw_decode_has_receive_only_authority_and_never_inherits_cw_output ... ok
+test worker::tests::data_quality_is_only_available_to_existing_logbook_surfaces ... ok
+test worker::tests::dead_worker_fails_pending_without_replay ... ok
+test worker::tests::detached_awards_is_strictly_read_only ... ok
+test worker::tests::detached_chaser_can_only_read_and_refresh_public_opportunities ... ok
+test worker::tests::detached_dxpedition_can_only_read_and_refresh_its_catalogue ... ok
+test worker::tests::detached_logbook_has_contact_but_not_draft_station_or_configuration_authority ... ok
+test worker::tests::detached_maps_allow_only_read_only_projections ... ok
+test worker::tests::detached_qso_has_only_canonical_draft_and_required_lookup_reads ... ok
+test worker::tests::detached_settings_has_only_radio_spot_cluster_authority ... ok
+test worker::tests::duplicate_history_query_is_main_only ... ok
+test worker::tests::analytics_timeout_keeps_shared_worker_and_routes_late_reply ... ok
+test worker::tests::existing_only_request_never_starts_an_absent_generation_and_validates_before_lookup ... ok
+test worker::tests::follow_up_is_only_available_to_existing_logbook_surfaces ... ok
+test winkeyer::tests::actor_disconnect_waits_for_device_idle_then_closes_host_mode_once ... ok
+test worker::tests::initial_worker_preserves_launch_arm_and_replacements_revoke_it ... ok
+test worker::tests::module_transition_gate_excludes_blocker_admission_after_sealing ... ok
+test worker::tests::module_transition_gate_linearizes_concurrent_seal_and_admission ... ok
+test worker::tests::module_transition_ignores_passive_reads_but_retains_mutation_barriers ... ok
+test worker::tests::monitor_allows_only_original_widget_controls ... ok
+test worker::tests::native_activation_journal_never_crosses_renderer_surfaces ... ok
+test worker::tests::native_legacy_import_routes_reach_the_contest_host ... ok
+test worker::tests::fragmented_out_of_order_replies_route_to_concurrent_ids ... ok
+test worker::tests::online_log_enrollment_is_scoped_to_main_and_settings ... ok
+test worker::tests::operating_goals_window_has_only_its_read_only_evaluator ... ok
+test worker::tests::only_band_maps_can_patch_its_exact_detached_view_scope ... ok
+test worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy ... ok
+test worker::tests::passive_timeouts_do_not_claim_that_a_control_was_sent ... ok
+test worker::tests::permits_only_prototype_core_methods ... ok
+test worker::tests::portable_layout_is_readable_by_children_but_writable_only_by_settings_surfaces ... ok
+test worker::tests::power_selection_is_native_only_on_every_renderer_surface ... ok
+test worker::tests::previous_qsos_can_only_read_canonical_draft_and_local_history ... ok
+test worker::tests::propagation_child_cannot_bypass_shared_refresh_or_reach_worker_device_authority ... ok
+test worker::tests::queued_worker_gate_timeout_keeps_inflight_count_and_resumes_admission ... ok
+test worker::tests::raw_manual_simplex_tuning_is_denied_to_every_renderer ... ok
+test worker::tests::reference_scheduling_authority_is_scoped_to_settings_surfaces ... ok
+test worker::tests::rejects_hardware_and_shell_methods ... ok
+test worker::tests::rejects_unknown_fields_and_bad_shapes ... ok
+test worker::tests::remote_backup_presentation_is_scoped_to_main_and_settings ... ok
+test worker::tests::replacement_hook_runs_once_outside_registry_and_addresses_exact_child ... ok
+test worker::tests::requested_module_transition_seals_then_drains_existing_worker_work ... ok
+test worker::tests::requires_correlated_well_formed_response ... ok
+test worker::tests::review_reads_do_not_block_module_transitions_or_retire_on_timeout ... ok
+test worker::tests::revisioned_settings_are_scoped_to_main_and_the_settings_window ... ok
+test worker::tests::rotor_observation_child_has_no_raw_worker_or_motion_authority ... ok
+test worker::tests::passive_read_timeout_keeps_generation_and_routes_late_reply ... ok
+test worker::tests::shared_draft_is_scoped_to_the_authorized_editor ... ok
+test worker::tests::shutdown_cannot_relabel_unsolicited_eof_retirement_graceful ... ok
+test worker::tests::dxpedition_catalogue_timeout_does_not_retire_logging_worker ... ok
+test worker::tests::rtc_status_timeout_preserves_worker_and_routes_late_reply ... ok
+test worker::tests::shutdown_rejects_malformed_final_response_racing_clean_exit ... ok
+test worker::tests::shutdown_rejects_nonzero_worker_exit ... ok
+test worker::tests::shutdown_reports_spot_retirement_failure_instead_of_a_deadline ... ok
+test worker::tests::shutdown_with_active_request_delivers_eof_and_release_before_reap ... ok
+test worker::tests::cw_decode_timeout_keeps_radio_and_logbook_worker_alive ... ok
+test worker::tests::spot_history_cannot_start_or_mutate_any_other_service ... ok
+test worker::tests::spot_history_reads_are_scoped_to_main_and_its_archive_window ... ok
+test worker::tests::shutdown_rejects_clean_exit_without_accepted_reply ... ok
+test worker::tests::station_control_only_reads_layout_and_cannot_reach_worker_or_native_dispatchers ... ok
+test worker::tests::station_identity_child_cannot_read_seed_or_write_settings_or_call_devices ... ok
+test worker::tests::station_status_has_no_raw_worker_radio_connection_or_control_authority ... ok
+test worker::tests::sync_mutations_require_one_owner_and_only_sync_surfaces_can_reach_it ... ok
+test worker::tests::sync_summary_is_readable_only_by_settings_surfaces ... ok
+test worker::tests::unregistered_and_cluster_windows_do_not_inherit_main_workspace_authority ... ok
+test worker::tests::worker_arguments_compose_runtime_profile_and_local_acceptance ... ok
+test workspace_layout_tests::a_later_explicit_main_reopen_wins_over_an_older_contest_transition ... ok
+test workspace_layout_tests::alerts_window_docks_to_recoverable_desk_without_control_shortcuts ... ok
+test workspace_layout_tests::amplifier_and_radio_actions_have_no_legacy_raw_or_monitor_bypass ... ok
+test workspace_layout_tests::antenna_window_docks_to_recoverable_desk_without_control_shortcuts ... ok
+test workspace_layout_tests::any_standard_contest_child_keeps_the_app_alive_when_main_closes ... ok
+test workspace_layout_tests::automatic_rotor_set_allows_only_live_rotor_surfaces_and_never_isolation_or_shutdown ... ok
+test workspace_layout_tests::call_history_worker_requests_retain_the_admitted_session_identity ... ok
+test workspace_layout_tests::cold_start_keeps_normal_logging_when_the_host_has_no_active_contest ... ok
+test workspace_layout_tests::cold_start_mounts_the_hidden_owner_only_for_one_host_active_session ... ok
+test workspace_layout_tests::contest_contact_editor_is_logbook_owned_and_self_closing ... ok
+test workspace_layout_tests::contest_cw_speed_is_a_narrow_native_selected_radio_route ... ok
+test workspace_layout_tests::contest_desk_children_keep_a_usable_native_lifetime_after_main_retires ... ok
+test workspace_layout_tests::contest_desk_hides_normal_windows_but_retains_contest_children ... ok
+test workspace_layout_tests::contest_manual_tune_is_bounded_to_the_active_radio ... ok
+test workspace_layout_tests::contest_native_children_cannot_bypass_the_surface_action_owner ... ok
+test workspace_layout_tests::contest_qrz_details_accepts_only_a_bounded_normalized_callsign ... ok
+test workspace_layout_tests::contest_setup_digital_route_marks_only_owner_worker_requests_as_contesting ... ok
+test workspace_layout_tests::contest_window_open_is_setup_owner_only_and_bounded_to_connected_tools ... ok
+test workspace_layout_tests::creating_or_reopening_a_contest_enters_the_native_desk ... ok
+test workspace_layout_tests::delayed_arm_cannot_survive_a_later_off_request ... ok
+test workspace_layout_tests::delayed_contest_mutation_still_blocks_operating_module_restart ... ok
+test workspace_layout_tests::delayed_contest_status_poll_does_not_hold_operating_action_admission ... ok
+test workspace_layout_tests::dock_and_close_recovery_prefer_contest_main_logging ... ok
+test workspace_layout_tests::draft_wakes_only_confirmed_mutations_but_reconcile_uncertain_workspace_changes ... ok
+test workspace_layout_tests::every_legacy_renderer_rotor_goto_route_is_owned_by_the_durable_session ... ok
+test workspace_layout_tests::exhausted_command_sequence_still_revokes_off_and_retires_the_last_arm ... ok
+test workspace_layout_tests::explicit_radio_read_is_available_only_to_live_new_qso_editors ... ok
+test workspace_layout_tests::failed_main_creation_remains_retryable_without_claiming_a_window ... ok
+test workspace_layout_tests::foreground_window_presentations_are_serialized ... ok
+test worker::tests::slow_service_does_not_block_fast_station_reply ... ok
+test workspace_layout_tests::hidden_contest_owner_disables_webview_suspension_without_becoming_visible ... ok
+test workspace_layout_tests::isolated_acceptance_may_observe_and_disable_follow_radio_but_never_enable_it ... ok
+test workspace_layout_tests::lane_canonical_comes_from_requested_host_lane_not_keyboard_selection ... ok
+test workspace_layout_tests::log_qso_native_shortcut_is_global_and_does_not_replace_embedded_screen_shortcut ... ok
+test workspace_layout_tests::logbook_menu_routes_only_to_existing_logbook_capabilities ... ok
+test workspace_layout_tests::lane_macro_receipt_keeps_original_draft_after_logging_and_rejects_cross_lane ... ok
+test workspace_layout_tests::macos_menu_has_one_settings_route_and_distinct_window_action_labels ... ok
+test workspace_layout_tests::main_window_menu_presents_the_normal_workspace_without_retiring_contesting ... ok
+test workspace_layout_tests::manual_operation_review_accepts_the_radio_scoped_renderer_contract_exactly ... ok
+test workspace_layout_tests::main_recovery_serializes_concurrent_creators_and_reuses_existing_lifetime ... ok
+test workspace_layout_tests::menu_actions_have_exact_logical_inner_sizes ... ok
+test workspace_layout_tests::native_foreground_follows_the_selected_operating_module ... ok
+test workspace_layout_tests::online_menu_routes_only_to_existing_online_capabilities ... ok
+test workspace_layout_tests::newer_explicit_arm_wins_without_old_arm_or_off_replay ... ok
+test workspace_layout_tests::only_main_logging_can_toggle_the_six_manual_contest_windows ... ok
+test workspace_layout_tests::presentation_hint_recovers_after_a_prior_owner_panics ... ok
+test workspace_layout_tests::propagation_window_docks_to_recoverable_desk_without_control_shortcuts ... ok
+test workspace_layout_tests::radio_menu_routes_to_settings_without_bypassing_slot_receipts ... ok
+test workspace_layout_tests::read_only_rotor_window_docks_to_recoverable_desk_without_a_motion_shortcut ... ok
+test workspace_layout_tests::renderer_detached_open_gate_is_main_only_including_monitor_and_log_qso ... ok
+test workspace_layout_tests::rotor_stop_is_available_only_to_exact_live_control_surfaces ... ok
+test workspace_layout_tests::remote_vfo_url_requires_one_exact_contest_context ... ok
+test workspace_layout_tests::scoped_workspace_commands_keep_contest_children_read_only ... ok
+test workspace_layout_tests::settings_navigation_reveals_main_while_contest_remains_active ... ok
+test workspace_layout_tests::spot_activation_capabilities_are_role_scoped_and_never_bypass_isolation_or_shutdown ... ok
+test workspace_layout_tests::station_identity_window_docks_to_recoverable_desk_without_control_shortcuts ... ok
+test workspace_layout_tests::station_session_reads_and_recovery_are_shared_but_every_state_change_is_leased ... ok
+test workspace_layout_tests::station_status_window_docks_to_recoverable_desk_without_control_shortcuts ... ok
+test workspace_layout_tests::window_menu_omits_redundant_information_windows_without_retiring_saved_layout_support ... ok
+test workspace_layout_tests::workspace_layout_refresh_dispatch_is_scope_exact ... ok
+test workspace_layout_tests::successful_contest_open_does_not_wait_for_or_fail_with_window_presentation ... ok
+test workspace_navigation::tests::contest_owned_windows_receive_the_default_tauri_capability ... ok
+test workspace_navigation::tests::contesting_is_not_a_main_workspace_destination ... ok
+test workspace_navigation::tests::edit_keys_menu_action_resolves_to_its_authorized_native_window ... ok
+test workspace_navigation::tests::contest_menu_routes_retain_intent_for_connected_contest_windows ... ok
+test workspace_navigation::tests::inventory_has_all_existing_screens_unique_ids_titles_and_shortcuts ... ok
+test workspace_navigation::tests::pending_navigation_survives_missing_renderer_and_stale_acknowledgement ... ok
+test workspace_navigation::tests::unknown_routes_and_other_windows_cannot_consume_navigation ... ok
+test workspace_navigation::tests::workspace_mode_choices_use_the_retained_main_navigation_channel ... ok
+test workspace_window_runtime::tests::attempt_identifies_begin_and_terminal_outcome_but_not_manual_opens ... ok
+test workspace_window_runtime::tests::completed_canvas_close_cannot_be_undone_by_passive_custom_layout_refresh ... ok
+test workspace_window_runtime::tests::contest_context_retirement_targets_only_scoped_children_never_main ... ok
+test workspace_window_runtime::tests::connection_doctor_uses_independent_window_lifecycle_and_does_not_reopen_after_canvas ... ok
+test workspace_window_runtime::tests::contest_engine_uses_scoped_labels_for_reconcile_and_reopen ... ok
+test workspace_window_runtime::tests::context_reset_rejects_queued_contest_work_without_touching_normal_work ... ok
+test workspace_window_runtime::tests::explicit_contest_open_shows_only_requested_tool_without_loading_layout ... ok
+test workspace_window_runtime::tests::contest_menu_scopes_rotator_and_remote_vfo_to_the_active_contest ... ok
+test workspace_window_runtime::tests::failed_show_does_not_hide_or_claim_completed_intent_and_retry_works ... ok
+test workspace_window_runtime::tests::in_flight_and_later_coalesced_refreshes_have_distinct_tickets ... ok
+test workspace_window_runtime::tests::fresh_manual_replacement_does_not_inherit_destroyed_managed_ownership ... ok
+test workspace_window_runtime::tests::independent_band_windows_keep_instance_labels_and_survive_preset_reconciliation ... ok
+test workspace_window_runtime::tests::manual_reveal_of_existing_managed_window_retains_ownership ... ok
+test workspace_window_runtime::tests::native_load_requires_correlated_successful_layout_response ... ok
+test workspace_window_runtime::tests::old_destroy_does_not_forget_replacement_lifetime ... ok
+test workspace_window_runtime::tests::one_queue_keeps_normal_and_contest_refreshes_separate ... ok
+test workspace_window_runtime::tests::operating_goals_uses_independent_window_lifecycle_and_closes_for_canvas ... ok
+test workspace_window_runtime::tests::previous_qsos_uses_independent_window_lifecycle_and_does_not_reopen_after_canvas ... ok
+test workspace_window_runtime::tests::passive_refresh_and_rename_do_not_reopen_manual_close_but_force_does ... ok
+test workspace_window_runtime::tests::queued_contest_open_toggle_and_refresh_hold_transition_barriers_until_complete ... ok
+test workspace_window_runtime::tests::queued_refresh_is_bounded_coalesced_and_retains_force ... ok
+test workspace_window_runtime::tests::same_context_reopen_preserves_contest_engine_and_managed_windows ... ok
+test workspace_window_runtime::tests::remembered_manual_contest_windows_reopen_without_becoming_layout_owned ... ok
+test workspace_window_runtime::tests::saved_contest_refresh_queued_after_reset_survives_the_rejection_boundary ... ok
+test workspace_window_runtime::tests::session_replacement_resets_only_the_contest_engine ... ok
+test worker::tests::shutdown_watchdog_reaps_a_worker_that_ignores_eof ... ok
+test worker::tests::state_changing_timeout_retires_generation_with_uncertain_outcome ... ok
+test workspace_window_runtime::tests::stale_dequeued_work_cannot_replace_current_contest_engine_or_outcome ... ok
+test workspace_window_runtime::tests::shows_before_hides_and_preserves_manual_windows ... ok
+test workspace_window_runtime::tests::stale_second_read_cannot_hide_current_windows ... ok
+test workspace_window_runtime::tests::ticket_exhaustion_preserves_the_already_accepted_queue_entry ... ok
+test workspace_window_runtime::tests::stopped_engine_never_opens_or_hides ... ok
+test workspace_window_runtime::tests::successful_manual_open_does_not_clear_failed_layout_status ... ok
+test workspace_window_runtime::tests::superseding_layout_is_opened_before_any_old_hide ... ok
+test workspace_windows::tests::band_instances_are_exactly_validated_and_keep_only_map_capabilities ... ok
+test workspace_windows::tests::alerts_window_is_singleton_and_passive_after_manual_close ... ok
+test workspace_windows::tests::antenna_window_is_singleton_and_passive_after_manual_close ... ok
+test workspace_windows::tests::contest_default_size_migrations_are_exact_and_do_not_touch_shared_tools ... ok
+test workspace_windows::tests::compact_contest_tables_migrate_only_defaults_and_preserve_user_geometry ... ok
+test workspace_windows::tests::contest_windows_use_scoped_compact_minima_without_changing_normal_tools ... ok
+test workspace_windows::tests::contest_planner_quarantines_only_the_legacy_alerts_window_placement ... ok
+test workspace_windows::tests::cw_window_intent_is_singleton_passive_and_independent_of_main ... ok
+test workspace_windows::tests::intelligence_window_reuses_singleton_intent_without_a_main_dependency ... ok
+test workspace_windows::tests::intent_comparison_ignores_revision_geometry_and_operation_progress ... ok
+test workspace_windows::tests::mode_switches_preserve_open_tasks_and_cannot_close_cw_or_emit_stop ... ok
+test workspace_windows::tests::only_acknowledged_owned_windows_are_hidden ... ok
+test workspace_windows::tests::passive_rename_geometry_and_revision_changes_do_not_reopen_closed_windows ... ok
+test workspace_windows::tests::propagation_window_can_fit_its_compact_content ... ok
+test workspace_windows::tests::qso_window_intent_is_singleton_independent_of_main_and_passive_reads ... ok
+test workspace_windows::tests::propagation_window_is_singleton_and_passive_after_manual_close ... ok
+test workspace_windows::tests::registry_covers_only_real_windows ... ok
+test workspace_windows::tests::rejects_unsupported_requests_before_any_ownership_change ... ok
+test workspace_windows::tests::scoped_registry_keeps_legacy_labels_and_uses_exact_contest_labels ... ok
+test workspace_windows::tests::rotor_observation_window_is_singleton_and_not_reopened_by_passive_reads ... ok
+test workspace_windows::tests::separate_mode_resolves_legacy_qso_and_never_requires_main ... ok
+test workspace_windows::tests::scoped_planner_maps_only_contest_native_placements_and_rejects_cross_scope_acknowledgement ... ok
+test workspace_windows::tests::settings_window_intent_is_singleton_independent_of_main ... ok
+test workspace_windows::tests::spot_history_window_intent_is_singleton_independent_of_main ... ok
+test workspace_windows::tests::station_identity_window_is_singleton_and_passive_after_manual_close ... ok
+test workspace_windows::tests::station_control_intent_does_not_depend_on_main_or_reopen_after_passive_reads ... ok
+test workspace_windows::tests::station_status_window_is_singleton_and_passive_after_manual_close ... ok
+test workspace_windows::tests::successful_completion_is_idempotent_and_generation_replacement_reapplies ... ok
+test workspace_windows::tests::validates_every_preset_and_full_bounded_inventory ... ok
+test contest_recorder_store::tests::full_event_index_uses_u64_and_reports_missing_media_without_allocating_audio ... ok
+test station_session::tests::compaction_preserves_latest_disconnect_as_startup_resume_barrier ... ok
+test station_session::tests::manual_rotor_unresolved_receipt_survives_later_operations_and_compaction ... ok
+test station_session::tests::manual_tune_compacts_terminal_receipts_but_never_unresolved_receipts ... ok
+
+test result: ok. 913 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 16.63s
+
+     Running tests/hamlib_dummy.rs (prototype/src-tauri/target/debug/deps/hamlib_dummy-85450cf75c55e355)
+
+running 26 tests
+test hamlib::tests::invalid_reconnect_config_is_rejected_before_releasing_existing_session ... ok
+test hamlib::tests::external_mode_refuses_non_loopback ... ok
+test hamlib::tests::capability_parser_preserves_repeated_keys ... ok
+test hamlib::tests::macro_controls_require_the_exact_generation_when_supplied ... ok
+test hamlib::tests::model_parser_preserves_names_and_maturity ... ok
+test hamlib::tests::disconnect_keeps_session_when_owned_ptt_release_is_unverified ... ok
+test hamlib::tests::exact_receive_control_rejects_unconfirmed_readback ... ok
+test hamlib::tests::exact_receive_control_sends_no_write_without_idle_vfo_a ... ok
+test hamlib::tests::exact_receive_controls_confirm_idle_vfo_a_and_the_requested_target ... ok
+test hamlib::tests::logging_snapshot_refreshes_frequency_mode_split_and_tx_frequency_together ... ok
+test hamlib::tests::parser_handles_multiline_extended_frame ... ok
+test hamlib::tests::parser_rejects_wrong_command_and_unterminated_reply ... ok
+test hamlib::tests::serial_options_are_closed_and_map_to_hamlib_tokens ... ok
+test hamlib::tests::status_retires_dead_external_session_without_any_control_replay ... ok
+test hamlib::tests::rejected_tx_on_command_keeps_possible_ownership_until_release ... ok
+test opt_in_dummy_daemons_read_back_radio_and_rotor ... ok
+test radio_slots::tests::fixed_ids_are_closed ... ok
+test radio_slots::tests::route_change_policy_allows_same_slot_but_fences_any_owned_tx ... ok
+test hamlib::tests::transmitting_ptt_probe_never_starts_simplex_writes ... ok
+test hamlib::tests::shutdown_releases_only_session_owned_tx ... ok
+test radio_slots::tests::transmit_lease_is_global_and_exact ... ok
+test hamlib::tests::rejected_vfo_or_split_probe_never_starts_simplex_writes ... ok
+test hamlib::tests::tx_off_ack_with_on_readback_keeps_owned_release ... ok
+test hamlib::tests::simplex_aborts_before_frequency_and_mode_when_ownership_ack_is_wrong ... ok
+test hamlib::tests::framed_tcp_read_handles_fragmentation_without_losing_next_reply ... ok
+test hamlib::tests::stale_macro_send_and_stop_never_reach_the_transport ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s

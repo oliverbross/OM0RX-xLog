@@ -1,0 +1,1799 @@
+Building for debugging...
+[Computing dependencies]
+[Pre-planning 1 / 417]
+[Planning deferred tasks]
+[1 / 53] XContestCoreTests-product
+[12 / 141] CCurlBackup
+[48 / 131]
+[52 / 133] CCWProcess
+[54 / 133] CCWProcess
+[64 / 142] XContestCore
+[65 / 152]
+[66 / 152] XContestCore
+[68 / 152] XLogCore
+[69 / 152] XContestCore
+[70 / 152] XContestCore
+[73 / 152] XContestCore
+[77 / 152] XLogCore
+[79 / 152] XLogCore
+[81 / 152] XLogCore
+[83 / 152] XLogCore
+[88 / 152] om0rx-xlog-product
+[89 / 152] XLogCore
+[90 / 152] XLogCoreTests-product
+[93 / 153] XContestCore
+[96 / 166] om0rx-xlog-product
+[96 / 166] XLogCore
+[99 / 166] XContestStore
+[105 / 166] om0rx-xlog-product
+[105 / 166] XContestStore
+[107 / 166] om0rx-xlog-product
+[107 / 166] XLogCore
+[109 / 166] om0rx-xlog-product
+[111 / 166] om0rx-xlog-product
+[112 / 166] XContestStoreTests-product
+[113 / 166] om0rx-xlog-product
+[117 / 166] XContestCore-product
+[119 / 167] XContestCoreTests-product
+[120 / 167] XContestCoreTests-product
+[120 / 167] XContestCore-product
+[120 / 167] XContestCoreTests-product
+[124 / 176] XContestCoreTests-product
+[124 / 176] XContestStore
+[127 / 176] om0rx-xlog-product
+[128 / 176] XContestStore
+[130 / 176] XContestCoreTests-product
+[132 / 176] XContestCoreTests-product
+[132 / 176] XLogCore
+[134 / 176] XContestCoreTests-product
+[135 / 176] XContestCoreTests-product
+[138 / 176] XContestCoreTests-product
+[139 / 177] XLogCoreTests-product
+[140 / 176] XContestCoreTests-product
+[143 / 176] XContestStoreTests-product
+[144 / 177] XLogCore-product
+[146 / 177]
+[146 / 177] XContestStoreTests-product
+[151 / 196] XContestCoreTests-product
+[153 / 196] XContestStoreTests-product
+[154 / 196] om0rx-xlog-product
+[156 / 196] XContestCoreTests-product
+[162 / 196] XContestStoreTests-product
+[164 / 196] XLogCoreTests-product
+[165 / 196] XLogCoreTests-product
+[166 / 196] XLogCoreTests-product
+[166 / 196] XContestStoreTests-product
+[168 / 196] XLogCoreTests-product
+[168 / 196] XContestStoreTests-product
+[169 / 196] XLogCoreTests-product
+[170 / 195] XLogCoreTests-product
+[172 / 195] XLogCoreTests-product
+[176 / 195] XContestStoreTests-product
+[178 / 195] XContestStoreTests-product
+[179 / 195] om0rx-xlog-product
+[180 / 196] om0rx-xlog-product
+[180 / 196] XContestCoreTests-product
+[181 / 196] XContestStoreTests-product
+[183 / 196] XContestCoreTests-product
+[184 / 196] XContestCoreTests-product
+[184 / 194] XContestStoreTests-product
+[186 / 194] XContestStoreTests-product
+[186 / 192] XLogCoreTests-product
+[188 / 192] XLogCoreTests-product
+[190 / 192] XLogCoreTests-product
+Build complete! (104.42 sec.)
+Test Suite 'All tests' started at 2026-10-28 23:20:03.671.
+Test Suite 'XLogCoreTests.xctest' started at 2026-10-28 23:20:03.672.
+Test Suite 'ADIFTimestampReviewTests' started at 2026-10-28 23:20:03.673.
+Test Case '-[XLogCoreTests.ADIFTimestampReviewTests testExplicitEndDateIsNotSilentlyRewritten]' started.
+Test Case '-[XLogCoreTests.ADIFTimestampReviewTests testExplicitEndDateIsNotSilentlyRewritten]' passed (0.005 seconds).
+Test Case '-[XLogCoreTests.ADIFTimestampReviewTests testImplicitEndDateCrossesMidnightAndExportsInferredDay]' started.
+Test Case '-[XLogCoreTests.ADIFTimestampReviewTests testImplicitEndDateCrossesMidnightAndExportsInferredDay]' passed (0.002 seconds).
+Test Case '-[XLogCoreTests.ADIFTimestampReviewTests testLegacyBackfillIsNonmutatingAndDoesNotRollFractionalSameSecond]' started.
+Test Case '-[XLogCoreTests.ADIFTimestampReviewTests testLegacyBackfillIsNonmutatingAndDoesNotRollFractionalSameSecond]' passed (0.002 seconds).
+Test Case '-[XLogCoreTests.ADIFTimestampReviewTests testOnlyFourOrSixASCIIDigitTimesAreAccepted]' started.
+Test Case '-[XLogCoreTests.ADIFTimestampReviewTests testOnlyFourOrSixASCIIDigitTimesAreAccepted]' passed (0.007 seconds).
+Test Suite 'ADIFTimestampReviewTests' passed at 2026-10-28 23:20:03.690.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.017 (0.017) seconds
+Test Suite 'CQWWPinnedCTYResolutionTests' started at 2026-10-28 23:20:03.690.
+Test Case '-[XLogCoreTests.CQWWPinnedCTYResolutionTests testBundledResolverProducesReviewedCQWWSpecialEndpoints]' started.
+Test Case '-[XLogCoreTests.CQWWPinnedCTYResolutionTests testBundledResolverProducesReviewedCQWWSpecialEndpoints]' passed (0.252 seconds).
+Test Suite 'CQWWPinnedCTYResolutionTests' passed at 2026-10-28 23:20:03.942.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.252 (0.252) seconds
+Test Suite 'XLogCoreTests.xctest' passed at 2026-10-28 23:20:03.942.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.269 (0.269) seconds
+Test Suite 'All tests' passed at 2026-10-28 23:20:03.942.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.269 (0.271) seconds
+Test Suite 'All tests' started at 2026-10-28 23:20:04.211.
+Test Suite 'XContestStoreTests.xctest' started at 2026-10-28 23:20:04.212.
+Test Suite 'ContestARRLDXStoreTests' started at 2026-10-28 23:20:04.212.
+Test Case '-[XContestStoreTests.ContestARRLDXStoreTests testCorrectionDeletionAndDuplicatePromotionReplayDeterministically]' started.
+Test Case '-[XContestStoreTests.ContestARRLDXStoreTests testCorrectionDeletionAndDuplicatePromotionReplayDeterministically]' passed (0.040 seconds).
+Test Case '-[XContestStoreTests.ContestARRLDXStoreTests testCreateDraftCommitReplayReopenAndMaliciousSentEditsAreAtomic]' started.
+Test Case '-[XContestStoreTests.ContestARRLDXStoreTests testCreateDraftCommitReplayReopenAndMaliciousSentEditsAreAtomic]' passed (0.058 seconds).
+Test Suite 'ContestARRLDXStoreTests' passed at 2026-10-28 23:20:04.310.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.098 (0.098) seconds
+Test Suite 'ContestARRLRTTYRoundupStoreTests' started at 2026-10-28 23:20:04.310.
+Test Case '-[XContestStoreTests.ContestARRLRTTYRoundupStoreTests testDXReservationForgeryEditCommitRestartReplayAndNonreuse]' started.
+Test Case '-[XContestStoreTests.ContestARRLRTTYRoundupStoreTests testDXReservationForgeryEditCommitRestartReplayAndNonreuse]' passed (0.030 seconds).
+Test Case '-[XContestStoreTests.ContestARRLRTTYRoundupStoreTests testDXSerialCapacityFailurePrecedesCounterAndReceiptMutation]' started.
+Test Case '-[XContestStoreTests.ContestARRLRTTYRoundupStoreTests testDXSerialCapacityFailurePrecedesCounterAndReceiptMutation]' passed (0.005 seconds).
+Test Case '-[XContestStoreTests.ContestARRLRTTYRoundupStoreTests testWVEAggregateResetPreservesAdmittedRawFieldAcrossSequentialContacts]' started.
+Test Case '-[XContestStoreTests.ContestARRLRTTYRoundupStoreTests testWVEAggregateResetPreservesAdmittedRawFieldAcrossSequentialContacts]' passed (0.015 seconds).
+Test Case '-[XContestStoreTests.ContestARRLRTTYRoundupStoreTests testWVEReservationAndContradictoryStationAreRejectedAtomically]' started.
+Test Case '-[XContestStoreTests.ContestARRLRTTYRoundupStoreTests testWVEReservationAndContradictoryStationAreRejectedAtomically]' passed (0.012 seconds).
+Test Suite 'ContestARRLRTTYRoundupStoreTests' passed at 2026-10-28 23:20:04.373.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.062 (0.063) seconds
+Test Suite 'ContestCWUniqueCallDeclarativeStoreTests' started at 2026-10-28 23:20:04.373.
+Test Case '-[XContestStoreTests.ContestCWUniqueCallDeclarativeStoreTests testSharedDefinitionsScoreDupeCorrectionSerialAndRestart]' started.
+Test Case '-[XContestStoreTests.ContestCWUniqueCallDeclarativeStoreTests testSharedDefinitionsScoreDupeCorrectionSerialAndRestart]' passed (0.881 seconds).
+Test Case '-[XContestStoreTests.ContestCWUniqueCallDeclarativeStoreTests testStructuredSerialReservationRejectsForgedAggregateAndStationFields]' started.
+Test Case '-[XContestStoreTests.ContestCWUniqueCallDeclarativeStoreTests testStructuredSerialReservationRejectsForgedAggregateAndStationFields]' passed (0.170 seconds).
+Test Suite 'ContestCWUniqueCallDeclarativeStoreTests' passed at 2026-10-28 23:20:05.425.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 1.051 (1.051) seconds
+Test Suite 'ContestDatabaseSnapshotTests' started at 2026-10-28 23:20:05.425.
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testBusyRetriesAreBoundedAndFreshRetrySucceeds]' started.
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testBusyRetriesAreBoundedAndFreshRetrySucceeds]' passed (0.095 seconds).
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testDestinationSourceAndSymlinkSafetyRefuseWithoutChangingExistingData]' started.
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testDestinationSourceAndSymlinkSafetyRefuseWithoutChangingExistingData]' passed (0.056 seconds).
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testInspectionUsesOnePinnedReadTransaction]' started.
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testInspectionUsesOnePinnedReadTransaction]' passed (0.038 seconds).
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testInspectorRejectsDatabaseSymlinksAndHardLinks]' started.
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testInspectorRejectsDatabaseSymlinksAndHardLinks]' passed (0.034 seconds).
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testInvalidBackupStepAndBusySleepConfigurationFailBeforeCreatingStaging]' started.
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testInvalidBackupStepAndBusySleepConfigurationFailBeforeCreatingStaging]' passed (0.021 seconds).
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testPreAndMidCancellationAndVerificationCancellationCleanStaging]' started.
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testPreAndMidCancellationAndVerificationCancellationCleanStaging]' passed (0.061 seconds).
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testPrepublicationFailureAndCompetingDestinationNeverClobberAndCanRetry]' started.
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testPrepublicationFailureAndCompetingDestinationNeverClobberAndCanRetry]' passed (0.035 seconds).
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testReplacedStagingAndParentAreNeverPublishedOrDeleted]' started.
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testReplacedStagingAndParentAreNeverPublishedOrDeleted]' passed (0.018 seconds).
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testSchemaVersionNormalLogShapeAndCorruptionAreRejected]' started.
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testSchemaVersionNormalLogShapeAndCorruptionAreRejected]' passed (0.048 seconds).
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testSnapshotPreservesLifecycleHistoryReplayTombstonesAndSerialCounter]' started.
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testSnapshotPreservesLifecycleHistoryReplayTombstonesAndSerialCounter]' passed (0.164 seconds).
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testTriggersViewsAndChangedIndexSemanticsAreRejected]' started.
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testTriggersViewsAndChangedIndexSemanticsAreRejected]' passed (0.182 seconds).
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testVersionTwoSnapshotInspectionIsReadOnlyAndRestoredCopyMigratesOnReopen]' started.
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testVersionTwoSnapshotInspectionIsReadOnlyAndRestoredCopyMigratesOnReopen]' passed (0.163 seconds).
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testVersionTwoSnapshotWithVersionThreeTableIsRejected]' started.
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testVersionTwoSnapshotWithVersionThreeTableIsRejected]' passed (0.020 seconds).
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testWALSnapshotPinsOneRevisionWhileSecondWriterCommits]' started.
+Test Case '-[XContestStoreTests.ContestDatabaseSnapshotTests testWALSnapshotPinsOneRevisionWhileSecondWriterCommits]' passed (0.036 seconds).
+Test Suite 'ContestDatabaseSnapshotTests' passed at 2026-10-28 23:20:06.398.
+	 Executed 14 tests, with 0 failures (0 unexpected) in 0.971 (0.973) seconds
+Test Suite 'ContestDeclarativeRuleStoreTests' started at 2026-10-28 23:20:06.398.
+Test Case '-[XContestStoreTests.ContestDeclarativeRuleStoreTests testAdmissionRejectsUnknownPolicyNoncanonicalBytesAndRollsBackDefinition]' started.
+Test Case '-[XContestStoreTests.ContestDeclarativeRuleStoreTests testAdmissionRejectsUnknownPolicyNoncanonicalBytesAndRollsBackDefinition]' passed (0.073 seconds).
+Test Case '-[XContestStoreTests.ContestDeclarativeRuleStoreTests testAuthoredDefinitionPersistsReopensWithoutRegistryAndPinsOldSessionScore]' started.
+Test Case '-[XContestStoreTests.ContestDeclarativeRuleStoreTests testAuthoredDefinitionPersistsReopensWithoutRegistryAndPinsOldSessionScore]' passed (0.691 seconds).
+Test Case '-[XContestStoreTests.ContestDeclarativeRuleStoreTests testCorruptStoredDefinitionFailsClosedAndVersionTwoLegacyDatabaseMigrates]' started.
+Test Case '-[XContestStoreTests.ContestDeclarativeRuleStoreTests testCorruptStoredDefinitionFailsClosedAndVersionTwoLegacyDatabaseMigrates]' passed (0.053 seconds).
+Test Case '-[XContestStoreTests.ContestDeclarativeRuleStoreTests testFourDefinitionsScoreDupeCorrectionAndRestartThroughSharedStorePath]' started.
+Test Case '-[XContestStoreTests.ContestDeclarativeRuleStoreTests testFourDefinitionsScoreDupeCorrectionAndRestartThroughSharedStorePath]' passed (0.085 seconds).
+Test Suite 'ContestDeclarativeRuleStoreTests' passed at 2026-10-28 23:20:07.301.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.902 (0.903) seconds
+Test Suite 'ContestJIDXStoreTests' started at 2026-10-28 23:20:07.301.
+Test Case '-[XContestStoreTests.ContestJIDXStoreTests testBothModesPersistRawAndNormalizedEvidenceReopenAndReplayWithoutSerial]' started.
+Test Case '-[XContestStoreTests.ContestJIDXStoreTests testBothModesPersistRawAndNormalizedEvidenceReopenAndReplayWithoutSerial]' passed (0.021 seconds).
+Test Case '-[XContestStoreTests.ContestJIDXStoreTests testCommittedSentNumberIsImmutableAndRejectedEditIsAtomic]' started.
+Test Case '-[XContestStoreTests.ContestJIDXStoreTests testCommittedSentNumberIsImmutableAndRejectedEditIsAtomic]' passed (0.010 seconds).
+Test Case '-[XContestStoreTests.ContestJIDXStoreTests testCorrectionDeletionDupePromotionAndRescoreSurviveRestart]' started.
+Test Case '-[XContestStoreTests.ContestJIDXStoreTests testCorrectionDeletionDupePromotionAndRescoreSurviveRestart]' passed (0.017 seconds).
+Test Case '-[XContestStoreTests.ContestJIDXStoreTests testJapaneseAndMaritimeEntrantsPersistAndScoreInBothModes]' started.
+Test Case '-[XContestStoreTests.ContestJIDXStoreTests testJapaneseAndMaritimeEntrantsPersistAndScoreInBothModes]' passed (0.508 seconds).
+Test Case '-[XContestStoreTests.ContestJIDXStoreTests testMissingLandAndInvalidProvidedMaritimeEntitiesRejectAtomically]' started.
+Test Case '-[XContestStoreTests.ContestJIDXStoreTests testMissingLandAndInvalidProvidedMaritimeEntitiesRejectAtomically]' passed (0.008 seconds).
+Test Suite 'ContestJIDXStoreTests' passed at 2026-10-28 23:20:07.866.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.565 (0.566) seconds
+Test Suite 'ContestNAQPStoreTests' started at 2026-10-28 23:20:07.867.
+Test Case '-[XContestStoreTests.ContestNAQPStoreTests testContradictoryStationExchangeRollsBackCreation]' started.
+Test Case '-[XContestStoreTests.ContestNAQPStoreTests testContradictoryStationExchangeRollsBackCreation]' passed (0.007 seconds).
+Test Case '-[XContestStoreTests.ContestNAQPStoreTests testCorrectionDeletionRestartAndIdempotentReceipt]' started.
+Test Case '-[XContestStoreTests.ContestNAQPStoreTests testCorrectionDeletionRestartAndIdempotentReceipt]' passed (0.015 seconds).
+Test Case '-[XContestStoreTests.ContestNAQPStoreTests testPartialDraftDuplicateProjectionIgnoresOnlyBlankReceivedFields]' started.
+Test Case '-[XContestStoreTests.ContestNAQPStoreTests testPartialDraftDuplicateProjectionIgnoresOnlyBlankReceivedFields]' passed (0.186 seconds).
+Test Case '-[XContestStoreTests.ContestNAQPStoreTests testSelfContactCommitRollsBackAtomicallyInAllModes]' started.
+Test Case '-[XContestStoreTests.ContestNAQPStoreTests testSelfContactCommitRollsBackAtomicallyInAllModes]' passed (0.022 seconds).
+Test Case '-[XContestStoreTests.ContestNAQPStoreTests testStructuredStationAggregateUsesDescriptorBoundsWithoutChangingLegacyLimit]' started.
+Test Case '-[XContestStoreTests.ContestNAQPStoreTests testStructuredStationAggregateUsesDescriptorBoundsWithoutChangingLegacyLimit]' passed (0.009 seconds).
+Test Case '-[XContestStoreTests.ContestNAQPStoreTests testThreeModesDraftCommitReplayAndRestartWithoutSerialReservation]' started.
+Test Case '-[XContestStoreTests.ContestNAQPStoreTests testThreeModesDraftCommitReplayAndRestartWithoutSerialReservation]' passed (0.042 seconds).
+Test Suite 'ContestNAQPStoreTests' passed at 2026-10-28 23:20:08.148.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.281 (0.281) seconds
+Test Suite 'ContestOceaniaStoreTests' started at 2026-10-28 23:20:08.148.
+Test Case '-[XContestStoreTests.ContestOceaniaStoreTests testCorrectionDeletionRestartAndSerialCounterRemainDeterministic]' started.
+Test Case '-[XContestStoreTests.ContestOceaniaStoreTests testCorrectionDeletionRestartAndSerialCounterRemainDeterministic]' passed (0.018 seconds).
+Test Case '-[XContestStoreTests.ContestOceaniaStoreTests testCWAndSSBDescriptorsReserveCommitAndReopen]' started.
+Test Case '-[XContestStoreTests.ContestOceaniaStoreTests testCWAndSSBDescriptorsReserveCommitAndReopen]' passed (0.020 seconds).
+Test Suite 'ContestOceaniaStoreTests' passed at 2026-10-28 23:20:08.186.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.038 (0.038) seconds
+Test Suite 'ContestSACStoreTests' started at 2026-10-28 23:20:08.186.
+Test Case '-[XContestStoreTests.ContestSACStoreTests testCorrectionDeletionRestartAndSerialNeverReuse]' started.
+Test Case '-[XContestStoreTests.ContestSACStoreTests testCorrectionDeletionRestartAndSerialNeverReuse]' passed (0.017 seconds).
+Test Case '-[XContestStoreTests.ContestSACStoreTests testCWAndSSBRequireReservationThenCommitAndReopen]' started.
+Test Case '-[XContestStoreTests.ContestSACStoreTests testCWAndSSBRequireReservationThenCommitAndReopen]' passed (0.018 seconds).
+Test Suite 'ContestSACStoreTests' passed at 2026-10-28 23:20:08.222.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.036 (0.036) seconds
+Test Suite 'ContestSSBStoreTests' started at 2026-10-28 23:20:08.222.
+Test Case '-[XContestStoreTests.ContestSSBStoreTests testWPXCWAndSSBImportedCommitsCannotBypassReservationLedger]' started.
+Test Case '-[XContestStoreTests.ContestSSBStoreTests testWPXCWAndSSBImportedCommitsCannotBypassReservationLedger]' passed (0.255 seconds).
+Test Case '-[XContestStoreTests.ContestSSBStoreTests testWPXSSBReservationCorrectionDeletionAndCounterSurviveRestart]' started.
+Test Case '-[XContestStoreTests.ContestSSBStoreTests testWPXSSBReservationCorrectionDeletionAndCounterSurviveRestart]' passed (0.028 seconds).
+Test Case '-[XContestStoreTests.ContestSSBStoreTests testWWSSBCommitNeedsNoSerialAndResetPreservesZoneAndPhoneDefaults]' started.
+Test Case '-[XContestStoreTests.ContestSSBStoreTests testWWSSBCommitNeedsNoSerialAndResetPreservesZoneAndPhoneDefaults]' passed (0.116 seconds).
+Test Suite 'ContestSSBStoreTests' passed at 2026-10-28 23:20:08.622.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.400 (0.400) seconds
+Test Suite 'ContestStoreTests' started at 2026-10-28 23:20:08.622.
+Test Case '-[XContestStoreTests.ContestStoreTests testCommitReservationLogAndScoreSurviveReopen]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testCommitReservationLogAndScoreSurviveReopen]' passed (0.014 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testCompositeReadsUseOneSQLiteSnapshotAcrossWriter]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testCompositeReadsUseOneSQLiteSnapshotAcrossWriter]' passed (0.627 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testConcurrentCorrectionsAndInjectedFailureRollbackAtomically]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testConcurrentCorrectionsAndInjectedFailureRollbackAtomically]' passed (0.023 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testConcurrentFirstOpenAndFailedMigrationRollback]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testConcurrentFirstOpenAndFailedMigrationRollback]' passed (0.004 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testConcurrentWritersSerializeAllocationWithoutDuplicate]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testConcurrentWritersSerializeAllocationWithoutDuplicate]' passed (0.127 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testCorrectionPromotesFirstDupeAndMatchesFullScoreOracle]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testCorrectionPromotesFirstDupeAndMatchesFullScoreOracle]' passed (0.026 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testCorrectionReplaySurvivesLaterDeleteAndReopenWhileNewRequestsSeeTombstone]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testCorrectionReplaySurvivesLaterDeleteAndReopenWhileNewRequestsSeeTombstone]' passed (0.013 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testCreateRejectsUnpinnedRuleAndReferenceIdentity]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testCreateRejectsUnpinnedRuleAndReferenceIdentity]' passed (0.008 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testCreateReopenAndDeterministicReads]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testCreateReopenAndDeterministicReads]' passed (0.014 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testDeleteRemovesSoleMultiplierPreservesDraftSerialLedgerAndOrdering]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testDeleteRemovesSoleMultiplierPreservesDraftSerialLedgerAndOrdering]' passed (0.020 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testDurableMutationResultStaysBoundedAcrossDistinctMultipliersAndReplaysExactly]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testDurableMutationResultStaysBoundedAcrossDistinctMultipliersAndReplaysExactly]' passed (0.074 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testExplicitFileURLRequired]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testExplicitFileURLRequired]' passed (0.001 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testInvalidQSORollsBackReservationAndAggregate]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testInvalidQSORollsBackReservationAndAggregate]' passed (0.010 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testLogOrderingUsesTimestampThenID]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testLogOrderingUsesTimestampThenID]' passed (0.019 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testRateStatisticsReadsAreWriteFreeRefreshTimeAndUseBandPlanOrder]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testRateStatisticsReadsAreWriteFreeRefreshTimeAndUseBandPlanOrder]' passed (0.021 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testRateStatisticsSnapshotTracksCorrectionDeletionPromotionAndRestart]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testRateStatisticsSnapshotTracksCorrectionDeletionPromotionAndRestart]' passed (0.018 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testReplayComparesCanonicalPayloadBeforeDecodingTypedResult]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testReplayComparesCanonicalPayloadBeforeDecodingTypedResult]' passed (0.015 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testRequestReplayPrecedesRevisionAndConflictingPayloadFails]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testRequestReplayPrecedesRevisionAndConflictingPayloadFails]' passed (0.007 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testReservedDraftAllowsContactEditsButRejectsSerialOrScopeChanges]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testReservedDraftAllowsContactEditsButRejectsSerialOrScopeChanges]' passed (0.015 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testRevisionBoundQSOReadIsCoherentAcrossConcurrentCorrection]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testRevisionBoundQSOReadIsCoherentAcrossConcurrentCorrection]' passed (0.217 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testRevisionBoundReadAndCorrectionValidationFences]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testRevisionBoundReadAndCorrectionValidationFences]' passed (0.008 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testSerialLedgerSurvivesRestartAndNeverRecyclesVoidOrUncertain]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testSerialLedgerSurvivesRestartAndNeverRecyclesVoidOrUncertain]' passed (0.019 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testSerialTransitionRequiresExactDraftAndCannotCommitDirectly]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testSerialTransitionRequiresExactDraftAndCannotCommitDirectly]' passed (0.007 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testSessionSerialAllowsIncompleteBandChangeThenValidCommit]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testSessionSerialAllowsIncompleteBandChangeThenValidCommit]' passed (0.021 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testStaleRevisionRollsBackDraft]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testStaleRevisionRollsBackDraft]' passed (0.018 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testStructuralValidationRollsBackInvalidCreateAndUpdate]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testStructuralValidationRollsBackInvalidCreateAndUpdate]' passed (0.004 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testVersionOneMigrationFailureRollsBackAndCorrectionResultIsBounded]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testVersionOneMigrationFailureRollsBackAndCorrectionResultIsBounded]' passed (0.016 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testVersionOneMigrationPreservesRealSessionQSOReservationCounterAndReceiptReplay]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testVersionOneMigrationPreservesRealSessionQSOReservationCounterAndReceiptReplay]' passed (0.017 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testWorkspaceGenerationPreservesAllUUIDBitsAndSchemaFailsClosed]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testWorkspaceGenerationPreservesAllUUIDBitsAndSchemaFailsClosed]' passed (0.010 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testWPXCommitWithoutReservationRollsBackCompletely]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testWPXCommitWithoutReservationRollsBackCompletely]' passed (0.016 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testWWCommitDoesNotRequireSerialReservation]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testWWCommitDoesNotRequireSerialReservation]' passed (0.009 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testWWDraftResetPreservesPinnedZoneAcrossSuccessiveContacts]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testWWDraftResetPreservesPinnedZoneAcrossSuccessiveContacts]' passed (0.008 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testWWSentZoneIsImmutableDuringCorrection]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testWWSentZoneIsImmutableDuringCorrection]' passed (0.008 seconds).
+Test Case '-[XContestStoreTests.ContestStoreTests testWWSerialReservationRejectedBeforeCounterMutation]' started.
+Test Case '-[XContestStoreTests.ContestStoreTests testWWSerialReservationRejectedBeforeCounterMutation]' passed (0.009 seconds).
+Test Suite 'ContestStoreTests' passed at 2026-10-28 23:20:10.072.
+	 Executed 34 tests, with 0 failures (0 unexpected) in 1.446 (1.449) seconds
+Test Suite 'ContestStructuredExchangeStoreTests' started at 2026-10-28 23:20:10.072.
+Test Case '-[XContestStoreTests.ContestStructuredExchangeStoreTests testExactModeValidationRejectsLowercaseV1AndV2Drafts]' started.
+Test Case '-[XContestStoreTests.ContestStructuredExchangeStoreTests testExactModeValidationRejectsLowercaseV1AndV2Drafts]' passed (0.006 seconds).
+Test Case '-[XContestStoreTests.ContestStructuredExchangeStoreTests testStructuredExchangeCorrectionDeletionReplayAndRestart]' started.
+Test Case '-[XContestStoreTests.ContestStructuredExchangeStoreTests testStructuredExchangeCorrectionDeletionReplayAndRestart]' passed (0.009 seconds).
+Test Case '-[XContestStoreTests.ContestStructuredExchangeStoreTests testStructuredSentFieldsAreImmutableAndRollbackCorrection]' started.
+Test Case '-[XContestStoreTests.ContestStructuredExchangeStoreTests testStructuredSentFieldsAreImmutableAndRollbackCorrection]' passed (0.017 seconds).
+Test Case '-[XContestStoreTests.ContestStructuredExchangeStoreTests testStructuredSerialReservedAndUncertainEditsPreserveStationFieldsAndAggregate]' started.
+Test Case '-[XContestStoreTests.ContestStructuredExchangeStoreTests testStructuredSerialReservedAndUncertainEditsPreserveStationFieldsAndAggregate]' passed (0.027 seconds).
+Test Case '-[XContestStoreTests.ContestStructuredExchangeStoreTests testVersionTwoSerialAuthorityRollbackReplayRestartAndNonreuse]' started.
+Test Case '-[XContestStoreTests.ContestStructuredExchangeStoreTests testVersionTwoSerialAuthorityRollbackReplayRestartAndNonreuse]' passed (0.012 seconds).
+Test Suite 'ContestStructuredExchangeStoreTests' passed at 2026-10-28 23:20:10.143.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.071 (0.072) seconds
+Test Suite 'XContestStoreTests.xctest' passed at 2026-10-28 23:20:10.143.
+	 Executed 83 tests, with 0 failures (0 unexpected) in 5.920 (5.931) seconds
+Test Suite 'All tests' passed at 2026-10-28 23:20:10.143.
+	 Executed 83 tests, with 0 failures (0 unexpected) in 5.920 (5.932) seconds
+Test Suite 'All tests' started at 2026-10-28 23:20:11.252.
+Test Suite 'XContestCoreTests.xctest' started at 2026-10-28 23:20:11.253.
+Test Suite 'ContestARRLDXExportTests' started at 2026-10-28 23:20:11.253.
+Test Case '-[XContestCoreTests.ContestARRLDXExportTests testContinentalCanadianCY9AndCY0LocationEndpointsStayIndependentOfExchange]' started.
+Test Case '-[XContestCoreTests.ContestARRLDXExportTests testContinentalCanadianCY9AndCY0LocationEndpointsStayIndependentOfExchange]' passed (0.007 seconds).
+Test Case '-[XContestCoreTests.ContestARRLDXExportTests testCWAndPhoneGoldensPreserveRawPowerAbbreviations]' started.
+Test Case '-[XContestCoreTests.ContestARRLDXExportTests testCWAndPhoneGoldensPreserveRawPowerAbbreviations]' passed (0.226 seconds).
+Test Case '-[XContestCoreTests.ContestARRLDXExportTests testExportAuthorityPinsRulesHeaderQSOAndADIFSemantics]' started.
+Test Case '-[XContestCoreTests.ContestARRLDXExportTests testExportAuthorityPinsRulesHeaderQSOAndADIFSemantics]' passed (0.019 seconds).
+Test Case '-[XContestCoreTests.ContestARRLDXExportTests testIdentityCategoryAndRawNormalizedTamperingFailClosed]' started.
+Test Case '-[XContestCoreTests.ContestARRLDXExportTests testIdentityCategoryAndRawNormalizedTamperingFailClosed]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestARRLDXExportTests testLocationUsesARRLSectionPolicyIndependentOfDXScoringSide]' started.
+Test Case '-[XContestCoreTests.ContestARRLDXExportTests testLocationUsesARRLSectionPolicyIndependentOfDXScoringSide]' passed (0.008 seconds).
+Test Case '-[XContestCoreTests.ContestARRLDXExportTests testSingleBandProjectionRetainsCompleteLogIncludingDupe]' started.
+Test Case '-[XContestCoreTests.ContestARRLDXExportTests testSingleBandProjectionRetainsCompleteLogIncludingDupe]' passed (0.005 seconds).
+Test Case '-[XContestCoreTests.ContestARRLDXExportTests testValidOverWidthRawPowerUsesCanonicalCabrilloValueWithoutTruncation]' started.
+Test Case '-[XContestCoreTests.ContestARRLDXExportTests testValidOverWidthRawPowerUsesCanonicalCabrilloValueWithoutTruncation]' passed (0.001 seconds).
+Test Suite 'ContestARRLDXExportTests' passed at 2026-10-28 23:20:11.521.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.267 (0.268) seconds
+Test Suite 'ContestARRLDXTests' started at 2026-10-28 23:20:11.521.
+Test Case '-[XContestCoreTests.ContestARRLDXTests testAuthorityFixturePinsBytesComparatorSemanticsAndSharedDXCCSet]' started.
+Test Case '-[XContestCoreTests.ContestARRLDXTests testAuthorityFixturePinsBytesComparatorSemanticsAndSharedDXCCSet]' passed (0.195 seconds).
+Test Case '-[XContestCoreTests.ContestARRLDXTests testCurrentDXCCEndpointsAndPortableTieOrderStayOnDXSide]' started.
+Test Case '-[XContestCoreTests.ContestARRLDXTests testCurrentDXCCEndpointsAndPortableTieOrderStayOnDXSide]' passed (0.002 seconds).
+Test Case '-[XContestCoreTests.ContestARRLDXTests testDirectionalSessionAndIndependentCabrilloLocationValidation]' started.
+Test Case '-[XContestCoreTests.ContestARRLDXTests testDirectionalSessionAndIndependentCabrilloLocationValidation]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestARRLDXTests testInvalidDirectionsEntitiesModesBandsAndFrozenSentFieldsFailClosed]' started.
+Test Case '-[XContestCoreTests.ContestARRLDXTests testInvalidDirectionsEntitiesModesBandsAndFrozenSentFieldsFailClosed]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestARRLDXTests testMetadataIsDirectionalStructuredAndHasNoSerial]' started.
+Test Case '-[XContestCoreTests.ContestARRLDXTests testMetadataIsDirectionalStructuredAndHasNoSerial]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestARRLDXTests testOfficialDXArithmeticIs108Then126ForCWAndPhone]' started.
+Test Case '-[XContestCoreTests.ContestARRLDXTests testOfficialDXArithmeticIs108Then126ForCWAndPhone]' passed (0.002 seconds).
+Test Case '-[XContestCoreTests.ContestARRLDXTests testOfficialWVEArithmeticIs75ForCWAndPhone]' started.
+Test Case '-[XContestCoreTests.ContestARRLDXTests testOfficialWVEArithmeticIs75ForCWAndPhone]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestARRLDXTests testPowerNormalizationPreservesRawStationValue]' started.
+Test Case '-[XContestCoreTests.ContestARRLDXTests testPowerNormalizationPreservesRawStationValue]' passed (0.000 seconds).
+Test Suite 'ContestARRLDXTests' passed at 2026-10-28 23:20:11.725.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.203 (0.203) seconds
+Test Suite 'ContestARRLRTTYRoundupExportTests' started at 2026-10-28 23:20:11.725.
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupExportTests testExportAuthorityFixturePinsRulesCabrilloAndADIFSources]' started.
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupExportTests testExportAuthorityFixturePinsRulesCabrilloAndADIFSources]' passed (0.015 seconds).
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupExportTests testFullLogAndSingleBandProjectionRetainRowsButScoreSelectedBand]' started.
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupExportTests testFullLogAndSingleBandProjectionRetainRowsButScoreSelectedBand]' passed (0.004 seconds).
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupExportTests testHeaderLocationUsesFrozenEntitySectionMappingIndependentOfDXSerialExchange]' started.
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupExportTests testHeaderLocationUsesFrozenEntitySectionMappingIndependentOfDXSerialExchange]' passed (0.021 seconds).
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupExportTests testLBAndNFRemainDistinctWhileAlaskaAndHawaiiUseDXSerials]' started.
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupExportTests testLBAndNFRemainDistinctWhileAlaskaAndHawaiiUseDXSerials]' passed (0.003 seconds).
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupExportTests testLocationCategoryIdentityAndTypedExchangeMismatchesFailClosed]' started.
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupExportTests testLocationCategoryIdentityAndTypedExchangeMismatchesFailClosed]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupExportTests testOfficialFourDirectionQSOLayoutAndExactGoldenDocument]' started.
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupExportTests testOfficialFourDirectionQSOLayoutAndExactGoldenDocument]' passed (0.072 seconds).
+Test Suite 'ContestARRLRTTYRoundupExportTests' passed at 2026-10-28 23:20:11.842.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.117 (0.117) seconds
+Test Suite 'ContestARRLRTTYRoundupTests' started at 2026-10-28 23:20:11.842.
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupTests testAuthorityFixturePinsPrimaryAndComparatorInputs]' started.
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupTests testAuthorityFixturePinsPrimaryAndComparatorInputs]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupTests testCabrilloSectionIsPartOfImmutableSessionValidation]' started.
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupTests testCabrilloSectionIsPartOfImmutableSessionValidation]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupTests testDXCCAndFailureBoundaries]' started.
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupTests testDXCCAndFailureBoundaries]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupTests testModifierDupeNormalizationIsBounded]' started.
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupTests testModifierDupeNormalizationIsBounded]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupTests testOfficialArithmeticAndOnceContestMultipliers]' started.
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupTests testOfficialArithmeticAndOnceContestMultipliers]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupTests testPolicyEncodingIsAdditiveAndMalformedMetadataFailsClosed]' started.
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupTests testPolicyEncodingIsAdditiveAndMalformedMetadataFailsClosed]' passed (0.002 seconds).
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupTests testStationResolvedSerialRequirementUsesFrozenEntityAndExchange]' started.
+Test Case '-[XContestCoreTests.ContestARRLRTTYRoundupTests testStationResolvedSerialRequirementUsesFrozenEntityAndExchange]' passed (0.000 seconds).
+Test Suite 'ContestARRLRTTYRoundupTests' passed at 2026-10-28 23:20:11.848.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.005 (0.006) seconds
+Test Suite 'ContestARRLVHFDeclarativeTests' started at 2026-10-28 23:20:11.848.
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testDirectionalEligibilityFailsClosedForMissingOrMalformedEntitiesAndPolicy]' started.
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testDirectionalEligibilityFailsClosedForMissingOrMalformedEntitiesAndPolicy]' passed (0.007 seconds).
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testFixedStationCanWorkRemoteRoverFromMultipleGridsButNotRepeatEitherPair]' started.
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testFixedStationCanWorkRemoteRoverFromMultipleGridsButNotRepeatEitherPair]' passed (0.006 seconds).
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testIndependentAllBandPointAndGridOraclesForEverySeason]' started.
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testIndependentAllBandPointAndGridOraclesForEverySeason]' passed (0.032 seconds).
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testInvalidGridNeverOccupiesDuplicateOrMultiplierState]' started.
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testInvalidGridNeverOccupiesDuplicateOrMultiplierState]' passed (0.004 seconds).
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testLegacyDefinitionDigestsAndCanonicalStorageMatchAccepted7357645Bytes]' started.
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testLegacyDefinitionDigestsAndCanonicalStorageMatchAccepted7357645Bytes]' passed (0.018 seconds).
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testMinimumWidthIsFrequencyOnlyAndLegacyArchiveBytesRemainStable]' started.
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testMinimumWidthIsFrequencyOnlyAndLegacyArchiveBytesRemainStable]' passed (0.003 seconds).
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testOfficialModeProfilesPreserveActualModeAndMapOnlyCabrilloClass]' started.
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testOfficialModeProfilesPreserveActualModeAndMapOnlyCabrilloClass]' passed (0.017 seconds).
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testOfficialWVEEntitySetAndDirectionalEligibilityUseImmutableSnapshots]' started.
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testOfficialWVEEntitySetAndDirectionalEligibilityUseImmutableSnapshots]' passed (0.006 seconds).
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testPerBandDuplicateCorrectionDeletionAndCanonicalReopen]' started.
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testPerBandDuplicateCorrectionDeletionAndCanonicalReopen]' passed (0.007 seconds).
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testPinnedSourceManifestAndInactiveDefinitionCoordinates]' started.
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testPinnedSourceManifestAndInactiveDefinitionCoordinates]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testRoverCorrectionAndDeletionReclassifyFourCoordinateDuplicates]' started.
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testRoverCorrectionAndDeletionReclassifyFourCoordinateDuplicates]' passed (0.005 seconds).
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testRoverOwnMovesAndBothRoverGridsUseFourCoordinateDupeAndGlobalActivatedGrids]' started.
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testRoverOwnMovesAndBothRoverGridsUseFourCoordinateDupeAndGlobalActivatedGrids]' passed (0.005 seconds).
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testSourceShapedArchiveUsesMinimumWidthFrequencyAndExactFieldOrder]' started.
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testSourceShapedArchiveUsesMinimumWidthFrequencyAndExactFieldOrder]' passed (0.005 seconds).
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testStationGridPolicyIsStrictAndRoverSentGridMustMatchQSOCoordinate]' started.
+Test Case '-[XContestCoreTests.ContestARRLVHFDeclarativeTests testStationGridPolicyIsStrictAndRoverSentGridMustMatchQSOCoordinate]' passed (0.006 seconds).
+Test Suite 'ContestARRLVHFDeclarativeTests' passed at 2026-10-28 23:20:11.971.
+	 Executed 14 tests, with 0 failures (0 unexpected) in 0.122 (0.123) seconds
+Test Suite 'ContestCQWWCompleteCountryReferenceTests' started at 2026-10-28 23:20:11.971.
+Test Case '-[XContestCoreTests.ContestCQWWCompleteCountryReferenceTests testIndependentCQWWPointAndMultiplierBranchesUseCompleteReference]' started.
+Test Case '-[XContestCoreTests.ContestCQWWCompleteCountryReferenceTests testIndependentCQWWPointAndMultiplierBranchesUseCompleteReference]' passed (0.095 seconds).
+Test Case '-[XContestCoreTests.ContestCQWWCompleteCountryReferenceTests testLegacyCQWWIdentitiesRemainByteStableAndNewIdentityBindsReference]' started.
+Test Case '-[XContestCoreTests.ContestCQWWCompleteCountryReferenceTests testLegacyCQWWIdentitiesRemainByteStableAndNewIdentityBindsReference]' passed (0.043 seconds).
+Test Case '-[XContestCoreTests.ContestCQWWCompleteCountryReferenceTests testPackagedReferenceHasPinnedIdentityBytesAndCompleteRecordCount]' started.
+Test Case '-[XContestCoreTests.ContestCQWWCompleteCountryReferenceTests testPackagedReferenceHasPinnedIdentityBytesAndCompleteRecordCount]' passed (0.041 seconds).
+Test Suite 'ContestCQWWCompleteCountryReferenceTests' passed at 2026-10-28 23:20:12.151.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.180 (0.180) seconds
+Test Suite 'ContestCQWWCountryReferenceTests' started at 2026-10-28 23:20:12.151.
+Test Case '-[XContestCoreTests.ContestCQWWCountryReferenceTests testCorrectedRuleScoresCountryKeysPerBandFromIndependentOracle]' started.
+Test Case '-[XContestCoreTests.ContestCQWWCountryReferenceTests testCorrectedRuleScoresCountryKeysPerBandFromIndependentOracle]' passed (0.003 seconds).
+Test Case '-[XContestCoreTests.ContestCQWWCountryReferenceTests testFixturePinsCTYAndClassifiesEveryReviewedEndpoint]' started.
+Test Case '-[XContestCoreTests.ContestCQWWCountryReferenceTests testFixturePinsCTYAndClassifiesEveryReviewedEndpoint]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestCQWWCountryReferenceTests testMalformedAndAmbiguousReferencesFailClosed]' started.
+Test Case '-[XContestCoreTests.ContestCQWWCountryReferenceTests testMalformedAndAmbiguousReferencesFailClosed]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestCQWWCountryReferenceTests testMaritimeMobileIsZoneOnlyAtPolicyBoundaryButScoringNeedsPhysicalLocation]' started.
+Test Case '-[XContestCoreTests.ContestCQWWCountryReferenceTests testMaritimeMobileIsZoneOnlyAtPolicyBoundaryButScoringNeedsPhysicalLocation]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestCQWWCountryReferenceTests testReferenceCanonicalizesOrderRoundTripsAndAllowsConsistentSharedKeys]' started.
+Test Case '-[XContestCoreTests.ContestCQWWCountryReferenceTests testReferenceCanonicalizesOrderRoundTripsAndAllowsConsistentSharedKeys]' passed (0.002 seconds).
+Test Case '-[XContestCoreTests.ContestCQWWCountryReferenceTests testUnknownCountryAndWrongReferenceAreRejectedWithoutChangingLegacyIdentities]' started.
+Test Case '-[XContestCoreTests.ContestCQWWCountryReferenceTests testUnknownCountryAndWrongReferenceAreRejectedWithoutChangingLegacyIdentities]' passed (0.001 seconds).
+Test Suite 'ContestCQWWCountryReferenceTests' passed at 2026-10-28 23:20:12.160.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.009 (0.009) seconds
+Test Suite 'ContestCWUniqueCallDeclarativeRuleTests' started at 2026-10-28 23:20:12.160.
+Test Case '-[XContestCoreTests.ContestCWUniqueCallDeclarativeRuleTests testCWOpenUsesTypedSerialAndNameInsteadOfPythonListIsAlphaBranch]' started.
+Test Case '-[XContestCoreTests.ContestCWUniqueCallDeclarativeRuleTests testCWOpenUsesTypedSerialAndNameInsteadOfPythonListIsAlphaBranch]' passed (0.002 seconds).
+Test Case '-[XContestCoreTests.ContestCWUniqueCallDeclarativeRuleTests testCWTAllowsMultiwordDXLocationAsOneTypedField]' started.
+Test Case '-[XContestCoreTests.ContestCWUniqueCallDeclarativeRuleTests testCWTAllowsMultiwordDXLocationAsOneTypedField]' passed (0.002 seconds).
+Test Case '-[XContestCoreTests.ContestCWUniqueCallDeclarativeRuleTests testNamesOnlyExchangesRequireEmptyReports]' started.
+Test Case '-[XContestCoreTests.ContestCWUniqueCallDeclarativeRuleTests testNamesOnlyExchangesRequireEmptyReports]' passed (0.007 seconds).
+Test Case '-[XContestCoreTests.ContestCWUniqueCallDeclarativeRuleTests testOfficialScoringGoldensAcrossCohort]' started.
+Test Case '-[XContestCoreTests.ContestCWUniqueCallDeclarativeRuleTests testOfficialScoringGoldensAcrossCohort]' passed (0.006 seconds).
+Test Case '-[XContestCoreTests.ContestCWUniqueCallDeclarativeRuleTests testTenTenCanonicalDigestsRemainStableWhenMultiplierVocabularyExpands]' started.
+Test Case '-[XContestCoreTests.ContestCWUniqueCallDeclarativeRuleTests testTenTenCanonicalDigestsRemainStableWhenMultiplierVocabularyExpands]' passed (0.009 seconds).
+Test Case '-[XContestCoreTests.ContestCWUniqueCallDeclarativeRuleTests testThreeDefinitionsUseOneBoundedMultiplierAndExistingSerialContract]' started.
+Test Case '-[XContestCoreTests.ContestCWUniqueCallDeclarativeRuleTests testThreeDefinitionsUseOneBoundedMultiplierAndExistingSerialContract]' passed (0.006 seconds).
+Test Suite 'ContestCWUniqueCallDeclarativeRuleTests' passed at 2026-10-28 23:20:12.194.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.033 (0.034) seconds
+Test Suite 'ContestCallHistoryProjectionTests' started at 2026-10-28 23:20:12.194.
+Test Case '-[XContestCoreTests.ContestCallHistoryProjectionTests testApplyPreservesUnrelatedIncompleteFieldsAndRejectsUnknownOrOccupiedTargets]' started.
+Test Case '-[XContestCoreTests.ContestCallHistoryProjectionTests testApplyPreservesUnrelatedIncompleteFieldsAndRejectsUnknownOrOccupiedTargets]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestCallHistoryProjectionTests testExhaustiveRuleMappingsAreTypedBlankOnlyAndRoleSpecific]' started.
+Test Case '-[XContestCoreTests.ContestCallHistoryProjectionTests testExhaustiveRuleMappingsAreTypedBlankOnlyAndRoleSpecific]' passed (0.000 seconds).
+Test Suite 'ContestCallHistoryProjectionTests' passed at 2026-10-28 23:20:12.195.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'ContestCallHistoryTests' started at 2026-10-28 23:20:12.195.
+Test Case '-[XContestCoreTests.ContestCallHistoryTests testAbsoluteByteCeilingPrecedesHashLimitsAndProvenanceValidation]' started.
+Test Case '-[XContestCoreTests.ContestCallHistoryTests testAbsoluteByteCeilingPrecedesHashLimitsAndProvenanceValidation]' passed (0.002 seconds).
+Test Case '-[XContestCoreTests.ContestCallHistoryTests testCaseCanonicalizationCorrectsCQZoneButDoesNotAliasExchangeKeys]' started.
+Test Case '-[XContestCoreTests.ContestCallHistoryTests testCaseCanonicalizationCorrectsCQZoneButDoesNotAliasExchangeKeys]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestCallHistoryTests testDefaultBoundsStopBeforeMaterializingOverwideHeadersOrRows]' started.
+Test Case '-[XContestCoreTests.ContestCallHistoryTests testDefaultBoundsStopBeforeMaterializingOverwideHeadersOrRows]' passed (0.009 seconds).
+Test Case '-[XContestCoreTests.ContestCallHistoryTests testHundredThousandRowsWith128HeadersUseCompactPhysicalValuesAndExactLookup]' started.
+Test Case '-[XContestCoreTests.ContestCallHistoryTests testHundredThousandRowsWith128HeadersUseCompactPhysicalValuesAndExactLookup]' passed (0.797 seconds).
+Test Case '-[XContestCoreTests.ContestCallHistoryTests testInvalidCallsAreRetainedUnindexableBeforeTrimAndDuplicatesStayInSourceOrder]' started.
+Test Case '-[XContestCoreTests.ContestCallHistoryTests testInvalidCallsAreRetainedUnindexableBeforeTrimAndDuplicatesStayInSourceOrder]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestCallHistoryTests testLiteralCommaFormatCommentsAndShortRowsAreDeterministic]' started.
+Test Case '-[XContestCoreTests.ContestCallHistoryTests testLiteralCommaFormatCommentsAndShortRowsAreDeterministic]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestCallHistoryTests testMillionIgnoredPhysicalLinesAreParsedIncrementallyWithinTheSourceBound]' started.
+Test Case '-[XContestCoreTests.ContestCallHistoryTests testMillionIgnoredPhysicalLinesAreParsedIncrementallyWithinTheSourceBound]' passed (1.219 seconds).
+Test Case '-[XContestCoreTests.ContestCallHistoryTests testPreservesAllKnownAndUnknownHeadersSourceBytesAndLogicalTrailingEmpties]' started.
+Test Case '-[XContestCoreTests.ContestCallHistoryTests testPreservesAllKnownAndUnknownHeadersSourceBytesAndLogicalTrailingEmpties]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestCallHistoryTests testSelectionRejectsChangedContextTamperingAndCrossDatasetGeneration]' started.
+Test Case '-[XContestCoreTests.ContestCallHistoryTests testSelectionRejectsChangedContextTamperingAndCrossDatasetGeneration]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestCallHistoryTests testStrictEncodingMarkersHeadersRowsAndBoundsProduceTransparentDiagnostics]' started.
+Test Case '-[XContestCoreTests.ContestCallHistoryTests testStrictEncodingMarkersHeadersRowsAndBoundsProduceTransparentDiagnostics]' passed (0.011 seconds).
+Test Suite 'ContestCallHistoryTests' passed at 2026-10-28 23:20:14.236.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 2.040 (2.040) seconds
+Test Suite 'ContestCallsignAssistanceTests' started at 2026-10-28 23:20:14.236.
+Test Case '-[XContestCoreTests.ContestCallsignAssistanceTests testCancellationStopsLargeCatalogSearch]' started.
+Test Case '-[XContestCoreTests.ContestCallsignAssistanceTests testCancellationStopsLargeCatalogSearch]' passed (0.688 seconds).
+Test Case '-[XContestCoreTests.ContestCallsignAssistanceTests testFullBoundedHundredThousandRecordCatalogIsDeterministic]' started.
+Test Case '-[XContestCoreTests.ContestCallsignAssistanceTests testFullBoundedHundredThousandRecordCatalogIsDeterministic]' passed (2.339 seconds).
+Test Case '-[XContestCoreTests.ContestCallsignAssistanceTests testImportNormalizesDeduplicatesAndComputesVerifiedDigest]' started.
+Test Case '-[XContestCoreTests.ContestCallsignAssistanceTests testImportNormalizesDeduplicatesAndComputesVerifiedDigest]' passed (0.009 seconds).
+Test Case '-[XContestCoreTests.ContestCallsignAssistanceTests testImportRejectsMalformedOversizedAndMismatchedData]' started.
+Test Case '-[XContestCoreTests.ContestCallsignAssistanceTests testImportRejectsMalformedOversizedAndMismatchedData]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestCallsignAssistanceTests testImportTraversesNewlinesIncrementallyAndBoundsRawLinesBeforeTrimming]' started.
+Test Case '-[XContestCoreTests.ContestCallsignAssistanceTests testImportTraversesNewlinesIncrementallyAndBoundsRawLinesBeforeTrimming]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestCallsignAssistanceTests testPinnedRapidFuzzOracleOrderingScoresAndPrefixPenalty]' started.
+Test Case '-[XContestCoreTests.ContestCallsignAssistanceTests testPinnedRapidFuzzOracleOrderingScoresAndPrefixPenalty]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestCallsignAssistanceTests testProvenanceRejectsNonfiniteRetrievalDate]' started.
+Test Case '-[XContestCoreTests.ContestCallsignAssistanceTests testProvenanceRejectsNonfiniteRetrievalDate]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestCallsignAssistanceTests testQueryLimitsAndPartialResultsAreExplicit]' started.
+Test Case '-[XContestCoreTests.ContestCallsignAssistanceTests testQueryLimitsAndPartialResultsAreExplicit]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestCallsignAssistanceTests testSelectionRejectsTamperedAndCrossDatasetResults]' started.
+Test Case '-[XContestCoreTests.ContestCallsignAssistanceTests testSelectionRejectsTamperedAndCrossDatasetResults]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestCallsignAssistanceTests testSelectionRequiresExactContextAndMembershipAndReturnsOnlyCallsign]' started.
+Test Case '-[XContestCoreTests.ContestCallsignAssistanceTests testSelectionRequiresExactContextAndMembershipAndReturnsOnlyCallsign]' passed (0.000 seconds).
+Test Suite 'ContestCallsignAssistanceTests' passed at 2026-10-28 23:20:17.276.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 3.039 (3.040) seconds
+Test Suite 'ContestCoreTests' started at 2026-10-28 23:20:17.276.
+Test Case '-[XContestCoreTests.ContestCoreTests testCabrilloRejectsContradictoryIdentityModeAndBand]' started.
+Test Case '-[XContestCoreTests.ContestCoreTests testCabrilloRejectsContradictoryIdentityModeAndBand]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestCoreTests testCabrilloRejectsMalformedHeaderAndQSO]' started.
+Test Case '-[XContestCoreTests.ContestCoreTests testCabrilloRejectsMalformedHeaderAndQSO]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestCoreTests testCheckedScoreArithmeticRejectsAdditionAndMultiplicationOverflow]' started.
+Test Case '-[XContestCoreTests.ContestCoreTests testCheckedScoreArithmeticRejectsAdditionAndMultiplicationOverflow]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestCoreTests testCQWWBandScopedDupesCountriesZonesAndPoints]' started.
+Test Case '-[XContestCoreTests.ContestCoreTests testCQWWBandScopedDupesCountriesZonesAndPoints]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestCoreTests testCQWWSameCountryIsZeroPointsButCanMultiply]' started.
+Test Case '-[XContestCoreTests.ContestCoreTests testCQWWSameCountryIsZeroPointsButCanMultiply]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestCoreTests testDeterministicTieBreakUsesQSOIdentity]' started.
+Test Case '-[XContestCoreTests.ContestCoreTests testDeterministicTieBreakUsesQSOIdentity]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestCoreTests testDuplicateIdentityAndNonfiniteTimestampAreRejectedBeforeOrdering]' started.
+Test Case '-[XContestCoreTests.ContestCoreTests testDuplicateIdentityAndNonfiniteTimestampAreRejectedBeforeOrdering]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestCoreTests testEditAndDeleteFullRescoreEqualsReplay]' started.
+Test Case '-[XContestCoreTests.ContestCoreTests testEditAndDeleteFullRescoreEqualsReplay]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestCoreTests testExactCabrilloQSOAndDocumentLineEndings]' started.
+Test Case '-[XContestCoreTests.ContestCoreTests testExactCabrilloQSOAndDocumentLineEndings]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestCoreTests testInvalidResolvedGeographySentZoneAndRSTFailClosed]' started.
+Test Case '-[XContestCoreTests.ContestCoreTests testInvalidResolvedGeographySentZoneAndRSTFailClosed]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestCoreTests testMalformedExchangeAndUnknownEntityFailClosed]' started.
+Test Case '-[XContestCoreTests.ContestCoreTests testMalformedExchangeAndUnknownEntityFailClosed]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestCoreTests testRegistryRequiresExactRuleVersion]' started.
+Test Case '-[XContestCoreTests.ContestCoreTests testRegistryRequiresExactRuleVersion]' passed (0.002 seconds).
+Test Case '-[XContestCoreTests.ContestCoreTests testSerialStateTransitionsAreExplicitAndTerminal]' started.
+Test Case '-[XContestCoreTests.ContestCoreTests testSerialStateTransitionsAreExplicitAndTerminal]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestCoreTests testWPXNorthAmericaSameContinentPointBranches]' started.
+Test Case '-[XContestCoreTests.ContestCoreTests testWPXNorthAmericaSameContinentPointBranches]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestCoreTests testWPXPrefixSourceCompatibilityFixtures]' started.
+Test Case '-[XContestCoreTests.ContestCoreTests testWPXPrefixSourceCompatibilityFixtures]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestCoreTests testWPXSourceArithmeticAndUniquePrefixesAcrossBands]' started.
+Test Case '-[XContestCoreTests.ContestCoreTests testWPXSourceArithmeticAndUniquePrefixesAcrossBands]' passed (0.000 seconds).
+Test Suite 'ContestCoreTests' passed at 2026-10-28 23:20:17.283.
+	 Executed 16 tests, with 0 failures (0 unexpected) in 0.006 (0.007) seconds
+Test Suite 'ContestDeclarativeBandGridTests' started at 2026-10-28 23:20:17.283.
+Test Case '-[XContestCoreTests.ContestDeclarativeBandGridTests testBandPointsAndGridMultipliersAreScopedPerBand]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeBandGridTests testBandPointsAndGridMultipliersAreScopedPerBand]' passed (0.002 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeBandGridTests testDefinitionRejectsIncoherentGridAndBandPointPolicies]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeBandGridTests testDefinitionRejectsIncoherentGridAndBandPointPolicies]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeBandGridTests testGridPolicyRejectsUnknownKeys]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeBandGridTests testGridPolicyRejectsUnknownKeys]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeBandGridTests testInvalidGridDoesNotOccupyDupeOrMultiplierState]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeBandGridTests testInvalidGridDoesNotOccupyDupeOrMultiplierState]' passed (0.002 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeBandGridTests testLegacyDefinitionsKeepNewFieldsAbsentAndStable]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeBandGridTests testLegacyDefinitionsKeepNewFieldsAbsentAndStable]' passed (0.003 seconds).
+Test Suite 'ContestDeclarativeBandGridTests' passed at 2026-10-28 23:20:17.290.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.007 (0.007) seconds
+Test Suite 'ContestDeclarativeCatalogTests' started at 2026-10-28 23:20:17.290.
+Test Case '-[XContestCoreTests.ContestDeclarativeCatalogTests testBuiltInArchiveCatalogIsDeterministicAndCanonical]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeCatalogTests testBuiltInArchiveCatalogIsDeterministicAndCanonical]' passed (0.293 seconds).
+Test Suite 'ContestDeclarativeCatalogTests' passed at 2026-10-28 23:20:17.583.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.293 (0.294) seconds
+Test Suite 'ContestDeclarativeExportTests' started at 2026-10-28 23:20:17.583.
+Test Case '-[XContestCoreTests.ContestDeclarativeExportTests testAllSevenArchiveDefinitionsMaterializeAsNewOperatorArchiveVersions]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeExportTests testAllSevenArchiveDefinitionsMaterializeAsNewOperatorArchiveVersions]' passed (0.027 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeExportTests testAllTenTenArchiveVariantsRenderEverySupportedMode]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeExportTests testAllTenTenArchiveVariantsRenderEverySupportedMode]' passed (0.022 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeExportTests testArchiveDefinitionsRenderIndependentFieldOrderGoldensAndRetainDuplicates]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeExportTests testArchiveDefinitionsRenderIndependentFieldOrderGoldensAndRetainDuplicates]' passed (0.017 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeExportTests testCallsignComponentsRejectEmptySegmentsButPermitPortableSuffixes]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeExportTests testCallsignComponentsRejectEmptySegmentsButPermitPortableSuffixes]' passed (0.002 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeExportTests testDefinitionAdmissionRejectsHeaderInjectionDroppedExchangeAndOversizeColumn]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeExportTests testDefinitionAdmissionRejectsHeaderInjectionDroppedExchangeAndOversizeColumn]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeExportTests testLegacyCanonicalDefinitionsRemainByteCompatibleAndArchiveUsesNewIdentity]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeExportTests testLegacyCanonicalDefinitionsRemainByteCompatibleAndArchiveUsesNewIdentity]' passed (0.028 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeExportTests testOptionalEmptyColumnKeepsItsDeclaredWidth]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeExportTests testOptionalEmptyColumnKeepsItsDeclaredWidth]' passed (0.004 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeExportTests testRendererRejectsValidExchangeThatExceedsProjectedWidthAndValidationStopsUnsafeText]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeExportTests testRendererRejectsValidExchangeThatExceedsProjectedWidthAndValidationStopsUnsafeText]' passed (0.004 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeExportTests testTenTenArchiveGoldenPreservesMultiwordQTH]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeExportTests testTenTenArchiveGoldenPreservesMultiwordQTH]' passed (0.005 seconds).
+Test Suite 'ContestDeclarativeExportTests' passed at 2026-10-28 23:20:17.694.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.110 (0.111) seconds
+Test Suite 'ContestDeclarativeOperatorPolicyTests' started at 2026-10-28 23:20:17.694.
+Test Case '-[XContestCoreTests.ContestDeclarativeOperatorPolicyTests testEveryDeclarativeModeDerivesBlankCallReserveCommitAndDuplicateReadiness]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeOperatorPolicyTests testEveryDeclarativeModeDerivesBlankCallReserveCommitAndDuplicateReadiness]' passed (0.028 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeOperatorPolicyTests testNilPolicyPreservesCanonicalBytesDigestAndOldSessionInertness]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeOperatorPolicyTests testNilPolicyPreservesCanonicalBytesDigestAndOldSessionInertness]' passed (0.012 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeOperatorPolicyTests testSerialWithStationNameCanReserveButMalformedNonemptyInputsRemainBlocked]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeOperatorPolicyTests testSerialWithStationNameCanReserveButMalformedNonemptyInputsRemainBlocked]' passed (0.003 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeOperatorPolicyTests testSevenDefinitionsBindFinitePolicyAndEverySupportedMode]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeOperatorPolicyTests testSevenDefinitionsBindFinitePolicyAndEverySupportedMode]' passed (0.025 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeOperatorPolicyTests testUnknownPolicyVersionAndModeMappingRejectInsteadOfBecomingInert]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeOperatorPolicyTests testUnknownPolicyVersionAndModeMappingRejectInsteadOfBecomingInert]' passed (0.003 seconds).
+Test Suite 'ContestDeclarativeOperatorPolicyTests' passed at 2026-10-28 23:20:17.765.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.071 (0.071) seconds
+Test Suite 'ContestDeclarativeRuleTests' started at 2026-10-28 23:20:17.765.
+Test Case '-[XContestCoreTests.ContestDeclarativeRuleTests testAuthoredDraftRejectsUnknownPolicyAdapterAndIncoherentEntry]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeRuleTests testAuthoredDraftRejectsUnknownPolicyAdapterAndIncoherentEntry]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeRuleTests testAuthorityFixturePinsFourComparatorPluginsAndThreePureCases]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeRuleTests testAuthorityFixturePinsFourComparatorPluginsAndThreePureCases]' passed (0.006 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeRuleTests testCanonicalDigestRoundTripRejectsTampering]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeRuleTests testCanonicalDigestRoundTripRejectsTampering]' passed (0.013 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeRuleTests testFiniteDupePoliciesAndCrossModeOncePerContest]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeRuleTests testFiniteDupePoliciesAndCrossModeOncePerContest]' passed (0.011 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeRuleTests testFourDefinitionsRunOneSharedPolicyWithFixedPythonCompatibleCases]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeRuleTests testFourDefinitionsRunOneSharedPolicyWithFixedPythonCompatibleCases]' passed (0.011 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeRuleTests testMultiwordDXQTHPreservesStructuredAggregate]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeRuleTests testMultiwordDXQTHPreservesStructuredAggregate]' passed (0.003 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeRuleTests testNonmemberEntrantCanLogAndScorePendingSubmissionEligibilityGate]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeRuleTests testNonmemberEntrantCanLogAndScorePendingSubmissionEligibilityGate]' passed (0.003 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeRuleTests testOrderedThresholdFallbackInvalidNumericAndPositiveAuthoredRun]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeRuleTests testOrderedThresholdFallbackInvalidNumericAndPositiveAuthoredRun]' passed (0.003 seconds).
+Test Case '-[XContestCoreTests.ContestDeclarativeRuleTests testPhoneDefinitionsRetainOfficialAMAndFMScope]' started.
+Test Case '-[XContestCoreTests.ContestDeclarativeRuleTests testPhoneDefinitionsRetainOfficialAMAndFMScope]' passed (0.006 seconds).
+Test Suite 'ContestDeclarativeRuleTests' passed at 2026-10-28 23:20:17.824.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.057 (0.058) seconds
+Test Suite 'ContestDefinitionAuthoringBridgeTests' started at 2026-10-28 23:20:17.824.
+Test Case '-[XContestCoreTests.ContestDefinitionAuthoringBridgeTests testAuthoredGeographicDraftMaterializesAndScoresOfficialSampleTwelveByTen]' started.
+Test Case '-[XContestCoreTests.ContestDefinitionAuthoringBridgeTests testAuthoredGeographicDraftMaterializesAndScoresOfficialSampleTwelveByTen]' passed (0.010 seconds).
+Test Case '-[XContestCoreTests.ContestDefinitionAuthoringBridgeTests testExistingTenTenAuthoringDraftPreservesRuntimeIdentityDigestAndGoldenEvaluation]' started.
+Test Case '-[XContestCoreTests.ContestDefinitionAuthoringBridgeTests testExistingTenTenAuthoringDraftPreservesRuntimeIdentityDigestAndGoldenEvaluation]' passed (0.013 seconds).
+Test Case '-[XContestCoreTests.ContestDefinitionAuthoringBridgeTests testPinnedPluginConversionsMatchImmutableHistoricalFactoriesAndGoldens]' started.
+Test Case '-[XContestCoreTests.ContestDefinitionAuthoringBridgeTests testPinnedPluginConversionsMatchImmutableHistoricalFactoriesAndGoldens]' passed (0.099 seconds).
+Test Case '-[XContestCoreTests.ContestDefinitionAuthoringBridgeTests testSyntheticAuthoringDraftDecodesMaterializesAndEvaluatesWithoutAContestClass]' started.
+Test Case '-[XContestCoreTests.ContestDefinitionAuthoringBridgeTests testSyntheticAuthoringDraftDecodesMaterializesAndEvaluatesWithoutAContestClass]' passed (0.004 seconds).
+Test Suite 'ContestDefinitionAuthoringBridgeTests' passed at 2026-10-28 23:20:17.950.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.126 (0.126) seconds
+Test Suite 'ContestExportTests' started at 2026-10-28 23:20:17.950.
+Test Case '-[XContestCoreTests.ContestExportTests testCabrilloFrequencyHalfKilohertzUsesPinnedPythonTiesToEven]' started.
+Test Case '-[XContestCoreTests.ContestExportTests testCabrilloFrequencyHalfKilohertzUsesPinnedPythonTiesToEven]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestExportTests testCabrilloRejectsInjectionWidthAndContradictoryHeader]' started.
+Test Case '-[XContestCoreTests.ContestExportTests testCabrilloRejectsInjectionWidthAndContradictoryHeader]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestExportTests testCQWPXGoldenDocumentPreservesLeadingZeroExchangesAndScoresDupes]' started.
+Test Case '-[XContestCoreTests.ContestExportTests testCQWPXGoldenDocumentPreservesLeadingZeroExchangesAndScoresDupes]' passed (0.003 seconds).
+Test Case '-[XContestCoreTests.ContestExportTests testCQWWGoldenDocumentIncludesDupesRoundedFrequencyAndStableTieOrder]' started.
+Test Case '-[XContestCoreTests.ContestExportTests testCQWWGoldenDocumentIncludesDupesRoundedFrequencyAndStableTieOrder]' passed (0.003 seconds).
+Test Case '-[XContestCoreTests.ContestExportTests testExportInputRejectsIdentityReferenceMetadataAndContactContradictions]' started.
+Test Case '-[XContestCoreTests.ContestExportTests testExportInputRejectsIdentityReferenceMetadataAndContactContradictions]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestExportTests testExportInputRejectsNonfiniteLifecycleTimestamp]' started.
+Test Case '-[XContestCoreTests.ContestExportTests testExportInputRejectsNonfiniteLifecycleTimestamp]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestExportTests testSubmissionNameLocationAndOperatorsRemainDistinctFromOperationalMetadata]' started.
+Test Case '-[XContestCoreTests.ContestExportTests testSubmissionNameLocationAndOperatorsRemainDistinctFromOperationalMetadata]' passed (0.000 seconds).
+Test Suite 'ContestExportTests' passed at 2026-10-28 23:20:17.958.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.008 (0.009) seconds
+Test Suite 'ContestGeographicMultiplierTests' started at 2026-10-28 23:20:17.958.
+Test Case '-[XContestCoreTests.ContestGeographicMultiplierTests testAlaskaHawaiiAndRepeatedDXCCEntitiesAreScopedPerBand]' started.
+Test Case '-[XContestCoreTests.ContestGeographicMultiplierTests testAlaskaHawaiiAndRepeatedDXCCEntitiesAreScopedPerBand]' passed (0.004 seconds).
+Test Case '-[XContestCoreTests.ContestGeographicMultiplierTests testCorrectionAndDeletionReplayRecomputesMultiplierSet]' started.
+Test Case '-[XContestCoreTests.ContestGeographicMultiplierTests testCorrectionAndDeletionReplayRecomputesMultiplierSet]' passed (0.003 seconds).
+Test Case '-[XContestCoreTests.ContestGeographicMultiplierTests testDXCCOnlyPolicyAndCanonicalRoundTripAreDeterministic]' started.
+Test Case '-[XContestCoreTests.ContestGeographicMultiplierTests testDXCCOnlyPolicyAndCanonicalRoundTripAreDeterministic]' passed (0.023 seconds).
+Test Case '-[XContestCoreTests.ContestGeographicMultiplierTests testGeographicDisplayKeyDecoderUsesUTF8LengthsAndRejectsMalformedValues]' started.
+Test Case '-[XContestCoreTests.ContestGeographicMultiplierTests testGeographicDisplayKeyDecoderUsesUTF8LengthsAndRejectsMalformedValues]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestGeographicMultiplierTests testInvalidDraftGeographyDoesNotOccupyDupeOrMultiplierState]' started.
+Test Case '-[XContestCoreTests.ContestGeographicMultiplierTests testInvalidDraftGeographyDoesNotOccupyDupeOrMultiplierState]' passed (0.003 seconds).
+Test Case '-[XContestCoreTests.ContestGeographicMultiplierTests testLegacyNilConfigDigestsRemainUnchanged]' started.
+Test Case '-[XContestCoreTests.ContestGeographicMultiplierTests testLegacyNilConfigDigestsRemainUnchanged]' passed (0.012 seconds).
+Test Case '-[XContestCoreTests.ContestGeographicMultiplierTests testMalformedAndDuplicateGeographicConfigsAreRejected]' started.
+Test Case '-[XContestCoreTests.ContestGeographicMultiplierTests testMalformedAndDuplicateGeographicConfigsAreRejected]' passed (0.002 seconds).
+Test Case '-[XContestCoreTests.ContestGeographicMultiplierTests testOfficialSampleFixtureScoresTwelveByTenForOneHundredTwenty]' started.
+Test Case '-[XContestCoreTests.ContestGeographicMultiplierTests testOfficialSampleFixtureScoresTwelveByTenForOneHundredTwenty]' passed (0.007 seconds).
+Test Case '-[XContestCoreTests.ContestGeographicMultiplierTests testSameAuthorityAndTokenForDifferentEntitiesRemainDistinct]' started.
+Test Case '-[XContestCoreTests.ContestGeographicMultiplierTests testSameAuthorityAndTokenForDifferentEntitiesRemainDistinct]' passed (0.002 seconds).
+Test Suite 'ContestGeographicMultiplierTests' passed at 2026-10-28 23:20:18.015.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.055 (0.056) seconds
+Test Suite 'ContestJIDXExportTests' started at 2026-10-28 23:20:18.015.
+Test Case '-[XContestCoreTests.ContestJIDXExportTests testCWAndPhoneCabrillo20GoldensUseNormalizedNumbersAndOfficialTokens]' started.
+Test Case '-[XContestCoreTests.ContestJIDXExportTests testCWAndPhoneCabrillo20GoldensUseNormalizedNumbersAndOfficialTokens]' passed (0.005 seconds).
+Test Case '-[XContestCoreTests.ContestJIDXExportTests testMalformedFieldsMetadataAndSemanticQSOsFailClosed]' started.
+Test Case '-[XContestCoreTests.ContestJIDXExportTests testMalformedFieldsMetadataAndSemanticQSOsFailClosed]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestJIDXExportTests testMaritimeMobileAndUnsupportedCategoriesFailOrRenderExplicitly]' started.
+Test Case '-[XContestCoreTests.ContestJIDXExportTests testMaritimeMobileAndUnsupportedCategoriesFailOrRenderExplicitly]' passed (0.003 seconds).
+Test Case '-[XContestCoreTests.ContestJIDXExportTests testMissingStationEntityCapabilityIsJIDXMaritimeOnly]' started.
+Test Case '-[XContestCoreTests.ContestJIDXExportTests testMissingStationEntityCapabilityIsJIDXMaritimeOnly]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestJIDXExportTests testSingleBandProjectionRetainsCompleteValidLogAndRecomputesClaim]' started.
+Test Case '-[XContestCoreTests.ContestJIDXExportTests testSingleBandProjectionRetainsCompleteValidLogAndRecomputesClaim]' passed (0.003 seconds).
+Test Suite 'ContestJIDXExportTests' passed at 2026-10-28 23:20:18.027.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.012 (0.012) seconds
+Test Suite 'ContestJIDXTests' started at 2026-10-28 23:20:18.027.
+Test Case '-[XContestCoreTests.ContestJIDXTests testCallComponentMustContainItsOwnLettersAndDigits]' started.
+Test Case '-[XContestCoreTests.ContestJIDXTests testCallComponentMustContainItsOwnLettersAndDigits]' passed (0.002 seconds).
+Test Case '-[XContestCoreTests.ContestJIDXTests testDescriptorsAreDedicatedV2PracticePreviewsAndHaveNoSerial]' started.
+Test Case '-[XContestCoreTests.ContestJIDXTests testDescriptorsAreDedicatedV2PracticePreviewsAndHaveNoSerial]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestJIDXTests testIndependentFixtureOraclesDecodeAndScoreBothEntrantSides]' started.
+Test Case '-[XContestCoreTests.ContestJIDXTests testIndependentFixtureOraclesDecodeAndScoreBothEntrantSides]' passed (0.003 seconds).
+Test Case '-[XContestCoreTests.ContestJIDXTests testMaritimeMobileRoleHomeEntityExclusionAndFixedStationZone]' started.
+Test Case '-[XContestCoreTests.ContestJIDXTests testMaritimeMobileRoleHomeEntityExclusionAndFixedStationZone]' passed (0.002 seconds).
+Test Case '-[XContestCoreTests.ContestJIDXTests testPhoneProfileUsesPHMetadataAndPhoneReports]' started.
+Test Case '-[XContestCoreTests.ContestJIDXTests testPhoneProfileUsesPHMetadataAndPhoneReports]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestJIDXTests testRawAndNormalizedEvidenceRemainDistinctAndAggregatesMustMatch]' started.
+Test Case '-[XContestCoreTests.ContestJIDXTests testRawAndNormalizedEvidenceRemainDistinctAndAggregatesMustMatch]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestJIDXTests testSameSideContactsHaveNoPointsOrMultipliers]' started.
+Test Case '-[XContestCoreTests.ContestJIDXTests testSameSideContactsHaveNoPointsOrMultipliers]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestJIDXTests testScoreMultiplicationOverflowFailsClosed]' started.
+Test Case '-[XContestCoreTests.ContestJIDXTests testScoreMultiplicationOverflowFailsClosed]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestJIDXTests testSelfInvalidCallAndAirMobileFailClosed]' started.
+Test Case '-[XContestCoreTests.ContestJIDXTests testSelfInvalidCallAndAirMobileFailClosed]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestJIDXTests testSixBandWeightsAndPerBandDupeAndMultiplierScope]' started.
+Test Case '-[XContestCoreTests.ContestJIDXTests testSixBandWeightsAndPerBandDupeAndMultiplierScope]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestJIDXTests testSpecialJapaneseLocationsRequireCurrentMatchingEntities]' started.
+Test Case '-[XContestCoreTests.ContestJIDXTests testSpecialJapaneseLocationsRequireCurrentMatchingEntities]' passed (0.001 seconds).
+Test Suite 'ContestJIDXTests' passed at 2026-10-28 23:20:18.039.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.011 (0.012) seconds
+Test Suite 'ContestNAQPExportTests' started at 2026-10-28 23:20:18.039.
+Test Case '-[XContestCoreTests.ContestNAQPExportTests testDXSentAndReceivedLocationsAreProjectedWithoutChangingTypedExchange]' started.
+Test Case '-[XContestCoreTests.ContestNAQPExportTests testDXSentAndReceivedLocationsAreProjectedWithoutChangingTypedExchange]' passed (0.004 seconds).
+Test Case '-[XContestCoreTests.ContestNAQPExportTests testExactOfficialTemplateLayoutTokensForAllThreeModes]' started.
+Test Case '-[XContestCoreTests.ContestNAQPExportTests testExactOfficialTemplateLayoutTokensForAllThreeModes]' passed (0.010 seconds).
+Test Case '-[XContestCoreTests.ContestNAQPExportTests testExportAuthorityFixturePinsPrimaryTemplateAndCurrentADIFSpec]' started.
+Test Case '-[XContestCoreTests.ContestNAQPExportTests testExportAuthorityFixturePinsPrimaryTemplateAndCurrentADIFSpec]' passed (0.002 seconds).
+Test Case '-[XContestCoreTests.ContestNAQPExportTests testFullLogIsRenderedWhileSingleBandClaimScoresOnlySelectedBand]' started.
+Test Case '-[XContestCoreTests.ContestNAQPExportTests testFullLogIsRenderedWhileSingleBandClaimScoresOnlySelectedBand]' passed (0.003 seconds).
+Test Case '-[XContestCoreTests.ContestNAQPExportTests testMalformedStructuredTextAndUnsupportedCategoryFailClosed]' started.
+Test Case '-[XContestCoreTests.ContestNAQPExportTests testMalformedStructuredTextAndUnsupportedCategoryFailClosed]' passed (0.003 seconds).
+Test Suite 'ContestNAQPExportTests' passed at 2026-10-28 23:20:18.062.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.022 (0.023) seconds
+Test Suite 'ContestNAQPTests' started at 2026-10-28 23:20:18.062.
+Test Case '-[XContestCoreTests.ContestNAQPTests testDXEntrantRequiresNorthAmericanEndpointAndSendsNameOnly]' started.
+Test Case '-[XContestCoreTests.ContestNAQPTests testDXEntrantRequiresNorthAmericanEndpointAndSendsNameOnly]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestNAQPTests testIndependentNorthAmericanArithmeticIsThirtyAndHITokensDoNotCollide]' started.
+Test Case '-[XContestCoreTests.ContestNAQPTests testIndependentNorthAmericanArithmeticIsThirtyAndHITokensDoNotCollide]' passed (0.004 seconds).
+Test Case '-[XContestCoreTests.ContestNAQPTests testModesReportsBandsAndTypedExchangeFailClosed]' started.
+Test Case '-[XContestCoreTests.ContestNAQPTests testModesReportsBandsAndTypedExchangeFailClosed]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestNAQPTests testOfficialAuthorityFixturePinsRulesAndMultiplierForm]' started.
+Test Case '-[XContestCoreTests.ContestNAQPTests testOfficialAuthorityFixturePinsRulesAndMultiplierForm]' passed (0.010 seconds).
+Test Case '-[XContestCoreTests.ContestNAQPTests testPreviewDescriptorsAreDedicatedAndCatalogIsNotActivated]' started.
+Test Case '-[XContestCoreTests.ContestNAQPTests testPreviewDescriptorsAreDedicatedAndCatalogIsNotActivated]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestNAQPTests testSelfContactsAndMobileEndpointPolicyApplyToAllModes]' started.
+Test Case '-[XContestCoreTests.ContestNAQPTests testSelfContactsAndMobileEndpointPolicyApplyToAllModes]' passed (0.002 seconds).
+Test Case '-[XContestCoreTests.ContestNAQPTests testSessionValidationRejectsContradictoryLocationSemantics]' started.
+Test Case '-[XContestCoreTests.ContestNAQPTests testSessionValidationRejectsContradictoryLocationSemantics]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestNAQPTests testStationNameDescriptorAcceptsThirtyTwoBytesAndRejectsOverflow]' started.
+Test Case '-[XContestCoreTests.ContestNAQPTests testStationNameDescriptorAcceptsThirtyTwoBytesAndRejectsOverflow]' passed (0.000 seconds).
+Test Suite 'ContestNAQPTests' passed at 2026-10-28 23:20:18.082.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.019 (0.020) seconds
+Test Suite 'ContestOceaniaTests' started at 2026-10-28 23:20:18.082.
+Test Case '-[XContestCoreTests.ContestOceaniaTests testCatalogPublishesSourcePinnedOceaniaDescriptors]' started.
+Test Case '-[XContestCoreTests.ContestOceaniaTests testCatalogPublishesSourcePinnedOceaniaDescriptors]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestOceaniaTests testCWAndSSBCabrilloGoldensUseSourceLayout]' started.
+Test Case '-[XContestCoreTests.ContestOceaniaTests testCWAndSSBCabrilloGoldensUseSourceLayout]' passed (0.008 seconds).
+Test Case '-[XContestCoreTests.ContestOceaniaTests testCWIndependentNonOceaniaStationArithmeticIs51]' started.
+Test Case '-[XContestCoreTests.ContestOceaniaTests testCWIndependentNonOceaniaStationArithmeticIs51]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestOceaniaTests testModeReportSerialAndUnknownGeographyFailClosed]' started.
+Test Case '-[XContestCoreTests.ContestOceaniaTests testModeReportSerialAndUnknownGeographyFailClosed]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestOceaniaTests testSingleBandProjectionReplaysMultipliersAndRetainsAllRows]' started.
+Test Case '-[XContestCoreTests.ContestOceaniaTests testSingleBandProjectionReplaysMultipliersAndRetainsAllRows]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestOceaniaTests testSSBIndependentOceaniaStationArithmeticIs100]' started.
+Test Case '-[XContestCoreTests.ContestOceaniaTests testSSBIndependentOceaniaStationArithmeticIs100]' passed (0.001 seconds).
+Test Suite 'ContestOceaniaTests' passed at 2026-10-28 23:20:18.094.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.011 (0.012) seconds
+Test Suite 'ContestOperatorCapabilityTests' started at 2026-10-28 23:20:18.094.
+Test Case '-[XContestCoreTests.ContestOperatorCapabilityTests testAllReviewedFamiliesDeriveEachOperatorPhaseFromTheirRuleValidation]' started.
+Test Case '-[XContestCoreTests.ContestOperatorCapabilityTests testAllReviewedFamiliesDeriveEachOperatorPhaseFromTheirRuleValidation]' passed (0.027 seconds).
+Test Case '-[XContestCoreTests.ContestOperatorCapabilityTests testOnlyReviewedCWAndSSBRulesPublishUniqueBoundCapabilities]' started.
+Test Case '-[XContestCoreTests.ContestOperatorCapabilityTests testOnlyReviewedCWAndSSBRulesPublishUniqueBoundCapabilities]' passed (0.009 seconds).
+Test Case '-[XContestCoreTests.ContestOperatorCapabilityTests testSerialReadinessSeparatesCQCallReservationCommitAndDuplicate]' started.
+Test Case '-[XContestCoreTests.ContestOperatorCapabilityTests testSerialReadinessSeparatesCQCallReservationCommitAndDuplicate]' passed (0.002 seconds).
+Test Case '-[XContestCoreTests.ContestOperatorCapabilityTests testUnrelatedValidationFailureCannotBeWhitelistedAsMissingInput]' started.
+Test Case '-[XContestCoreTests.ContestOperatorCapabilityTests testUnrelatedValidationFailureCannotBeWhitelistedAsMissingInput]' passed (0.001 seconds).
+Test Suite 'ContestOperatorCapabilityTests' passed at 2026-10-28 23:20:18.133.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.039 (0.039) seconds
+Test Suite 'ContestPackagedDefinitionLoaderTests' started at 2026-10-28 23:20:18.133.
+Test Case '-[XContestCoreTests.ContestPackagedDefinitionLoaderTests testBundledCatalogExactlyMatchesReviewedArchiveFactories]' started.
+Test Case '-[XContestCoreTests.ContestPackagedDefinitionLoaderTests testBundledCatalogExactlyMatchesReviewedArchiveFactories]' passed (0.367 seconds).
+Test Case '-[XContestCoreTests.ContestPackagedDefinitionLoaderTests testDeclarativeADIFTargetsRejectWrongSidesAndDuplicates]' started.
+Test Case '-[XContestCoreTests.ContestPackagedDefinitionLoaderTests testDeclarativeADIFTargetsRejectWrongSidesAndDuplicates]' passed (0.003 seconds).
+Test Case '-[XContestCoreTests.ContestPackagedDefinitionLoaderTests testExtraSymlinkOversizedAndOverCapacityResourcesAreRejected]' started.
+Test Case '-[XContestCoreTests.ContestPackagedDefinitionLoaderTests testExtraSymlinkOversizedAndOverCapacityResourcesAreRejected]' passed (0.140 seconds).
+Test Case '-[XContestCoreTests.ContestPackagedDefinitionLoaderTests testManifestAndDefinitionDuplicateKeysAreRejected]' started.
+Test Case '-[XContestCoreTests.ContestPackagedDefinitionLoaderTests testManifestAndDefinitionDuplicateKeysAreRejected]' passed (0.011 seconds).
+Test Case '-[XContestCoreTests.ContestPackagedDefinitionLoaderTests testManifestCapacityAdmitsNinetyFourDistinctDefinitions]' started.
+Test Case '-[XContestCoreTests.ContestPackagedDefinitionLoaderTests testManifestCapacityAdmitsNinetyFourDistinctDefinitions]' passed (1.618 seconds).
+Test Case '-[XContestCoreTests.ContestPackagedDefinitionLoaderTests testManifestHashAndDefinitionHashAreEnforced]' started.
+Test Case '-[XContestCoreTests.ContestPackagedDefinitionLoaderTests testManifestHashAndDefinitionHashAreEnforced]' passed (0.064 seconds).
+Test Case '-[XContestCoreTests.ContestPackagedDefinitionLoaderTests testUnsafePathsUnknownManifestKeysAndConflictingIdentitiesAreRejected]' started.
+Test Case '-[XContestCoreTests.ContestPackagedDefinitionLoaderTests testUnsafePathsUnknownManifestKeysAndConflictingIdentitiesAreRejected]' passed (0.046 seconds).
+Test Suite 'ContestPackagedDefinitionLoaderTests' passed at 2026-10-28 23:20:20.382.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 2.249 (2.249) seconds
+Test Suite 'ContestSACTests' started at 2026-10-28 23:20:20.382.
+Test Case '-[XContestCoreTests.ContestSACTests testCatalogPublishesSourcePinnedDescriptors]' started.
+Test Case '-[XContestCoreTests.ContestSACTests testCatalogPublishesSourcePinnedDescriptors]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestSACTests testCWAndSSBCabrilloGoldensUseSourceLayout]' started.
+Test Case '-[XContestCoreTests.ContestSACTests testCWAndSSBCabrilloGoldensUseSourceLayout]' passed (0.004 seconds).
+Test Case '-[XContestCoreTests.ContestSACTests testCWScandinavianStationIndependentArithmeticIs44]' started.
+Test Case '-[XContestCoreTests.ContestSACTests testCWScandinavianStationIndependentArithmeticIs44]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestSACTests testNonEuropeanBandPointsAndSponsorEntityMapping]' started.
+Test Case '-[XContestCoreTests.ContestSACTests testNonEuropeanBandPointsAndSponsorEntityMapping]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestSACTests testPinnedSourceComparisonFixtureIsSeparateFromOperationalCorrections]' started.
+Test Case '-[XContestCoreTests.ContestSACTests testPinnedSourceComparisonFixtureIsSeparateFromOperationalCorrections]' passed (0.003 seconds).
+Test Case '-[XContestCoreTests.ContestSACTests testPortableCallAreaUsesActualScandinavianComponentAndIneligibleEntrantFails]' started.
+Test Case '-[XContestCoreTests.ContestSACTests testPortableCallAreaUsesActualScandinavianComponentAndIneligibleEntrantFails]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestSACTests testReportsSerialBandsAndGeographyFailClosed]' started.
+Test Case '-[XContestCoreTests.ContestSACTests testReportsSerialBandsAndGeographyFailClosed]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestSACTests testSSBNonScandinavianStationIndependentArithmeticIs12]' started.
+Test Case '-[XContestCoreTests.ContestSACTests testSSBNonScandinavianStationIndependentArithmeticIs12]' passed (0.001 seconds).
+Test Suite 'ContestSACTests' passed at 2026-10-28 23:20:20.393.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.010 (0.010) seconds
+Test Suite 'ContestSSBTests' started at 2026-10-28 23:20:20.393.
+Test Case '-[XContestCoreTests.ContestSSBTests testCQWPXSSBSourcePointsPrefixesAndBandScopedDupes]' started.
+Test Case '-[XContestCoreTests.ContestSSBTests testCQWPXSSBSourcePointsPrefixesAndBandScopedDupes]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestSSBTests testCQWWSSBUsesSourceArithmeticAndPhoneReports]' started.
+Test Case '-[XContestCoreTests.ContestSSBTests testCQWWSSBUsesSourceArithmeticAndPhoneReports]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestSSBTests testCWAndSSBFormatterPoliciesRemainIdentityScoped]' started.
+Test Case '-[XContestCoreTests.ContestSSBTests testCWAndSSBFormatterPoliciesRemainIdentityScoped]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestSSBTests testRegistryPublishesBoundedModeReportExchangeAndSerialDescriptors]' started.
+Test Case '-[XContestCoreTests.ContestSSBTests testRegistryPublishesBoundedModeReportExchangeAndSerialDescriptors]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestSSBTests testRuleMetadataRejectsLegacyJSONWithoutRequiredEntryDescriptor]' started.
+Test Case '-[XContestCoreTests.ContestSSBTests testRuleMetadataRejectsLegacyJSONWithoutRequiredEntryDescriptor]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestSSBTests testSSBCabrilloUsesCategorySSBAndQSOTypePH]' started.
+Test Case '-[XContestCoreTests.ContestSSBTests testSSBCabrilloUsesCategorySSBAndQSOTypePH]' passed (0.045 seconds).
+Test Case '-[XContestCoreTests.ContestSSBTests testWPXSSBCabrilloFixtureUsesSerialsAndPH]' started.
+Test Case '-[XContestCoreTests.ContestSSBTests testWPXSSBCabrilloFixtureUsesSerialsAndPH]' passed (0.100 seconds).
+Test Case '-[XContestCoreTests.ContestSSBTests testWPXSSBPilot2SingleBandReplaysMultiplierFoldAndRetainsEveryRow]' started.
+Test Case '-[XContestCoreTests.ContestSSBTests testWPXSSBPilot2SingleBandReplaysMultiplierFoldAndRetainsEveryRow]' passed (0.003 seconds).
+Test Suite 'ContestSSBTests' passed at 2026-10-28 23:20:20.543.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.150 (0.150) seconds
+Test Suite 'ContestSSTDeclarativeDefinitionTests' started at 2026-10-28 23:20:20.543.
+Test Case '-[XContestCoreTests.ContestSSTDeclarativeDefinitionTests testAlaskaHawaiiAndRepeatedEntityUseDXCCPerBand]' started.
+Test Case '-[XContestCoreTests.ContestSSTDeclarativeDefinitionTests testAlaskaHawaiiAndRepeatedEntityUseDXCCPerBand]' passed (0.006 seconds).
+Test Case '-[XContestCoreTests.ContestSSTDeclarativeDefinitionTests testAuthorityFixturePinsExactSubdivisionPolicies]' started.
+Test Case '-[XContestCoreTests.ContestSSTDeclarativeDefinitionTests testAuthorityFixturePinsExactSubdivisionPolicies]' passed (0.093 seconds).
+Test Case '-[XContestCoreTests.ContestSSTDeclarativeDefinitionTests testInvalidGeographyCannotOccupyDupeState]' started.
+Test Case '-[XContestCoreTests.ContestSSTDeclarativeDefinitionTests testInvalidGeographyCannotOccupyDupeState]' passed (0.107 seconds).
+Test Case '-[XContestCoreTests.ContestSSTDeclarativeDefinitionTests testNewfoundlandAliasPreservesRawExchangeAndCanonicalizesOnlyScoringKey]' started.
+Test Case '-[XContestCoreTests.ContestSSTDeclarativeDefinitionTests testNewfoundlandAliasPreservesRawExchangeAndCanonicalizesOnlyScoringKey]' passed (0.005 seconds).
+Test Case '-[XContestCoreTests.ContestSSTDeclarativeDefinitionTests testOfficialSampleScoresTwelvePointsTenMultipliersOneHundredTwenty]' started.
+Test Case '-[XContestCoreTests.ContestSSTDeclarativeDefinitionTests testOfficialSampleScoresTwelvePointsTenMultipliersOneHundredTwenty]' passed (0.006 seconds).
+Test Case '-[XContestCoreTests.ContestSSTDeclarativeDefinitionTests testOperatorArchivePreservesRawNewfoundlandTokenAndExactScore]' started.
+Test Case '-[XContestCoreTests.ContestSSTDeclarativeDefinitionTests testOperatorArchivePreservesRawNewfoundlandTokenAndExactScore]' passed (0.005 seconds).
+Test Case '-[XContestCoreTests.ContestSSTDeclarativeDefinitionTests testOperatorPolicySupportsCQCallAndCommitPhasesWithoutWeakeningGeography]' started.
+Test Case '-[XContestCoreTests.ContestSSTDeclarativeDefinitionTests testOperatorPolicySupportsCQCallAndCommitPhasesWithoutWeakeningGeography]' passed (0.004 seconds).
+Test Case '-[XContestCoreTests.ContestSSTDeclarativeDefinitionTests testReviewedDraftCanRegenerateThePackagedRuntimeResource]' started.
+Test Case '-[XContestCoreTests.ContestSSTDeclarativeDefinitionTests testReviewedDraftCanRegenerateThePackagedRuntimeResource]' passed (0.006 seconds).
+Test Case '-[XContestCoreTests.ContestSSTDeclarativeDefinitionTests testStationGeographyUsesTheSharedPolicyAndAcceptsOnlyCanonicalOrAliasedLocations]' started.
+Test Case '-[XContestCoreTests.ContestSSTDeclarativeDefinitionTests testStationGeographyUsesTheSharedPolicyAndAcceptsOnlyCanonicalOrAliasedLocations]' passed (0.006 seconds).
+Test Suite 'ContestSSTDeclarativeDefinitionTests' passed at 2026-10-28 23:20:20.781.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.237 (0.238) seconds
+Test Suite 'ContestStructuredExchangeTests' started at 2026-10-28 23:20:20.781.
+Test Case '-[XContestCoreTests.ContestStructuredExchangeTests testLegacyExchangeAndDescriptorEncodingRemainByteStable]' started.
+Test Case '-[XContestCoreTests.ContestStructuredExchangeTests testLegacyExchangeAndDescriptorEncodingRemainByteStable]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestStructuredExchangeTests testMalformedVersionTwoDescriptorsFailDeterministicallyWithoutTrapping]' started.
+Test Case '-[XContestCoreTests.ContestStructuredExchangeTests testMalformedVersionTwoDescriptorsFailDeterministicallyWithoutTrapping]' passed (0.002 seconds).
+Test Case '-[XContestCoreTests.ContestStructuredExchangeTests testPortableBandMapHasDeterministicBoundaries]' started.
+Test Case '-[XContestCoreTests.ContestStructuredExchangeTests testPortableBandMapHasDeterministicBoundaries]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestStructuredExchangeTests testVersionOneRejectsStructuredFieldsWithoutChangingLegacyScore]' started.
+Test Case '-[XContestCoreTests.ContestStructuredExchangeTests testVersionOneRejectsStructuredFieldsWithoutChangingLegacyScore]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestStructuredExchangeTests testVersionTwoProfilesStructuredFieldsAndPointsOnlyPolicy]' started.
+Test Case '-[XContestCoreTests.ContestStructuredExchangeTests testVersionTwoProfilesStructuredFieldsAndPointsOnlyPolicy]' passed (0.000 seconds).
+Test Suite 'ContestStructuredExchangeTests' passed at 2026-10-28 23:20:20.786.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.005 (0.005) seconds
+Test Suite 'ContestSubmissionProjectionTests' started at 2026-10-28 23:20:20.786.
+Test Case '-[XContestCoreTests.ContestSubmissionProjectionTests testInvalidOffBandContactRejectsBeforeProjection]' started.
+Test Case '-[XContestCoreTests.ContestSubmissionProjectionTests testInvalidOffBandContactRejectsBeforeProjection]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestSubmissionProjectionTests testPilot1RemainsTheExplicitDefault]' started.
+Test Case '-[XContestCoreTests.ContestSubmissionProjectionTests testPilot1RemainsTheExplicitDefault]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestSubmissionProjectionTests testPilot2RejectsMismatchedSuppliedScoreAndMatchesCRLFGolden]' started.
+Test Case '-[XContestCoreTests.ContestSubmissionProjectionTests testPilot2RejectsMismatchedSuppliedScoreAndMatchesCRLFGolden]' passed (0.011 seconds).
+Test Case '-[XContestCoreTests.ContestSubmissionProjectionTests testPreviewCategoryRejectsUnsupportedCombinationsAndUnknownVersions]' started.
+Test Case '-[XContestCoreTests.ContestSubmissionProjectionTests testPreviewCategoryRejectsUnsupportedCombinationsAndUnknownVersions]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestSubmissionProjectionTests testWPXEarlierOffBandPrefixDoesNotConsumeSelectedBandMultiplier]' started.
+Test Case '-[XContestCoreTests.ContestSubmissionProjectionTests testWPXEarlierOffBandPrefixDoesNotConsumeSelectedBandMultiplier]' passed (0.000 seconds).
+Test Case '-[XContestCoreTests.ContestSubmissionProjectionTests testWWSelectedBandScoresSubsetButRendersAllContactsAndDuplicates]' started.
+Test Case '-[XContestCoreTests.ContestSubmissionProjectionTests testWWSelectedBandScoresSubsetButRendersAllContactsAndDuplicates]' passed (0.001 seconds).
+Test Case '-[XContestCoreTests.ContestSubmissionProjectionTests testZeroEligibleAndAllBandProjection]' started.
+Test Case '-[XContestCoreTests.ContestSubmissionProjectionTests testZeroEligibleAndAllBandProjection]' passed (0.000 seconds).
+Test Suite 'ContestSubmissionProjectionTests' passed at 2026-10-28 23:20:20.799.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.013 (0.013) seconds
+Test Suite 'XContestCoreTests.xctest' passed at 2026-10-28 23:20:20.799.
+	 Executed 227 tests, with 0 failures (0 unexpected) in 9.526 (9.546) seconds
+Test Suite 'All tests' passed at 2026-10-28 23:20:20.799.
+	 Executed 227 tests, with 0 failures (0 unexpected) in 9.526 (9.547) seconds
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Read-only ADIF review and export" started.
+◇ Test "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "C4FM" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "DSTAR" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "c4fm" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "dstar" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "PSK31" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "psk31" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "PSK63" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "psk63" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "PSK63F" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "psk63f" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "PSK125" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "psk125" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "PSKAM10" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "pskam10" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "PSKAM31" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "pskam31" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "PSKAM50" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "pskam50" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "PSKFEC31" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "pskfec31" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "PSKHELL" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "pskhell" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "QPSK31" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "qpsk31" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "QPSK63" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "qpsk63" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "QPSK125" to "Audited import-only modes export under their ADIF parent" started.
+◇ Test case passing 1 argument mode → "qpsk125" to "Audited import-only modes export under their ADIF parent" started.
+✔ Test "Audited import-only modes export under their ADIF parent" with 28 test cases passed after 0.182 seconds.
+◇ Test "Audited deprecated mode export retains explicit submodes and unknown modes" started.
+✔ Test "Audited deprecated mode export retains explicit submodes and unknown modes" passed after 0.011 seconds.
+◇ Test "Editor MFSK submodes export with their ADIF parent without rewriting local contacts" started.
+◇ Test case passing 1 argument mode → "FT4" to "Editor MFSK submodes export with their ADIF parent without rewriting local contacts" started.
+◇ Test case passing 1 argument mode → "FT2" to "Editor MFSK submodes export with their ADIF parent without rewriting local contacts" started.
+◇ Test case passing 1 argument mode → "JTTY" to "Editor MFSK submodes export with their ADIF parent without rewriting local contacts" started.
+✔ Test "Editor MFSK submodes export with their ADIF parent without rewriting local contacts" with 3 test cases passed after 0.007 seconds.
+◇ Test "Export preserves explicit submode and FT8's independent ADIF mode" started.
+✔ Test "Export preserves explicit submode and FT8's independent ADIF mode" passed after 0.002 seconds.
+◇ Test "Compatibility reader respects UTF-8 lengths and embedded terminators" started.
+✔ Test "Compatibility reader respects UTF-8 lengths and embedded terminators" passed after 0.004 seconds.
+◇ Test "Compatibility reader accepts character-counted Unicode fields without weakening byte-counted fields" started.
+✔ Test "Compatibility reader accepts character-counted Unicode fields without weakening byte-counted fields" passed after 0.001 seconds.
+◇ Test "Known-record filtering removes complete parsed records in headed and headless documents" started.
+◇ Test case passing 1 argument headed → true to "Known-record filtering removes complete parsed records in headed and headless documents" started.
+◇ Test case passing 1 argument headed → false to "Known-record filtering removes complete parsed records in headed and headless documents" started.
+✔ Test "Known-record filtering removes complete parsed records in headed and headless documents" with 2 test cases passed after 0.007 seconds.
+◇ Test "USERDEF numeric ranges compare exactly while retaining original lexical text" started.
+◇ Test case passing 1 argument values → ["N", "{001.:0003.00}", "0002.500"] to "USERDEF numeric ranges compare exactly while retaining original lexical text" started.
+◇ Test case passing 1 argument values → ["N", "{-.5:.5}", "-0.000"] to "USERDEF numeric ranges compare exactly while retaining original lexical text" started.
+◇ Test case passing 1 argument values → ["N", "{-10:-2}", "-2"] to "USERDEF numeric ranges compare exactly while retaining original lexical text" started.
+◇ Test case passing 1 argument values → ["N", "{9007199254740992:9007199254740993}", "9007199254740993"] to "USERDEF numeric ranges compare exactly while retaining original lexical text" started.
+◇ Test case passing 1 argument values → ["N", "{.00000000000000000001:.00000000000000000002}", ".00000000000000000002"] to "USERDEF numeric ranges compare exactly while retaining original lexical text" started.
+◇ Test case passing 1 argument values → ["I", "{-.5:1.5}", "0001"] to "USERDEF numeric ranges compare exactly while retaining original lexical text" started.
+◇ Test case passing 1 argument values → ["I", "{-999999999999999999999:999999999999999999999}", "-999999999999999999999"] to "USERDEF numeric ranges compare exactly while retaining original lexical text" started.
+✔ Test "USERDEF numeric ranges compare exactly while retaining original lexical text" with 7 test cases passed after 0.004 seconds.
+◇ Test "USERDEF rejects malformed, conflicting and out-of-range declarations" started.
+◇ Test case passing 1 argument values → ["N", "{1:3}", "0.999999999999999999999"] to "USERDEF rejects malformed, conflicting and out-of-range declarations" started.
+◇ Test case passing 1 argument values → ["N", "{1:3}", "3.000000000000000000001"] to "USERDEF rejects malformed, conflicting and out-of-range declarations" started.
+◇ Test case passing 1 argument values → ["N", "{9007199254740992:9007199254740993}", "9007199254740993.0000000001"] to "USERDEF rejects malformed, conflicting and out-of-range declarations" started.
+◇ Test case passing 1 argument values → ["N", "{-10:-2}", "-10.00000000000000001"] to "USERDEF rejects malformed, conflicting and out-of-range declarations" started.
+◇ Test case passing 1 argument values → ["N", "{-0.:0.000}", "0"] to "USERDEF rejects malformed, conflicting and out-of-range declarations" started.
+◇ Test case passing 1 argument values → ["N", "{3:1}", "2"] to "USERDEF rejects malformed, conflicting and out-of-range declarations" started.
+◇ Test case passing 1 argument values → ["N", "{1:1}", "1"] to "USERDEF rejects malformed, conflicting and out-of-range declarations" started.
+◇ Test case passing 1 argument values → ["N", "{+1:3}", "2"] to "USERDEF rejects malformed, conflicting and out-of-range declarations" started.
+◇ Test case passing 1 argument values → ["N", "{1e0:3}", "2"] to "USERDEF rejects malformed, conflicting and out-of-range declarations" started.
+◇ Test case passing 1 argument values → ["N", "{1,0:3}", "2"] to "USERDEF rejects malformed, conflicting and out-of-range declarations" started.
+◇ Test case passing 1 argument values → ["N", "{1:3} ", "2"] to "USERDEF rejects malformed, conflicting and out-of-range declarations" started.
+◇ Test case passing 1 argument values → ["N", "{1:3}\n", "2"] to "USERDEF rejects malformed, conflicting and out-of-range declarations" started.
+◇ Test case passing 1 argument values → ["N", "{.:3}", "2"] to "USERDEF rejects malformed, conflicting and out-of-range declarations" started.
+◇ Test case passing 1 argument values → ["N", "{1::3}", "2"] to "USERDEF rejects malformed, conflicting and out-of-range declarations" started.
+◇ Test case passing 1 argument values → ["N", "{1:}", "2"] to "USERDEF rejects malformed, conflicting and out-of-range declarations" started.
+◇ Test case passing 1 argument values → ["S", "{1:3}", "2"] to "USERDEF rejects malformed, conflicting and out-of-range declarations" started.
+◇ Test case passing 1 argument values → ["E", "{1:3}", "2"] to "USERDEF rejects malformed, conflicting and out-of-range declarations" started.
+◇ Test case passing 1 argument values → ["I", "{1:3}", "2.0"] to "USERDEF rejects malformed, conflicting and out-of-range declarations" started.
+✔ Test "USERDEF rejects malformed, conflicting and out-of-range declarations" with 18 test cases passed after 0.001 seconds.
+◇ Test "Version-one extension metadata rejects collisions, malformed identities and conflicting declarations" started.
+✔ Test "Version-one extension metadata rejects collisions, malformed identities and conflicting declarations" passed after 0.003 seconds.
+◇ Test "Preview preserves extensions, confirmations and embedded delimiters" started.
+✔ Test "Preview preserves extensions, confirmations and embedded delimiters" passed after 0.003 seconds.
+◇ Test "Malformed suffix retains the completed preview but prevents planning" started.
+✔ Test "Malformed suffix retains the completed preview but prevents planning" passed after 0.001 seconds.
+◇ Test "Malformed descriptors never trap or silently discard fields" started.
+◇ Test case passing 1 argument suffix → "<>" to "Malformed descriptors never trap or silently discard fields" started.
+◇ Test case passing 1 argument suffix → "<CALL:-1>x<EOR>" to "Malformed descriptors never trap or silently discard fields" started.
+◇ Test case passing 1 argument suffix → "<CALL:9999999999999999999999>x<EOR>" to "Malformed descriptors never trap or silently discard fields" started.
+◇ Test case passing 1 argument suffix → "<CALL:1>A<CALL:1>B<EOR>" to "Malformed descriptors never trap or silently discard fields" started.
+◇ Test case passing 1 argument suffix → "<CALL:1:NN>A<EOR>" to "Malformed descriptors never trap or silently discard fields" started.
+◇ Test case passing 1 argument suffix → "<CALL:2>😀<EOR>" to "Malformed descriptors never trap or silently discard fields" started.
+◇ Test case passing 1 argument suffix → "<CALL:1>A" to "Malformed descriptors never trap or silently discard fields" started.
+◇ Test case passing 1 argument suffix → "<EOR>" to "Malformed descriptors never trap or silently discard fields" started.
+◇ Test case passing 1 argument suffix → "<CALL:1>A<EOR>junk" to "Malformed descriptors never trap or silently discard fields" started.
+◇ Test case passing 1 argument suffix → "<EOH><EOH>" to "Malformed descriptors never trap or silently discard fields" started.
+◇ Test case passing 1 argument suffix → "<ADX>" to "Malformed descriptors never trap or silently discard fields" started.
+✔ Test "Malformed descriptors never trap or silently discard fields" with 11 test cases passed after 0.001 seconds.
+◇ Test "UTC and frequency validation is strict" started.
+◇ Test case passing 1 argument values → ["QSO_DATE": "20260230"] to "UTC and frequency validation is strict" started.
+◇ Test case passing 1 argument values → ["QSO_DATE": "20261301"] to "UTC and frequency validation is strict" started.
+◇ Test case passing 1 argument values → ["TIME_ON": "246000"] to "UTC and frequency validation is strict" started.
+◇ Test case passing 1 argument values → ["TIME_ON": "1234567"] to "UTC and frequency validation is strict" started.
+◇ Test case passing 1 argument values → ["TIME_ON": "1"] to "UTC and frequency validation is strict" started.
+◇ Test case passing 1 argument values → ["TIME_ON": "12:34"] to "UTC and frequency validation is strict" started.
+◇ Test case passing 1 argument values → ["QSO_DATE_OFF": "20260230"] to "UTC and frequency validation is strict" started.
+◇ Test case passing 1 argument values → ["TIME_OFF": "2500"] to "UTC and frequency validation is strict" started.
+◇ Test case passing 1 argument values → ["FREQ": "nan"] to "UTC and frequency validation is strict" started.
+◇ Test case passing 1 argument values → ["FREQ": "-1"] to "UTC and frequency validation is strict" started.
+◇ Test case passing 1 argument values → ["FREQ": "0"] to "UTC and frequency validation is strict" started.
+◇ Test case passing 1 argument values → ["FREQ": "1000001"] to "UTC and frequency validation is strict" started.
+◇ Test case passing 1 argument values → ["BAND": " "] to "UTC and frequency validation is strict" started.
+◇ Test case passing 1 argument values → ["MODE": " "] to "UTC and frequency validation is strict" started.
+✔ Test "UTC and frequency validation is strict" with 14 test cases passed after 0.008 seconds.
+◇ Test "Bounds and missing contacts reject without a write" started.
+✔ Test "Bounds and missing contacts reject without a write" passed after 0.001 seconds.
+◇ Test "Duplicate matching uses start UTC and submode, and skips repeated input" started.
+✔ Test "Duplicate matching uses start UTC and submode, and skips repeated input" passed after 0.014 seconds.
+◇ Test "Selected updates preserve absent and unselected fields, including extensions" started.
+✔ Test "Selected updates preserve absent and unselected fields, including extensions" passed after 0.004 seconds.
+◇ Test "Ambiguous local targets reject; tombstones never become update targets" started.
+✔ Test "Ambiguous local targets reject; tombstones never become update targets" passed after 0.008 seconds.
+◇ Test "Snapshot scope remains frozen across database writes without sync side effects" started.
+✔ Test "Snapshot scope remains frozen across database writes without sync side effects" passed after 0.102 seconds.
+✔ Suite "Read-only ADIF review and export" passed after 0.371 seconds.
+◇ Suite "International award catalogue" started.
+◇ Test "All nine imported award programmes are present" started.
+✔ Test "All nine imported award programmes are present" passed after 0.118 seconds.
+◇ Test "The research registry accounts for all 190 programmes and profile joins" started.
+✔ Test "The research registry accounts for all 190 programmes and profile joins" passed after 0.030 seconds.
+◇ Test "Official award source links are well formed" started.
+✔ Test "Official award source links are well formed" passed after 0.028 seconds.
+◇ Test "Every programme has an explicit delivery disposition" started.
+✔ Test "Every programme has an explicit delivery disposition" passed after 0.046 seconds.
+◇ Test "JARL calculations normalize bands and enforce entity dates" started.
+✔ Test "JARL calculations normalize bands and enforce entity dates" passed after 0.046 seconds.
+◇ Test "WAPC separates mixed, band and mode progress" started.
+✔ Test "WAPC separates mixed, band and mode progress" passed after 0.044 seconds.
+◇ Test "WCSA counts distinct confirmed school operating slots" started.
+✔ Test "WCSA counts distinct confirmed school operating slots" passed after 0.043 seconds.
+◇ Test "JARL accepts a case-insensitive eQSL confirmation while WAPC does not" started.
+✔ Test "JARL accepts a case-insensitive eQSL confirmation while WAPC does not" passed after 0.042 seconds.
+◇ Test "Worked and evidence-eligible totals remain distinct" started.
+✔ Test "Worked and evidence-eligible totals remain distinct" passed after 0.042 seconds.
+◇ Test "JARL date cutoffs use the UTC contact day, including exact boundaries" started.
+✔ Test "JARL date cutoffs use the UTC contact day, including exact boundaries" passed after 0.172 seconds.
+➜ Test "Generated catalogue calculation preserves every programme at scale" skipped.
+✔ Suite "International award catalogue" passed after 0.617 seconds.
+◇ Suite BackupEnvelopeTests started.
+◇ Test frozenBytesRoundTripAndPlanBinding() started.
+✔ Test frozenBytesRoundTripAndPlanBinding() passed after 0.426 seconds.
+◇ Test verifiedRemoteEnvelopeMaterializesIdempotentlyWithoutInstalling() started.
+✔ Test verifiedRemoteEnvelopeMaterializesIdempotentlyWithoutInstalling() passed after 0.697 seconds.
+◇ Test everyPayloadIsBound(path:) started.
+◇ Test case passing 1 argument path → "settings.json" to everyPayloadIsBound(path:) started.
+◇ Test case passing 1 argument path → "preferences.json" to everyPayloadIsBound(path:) started.
+◇ Test case passing 1 argument path → "manifest.json" to everyPayloadIsBound(path:) started.
+◇ Test case passing 1 argument path → "Reference Data/nested.json" to everyPayloadIsBound(path:) started.
+◇ Test case passing 1 argument path → "OM0RX-xLog.sqlite" to everyPayloadIsBound(path:) started.
+✔ Test everyPayloadIsBound(path:) with 5 test cases passed after 0.191 seconds.
+◇ Test missingExtraLinksAndStrippedSealRejected() started.
+✔ Test missingExtraLinksAndStrippedSealRejected() passed after 0.148 seconds.
+◇ Test untrustedEnvelopePathsVersionsAndHashesRejected() started.
+✔ Test untrustedEnvelopePathsVersionsAndHashesRejected() passed after 0.090 seconds.
+◇ Test restoresOnlyValidatedReferenceBytes() started.
+✔ Test restoresOnlyValidatedReferenceBytes() passed after 0.074 seconds.
+◇ Test legacyLocalDatabaseCompatibleButFullPackageOperationsFailExplicitly() started.
+✔ Test legacyLocalDatabaseCompatibleButFullPackageOperationsFailExplicitly() passed after 0.121 seconds.
+✔ Suite BackupEnvelopeTests passed after 1.750 seconds.
+◇ Suite "Bounded normal contact history" started.
+◇ Test "History and duplicates stop decoding after enough portable matches" started.
+✔ Test "History and duplicates stop decoding after enough portable matches" passed after 0.013 seconds.
+◇ Test "Large repeated-call lookups remain bounded and return the newest contact" started.
+HISTORY_BENCHMARK rows=10000 previous_ms=8.760929107666016 duplicate_ms=59.7081184387207
+✔ Test "Large repeated-call lookups remain bounded and return the newest contact" passed after 10.488 seconds.
+✔ Suite "Bounded normal contact history" passed after 10.502 seconds.
+◇ Suite "CTY source authority" started.
+◇ Test "Bundled PJ prefixes retain their distinct modern entities" started.
+✔ Test "Bundled PJ prefixes retain their distinct modern entities" passed after 0.310 seconds.
+◇ Test "Bundled Slovak prefix resolves OM0AAO for offline callsign intelligence" started.
+✔ Test "Bundled Slovak prefix resolves OM0AAO for offline callsign intelligence" passed after 0.246 seconds.
+◇ Test "Matched CTY rows retain distinct primary prefixes even when ADIF is shared" started.
+✔ Test "Matched CTY rows retain distinct primary prefixes even when ADIF is shared" passed after 0.200 seconds.
+◇ Test "Continent annotations remain opt-in and do not change legacy token matching" started.
+✔ Test "Continent annotations remain opt-in and do not change legacy token matching" passed after 0.001 seconds.
+◇ Test "Pinned bundled CTY currently has no continent annotations" started.
+✔ Test "Pinned bundled CTY currently has no continent annotations" passed after 0.003 seconds.
+◇ Test "Portable operating prefixes take precedence without losing exact or ordinary suffix rules" started.
+✔ Test "Portable operating prefixes take precedence without losing exact or ordinary suffix rules" passed after 0.001 seconds.
+◇ Test "XML PJ rules honor validity dates and exact-call exceptions" started.
+✔ Test "XML PJ rules honor validity dates and exact-call exceptions" passed after 0.010 seconds.
+✔ Suite "CTY source authority" passed after 0.775 seconds.
+◇ Suite "CW preference persistence" started.
+◇ Test oldSettingsAndRoundTrip() started.
+✔ Test oldSettingsAndRoundTrip() passed after 0.003 seconds.
+◇ Test rejectsInvalidProfilesAndRawDeviceCommands() started.
+✔ Test rejectsInvalidProfilesAndRawDeviceCommands() passed after 0.009 seconds.
+✔ Suite "CW preference persistence" passed after 0.013 seconds.
+◇ Suite DropboxBackupTransportTests started.
+◇ Test revisionConditionalDeletionIsDurablyClaimedAndNeverReplayed() started.
+✔ Test revisionConditionalDeletionIsDurablyClaimedAndNeverReplayed() passed after 0.026 seconds.
+◇ Test ambiguousDeletionRemainsClaimedWithoutRetry() started.
+✔ Test ambiguousDeletionRemainsClaimedWithoutRetry() passed after 0.005 seconds.
+◇ Test strictExclusiveCreateAndRevisionDownloadHashExactBytes() started.
+✔ Test strictExclusiveCreateAndRevisionDownloadHashExactBytes() passed after 0.001 seconds.
+◇ Test restoreDownloadsOnlyPinnedVerifiedRevisionAndRechecksExactBytes() started.
+✔ Test restoreDownloadsOnlyPinnedVerifiedRevisionAndRechecksExactBytes() passed after 0.001 seconds.
+◇ Test executorVerifiesFrozenEnvelopeAndRestartsWithoutProviderReplay() started.
+✔ Test executorVerifiesFrozenEnvelopeAndRestartsWithoutProviderReplay() passed after 0.044 seconds.
+◇ Test knownConflictCannotBeClaimedOrRetried() started.
+✔ Test knownConflictCannotBeClaimedOrRetried() passed after 0.001 seconds.
+◇ Test applicationAndProviderAccountsMustBothMatch() started.
+✔ Test applicationAndProviderAccountsMustBothMatch() passed after 0.001 seconds.
+◇ Test swappedAccountOrRevisionCannotVerifyPreviouslyCreatedObject() started.
+✔ Test swappedAccountOrRevisionCannotVerifyPreviouslyCreatedObject() passed after 0.001 seconds.
+◇ Test independentHashIgnoresProviderContentHashAndRejectsWrongMetadata() started.
+✔ Test independentHashIgnoresProviderContentHashAndRejectsWrongMetadata() passed after 0.001 seconds.
+◇ Test invalidBytesOversizedResponsesRedirectsAndErrorsFailClosed() started.
+✔ Test invalidBytesOversizedResponsesRedirectsAndErrorsFailClosed() passed after 0.001 seconds.
+◇ Test URLSessionBoundsStreamingAndDeclaredSizesWithoutNetwork() started.
+✔ Test URLSessionBoundsStreamingAndDeclaredSizesWithoutNetwork() passed after 0.041 seconds.
+◇ Test URLSessionTaskCancellationInterruptsPendingRequestWithoutNetwork() started.
+✔ Test URLSessionTaskCancellationInterruptsPendingRequestWithoutNetwork() passed after 0.001 seconds.
+◇ Test URLSessionRejectsRedirectBeforeCredentialsCanFollow() started.
+✔ Test URLSessionRejectsRedirectBeforeCredentialsCanFollow() passed after 0.001 seconds.
+✔ Suite DropboxBackupTransportTests passed after 0.125 seconds.
+◇ Suite FTPBackupLiveServerTests started.
+➜ Test "Trusted implicit FTPS uploads, verifies, restores and refuses replay" skipped.
+➜ Test "Implicit FTPS rejects wrong CA and wrong hostname before upload" skipped.
+➜ Test "Disposable FTP upload, independent verification and restore" skipped.
+➜ Test "Untrusted implicit FTPS certificate fails closed before upload" skipped.
+➜ Test "Disposable FTP reservation refusal writes no object" skipped.
+➜ Test "Lost FTP acknowledgement remains uncertain and is not replayed" skipped.
+➜ Test "Oversized advertised or streamed FTP download fails closed" skipped.
+➜ Test "FTP restore rejects an object that grew after verification" skipped.
+➜ Test "FTP control handshake times out before any object write" skipped.
+➜ Test "FTP stalled and continuously slow downloads respect production time limits" skipped.
+➜ Test "FTP stalled and throttled uploads remain uncertain within production time limits" skipped.
+✔ Suite FTPBackupLiveServerTests passed after 0.001 seconds.
+◇ Suite FTPBackupTransportTests started.
+◇ Test credentialsAreBoundedAndAlwaysRedacted() started.
+✔ Test credentialsAreBoundedAndAlwaysRedacted() passed after 0.001 seconds.
+◇ Test exclusiveUploadAndIndependentRestoreUseAbsolutePinnedPath(provider:) started.
+◇ Test case passing 1 argument provider → .ftp to exclusiveUploadAndIndependentRestoreUseAbsolutePinnedPath(provider:) started.
+◇ Test case passing 1 argument provider → .ftps to exclusiveUploadAndIndependentRestoreUseAbsolutePinnedPath(provider:) started.
+✔ Test exclusiveUploadAndIndependentRestoreUseAbsolutePinnedPath(provider:) with 2 test cases passed after 0.001 seconds.
+◇ Test knownReservationRefusalWritesOnceAndCannotBeClaimedOrRetried() started.
+✔ Test knownReservationRefusalWritesOnceAndCannotBeClaimedOrRetried() passed after 0.001 seconds.
+◇ Test mismatchedDownloadedBytesNeverProduceRemoteObjectOrVerifiedRestore() started.
+✔ Test mismatchedDownloadedBytesNeverProduceRemoteObjectOrVerifiedRestore() passed after 0.001 seconds.
+◇ Test providerSecurityRetentionAndAccountBoundariesFailClosed() started.
+✔ Test providerSecurityRetentionAndAccountBoundariesFailClosed() passed after 0.001 seconds.
+◇ Test executorPersistsVerifiedReceiptAndRestartNeverReplays() started.
+✔ Test executorPersistsVerifiedReceiptAndRestartNeverReplays() passed after 0.041 seconds.
+◇ Test verifiedObjectNamespacesCannotCrossProvidersOrAccounts() started.
+✔ Test verifiedObjectNamespacesCannotCrossProvidersOrAccounts() passed after 0.001 seconds.
+✔ Suite FTPBackupTransportTests passed after 0.046 seconds.
+◇ Suite "FLEX spot forwarding" started.
+◇ Test buildsRUMlogCompatibleEscapedXML() started.
+✔ Test buildsRUMlogCompatibleEscapedXML() passed after 0.001 seconds.
+✔ Suite "FLEX spot forwarding" passed after 0.001 seconds.
+◇ Suite GoogleDriveBackupTransportTests started.
+◇ Test preGeneratedCreatePinsAndVerifiesExactRevision() started.
+✔ Test preGeneratedCreatePinsAndVerifiesExactRevision() passed after 0.002 seconds.
+◇ Test restoreReadsOnlyPinnedRevisionAndRechecksHash() started.
+✔ Test restoreReadsOnlyPinnedRevisionAndRechecksHash() passed after 0.001 seconds.
+◇ Test conflictAndAmbiguousCreateAreNeverReplayed() started.
+✔ Test conflictAndAmbiguousCreateAreNeverReplayed() passed after 0.001 seconds.
+◇ Test accountContextMetadataAndRedirectsFailClosed() started.
+✔ Test accountContextMetadataAndRedirectsFailClosed() passed after 0.001 seconds.
+◇ Test executorPersistsVerifiedReceiptAndRestartDoesNotContactDrive() started.
+✔ Test executorPersistsVerifiedReceiptAndRestartDoesNotContactDrive() passed after 0.062 seconds.
+◇ Test verifiedObjectNamespacesRejectCrossProviderRebinding() started.
+✔ Test verifiedObjectNamespacesRejectCrossProviderRebinding() passed after 0.001 seconds.
+◇ Test adapterRejectsRetentionUntilConditionalDriveDeletionExists() started.
+✔ Test adapterRejectsRetentionUntilConditionalDriveDeletionExists() passed after 0.001 seconds.
+◇ Test defaultClientAllowlistAcceptsOnlyExactDriveRoutes() started.
+✔ Test defaultClientAllowlistAcceptsOnlyExactDriveRoutes() passed after 0.001 seconds.
+✔ Suite GoogleDriveBackupTransportTests passed after 0.066 seconds.
+◇ Suite "Revisioned Integration settings" started.
+◇ Test "Seed is one-time and concurrent stale writes conflict" started.
+✔ Test "Seed is one-time and concurrent stale writes conflict" passed after 0.019 seconds.
+◇ Test "Exact replay and no-op saves keep one durable result" started.
+✔ Test "Exact replay and no-op saves keep one durable result" passed after 0.010 seconds.
+◇ Test "Restore replacement is atomic and retires old receipts" started.
+✔ Test "Restore replacement is atomic and retires old receipts" passed after 0.009 seconds.
+◇ Test "Invalid non-secret settings never enter the database" started.
+✔ Test "Invalid non-secret settings never enter the database" passed after 0.008 seconds.
+◇ Test "Legacy settings default to QRZ while provider usernames remain independent" started.
+✔ Test "Legacy settings default to QRZ while provider usernames remain independent" passed after 0.001 seconds.
+✔ Suite "Revisioned Integration settings" passed after 0.048 seconds.
+◇ Suite "Isolated integration workspace" started.
+◇ Test "Consistent copy retains QSO and outbox state without sharing writes" started.
+✔ Test "Consistent copy retains QSO and outbox state without sharing writes" passed after 0.025 seconds.
+◇ Test "Empty workspace has its own database and disabled sync settings" started.
+✔ Test "Empty workspace has its own database and disabled sync settings" passed after 0.012 seconds.
+◇ Test "Reopen materializes missing WAL sidecars without changing contacts" started.
+✔ Test "Reopen materializes missing WAL sidecars without changing contacts" passed after 0.018 seconds.
+◇ Test "Import is atomic and preserves full fields while skipping semantic duplicates" started.
+✔ Test "Import is atomic and preserves full fields while skipping semantic duplicates" passed after 0.010 seconds.
+◇ Test "SQL offset can reach records beyond ten thousand" started.
+✔ Test "SQL offset can reach records beyond ten thousand" passed after 0.393 seconds.
+◇ Test "Missing and aliased sources cannot create a workspace" started.
+✔ Test "Missing and aliased sources cannot create a workspace" passed after 0.011 seconds.
+◇ Test "Reopen rejects a database link and native preference identity" started.
+✔ Test "Reopen rejects a database link and native preference identity" passed after 0.012 seconds.
+✔ Suite "Isolated integration workspace" passed after 0.485 seconds.
+◇ Suite "LoTW fixed-origin confirmation download contract" started.
+◇ Test fixedGETQueryAndEncodedCredentials() started.
+✔ Test fixedGETQueryAndEncodedCredentials() passed after 0.002 seconds.
+◇ Test validatesAccountsSecretsAndWatermarks() started.
+✔ Test validatesAccountsSecretsAndWatermarks() passed after 0.001 seconds.
+◇ Test preservesInclusiveContinuationAndEmptyReportCheckpoint() started.
+✔ Test preservesInclusiveContinuationAndEmptyReportCheckpoint() passed after 0.004 seconds.
+◇ Test rejectsForeignOriginsAlternatePathsAndAllRedirects() started.
+✔ Test rejectsForeignOriginsAlternatePathsAndAllRedirects() passed after 0.001 seconds.
+◇ Test validatesStatusHTMLSizeAndEncodingBeforeParsing() started.
+✔ Test validatesStatusHTMLSizeAndEncodingBeforeParsing() passed after 7.146 seconds.
+✔ Suite "LoTW fixed-origin confirmation download contract" passed after 7.156 seconds.
+◇ Suite "Frozen LoTW confirmation preview" started.
+◇ Test onlyConfirmationFieldsChangeAndInputsRemainFrozen() started.
+✔ Test onlyConfirmationFieldsChangeAndInputsRemainFrozen() passed after 0.002 seconds.
+◇ Test unchangedAndLegitimateUnmatchedRecordsAreCounted() started.
+✔ Test unchangedAndLegitimateUnmatchedRecordsAreCounted() passed after 0.001 seconds.
+◇ Test optionalExactModeDisambiguatesAndGroupDoesNot() started.
+✔ Test optionalExactModeDisambiguatesAndGroupDoesNot() passed after 0.002 seconds.
+◇ Test duplicateDownloadedTargetsAreBlockedDeterministically() started.
+✔ Test duplicateDownloadedTargetsAreBlockedDeterministically() passed after 0.001 seconds.
+◇ Test unconfirmedRowsNeverDowngradeAndVerifiedStatusIsRetained() started.
+✔ Test unconfirmedRowsNeverDowngradeAndVerifiedStatusIsRetained() passed after 0.002 seconds.
+◇ Test minutePrecisionMatchesWholeMinuteAndSecondsRemainExact() started.
+✔ Test minutePrecisionMatchesWholeMinuteAndSecondsRemainExact() passed after 0.003 seconds.
+◇ Test identityRevisionAndGenerationFailClosed() started.
+✔ Test identityRevisionAndGenerationFailClosed() passed after 0.003 seconds.
+◇ Test limitsRejectWholePreviewWithoutPartialProposals() started.
+✔ Test limitsRejectWholePreviewWithoutPartialProposals() passed after 0.001 seconds.
+✔ Suite "Frozen LoTW confirmation preview" passed after 0.018 seconds.
+◇ Suite "LoTW confirmation report envelope" started.
+◇ Test validReportRetainsOnlyLoTWEvidenceAndIsDeterministic() started.
+✔ Test validReportRetainsOnlyLoTWEvidenceAndIsDeterministic() passed after 0.003 seconds.
+◇ Test legitimateZeroRecordReports() started.
+✔ Test legitimateZeroRecordReports() passed after 0.001 seconds.
+◇ Test deprecatedEOFTailNeedsNoEOR() started.
+✔ Test deprecatedEOFTailNeedsNoEOR() passed after 0.002 seconds.
+◇ Test modeIsOptionalAndAmbiguousLoTWModeIsPreserved() started.
+✔ Test modeIsOptionalAndAmbiguousLoTWModeIsPreserved() passed after 0.004 seconds.
+◇ Test fieldLengthsKeepEmbeddedTerminatorsAsData() started.
+✔ Test fieldLengthsKeepEmbeddedTerminatorsAsData() passed after 0.005 seconds.
+◇ Test emptyOrRepeatedRecordAndHeaderTerminatorsAreRejected() started.
+✔ Test emptyOrRepeatedRecordAndHeaderTerminatorsAreRejected() passed after 0.003 seconds.
+◇ Test unconfirmedStatusDoesNotBecomePaperConfirmation() started.
+✔ Test unconfirmedStatusDoesNotBecomePaperConfirmation() passed after 0.007 seconds.
+◇ Test headerCountAndWatermarkMustBeValid() started.
+✔ Test headerCountAndWatermarkMustBeValid() passed after 0.012 seconds.
+◇ Test rejectsHTMLAuthenticationErrorsAndMissingEOH() started.
+✔ Test rejectsHTMLAuthenticationErrorsAndMissingEOH() passed after 0.001 seconds.
+◇ Test rejectsTruncationAndMalformedFields() started.
+✔ Test rejectsTruncationAndMalformedFields() passed after 0.002 seconds.
+◇ Test conflictingDuplicatesAreRejectedButIdenticalFieldsAreStable() started.
+✔ Test conflictingDuplicatesAreRejectedButIdenticalFieldsAreStable() passed after 0.003 seconds.
+◇ Test boundsInputFieldsAndRecords() started.
+✔ Test boundsInputFieldsAndRecords() passed after 11.260 seconds.
+✔ Suite "LoTW confirmation report envelope" passed after 11.306 seconds.
+◇ Suite "LoTW manually invoked bounded transport" started.
+◇ Test configurationIsEphemeralPrivateAndExactlyTimed() started.
+✔ Test configurationIsEphemeralPrivateAndExactlyTimed() passed after 0.001 seconds.
+◇ Test manualExecutionReturnsSanitizedEvidenceAndParsesReport() started.
+✔ Test manualExecutionReturnsSanitizedEvidenceAndParsesReport() passed after 0.001 seconds.
+◇ Test refusesEveryRedirectBeforeSecondRequest() started.
+✔ Test refusesEveryRedirectBeforeSecondRequest() passed after 0.001 seconds.
+◇ Test rejectsDeclaredAndStreamedOversizeBodies() started.
+✔ Test rejectsDeclaredAndStreamedOversizeBodies() passed after 0.002 seconds.
+◇ Test validatesHTTPAndHTMLAndSanitizesNetworkFailure() started.
+✔ Test validatesHTTPAndHTMLAndSanitizesNetworkFailure() passed after 0.001 seconds.
+◇ Test cancellationStopsAnActiveTransfer() started.
+✔ Test cancellationStopsAnActiveTransfer() passed after 0.004 seconds.
+✔ Suite "LoTW manually invoked bounded transport" passed after 0.011 seconds.
+◇ Suite "Pure existing-contact update review" started.
+◇ Test explicitFencesAndProtectedIdentitiesFailWithoutDifferences() started.
+✔ Test explicitFencesAndProtectedIdentitiesFailWithoutDifferences() passed after 0.001 seconds.
+◇ Test arbitraryFieldAddChangeClearRemoveAndPreserveRemainDistinct() started.
+✔ Test arbitraryFieldAddChangeClearRemoveAndPreserveRemainDistinct() passed after 0.001 seconds.
+◇ Test admissionMatchesPreviousImplementationForValidAndInvalidProposals() started.
+✔ Test admissionMatchesPreviousImplementationForValidAndInvalidProposals() passed after 0.001 seconds.
+◇ Test deterministicDiffHasExplicitBoundsAndDoesNotSimulatePersistence() started.
+✔ Test deterministicDiffHasExplicitBoundsAndDoesNotSimulatePersistence() passed after 0.006 seconds.
+◇ Test inspectionDoesNotTouchDatabaseFilesReceiptsOrRecoveryJournal() started.
+✔ Test inspectionDoesNotTouchDatabaseFilesReceiptsOrRecoveryJournal() passed after 0.019 seconds.
+◇ Test canonicalApplyStillRejectsInvalidUpdatesAndCommitsNoOpWithDurableReceipt() started.
+✔ Test canonicalApplyStillRejectsInvalidUpdatesAndCommitsNoOpWithDurableReceipt() passed after 0.008 seconds.
+✔ Suite "Pure existing-contact update review" passed after 0.038 seconds.
+◇ Suite "OM0RX-xLog core" started.
+◇ Test "Semantic identity normalizes mixed timestamp whitespace" started.
+✔ Test "Semantic identity normalizes mixed timestamp whitespace" passed after 0.001 seconds.
+◇ Test "Local save, history, matrix and deletion" started.
+✔ Test "Local save, history, matrix and deletion" passed after 0.011 seconds.
+◇ Test "Callsign matrix includes old confirmations beyond the history page and aggregates each cell" started.
+✔ Test "Callsign matrix includes old confirmations beyond the history page and aggregates each cell" passed after 0.652 seconds.
+◇ Test "DXCC summary is independent from exact callsign history" started.
+✔ Test "DXCC summary is independent from exact callsign history" passed after 0.012 seconds.
+◇ Test "ADIF preserves unknown fields" started.
+✔ Test "ADIF preserves unknown fields" passed after 0.001 seconds.
+◇ Test "Frequency conversion and band classification" started.
+✔ Test "Frequency conversion and band classification" passed after 0.001 seconds.
+◇ Test "Wavelog write projections represent submode, split and satellite fields" started.
+✔ Test "Wavelog write projections represent submode, split and satellite fields" passed after 0.008 seconds.
+◇ Test "Wavelog patches distinguish clears from omissions and verify returned fields" started.
+✔ Test "Wavelog patches distinguish clears from omissions and verify returned fields" passed after 0.004 seconds.
+◇ Test "Wavelog create uses the documented JSON keys through fake HTTP" started.
+✔ Test "Wavelog create uses the documented JSON keys through fake HTTP" passed after 0.001 seconds.
+◇ Test "Wavelog configuration accepts a full API v2 URL" started.
+✔ Test "Wavelog configuration accepts a full API v2 URL" passed after 0.001 seconds.
+◇ Test "Bundled CTY data resolves representative callsigns" started.
+✔ Test "Bundled CTY data resolves representative callsigns" passed after 0.169 seconds.
+◇ Test "Bundled DXCC boundary data is valid and representative" started.
+✔ Test "Bundled DXCC boundary data is valid and representative" passed after 0.026 seconds.
+◇ Test "Great-circle bearings and distance support rotor paths" started.
+✔ Test "Great-circle bearings and distance support rotor paths" passed after 0.001 seconds.
+◇ Test "Solar ephemeris produces a plausible Sun and terminator" started.
+✔ Test "Solar ephemeris produces a plausible Sun and terminator" passed after 0.001 seconds.
+◇ Test "Spot award references are promoted to ADIF fields" started.
+✔ Test "Spot award references are promoted to ADIF fields" passed after 0.001 seconds.
+◇ Test "Remote collision is recorded and explicitly resolved" started.
+✔ Test "Remote collision is recorded and explicitly resolved" passed after 0.013 seconds.
+◇ Test "Keeping a local contact after remote deletion detaches the vanished remote identity" started.
+◇ Test case passing 1 argument merged → false to "Keeping a local contact after remote deletion detaches the vanished remote identity" started.
+◇ Test case passing 1 argument merged → true to "Keeping a local contact after remote deletion detaches the vanished remote identity" started.
+✔ Test "Keeping a local contact after remote deletion detaches the vanished remote identity" with 2 test cases passed after 0.016 seconds.
+◇ Test "Remote merges preserve local-only and unknown ADIF fields" started.
+✔ Test "Remote merges preserve local-only and unknown ADIF fields" passed after 0.008 seconds.
+◇ Test "Satellite ADIF changes are covered by the sync baseline" started.
+✔ Test "Satellite ADIF changes are covered by the sync baseline" passed after 0.021 seconds.
+◇ Test "Sync preflights Wavelog and does not push a two-sided edit" started.
+✔ Test "Sync preflights Wavelog and does not push a two-sided edit" passed after 0.015 seconds.
+◇ Test "Sync PATCH clears supported fields, preserves TIME_OFF and rejects a stale response" started.
+✔ Test "Sync PATCH clears supported fields, preserves TIME_OFF and rejects a stale response" passed after 0.113 seconds.
+◇ Test "Sync date correction preserves explicit TIME_OFF and acknowledges the linked QSO" started.
+✔ Test "Sync date correction preserves explicit TIME_OFF and acknowledges the linked QSO" passed after 0.018 seconds.
+◇ Test "Sync completes every remote page before deletion reconciliation" started.
+✔ Test "Sync completes every remote page before deletion reconciliation" passed after 0.272 seconds.
+◇ Test "Unstable pagination fails closed before remote deletion reconciliation" started.
+✔ Test "Unstable pagination fails closed before remote deletion reconciliation" passed after 0.081 seconds.
+◇ Test "Verified backup previews and restores the complete local database" started.
+✔ Test "Verified backup previews and restores the complete local database" passed after 0.105 seconds.
+◇ Test "Backup snapshots and restores separate contest SQLite stores without WAL dependence" started.
+✔ Test "Backup snapshots and restores separate contest SQLite stores without WAL dependence" passed after 0.130 seconds.
+◇ Test "Backup inspection rejects a changed database" started.
+✔ Test "Backup inspection rejects a changed database" passed after 0.043 seconds.
+◇ Test "Activation directory parses exact matches and prefix suggestions" started.
+✔ Test "Activation directory parses exact matches and prefix suggestions" passed after 0.001 seconds.
+◇ Test "SOTA, IOTA and WWFF official formats preserve names and locations" started.
+✔ Test "SOTA, IOTA and WWFF official formats preserve names and locations" passed after 0.001 seconds.
+✔ Suite "OM0RX-xLog core" passed after 1.731 seconds.
+◇ Suite OneDriveBackupTransportTests started.
+◇ Test conflictFailingCreateAndStableDownloadProduceNamespacedReceipt() started.
+✔ Test conflictFailingCreateAndStableDownloadProduceNamespacedReceipt() passed after 0.005 seconds.
+◇ Test restoreUsesReceiptItemAndETagAndRechecksBytes() started.
+✔ Test restoreUsesReceiptItemAndETagAndRechecksBytes() passed after 0.001 seconds.
+◇ Test metadataChangeDuringDownloadFailsClosed() started.
+✔ Test metadataChangeDuringDownloadFailsClosed() passed after 0.001 seconds.
+◇ Test conflictAndAmbiguousUploadAreNeverReplayed() started.
+✔ Test conflictAndAmbiguousUploadAreNeverReplayed() passed after 0.001 seconds.
+◇ Test largeUploadUsesSequentialAlignedChunks() started.
+✔ Test largeUploadUsesSequentialAlignedChunks() passed after 0.017 seconds.
+◇ Test accountRedirectAndCrossProviderReceiptFailClosed() started.
+✔ Test accountRedirectAndCrossProviderReceiptFailClosed() passed after 0.001 seconds.
+◇ Test adapterRejectsRetentionUntilConditionalDeletionExists() started.
+✔ Test adapterRejectsRetentionUntilConditionalDeletionExists() passed after 0.001 seconds.
+◇ Test routeAllowlistSeparatesBearerAndCapabilityURLs() started.
+✔ Test routeAllowlistSeparatesBearerAndCapabilityURLs() passed after 0.001 seconds.
+✔ Suite OneDriveBackupTransportTests passed after 0.025 seconds.
+◇ Suite "Online log delivery" started.
+◇ Test qrzInsertUsesOneRecordAndNeverRequestsReplace() started.
+✔ Test qrzInsertUsesOneRecordAndNeverRequestsReplace() passed after 0.001 seconds.
+◇ Test clubLogUsesOnlyRealtimeFormAndPreservesADIFBytes() started.
+✔ Test clubLogUsesOnlyRealtimeFormAndPreservesADIFBytes() passed after 0.001 seconds.
+◇ Test sharedHTTPClientAcceptsOnlyTheRequestedProviderEndpoint() started.
+✔ Test sharedHTTPClientAcceptsOnlyTheRequestedProviderEndpoint() passed after 0.001 seconds.
+◇ Test clubLogKnownHTTPFailureAtomicallyDisablesEnrollmentAndCancelsQueue() started.
+✔ Test clubLogKnownHTTPFailureAtomicallyDisablesEnrollmentAndCancelsQueue() passed after 0.026 seconds.
+◇ Test independentEnrollmentDoesNotCrossQueueServices() started.
+✔ Test independentEnrollmentDoesNotCrossQueueServices() passed after 0.033 seconds.
+◇ Test deliveredReceiptSurvivesRestartAndPreventsReplay() started.
+✔ Test deliveredReceiptSurvivesRestartAndPreventsReplay() passed after 0.046 seconds.
+◇ Test ambiguousTransportIsNeverAutomaticallyReplayed() started.
+✔ Test ambiguousTransportIsNeverAutomaticallyReplayed() passed after 0.023 seconds.
+◇ Test onlyExplicitRateLimitResponsesReceiveBoundedRetry() started.
+✔ Test onlyExplicitRateLimitResponsesReceiveBoundedRetry() passed after 0.016 seconds.
+◇ Test candidateRemainsOnlyForBoundedDeferredRetry() started.
+✔ Test candidateRemainsOnlyForBoundedDeferredRetry() passed after 0.031 seconds.
+◇ Test rejectedAndUncertainInsertOutcomesRetireCandidateWithoutReplay() started.
+✔ Test rejectedAndUncertainInsertOutcomesRetireCandidateWithoutReplay() passed after 0.016 seconds.
+◇ Test editedContactInvalidatesPreparedPlanBeforeDispatch() started.
+✔ Test editedContactInvalidatesPreparedPlanBeforeDispatch() passed after 0.038 seconds.
+◇ Test interruptedDispatchRecoversAsUncertainWithoutReplay() started.
+✔ Test interruptedDispatchRecoversAsUncertainWithoutReplay() passed after 0.013 seconds.
+◇ Test claimRejectsRevokedMembershipAcrossConnectionsWithoutConsumingReceipt() started.
+✔ Test claimRejectsRevokedMembershipAcrossConnectionsWithoutConsumingReceipt() passed after 0.014 seconds.
+◇ Test revokedDeferredClaimCannotDispatchAgain() started.
+✔ Test revokedDeferredClaimCannotDispatchAgain() passed after 0.010 seconds.
+◇ Test interruptedCandidateIsRetiredDuringStartupRecovery() started.
+✔ Test interruptedCandidateIsRetiredDuringStartupRecovery() passed after 0.011 seconds.
+◇ Test enrollmentQueuesOnlyExplicitlyFlaggedNewContacts() started.
+✔ Test enrollmentQueuesOnlyExplicitlyFlaggedNewContacts() passed after 0.010 seconds.
+◇ Test explicitIntegrationImportCanEnrollButGenericImportCannot() started.
+✔ Test explicitIntegrationImportCanEnrollButGenericImportCannot() passed after 0.012 seconds.
+◇ Test disablingEnrollmentCancelsPendingAndReenableNeverBackfills() started.
+✔ Test disablingEnrollmentCancelsPendingAndReenableNeverBackfills() passed after 0.009 seconds.
+◇ Test operatorDraftSaveJoinsProspectiveEnrollmentAtomically() started.
+✔ Test operatorDraftSaveJoinsProspectiveEnrollmentAtomically() passed after 0.010 seconds.
+✔ Suite "Online log delivery" passed after 0.329 seconds.
+◇ Suite "Retained online log follow-up" started.
+◇ Test uploadAcceptanceNeverCreatesConfirmationOrCredit() started.
+✔ Test uploadAcceptanceNeverCreatesConfirmationOrCredit() passed after 0.001 seconds.
+◇ Test oldAndForeignReceiptsDoNotLabelCurrentRevisionDelivered() started.
+✔ Test oldAndForeignReceiptsDoNotLabelCurrentRevisionDelivered() passed after 0.001 seconds.
+◇ Test currentUncertainReceiptWinsOverOlderSuccessAndFutureClockIsUnknown() started.
+✔ Test currentUncertainReceiptWinsOverOlderSuccessAndFutureClockIsUnknown() passed after 0.001 seconds.
+◇ Test retainedConfirmationDateIsNotMatchAgeOrAwardCredit() started.
+✔ Test retainedConfirmationDateIsNotMatchAgeOrAwardCredit() passed after 0.001 seconds.
+◇ Test deletedContactKeepsEvidenceButHasNoAwardImpact() started.
+✔ Test deletedContactKeepsEvidenceButHasNoAwardImpact() passed after 0.001 seconds.
+✔ Suite "Retained online log follow-up" passed after 0.002 seconds.
+◇ Suite "Online-log restore safety" started.
+◇ Test databaseIsPublishedWithRestoredUploadConsentAlreadyRevoked() started.
+✔ Test databaseIsPublishedWithRestoredUploadConsentAlreadyRevoked() passed after 0.047 seconds.
+✔ Suite "Online-log restore safety" passed after 0.047 seconds.
+◇ Suite "Operating support" started.
+◇ Test "Automatic rotor planning accepts CTY or spot bearings and normalizes the command" started.
+✔ Test "Automatic rotor planning accepts CTY or spot bearings and normalizes the command" passed after 0.001 seconds.
+◇ Test "Spot confirmation requires observed coherent simplex ownership" started.
+✔ Test "Spot confirmation requires observed coherent simplex ownership" passed after 0.001 seconds.
+◇ Test "xCat split snapshot preserves separate transmit and receive VFOs" started.
+✔ Test "xCat split snapshot preserves separate transmit and receive VFOs" passed after 0.001 seconds.
+◇ Test "Validation detects inconsistent band and a recent duplicate" started.
+✔ Test "Validation detects inconsistent band and a recent duplicate" passed after 0.006 seconds.
+◇ Test "Conflict merge selects individual remote fields while preserving local identity" started.
+✔ Test "Conflict merge selects individual remote fields while preserving local identity" passed after 0.002 seconds.
+◇ Test "Failed sync entries persist their error and respect retry backoff" started.
+✔ Test "Failed sync entries persist their error and respect retry backoff" passed after 0.011 seconds.
+✔ Suite "Operating support" passed after 0.022 seconds.
+◇ Suite "Operator intelligence" started.
+◇ Test "Award progress uses the full database and separates worked from confirmed" started.
+✔ Test "Award progress uses the full database and separates worked from confirmed" passed after 0.010 seconds.
+◇ Test "Weather decoder maps current Open-Meteo conditions" started.
+✔ Test "Weather decoder maps current Open-Meteo conditions" passed after 0.001 seconds.
+◇ Test "Cluster spots expose compact xCluster opportunity codes" started.
+✔ Test "Cluster spots expose compact xCluster opportunity codes" passed after 0.001 seconds.
+✔ Suite "Operator intelligence" passed after 0.011 seconds.
+◇ Suite "Public opportunity feed parsing" started.
+◇ Test "Four public portable programmes retain only observed call, reference and bounded frequency" started.
+✔ Test "Four public portable programmes retain only observed call, reference and bounded frequency" passed after 0.002 seconds.
+◇ Test "WWBOTA multi-reference spot keeps each real reference on one observed call" started.
+✔ Test "WWBOTA multi-reference spot keeps each real reference on one observed call" passed after 0.001 seconds.
+◇ Test "Huge finite and invalid frequencies cannot trap or become fake spots" started.
+✔ Test "Huge finite and invalid frequencies cannot trap or become fake spots" passed after 0.001 seconds.
+◇ Test "425DXN dates and classification come from publisher fields, schema drift fails closed" started.
+✔ Test "425DXN dates and classification come from publisher fields, schema drift fails closed" passed after 0.001 seconds.
+◇ Test "ADXO labelled text retains exact announced aliases and UTC date range" started.
+✔ Test "ADXO labelled text retains exact announced aliases and UTC date range" passed after 0.001 seconds.
+◇ Test "ADXO valid catalogue outside the 30-day horizon is a healthy empty response" started.
+✔ Test "ADXO valid catalogue outside the 30-day horizon is a healthy empty response" passed after 0.001 seconds.
+◇ Test "ADXO malformed months and reversed dates fail closed without crashing" started.
+✔ Test "ADXO malformed months and reversed dates fail closed without crashing" passed after 0.002 seconds.
+◇ Test "ADXO New Year operations infer the previous start year" started.
+✔ Test "ADXO New Year operations infer the previous start year" passed after 0.001 seconds.
+✔ Suite "Public opportunity feed parsing" passed after 0.011 seconds.
+◇ Suite "Persisted award aggregates" started.
+◇ Test "Reopening reuses valid aggregates without rewriting or decoding QSOs" started.
+✔ Test "Reopening reuses valid aggregates without rewriting or decoding QSOs" passed after 0.120 seconds.
+◇ Test "Raw SQL writers invalidate persisted awards on insert, update and delete" started.
+✔ Test "Raw SQL writers invalidate persisted awards on insert, update and delete" passed after 0.239 seconds.
+◇ Test "Corrupt payloads and obsolete keys recompute rather than invent empty results" started.
+✔ Test "Corrupt payloads and obsolete keys recompute rather than invent empty results" passed after 0.196 seconds.
+◇ Test "Cluster rows persist exact raw fields and follow raw external mutations" started.
+✔ Test "Cluster rows persist exact raw fields and follow raw external mutations" passed after 0.012 seconds.
+✔ Suite "Persisted award aggregates" passed after 0.568 seconds.
+◇ Suite "QRP DXCC retained-record preflight v1" started.
+◇ Test candidatesKeepEverySponsorPrerequisiteUnresolvedAndDoNotRequireQSL() started.
+✔ Test candidatesKeepEverySponsorPrerequisiteUnresolvedAndDoNotRequireQSL() passed after 0.001 seconds.
+◇ Test cutoffIsInclusiveAndExplicitLocalExclusionsRemainExplained() started.
+✔ Test cutoffIsInclusiveAndExplicitLocalExclusionsRemainExplained() passed after 0.001 seconds.
+◇ Test unsupportedPowerRemainsUnknown(_:) started.
+◇ Test case passing 1 argument power → "" to unsupportedPowerRemainsUnknown(_:) started.
+◇ Test case passing 1 argument power → "unknown" to unsupportedPowerRemainsUnknown(_:) started.
+◇ Test case passing 1 argument power → "5 W" to unsupportedPowerRemainsUnknown(_:) started.
+◇ Test case passing 1 argument power → "NaN" to unsupportedPowerRemainsUnknown(_:) started.
+◇ Test case passing 1 argument power → "Infinity" to unsupportedPowerRemainsUnknown(_:) started.
+◇ Test case passing 1 argument power → "-1" to unsupportedPowerRemainsUnknown(_:) started.
+◇ Test case passing 1 argument power → "1e0" to unsupportedPowerRemainsUnknown(_:) started.
+◇ Test case passing 1 argument power → "５" to unsupportedPowerRemainsUnknown(_:) started.
+◇ Test case passing 1 argument power → "." to unsupportedPowerRemainsUnknown(_:) started.
+◇ Test case passing 1 argument power → "1.2.3" to unsupportedPowerRemainsUnknown(_:) started.
+◇ Test case passing 1 argument power → "00000000000000000000000000000000000000000000000000000000000000000" to unsupportedPowerRemainsUnknown(_:) started.
+✔ Test unsupportedPowerRemainsUnknown(_:) with 11 test cases passed after 0.001 seconds.
+◇ Test exactPositiveDecimalScreenDoesNotInventMeasurementEvidence() started.
+✔ Test exactPositiveDecimalScreenDoesNotInventMeasurementEvidence() passed after 0.001 seconds.
+◇ Test missingAndAmbiguousRecordsStayUnknownWithoutCallsignOrLocationInference() started.
+✔ Test missingAndAmbiguousRecordsStayUnknownWithoutCallsignOrLocationInference() passed after 0.001 seconds.
+◇ Test deletedAndDuplicateSnapshotsNeverCreateCandidateProgress() started.
+✔ Test deletedAndDuplicateSnapshotsNeverCreateCandidateProgress() passed after 0.001 seconds.
+◇ Test confirmationsPowerProvenanceAndOwnCallNeverGrantSponsorAuthority() started.
+✔ Test confirmationsPowerProvenanceAndOwnCallNeverGrantSponsorAuthority() passed after 0.001 seconds.
+✔ Suite "QRP DXCC retained-record preflight v1" passed after 0.002 seconds.
+◇ Suite "Canonical data-quality duplicate review" started.
+◇ Test reusesNativeRuleAndExcludesSelfDeletedAndOutOfWindowRecords() started.
+✔ Test reusesNativeRuleAndExcludesSelfDeletedAndOutOfWindowRecords() passed after 0.015 seconds.
+◇ Test usesOneLookaheadAndReportsTruncationWithoutInventingTotal() started.
+✔ Test usesOneLookaheadAndReportsTruncationWithoutInventingTotal() passed after 0.010 seconds.
+◇ Test missingInputsAndDeletedContactsRemainUnknownNotUnique() started.
+✔ Test missingInputsAndDeletedContactsRemainUnknownNotUnique() passed after 0.010 seconds.
+✔ Suite "Canonical data-quality duplicate review" passed after 0.036 seconds.
+◇ Suite "Read-only QSO data quality" started.
+◇ Test validatorFindingsReuseExistingRulesAndNeverInventFieldDates() started.
+✔ Test validatorFindingsReuseExistingRulesAndNeverInventFieldDates() passed after 0.001 seconds.
+◇ Test referenceComparisonProtectsStoredOverridesAndRetainsUnknownVersionAndDate() started.
+✔ Test referenceComparisonProtectsStoredOverridesAndRetainsUnknownVersionAndDate() passed after 0.155 seconds.
+◇ Test powerComparisonKeepsObservationDateSeparateAndManualEditAuthoritative() started.
+✔ Test powerComparisonKeepsObservationDateSeparateAndManualEditAuthoritative() passed after 0.002 seconds.
+◇ Test missingMalformedAndUnknownPowerProvenanceStayUnknown() started.
+✔ Test missingMalformedAndUnknownPowerProvenanceStayUnknown() passed after 0.001 seconds.
+◇ Test conflictsUseExistingDifferencesAndRejectStaleOrForeignContext() started.
+✔ Test conflictsUseExistingDifferencesAndRejectStaleOrForeignContext() passed after 0.001 seconds.
+✔ Suite "Read-only QSO data quality" passed after 0.161 seconds.
+◇ Suite "Reference data updater" started.
+◇ Test "Recent metadata cannot make missing or corrupt reference caches available" started.
+✔ Test "Recent metadata cannot make missing or corrupt reference caches available" passed after 0.013 seconds.
+◇ Test "Every supported valid cache is available without requiring download metadata" started.
+✔ Test "Every supported valid cache is available without requiring download metadata" passed after 0.261 seconds.
+◇ Test "Cache validation enforces byte minima and activation record minima" started.
+✔ Test "Cache validation enforces byte minima and activation record minima" passed after 0.017 seconds.
+◇ Test "Missing or corrupt caches recover with unconditional requests despite retained validators" started.
+◇ Test case passing 2 arguments name → "cty.xml", corrupt → false to "Missing or corrupt caches recover with unconditional requests despite retained validators" started.
+◇ Test case passing 2 arguments name → "cty.xml", corrupt → true to "Missing or corrupt caches recover with unconditional requests despite retained validators" started.
+◇ Test case passing 2 arguments name → "lotw-user-activity.csv", corrupt → false to "Missing or corrupt caches recover with unconditional requests despite retained validators" started.
+◇ Test case passing 2 arguments name → "lotw-user-activity.csv", corrupt → true to "Missing or corrupt caches recover with unconditional requests despite retained validators" started.
+◇ Test case passing 2 arguments name → "wavelog-catalog.json", corrupt → false to "Missing or corrupt caches recover with unconditional requests despite retained validators" started.
+◇ Test case passing 2 arguments name → "wavelog-catalog.json", corrupt → true to "Missing or corrupt caches recover with unconditional requests despite retained validators" started.
+◇ Test case passing 2 arguments name → "pota-parks.csv", corrupt → false to "Missing or corrupt caches recover with unconditional requests despite retained validators" started.
+◇ Test case passing 2 arguments name → "pota-parks.csv", corrupt → true to "Missing or corrupt caches recover with unconditional requests despite retained validators" started.
+◇ Test case passing 2 arguments name → "sota-summits.csv", corrupt → false to "Missing or corrupt caches recover with unconditional requests despite retained validators" started.
+◇ Test case passing 2 arguments name → "sota-summits.csv", corrupt → true to "Missing or corrupt caches recover with unconditional requests despite retained validators" started.
+◇ Test case passing 2 arguments name → "iota-groups.json", corrupt → false to "Missing or corrupt caches recover with unconditional requests despite retained validators" started.
+◇ Test case passing 2 arguments name → "iota-groups.json", corrupt → true to "Missing or corrupt caches recover with unconditional requests despite retained validators" started.
+◇ Test case passing 2 arguments name → "wwff-directory.csv", corrupt → false to "Missing or corrupt caches recover with unconditional requests despite retained validators" started.
+◇ Test case passing 2 arguments name → "wwff-directory.csv", corrupt → true to "Missing or corrupt caches recover with unconditional requests despite retained validators" started.
+✔ Test "Missing or corrupt caches recover with unconditional requests despite retained validators" with 14 test cases passed after 2.236 seconds.
+◇ Test "Cancelled downloads retain the last good cache" started.
+◇ Test case passing 1 argument name → "cty.xml" to "Cancelled downloads retain the last good cache" started.
+◇ Test case passing 1 argument name → "lotw-user-activity.csv" to "Cancelled downloads retain the last good cache" started.
+◇ Test case passing 1 argument name → "wavelog-catalog.json" to "Cancelled downloads retain the last good cache" started.
+◇ Test case passing 1 argument name → "pota-parks.csv" to "Cancelled downloads retain the last good cache" started.
+✔ Test "Cancelled downloads retain the last good cache" with 4 test cases passed after 0.054 seconds.
+◇ Test "Legacy state has no invented download history" started.
+✔ Test "Legacy state has no invented download history" passed after 0.001 seconds.
+◇ Test "Explicit source versions are bounded, persisted, preserved on 304 and replaced by a new representation" started.
+✔ Test "Explicit source versions are bounded, persisted, preserved on 304 and replaced by a new representation" passed after 0.014 seconds.
+◇ Test "200 downloads and 304 checks retain distinct dates; partial failure persists" started.
+✔ Test "200 downloads and 304 checks retain distinct dates; partial failure persists" passed after 0.010 seconds.
+◇ Test "Selective scheduled CTY and LoTW checks request only their due source" started.
+✔ Test "Selective scheduled CTY and LoTW checks request only their due source" passed after 0.004 seconds.
+◇ Test "Credential-bearing endpoints reject HTTP before requests and refuse redirects" started.
+✔ Test "Credential-bearing endpoints reject HTTP before requests and refuse redirects" passed after 0.001 seconds.
+◇ Test "Wavelog catalogue check does not become a new download" started.
+✔ Test "Wavelog catalogue check does not become a new download" passed after 0.003 seconds.
+◇ Test "Changed source URL or credential never reuses a prior validator or cache on 304" started.
+✔ Test "Changed source URL or credential never reuses a prior validator or cache on 304" passed after 0.009 seconds.
+◇ Test "Changing a Wavelog bearer scope cannot accept an earlier catalogue 304" started.
+✔ Test "Changing a Wavelog bearer scope cannot accept an earlier catalogue 304" passed after 0.002 seconds.
+◇ Test "Invalid CTY and LoTW responses never replace a usable cache or pass 304" started.
+✔ Test "Invalid CTY and LoTW responses never replace a usable cache or pass 304" passed after 0.009 seconds.
+◇ Test "Conditional activation refresh preserves validated cache and rejects corrupt replacements" started.
+✔ Test "Conditional activation refresh preserves validated cache and rejects corrupt replacements" passed after 0.302 seconds.
+✔ Suite "Reference data updater" passed after 2.942 seconds.
+◇ Suite RemoteBackupAuthorizationTests started.
+◇ Test defaultOffAndExactApprovalSurviveRestart() started.
+✔ Test defaultOffAndExactApprovalSurviveRestart() passed after 0.005 seconds.
+◇ Test explicitRecurrenceRevisionAndDestinationFences() started.
+✔ Test explicitRecurrenceRevisionAndDestinationFences() passed after 0.004 seconds.
+◇ Test workspaceRotationInvalidatesOldConsentAndPlans() started.
+✔ Test workspaceRotationInvalidatesOldConsentAndPlans() passed after 0.006 seconds.
+◇ Test revocationIsDurableAndCannotBeOverwrittenByStaleOwner() started.
+✔ Test revocationIsDurableAndCannotBeOverwrittenByStaleOwner() passed after 0.004 seconds.
+◇ Test independentOwnersCannotApproveTheSameConfigurationRevisionTwice() started.
+✔ Test independentOwnersCannotApproveTheSameConfigurationRevisionTwice() passed after 0.003 seconds.
+◇ Test corruptConfigurationAndAbandonedLockFailClosed() started.
+✔ Test corruptConfigurationAndAbandonedLockFailClosed() passed after 0.002 seconds.
+◇ Test legacyNumericOperationAndScheduleRecordsNeverAcquireUUIDAuthority() started.
+✔ Test legacyNumericOperationAndScheduleRecordsNeverAcquireUUIDAuthority() passed after 0.005 seconds.
+✔ Suite RemoteBackupAuthorizationTests passed after 0.032 seconds.
+◇ Suite RemoteBackupExecutionTests started.
+◇ Test frozenBytesAreVerifiedAndDuplicatesDoNotUpload() started.
+✔ Test frozenBytesAreVerifiedAndDuplicatesDoNotUpload() passed after 0.036 seconds.
+◇ Test failuresNeverVerifyOrRetry(mode:) started.
+◇ Test case passing 1 argument mode → .conflict to failuresNeverVerifyOrRetry(mode:) started.
+◇ Test case passing 1 argument mode → .notCreated to failuresNeverVerifyOrRetry(mode:) started.
+◇ Test case passing 1 argument mode → .writeThrows to failuresNeverVerifyOrRetry(mode:) started.
+◇ Test case passing 1 argument mode → .verifyThrows to failuresNeverVerifyOrRetry(mode:) started.
+◇ Test case passing 1 argument mode → .mismatch to failuresNeverVerifyOrRetry(mode:) started.
+✔ Test failuresNeverVerifyOrRetry(mode:) with 5 test cases passed after 0.123 seconds.
+◇ Test rejectsStaleOrMismatchedInputsBeforeTransport() started.
+✔ Test rejectsStaleOrMismatchedInputsBeforeTransport() passed after 0.022 seconds.
+◇ Test terminalReceiptsSurviveRestartWithoutReplay(mode:) started.
+◇ Test case passing 1 argument mode → .success to terminalReceiptsSurviveRestartWithoutReplay(mode:) started.
+◇ Test case passing 1 argument mode → .notCreated to terminalReceiptsSurviveRestartWithoutReplay(mode:) started.
+◇ Test case passing 1 argument mode → .writeThrows to terminalReceiptsSurviveRestartWithoutReplay(mode:) started.
+◇ Test case passing 1 argument mode → .verifyThrows to terminalReceiptsSurviveRestartWithoutReplay(mode:) started.
+◇ Test case passing 1 argument mode → .mismatch to terminalReceiptsSurviveRestartWithoutReplay(mode:) started.
+✔ Test terminalReceiptsSurviveRestartWithoutReplay(mode:) with 5 test cases passed after 0.158 seconds.
+◇ Test completionStorageFailureNeverReportsVerifiedOrReplays() started.
+✔ Test completionStorageFailureNeverReportsVerifiedOrReplays() passed after 0.025 seconds.
+◇ Test allDestinationContractsRoundTripExactly() started.
+✔ Test allDestinationContractsRoundTripExactly() passed after 0.053 seconds.
+◇ Test pendingReservationRecoversAsUncertainIncludingStaleOwners() started.
+✔ Test pendingReservationRecoversAsUncertainIncludingStaleOwners() passed after 0.028 seconds.
+◇ Test corruptStateFailsClosed(mutation:) started.
+◇ Test case passing 1 argument mutation → "version" to corruptStateFailsClosed(mutation:) started.
+◇ Test case passing 1 argument mutation → "digest" to corruptStateFailsClosed(mutation:) started.
+◇ Test case passing 1 argument mutation → "truncated" to corruptStateFailsClosed(mutation:) started.
+◇ Test case passing 1 argument mutation → "missing" to corruptStateFailsClosed(mutation:) started.
+◇ Test case passing 1 argument mutation → "oversized" to corruptStateFailsClosed(mutation:) started.
+◇ Test case passing 1 argument mutation → "symlink" to corruptStateFailsClosed(mutation:) started.
+◇ Test case passing 1 argument mutation → "orphan" to corruptStateFailsClosed(mutation:) started.
+✔ Test corruptStateFailsClosed(mutation:) with 7 test cases passed after 0.211 seconds.
+◇ Test nonPrivateStateFilesFailClosed() started.
+✔ Test nonPrivateStateFilesFailClosed() passed after 0.032 seconds.
+◇ Test persistedDestinationAndPackageAreRevalidatedEvenWithRecomputedDigest() started.
+✔ Test persistedDestinationAndPackageAreRevalidatedEvenWithRecomputedDigest() passed after 0.030 seconds.
+◇ Test cancellationBeforeCreationDoesNotReserveTheOperation() started.
+✔ Test cancellationBeforeCreationDoesNotReserveTheOperation() passed after 0.026 seconds.
+◇ Test inFlightAndReboundOperationsCannotCreateTwice() started.
+✔ Test inFlightAndReboundOperationsCannotCreateTwice() passed after 0.038 seconds.
+✔ Suite RemoteBackupExecutionTests passed after 0.789 seconds.
+◇ Suite RemoteBackupLocalAdapterTests started.
+◇ Test freshSealedSnapshotsFollowInjectedOwnerAndRemoveEveryStage() started.
+✔ Test freshSealedSnapshotsFollowInjectedOwnerAndRemoveEveryStage() passed after 0.083 seconds.
+◇ Test freshRemoteCaptureIncludesContestSQLiteAndExcludesTransientState() started.
+✔ Test freshRemoteCaptureIncludesContestSQLiteAndExcludesTransientState() passed after 0.152 seconds.
+◇ Test staleOwnerAndEncodingFailureLeaveStagingEmpty() started.
+✔ Test staleOwnerAndEncodingFailureLeaveStagingEmpty() passed after 0.034 seconds.
+◇ Test cancellationAfterSnapshotNeverReturnsBytesOrLeavesStages() started.
+✔ Test cancellationAfterSnapshotNeverReturnsBytesOrLeavesStages() passed after 0.030 seconds.
+◇ Test stagingSymlinksAndPublicUnixPermissionsFailClosed() started.
+✔ Test stagingSymlinksAndPublicUnixPermissionsFailClosed() passed after 0.013 seconds.
+◇ Test periodicTicksValidateIntervalsWaitAndRespectCancellation() started.
+✔ Test periodicTicksValidateIntervalsWaitAndRespectCancellation() passed after 0.002 seconds.
+✔ Suite RemoteBackupLocalAdapterTests passed after 0.318 seconds.
+◇ Suite RemoteBackupOwnerTests started.
+◇ Test recurringDriverUsesFreshIdentityAndExactContextAcrossIntervals() started.
+✔ Test recurringDriverUsesFreshIdentityAndExactContextAcrossIntervals() passed after 0.064 seconds.
+◇ Test defaultOnceAndFailureNeverRearm(failed:) started.
+◇ Test case passing 1 argument failed → false to defaultOnceAndFailureNeverRearm(failed:) started.
+◇ Test case passing 1 argument failed → true to defaultOnceAndFailureNeverRearm(failed:) started.
+✔ Test defaultOnceAndFailureNeverRearm(failed:) with 2 test cases passed after 0.078 seconds.
+◇ Test preparedClaimModeRejectsRecurringBeforeEnablingOrCapturing() started.
+✔ Test preparedClaimModeRejectsRecurringBeforeEnablingOrCapturing() passed after 0.025 seconds.
+◇ Test recurringUncertainOutcomeCannotRearm() started.
+✔ Test recurringUncertainOutcomeCannotRearm() passed after 0.039 seconds.
+◇ Test stopOrClockJumpDuringExecutionPreventsRearm(stop:) started.
+◇ Test case passing 1 argument stop → false to stopOrClockJumpDuringExecutionPreventsRearm(stop:) started.
+◇ Test case passing 1 argument stop → true to stopOrClockJumpDuringExecutionPreventsRearm(stop:) started.
+✔ Test stopOrClockJumpDuringExecutionPreventsRearm(stop:) with 2 test cases passed after 0.074 seconds.
+◇ Test defaultOffThenFreshFrozenClaimAndNoReplay() started.
+✔ Test defaultOffThenFreshFrozenClaimAndNoReplay() passed after 0.038 seconds.
+◇ Test clockReviewPrecedesCapture(delta:) started.
+◇ Test case passing 1 argument delta → -1.0 to clockReviewPrecedesCapture(delta:) started.
+◇ Test case passing 1 argument delta → 86401.0 to clockReviewPrecedesCapture(delta:) started.
+✔ Test clockReviewPrecedesCapture(delta:) with 2 test cases passed after 0.073 seconds.
+◇ Test stopAndConcurrentTickCannotIssueDuringCapture() started.
+✔ Test stopAndConcurrentTickCannotIssueDuringCapture() passed after 0.029 seconds.
+◇ Test thrownExecutorPersistsUncertainty() started.
+✔ Test thrownExecutorPersistsUncertainty() passed after 0.035 seconds.
+◇ Test captureFailureDoesNotReserveAndCanBeRetried() started.
+✔ Test captureFailureDoesNotReserveAndCanBeRetried() passed after 0.042 seconds.
+◇ Test concurrentFreshClaimsIssueOnceAcrossSchedulers() started.
+✔ Test concurrentFreshClaimsIssueOnceAcrossSchedulers() passed after 0.026 seconds.
+◇ Test interruptedFreshReservationBlocksAnotherFreshID() started.
+✔ Test interruptedFreshReservationBlocksAnotherFreshID() passed after 0.028 seconds.
+✔ Suite RemoteBackupOwnerTests passed after 0.557 seconds.
+◇ Suite RemoteBackupPlanningTests started.
+◇ Test defaultsAndCloudValidation() started.
+✔ Test defaultsAndCloudValidation() passed after 0.001 seconds.
+◇ Test serverSecurityAndPathValidation() started.
+✔ Test serverSecurityAndPathValidation() passed after 0.001 seconds.
+◇ Test immutableUploadBindingAndPackageValidation() started.
+✔ Test immutableUploadBindingAndPackageValidation() passed after 0.001 seconds.
+◇ Test retentionPreservesForeignFailedUncertainAndNewest() started.
+✔ Test retentionPreservesForeignFailedUncertainAndNewest() passed after 0.001 seconds.
+◇ Test retentionPreservesAmbiguousObjectReceiptsAndHasStableTies() started.
+✔ Test retentionPreservesAmbiguousObjectReceiptsAndHasStableTies() passed after 0.001 seconds.
+✔ Suite RemoteBackupPlanningTests passed after 0.001 seconds.
+◇ Suite RemoteBackupRetentionReviewTests started.
+◇ Test onlyExactPinnedVerifiedObjectsBecomeStableCandidates() started.
+✔ Test onlyExactPinnedVerifiedObjectsBecomeStableCandidates() passed after 0.001 seconds.
+◇ Test legacyProoflessReceiptsDoNotConsumeTheVerifiedKeepMinimum() started.
+✔ Test legacyProoflessReceiptsDoNotConsumeTheVerifiedKeepMinimum() passed after 0.001 seconds.
+◇ Test priorDeletionClaimsAreVisibleButNeverCandidates() started.
+✔ Test priorDeletionClaimsAreVisibleButNeverCandidates() passed after 0.001 seconds.
+◇ Test ambiguousBackupAndRemoteObjectIdentitiesAlwaysRemainProtected() started.
+✔ Test ambiguousBackupAndRemoteObjectIdentitiesAlwaysRemainProtected() passed after 0.001 seconds.
+◇ Test clockAnomaliesPreventEveryCandidateAndTiesAreStable() started.
+✔ Test clockAnomaliesPreventEveryCandidateAndTiesAreStable() passed after 0.001 seconds.
+◇ Test pinnedObjectsRequireValidatedSyntaxAndVerifiedOutcomes() started.
+✔ Test pinnedObjectsRequireValidatedSyntaxAndVerifiedOutcomes() passed after 0.001 seconds.
+◇ Test readOnlyHistoryPreservesPinnedEvidenceAndLegacyReceiptsAcrossRestart() started.
+✔ Test readOnlyHistoryPreservesPinnedEvidenceAndLegacyReceiptsAcrossRestart() passed after 0.006 seconds.
+◇ Test interruptedAndCorruptHistoryCannotProduceVerifiedEvidence() started.
+✔ Test interruptedAndCorruptHistoryCannotProduceVerifiedEvidence() passed after 0.002 seconds.
+✔ Suite RemoteBackupRetentionReviewTests passed after 0.010 seconds.
+◇ Suite RemoteBackupSchedulerTests started.
+◇ Test defaultOffAndDeterministicDueClaimSurviveRestart() started.
+✔ Test defaultOffAndDeterministicDueClaimSurviveRestart() passed after 0.038 seconds.
+◇ Test disableIsDurableAndNoIntervalCannotEnable() started.
+✔ Test disableIsDurableAndNoIntervalCannotEnable() passed after 0.032 seconds.
+◇ Test clockAnomaliesRequireExplicitReenable(delta:) started.
+◇ Test case passing 1 argument delta → -1.0 to clockAnomaliesRequireExplicitReenable(delta:) started.
+◇ Test case passing 1 argument delta → 86401.0 to clockAnomaliesRequireExplicitReenable(delta:) started.
+✔ Test clockAnomaliesRequireExplicitReenable(delta:) with 2 test cases passed after 0.061 seconds.
+◇ Test unfinishedOrUncertainWorkBlocksReplacementAndReplay() started.
+✔ Test unfinishedOrUncertainWorkBlocksReplacementAndReplay() passed after 0.038 seconds.
+◇ Test completedWorkRequiresFreshPlanAndCannotReuseClaimedID() started.
+✔ Test completedWorkRequiresFreshPlanAndCannotReuseClaimedID() passed after 0.039 seconds.
+◇ Test abandonedLockAndCorruptScheduleFailClosed() started.
+✔ Test abandonedLockAndCorruptScheduleFailClosed() passed after 0.032 seconds.
+◇ Test reservationBeforeInterruptedClaimSaveNeverReplays() started.
+✔ Test reservationBeforeInterruptedClaimSaveNeverReplays() passed after 0.030 seconds.
+◇ Test concurrentOwnersIssueOnlyOneClaim() started.
+✔ Test concurrentOwnersIssueOnlyOneClaim() passed after 0.036 seconds.
+◇ Test missingScheduleCannotHideAnUnknownDestinationClaim() started.
+✔ Test missingScheduleCannotHideAnUnknownDestinationClaim() passed after 0.031 seconds.
+◇ Test staleContextAndInvalidClockNeverClaim() started.
+✔ Test staleContextAndInvalidClockNeverClaim() passed after 0.029 seconds.
+✔ Suite RemoteBackupSchedulerTests passed after 0.371 seconds.
+◇ Suite "Revisioned rotor configuration" started.
+◇ Test "Legacy seed is one-time and stale editors conflict" started.
+✔ Test "Legacy seed is one-time and stale editors conflict" passed after 0.011 seconds.
+◇ Test "Replay, no-op and operation reuse are deterministic" started.
+✔ Test "Replay, no-op and operation reuse are deterministic" passed after 0.007 seconds.
+◇ Test "Restore replacement retires old receipts" started.
+✔ Test "Restore replacement retires old receipts" passed after 0.008 seconds.
+◇ Test "Invalid connection values never enter the database" started.
+✔ Test "Invalid connection values never enter the database" passed after 0.005 seconds.
+◇ Test "Legacy configuration enables the startup preference and band policy is bounded" started.
+✔ Test "Legacy configuration enables the startup preference and band policy is bounded" passed after 0.001 seconds.
+✔ Suite "Revisioned rotor configuration" passed after 0.033 seconds.
+◇ Suite SFTPBackupConfigurationTests started.
+◇ Test canonicalPinsRoundTripThroughValidatedDecoding() started.
+✔ Test canonicalPinsRoundTripThroughValidatedDecoding() passed after 0.004 seconds.
+◇ Test endpointsAndDirectoriesFailClosed() started.
+✔ Test endpointsAndDirectoriesFailClosed() passed after 0.001 seconds.
+◇ Test allAuthorityFieldsFenceIdentityAndEquivalentEndpointsCanonicalize() started.
+✔ Test allAuthorityFieldsFenceIdentityAndEquivalentEndpointsCanonicalize() passed after 0.001 seconds.
+◇ Test credentialsAreBoundedRedactedAndCannotBeSerialized() started.
+✔ Test credentialsAreBoundedRedactedAndCannotBeSerialized() passed after 0.001 seconds.
+✔ Suite SFTPBackupConfigurationTests passed after 0.008 seconds.
+◇ Suite "Passive Keychain query cache" started.
+◇ Test "Passive values and misses are read once and shared with presence checks" started.
+✔ Test "Passive values and misses are read once and shared with presence checks" passed after 0.001 seconds.
+◇ Test "Passive failures are bounded but explicit reads bypass and refresh" started.
+✔ Test "Passive failures are bounded but explicit reads bypass and refresh" passed after 0.001 seconds.
+✔ Suite "Passive Keychain query cache" passed after 0.001 seconds.
+◇ Suite "Logbook mode migration" started.
+◇ Test "Fresh settings stay local despite the example Wavelog URL" started.
+✔ Test "Fresh settings stay local despite the example Wavelog URL" passed after 0.001 seconds.
+◇ Test "Existing settings without a mode retain Wavelog behavior and round-trip explicitly" started.
+✔ Test "Existing settings without a mode retain Wavelog behavior and round-trip explicitly" passed after 0.007 seconds.
+◇ Test "Unknown mode is rejected instead of silently changing sync behavior" started.
+✔ Test "Unknown mode is rejected instead of silently changing sync behavior" passed after 0.001 seconds.
+◇ Test "FTP settings require exact scheme and explicit plain-text consent" started.
+✔ Test "FTP settings require exact scheme and explicit plain-text consent" passed after 0.001 seconds.
+✔ Suite "Logbook mode migration" passed after 0.009 seconds.
+◇ Suite "Station equipment preferences" started.
+◇ Test "Old settings default to automatic equipment without changing identity or mode" started.
+✔ Test "Old settings default to automatic equipment without changing identity or mode" passed after 0.001 seconds.
+◇ Test "Antenna profile survives a settings round trip" started.
+✔ Test "Antenna profile survives a settings round trip" passed after 0.001 seconds.
+✔ Suite "Station equipment preferences" passed after 0.001 seconds.
+◇ Suite "Transmit power capture" started.
+◇ Test "Drive power is used before RF output is observed" started.
+✔ Test "Drive power is used before RF output is observed" passed after 0.001 seconds.
+◇ Test "Measured output survives the return to receive" started.
+✔ Test "Measured output survives the return to receive" passed after 0.001 seconds.
+◇ Test "A new QSO resets measured output" started.
+✔ Test "A new QSO resets measured output" passed after 0.001 seconds.
+✔ Suite "Transmit power capture" passed after 0.001 seconds.
+◇ Suite "Wavelog end-time verification" started.
+◇ Test "A stale or missing TIME_OFF is not a verified PATCH" started.
+✔ Test "A stale or missing TIME_OFF is not a verified PATCH" passed after 0.001 seconds.
+◇ Test "Only an exact JSON or ADIF end readback acknowledges the edit" started.
+◇ Test case passing 1 argument scenario → "json_ok" to "Only an exact JSON or ADIF end readback acknowledges the edit" started.
+◇ Test case passing 1 argument scenario → "json_wrong" to "Only an exact JSON or ADIF end readback acknowledges the edit" started.
+◇ Test case passing 1 argument scenario → "adif_ok" to "Only an exact JSON or ADIF end readback acknowledges the edit" started.
+◇ Test case passing 1 argument scenario → "adif_wrong" to "Only an exact JSON or ADIF end readback acknowledges the edit" started.
+◇ Test case passing 1 argument scenario → "missing_adif" to "Only an exact JSON or ADIF end readback acknowledges the edit" started.
+◇ Test case passing 1 argument scenario → "wrong_identity" to "Only an exact JSON or ADIF end readback acknowledges the edit" started.
+◇ Test case passing 1 argument scenario → "wrong_id" to "Only an exact JSON or ADIF end readback acknowledges the edit" started.
+◇ Test case passing 1 argument scenario → "wrong_date_off" to "Only an exact JSON or ADIF end readback acknowledges the edit" started.
+✔ Test "Only an exact JSON or ADIF end readback acknowledges the edit" with 8 test cases passed after 0.132 seconds.
+✔ Suite "Wavelog end-time verification" passed after 0.134 seconds.
+✔ Test run with 332 tests in 45 suites passed after 41.504 seconds.
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite ContestQSOOperatorStyleCodingTests started.
+◇ Test "Legacy QSO bytes decode and re-encode without an operator-style key" started.
+✔ Test "Legacy QSO bytes decode and re-encode without an operator-style key" passed after 0.002 seconds.
+◇ Test "Known operator style is encoded as one optional canonical key" started.
+✔ Test "Known operator style is encoded as one optional canonical key" passed after 0.001 seconds.
+✔ Suite ContestQSOOperatorStyleCodingTests passed after 0.003 seconds.
+◇ Suite ContestRateStatisticsTests started.
+◇ Test "Logged contacts drive source-compatible rolling and latest-N rates" started.
+✔ Test "Logged contacts drive source-compatible rolling and latest-N rates" passed after 0.005 seconds.
+◇ Test "Single-contact rolling rate is one and zero-duration samples are unavailable" started.
+✔ Test "Single-contact rolling rate is one and zero-duration samples are unavailable" passed after 0.001 seconds.
+◇ Test "Band statistics retain logged dupes while points and accepted counts follow the rescore" started.
+✔ Test "Band statistics retain logged dupes while points and accepted counts follow the rescore" passed after 0.001 seconds.
+◇ Test "Future contacts and exact UTC lower boundaries are excluded" started.
+✔ Test "Future contacts and exact UTC lower boundaries are excluded" passed after 0.001 seconds.
+◇ Test "Facts are optional but duplicate or foreign fact identities fail closed" started.
+✔ Test "Facts are optional but duplicate or foreign fact identities fail closed" passed after 0.001 seconds.
+◇ Test "Score/QSO identity mismatch fails closed" started.
+✔ Test "Score/QSO identity mismatch fails closed" passed after 0.001 seconds.
+✔ Suite ContestRateStatisticsTests passed after 0.008 seconds.
+✔ Test run with 8 tests in 2 suites passed after 0.012 seconds.

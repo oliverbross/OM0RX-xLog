@@ -1,0 +1,48 @@
+{
+  "catalogueCount": 97,
+  "source": "4bd554a25951ddc995b4bef1715d3df12918a07b",
+  "familyTestsRunByChecker": 0,
+  "pythonUnitTests": {
+    "testsRun": 537,
+    "durationSeconds": 239.907,
+    "result": "PASS",
+    "log": "python-tests.log"
+  },
+  "manualCoverage": {
+    "not reviewed": 222,
+    "scanned only": 14,
+    "fully reviewed": 29,
+    "partially reviewed": 13
+  },
+  "reproductions": [
+    {
+      "script": "repro_recorder_esm.py",
+      "evidence": "repro_recorder_esm.json",
+      "exitCode": 0,
+      "result": "defect reproduced"
+    },
+    {
+      "script": "repro_wae_call_area.py",
+      "evidence": "repro_wae_call_area.json",
+      "exitCode": 0,
+      "result": "defect reproduced"
+    },
+    {
+      "script": "repro_import_shared_serial.py",
+      "evidence": "repro_import_shared_serial.json",
+      "exitCode": 0,
+      "result": "defect reproduced"
+    },
+    {
+      "script": "repro_import_replica.py",
+      "evidence": "repro_import_replica.json",
+      "exitCode": 0,
+      "result": "defect reproduced"
+    }
+  ],
+  "checkStatusCounts": {
+    "PASS": 1353,
+    "NOT APPLICABLE": 5
+  },
+  "failures": {}
+}

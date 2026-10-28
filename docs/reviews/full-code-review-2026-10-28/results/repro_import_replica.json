@@ -1,0 +1,14 @@
+{
+  "masterAuditKinds": [
+    "adif_import"
+  ],
+  "masterAfterIdentity": [
+    null
+  ],
+  "replicaRejection": {
+    "code": "invalid_request",
+    "message": "Replica change kind is invalid"
+  },
+  "masterContacts": 1,
+  "replicaContacts": 0
+}

@@ -1,0 +1,30 @@
+{
+  "actual_score": {
+    "qsos": 3,
+    "points": 3,
+    "qtcPoints": 0,
+    "countries": 2,
+    "zones": 0,
+    "multipliers": 4,
+    "total": 12,
+    "scoringComplete": true,
+    "scoringLimitation": "",
+    "ruleEdition": "DARC 2025-06-17 / 2026 event dates"
+  },
+  "actual_keys": {
+    "7M4XYZ": "JA7",
+    "7K4ABC": "JA7",
+    "JR4AAA": "JA4"
+  },
+  "expected_keys": {
+    "JR4AAA": "JA4",
+    "7K4ABC": "JA4",
+    "7M4XYZ": "JA4"
+  },
+  "expected_score": {
+    "points": 3,
+    "multipliers": 2,
+    "total": 6
+  },
+  "rule_evidence_sha256": "9693e5e843a6bfb054deafe2004d55384c0224a764816c66248f5f13e54c668c"
+}

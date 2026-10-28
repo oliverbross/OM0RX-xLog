@@ -1,0 +1,13 @@
+{
+  "sourceURL": "https://www.darc.de/der-club/referate/conteste/wae-dx-contest/en/wae-rules/",
+  "retainedPath": ".build/wave5/rules/darc-wae-rules.html",
+  "trackedReference": "docs/contesting/WAE_2026_RULE_REFERENCE.json",
+  "retainedSHA256": "9693e5e843a6bfb054deafe2004d55384c0224a764816c66248f5f13e54c668c",
+  "retainedBytes": 94008,
+  "pinnedEdition": "2025-06-17 / 2026 event dates",
+  "reviewDateClient": "2026-10-28",
+  "liveFetch": "HTTP 403; no claim of live-current rule refresh",
+  "section": "6 Multiplier",
+  "shortExample": "JR4, 7M4 and 7K4 count as JA4",
+  "historicalOfficialCorroboration": "https://www.darc.de/fileadmin/filemounts/referate/conteste/contest/waedc/results/heft_erg_2016.pdf"
+}

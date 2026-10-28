@@ -1,0 +1,1886 @@
+[
+  {
+    "path": "Sources/XContestCore/ARRLDXRules.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/ARRLRTTYRoundupRule.swift",
+    "status": "scanned only",
+    "depth": "Targeted symbols, guards or trust-boundary searches; semantic review remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/ARRLVHFDeclarativeDefinitions.swift",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/CWUniqueCallDeclarativeDefinitions.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/Cabrillo.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/ContestBandPlan.swift",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/ContestCallHistory.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/ContestCallHistoryProjection.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/ContestCallsignAssistance.swift",
+    "status": "scanned only",
+    "depth": "Targeted symbols, guards or trust-boundary searches; semantic review remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/ContestCountryMultiplierReference.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/ContestDeclarativeCatalog.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/ContestExportInput.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/ContestOperatorCapability.swift",
+    "status": "scanned only",
+    "depth": "Targeted symbols, guards or trust-boundary searches; semantic review remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/ContestPackagedCountryReferenceLoader.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/ContestPackagedDefinitionLoader.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/ContestRateStatistics.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/ContestSubmissionProjection.swift",
+    "status": "scanned only",
+    "depth": "Targeted symbols, guards or trust-boundary searches; semantic review remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/DeclarativeContestRule.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/JIDXRules.swift",
+    "status": "scanned only",
+    "depth": "Targeted symbols, guards or trust-boundary searches; semantic review remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/Models.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/NAQPRules.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/OceaniaRules.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/PersistenceContracts.swift",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/PilotRules.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/Resources/ContestDefinitions/10_10_fall_cw.runtime-draft.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/Resources/ContestDefinitions/10_10_spring_cw.runtime-draft.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/Resources/ContestDefinitions/10_10_summer_phone.runtime-draft.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/Resources/ContestDefinitions/10_10_winter_phone.runtime-draft.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/Resources/ContestDefinitions/cwo.runtime-draft.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/Resources/ContestDefinitions/cwt.runtime-draft.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/Resources/ContestDefinitions/icwc_mst.runtime-draft.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/Resources/ContestDefinitions/k1usn_sst.runtime-draft.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/Resources/ContestDefinitions/manifest.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/Resources/CountryReferences/cqww-2026-country-reference.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/RuleEngine.swift",
+    "status": "scanned only",
+    "depth": "Targeted symbols, guards or trust-boundary searches; semantic review remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/SACRules.swift",
+    "status": "scanned only",
+    "depth": "Targeted symbols, guards or trust-boundary searches; semantic review remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/SSTDeclarativeDefinition.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestCore/TenTenDeclarativeDefinitions.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestStore/ContestDatabaseSnapshot.swift",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestStore/SQLiteContestStore.swift",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": []
+  },
+  {
+    "path": "Sources/XContestStore/StoreModels.swift",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestARRLDXExportTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestARRLDXTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestARRLRTTYRoundupExportTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestARRLRTTYRoundupTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestARRLVHFDeclarativeTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestCQWWCompleteCountryReferenceTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestCQWWCountryReferenceTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestCWUniqueCallDeclarativeRuleTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestCallHistoryProjectionTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestCallHistoryTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestCallsignAssistanceTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestCoreTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestDeclarativeBandGridTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestDeclarativeCatalogTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestDeclarativeExportTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestDeclarativeOperatorPolicyTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestDeclarativeRuleTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestDefinitionAuthoringBridgeTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestExportTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestGeographicMultiplierTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestJIDXExportTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestJIDXTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestNAQPExportTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestNAQPTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestOceaniaTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestOperatorCapabilityTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestPackagedDefinitionLoaderTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestQSOOperatorStyleCodingTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestRateStatisticsTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestSACTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestSSBTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestSSTDeclarativeDefinitionTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestStructuredExchangeTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/ContestSubmissionProjectionTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/Exports/arrl-dx-preview-1.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/Exports/arrl-rtty-preview-1.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/Exports/cq-wpx-cw-pilot.cbr",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/Exports/cq-wpx-ssb-pilot.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/Exports/cq-ww-cw-pilot-2-single-band.cbr",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/Exports/cq-ww-cw-pilot.cbr",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/Exports/cq-ww-ssb-pilot.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/Exports/jidx-preview-1.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/Exports/naqp-preview-1.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/Exports/oceania-dx-cw-pilot.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/Exports/oceania-dx-ssb-pilot.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/Exports/sac-cw-pilot.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/Exports/sac-ssb-pilot.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/PackagedContestDefinitions/10_10_fall_cw.authoring-v2.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/PackagedContestDefinitions/10_10_spring_cw.authoring-v2.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/PackagedContestDefinitions/10_10_summer_phone.authoring-v2.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/PackagedContestDefinitions/10_10_winter_phone.authoring-v2.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/PackagedContestDefinitions/cwo.authoring-v2.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/PackagedContestDefinitions/cwt.authoring-v2.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/PackagedContestDefinitions/icwc_mst.authoring-v2.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/PinnedPluginDefinitions/10_10_fall_cw.authoring-v2.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/PinnedPluginDefinitions/10_10_fall_cw.runtime-draft.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/PinnedPluginDefinitions/10_10_spring_cw.authoring-v2.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/PinnedPluginDefinitions/10_10_spring_cw.runtime-draft.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/PinnedPluginDefinitions/10_10_summer_phone.authoring-v2.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/PinnedPluginDefinitions/10_10_summer_phone.runtime-draft.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/PinnedPluginDefinitions/10_10_winter_phone.authoring-v2.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/PinnedPluginDefinitions/10_10_winter_phone.runtime-draft.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/PinnedPluginDefinitions/cwo.authoring-v2.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/PinnedPluginDefinitions/cwo.runtime-draft.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/PinnedPluginDefinitions/cwt.authoring-v2.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/PinnedPluginDefinitions/cwt.runtime-draft.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/PinnedPluginDefinitions/icwc_mst.authoring-v2.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/PinnedPluginDefinitions/icwc_mst.runtime-draft.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/arrl-dx-authority.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/arrl-dx-export-authority.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/arrl-rtty-roundup-authority.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/arrl-rtty-roundup-export-authority.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/arrl-vhf-source-oracles.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/cqww-2026-country-authority.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/custom-two-band-sprint.authoring-v2.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/custom-two-band-sprint.runtime-draft.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/extract_arrl_dxcc_entity_codes.py",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/four-pilot-operator-oracles.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/jidx-2026-authority.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/master-scp-focused.txt",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/naqp-2026-authority.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/naqp-export-authority.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/probe_wpx_prefix.py",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/sac-source-comparison.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/sst-definition-authority.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/sst-geographic-sample.authoring-v2.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/sst-geographic-sample.runtime-draft.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/sst-geography-authority.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/ten-ten-declarative-authority.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/ten-ten-winter-phone.authoring-v2.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/ten-ten-winter-phone.runtime-draft.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestCoreTests/SourceFixtures/wpx_prefix_expected.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestStoreTests/ContestARRLDXStoreTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestStoreTests/ContestARRLRTTYRoundupStoreTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestStoreTests/ContestCWUniqueCallDeclarativeStoreTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestStoreTests/ContestDatabaseSnapshotTests.swift",
+    "status": "partially reviewed",
+    "depth": "Selected critical paths read; not all functions and branches inspected",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestStoreTests/ContestDeclarativeRuleStoreTests.swift",
+    "status": "partially reviewed",
+    "depth": "Selected critical paths read; not all functions and branches inspected",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestStoreTests/ContestJIDXStoreTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestStoreTests/ContestNAQPStoreTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestStoreTests/ContestOceaniaStoreTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestStoreTests/ContestSACStoreTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestStoreTests/ContestSSBStoreTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestStoreTests/ContestStoreTests.swift",
+    "status": "partially reviewed",
+    "depth": "Selected critical paths read; not all functions and branches inspected",
+    "checks": []
+  },
+  {
+    "path": "Tests/XContestStoreTests/ContestStructuredExchangeStoreTests.swift",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "python/contest_host/__init__.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/__main__.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/adif_import.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/analytics.py",
+    "status": "partially reviewed",
+    "depth": "Selected critical paths read; not all functions and branches inspected",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/assistance.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/coordination.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/developer.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/host.py",
+    "status": "partially reviewed",
+    "depth": "Selected critical paths read; not all functions and branches inspected",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/lanes.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/launcher.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/legacy_import.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/messages.py",
+    "status": "partially reviewed",
+    "depth": "Selected critical paths read; not all functions and branches inspected",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/multipliers.py",
+    "status": "scanned only",
+    "depth": "Targeted symbols, guards or trust-boundary searches; semantic review remains outstanding",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/n1mm.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/operating_rules.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/opportunities.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/plugins.py",
+    "status": "scanned only",
+    "depth": "Targeted symbols, guards or trust-boundary searches; semantic review remains outstanding",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/practice.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/productivity.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/qt_compat.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/rates.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/recorder.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/resources/developer-examples.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/statistics.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/statistics_dupes.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/store.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/strategy.py",
+    "status": "partially reviewed",
+    "depth": "Selected critical paths read; not all functions and branches inspected",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/submission.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/submission_archive.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/upstream.py",
+    "status": "partially reviewed",
+    "depth": "Selected critical paths read; not all functions and branches inspected",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/vhf.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/contest_host/wae.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": [
+      "Python tests plus 97-definition all-catalog lifecycle exercise"
+    ]
+  },
+  {
+    "path": "python/tests/fixtures/all_contests_exports.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "python/tests/fixtures/all_contests_lifecycle.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "python/tests/fixtures/all_contests_scores.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "python/tests/recorder_fixture.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "python/tests/test_aadx_plugins_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_analytics.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_analytics_catalogue.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_append_scoring.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_arrl_field_rtty_vhf_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_arrl_single_band_plugins_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_arrl_ss_phone_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_call_history_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_call_history_store.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_central_european_plugins_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_cq_160_plugins_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_cq_wpx_ssb_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_cq_ww_rtty_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_cq_ww_ssb_host.py",
+    "status": "partially reviewed",
+    "depth": "Selected critical paths read; not all functions and branches inspected",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_cross_contest_consistency.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_cwo_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_cwt_sst_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_ea_majestad_plugins_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_estonian_plugins_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_euhfc_iaru_hf_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_european_dx_plugins_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_european_hf_plugins_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_final_remaining_plugins_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_first_remaining_plugins_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_group_coordination.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_host.py",
+    "status": "partially reviewed",
+    "depth": "Selected critical paths read; not all functions and branches inspected",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_iaru_fieldday_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_jidx_plugins_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_lanes_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_legacy_import.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_log_review_correction_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_messages.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_mst_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_multi_operator_host.py",
+    "status": "partially reviewed",
+    "depth": "Selected critical paths read; not all functions and branches inspected",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_n1mm_output.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_next_cw_plugins_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_next_rtty_plugins_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_oceania_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_operating_rules.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_plugin_registry.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_practice.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_practice_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_productivity_host.py",
+    "status": "partially reviewed",
+    "depth": "Selected critical paths read; not all functions and branches inspected",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_productivity_load.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_protocol_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_rates.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_recorder.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_ref_plugins_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_remaining_phone_plugins_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_reverse_assistance.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_review_adif_enrichment.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_review_adif_import.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_review_archive_bounds.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_review_replica_authority.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_rsgb_plugins_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_sac_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_score_revision_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_second_remaining_plugins_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_statistics.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_statistics_dupes.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_strategy.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_sweepstakes_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_ten_ten_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_trans_tasman_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_type4_utility_plugins_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_wave2_messages_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_wave2_operating_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_wave2_opportunities_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_wave2_strategy_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_wave5_adif_host.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_wave5_analytics_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_wave5_archive_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_wave5_developer_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_wave5_qtc_host.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_wave5_vhf_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "python/tests/test_wpx_host.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": [
+      "Python unittest discovery: 537 tests overall passed; execution does not imply manual review"
+    ]
+  },
+  {
+    "path": "tools/check_all_contests_readiness.py",
+    "status": "partially reviewed",
+    "depth": "Selected critical paths read; not all functions and branches inspected",
+    "checks": []
+  },
+  {
+    "path": "tools/check_contest_append_equivalence.py",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": []
+  },
+  {
+    "path": "tools/contest_plugin_generator/.gitignore",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "tools/contest_plugin_generator/README.md",
+    "status": "fully reviewed",
+    "depth": "Entire file inspected for its scoped contracts and failure paths; this is not exhaustive certification",
+    "checks": []
+  },
+  {
+    "path": "tools/contest_plugin_generator/compare_cw_unique_call.py",
+    "status": "scanned only",
+    "depth": "Targeted symbols, guards or trust-boundary searches; semantic review remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "tools/contest_plugin_generator/compare_sst_geography.py",
+    "status": "scanned only",
+    "depth": "Targeted symbols, guards or trust-boundary searches; semantic review remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "tools/contest_plugin_generator/convert_pinned_plugins.py",
+    "status": "scanned only",
+    "depth": "Targeted symbols, guards or trust-boundary searches; semantic review remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "tools/contest_plugin_generator/definition_schema.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "tools/contest_plugin_generator/extract_plugins.py",
+    "status": "scanned only",
+    "depth": "Targeted symbols, guards or trust-boundary searches; semantic review remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "tools/contest_plugin_generator/python_template_kit.py",
+    "status": "scanned only",
+    "depth": "Targeted symbols, guards or trust-boundary searches; semantic review remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "tools/contest_plugin_generator/render_swift_metadata.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "tools/contest_plugin_generator/reviewed_pinned_mappings.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "tools/contest_plugin_generator/schema.json",
+    "status": "not reviewed",
+    "depth": "Reference/fixture data inventoried; runtime loading may be exercised, no manual row-by-row review",
+    "checks": []
+  },
+  {
+    "path": "tools/contest_plugin_generator/tests/test_compare_cw_unique_call.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "tools/contest_plugin_generator/tests/test_compare_sst_geography.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "tools/contest_plugin_generator/tests/test_convert_pinned_plugins.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "tools/contest_plugin_generator/tests/test_extract_plugins.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "tools/contest_plugin_generator/tests/test_python_template_kit.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "tools/contest_plugin_generator/tests/test_validate_definition.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "tools/contest_plugin_generator/validate_definition.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  },
+  {
+    "path": "tools/contest_plugin_generator/verify_pinned_corpus.py",
+    "status": "not reviewed",
+    "depth": "Inventoried; manual inspection remains outstanding",
+    "checks": []
+  }
+]

@@ -1,0 +1,2 @@
+Never-configured bridge shutdown RPC calls: ["main.rx"]
+Never-configured bridge workspace-change RPC calls: ["main.rx"]

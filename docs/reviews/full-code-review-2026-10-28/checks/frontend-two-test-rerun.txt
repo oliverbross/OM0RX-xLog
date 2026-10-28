@@ -1,0 +1,8 @@
+
+ RUN  v5.0.3 /Users/oliver/Documents/Projects/OM0RX-xLog/prototype
+
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 193 skipped (195)
+   Start at  23:27:21
+   Duration  8.54s (tests 76%, transform 13%, environment 6%, import 4%)

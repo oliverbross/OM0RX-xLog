@@ -1,0 +1,47 @@
+
+ RUN  v5.0.3 /private/tmp/xlog-review-20261028-4bd554a/frontend
+
+stdout | detached-time.test.tsx > REVIEW retains manual UTC across detached editor mode change
+REVIEW manual timestamp {"mode":"Simple","displayedDate":"2026-10-28","displayedTime":"12:34:56","retainedStart":"2026-10-20T10:15:30Z","automaticStart":false}
+
+stdout | detached-time.test.tsx > REVIEW describes captured radio output using its actual source
+REVIEW power description Captured KPA500 output · retained for this contact.
+
+ ❯ detached-time.test.tsx (49 tests | 2 failed | 47 skipped) 588ms
+   × REVIEW retains manual UTC across detached editor mode change 586ms
+   × REVIEW describes captured radio output using its actual source 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  detached-time.test.tsx > REVIEW retains manual UTC across detached editor mode change
+AssertionError: expected '2026-10-28' to be '2026-10-20' // Object.is equality
+
+Expected: "2026-10-20"
+Received: "2026-10-28"
+
+ ❯ detached-time.test.tsx:554:78
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  detached-time.test.tsx > REVIEW describes captured radio output using its actual source
+AssertionError: expected 'Captured KPA500 output · retained for…' to contain 'radio'
+
+Expected: "radio"
+Received: "Captured KPA500 output · retained for this contact."
+
+ ❯ detached-time.test.tsx:562:64
+    560|   f.current.power!.selectedContext!.meterSource="radio_output";
+    561|   console.log("REVIEW power description",draftPowerDescription(f.curre…
+    562|   expect(draftPowerDescription(f.current.qso,f.current.power)).toConta…
+       |                                                                ^
+    563| });
+    564|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 47 skipped (49)
+   Start at  23:35:18
+   Duration  1.51s (tests 41%, environment 31%, transform 16%, import 12%)

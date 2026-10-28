@@ -1,0 +1,48 @@
+{
+  "events": [
+    {
+      "sequence": 1,
+      "revision": 3,
+      "operationID": "2f2bfc4d-36d7-4ea1-94a2-ee48ec3a5713",
+      "qsoID": "41b24dd9-4453-4de1-b415-c94788684daf",
+      "kind": "commit",
+      "before": null,
+      "after": {
+        "Call": "K1ABC",
+        "TS": "2026-10-28 13:50:29",
+        "Freq": 14250.0,
+        "Band": 14.0,
+        "Mode": "USB",
+        "Operator": "OM0RX",
+        "StationName": null
+      },
+      "utcMs": 1793195429000,
+      "local": false
+    },
+    {
+      "sequence": 2,
+      "revision": 4,
+      "operationID": "cb69ccd2-c598-4383-ad65-cfd8c838960b",
+      "qsoID": "1259e01f-0543-4082-99fe-c43da11a461b",
+      "kind": "commit",
+      "before": null,
+      "after": {
+        "Call": "DL1ABC",
+        "TS": "2026-10-20 08:01:00",
+        "Freq": 14250.0,
+        "Band": 14.0,
+        "Mode": "USB",
+        "Operator": "OM0RX",
+        "StationName": null
+      },
+      "utcMs": 1792483260000,
+      "local": true
+    }
+  ],
+  "direct_qso": "1259e01f-0543-4082-99fe-c43da11a461b",
+  "esm_operation_id": "2f2bfc4d-36d7-4ea1-94a2-ee48ec3a5713",
+  "payload_methods": [
+    "esm",
+    "qso_commit"
+  ]
+}
