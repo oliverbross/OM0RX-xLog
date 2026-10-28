@@ -44,6 +44,14 @@ final class FlexIQSubscriptionTests:XCTestCase {
             defer{group.cancelAll()};return try await group.next()!
         }
     }
+    private func admittedCapture(_ radio:FlexRadioClient,leaseID:UUID) async throws -> FlexIQCapture? {
+        let clock=ContinuousClock(),deadline=ContinuousClock.now.advanced(by:.seconds(2))
+        repeat {
+            if let capture=await radio.currentIQCapture(leaseID:leaseID){return capture}
+            try await Task.sleep(for:.milliseconds(10))
+        } while clock.now<deadline
+        return nil
+    }
     func testHandoffIsExplicitAndMetadataBoundBeforeAnyEnablingCommand() async throws {
         let (radio,wire)=try await setup()
         do {_ = try await radio.startIQ(panadapterID:"40000000",sampleRate:96000,leaseID:UUID());XCTFail("No implicit takeover")}
@@ -99,12 +107,12 @@ final class FlexIQSubscriptionTests:XCTestCase {
         let drain=Task{for try await _ in subscription.blocks{}}
         await wire.status("display pan 0x40000000 center=14.035000 rxant=ANT2")
         try await Task.sleep(for:.milliseconds(40));let quarantined=await radio.currentIQCapture(leaseID:lease);XCTAssertNil(quarantined)
-        try await Task.sleep(for:.milliseconds(600));let retuned=await radio.currentIQCapture(leaseID:lease)
+        let retuned=try await admittedCapture(radio,leaseID:lease)
         XCTAssertEqual(retuned?.panadapter.centreHz,14035000);XCTAssertNotEqual(retuned?.streamToken,first.capture.streamToken)
         await wire.status("interlock state=TRANSMITTING")
         try await Task.sleep(for:.milliseconds(40));let muted=await radio.currentIQCapture(leaseID:lease);XCTAssertNil(muted)
         await wire.status("interlock state=READY")
-        try await Task.sleep(for:.milliseconds(600));let resumed=await radio.currentIQCapture(leaseID:lease)
+        let resumed=try await admittedCapture(radio,leaseID:lease)
         XCTAssertNotNil(resumed);XCTAssertNotEqual(resumed?.streamToken,retuned?.streamToken)
         await radio.stopIQ(leaseID:lease);drain.cancel();await radio.stopTransportOnly();await wire.stop()
     }
@@ -157,7 +165,7 @@ final class FlexIQSubscriptionTests:XCTestCase {
         await wire.status("interlock state=TRANSMITTING state=READY")
         try await Task.sleep(for:.milliseconds(40));let unknown=await radio.currentIQCapture(leaseID:lease);XCTAssertNil(unknown)
         await wire.status("interlock state=READY")
-        try await Task.sleep(for:.milliseconds(600));let restored=await radio.currentIQCapture(leaseID:lease);XCTAssertNotNil(restored)
+        let restored=try await admittedCapture(radio,leaseID:lease);XCTAssertNotNil(restored)
         await wire.status("stream 0x80000001 client_handle=0x9999")
         try await Task.sleep(for:.milliseconds(40));let changed=await radio.currentIQCapture(leaseID:lease),commands=await wire.commands
         XCTAssertNil(changed);XCTAssertFalse(commands.contains(where:{$0.hasPrefix("stream remove")}))
