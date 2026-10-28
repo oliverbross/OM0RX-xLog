@@ -9,6 +9,7 @@ import { acceptanceActive, interiorLandProbe, landPixelMatches } from "./accepta
 import { bearingAndDistance, grayline, greatCircle, nightHemisphere, solarPosition, type Coordinate } from "./MapGeography";
 import { maidenheadGrid } from "./MapGrid";
 import { clusterBandColors, clusterStatusColors, paletteColor } from "./live/clusterPalette";
+import { expeditionLabelOffset } from "./MapMarkerLayout";
 import "./Map.css";
 // MapLibre 6 resolves its default worker relative to import.meta.url. Vite's
 // optimized module and packaged bundle do not preserve that adjacent path.
@@ -192,6 +193,7 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
   persistenceKey,
   spotColorMode = "band",
   spotLegend,
+  expeditionLabels = false,
 }: {
   selected: string | null;
   onSpot?: (spot: T) => void;
@@ -210,9 +212,14 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
   persistenceKey?: string;
   spotColorMode?: SpotColorMode;
   spotLegend?: { label: string; color: string }[];
+  expeditionLabels?: boolean;
 }) {
   const [restoredState] = useState(() => storedMapState(persistenceKey));
-  const mappedSpots = useMemo(() => normalizeMapSpots(data), [data]);
+  const mappedSpots = useMemo(() => normalizeMapSpots(data, expeditionLabels), [data, expeditionLabels]);
+  const expeditionLabelsRef = useRef(expeditionLabels);
+  expeditionLabelsRef.current = expeditionLabels;
+  const selectedIDRef = useRef(selected);
+  selectedIDRef.current = selected;
   const detailID = useId();
   const container = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -371,7 +378,7 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
         if (element.style.color !== color) element.style.color = color;
         marker.setLngLat(coordinate);
       };
-      const drawDXCCLabels = () => { if (overlayRef.current !== "Spots") {
+      const drawDXCCLabels = () => { if (!expeditionLabelsRef.current && overlayRef.current !== "Spots") {
         for (const entity of labelsRef.current) {
           const status = dxccRef.current?.[entity.id] ?? "unknown";
           if (status !== "unknown" && !statusFilterRef.current.includes(status)) continue;
@@ -385,7 +392,7 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
               status === "needed" ? "#8fb3d9" : status === "worked" ? "#ff9d2e" : "#12d6a0");
         }
       } };
-      if (overlayRef.current !== "DXCC" && map.getZoom() >= 3) {
+      if (!expeditionLabelsRef.current && overlayRef.current !== "DXCC" && map.getZoom() >= 3) {
         const seen = new Set<string>();
         for (const spot of spotsRef.current) {
           const call = spot.call.trim().toUpperCase();
@@ -409,14 +416,18 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
       // Focusable hit targets sit over the existing palette-coloured circles.
       // Hover and focus inspect only; activation retains the existing tune action.
       const visibleSpots = new Set<string>();
-      if (overlayRef.current !== "DXCC") for (const spot of spotsRef.current) {
+      const placed: { x: number; y: number; width?: number; height?: number }[] = [];
+      const expedition = expeditionLabelsRef.current;
+      const markerSpots = expedition ? [...spotsRef.current].sort((a, b) => Number(b.id === selectedIDRef.current) - Number(a.id === selectedIDRef.current)) : spotsRef.current;
+      if (expedition || overlayRef.current !== "DXCC") for (const spot of markerSpots) {
         const position = map.project([spot.lon, spot.lat]);
         if (position.x < 0 || position.x > width || position.y < 0 || position.y > height) continue;
-        visibleSpots.add(spot.call);
-        let marker = spotMarkersRef.current.get(spot.call);
+        const markerKey = expedition ? spot.id : spot.call;
+        visibleSpots.add(markerKey);
+        let marker = spotMarkersRef.current.get(markerKey);
         if (!marker) {
           const button = document.createElement("button");
-          const call = spot.call;
+          const call = spot.call, id = spot.id;
           button.type = "button";
           button.className = "map-spot-hit";
           button.setAttribute("aria-describedby", detailID);
@@ -427,15 +438,37 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
           button.addEventListener("keydown", event => { if (event.key === "Escape") { event.preventDefault(); hideDetails(); } });
           button.addEventListener("click", event => {
             event.stopPropagation();
-            const current = spotsRef.current.find(value => value.call === call);
+            const current = spotsRef.current.find(value => expedition ? value.id === id : value.call === call);
             if (current) callback.current?.(current);
           });
           marker = new maplibregl.Marker({ element: button, anchor: "center" }).setLngLat([spot.lon, spot.lat]).addTo(map);
-          spotMarkersRef.current.set(call, marker);
+          spotMarkersRef.current.set(markerKey, marker);
         }
         const button = marker.getElement();
-        button.setAttribute("aria-label", `${spot.call} · ${mapSpotDetails(spot)[0]}${callback.current ? `. ${actionLabel.current}.` : ". Inspect spot."}`);
-        button.setAttribute("aria-current", selectedCallRef.current === spot.call ? "true" : "false");
+        if (expedition) {
+          button.classList.remove("map-spot-hit");
+          button.classList.add("dxp-pin");
+          button.dataset.activity = (spot.callStatus || "on air").replaceAll("_", " ");
+          button.style.setProperty("--pin-color", spotStatusColor(spot, paletteRef.current));
+          button.setAttribute("aria-current", selectedIDRef.current === spot.id ? "true" : "false");
+          button.style.zIndex = selectedIDRef.current === spot.id ? "10" : "2";
+          const labelWidth = Math.min(140, Math.max(68, spot.call.length * 7 + 16, spot.locationOnly ? 0 : 122));
+          button.style.width = `${labelWidth}px`;
+          const offset = expeditionLabelOffset(position, placed, width, height, labelWidth, spot.locationOnly ? 40 : 52);
+          marker.setOffset(offset);
+          // Create DOM text nodes only: publisher text never becomes HTML.
+          const line = document.createElement("span"); line.className = "dxp-pin-leader"; line.setAttribute("aria-hidden", "true");
+          line.style.width = `${Math.hypot(...offset)}px`;
+          line.style.transform = `rotate(${Math.atan2(-offset[1], -offset[0])}rad)`;
+          const body = document.createElement("span"); body.className = "dxp-pin-body";
+          const call = document.createElement("strong"); call.textContent = spot.call;
+          const status = document.createElement("span"); status.textContent = (spot.callStatus || "on air").replaceAll("_", " ");
+          body.append(call, status);
+          if (!spot.locationOnly) { const frequency = document.createElement("small"); frequency.textContent = `${spot.mhz.toFixed(4)} MHz · ${spot.mode}`; body.append(frequency); }
+          button.replaceChildren(line, body);
+        }
+        button.setAttribute("aria-label", `${spot.call} · ${expedition ? `${spot.callStatus} · ` : ""}${mapSpotDetails(spot)[0]}${callback.current ? `. ${actionLabel.current}.` : ". Inspect spot."}`);
+        if (!expedition) button.setAttribute("aria-current", selectedCallRef.current === spot.call ? "true" : "false");
         marker.setLngLat([spot.lon, spot.lat]);
       }
       for (const [call, marker] of spotMarkersRef.current) {

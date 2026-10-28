@@ -20,6 +20,13 @@ export type DXpeditionCatalogueItem = {
   qsl_route?: string | null;
   activation?: NativeActivation;
   callsign_history?: { worked_count: number; confirmed_count: number; worked_modes: string[]; confirmed_modes: string[] } | null;
+  source_names?: string[];
+  draft_load_allowed?: boolean;
+  qso_total?: number | null;
+  last_qso_at?: string | null;
+  enrichment_at?: string | null;
+  enrichment_stale?: boolean;
+  dxcc_history?: { entity: string; worked_modes: string[]; confirmed_modes: string[] } | null;
 };
 
 export type DXpeditionClusterSpot = {
@@ -71,12 +78,19 @@ export type DXpeditionOperation = {
   bands: Map<string, Set<string>>;
   activation?: NativeActivation;
   history: DXpeditionCatalogueItem["callsign_history"];
+  dxccHistory: DXpeditionCatalogueItem["dxcc_history"];
+  sources: string[];
+  draftLoadAllowed: boolean;
+  qsoTotal: number | null;
+  lastQSO: Date | null;
+  enrichmentAt: Date | null;
+  enrichmentStale: boolean;
 };
 
 const FOUNDATION_EPOCH_SECONDS = 978_307_200;
 const statusRank: Record<DXpeditionStatus, number> = { live: 0, active: 1, recent: 2, on_air: 3, upcoming: 4, idle: 5 };
 
-export const baselineDXpeditionBands = ["160m", "80m", "40m", "20m", "15m", "10m", "6m"] as const;
+export const baselineDXpeditionBands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m"] as const;
 
 export function clusterReportedAt(value: unknown): Date | null {
   if (typeof value === "string") {
@@ -124,8 +138,8 @@ function normalizedObservation(spot: DXpeditionClusterSpot): DXpeditionObservati
   };
 }
 
-export function dxpeditionStatus(operation: Pick<DXpeditionOperation, "startsAt" | "endsAt" | "observations">, now: Date): DXpeditionStatus {
-  const newest = operation.observations[0]?.reportedAt;
+export function dxpeditionStatus(operation: Pick<DXpeditionOperation, "startsAt" | "endsAt" | "observations"> & { lastQSO?: Date | null }, now: Date): DXpeditionStatus {
+  const newest = [operation.observations[0]?.reportedAt, operation.lastQSO].filter((value): value is Date => !!value).sort((a, b) => b.getTime() - a.getTime())[0];
   const age = newest ? now.getTime() - newest.getTime() : Number.POSITIVE_INFINITY;
   if (age >= -60_000 && age < 45 * 60_000) return "live";
   if (operation.startsAt && operation.startsAt.getTime() > now.getTime()) return "upcoming";
@@ -137,7 +151,14 @@ export function dxpeditionStatus(operation: Pick<DXpeditionOperation, "startsAt"
 }
 
 export function buildDXpeditionOperations(catalogue: readonly DXpeditionCatalogueItem[], cluster: readonly DXpeditionClusterSpot[], now = new Date()): DXpeditionOperation[] {
-  const observations = cluster.map(normalizedObservation).filter((value): value is DXpeditionObservation => !!value);
+  // Live retained identities take precedence over matching archive evidence.
+  const unique = new Map<string, DXpeditionObservation>();
+  for (const value of cluster.map(normalizedObservation)) {
+    if (!value || value.reportedAt.getTime() > now.getTime() + 60_000 || now.getTime() - value.reportedAt.getTime() > 48 * 3_600_000) continue;
+    const key = `${value.callsign}:${value.frequencyHz}:${Math.round(value.reportedAt.getTime() / 1000)}`;
+    if (!unique.has(key) || value.activation) unique.set(key, value);
+  }
+  const observations = [...unique.values()];
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const horizon = today.getTime() + 30 * 86_400_000;
   return catalogue.filter(item => item.kind === "dxpedition").flatMap(item => {
@@ -149,9 +170,10 @@ export function buildDXpeditionOperations(catalogue: readonly DXpeditionCatalogu
     const matched = observations.filter(spot => aliasSet.has(spot.callsign)
       && (!startsAt || spot.reportedAt.getTime() >= startsAt.getTime())
       && (!endsAt || spot.reportedAt.getTime() <= endsAt.getTime()))
-      .sort((a, b) => b.reportedAt.getTime() - a.reportedAt.getTime()).slice(0, 15);
+      .sort((a, b) => b.reportedAt.getTime() - a.reportedAt.getTime());
     const currentOrUpcoming = !!startsAt && startsAt.getTime() <= horizon && (!endsAt || endsAt.getTime() >= today.getTime());
-    const recentlyObserved = matched.some(spot => now.getTime() - spot.reportedAt.getTime() <= 48 * 3_600_000);
+    const lastQSO = date(item.last_qso_at);
+    const recentlyObserved = matched.some(spot => now.getTime() - spot.reportedAt.getTime() <= 48 * 3_600_000) || !!lastQSO && now.getTime() - lastQSO.getTime() <= 48 * 3_600_000;
     if (!currentOrUpcoming && !recentlyObserved) return [];
     const latestLocation = matched.find(spot => spot.latitude !== null && spot.longitude !== null);
     const feedLocation = validCoordinate(item.latitude, 90) && validCoordinate(item.longitude, 180);
@@ -175,11 +197,18 @@ export function buildDXpeditionOperations(catalogue: readonly DXpeditionCatalogu
       status: "idle",
       latitude: feedLocation ? item.latitude! : latestLocation?.latitude ?? null,
       longitude: feedLocation ? item.longitude! : latestLocation?.longitude ?? null,
-      locationSource: feedLocation ? item.location_source || "Published catalogue position" : latestLocation ? "Latest configured-cluster report" : "No published coordinates",
-      observations: matched,
+      locationSource: feedLocation ? item.location_source || "Published catalogue position" : latestLocation ? "Configured-cluster approximate entity position" : "No published coordinates",
+      observations: matched.slice(0, 30),
       bands,
       activation: item.activation,
       history: item.callsign_history ?? null,
+      dxccHistory: item.dxcc_history ?? null,
+      sources: item.source_names ?? [item.source],
+      draftLoadAllowed: item.draft_load_allowed !== false,
+      qsoTotal: typeof item.qso_total === "number" && Number.isSafeInteger(item.qso_total) && item.qso_total >= 0 ? item.qso_total : null,
+      lastQSO: date(item.last_qso_at),
+      enrichmentAt: date(item.enrichment_at),
+      enrichmentStale: item.enrichment_stale === true,
     };
     operation.status = dxpeditionStatus(operation, now);
     return [operation];

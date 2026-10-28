@@ -102,8 +102,9 @@ vi.mock("maplibre-gl", () => {
   }
   class Marker {
     element: HTMLElement;
-    constructor(options: any) { this.element = options.element; }
+    constructor(options: any) { this.element = options.element; this.element.classList.add("maplibregl-marker"); }
     setLngLat() { return this; }
+    setOffset() { return this; }
     addTo(map: FakeMap) { map.element.append(this.element); return this; }
     getElement() { return this.element; }
     remove() { this.element.remove(); }
@@ -122,6 +123,24 @@ import WorldMap, { routeBounds, routeFitPadding, routeFrequencyLabel, routeLabel
 const spot = (changes: Partial<MapSpot> = {}): MapSpot => ({
   id: "feed-1", call: "K1ABC", mhz: 14.074, mode: "FT8", band: "20m", country: "United States",
   grid: "", lon: -72, lat: 41, reporter: "OM0RX", note: "<script>not HTML</script>", state: "needed", receivedAt: 1, ...changes,
+});
+it("renders callsign, status and frequency callouts at world zoom and keeps same-call occurrences independently selectable", () => {
+  const onSpot = vi.fn();
+  const first = spot({ id: "visit1", callStatus: "live", statusHex: "#3ee58d" });
+  const future = spot({ id: "visit2", call: first.call, callStatus: "upcoming", mhz: 0, locationOnly: true });
+  const view = render(<WorldMap selected={null} data={[first, future]} expeditionLabels onSpot={onSpot} compact />);
+  const pins = view.container.querySelectorAll<HTMLButtonElement>(".dxp-pin");
+  expect(harness.maps[0].getZoom()).toBeLessThan(3);
+  expect(pins).toHaveLength(2);
+  expect(pins[0].classList.contains("maplibregl-marker")).toBe(true);
+  expect(pins[0].textContent).toContain("K1ABC");
+  expect(pins[0].textContent).toContain("live");
+  expect(pins[0].textContent).toContain("14.0740 MHz");
+  expect(pins[1].textContent).toContain("upcoming");
+  expect(pins[1].textContent).not.toContain("MHz");
+  expect(onSpot).not.toHaveBeenCalled();
+  fireEvent.click(pins[1]);
+  expect(onSpot).toHaveBeenCalledWith(expect.objectContaining({ id: "visit2" }));
 });
 beforeEach(() => {
   localStorage.clear();

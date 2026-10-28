@@ -71,4 +71,20 @@ describe("DXpedition catalogue and configured-cluster join", () => {
     expect(operations[0].observations[0].mode).toBe("RTTY");
     expect(dxpeditionMapSpots(operations)[0]).toMatchObject({ mode: "RTTY", callStatus: "live", statusHex: "#3ee58d" });
   });
+
+  it("retains recently ended logged activity and ages it out without fabricating a frequency", () => {
+    const ended = { ...catalogue[0], ends_at: "2026-10-23T23:00:00Z", last_qso_at: "2026-10-23T22:00:00Z", qso_total: 45535 };
+    const operations = buildDXpeditionOperations([ended], [], now);
+    expect(operations).toHaveLength(1);
+    expect(operations[0]).toMatchObject({ status: "active", qsoTotal: 45535 });
+    expect(dxpeditionMapSpots(operations)[0]).toMatchObject({ locationOnly: true, mhz: 0 });
+    expect(buildDXpeditionOperations([ended], [], new Date("2026-10-26T00:00:00Z"))).toHaveLength(0);
+  });
+
+  it("preserves historical band evidence but prefers native authority for a duplicated live observation", () => {
+    const spot = { id: "history:one", callsign: "VK9X1", frequencyKHz: 14074.5, band: "20m", mode: "FT8", receivedAt: now.toISOString() };
+    const operations = buildDXpeditionOperations(catalogue, [spot, { ...spot, id: "native:one", activation: { sourceEpoch: "native", spotVersion: "one" } }], now);
+    expect(operations[0].observations).toHaveLength(1);
+    expect(operations[0].observations[0].id).toBe("native:one");
+  });
 });

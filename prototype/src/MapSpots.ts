@@ -7,7 +7,7 @@ export const normalizedMapCall = (value: unknown): string =>
   typeof value === "string" ? value.trim().toUpperCase() : "";
 
 /** One valid location per callsign, retaining the newest spot's feed identity. */
-export function normalizeMapSpots<T extends MapSpot>(data: readonly T[]): T[] {
+export function normalizeMapSpots<T extends MapSpot>(data: readonly T[], preserveOccurrences = false): T[] {
   const current = new Map<string, T>();
   for (const spot of data) {
     const call = normalizedMapCall(spot.call);
@@ -15,11 +15,12 @@ export function normalizeMapSpots<T extends MapSpot>(data: readonly T[]): T[] {
         !Number.isFinite(spot.mhz) || (spot.mhz <= 0 && !(spot.locationOnly && spot.mhz === 0)) ||
         !Number.isFinite(spot.lat) || Math.abs(spot.lat) > 90 ||
         !Number.isFinite(spot.lon) || Math.abs(spot.lon) > 180) continue;
-    const prior = current.get(call);
+    const key = preserveOccurrences ? spot.id : call;
+    const prior = current.get(key);
     const timestamp = Number.isFinite(spot.receivedAt) ? spot.receivedAt! : -Infinity;
     const priorTimestamp = prior && Number.isFinite(prior.receivedAt) ? prior.receivedAt! : -Infinity;
     // Equal or missing timestamps retain input order, including synthetic fixtures.
-    if (!prior || timestamp > priorTimestamp) current.set(call, { ...spot, call });
+    if (!prior || timestamp > priorTimestamp) current.set(key, { ...spot, call });
   }
   return [...current.values()];
 }

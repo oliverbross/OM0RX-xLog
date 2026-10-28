@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { DetachedDXpeditionMapSurface, requestDXpeditionMap } from "./DetachedDXpeditionMapSurface";
 import { loadWindowSurface } from "../windowSurface";
 
-const api = vi.hoisted(() => ({ worker: vi.fn(), tune: vi.fn(), load: vi.fn(), refresh: vi.fn() }));
+const api = vi.hoisted(() => ({ worker: vi.fn(), tune: vi.fn(), load: vi.fn(), refresh: vi.fn(), mode: "normal_logging" }));
+vi.mock("../operatingModule", () => ({ operatingModuleStatus: async () => ({ selected: api.mode, transitioning: false }) }));
 vi.mock("../worker", () => ({ workerRequest: api.worker }));
 vi.mock("./useSpotActivation", () => ({ useSpotActivation: (command = "activate_spot") => ({
   status: null, error: "", requesting: false, activate: command === "activate_opportunity" ? api.load : api.tune,
@@ -33,7 +34,8 @@ const snapshot = { generated_at: "2026-10-24T00:00:00Z", total_available: 2, sur
       latitude: null, longitude: null, activation },
   ] };
 
-afterEach(() => { cleanup(); localStorage.clear(); vi.resetAllMocks(); });
+beforeEach(() => { vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-10-24T00:01:00Z")); api.mode = "normal_logging"; });
+afterEach(() => { cleanup(); localStorage.clear(); vi.resetAllMocks(); vi.useRealTimers(); });
 
 function deferredSnapshot() {
   let resolve!: (value: { result: typeof snapshot }) => void;
@@ -113,4 +115,26 @@ it("recovers invalid saved filters and switches the complete navigation shell to
   expect(screen.getByRole("group", { name: "Filtro stato" })).toBeTruthy();
   expect(screen.getByRole("region", { name: "Elenco DXpedition" })).toBeTruthy();
   expect(screen.getByRole("region", { name: "Mappa spedizioni" })).toBeTruthy();
+});
+
+it("shows real enrichment and worked history and explains disabled contest actions", async () => {
+  api.mode = "contesting";
+  api.worker.mockResolvedValue({ result: { ...snapshot, items: [{ ...snapshot.items[0], qso_total: 45535,
+    last_qso_at: "2026-10-24T00:00:00Z", callsign_history: { worked_count: 3, confirmed_count: 2, worked_modes: ["CW"], confirmed_modes: ["FT8"] } }] } });
+  render(<DetachedDXpeditionMapSurface />);
+  fireEvent.click((await screen.findByText("VK9X1")).closest("button")!);
+  expect(screen.getAllByText(/45,535/).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/3 worked · 2 confirmed/).length).toBeGreaterThan(0);
+  expect(await screen.findByText(/Use the contest Cluster/)).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Tune & load" }).hasAttribute("disabled")).toBe(true);
+  expect(api.tune).not.toHaveBeenCalled();
+});
+
+it("shows retained archive frequencies without giving them tuning authority", async () => {
+  api.worker.mockResolvedValue({ result: { ...snapshot, observations: [{ id: "history:old", callsign: "VK9X1", frequencyKHz: 21025,
+    band: "15m", mode: "CW", receivedAt: "2026-10-23T12:00:00Z" }] } });
+  render(<DetachedDXpeditionMapSurface />);
+  fireEvent.click((await screen.findByText("VK9X1")).closest("button")!);
+  expect(screen.getByText("21.025000 MHz")).toBeTruthy();
+  expect(screen.getByRole("button", { name: /History only/ }).hasAttribute("disabled")).toBe(true);
 });
