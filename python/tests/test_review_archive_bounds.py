@@ -39,6 +39,11 @@ class ArchiveBoundTests(unittest.TestCase):
         result=self.inspect(payload)
         self.assertTrue(result['verified']);self.assertFalse(result['restored'])
         self.assertFalse(result['submitted']);self.assertEqual(result['manifest'],manifest)
+    def test_manifest_overflow_at_the_actual_32_mib_limit(self):
+        _,manifest=self.build(b'')
+        overhead=sum(row['byteLength'] for row in manifest['files'].values())
+        with self.assertRaisesRegex(ValueError,'including its manifest'):
+            self.build(b'X'*(32*1024*1024-overhead))
     def test_expanded_size_exactly_at_limit_is_accepted(self):
         payload,_=self.build(b'X'*4096)
         with zipfile.ZipFile(BytesIO(payload)) as z:expanded=sum(row.file_size for row in z.infolist())
