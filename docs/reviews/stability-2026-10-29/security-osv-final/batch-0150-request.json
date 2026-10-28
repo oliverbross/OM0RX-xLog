@@ -1,0 +1,354 @@
+{
+  "queries": [
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "glob"
+      },
+      "version": "0.3.4"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "gobject-sys"
+      },
+      "version": "0.18.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "gtk"
+      },
+      "version": "0.18.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "gtk-sys"
+      },
+      "version": "0.18.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "gtk3-macros"
+      },
+      "version": "0.18.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "hashbrown"
+      },
+      "version": "0.12.3"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "hashbrown"
+      },
+      "version": "0.17.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "heck"
+      },
+      "version": "0.4.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "heck"
+      },
+      "version": "0.5.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "hermit-abi"
+      },
+      "version": "0.5.3"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "hex"
+      },
+      "version": "0.4.3"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "html5ever"
+      },
+      "version": "0.39.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "http"
+      },
+      "version": "1.5.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "http-body"
+      },
+      "version": "1.1.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "http-body-util"
+      },
+      "version": "0.1.5"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "httparse"
+      },
+      "version": "1.10.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "hyper"
+      },
+      "version": "1.11.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "hyper-rustls"
+      },
+      "version": "0.27.10"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "hyper-util"
+      },
+      "version": "0.1.21"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "iana-time-zone"
+      },
+      "version": "0.1.65"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "iana-time-zone-haiku"
+      },
+      "version": "0.1.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "ico"
+      },
+      "version": "0.5.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "icu_collections"
+      },
+      "version": "2.3.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "icu_locale_core"
+      },
+      "version": "2.3.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "icu_normalizer"
+      },
+      "version": "2.3.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "icu_normalizer_data"
+      },
+      "version": "2.3.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "icu_properties"
+      },
+      "version": "2.3.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "icu_properties_data"
+      },
+      "version": "2.3.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "icu_provider"
+      },
+      "version": "2.3.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "ident_case"
+      },
+      "version": "1.0.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "idna"
+      },
+      "version": "1.1.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "idna_adapter"
+      },
+      "version": "1.2.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "indexmap"
+      },
+      "version": "1.9.3"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "indexmap"
+      },
+      "version": "2.14.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "infer"
+      },
+      "version": "0.22.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "io-kit-sys"
+      },
+      "version": "0.4.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "ipnet"
+      },
+      "version": "2.12.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "itoa"
+      },
+      "version": "1.0.18"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "javascriptcore-rs"
+      },
+      "version": "1.1.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "javascriptcore-rs-sys"
+      },
+      "version": "1.1.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "jiff"
+      },
+      "version": "0.2.38"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "jiff-core"
+      },
+      "version": "0.1.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "jiff-static"
+      },
+      "version": "0.2.38"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "jiff-tzdb"
+      },
+      "version": "0.1.8"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "jiff-tzdb-platform"
+      },
+      "version": "0.1.3"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "jni"
+      },
+      "version": "0.21.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "jni"
+      },
+      "version": "0.22.4"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "jni-macros"
+      },
+      "version": "0.22.4"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "jni-sys"
+      },
+      "version": "0.3.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "jni-sys"
+      },
+      "version": "0.4.1"
+    }
+  ]
+}

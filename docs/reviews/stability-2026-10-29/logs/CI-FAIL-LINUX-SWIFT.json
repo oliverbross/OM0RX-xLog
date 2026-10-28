@@ -1,0 +1,25 @@
+{
+  "id": "CI-FAIL-LINUX-SWIFT",
+  "command": [
+    "gh",
+    "run",
+    "view",
+    "40764401261",
+    "--repo",
+    "oliverbross/OM0RX-xLog",
+    "--job",
+    "123084543321",
+    "--log-failed"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T20:42:08.814547+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/CI-FAIL-LINUX-SWIFT.log",
+  "sourceHeadAtStart": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f",
+  "sourceStatusAtStart": [],
+  "pid": 45627,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 8.601,
+  "finishedUTC": "2026-10-28T20:42:17.415852+00:00",
+  "sourceHeadAtFinish": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f"
+}

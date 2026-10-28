@@ -1,0 +1,29 @@
+{
+  "id": "ITER10-CLUSTER-PORTABILITY",
+  "command": [
+    "env",
+    "XLOG_PORTABLE_ONLY=1",
+    "swift",
+    "test",
+    "--scratch-path",
+    ".build/phase5-20261029/portable-final",
+    "--jobs",
+    "2",
+    "--no-parallel",
+    "--filter",
+    "LiveClusterMethodsTests"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T21:25:20.741162+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/ITER10-CLUSTER-PORTABILITY.log",
+  "sourceHeadAtStart": "d7b8cf013b9a5d313e0c002fbf747968cbc24239",
+  "sourceStatusAtStart": [
+    " M Tests/XLogPrototypeTests/LiveClusterMethodsTests.swift"
+  ],
+  "pid": 63756,
+  "exitCode": 1,
+  "timedOut": false,
+  "durationSeconds": 19.156,
+  "finishedUTC": "2026-10-28T21:25:39.897013+00:00",
+  "sourceHeadAtFinish": "d7b8cf013b9a5d313e0c002fbf747968cbc24239"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "ITER3-CURRENT-PROCESS-R2",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "node",
+    "prototype/scripts/accept-contesting-worker-process.mjs",
+    "--build-manifest",
+    "/tmp/xlog-phase5-20261029-721e0705/worker-r2.json",
+    "--expected-head",
+    "3ce3f027b3196346d1cd47652c4c8fc5f2b26de9",
+    "--output",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/process-r6"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T19:23:04.840123+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/ITER3-CURRENT-PROCESS-R2.log",
+  "pid": 93384,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 25.706,
+  "finishedUTC": "2026-10-28T19:23:30.545718+00:00"
+}

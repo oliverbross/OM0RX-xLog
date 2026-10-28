@@ -1,0 +1,22 @@
+{
+  "id": "ITER8-ROOTS-NEGATIVE",
+  "command": [
+    "python3.12",
+    "-B",
+    "tools/check_reviewed_security_patches.py"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T20:29:49.057924+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/ITER8-ROOTS-NEGATIVE.log",
+  "sourceHeadAtStart": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "sourceStatusAtStart": [
+    " M python/tests/test_reviewed_security_patches.py",
+    " M tools/check_reviewed_security_patches.py"
+  ],
+  "pid": 41262,
+  "exitCode": 1,
+  "timedOut": false,
+  "durationSeconds": 0.347,
+  "finishedUTC": "2026-10-28T20:29:49.405340+00:00",
+  "sourceHeadAtFinish": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e"
+}

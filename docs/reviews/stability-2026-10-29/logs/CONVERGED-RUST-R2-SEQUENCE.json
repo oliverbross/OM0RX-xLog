@@ -1,0 +1,20 @@
+{
+  "id": "CONVERGED-RUST-R2-SEQUENCE",
+  "command": [
+    "python3.12",
+    "-B",
+    "/tmp/xlog-phase5-20261029-721e0705/scripts/sequence.py",
+    "/tmp/xlog-phase5-20261029-721e0705/converged-rust-plan-r2.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T20:12:25.947219+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/CONVERGED-RUST-R2-SEQUENCE.log",
+  "sourceHeadAtStart": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "sourceStatusAtStart": [],
+  "pid": 37218,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 448.955,
+  "finishedUTC": "2026-10-28T20:19:54.904428+00:00",
+  "sourceHeadAtFinish": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e"
+}

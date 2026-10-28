@@ -1,0 +1,35 @@
+{
+  "checks": [
+    {
+      "id": "CLOSE-FRONTEND-BUILD",
+      "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+      "timeout": 240,
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ]
+    },
+    {
+      "id": "CLOSE-NPM-AUDIT",
+      "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+      "timeout": 120,
+      "command": [
+        "npm",
+        "audit",
+        "--json"
+      ]
+    },
+    {
+      "id": "CLOSE-NODE-CHECKS",
+      "timeout": 120,
+      "command": [
+        "node",
+        "--test",
+        "prototype/scripts/bounded-child-process.check.mjs",
+        "prototype/scripts/mac-worker-packaging.check.mjs",
+        "prototype/scripts/verify-relocated-contest-resources.check.mjs"
+      ]
+    }
+  ]
+}

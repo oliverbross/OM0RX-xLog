@@ -1,0 +1,26 @@
+{
+  "id": "FINAL-BROWSER-OPERATOR",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "node",
+    "prototype/scripts/run-contest-operator-browser-acceptance.mjs",
+    "--expected-head",
+    "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+    "--output",
+    "/tmp/xlog-phase5-20261029-721e0705/browser-final-operator",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T19:56:42.173473+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/FINAL-BROWSER-OPERATOR.log",
+  "sourceHeadAtStart": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "sourceStatusAtStart": [],
+  "pid": 9404,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 93.407,
+  "finishedUTC": "2026-10-28T19:58:15.580943+00:00",
+  "sourceHeadAtFinish": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e"
+}

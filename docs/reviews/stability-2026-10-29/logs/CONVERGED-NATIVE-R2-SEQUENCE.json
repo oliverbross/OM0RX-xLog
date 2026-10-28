@@ -1,0 +1,20 @@
+{
+  "id": "CONVERGED-NATIVE-R2-SEQUENCE",
+  "command": [
+    "python3.12",
+    "-B",
+    "/tmp/xlog-phase5-20261029-721e0705/scripts/sequence.py",
+    "/tmp/xlog-phase5-20261029-721e0705/converged-native-plan-r2.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T20:12:26.027485+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/CONVERGED-NATIVE-R2-SEQUENCE.log",
+  "sourceHeadAtStart": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "sourceStatusAtStart": [],
+  "pid": 37225,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 461.671,
+  "finishedUTC": "2026-10-28T20:20:07.700447+00:00",
+  "sourceHeadAtFinish": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e"
+}

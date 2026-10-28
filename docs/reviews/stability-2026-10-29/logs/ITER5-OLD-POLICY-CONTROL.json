@@ -1,0 +1,20 @@
+{
+  "id": "ITER5-OLD-POLICY-CONTROL",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "python3.12",
+    "-B",
+    "tools/check_reviewed_security_patches.py",
+    "--lock",
+    "/tmp/xlog-phase5-20261029-721e0705/previous-Cargo.lock"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T19:22:04.931894+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/ITER5-OLD-POLICY-CONTROL.log",
+  "pid": 91501,
+  "exitCode": 1,
+  "timedOut": false,
+  "durationSeconds": 0.081,
+  "finishedUTC": "2026-10-28T19:22:05.013122+00:00"
+}

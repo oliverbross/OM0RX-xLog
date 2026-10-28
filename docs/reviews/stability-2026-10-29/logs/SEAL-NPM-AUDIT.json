@@ -1,0 +1,19 @@
+{
+  "id": "SEAL-NPM-AUDIT",
+  "command": [
+    "npm",
+    "audit",
+    "--json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-28T21:06:13.372629+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/SEAL-NPM-AUDIT.log",
+  "sourceHeadAtStart": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba",
+  "sourceStatusAtStart": [],
+  "pid": 53862,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 1.245,
+  "finishedUTC": "2026-10-28T21:06:14.617302+00:00",
+  "sourceHeadAtFinish": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba"
+}

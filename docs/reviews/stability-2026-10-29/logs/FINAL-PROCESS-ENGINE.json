@@ -1,0 +1,26 @@
+{
+  "id": "FINAL-PROCESS-ENGINE",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "node",
+    "prototype/scripts/accept-contesting-worker-process.mjs",
+    "--build-manifest",
+    "/tmp/xlog-phase5-20261029-721e0705/worker-final.json",
+    "--expected-head",
+    "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+    "--output",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/process-final"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T19:48:37.325644+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/FINAL-PROCESS-ENGINE.log",
+  "sourceHeadAtStart": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "sourceStatusAtStart": [],
+  "pid": 4768,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 28.218,
+  "finishedUTC": "2026-10-28T19:49:05.543257+00:00",
+  "sourceHeadAtFinish": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e"
+}

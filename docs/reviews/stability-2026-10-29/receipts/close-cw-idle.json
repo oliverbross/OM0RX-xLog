@@ -1,0 +1,17 @@
+{
+  "waitFor": [
+    "CLOSE-FRONTEND-TESTS"
+  ],
+  "checks": [
+    {
+      "id": "CLOSE-CW-IDLE-BINDING",
+      "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+      "timeout": 240,
+      "command": [
+        "python3.12",
+        "-B",
+        "/tmp/xlog-phase5-20261029-721e0705/scripts/cw_wire_close_idle.py"
+      ]
+    }
+  ]
+}

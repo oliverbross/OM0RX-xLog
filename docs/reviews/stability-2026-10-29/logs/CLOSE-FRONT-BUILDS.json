@@ -1,0 +1,20 @@
+{
+  "id": "CLOSE-FRONT-BUILDS",
+  "command": [
+    "python3.12",
+    "-B",
+    "/tmp/xlog-phase5-20261029-721e0705/scripts/sequence.py",
+    "/tmp/xlog-phase5-20261029-721e0705/close-front-builds.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T21:52:36.135127+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/CLOSE-FRONT-BUILDS.log",
+  "sourceHeadAtStart": "58da5d49359f7333852b04037a134ab04167be7b",
+  "sourceStatusAtStart": [],
+  "pid": 80917,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 161.387,
+  "finishedUTC": "2026-10-28T21:55:17.522319+00:00",
+  "sourceHeadAtFinish": "58da5d49359f7333852b04037a134ab04167be7b"
+}

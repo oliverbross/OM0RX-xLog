@@ -1,0 +1,6 @@
+[
+  ".github/workflows/contest-portability.yml",
+  "Sources/XCWCore/CWComputeWire.swift",
+  "Tests/XCWCoreTests/CWComputeWirePrimitiveTests.swift",
+  "Tests/XLogPrototypeTests/LiveClusterMethodsTests.swift"
+]

@@ -1,12 +1,14 @@
-# Phase 3 defect remediation
+# Defect remediation tracker
 
-**Current Phase 4 disposition — 29 October 2026:** Eleven original findings retain Fixed and Verified status within their source/fixture limits. **CR-008 is reopened as Fixed but Unverified for clean build/integration acceptance**, linked to REG-P4-001; the original timestamp behavior still passes. Independent testing found one Medium build regression, two Low pre-existing compiler/harness defects, an unresolved NAQP browser failure and an overload observation. No application fixes were made in Phase 4. See [REGRESSION_TEST_REPORT.md](/Users/oliver/Documents/Projects/OM0RX-xLog/REGRESSION_TEST_REPORT.md) and the dated section below. Release acceptance is not met.
+**Current Phase 5 disposition — 29 October 2026:** All twelve original findings, including CR-008's reopened clean build, are **Fixed and Verified** within the recorded source/fixture limits. All safely compatible confirmed Phase 4/5 repairs pass the final 32 current-source gates. Conditional Linux GLib remains **Blocked**; intermittent SCP input and overloaded timing investigations remain **Not Fixed**. Manual review and native/provider/hardware acceptance remain incomplete. Current source 58da5d49 and actual results are in [STABILITY_REPORT.md](/Users/oliver/Documents/Projects/OM0RX-xLog/STABILITY_REPORT.md).
+
+**Historical Phase 4 disposition — 29 October 2026:** Eleven original findings retain Fixed and Verified status within their source/fixture limits. **CR-008 is reopened as Fixed but Unverified for clean build/integration acceptance**, linked to REG-P4-001; the original timestamp behavior still passes. Independent testing found one Medium build regression, two Low pre-existing compiler/harness defects, an unresolved NAQP browser failure and an overload observation. No application fixes were made in Phase 4. See [REGRESSION_TEST_REPORT.md](/Users/oliver/Documents/Projects/OM0RX-xLog/REGRESSION_TEST_REPORT.md) and the dated section below. Release acceptance is not met.
 
 Started 29 October 2026 on clean canonical `main` at `530de4c4e4b23281ec60585cc7a2e5ca011476fb`, fetched and fast-forward checked. Scope: the twelve confirmed findings in CODE_REVIEW.md. The wider manual audit remains incomplete as recorded in REVIEW_COVERAGE.md.
 
 Work proceeds by severity and shared dependencies: CR-001/008, CR-002, CR-003, contest replication/serial/scoring/recorder, retained imports/exports, ADX and power attribution. Each logical completed change is tested, committed and pushed immediately. No production data, installed application, live provider account or physical station is used. Source/build verification does not establish native UI, RF, external watchdog or sponsor submission acceptance. Review evidence directories remain immutable.
 
-At the close of Phase 3, all twelve confirmed findings (2 High, 9 Medium, 1 Low) were recorded as **Fixed and Verified** within the source/fixture boundaries below. Phase 4 supersedes CR-008's build-verification status as described above. This does not claim an exhaustive defect-free application or retrospective repair of historical data.
+At the close of Phase 3, all twelve confirmed findings (2 High, 9 Medium, 1 Low) were recorded as **Fixed and Verified** within the source/fixture boundaries below. Phase 4 later reopened CR-008's build verification; the current Phase 5 disposition above closes that reopening. This does not claim an exhaustive defect-free application or retrospective repair of historical data.
 
 ## CR-001 — High
 
@@ -87,7 +89,7 @@ At the close of Phase 3, all twelve confirmed findings (2 High, 9 Medium, 1 Low)
 
 ## CR-008 — Medium
 
-- **Status:** Fixed but Unverified — clean build/integration acceptance reopened in Phase 4. Original manual-time preservation tests continue to pass; no reproduced return of the original time-loss defect.
+- **Status:** Fixed and Verified — Phase 5 closes the Phase 4 clean build/integration reopening under REG-P4-001. CLOSE-FRONTEND-BUILD passes 405,194/405,200 bytes and CLOSE-FRONTEND passes 4,731/339 + 2 Node with the original timestamp/remount behavior intact. See the current Phase 5 section below.
 - **Root cause:** Editor remounts derive time intent from new-versus-existing contact rather than canonical draft provenance.
 - **Files modified:** `prototype/src/live/operatorDraftSession.ts`, `QSOEditorCore.tsx`, `OperatorDesk.tsx`, `DetachedQSOSurface.tsx`, `DetachedQSOSurface.test.tsx`, `OperatorDraftTime.test.tsx`; `prototype/src/LiveApp.tsx`.
 - **Fix:** Carry optional canonical time provenance through validated snapshots and main/detached form props. Initialize/reset display mode from it; retain local unfinished time buffers. Native owns automatic Save time. Standalone forms without a native owner retain their prior callback-time contract.
@@ -187,3 +189,163 @@ Fresh Phase 4 suites pass within their recorded layers: frontend 4,721 + 2 Node;
 Additional verification includes 82 selected TSAN cases, CW ASAN/UBSAN and 13 child-wire cases, NumPy oracle, bounded 60-second synthetic inference, 68k merge/Save and 100k log/spot/award fixtures, 15 read-only disposable database integrity checks, real loopback Hamlib model-1 and FTP/FTPS, and public SCP/propagation/DXpedition feeds. No production credentials, data, installed app, physical station or RF was used. No full packaged native/current-engine UI acceptance, multi-hour soak, force-quit/power-loss or Windows/Linux native acceptance is claimed. Dependency advisory matches are qualified by feature/caller triage; a version match is not treated as an established application exploit.
 
 **Next cycle:** resolve the clean build and current-process fixture, repair strict callback isolation, diagnose NAQP output admission, review dependency patches, then repeat these gates and qualify an isolated native candidate with explicit provider/hardware limits. [Full report](/Users/oliver/Documents/Projects/OM0RX-xLog/REGRESSION_TEST_REPORT.md), [command ledger](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/regression-2026-10-29/COMMANDS.md), [confirmed issues](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/regression-2026-10-29/findings.json), [open investigations](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/regression-2026-10-29/open-investigations.json).
+
+## Phase 5 iterative repair and validation — 29 October 2026
+
+Source entry: clean `721e070561c1e2ce068e1dc118e5d0db47a374f0`; final repaired source/tools: `58da5d49359f7333852b04037a134ab04167be7b`. All thirteen logical repair and coverage commits were pushed immediately. The dated Phase 4 section above is preserved as history; this section supplies the current statuses. No production data/configuration, installed application, account credential or physical station was operated.
+
+### REG-P4-001 / CR-008 — Medium — Fixed and Verified
+
+- **Root cause:** clean committed npm resolution used Rolldown 1.2.13 and matching native bindings, emitting a 405,218-byte Logbook graph; the original pnpm tree used 1.2.15 and emitted 405,194. The renderer's correct provenance validation exposed an 18-byte gate failure. A rejected React/ReactDOM/Tauri version-alignment control still failed and was restored.
+- **Files modified:** `prototype/package-lock.json`; `prototype/src/live/OperatorDraftTime.test.tsx`.
+- **Fix:** update the integrity-checked transitive Rolldown/native-binding/type lock entries to the validated release. Keep package.json, app validation and the 405,200-byte gate unchanged.
+- **Regression tests:** strengthen canonical automaticStart true/false/omitted and malformed/null/boxed-boolean cases; retain the unchanged graph/budget regression gate and all manual timestamp/remount tests.
+- **Verification:** BASE-FRONTEND-BUILD exit 1 before; ITER1-BUNDLER-TESTS 122/5 files pass; FINAL-CLEAN-NPM-CI and FINAL-CLEAN-FRONTEND-BUILD pass at **405,194**. CLOSE-FRONTEND passes **4,731/339 + 2 Node** (487.181 s); CLOSE-FRONTEND-BUILD passes at 405,194 bytes. Full current-source Swift draft/persistence suites pass. CR-008's Phase 4 build-verification reopening is closed.
+- **Limits:** six bytes of remaining Logbook headroom; dependency upgrades still require a clean build. No installed/native editor or retrospective rewrite of historical contacts.
+
+### REG-P4-002 — Low — Fixed and Verified
+
+- **Root cause:** actor-isolated retained-cluster callback was constructed as a nonisolated initializer default argument, rejected by complete concurrency checking.
+- **Files modified:** `Sources/XLogPrototypeSupport/LiveOpportunitiesMethods.swift`; `Tests/XLogPrototypeTests/LiveOpportunitiesMethodsTests.swift`.
+- **Fix:** retain optional injection; construct the default passive reader inside initialization. Snapshot reads cannot initiate cluster/radio output; terminal shutdown remains enforced.
+- **Regression test:** actual default service against a private logbook, passive snapshot and post-shutdown rejection; existing injected-feed/history controls retained.
+- **Verification:** BASE-STRICT-SWIFT fails before; ITER2-STRICT and 24 focused Swift Testing cases pass; FINAL-STRICT-SWIFT fresh full build passes with complete-concurrency flags; CLOSE-STRICT-BUILD and the full CLOSE-PORTABLE suite pass; selected TSAN (9 XCTest + 95 Swift Testing summary) pass.
+- **Limits:** pre-existing non-Sendable callback/capture warnings remain. This is supported-language compiler acceptance, not full Swift 6 language mode or proof of race freedom.
+
+### REG-P4-003 — Low — Fixed and Verified
+
+- **Root cause:** process fixture omitted relocated Python/CA/Not1MM and spoke the obsolete typed Swift contest API. macOS path aliases also conflicted with the existing exact private-root guards.
+- **Files modified:** `prototype/scripts/accept-contesting-worker-process.mjs`, `contesting-worker-current-scenario.mjs`, `relocate-contest-python.py`, `test-contest-python-relocation.py`.
+- **Fix:** stage the existing pinned runtime dependency closure in a strictly bounded test bundle, use a canonical repository .build private root, then exercise the actual current Not1MM protocol. Preserve production bundle/output/signature restrictions, TLS trust validation and external-I/O denial. Catalogue availability before a normal workspace is intentional; normal draft operations still require explicit workspace creation.
+- **Regression tests:** 12 relocation/path/identity/provenance/CA boundary cases; exact 78-operation current-engine ledger, receipt/hash controls, independent WW/WPX arithmetic, serials, stale revisions, correction/deletion, pending-draft retention, restart/replay and four exact-byte exports. Legacy correction helper tests remain intact.
+- **Verification:** repeated current-engine process runs pass; CLOSE-WORKER-BUILD produces a fresh 58da5d49 universal release worker; CLOSE-PROCESS passes all 78 real exchanges in 30.738 s with two ordinary exits, unchanged staged hashes and protected production metadata. CLOSE-PROTOCOL passes eight cases; ITER6 relocation and Node gates pass 12 and 10.
+- **Limits:** worker/test bundle acceptance only; not packaged current-engine native UI, installed application, provider-account or hardware acceptance. Exact canonical path restrictions remain in force.
+
+### INV-P4-001 — severity unassigned — resolved as test harness defects
+
+- **Root cause/evidence:** the Arm button was above the viewport; the purported click delivered no pointer/click event and the panel remained Disarmed. After fixing that, a new session title preceded its Operating style field.
+- **Files modified:** `prototype/scripts/accept-contest-naqp-operator-browser.mjs`; `prototype/src/contesting/ContestOperatorPanel.test.tsx`.
+- **Fix:** scroll the observed exact button into view before the semantic click; await Armed and the actual enabled select before input. Retain timeouts, output admission and all export/scoring assertions. Preserve optional video and failure snapshots.
+- **Tests/results:** 53 panel tests including new blank-NAQP CW/SSB StrictMode controls pass. ITER4-NAQP-READINESS passes the original full workflow (64.017 s); FINAL-BROWSER-NAQP passes unchanged (67.270 s); its component inputs are identical at the final source, including six cases, RTTY boundary and 14 export assertions.
+- **Limits:** no production CQ/RF defect was demonstrated; legacy typed Swift backend and simulated output only.
+
+### REG-P5-001 — Low test-tool regression — Fixed and Verified
+
+- **Root cause:** the initial REG-P4-003 fix expanded the production packaging source-name set, violating an existing source-level invariant even though runtime root guards still blocked production misuse.
+- **Files modified:** `prototype/scripts/relocate-contest-python.py`, `test-contest-python-relocation.py`.
+- **Fix:** restore the exact two-entry production set; use a separate explicit acceptance-only provenance branch behind matching root/script identity. No test assertion was weakened.
+- **Tests/results:** FINAL-NODE-CHECKS correctly fails 1/10 before correction. ITER6-NODE-CHECKS passes 10/10; ITER6-RELOCATION-TESTS passes 12/12, including both directions of production/test script separation. CLOSE-NODE-CHECKS passes 10 cases; all 12 relocation cases pass and the final staged current Python process also passes after the correction.
+- **Limits:** test-tool policy scope only; production release packaging still requires its independent version/signature/provenance acceptance.
+
+### DEP-P5-001 — reviewed advisory risks, no application severity assigned — patch levels Fixed and Verified
+
+- **Root cause:** Cargo locked reviewed stable dependencies below their maintainer patch floors; Phase 4 qualified the applicable feature/caller risks without establishing an application exploit.
+- **Files modified:** `prototype/src-tauri/Cargo.lock`, `tools/check_reviewed_security_patches.py`, `python/tests/test_reviewed_security_patches.py`, `.github/workflows/contest-portability.yml`.
+- **Fix:** rustls 0.23.46, rustls-webpki 0.103.16 and tokio 1.53.3; add an explicit narrow patch-floor guard to the existing CI generator job. No TLS setting or validation is weakened.
+- **Regression tests/results:** seven policy cases pass; the old committed lock fails all three floors. Full locked Rust suites, feature tests, clean release compile and Clippy pass (warnings retained). Fresh npm audit has zero advisories. OSV queried 549 locked package versions; the only selected-macOS match is block-buffer 0.10.4, excluded by the maintainer's affected range >=0.11.0,<0.12.1.
+- **Limits:** narrow release-line policy and current advisory snapshot; not a comprehensive security proof. Cargo-audit execution is blocked by the tool allowlist; other platforms, vendored/native prebuilts and future advisories need separate checks.
+
+
+### REG-P5-002 — Medium — Fixed and Verified (portable IQ build)
+
+- **Root cause:** the explicit non-macOS Package.swift source slice omitted four Foundation-only IQ types required by unconditional parser/resource tests. Real Linux and Windows discovery failed before any test execution. The affected source list predates Phase 5.
+- **Files modified:** `Package.swift`, `tools/check_portable_iq_sources.py`, `.github/workflows/contest-portability.yml`.
+- **Fix:** include TCIIQFrame, FlexIQTransport, FlexIQResources and FlexIQSubscription; keep live socket/radio owners outside the portable slice. Add a guard that builds the actual manifest-selected source slice, rather than a substituted implementation.
+- **Regression tests:** the guard compiles three existing unchanged test files and executes 15 parser/continuity/resource cases. CI also requires real platform discovery and runs the CW/cluster boundary controls.
+- **Verification:** ITER9-PORTABLE-IQ-BEFORE fails with missing types; ITER9-PORTABLE-IQ-AFTER passes 15 cases. Exact-source Linux and Windows CI discovery passes. The final CLOSE-PORTABLE receipt provides complete current-host verification.
+- **Limits:** portable compilation/tests do not enable live radio features or establish full Linux/Windows GUI/package operation.
+
+### REG-P5-003 — Medium — Fixed and Verified (Windows preference/restart persistence)
+
+- **Root cause:** module selection and restart-intent transactions used Unix directory fsync after publishing files on Windows. Actual Windows tests returned Access Denied after replacing preferences. Both callers shared the same unsupported durability operation; the source predates Phase 5.
+- **Files modified:** `prototype/src-tauri/src/durable_file.rs`, `main.rs`, `operating_module.rs`, `module_restart_intent.rs`; `.github/workflows/contest-portability.yml`.
+- **Fix:** shared same-parent publication flushes the temporary file before replacement. Unix retains atomic rename and directory sync. Windows uses MoveFileExW with REPLACE_EXISTING and WRITE_THROUGH, preserving long/Unicode paths and propagating failures. Journal consumption durably retires its logical name before removing the retired file. Validation, expected destination checks, restart/admission fences and rollback remain.
+- **Regression tests:** three direct primitive cases plus module two-way reopen and replacement/consumption coverage (five added test functions in total); Unicode/exact bytes, rejected destinations and cleanup are included. Existing mode/restart/shutdown cases remain.
+- **Verification:** ITER9-WINDOWS-PUBLICATION-MAC-CONTROL passes 926 feature tests. Real Windows affected paths pass on 0b47; exact source 58da native jobs pass on Windows, Linux and macOS, including shared helper, mode, intent and all seven shutdown cases. CLOSE-RUST and CLOSE-RUST-FEATURE verify the complete final suites.
+- **Limits:** ordinary CI filesystem semantics, not physical power-loss durability, production profile migration or installed-app acceptance. A crash after logical retirement can leave an inert uniquely named tombstone; it cannot replay as an active intent.
+
+### REG-P5-004 — Low — Fixed and Verified (shutdown discovery gate)
+
+- **Root cause:** Phase 3 commit 85d894ff added a seventh shutdown regression, while the Windows CI count guard still required exactly six. Windows ran the affected persistence tests successfully then failed this stale gate.
+- **Files modified:** `.github/workflows/contest-portability.yml`.
+- **Fix:** require exactly seven discovered shutdown tests. No test or assertion is removed.
+- **Regression tests:** all seven existing shutdown cases execute; the exact discovery count remains an assertion.
+- **Verification:** ITER10-SHUTDOWN-TESTS passes seven cases in 1.546 s; all exact source 58da native platform jobs pass the discovery and execution step.
+- **Limits:** CI discovery/simulated worker lifetime scope; physical station release/watchdog acceptance remains separate.
+
+### REG-P5-005 — Medium — Fixed and Verified (Windows CW compilation and strict primitives)
+
+- **Root cause:** CWComputeWire unconditionally imported CoreFoundation, which Windows Swift does not supply. After the earlier IQ repair, actual Windows discovery reached this pre-existing compile error.
+- **Files modified:** `Sources/XCWCore/CWComputeWire.swift`, `Tests/XCWCoreTests/CWComputeWirePrimitiveTests.swift`; related discovery/execution paths in `.github/workflows/contest-portability.yml`.
+- **Fix:** conditional import; retain the original CF type-ID fast path where available, and use the backend's established canonical Foundation NSNumber boolean identities elsewhere. Do not coerce numeric 0/1, Int8/UInt8 or strings into wire booleans. Numeric fields continue to reject booleans.
+- **Regression tests:** three new direct/final-event admission cases cover raw JSON booleans, explicit boxed numeric types, null/strings and ready/track fields. The fallback is tested directly on the current host and exercised natively on Windows.
+- **Verification:** ITER10-CW-BOOLEAN-TESTS passes three XCTest cases; exact source 58da Windows discovery and explicit CW/cluster step13 pass, as does Linux step12. CLOSE-PORTABLE includes all new cases. The separate unchanged IQ child deadline observation is INV-P5-004, not silently counted as this compile fix's pass.
+- **Limits:** no wire schema or range limit changed; Windows compilation/primitive tests do not establish real audio, child-worker packaging or live station qualification.
+
+### REG-P5-006 — Low — Fixed and Verified (cluster fixture portability and CI reach)
+
+- **Root cause:** three tests referenced the real Mac/Darwin SpotForwardBroker even where that owner is deliberately absent. An initial new oracle also assumed cleanup-before-forward and unchanged publication as a new delivery; independent review found its off-Mac forwarding assumption invalid. CI path filters omitted the CW/cluster files and therefore did not invoke the required portability job.
+- **Files modified:** `Tests/XLogPrototypeTests/LiveClusterMethodsTests.swift`; `.github/workflows/contest-portability.yml`.
+- **Fix:** scope all three real-broker fixtures to macOS while retaining every original supported-path assertion. Add an always-portable actual-method test of first-admission cleanup time and single cleanup. On macOS verify independent delivery/order; off macOS require hard zero-output/capability-denied counters and no injected forwarding/removal callbacks. Add relevant source/test/helper path filters and explicit three-CW/one-admission discovery and execution on each OS.
+- **Regression tests:** all 26 Mac cluster cases remain; the new portable test checks the actual unavailable capability instead of enabling it for a fixture.
+- **Verification:** failed ITER10-CLUSTER-PORTABILITY oracle retained; corrected ITER10-CLUSTER-PORTABILITY-R2 and independently corrected AGENT-CLUSTER-FINAL pass 26 Mac cases (20.354 s for the latter). Current Linux and Windows explicit portable admission steps pass; CLOSE-PORTABLE provides complete final-host verification. Generator CI also executes all seven security policy cases.
+- **Limits:** no production radio capability changed; full cluster suite has other intentional native assumptions and is not claimed as a complete off-Mac live-radio qualification.
+
+
+
+### DEP-P5-002 — alternate-target trust-list risk — Fixed and Verified
+
+- **Root cause:** webpki-root-certs 1.0.9 retained the distrusted emSign root. The verifier uses this list only in its wasm32 branch, which has no implemented product target; no shipping macOS bypass was established.
+- **Files modified:** `prototype/src-tauri/Cargo.lock`, `tools/check_reviewed_security_patches.py`, `python/tests/test_reviewed_security_patches.py`.
+- **Fix:** compatible update to 1.0.10; extend the fourth reviewed patch floor and old-version test subcase. Cargo re-resolves one existing cssparser-macros syn edge; no other crate version changes in this patch.
+- **Regression tests:** seven policy functions, including four old-floor subcases; preceding lock fails the new floor.
+- **Verification:** ITER8-ROOTS-NEGATIVE fails as expected; ITER8-ROOTS-POSITIVE and policy tests pass. CLOSE-PATCH-FLOORS, complete Python/Rust/default/feature, release and Clippy checks pass; current generator CI passes. Fresh OSV re-scan is retained.
+- **Limits:** advisory/version snapshot and patch-floor policy, not comprehensive native/OS/security qualification. Reference: [RUSTSEC-2026-0383](https://rustsec.org/advisories/RUSTSEC-2026-0383.html).
+
+### DEP-P5-003 — conditional Linux GLib risk — Blocked
+
+- **Root cause:** GLib 0.18.5 VariantStrIter unsoundness ([RUSTSEC-2024-0429](https://rustsec.org/advisories/RUSTSEC-2024-0429.html)); patched >=0.20 conflicts with current GTK 0.18.2's 0.18 API requirement.
+- **Files modified / fix / regression test:** none for this item; an incompatible override or unqualified vendor backport is not a safe completed repair.
+- **Verification:** exact dependency manifests/feature triage and direct application caller search are recorded in alternate-platform-dependency-triage.json. No direct application VariantStrIter call found; transitive affected-function reachability unproven. Local WebKitGTK 4.1 is missing and Docker daemon unavailable. Actual Linux native/portable CI now passes, but does not exercise the affected iterator or qualify the GTK GUI dependency.
+- **Required corrective approach:** coordinated GTK/WebKit/Tauri migration or reviewed upstream backport with Linux compilation, GUI/runtime and affected-caller qualification.
+- **Limits:** conditional Linux risk, application severity unassigned; no established macOS exploit. Four maintenance notices (proc-macro-error, zbus_names, zvariant, zvariant_derive) remain upstream migration debt.
+
+### Remaining investigations and acceptance limits
+
+| Item | Status / evidence / next boundary |
+| --- | --- |
+| INV-P4-002 | **Blocked** for full resource qualification. Fresh sanitizers/oracle and 60-second/eight-track/zero-drop profile pass, peak RSS 207.484 MiB. Retain earlier overload miss; multi-hour/live-audio/whole-app/physical timing remains unqualified |
+| INV-P5-002 | **Not Fixed**, deeper cause/origin unassigned. Two SCP browser input failures remain; temporary diagnostic passes and is restored, unchanged clean R3 passes in 22.399 s. Actual response matches actual request. Capture input/event delivery without perturbing timing before a production repair |
+| INV-P5-003 | **Not Fixed** as an overloaded resource observation. STABLE-FRONTEND fails two five-second voice-intent cases with 4,729 passes during compilation; unchanged two-case idle control passes in 8.990 s. Final complete idle CLOSE-FRONTEND passes 4,731/339 + 2 Node in 487.181 s. No deadlines/assertions changed; no voice/RF regression established |
+| INV-P5-004 | **Not Fixed** as an overloaded resource observation. CLOSE-CW-WIRE passes 12/13, one staleInput rejection at unchanged 250 ms enqueue age guard; process, contract, fixture and IQ serializer unchanged since entry. Exact unchanged idle CLOSE-CW-WIRE-IDLE passes 13/13 in 14.239 s. Precise delay source uninstrumented; preserve guard and failure rather than infer general real-time readiness |
+
+**CI environment boundary — Blocked overall workflow acceptance:** exact source 58da prototype 40774897702 exceeds its 40-minute job budget and is cancelled; all executed steps, including application tests/builds, inventory, upload, cache save and cleanup, report success. No application failure observed; no application code fix inferred. Separate CI and all seven portability jobs succeed. Own cancelled-job log and timeout annotation remain. Future qualification should split infrastructure stages or review their allocation while preserving product test deadlines; overall prototype success is not claimed.
+
+Full manual review remains **INCOMPLETE**. Physical CAT/Flex/DAX/TCI/fldigi/CW/audio/RF, installed/native/current-Python UI, account-bound providers/Keychain, forced termination/power loss, production migration/restore and long soak remain outside this evidence. All original compatibility and historical-data recovery limits above still apply. cargo-audit execution remains blocked by the tool allowlist; no bypass was attempted; OSV and npm checks retain their own stated scope.
+
+The final complete suites and 32 current-source gates pass within their recorded boundaries. All twelve original findings and safely compatible confirmed Phase 4/5 application/build/harness defects are repaired and verified; the conditional Linux risk and intermittent/timing observations remain explicitly open. This is qualified tested-source stability, not a bug-free application or complete operator-release acceptance. [Iteration history and full validation](/Users/oliver/Documents/Projects/OM0RX-xLog/STABILITY_REPORT.md), [exact commands](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/stability-2026-10-29/COMMANDS.md), [evidence index](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/stability-2026-10-29/README.md).
+
+### Exact-source CI outcome
+
+Frozen snapshot: **2026-10-28T22:29:20.241Z**, source **58da5d49359f7333852b04037a134ab04167be7b**. Each row retains its own actual conclusion.
+
+| Workflow / job | Actual outcome |
+| --- | --- |
+| [CI 40774897787](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897787) | completed / success |
+| [test-and-package 123121514769](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897787/job/123121514769) | completed / success |
+| [Cross-platform prototype 40774897702](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897702) | completed / cancelled |
+| [prototype (macos-14) 123121514872](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897702/job/123121514872) | completed / cancelled |
+| [Linux runtime-only container acceptance 123139744274](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897702/job/123139744274) | completed / skipped |
+| [Windows fresh-runner runtime acceptance 123139744909](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897702/job/123139744909) | completed / skipped |
+| [Contest portability 40774897700](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897700) | completed / success |
+| [Contest definition generator 123121515230](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897700/job/123121515230) | completed / success |
+| [Contest tests (windows-2022) 123121515648](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897700/job/123121515648) | completed / success |
+| [Contest native tests (macos-14) 123121515650](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897700/job/123121515650) | completed / success |
+| [Contest tests (ubuntu-24.04) 123121515676](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897700/job/123121515676) | completed / success |
+| [Contest tests (macos-14) 123121515881](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897700/job/123121515881) | completed / success |
+| [Contest native tests (windows-2022) 123121515944](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897700/job/123121515944) | completed / success |
+| [Contest native tests (ubuntu-24.04) 123121515952](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897700/job/123121515952) | completed / success |
+
+The main Swift CI job has a fresh checkout without a build-cache step and passes test/package/resource checks. Contest portability verifies three Swift, three native and one generator/security job. Prototype push gates build a desktop executable; operator-release packaging is workflow_dispatch-only. No hosted package is designated as an installed operator release. Earlier exact failed-job and no-runner histories remain preserved. Any incomplete/failed row above remains a limit regardless of another workflow passing.
+
+Archived 224 command receipts; 19 disposable databases pass read-only integrity/foreign-key checks; 136 export artifacts across runs match their receipt byte counts and SHA. Original fixtures/source were restored and checked before archive verification. All original historical-data/recovery/compatibility limits remain.

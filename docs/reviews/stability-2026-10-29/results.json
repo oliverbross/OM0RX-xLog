@@ -1,0 +1,1705 @@
+{
+  "recordedUTC": "2026-10-28T22:30:59.515224+00:00",
+  "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b",
+  "compiledSourceFiles": 1829,
+  "commands": 224,
+  "commandExits": {
+    "0": 185,
+    "1": 38,
+    "-15": 1
+  },
+  "readiness": {
+    "plugins": 97,
+    "checks": {
+      "PASS": 1353,
+      "NOT APPLICABLE": 5
+    }
+  },
+  "browserRuns": [
+    {
+      "directory": "browser-final-declarative",
+      "ok": true,
+      "failure": null,
+      "boundary": "Headless Vite UI driving a SwiftPM test host around the real isolated LiveWorker; not a packaged worker/app, native window, RF, audio, PTT, hardware, or sponsor-submission acceptance.",
+      "cases": 11,
+      "exportAssertions": [
+        {
+          "session": "CWops Test (CWT) Archive Preview CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 1102,
+          "sha256": "f032d2daeaf63bdc38b99b0fb9bb4a2a565b91ec4a3fba0faea6b0c2fe0789c3",
+          "qsoCount": 6,
+          "score": 18
+        },
+        {
+          "session": "CWops Test (CWT) Archive Preview CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 6252,
+          "sha256": "e4c88b2242be72e4ac4092a8ebc94351e9da17478e3049040bb732f4c07125a0",
+          "qsoCount": 6,
+          "score": 18
+        },
+        {
+          "session": "CW Open Archive Preview CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 911,
+          "sha256": "56050017780d533507f97825a8292e6f7489f0386ed5b6de50699fc60a4c309e",
+          "qsoCount": 6,
+          "score": 18
+        },
+        {
+          "session": "CW Open Archive Preview CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 6378,
+          "sha256": "c6190071e6d0bd374e976614815e9e05fb17fbe2cc8c57ffa57ef87a406d9690",
+          "qsoCount": 6,
+          "score": 18
+        },
+        {
+          "session": "ICWC Medium Speed Test Archive Preview CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 912,
+          "sha256": "2fdc50c41988c44b71799b223c6621dac4b19875ddc8d477338b97d99def7438",
+          "qsoCount": 6,
+          "score": 18
+        },
+        {
+          "session": "ICWC Medium Speed Test Archive Preview CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 6366,
+          "sha256": "3e3cf61638568f30a555d81e79ccca2111106cc22a76a16741635bc611b7d302",
+          "qsoCount": 6,
+          "score": 18
+        },
+        {
+          "session": "10-10 Fall CW QSO Party Operator Archive CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 1256,
+          "sha256": "950b56284d38c90a2ba31cad087cc2a063906c861ff98f6284642a55ef18fe37",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Fall CW QSO Party Operator Archive CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 6547,
+          "sha256": "5d2585534f8d3ca4ea7769641f5f716ae14fdbc6dd7f14e3ba9c9d92726ae0c4",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Spring CW QSO Party Operator Archive CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 1256,
+          "sha256": "d68bcc805f247fd541a9dee3453ca9e1a600ce2b7f7057a3d3cfefa3e9dfa737",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Spring CW QSO Party Operator Archive CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 6559,
+          "sha256": "a063e20013428d583c2142da64a9bfab63b08e312f06b769b91f24829ea56b58",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Summer Phone QSO Party Operator Archive SSB family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 1257,
+          "sha256": "2f230b045f01ec1f62613bcd8e232919403c3b484572ef87e21db082f127d267",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Summer Phone QSO Party Operator Archive SSB family operator acceptance",
+          "format": "adif",
+          "byteLength": 6553,
+          "sha256": "9438e9facd720e3fda88bad56dcc433f377c966c806e28b5ab801359e6b44882",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Summer Phone QSO Party Operator Archive AM family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 1257,
+          "sha256": "bcb0f3b41156c94a0c0da5ca3056633bc21b8cdc456f7639633b37369bc83f10",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Summer Phone QSO Party Operator Archive AM family operator acceptance",
+          "format": "adif",
+          "byteLength": 6547,
+          "sha256": "44274da635d0176d87bd03223aa84225b6b791480a66f57a12fbf33d4afe76d5",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Summer Phone QSO Party Operator Archive FM family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 1257,
+          "sha256": "3fd6521e6873925d276184475817c31eda0c336a792994951d539e0e27cd27f0",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Summer Phone QSO Party Operator Archive FM family operator acceptance",
+          "format": "adif",
+          "byteLength": 6547,
+          "sha256": "46c7967cc0b1646aa21a3593516e521778777b8212220616f3cac1eb381f429b",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Winter Phone QSO Party Operator Archive SSB family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 1257,
+          "sha256": "2f230b045f01ec1f62613bcd8e232919403c3b484572ef87e21db082f127d267",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Winter Phone QSO Party Operator Archive SSB family operator acceptance",
+          "format": "adif",
+          "byteLength": 6553,
+          "sha256": "369d9dfb3f18bf41d415d5341fcfc3b7dec60bb027504a524ed94ee61a4b6530",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Winter Phone QSO Party Operator Archive AM family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 1257,
+          "sha256": "f7f48992af6a93bcc886caa7c860ca764d2924cd3ea8691bf6d01bad9565bece",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Winter Phone QSO Party Operator Archive AM family operator acceptance",
+          "format": "adif",
+          "byteLength": 6547,
+          "sha256": "0668e4421fb053c340a967f7f108ef3f0db281c6538df936f439e58541853574",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Winter Phone QSO Party Operator Archive FM family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 1257,
+          "sha256": "2ccd8769a780d9fd58fc383693a9cf8c04600e09900f57854e33773188dd1154",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Winter Phone QSO Party Operator Archive FM family operator acceptance",
+          "format": "adif",
+          "byteLength": 6547,
+          "sha256": "4f6dd1f1c9d9a76ffd99c55c38c6d47b52ef038fd43be99135c16754b7ff3faf",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "CWops Test (CWT) Archive Preview CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 1102,
+          "sha256": "82210a11470d7c983aaf06153b0cb7b1cd6286fb7d8be54da399fadb95e6e985",
+          "qsoCount": 6,
+          "score": 18
+        },
+        {
+          "session": "CWops Test (CWT) Archive Preview CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 6258,
+          "sha256": "28d152c226d957cdd529305676e846cc00d5f37b99a562a0dedf31a5aa3668cf",
+          "qsoCount": 6,
+          "score": 18
+        },
+        {
+          "session": "CW Open Archive Preview CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 911,
+          "sha256": "fb931d5ba8638e7b3ed66bee70ce2fde0ac2ffb3a276be2e2acf63ef3e1595c3",
+          "qsoCount": 6,
+          "score": 18
+        },
+        {
+          "session": "CW Open Archive Preview CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 6384,
+          "sha256": "b1e954b948fe1a4181bd1f399b524b80240d82954616e366c34034302fb1bbfc",
+          "qsoCount": 6,
+          "score": 18
+        },
+        {
+          "session": "ICWC Medium Speed Test Archive Preview CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 912,
+          "sha256": "552d4e774cd771b9e39c1d60e1ddf27e2bd5e4482998caa936990636b829209e",
+          "qsoCount": 6,
+          "score": 18
+        },
+        {
+          "session": "ICWC Medium Speed Test Archive Preview CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 6372,
+          "sha256": "7534b24f9764f72e10a738266917db84c28f0d74f6c625b4dbef71f49fdecba0",
+          "qsoCount": 6,
+          "score": 18
+        },
+        {
+          "session": "10-10 Fall CW QSO Party Operator Archive CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 1256,
+          "sha256": "07526ef4ebfb9862345399101734c5b08f73c388f6bc3e5a4ac42989577223fe",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Fall CW QSO Party Operator Archive CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 6553,
+          "sha256": "83186f1480723d59726941fabf4fc97c115285584de0af2dd1cc8bfb923052cd",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Spring CW QSO Party Operator Archive CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 1256,
+          "sha256": "46300cd0cfca624600c11fe5bc88b050e6058aaeb54b24e2ceaeeed5c85b1da9",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Spring CW QSO Party Operator Archive CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 6565,
+          "sha256": "4d36ce9f6d7331a771c56c758d141bac84db7b32ab5ddba025fe29296f644ba1",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Summer Phone QSO Party Operator Archive SSB family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 1257,
+          "sha256": "b014e8ccaa97e3bc1f563beda5d986f1b6394e53b1ebd32f367294668b26584f",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Summer Phone QSO Party Operator Archive SSB family operator acceptance",
+          "format": "adif",
+          "byteLength": 6559,
+          "sha256": "036192ba87ee4b02599f0bf0e12a74471d1ce43715cb9426a3c731ff6141394e",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Summer Phone QSO Party Operator Archive AM family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 1257,
+          "sha256": "cf77f264dc0e424af846657c882e4eeeb2fda88b70d6f618ae127cb22fde9f37",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Summer Phone QSO Party Operator Archive AM family operator acceptance",
+          "format": "adif",
+          "byteLength": 6553,
+          "sha256": "3a20f68067b9d94798b4216cf59e39ef861d13a6d3edaddd87f65e14889fd7a8",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Summer Phone QSO Party Operator Archive FM family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 1257,
+          "sha256": "06a5dd5ee7a9b8c334007b70fe74bc4eb4d749bc6d6201ef1e7557c2753cafa4",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Summer Phone QSO Party Operator Archive FM family operator acceptance",
+          "format": "adif",
+          "byteLength": 6553,
+          "sha256": "5ca4e26bacf287d29eb74b815f5fc0e6f77345d4ca83a3659a6e784821553dde",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Winter Phone QSO Party Operator Archive SSB family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 1257,
+          "sha256": "b014e8ccaa97e3bc1f563beda5d986f1b6394e53b1ebd32f367294668b26584f",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Winter Phone QSO Party Operator Archive SSB family operator acceptance",
+          "format": "adif",
+          "byteLength": 6559,
+          "sha256": "9d4ab77d508df0ef35b1cd1d8822cf69fc849c6441b27307c131c1c27f0a5943",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Winter Phone QSO Party Operator Archive AM family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 1257,
+          "sha256": "8e3afef73a84e43aee71e163605b692c7548d29d7c0f3242e1c14df0a7b4ff8e",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Winter Phone QSO Party Operator Archive AM family operator acceptance",
+          "format": "adif",
+          "byteLength": 6553,
+          "sha256": "6fa93631e60c32c77764cc79450ae895eece08ba10f5f70f093978d7313f5d35",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Winter Phone QSO Party Operator Archive FM family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 1257,
+          "sha256": "5b06ef0669b4f9f0fe29c0cf31ee9033e5b57007117a0817fcb4ee82b36a6170",
+          "qsoCount": 6,
+          "score": 9
+        },
+        {
+          "session": "10-10 Winter Phone QSO Party Operator Archive FM family operator acceptance",
+          "format": "adif",
+          "byteLength": 6553,
+          "sha256": "f9deb38ff09ff072a507cd6ac6a5e02ccb66e12b67eea11ee6f86c6954488f16",
+          "qsoCount": 6,
+          "score": 9
+        }
+      ],
+      "exports": 44,
+      "protectedDatabaseMetadataUnchanged": true
+    },
+    {
+      "directory": "browser-final-family",
+      "ok": true,
+      "failure": null,
+      "boundary": "Headless Vite UI driving a SwiftPM test host around the real isolated LiveWorker; not a packaged worker/app, native window, RF, audio, PTT, hardware, or sponsor-submission acceptance.",
+      "cases": 14,
+      "exportAssertions": [
+        {
+          "session": "CQ WW CW CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 814,
+          "sha256": "afd2e0c0e8869827a9a0a5225da30c87ea5e2b80ebb2499acb8139e70a28129b",
+          "qsoCount": 6,
+          "score": 168
+        },
+        {
+          "session": "CQ WW CW CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 5763,
+          "sha256": "aec46815f89e22abcea3729042db4f46da9afd308883ede5edeb6d6cb5f2d3a3",
+          "qsoCount": 6,
+          "score": 168
+        },
+        {
+          "session": "CQ WW SSB SSB family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 816,
+          "sha256": "2de4f41eee77992218289983d6c9943e8282fe06da5cf817af5b18597b286520",
+          "qsoCount": 6,
+          "score": 168
+        },
+        {
+          "session": "CQ WW SSB SSB family operator acceptance",
+          "format": "adif",
+          "byteLength": 5804,
+          "sha256": "6ef22cc799ad46b37ef0249d87decee000e82a31f6d529511d155358cb36d15c",
+          "qsoCount": 6,
+          "score": 168
+        },
+        {
+          "session": "CQ WPX CW CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 814,
+          "sha256": "856d5fa1d78b1ddc051bdd4b1ae0deb4e3d9f6083f89b77c5486cb1de5f853ef",
+          "qsoCount": 6,
+          "score": 63
+        },
+        {
+          "session": "CQ WPX CW CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 5895,
+          "sha256": "390bed6d7898fe277d62e46945394b589ad7ca4fa75f02b789caebbb0ee1b1e1",
+          "qsoCount": 6,
+          "score": 63
+        },
+        {
+          "session": "CQ WPX SSB SSB family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 816,
+          "sha256": "8f94d36d7744eb7fb256c29a1be36c1ca069989ed2a3c151f39c10d391502286",
+          "qsoCount": 6,
+          "score": 63
+        },
+        {
+          "session": "CQ WPX SSB SSB family operator acceptance",
+          "format": "adif",
+          "byteLength": 5948,
+          "sha256": "27966caffbbace3bfabae0044c85c118bac9a444320823eaab1d339a4217529a",
+          "qsoCount": 6,
+          "score": 63
+        },
+        {
+          "session": "Oceania DX CW CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 819,
+          "sha256": "c34754e842020b964a7d8abad9098dc517d94acd4aedbf7a617392a9f0cdca61",
+          "qsoCount": 6,
+          "score": 108
+        },
+        {
+          "session": "Oceania DX CW CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 5840,
+          "sha256": "fa90f7a37f556aee41b16fb49eafa2baa943e732c9473c49ab07b961bbcca7ea",
+          "qsoCount": 6,
+          "score": 108
+        },
+        {
+          "session": "Oceania DX SSB SSB family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 821,
+          "sha256": "360b08f474cbaf6a840113e1543a4ec158c2953e36ba7f8db15d859a13d8d0b1",
+          "qsoCount": 6,
+          "score": 108
+        },
+        {
+          "session": "Oceania DX SSB SSB family operator acceptance",
+          "format": "adif",
+          "byteLength": 5881,
+          "sha256": "96c70b146fef94d851f6b22f3133e0a20543ac3ae100a220d8cf5b9fa83de26d",
+          "qsoCount": 6,
+          "score": 108
+        },
+        {
+          "session": "SAC CW CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 813,
+          "sha256": "426dd4f8932580d2a3d6fc4c2f1600577516f397bbdf8f8a49d04bcbbd81837e",
+          "qsoCount": 6,
+          "score": 96
+        },
+        {
+          "session": "SAC CW CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 5805,
+          "sha256": "498d8addc6acf7be1330dc891192168780c45d42d40c6401fbe7c1efef655d9f",
+          "qsoCount": 6,
+          "score": 96
+        },
+        {
+          "session": "SAC SSB SSB family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 815,
+          "sha256": "a28a3864e061d236601326424212bf2c1a22734691e3b425d00b244d4ae54fcf",
+          "qsoCount": 6,
+          "score": 96
+        },
+        {
+          "session": "SAC SSB SSB family operator acceptance",
+          "format": "adif",
+          "byteLength": 5846,
+          "sha256": "ebc2c9f3000e80209358c388da80c8a2188644d54ac281c02d657c68ee2a4b26",
+          "qsoCount": 6,
+          "score": 96
+        },
+        {
+          "session": "NAQP CW CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 860,
+          "sha256": "97c43e6563564d766a2c0331e7422f7b9be8d4675efb7a295701ff5e09687116",
+          "qsoCount": 6,
+          "score": 36
+        },
+        {
+          "session": "NAQP CW CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 6161,
+          "sha256": "654baef3970c50dfdd54c976d2f08d645c5b2420d230822a22f4df9c4ad8ce2a",
+          "qsoCount": 6,
+          "score": 36
+        },
+        {
+          "session": "NAQP SSB SSB family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 862,
+          "sha256": "9cfefd9746418a04efeb715782735beeb237e9e8b669cd36ff9cf37072ff0308",
+          "qsoCount": 6,
+          "score": 36
+        },
+        {
+          "session": "NAQP SSB SSB family operator acceptance",
+          "format": "adif",
+          "byteLength": 6179,
+          "sha256": "4cbc97108e85d0504eb80288415a800972932d5930e8650c4025088aa1e6cf4d",
+          "qsoCount": 6,
+          "score": 36
+        },
+        {
+          "session": "JIDX CW CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 691,
+          "sha256": "8faea26309601bd1ce0a48f433840d65fea4173b47b941f6441aabc1de9c7665",
+          "qsoCount": 6,
+          "score": 36
+        },
+        {
+          "session": "JIDX CW CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 6133,
+          "sha256": "c32de90abea7646d3542c1e88d04113705f79a411a28c84d9534ed3062ef952e",
+          "qsoCount": 6,
+          "score": 36
+        },
+        {
+          "session": "JIDX SSB SSB family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 691,
+          "sha256": "833f4643420e1d4be40d3d87ecc1c2880e655281030a7a5adc5278ab39889619",
+          "qsoCount": 6,
+          "score": 36
+        },
+        {
+          "session": "JIDX SSB SSB family operator acceptance",
+          "format": "adif",
+          "byteLength": 6139,
+          "sha256": "ef88cb2900a2752464a2e03a7f908005ffcc1325041e0042c565d340a5bb2081",
+          "qsoCount": 6,
+          "score": 36
+        },
+        {
+          "session": "ARRL DX CW CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 816,
+          "sha256": "4585ad81baa37e24eb9285a10ac19f77a13673999da40c0579e064816c56ab06",
+          "qsoCount": 6,
+          "score": 108
+        },
+        {
+          "session": "ARRL DX CW CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 6251,
+          "sha256": "b711c40c32c693d3be01efbff2043b58b8dbf16a93946ab3675504acc70481de",
+          "qsoCount": 6,
+          "score": 108
+        },
+        {
+          "session": "ARRL DX SSB SSB family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 818,
+          "sha256": "9273b5386d24b2b63a1bb8bd73b8fc4e7aa1fe280e50c9ff6dbb3de93d016609",
+          "qsoCount": 6,
+          "score": 108
+        },
+        {
+          "session": "ARRL DX SSB SSB family operator acceptance",
+          "format": "adif",
+          "byteLength": 6264,
+          "sha256": "eb2eeffba85f819f0edc754f259dc2d13eeaaf00bc855a854521d5998a6de698",
+          "qsoCount": 6,
+          "score": 108
+        },
+        {
+          "session": "CQ WW CW CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 814,
+          "sha256": "ca88fafd1e6ac9d0bad164709b292591844639505e768ae82e941b81793c85d3",
+          "qsoCount": 6,
+          "score": 168
+        },
+        {
+          "session": "CQ WW CW CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 5763,
+          "sha256": "22a80ba31a30d151bfd56342c473259bb3194fec0f7de871ac756d848bdec145",
+          "qsoCount": 6,
+          "score": 168
+        },
+        {
+          "session": "CQ WW SSB SSB family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 816,
+          "sha256": "5ab0f4f9a0bf3a84279f5f170bc2285f15c6ff71f8841f4eb81435ad3007b3d1",
+          "qsoCount": 6,
+          "score": 168
+        },
+        {
+          "session": "CQ WW SSB SSB family operator acceptance",
+          "format": "adif",
+          "byteLength": 5804,
+          "sha256": "283e5136cf6e333474ffe61b4fa186571d3bec5418e291ca87269eed216f4ca6",
+          "qsoCount": 6,
+          "score": 168
+        },
+        {
+          "session": "CQ WPX CW CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 814,
+          "sha256": "0680e54719899495a46417e0497311fd1add6a447041a9781d6d6c680855a223",
+          "qsoCount": 6,
+          "score": 63
+        },
+        {
+          "session": "CQ WPX CW CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 5895,
+          "sha256": "1fcf96bca326e5bc7d77ddce2514019d45498a76291346a6a9932b9b01ba88dc",
+          "qsoCount": 6,
+          "score": 63
+        },
+        {
+          "session": "CQ WPX SSB SSB family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 816,
+          "sha256": "bbf7d52cba679c17164f9d10d1be12a459a3608015263d9ef2006a727b0d905f",
+          "qsoCount": 6,
+          "score": 63
+        },
+        {
+          "session": "CQ WPX SSB SSB family operator acceptance",
+          "format": "adif",
+          "byteLength": 5948,
+          "sha256": "0e9c0cd52c1cb6ec30179ffc1a0582587570ba5fabb55a1d48b7cf9f54331928",
+          "qsoCount": 6,
+          "score": 63
+        },
+        {
+          "session": "Oceania DX CW CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 819,
+          "sha256": "5603072deed2b1f29d332a71f572639415cf2b1e12e25dfd1ece901622e7fc1c",
+          "qsoCount": 6,
+          "score": 108
+        },
+        {
+          "session": "Oceania DX CW CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 5840,
+          "sha256": "7b8be6344ea10ceb6c3595befbce919f3eb80be42cdcbc13bbcf3f06ea215fa1",
+          "qsoCount": 6,
+          "score": 108
+        },
+        {
+          "session": "Oceania DX SSB SSB family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 821,
+          "sha256": "911db231db5582689f1235049afb977f22f6dece94ff36f0d75569a552afbea8",
+          "qsoCount": 6,
+          "score": 108
+        },
+        {
+          "session": "Oceania DX SSB SSB family operator acceptance",
+          "format": "adif",
+          "byteLength": 5881,
+          "sha256": "78b0c4ede565acc05c6ea02df30fedc2158a11e5e7f1a0dee86bc89f913a6406",
+          "qsoCount": 6,
+          "score": 108
+        },
+        {
+          "session": "SAC CW CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 813,
+          "sha256": "3208f9ed83ac48ec2574f6011f8847ad678c4b5d1df460068461d43a66bc11e2",
+          "qsoCount": 6,
+          "score": 96
+        },
+        {
+          "session": "SAC CW CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 5805,
+          "sha256": "f4104f451d9f661784f2b18680b99ebcfe9ee27d6111101c3d87ae5b0f4a7cb5",
+          "qsoCount": 6,
+          "score": 96
+        },
+        {
+          "session": "SAC SSB SSB family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 815,
+          "sha256": "14df4f296f2fc717ca36e4474409ede0384825e4ee9bac02cfc16677faace372",
+          "qsoCount": 6,
+          "score": 96
+        },
+        {
+          "session": "SAC SSB SSB family operator acceptance",
+          "format": "adif",
+          "byteLength": 5846,
+          "sha256": "729351ccb68ac3a177501865c4f80af4f9c4404f8e3c05db94d6406b7e366db7",
+          "qsoCount": 6,
+          "score": 96
+        },
+        {
+          "session": "NAQP CW CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 860,
+          "sha256": "a9b9aa2debd18c3e4941d083f67563ba349ee1243119b8a4c367e7ecea9d9977",
+          "qsoCount": 6,
+          "score": 36
+        },
+        {
+          "session": "NAQP CW CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 6167,
+          "sha256": "aa3f4908e286f4a5356d5cfa287a70e304313871502dd7a675aa97e65e1e44e4",
+          "qsoCount": 6,
+          "score": 36
+        },
+        {
+          "session": "NAQP SSB SSB family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 862,
+          "sha256": "4a0349838d36b2e9acbfbb62a5bba5ebac65f7e16ea812d7a72b9bb15cd44c41",
+          "qsoCount": 6,
+          "score": 36
+        },
+        {
+          "session": "NAQP SSB SSB family operator acceptance",
+          "format": "adif",
+          "byteLength": 6185,
+          "sha256": "00ec3b0283ce7a085d960eac8ea3d2956798fb68b99b6db5d37f6857b8d6f0af",
+          "qsoCount": 6,
+          "score": 36
+        },
+        {
+          "session": "JIDX CW CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 691,
+          "sha256": "e4d3f8a98cb1d5002e4179ffa46689b3f4a9981f59b16f561635f122211b21f7",
+          "qsoCount": 6,
+          "score": 36
+        },
+        {
+          "session": "JIDX CW CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 6133,
+          "sha256": "d97f2cfd7bc5badd81bc5af25c87ded522c74768d367383b0f3c4f1331d330d8",
+          "qsoCount": 6,
+          "score": 36
+        },
+        {
+          "session": "JIDX SSB SSB family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 691,
+          "sha256": "c5864818dfee627203a68bd1637d35888d949a8db46b36198ec7ee4701f5d437",
+          "qsoCount": 6,
+          "score": 36
+        },
+        {
+          "session": "JIDX SSB SSB family operator acceptance",
+          "format": "adif",
+          "byteLength": 6139,
+          "sha256": "09432903ed9d6bbd02ce5ab08187fde28d2b2b300bbf8b2804057444fe39df05",
+          "qsoCount": 6,
+          "score": 36
+        },
+        {
+          "session": "ARRL DX CW CW family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 816,
+          "sha256": "4eaa52bd269ecb3b97531bd6821fcebba3bf7ec7a7706d6b2317e56f57d536a2",
+          "qsoCount": 6,
+          "score": 108
+        },
+        {
+          "session": "ARRL DX CW CW family operator acceptance",
+          "format": "adif",
+          "byteLength": 6251,
+          "sha256": "e7f02ecefe9909c5712ab6d420a704b694882776b9259cde0fff08e0ca2db622",
+          "qsoCount": 6,
+          "score": 108
+        },
+        {
+          "session": "ARRL DX SSB SSB family operator acceptance",
+          "format": "cabrillo",
+          "byteLength": 818,
+          "sha256": "f40581b524e0ae5d247b6f09f607c6a8c48fae2665a81d7e547815f226826461",
+          "qsoCount": 6,
+          "score": 108
+        },
+        {
+          "session": "ARRL DX SSB SSB family operator acceptance",
+          "format": "adif",
+          "byteLength": 6264,
+          "sha256": "192eff67420af130bc12fe2345c62b41433e6ce5dcb5894f6b7b9eef1a38776d",
+          "qsoCount": 6,
+          "score": 108
+        }
+      ],
+      "exports": 56,
+      "protectedDatabaseMetadataUnchanged": true
+    },
+    {
+      "directory": "browser-final-naqp",
+      "ok": true,
+      "failure": null,
+      "boundary": "Headless Vite UI driving a SwiftPM test host around the real isolated LiveWorker; CW/SSB output is visible simulation only, RTTY is Plain Log only, and this is not a packaged worker/app, native window, RF, audio, PTT, hardware, or sponsor-submission acceptance.",
+      "cases": 6,
+      "exportAssertions": [
+        {
+          "session": "NAQP CW Run acceptance",
+          "format": "cabrillo",
+          "byteLength": 860,
+          "sha256": "29120bd9f086c4ed8bc4f3be9d575e9aad9762f5cc6ff805e59e7995d4f777fb",
+          "qsoCount": 6,
+          "score": 30
+        },
+        {
+          "session": "NAQP CW Run acceptance",
+          "format": "adif",
+          "byteLength": 6141,
+          "sha256": "acd510d562443eefd51b20b4217c742946cfbf22a5e34616c8beef9763676965",
+          "qsoCount": 6,
+          "score": 30
+        },
+        {
+          "session": "NAQP CW S&P acceptance",
+          "format": "cabrillo",
+          "byteLength": 860,
+          "sha256": "29120bd9f086c4ed8bc4f3be9d575e9aad9762f5cc6ff805e59e7995d4f777fb",
+          "qsoCount": 6,
+          "score": 30
+        },
+        {
+          "session": "NAQP CW S&P acceptance",
+          "format": "adif",
+          "byteLength": 6141,
+          "sha256": "238e9488845f05e11fe9cb12311f65bc897d3705ba9bc9f7e8ba61ce188705e0",
+          "qsoCount": 6,
+          "score": 30
+        },
+        {
+          "session": "NAQP SSB Run acceptance",
+          "format": "cabrillo",
+          "byteLength": 862,
+          "sha256": "c211747ee422b3b3e4da08c66318e72701168ab5976a819f342b06fd8ad93f3d",
+          "qsoCount": 6,
+          "score": 30
+        },
+        {
+          "session": "NAQP SSB Run acceptance",
+          "format": "adif",
+          "byteLength": 6159,
+          "sha256": "a8420f455ff4627d0e10b81b9f75bb0a7ac2cce7dbef427600747cc7eee40c86",
+          "qsoCount": 6,
+          "score": 30
+        },
+        {
+          "session": "NAQP SSB S&P acceptance",
+          "format": "cabrillo",
+          "byteLength": 862,
+          "sha256": "c211747ee422b3b3e4da08c66318e72701168ab5976a819f342b06fd8ad93f3d",
+          "qsoCount": 6,
+          "score": 30
+        },
+        {
+          "session": "NAQP SSB S&P acceptance",
+          "format": "adif",
+          "byteLength": 6159,
+          "sha256": "40f36d1b8e064b2bffea8c40299cedf1713e27c7bf1b93ed44d829051d458526",
+          "qsoCount": 6,
+          "score": 30
+        },
+        {
+          "session": "NAQP RTTY Plain Log acceptance",
+          "format": "cabrillo",
+          "byteLength": 418,
+          "sha256": "b52487bdcf0bc7bb14a5db78b589bd807533091fcb8bcfa9ff8213d479aab0fa",
+          "qsoCount": 1,
+          "score": 1
+        },
+        {
+          "session": "NAQP RTTY Plain Log acceptance",
+          "format": "adif",
+          "byteLength": 1131,
+          "sha256": "ca963c42f1d9fc6b0403f9d8295bb9d2789384d896de15a8e388a734194069d8",
+          "qsoCount": 1,
+          "score": 1
+        },
+        {
+          "session": "NAQP CW DX entrant acceptance",
+          "format": "cabrillo",
+          "byteLength": 414,
+          "sha256": "a3ea84c9233bd38a5a6b5ebec49f2c12f9907a403ea8acf3f458497bf411a6f1",
+          "qsoCount": 1,
+          "score": 1
+        },
+        {
+          "session": "NAQP CW DX entrant acceptance",
+          "format": "adif",
+          "byteLength": 1115,
+          "sha256": "f8a6526be48f80f2c53e7d026028201a998e3eca4d02cec112de7a73e957bf9b",
+          "qsoCount": 1,
+          "score": 1
+        },
+        {
+          "session": "NAQP CW Run acceptance corrected",
+          "format": "cabrillo",
+          "byteLength": 771,
+          "sha256": "4f3fe4e79e37fea704a3b44e6c60c6d6cab3e38540fa7c7422281a3346222d78",
+          "qsoCount": 5,
+          "score": 20
+        },
+        {
+          "session": "NAQP CW Run acceptance corrected",
+          "format": "adif",
+          "byteLength": 5152,
+          "sha256": "80835df3c48e6e9c742bdc65405cec25e3a43c1bafe53fe77c06b9903d07a008",
+          "qsoCount": 5,
+          "score": 20
+        }
+      ],
+      "exports": 14,
+      "protectedDatabaseMetadataUnchanged": true
+    },
+    {
+      "directory": "browser-final-operator",
+      "ok": true,
+      "failure": null,
+      "boundary": "Headless Vite UI driving a SwiftPM test host around the real isolated LiveWorker; not a packaged worker/app, native window, RF, audio, PTT, hardware, or sponsor-submission acceptance.",
+      "cases": 8,
+      "exportAssertions": [
+        {
+          "session": "WW CW Run acceptance",
+          "format": "cabrillo",
+          "byteLength": 570,
+          "sha256": "0285bea3cc234e66d9133b9ad36409277bbd383bd63f981d44199f0e62e6a28c",
+          "qsoCount": 3,
+          "score": 42
+        },
+        {
+          "session": "WW CW Run acceptance",
+          "format": "adif",
+          "byteLength": 2935,
+          "sha256": "9f5376911640fb59a0ef680c1ac623903ebea888011c47d67bf770f530139488",
+          "qsoCount": 3,
+          "score": 42
+        },
+        {
+          "session": "WW CW S&P acceptance",
+          "format": "cabrillo",
+          "byteLength": 570,
+          "sha256": "0285bea3cc234e66d9133b9ad36409277bbd383bd63f981d44199f0e62e6a28c",
+          "qsoCount": 3,
+          "score": 42
+        },
+        {
+          "session": "WW CW S&P acceptance",
+          "format": "adif",
+          "byteLength": 2935,
+          "sha256": "5080206236024b603c51a8361723110b59d24a000aa667d7b277c247712ca223",
+          "qsoCount": 3,
+          "score": 42
+        },
+        {
+          "session": "WPX CW Run acceptance",
+          "format": "cabrillo",
+          "byteLength": 571,
+          "sha256": "074e158e66ad3793c12009cbe13bffaa702a5f4244d8bd79c042f45a26b63915",
+          "qsoCount": 3,
+          "score": 22
+        },
+        {
+          "session": "WPX CW Run acceptance",
+          "format": "adif",
+          "byteLength": 3001,
+          "sha256": "52648b81ca40da83a15f568cc7d79e6a3ac714422ff0726eeee190c8e05feeeb",
+          "qsoCount": 3,
+          "score": 22
+        },
+        {
+          "session": "WPX CW S&P acceptance",
+          "format": "cabrillo",
+          "byteLength": 571,
+          "sha256": "074e158e66ad3793c12009cbe13bffaa702a5f4244d8bd79c042f45a26b63915",
+          "qsoCount": 3,
+          "score": 22
+        },
+        {
+          "session": "WPX CW S&P acceptance",
+          "format": "adif",
+          "byteLength": 3001,
+          "sha256": "05dffe1f618fb7acec0e54c56e0333be762f8b0184d425d14e390f66a159495b",
+          "qsoCount": 3,
+          "score": 22
+        },
+        {
+          "session": "WW SSB Run acceptance",
+          "format": "cabrillo",
+          "byteLength": 572,
+          "sha256": "1b296d4229da18e20ada9946a59d207524f02ca559ffa8979ed5557ff1928de9",
+          "qsoCount": 3,
+          "score": 42
+        },
+        {
+          "session": "WW SSB Run acceptance",
+          "format": "adif",
+          "byteLength": 2958,
+          "sha256": "e7cde4a20b56dbcc98096be7346538125a1df9ef37a42a2897f4f1ee0fbbb667",
+          "qsoCount": 3,
+          "score": 42
+        },
+        {
+          "session": "WW SSB S&P acceptance",
+          "format": "cabrillo",
+          "byteLength": 572,
+          "sha256": "1b296d4229da18e20ada9946a59d207524f02ca559ffa8979ed5557ff1928de9",
+          "qsoCount": 3,
+          "score": 42
+        },
+        {
+          "session": "WW SSB S&P acceptance",
+          "format": "adif",
+          "byteLength": 2958,
+          "sha256": "7c9a5ca7ed14968811330f97ff60aded42e770dc6a68893f79d8d46977a65c0a",
+          "qsoCount": 3,
+          "score": 42
+        },
+        {
+          "session": "WPX SSB Run acceptance",
+          "format": "cabrillo",
+          "byteLength": 573,
+          "sha256": "7a06afda6259ceba57d7ec69fdb8291212a4e6fd0b0b01621f305c05170664fa",
+          "qsoCount": 3,
+          "score": 22
+        },
+        {
+          "session": "WPX SSB Run acceptance",
+          "format": "adif",
+          "byteLength": 3030,
+          "sha256": "03de5dcdcdf7639bb7b9212804d68199bd0ff6249ae5b52e00c2461b355405cb",
+          "qsoCount": 3,
+          "score": 22
+        },
+        {
+          "session": "WPX SSB S&P acceptance",
+          "format": "cabrillo",
+          "byteLength": 573,
+          "sha256": "11025a6c6cf10e3436862094692aa00748dcc9fd33faec8131d694c56ae38a12",
+          "qsoCount": 3,
+          "score": 22
+        },
+        {
+          "session": "WPX SSB S&P acceptance",
+          "format": "adif",
+          "byteLength": 3030,
+          "sha256": "8ac717f5dd4cd94348cd5ff30f43cc933b0b92fbe279a5b68dadcdbebeb832d0",
+          "qsoCount": 3,
+          "score": 22
+        }
+      ],
+      "exports": 16,
+      "protectedDatabaseMetadataUnchanged": true
+    },
+    {
+      "directory": "browser-final-scp",
+      "ok": false,
+      "failure": "BoundedChildError: agent-browser exceeded 20000 ms and its owned process group was reaped.\n    at file:///Users/oliver/Documents/Projects/OM0RX-xLog/prototype/scripts/bounded-child-process.mjs:64:30\n    at file:///Users/oliver/Documents/Projects/OM0RX-xLog/prototype/scripts/bounded-child-process.mjs:42:108\n    at ChildProcess.<anonymous> (file:///Users/oliver/Documents/Projects/OM0RX-xLog/prototype/scripts/bounded-child-process.mjs:64:160)",
+      "boundary": "Headless UI with a test-owned picker shim drives the production SCP panel/client and real isolated LiveWorker service. Native OS chooser, packaged app, network, RF, audio, PTT and hardware are not exercised.",
+      "cases": 0,
+      "exportAssertions": null,
+      "exports": 0,
+      "protectedDatabaseMetadataUnchanged": true
+    },
+    {
+      "directory": "browser-final-scp-r2",
+      "ok": false,
+      "failure": "Error: Timed out waiting for replacement query.\n    at waitFrame (file:///Users/oliver/Documents/Projects/OM0RX-xLog/prototype/scripts/accept-contest-scp-operator-browser.mjs:52:237)\n    at async file:///Users/oliver/Documents/Projects/OM0RX-xLog/prototype/scripts/accept-contest-scp-operator-browser.mjs:81:15",
+      "boundary": "Headless UI with a test-owned picker shim drives the production SCP panel/client and real isolated LiveWorker service. Native OS chooser, packaged app, network, RF, audio, PTT and hardware are not exercised.",
+      "cases": 0,
+      "exportAssertions": null,
+      "exports": 0,
+      "protectedDatabaseMetadataUnchanged": true
+    },
+    {
+      "directory": "browser-final-scp-r3",
+      "ok": true,
+      "failure": null,
+      "boundary": "Headless UI with a test-owned picker shim drives the production SCP panel/client and real isolated LiveWorker service. Native OS chooser, packaged app, network, RF, audio, PTT and hardware are not exercised.",
+      "cases": 0,
+      "exportAssertions": null,
+      "exports": 2,
+      "protectedDatabaseMetadataUnchanged": true
+    },
+    {
+      "directory": "browser-naqp-after",
+      "ok": false,
+      "failure": "BoundedChildError: agent-browser failed (1).\n    at file:///Users/oliver/Documents/Projects/OM0RX-xLog/prototype/scripts/bounded-child-process.mjs:55:45\n    at file:///Users/oliver/Documents/Projects/OM0RX-xLog/prototype/scripts/bounded-child-process.mjs:42:108\n    at ChildProcess.<anonymous> (file:///Users/oliver/Documents/Projects/OM0RX-xLog/prototype/scripts/bounded-child-process.mjs:57:30)\n    at Object.onceWrapper (node:events:623:26)\n    at ChildProcess.emit (node:events:508:28)\n    at maybeClose (node:internal/child_process:1101:16)\n    at ChildProcess._handle.onexit (node:internal/child_process:305:5)",
+      "boundary": "Headless Vite UI driving a SwiftPM test host around the real isolated LiveWorker; CW/SSB output is visible simulation only, RTTY is Plain Log only, and this is not a packaged worker/app, native window, RF, audio, PTT, hardware, or sponsor-submission acceptance.",
+      "cases": 6,
+      "exportAssertions": [
+        {
+          "session": "NAQP CW Run acceptance",
+          "format": "cabrillo",
+          "byteLength": 860,
+          "sha256": "954de0ffa83b6250772176a46caa7526db4b40572930d4e6ba0b710045532f13",
+          "qsoCount": 6,
+          "score": 30
+        },
+        {
+          "session": "NAQP CW Run acceptance",
+          "format": "adif",
+          "byteLength": 6141,
+          "sha256": "de99825079892f838bef5f16e2e401ebc1f10b019d3d70497277d86b90eead71",
+          "qsoCount": 6,
+          "score": 30
+        }
+      ],
+      "exports": 2,
+      "protectedDatabaseMetadataUnchanged": true
+    },
+    {
+      "directory": "browser-naqp-arm-control",
+      "ok": false,
+      "failure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n+ actual - expected\n\n+ []\n- [\n-   'CQ'\n- ]\n\n    at createNAQPCase (file:///Users/oliver/Documents/Projects/OM0RX-xLog/prototype/scripts/accept-contest-naqp-operator-browser.mjs:302:12)\n    at async file:///Users/oliver/Documents/Projects/OM0RX-xLog/prototype/scripts/accept-contest-naqp-operator-browser.mjs:394:29",
+      "boundary": "Headless Vite UI driving a SwiftPM test host around the real isolated LiveWorker; CW/SSB output is visible simulation only, RTTY is Plain Log only, and this is not a packaged worker/app, native window, RF, audio, PTT, hardware, or sponsor-submission acceptance.",
+      "cases": 6,
+      "exportAssertions": [],
+      "exports": 0,
+      "protectedDatabaseMetadataUnchanged": true
+    },
+    {
+      "directory": "browser-naqp-before",
+      "ok": false,
+      "failure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n+ actual - expected\n\n+ []\n- [\n-   'CQ'\n- ]\n\n    at createNAQPCase (file:///Users/oliver/Documents/Projects/OM0RX-xLog/prototype/scripts/accept-contest-naqp-operator-browser.mjs:299:12)\n    at async file:///Users/oliver/Documents/Projects/OM0RX-xLog/prototype/scripts/accept-contest-naqp-operator-browser.mjs:391:29",
+      "boundary": "Headless Vite UI driving a SwiftPM test host around the real isolated LiveWorker; CW/SSB output is visible simulation only, RTTY is Plain Log only, and this is not a packaged worker/app, native window, RF, audio, PTT, hardware, or sponsor-submission acceptance.",
+      "cases": 6,
+      "exportAssertions": [],
+      "exports": 0,
+      "protectedDatabaseMetadataUnchanged": true
+    },
+    {
+      "directory": "browser-naqp-click-control",
+      "ok": false,
+      "failure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n+ actual - expected\n\n+ []\n- [\n-   'CQ'\n- ]\n\n    at createNAQPCase (file:///Users/oliver/Documents/Projects/OM0RX-xLog/prototype/scripts/accept-contest-naqp-operator-browser.mjs:304:12)\n    at async file:///Users/oliver/Documents/Projects/OM0RX-xLog/prototype/scripts/accept-contest-naqp-operator-browser.mjs:396:29",
+      "boundary": "Headless Vite UI driving a SwiftPM test host around the real isolated LiveWorker; CW/SSB output is visible simulation only, RTTY is Plain Log only, and this is not a packaged worker/app, native window, RF, audio, PTT, hardware, or sponsor-submission acceptance.",
+      "cases": 6,
+      "exportAssertions": [],
+      "exports": 0,
+      "protectedDatabaseMetadataUnchanged": true
+    },
+    {
+      "directory": "browser-naqp-readiness",
+      "ok": true,
+      "failure": null,
+      "boundary": "Headless Vite UI driving a SwiftPM test host around the real isolated LiveWorker; CW/SSB output is visible simulation only, RTTY is Plain Log only, and this is not a packaged worker/app, native window, RF, audio, PTT, hardware, or sponsor-submission acceptance.",
+      "cases": 6,
+      "exportAssertions": [
+        {
+          "session": "NAQP CW Run acceptance",
+          "format": "cabrillo",
+          "byteLength": 860,
+          "sha256": "3d1966f9a12e541bbb73ba5cc0f80bdf4b9f8ec23e611401783a517691b405ee",
+          "qsoCount": 6,
+          "score": 30
+        },
+        {
+          "session": "NAQP CW Run acceptance",
+          "format": "adif",
+          "byteLength": 6141,
+          "sha256": "8b0fcbd47c865dbc37d0ab5e28d944d29c69c007ba8cb3edf4eec01386c25a8c",
+          "qsoCount": 6,
+          "score": 30
+        },
+        {
+          "session": "NAQP CW S&P acceptance",
+          "format": "cabrillo",
+          "byteLength": 860,
+          "sha256": "3d1966f9a12e541bbb73ba5cc0f80bdf4b9f8ec23e611401783a517691b405ee",
+          "qsoCount": 6,
+          "score": 30
+        },
+        {
+          "session": "NAQP CW S&P acceptance",
+          "format": "adif",
+          "byteLength": 6141,
+          "sha256": "5970a5ad6161ef86988e357d0a76ec6b0c7d270146680b4290e3b18a734b9b52",
+          "qsoCount": 6,
+          "score": 30
+        },
+        {
+          "session": "NAQP SSB Run acceptance",
+          "format": "cabrillo",
+          "byteLength": 862,
+          "sha256": "9bd02b5a6f2284509db0f25b569310a0ea65c153541860886bd5fb7e2319871e",
+          "qsoCount": 6,
+          "score": 30
+        },
+        {
+          "session": "NAQP SSB Run acceptance",
+          "format": "adif",
+          "byteLength": 6159,
+          "sha256": "65aae2265ea3ba414d96b8a1080abfce7c7591e213204c7d9886175f1debde14",
+          "qsoCount": 6,
+          "score": 30
+        },
+        {
+          "session": "NAQP SSB S&P acceptance",
+          "format": "cabrillo",
+          "byteLength": 862,
+          "sha256": "9bd02b5a6f2284509db0f25b569310a0ea65c153541860886bd5fb7e2319871e",
+          "qsoCount": 6,
+          "score": 30
+        },
+        {
+          "session": "NAQP SSB S&P acceptance",
+          "format": "adif",
+          "byteLength": 6159,
+          "sha256": "cb00ef75168e2fd028b91f7e787c4787a7a17dcd976b67cbfb7aca2a937558e0",
+          "qsoCount": 6,
+          "score": 30
+        },
+        {
+          "session": "NAQP RTTY Plain Log acceptance",
+          "format": "cabrillo",
+          "byteLength": 418,
+          "sha256": "55b90580230ae71f5352b90af641b7953c842a8ac37d813bd79c0e40fb78569e",
+          "qsoCount": 1,
+          "score": 1
+        },
+        {
+          "session": "NAQP RTTY Plain Log acceptance",
+          "format": "adif",
+          "byteLength": 1131,
+          "sha256": "124aa9e01395100e4751455b3997a391b0360efe63f20cb80bd277748d4a7e96",
+          "qsoCount": 1,
+          "score": 1
+        },
+        {
+          "session": "NAQP CW DX entrant acceptance",
+          "format": "cabrillo",
+          "byteLength": 414,
+          "sha256": "fd23c62580bcd0c276352688405ccb33f5be558fbfcc1112e7a545e78c6f818c",
+          "qsoCount": 1,
+          "score": 1
+        },
+        {
+          "session": "NAQP CW DX entrant acceptance",
+          "format": "adif",
+          "byteLength": 1115,
+          "sha256": "6b6026b0a00a15c6a88595499f8786b2a492e2e79a64f7c086a10f346964c375",
+          "qsoCount": 1,
+          "score": 1
+        },
+        {
+          "session": "NAQP CW Run acceptance corrected",
+          "format": "cabrillo",
+          "byteLength": 771,
+          "sha256": "752db3f9f99b11bf6da1dc7d04faeff23115f35141bbf94294b59fff1b217fb0",
+          "qsoCount": 5,
+          "score": 20
+        },
+        {
+          "session": "NAQP CW Run acceptance corrected",
+          "format": "adif",
+          "byteLength": 5152,
+          "sha256": "5a405ee07c94429f7431d5d89c740b5a77c6be0d7bd62e5189056e403ac5c39a",
+          "qsoCount": 5,
+          "score": 20
+        }
+      ],
+      "exports": 14,
+      "protectedDatabaseMetadataUnchanged": true
+    },
+    {
+      "directory": "browser-scp-diagnostic",
+      "ok": true,
+      "failure": null,
+      "boundary": "Headless UI with a test-owned picker shim drives the production SCP panel/client and real isolated LiveWorker service. Native OS chooser, packaged app, network, RF, audio, PTT and hardware are not exercised.",
+      "cases": 0,
+      "exportAssertions": null,
+      "exports": 2,
+      "protectedDatabaseMetadataUnchanged": true
+    }
+  ],
+  "process": {
+    "outcome": {
+      "ok": true
+    },
+    "operationCount": 78,
+    "assertions": {
+      "onboardingBeforeWorkspace": true,
+      "emptyWorkspaceCreated": true,
+      "cqWWCommitted": true,
+      "cqWPXReservedAndCommitted": true,
+      "exactCommitReplay": true,
+      "receiptSurvivedRestart": true,
+      "fullQSOReadBeforeEdit": true,
+      "countryChangingCorrection": true,
+      "forgedEntityRejected": true,
+      "staleGenerationAndRevisionRejected": true,
+      "deletionTombstoneObserved": true,
+      "exactQSOChangeReplayAfterRestart": true,
+      "qsoChangeReceiptsSurvivedRestart": true,
+      "postEditDraftDupeRevalidated": true,
+      "serialAllocationContinued": true,
+      "externalMethodsDenied": true,
+      "noNetworkSocketsObserved": true,
+      "noRadioDeviceDescriptorsObserved": true,
+      "protectedMetadataUnchanged": true
+    },
+    "boundary": {
+      "fixtureKind": "worker-bootstrap-with-verified-contest-runtime",
+      "finalApplicationPackage": false,
+      "rustHostExercised": false,
+      "installed": false,
+      "launchedApplicationUI": false,
+      "networkSocketsObserved": false,
+      "radioDeviceDescriptorsObserved": false,
+      "healthReportedCredentialAccess": false
+    }
+  },
+  "workerManifest": {
+    "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b",
+    "worker": {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/worker-close/apple/Products/Release/xlog-prototype-worker",
+      "size": 52911592,
+      "sha256": "3f2c55a9585062e7fca67c74a3596789c699a02fceda15cc9b213cf3eb70a4e0"
+    }
+  },
+  "databaseChecks": 19,
+  "completeSuiteCounts": {
+    "nativeSwift": {
+      "xctest": 315,
+      "swiftTestingSummary": 340
+    },
+    "portableSwift": {
+      "xctest": 1174,
+      "swiftTestingSummary": 538
+    },
+    "frontend": {
+      "vitest": 4731,
+      "files": 339,
+      "node": 2
+    },
+    "python": 556,
+    "rustDefault": {
+      "unit": 919,
+      "integrationFunctions": 26
+    },
+    "rustContestingFeature": 926
+  },
+  "suiteCountDetails": {
+    "nativeSwift": {
+      "xctestRuns": [
+        5,
+        83,
+        227
+      ],
+      "swiftTestingRuns": [
+        332,
+        0,
+        8
+      ]
+    },
+    "portableSwift": {
+      "xctestRuns": [
+        23,
+        537,
+        83,
+        227,
+        78,
+        193,
+        33
+      ],
+      "swiftTestingRuns": [
+        0,
+        530,
+        0,
+        8,
+        0,
+        0,
+        0
+      ]
+    }
+  },
+  "testCountBoundary": "Overlapping execution counts/summaries; not a summed unique-test count.",
+  "finalGates": [
+    {
+      "id": "CLOSE-NATIVE-BUILD",
+      "exitCode": 0,
+      "durationSeconds": 9.523,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-STRICT-BUILD",
+      "exitCode": 0,
+      "durationSeconds": 35.989,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-PORTABLE-TEST-BUILD",
+      "exitCode": 0,
+      "durationSeconds": 16.93,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-RUST-RELEASE",
+      "exitCode": 0,
+      "durationSeconds": 463.723,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-RUST-COMPILE",
+      "exitCode": 0,
+      "durationSeconds": 1.445,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-FEATURE-COMPILE",
+      "exitCode": 0,
+      "durationSeconds": 0.51,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-CLIPPY",
+      "exitCode": 0,
+      "durationSeconds": 0.853,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-FRONTEND-BUILD",
+      "exitCode": 0,
+      "durationSeconds": 154.675,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-NPM-AUDIT",
+      "exitCode": 0,
+      "durationSeconds": 2.949,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-NODE-CHECKS",
+      "exitCode": 0,
+      "durationSeconds": 2.314,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-WORKER-BUILD",
+      "exitCode": 0,
+      "durationSeconds": 449.292,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-PROTOCOL",
+      "exitCode": 0,
+      "durationSeconds": 2.014,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-PROCESS",
+      "exitCode": 0,
+      "durationSeconds": 30.738,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-NATIVE",
+      "exitCode": 0,
+      "durationSeconds": 102.381,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-PORTABLE",
+      "exitCode": 0,
+      "durationSeconds": 315.132,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-PYTHON",
+      "exitCode": 0,
+      "durationSeconds": 247.138,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-PATCH-FLOORS",
+      "exitCode": 0,
+      "durationSeconds": 0.223,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-RUST",
+      "exitCode": 0,
+      "durationSeconds": 36.135,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-RUST-FEATURE",
+      "exitCode": 0,
+      "durationSeconds": 26.362,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-FRONTEND",
+      "exitCode": 0,
+      "durationSeconds": 487.181,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-CW-WIRE-IDLE",
+      "exitCode": 0,
+      "durationSeconds": 14.239,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-CW-IDLE-BINDING",
+      "exitCode": 0,
+      "durationSeconds": 14.648,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-RUST-BUILDS",
+      "exitCode": 0,
+      "durationSeconds": 467.561,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-SWIFT-BUILDS",
+      "exitCode": 0,
+      "durationSeconds": 64.049,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-FRONT-BUILDS",
+      "exitCode": 0,
+      "durationSeconds": 161.387,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-WORKER-BUILDS",
+      "exitCode": 0,
+      "durationSeconds": 483.186,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-NATIVE-TESTS",
+      "exitCode": 0,
+      "durationSeconds": 588.849,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-PORTABLE-TESTS",
+      "exitCode": 0,
+      "durationSeconds": 801.854,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-PYTHON-TESTS",
+      "exitCode": 0,
+      "durationSeconds": 733.957,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-RUST-TESTS",
+      "exitCode": 0,
+      "durationSeconds": 549.209,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-FRONTEND-TESTS",
+      "exitCode": 0,
+      "durationSeconds": 1289.094,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    },
+    {
+      "id": "CLOSE-CW-IDLE-SEQUENCE",
+      "exitCode": 0,
+      "durationSeconds": 245.441,
+      "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b"
+    }
+  ],
+  "retainedIntegrationGates": [
+    "FINAL-CONTESTS",
+    "FINAL-CORPUS",
+    "FINAL-GENERATOR",
+    "FINAL-CW-ASAN-CONFIG",
+    "FINAL-CW-ASAN-BUILD",
+    "FINAL-CW-ASAN-CTEST",
+    "FINAL-CW-NATIVE-CONFIG",
+    "FINAL-CW-NATIVE-BUILD",
+    "FINAL-CW-NATIVE-CTEST",
+    "FINAL-CW-NUMPY",
+    "FINAL-CW-SUSTAINED",
+    "FINAL-CW-INTEGRATION",
+    "FINAL-TSAN",
+    "FINAL-LARGE-DATA",
+    "FINAL-AWARD-LARGE",
+    "FINAL-EMPTY-QUERY",
+    "FINAL-HAMLIB-SMOKE",
+    "FINAL-HAMLIB-ADAPTER",
+    "FINAL-FTP-FTPS",
+    "FINAL-LIVE-PUBLIC",
+    "FINAL-LIVE-SCP",
+    "FINAL-BROWSER-DECLARATIVE",
+    "FINAL-BROWSER-FAMILY",
+    "FINAL-BROWSER-NAQP",
+    "FINAL-BROWSER-OPERATOR",
+    "FINAL-BROWSER-SCP-R3",
+    "ITER9-PORTABLE-IQ-AFTER",
+    "ITER10-SHUTDOWN-TESTS",
+    "ITER10-CW-BOOLEAN-TESTS",
+    "AGENT-CLUSTER-FINAL",
+    "STABLE-OSV"
+  ],
+  "ciEvidence": {
+    "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b",
+    "observedUTC": "2026-10-28T22:29:20.241Z",
+    "snapshot": "ci/current/latest-status.json",
+    "frozenSource": "/tmp/xlog-phase5-20261029-721e0705/logs/agent-ci/final-status-58da5d49.json",
+    "frozenSHA256": "703d270265966c5116d43004ee88215ee40c1396199fd6ee65dcaa90e3e8b5ef",
+    "runs": [
+      {
+        "id": 40774897787,
+        "name": "CI",
+        "conclusion": "success",
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897787"
+      },
+      {
+        "id": 40774897702,
+        "name": "Cross-platform prototype",
+        "conclusion": "cancelled",
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897702"
+      },
+      {
+        "id": 40774897700,
+        "name": "Contest portability",
+        "conclusion": "success",
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897700"
+      }
+    ],
+    "boundary": "Prototype cancelled at40m budget; all executed tests/build/inventory/upload/cache/cleanup steps report success; overallworkflow success is not claimed. Separate CI and all7portabilityjobs succeed. Push matrix isMac-only; Linux/Windows native GUI/runtime release acceptance remains outside this run."
+  },
+  "cwBoundedSyntheticProfile": {
+    "instrument": "synthetic-paced-cw-v1",
+    "replay": true,
+    "spans": 2,
+    "tracks_per_span": 4,
+    "inference_workers": 2,
+    "sample_rate": 96000,
+    "requested_seconds": 60,
+    "delivered_seconds": 60,
+    "wall_seconds": 60.0185,
+    "maximum_tracks": 8,
+    "inferred_tracks": 8,
+    "inference_events": 424,
+    "maximum_pending": 6,
+    "coalesced": 0,
+    "dropped_events": 0,
+    "maximum_input_lateness_ms": 171.99,
+    "decode_p95_ms": 571.802,
+    "signal_generation_ms": 188.55,
+    "dsp_ingress_ms": 22666.3,
+    "peak_rss_mib": 207.484,
+    "cpu_seconds": 76.5597,
+    "stable_under_this_synthetic_load": true
+  }
+}

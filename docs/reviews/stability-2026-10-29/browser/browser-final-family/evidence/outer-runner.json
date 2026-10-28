@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "expectedHead": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "scenario": "family",
+  "command": {
+    "xctest": "/Applications/Xcode.app/Contents/Developer/usr/bin/xctest",
+    "selector": "XLogPrototypeTests.ContestOperatorBrowserAcceptanceTests/testRealWorkspaceAndMutationOwnerAgainstIsolatedLiveWorker",
+    "bundle": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final/out/Products/Debug/XLogPrototypeTests.xctest",
+    "scratch": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final"
+  },
+  "source": {
+    "head": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+    "status": [],
+    "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untracked": {}
+  },
+  "build": {
+    "code": 0,
+    "stdout": {
+      "path": "evidence/build.stdout.log",
+      "byteLength": 165485,
+      "sha256": "825c14a09414175dd48cb44a15eb9cef69828bfc29afefb921e023d3c717d30a"
+    },
+    "stderr": {
+      "path": "evidence/build.stderr.log",
+      "byteLength": 140,
+      "sha256": "77cd6faca67d59e6375f23e31fec1ed34b2e143a85d88760abfeb65d5a00d3c4"
+    }
+  },
+  "host": {
+    "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final/out/Products/Debug/XLogPrototypeTests.xctest/Contents/MacOS/XLogPrototypeTests",
+    "sha256": "b4ce670d088577ad98ccf5afd2f413d870a4dc9a30dedde97f9d8c28edd54bba"
+  },
+  "probes": [
+    {
+      "mode": "response",
+      "ownedPIDs": [
+        14418,
+        14419
+      ],
+      "lingeringPIDs": [],
+      "stdout": {
+        "path": "evidence/probe-response.stdout.log",
+        "byteLength": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stderr": {
+        "path": "evidence/probe-response.stderr.log",
+        "byteLength": 366,
+        "sha256": "75371f5d47d3cb28e149c04f59fbe21de264bac2a1fa4d51cb28518e2fe697da"
+      }
+    },
+    {
+      "mode": "shutdown",
+      "ownedPIDs": [
+        14479,
+        14480
+      ],
+      "lingeringPIDs": [],
+      "stdout": {
+        "path": "evidence/probe-shutdown.stdout.log",
+        "byteLength": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stderr": {
+        "path": "evidence/probe-shutdown.stderr.log",
+        "byteLength": 366,
+        "sha256": "5f4761575fdf6749fa1b07b8570aa53c05d6788815919a0b1dfa41470ee2cecc"
+      }
+    }
+  ],
+  "run": {
+    "code": 0,
+    "stdout": {
+      "path": "evidence/run.stdout.log",
+      "byteLength": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stderr": {
+      "path": "evidence/run.stderr.log",
+      "byteLength": 983,
+      "sha256": "90d45fb1add6c20d8dbdd446e3f83ca5a7207aa8e0bea011327fb57601b7bc7b"
+    },
+    "acceptancePath": "/tmp/xlog-phase5-20261029-721e0705/browser-final-family/evidence/acceptance.json"
+  }
+}

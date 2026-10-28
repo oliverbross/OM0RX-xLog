@@ -1,0 +1,29 @@
+{
+  "id": "STABLE-PYTHON",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "env",
+    "PYTHONPATH=python",
+    "XLOG_CONTEST_N1MM_UDP_ALLOWED=0",
+    "python3.12",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "python/tests",
+    "-v"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T20:35:22.227095+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/STABLE-PYTHON.log",
+  "sourceHeadAtStart": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f",
+  "sourceStatusAtStart": [],
+  "pid": 42459,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 384.774,
+  "finishedUTC": "2026-10-28T20:41:47.025391+00:00",
+  "sourceHeadAtFinish": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f"
+}

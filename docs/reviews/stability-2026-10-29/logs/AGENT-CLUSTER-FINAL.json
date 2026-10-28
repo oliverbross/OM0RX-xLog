@@ -1,0 +1,29 @@
+{
+  "id": "AGENT-CLUSTER-FINAL",
+  "command": [
+    "env",
+    "XLOG_PORTABLE_ONLY=1",
+    "swift",
+    "test",
+    "--scratch-path",
+    ".build/phase5-20261029/portable-final",
+    "--jobs",
+    "2",
+    "--no-parallel",
+    "--filter",
+    "LiveClusterMethodsTests"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T21:45:03.532942+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/AGENT-CLUSTER-FINAL.log",
+  "sourceHeadAtStart": "0a7e74ab3988537176551aea4a40ed48a012d7af",
+  "sourceStatusAtStart": [
+    " M Tests/XLogPrototypeTests/LiveClusterMethodsTests.swift"
+  ],
+  "pid": 76710,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 20.354,
+  "finishedUTC": "2026-10-28T21:45:23.889064+00:00",
+  "sourceHeadAtFinish": "0a7e74ab3988537176551aea4a40ed48a012d7af"
+}

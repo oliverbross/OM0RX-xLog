@@ -1,0 +1,50 @@
+{
+  "checks": [
+    {
+      "id": "STABLE-NPM-CI",
+      "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+      "timeout": 180,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "npm",
+        "ci",
+        "--no-audit",
+        "--fund=false"
+      ]
+    },
+    {
+      "id": "STABLE-FRONTEND-BUILD",
+      "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+      "timeout": 400,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "npm",
+        "run",
+        "build"
+      ]
+    },
+    {
+      "id": "STABLE-NPM-AUDIT",
+      "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+      "timeout": 180,
+      "command": [
+        "npm",
+        "audit",
+        "--json"
+      ]
+    },
+    {
+      "id": "STABLE-FRONTEND",
+      "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+      "timeout": 1400,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "npm",
+        "test"
+      ]
+    }
+  ]
+}

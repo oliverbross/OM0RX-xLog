@@ -1,0 +1,19 @@
+{
+  "id": "ITER1-NPM-CI",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "npm",
+    "ci",
+    "--no-audit",
+    "--fund=false"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-28T18:48:11.139120+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/ITER1-NPM-CI.log",
+  "pid": 73246,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 2.518,
+  "finishedUTC": "2026-10-28T18:48:13.657601+00:00"
+}

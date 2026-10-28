@@ -1,0 +1,5 @@
+[
+  "prototype/src-tauri/Cargo.lock",
+  "python/tests/test_reviewed_security_patches.py",
+  "tools/check_reviewed_security_patches.py"
+]

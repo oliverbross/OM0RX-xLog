@@ -1,0 +1,38 @@
+{
+  "checks": [
+    {
+      "id": "STABLE-PYTHON",
+      "timeout": 800,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "env",
+        "PYTHONPATH=python",
+        "XLOG_CONTEST_N1MM_UDP_ALLOWED=0",
+        "python3.12",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-v"
+      ]
+    },
+    {
+      "id": "STABLE-CATALOGUE",
+      "timeout": 240,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "env",
+        "XLOG_CONTEST_N1MM_UDP_ALLOWED=0",
+        "python3.12",
+        "-B",
+        "tools/check_all_contests_readiness.py",
+        "--output",
+        "/tmp/xlog-phase5-20261029-721e0705/final-all-contests-post-roots.json"
+      ]
+    }
+  ]
+}

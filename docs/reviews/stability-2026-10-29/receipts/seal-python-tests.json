@@ -1,0 +1,38 @@
+{
+  "waitFor": [
+    "SEAL-RUST-BUILDS",
+    "SEAL-SWIFT-BUILDS",
+    "SEAL-FRONT-BUILDS",
+    "SEAL-WORKER-BUILDS"
+  ],
+  "checks": [
+    {
+      "id": "SEAL-PYTHON",
+      "timeout": 500,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "env",
+        "PYTHONPATH=python",
+        "XLOG_CONTEST_N1MM_UDP_ALLOWED=0",
+        "python3.12",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-v"
+      ]
+    },
+    {
+      "id": "SEAL-PATCH-FLOORS",
+      "timeout": 60,
+      "command": [
+        "python3.12",
+        "-B",
+        "tools/check_reviewed_security_patches.py"
+      ]
+    }
+  ]
+}

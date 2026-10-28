@@ -1,0 +1,24 @@
+{
+  "waitFor": [
+    "SEAL-RUST-BUILDS",
+    "SEAL-SWIFT-BUILDS",
+    "SEAL-FRONT-BUILDS",
+    "SEAL-WORKER-BUILDS"
+  ],
+  "checks": [
+    {
+      "id": "SEAL-NATIVE",
+      "timeout": 400,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "swift",
+        "test",
+        "--skip-build",
+        "--scratch-path",
+        ".build/phase5-20261029/native-final",
+        "--no-parallel"
+      ]
+    }
+  ]
+}

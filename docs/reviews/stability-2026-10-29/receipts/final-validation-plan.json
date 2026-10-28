@@ -1,0 +1,158 @@
+{
+  "head": "58da5d49359f7333852b04037a134ab04167be7b",
+  "sourceSnapshot": "/tmp/xlog-phase5-20261029-721e0705/final-source-sha256.json",
+  "sourceFileCount": 1829,
+  "finalGateIds": [
+    "CLOSE-NATIVE-BUILD",
+    "CLOSE-STRICT-BUILD",
+    "CLOSE-PORTABLE-TEST-BUILD",
+    "CLOSE-RUST-RELEASE",
+    "CLOSE-RUST-COMPILE",
+    "CLOSE-FEATURE-COMPILE",
+    "CLOSE-CLIPPY",
+    "CLOSE-FRONTEND-BUILD",
+    "CLOSE-NPM-AUDIT",
+    "CLOSE-NODE-CHECKS",
+    "CLOSE-WORKER-BUILD",
+    "CLOSE-PROTOCOL",
+    "CLOSE-PROCESS",
+    "CLOSE-NATIVE",
+    "CLOSE-PORTABLE",
+    "CLOSE-PYTHON",
+    "CLOSE-PATCH-FLOORS",
+    "CLOSE-RUST",
+    "CLOSE-RUST-FEATURE",
+    "CLOSE-FRONTEND",
+    "CLOSE-CW-WIRE-IDLE",
+    "CLOSE-CW-IDLE-BINDING",
+    "CLOSE-RUST-BUILDS",
+    "CLOSE-SWIFT-BUILDS",
+    "CLOSE-FRONT-BUILDS",
+    "CLOSE-WORKER-BUILDS",
+    "CLOSE-NATIVE-TESTS",
+    "CLOSE-PORTABLE-TESTS",
+    "CLOSE-PYTHON-TESTS",
+    "CLOSE-RUST-TESTS",
+    "CLOSE-FRONTEND-TESTS",
+    "CLOSE-CW-IDLE-SEQUENCE"
+  ],
+  "suiteIds": {
+    "frontend": "CLOSE-FRONTEND",
+    "python": "CLOSE-PYTHON",
+    "nativeSwift": "CLOSE-NATIVE",
+    "portableSwift": "CLOSE-PORTABLE",
+    "rustDefault": "CLOSE-RUST",
+    "rustContestingFeature": "CLOSE-RUST-FEATURE"
+  },
+  "suiteCounts": {
+    "frontend": {
+      "vitest": 4731,
+      "files": 339,
+      "node": 2
+    },
+    "python": 556,
+    "nativeSwift": {
+      "xctest": 315,
+      "swiftTestingSummary": 340
+    },
+    "portableSwift": {
+      "xctest": 1174,
+      "swiftTestingSummary": 538
+    },
+    "rustDefault": {
+      "unit": 919,
+      "integrationFunctions": 26
+    },
+    "rustContestingFeature": 926
+  },
+  "retainedIntegrationGates": [
+    "FINAL-CONTESTS",
+    "FINAL-CORPUS",
+    "FINAL-GENERATOR",
+    "FINAL-CW-ASAN-CONFIG",
+    "FINAL-CW-ASAN-BUILD",
+    "FINAL-CW-ASAN-CTEST",
+    "FINAL-CW-NATIVE-CONFIG",
+    "FINAL-CW-NATIVE-BUILD",
+    "FINAL-CW-NATIVE-CTEST",
+    "FINAL-CW-NUMPY",
+    "FINAL-CW-SUSTAINED",
+    "FINAL-CW-INTEGRATION",
+    "FINAL-TSAN",
+    "FINAL-LARGE-DATA",
+    "FINAL-AWARD-LARGE",
+    "FINAL-EMPTY-QUERY",
+    "FINAL-HAMLIB-SMOKE",
+    "FINAL-HAMLIB-ADAPTER",
+    "FINAL-FTP-FTPS",
+    "FINAL-LIVE-PUBLIC",
+    "FINAL-LIVE-SCP",
+    "FINAL-BROWSER-DECLARATIVE",
+    "FINAL-BROWSER-FAMILY",
+    "FINAL-BROWSER-NAQP",
+    "FINAL-BROWSER-OPERATOR",
+    "FINAL-BROWSER-SCP-R3",
+    "ITER9-PORTABLE-IQ-AFTER",
+    "ITER10-SHUTDOWN-TESTS",
+    "ITER10-CW-BOOLEAN-TESTS",
+    "AGENT-CLUSTER-FINAL",
+    "STABLE-OSV"
+  ],
+  "currentProcessRoot": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/process-close",
+  "workerManifest": "/tmp/xlog-phase5-20261029-721e0705/worker-close.json",
+  "readinessPath": "/tmp/xlog-phase5-20261029-721e0705/final-all-contests-post-roots.json",
+  "securityDirectories": [
+    "security-osv-final",
+    "security-osv-final-r2"
+  ],
+  "additionalEvidenceDirectories": [],
+  "knownPrivateDatabaseRoots": [
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029"
+  ],
+  "privateDatabasePaths": [
+    "/tmp/xlog-phase5-20261029-721e0705/empty-query-final.sqlite"
+  ],
+  "archiveQuiescent": true,
+  "restoreQuiescent": true,
+  "ciEvidence": {
+    "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b",
+    "observedUTC": "2026-10-28T22:29:20.241Z",
+    "snapshot": "ci/current/latest-status.json",
+    "frozenSource": "/tmp/xlog-phase5-20261029-721e0705/logs/agent-ci/final-status-58da5d49.json",
+    "frozenSHA256": "703d270265966c5116d43004ee88215ee40c1396199fd6ee65dcaa90e3e8b5ef",
+    "runs": [
+      {
+        "id": 40774897787,
+        "name": "CI",
+        "conclusion": "success",
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897787"
+      },
+      {
+        "id": 40774897702,
+        "name": "Cross-platform prototype",
+        "conclusion": "cancelled",
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897702"
+      },
+      {
+        "id": 40774897700,
+        "name": "Contest portability",
+        "conclusion": "success",
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897700"
+      }
+    ],
+    "boundary": "Prototype cancelled at40m budget; all executed tests/build/inventory/upload/cache/cleanup steps report success; overallworkflow success is not claimed. Separate CI and all7portabilityjobs succeed. Push matrix isMac-only; Linux/Windows native GUI/runtime release acceptance remains outside this run."
+  },
+  "failureClassifications": {
+    "CLOSE-CW-WIRE": {
+      "classification": "INV-P5-004 resource-sensitive IQ freshness observation",
+      "disposition": "Loaded synthetic IQ delivery fails staleInput at unchanged250ms enqueue guard,12/13 pass. Process/contract/fixture/IQserializer unchanged since entry. Exact unchanged idle13case control CLOSE-CW-WIRE-IDLE passes14.239s after other suites finish. Precise serialization/preemption delay uninstrumented; safeguards/assertions retained."
+    },
+    "CLOSE-CW-WIRE-BINDING": {
+      "classification": "dependent CW wire failure",
+      "disposition": "Wrapper propagates CLOSE-CW-WIRE exit1; finally block restores original CW directory by inode. This is not a second application failure."
+    }
+  },
+  "originalCWInode": 589158794,
+  "freshNodeModulesDestination": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/final-validated-node_modules",
+  "freshDistDestination": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/final-built-dist"
+}

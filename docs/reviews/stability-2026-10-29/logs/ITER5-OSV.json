@@ -1,0 +1,18 @@
+{
+  "id": "ITER5-OSV",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "python3.12",
+    "-B",
+    "/tmp/xlog-phase5-20261029-721e0705/scripts/osv_check.py"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T19:23:44.628104+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/ITER5-OSV.log",
+  "pid": 95100,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 22.001,
+  "finishedUTC": "2026-10-28T19:24:06.629283+00:00"
+}

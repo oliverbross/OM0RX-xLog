@@ -1,0 +1,126 @@
+[
+  {
+    "commit": "b0e8576650edcfd80f0acdc3d2b7a29a320d0304",
+    "title": "fix: align clean frontend build with validated bundler",
+    "files": [
+      "STABILITY_REPORT.md",
+      "prototype/package-lock.json",
+      "prototype/src/live/OperatorDraftTime.test.tsx"
+    ]
+  },
+  {
+    "commit": "37f8f5b8e599aacfb6c1ac1a189f2468c1c57302",
+    "title": "fix: construct retained cluster callback in initializer",
+    "files": [
+      "STABILITY_REPORT.md",
+      "Sources/XLogPrototypeSupport/LiveOpportunitiesMethods.swift",
+      "Tests/XLogPrototypeTests/LiveOpportunitiesMethodsTests.swift"
+    ]
+  },
+  {
+    "commit": "3ce3f027b3196346d1cd47652c4c8fc5f2b26de9",
+    "title": "test: repair NAQP browser interaction and entry readiness",
+    "files": [
+      "STABILITY_REPORT.md",
+      "prototype/scripts/accept-contest-naqp-operator-browser.mjs",
+      "prototype/src/contesting/ContestOperatorPanel.test.tsx"
+    ]
+  },
+  {
+    "commit": "f845c73732b7c9606ed09ac41558a6f1048f5e3d",
+    "title": "test: validate process worker with its bundled Python engine",
+    "files": [
+      "STABILITY_REPORT.md",
+      "prototype/scripts/accept-contesting-worker-process.mjs",
+      "prototype/scripts/contesting-worker-current-scenario.mjs",
+      "prototype/scripts/relocate-contest-python.py",
+      "prototype/scripts/test-contest-python-relocation.py"
+    ]
+  },
+  {
+    "commit": "937d40ee1e9703c8529bfb2547140d93bd4e3f71",
+    "title": "fix: patch reviewed Rust dependencies and guard their floors",
+    "files": [
+      ".github/workflows/contest-portability.yml",
+      "STABILITY_REPORT.md",
+      "prototype/src-tauri/Cargo.lock",
+      "python/tests/test_reviewed_security_patches.py",
+      "tools/check_reviewed_security_patches.py"
+    ]
+  },
+  {
+    "commit": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+    "title": "fix: keep test runtime provenance outside production allowlist",
+    "files": [
+      "STABILITY_REPORT.md",
+      "prototype/scripts/relocate-contest-python.py",
+      "prototype/scripts/test-contest-python-relocation.py"
+    ]
+  },
+  {
+    "commit": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f",
+    "title": "fix: remove distrusted root from alternate TLS trust bundle",
+    "files": [
+      "STABILITY_REPORT.md",
+      "prototype/src-tauri/Cargo.lock",
+      "python/tests/test_reviewed_security_patches.py",
+      "tools/check_reviewed_security_patches.py"
+    ]
+  },
+  {
+    "commit": "4298491d86e0db0fa865df8f57cc81eaf361c1dd",
+    "title": "fix: publish module preferences durably on Windows",
+    "files": [
+      ".github/workflows/contest-portability.yml",
+      "STABILITY_REPORT.md",
+      "prototype/src-tauri/src/durable_file.rs",
+      "prototype/src-tauri/src/main.rs",
+      "prototype/src-tauri/src/module_restart_intent.rs",
+      "prototype/src-tauri/src/operating_module.rs"
+    ]
+  },
+  {
+    "commit": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba",
+    "title": "fix: include pure IQ types in portable Swift source slice",
+    "files": [
+      ".github/workflows/contest-portability.yml",
+      "Package.swift",
+      "STABILITY_REPORT.md",
+      "tools/check_portable_iq_sources.py"
+    ]
+  },
+  {
+    "commit": "388734e1e01730a70223ac90be3323635a2418a2",
+    "title": "ci: require all seven worker shutdown regression tests",
+    "files": [
+      ".github/workflows/contest-portability.yml",
+      "STABILITY_REPORT.md"
+    ]
+  },
+  {
+    "commit": "d7b8cf013b9a5d313e0c002fbf747968cbc24239",
+    "title": "fix: validate CW wire booleans without CoreFoundation on Windows",
+    "files": [
+      "STABILITY_REPORT.md",
+      "Sources/XCWCore/CWComputeWire.swift",
+      "Tests/XCWCoreTests/CWComputeWirePrimitiveTests.swift"
+    ]
+  },
+  {
+    "commit": "0a7e74ab3988537176551aea4a40ed48a012d7af",
+    "title": "test: verify cluster cleanup across supported backend boundaries",
+    "files": [
+      "STABILITY_REPORT.md",
+      "Tests/XLogPrototypeTests/LiveClusterMethodsTests.swift"
+    ]
+  },
+  {
+    "commit": "58da5d49359f7333852b04037a134ab04167be7b",
+    "title": "test: enforce portable primitive and capability boundaries in CI",
+    "files": [
+      ".github/workflows/contest-portability.yml",
+      "STABILITY_REPORT.md",
+      "Tests/XLogPrototypeTests/LiveClusterMethodsTests.swift"
+    ]
+  }
+]

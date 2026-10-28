@@ -1,0 +1,20 @@
+{
+  "id": "CONVERGED-PORTABLE-R2-SEQUENCE",
+  "command": [
+    "python3.12",
+    "-B",
+    "/tmp/xlog-phase5-20261029-721e0705/scripts/sequence.py",
+    "/tmp/xlog-phase5-20261029-721e0705/converged-portable-plan-r2.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T20:12:26.107312+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/CONVERGED-PORTABLE-R2-SEQUENCE.log",
+  "sourceHeadAtStart": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "sourceStatusAtStart": [],
+  "pid": 37230,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 678.96,
+  "finishedUTC": "2026-10-28T20:23:45.070103+00:00",
+  "sourceHeadAtFinish": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e"
+}

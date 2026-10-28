@@ -1,0 +1,23 @@
+{
+  "id": "ITER1-BUNDLER-TESTS",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "npx",
+    "vitest",
+    "run",
+    "src/live/OperatorDraftTime.test.tsx",
+    "src/live/DetachedQSOSurface.test.tsx",
+    "src/live/operatorDraftSession.test.ts",
+    "src/live/operatorDraftPowerSession.test.ts",
+    "src/live/QSOEditorPower.test.tsx"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-28T18:51:33.835937+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/ITER1-BUNDLER-TESTS.log",
+  "pid": 74302,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 26.118,
+  "finishedUTC": "2026-10-28T18:51:59.954137+00:00"
+}

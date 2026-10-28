@@ -1,0 +1,354 @@
+{
+  "queries": [
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "objc2-core-image"
+      },
+      "version": "0.3.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "objc2-core-location"
+      },
+      "version": "0.3.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "objc2-core-text"
+      },
+      "version": "0.3.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "objc2-encode"
+      },
+      "version": "4.1.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "objc2-exception-helper"
+      },
+      "version": "0.1.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "objc2-foundation"
+      },
+      "version": "0.3.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "objc2-io-surface"
+      },
+      "version": "0.3.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "objc2-quartz-core"
+      },
+      "version": "0.3.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "objc2-ui-kit"
+      },
+      "version": "0.3.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "objc2-user-notifications"
+      },
+      "version": "0.3.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "objc2-web-kit"
+      },
+      "version": "0.3.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "once_cell"
+      },
+      "version": "1.21.4"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "openssl-probe"
+      },
+      "version": "0.2.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "option-ext"
+      },
+      "version": "0.2.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "ordered-stream"
+      },
+      "version": "0.2.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "pango"
+      },
+      "version": "0.18.3"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "pango-sys"
+      },
+      "version": "0.18.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "parking"
+      },
+      "version": "2.2.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "parking_lot"
+      },
+      "version": "0.12.5"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "parking_lot_core"
+      },
+      "version": "0.9.12"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "percent-encoding"
+      },
+      "version": "2.3.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "phf"
+      },
+      "version": "0.13.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "phf_codegen"
+      },
+      "version": "0.13.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "phf_generator"
+      },
+      "version": "0.13.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "phf_macros"
+      },
+      "version": "0.13.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "phf_shared"
+      },
+      "version": "0.13.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "pin-project-lite"
+      },
+      "version": "0.2.17"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "piper"
+      },
+      "version": "0.2.5"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "pkg-config"
+      },
+      "version": "0.3.34"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "plist"
+      },
+      "version": "1.10.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "png"
+      },
+      "version": "0.17.16"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "png"
+      },
+      "version": "0.18.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "polling"
+      },
+      "version": "3.11.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "pollster"
+      },
+      "version": "0.4.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "portable-atomic"
+      },
+      "version": "1.13.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "portable-atomic-util"
+      },
+      "version": "0.2.7"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "potential_utf"
+      },
+      "version": "0.1.6"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "powerfmt"
+      },
+      "version": "0.2.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "ppv-lite86"
+      },
+      "version": "0.2.21"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "precomputed-hash"
+      },
+      "version": "0.1.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "proc-macro-crate"
+      },
+      "version": "1.3.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "proc-macro-crate"
+      },
+      "version": "2.0.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "proc-macro-crate"
+      },
+      "version": "3.5.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "proc-macro-error"
+      },
+      "version": "1.0.4"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "proc-macro-error-attr"
+      },
+      "version": "1.0.4"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "proc-macro2"
+      },
+      "version": "1.0.107"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "quick-xml"
+      },
+      "version": "0.41.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "quick-xml"
+      },
+      "version": "0.42.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "quinn"
+      },
+      "version": "0.11.12"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "quinn-proto"
+      },
+      "version": "0.11.18"
+    }
+  ]
+}

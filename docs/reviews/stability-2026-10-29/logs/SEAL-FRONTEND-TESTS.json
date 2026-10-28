@@ -1,0 +1,20 @@
+{
+  "id": "SEAL-FRONTEND-TESTS",
+  "command": [
+    "python3.12",
+    "-B",
+    "/tmp/xlog-phase5-20261029-721e0705/scripts/sequence.py",
+    "/tmp/xlog-phase5-20261029-721e0705/seal-frontend-tests.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T21:05:35.699127+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/SEAL-FRONTEND-TESTS.log",
+  "sourceHeadAtStart": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba",
+  "sourceStatusAtStart": [],
+  "pid": 53552,
+  "exitCode": 1,
+  "timedOut": false,
+  "durationSeconds": 406.205,
+  "finishedUTC": "2026-10-28T21:12:21.905828+00:00",
+  "sourceHeadAtFinish": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba"
+}

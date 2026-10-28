@@ -1,0 +1,25 @@
+{
+  "id": "ITER4-NAQP-READINESS",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "env",
+    "XLOG_CONTEST_N1MM_UDP_ALLOWED=0",
+    "node",
+    "prototype/scripts/run-contest-naqp-operator-browser-acceptance.mjs",
+    "--expected-head",
+    "37f8f5b8e599aacfb6c1ac1a189f2468c1c57302",
+    "--output",
+    "/tmp/xlog-phase5-20261029-721e0705/browser-naqp-readiness",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase4-20261029/portable"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T19:12:22.980970+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/ITER4-NAQP-READINESS.log",
+  "pid": 83971,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 64.017,
+  "finishedUTC": "2026-10-28T19:13:26.999292+00:00"
+}

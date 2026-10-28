@@ -1,0 +1,354 @@
+{
+  "queries": [
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "adler2"
+      },
+      "version": "2.0.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "aho-corasick"
+      },
+      "version": "1.1.5"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "alloc-no-stdlib"
+      },
+      "version": "3.0.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "alloc-stdlib"
+      },
+      "version": "0.3.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "alsa"
+      },
+      "version": "0.11.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "alsa-sys"
+      },
+      "version": "0.4.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "android_system_properties"
+      },
+      "version": "0.1.6"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "anyhow"
+      },
+      "version": "1.0.104"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "ashpd"
+      },
+      "version": "0.11.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "async-broadcast"
+      },
+      "version": "0.7.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "async-channel"
+      },
+      "version": "2.5.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "async-executor"
+      },
+      "version": "1.14.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "async-fs"
+      },
+      "version": "2.2.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "async-io"
+      },
+      "version": "2.6.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "async-lock"
+      },
+      "version": "3.4.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "async-net"
+      },
+      "version": "2.0.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "async-process"
+      },
+      "version": "2.5.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "async-recursion"
+      },
+      "version": "1.2.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "async-signal"
+      },
+      "version": "0.2.14"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "async-task"
+      },
+      "version": "4.7.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "async-trait"
+      },
+      "version": "0.1.88"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "atk"
+      },
+      "version": "0.18.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "atk-sys"
+      },
+      "version": "0.18.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "atomic-waker"
+      },
+      "version": "1.1.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "autocfg"
+      },
+      "version": "1.5.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "aws-lc-rs"
+      },
+      "version": "1.18.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "aws-lc-sys"
+      },
+      "version": "0.46.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "base64"
+      },
+      "version": "0.21.7"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "base64"
+      },
+      "version": "0.22.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "base64"
+      },
+      "version": "0.23.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "bit-set"
+      },
+      "version": "0.8.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "bit-vec"
+      },
+      "version": "0.8.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "bitflags"
+      },
+      "version": "1.3.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "bitflags"
+      },
+      "version": "2.13.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "block-buffer"
+      },
+      "version": "0.10.4"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "block2"
+      },
+      "version": "0.6.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "blocking"
+      },
+      "version": "1.7.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "brotli"
+      },
+      "version": "9.0.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "brotli-decompressor"
+      },
+      "version": "6.0.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "bs58"
+      },
+      "version": "0.5.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "bumpalo"
+      },
+      "version": "3.16.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "bytemuck"
+      },
+      "version": "1.21.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "byteorder"
+      },
+      "version": "1.5.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "bytes"
+      },
+      "version": "1.12.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "cairo-rs"
+      },
+      "version": "0.18.5"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "cairo-sys-rs"
+      },
+      "version": "0.18.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "camino"
+      },
+      "version": "1.2.6"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "cargo-platform"
+      },
+      "version": "0.1.9"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "cargo_metadata"
+      },
+      "version": "0.19.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "cargo_toml"
+      },
+      "version": "1.0.1"
+    }
+  ]
+}

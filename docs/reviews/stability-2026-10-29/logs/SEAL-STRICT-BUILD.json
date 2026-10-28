@@ -1,0 +1,28 @@
+{
+  "id": "SEAL-STRICT-BUILD",
+  "command": [
+    "env",
+    "XLOG_PORTABLE_ONLY=1",
+    "swift",
+    "build",
+    "--scratch-path",
+    ".build/phase5-20261029/strict-final",
+    "--jobs",
+    "2",
+    "-Xswiftc",
+    "-strict-concurrency=complete",
+    "-Xswiftc",
+    "-warn-concurrency"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T21:05:42.882628+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/SEAL-STRICT-BUILD.log",
+  "sourceHeadAtStart": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba",
+  "sourceStatusAtStart": [],
+  "pid": 53707,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 3.096,
+  "finishedUTC": "2026-10-28T21:05:45.978271+00:00",
+  "sourceHeadAtFinish": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba"
+}

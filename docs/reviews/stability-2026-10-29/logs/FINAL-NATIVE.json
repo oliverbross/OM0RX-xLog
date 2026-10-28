@@ -1,0 +1,22 @@
+{
+  "id": "FINAL-NATIVE",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "swift",
+    "test",
+    "--scratch-path",
+    ".build/phase5-20261029/native-final",
+    "--jobs",
+    "2",
+    "--no-parallel"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T19:31:42.493045+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/FINAL-NATIVE.log",
+  "pid": 99223,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 242.05,
+  "finishedUTC": "2026-10-28T19:35:44.542194+00:00"
+}

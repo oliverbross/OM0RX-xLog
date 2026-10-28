@@ -1,0 +1,19 @@
+{
+  "id": "ITER4-STRICTMODE-TEST",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "npx",
+    "vitest",
+    "run",
+    "src/contesting/ContestOperatorPanel.test.tsx"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-28T19:02:24.568953+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/ITER4-STRICTMODE-TEST.log",
+  "pid": 77272,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 2.892,
+  "finishedUTC": "2026-10-28T19:02:27.461043+00:00"
+}

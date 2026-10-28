@@ -1,0 +1,24 @@
+{
+  "waitFor": [
+    "CLOSE-RUST-BUILDS",
+    "CLOSE-SWIFT-BUILDS",
+    "CLOSE-FRONT-BUILDS",
+    "CLOSE-WORKER-BUILDS"
+  ],
+  "checks": [
+    {
+      "id": "CLOSE-NATIVE",
+      "timeout": 300,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "swift",
+        "test",
+        "--skip-build",
+        "--scratch-path",
+        ".build/phase5-20261029/native-final",
+        "--no-parallel"
+      ]
+    }
+  ]
+}

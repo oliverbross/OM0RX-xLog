@@ -1,0 +1,26 @@
+{
+  "id": "STABLE-PORTABLE",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "env",
+    "XLOG_PORTABLE_ONLY=1",
+    "swift",
+    "test",
+    "--skip-build",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final",
+    "--no-parallel"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T20:35:21.962735+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/STABLE-PORTABLE.log",
+  "sourceHeadAtStart": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f",
+  "sourceStatusAtStart": [],
+  "pid": 42449,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 717.51,
+  "finishedUTC": "2026-10-28T20:47:19.486891+00:00",
+  "sourceHeadAtFinish": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f"
+}

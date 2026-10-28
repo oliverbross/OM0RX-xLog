@@ -1,0 +1,41 @@
+{
+  "checks": [
+    {
+      "id": "CLOSE-WORKER-BUILD",
+      "timeout": 900,
+      "command": [
+        "node",
+        "prototype/scripts/build-contesting-worker-process.mjs",
+        "--scratch-path",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/worker-close",
+        "--output",
+        "/tmp/xlog-phase5-20261029-721e0705/worker-close.json"
+      ]
+    },
+    {
+      "id": "CLOSE-PROTOCOL",
+      "timeout": 120,
+      "command": [
+        "env",
+        "XLOG_WORKER_BINARY=/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/worker-close/apple/Products/Release/xlog-prototype-worker",
+        "node",
+        "--test",
+        "Tests/XLogPrototypeTests/worker-process.test.mjs"
+      ]
+    },
+    {
+      "id": "CLOSE-PROCESS",
+      "timeout": 240,
+      "command": [
+        "node",
+        "prototype/scripts/accept-contesting-worker-process.mjs",
+        "--build-manifest",
+        "/tmp/xlog-phase5-20261029-721e0705/worker-close.json",
+        "--expected-head",
+        "58da5d49359f7333852b04037a134ab04167be7b",
+        "--output",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/process-close"
+      ]
+    }
+  ]
+}

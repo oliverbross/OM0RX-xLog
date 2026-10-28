@@ -1,0 +1,20 @@
+{
+  "id": "STABLE-NATIVE-SEQUENCE",
+  "command": [
+    "python3.12",
+    "-B",
+    "/tmp/xlog-phase5-20261029-721e0705/scripts/sequence.py",
+    "/tmp/xlog-phase5-20261029-721e0705/stable-native-plan.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T20:35:21.705997+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/STABLE-NATIVE-SEQUENCE.log",
+  "sourceHeadAtStart": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f",
+  "sourceStatusAtStart": [],
+  "pid": 42397,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 395.792,
+  "finishedUTC": "2026-10-28T20:41:57.520628+00:00",
+  "sourceHeadAtFinish": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f"
+}

@@ -1,0 +1,26 @@
+{
+  "id": "STABLE-PROCESS",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "node",
+    "prototype/scripts/accept-contesting-worker-process.mjs",
+    "--build-manifest",
+    "/tmp/xlog-phase5-20261029-721e0705/worker-post-roots.json",
+    "--expected-head",
+    "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f",
+    "--output",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/process-post-roots"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T20:45:58.789796+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/STABLE-PROCESS.log",
+  "sourceHeadAtStart": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f",
+  "sourceStatusAtStart": [],
+  "pid": 48399,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 28.622,
+  "finishedUTC": "2026-10-28T20:46:27.412440+00:00",
+  "sourceHeadAtFinish": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f"
+}

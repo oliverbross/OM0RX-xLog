@@ -1,0 +1,29 @@
+{
+  "id": "SEAL-CLIPPY",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "cargo",
+    "clippy",
+    "--locked",
+    "--offline",
+    "--jobs",
+    "2",
+    "--target-dir",
+    "/tmp/xlog-phase5-20261029-721e0705/cargo-target",
+    "--manifest-path",
+    "prototype/src-tauri/Cargo.toml",
+    "--all-targets"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T21:12:01.863947+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/SEAL-CLIPPY.log",
+  "sourceHeadAtStart": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba",
+  "sourceStatusAtStart": [],
+  "pid": 60012,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 11.668,
+  "finishedUTC": "2026-10-28T21:12:13.532129+00:00",
+  "sourceHeadAtFinish": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba"
+}

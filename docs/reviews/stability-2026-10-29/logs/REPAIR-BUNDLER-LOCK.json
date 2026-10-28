@@ -1,0 +1,21 @@
+{
+  "id": "REPAIR-BUNDLER-LOCK",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "npm",
+    "update",
+    "rolldown",
+    "--package-lock-only",
+    "--no-audit",
+    "--fund=false"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-28T18:50:40.335763+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/REPAIR-BUNDLER-LOCK.log",
+  "pid": 73971,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 0.595,
+  "finishedUTC": "2026-10-28T18:50:40.930952+00:00"
+}

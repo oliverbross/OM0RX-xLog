@@ -1,0 +1,95 @@
+{
+  "checks": [
+    {
+      "id": "SEAL-RUST-CLEAN",
+      "timeout": 90,
+      "command": [
+        "cargo",
+        "clean",
+        "--release",
+        "-p",
+        "xlog-prototype",
+        "--target-dir",
+        "/tmp/xlog-phase5-20261029-721e0705/cargo-release-post-roots",
+        "--manifest-path",
+        "prototype/src-tauri/Cargo.toml"
+      ]
+    },
+    {
+      "id": "SEAL-RUST-RELEASE",
+      "timeout": 500,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "cargo",
+        "build",
+        "--release",
+        "--locked",
+        "--offline",
+        "--jobs",
+        "2",
+        "--target-dir",
+        "/tmp/xlog-phase5-20261029-721e0705/cargo-release-post-roots",
+        "--manifest-path",
+        "prototype/src-tauri/Cargo.toml"
+      ]
+    },
+    {
+      "id": "SEAL-RUST-COMPILE",
+      "timeout": 500,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--jobs",
+        "2",
+        "--target-dir",
+        "/tmp/xlog-phase5-20261029-721e0705/cargo-target",
+        "--manifest-path",
+        "prototype/src-tauri/Cargo.toml",
+        "--no-run"
+      ]
+    },
+    {
+      "id": "SEAL-FEATURE-COMPILE",
+      "timeout": 400,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--jobs",
+        "2",
+        "--target-dir",
+        "/tmp/xlog-phase5-20261029-721e0705/cargo-target",
+        "--manifest-path",
+        "prototype/src-tauri/Cargo.toml",
+        "--bin",
+        "xlog-prototype",
+        "--features",
+        "contesting-test",
+        "--no-run"
+      ]
+    },
+    {
+      "id": "SEAL-CLIPPY",
+      "timeout": 400,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--jobs",
+        "2",
+        "--target-dir",
+        "/tmp/xlog-phase5-20261029-721e0705/cargo-target",
+        "--manifest-path",
+        "prototype/src-tauri/Cargo.toml",
+        "--all-targets"
+      ]
+    }
+  ]
+}

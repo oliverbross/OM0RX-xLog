@@ -1,0 +1,34 @@
+{
+  "checks": [
+    {
+      "id": "STABLE-NATIVE",
+      "timeout": 700,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "swift",
+        "test",
+        "--skip-build",
+        "--scratch-path",
+        ".build/phase5-20261029/native-final",
+        "--no-parallel"
+      ]
+    },
+    {
+      "id": "STABLE-NATIVE-RELEASE-CONFIRM",
+      "timeout": 180,
+      "command": [
+        "swift",
+        "build",
+        "-c",
+        "release",
+        "--scratch-path",
+        ".build/phase5-20261029/native-release-final",
+        "--jobs",
+        "2",
+        "--product",
+        "om0rx-xlog"
+      ]
+    }
+  ]
+}

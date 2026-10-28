@@ -1,0 +1,20 @@
+{
+  "id": "CLOSE-WORKER-BUILDS",
+  "command": [
+    "python3.12",
+    "-B",
+    "/tmp/xlog-phase5-20261029-721e0705/scripts/sequence.py",
+    "/tmp/xlog-phase5-20261029-721e0705/close-worker-builds.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T21:52:36.244447+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/CLOSE-WORKER-BUILDS.log",
+  "sourceHeadAtStart": "58da5d49359f7333852b04037a134ab04167be7b",
+  "sourceStatusAtStart": [],
+  "pid": 80924,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 483.186,
+  "finishedUTC": "2026-10-28T22:00:39.432797+00:00",
+  "sourceHeadAtFinish": "58da5d49359f7333852b04037a134ab04167be7b"
+}

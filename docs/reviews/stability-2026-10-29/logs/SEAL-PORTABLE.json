@@ -1,0 +1,26 @@
+{
+  "id": "SEAL-PORTABLE",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "env",
+    "XLOG_PORTABLE_ONLY=1",
+    "swift",
+    "test",
+    "--skip-build",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final",
+    "--no-parallel"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T21:13:53.368598+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/SEAL-PORTABLE.log",
+  "sourceHeadAtStart": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba",
+  "sourceStatusAtStart": [],
+  "pid": 61730,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 295.246,
+  "finishedUTC": "2026-10-28T21:18:48.615047+00:00",
+  "sourceHeadAtFinish": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba"
+}

@@ -1,0 +1,28 @@
+{
+  "id": "FINAL-NATIVE-RELEASE",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "swift",
+    "build",
+    "-c",
+    "release",
+    "--scratch-path",
+    ".build/phase5-20261029/native-release-final",
+    "--jobs",
+    "2",
+    "--product",
+    "om0rx-xlog"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T19:48:37.328087+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/FINAL-NATIVE-RELEASE.log",
+  "sourceHeadAtStart": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "sourceStatusAtStart": [],
+  "pid": 4769,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 102.704,
+  "finishedUTC": "2026-10-28T19:50:20.031380+00:00",
+  "sourceHeadAtFinish": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e"
+}

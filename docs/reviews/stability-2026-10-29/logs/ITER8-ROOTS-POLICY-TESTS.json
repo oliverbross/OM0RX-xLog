@@ -1,0 +1,31 @@
+{
+  "id": "ITER8-ROOTS-POLICY-TESTS",
+  "command": [
+    "env",
+    "PYTHONPATH=python",
+    "python3.12",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "python/tests",
+    "-p",
+    "test_reviewed_security_patches.py",
+    "-v"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T20:29:49.056815+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/ITER8-ROOTS-POLICY-TESTS.log",
+  "sourceHeadAtStart": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "sourceStatusAtStart": [
+    " M python/tests/test_reviewed_security_patches.py",
+    " M tools/check_reviewed_security_patches.py"
+  ],
+  "pid": 41263,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 0.349,
+  "finishedUTC": "2026-10-28T20:29:49.405339+00:00",
+  "sourceHeadAtFinish": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e"
+}

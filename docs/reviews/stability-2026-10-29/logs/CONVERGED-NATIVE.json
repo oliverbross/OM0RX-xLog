@@ -1,0 +1,24 @@
+{
+  "id": "CONVERGED-NATIVE",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "swift",
+    "test",
+    "--skip-build",
+    "--scratch-path",
+    ".build/phase5-20261029/native-final",
+    "--no-parallel"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T20:18:26.673333+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/CONVERGED-NATIVE.log",
+  "sourceHeadAtStart": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "sourceStatusAtStart": [],
+  "pid": 37740,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 100.888,
+  "finishedUTC": "2026-10-28T20:20:07.561842+00:00",
+  "sourceHeadAtFinish": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e"
+}

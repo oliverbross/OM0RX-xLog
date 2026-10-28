@@ -1,0 +1,25 @@
+{
+  "id": "CI-FAIL-WINDOWS-RUST",
+  "command": [
+    "gh",
+    "run",
+    "view",
+    "40764401261",
+    "--repo",
+    "oliverbross/OM0RX-xLog",
+    "--job",
+    "123084543385",
+    "--log-failed"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T20:42:08.855943+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/CI-FAIL-WINDOWS-RUST.log",
+  "sourceHeadAtStart": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f",
+  "sourceStatusAtStart": [],
+  "pid": 45628,
+  "exitCode": 1,
+  "timedOut": false,
+  "durationSeconds": 7.454,
+  "finishedUTC": "2026-10-28T20:42:16.310005+00:00",
+  "sourceHeadAtFinish": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f"
+}

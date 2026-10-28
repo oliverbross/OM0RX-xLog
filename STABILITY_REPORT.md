@@ -90,3 +90,85 @@ Linux/Windows Swift discovery now passes the repaired IQ source slice and reache
 Independent Sol 6.1 review found two more native-broker fixtures with the same unsupported dependency and an incorrect assumption in the new portable test: non-macOS forwarding is deliberately unavailable even with injected callbacks. Complete the feature boundary for all three real-broker fixtures, preserve every Mac assertion, and require hard zero-output/capability-denied counters off-Mac while still verifying first-admission cleanup time and no repeated cleanup. **AGENT-CLUSTER-FINAL passes all 26 Mac cases**, including all original real-broker assertions. No production capability was enabled. Review found no further confirmed issue in the Windows file primitive, restart/admission safeguards, strict CW primitives or IQ source slice; real filesystem power-loss acceptance remains outside ordinary CI.
 
 The CI path filters had omitted the repaired CW/cluster files, so their commits did not invoke contest portability. Add the directly relevant source/test/helper paths on push and PR, require discovery of all three CW primitive tests plus the named portable admission case, and execute those exact regressions on each OS. The generator also executes the seven patch-floor policy tests. This is additional coverage, with all previous filters/assertions retained. **Workflow YAML syntax and actual local discovery pass (3 CW + 1 portable admission).** Full-suite convergence and actual current-head CI remain due; earlier failed-job logs are never replaced with unrelated passing jobs.
+
+## Iteration 11 — final repaired-source regression and convergence assessment
+
+The final application/support/test source is **58da5d49359f7333852b04037a134ab04167be7b**. Every final CLOSE gate started with clean source and retained that head through completion. A later documentation/evidence commit has its own identity. Thirteen logical repair and coverage commits were pushed individually; their exact file lists are in the evidence receipts. The closing source hash check covers **1,829 compiled/support inputs**.
+
+| Final current-source gate | Actual result |
+| --- | --- |
+| Complete frontend | PASS 4,731 Vitest / 339 files + 2 Node; 487.181 s |
+| Complete Python | PASS 556; 247.138 s |
+| Native Swift | PASS 315 XCTest + Swift Testing summary 340; 102.381 s |
+| Portable Swift | PASS 1,174 XCTest + Swift Testing summary 538; 315.132 s |
+| Locked Rust default | PASS 919 unit + 26 integration functions; 36.135 s |
+| Rust contesting feature | PASS 926; 26.362 s |
+| Frontend build/static/budgets | PASS 405,194/405,200 Logbook bytes; 154.675 s |
+| Native release / complete Swift concurrency build | PASS; 9.523 s / 35.989 s |
+| Locked Rust release / Clippy all targets | PASS with retained warnings; 463.723 s / 0.853 s |
+| Fresh universal worker / framing / current process | PASS; 449.292 s / 2.014 s / 30.738 s |
+| Idle unchanged CW child wire control | PASS 13/13; 14.239 s |
+| Reviewed four patch floors / npm audit / Node packaging checks | PASS; npm 0 advisories; Node 10 cases |
+
+
+The release worker was rebuilt into a new empty canonical scratch root, with matching application-relative Python, CA and pinned Not1MM resources. CLOSE-PROCESS passes **78 actual JSONL exchanges** in **30.738 s**, two ordinary worker exits, restart/replay, stale revision/forged field rejection, unchanged pending draft through edit/delete, local serial progression, an empty normal log and **four byte/hash-verified ADIF/Cabrillo exports**. Runtime identities and protected production metadata remain unchanged. This is current-engine CLI integration; the successful browser integrations exercise their recorded legacy typed Swift fixture.
+
+Clean-build evidence is explicit: fresh npm installations reproduced the original failure and the repaired 405,194-byte graph; later current-source npm build passes the unchanged budgets. The final fresh universal worker compiles current native support from an empty scratch root. Exact-source CI has a fresh checkout with no build cache in its main Swift test/package job. Local native release/complete-concurrency/portable discovery and Rust release/Clippy rechecks also pass; their commands show the retained scratch paths. Earlier clean builds and source-boundary comparisons remain in the archive rather than being relabeled as new clean executions. Existing warnings remain visible. This does not establish Swift 6 language-mode migration, warning-free analysis or general race freedom.
+
+### Exact-source CI outcome
+
+Frozen snapshot: **2026-10-28T22:29:20.241Z**, source **58da5d49359f7333852b04037a134ab04167be7b**. Each row retains its own actual conclusion.
+
+| Workflow / job | Actual outcome |
+| --- | --- |
+| [CI 40774897787](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897787) | completed / success |
+| [test-and-package 123121514769](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897787/job/123121514769) | completed / success |
+| [Cross-platform prototype 40774897702](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897702) | completed / cancelled |
+| [prototype (macos-14) 123121514872](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897702/job/123121514872) | completed / cancelled |
+| [Linux runtime-only container acceptance 123139744274](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897702/job/123139744274) | completed / skipped |
+| [Windows fresh-runner runtime acceptance 123139744909](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897702/job/123139744909) | completed / skipped |
+| [Contest portability 40774897700](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897700) | completed / success |
+| [Contest definition generator 123121515230](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897700/job/123121515230) | completed / success |
+| [Contest tests (windows-2022) 123121515648](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897700/job/123121515648) | completed / success |
+| [Contest native tests (macos-14) 123121515650](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897700/job/123121515650) | completed / success |
+| [Contest tests (ubuntu-24.04) 123121515676](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897700/job/123121515676) | completed / success |
+| [Contest tests (macos-14) 123121515881](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897700/job/123121515881) | completed / success |
+| [Contest native tests (windows-2022) 123121515944](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897700/job/123121515944) | completed / success |
+| [Contest native tests (ubuntu-24.04) 123121515952](https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897700/job/123121515952) | completed / success |
+
+The main Swift CI job has a fresh checkout without a build-cache step and passes test/package/resource checks. Contest portability verifies three Swift, three native and one generator/security job. Prototype push gates build a desktop executable; operator-release packaging is workflow_dispatch-only. No hosted package is designated as an installed operator release. Earlier exact failed-job and no-runner histories remain preserved. Any incomplete/failed row above remains a limit regardless of another workflow passing.
+
+### Independent integration and failure coverage
+
+| Area | Evidence and actual boundary |
+| --- | --- |
+| All catalogued contests | Dynamically derived **97 plugins**, **1,353 PASS / 5 NOT APPLICABLE**; pinned generator 42 cases and upstream corpus checks pass. Relevant catalogue/calculation inputs are unchanged across later platform-only repairs |
+| QSO/logbook data | Full suites and disposable 68k merge/durable-save, 100k log/migration/query, 100k spot/award and empty-query controls pass. Current process verifies exact mutations/replay/restart/export; no production migration or restore performed |
+| UI/workflows | Declarative/family/operator/NAQP browser workflows pass; NAQP retains six cases and 14 export assertions. SCP has a clean unchanged pass **and two retained failures**; see INV-P5-002. Native/installed/current-Python GUI acceptance remains untested |
+| Radio and networks | Read-only/simulated CAT/Flex/TCI/fldigi/CW paths, pinned Hamlib 4.7.2 model 1 loopback and isolated FTP/FTPS success/failure controls pass. Public SCP/propagation/DXpedition checks pass. Physical hardware, real accounts, DAX/audio/RF and external release/watchdog acceptance remain outside this evidence |
+| Concurrency/resources | Selected TSAN: 9 XCTest + Swift Testing summary 95; fresh C++ ASAN/UBSAN/ctest, NumPy oracle and bounded CW profile pass. Peak synthetic profile RSS 207.484 MiB, 60 seconds, eight tracks and zero drops. Timing failures under compiler load remain recorded, with separate idle controls |
+| Persistence/recovery | Default/feature Rust and full Swift/Python suites, real Windows module/restart persistence tests and ordinary current-worker restart pass. Force-quit/OS crash, physical power loss, production recovery and multi-hour soak remain unqualified |
+| Dependencies/security | Four reviewed Rust patch floors and seven policy cases pass; npm audit reports zero. OSV queries 549 locked versions. Selected-Mac block-buffer 0.10.4 match is outside maintainer affected range. Conditional Linux GLib and maintenance notices remain; cargo-audit execution was blocked by the tool allowlist and was not bypassed |
+
+Counts overlap between configurations and reruns. Native Swift Testing summaries include 12 disabled opt-ins; portable XCTest includes 6 skips and portable Swift Testing includes 7 disabled opt-ins. Earlier safe opt-in executions cover the recorded large-data/browser/public/FTP/award controls; account-bound remote history and Windows Credential Manager on this Mac remain unverified. A suite's successful summary does not turn disabled cases into executed tests.
+
+### Retained investigations and blockers
+
+- **INV-P4-001: Fixed and Verified as harness defects.** Captured evidence shows no delivered offscreen Arm click, then title-before-enabled-select readiness. Exact semantic scrolling and state/field readiness waits repair both; output admission, deadlines and assertions remain.
+- **INV-P5-002: Not Fixed; deeper cause/origin unassigned.** Two SCP interactions fail: no create request reaches the worker, then actual K1AN1X input differs from intended N1X replacement. Diagnostic-only instrumentation passes and is restored exactly; unchanged clean R3 passes in 22.399 s. Correct results for the actual query do not repair intermittent harness input delivery. Capture DOM/event delivery without perturbing admission timing before choosing a production change.
+- **INV-P5-003: resource-sensitive frontend timing.** STABLE-FRONTEND had 4,729 passes and two unchanged five-second voice-intent timeouts while fresh Swift/Rust builds ran. The unchanged two-case idle control passes in 8.990 s total. The final complete unchanged idle suite passes all 4,731 tests / 339 files plus 2 Node tests in 487.181 s. No assertion or timeout was relaxed; precise scheduling cause and overloaded whole-app latency remain unqualified.
+- **INV-P5-004: resource-sensitive IQ wire delivery.** The additional loaded current-source CLOSE-CW-WIRE run passes 12/13 but rejects one synthetic block as staleInput. The same 250 ms age guard and fixture/IQ serialization are unchanged since Phase 5 entry. It passed continuity then aged past enqueue admission; exact serialization/preemption delay was not instrumented. The exact unchanged idle control passes 13/13 in 14.239 s using the already compiled current-source binary, after all other suites finish. Preserve the failing receipt and its restored-original-directory evidence; no freshness safeguard was changed.
+- **INV-P4-002: Blocked for full resource qualification.** A 60-second synthetic pass does not erase the earlier overloaded deadline miss or establish multi-hour/live-audio/whole-application behavior.
+- **DEP-P5-003: Blocked conditional Linux risk.** GLib 0.18.5 VariantStrIter unsoundness requires >=0.20 while the current GTK 0.18 API requires 0.18. No direct application caller was found; affected transitive reachability is unproven. A coordinated GTK/WebKit/Tauri migration or reviewed backport needs Linux GUI/caller qualification. Current native/portable Linux tests do not exercise or close this risk. Missing local WebKitGTK 4.1/Docker support and no affected-path qualification prevent a safe compatible repair here. Four maintenance notices remain upstream migration debt.
+- **CI environment boundary: Blocked overall prototype workflow acceptance.** Exact source 58da run 40774897702 is cancelled by its 40-minute job budget. All executed test/build/inventory/upload/cache/cleanup steps report success; no application failure is observed. The main CI and all seven portability jobs succeed. Retain the cancellation, annotations and own raw job log; overall prototype success is unestablished. A future infrastructure-only budget/stage split can qualify the workflow without changing product deadlines/assertions. The push matrix selects Mac; Linux/Windows packaged GUI/runtime checks remain unqualified.
+- The **manual audit remains INCOMPLETE**. Frozen per-file review depth and the 2,347 baseline-file inventory are not upgraded by passing tests. Installed/native GUI/current-engine UI, real providers/Keychain, station/RF, sponsor submissions, forced termination/power loss and long soak remain outside acceptance.
+
+### Preservation and permanent evidence
+
+Archived 224 command receipts; 19 disposable databases pass read-only integrity/foreign-key checks; 136 export artifacts across runs match their receipt byte counts and SHA. Original node_modules and CW fixtures are restored by inode, and all 180 original dist files match hashes. All 1,829 source inputs match the tested snapshot, and process-only inspection finds no remaining task test/worker process. Binary/runtime/database payloads are omitted from Git.
+
+[Evidence index](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/stability-2026-10-29/README.md), [exact commands](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/stability-2026-10-29/COMMANDS.md), [results](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/stability-2026-10-29/results.json) and [SHA256SUMS](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/stability-2026-10-29/SHA256SUMS) preserve the actual source, UTC timing, exits, raw failures, fixture boundaries and original-byte hashes. Independent archive verification passed: 1,141 original-byte artifacts, 1,829 source inputs, all suite counts, 136 export artifacts, 19 private database checks and original fixture restoration. The SHA256SUMS manifest was generated and rechecked. The initial collector path-alias lookup failure and its strict canonical-identity correction are retained in the archive.
+
+Stability **improved**: all original High findings retain their bounded fixes, CR-008's clean-build reopening is closed, and all safely compatible confirmed Phase 4/5 application/build/harness defects have verified repairs. No confirmed application regression is known to remain unresolved in the exercised scope. Open CI completion and timing/input investigations, plus the blocked conditional Linux dependency risk, prevent an unqualified whole-application/release readiness claim. This is a stable tested macOS source baseline for the next controlled native/provider/hardware acceptance and Linux dependency cycle, not a declaration that the application is bug-free.
+
+Version declarations remain 1.3.60. No local operator release/install candidate was created or designated; CI package/resource verification is a workflow test artifact. A release candidate requires a fresh visible version and exact source/build/signature provenance. Production data/configuration, credential values, installed application and physical station were not operated.

@@ -1,0 +1,111 @@
+{
+  "observedUTC": "2026-10-28 19:59:00 UTC",
+  "sourceHead": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "runs": [
+    {
+      "id": 40756006248,
+      "name": "CI",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/40756006248",
+      "status": "completed",
+      "conclusion": "success",
+      "head": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+      "createdUTC": "2026-10-28T19:37:48Z",
+      "updatedUTC": "2026-10-28T19:43:09Z",
+      "jobs": [
+        {
+          "id": 123054977071,
+          "name": "test-and-package",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/40756006248/job/123054977071",
+          "steps": [
+            {
+              "number": 1,
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "number": 2,
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "number": 3,
+              "name": "Verify toolchain",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "number": 4,
+              "name": "Test",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "number": 5,
+              "name": "Package app",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "number": 6,
+              "name": "Verify packaged resources",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "number": 12,
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "number": 13,
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 40756006354,
+      "name": "Cross-platform prototype",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/40756006354",
+      "status": "completed",
+      "conclusion": "failure",
+      "head": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+      "createdUTC": "2026-10-28T19:37:48Z",
+      "updatedUTC": "2026-10-28T19:53:52Z",
+      "jobs": [
+        {
+          "id": 123054968046,
+          "name": "prototype (macos-14)",
+          "status": "completed",
+          "conclusion": "cancelled",
+          "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/40756006354/job/123054968046",
+          "steps": []
+        },
+        {
+          "id": 123063404698,
+          "name": "Windows fresh-runner runtime acceptance",
+          "status": "completed",
+          "conclusion": "skipped",
+          "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/40756006354/job/123063404698",
+          "steps": []
+        },
+        {
+          "id": 123063405706,
+          "name": "Linux runtime-only container acceptance",
+          "status": "completed",
+          "conclusion": "skipped",
+          "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/40756006354/job/123063405706",
+          "steps": []
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "checks": [
+    {
+      "id": "SEAL-WORKER-BUILD-R2",
+      "timeout": 900,
+      "command": [
+        "node",
+        "prototype/scripts/build-contesting-worker-process.mjs",
+        "--scratch-path",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/worker-converged",
+        "--output",
+        "/tmp/xlog-phase5-20261029-721e0705/worker-converged-r2.json"
+      ]
+    },
+    {
+      "id": "SEAL-PROTOCOL",
+      "timeout": 120,
+      "command": [
+        "env",
+        "XLOG_WORKER_BINARY=/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/worker-converged/apple/Products/Release/xlog-prototype-worker",
+        "node",
+        "--test",
+        "Tests/XLogPrototypeTests/worker-process.test.mjs"
+      ]
+    },
+    {
+      "id": "SEAL-PROCESS",
+      "timeout": 220,
+      "command": [
+        "node",
+        "prototype/scripts/accept-contesting-worker-process.mjs",
+        "--build-manifest",
+        "/tmp/xlog-phase5-20261029-721e0705/worker-converged-r2.json",
+        "--expected-head",
+        "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba",
+        "--output",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/process-converged"
+      ]
+    }
+  ]
+}

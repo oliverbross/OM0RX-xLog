@@ -1,0 +1,53 @@
+{
+  "checks": [
+    {
+      "id": "SEAL-NATIVE-BUILD",
+      "timeout": 240,
+      "command": [
+        "swift",
+        "build",
+        "-c",
+        "release",
+        "--scratch-path",
+        ".build/phase5-20261029/native-release-final",
+        "--jobs",
+        "2",
+        "--product",
+        "om0rx-xlog"
+      ]
+    },
+    {
+      "id": "SEAL-STRICT-BUILD",
+      "timeout": 300,
+      "command": [
+        "env",
+        "XLOG_PORTABLE_ONLY=1",
+        "swift",
+        "build",
+        "--scratch-path",
+        ".build/phase5-20261029/strict-final",
+        "--jobs",
+        "2",
+        "-Xswiftc",
+        "-strict-concurrency=complete",
+        "-Xswiftc",
+        "-warn-concurrency"
+      ]
+    },
+    {
+      "id": "SEAL-PORTABLE-TEST-BUILD",
+      "timeout": 300,
+      "command": [
+        "env",
+        "XLOG_PORTABLE_ONLY=1",
+        "swift",
+        "test",
+        "list",
+        "--scratch-path",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final",
+        "--jobs",
+        "2"
+      ]
+    }
+  ]
+}

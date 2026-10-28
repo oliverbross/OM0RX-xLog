@@ -1,0 +1,27 @@
+{
+  "waitFor": [
+    "FINAL-IDLE-R2",
+    "FINAL-HAMLIB-SEQUENCE"
+  ],
+  "checks": [
+    {
+      "id": "CONVERGED-PYTHON",
+      "timeout": 700,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "env",
+        "PYTHONPATH=python",
+        "XLOG_CONTEST_N1MM_UDP_ALLOWED=0",
+        "python3.12",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-v"
+      ]
+    }
+  ]
+}

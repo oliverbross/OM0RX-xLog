@@ -1,0 +1,19 @@
+{
+  "id": "CI-FINAL-WINDOWS-RUST",
+  "command": [
+    "gh",
+    "api",
+    "repos/oliverbross/OM0RX-xLog/actions/jobs/123098505287/logs"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T21:09:12.740460+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/CI-FINAL-WINDOWS-RUST.log",
+  "sourceHeadAtStart": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba",
+  "sourceStatusAtStart": [],
+  "pid": 59725,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 3.317,
+  "finishedUTC": "2026-10-28T21:09:16.057511+00:00",
+  "sourceHeadAtFinish": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba"
+}

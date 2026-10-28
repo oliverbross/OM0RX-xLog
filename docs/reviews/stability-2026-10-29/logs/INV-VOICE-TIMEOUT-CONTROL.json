@@ -1,0 +1,25 @@
+{
+  "id": "INV-VOICE-TIMEOUT-CONTROL",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "npx",
+    "vitest",
+    "run",
+    "src/contesting/Not1MMContestWorkspace.test.tsx",
+    "--maxWorkers=1",
+    "-t",
+    "simulates only claimed .* voice-keyer intents"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-28T20:55:03.059781+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/INV-VOICE-TIMEOUT-CONTROL.log",
+  "sourceHeadAtStart": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f",
+  "sourceStatusAtStart": [],
+  "pid": 51962,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 8.99,
+  "finishedUTC": "2026-10-28T20:55:12.050069+00:00",
+  "sourceHeadAtFinish": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f"
+}

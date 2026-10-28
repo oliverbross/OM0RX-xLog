@@ -1,0 +1,22 @@
+{
+  "id": "SEAL-WORKER-BUILD-R2",
+  "command": [
+    "node",
+    "prototype/scripts/build-contesting-worker-process.mjs",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/worker-converged",
+    "--output",
+    "/tmp/xlog-phase5-20261029-721e0705/worker-converged-r2.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T21:08:18.008304+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/SEAL-WORKER-BUILD-R2.log",
+  "sourceHeadAtStart": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba",
+  "sourceStatusAtStart": [],
+  "pid": 56805,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 310.611,
+  "finishedUTC": "2026-10-28T21:13:28.621268+00:00",
+  "sourceHeadAtFinish": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba"
+}

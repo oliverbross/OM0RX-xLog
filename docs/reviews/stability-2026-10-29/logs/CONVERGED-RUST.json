@@ -1,0 +1,28 @@
+{
+  "id": "CONVERGED-RUST",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "--jobs",
+    "2",
+    "--target-dir",
+    "/tmp/xlog-phase5-20261029-721e0705/cargo-target",
+    "--manifest-path",
+    "prototype/src-tauri/Cargo.toml"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T20:18:26.632123+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/CONVERGED-RUST.log",
+  "sourceHeadAtStart": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "sourceStatusAtStart": [],
+  "pid": 37739,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 26.049,
+  "finishedUTC": "2026-10-28T20:18:52.681408+00:00",
+  "sourceHeadAtFinish": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e"
+}

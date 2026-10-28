@@ -1,0 +1,21 @@
+{
+  "waitFor": [
+    "SEAL-NATIVE-TESTS",
+    "SEAL-PORTABLE-TESTS",
+    "SEAL-PYTHON-TESTS",
+    "SEAL-RUST-TESTS"
+  ],
+  "checks": [
+    {
+      "id": "SEAL-FRONTEND",
+      "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+      "timeout": 900,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "npm",
+        "test"
+      ]
+    }
+  ]
+}

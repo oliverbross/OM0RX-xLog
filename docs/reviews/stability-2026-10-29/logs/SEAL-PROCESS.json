@@ -1,0 +1,24 @@
+{
+  "id": "SEAL-PROCESS",
+  "command": [
+    "node",
+    "prototype/scripts/accept-contesting-worker-process.mjs",
+    "--build-manifest",
+    "/tmp/xlog-phase5-20261029-721e0705/worker-converged-r2.json",
+    "--expected-head",
+    "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba",
+    "--output",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/process-converged"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T21:13:30.509099+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/SEAL-PROCESS.log",
+  "sourceHeadAtStart": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba",
+  "sourceStatusAtStart": [],
+  "pid": 60143,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 22.343,
+  "finishedUTC": "2026-10-28T21:13:52.852248+00:00",
+  "sourceHeadAtFinish": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba"
+}

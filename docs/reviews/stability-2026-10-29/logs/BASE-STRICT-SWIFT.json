@@ -1,0 +1,29 @@
+{
+  "id": "BASE-STRICT-SWIFT",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "env",
+    "XLOG_PORTABLE_ONLY=1",
+    "swift",
+    "build",
+    "--target",
+    "XLogPrototypeSupport",
+    "--scratch-path",
+    ".build/phase4-20261029/strict-portable",
+    "--jobs",
+    "2",
+    "-Xswiftc",
+    "-strict-concurrency=complete",
+    "-Xswiftc",
+    "-warn-concurrency"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T18:48:40.411836+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/BASE-STRICT-SWIFT.log",
+  "pid": 73426,
+  "exitCode": 1,
+  "timedOut": false,
+  "durationSeconds": 8.822,
+  "finishedUTC": "2026-10-28T18:48:49.234046+00:00"
+}

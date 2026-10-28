@@ -1,0 +1,27 @@
+{
+  "id": "FINAL-CORPUS",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "/opt/homebrew/bin/python3.14",
+    "-B",
+    "tools/contest_plugin_generator/verify_pinned_corpus.py",
+    "--upstream",
+    "/Users/oliver/Documents/Projects/contest-sw",
+    "--ledger",
+    "docs/contesting/contest-acceptance-ledger.json",
+    "--inventory",
+    "docs/contesting/generated/python-plugin-inventory.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T19:53:01.916580+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/FINAL-CORPUS.log",
+  "sourceHeadAtStart": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "sourceStatusAtStart": [],
+  "pid": 8408,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 2.55,
+  "finishedUTC": "2026-10-28T19:53:04.466920+00:00",
+  "sourceHeadAtFinish": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e"
+}

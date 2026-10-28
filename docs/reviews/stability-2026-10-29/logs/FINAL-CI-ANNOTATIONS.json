@@ -1,0 +1,21 @@
+{
+  "id": "FINAL-CI-ANNOTATIONS",
+  "command": [
+    "gh",
+    "api",
+    "repos/oliverbross/OM0RX-xLog/check-runs/123054968046/annotations",
+    "--jq",
+    ".[] | {path,start_line,end_line,annotation_level,title,message}"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T19:59:00.211399+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/FINAL-CI-ANNOTATIONS.log",
+  "sourceHeadAtStart": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "sourceStatusAtStart": [],
+  "pid": 15992,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 1.25,
+  "finishedUTC": "2026-10-28T19:59:01.461282+00:00",
+  "sourceHeadAtFinish": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e"
+}

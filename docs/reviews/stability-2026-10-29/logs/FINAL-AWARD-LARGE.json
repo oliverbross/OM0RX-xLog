@@ -1,0 +1,28 @@
+{
+  "id": "FINAL-AWARD-LARGE",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "env",
+    "XLOG_GENERATED_PERF=1",
+    "swift",
+    "test",
+    "--skip-build",
+    "--scratch-path",
+    ".build/phase5-20261029/native-final",
+    "--no-parallel",
+    "--filter",
+    "AwardCatalogTests"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T19:56:41.876931+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/FINAL-AWARD-LARGE.log",
+  "sourceHeadAtStart": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "sourceStatusAtStart": [],
+  "pid": 9337,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 35.667,
+  "finishedUTC": "2026-10-28T19:57:17.544848+00:00",
+  "sourceHeadAtFinish": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e"
+}

@@ -1,0 +1,25 @@
+{
+  "id": "CLOSE-PORTABLE-TEST-BUILD",
+  "command": [
+    "env",
+    "XLOG_PORTABLE_ONLY=1",
+    "swift",
+    "test",
+    "list",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final",
+    "--jobs",
+    "2"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T21:53:23.000799+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/CLOSE-PORTABLE-TEST-BUILD.log",
+  "sourceHeadAtStart": "58da5d49359f7333852b04037a134ab04167be7b",
+  "sourceStatusAtStart": [],
+  "pid": 81437,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 16.93,
+  "finishedUTC": "2026-10-28T21:53:39.944498+00:00",
+  "sourceHeadAtFinish": "58da5d49359f7333852b04037a134ab04167be7b"
+}

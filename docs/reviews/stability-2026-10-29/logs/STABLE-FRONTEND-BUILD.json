@@ -1,0 +1,21 @@
+{
+  "id": "STABLE-FRONTEND-BUILD",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "npm",
+    "run",
+    "build"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-28T20:35:32.363733+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/STABLE-FRONTEND-BUILD.log",
+  "sourceHeadAtStart": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f",
+  "sourceStatusAtStart": [],
+  "pid": 42755,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 248.992,
+  "finishedUTC": "2026-10-28T20:39:41.356825+00:00",
+  "sourceHeadAtFinish": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f"
+}

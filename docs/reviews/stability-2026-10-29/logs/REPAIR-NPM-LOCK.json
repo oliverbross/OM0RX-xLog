@@ -1,0 +1,24 @@
+{
+  "id": "REPAIR-NPM-LOCK",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "npm",
+    "install",
+    "--package-lock-only",
+    "--save-exact",
+    "--no-audit",
+    "--fund=false",
+    "react@19.3.1",
+    "react-dom@19.3.1",
+    "@tauri-apps/api@2.12.4"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-28T18:47:32.605644+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/REPAIR-NPM-LOCK.log",
+  "pid": 73177,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 0.831,
+  "finishedUTC": "2026-10-28T18:47:33.436230+00:00"
+}

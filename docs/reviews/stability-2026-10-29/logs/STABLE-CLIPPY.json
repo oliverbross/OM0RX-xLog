@@ -1,0 +1,29 @@
+{
+  "id": "STABLE-CLIPPY",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "cargo",
+    "clippy",
+    "--locked",
+    "--offline",
+    "--jobs",
+    "2",
+    "--target-dir",
+    "/tmp/xlog-phase5-20261029-721e0705/cargo-target",
+    "--manifest-path",
+    "prototype/src-tauri/Cargo.toml",
+    "--all-targets"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T20:42:31.498265+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/STABLE-CLIPPY.log",
+  "sourceHeadAtStart": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f",
+  "sourceStatusAtStart": [],
+  "pid": 45984,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 116.083,
+  "finishedUTC": "2026-10-28T20:44:27.588083+00:00",
+  "sourceHeadAtFinish": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f"
+}

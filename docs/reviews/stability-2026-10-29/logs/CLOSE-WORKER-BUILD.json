@@ -1,0 +1,22 @@
+{
+  "id": "CLOSE-WORKER-BUILD",
+  "command": [
+    "node",
+    "prototype/scripts/build-contesting-worker-process.mjs",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/worker-close",
+    "--output",
+    "/tmp/xlog-phase5-20261029-721e0705/worker-close.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T21:52:36.979670+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/CLOSE-WORKER-BUILD.log",
+  "sourceHeadAtStart": "58da5d49359f7333852b04037a134ab04167be7b",
+  "sourceStatusAtStart": [],
+  "pid": 80943,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 449.292,
+  "finishedUTC": "2026-10-28T22:00:06.274529+00:00",
+  "sourceHeadAtFinish": "58da5d49359f7333852b04037a134ab04167be7b"
+}

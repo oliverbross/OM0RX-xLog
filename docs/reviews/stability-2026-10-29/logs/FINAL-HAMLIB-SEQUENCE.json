@@ -1,0 +1,20 @@
+{
+  "id": "FINAL-HAMLIB-SEQUENCE",
+  "command": [
+    "python3.12",
+    "-B",
+    "/tmp/xlog-phase5-20261029-721e0705/scripts/sequence.py",
+    "/tmp/xlog-phase5-20261029-721e0705/hamlib-plan.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T19:57:14.831215+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/FINAL-HAMLIB-SEQUENCE.log",
+  "sourceHeadAtStart": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "sourceStatusAtStart": [],
+  "pid": 11010,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 488.184,
+  "finishedUTC": "2026-10-28T20:05:23.014984+00:00",
+  "sourceHeadAtFinish": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e"
+}

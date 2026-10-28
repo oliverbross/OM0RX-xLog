@@ -1,0 +1,20 @@
+{
+  "id": "CLOSE-PYTHON-TESTS",
+  "command": [
+    "python3.12",
+    "-B",
+    "/tmp/xlog-phase5-20261029-721e0705/scripts/sequence.py",
+    "/tmp/xlog-phase5-20261029-721e0705/close-python-tests.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T21:52:36.113837+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/CLOSE-PYTHON-TESTS.log",
+  "sourceHeadAtStart": "58da5d49359f7333852b04037a134ab04167be7b",
+  "sourceStatusAtStart": [],
+  "pid": 80920,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 733.957,
+  "finishedUTC": "2026-10-28T22:04:50.076207+00:00",
+  "sourceHeadAtFinish": "58da5d49359f7333852b04037a134ab04167be7b"
+}

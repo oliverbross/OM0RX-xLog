@@ -1,0 +1,595 @@
+[
+  {
+    "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/process-close/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/Contesting/Python/5301c3bd-8f34-479f-a05c-479a988c007b/contest.sqlite",
+    "integrityCheck": [
+      "ok"
+    ],
+    "foreignKeyCheck": [],
+    "userVersion": 0,
+    "tables": [
+      "CALLHISTORY",
+      "Contest",
+      "ContestInstance",
+      "DXLOG",
+      "Station",
+      "xlog_adif_import",
+      "xlog_callhistory_stage",
+      "xlog_callhistory_stage_meta",
+      "xlog_callhistory_state",
+      "xlog_digital_event",
+      "xlog_digital_receipt",
+      "xlog_draft_contact",
+      "xlog_draft_lane",
+      "xlog_group_directed",
+      "xlog_group_peer",
+      "xlog_group_retired",
+      "xlog_legacy_import",
+      "xlog_legacy_row_receipt",
+      "xlog_n1mm_delivery",
+      "xlog_note",
+      "xlog_operation",
+      "xlog_output_claim",
+      "xlog_qso_audit",
+      "xlog_qso_identity",
+      "xlog_qso_lane",
+      "xlog_qso_site",
+      "xlog_replica",
+      "xlog_replica_stage",
+      "xlog_replica_stage_audit",
+      "xlog_replica_stage_qso",
+      "xlog_serial",
+      "xlog_session"
+    ],
+    "selectedRowCounts": {
+      "DXLOG": 1
+    }
+  },
+  {
+    "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/process-close/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/Contesting/Python/7257af0a-ddcb-4b53-8686-ff6c8a899c28/contest.sqlite",
+    "integrityCheck": [
+      "ok"
+    ],
+    "foreignKeyCheck": [],
+    "userVersion": 0,
+    "tables": [
+      "CALLHISTORY",
+      "Contest",
+      "ContestInstance",
+      "DXLOG",
+      "Station",
+      "xlog_adif_import",
+      "xlog_callhistory_stage",
+      "xlog_callhistory_stage_meta",
+      "xlog_callhistory_state",
+      "xlog_digital_event",
+      "xlog_digital_receipt",
+      "xlog_draft_contact",
+      "xlog_draft_lane",
+      "xlog_group_directed",
+      "xlog_group_peer",
+      "xlog_group_retired",
+      "xlog_legacy_import",
+      "xlog_legacy_row_receipt",
+      "xlog_n1mm_delivery",
+      "xlog_note",
+      "xlog_operation",
+      "xlog_output_claim",
+      "xlog_qso_audit",
+      "xlog_qso_identity",
+      "xlog_qso_lane",
+      "xlog_qso_site",
+      "xlog_replica",
+      "xlog_replica_stage",
+      "xlog_replica_stage_audit",
+      "xlog_replica_stage_qso",
+      "xlog_serial",
+      "xlog_session"
+    ],
+    "selectedRowCounts": {
+      "DXLOG": 1
+    }
+  },
+  {
+    "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/process-close/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+    "integrityCheck": [
+      "ok"
+    ],
+    "foreignKeyCheck": [],
+    "userVersion": 0,
+    "tables": [
+      "qsos",
+      "sync_conflicts",
+      "sync_outbox",
+      "xlog_aggregate_cache",
+      "xlog_contact_receipts",
+      "xlog_contact_revisions",
+      "xlog_contest_transfer_manifests",
+      "xlog_contest_transfer_receipts",
+      "xlog_integration_settings",
+      "xlog_online_log_candidates",
+      "xlog_online_log_deliveries",
+      "xlog_online_log_enrollments",
+      "xlog_operator_draft",
+      "xlog_operator_receipts",
+      "xlog_qso_revision",
+      "xlog_remote_backup_commands",
+      "xlog_rotor_configuration",
+      "xlog_rotor_configuration_receipts",
+      "xlog_scoped_workspace_layout",
+      "xlog_settings_receipts",
+      "xlog_spot_draft_abandoned",
+      "xlog_spot_draft_receipts",
+      "xlog_sync_mutation_owner",
+      "xlog_sync_runs",
+      "xlog_workspace_layout"
+    ],
+    "selectedRowCounts": {
+      "qsos": 0
+    }
+  },
+  {
+    "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/process-close/isolated-home/Library/Application Support/OM0RX-xLog Integration Services/forwarded-radio-spots.json.sqlite",
+    "integrityCheck": [
+      "ok"
+    ],
+    "foreignKeyCheck": [],
+    "userVersion": 0,
+    "tables": [
+      "migration",
+      "pending_deliveries",
+      "receipts"
+    ],
+    "selectedRowCounts": {}
+  },
+  {
+    "path": "/private/tmp/xlog-phase5-20261029-721e0705/browser-final-declarative/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/Contesting/contests.sqlite",
+    "integrityCheck": [
+      "ok"
+    ],
+    "foreignKeyCheck": [],
+    "userVersion": 3,
+    "tables": [
+      "declarative_definitions",
+      "drafts",
+      "operations",
+      "qso_audit",
+      "qsos",
+      "serial_counters",
+      "serial_reservations",
+      "sessions"
+    ],
+    "selectedRowCounts": {
+      "qsos": 66
+    }
+  },
+  {
+    "path": "/private/tmp/xlog-phase5-20261029-721e0705/browser-final-declarative/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+    "integrityCheck": [
+      "ok"
+    ],
+    "foreignKeyCheck": [],
+    "userVersion": 0,
+    "tables": [
+      "qsos",
+      "sync_conflicts",
+      "sync_outbox",
+      "xlog_aggregate_cache",
+      "xlog_contact_receipts",
+      "xlog_contact_revisions",
+      "xlog_contest_transfer_manifests",
+      "xlog_contest_transfer_receipts",
+      "xlog_integration_settings",
+      "xlog_online_log_candidates",
+      "xlog_online_log_deliveries",
+      "xlog_online_log_enrollments",
+      "xlog_operator_draft",
+      "xlog_operator_receipts",
+      "xlog_qso_revision",
+      "xlog_remote_backup_commands",
+      "xlog_rotor_configuration",
+      "xlog_rotor_configuration_receipts",
+      "xlog_scoped_workspace_layout",
+      "xlog_settings_receipts",
+      "xlog_spot_draft_abandoned",
+      "xlog_spot_draft_receipts",
+      "xlog_sync_mutation_owner",
+      "xlog_sync_runs",
+      "xlog_workspace_layout"
+    ],
+    "selectedRowCounts": {
+      "qsos": 0
+    }
+  },
+  {
+    "path": "/private/tmp/xlog-phase5-20261029-721e0705/browser-final-family/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/Contesting/contests.sqlite",
+    "integrityCheck": [
+      "ok"
+    ],
+    "foreignKeyCheck": [],
+    "userVersion": 3,
+    "tables": [
+      "declarative_definitions",
+      "drafts",
+      "operations",
+      "qso_audit",
+      "qsos",
+      "serial_counters",
+      "serial_reservations",
+      "sessions"
+    ],
+    "selectedRowCounts": {
+      "qsos": 84
+    }
+  },
+  {
+    "path": "/private/tmp/xlog-phase5-20261029-721e0705/browser-final-family/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+    "integrityCheck": [
+      "ok"
+    ],
+    "foreignKeyCheck": [],
+    "userVersion": 0,
+    "tables": [
+      "qsos",
+      "sync_conflicts",
+      "sync_outbox",
+      "xlog_aggregate_cache",
+      "xlog_contact_receipts",
+      "xlog_contact_revisions",
+      "xlog_contest_transfer_manifests",
+      "xlog_contest_transfer_receipts",
+      "xlog_integration_settings",
+      "xlog_online_log_candidates",
+      "xlog_online_log_deliveries",
+      "xlog_online_log_enrollments",
+      "xlog_operator_draft",
+      "xlog_operator_receipts",
+      "xlog_qso_revision",
+      "xlog_remote_backup_commands",
+      "xlog_rotor_configuration",
+      "xlog_rotor_configuration_receipts",
+      "xlog_scoped_workspace_layout",
+      "xlog_settings_receipts",
+      "xlog_spot_draft_abandoned",
+      "xlog_spot_draft_receipts",
+      "xlog_sync_mutation_owner",
+      "xlog_sync_runs",
+      "xlog_workspace_layout"
+    ],
+    "selectedRowCounts": {
+      "qsos": 0
+    }
+  },
+  {
+    "path": "/private/tmp/xlog-phase5-20261029-721e0705/browser-final-naqp/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/Contesting/contests.sqlite",
+    "integrityCheck": [
+      "ok"
+    ],
+    "foreignKeyCheck": [],
+    "userVersion": 3,
+    "tables": [
+      "declarative_definitions",
+      "drafts",
+      "operations",
+      "qso_audit",
+      "qsos",
+      "serial_counters",
+      "serial_reservations",
+      "sessions"
+    ],
+    "selectedRowCounts": {
+      "qsos": 26
+    }
+  },
+  {
+    "path": "/private/tmp/xlog-phase5-20261029-721e0705/browser-final-naqp/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+    "integrityCheck": [
+      "ok"
+    ],
+    "foreignKeyCheck": [],
+    "userVersion": 0,
+    "tables": [
+      "qsos",
+      "sync_conflicts",
+      "sync_outbox",
+      "xlog_aggregate_cache",
+      "xlog_contact_receipts",
+      "xlog_contact_revisions",
+      "xlog_contest_transfer_manifests",
+      "xlog_contest_transfer_receipts",
+      "xlog_integration_settings",
+      "xlog_online_log_candidates",
+      "xlog_online_log_deliveries",
+      "xlog_online_log_enrollments",
+      "xlog_operator_draft",
+      "xlog_operator_receipts",
+      "xlog_qso_revision",
+      "xlog_remote_backup_commands",
+      "xlog_rotor_configuration",
+      "xlog_rotor_configuration_receipts",
+      "xlog_scoped_workspace_layout",
+      "xlog_settings_receipts",
+      "xlog_spot_draft_abandoned",
+      "xlog_spot_draft_receipts",
+      "xlog_sync_mutation_owner",
+      "xlog_sync_runs",
+      "xlog_workspace_layout"
+    ],
+    "selectedRowCounts": {
+      "qsos": 0
+    }
+  },
+  {
+    "path": "/private/tmp/xlog-phase5-20261029-721e0705/browser-final-operator/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/Contesting/contests.sqlite",
+    "integrityCheck": [
+      "ok"
+    ],
+    "foreignKeyCheck": [],
+    "userVersion": 3,
+    "tables": [
+      "declarative_definitions",
+      "drafts",
+      "operations",
+      "qso_audit",
+      "qsos",
+      "serial_counters",
+      "serial_reservations",
+      "sessions"
+    ],
+    "selectedRowCounts": {
+      "qsos": 25
+    }
+  },
+  {
+    "path": "/private/tmp/xlog-phase5-20261029-721e0705/browser-final-operator/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+    "integrityCheck": [
+      "ok"
+    ],
+    "foreignKeyCheck": [],
+    "userVersion": 0,
+    "tables": [
+      "qsos",
+      "sync_conflicts",
+      "sync_outbox",
+      "xlog_aggregate_cache",
+      "xlog_contact_receipts",
+      "xlog_contact_revisions",
+      "xlog_contest_transfer_manifests",
+      "xlog_contest_transfer_receipts",
+      "xlog_integration_settings",
+      "xlog_online_log_candidates",
+      "xlog_online_log_deliveries",
+      "xlog_online_log_enrollments",
+      "xlog_operator_draft",
+      "xlog_operator_receipts",
+      "xlog_qso_revision",
+      "xlog_remote_backup_commands",
+      "xlog_rotor_configuration",
+      "xlog_rotor_configuration_receipts",
+      "xlog_scoped_workspace_layout",
+      "xlog_settings_receipts",
+      "xlog_spot_draft_abandoned",
+      "xlog_spot_draft_receipts",
+      "xlog_sync_mutation_owner",
+      "xlog_sync_runs",
+      "xlog_workspace_layout"
+    ],
+    "selectedRowCounts": {
+      "qsos": 0
+    }
+  },
+  {
+    "path": "/private/tmp/xlog-phase5-20261029-721e0705/browser-final-scp/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/Contesting/contests.sqlite",
+    "integrityCheck": [
+      "ok"
+    ],
+    "foreignKeyCheck": [],
+    "userVersion": 3,
+    "tables": [
+      "declarative_definitions",
+      "drafts",
+      "operations",
+      "qso_audit",
+      "qsos",
+      "serial_counters",
+      "serial_reservations",
+      "sessions"
+    ],
+    "selectedRowCounts": {
+      "qsos": 0
+    }
+  },
+  {
+    "path": "/private/tmp/xlog-phase5-20261029-721e0705/browser-final-scp/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+    "integrityCheck": [
+      "ok"
+    ],
+    "foreignKeyCheck": [],
+    "userVersion": 0,
+    "tables": [
+      "qsos",
+      "sync_conflicts",
+      "sync_outbox",
+      "xlog_aggregate_cache",
+      "xlog_contact_receipts",
+      "xlog_contact_revisions",
+      "xlog_contest_transfer_manifests",
+      "xlog_contest_transfer_receipts",
+      "xlog_integration_settings",
+      "xlog_online_log_candidates",
+      "xlog_online_log_deliveries",
+      "xlog_online_log_enrollments",
+      "xlog_operator_draft",
+      "xlog_operator_receipts",
+      "xlog_qso_revision",
+      "xlog_remote_backup_commands",
+      "xlog_rotor_configuration",
+      "xlog_rotor_configuration_receipts",
+      "xlog_scoped_workspace_layout",
+      "xlog_settings_receipts",
+      "xlog_spot_draft_abandoned",
+      "xlog_spot_draft_receipts",
+      "xlog_sync_mutation_owner",
+      "xlog_sync_runs",
+      "xlog_workspace_layout"
+    ],
+    "selectedRowCounts": {
+      "qsos": 0
+    }
+  },
+  {
+    "path": "/private/tmp/xlog-phase5-20261029-721e0705/browser-final-scp-r2/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/Contesting/contests.sqlite",
+    "integrityCheck": [
+      "ok"
+    ],
+    "foreignKeyCheck": [],
+    "userVersion": 3,
+    "tables": [
+      "declarative_definitions",
+      "drafts",
+      "operations",
+      "qso_audit",
+      "qsos",
+      "serial_counters",
+      "serial_reservations",
+      "sessions"
+    ],
+    "selectedRowCounts": {
+      "qsos": 0
+    }
+  },
+  {
+    "path": "/private/tmp/xlog-phase5-20261029-721e0705/browser-final-scp-r2/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+    "integrityCheck": [
+      "ok"
+    ],
+    "foreignKeyCheck": [],
+    "userVersion": 0,
+    "tables": [
+      "qsos",
+      "sync_conflicts",
+      "sync_outbox",
+      "xlog_aggregate_cache",
+      "xlog_contact_receipts",
+      "xlog_contact_revisions",
+      "xlog_contest_transfer_manifests",
+      "xlog_contest_transfer_receipts",
+      "xlog_integration_settings",
+      "xlog_online_log_candidates",
+      "xlog_online_log_deliveries",
+      "xlog_online_log_enrollments",
+      "xlog_operator_draft",
+      "xlog_operator_receipts",
+      "xlog_qso_revision",
+      "xlog_remote_backup_commands",
+      "xlog_rotor_configuration",
+      "xlog_rotor_configuration_receipts",
+      "xlog_scoped_workspace_layout",
+      "xlog_settings_receipts",
+      "xlog_spot_draft_abandoned",
+      "xlog_spot_draft_receipts",
+      "xlog_sync_mutation_owner",
+      "xlog_sync_runs",
+      "xlog_workspace_layout"
+    ],
+    "selectedRowCounts": {
+      "qsos": 0
+    }
+  },
+  {
+    "path": "/private/tmp/xlog-phase5-20261029-721e0705/browser-final-scp-r3/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/Contesting/contests.sqlite",
+    "integrityCheck": [
+      "ok"
+    ],
+    "foreignKeyCheck": [],
+    "userVersion": 3,
+    "tables": [
+      "declarative_definitions",
+      "drafts",
+      "operations",
+      "qso_audit",
+      "qsos",
+      "serial_counters",
+      "serial_reservations",
+      "sessions"
+    ],
+    "selectedRowCounts": {
+      "qsos": 0
+    }
+  },
+  {
+    "path": "/private/tmp/xlog-phase5-20261029-721e0705/browser-final-scp-r3/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+    "integrityCheck": [
+      "ok"
+    ],
+    "foreignKeyCheck": [],
+    "userVersion": 0,
+    "tables": [
+      "qsos",
+      "sync_conflicts",
+      "sync_outbox",
+      "xlog_aggregate_cache",
+      "xlog_contact_receipts",
+      "xlog_contact_revisions",
+      "xlog_contest_transfer_manifests",
+      "xlog_contest_transfer_receipts",
+      "xlog_integration_settings",
+      "xlog_online_log_candidates",
+      "xlog_online_log_deliveries",
+      "xlog_online_log_enrollments",
+      "xlog_operator_draft",
+      "xlog_operator_receipts",
+      "xlog_qso_revision",
+      "xlog_remote_backup_commands",
+      "xlog_rotor_configuration",
+      "xlog_rotor_configuration_receipts",
+      "xlog_scoped_workspace_layout",
+      "xlog_settings_receipts",
+      "xlog_spot_draft_abandoned",
+      "xlog_spot_draft_receipts",
+      "xlog_sync_mutation_owner",
+      "xlog_sync_runs",
+      "xlog_workspace_layout"
+    ],
+    "selectedRowCounts": {
+      "qsos": 0
+    }
+  },
+  {
+    "path": "/private/tmp/xlog-phase5-20261029-721e0705/empty-query-final.sqlite",
+    "integrityCheck": [
+      "ok"
+    ],
+    "foreignKeyCheck": [],
+    "userVersion": 0,
+    "tables": [
+      "qsos",
+      "sync_conflicts",
+      "sync_outbox",
+      "xlog_aggregate_cache",
+      "xlog_contact_receipts",
+      "xlog_contact_revisions",
+      "xlog_contest_transfer_manifests",
+      "xlog_contest_transfer_receipts",
+      "xlog_integration_settings",
+      "xlog_online_log_candidates",
+      "xlog_online_log_deliveries",
+      "xlog_online_log_enrollments",
+      "xlog_operator_draft",
+      "xlog_operator_receipts",
+      "xlog_qso_revision",
+      "xlog_remote_backup_commands",
+      "xlog_rotor_configuration",
+      "xlog_rotor_configuration_receipts",
+      "xlog_scoped_workspace_layout",
+      "xlog_settings_receipts",
+      "xlog_spot_draft_abandoned",
+      "xlog_spot_draft_receipts",
+      "xlog_sync_mutation_owner",
+      "xlog_sync_runs",
+      "xlog_workspace_layout"
+    ],
+    "selectedRowCounts": {
+      "qsos": 0
+    }
+  }
+]

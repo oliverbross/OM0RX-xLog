@@ -1,0 +1,43 @@
+{
+  "observedUTC": "2026-10-28T21:59:21.490604+00:00",
+  "id": "INV-P5-004",
+  "status": "Not Fixed / bounded timing investigation; expected fail-closed guard observed",
+  "loadedReceipt": "CLOSE-CW-WIRE",
+  "result": "12 of13 tests pass; real synthetic IQ delivery fails caught staleInput",
+  "path": "CWComputeProcess.enqueue",
+  "guardMilliseconds": 250,
+  "mechanism": "Block passes continuity gate, then reaches enqueue past250ms during serialization or scheduling; exact delay source not instrumented. Fail closed occurs as designed.",
+  "distinctFrom": [
+    "startup5s watchdog",
+    "blocked-write1s watchdog",
+    "decode-result wait"
+  ],
+  "baselineComparison": {
+    "Sources/XCWCore/CWComputeProcess.swift": {
+      "unchanged": true,
+      "diff": null
+    },
+    "Sources/XCWCore/CWComputeWire.swift": {
+      "unchanged": false,
+      "diff": "diff --git a/Sources/XCWCore/CWComputeWire.swift b/Sources/XCWCore/CWComputeWire.swift\nindex 148dd52e..6a4cbe90 100644\n--- a/Sources/XCWCore/CWComputeWire.swift\n+++ b/Sources/XCWCore/CWComputeWire.swift\n@@ -1,6 +1,8 @@\n // Copyright \u00a9 2026 Oliver Bross OM0RX. SPDX-License-Identifier: GPL-3.0-only\n import Foundation\n+#if canImport(CoreFoundation)\n import CoreFoundation\n+#endif\n \n public enum CWComputeError: Error, Equatable, Sendable {\n     case invalidEvent, invalidFrame, resourceValidation, occupied, spawnFailed(Int32)\n@@ -66,7 +68,7 @@ public enum CWComputeWire {\n         return number\n     }\n     private static func number(_ value:Any?) throws -> Double {\n-        guard let number=value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(), number.doubleValue.isFinite else { throw CWComputeError.invalidEvent }\n+        guard let number=value as? NSNumber, !isJSONBoolean(number), number.doubleValue.isFinite else { throw CWComputeError.invalidEvent }\n         return number.doubleValue\n     }\n     private static func integer(_ value:Any?,range:ClosedRange<Int>) throws -> Int {\n@@ -75,9 +77,21 @@ public enum CWComputeWire {\n         return Int(number)\n     }\n     private static func boolean(_ value:Any?) throws -> Bool {\n-        guard let number=value as? NSNumber, CFGetTypeID(number)==CFBooleanGetTypeID() else { throw CWComputeError.invalidEvent }\n+        guard let number=value as? NSNumber, isJSONBoolean(number) else { throw CWComputeError.invalidEvent }\n         return number.boolValue\n     }\n+    private static func isJSONBoolean(_ number:NSNumber) -> Bool {\n+        #if canImport(CoreFoundation)\n+        CFGetTypeID(number)==CFBooleanGetTypeID()\n+        #else\n+        isFoundationBoolean(number)\n+        #endif\n+    }\n+    // Match the portable backend's canonical Foundation boolean check. Numeric\n+    // Int8/UInt8 values must not become booleans through objCType or Bool casts.\n+    static func isFoundationBoolean(_ number:NSNumber) -> Bool {\n+        number === NSNumber(value:true) || number === NSNumber(value:false)\n+    }\n     private static func track(_ object:[String:Any],kind:String) throws -> CWNativeTrack {\n         guard let token=object[\"stream_token\"] as? String, token.utf8.count==32,\n               token.utf8.allSatisfy({(48...57).contains($0)||(97...102).contains($0)}),\n"
+    },
+    "Sources/XCWCore/CWContracts.swift": {
+      "unchanged": true,
+      "diff": null
+    },
+    "native/cw-worker/Tests/CWWireHarnessTests/CWComputeProcessTests.swift": {
+      "unchanged": true,
+      "diff": null
+    }
+  },
+  "priorPassingReceipt": "FINAL-CW-WIRE",
+  "idleControl": {
+    "id": "CLOSE-CW-WIRE-IDLE",
+    "exitCode": 0,
+    "durationSeconds": 14.239,
+    "cases": 13,
+    "unchangedTests": true,
+    "skipBuildUsesCurrentSourceBinary": true
+  },
+  "safeguards": "No freshness limit, timeout, assertion or output admission changed."
+}

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "expectedHead": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "command": {
+    "xctest": "/Applications/Xcode.app/Contents/Developer/usr/bin/xctest",
+    "selector": "XLogPrototypeTests.ContestOperatorBrowserAcceptanceTests/testRealWorkspaceAndMutationOwnerAgainstIsolatedLiveWorker",
+    "bundle": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final/out/Products/Debug/XLogPrototypeTests.xctest",
+    "scratch": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final"
+  },
+  "source": {
+    "head": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+    "status": [],
+    "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untracked": {}
+  },
+  "build": {
+    "code": 0,
+    "stdoutSHA256": "1c52b88188a036497dde6556c79d5b452e0403d981653475c1afab8b34196c03",
+    "stderrSHA256": "433b000186946f2905fac858da45e0d867919b068aa8379eb7cbc0ae6def6140"
+  },
+  "host": {
+    "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final/out/Products/Debug/XLogPrototypeTests.xctest/Contents/MacOS/XLogPrototypeTests",
+    "sha256": "b4ce670d088577ad98ccf5afd2f413d870a4dc9a30dedde97f9d8c28edd54bba"
+  },
+  "probes": [
+    {
+      "mode": "response",
+      "code": "deadline_exceeded",
+      "signal": "SIGTERM",
+      "ownedPIDs": [
+        10535,
+        10536
+      ],
+      "lingeringPIDs": [],
+      "stdoutSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSHA256": "7a11695f95c9b129bf275d49eb169487946b20d29ded64fc14e0d13b5ed53e90"
+    },
+    {
+      "mode": "shutdown",
+      "code": "deadline_exceeded",
+      "signal": "SIGTERM",
+      "ownedPIDs": [
+        10603,
+        10606
+      ],
+      "lingeringPIDs": [],
+      "stdoutSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSHA256": "a3cf027635372dbad077690eb951eddc52d6edb1738e8a6b661592ab7b897a82"
+    }
+  ],
+  "run": {
+    "code": 0,
+    "stdoutSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrSHA256": "8ec7c32bbdf41ca94bbe548734d5d5f303d6600c25f9abda1f214403034f9b85",
+    "acceptancePath": "/tmp/xlog-phase5-20261029-721e0705/browser-final-operator/evidence/acceptance.json"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "id": "SEAL-NATIVE-BUILD",
+  "command": [
+    "swift",
+    "build",
+    "-c",
+    "release",
+    "--scratch-path",
+    ".build/phase5-20261029/native-release-final",
+    "--jobs",
+    "2",
+    "--product",
+    "om0rx-xlog"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T21:05:36.146079+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/SEAL-NATIVE-BUILD.log",
+  "sourceHeadAtStart": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba",
+  "sourceStatusAtStart": [],
+  "pid": 53574,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 6.652,
+  "finishedUTC": "2026-10-28T21:05:42.797734+00:00",
+  "sourceHeadAtFinish": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba"
+}

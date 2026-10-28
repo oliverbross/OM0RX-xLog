@@ -1,0 +1,25 @@
+{
+  "id": "ITER4-NAQP-CLICK-CONTROL",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "env",
+    "XLOG_CONTEST_N1MM_UDP_ALLOWED=0",
+    "node",
+    "prototype/scripts/run-contest-naqp-operator-browser-acceptance.mjs",
+    "--expected-head",
+    "37f8f5b8e599aacfb6c1ac1a189f2468c1c57302",
+    "--output",
+    "/tmp/xlog-phase5-20261029-721e0705/browser-naqp-click-control",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase4-20261029/portable"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T19:03:14.127962+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/ITER4-NAQP-CLICK-CONTROL.log",
+  "pid": 77380,
+  "exitCode": 1,
+  "timedOut": false,
+  "durationSeconds": 32.49,
+  "finishedUTC": "2026-10-28T19:03:46.617950+00:00"
+}

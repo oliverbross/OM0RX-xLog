@@ -1,0 +1,19 @@
+{
+  "waitFor": [
+    "FINAL-IDLE-R2",
+    "FINAL-HAMLIB-SEQUENCE"
+  ],
+  "checks": [
+    {
+      "id": "CONVERGED-FRONTEND",
+      "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+      "timeout": 1200,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "npm",
+        "test"
+      ]
+    }
+  ]
+}

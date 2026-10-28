@@ -1,0 +1,21 @@
+{
+  "waitFor": [
+    "CLOSE-NATIVE-TESTS",
+    "CLOSE-PORTABLE-TESTS",
+    "CLOSE-PYTHON-TESTS",
+    "CLOSE-RUST-TESTS"
+  ],
+  "checks": [
+    {
+      "id": "CLOSE-FRONTEND",
+      "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+      "timeout": 1000,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "npm",
+        "test"
+      ]
+    }
+  ]
+}

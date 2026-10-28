@@ -1,0 +1,28 @@
+{
+  "id": "CLOSE-RUST",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "--jobs",
+    "2",
+    "--target-dir",
+    "/tmp/xlog-phase5-20261029-721e0705/cargo-target",
+    "--manifest-path",
+    "prototype/src-tauri/Cargo.toml"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T22:00:42.795988+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/CLOSE-RUST.log",
+  "sourceHeadAtStart": "58da5d49359f7333852b04037a134ab04167be7b",
+  "sourceStatusAtStart": [],
+  "pid": 84944,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 36.135,
+  "finishedUTC": "2026-10-28T22:01:18.931414+00:00",
+  "sourceHeadAtFinish": "58da5d49359f7333852b04037a134ab04167be7b"
+}

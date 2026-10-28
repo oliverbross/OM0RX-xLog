@@ -1,0 +1,20 @@
+{
+  "id": "CLOSE-FRONTEND-TESTS",
+  "command": [
+    "python3.12",
+    "-B",
+    "/tmp/xlog-phase5-20261029-721e0705/scripts/sequence.py",
+    "/tmp/xlog-phase5-20261029-721e0705/close-frontend-tests.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T21:52:36.482333+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/CLOSE-FRONTEND-TESTS.log",
+  "sourceHeadAtStart": "58da5d49359f7333852b04037a134ab04167be7b",
+  "sourceStatusAtStart": [],
+  "pid": 80931,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 1289.094,
+  "finishedUTC": "2026-10-28T22:14:05.583373+00:00",
+  "sourceHeadAtFinish": "58da5d49359f7333852b04037a134ab04167be7b"
+}

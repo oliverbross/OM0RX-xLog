@@ -1,0 +1,78 @@
+{
+  "checks": [
+    {
+      "id": "CLOSE-RUST-RELEASE",
+      "timeout": 500,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "cargo",
+        "build",
+        "--release",
+        "--locked",
+        "--offline",
+        "--jobs",
+        "2",
+        "--target-dir",
+        "/tmp/xlog-phase5-20261029-721e0705/cargo-release-post-roots",
+        "--manifest-path",
+        "prototype/src-tauri/Cargo.toml"
+      ]
+    },
+    {
+      "id": "CLOSE-RUST-COMPILE",
+      "timeout": 240,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--jobs",
+        "2",
+        "--target-dir",
+        "/tmp/xlog-phase5-20261029-721e0705/cargo-target",
+        "--manifest-path",
+        "prototype/src-tauri/Cargo.toml",
+        "--no-run"
+      ]
+    },
+    {
+      "id": "CLOSE-FEATURE-COMPILE",
+      "timeout": 240,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--jobs",
+        "2",
+        "--target-dir",
+        "/tmp/xlog-phase5-20261029-721e0705/cargo-target",
+        "--manifest-path",
+        "prototype/src-tauri/Cargo.toml",
+        "--bin",
+        "xlog-prototype",
+        "--features",
+        "contesting-test",
+        "--no-run"
+      ]
+    },
+    {
+      "id": "CLOSE-CLIPPY",
+      "timeout": 240,
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--jobs",
+        "2",
+        "--target-dir",
+        "/tmp/xlog-phase5-20261029-721e0705/cargo-target",
+        "--manifest-path",
+        "prototype/src-tauri/Cargo.toml",
+        "--all-targets"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "observedUTC": "2026-10-28T22:34:00.479709+00:00",
+  "stage": "Archive verification collector correction",
+  "initialCommand": [
+    "python3.12",
+    "-B",
+    "/tmp/xlog-phase5-20261029-721e0705/agent-reports/verify_archive_revised.py",
+    "--plan",
+    "/tmp/xlog-phase5-20261029-721e0705/final-validation-plan.json"
+  ],
+  "initialExitCode": 1,
+  "initialError": "KeyError: '/private/tmp/xlog-phase5-20261029-721e0705/browser-final-declarative/exports/084bbcf3-56cf-4a05-8093-46436a97d179-29.adi'",
+  "rootCause": "Collector save records /tmp source spelling; within() export confinement returns canonical /private/tmp spelling. First verifier keyed aliases as different strings.",
+  "fix": "Resolve source identity for both raw-index keys and export lookup; retain byte count/SHA/gzip/source/fixture/gate assertions unchanged. Original verifier bytes remain archived; final verifier is separate.",
+  "example": {
+    "recorded": "/tmp/xlog-phase5-20261029-721e0705/browser-final-declarative/exports/084bbcf3-56cf-4a05-8093-46436a97d179-29.adi",
+    "canonical": "/private/tmp/xlog-phase5-20261029-721e0705/browser-final-declarative/exports/084bbcf3-56cf-4a05-8093-46436a97d179-29.adi",
+    "sameFile": true,
+    "inode": 604147937,
+    "rawSHA256": "369d9dfb3f18bf41d415d5341fcfc3b7dec60bb027504a524ed94ee61a4b6530"
+  },
+  "finalCommand": [
+    "python3.12",
+    "-B",
+    "/tmp/xlog-phase5-20261029-721e0705/agent-reports/verify_archive_final.py",
+    "--plan",
+    "/tmp/xlog-phase5-20261029-721e0705/final-validation-plan.json"
+  ],
+  "applicationSourceChanged": false,
+  "sourceArchiveFormatting": {
+    "observedUTC": "2026-10-28T22:35:16.993380+00:00",
+    "check": "git diff --cached --check",
+    "initialExitCode": 2,
+    "finding": "new blank line at EOF in collector-original/finalize_phase5_reports.py",
+    "correction": "Store exact original bytes as gzip and update raw-index encoding/path. No whitespace normalization or original-byte hash change.",
+    "rawSHA256": "48713372a5a24d0fbed8540add30cc69496068e038d394ea7eccb55716ea94e6"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "id": "FINAL-WORKER-PROTOCOL",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "env",
+    "XLOG_WORKER_BINARY=/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/worker-final/apple/Products/Release/xlog-prototype-worker",
+    "node",
+    "--test",
+    "Tests/XLogPrototypeTests/worker-process.test.mjs"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T19:48:37.322003+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/FINAL-WORKER-PROTOCOL.log",
+  "sourceHeadAtStart": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "sourceStatusAtStart": [],
+  "pid": 4767,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 2.178,
+  "finishedUTC": "2026-10-28T19:48:39.500059+00:00",
+  "sourceHeadAtFinish": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e"
+}

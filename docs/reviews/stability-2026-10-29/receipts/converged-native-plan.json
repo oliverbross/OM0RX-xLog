@@ -1,0 +1,22 @@
+{
+  "waitFor": [
+    "FINAL-IDLE-SEQUENCE",
+    "FINAL-HAMLIB-SEQUENCE"
+  ],
+  "checks": [
+    {
+      "id": "CONVERGED-NATIVE",
+      "timeout": 600,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "swift",
+        "test",
+        "--skip-build",
+        "--scratch-path",
+        ".build/phase5-20261029/native-final",
+        "--no-parallel"
+      ]
+    }
+  ]
+}

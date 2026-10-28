@@ -1,0 +1,37 @@
+{
+  "checks": [
+    {
+      "id": "SEAL-FRONTEND-BUILD",
+      "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+      "timeout": 400,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "npm",
+        "run",
+        "build"
+      ]
+    },
+    {
+      "id": "SEAL-NPM-AUDIT",
+      "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+      "timeout": 120,
+      "command": [
+        "npm",
+        "audit",
+        "--json"
+      ]
+    },
+    {
+      "id": "SEAL-NODE-CHECKS",
+      "timeout": 120,
+      "command": [
+        "node",
+        "--test",
+        "prototype/scripts/bounded-child-process.check.mjs",
+        "prototype/scripts/mac-worker-packaging.check.mjs",
+        "prototype/scripts/verify-relocated-contest-resources.check.mjs"
+      ]
+    }
+  ]
+}

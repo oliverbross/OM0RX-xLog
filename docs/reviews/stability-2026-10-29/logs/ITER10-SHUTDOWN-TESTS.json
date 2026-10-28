@@ -1,0 +1,31 @@
+{
+  "id": "ITER10-SHUTDOWN-TESTS",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "--jobs",
+    "2",
+    "--target-dir",
+    "/tmp/xlog-phase5-20261029-721e0705/cargo-target",
+    "--manifest-path",
+    "prototype/src-tauri/Cargo.toml",
+    "--bin",
+    "xlog-prototype",
+    "--features",
+    "contesting-test",
+    "worker::tests::shutdown_"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T21:19:56.493218+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/ITER10-SHUTDOWN-TESTS.log",
+  "sourceHeadAtStart": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba",
+  "sourceStatusAtStart": [],
+  "pid": 62920,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 1.546,
+  "finishedUTC": "2026-10-28T21:19:58.039520+00:00",
+  "sourceHeadAtFinish": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba"
+}

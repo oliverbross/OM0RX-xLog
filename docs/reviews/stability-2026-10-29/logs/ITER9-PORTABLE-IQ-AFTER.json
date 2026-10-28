@@ -1,0 +1,27 @@
+{
+  "id": "ITER9-PORTABLE-IQ-AFTER",
+  "command": [
+    "python3.12",
+    "-B",
+    "tools/check_portable_iq_sources.py",
+    "--repository",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog",
+    "--output",
+    "/tmp/xlog-phase5-20261029-721e0705/portable-iq-after"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T20:58:07.283510+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/ITER9-PORTABLE-IQ-AFTER.log",
+  "sourceHeadAtStart": "4298491d86e0db0fa865df8f57cc81eaf361c1dd",
+  "sourceStatusAtStart": [
+    " M .github/workflows/contest-portability.yml",
+    " M Package.swift",
+    "?? tools/check_portable_iq_sources.py"
+  ],
+  "pid": 52750,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 20.286,
+  "finishedUTC": "2026-10-28T20:58:27.569675+00:00",
+  "sourceHeadAtFinish": "4298491d86e0db0fa865df8f57cc81eaf361c1dd"
+}

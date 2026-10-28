@@ -1,0 +1,30 @@
+{
+  "id": "FINAL-LIVE-SCP",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "env",
+    "XLOG_SCP_LIVE_TEST=1",
+    "XLOG_CONTEST_N1MM_UDP_ALLOWED=0",
+    "XLOG_PORTABLE_ONLY=1",
+    "swift",
+    "test",
+    "--skip-build",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final",
+    "--no-parallel",
+    "--filter",
+    "ContestSCPProviderTests"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T20:12:26.248665+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/FINAL-LIVE-SCP.log",
+  "sourceHeadAtStart": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "sourceStatusAtStart": [],
+  "pid": 37233,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 8.338,
+  "finishedUTC": "2026-10-28T20:12:34.587850+00:00",
+  "sourceHeadAtFinish": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e"
+}

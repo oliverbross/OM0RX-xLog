@@ -1,0 +1,157 @@
+{
+  "checks": [
+    {
+      "id": "FINAL-BROWSER-OPERATOR",
+      "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+      "timeout": 1250,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "node",
+        "prototype/scripts/run-contest-operator-browser-acceptance.mjs",
+        "--expected-head",
+        "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+        "--output",
+        "/tmp/xlog-phase5-20261029-721e0705/browser-final-operator",
+        "--scratch-path",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final"
+      ]
+    },
+    {
+      "id": "FINAL-BROWSER-FAMILY",
+      "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+      "timeout": 1250,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "node",
+        "prototype/scripts/run-contest-family-operator-browser-acceptance.mjs",
+        "--scenario",
+        "family",
+        "--expected-head",
+        "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+        "--output",
+        "/tmp/xlog-phase5-20261029-721e0705/browser-final-family",
+        "--scratch-path",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final"
+      ]
+    },
+    {
+      "id": "FINAL-BROWSER-DECLARATIVE",
+      "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+      "timeout": 1250,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "node",
+        "prototype/scripts/run-contest-family-operator-browser-acceptance.mjs",
+        "--scenario",
+        "declarative",
+        "--expected-head",
+        "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+        "--output",
+        "/tmp/xlog-phase5-20261029-721e0705/browser-final-declarative",
+        "--scratch-path",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final"
+      ]
+    },
+    {
+      "id": "FINAL-BROWSER-NAQP",
+      "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+      "timeout": 1250,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "node",
+        "prototype/scripts/run-contest-naqp-operator-browser-acceptance.mjs",
+        "--expected-head",
+        "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+        "--output",
+        "/tmp/xlog-phase5-20261029-721e0705/browser-final-naqp",
+        "--scratch-path",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final"
+      ]
+    },
+    {
+      "id": "FINAL-BROWSER-SCP",
+      "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+      "timeout": 1250,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "node",
+        "prototype/scripts/run-contest-scp-operator-browser-acceptance.mjs",
+        "--expected-head",
+        "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+        "--output",
+        "/tmp/xlog-phase5-20261029-721e0705/browser-final-scp",
+        "--scratch-path",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final"
+      ]
+    },
+    {
+      "id": "FINAL-LIVE-SCP",
+      "timeout": 300,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "env",
+        "XLOG_SCP_LIVE_TEST=1",
+        "XLOG_CONTEST_N1MM_UDP_ALLOWED=0",
+        "XLOG_PORTABLE_ONLY=1",
+        "swift",
+        "test",
+        "--skip-build",
+        "--scratch-path",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final",
+        "--no-parallel",
+        "--filter",
+        "ContestSCPProviderTests"
+      ]
+    },
+    {
+      "id": "FINAL-LIVE-PUBLIC",
+      "timeout": 240,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "env",
+        "XLOG_PROPAGATION_LIVE_PROBE=1",
+        "XLOG_DXMAP_LIVE_AUDIT_FILE=/tmp/xlog-phase5-20261029-721e0705/public-dxmap-final.json",
+        "XLOG_PORTABLE_ONLY=1",
+        "swift",
+        "test",
+        "--skip-build",
+        "--scratch-path",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final",
+        "--no-parallel",
+        "--filter",
+        "livePropagationRefresh|liveProviders"
+      ]
+    },
+    {
+      "id": "FINAL-LARGE-DATA",
+      "timeout": 700,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "env",
+        "XLOG_PORTABLE_ONLY=1",
+        "XLOG_REMOTE_MERGE_BENCHMARK=1",
+        "XLOG_MERGE_CONTENTION_BENCHMARK=1",
+        "XLOG_BOUNDED_MERGE_BENCHMARK=1",
+        "XLOG_GENERATED_PERF=1",
+        "XLOG_SAVE_PERF=1",
+        "XLOG_SPOT_HISTORY_BENCHMARK=1",
+        "swift",
+        "test",
+        "--skip-build",
+        "--scratch-path",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final",
+        "--no-parallel",
+        "--filter",
+        "BoundedRemoteMergeContentionBenchmarkTests|RemoteMergeContentionBenchmarkTests|RemoteMergeNoOpTests|GeneratedPerformanceTests|generatedLargeLogSaveTiming|benchmark100k"
+      ]
+    }
+  ]
+}

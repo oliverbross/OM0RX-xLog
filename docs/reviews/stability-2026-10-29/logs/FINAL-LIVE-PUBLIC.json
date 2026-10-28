@@ -1,0 +1,30 @@
+{
+  "id": "FINAL-LIVE-PUBLIC",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "env",
+    "XLOG_PROPAGATION_LIVE_PROBE=1",
+    "XLOG_DXMAP_LIVE_AUDIT_FILE=/tmp/xlog-phase5-20261029-721e0705/public-dxmap-final.json",
+    "XLOG_PORTABLE_ONLY=1",
+    "swift",
+    "test",
+    "--skip-build",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final",
+    "--no-parallel",
+    "--filter",
+    "livePropagationRefresh|liveProviders"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T20:12:34.653223+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/FINAL-LIVE-PUBLIC.log",
+  "sourceHeadAtStart": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "sourceStatusAtStart": [],
+  "pid": 37322,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 8.894,
+  "finishedUTC": "2026-10-28T20:12:43.547442+00:00",
+  "sourceHeadAtFinish": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e"
+}

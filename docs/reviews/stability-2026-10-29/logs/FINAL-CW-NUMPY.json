@@ -1,0 +1,21 @@
+{
+  "id": "FINAL-CW-NUMPY",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "/Users/oliver/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "native/cw-worker/verify_features.py",
+    "/tmp/xlog-phase5-20261029-721e0705/cw-native/xlog-cw-worker"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T19:59:14.914565+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/FINAL-CW-NUMPY.log",
+  "sourceHeadAtStart": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "sourceStatusAtStart": [],
+  "pid": 16665,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 0.741,
+  "finishedUTC": "2026-10-28T19:59:15.655140+00:00",
+  "sourceHeadAtFinish": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e"
+}

@@ -1,6 +1,8 @@
 # Full application review coverage — verified 29 October 2026
 
-**Phase 4 execution coverage:** New testing, failures and remaining native/hardware/provider limits are in [REGRESSION_TEST_REPORT.md](/Users/oliver/Documents/Projects/OM0RX-xLog/REGRESSION_TEST_REPORT.md). CR-008's clean build/integration verification is reopened; original functional tests pass. No application code was changed and no per-file semantic review depth below was upgraded because tests passed.
+**Current Phase 5 execution coverage:** All 32 final local gates pass on source 58da5d49; current native/portable platform outcomes and open boundaries are in [STABILITY_REPORT.md](/Users/oliver/Documents/Projects/OM0RX-xLog/STABILITY_REPORT.md). CR-008's clean-build reopening is closed. The frozen per-file ledger below remains **INCOMPLETE**; no semantic review depth is upgraded because tests pass. Original review evidence is preserved.
+
+**Historical Phase 4 execution coverage:** New testing, failures and remaining native/hardware/provider limits are in [REGRESSION_TEST_REPORT.md](/Users/oliver/Documents/Projects/OM0RX-xLog/REGRESSION_TEST_REPORT.md). CR-008's clean build/integration verification is reopened; original functional tests pass. No application code was changed and no per-file semantic review depth below was upgraded because tests passed.
 
 **Historical Phase 3 implementation:** All twelve confirmed findings were recorded as Fixed and Verified within their recorded source/fixture limits; subsequent Phase 4 status and residual acceptance boundaries are in the tracker below. This is the preserved review-stage coverage record. Subsequent source changes and fix verification are tracked in [REMEDIATION_TRACKER.md](/Users/oliver/Documents/Projects/OM0RX-xLog/REMEDIATION_TRACKER.md); the frozen audit inventory is not a claim of exhaustive coverage of the remediated application.
 

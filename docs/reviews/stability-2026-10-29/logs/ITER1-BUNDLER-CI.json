@@ -1,0 +1,19 @@
+{
+  "id": "ITER1-BUNDLER-CI",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "npm",
+    "ci",
+    "--no-audit",
+    "--fund=false"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-28T18:50:58.583572+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/ITER1-BUNDLER-CI.log",
+  "pid": 74009,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 2.657,
+  "finishedUTC": "2026-10-28T18:51:01.240229+00:00"
+}

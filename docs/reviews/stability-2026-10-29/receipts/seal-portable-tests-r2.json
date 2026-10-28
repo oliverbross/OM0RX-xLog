@@ -1,0 +1,26 @@
+{
+  "waitFor": [
+    "SEAL-RUST-BUILDS",
+    "SEAL-SWIFT-BUILDS",
+    "SEAL-FRONT-BUILDS",
+    "SEAL-WORKER-BUILDS-R2"
+  ],
+  "checks": [
+    {
+      "id": "SEAL-PORTABLE",
+      "timeout": 550,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "env",
+        "XLOG_PORTABLE_ONLY=1",
+        "swift",
+        "test",
+        "--skip-build",
+        "--scratch-path",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final",
+        "--no-parallel"
+      ]
+    }
+  ]
+}

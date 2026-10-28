@@ -1,0 +1,20 @@
+{
+  "id": "SEAL-RUST-TESTS-R2",
+  "command": [
+    "python3.12",
+    "-B",
+    "/tmp/xlog-phase5-20261029-721e0705/scripts/sequence.py",
+    "/tmp/xlog-phase5-20261029-721e0705/seal-rust-tests-r2.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T21:08:17.520858+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/SEAL-RUST-TESTS-R2.log",
+  "sourceHeadAtStart": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba",
+  "sourceStatusAtStart": [],
+  "pid": 56796,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 393.591,
+  "finishedUTC": "2026-10-28T21:14:51.113407+00:00",
+  "sourceHeadAtFinish": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba"
+}

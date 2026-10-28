@@ -1,0 +1,62 @@
+{
+  "webpkiRootCerts": {
+    "patched": "1.0.10",
+    "targetInVerifier": "cfg(target_arch = wasm32)",
+    "implementedProductTarget": false,
+    "reference": "https://rustsec.org/advisories/RUSTSEC-2026-0383.html"
+  },
+  "glib": {
+    "locked": "0.18.5",
+    "patchedFrom": "0.20.0",
+    "gtkManifest": "/Users/oliver/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk-0.18.2/Cargo.toml",
+    "gtkDependency": {
+      "version": "0.18"
+    },
+    "directApplicationSearch": {
+      "command": [
+        "rg",
+        "--hidden",
+        "--no-ignore",
+        "--glob",
+        "*.rs",
+        "VariantStrIter",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/src"
+      ],
+      "exitCode": 1,
+      "matches": []
+    },
+    "status": "Blocked conditional Linux risk; transitive affected-function reachability unproven",
+    "requiredApproach": "Coordinated GTK/WebKit/Tauri upgrade or reviewed upstream backport, with Linux compile/runtime coverage; do not force incompatible GLib identity into current stack.",
+    "reference": "https://rustsec.org/advisories/RUSTSEC-2024-0429.html"
+  },
+  "maintenanceOnly": [
+    "proc-macro-error 1.0.4",
+    "zbus_names 4.3.4",
+    "zvariant 5.15.0",
+    "zvariant_derive 5.15.0"
+  ],
+  "hostSupport": {
+    "linuxGTKWebkit": {
+      "command": [
+        "pkg-config",
+        "--modversion",
+        "gtk+-3.0",
+        "webkit2gtk-4.1"
+      ],
+      "exitCode": 1,
+      "stdout": "",
+      "stderr": "Package webkit2gtk-4.1 was not found in the pkg-config search path.\nPerhaps you should add the directory containing `webkit2gtk-4.1.pc'\nto the PKG_CONFIG_PATH environment variable\nPackage 'webkit2gtk-4.1' not found\n"
+    },
+    "dockerClient": {
+      "command": [
+        "docker",
+        "version",
+        "--format",
+        "{{json .Server.Version}}"
+      ],
+      "exitCode": 1,
+      "stdout": "\n",
+      "stderr": "failed to connect to the docker API at unix:///Users/oliver/.orbstack/run/docker.sock; check if the path is correct and if the daemon is running: dial unix /Users/oliver/.orbstack/run/docker.sock: connect: no such file or directory\n"
+    }
+  }
+}

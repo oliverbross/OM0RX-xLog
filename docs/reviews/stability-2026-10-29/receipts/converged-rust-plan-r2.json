@@ -1,0 +1,48 @@
+{
+  "waitFor": [
+    "FINAL-IDLE-R2",
+    "FINAL-HAMLIB-SEQUENCE"
+  ],
+  "checks": [
+    {
+      "id": "CONVERGED-RUST",
+      "timeout": 300,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--jobs",
+        "2",
+        "--target-dir",
+        "/tmp/xlog-phase5-20261029-721e0705/cargo-target",
+        "--manifest-path",
+        "prototype/src-tauri/Cargo.toml"
+      ]
+    },
+    {
+      "id": "CONVERGED-RUST-FEATURE",
+      "timeout": 300,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--jobs",
+        "2",
+        "--target-dir",
+        "/tmp/xlog-phase5-20261029-721e0705/cargo-target",
+        "--manifest-path",
+        "prototype/src-tauri/Cargo.toml",
+        "--bin",
+        "xlog-prototype",
+        "--features",
+        "contesting-test"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "CLOSE-PROCESS",
+  "command": [
+    "node",
+    "prototype/scripts/accept-contesting-worker-process.mjs",
+    "--build-manifest",
+    "/tmp/xlog-phase5-20261029-721e0705/worker-close.json",
+    "--expected-head",
+    "58da5d49359f7333852b04037a134ab04167be7b",
+    "--output",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/process-close"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T22:00:08.497365+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/CLOSE-PROCESS.log",
+  "sourceHeadAtStart": "58da5d49359f7333852b04037a134ab04167be7b",
+  "sourceStatusAtStart": [],
+  "pid": 83266,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 30.738,
+  "finishedUTC": "2026-10-28T22:00:39.235176+00:00",
+  "sourceHeadAtFinish": "58da5d49359f7333852b04037a134ab04167be7b"
+}

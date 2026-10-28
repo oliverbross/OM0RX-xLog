@@ -1,0 +1,21 @@
+{
+  "id": "ITER3-WORKER-R2-BUILD",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "node",
+    "prototype/scripts/build-contesting-worker-process.mjs",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/worker-r2",
+    "--output",
+    "/tmp/xlog-phase5-20261029-721e0705/worker-r2.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T19:16:53.400538+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/ITER3-WORKER-R2-BUILD.log",
+  "pid": 87322,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 216.61,
+  "finishedUTC": "2026-10-28T19:20:30.010676+00:00"
+}

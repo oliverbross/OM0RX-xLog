@@ -1,0 +1,12 @@
+{
+  "startedUTC": "2026-10-28T22:14:09.087075+00:00",
+  "originalInode": 589158794,
+  "binding": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/cw-native",
+  "fresh": "/tmp/xlog-phase5-20261029-721e0705/cw-native",
+  "pins": {
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/vendor/deepcw-engine/model.onnx": "ef120799457bca042d4690944f0faf93268eb4654e7f50f28784ad63bdc1fe02",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/cw-package/runtime/lib/libonnxruntime.1.24.3.dylib": "81b90223e770bfaea12783cb99370258387bae7ed70ff7e99f2717382800d217"
+  },
+  "restored": true,
+  "restoredUTC": "2026-10-28T22:14:23.498947+00:00"
+}

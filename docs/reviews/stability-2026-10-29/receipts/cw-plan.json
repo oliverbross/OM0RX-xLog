@@ -1,0 +1,79 @@
+{
+  "checks": [
+    {
+      "id": "FINAL-CW-NATIVE-CONFIG",
+      "command": [
+        "cmake",
+        "-S",
+        "native/cw-worker",
+        "-B",
+        "/tmp/xlog-phase5-20261029-721e0705/cw-native",
+        "-DCMAKE_BUILD_TYPE=RelWithDebInfo",
+        "-DONNXRUNTIME_INCLUDE_DIR=/Users/oliver/Documents/Projects/OM0RX-xLog/.build/cw-package/runtime/include",
+        "-DONNXRUNTIME_LIBRARY=/Users/oliver/Documents/Projects/OM0RX-xLog/.build/cw-package/runtime/lib/libonnxruntime.1.24.3.dylib"
+      ]
+    },
+    {
+      "id": "FINAL-CW-NATIVE-BUILD",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "cmake",
+        "--build",
+        "/tmp/xlog-phase5-20261029-721e0705/cw-native",
+        "--parallel",
+        "2"
+      ]
+    },
+    {
+      "id": "FINAL-CW-NATIVE-CTEST",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "ctest",
+        "--test-dir",
+        "/tmp/xlog-phase5-20261029-721e0705/cw-native",
+        "--output-on-failure"
+      ]
+    },
+    {
+      "id": "FINAL-CW-ASAN-CONFIG",
+      "command": [
+        "cmake",
+        "-S",
+        "native/cw-worker",
+        "-B",
+        "/tmp/xlog-phase5-20261029-721e0705/cw-asan",
+        "-DCMAKE_BUILD_TYPE=Debug",
+        "-DONNXRUNTIME_INCLUDE_DIR=/Users/oliver/Documents/Projects/OM0RX-xLog/.build/cw-package/runtime/include",
+        "-DONNXRUNTIME_LIBRARY=/Users/oliver/Documents/Projects/OM0RX-xLog/.build/cw-package/runtime/lib/libonnxruntime.1.24.3.dylib",
+        "-DCMAKE_C_FLAGS=-fsanitize=address,undefined",
+        "-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined",
+        "-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined"
+      ]
+    },
+    {
+      "id": "FINAL-CW-ASAN-BUILD",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "cmake",
+        "--build",
+        "/tmp/xlog-phase5-20261029-721e0705/cw-asan",
+        "--parallel",
+        "2"
+      ]
+    },
+    {
+      "id": "FINAL-CW-ASAN-CTEST",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "ctest",
+        "--test-dir",
+        "/tmp/xlog-phase5-20261029-721e0705/cw-asan",
+        "--output-on-failure"
+      ]
+    }
+  ]
+}

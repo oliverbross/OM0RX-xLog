@@ -1,0 +1,19 @@
+{
+  "id": "STABLE-OSV",
+  "command": [
+    "python3.12",
+    "-B",
+    "/tmp/xlog-phase5-20261029-721e0705/scripts/osv_check_roots.py"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T20:35:21.741717+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/STABLE-OSV.log",
+  "sourceHeadAtStart": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f",
+  "sourceStatusAtStart": [],
+  "pid": 42396,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 22.889,
+  "finishedUTC": "2026-10-28T20:35:44.630687+00:00",
+  "sourceHeadAtFinish": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f"
+}

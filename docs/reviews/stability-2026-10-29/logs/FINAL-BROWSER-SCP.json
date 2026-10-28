@@ -1,0 +1,26 @@
+{
+  "id": "FINAL-BROWSER-SCP",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "node",
+    "prototype/scripts/run-contest-scp-operator-browser-acceptance.mjs",
+    "--expected-head",
+    "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+    "--output",
+    "/tmp/xlog-phase5-20261029-721e0705/browser-final-scp",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/portable-final"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T20:05:51.383037+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/FINAL-BROWSER-SCP.log",
+  "sourceHeadAtStart": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "sourceStatusAtStart": [],
+  "pid": 34874,
+  "exitCode": 1,
+  "timedOut": false,
+  "durationSeconds": 40.197,
+  "finishedUTC": "2026-10-28T20:06:31.580012+00:00",
+  "sourceHeadAtFinish": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e"
+}

@@ -1,0 +1,47 @@
+{
+  "checks": [
+    {
+      "id": "STABLE-WORKER-BUILD",
+      "timeout": 900,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "node",
+        "prototype/scripts/build-contesting-worker-process.mjs",
+        "--scratch-path",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/worker-post-roots",
+        "--output",
+        "/tmp/xlog-phase5-20261029-721e0705/worker-post-roots.json"
+      ]
+    },
+    {
+      "id": "STABLE-PROTOCOL",
+      "timeout": 120,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "env",
+        "XLOG_WORKER_BINARY=/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/worker-post-roots/apple/Products/Release/xlog-prototype-worker",
+        "node",
+        "--test",
+        "Tests/XLogPrototypeTests/worker-process.test.mjs"
+      ]
+    },
+    {
+      "id": "STABLE-PROCESS",
+      "timeout": 240,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "node",
+        "prototype/scripts/accept-contesting-worker-process.mjs",
+        "--build-manifest",
+        "/tmp/xlog-phase5-20261029-721e0705/worker-post-roots.json",
+        "--expected-head",
+        "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f",
+        "--output",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/process-post-roots"
+      ]
+    }
+  ]
+}

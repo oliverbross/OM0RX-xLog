@@ -1,0 +1,9 @@
+[
+  ".github/workflows/contest-portability.yml",
+  "Package.swift",
+  "prototype/src-tauri/src/durable_file.rs",
+  "prototype/src-tauri/src/main.rs",
+  "prototype/src-tauri/src/module_restart_intent.rs",
+  "prototype/src-tauri/src/operating_module.rs",
+  "tools/check_portable_iq_sources.py"
+]

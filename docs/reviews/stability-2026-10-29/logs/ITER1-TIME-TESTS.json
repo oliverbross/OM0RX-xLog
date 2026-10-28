@@ -1,0 +1,23 @@
+{
+  "id": "ITER1-TIME-TESTS",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "npx",
+    "vitest",
+    "run",
+    "src/live/OperatorDraftTime.test.tsx",
+    "src/live/DetachedQSOSurface.test.tsx",
+    "src/live/operatorDraftSession.test.ts",
+    "src/live/operatorDraftPowerSession.test.ts",
+    "src/live/QSOEditorPower.test.tsx"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-28T18:48:40.427969+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/ITER1-TIME-TESTS.log",
+  "pid": 73428,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 20.361,
+  "finishedUTC": "2026-10-28T18:49:00.789378+00:00"
+}

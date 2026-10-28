@@ -1,0 +1,14 @@
+{
+  "observedUTC": "2026-10-28T22:15:35.217563+00:00",
+  "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b",
+  "matchingTaskTestOrWorkerProcesses": [],
+  "allFinalGatesComplete": 32,
+  "excludedCollectorAncestorPIDs": [
+    1,
+    28178,
+    28291,
+    87666,
+    87667
+  ],
+  "scope": "Process-only filtered task-owned validation commands. Excludes this collector and its verified ancestor chain to avoid matching script text embedded in shell args. No app binding or production process operation."
+}

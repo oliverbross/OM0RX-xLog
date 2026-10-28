@@ -1,0 +1,323 @@
+{
+  "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b",
+  "failedCommands": [
+    {
+      "id": "BASE-FRONTEND-BUILD",
+      "exitCode": 1,
+      "classification": "REG-P4-001",
+      "disposition": "Confirmed clean-install byte-budget failure; repaired by the locked bundler update."
+    },
+    {
+      "id": "BASE-STRICT-SWIFT",
+      "exitCode": 1,
+      "classification": "REG-P4-002",
+      "disposition": "Confirmed initializer default callback compiler failure; repaired inside actor initialization."
+    },
+    {
+      "id": "CI-FAIL-WINDOWS-RUST",
+      "exitCode": 1,
+      "classification": "log collection failure",
+      "disposition": "gh failed to open its cached log zip; not a Windows application test result. R2 retry retained."
+    },
+    {
+      "id": "CLOSE-CW-WIRE-BINDING",
+      "exitCode": 1,
+      "classification": "dependent CW wire failure",
+      "disposition": "Wrapper propagates CLOSE-CW-WIRE exit1; finally block restores original CW directory by inode. This is not a second application failure."
+    },
+    {
+      "id": "CLOSE-CW-WIRE",
+      "exitCode": 1,
+      "classification": "INV-P5-004 resource-sensitive IQ freshness observation",
+      "disposition": "Loaded synthetic IQ delivery fails staleInput at unchanged250ms enqueue guard,12/13 pass. Process/contract/fixture/IQserializer unchanged since entry. Exact unchanged idle13case control CLOSE-CW-WIRE-IDLE passes14.239s after other suites finish. Precise serialization/preemption delay uninstrumented; safeguards/assertions retained."
+    },
+    {
+      "id": "CONVERGED-FRONTEND-SEQUENCE",
+      "exitCode": 1,
+      "classification": "dependency/orchestration stopped",
+      "disposition": "Retained dependency failure stopped orchestration. Unstarted dependent checks are neither passes nor application test failures; explicit continuation receipts have their own outcomes."
+    },
+    {
+      "id": "CONVERGED-NATIVE-SEQUENCE",
+      "exitCode": 1,
+      "classification": "dependency/orchestration stopped",
+      "disposition": "Retained dependency failure stopped orchestration. Unstarted dependent checks are neither passes nor application test failures; explicit continuation receipts have their own outcomes."
+    },
+    {
+      "id": "CONVERGED-PORTABLE-SEQUENCE",
+      "exitCode": 1,
+      "classification": "dependency/orchestration stopped",
+      "disposition": "Retained dependency failure stopped orchestration. Unstarted dependent checks are neither passes nor application test failures; explicit continuation receipts have their own outcomes."
+    },
+    {
+      "id": "CONVERGED-PYTHON-SEQUENCE",
+      "exitCode": 1,
+      "classification": "dependency/orchestration stopped",
+      "disposition": "Retained dependency failure stopped orchestration. Unstarted dependent checks are neither passes nor application test failures; explicit continuation receipts have their own outcomes."
+    },
+    {
+      "id": "CONVERGED-RUST-SEQUENCE",
+      "exitCode": 1,
+      "classification": "dependency/orchestration stopped",
+      "disposition": "Retained dependency failure stopped orchestration. Unstarted dependent checks are neither passes nor application test failures; explicit continuation receipts have their own outcomes."
+    },
+    {
+      "id": "FINAL-BROWSER-SCP-R2",
+      "exitCode": 1,
+      "classification": "INV-P5-002 open",
+      "disposition": "Actual worker query K1AN1X differs from intended replacement N1X; correct actual-query result fails intended-input assertion."
+    },
+    {
+      "id": "FINAL-BROWSER-SCP",
+      "exitCode": 1,
+      "classification": "INV-P5-002 open",
+      "disposition": "No contest_create reached worker after click; timeout after seven startup frames; deeper cause unassigned."
+    },
+    {
+      "id": "FINAL-BROWSER-SEQUENCE",
+      "exitCode": 1,
+      "classification": "dependency/orchestration stopped",
+      "disposition": "Retained dependency failure stopped orchestration. Unstarted dependent checks are neither passes nor application test failures; explicit continuation receipts have their own outcomes."
+    },
+    {
+      "id": "FINAL-IDLE-SEQUENCE",
+      "exitCode": 1,
+      "classification": "dependency/orchestration stopped",
+      "disposition": "Retained dependency failure stopped orchestration. Unstarted dependent checks are neither passes nor application test failures; explicit continuation receipts have their own outcomes."
+    },
+    {
+      "id": "FINAL-NODE-CHECKS",
+      "exitCode": 1,
+      "classification": "REG-P5-001",
+      "disposition": "Introduced production allowlist invariant failure; unchanged assertion caught it; repaired ten-case gate and twelve relocation cases pass."
+    },
+    {
+      "id": "ITER1-FRONTEND-BUILD",
+      "exitCode": 1,
+      "classification": "rejected control",
+      "disposition": "Runtime package alignment still failed the unchanged byte budget; only those investigative changes were restored."
+    },
+    {
+      "id": "ITER10-CLUSTER-PORTABILITY",
+      "exitCode": 1,
+      "classification": "rejected test oracle",
+      "disposition": "New oracle incorrectly required cleanup-before-forward and republished unchanged contact; three failures retained. Production contract requires independent delivery; corrected oracle passes locally."
+    },
+    {
+      "id": "ITER3-CURRENT-PROCESS",
+      "exitCode": 1,
+      "classification": "REG-P4-003 investigation",
+      "disposition": "Forged correction field correctly rejected as invalid_request; obsolete fixture error expectation corrected."
+    },
+    {
+      "id": "ITER3-PROCESS-ACCEPTANCE",
+      "exitCode": 1,
+      "classification": "REG-P4-003 investigation",
+      "disposition": "Disposable root spelling did not match macOS tempfile policy; no production guard bypass."
+    },
+    {
+      "id": "ITER3-PROCESS-R2",
+      "exitCode": 1,
+      "classification": "REG-P4-003 investigation",
+      "disposition": "Python exact private-root policy rejected the /tmp alias."
+    },
+    {
+      "id": "ITER3-PROCESS-R3",
+      "exitCode": 1,
+      "classification": "REG-P4-003 investigation",
+      "disposition": "Foundation exact private-root probe rejected rewritten /private/tmp spelling."
+    },
+    {
+      "id": "ITER3-PROCESS-R4",
+      "exitCode": 1,
+      "classification": "REG-P4-003 investigation",
+      "disposition": "Legacy protocol scenario rejected by current Python API; fixture migrated to actual current wire."
+    },
+    {
+      "id": "ITER4-NAQP-AFTER",
+      "exitCode": 1,
+      "classification": "INV-P4-001",
+      "disposition": "First complete case/exports passed; later session title preceded enabled field; actual-field readiness wait added."
+    },
+    {
+      "id": "ITER4-NAQP-ARM-CONTROL",
+      "exitCode": 1,
+      "classification": "INV-P4-001",
+      "disposition": "Panel remained Disarmed after the purported click; no pointer/click delivered."
+    },
+    {
+      "id": "ITER4-NAQP-BEFORE",
+      "exitCode": 1,
+      "classification": "INV-P4-001",
+      "disposition": "Initial simulated CQ absent; later viewport/pointer evidence identifies undelivered Arm click."
+    },
+    {
+      "id": "ITER4-NAQP-CLICK-CONTROL",
+      "exitCode": 1,
+      "classification": "INV-P4-001",
+      "disposition": "Arm control above viewport; empty pointer trace; explicit exact-button scrolling repairs delivery."
+    },
+    {
+      "id": "ITER5-OLD-POLICY-CONTROL",
+      "exitCode": 1,
+      "classification": "expected negative control",
+      "disposition": "Preceding lock fails three reviewed dependency patch floors."
+    },
+    {
+      "id": "ITER8-ROOTS-NEGATIVE",
+      "exitCode": 1,
+      "classification": "expected negative control",
+      "disposition": "Preceding lock fails the fourth reviewed root-certificate floor."
+    },
+    {
+      "id": "ITER9-PORTABLE-IQ-BEFORE",
+      "exitCode": 1,
+      "classification": "REG-P5-002",
+      "disposition": "Actual manifest-declared portable slice lacks required pure IQ types; after repair fifteen unchanged parser/resource cases pass."
+    },
+    {
+      "id": "SEAL-FRONTEND-TESTS-R2",
+      "exitCode": -15,
+      "classification": "superseded unstarted dependency waiter",
+      "disposition": "Parent recorded owned PID/SIGTERM in superseded-validation.json after new CI defects. Actual frontend test had not started; infer neither test pass nor failure."
+    },
+    {
+      "id": "SEAL-FRONTEND-TESTS",
+      "exitCode": 1,
+      "classification": "dependency/orchestration stopped",
+      "disposition": "Retained dependency failure stopped orchestration. Unstarted dependent checks are neither passes nor application test failures; explicit continuation receipts have their own outcomes."
+    },
+    {
+      "id": "SEAL-NATIVE-TESTS",
+      "exitCode": 1,
+      "classification": "dependency/orchestration stopped",
+      "disposition": "Retained dependency failure stopped orchestration. Unstarted dependent checks are neither passes nor application test failures; explicit continuation receipts have their own outcomes."
+    },
+    {
+      "id": "SEAL-PORTABLE-TESTS",
+      "exitCode": 1,
+      "classification": "dependency/orchestration stopped",
+      "disposition": "Retained dependency failure stopped orchestration. Unstarted dependent checks are neither passes nor application test failures; explicit continuation receipts have their own outcomes."
+    },
+    {
+      "id": "SEAL-PYTHON-TESTS",
+      "exitCode": 1,
+      "classification": "dependency/orchestration stopped",
+      "disposition": "Retained dependency failure stopped orchestration. Unstarted dependent checks are neither passes nor application test failures; explicit continuation receipts have their own outcomes."
+    },
+    {
+      "id": "SEAL-RUST-TESTS",
+      "exitCode": 1,
+      "classification": "dependency/orchestration stopped",
+      "disposition": "Retained dependency failure stopped orchestration. Unstarted dependent checks are neither passes nor application test failures; explicit continuation receipts have their own outcomes."
+    },
+    {
+      "id": "SEAL-WORKER-BUILD",
+      "exitCode": 1,
+      "classification": "freshness guard rejection",
+      "disposition": "Existing scratch correctly rejected. Fresh worker scratch and explicit R2 dependency continuation pass; no bypass."
+    },
+    {
+      "id": "SEAL-WORKER-BUILDS",
+      "exitCode": 1,
+      "classification": "dependency/orchestration stopped",
+      "disposition": "Retained dependency failure stopped orchestration. Unstarted dependent checks are neither passes nor application test failures; explicit continuation receipts have their own outcomes."
+    },
+    {
+      "id": "STABLE-FRONT-SEQUENCE",
+      "exitCode": 1,
+      "classification": "dependency/orchestration stopped",
+      "disposition": "Retained dependency failure stopped orchestration. Unstarted dependent checks are neither passes nor application test failures; explicit continuation receipts have their own outcomes."
+    },
+    {
+      "id": "STABLE-FRONTEND",
+      "exitCode": 1,
+      "classification": "INV-P5-003 resource-sensitive timing",
+      "disposition": "4729 passes and two unchanged five-second voice-intent timeouts under compilation load; unchanged idle two-case pass retained. Final full control is separate."
+    }
+  ],
+  "scpBoundary": {
+    "status": "Not Fixed / deeper cause and origin unassigned",
+    "failed": [
+      "FINAL-BROWSER-SCP",
+      "FINAL-BROWSER-SCP-R2"
+    ],
+    "instrumentedPass": "INV-SCP-DIAGNOSTIC, diagnostic-only dirty source; not final clean acceptance",
+    "unchangedCleanPass": "FINAL-BROWSER-SCP-R3, 22.399 seconds",
+    "noTimeoutOrAssertionChange": true,
+    "nextApproach": "Capture DOM values and input/click delivery without changing admission timing; compare replacement methods in disposable fixtures before patching application behavior."
+  },
+  "voiceTimingBoundary": {
+    "status": "Observed resource-sensitive timing; final full control has its own receipt",
+    "failed": "STABLE-FRONTEND: two5s timeouts/4729passes under compilerload",
+    "idleControl": "Two unchanged cases pass in8.990s total; no deadline/assertion weakening"
+  },
+  "cwBoundary": {
+    "boundedSyntheticProfile": {
+      "instrument": "synthetic-paced-cw-v1",
+      "replay": true,
+      "spans": 2,
+      "tracks_per_span": 4,
+      "inference_workers": 2,
+      "sample_rate": 96000,
+      "requested_seconds": 60,
+      "delivered_seconds": 60,
+      "wall_seconds": 60.0185,
+      "maximum_tracks": 8,
+      "inferred_tracks": 8,
+      "inference_events": 424,
+      "maximum_pending": 6,
+      "coalesced": 0,
+      "dropped_events": 0,
+      "maximum_input_lateness_ms": 171.99,
+      "decode_p95_ms": 571.802,
+      "signal_generation_ms": 188.55,
+      "dsp_ingress_ms": 22666.3,
+      "peak_rss_mib": 207.484,
+      "cpu_seconds": 76.5597,
+      "stable_under_this_synthetic_load": true
+    },
+    "remaining": "Previous overload deadline miss, multi-hour contention, whole-app and live-audio qualification remain open."
+  },
+  "ciBoundary": {
+    "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b",
+    "observedUTC": "2026-10-28T22:29:20.241Z",
+    "snapshot": "ci/current/latest-status.json",
+    "frozenSource": "/tmp/xlog-phase5-20261029-721e0705/logs/agent-ci/final-status-58da5d49.json",
+    "frozenSHA256": "703d270265966c5116d43004ee88215ee40c1396199fd6ee65dcaa90e3e8b5ef",
+    "runs": [
+      {
+        "id": 40774897787,
+        "name": "CI",
+        "conclusion": "success",
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897787"
+      },
+      {
+        "id": 40774897702,
+        "name": "Cross-platform prototype",
+        "conclusion": "cancelled",
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897702"
+      },
+      {
+        "id": 40774897700,
+        "name": "Contest portability",
+        "conclusion": "success",
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/40774897700"
+      }
+    ],
+    "boundary": "Prototype cancelled at40m budget; all executed tests/build/inventory/upload/cache/cleanup steps report success; overallworkflow success is not claimed. Separate CI and all7portabilityjobs succeed. Push matrix isMac-only; Linux/Windows native GUI/runtime release acceptance remains outside this run."
+  },
+  "priorCIBoundaries": [
+    "79ddc92 prototype acquired no hosted runner and ran zero steps; dependent platform runtime jobs skipped.",
+    "bcfb669c platform jobs executed: portable IQ slice fails, Windows publication Access Denied.",
+    "0b47e167 actual Windows helper3/module/restart cases pass before stale shutdownCount6-vs7 guard fails; Linux cluster fixture and Windows CoreFoundation compile failures remain separate."
+  ],
+  "directCargoUpdates": {
+    "commands": [
+      "cargo update --manifest-path prototype/src-tauri/Cargo.toml -p rustls --precise 0.23.46",
+      "cargo update --manifest-path prototype/src-tauri/Cargo.toml -p rustls-webpki --precise 0.103.16",
+      "cargo update --manifest-path prototype/src-tauri/Cargo.toml -p tokio --precise 1.53.3"
+    ],
+    "boundary": "Direct session exit0; exact update timings/raw output not saved by durable collector. Lock diff and subsequent locked compile/tests/advisory metadata retained."
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "id": "CLOSE-STRICT-BUILD",
+  "command": [
+    "env",
+    "XLOG_PORTABLE_ONLY=1",
+    "swift",
+    "build",
+    "--scratch-path",
+    ".build/phase5-20261029/strict-final",
+    "--jobs",
+    "2",
+    "-Xswiftc",
+    "-strict-concurrency=complete",
+    "-Xswiftc",
+    "-warn-concurrency"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T21:52:46.801336+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/CLOSE-STRICT-BUILD.log",
+  "sourceHeadAtStart": "58da5d49359f7333852b04037a134ab04167be7b",
+  "sourceStatusAtStart": [],
+  "pid": 81146,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 35.989,
+  "finishedUTC": "2026-10-28T21:53:22.793032+00:00",
+  "sourceHeadAtFinish": "58da5d49359f7333852b04037a134ab04167be7b"
+}

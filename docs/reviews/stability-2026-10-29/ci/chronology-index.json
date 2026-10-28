@@ -1,0 +1,38 @@
+[
+  {
+    "archive": "ci/historical-monitor/123108511902-windows.log.gz",
+    "kind": "retained earlier collection; source identity only where present in raw metadata",
+    "sourceHead": null
+  },
+  {
+    "archive": "ci/historical-monitor/123108511992-linux.log.gz",
+    "kind": "retained earlier collection; source identity only where present in raw metadata",
+    "sourceHead": null
+  },
+  {
+    "archive": "ci/historical-monitor/123121514872-final-annotations.json",
+    "kind": "retained earlier collection; source identity only where present in raw metadata",
+    "sourceHead": null
+  },
+  {
+    "archive": "ci/historical-monitor/123121514872-final-cancelled.log.gz",
+    "kind": "retained earlier collection; source identity only where present in raw metadata",
+    "sourceHead": null
+  },
+  {
+    "archive": "ci/historical-monitor/40771189675-jobs.json",
+    "kind": "retained earlier collection; source identity only where present in raw metadata",
+    "sourceHead": null
+  },
+  {
+    "archive": "ci/historical-monitor/final-status-58da5d49.json",
+    "kind": "retained earlier collection; source identity only where present in raw metadata",
+    "sourceHead": null
+  },
+  {
+    "archive": "ci/current/latest-status.json",
+    "kind": "current-source snapshot",
+    "sourceHead": "58da5d49359f7333852b04037a134ab04167be7b",
+    "observedUTC": "2026-10-28T22:29:20.241Z"
+  }
+]

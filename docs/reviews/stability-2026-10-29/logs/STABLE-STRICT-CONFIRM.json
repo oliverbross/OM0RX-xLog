@@ -1,0 +1,28 @@
+{
+  "id": "STABLE-STRICT-CONFIRM",
+  "command": [
+    "env",
+    "XLOG_PORTABLE_ONLY=1",
+    "swift",
+    "build",
+    "--scratch-path",
+    ".build/phase5-20261029/strict-final",
+    "--jobs",
+    "2",
+    "-Xswiftc",
+    "-strict-concurrency=complete",
+    "-Xswiftc",
+    "-warn-concurrency"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T20:47:19.687843+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/STABLE-STRICT-CONFIRM.log",
+  "sourceHeadAtStart": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f",
+  "sourceStatusAtStart": [],
+  "pid": 50669,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 4.916,
+  "finishedUTC": "2026-10-28T20:47:24.603476+00:00",
+  "sourceHeadAtFinish": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f"
+}

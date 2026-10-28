@@ -1,0 +1,21 @@
+{
+  "id": "CLOSE-PROTOCOL",
+  "command": [
+    "env",
+    "XLOG_WORKER_BINARY=/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-20261029/worker-close/apple/Products/Release/xlog-prototype-worker",
+    "node",
+    "--test",
+    "Tests/XLogPrototypeTests/worker-process.test.mjs"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T22:00:06.398556+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/CLOSE-PROTOCOL.log",
+  "sourceHeadAtStart": "58da5d49359f7333852b04037a134ab04167be7b",
+  "sourceStatusAtStart": [],
+  "pid": 83247,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 2.014,
+  "finishedUTC": "2026-10-28T22:00:08.412218+00:00",
+  "sourceHeadAtFinish": "58da5d49359f7333852b04037a134ab04167be7b"
+}

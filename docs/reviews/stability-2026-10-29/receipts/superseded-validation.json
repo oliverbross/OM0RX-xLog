@@ -1,0 +1,12 @@
+{
+  "UTC": "2026-10-28T21:16:55.313419+00:00",
+  "reason": "Supersede only the unstarted final frontend dependency waiter after new confirmed CI defects. Keep running component suites; rerun mandatory full suites after repair.",
+  "stopped": [
+    {
+      "id": "SEAL-FRONTEND-TESTS-R2",
+      "ownedPID": 56798,
+      "command": "/opt/local/Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -B /tmp/xlog-phase5-20261029-721e0705/scripts/sequence.py /tmp/xlog-phase5-20261029-721e0705/seal-frontend-tests-r2.json",
+      "actualTestStarted": false
+    }
+  ]
+}

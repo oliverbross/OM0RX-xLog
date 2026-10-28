@@ -1,0 +1,19 @@
+{
+  "id": "CLOSE-CW-IDLE-BINDING",
+  "command": [
+    "python3.12",
+    "-B",
+    "/tmp/xlog-phase5-20261029-721e0705/scripts/cw_wire_close_idle.py"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T22:14:08.863470+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/CLOSE-CW-IDLE-BINDING.log",
+  "sourceHeadAtStart": "58da5d49359f7333852b04037a134ab04167be7b",
+  "sourceStatusAtStart": [],
+  "pid": 87465,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 14.648,
+  "finishedUTC": "2026-10-28T22:14:23.511691+00:00",
+  "sourceHeadAtFinish": "58da5d49359f7333852b04037a134ab04167be7b"
+}

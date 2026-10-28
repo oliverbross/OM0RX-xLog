@@ -1,0 +1,134 @@
+{
+  "observedUTC": "2026-10-28T20:06:36.170178+00:00",
+  "machine": "arm64",
+  "commands": {
+    "macOS": {
+      "command": [
+        "sw_vers"
+      ],
+      "exitCode": 0,
+      "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434",
+      "stderr": ""
+    },
+    "swift": {
+      "command": [
+        "swift",
+        "--version"
+      ],
+      "exitCode": 0,
+      "stdout": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0",
+      "stderr": "swift-driver version: 1.168.6"
+    },
+    "clang": {
+      "command": [
+        "clang",
+        "--version"
+      ],
+      "exitCode": 0,
+      "stdout": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+      "stderr": ""
+    },
+    "rust": {
+      "command": [
+        "rustc",
+        "--version"
+      ],
+      "exitCode": 0,
+      "stdout": "rustc 1.98.0 (88d9e12ae 2026-08-18) (Homebrew)",
+      "stderr": ""
+    },
+    "cargo": {
+      "command": [
+        "cargo",
+        "--version"
+      ],
+      "exitCode": 0,
+      "stdout": "cargo 1.98.0 (797e8a9bc 2026-08-05) (Homebrew)",
+      "stderr": ""
+    },
+    "node": {
+      "command": [
+        "node",
+        "--version"
+      ],
+      "exitCode": 0,
+      "stdout": "v24.11.1",
+      "stderr": ""
+    },
+    "npm": {
+      "command": [
+        "npm",
+        "--version"
+      ],
+      "exitCode": 0,
+      "stdout": "11.6.3",
+      "stderr": ""
+    },
+    "python": {
+      "command": [
+        "python3.12",
+        "--version"
+      ],
+      "exitCode": 0,
+      "stdout": "Python 3.12.4",
+      "stderr": ""
+    },
+    "generatorPython": {
+      "command": [
+        "/opt/homebrew/bin/python3.14",
+        "--version"
+      ],
+      "exitCode": 0,
+      "stdout": "Python 3.14.3",
+      "stderr": ""
+    },
+    "cmake": {
+      "command": [
+        "cmake",
+        "--version"
+      ],
+      "exitCode": 0,
+      "stdout": "cmake version 4.4.2\n\nCMake suite maintained and supported by Kitware (kitware.com/cmake).",
+      "stderr": ""
+    },
+    "browser": {
+      "command": [
+        "agent-browser",
+        "--version"
+      ],
+      "exitCode": 0,
+      "stdout": "agent-browser 0.32.3",
+      "stderr": ""
+    },
+    "memoryBytes": {
+      "command": [
+        "sysctl",
+        "-n",
+        "hw.memsize"
+      ],
+      "exitCode": 0,
+      "stdout": "17179869184",
+      "stderr": ""
+    },
+    "logicalCPUs": {
+      "command": [
+        "sysctl",
+        "-n",
+        "hw.logicalcpu"
+      ],
+      "exitCode": 0,
+      "stdout": "8",
+      "stderr": ""
+    },
+    "disk": {
+      "command": [
+        "df",
+        "-h",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog"
+      ],
+      "exitCode": 0,
+      "stdout": "Filesystem      Size    Used   Avail Capacity iused ifree %iused  Mounted on\n/dev/disk3s5   1.8Ti   1.4Ti   370Gi    80%    6.1M  3.9G    0%   /System/Volumes/Data",
+      "stderr": ""
+    }
+  }
+}

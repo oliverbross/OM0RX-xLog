@@ -1,0 +1,120 @@
+{
+  "finalHead": "58da5d49359f7333852b04037a134ab04167be7b",
+  "finalSnapshot": "final-source-sha256.json",
+  "boundary": "Only mapped compiled/support inputs; exact prefixes and differences retained. Earlier receipts keep original heads and are not new executions.",
+  "comparisons": [
+    {
+      "priorHead": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+      "snapshot": "pre-root-certs-source-sha256.json",
+      "allChangedInputs": [
+        ".github/workflows/contest-portability.yml",
+        "Package.swift",
+        "Sources/XCWCore/CWComputeWire.swift",
+        "Tests/XCWCoreTests/CWComputeWirePrimitiveTests.swift",
+        "Tests/XLogPrototypeTests/LiveClusterMethodsTests.swift",
+        "prototype/src-tauri/Cargo.lock",
+        "prototype/src-tauri/src/durable_file.rs",
+        "prototype/src-tauri/src/main.rs",
+        "prototype/src-tauri/src/module_restart_intent.rs",
+        "prototype/src-tauri/src/operating_module.rs",
+        "python/tests/test_reviewed_security_patches.py",
+        "tools/check_portable_iq_sources.py",
+        "tools/check_reviewed_security_patches.py"
+      ],
+      "groups": {
+        "frontendApplication": {
+          "inputsCompared": 732,
+          "changed": []
+        },
+        "browserAndProcessFixtures": {
+          "inputsCompared": 58,
+          "changed": []
+        },
+        "not1mmCatalogueAndEngine": {
+          "inputsCompared": 224,
+          "changed": [
+            "python/tests/test_reviewed_security_patches.py"
+          ]
+        },
+        "nativeCW": {
+          "inputsCompared": 19,
+          "changed": []
+        },
+        "radioAndStorageSwift": {
+          "inputsCompared": 112,
+          "changed": []
+        }
+      }
+    },
+    {
+      "priorHead": "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f",
+      "snapshot": "pre-platform-source-sha256.json",
+      "allChangedInputs": [
+        ".github/workflows/contest-portability.yml",
+        "Package.swift",
+        "Sources/XCWCore/CWComputeWire.swift",
+        "Tests/XCWCoreTests/CWComputeWirePrimitiveTests.swift",
+        "Tests/XLogPrototypeTests/LiveClusterMethodsTests.swift",
+        "prototype/src-tauri/src/durable_file.rs",
+        "prototype/src-tauri/src/main.rs",
+        "prototype/src-tauri/src/module_restart_intent.rs",
+        "prototype/src-tauri/src/operating_module.rs",
+        "tools/check_portable_iq_sources.py"
+      ],
+      "groups": {
+        "frontendApplication": {
+          "inputsCompared": 732,
+          "changed": []
+        },
+        "browserAndProcessFixtures": {
+          "inputsCompared": 58,
+          "changed": []
+        },
+        "not1mmCatalogueAndEngine": {
+          "inputsCompared": 224,
+          "changed": []
+        },
+        "nativeCW": {
+          "inputsCompared": 19,
+          "changed": []
+        },
+        "radioAndStorageSwift": {
+          "inputsCompared": 112,
+          "changed": []
+        }
+      }
+    },
+    {
+      "priorHead": "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba",
+      "snapshot": "pre-final-portability-source-sha256.json",
+      "allChangedInputs": [
+        ".github/workflows/contest-portability.yml",
+        "Sources/XCWCore/CWComputeWire.swift",
+        "Tests/XCWCoreTests/CWComputeWirePrimitiveTests.swift",
+        "Tests/XLogPrototypeTests/LiveClusterMethodsTests.swift"
+      ],
+      "groups": {
+        "frontendApplication": {
+          "inputsCompared": 732,
+          "changed": []
+        },
+        "browserAndProcessFixtures": {
+          "inputsCompared": 58,
+          "changed": []
+        },
+        "not1mmCatalogueAndEngine": {
+          "inputsCompared": 224,
+          "changed": []
+        },
+        "nativeCW": {
+          "inputsCompared": 19,
+          "changed": []
+        },
+        "radioAndStorageSwift": {
+          "inputsCompared": 112,
+          "changed": []
+        }
+      }
+    }
+  ]
+}

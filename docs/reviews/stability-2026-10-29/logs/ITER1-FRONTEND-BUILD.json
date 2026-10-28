@@ -1,0 +1,18 @@
+{
+  "id": "ITER1-FRONTEND-BUILD",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "npm",
+    "run",
+    "build"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-28T18:48:40.431389+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/ITER1-FRONTEND-BUILD.log",
+  "pid": 73429,
+  "exitCode": 1,
+  "timedOut": false,
+  "durationSeconds": 27.664,
+  "finishedUTC": "2026-10-28T18:49:08.095671+00:00"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "CONVERGED-PYTHON-SEQUENCE",
+  "command": [
+    "python3.12",
+    "-B",
+    "/tmp/xlog-phase5-20261029-721e0705/scripts/sequence.py",
+    "/tmp/xlog-phase5-20261029-721e0705/converged-python-plan.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T20:03:12.948169+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/CONVERGED-PYTHON-SEQUENCE.log",
+  "sourceHeadAtStart": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "sourceStatusAtStart": [],
+  "pid": 28001,
+  "exitCode": 1,
+  "timedOut": false,
+  "durationSeconds": 200.468,
+  "finishedUTC": "2026-10-28T20:06:33.415653+00:00",
+  "sourceHeadAtFinish": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e"
+}

@@ -1,0 +1,19 @@
+{
+  "id": "CLOSE-CW-WIRE-BINDING",
+  "command": [
+    "python3.12",
+    "-B",
+    "/tmp/xlog-phase5-20261029-721e0705/scripts/cw_wire_close.py"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T21:55:44.290646+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/CLOSE-CW-WIRE-BINDING.log",
+  "sourceHeadAtStart": "58da5d49359f7333852b04037a134ab04167be7b",
+  "sourceStatusAtStart": [],
+  "pid": 81946,
+  "exitCode": 1,
+  "timedOut": false,
+  "durationSeconds": 76.161,
+  "finishedUTC": "2026-10-28T21:57:00.452160+00:00",
+  "sourceHeadAtFinish": "58da5d49359f7333852b04037a134ab04167be7b"
+}

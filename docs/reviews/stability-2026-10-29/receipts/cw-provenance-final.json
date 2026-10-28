@@ -1,0 +1,32 @@
+[
+  {
+    "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/vendor/deepcw-engine/model.onnx",
+    "bytes": 15139839,
+    "sha256": "ef120799457bca042d4690944f0faf93268eb4654e7f50f28784ad63bdc1fe02"
+  },
+  {
+    "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/vendor/deepcw-engine/model.onnx.json",
+    "bytes": 946,
+    "sha256": "b4342157b90229ee7380e165f3d8036179b80d1e6ae02f2557388b7fcd558c01"
+  },
+  {
+    "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/cw-package/runtime/lib/libonnxruntime.1.24.3.dylib",
+    "bytes": 35418600,
+    "sha256": "81b90223e770bfaea12783cb99370258387bae7ed70ff7e99f2717382800d217"
+  },
+  {
+    "path": "/tmp/xlog-phase5-20261029-721e0705/cw-native/xlog-cw-worker",
+    "bytes": 190816,
+    "sha256": "bc6523ee21b6bc0db71236f31bd807c6dd4312111e69945494c06a8b32f0efbf"
+  },
+  {
+    "path": "/tmp/xlog-phase5-20261029-721e0705/cw-native/cw-process-probe",
+    "bytes": 37184,
+    "sha256": "0666aaf1b44bc727cf781c6e55728605126946258429b1c26927d9ed5595a97d"
+  },
+  {
+    "path": "/tmp/xlog-phase5-20261029-721e0705/cw-native/cw-load-profile",
+    "bytes": 189664,
+    "sha256": "9784a33989333c4bca9d7dbc65b0d9becc2d62fb711d7861a76c39cce8b514f3"
+  }
+]

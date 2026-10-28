@@ -1,0 +1,20 @@
+{
+  "id": "FINAL-CW-INTEGRATION",
+  "command": [
+    "python3.12",
+    "-B",
+    "/tmp/xlog-phase5-20261029-721e0705/scripts/sequence.py",
+    "/tmp/xlog-phase5-20261029-721e0705/cw-integration-plan.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T19:57:43.220681+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/FINAL-CW-INTEGRATION.log",
+  "sourceHeadAtStart": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e",
+  "sourceStatusAtStart": [],
+  "pid": 12655,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 92.496,
+  "finishedUTC": "2026-10-28T19:59:15.716277+00:00",
+  "sourceHeadAtFinish": "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "FINAL-NODE-CHECKS",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "node",
+    "--test",
+    "prototype/scripts/bounded-child-process.check.mjs",
+    "prototype/scripts/mac-worker-packaging.check.mjs",
+    "prototype/scripts/verify-relocated-contest-resources.check.mjs"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T19:33:18.188193+00:00",
+  "log": "/tmp/xlog-phase5-20261029-721e0705/logs/FINAL-NODE-CHECKS.log",
+  "pid": 113,
+  "exitCode": 1,
+  "timedOut": false,
+  "durationSeconds": 3.345,
+  "finishedUTC": "2026-10-28T19:33:21.533475+00:00"
+}
