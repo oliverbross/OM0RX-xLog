@@ -2,13 +2,13 @@
 
 **Review date:** 28 October 2026. **Baseline:** `b30dc62e5092e4e77431f05516df7aa68df2ba6c`. **Installed executable recorded by the project:** 1.3.58 / `1225274b4c0f5890a03ceb63159cd5577bc32b57`.
 
-**Original review disposition: draft repair branch, not release acceptance.** The original seven corrections and open R08 below describe the remote review checkpoint. The canonical integration follow-up has now executed the actual repository regressions, added paired-Host authority enforcement and completed bounded isolated native checks; see [dated integration evidence and current merge/candidate disposition](CODE_REVIEW_INTEGRATION_ACCEPTANCE_2026-10-28.md). The historical isolated-probe counts below are not substituted for those results. Installed 1.3.58 remains protected.
+**Original review disposition: historical draft checkpoint.** The seven corrections and originally open R08 below describe that checkpoint. The canonical follow-up completed real repository regressions, paired-Host authority enforcement and the finite isolated development-runtime checks; PR #1 merged after all applicable Mac CI gates passed. One signed 1.3.59 candidate from `19110c1f47544f118b008ad83f5b4f1e67e90ab6` passed bundled and native-worker checks. Its additional GUI smoke suffered an unintended unisolated relaunch and is blocked by a retained-draft Quit guard; see [acceptance evidence, launch incident and current disposition](CODE_REVIEW_INTEGRATION_ACCEPTANCE_2026-10-28.md). Historical probe counts do not replace those results, and signed GUI acceptance is not claimed. Installed 1.3.58 files were not replaced.
 
 ## Executive assessment
 
 The existing architecture should be preserved. Most findings are disagreements between already-existing layers: the importer's field contract and its exporter; historical exchanges and current setup; current corrected contact values and immutable original packets; the archive writer and its reader; asynchronous read invalidation and UI busy state. They do not justify replacing the Python contest engine, native owners, persistence model or UI.
 
-The defects are not proof that Oliver's completed CQ WW log was damaged. Production logs were neither inspected nor altered. The repair branch changes future import, presentation and export behavior. It does not automatically correct or rescore historical records.
+The defects are not proof that Oliver's completed CQ WW log was damaged. At the original remote review checkpoint, production logs were neither inspected nor altered. The later integration report separately records its GUI launch incident and preservation limitations. These corrections change future import, presentation and export behavior; they do not automatically correct or rescore historical records.
 
 ## Coverage and limits
 
