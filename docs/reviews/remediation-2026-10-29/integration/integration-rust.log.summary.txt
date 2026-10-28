@@ -27,4 +27,3 @@ test hamlib::tests::framed_tcp_read_handles_fragmentation_without_losing_next_re
 test hamlib::tests::stale_macro_send_and_stop_never_reach_the_transport ... ok
 
 test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
-
