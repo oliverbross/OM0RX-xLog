@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { useEffect, useRef, useState } from "react";
+import { StrictMode, useEffect, useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import workerFixtureJSON from "../../../docs/contesting/fixtures/contesting-worker-wire.json";
 import exportFixtureJSON from "../../../docs/contesting/fixtures/contest-export-worker-wire.json";
@@ -422,6 +422,14 @@ describe("ContestOperatorPanel simulated owner integration", () => {
     fireEvent.keyDown(call, { key: "F1" });
     await waitFor(() => expect(simulate).toHaveBeenCalledTimes(3));
     await waitFor(() => expect(trace.scrollTop).toBe(400));
+  });
+
+  it.each(["CW", "SSB"] as const)("arms blank NAQP %s and sends CQ under StrictMode", async mode => {
+    const simulate = vi.fn(); render(<StrictMode><StructuredHarness mode={mode} simulate={simulate}/></StrictMode>);
+    fireEvent.click(screen.getByRole("button", { name: "Arm simulation" }));
+    expect(screen.getByRole("button", { name: "Disarm" })).toBeTruthy();
+    fireEvent.keyDown(screen.getByLabelText("Call"), { key: "Enter" });
+    await waitFor(() => expect(simulate).toHaveBeenCalledWith(expect.objectContaining({ macro: "CQ" })));
   });
 
   it.each([["CW", false], ["SSB", false], ["CW", true], ["SSB", true]] as const)(

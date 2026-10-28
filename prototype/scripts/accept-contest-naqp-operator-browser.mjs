@@ -100,9 +100,15 @@ async function browser(args, record = true) {
 }
 const waitText = text => browser(["wait", "--text", text]);
 const fill = (label, value) => browser(["find", "label", label, "fill", value]);
-const select = (label, value) => browser(["eval", `(() => { const direct=[...document.querySelectorAll('select')].find(x=>x.getAttribute('aria-label')===${JSON.stringify(label)}); const owner=[...document.querySelectorAll('label')].find(x=>x.firstChild?.textContent?.trim()===${JSON.stringify(label)}); const select=direct ?? owner?.querySelector('select'); if(!select) throw new Error('Missing select'); select.value=${JSON.stringify(value)}; select.dispatchEvent(new Event('change',{bubbles:true})); })()`]);
+const select = async (label, value) => { await waitEnabledField(label); return browser(["eval", `(() => { const direct=[...document.querySelectorAll('select')].find(x=>x.getAttribute('aria-label')===${JSON.stringify(label)}); const owner=[...document.querySelectorAll('label')].find(x=>x.firstChild?.textContent?.trim()===${JSON.stringify(label)}); const select=direct ?? owner?.querySelector('select'); if(!select) throw new Error('Missing select'); select.value=${JSON.stringify(value)}; select.dispatchEvent(new Event('change',{bubbles:true})); })()`]); };
 const fillDialog = (selector, value) => browser(["fill", `dialog[open] ${selector}`, value]);
-const click = name => browser(["find", "role", "button", "click", "--name", name]);
+const click = async name => {
+  // Semantic click can otherwise use an offscreen target after a field/select
+  // scroll. Bring the observed button into view before sending pointer input.
+  await browser(["eval", `(() => { const button=[...document.querySelectorAll('button')].find(x=>x.getAttribute('aria-label')===${JSON.stringify(name)} || x.textContent.trim()===${JSON.stringify(name)}); if(!button) throw new Error('Missing button'); button.scrollIntoView({block:'center'}); })()`], false);
+  await browser(["find", "role", "button", "click", "--name", name, "--exact"]);
+  if (name === "Arm simulation") await waitText("Armed for simulated output");
+};
 const waitEnabledButton = name => browser(["eval", `new Promise((resolve,reject)=>{ const until=Date.now()+10000; const poll=()=>{ const button=[...document.querySelectorAll('button')].find(x=>x.textContent.trim()===${JSON.stringify(name)}); if(button && !button.disabled) return resolve(true); if(Date.now()>until) return reject(new Error('Button did not become enabled: '+${JSON.stringify(name)})); setTimeout(poll,50); }; poll(); })`]);
 async function openManager() { await waitEnabledButton("Contest Manager"); await click("Contest Manager"); await waitText("Contest sessions"); }
 const waitEnabledField = label => browser(["eval", `new Promise((resolve,reject)=>{ const until=Date.now()+10000; const poll=()=>{ const direct=[...document.querySelectorAll('input,select,textarea')].find(x=>x.getAttribute('aria-label')===${JSON.stringify(label)}),owner=[...document.querySelectorAll('label')].find(x=>x.textContent.startsWith(${JSON.stringify(label)})),field=direct ?? owner?.querySelector('input,select,textarea'); if(field && !field.disabled) return resolve(true); if(Date.now()>until) return reject(new Error('Field did not become enabled: '+${JSON.stringify(label)})); setTimeout(poll,50); }; poll(); })`]);
@@ -294,6 +300,8 @@ async function createNAQPCase(item) {
       sameStrings(frame.response.result.draft.validation.errors, blankNAQPErrors), `initial blank NAQP ${item.mode} Run draft`);
     assert.equal(blank.response.result.draft.dupe.state, "unchecked");
     const cqStart = simulatedOutput.length; await waitEnabledButton("Arm simulation"); await click("Arm simulation");
+    observations.push({ phase: "initial-cq-arm", case: item.name,
+      surface: await text("[aria-label='Run and S&P simulation']") });
     await pressIn("Contest callsign", item.mode === "CW" ? "Enter" : "F1");
     const cqUntil = Date.now() + 10_000; while (simulatedOutput.length === cqStart && Date.now() <= cqUntil) await new Promise(resolve => setTimeout(resolve, 25));
     assert.deepEqual(simulatedOutput.slice(cqStart).map(entry => entry.macro), ["CQ"]); await pressIn("Contest callsign", "Escape");
@@ -387,6 +395,7 @@ async function createDXCase() {
 let primaryFailure = null;
 try {
   await browser(["open", url]); await waitText("Contest Workspace");
+  if (process.env.XLOG_ACCEPTANCE_VIDEO === "1") await browser(["record", "start", join(evidenceRoot, "naqp-replay.webm")], false);
   for (const item of cases) await createNAQPCase(item);
   await createRTTYCase(); await createDXCase();
   const repair = cases.find(item => item.id === "naqp-cw" && item.style === "run");
@@ -419,9 +428,13 @@ try {
   const status = await successful("workspace_status"); assert.deepEqual({ qso: status.qso_count, pending: status.pending_sync_count, outbox: status.outbox_count }, { qso: 0, pending: 0, outbox: 0 });
   assert.equal(simulatedOutput.some(item => item.macro === "HISCALL"), true); assert.equal(simulatedOutput.some(item => item.macro === "EXCH"), true);
   assert.equal(frames.some(item => item.request.method === "contest_serial_reserve"), false); assert.equal(exportAssertions.length, 14);
-  await browser(["close"], false);
-} catch (error) { primaryFailure = error; }
-finally { try { await browser(["close"], false); } catch {} try { await successful("__acceptance_shutdown"); } catch {} try { await vite.close(); } catch {} await new Promise(resolveClose => server.close(resolveClose)); }
+} catch (error) {
+  primaryFailure = error;
+  try { writeFileSync(join(evidenceRoot, "failure-snapshot.txt"), await browser(["snapshot"], false)); } catch {}
+  try { await browser(["screenshot", join(evidenceRoot, "failure.png")], false); } catch {}
+}
+finally { if (process.env.XLOG_ACCEPTANCE_VIDEO === "1") { try { await browser(["record", "stop"], false); } catch {} }
+  try { await browser(["close"], false); } catch {} try { await successful("__acceptance_shutdown"); } catch {} try { await vite.close(); } catch {} await new Promise(resolveClose => server.close(resolveClose)); }
 
 const inventory = rootPath => { const rows = []; const visit = (path, relative) => { const value = lstatSync(path); assert.equal(value.isSymbolicLink(), false); if (value.isDirectory()) for (const name of readdirSync(path).sort()) visit(join(path, name), relative ? `${relative}/${name}` : name); else rows.push({ path: relative, size: value.size, sha256: hashFile(path) }); }; visit(rootPath, ""); return rows; };
 const protectedAfter = Object.fromEntries(protectedPaths.map(path => [path, metadata(path)]));
