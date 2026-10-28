@@ -373,7 +373,7 @@ class Store(DataBase):
             (band, call, self.current_contest, timestamp, timestamp, qso_id),
         )
 
-    def reserve_shared_serial(self, request_id, scope):
+    def reserve_shared_serial(self, request_id, scope, historical_floor=0):
         reservation = self.exec_sql(
             "SELECT serial,qso_id FROM xlog_serial WHERE draft_id=? AND scope=?", (request_id, scope)
         )
@@ -382,6 +382,8 @@ class Store(DataBase):
         serial = self.exec_sql(
             "SELECT coalesce(max(serial),0)+1 AS serial FROM xlog_serial WHERE scope=?", (scope,)
         )["serial"]
+        # Match local allocation without changing any previously issued receipt.
+        serial = max(serial, historical_floor + 1)
         self.conn.execute(
             "INSERT INTO xlog_serial(draft_id,serial,operation_id,scope,qso_id) VALUES(?,?,?,?,NULL)",
             (request_id, serial, request_id, scope),

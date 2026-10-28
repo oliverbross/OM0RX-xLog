@@ -2118,7 +2118,7 @@ class Host:
                 require(type(frequency) is int, "Shared serial frequency must be integer Hz")
                 Desk(store, current, self.commit).contest_band(frequency)
                 scope = serial_scope(current, frequency)
-                reservation = store.reserve_shared_serial(request_id, scope)
+                reservation = store.reserve_shared_serial(request_id, scope, current.get("historicalSerialFloor", 0))
                 result = {"sessionID": current["sessionID"],
                           "workspaceGeneration": workspace_generation(current),
                           "requestID": request_id, "revision": current["revision"],

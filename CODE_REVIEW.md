@@ -252,6 +252,8 @@ preserve the event payload. The missing identity image is independently confirme
 
 ### CR-005 — Shared serial allocation ignores historical imports
 
+**Remediation status:** Fixed and Verified. See REMEDIATION_TRACKER.md for the implementation, tests and limits.
+
 **Medium — authority can issue a valid-looking serial already used in its log.
 Confidence: high. Verification: real Host reproduction; later commit rejection
 was also verified. No physical transmission was performed.**

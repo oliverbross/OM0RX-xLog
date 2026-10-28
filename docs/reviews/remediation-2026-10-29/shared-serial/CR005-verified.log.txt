@@ -1,0 +1,51 @@
+test_concurrent_shared_serial_grants_exceed_historical_floor (test_remediation_import_replica.ImportedReplicaTests.test_concurrent_shared_serial_grants_exceed_historical_floor) ... FAIL
+test_legacy_import_identity_is_reconstructed_before_later_correction_and_delete (test_remediation_import_replica.ImportedReplicaTests.test_legacy_import_identity_is_reconstructed_before_later_correction_and_delete) ... ok
+test_legacy_missing_identity_fails_closed_without_inventing_provenance (test_remediation_import_replica.ImportedReplicaTests.test_legacy_missing_identity_fails_closed_without_inventing_provenance) ... ok
+test_legacy_unchanged_import_survives_reopen_without_rewriting_audit (test_remediation_import_replica.ImportedReplicaTests.test_legacy_unchanged_import_survives_reopen_without_rewriting_audit) ... ok
+test_new_import_catchup_replay_reopen_and_followup_changes (test_remediation_import_replica.ImportedReplicaTests.test_new_import_catchup_replay_reopen_and_followup_changes) ... ok
+test_shared_serial_honors_import_floor_replay_reopen_and_commit (test_remediation_import_replica.ImportedReplicaTests.test_shared_serial_honors_import_floor_replay_reopen_and_commit) ... ok
+test_changes_rejects_null_legacy_json_cleanly (test_multi_operator_host.MultiOperatorHostTests.test_changes_rejects_null_legacy_json_cleanly) ... ok
+test_concurrent_serials_are_unique_and_request_receipts_replay_or_conflict (test_multi_operator_host.MultiOperatorHostTests.test_concurrent_serials_are_unique_and_request_receipts_replay_or_conflict) ... ok
+test_empty_replica_page_does_not_skip_later_contact_and_contest_number_is_local (test_multi_operator_host.MultiOperatorHostTests.test_empty_replica_page_does_not_skip_later_contact_and_contest_number_is_local) ... ok
+test_interrupted_schema_upgrade_repairs_index_and_null_audit_revision (test_multi_operator_host.MultiOperatorHostTests.test_interrupted_schema_upgrade_repairs_index_and_null_audit_revision) ... ok
+test_legacy_change_without_identity_is_rejected_without_advancing (test_multi_operator_host.MultiOperatorHostTests.test_legacy_change_without_identity_is_rejected_without_advancing) ... ok
+test_nonempty_replica_stages_more_than_one_page_and_retries_after_restart (test_multi_operator_host.MultiOperatorHostTests.test_nonempty_replica_stages_more_than_one_page_and_retries_after_restart) ... ok
+test_remote_apply_dupe_conflicts_and_revision_cursor_changes_survive_restart (test_multi_operator_host.MultiOperatorHostTests.test_remote_apply_dupe_conflicts_and_revision_cursor_changes_survive_restart) ... ok
+test_replica_apply_is_atomic_idempotent_and_advances_authored_draft (test_multi_operator_host.MultiOperatorHostTests.test_replica_apply_is_atomic_idempotent_and_advances_authored_draft) ... ok
+test_replica_authority_rejects_receipt_replay_after_binding (test_multi_operator_host.MultiOperatorHostTests.test_replica_authority_rejects_receipt_replay_after_binding) ... ok
+test_replica_binding_rejects_divergent_log_and_stale_local_revision (test_multi_operator_host.MultiOperatorHostTests.test_replica_binding_rejects_divergent_log_and_stale_local_revision) ... ok
+test_replica_rejects_omitted_prefix_and_cursor_only_advances_without_partial_write (test_multi_operator_host.MultiOperatorHostTests.test_replica_rejects_omitted_prefix_and_cursor_only_advances_without_partial_write) ... ok
+test_replica_rejects_stale_context_configuration_cursor_and_before_image_without_partial_write (test_multi_operator_host.MultiOperatorHostTests.test_replica_rejects_stale_context_configuration_cursor_and_before_image_without_partial_write) ... ok
+test_swift_json_integral_numbers_preserve_replica_before_image_fences (test_multi_operator_host.MultiOperatorHostTests.test_swift_json_integral_numbers_preserve_replica_before_image_fences) ... ok
+test_tuple_cursor_does_not_skip_two_changes_at_one_revision (test_multi_operator_host.MultiOperatorHostTests.test_tuple_cursor_does_not_skip_two_changes_at_one_revision) ... ok
+test_actual_serials_repeat_restart_and_occupied_draft_preserved_without_reservations (test_wave5_adif_host.HistoricalImportTests.test_actual_serials_repeat_restart_and_occupied_draft_preserved_without_reservations) ... ok
+test_identity_conflict_and_existing_serial_are_explicit_without_draft_renumbering (test_wave5_adif_host.HistoricalImportTests.test_identity_conflict_and_existing_serial_are_explicit_without_draft_renumbering) ... ok
+test_mismatch_unknown_mapping_and_invalid_rx_reject_before_apply (test_wave5_adif_host.HistoricalImportTests.test_mismatch_unknown_mapping_and_invalid_rx_reject_before_apply) ... ok
+test_name_location_and_grid_families_keep_original_station_and_site (test_wave5_adif_host.HistoricalImportTests.test_name_location_and_grid_families_keep_original_station_and_site) ... ok
+test_all_admitted_serial_definitions_export_and_import_their_own_bytes (test_review_adif_import.ReviewImportTests.test_all_admitted_serial_definitions_export_and_import_their_own_bytes) ... ok
+test_explicit_invalid_serial_is_not_replaced_by_text_fallback (test_review_adif_import.ReviewImportTests.test_explicit_invalid_serial_is_not_replaced_by_text_fallback) ... ok
+test_historical_import_then_actual_contact_correction_and_prepared_bytes (test_review_adif_import.ReviewImportTests.test_historical_import_then_actual_contact_correction_and_prepared_bytes) ... ok
+test_original_digital_completion_then_contact_correction_and_prepared_bytes (test_review_adif_import.ReviewImportTests.test_original_digital_completion_then_contact_correction_and_prepared_bytes) ... ok
+test_original_naqp_sent_exchange_reaches_cabrillo (test_review_adif_import.ReviewImportTests.test_original_naqp_sent_exchange_reaches_cabrillo) ... ok
+test_string_serials_match_our_export_contract_and_reimport_once (test_review_adif_import.ReviewImportTests.test_string_serials_match_our_export_contract_and_reimport_once) ... ok
+
+======================================================================
+FAIL: test_concurrent_shared_serial_grants_exceed_historical_floor (test_remediation_import_replica.ImportedReplicaTests.test_concurrent_shared_serial_grants_exceed_historical_floor)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_remediation_import_replica.py", line 164, in test_concurrent_shared_serial_grants_exceed_historical_floor
+    self.assertEqual(errors, [])
+AssertionError: Lists differ: [ProgrammingError('SQLite objects created [303 chars]2.')] != []
+
+First list contains 2 additional elements.
+First extra element 0:
+ProgrammingError('SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 8645541760 and this is thread id 6149894144.')
+
++ []
+- [ProgrammingError('SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 8645541760 and this is thread id 6149894144.'),
+-  ProgrammingError('SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 8645541760 and this is thread id 6166720512.')]
+
+----------------------------------------------------------------------
+Ran 30 tests in 13.268s
+
+FAILED (failures=1)

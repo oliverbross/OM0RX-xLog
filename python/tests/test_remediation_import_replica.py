@@ -2,6 +2,7 @@
 from copy import deepcopy
 import json
 import os
+import threading
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -127,6 +128,43 @@ class ImportedReplicaTests(unittest.TestCase):
         self.correct(qso); self.sync(); self.assert_same(qso)
         self.call(self.hosts[0], "qso_delete", **self.params(self.hosts[0]), qsoID=qso, reason="fixture delete")
         self.sync(); self.assert_same(qso)
+
+    def test_shared_serial_honors_import_floor_replay_reopen_and_commit(self):
+        master = self.hosts[0]
+        old = master.database(self.session).exec_sql("SELECT draft_id FROM xlog_serial WHERE serial=2")["draft_id"]
+        self.imported()
+        def reserve(request):
+            return self.call(self.hosts[0], "multi_serial_reserve", sessionID=self.session,
+                workspaceGeneration=self.workspace, requestID=request, frequencyHz=14_025_000)
+        self.assertEqual(reserve(old)["serial"], 2, "Already issued exchanges must never be silently renumbered")
+        request = uid(); grant = reserve(request)
+        self.assertEqual(grant["serial"], 102)
+        self.assertEqual(reserve(request)["serial"], 102)
+        master.close(); self.hosts[0] = Host(self.roots[0]); master = self.hosts[0]
+        self.assertEqual(reserve(request)["serial"], 102)
+        result = self.call(master, "multi_contact_apply", sessionID=self.session, workspaceGeneration=self.workspace,
+            requestID=uid(), action="commit", qsoID=uid(), timestamp="2026-10-22 12:00:00", frequencyHz=14_025_000,
+            serialRequestID=request, fields={"callsign": "K1ABC", "other_2": "203"})
+        self.assertEqual(result["actions"], [])
+        self.assertEqual(reserve(uid())["serial"], 103)
+
+    def test_concurrent_shared_serial_grants_exceed_historical_floor(self):
+        self.imported()
+        barrier = threading.Barrier(2); results = []; errors = []
+        def reserve():
+            peer = Host(self.roots[0])
+            try:
+                barrier.wait(timeout=5)
+                results.append(self.call(peer, "multi_serial_reserve", sessionID=self.session,
+                    workspaceGeneration=self.workspace, requestID=uid(), frequencyHz=14_025_000)["serial"])
+            except Exception as error: errors.append(error)
+            finally: peer.close()
+        threads = [threading.Thread(target=reserve) for _ in range(2)]
+        for thread in threads: thread.start()
+        for thread in threads: thread.join(timeout=10)
+        self.assertTrue(all(not thread.is_alive() for thread in threads))
+        self.assertEqual(errors, [])
+        self.assertEqual(sorted(results), [102, 103])
 
     def assert_same(self, qso):
         master, replica = self.hosts

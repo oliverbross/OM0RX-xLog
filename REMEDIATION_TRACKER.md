@@ -52,13 +52,14 @@ Statuses use the requested vocabulary. `Not Fixed` means still pending in this a
 
 ## CR-005 — Medium
 
-- **Status:** Not Fixed.
+- **Status:** Fixed and Verified.
 - **Root cause:** Shared serial allocator omits the historical serial floor.
-- **Files modified:** None yet. Planned scope: python/contest_host/store.py; host.py; multi-operator tests.
-- **Fix:** Pending implementation.
-- **Regression tests:** Pending.
-- **Verification commands/results:** Not run for remediation yet; prior review evidence is not fix verification.
-- **Remaining limitations:** Finding remains open. All production/provider/hardware boundaries above remain unverified.
+- **Files modified:** `python/contest_host/store.py`, `host.py`; `python/tests/test_remediation_import_replica.py`.
+- **Fix:** Pass the validated session historical floor into the shared allocator and take the same maximum as local allocation inside the existing write transaction. Existing request IDs/reservations/receipts retain their exact issued numbers; only new grants advance past imported serials. Existing historical-conflict commit and scope/authority guards remain intact.
+- **Regression tests:** Two new configured-master cases: import101 then grant102, replay/reopen the identical grant and successfully remote-commit it, next103; preserve a previously issued2 without renumbering; two independent Host connections concurrently allocate102/103. Existing per-scope/local/remote and replay-conflict tests retained.
+- **Verification commands/results:** Before fix both new floor cases failed. `PYTHONPATH=python:python/tests XLOG_CONTEST_N1MM_UDP_ALLOWED=0 python3.12 -B -m unittest -v test_remediation_import_replica test_multi_operator_host test_review_adif_import` PASS30/12.657s. Initial concurrency fixture reused a thread-bound SQLite connection and was corrected to use an independent Host per thread, matching real authority connections; no database thread guard was weakened. `git diff --check` PASS.
+- **Remaining limitations:** No physical exchange transmission or connected peer. Historical floor follows the same conservative global-floor policy as the existing local allocator, including band-scoped reservations. Previously issued conflicting receipts are immutable and still fail the existing commit guard; operator reconciliation/new request is required rather than silently changing an exchange that may already have been sent.
+- **Evidence:** [stage logs](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/remediation-2026-10-29/shared-serial).
 
 ## CR-006 — Medium
 

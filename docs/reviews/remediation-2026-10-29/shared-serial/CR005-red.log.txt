@@ -1,0 +1,31 @@
+test_concurrent_shared_serial_grants_exceed_historical_floor (test_remediation_import_replica.ImportedReplicaTests.test_concurrent_shared_serial_grants_exceed_historical_floor) ... FAIL
+test_shared_serial_honors_import_floor_replay_reopen_and_commit (test_remediation_import_replica.ImportedReplicaTests.test_shared_serial_honors_import_floor_replay_reopen_and_commit) ... FAIL
+
+======================================================================
+FAIL: test_concurrent_shared_serial_grants_exceed_historical_floor (test_remediation_import_replica.ImportedReplicaTests.test_concurrent_shared_serial_grants_exceed_historical_floor)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_remediation_import_replica.py", line 164, in test_concurrent_shared_serial_grants_exceed_historical_floor
+    self.assertEqual(errors, [])
+AssertionError: Lists differ: [ProgrammingError('SQLite objects created [303 chars]6.')] != []
+
+First list contains 2 additional elements.
+First extra element 0:
+ProgrammingError('SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 8645541760 and this is thread id 6136786944.')
+
++ []
+- [ProgrammingError('SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 8645541760 and this is thread id 6136786944.'),
+-  ProgrammingError('SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 8645541760 and this is thread id 6119960576.')]
+
+======================================================================
+FAIL: test_shared_serial_honors_import_floor_replay_reopen_and_commit (test_remediation_import_replica.ImportedReplicaTests.test_shared_serial_honors_import_floor_replay_reopen_and_commit)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_remediation_import_replica.py", line 141, in test_shared_serial_honors_import_floor_replay_reopen_and_commit
+    self.assertEqual(grant["serial"], 102)
+AssertionError: 3 != 102
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.483s
+
+FAILED (failures=2)
