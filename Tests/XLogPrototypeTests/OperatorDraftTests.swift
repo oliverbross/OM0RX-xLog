@@ -88,7 +88,7 @@ struct OperatorDraftTests {
         #expect(saved.savedQSO?.start == loggedAt)
 
         let cleared = saved.draft
-        var historical = cleared.qso; historical.start = old
+        var historical = cleared.qso; historical.start = old; historical.end = old.addingTimeInterval(600)
         let dated = try db.applyOperatorDraft(mutation(cleared, .replace, qso: historical), nextDraft: blank()).draft
         #expect(!dated.automaticStart)
         var historicalCall = dated.qso; historicalCall.call = "K1ABC"
@@ -96,6 +96,22 @@ struct OperatorDraftTests {
                                                   nextDraft: blank(), now: selectedAt.addingTimeInterval(60)).draft
         #expect(preserved.qso.start == old)
         #expect(!preserved.automaticStart)
+        let manualSave = mutation(preserved, .save)
+        let historicalReceipt = try db.applyOperatorDraft(manualSave, nextDraft: blank(), now: loggedAt)
+        let contact = try #require(historicalReceipt.savedQSO)
+        #expect(contact.start == old)
+        #expect(contact.end == historical.end)
+        #expect(contact.adifRecord.fields["QSO_DATE"] == "20231114")
+        #expect(contact.adifRecord.fields["TIME_ON"] == "221320")
+        #expect(historicalReceipt.draft.automaticStart)
+        #expect(try db.applyOperatorDraft(manualSave, nextDraft: blank(), now: loggedAt.addingTimeInterval(60)) == historicalReceipt)
+        db.close()
+        let reopened = try LogbookDatabase(url: url)
+        defer { reopened.close() }
+        #expect(try reopened.lookup(localID: contact.id)?.start == old)
+        #expect(try reopened.lookup(localID: contact.id)?.end == historical.end)
+        #expect(try reopened.operatorDraftReceipt(operationID: manualSave.operationID) == historicalReceipt)
+        #expect(try reopened.count() == 2)
     }
 
     @Test("A stale window cannot replace newer text or clear the next draft")

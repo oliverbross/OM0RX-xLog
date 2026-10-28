@@ -190,10 +190,12 @@ export function DetachedQSOSurface() {
     </StableFeedbackLayer>
     <div className="detached-qso-modes" role="group" aria-label="QSO editor mode">{(["simple", "full"] as const).map(value => <button key={value} type="button" aria-pressed={mode === value} disabled={working || closing || blocked} onClick={() => switchMode(value)}>{value === "simple" ? "Simple" : "Full"}</button>)}</div>
     {mode === "simple" ? <><DeskQSO referenceEvidence={referenceEvidence} draft={state.draft} setDraft={setDraft} save={() => void save()} clear={clear}
+      automaticStart={state.base?.automaticStart ?? false}
       busy={working || closing || blocked} draftLocked={working || closing || blocked} request={request} refresh={state.base?.revision ?? 0}
       follow={false} setFollow={() => {}} radioControls={false} onReadRadio={readRadio} onLocalInputState={inputState} canAcceptLocalInput={acceptsInput} />
       <button className="detached-qso-fill" type="button" disabled={working || closing || blocked || !normalizedCall(state.draft?.call) || normalizedCall(lookup?.call) !== normalizedCall(state.draft?.call)} onClick={() => setDraft(current => fillEmptyLookupFields(current, lookup))}>Fill empty fields from lookup</button></> :
     <QSOEditor referenceEvidence={referenceEvidence} draft={state.draft} setDraft={setDraft} save={save} clear={clear} inspector={false}
+      automaticStart={state.base?.automaticStart ?? false}
       busy={working || closing || blocked} draftLocked={working || closing || blocked}
       lookup={lookup} previous={previous} follow={false} setFollow={() => {}} request={request} radioControls={false} onReadRadio={readRadio}
       onLocalInputState={inputState}

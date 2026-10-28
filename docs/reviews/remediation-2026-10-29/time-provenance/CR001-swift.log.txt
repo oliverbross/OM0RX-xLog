@@ -1,0 +1,241 @@
+Building for debugging...
+[Computing dependencies]
+[1 / 5]
+[1 / 14] XLogCore
+[2 / 14] XLogCore
+[4 / 16] XLogCore
+[7 / 18] XLogCore
+[9 / 18] XLogCore
+[11 / 13] xlog-prototype-worker-product
+[12 / 13] XLogPrototypeTests-product
+[15 / 17] XLogPrototypeTests-product
+Build complete! (6.84 sec.)
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native draft power service and setting migration" started.
+◇ Test "Missing opt-in decodes OFF and enabled settings round-trip without changing profile fields" started.
+✔ Test "Missing opt-in decodes OFF and enabled settings round-trip without changing profile fields" passed after 0.005 seconds.
+◇ Test "Normal settings and draft reads do not materialize power state; native configuration is explicit" started.
+✔ Test "Normal settings and draft reads do not materialize power state; native configuration is explicit" passed after 0.045 seconds.
+◇ Test "Typed native helpers capture and invalidate without advancing contact edits" started.
+✔ Test "Typed native helpers capture and invalidate without advancing contact edits" passed after 0.045 seconds.
+◇ Test "Manual input while automatic is OFF initializes intent atomically and survives later ON" started.
+✔ Test "Manual input while automatic is OFF initializes intent atomically and survives later ON" passed after 0.035 seconds.
+◇ Test "Every native mutation rechecks the durable generation under the service lock" started.
+✔ Test "Every native mutation rechecks the durable generation under the service lock" passed after 0.044 seconds.
+◇ Test "Saved OFF blocks native arming and capture before coordinator reconfiguration" started.
+✔ Test "Saved OFF blocks native arming and capture before coordinator reconfiguration" passed after 0.037 seconds.
+◇ Test "Manual intent including same and empty values is durable and retryable; resume is explicit" started.
+✔ Test "Manual intent including same and empty values is durable and retryable; resume is explicit" passed after 0.050 seconds.
+◇ Test "IPC rejects null malformed fabricated metadata and intent on Save/Clear without a write" started.
+✔ Test "IPC rejects null malformed fabricated metadata and intent on Save/Clear without a write" passed after 0.060 seconds.
+✔ Suite "Native draft power service and setting migration" passed after 0.324 seconds.
+◇ Suite "Nonblocking native power admission and durable peak watermark" started.
+◇ Test "SQLite writer contention cannot delay source detach or terminal revocation" started.
+◇ Test case passing 1 argument terminal → false to "SQLite writer contention cannot delay source detach or terminal revocation" started.
+◇ Test case passing 1 argument terminal → true to "SQLite writer contention cannot delay source detach or terminal revocation" started.
+✔ Test "SQLite writer contention cannot delay source detach or terminal revocation" with 2 test cases passed after 0.155 seconds.
+◇ Test "A held service lock cannot delay source detach" started.
+✔ Test "A held service lock cannot delay source detach" passed after 0.034 seconds.
+◇ Test "An admitted reading may commit after revoke; later old readings are no-ops" started.
+✔ Test "An admitted reading may commit after revoke; later old readings are no-ops" passed after 0.034 seconds.
+◇ Test "Freshness is evaluated after waiting for the SQLite write transaction" started.
+✔ Test "Freshness is evaluated after waiting for the SQLite write transaction" passed after 2.341 seconds.
+◇ Test "Durable peak discards duplicate/lower work, preserves queued peaks, and rejects newly reordered readings" started.
+✔ Test "Durable peak discards duplicate/lower work, preserves queued peaks, and rejects newly reordered readings" passed after 0.038 seconds.
+◇ Test "Failed writes never establish a peak watermark or suppress the next lower valid reading" started.
+✔ Test "Failed writes never establish a peak watermark or suppress the next lower valid reading" passed after 0.032 seconds.
+◇ Test "Invalid evidence and unchanged durable acknowledgments cannot poison observation chronology" started.
+✔ Test "Invalid evidence and unchanged durable acknowledgments cannot poison observation chronology" passed after 0.029 seconds.
+✔ Suite "Nonblocking native power admission and durable peak watermark" passed after 2.666 seconds.
+◇ Suite "Worker-owned power capture without a renderer" started.
+◇ Test "Contesting background ownership cannot arm or mutate the Normal Logging power draft" started.
+✔ Test "Contesting background ownership cannot arm or mutate the Normal Logging power draft" passed after 0.030 seconds.
+◇ Test "Native callback burst retains the short peak and Save commits its provenance" started.
+✔ Test "Native callback burst retains the short peak and Save commits its provenance" passed after 0.064 seconds.
+◇ Test "Wrong observed TX frequency/mode and retired source never capture" started.
+✔ Test "Wrong observed TX frequency/mode and retired source never capture" passed after 0.049 seconds.
+◇ Test "Manual intent including blank survives callbacks; explicit resume rearms" started.
+✔ Test "Manual intent including blank survives callbacks; explicit resume rearms" passed after 0.067 seconds.
+◇ Test "Provider fence and terminal shutdown retire emission/commit eligibility" started.
+✔ Test "Provider fence and terminal shutdown retire emission/commit eligibility" passed after 0.054 seconds.
+◇ Test "Save waits for the already emitted callback prefix" started.
+✔ Test "Save waits for the already emitted callback prefix" passed after 0.099 seconds.
+✔ Suite "Worker-owned power capture without a renderer" passed after 0.366 seconds.
+◇ Suite "Atomic canonical draft power" started.
+◇ Test "Legacy draft/receipt decoding and unfinished manual values survive migration" started.
+✔ Test "Legacy draft/receipt decoding and unfinished manual values survive migration" passed after 0.012 seconds.
+◇ Test "Power-only updates retain edit revision and stale text replacement cannot undo them" started.
+✔ Test "Power-only updates retain edit revision and stale text replacement cannot undo them" passed after 0.010 seconds.
+◇ Test "Restored snapshots reject mismatched power identity, value, and invalid edit revisions" started.
+✔ Test "Restored snapshots reject mismatched power identity, value, and invalid edit revisions" passed after 0.009 seconds.
+◇ Test "Same-value and empty manual intent fence samples until explicit automatic resume" started.
+✔ Test "Same-value and empty manual intent fence samples until explicit automatic resume" passed after 0.017 seconds.
+◇ Test "Reopened database cannot revive saved authority and fresh arm starts a fresh peak" started.
+✔ Test "Reopened database cannot revive saved authority and fresh arm starts a fresh peak" passed after 0.022 seconds.
+◇ Test "Save freezes power/provenance and its retry receipt even after restart" started.
+✔ Test "Save freezes power/provenance and its retry receipt even after restart" passed after 0.010 seconds.
+◇ Test "Workspace restore rebind preserves selected evidence but never capture authority" started.
+✔ Test "Workspace restore rebind preserves selected evidence but never capture authority" passed after 0.011 seconds.
+◇ Test "Receipt failure rolls back QSO, power, draft, and receipt atomically" started.
+✔ Test "Receipt failure rolls back QSO, power, draft, and receipt atomically" passed after 0.013 seconds.
+◇ Test "A to B to A and Clear cannot reuse a retired scope" started.
+✔ Test "A to B to A and Clear cannot reuse a retired scope" passed after 0.015 seconds.
+◇ Test "Rejected arm/configuration and failed sample writes leave existing authority intact" started.
+✔ Test "Rejected arm/configuration and failed sample writes leave existing authority intact" passed after 0.016 seconds.
+◇ Test "Concurrent capture and Save resolve to one internally consistent durable receipt" started.
+✔ Test "Concurrent capture and Save resolve to one internally consistent durable receipt" passed after 0.008 seconds.
+✔ Suite "Atomic canonical draft power" passed after 0.148 seconds.
+◇ Suite "Canonical portable operator draft power" started.
+◇ Test "Default OFF preserves existing draft value and same configuration is a no-op" started.
+✔ Test "Default OFF preserves existing draft value and same configuration is a no-op" passed after 0.001 seconds.
+◇ Test "Explicit same and empty manual values fence automatic capture until resume" started.
+✔ Test "Explicit same and empty manual values fence automatic capture until resume" passed after 0.001 seconds.
+◇ Test "Peak is exact meter evidence and save provenance follows its actual sample only" started.
+✔ Test "Peak is exact meter evidence and save provenance follows its actual sample only" passed after 0.001 seconds.
+◇ Test "A to B to A retires old tokens and normalized spelling alone does not" started.
+✔ Test "A to B to A retires old tokens and normalized spelling alone does not" passed after 0.001 seconds.
+◇ Test "Band mode frequency workspace and draft identity each invalidate scope" started.
+✔ Test "Band mode frequency workspace and draft identity each invalidate scope" passed after 0.001 seconds.
+◇ Test "Reconnect and restore retain selection but the first new session sample starts a new peak" started.
+✔ Test "Reconnect and restore retain selection but the first new session sample starts a new peak" passed after 0.001 seconds.
+◇ Test "Provider or selected radio change resets automatic evidence; manual survives until reset" started.
+✔ Test "Provider or selected radio change resets automatic evidence; manual survives until reset" passed after 0.001 seconds.
+◇ Test "Disabled capture retains selected evidence but retires eligibility" started.
+✔ Test "Disabled capture retains selected evidence but retires eligibility" passed after 0.001 seconds.
+◇ Test "Replacement cannot overwrite current captured value or manufacture manual intent" started.
+✔ Test "Replacement cannot overwrite current captured value or manufacture manual intent" passed after 0.001 seconds.
+◇ Test "Wrong scopes sessions old future duplicate and pre-arm readings are no-ops" started.
+✔ Test "Wrong scopes sessions old future duplicate and pre-arm readings are no-ops" passed after 0.001 seconds.
+◇ Test "Fresh meter evidence accepts a preceding amplifier envelope without renewing its age" started.
+✔ Test "Fresh meter evidence accepts a preceding amplifier envelope without renewing its age" passed after 0.001 seconds.
+◇ Test "DTO and persisted metadata reject non-meter units invalid values and unsupported contexts" started.
+✔ Test "DTO and persisted metadata reject non-meter units invalid values and unsupported contexts" passed after 0.001 seconds.
+◇ Test "Generic measured-output scope accepts an explicit radio watt meter" started.
+✔ Test "Generic measured-output scope accepts an explicit radio watt meter" passed after 0.001 seconds.
+◇ Test "Positive fractional meter evidence survives formatting and corrupted sample metadata is rejected" started.
+✔ Test "Positive fractional meter evidence survives formatting and corrupted sample metadata is rejected" passed after 0.001 seconds.
+◇ Test "Automatic TX_PWR exports as exact positive decimal text including subnormal readings" started.
+✔ Test "Automatic TX_PWR exports as exact positive decimal text including subnormal readings" passed after 0.008 seconds.
+✔ Suite "Canonical portable operator draft power" passed after 0.011 seconds.
+◇ Suite "Native Clear after QSY draft transaction" started.
+◇ Test "Legacy and fresh settings keep QSY clearing disabled" started.
+✔ Test "Legacy and fresh settings keep QSY clearing disabled" passed after 0.026 seconds.
+◇ Test "Exact observed-RX clear is atomic, idempotent and revision fenced" started.
+✔ Test "Exact observed-RX clear is atomic, idempotent and revision fenced" passed after 0.033 seconds.
+◇ Test "The native boundary accepts RX evidence only, never a split TX frequency" started.
+✔ Test "The native boundary accepts RX evidence only, never a split TX frequency" passed after 0.027 seconds.
+✔ Suite "Native Clear after QSY draft transaction" passed after 0.087 seconds.
+◇ Suite "Pure operator draft Follow Radio projection" started.
+◇ Test "Simplex updates frequency, band and mode and clears stale split receive fields" started.
+✔ Test "Simplex updates frequency, band and mode and clears stale split receive fields" passed after 0.001 seconds.
+◇ Test "Split logs actual transmit frequency, records receive frequency and retains the DX callsign while TX moves" started.
+✔ Test "Split logs actual transmit frequency, records receive frequency and retains the DX callsign while TX moves" passed after 0.001 seconds.
+◇ Test "Follow OFF retains manual frequency, mode and power even with unusable telemetry" started.
+✔ Test "Follow OFF retains manual frequency, mode and power even with unusable telemetry" passed after 0.001 seconds.
+◇ Test "Voice and CW observations apply their conventional reports without replacing operator edits" started.
+✔ Test "Voice and CW observations apply their conventional reports without replacing operator edits" passed after 0.001 seconds.
+◇ Test "CAT aliases match existing logging labels" started.
+◇ Test case passing 1 argument pair → ("usb", "SSB") to "CAT aliases match existing logging labels" started.
+◇ Test case passing 1 argument pair → ("LSB", "SSB") to "CAT aliases match existing logging labels" started.
+◇ Test case passing 1 argument pair → ("CWR", "CW") to "CAT aliases match existing logging labels" started.
+◇ Test case passing 1 argument pair → ("rttyr", "RTTY") to "CAT aliases match existing logging labels" started.
+◇ Test case passing 1 argument pair → ("cw", "CW") to "CAT aliases match existing logging labels" started.
+◇ Test case passing 1 argument pair → ("am", "AM") to "CAT aliases match existing logging labels" started.
+◇ Test case passing 1 argument pair → ("FM", "FM") to "CAT aliases match existing logging labels" started.
+◇ Test case passing 1 argument pair → ("ft8", "FT8") to "CAT aliases match existing logging labels" started.
+◇ Test case passing 1 argument pair → ("CUSTOM_1", "CUSTOM_1") to "CAT aliases match existing logging labels" started.
+✔ Test "CAT aliases match existing logging labels" with 9 test cases passed after 0.001 seconds.
+◇ Test "Every data carrier preserves every chosen digital logging mode" started.
+✔ Test "Every data carrier preserves every chosen digital logging mode" passed after 0.001 seconds.
+◇ Test "Canonical BandPlan covers VHF/UHF examples; unsupported frequencies clear an unrelated prior band" started.
+✔ Test "Canonical BandPlan covers VHF/UHF examples; unsupported frequencies clear an unrelated prior band" passed after 0.001 seconds.
+◇ Test "Mode changes clear incompatible submodes while data carriers retain the selected digital identity" started.
+✔ Test "Mode changes clear incompatible submodes while data carriers retain the selected digital identity" passed after 0.001 seconds.
+◇ Test "Invalid frequency or mode is rejected without changing the input" started.
+✔ Test "Invalid frequency or mode is rejected without changing the input" passed after 0.001 seconds.
+◇ Test "Identical observations are idempotent and a later projection starts from the latest operator value" started.
+✔ Test "Identical observations are idempotent and a later projection starts from the latest operator value" passed after 0.001 seconds.
+✔ Suite "Pure operator draft Follow Radio projection" passed after 0.001 seconds.
+◇ Suite "Native explicit Read Radio draft transaction" started.
+◇ Test "Split Read and Follow store TX as FREQ, RX as FREQ_RX and retain the active callsign" started.
+◇ Test case passing 1 argument method → "logbook_operator_draft_radio_read" to "Split Read and Follow store TX as FREQ, RX as FREQ_RX and retain the active callsign" started.
+◇ Test case passing 1 argument method → "logbook_operator_draft_radio_follow" to "Split Read and Follow store TX as FREQ, RX as FREQ_RX and retain the active callsign" started.
+✔ Test "Split Read and Follow store TX as FREQ, RX as FREQ_RX and retain the active callsign" with 2 test cases passed after 0.048 seconds.
+◇ Test "Simplex Read accepts the native null RX field and replaces stale spot mode from radio" started.
+✔ Test "Simplex Read accepts the native null RX field and replaces stale spot mode from radio" passed after 0.023 seconds.
+◇ Test "Read and Follow change only projected fields and retain manual power policy" started.
+◇ Test case passing 1 argument method → "logbook_operator_draft_radio_read" to "Read and Follow change only projected fields and retain manual power policy" started.
+◇ Test case passing 1 argument method → "logbook_operator_draft_radio_follow" to "Read and Follow change only projected fields and retain manual power policy" started.
+✔ Test "Read and Follow change only projected fields and retain manual power policy" with 2 test cases passed after 0.046 seconds.
+◇ Test "Read and Follow receipts survive later edits, stale revisions conflict and changed reuse fails" started.
+◇ Test case passing 1 argument method → "logbook_operator_draft_radio_read" to "Read and Follow receipts survive later edits, stale revisions conflict and changed reuse fails" started.
+◇ Test case passing 1 argument method → "logbook_operator_draft_radio_follow" to "Read and Follow receipts survive later edits, stale revisions conflict and changed reuse fails" started.
+✔ Test "Read and Follow receipts survive later edits, stale revisions conflict and changed reuse fails" with 2 test cases passed after 0.084 seconds.
+◇ Test "Read and Follow workspace, schema and observation validation cannot alter the draft" started.
+◇ Test case passing 1 argument method → "logbook_operator_draft_radio_read" to "Read and Follow workspace, schema and observation validation cannot alter the draft" started.
+◇ Test case passing 1 argument method → "logbook_operator_draft_radio_follow" to "Read and Follow workspace, schema and observation validation cannot alter the draft" started.
+✔ Test "Read and Follow workspace, schema and observation validation cannot alter the draft" with 2 test cases passed after 0.055 seconds.
+◇ Test "Identical Follow observations do not create draft revisions or receipts" started.
+✔ Test "Identical Follow observations do not create draft revisions or receipts" passed after 0.025 seconds.
+✔ Suite "Native explicit Read Radio draft transaction" passed after 0.284 seconds.
+◇ Suite "Durable operator draft and retry receipts" started.
+◇ Test "New drafts and mode changes use conventional voice and CW reports" started.
+✔ Test "New drafts and mode changes use conventional voice and CW reports" passed after 0.010 seconds.
+◇ Test "A second connection and a reopened service see the same acknowledged draft" started.
+✔ Test "A second connection and a reopened service see the same acknowledged draft" passed after 0.011 seconds.
+◇ Test "Save uses the button time for an automatic start while a manual historical start is preserved" started.
+✔ Test "Save uses the button time for an automatic start while a manual historical start is preserved" passed after 0.013 seconds.
+◇ Test "A stale window cannot replace newer text or clear the next draft" started.
+✔ Test "A stale window cannot replace newer text or clear the next draft" passed after 0.010 seconds.
+◇ Test "Lost Save acknowledgement is recoverable after restart without another insert or reset" started.
+✔ Test "Lost Save acknowledgement is recoverable after restart without another insert or reset" passed after 0.009 seconds.
+◇ Test "Independent simultaneous Save attempts commit exactly one contact" started.
+✔ Test "Independent simultaneous Save attempts commit exactly one contact" passed after 0.010 seconds.
+◇ Test "Receipt-write failure rolls back the contact and draft advance together" started.
+✔ Test "Receipt-write failure rolls back the contact and draft advance together" passed after 0.009 seconds.
+◇ Test "Draft API cannot overwrite a logged contact or import sync identity" started.
+✔ Test "Draft API cannot overwrite a logged contact or import sync identity" passed after 0.007 seconds.
+◇ Test "Partial calls can be drafted but invalid or oversized records cannot be logged" started.
+✔ Test "Partial calls can be drafted but invalid or oversized records cannot be logged" passed after 0.008 seconds.
+◇ Test "Transient receipts are bounded while Save receipts survive backup and later edits" started.
+✔ Test "Transient receipts are bounded while Save receipts survive backup and later edits" passed after 0.084 seconds.
+◇ Test "Worker exposes conflict snapshots, validates revisions and serves durable receipts offline" started.
+✔ Test "Worker exposes conflict snapshots, validates revisions and serves durable receipts offline" passed after 0.036 seconds.
+◇ Test "A terminated live worker cannot create or mutate an operator draft" started.
+✔ Test "A terminated live worker cannot create or mutate an operator draft" passed after 0.001 seconds.
+✔ Suite "Durable operator draft and retry receipts" passed after 0.214 seconds.
+◇ Suite "Native spot draft activation receipts and reservations" started.
+◇ Test "Apply is atomic, same-ID retries retain receipt, and a stage grants one send only" started.
+✔ Test "Apply is atomic, same-ID retries retain receipt, and a stage grants one send only" passed after 0.026 seconds.
+◇ Test "Successive live spots refresh an automatic start but preserve an explicitly edited start" started.
+✔ Test "Successive live spots refresh an automatic start but preserve an explicitly edited start" passed after 0.045 seconds.
+◇ Test "Opportunity selection supports a calendar without frequency and cannot stage station effects" started.
+✔ Test "Opportunity selection supports a calendar without frequency and cannot stage station effects" passed after 0.022 seconds.
+◇ Test "Opportunity references are explicit and independent of misleading comment tags" started.
+✔ Test "Opportunity references are explicit and independent of misleading comment tags" passed after 0.100 seconds.
+◇ Test "Only exact immutable payload retries; identities, integer values and unknown keys are strict" started.
+✔ Test "Only exact immutable payload retries; identities, integer values and unknown keys are strict" passed after 0.026 seconds.
+◇ Test "Reservation blocks every ordinary draft mutation, legacy save and restore, but not reads" started.
+✔ Test "Reservation blocks every ordinary draft mutation, legacy save and restore, but not reads" passed after 0.024 seconds.
+◇ Test "Cancelled/unknown replies release only their matching lease and cannot clear a newer activation" started.
+✔ Test "Cancelled/unknown replies release only their matching lease and cannot clear a newer activation" passed after 0.027 seconds.
+◇ Test "Worker replacement persistently makes a nonterminal receipt uncertain; replay never reacquires authority" started.
+✔ Test "Worker replacement persistently makes a nonterminal receipt uncertain; replay never reacquires authority" passed after 0.026 seconds.
+◇ Test "Spot mapping preserves manual power, notes, reports and unrelated ADIF; call and references retarget safely" started.
+✔ Test "Spot mapping preserves manual power, notes, reports and unrelated ADIF; call and references retarget safely" passed after 0.025 seconds.
+◇ Test "Same-call selection removes old references without clearing contact metadata" started.
+✔ Test "Same-call selection removes old references without clearing contact metadata" passed after 0.030 seconds.
+◇ Test "Changed call resets captured automatic power and fences queued old readings, while new readings remain allowed" started.
+✔ Test "Changed call resets captured automatic power and fences queued old readings, while new readings remain allowed" passed after 0.028 seconds.
+◇ Test "A rejected oversized selection rolls back both draft and receipt" started.
+✔ Test "A rejected oversized selection rolls back both draft and receipt" passed after 0.032 seconds.
+◇ Test "A status-before-late-apply race is closed by a permanent exact-generation abandonment tombstone" started.
+✔ Test "A status-before-late-apply race is closed by a permanent exact-generation abandonment tombstone" passed after 0.024 seconds.
+◇ Test "Abandonment arriving after apply returns the live receipt without releasing or changing its lease" started.
+✔ Test "Abandonment arriving after apply returns the live receipt without releasing or changing its lease" passed after 0.023 seconds.
+◇ Test "Abandoned IDs survive backup restoration but never authorize an old workspace generation" started.
+✔ Test "Abandoned IDs survive backup restoration but never authorize an old workspace generation" passed after 0.094 seconds.
+✔ Suite "Native spot draft activation receipts and reservations" passed after 0.561 seconds.
+✔ Test run with 93 tests in 10 suites passed after 4.668 seconds.

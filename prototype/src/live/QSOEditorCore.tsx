@@ -35,6 +35,8 @@ export type QSOEditorProps = {
   onReadRadio?: () => void | Promise<void>;
   automaticStationMetadata?: Array<{ label: string; value: string; provenance: "observed" | "configured" | "selected" }>;
   isEditing?: boolean;
+  /** Canonical draft provenance. Native Save resolves automatic starts. */
+  automaticStart?: boolean;
   radioControls?: boolean;
   followControls?: boolean;
   inspector?: boolean;
@@ -114,13 +116,13 @@ export function draftPowerDescription(draft: Data, power?: DraftPowerState | nul
 }
 
 export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draftLocked, lookup, previous, follow, setFollow, request, onReadRadio, automaticStationMetadata = [], isEditing = false, radioControls = true, followControls = false, clearLabel = "Clear QSO", referenceEvidence,
-  powerState, powerIntent, automaticPowerEnabled, onManualPower, onResumeAutomaticPower, onLocalInputState, resetInputEpoch, canAcceptLocalInput, onUndock, contactActions, inspector = true, canvas: Canvas }: QSOEditorProps) {
+  powerState, powerIntent, automaticPowerEnabled, onManualPower, onResumeAutomaticPower, onLocalInputState, resetInputEpoch, canAcceptLocalInput, onUndock, contactActions, inspector = true, canvas: Canvas, automaticStart: canonicalAutomaticStart }: QSOEditorProps) {
   const acceptsInput = () => !draftLocked && (canAcceptLocalInput?.() ?? true);
   const setDraft: QSOEditorProps["setDraft"] = value => { if (acceptsInput()) writeDraft(value); };
   const [frequencyDraft, setFrequencyDraft] = useState<string | null>(null);
   const [receiveDraft, setReceiveDraft] = useState<string | null>(null);
   const [timeDrafts, setTimeDrafts] = useState<Record<string, { date: string; time: string }>>({});
-  const [automaticStart, setAutomaticStart] = useState(!isEditing);
+  const [automaticStart, setAutomaticStart] = useState(!isEditing && (canonicalAutomaticStart ?? true));
   const [numericDrafts, setNumericDrafts] = useState<Record<string, string>>({});
   const [newADIFName, setNewADIFName] = useState("");
   const [showErrors, setShowErrors] = useState(false);
@@ -157,7 +159,8 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
       return { ...current, [key]: value, extraFields };
     });
   };
-  useEffect(() => { setFrequencyDraft(null); setReceiveDraft(null); setTimeDrafts({}); setAutomaticStart(!isEditing); setNumericDrafts({}); setNewADIFName(""); setShowErrors(false); }, [draft?.id, resetInputEpoch, isEditing]);
+  useEffect(() => { setFrequencyDraft(null); setReceiveDraft(null); setTimeDrafts({}); setNumericDrafts({}); setNewADIFName(""); setShowErrors(false); }, [draft?.id, resetInputEpoch, isEditing]);
+  useEffect(() => { setAutomaticStart(!isEditing && (canonicalAutomaticStart ?? true)); }, [draft?.id, resetInputEpoch, isEditing, canonicalAutomaticStart]);
   useEffect(() => { if (follow) setFrequencyDraft(null); }, [follow]);
   const canonicalBuffers = useRef<Record<string, any> | null>(null);
   useLayoutEffect(() => {
@@ -272,7 +275,10 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
   }
   const canSave = !!draft && !busy && errors.length === 0;
   const submit = (event?: FormEvent) => { event?.preventDefault(); if (!acceptsInput()) return; if (!canSave) { setShowErrors(true); return; }
-    setShowErrors(false);void save(automaticStart&&draft?{...draft,start:new Date().toISOString()}:draft??undefined); };
+    setShowErrors(false);
+    // Shared drafts are stamped by native Save. Refreshing start here would
+    // turn automatic provenance into a manual edit during the pre-save flush.
+    void save(automaticStart && canonicalAutomaticStart === undefined && draft ? { ...draft, start: new Date().toISOString() } : draft ?? undefined); };
   const keyDown = (event: KeyboardEvent<HTMLElement>) => {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); submit(); }
     if (event.key === "Escape") { event.preventDefault(); window.setTimeout(() => callRef.current?.focus(), 0); }

@@ -26,7 +26,7 @@ function backend() {
     frequencyHz: 14_025_000, txPower: "100", notes: "", name: "", rstSent: "599", rstReceived: "599", extraFields: { OTHER: "keep" } };
   const power: DraftPowerState = { revision: 0, enabled: true, fallback: "100", manualOverride: false, selectedValue: "100",
     contact: { workspaceID: testWorkspaceGeneration, draftID: id, call: "K1ABC", band: "20m", mode: "CW", frequencyHz: 14_025_000 } };
-  let current: DraftSnapshot = { generation: testWorkspaceGeneration, revision: 0, qso, power };
+  let current: DraftSnapshot = { generation: testWorkspaceGeneration, revision: 0, qso, power, automaticStart: true };
   const receipts = new Map<string, any>(), contacts: any[] = [];
   const request = async (method: string, params: any = {}) => {
     if (method === "logbook_operator_draft") return { draft: copy(current) };
@@ -37,6 +37,7 @@ function backend() {
     if (receipts.has(mutation.operationID)) return { status: "applied", receipt: copy(receipts.get(mutation.operationID)) };
     if (mutation.draftID !== current.qso.id || mutation.expectedRevision !== current.revision) return { status: "conflict", draft: copy(current) };
     const savedQSO = mutation.action === "save" ? copy(current.qso) : null;
+    if (savedQSO && current.automaticStart) savedQSO.start = new Date().toISOString();
     if (savedQSO) contacts.push(savedQSO);
     const next = mutation.action === "replace" ? copy(mutation.qso!) : { ...qso, id: crypto.randomUUID(), call: "" };
     const nextPower = copy(current.power!);
@@ -49,7 +50,9 @@ function backend() {
     if (mutation.powerIntent?.action === "manual") { nextPower.manualOverride = true; nextPower.selectedValue = mutation.powerIntent.value; }
     if (mutation.powerIntent?.action === "automatic" || mutation.action !== "replace") { nextPower.manualOverride = false; nextPower.selectedValue = nextPower.fallback; }
     next.txPower = nextPower.selectedValue;
-    current = { generation: testWorkspaceGeneration, revision: current.revision + 1, qso: next, power: nextPower };
+    const automaticStart = mutation.action !== "replace" ||
+      current.automaticStart === true && next.start === current.qso.start && next.end === current.qso.end;
+    current = { generation: testWorkspaceGeneration, revision: current.revision + 1, qso: next, power: nextPower, automaticStart };
     const receipt = { mutation: copy(mutation), draft: copy(current), savedQSO };
     receipts.set(mutation.operationID, receipt);
     return { status: "applied", receipt: copy(receipt) };
@@ -78,6 +81,36 @@ beforeEach(() => {
     : method === "logbook_previous" ? { qsos: [] } : { cells: [] } }));
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
+
+it.each(["Simple", "Full"])("preserves acknowledged manual UTC across remount into %s and Save", async mode => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  vi.setSystemTime(new Date("2026-10-28T12:34:56Z"));
+  render(<DetachedQSOSurface />);
+  await screen.findByDisplayValue("K1ABC");
+  fireEvent.change(screen.getByLabelText("Start UTC date"), { target: { value: "2026-10-20" } });
+  fireEvent.change(screen.getByLabelText("Start UTC time"), { target: { value: "10:15:30" } });
+  await waitFor(() => expect(f.current.qso.start).toBe("2026-10-20T10:15:30Z"));
+  expect(f.current.automaticStart).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "Simple" }));
+  if (mode === "Full") fireEvent.click(screen.getByRole("button", { name: "Full" }));
+  expect((screen.getByLabelText(mode === "Full" ? "Start UTC date" : "Desk UTC date") as HTMLInputElement).value).toBe("2026-10-20");
+  expect((screen.getByLabelText(mode === "Full" ? "Start UTC time" : "Desk UTC time") as HTMLInputElement).value).toBe("10:15:30");
+  fireEvent.click(screen.getByRole("button", { name: "Log QSO" }));
+  await waitFor(() => expect(f.contacts).toHaveLength(1));
+  expect(f.contacts[0].start).toBe("2026-10-20T10:15:30Z");
+  expect(f.current.automaticStart).toBe(true);
+});
+
+it.each(["Simple", "Full"])("keeps automatic UTC native-owned across %s Save", async mode => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  vi.setSystemTime(new Date("2026-10-28T12:34:56Z"));
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  if (mode === "Simple") fireEvent.click(screen.getByRole("button", { name: "Simple" }));
+  fireEvent.click(screen.getByRole("button", { name: "Log QSO" }));
+  await waitFor(() => expect(f.contacts).toHaveLength(1));
+  expect(f.contacts[0].start).toBe("2026-10-28T12:34:56.000Z");
+  expect(api.draft.mock.calls.filter(([method, params]) => method === "logbook_operator_draft_apply" && params.action === "replace")).toHaveLength(0);
+});
 
 it.each(["Simple", "Full"])("flushes valid %s edits before a typed Read radio and reconciles the canonical result", async mode => {
   const f = backend(); api.draft.mockImplementation(f.request);

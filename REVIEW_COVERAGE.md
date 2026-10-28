@@ -1,5 +1,7 @@
 # Full application review coverage — verified 29 October 2026
 
+**Phase 3 implementation:** This is the preserved review-stage coverage record. Subsequent source changes and fix verification are tracked in [REMEDIATION_TRACKER.md](/Users/oliver/Documents/Projects/OM0RX-xLog/REMEDIATION_TRACKER.md); the frozen audit inventory is not a claim of exhaustive coverage of the remediated application.
+
 **Status: INCOMPLETE manual review.** This stage maps the tracked repository,
 retains first-pass broad checks, deepens selected workflows and records twelve
 substantiated defects after second verification. It does not claim a

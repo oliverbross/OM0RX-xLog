@@ -15,7 +15,7 @@ export type DraftPowerState = { revision: number; enabled: boolean; fallback: st
   selectedSample?: DraftPowerSample | null; selectedContext?: DraftPowerContext | null;
   selectedContact?: DraftPowerContact | null; lastContext?: DraftPowerContext | null;
   sessionPeak?: DraftPowerSample | null; lastObservedAt?: string | null };
-export type DraftSnapshot = { revision: number; qso: DraftQSO; generation?: string; power?: DraftPowerState | null };
+export type DraftSnapshot = { revision: number; qso: DraftQSO; generation?: string; power?: DraftPowerState | null; automaticStart?: boolean };
 export type DraftMutation = { operationID: string; draftID: string; expectedRevision: number;
   action: "replace" | "clear" | "save"; qso?: DraftQSO; generation?: string; powerIntent?: DraftPowerIntent };
 type Receipt = { mutation: DraftMutation; draft: DraftSnapshot; savedQSO?: DraftQSO | null };
@@ -47,7 +47,8 @@ const matchesPowerContact = (qso: DraftQSO, contact: DraftPowerContact) => conta
   contact.mode === String(qso.mode ?? "").trim().toUpperCase() && (contact.frequencyHz ?? null) === (qso.frequencyHz ?? null);
 export function validDraftSnapshot(value: any): value is DraftSnapshot {
   return object(value) && Number.isSafeInteger(value.revision) && value.revision >= 0 &&
-    object(value.qso) && typeof value.qso.id === "string" && value.qso.id.length > 0 &&
+    object(value.qso) && typeof value.qso.id === "string" && value.qso.id !== "" &&
+    [undefined, true, false].includes(value.automaticStart) &&
     (value.power == null || validDraftPower(value.power) && value.power.selectedValue === value.qso.txPower && matchesPowerContact(value.qso, value.power.contact));
 }
 export const validGeneration = (value: unknown): value is string => typeof value === "string" && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value);

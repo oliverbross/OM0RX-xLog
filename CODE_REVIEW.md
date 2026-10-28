@@ -1,5 +1,7 @@
 # Application code review — second verification, 29 October 2026
 
+**Phase 3 remediation:** Current fix statuses and new verification are in [REMEDIATION_TRACKER.md](/Users/oliver/Documents/Projects/OM0RX-xLog/REMEDIATION_TRACKER.md). The review narrative/evidence below describes its recorded pre-fix baseline.
+
 **Verification baseline:** clean canonical `main` at
 `12824393f2799f21c223fadcb19d03305a5bf2f8`, fetched and fast-forward checked.
 Application source is unchanged from the first-pass baseline
@@ -47,6 +49,8 @@ retain first-pass reproduction details and add explicitly dated verification.
 ## Findings
 
 ### CR-001 — Saving a manually dated QSO replaces its date with the current time
+
+**Remediation status:** Fixed and Verified. See REMEDIATION_TRACKER.md for the implementation, tests and limits.
 
 **High — silent corruption of an explicitly entered contact timestamp. Confidence:
 high. Verification: reproduced using the built, unmodified XLogCore and real SQLite,
@@ -364,6 +368,8 @@ the offline Cargo harness and asserted the printed state with `root/assert_resul
 [consumer result](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/full-code-review-verification-2026-10-29/native/recorder-store.log.txt).
 
 ### CR-008 — Editor remounts discard acknowledged manual-time display intent
+
+**Remediation status:** Fixed and Verified. See REMEDIATION_TRACKER.md for the implementation, tests and limits.
 
 **Medium — the UI misrepresents the retained timestamp and can submit a live
 time after navigation. Confidence: high. Verification: actual React components

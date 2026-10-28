@@ -1,0 +1,37 @@
+Building for debugging...
+[Computing dependencies]
+[1 / 5]
+[1 / 17] XLogPrototypeSupport
+[2 / 8] XLogPrototypeTests-product
+[4 / 10] XLogPrototypeTests-product
+[9 / 11] XLogPrototypeTests-product
+[11 / 13] XLogPrototypeTests-product
+Build complete! (8.97 sec.)
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Durable operator draft and retry receipts" started.
+◇ Test "Save uses the button time for an automatic start while a manual historical start is preserved" started.
+✘ Test "Save uses the button time for an automatic start while a manual historical start is preserved" recorded an issue at OperatorDraftTests.swift:102:9: Expectation failed: contact.start == old
+↳ contact.start == old → false
+↳   contact.start → 2027-01-15 08:05:00 +0000
+↳     timeIntervalSinceReferenceDate → 821693100.0
+↳   old → 2023-11-14 22:13:20 +0000
+↳     timeIntervalSinceReferenceDate → 721692800.0
+✘ Test "Save uses the button time for an automatic start while a manual historical start is preserved" recorded an issue at OperatorDraftTests.swift:104:9: Expectation failed: contact.adifRecord.fields["QSO_DATE"] == "20231114"
+↳ contact.adifRecord.fields["QSO_DATE"] == "20231114" → false
+↳   contact.adifRecord.fields["QSO_DATE"] → "20270115"
+↳     some → "20270115"
+↳     some → "20231114"
+✘ Test "Save uses the button time for an automatic start while a manual historical start is preserved" recorded an issue at OperatorDraftTests.swift:105:9: Expectation failed: contact.adifRecord.fields["TIME_ON"] == "221320"
+↳ contact.adifRecord.fields["TIME_ON"] == "221320" → false
+↳   contact.adifRecord.fields["TIME_ON"] → "080500"
+↳     some → "080500"
+↳     some → "221320"
+✘ Test "Save uses the button time for an automatic start while a manual historical start is preserved" recorded an issue at OperatorDraftTests.swift:111:9: Expectation failed: try reopened.lookup(localID: contact.id)?.start == old
+↳ try reopened.lookup(localID: contact.id)?.start == old → <not evaluated>
+✘ Test "Save uses the button time for an automatic start while a manual historical start is preserved" failed after 0.024 seconds with 4 issues.
+✘ Suite "Durable operator draft and retry receipts" failed after 0.024 seconds with 4 issues.
+✘ Test run with 1 test in 1 suite failed after 0.024 seconds with 4 issues.
+Note: Some test targets reported failures:
+  - XLogPrototypeTests (Swift Testing)

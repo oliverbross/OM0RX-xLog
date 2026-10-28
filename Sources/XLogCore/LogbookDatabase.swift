@@ -1945,7 +1945,9 @@ public final class LogbookDatabase: @unchecked Sendable {
                     automaticStart = true
                     if mutation.action == .save {
                         var resolved = power?.applying(to: current.qso, includeProvenance: true) ?? current.qso
-                        if automaticStart { resolved.start = now }
+                        // Resolve this contact using its retained provenance;
+                        // automaticStart above belongs to the next blank draft.
+                        if current.automaticStart { resolved.start = now }
                         try resolved.validateOperatorDraft(forSave: true)
                         guard try lookup(localID: current.qso.id) == nil else { throw OperatorDraftError.existingContact }
                         try save(resolved, markDirty: true, onlineLogCandidate: true)

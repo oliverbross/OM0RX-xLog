@@ -1,0 +1,11 @@
+
+ RUN  v5.0.3 /Users/oliver/Documents/Projects/OM0RX-xLog/prototype
+
+
+ Test Files  6 passed (6)
+      Tests  154 passed (154)
+   Start at  00:30:34
+   Duration  24.14s (tests 88%, environment 7%, import 3%, transform 2%)
+
+    Isolate  6 workers spawned · ~373ms startup each (spawn + environment, per file)
+             at least ~1.86s faster with isolate: false — reuses workers across files instead of one per file

@@ -1,0 +1,31 @@
+
+ RUN  v5.0.3 /Users/oliver/Documents/Projects/OM0RX-xLog/prototype
+
+ ❯ src/live/DetachedQSOSurface.test.tsx (49 tests | 2 failed | 47 skipped) 1126ms
+   × preserves acknowledged manual UTC across remount into Simple and Save 578ms
+   × preserves acknowledged manual UTC across remount into Full and Save 546ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/live/DetachedQSOSurface.test.tsx > preserves acknowledged manual UTC across remount into Simple and Save
+ FAIL  src/live/DetachedQSOSurface.test.tsx > preserves acknowledged manual UTC across remount into Full and Save
+AssertionError: expected '2026-10-28' to be '2026-10-20' // Object.is equality
+
+Expected: "2026-10-20"
+Received: "2026-10-28"
+
+ ❯ src/live/DetachedQSOSurface.test.tsx:96:115
+     94|   fireEvent.click(screen.getByRole("button", { name: "Simple" }));
+     95|   if (mode === "Full") fireEvent.click(screen.getByRole("button", { na…
+     96|   expect((screen.getByLabelText(mode === "Full" ? "Start UTC date" : "…
+       |                                                                                                                   ^
+     97|   expect((screen.getByLabelText(mode === "Full" ? "Start UTC time" : "…
+     98|   fireEvent.click(screen.getByRole("button", { name: "Log QSO" }));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 47 skipped (49)
+   Start at  00:29:28
+   Duration  2.09s (tests 56%, environment 24%, transform 11%, import 8%)

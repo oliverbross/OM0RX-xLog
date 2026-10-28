@@ -1,0 +1,220 @@
+
+> om0rx-xlog-p1-prototype@1.3.60 build
+> tsc --noEmit && vite build && node scripts/check-window-bundles.mjs
+
+vite v8.3.4 building client environment for production...
+transforming...
+✓ 1971 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                  0.59 kB │ gzip:   0.33 kB
+dist/assets/logReview.worker-3pfLCTmN.js                         5.94 kB
+dist/assets/contestAnalytics.worker-D51b6hmS.js                  8.28 kB
+dist/.vite/manifest.json                                        54.06 kB │ gzip:   6.54 kB
+dist/assets/xlog-logo-mark-BUgLATh9.png                         55.59 kB
+dist/assets/maplibre-gl-worker-DxGNRm0a.mjs                    508.31 kB
+dist/assets/dxcc-boundaries-al1ecw9_.geojson                   831.83 kB
+dist/assets/ContestOperatorDialog-NCWZOS9S.css                   0.86 kB │ gzip:   0.39 kB
+dist/assets/DetachedConnectionDoctorSurface-CsD24zG3.css         1.88 kB │ gzip:   0.62 kB
+dist/assets/DetachedContestGroupChat-C5cJHV0_.css                1.96 kB │ gzip:   0.76 kB
+dist/assets/DetachedContestQRZDetailsSurface-BzqgiRf3.css        2.00 kB │ gzip:   0.78 kB
+dist/assets/DetachedContestAuxiliaryDialog-CIVKQhPj.css          2.04 kB │ gzip:   0.75 kB
+dist/assets/ContestRecorderWindow-B9S2pd2_.css                   2.09 kB │ gzip:   0.78 kB
+dist/assets/DetachedContestDigitalDialog-DXSQSMk1.css            2.35 kB │ gzip:   0.83 kB
+dist/assets/ContestLogReviewWindow-BYLgyq8l.css                  3.11 kB │ gzip:   1.04 kB
+dist/assets/ContestLogTransferWindow-BBojk7GU.css                3.55 kB │ gzip:   1.02 kB
+dist/assets/DetachedContestSetupDialog-BSW5lh-D.css              4.58 kB │ gzip:   0.92 kB
+dist/assets/contestSetupServices-BK9pVh78.css                    7.30 kB │ gzip:   1.92 kB
+dist/assets/LiveApp-BGhL_ra5.css                                 8.07 kB │ gzip:   2.07 kB
+dist/assets/DetachedContestSetupSurface-MJi2mmUB.css            11.93 kB │ gzip:   2.56 kB
+dist/assets/ContestAnalyticsWindow-Bqxmpusl.css                 13.09 kB │ gzip:   3.16 kB
+dist/assets/ContestWorkspace-BDZJdFh1.css                       17.75 kB │ gzip:   3.66 kB
+dist/assets/DetachedContestSurface-Blw_mjn_.css                 40.67 kB │ gzip:   6.83 kB
+dist/assets/index-BXUPR0Wf.css                                 324.04 kB │ gzip:  53.97 kB
+dist/assets/play-BFVAbA0E.js                                     0.13 kB │ gzip:   0.14 kB
+dist/assets/square-CAHdX0uN.js                                   0.14 kB │ gzip:   0.15 kB
+dist/assets/x-CfegSOXH.js                                        0.15 kB │ gzip:   0.15 kB
+dist/assets/StableFeedbackLayer-BGY9Awcm.js                      0.16 kB │ gzip:   0.15 kB
+dist/assets/search-Bb_ed8KK.js                                   0.17 kB │ gzip:   0.16 kB
+dist/assets/circle-check-Cm3fadAC.js                             0.17 kB │ gzip:   0.16 kB
+dist/assets/spotFrequency-CqWyebZ8.js                            0.17 kB │ gzip:   0.16 kB
+dist/assets/clock-3-B9SvLzfR.js                                  0.18 kB │ gzip:   0.17 kB
+dist/assets/DetachedHFPropagationLiveSurface-BV-joxel.js         0.18 kB │ gzip:   0.16 kB
+dist/assets/rotate-ccw-qztAYqjp.js                               0.19 kB │ gzip:   0.18 kB
+dist/assets/operatingModule-CDPSXDDu.js                          0.22 kB │ gzip:   0.19 kB
+dist/assets/panels-top-left-cA-k64dL.js                          0.22 kB │ gzip:   0.19 kB
+dist/assets/activity-CaRbsMMe.js                                 0.23 kB │ gzip:   0.19 kB
+dist/assets/ContestRecorderWindow-Dxs4h-bf.js                    0.24 kB │ gzip:   0.20 kB
+dist/assets/external-link-0BF0iMMk.js                            0.25 kB │ gzip:   0.19 kB
+dist/assets/settings-2-Cj_VjWl5.js                               0.25 kB │ gzip:   0.19 kB
+dist/assets/download-CJY7cyjz.js                                 0.26 kB │ gzip:   0.21 kB
+dist/assets/arrow-right-C_ZRQLEb.js                              0.27 kB │ gzip:   0.20 kB
+dist/assets/book-open-D0fYn31f.js                                0.27 kB │ gzip:   0.20 kB
+dist/assets/file-up-KLamtzsO.js                                  0.30 kB │ gzip:   0.21 kB
+dist/assets/refresh-cw-B3QCsVz-.js                               0.32 kB │ gzip:   0.22 kB
+dist/assets/DetachedCWDecodeSurface-C1Jo8R6S.js                  0.32 kB │ gzip:   0.23 kB
+dist/assets/contact-round-CnIz8QDa.js                            0.32 kB │ gzip:   0.24 kB
+dist/assets/trash-2-IPgb5LwE.js                                  0.35 kB │ gzip:   0.24 kB
+dist/assets/DetachedPropagationSurface-C55T1E-W.js               0.36 kB │ gzip:   0.24 kB
+dist/assets/radio-CHIBWIy8.js                                    0.36 kB │ gzip:   0.25 kB
+dist/assets/radio-tower-CadMywTj.js                              0.45 kB │ gzip:   0.29 kB
+dist/assets/canvasClose-BV9jv6Db.js                              0.46 kB │ gzip:   0.32 kB
+dist/assets/countryDisplay-Bm2UG4zx.js                           0.63 kB │ gzip:   0.41 kB
+dist/assets/move-diagonal-2-BjOOWzRf.js                          0.65 kB │ gzip:   0.30 kB
+dist/assets/DetachedAwardsSurface-K7RKh1Ql.js                    0.67 kB │ gzip:   0.42 kB
+dist/assets/SettingsSaveToast-BB9U8bYy.js                        0.68 kB │ gzip:   0.40 kB
+dist/assets/DetachedSpotHistorySurface-2ifs9CQ3.js               0.73 kB │ gzip:   0.45 kB
+dist/assets/band-BO46iU9G.js                                     0.75 kB │ gzip:   0.46 kB
+dist/assets/ownSpotPreferences-D5aihypb.js                       0.79 kB │ gzip:   0.45 kB
+dist/assets/propagationPreferences-DU4Qi880.js                   0.81 kB │ gzip:   0.45 kB
+dist/assets/deskMapLogbookPreferences-BseRCKD9.js                0.85 kB │ gzip:   0.49 kB
+dist/assets/logbookCapacity-Uv60gP-h.js                          0.86 kB │ gzip:   0.48 kB
+dist/assets/startupReadRecovery-gImxBLYi.js                      0.86 kB │ gzip:   0.50 kB
+dist/assets/rotorTelemetry-DY6kD6MS.js                           0.86 kB │ gzip:   0.49 kB
+dist/assets/createLucideIcon-jixYij3J.js                         0.90 kB │ gzip:   0.54 kB
+dist/assets/clusterAppearance-BA7kHqa1.js                        0.93 kB │ gzip:   0.46 kB
+dist/assets/useSpotActivation-Clxx68KV.js                        0.95 kB │ gzip:   0.54 kB
+dist/assets/stationSelection-CzVN5G6N.js                         1.04 kB │ gzip:   0.59 kB
+dist/assets/core-BKnwzu3A.js                                     1.13 kB │ gzip:   0.56 kB
+dist/assets/clusterResume-CfKb92HF.js                            1.16 kB │ gzip:   0.62 kB
+dist/assets/rotorControl-CFocEdpD.js                             1.19 kB │ gzip:   0.58 kB
+dist/assets/RecorderAudioAction-CYJtIP9T.js                      1.20 kB │ gzip:   0.73 kB
+dist/assets/DetachedOpportunitiesSurface-rizgKI5n.js             1.30 kB │ gzip:   0.71 kB
+dist/assets/event-DjdGxSZA.js                                    1.31 kB │ gzip:   0.62 kB
+dist/assets/logbookWindows-B_mwkJkg.js                           1.33 kB │ gzip:   0.68 kB
+dist/assets/operatingModulePreparation-BsxVkZ_C.js               1.35 kB │ gzip:   0.70 kB
+dist/assets/QRZLookupTest-DHfnOo_e.js                            1.41 kB │ gzip:   0.77 kB
+dist/assets/operatorWorkspacePreferences-CN9Yv1Z_.js             1.43 kB │ gzip:   0.76 kB
+dist/assets/contestSchedule-RlqCfcnJ.js                          1.50 kB │ gzip:   0.73 kB
+dist/assets/contestRecorder-xmvPTePy.js                          1.57 kB │ gzip:   0.88 kB
+dist/assets/DetachedCWSurface-GID40mFx.js                        1.59 kB │ gzip:   0.87 kB
+dist/assets/useMapContext-DKYhcTTv.js                            1.61 kB │ gzip:   0.82 kB
+dist/assets/clusterPalette-DEC5iLYt.js                           1.67 kB │ gzip:   0.83 kB
+dist/assets/DetachedBandMapsSurface-Bi0z-0wT.js                  1.72 kB │ gzip:   0.89 kB
+dist/assets/logbookColumnPreferences-DFRuFEkh.js                 1.76 kB │ gzip:   0.89 kB
+dist/assets/DetachedWorldMapSurface-mn6pe0EP.js                  1.78 kB │ gzip:   0.86 kB
+dist/assets/canvasGeometry-C17Q7OgH.js                           1.80 kB │ gzip:   0.85 kB
+dist/assets/ContestOperatorDialog-CVz6zGmW.js                    1.89 kB │ gzip:   0.88 kB
+dist/assets/operatorDraftWindows-BcmpqngR.js                     1.90 kB │ gzip:   1.01 kB
+dist/assets/contestBandPlan-BKlDUeJN.js                          2.09 kB │ gzip:   1.05 kB
+dist/assets/ManualSimplexTune-BAOqaQ8F.js                        2.09 kB │ gzip:   0.94 kB
+dist/assets/draftEnrichment-DnEUnyA0.js                          2.12 kB │ gzip:   1.00 kB
+dist/assets/useAutoRotor-CaU0iqhK.js                             2.16 kB │ gzip:   1.00 kB
+dist/assets/DetachedClusterSurface-grPLu0Rh.js                   2.20 kB │ gzip:   1.09 kB
+dist/assets/ClusterFilterDialog-DRHhhdZE.js                      2.57 kB │ gzip:   1.10 kB
+dist/assets/CWDesk-ztIrgvJ3.js                                   2.60 kB │ gzip:   1.21 kB
+dist/assets/callsignIntelligenceContext-2ryjVVWa.js              2.94 kB │ gzip:   1.25 kB
+dist/assets/DetachedAntennaSurface-DbbTF_ke.js                   2.95 kB │ gzip:   1.41 kB
+dist/assets/useSpotEditor-DVGHKXp9.js                            3.07 kB │ gzip:   1.47 kB
+dist/assets/DetachedContestAuxiliaryDialog-BSXaiCW-.js           3.15 kB │ gzip:   1.25 kB
+dist/assets/hamlibStation-C7_D1oES.js                            3.27 kB │ gzip:   1.51 kB
+dist/assets/TCISplitObservation-s3UtAEdS.js                      3.35 kB │ gzip:   1.56 kB
+dist/assets/useQSOFieldPreferences-Ba0r2RwH.js                   3.39 kB │ gzip:   1.37 kB
+dist/assets/ContestPresentation-CXq7wNgD.js                      3.41 kB │ gzip:   1.27 kB
+dist/assets/DetachedStationIdentitySurface-mrjTqQ4d.js           3.44 kB │ gzip:   1.46 kB
+dist/assets/useSharedCW-9rByCEhO.js                              3.49 kB │ gzip:   1.51 kB
+dist/assets/worker-Cv28JJtL.js                                   3.53 kB │ gzip:   1.32 kB
+dist/assets/workspaceNavigation-D3M6xxxB.js                      3.72 kB │ gzip:   1.33 kB
+dist/assets/cwMacros-DqhQcGVd.js                                 3.78 kB │ gzip:   1.68 kB
+dist/assets/DetachedCallsignIntelligenceSurface-BrtzQztq.js      4.03 kB │ gzip:   1.75 kB
+dist/assets/MapGrid-j7Dm0f-w.js                                  4.15 kB │ gzip:   1.83 kB
+dist/assets/manualRotorGoto-C4Yu_mq-.js                          4.21 kB │ gzip:   1.53 kB
+dist/assets/contestSetupDialogs-DjaJeZ_q.js                      4.34 kB │ gzip:   1.65 kB
+dist/assets/CallsignIntelligence-DIpJeoU0.js                     4.56 kB │ gzip:   2.04 kB
+dist/assets/useWorkspaceWindows-D7HFcY_g.js                      4.59 kB │ gzip:   1.95 kB
+dist/assets/DetachedContestQRZDetailsSurface-CrB-v-pZ.js         4.63 kB │ gzip:   2.09 kB
+dist/assets/StationEquipment-DtUdOp34.js                         4.63 kB │ gzip:   1.73 kB
+dist/assets/RotorCompass-BViq_XAo.js                             4.71 kB │ gzip:   1.94 kB
+dist/assets/DetachedStationStatusSurface-CP64Vmit.js             4.73 kB │ gzip:   1.94 kB
+dist/assets/WSJTXPanel-CxJWV0-7.js                               4.84 kB │ gzip:   2.04 kB
+dist/assets/DetachedLogbookSurface-DFut7tSG.js                   5.03 kB │ gzip:   2.22 kB
+dist/assets/logReview-B_dzkLNg.js                                5.06 kB │ gzip:   2.46 kB
+dist/assets/DetachedSettingsSurface-DK1OwpTu.js                  5.08 kB │ gzip:   2.28 kB
+dist/assets/DetachedContestSetupDialog-gtqfSxN3.js               5.21 kB │ gzip:   2.26 kB
+dist/assets/manualTune-Bhj7De9E.js                               5.57 kB │ gzip:   2.06 kB
+dist/assets/unfinishedEditors-Bcb_Tj4v.js                        5.68 kB │ gzip:   2.12 kB
+dist/assets/RadioSpotSettings-Bb7VjalU.js                        5.86 kB │ gzip:   2.18 kB
+dist/assets/DetachedRotorSurface-5V52R2bY.js                     5.94 kB │ gzip:   2.43 kB
+dist/assets/mapContext-ClWRud-V.js                               6.04 kB │ gzip:   2.44 kB
+dist/assets/QSOEditor-DfS86feh.js                                6.07 kB │ gzip:   2.58 kB
+dist/assets/ManualRotorControl-CFKrn8xj.js                       6.08 kB │ gzip:   2.05 kB
+dist/assets/DetachedContestGroupChat-BQwnqhWV.js                 6.27 kB │ gzip:   2.33 kB
+dist/assets/DetachedContestDigitalDialog-DOJGnJh2.js             6.76 kB │ gzip:   2.31 kB
+dist/assets/SharedPropagationConditions-CnAAImVj.js              6.76 kB │ gzip:   2.67 kB
+dist/assets/DetachedStationControlSurface-Czj4tNa-.js            6.78 kB │ gzip:   2.25 kB
+dist/assets/DetachedPreviousQSOsSurface-B75IDygj.js              6.80 kB │ gzip:   2.75 kB
+dist/assets/SpotBridgePanel-BMAh5ZHl.js                          7.08 kB │ gzip:   2.59 kB
+dist/assets/DetachedConnectionDoctorSurface-CQJl1f2_.js          7.32 kB │ gzip:   2.64 kB
+dist/assets/loadContestWindowSurface-X_0JJGjK.js                 8.14 kB │ gzip:   2.53 kB
+dist/assets/contestKeyBindings-Cy2KuDTU.js                       8.38 kB │ gzip:   2.96 kB
+dist/assets/contestGroupChat-BhbOAZlc.js                         8.58 kB │ gzip:   2.58 kB
+dist/assets/DetachedQSOSurface-9TTBdJyO.js                       8.94 kB │ gzip:   3.29 kB
+dist/assets/workspaceLayoutSession-D6oe_JJu.js                   9.35 kB │ gzip:   3.05 kB
+dist/assets/SpotActivationStatus-Bn3vsId0.js                     9.65 kB │ gzip:   2.94 kB
+dist/assets/contestCallHistory-B8DJIA5u.js                      10.34 kB │ gzip:   3.20 kB
+dist/assets/ContestLogTransferWindow-DAdo2gJb.js                10.79 kB │ gzip:   3.37 kB
+dist/assets/LogbookContactReview-B7HanaXQ.js                    11.35 kB │ gzip:   3.70 kB
+dist/assets/DetachedContestCallHistorySurface-B8Rr0ldP.js       11.45 kB │ gzip:   3.84 kB
+dist/assets/DetachedOperatingGoalsSurface-DVHhbywU.js           12.05 kB │ gzip:   3.95 kB
+dist/assets/OperatorDraftStatus-BDQJ2_hB.js                     13.00 kB │ gzip:   4.99 kB
+dist/assets/ContestSecondaryPanels-CM7WbyR3.js                  15.86 kB │ gzip:   5.57 kB
+dist/assets/AwardsPanel-0LkdyaDf.js                             16.33 kB │ gzip:   4.96 kB
+dist/assets/OpportunitiesPanel-0LwX62KW.js                      16.92 kB │ gzip:   6.28 kB
+dist/assets/DetachedMonitorSurface-MQqprCJo.js                  17.98 kB │ gzip:   5.86 kB
+dist/assets/ContestLogReviewWindow-Ck_19HeD.js                  18.39 kB │ gzip:   6.24 kB
+dist/assets/ContestRecorderWindow-D1M7wts1.js                   18.81 kB │ gzip:   5.76 kB
+dist/assets/monitorContext-Cg-kkWE1.js                          20.01 kB │ gzip:   5.50 kB
+dist/assets/DataManagementPanel-BWL2FrR4.js                     21.00 kB │ gzip:   6.87 kB
+dist/assets/operatorDraftSession-N3aVQGpV.js                    21.11 kB │ gzip:   5.69 kB
+dist/assets/DetachedAlertsSurface-BB99R3vN.js                   21.60 kB │ gzip:   6.72 kB
+dist/assets/CWDecodePanel-B8LpSsmF.js                           23.45 kB │ gzip:   6.88 kB
+dist/assets/DetachedDXpeditionMapSurface-17YrCB2M.js            23.74 kB │ gzip:   7.80 kB
+dist/assets/SpotHistoryPanel-D0-MP9EU.js                        24.15 kB │ gzip:   7.57 kB
+dist/assets/adifTransfer-BY5_Y58h.js                            25.65 kB │ gzip:   9.44 kB
+dist/assets/DetachedClusterBridge-ELuvX5Qf.js                   32.28 kB │ gzip:  10.91 kB
+dist/assets/QSOEditorCore-BNcmCayg.js                           35.20 kB │ gzip:  11.64 kB
+dist/assets/contestSurfaceNative-DmJ1cWJn.js                    38.61 kB │ gzip:  10.63 kB
+dist/assets/HFPropagationLive-SFklUiCM.js                       40.63 kB │ gzip:  14.21 kB
+dist/assets/ClusterPanel-DDn36WrC.js                            47.66 kB │ gzip:  13.16 kB
+dist/assets/integratedAcceptance-CQ00ZdP3.js                    55.00 kB │ gzip:  14.27 kB
+dist/assets/ContactEditStatus-BG05yCeG.js                       60.07 kB │ gzip:  17.68 kB
+dist/assets/ContestAnalyticsWindow-BjcxDZ7M.js                  69.79 kB │ gzip:  19.98 kB
+dist/assets/RotorPanel-BFKpwRtV.js                              74.58 kB │ gzip:  19.07 kB
+dist/assets/DetachedContestSurface-B2hmx4Uz.js                  90.58 kB │ gzip:  25.24 kB
+dist/assets/WorkspaceSettings-D-Q06zMJ.js                       92.72 kB │ gzip:  26.12 kB
+dist/assets/LiveApp-BBSYQJe3.js                                171.71 kB │ gzip:  49.59 kB
+dist/assets/index-DWeexh_f.js                                  258.47 kB │ gzip:  80.23 kB
+dist/assets/DetachedContestSetupSurface-CDBEnI-p.js            333.10 kB │ gzip:  96.35 kB
+dist/assets/contestSetupServices-CGHglzCC.js                   666.26 kB │ gzip:  71.44 kB
+dist/assets/Map-Ds6V7aXC.js                                  1,089.29 kB │ gzip: 296.84 kB
+
+✓ built in 550ms
+[plugin builtin:vite-reporter]
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+{"window":"WorldMap","bytes":1437869,"gzip":406157,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedWorldMapSurface-mn6pe0EP.js","assets/SpotActivationStatus-Bn3vsId0.js","assets/operatorDraftSession-N3aVQGpV.js","assets/StableFeedbackLayer-BGY9Awcm.js","assets/Map-Ds6V7aXC.js","assets/spotFrequency-CqWyebZ8.js","assets/MapGrid-j7Dm0f-w.js","assets/clusterPalette-DEC5iLYt.js","assets/mapContext-ClWRud-V.js","assets/DetachedClusterBridge-ELuvX5Qf.js","assets/createLucideIcon-jixYij3J.js","assets/rotate-ccw-qztAYqjp.js","assets/x-CfegSOXH.js","assets/countryDisplay-Bm2UG4zx.js","assets/band-BO46iU9G.js","assets/contestBandPlan-BKlDUeJN.js","assets/hamlibStation-C7_D1oES.js","assets/useMapContext-DKYhcTTv.js","assets/useSpotActivation-Clxx68KV.js"]}
+{"window":"DXpeditionMap","bytes":1463585,"gzip":414587,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedDXpeditionMapSurface-17YrCB2M.js","assets/SpotActivationStatus-Bn3vsId0.js","assets/operatorDraftSession-N3aVQGpV.js","assets/operatingModule-CDPSXDDu.js","assets/useSpotActivation-Clxx68KV.js","assets/StableFeedbackLayer-BGY9Awcm.js","assets/worker-Cv28JJtL.js","assets/Map-Ds6V7aXC.js","assets/spotFrequency-CqWyebZ8.js","assets/MapGrid-j7Dm0f-w.js","assets/clusterPalette-DEC5iLYt.js","assets/useMapContext-DKYhcTTv.js","assets/DetachedClusterBridge-ELuvX5Qf.js","assets/createLucideIcon-jixYij3J.js","assets/rotate-ccw-qztAYqjp.js","assets/x-CfegSOXH.js","assets/countryDisplay-Bm2UG4zx.js","assets/band-BO46iU9G.js","assets/contestBandPlan-BKlDUeJN.js","assets/mapContext-ClWRud-V.js","assets/hamlibStation-C7_D1oES.js"]}
+{"window":"BandMaps","bytes":344361,"gzip":110204,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedBandMapsSurface-Bi0z-0wT.js","assets/SpotActivationStatus-Bn3vsId0.js","assets/operatorDraftSession-N3aVQGpV.js","assets/StableFeedbackLayer-BGY9Awcm.js","assets/DetachedClusterBridge-ELuvX5Qf.js","assets/createLucideIcon-jixYij3J.js","assets/rotate-ccw-qztAYqjp.js","assets/x-CfegSOXH.js","assets/spotFrequency-CqWyebZ8.js","assets/clusterPalette-DEC5iLYt.js","assets/countryDisplay-Bm2UG4zx.js","assets/band-BO46iU9G.js","assets/contestBandPlan-BKlDUeJN.js","assets/mapContext-ClWRud-V.js","assets/hamlibStation-C7_D1oES.js","assets/useMapContext-DKYhcTTv.js","assets/useSpotActivation-Clxx68KV.js"]}
+{"window":"Monitor","bytes":1489590,"gzip":424043,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedMonitorSurface-MQqprCJo.js","assets/manualRotorGoto-C4Yu_mq-.js","assets/useAutoRotor-CaU0iqhK.js","assets/rotorControl-CFocEdpD.js","assets/ManualRotorControl-CFKrn8xj.js","assets/startupReadRecovery-gImxBLYi.js","assets/worker-Cv28JJtL.js","assets/Map-Ds6V7aXC.js","assets/spotFrequency-CqWyebZ8.js","assets/MapGrid-j7Dm0f-w.js","assets/clusterPalette-DEC5iLYt.js","assets/stationSelection-CzVN5G6N.js","assets/monitorContext-Cg-kkWE1.js","assets/hamlibStation-C7_D1oES.js","assets/mapContext-ClWRud-V.js","assets/DetachedClusterBridge-ELuvX5Qf.js","assets/createLucideIcon-jixYij3J.js","assets/rotate-ccw-qztAYqjp.js","assets/x-CfegSOXH.js","assets/countryDisplay-Bm2UG4zx.js","assets/band-BO46iU9G.js","assets/contestBandPlan-BKlDUeJN.js","assets/draftEnrichment-DnEUnyA0.js","assets/operatorDraftSession-N3aVQGpV.js","assets/operatorDraftWindows-BcmpqngR.js","assets/canvasClose-BV9jv6Db.js","assets/operatingModulePreparation-BsxVkZ_C.js","assets/callsignIntelligenceContext-2ryjVVWa.js"]}
+{"window":"Awards","bytes":286807,"gzip":90652,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedAwardsSurface-K7RKh1Ql.js","assets/AwardsPanel-0LkdyaDf.js","assets/createLucideIcon-jixYij3J.js","assets/book-open-D0fYn31f.js","assets/circle-check-Cm3fadAC.js","assets/clock-3-B9SvLzfR.js","assets/external-link-0BF0iMMk.js","assets/panels-top-left-cA-k64dL.js","assets/search-Bb_ed8KK.js","assets/worker-Cv28JJtL.js","assets/logbookWindows-B_mwkJkg.js","assets/canvasClose-BV9jv6Db.js","assets/operatingModulePreparation-BsxVkZ_C.js"]}
+{"window":"Logbook","bytes":405200,"gzip":130350,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedLogbookSurface-DFut7tSG.js","assets/SpotActivationStatus-Bn3vsId0.js","assets/operatorDraftSession-N3aVQGpV.js","assets/useSpotEditor-DVGHKXp9.js","assets/ContactEditStatus-BG05yCeG.js","assets/startupReadRecovery-gImxBLYi.js","assets/createLucideIcon-jixYij3J.js","assets/arrow-right-C_ZRQLEb.js","assets/download-CJY7cyjz.js","assets/external-link-0BF0iMMk.js","assets/file-up-KLamtzsO.js","assets/panels-top-left-cA-k64dL.js","assets/rotate-ccw-qztAYqjp.js","assets/search-Bb_ed8KK.js","assets/trash-2-IPgb5LwE.js","assets/clusterPalette-DEC5iLYt.js","assets/SettingsSaveToast-BB9U8bYy.js","assets/countryDisplay-Bm2UG4zx.js","assets/logbookCapacity-Uv60gP-h.js","assets/logbookColumnPreferences-DFRuFEkh.js","assets/operatorWorkspacePreferences-CN9Yv1Z_.js","assets/adifTransfer-BY5_Y58h.js","assets/draftEnrichment-DnEUnyA0.js","assets/worker-Cv28JJtL.js","assets/logbookWindows-B_mwkJkg.js","assets/canvasClose-BV9jv6Db.js","assets/operatingModulePreparation-BsxVkZ_C.js"]}
+{"window":"Cluster","bytes":390175,"gzip":122802,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedClusterSurface-grPLu0Rh.js","assets/SpotActivationStatus-Bn3vsId0.js","assets/operatorDraftSession-N3aVQGpV.js","assets/useSpotActivation-Clxx68KV.js","assets/StableFeedbackLayer-BGY9Awcm.js","assets/DetachedClusterBridge-ELuvX5Qf.js","assets/createLucideIcon-jixYij3J.js","assets/rotate-ccw-qztAYqjp.js","assets/x-CfegSOXH.js","assets/spotFrequency-CqWyebZ8.js","assets/clusterPalette-DEC5iLYt.js","assets/countryDisplay-Bm2UG4zx.js","assets/band-BO46iU9G.js","assets/contestBandPlan-BKlDUeJN.js","assets/ClusterPanel-DDn36WrC.js","assets/operatorWorkspacePreferences-CN9Yv1Z_.js","assets/SettingsSaveToast-BB9U8bYy.js","assets/logbookCapacity-Uv60gP-h.js","assets/clusterAppearance-BA7kHqa1.js","assets/clusterResume-CfKb92HF.js","assets/worker-Cv28JJtL.js"]}
+{"window":"QSO","bytes":385127,"gzip":125940,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedQSOSurface-9TTBdJyO.js","assets/operatorDraftSession-N3aVQGpV.js","assets/SpotActivationStatus-Bn3vsId0.js","assets/useSpotEditor-DVGHKXp9.js","assets/OperatorDraftStatus-BDQJ2_hB.js","assets/rotorControl-CFocEdpD.js","assets/createLucideIcon-jixYij3J.js","assets/circle-check-Cm3fadAC.js","assets/QSOEditorCore-BNcmCayg.js","assets/contact-round-CnIz8QDa.js","assets/panels-top-left-cA-k64dL.js","assets/radio-tower-CadMywTj.js","assets/radio-CHIBWIy8.js","assets/countryDisplay-Bm2UG4zx.js","assets/logbookWindows-B_mwkJkg.js","assets/canvasClose-BV9jv6Db.js","assets/operatingModulePreparation-BsxVkZ_C.js","assets/draftEnrichment-DnEUnyA0.js","assets/useQSOFieldPreferences-Ba0r2RwH.js","assets/band-BO46iU9G.js","assets/CallsignIntelligence-DIpJeoU0.js","assets/RotorCompass-BViq_XAo.js","assets/StationEquipment-DtUdOp34.js","assets/StableFeedbackLayer-BGY9Awcm.js","assets/worker-Cv28JJtL.js","assets/operatorDraftWindows-BcmpqngR.js"]}
+{"window":"SpotHistory","bytes":295621,"gzip":93528,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedSpotHistorySurface-2ifs9CQ3.js","assets/SpotHistoryPanel-D0-MP9EU.js","assets/createLucideIcon-jixYij3J.js","assets/arrow-right-C_ZRQLEb.js","assets/refresh-cw-B3QCsVz-.js","assets/search-Bb_ed8KK.js","assets/clusterPalette-DEC5iLYt.js","assets/operatorWorkspacePreferences-CN9Yv1Z_.js","assets/countryDisplay-Bm2UG4zx.js","assets/logbookCapacity-Uv60gP-h.js","assets/worker-Cv28JJtL.js"]}
+{"window":"CallsignIntelligence","bytes":306163,"gzip":97572,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedCallsignIntelligenceSurface-BrtzQztq.js","assets/worker-Cv28JJtL.js","assets/logbookWindows-B_mwkJkg.js","assets/canvasClose-BV9jv6Db.js","assets/operatingModulePreparation-BsxVkZ_C.js","assets/draftEnrichment-DnEUnyA0.js","assets/operatorDraftSession-N3aVQGpV.js","assets/operatorDraftWindows-BcmpqngR.js","assets/callsignIntelligenceContext-2ryjVVWa.js","assets/CallsignIntelligence-DIpJeoU0.js","assets/contact-round-CnIz8QDa.js","assets/createLucideIcon-jixYij3J.js","assets/countryDisplay-Bm2UG4zx.js"]}
+{"window":"PreviousQSOs","bytes":304175,"gzip":96146,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedPreviousQSOsSurface-B75IDygj.js","assets/worker-Cv28JJtL.js","assets/clusterPalette-DEC5iLYt.js","assets/logbookWindows-B_mwkJkg.js","assets/canvasClose-BV9jv6Db.js","assets/operatingModulePreparation-BsxVkZ_C.js","assets/draftEnrichment-DnEUnyA0.js","assets/operatorDraftSession-N3aVQGpV.js","assets/operatorDraftWindows-BcmpqngR.js","assets/callsignIntelligenceContext-2ryjVVWa.js"]}
+{"window":"OperatingGoals","bytes":276512,"gzip":85871,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedOperatingGoalsSurface-DVHhbywU.js","assets/worker-Cv28JJtL.js"]}
+{"window":"Settings","bytes":395412,"gzip":123968,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedSettingsSurface-DK1OwpTu.js","assets/WorkspaceSettings-D-Q06zMJ.js","assets/createLucideIcon-jixYij3J.js","assets/trash-2-IPgb5LwE.js","assets/worker-Cv28JJtL.js","assets/operatorWorkspacePreferences-CN9Yv1Z_.js","assets/SettingsSaveToast-BB9U8bYy.js","assets/clusterAppearance-BA7kHqa1.js","assets/propagationPreferences-DU4Qi880.js","assets/useQSOFieldPreferences-Ba0r2RwH.js","assets/workspaceLayoutSession-D6oe_JJu.js","assets/canvasGeometry-C17Q7OgH.js","assets/StationEquipment-DtUdOp34.js","assets/radio-tower-CadMywTj.js","assets/useWorkspaceWindows-D7HFcY_g.js","assets/cwMacros-DqhQcGVd.js"]}
+{"window":"Opportunities","bytes":314572,"gzip":98189,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedOpportunitiesSurface-rizgKI5n.js","assets/SpotActivationStatus-Bn3vsId0.js","assets/operatorDraftSession-N3aVQGpV.js","assets/useSpotActivation-Clxx68KV.js","assets/StableFeedbackLayer-BGY9Awcm.js","assets/worker-Cv28JJtL.js","assets/OpportunitiesPanel-0LwX62KW.js"]}
+{"window":"HFPropagationLive","bytes":315882,"gzip":100792,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedHFPropagationLiveSurface-BV-joxel.js","assets/HFPropagationLive-SFklUiCM.js","assets/createLucideIcon-jixYij3J.js","assets/activity-CaRbsMMe.js","assets/external-link-0BF0iMMk.js","assets/move-diagonal-2-BjOOWzRf.js","assets/refresh-cw-B3QCsVz-.js","assets/rotate-ccw-qztAYqjp.js","assets/settings-2-Cj_VjWl5.js","assets/x-CfegSOXH.js","assets/canvasGeometry-C17Q7OgH.js","assets/workspaceLayoutSession-D6oe_JJu.js"]}
+{"window":"StationControl","bytes":313530,"gzip":98578,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedStationControlSurface-Czj4tNa-.js","assets/manualTune-Bhj7De9E.js","assets/manualRotorGoto-C4Yu_mq-.js","assets/ManualRotorControl-CFKrn8xj.js","assets/rotorControl-CFocEdpD.js","assets/ManualSimplexTune-BAOqaQ8F.js","assets/monitorContext-Cg-kkWE1.js","assets/hamlibStation-C7_D1oES.js","assets/TCISplitObservation-s3UtAEdS.js"]}
+{"window":"CW","bytes":273455,"gzip":86579,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedCWSurface-GID40mFx.js","assets/CWDesk-ztIrgvJ3.js","assets/square-CAHdX0uN.js","assets/createLucideIcon-jixYij3J.js","assets/cwMacros-DqhQcGVd.js","assets/useSharedCW-9rByCEhO.js"]}
+{"window":"CWDecode","bytes":290396,"gzip":90632,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedCWDecodeSurface-C1Jo8R6S.js","assets/CWDecodePanel-B8LpSsmF.js","assets/external-link-0BF0iMMk.js","assets/createLucideIcon-jixYij3J.js","assets/play-BFVAbA0E.js","assets/refresh-cw-B3QCsVz-.js","assets/settings-2-Cj_VjWl5.js","assets/square-CAHdX0uN.js","assets/x-CfegSOXH.js","assets/worker-Cv28JJtL.js"]}
+{"window":"Rotor","bytes":337517,"gzip":106007,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedRotorSurface-5V52R2bY.js","assets/manualRotorGoto-C4Yu_mq-.js","assets/useAutoRotor-CaU0iqhK.js","assets/rotorControl-CFocEdpD.js","assets/ManualRotorControl-CFKrn8xj.js","assets/startupReadRecovery-gImxBLYi.js","assets/worker-Cv28JJtL.js","assets/RotorCompass-BViq_XAo.js","assets/rotorTelemetry-DY6kD6MS.js","assets/contestSurfaceNative-DmJ1cWJn.js","assets/contestKeyBindings-Cy2KuDTU.js"]}
+{"window":"StationStatus","bytes":294355,"gzip":91667,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedStationStatusSurface-CP64Vmit.js","assets/monitorContext-Cg-kkWE1.js","assets/manualRotorGoto-C4Yu_mq-.js","assets/rotorControl-CFocEdpD.js","assets/hamlibStation-C7_D1oES.js"]}
+{"window":"Propagation","bytes":270089,"gzip":84740,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedPropagationSurface-C55T1E-W.js","assets/SharedPropagationConditions-CnAAImVj.js","assets/refresh-cw-B3QCsVz-.js","assets/createLucideIcon-jixYij3J.js","assets/propagationPreferences-DU4Qi880.js"]}
+{"window":"StationIdentity","bytes":264373,"gzip":82074,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedStationIdentitySurface-mrjTqQ4d.js"]}
+{"window":"Alerts","bytes":286328,"gzip":89306,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedAlertsSurface-BB99R3vN.js","assets/clusterPalette-DEC5iLYt.js","assets/operatorWorkspacePreferences-CN9Yv1Z_.js","assets/SettingsSaveToast-BB9U8bYy.js"]}
+{"window":"Antenna","bytes":269864,"gzip":84584,"files":["assets/index-DWeexh_f.js","assets/core-BKnwzu3A.js","assets/event-DjdGxSZA.js","assets/DetachedAntennaSurface-DbbTF_ke.js","assets/StationEquipment-DtUdOp34.js","assets/radio-tower-CadMywTj.js","assets/createLucideIcon-jixYij3J.js"]}

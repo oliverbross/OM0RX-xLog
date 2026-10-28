@@ -1330,6 +1330,7 @@ function MainLiveApp() {
     if (station.radio.mode) automaticStationMetadata.push({ label: "Radio mode", value: station.radio.mode, provenance: "observed" });
   }
   const deskProps = { draftLocked: editorLocked, canAcceptLocalInput: acceptsInput, onLocalInputState: editorInputState, resetInputEpoch: spotEditorEpoch,
+    automaticStart: !editing.current && (sharedDraft.base?.automaticStart ?? false),
     referenceEvidence, cwControls, equipment: settings?.stationEquipment, draft, setDraft: setOperatorDraft, save,
     clear: () => void run(clear), busy: busy || editorBlocked, lookup, previous, request, refresh, onEditor: () => setView("Log QSO"),
     onReadRadio: readRadioIntoDraft, follow, setFollow: setFollowImmediate, rotor: rotorState,
@@ -1432,6 +1433,7 @@ function MainLiveApp() {
         canChangeView={() => !logbookWorkingRef.current && !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookMutations.getSnapshot().busy && !logbookMutations.getSnapshot().pending} />}
         cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} onRequest={request} bandMaps={deskBands} /></div></>} />}
       {view === "Log QSO" && <QSOEditor resetInputEpoch={spotEditorEpoch} referenceEvidence={referenceEvidence} draftLocked={editorLocked} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata}
+        automaticStart={!editing.current && (sharedDraft.base?.automaticStart ?? false)}
         clearLabel={editing.current ? "Cancel edit" : "Clear QSO"}
         contactActions={contactEdit.base && <ContactDeleteAction snapshot={contactEdit.base} mutations={logbookMutations}
           disabled={busy || editorBlocked} run={run} onDeleted={() => { contactSession.cancel(); setRefresh(n => n + 1); setView("Logbook"); }} />}
