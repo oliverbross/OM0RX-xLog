@@ -2205,7 +2205,7 @@ it("serializes rapid Python tab-map focus changes and sends exact report focus t
     throw new Error(command);
   });
   render(<DetachedContestSurface/>);const receive=await screen.findByLabelText("RCV"),exchange=screen.getByLabelText("Power");
-  expect(document.activeElement).toBe(receive);fireEvent.keyDown(receive,{key:"Enter"});
+  await waitFor(()=>expect(document.activeElement).toBe(receive));fireEvent.keyDown(receive,{key:"Enter"});
   await waitFor(()=>expect(actions[0]).toMatchObject({action:"entry_operator_key",params:{key:"Enter",focusedField:"receive"}}));
   fireEvent.keyDown(receive,{key:"Tab"});
   expect(document.activeElement).toBe(exchange);fireEvent.keyDown(exchange,{key:"Tab"});
@@ -2227,7 +2227,7 @@ it("uses the pinned plugin space-advance fields instead of limiting space to Cal
     throw new Error(command);
   });
   render(<DetachedContestSurface/>);const sent=await screen.findByLabelText("SNT"),receive=screen.getByLabelText("RCV");
-  expect(document.activeElement).toBe(sent);fireEvent.keyDown(sent,{key:" "});
+  await waitFor(()=>expect(document.activeElement).toBe(sent));fireEvent.keyDown(sent,{key:" "});
   expect(document.activeElement).toBe(receive);
 });
 
