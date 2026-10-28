@@ -91,6 +91,18 @@ class ReplicaStrategyAuthorityTests(unittest.TestCase):
         self.assertEqual(error.exception.code, "payload_conflict")
         self.call(self.replica, "operating_plan_save", **self.params(plan={"ruleProfileID": "", "note": "Local only"}))
         self.call(self.replica, "strategy_apply", **self.params(action="sked_dismiss", itemID="local"))
+        store = self.replica.database(self.session)
+        draft = deepcopy(store.state(self.session)["draft"])
+        preferences = self.call(self.replica, "setup_get", sessionID=self.session)["setup"]["preferences"]
+        bank = self.call(self.replica, "message_import", sessionID=self.session,
+                         workspaceGeneration=self.workspace, expectedRevision=store.state(self.session)["revision"],
+                         dialect="not1mm", source="R|F1|CQ|CQ {MYCALL}", name="Local messages",
+                         scope={"mode": "CW", "contest": "cq_wpx_cw", "operator": "OM0RX"})["bank"]
+        saved = self.call(self.replica, "message_bank_save", **self.params(bank=bank))
+        activated = self.call(self.replica, "message_bank_activate", **self.params(bankID=saved["waveResult"]["banks"][0]["id"]))
+        self.assertEqual(activated["actions"], [])
+        self.assertEqual(activated["setup"]["preferences"], preferences)
+        self.assertEqual(store.state(self.session)["draft"], draft)
 
     def test_qtc_family_cannot_fork_replica_accounting(self):
         self.pair("wae_cw")
