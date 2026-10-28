@@ -84,7 +84,9 @@ async function desk() {
   const mount = async () => {
     const view = render(<Not1MMContestWorkspace {...props}/>);
     await waitFor(() => expect(owner.current?.projections["active-qso"]?.status).toBe("ready"), { timeout: 10000 });
+    await waitFor(() => expect((screen.getByRole("button", { name: "Productivity desk" }) as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByRole("button", { name: "Productivity desk" }));
+    await screen.findByRole("textbox", { name: "Add heard call to stack" });
     return { ...view, input: (id: string) => view.container.querySelector<HTMLInputElement>(`[data-contest-field="${id}"]`)! };
   };
   const beginUncertain = async () => {

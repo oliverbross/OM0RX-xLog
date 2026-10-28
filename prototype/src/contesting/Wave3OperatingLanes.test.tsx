@@ -73,6 +73,7 @@ it("real host persists independent lane typing, tunes nonfocused B explicitly, a
       operatingContext="disposable-native-context" workspaceGeneration={workspaceGeneration} stationCall="OM0RX" contestingTest radioFrequencyHz={7_111_000}
       stationTune={prohibited} contestSpot={prohibited} spots={[]} cluster={null}/>);
     await waitFor(()=>expect(owner.current?.projections["active-qso"]?.status).toBe("ready"),{timeout:10000});
+    await waitFor(() => expect((screen.getByRole("button", { name: "Productivity desk" }) as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByRole("button",{name:"Productivity desk"}));
     const a=within(screen.getByRole("region",{name:"Lane A"})),b=within(screen.getByRole("region",{name:"Lane B"}));
     fireEvent.change(a.getByRole("textbox",{name:/^Lane A Call(?:sign)?$/}),{target:{value:"K1LEFT"}});
@@ -116,6 +117,7 @@ it.each(["SO1V","SO2R"])("existing renderer preparation saves unblurred %s field
       registerTransition={value=>{transition=value;}} stationTune={async()=>{throw Error("Physical tune prohibited");}}
       contestSpot={async()=>{throw Error("External spot publication prohibited");}} spots={[]} cluster={null}/>);
     await waitFor(()=>expect(owner.current?.projections["active-qso"]?.status).toBe("ready"),{timeout:10000});
+    await waitFor(() => expect((screen.getByRole("button", { name: "Productivity desk" }) as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByRole("button",{name:"Productivity desk"}));
     if(mode==="SO1V"){
       fireEvent.change(screen.getByRole("textbox",{name:"Call"}),{target:{value:"K1HOLD"}});
@@ -161,6 +163,7 @@ it.each([14_026_000,14_025_000])("real Host preserves TX and RX %i and the other
       operatingContext="disposable-native-context" workspaceGeneration={workspaceGeneration} stationCall="OM0RX" contestingTest radioFrequencyHz={7_111_000}
       stationTune={prohibited} contestSpot={prohibited} spots={[]} cluster={null}/>);
     await waitFor(()=>expect(owner.current?.projections["active-qso"]?.status).toBe("ready"),{timeout:10000});
+    await waitFor(() => expect((screen.getByRole("button", { name: "Productivity desk" }) as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByRole("button",{name:"Productivity desk"}));
     const b=within(screen.getByRole("region",{name:"Lane B"}));
     expect((b.getByRole("textbox",{name:"Lane B frequency Hz"}) as HTMLInputElement).value).toBe("14025000");

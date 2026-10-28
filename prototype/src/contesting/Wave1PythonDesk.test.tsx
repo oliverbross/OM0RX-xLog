@@ -92,6 +92,7 @@ it("WPX productivity desk logs and loads next, retains a delayed draft note, and
       radioFrequencyHz={fixture.state.draft.frequencyHz} spots={[]} cluster={null}/>);
     await waitFor(()=>expect(owner.current?.projections["active-qso"]?.status).toBe("ready"),{timeout:10000});
     timings.openMs=Math.round(performance.now()-started);
+    await waitFor(() => expect((screen.getByRole("button", { name: "Productivity desk" }) as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByRole("button",{name:"Productivity desk"}));
     fireEvent.change(screen.getByRole("textbox",{name:"Add heard call to stack"}),{target:{value:"K2ABC"}});
     fireEvent.click(screen.getByRole("button",{name:"Add caller"}));
