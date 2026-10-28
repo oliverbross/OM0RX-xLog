@@ -4326,6 +4326,12 @@ mod tests {
             "uncertain"
         );
         assert!(state.actions.is_empty());
+        // The real dequeue above made this receipt uncertain. Even with no
+        // queued work left, retirement must refuse it without consuming it.
+        assert!(retirement_ready_in(&state).is_err());
+        assert_eq!(state.panels["active-qso"].receipts[0].0, REQUEST);
+        assert_eq!(state.panels["active-qso"].receipts[0].1.status, "uncertain");
+        assert_eq!(take_next(&mut state).unwrap(), None);
         assert_eq!(
             complete_after_admission(&mut state, REQUEST, "applied", None, 8).unwrap()["status"],
             "applied"

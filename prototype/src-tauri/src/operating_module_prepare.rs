@@ -112,8 +112,16 @@ mod tests {
         p.finish(&veto);
         let timeout = p.begin(&["main".into()]).unwrap();
         assert!(p.wait(&timeout, Duration::ZERO).is_err());
-        p.finish(&timeout);
+        assert!(p.authorize_restart(&timeout).is_err());
         assert_eq!(p.take_restart(true), None);
+        p.finish(&timeout);
+        assert!(p.acknowledge("main", &timeout, true, None).is_err());
+        assert_eq!(p.take_restart(true), None);
+        let retry = p.begin(&["main".into()]).unwrap();
+        p.acknowledge("main", &retry, true, None).unwrap();
+        p.wait(&retry, Duration::ZERO).unwrap();
+        p.authorize_restart(&retry).unwrap();
+        assert_eq!(p.take_restart(true), Some(retry));
     }
 
     #[test]
