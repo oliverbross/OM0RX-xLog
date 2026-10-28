@@ -128,10 +128,11 @@ Statuses use the requested vocabulary. `Not Fixed` means still pending in this a
 
 ## CR-012 — Medium
 
-- **Status:** Not Fixed.
+- **Status:** Fixed and Verified.
 - **Root cause:** ADX standard-field set contains two deprecated names absent from the declared official schema.
-- **Files modified:** None yet. Planned scope: prototype/src/live/adifTransfer.ts; independent vocabulary regression tests.
-- **Fix:** Pending implementation.
-- **Regression tests:** Pending.
-- **Verification commands/results:** Not run for remediation yet; prior review evidence is not fix verification.
-- **Remaining limitations:** Finding remains open. All production/provider/hardware boundaries above remain unverified.
+- **Files modified:** `prototype/src/live/adifTransfer.ts`, `adifTransfer.test.ts`, `adifTransfer.schema.test.ts`; pinned `prototype/tests/fixtures/adx317.xsd.gz` and provenance README.
+- **Fix:** Remove deprecated GUEST_OP/VE_PROV from the 3.1.7 export element vocabulary so existing USERDEF declarations preserve both named values. Preserve backward-compatible import of the literal deprecated elements and their existing string validation. ADI remains unchanged; imported USERDEF metadata can be re-exported losslessly.
+- **Regression tests:** New independent-schema regression pins the original official XSD hash, checks every emitted RECORD child against its vocabulary, verifies both USERDEF declarations/values, normal NAME control, metadata-bearing ADX re-export and unchanged ADI. It failed before the fix on GUEST_OP. Corrected an old assertion that required invalid literal export elements; its legacy-input checks remain, as do both string-family validation matrices.
+- **Verification commands/results:** `npx vitest run src/live/adifTransfer.schema.test.ts src/live/adifTransfer.test.ts src/live/LogbookPanel.transfer.test.tsx` PASS1341 tests/3 files,13.47s. `npm run build` PASS TypeScript, Vite and unchanged window budgets. Initial export-only edit exposed five legacy-input test failures, corrected by retaining deprecated input support; a later old export assertion was corrected. Initial final build exceeded Logbook budget by2 bytes; equivalent anchored parser matching restored the existing budget without changing accepted names. `git diff --check` PASS.
+- **Remaining limitations:** Pinned ADIF3.1.7.0 vocabulary verification, not sponsor submission acceptance or exhaustive XSD validation. Original official XSD has an unrelated NZ lookahead that libxml2 cannot compile; the fixture is unmodified and that pre-existing limitation remains documented. Already exported files are not rewritten.
+- **Evidence:** [stage logs](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/remediation-2026-10-29/adx-schema).

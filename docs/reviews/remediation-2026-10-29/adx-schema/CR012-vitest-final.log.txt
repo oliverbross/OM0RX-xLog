@@ -1,0 +1,36 @@
+
+ RUN  v5.0.3 /Users/oliver/Documents/Projects/OM0RX-xLog/prototype
+
+ ❯ src/live/adifTransfer.test.ts (1314 tests | 1 failed) 4215ms
+   × imports standard ADIF record elements and legacy GUEST_OP and VE_PROV elements 12ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/live/adifTransfer.test.ts > imports standard ADIF record elements and legacy GUEST_OP and VE_PROV elements
+AssertionError: expected '<?xml version="1.0" encoding="UTF-8"?…' to contain '<GUEST_OP>K1ABC</GUEST_OP>'
+
+- Expected
++ Received
+
+- <GUEST_OP>K1ABC</GUEST_OP>
++ <?xml version="1.0" encoding="UTF-8"?>
++ <ADX><HEADER><ADIF_VER>3.1.7</ADIF_VER><PROGRAMID>OM0RX-xLog</PROGRAMID><USERDEF FIELDID="1" TYPE="G">GUEST_OP</USERDEF><USERDEF FIELDID="2" TYPE="G">VE_PROV</USERDEF></HEADER><RECORDS>
++ <RECORD><USERDEF FIELDNAME="GUEST_OP">K1ABC</USERDEF><USERDEF FIELDNAME="VE_PROV">NS</USERDEF></RECORD>
++ </RECORDS></ADX>
++
+
+ ❯ src/live/adifTransfer.test.ts:550:15
+    548|   const writer = new ADIFExportDocument("adx"); writer.append(original…
+    549|   const xml = writer.finish();
+    550|   expect(xml).toContain("<GUEST_OP>K1ABC</GUEST_OP>");
+       |               ^
+    551|   expect(xml).toContain("<VE_PROV>NS</VE_PROV>");
+    552|   expect(xml).not.toContain("<USERDEF");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  1 failed | 1340 passed (1341)
+   Start at  01:30:21
+   Duration  5.88s (tests 74%, environment 19%, transform 4%, import 3%)

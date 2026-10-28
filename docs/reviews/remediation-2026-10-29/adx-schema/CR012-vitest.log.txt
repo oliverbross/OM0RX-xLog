@@ -1,0 +1,86 @@
+
+ RUN  v5.0.3 /Users/oliver/Documents/Projects/OM0RX-xLog/prototype
+
+ ❯ src/live/adifTransfer.test.ts (1314 tests | 5 failed) 2933ms
+   × recognizes all ADIF 3.1.7 record elements, including GUEST_OP and VE_PROV 8ms
+   × preserves ADX string-family text GUEST_OP at both boundaries 1ms
+   × preserves ADX string-family text VE_PROV at both boundaries 3ms
+   × rejects invalid ADX string-family text GUEST_OP while preserving ADI 4ms
+   × rejects invalid ADX string-family text VE_PROV while preserving ADI 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/live/adifTransfer.test.ts > recognizes all ADIF 3.1.7 record elements, including GUEST_OP and VE_PROV
+Error: ADX contains invalid or unsupported XML structure or fields.
+ ❯ fail src/live/adifTransfer.ts:502:37
+    500|   if (/<!\s*(?:DOCTYPE|ENTITY)\b/i.test(text)) throw new Error("ADX do…
+    501|   const document = new DOMParser().parseFromString(text, "application/…
+    502|   const fail = (): never => { throw new Error("ADX contains invalid or…
+       |                                     ^
+    503|   if (document.getElementsByTagName("parsererror").length) fail();
+    504|   const root = document.documentElement;
+ ❯ field src/live/adifTransfer.ts:528:134
+ ❯ src/live/adifTransfer.ts:587:29
+ ❯ adxToADI src/live/adifTransfer.ts:586:25
+ ❯ decodeADIF src/live/adifTransfer.ts:437:76
+ ❯ decode src/live/adifTransfer.test.ts:78:34
+ ❯ src/live/adifTransfer.test.ts:547:10
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/live/adifTransfer.test.ts > preserves ADX string-family text GUEST_OP at both boundaries
+ FAIL  src/live/adifTransfer.test.ts > preserves ADX string-family text VE_PROV at both boundaries
+Error: ADX contains invalid or unsupported XML structure or fields.
+ ❯ fail src/live/adifTransfer.ts:502:37
+    500|   if (/<!\s*(?:DOCTYPE|ENTITY)\b/i.test(text)) throw new Error("ADX do…
+    501|   const document = new DOMParser().parseFromString(text, "application/…
+    502|   const fail = (): never => { throw new Error("ADX contains invalid or…
+       |                                     ^
+    503|   if (document.getElementsByTagName("parsererror").length) fail();
+    504|   const root = document.documentElement;
+ ❯ field src/live/adifTransfer.ts:528:134
+ ❯ src/live/adifTransfer.ts:587:29
+ ❯ adxToADI src/live/adifTransfer.ts:586:25
+ ❯ decodeADIF src/live/adifTransfer.ts:437:76
+ ❯ decode src/live/adifTransfer.test.ts:78:34
+ ❯ src/live/adifTransfer.test.ts:601:10
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/live/adifTransfer.test.ts > rejects invalid ADX string-family text GUEST_OP while preserving ADI
+AssertionError: expected [Function] to throw error including 'Field GUEST_OP has an invalid ADX typ…' but got 'ADX contains invalid or unsupported X…'
+
+Expected: "Field GUEST_OP has an invalid ADX typed value"
+Received: "ADX contains invalid or unsupported XML structure or fields."
+
+ ❯ src/live/adifTransfer.test.ts:611:60
+    609|   ...adxStringFamilies.international.map(name => [name, "line 1\nline …
+    610| ])("rejects invalid ADX string-family text %s while preserving ADI", (…
+    611|   expect(() => decode(adx(`<${name}>${value}</${name}>`))).toThrow(`Fi…
+       |                                                            ^
+    612|   const original = adiRecord({ [name]: value });
+    613|   const writer = new ADIFExportDocument("adx");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  src/live/adifTransfer.test.ts > rejects invalid ADX string-family text VE_PROV while preserving ADI
+AssertionError: expected [Function] to throw error including 'Field VE_PROV has an invalid ADX type…' but got 'ADX contains invalid or unsupported X…'
+
+Expected: "Field VE_PROV has an invalid ADX typed value"
+Received: "ADX contains invalid or unsupported XML structure or fields."
+
+ ❯ src/live/adifTransfer.test.ts:611:60
+    609|   ...adxStringFamilies.international.map(name => [name, "line 1\nline …
+    610| ])("rejects invalid ADX string-family text %s while preserving ADI", (…
+    611|   expect(() => decode(adx(`<${name}>${value}</${name}>`))).toThrow(`Fi…
+       |                                                            ^
+    612|   const original = adiRecord({ [name]: value });
+    613|   const writer = new ADIFExportDocument("adx");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  5 failed | 1310 passed (1315)
+   Start at  01:29:26
+   Duration  3.83s (tests 67%, environment 29%, transform 3%, import 1%)

@@ -523,6 +523,8 @@ including exact boundary, export count/identity equality and safe cancellation.
 
 ### CR-012 — ADX export emits deprecated field names outside its declared schema
 
+**Remediation status:** Fixed and Verified. See REMEDIATION_TRACKER.md for the implementation, tests and limits.
+
 **Medium — schema-enforcing consumers can reject an ordinary export containing
 retained older fields. Confidence: high for vocabulary mismatch; exact validator
 limitations are explicit below.**

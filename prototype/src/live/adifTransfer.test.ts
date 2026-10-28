@@ -542,14 +542,15 @@ it.each([
   expect(decode(original)).toBe(original);
 });
 
-it("recognizes all ADIF 3.1.7 record elements, including GUEST_OP and VE_PROV", () => {
+it("imports standard ADIF record elements and legacy GUEST_OP and VE_PROV elements", () => {
   const original = adiRecord({ GUEST_OP: "K1ABC", VE_PROV: "NS" });
   expect(decode(adx("<GUEST_OP>K1ABC</GUEST_OP><VE_PROV>NS</VE_PROV>"))).toBe(original);
   const writer = new ADIFExportDocument("adx"); writer.append(original, 1);
   const xml = writer.finish();
-  expect(xml).toContain("<GUEST_OP>K1ABC</GUEST_OP>");
-  expect(xml).toContain("<VE_PROV>NS</VE_PROV>");
-  expect(xml).not.toContain("<USERDEF");
+  expect(xml).toContain('<USERDEF FIELDNAME="GUEST_OP">K1ABC</USERDEF>');
+  expect(xml).toContain('<USERDEF FIELDNAME="VE_PROV">NS</USERDEF>');
+  expect(xml).not.toContain("<GUEST_OP>"); expect(xml).not.toContain("<VE_PROV>");
+  expect(decode(xml)).toBe(original);
 });
 
 it.each([
