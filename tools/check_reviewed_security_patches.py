@@ -10,9 +10,11 @@ from pathlib import Path
 import re
 import tomllib
 
-FLOORS = {"rustls": (0, 23, 46), "rustls-webpki": (0, 103, 16), "tokio": (1, 53, 3)}
+FLOORS = {"rustls": (0, 23, 46), "rustls-webpki": (0, 103, 16), "tokio": (1, 53, 3),
+          "webpki-root-certs": (1, 0, 10)}
 ADVISORIES = {"rustls": "RUSTSEC-2026-0346/0347/0348/0349",
-              "rustls-webpki": "RUSTSEC-2026-0382", "tokio": "RUSTSEC-2026-0386"}
+              "rustls-webpki": "RUSTSEC-2026-0382", "tokio": "RUSTSEC-2026-0386",
+              "webpki-root-certs": "RUSTSEC-2026-0383"}
 
 
 def violations(packages):

@@ -16,7 +16,8 @@ class ReviewedSecurityPatchTests(unittest.TestCase):
         self.assertEqual(policy.violations(self.packages()), [])
 
     def test_each_previous_locked_version_is_rejected(self):
-        for name, version in [("rustls", "0.23.45"), ("rustls-webpki", "0.103.15"), ("tokio", "1.53.2")]:
+        for name, version in [("rustls", "0.23.45"), ("rustls-webpki", "0.103.15"), ("tokio", "1.53.2"),
+                              ("webpki-root-certs", "1.0.9")]:
             with self.subTest(name=name):
                 rows = self.packages()
                 next(row for row in rows if row["name"] == name)["version"] = version
