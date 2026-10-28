@@ -55,7 +55,7 @@ it.each(["cw-wve", "cw-dx", "ssb-wve", "ssb-dx"])("creates the %s ARRL DX previe
   expect(screen.getByText(/optional simulated Run \/ S&P output/)).toBeTruthy();
   const create = request.mock.calls.find(([method]) => method === "contest_create")![1] as any;
   expect(create.payload.station).toEqual(payload.station);
-  fireEvent.change(screen.getByRole("textbox", { name: "Contest callsign" }), { target: { value: apply.request.payload.fields.callsign } });
+  fireEvent.change(await screen.findByRole("textbox", { name: "Contest callsign" }), { target: { value: apply.request.payload.fields.callsign } });
   const receivedLocation = screen.getByLabelText("Received State or province") as HTMLInputElement;
   const receivedPower = screen.getByLabelText("Received Power") as HTMLInputElement;
   const expectedReceived = apply.request.payload.fields.receivedExchangeFields;
