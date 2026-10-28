@@ -74,13 +74,14 @@ Statuses use the requested vocabulary. `Not Fixed` means still pending in this a
 
 ## CR-007 — Medium
 
-- **Status:** Not Fixed.
+- **Status:** Fixed and Verified.
 - **Root cause:** ESM/function-key local commits lose origin/admission metadata before recorder catch-up.
-- **Files modified:** None yet. Planned scope: python/contest_host/recorder.py; prototype/src-tauri/src/contest_recorder.rs; recorder tests.
-- **Fix:** Pending implementation.
-- **Regression tests:** Pending.
-- **Verification commands/results:** Not run for remediation yet; prior review evidence is not fix verification.
-- **Remaining limitations:** Finding remains open. All production/provider/hardware boundaries above remain unverified.
+- **Files modified:** `python/contest_host/recorder.py`; `prototype/src-tauri/src/contest_recorder.rs`; `python/tests/test_recorder.py`, `test_remediation_import_replica.py`.
+- **Fix:** Recognize genuine ESM and function-key commits as local in the authoritative audit projection. Native admission now records the same operation-time marker for direct commit, ESM and function-key routes, using the existing active-log/controlled-test/completion fences. Non-committing key events cannot create links because actual committed audits still drive reconciliation; imports, remote authority commits and replicas remain excluded.
+- **Regression tests:** Three real Host ESM-enabled/disabled Enter/LOGIT regressions assert local commit provenance, exact operation replay without output, reopen and audit cursor continuity. Explicit import/replica/remote-exclusion assertions added. Rust test invokes the actual admission body with synthetic active archive and PCM, checks marker for all3 routes, actual-store bookmark/replay, and no marker for imported/remote/controlled-test paths. Existing recorder persistence/correction/deletion/audio-byte tests retained.
+- **Verification commands/results:** New Python cases failed before fix. `PYTHONPATH=python:python/tests XLOG_CONTEST_N1MM_UDP_ALLOWED=0 python3.12 -B -m unittest -v test_recorder test_remediation_import_replica test_multi_operator_host` PASS26/6.562s. `cargo test --locked --manifest-path prototype/src-tauri/Cargo.toml contest_recorder -- --nocapture` PASS23/4.37s; native device helpers not started. `git diff --check` PASS.
+- **Remaining limitations:** Synthetic PCM and fake capture state, no audio input/output device, native playback, hardware or installed UI acceptance. Existing previously skipped audit cursors/bookmarks are not silently rewound/backfilled: retained audio remains available for operator-reviewed recovery, and no retrospective association is invented. Replicated/remote contacts intentionally remain non-local.
+- **Evidence:** [stage logs](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/remediation-2026-10-29/recorder-origin).
 
 ## CR-008 — Medium
 

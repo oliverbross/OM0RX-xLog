@@ -338,6 +338,8 @@ See [mode/export/control results](/Users/oliver/Documents/Projects/OM0RX-xLog/do
 
 ### CR-007 — ESM-logged contacts are classified as remote for recorder bookmarks
 
+**Remediation status:** Fixed and Verified. See REMEDIATION_TRACKER.md for the implementation, tests and limits.
+
 **Medium — ordinary Enter/ESM contacts miss automatic audio links. Confidence:
 high. Verification: real Host commits and actual unchanged Rust store with
 synthetic PCM. Physical audio capture and native playback were not exercised.**

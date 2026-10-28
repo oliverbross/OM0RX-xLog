@@ -85,7 +85,11 @@ pub fn admission(request: &Value) {
     let Some(owner) = existing() else {
         return;
     };
-    if request["method"] != "contest_qso_commit" {
+    admission_to(owner, request);
+}
+
+fn admission_to(owner: &Recorder, request: &Value) {
+    if !matches!(request["method"].as_str(), Some("contest_qso_commit" | "contest_esm" | "contest_function_key")) {
         return;
     }
     let params = &request["params"];
@@ -1470,6 +1474,50 @@ async fn choose_directory(_window: tauri::WebviewWindow, _export: bool) -> Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn local_entry_admission_marks_esm_logit_and_direct_commits_without_audio_devices() {
+        let (_temp, mut recorder, config) = fixture();
+        let (tx, rx) = mpsc::sync_channel(10);
+        recorder.notices = tx;
+        let root = recorder.state.lock().unwrap().saved.root.clone();
+        let log = uuid::Uuid::new_v4().to_string();
+        let mut archive = Archive::create(&root, &log, config).unwrap();
+        archive.append(&[0; 100]).unwrap();
+        let capture = archive.manifest.capture_id.clone();
+        let shared = archive.into_shared();
+        recorder.state.lock().unwrap().active = Some(Active {
+            key: Key { log_id: log.clone(), capture_id: capture.clone(), root,
+                started_utc_ms: store::utc_ms(), controlled_test: false },
+            archive: shared.clone(), stop: Arc::new(AtomicBool::new(false)),
+            frames: Arc::new(AtomicU64::new(100)), done: Arc::new(AtomicBool::new(false)),
+            #[cfg(target_os = "macos")]
+            peak: Arc::new(std::sync::atomic::AtomicU32::new(0)),
+        });
+        for (index, method) in ["contest_qso_commit", "contest_esm", "contest_function_key"].iter().enumerate() {
+            let op = uuid::Uuid::new_v4().to_string();
+            let qso = uuid::Uuid::new_v4().to_string();
+            admission_to(&recorder, &json!({"method":method,"params":{"sessionID":log,"operationID":op}}));
+            let Notice::Marker(key, marked_op, frame, time) = rx.try_recv().unwrap() else { panic!("Missing entry marker") };
+            assert_eq!((key, marked_op.clone(), frame), (capture.clone(), op, 100));
+            let mut archive = shared.lock().unwrap();
+            let page = json!({"engine":"not1mm-python","sessionID":log,"events":[{
+                "sequence":index+1,"revision":index+1,"qsoID":qso,"operationID":marked_op,
+                "kind":"commit","local":true,"utcMs":time,"after":{"Call":"K1ABC"}}]});
+            let markers = BTreeMap::from([(marked_op, (frame, time))]);
+            archive.reconcile(&page, &markers).unwrap();
+            archive.reconcile(&page, &markers).unwrap();
+            assert_eq!(archive.links[&qso].frame, 100);
+            assert_eq!(archive.links.len(), index + 1);
+        }
+        for method in ["contest_strategy_apply", "contest_multi_contact_apply", "contest_multi_replica_apply", "contest_recorder_changes"] {
+            admission_to(&recorder, &json!({"method":method,"params":{"sessionID":log,"operationID":uuid::Uuid::new_v4()}}));
+            assert!(rx.try_recv().is_err(), "Remote/import method received a local marker");
+        }
+        recorder.state.lock().unwrap().active.as_mut().unwrap().key.controlled_test = true;
+        admission_to(&recorder, &json!({"method":"contest_esm","params":{"sessionID":log,"operationID":uuid::Uuid::new_v4()}}));
+        assert!(rx.try_recv().is_err(), "Controlled-test capture acquired a production entry marker");
+        shared.lock().unwrap().finish("stopped", None).unwrap();
+    }
     #[test]
     fn recorder_capabilities_reject_station_writes_paths_and_analytics_capture() {
         for action in [

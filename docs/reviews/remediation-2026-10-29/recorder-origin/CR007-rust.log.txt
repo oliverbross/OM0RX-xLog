@@ -1,0 +1,143 @@
+   Compiling xlog-prototype v1.3.60 (/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri)
+warning: function `valid` is never used
+  --> tests/../src/radio_slots.rs:17:8
+   |
+17 | pub fn valid(value: &str) -> bool {
+   |        ^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: struct `Routing` is never constructed
+  --> tests/../src/radio_slots.rs:29:8
+   |
+29 | struct Routing {
+   |        ^^^^^^^
+
+warning: static `ROUTING` is never used
+  --> tests/../src/radio_slots.rs:34:8
+   |
+34 | static ROUTING: OnceLock<Mutex<Option<Routing>>> = OnceLock::new();
+   |        ^^^^^^^
+
+warning: function `load` is never used
+  --> tests/../src/radio_slots.rs:56:4
+   |
+56 | fn load(app: &tauri::AppHandle) -> Result<Routing, String> {
+   |    ^^^^
+
+warning: function `persist` is never used
+  --> tests/../src/radio_slots.rs:78:4
+   |
+78 | fn persist(routing: &Routing) -> Result<(), String> {
+   |    ^^^^^^^
+
+warning: function `with_routing` is never used
+   --> tests/../src/radio_slots.rs:100:4
+    |
+100 | fn with_routing<T>(
+    |    ^^^^^^^^^^^^
+
+warning: function `active` is never used
+   --> tests/../src/radio_slots.rs:114:8
+    |
+114 | pub fn active(app: &tauri::AppHandle) -> Result<String, String> {
+    |        ^^^^^^
+
+warning: function `set_active` is never used
+   --> tests/../src/radio_slots.rs:118:8
+    |
+118 | pub fn set_active(app: &tauri::AppHandle, radio_id: &str) -> Result<Value, String> {
+    |        ^^^^^^^^^^
+
+warning: function `claim_active_tx` is never used
+   --> tests/../src/radio_slots.rs:139:8
+    |
+139 | pub fn claim_active_tx(app: &tauri::AppHandle, radio_id: &str) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^^^
+
+warning: `xlog-prototype` (test "hamlib_dummy") generated 9 warnings
+warning: function `contest_setup_dialog_kind` is never used
+  --> src/workspace_navigation.rs:62:8
+   |
+62 | pub fn contest_setup_dialog_kind(route: &str) -> Option<&'static str> {
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: associated items `as_str` and `parse` are never used
+  --> src/workspace_windows.rs:12:18
+   |
+11 | impl WorkspaceWindowScope {
+   | ------------------------- associated items in this implementation
+12 |     pub const fn as_str(self) -> &'static str {
+   |                  ^^^^^^
+...
+18 |     pub fn parse(value: &str) -> Result<Self, String> {
+   |            ^^^^^
+
+warning: methods `begin` and `begin_restart` are never used
+   --> src/operating_module.rs:209:12
+    |
+ 90 | impl Owner {
+    | ---------- methods in this implementation
+...
+209 |     pub fn begin(&self, target: &str, context: &str) -> Result<OperatingModule, String> {
+    |            ^^^^^
+...
+215 |     pub fn begin_restart(&self, target: &str, context: &str) -> Result<OperatingModule, String> {
+    |            ^^^^^^^^^^^^^
+
+warning: function `prepare` is never used
+   --> src/contest_voice.rs:231:8
+    |
+231 | pub fn prepare(
+    |        ^^^^^^^
+
+warning: methods `media_path` and `coverage` are never used
+   --> src/contest_recorder_store.rs:807:12
+    |
+318 | impl Archive {
+    | ------------ methods in this implementation
+...
+807 |     pub fn media_path(&self, segment: &Segment) -> PathBuf {
+    |            ^^^^^^^^^^
+...
+823 |     pub fn coverage(&self, start: u64, end: u64) -> String {
+    |            ^^^^^^^^
+
+warning: `xlog-prototype` (bin "xlog-prototype") generated 5 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 22.82s
+     Running unittests src/main.rs (prototype/src-tauri/target/debug/deps/xlog_prototype-31caed3936eddef0)
+
+running 23 tests
+test contest_recorder::tests::retained_transmit_in_either_radio_slot_inhibits_listening ... ok
+test contest_recorder::tests::recorder_capabilities_reject_station_writes_paths_and_analytics_capture ... ok
+test contest_recorder_audio::tests::pause_seek_channel_selection_and_listening_gain_leave_samples_unchanged ... ok
+test contest_recorder_audio::tests::callback_clamps_pcm_preserves_stereo_and_reports_bounded_queue_overrun ... ok
+test contest_recorder_audio::tests::playback_survives_underruns_but_device_failure_stops_and_retains_reason ... ok
+test contest_recorder_audio::tests::replay_cancellation_and_delayed_callbacks_cannot_restart_sound ... ok
+test contest_recorder::tests::queued_replay_never_restarts_after_stop_or_newer_admission ... ok
+test contest_recorder::tests::active_recovery_and_stale_stop_are_rejected_before_file_mutation ... ok
+test contest_recorder_store::tests::crash_partial_recovery_preserves_original_and_reports_torn_frame ... ok
+test contest_recorder_store::tests::corrupt_missing_symlink_and_volume_replacement_are_rejected ... ok
+test contest_recorder::tests::bookmark_paging_searches_the_full_durable_index ... ok
+test contest_recorder_store::tests::low_disk_refuses_start_without_pruning_and_riff_overflow_is_rejected ... ok
+test contest_recorder::tests::exact_log_identity_and_ambiguous_clock_capture_intervals_never_cross_link ... ok
+test contest_recorder_store::tests::journal_torn_tail_keeps_backup_and_manual_bookmark_survives_restart ... ok
+test contest_recorder::tests::local_entry_admission_marks_esm_logit_and_direct_commits_without_audio_devices ... ok
+test contest_recorder::tests::previous_capture_reconciles_delayed_commit_correction_and_delete ... ok
+test contest_recorder_store::tests::rename_before_manifest_is_adopted_without_overwrite ... ok
+test contest_recorder_store::tests::remote_contacts_never_inherit_local_audio_and_pending_tail_is_truthful ... ok
+test contest_recorder_store::tests::recovery_output_before_manifest_can_be_retried_and_partial_outputs_are_retained ... ok
+test contest_recorder_store::tests::export_independently_decodes_order_and_preserves_original_hashes ... ok
+test contest_recorder_store::tests::actual_python_commit_correction_delete_retry_and_durable_admission ... ok
+test contest_recorder_store::tests::mono_stereo_rotation_and_frozen_replay_inspect_every_sample ... ok
+test contest_recorder_store::tests::full_event_index_uses_u64_and_reports_missing_media_without_allocating_audio ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 891 filtered out; finished in 4.37s
+
+     Running tests/hamlib_dummy.rs (prototype/src-tauri/target/debug/deps/hamlib_dummy-85450cf75c55e355)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 0.00s

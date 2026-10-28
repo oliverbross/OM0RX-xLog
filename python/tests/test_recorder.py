@@ -1,6 +1,7 @@
 """Recorder consumes committed not1mm-python audits; the existing log owns writes."""
 from copy import deepcopy
 import unittest
+from contest_host.host import Host
 import test_cq_ww_ssb_host as fixture
 
 
@@ -14,6 +15,35 @@ class RecorderAuditTests(unittest.TestCase):
 
     def changes(self, after=0, limit=200):
         return self.read("recorder_changes", afterSequence=after, limit=limit)
+
+    def assert_local_entry(self, method, enabled=True):
+        setup = self.read("setup_get")["setup"]
+        setup["preferences"]["useESM"] = enabled
+        setup["macros"] = [{"mode": "R", "key": "F12", "label": "Log", "template": "{LOGIT}{WIPE}"}]
+        self.mutate("setup_save", setup=setup)
+        self.mutate("run_state", run=True)
+        params = {"sessionID": self.session, "operationID": fixture.uid(), "expectedRevision": self.revision,
+                  "fields": {"callsign": "K1ABC", "other_2": "5"}}
+        params.update({"key": "F12"} if method == "function_key" else {"field": "other_2"})
+        result = self.call(method, params)
+        self.assertEqual(self.read("log")["total"], 1)
+        event = self.changes()["events"][0]
+        self.assertEqual((event["kind"], event["operationID"], event["local"]), ("commit", params["operationID"], True))
+        self.assertTrue(self.call(method, params)["replayed"])
+        self.assertEqual(self.call(method, params)["actions"], [])
+        self.host.close(); self.host = Host(self.root)
+        self.assertEqual(self.changes()["events"], [event])
+        self.assertEqual(self.changes(event["sequence"])["events"], [])
+        return result
+
+    def test_enabled_esm_commit_is_local_across_replay_reopen(self):
+        self.assert_local_entry("esm")
+
+    def test_disabled_esm_enter_commit_is_local_across_replay_reopen(self):
+        self.assert_local_entry("esm", enabled=False)
+
+    def test_function_key_logit_commit_is_local_across_replay_reopen(self):
+        self.assert_local_entry("function_key")
 
     def test_commit_retry_invalid_commit_and_read_only_pages(self):
         self.assertEqual(self.changes()["events"], [])

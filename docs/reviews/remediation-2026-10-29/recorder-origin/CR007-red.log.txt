@@ -1,0 +1,74 @@
+test_commit_retry_invalid_commit_and_read_only_pages (test_recorder.RecorderAuditTests.test_commit_retry_invalid_commit_and_read_only_pages) ... ok
+test_correction_delete_pagination_preserve_original_images (test_recorder.RecorderAuditTests.test_correction_delete_pagination_preserve_original_images) ... ok
+test_disabled_esm_enter_commit_is_local_across_replay_reopen (test_recorder.RecorderAuditTests.test_disabled_esm_enter_commit_is_local_across_replay_reopen) ... FAIL
+test_enabled_esm_commit_is_local_across_replay_reopen (test_recorder.RecorderAuditTests.test_enabled_esm_commit_is_local_across_replay_reopen) ... FAIL
+test_function_key_logit_commit_is_local_across_replay_reopen (test_recorder.RecorderAuditTests.test_function_key_logit_commit_is_local_across_replay_reopen) ... FAIL
+test_untrusted_parameters_are_bounded_and_do_not_change_log (test_recorder.RecorderAuditTests.test_untrusted_parameters_are_bounded_and_do_not_change_log) ... ok
+
+======================================================================
+FAIL: test_disabled_esm_enter_commit_is_local_across_replay_reopen (test_recorder.RecorderAuditTests.test_disabled_esm_enter_commit_is_local_across_replay_reopen)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_recorder.py", line 43, in test_disabled_esm_enter_commit_is_local_across_replay_reopen
+    self.assert_local_entry("esm", enabled=False)
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_recorder.py", line 31, in assert_local_entry
+    self.assertEqual((event["kind"], event["operationID"], event["local"]), ("commit", params["operationID"], True))
+AssertionError: Tuples differ: ('commit', '634ed517-fffd-4e4d-8e47-71a070d2649c', False) != ('commit', '634ed517-fffd-4e4d-8e47-71a070d2649c', True)
+
+First differing element 2:
+False
+True
+
+- ('commit', '634ed517-fffd-4e4d-8e47-71a070d2649c', False)
+?                                                    ^^^^
+
++ ('commit', '634ed517-fffd-4e4d-8e47-71a070d2649c', True)
+?                                                    ^^^
+
+
+======================================================================
+FAIL: test_enabled_esm_commit_is_local_across_replay_reopen (test_recorder.RecorderAuditTests.test_enabled_esm_commit_is_local_across_replay_reopen)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_recorder.py", line 40, in test_enabled_esm_commit_is_local_across_replay_reopen
+    self.assert_local_entry("esm")
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_recorder.py", line 31, in assert_local_entry
+    self.assertEqual((event["kind"], event["operationID"], event["local"]), ("commit", params["operationID"], True))
+AssertionError: Tuples differ: ('commit', '39ef9e4b-ea0a-4d1c-8340-825e7758020d', False) != ('commit', '39ef9e4b-ea0a-4d1c-8340-825e7758020d', True)
+
+First differing element 2:
+False
+True
+
+- ('commit', '39ef9e4b-ea0a-4d1c-8340-825e7758020d', False)
+?                                                    ^^^^
+
++ ('commit', '39ef9e4b-ea0a-4d1c-8340-825e7758020d', True)
+?                                                    ^^^
+
+
+======================================================================
+FAIL: test_function_key_logit_commit_is_local_across_replay_reopen (test_recorder.RecorderAuditTests.test_function_key_logit_commit_is_local_across_replay_reopen)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_recorder.py", line 46, in test_function_key_logit_commit_is_local_across_replay_reopen
+    self.assert_local_entry("function_key")
+  File "/Users/oliver/Documents/Projects/OM0RX-xLog/python/tests/test_recorder.py", line 31, in assert_local_entry
+    self.assertEqual((event["kind"], event["operationID"], event["local"]), ("commit", params["operationID"], True))
+AssertionError: Tuples differ: ('commit', 'ea01981d-12f4-43c6-ba24-40bc289d35f9', False) != ('commit', 'ea01981d-12f4-43c6-ba24-40bc289d35f9', True)
+
+First differing element 2:
+False
+True
+
+- ('commit', 'ea01981d-12f4-43c6-ba24-40bc289d35f9', False)
+?                                                    ^^^^
+
++ ('commit', 'ea01981d-12f4-43c6-ba24-40bc289d35f9', True)
+?                                                    ^^^
+
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.664s
+
+FAILED (failures=3)

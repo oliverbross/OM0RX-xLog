@@ -25,7 +25,7 @@ def changes(store, state, params, require):
             utc_ms = None
         payload = json.loads(row["payload"]) if row["payload"] else {}
         # Replicated/imported/remote contacts must not inherit this Mac's audio.
-        local = not replica and payload.get("method") in {"qso_commit", "digital_ingest", "qso_correct", "qso_delete"}
+        local = not replica and payload.get("method") in {"qso_commit", "esm", "function_key", "digital_ingest", "qso_correct", "qso_delete"}
         labels = lambda value: None if value is None else {key: value.get(key) for key in
                     ("Call", "TS", "Freq", "Band", "Mode", "Operator", "StationName")}
         events.append({"sequence": row["sequence"], "revision": row["revision"],

@@ -83,6 +83,9 @@ class ImportedReplicaTests(unittest.TestCase):
         self.assertEqual(page["changes"][0]["kind"], "commit")
         self.assertIsNotNone(page["changes"][0]["afterIdentity"])
         self.assert_same(qso)
+        for host in self.hosts:
+            events = self.call(host, "recorder_changes", sessionID=self.session, afterSequence=0, limit=200)["events"]
+            self.assertTrue(events and all(event["local"] is False for event in events))
         self.followup(qso)
 
     def test_legacy_unchanged_import_survives_reopen_without_rewriting_audit(self):
@@ -146,6 +149,8 @@ class ImportedReplicaTests(unittest.TestCase):
             requestID=uid(), action="commit", qsoID=uid(), timestamp="2026-10-22 12:00:00", frequencyHz=14_025_000,
             serialRequestID=request, fields={"callsign": "K1ABC", "other_2": "203"})
         self.assertEqual(result["actions"], [])
+        events = self.call(master, "recorder_changes", sessionID=self.session, afterSequence=0, limit=200)["events"]
+        self.assertTrue(events and all(event["local"] is False for event in events))
         self.assertEqual(reserve(uid())["serial"], 103)
 
     def test_concurrent_shared_serial_grants_exceed_historical_floor(self):
