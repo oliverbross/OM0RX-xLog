@@ -269,7 +269,8 @@ struct LiveClusterMethodsTests {
         #expect(await shutdown.value == .contestSpotCleanupDeferred)
     }
 
-    #if canImport(XLogCore)
+    // The real broker and payload.flexSpot() belong to the macOS radio backend.
+    #if os(macOS)
     @Test("Prior cutoff includes Normal Logging receipts accepted after service creation but excludes same-clock contest delivery")
     func priorCleanupCutoffStartsAtFirstContestAdmission() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -320,7 +321,7 @@ struct LiveClusterMethodsTests {
     }
     #endif
 
-    @Test("Portable prior cleanup uses first admission time without holding current forwarding")
+    @Test("Portable prior cleanup uses first admission time and respects platform forwarding")
     func portablePriorCleanupUsesFirstAdmissionClock() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -350,19 +351,64 @@ struct LiveClusterMethodsTests {
                 "points": 3, "dupe": false, "multiplier_count": 0, "country_multiplier": false, "zone_multiplier": false]]]
         }
         let first = try await cluster.handle(method: "cluster_contest_radio_spots_publish", params: publication(1))
+        #expect(first["removed"] as? Int == 0)
+        #expect(first["unchanged"] as? Int == 0)
+        #expect(first["filtered"] as? Int == 0)
+        #expect(first["rejected"] as? Int == 0)
+        #expect(first["pending"] as? Bool == false)
+        #expect(first["stale"] as? Bool == false)
+        #expect(first["revision"] as? Int == 1)
+        #expect(first["workspace_generation"] as? String == generation)
+        #if os(macOS)
         #expect(first["accepted"] as? Int == 1)
+        #else
+        // Injected callbacks must not enable the unsupported radio backend.
+        #expect(first["accepted"] as? Int == 0)
+        #endif
         for _ in 0..<100 {
             let snapshot = try await cluster.handle(method: "cluster_snapshot", params: [:])
             if (snapshot["forwarding"] as? [String: Any])?["prior_spot_cleanup_pending"] as? Bool == false { break }
             try await Task.sleep(for: .milliseconds(5))
         }
+        let settled = try await cluster.handle(method: "cluster_snapshot", params: [:])
+        #expect((settled["forwarding"] as? [String: Any])?["prior_spot_cleanup_pending"] as? Bool == false)
+        #if os(macOS)
         #expect(await recorder.snapshot().count == 1)
-        #expect(await recorder.cutoffSnapshot() == [admission])
         #expect(Array(await recorder.lifecycleSnapshot().prefix(2)) == ["forward", "cleanup"])
+        #else
+        #expect(settled["flex_forwarding_available"] as? Bool == false)
+        #expect(settled["tci_forwarding_available"] as? Bool == false)
+        #expect((settled["forwarding"] as? [String: Any])?["accepted_count"] as? Int == 0)
+        #expect(await recorder.snapshot().isEmpty)
+        #expect(await recorder.removed().isEmpty)
+        #expect(await recorder.lifecycleSnapshot() == ["cleanup"])
+        #endif
+        #expect(await recorder.cutoffSnapshot() == [admission])
         clock.advance(5)
         let second = try await cluster.handle(method: "cluster_contest_radio_spots_publish", params: publication(2))
+        #expect(second["unchanged"] as? Int == 0)
+        #expect(second["filtered"] as? Int == 0)
+        #expect(second["rejected"] as? Int == 0)
+        #expect(second["pending"] as? Bool == false)
+        #expect(second["stale"] as? Bool == false)
+        #expect(second["revision"] as? Int == 2)
+        #expect(second["workspace_generation"] as? String == generation)
+        #if os(macOS)
         #expect(second["accepted"] as? Int == 1)
         #expect(await recorder.snapshot().count == 2)
+        #else
+        #expect(second["accepted"] as? Int == 0)
+        #expect(second["removed"] as? Int == 0)
+        #expect(await recorder.snapshot().isEmpty)
+        #expect(await recorder.removed().isEmpty)
+        #expect(await recorder.activeSnapshot().isEmpty)
+        #expect(await recorder.lifecycleSnapshot() == ["cleanup"])
+        let final = try await cluster.handle(method: "cluster_snapshot", params: [:])
+        #expect(final["flex_forwarding_available"] as? Bool == false)
+        #expect(final["tci_forwarding_available"] as? Bool == false)
+        #expect((final["forwarding"] as? [String: Any])?["accepted_count"] as? Int == 0)
+        #expect((final["forwarding"] as? [String: Any])?["prior_spot_cleanup_pending"] as? Bool == false)
+        #endif
         #expect(await recorder.cutoffSnapshot() == [admission])
         #expect(await cluster.terminate())
     }
@@ -613,6 +659,8 @@ struct LiveClusterMethodsTests {
         #expect((await recorder.activeSnapshot()).isEmpty)
     }
 
+    // These fixtures exercise the real macOS broker's durable receipt inventory.
+    #if os(macOS)
     @Test("Worker retirement defers fresh persisted spots without removal or loading cluster configuration")
     func freshPersistedContestRetirementWithoutClusterConfiguration() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -710,6 +758,7 @@ struct LiveClusterMethodsTests {
         let inventory = try SpotInventoryStore(url: inventoryURL.appendingPathExtension("sqlite"))
         #expect(try inventory.rows().count == 1)
     }
+    #endif
 
     @Test("Contest module suppresses the unfiltered ingress radio publisher")
     func contestSuppressesRawIngressForwarding() async throws {
