@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 MACHO = {bytes.fromhex(value) for value in ("feedface", "cefaedfe", "feedfacf", "cffaedfe", "cafebabe", "bebafeca", "cafebabf", "bfbafeca")}
 NON_RUNTIME_MACHO_SUFFIXES = {".a", ".o"}
 TEST_BOOTSTRAP_SCRIPT = "accept-contesting-worker-process.mjs"
-PACKAGING_SCRIPTS = {"package-macos.sh", "package-contesting-test-macos.sh", TEST_BOOTSTRAP_SCRIPT}
+PACKAGING_SCRIPTS = {"package-macos.sh", "package-contesting-test-macos.sh"}
 CA_BUNDLE_RELATIVE = Path("Versions/3.12/etc/openssl/cert.pem")
 SYSTEM_CA_BUNDLE = Path("/etc/ssl/cert.pem")
 MIN_CA_BUNDLE_BYTES = 1_024
@@ -39,7 +39,10 @@ def digest(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def packaging_source_names(packaging_script):
+def packaging_source_names(packaging_script, acceptance=False):
+    if acceptance:
+        require(packaging_script == TEST_BOOTSTRAP_SCRIPT, "Unexpected acceptance staging script")
+        return ("relocate-contest-python.py", TEST_BOOTSTRAP_SCRIPT)
     require(packaging_script in PACKAGING_SCRIPTS, f"Unexpected packaging script: {packaging_script}")
     return ("relocate-contest-python.py", "stage-contest-python-macos.sh", packaging_script)
 
@@ -314,11 +317,11 @@ def main():
     parser.add_argument("--packaging-script", default="package-macos.sh")
     parser.add_argument("--acceptance-root", type=Path)
     args = parser.parse_args()
-    packaging_sources = packaging_source_names(args.packaging_script)
     require((args.acceptance_root is not None) == (args.packaging_script == TEST_BOOTSTRAP_SCRIPT),
             "Acceptance staging requires its explicit root and script identity")
     require(args.acceptance_root is None or not args.finalize_provenance,
             "Acceptance staging cannot finalize a production signature")
+    packaging_sources = packaging_source_names(args.packaging_script, acceptance=args.acceptance_root is not None)
     bundle, target = validated_bundle_target(args.bundle, args.acceptance_root)
     framework = bundle / "Contents/Frameworks/Python.framework"
     host_root = bundle / "Contents/Resources/Not1MM/python"

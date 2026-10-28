@@ -128,6 +128,12 @@ class RelocationBoundaryTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(RuntimeError, "Unexpected packaging script"):
             relocation.packaging_source_names("arbitrary-local-script.sh")
+        with self.assertRaisesRegex(RuntimeError, "Unexpected packaging script"):
+            relocation.packaging_source_names(relocation.TEST_BOOTSTRAP_SCRIPT)
+        self.assertEqual(relocation.packaging_source_names(relocation.TEST_BOOTSTRAP_SCRIPT, acceptance=True),
+                         ("relocate-contest-python.py", relocation.TEST_BOOTSTRAP_SCRIPT))
+        with self.assertRaisesRegex(RuntimeError, "Unexpected acceptance staging script"):
+            relocation.packaging_source_names("package-macos.sh", acceptance=True)
 
     def test_deployment_target_rejects_incompatible_runtime(self):
         with patch.object(relocation, "run", return_value="cmd LC_BUILD_VERSION\n platform MACOS\n minos 26.0\n"):
