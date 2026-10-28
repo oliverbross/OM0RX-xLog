@@ -36,15 +36,28 @@ function pythonHost(){
   const pending=new Map<string,{resolve(value:any):void;reject(error:Error):void}>();let buffer="",stderr="";
   child.stdout.setEncoding("utf8");child.stderr.on("data",value=>{stderr+=String(value);});
   child.stdout.on("data",value=>{buffer+=value;while(buffer.includes("\n")){const end=buffer.indexOf("\n"),frame=JSON.parse(buffer.slice(0,end));buffer=buffer.slice(end+1);pending.get(frame.id)?.resolve(frame);pending.delete(frame.id);}});
-  child.on("exit",()=>{for(const waiter of pending.values())waiter.reject(Error(`Python exited: ${stderr}`));pending.clear();});
+  let terminalError: Error | null = null;
+  const exited = new Promise<void>(resolve => {
+    const finish = (error: Error) => {
+      terminalError = error;
+      for (const waiter of pending.values()) waiter.reject(error);
+      pending.clear(); resolve();
+    };
+    child.once("error", error => finish(error));
+    child.once("exit", () => finish(Error(`Python exited: ${stderr}`)));
+  });
   const request=async(method:string,params:Record<string,any>={}):Promise<any>=>{
+    if (terminalError) throw terminalError;
     const id=crypto.randomUUID();
     if(method==="contest_scp_status")return{id,ok:true,result:{dataset:null,unavailableReason:"not_imported"}};
     if(method==="contest_history_status")return{id,ok:true,result:{status:"inactive",active:null,pending:null}};
     if(method.startsWith("contest_scp_"))return{id,ok:false,error:{code:"unavailable",message:"No SCP fixture"}};
     return new Promise((resolve,reject)=>{pending.set(id,{resolve,reject});child.stdin.write(JSON.stringify({id,method,params})+"\n");});
   };
-  return{request,close:async()=>{const exited=new Promise<void>(resolve=>child.once("exit",()=>resolve()));child.stdin.end();await exited;rmSync(directory,{recursive:true});}};
+  return { request, close: async () => {
+    if (!terminalError) child.stdin.end();
+    await exited; rmSync(directory, { recursive: true });
+  } };
 }
 it("real host persists independent lane typing, tunes nonfocused B explicitly, and logs each original shared serial once",async()=>{
   const host=pythonHost(),sessionID=crypto.randomUUID(),workspaceGeneration=crypto.randomUUID();

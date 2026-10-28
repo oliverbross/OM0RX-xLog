@@ -136,6 +136,8 @@ jobs:
         run: npm ci
       - name: Frontend tests and build
         working-directory: prototype
+        env:
+          XLOG_CONTEST_PYTHON: ${{ steps.contest-python.outputs.python-path }}
         run: npm test && npm run build
       - name: Stage isolated worker
         run: node prototype/scripts/stage-worker.mjs
@@ -160,6 +162,8 @@ jobs:
           exit $LASTEXITCODE
       - name: Shell contract tests
         working-directory: prototype/src-tauri
+        env:
+          XLOG_TEST_PYTHON: ${{ steps.contest-python.outputs.python-path }}
         run: cargo test --locked
       - name: Bundled Hamlib dummy protocol and lifecycle tests
         if: runner.os != 'Windows'
