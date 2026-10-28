@@ -13,6 +13,16 @@ final class FlexIQSubscriptionTests:XCTestCase {
         let radio=FlexRadioClient(host:"127.0.0.1",port:port,stationName:"Fixture")
         addTeardownBlock { await radio.stopTransportOnly() }
         await radio.start()
+        if ProcessInfo.processInfo.environment["XLOG_IQ_FIXTURE_DIAGNOSTICS"] == "1" {
+            let monitor=Task {
+                for _ in 0..<5 {
+                    try? await Task.sleep(for:.milliseconds(500))
+                    guard !Task.isCancelled else{return}
+                    print("IQ_FIXTURE \(await radio.fixtureIQDiagnostics()) sent=\(await wire.sentDatagrams)")
+                }
+            }
+            addTeardownBlock { monitor.cancel() }
+        }
         for _ in 0..<200 {
             let capability=await radio.iqCapabilities()
             if capability.ready,capability.panadapters.count==2 {
@@ -155,6 +165,11 @@ final class FlexIQSubscriptionTests:XCTestCase {
     }
 }
 private extension FlexRadioClient {
+    func fixtureIQDiagnostics() -> String {
+        let context=iqControlContext()
+        let flows=iqState.flows.mapValues { "last=\($0.lastReceipt) cleanAfter=\($0.cleanAfter) capture=\($0.capture != nil) admitted=\($0.admitted)" }
+        return "context=\(String(describing:context)) streams=\(iqState.inventory.streams) flows=\(flows)"
+    }
     func fixtureIQIdentity(port:UInt16) {
         // Only discovery is replaced. TCP binding, stream commands/status and
         // UDP delivery in these tests use the actual Network.framework path.
@@ -166,6 +181,7 @@ private actor FlexIQFixtureRadio {
     private var listener:NWListener?,connection:NWConnection?
     private var udpSocket:Int32 = -1
     private var udpDestination:sockaddr_in?
+    private(set) var sentDatagrams=0
     private var ready=false,buffer=Data(),pump:Task<Void,Never>?
     private var streams:[UInt32:(Int,UInt8)]=[:]
     private var held=false,pendingCreate:Int?
@@ -256,6 +272,7 @@ private actor FlexIQFixtureRadio {
                 }
             }
             if written != data.count { XCTFail("Fixture UDP send: \(errno), bytes \(written)/\(data.count)");pump?.cancel();return }
+            sentDatagrams+=1
         }
     }
     func stop(){pump?.cancel();pump=nil;if udpSocket >= 0 { Darwin.close(udpSocket);udpSocket = -1 };udpDestination=nil;connection?.cancel();connection=nil;listener?.cancel();listener=nil}

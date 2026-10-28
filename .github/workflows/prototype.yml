@@ -100,7 +100,14 @@ jobs:
           swift --version
           rustc --version
           node --version
-      - name: Test portable Swift core (Unix)
+      - name: Test FLEX IQ loopback fixture (Mac)
+        if: runner.os == 'macOS'
+        env:
+          XLOG_PORTABLE_ONLY: '1'
+          XLOG_CONTEST_PYTHON: ${{ steps.contest-python.outputs.python-path }}
+          XLOG_IQ_FIXTURE_DIAGNOSTICS: '1'
+        run: swift test --scratch-path .build/prototype-tests --no-parallel --filter FlexIQSubscriptionTests
+      - name: Test complete portable Swift core (Unix)
         if: runner.os != 'Windows'
         env:
           XLOG_PORTABLE_ONLY: '1'
