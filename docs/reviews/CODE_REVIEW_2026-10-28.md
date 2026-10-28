@@ -2,7 +2,7 @@
 
 **Review date:** 28 October 2026. **Baseline:** `b30dc62e5092e4e77431f05516df7aa68df2ba6c`. **Installed executable recorded by the project:** 1.3.58 / `1225274b4c0f5890a03ceb63159cd5577bc32b57`.
 
-**Disposition: draft repair branch, not release acceptance.** Seven concrete behaviors have narrowly scoped source corrections and before/after isolated checks. One additional authority-boundary concern remains open and needs a real Host regression before release. No main-branch merge, build, signing, installation, production-data change or station action was performed by this review.
+**Original review disposition: draft repair branch, not release acceptance.** The original seven corrections and open R08 below describe the remote review checkpoint. The canonical integration follow-up has now executed the actual repository regressions, added paired-Host authority enforcement and completed bounded isolated native checks; see [dated integration evidence and current merge/candidate disposition](CODE_REVIEW_INTEGRATION_ACCEPTANCE_2026-10-28.md). The historical isolated-probe counts below are not substituted for those results. Installed 1.3.58 remains protected.
 
 ## Executive assessment
 
@@ -113,7 +113,7 @@ The enrichment step overlays the original external/import packet's OPERATOR and 
 
 **Acceptance still required:** actual digital completion AND historical import, followed by correction and prepared ADIF export. Check mode/submode/actual sent serial, packet provenance and contact IDs. Do not treat a mocked array test as a complete external-engine acceptance.
 
-## R08 — replica write admission does not cover strategy actions — P1, OPEN
+## R08 — replica write admission does not cover strategy actions — P1, source correction verified
 
 **Source-confirmed concern; no complete Host reproduction or patch claimed.**
 
@@ -123,7 +123,7 @@ This is not a claim that unauthenticated Internet clients can write the log, or 
 
 **Required next action:** in disposable paired Host fixtures, invoke authority-changing strategy actions against a replica and verify zero contact/QTC/site/revision/receipt changes on rejection. Check admitted local planning/message preferences separately. Do not simply block all strategy_apply: some purely local metadata operations may be valid. Add the smallest per-action authority policy at the existing Host boundary, consistent with the established replication owner, then rerun existing multi-op and strategy tests. Preserve operation identity, old valid receipts and atomic failure semantics.
 
-This remains open in the repair branch. It should be resolved or precisely bounded by evidence before release, not silently counted as an eighth fixed bug.
+Canonical follow-up `d5b52ec4` closes this source boundary with three real paired-Host regressions. The unguarded source failed nine assertions, including accepted import/QTC/site writes. The guard rejects `adif_import`, `site_activate`, `transverter_save` and the QTC family before receipt replay or mutation. Rejections preserve every durable table on both hosts, including contacts, state/revision, serials, sites/QTC, audit and operation receipts. Local reminders, operating plans and beacon observations remain admitted; an existing local receipt still replays and a changed payload still conflicts. The existing 14 multi-operator tests pass. Deployment/physical topology qualification remains with W15/NL-28; see the integration record for final gates and candidate provenance.
 
 ## Executed verification versus supplied tests
 
