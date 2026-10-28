@@ -45,15 +45,28 @@ function pythonHost(){
     const end=buffer.indexOf("\n"),message=JSON.parse(buffer.slice(0,end));buffer=buffer.slice(end+1);
     pending.get(message.id)?.resolve(message);pending.delete(message.id);
   }});
-  child.on("exit",()=>{for(const request of pending.values())request.reject(Error(`Python exited: ${stderr}`));pending.clear();});
+  let terminalError: Error | null = null;
+  const exited = new Promise<void>(resolve => {
+    const finish = (error: Error) => {
+      terminalError = error;
+      for (const waiter of pending.values()) waiter.reject(error);
+      pending.clear(); resolve();
+    };
+    child.once("error", error => finish(error));
+    child.once("exit", () => finish(Error(`Python exited: ${stderr}`)));
+  });
   const request=async(method:string,params:Record<string,any>={}):Promise<any>=>{
+    if (terminalError) throw terminalError;
     const id=crypto.randomUUID();
     if(method==="contest_scp_status")return{id,ok:true,result:{dataset:null,unavailableReason:"not_imported"}};
     if(method==="contest_history_status")return{id,ok:true,result:{status:"inactive",active:null,pending:null}};
     if(method.startsWith("contest_scp_"))return{id,ok:false,error:{code:"unavailable",message:"No SCP fixture"}};
     return await new Promise((resolve,reject)=>{pending.set(id,{resolve,reject});child.stdin.write(JSON.stringify({id,method,params})+"\n");});
   };
-  return{request,close:async()=>{const exited=new Promise<void>(resolve=>child.once("exit",()=>resolve()));child.stdin.end();await exited;rmSync(directory,{recursive:true});}};
+  return { request, close: async () => {
+    if (!terminalError) child.stdin.end();
+    await exited; rmSync(directory, { recursive: true });
+  } };
 }
 
 it("WPX productivity desk logs and loads next, retains a delayed draft note, and reviews exact unsubmitted bytes",async()=>{
@@ -79,6 +92,7 @@ it("WPX productivity desk logs and loads next, retains a delayed draft note, and
       radioFrequencyHz={fixture.state.draft.frequencyHz} spots={[]} cluster={null}/>);
     await waitFor(()=>expect(owner.current?.projections["active-qso"]?.status).toBe("ready"),{timeout:10000});
     timings.openMs=Math.round(performance.now()-started);
+    await waitFor(() => expect((screen.getByRole("button", { name: "Productivity desk" }) as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByRole("button",{name:"Productivity desk"}));
     fireEvent.change(screen.getByRole("textbox",{name:"Add heard call to stack"}),{target:{value:"K2ABC"}});
     fireEvent.click(screen.getByRole("button",{name:"Add caller"}));

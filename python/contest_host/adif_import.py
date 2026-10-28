@@ -30,6 +30,13 @@ def review(host,store,state,params,require):
         require(not required or result,'Historical ADIF is missing '+key)
         require(not any(ord(c)<32 for c in result),'ADIF control characters are not supported in '+key)
         return result
+    def serial_value(key):
+        selected=key if key in raw else key+'_STRING'
+        result=value(selected)
+        maximum=999999 if key=='STX' else 2**63-1
+        require(re.fullmatch(r'[0-9]{1,19}',result) is not None and 0<int(result)<=maximum,
+                'Actual '+('sent' if key=='STX' else 'received')+' serial is required')
+        return result
     clone=deepcopy(state)
     if 'countries' in params:
         require(params.get('referenceID')==state['reference']['id'],'ADIF country reference changed','reference_mismatch')
@@ -62,9 +69,8 @@ def review(host,store,state,params,require):
     elif family=='grid':fields.update(other_1=value('MY_GRIDSQUARE').upper(),other_2=value('GRIDSQUARE').upper())
     elif family=='zone':fields.update(other_1=value('STX_STRING',False) or value('STX'),other_2=value('CQZ'))
     else:
-        fields['other_1']=value('STX')
-        require(re.fullmatch(r'\d{1,6}',fields['other_1']) and int(fields['other_1'])>0,'Actual sent serial is required')
-        fields['other_2']=value('SRX') if family=='serial' else value('SRX')+' '+value('GRIDSQUARE').upper()
+        fields['other_1']=serial_value('STX')
+        fields['other_2']=serial_value('SRX') if family=='serial' else serial_value('SRX')+' '+value('GRIDSQUARE').upper()
     mygrid=value('MY_GRIDSQUARE',False).upper()
     if family in {'serial-grid','grid'}:
         require(re.fullmatch(r'[A-R]{2}\d{2}([A-X]{2})?',mygrid),'Historical station locator is required')
@@ -107,7 +113,10 @@ def apply(host,store,state,params,require):
     raw=reviewed['source']['raw'];qso_id=reviewed['qsoID']
     row=desk.contact_for(reviewed['fields'],qso_id,reviewed['timestamp'],reviewed['frequencyHz'])
     row.update(StationPrefix=reviewed['station'],Operator=reviewed['operator'],Mode=reviewed['submode'] or reviewed['mode'],IsRunQSO='',Run1Run2='')
-    if requires_serial(state):row['SentNr']=int(raw['STX'])
+    if requires_serial(state):row['SentNr']=int(reviewed['fields']['other_1'])
+    elif reviewed['family']=='name-location':
+        # The pinned setter uses today's setup; this row owns its historical exchange.
+        row['SentNr']=raw['STX_STRING'].strip()
     if reviewed['myGrid']:row['MiscText']=reviewed['myGrid']
     if reviewed['receiveFrequencyHz'] is not None:row['QSXFreq']=reviewed['receiveFrequencyHz']/1000
     store.log_contact(row)
@@ -116,7 +125,7 @@ def apply(host,store,state,params,require):
     store.conn.execute('INSERT INTO xlog_adif_import VALUES(?,?,?)',(qso_id,reviewed['semanticDigest'],canonical(reviewed['source'])))
     if reviewed['site']:store.conn.execute('INSERT INTO xlog_qso_site VALUES(?,?)',(qso_id,canonical(reviewed['site'])))
     state['reference']['countries'].update({k:v for k,v in desk.state['reference']['countries'].items() if k not in state['reference']['countries']})
-    if requires_serial(state):state['historicalSerialFloor']=max(state.get('historicalSerialFloor',0),int(raw['STX']))
+    if requires_serial(state):state['historicalSerialFloor']=max(state.get('historicalSerialFloor',0),int(reviewed['fields']['other_1']))
     host.rebuild(desk)
     after=store.exec_sql('SELECT * FROM DXLOG WHERE ID=?',(qso_id,))
     host.audit(store,qso_id,'adif_import',None,after,'Explicit reviewed historical ADIF import',revision=state['revision']+1)

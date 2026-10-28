@@ -2524,9 +2524,15 @@ class Host:
         operation = identifier(params.get("requestID") if method == "multi_contact_apply"
                                else params.get("operationID"))
         payload = canonical({"method": method, "params": params})
+        # Strategy shares the transaction owner but only these actions change
+        # contact/accounting/station authority. Local plans remain writable.
+        action = params.get("action")
+        replica_blocked = method in self.REPLICA_BLOCKED or (method == "strategy_apply" and
+            isinstance(action, str) and (action in {"adif_import", "site_activate", "transverter_save"}
+                                         or action.startswith("qtc_")))
         store.begin()
         try:
-            if method in self.REPLICA_BLOCKED and store.replica():
+            if replica_blocked and store.replica():
                 raise HostError("replica_read_only",
                                 "This contest is bound to a master; contacts and contest semantics are read-only")
             previous = store.exec_sql("SELECT payload,result FROM xlog_operation WHERE operation_id=?", (operation,))
@@ -2538,7 +2544,7 @@ class Host:
                 return result
             state = store.state(session_id)
             previous_n1mm_network = deepcopy(state.get("setup", {}).get("network", {})) if state else {}
-            if state is not None and store.replica() and method in self.REPLICA_BLOCKED:
+            if state is not None and store.replica() and replica_blocked:
                 raise HostError("replica_read_only",
                                 "This contest is bound to a master; contacts and contest semantics are read-only")
             expected = params.get("expectedRevision", 0)
@@ -4759,8 +4765,9 @@ class Host:
                 known = {row["qso_id"]: json.loads(row["attribution"]) for row in desk.database.exec_sql_mult("SELECT * FROM xlog_qso_lane")}
                 digital={row["qso_id"]:json.loads(row["packet"]) for row in desk.database.exec_sql_mult("SELECT * FROM xlog_digital_event")}
                 digital.update({row["qso_id"]:json.loads(row["source"])["raw"] for row in desk.database.exec_sql_mult("SELECT * FROM xlog_adif_import")})
-                if known or digital:
-                    files[0].write_bytes(augment_adif(files[0].read_bytes(), desk.database.fetch_all_contacts_asc(), known, require,digital))
+                serial_grid_contest = desk.contest.cabrillo_name if desk.state["pluginID"] in SERIAL_GRID6_PLUGINS else None
+                if known or digital or serial_grid_contest:
+                    files[0].write_bytes(augment_adif(files[0].read_bytes(), desk.database.fetch_all_contacts_asc(), known, require,digital,serial_grid_contest))
             require(files[0].stat().st_size <= maximum,
                     "Use a chunked export route for this log" if maximum == 512000 else "Prepared export exceeds the native save limit",
                     "export_too_large")

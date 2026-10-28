@@ -10,8 +10,11 @@ export function ContestHistoricalImport({scope,request,disabled,onApply}:{scope:
   const [records,setRecords]=useState<HistoricalADIFRecord[]>([]),[reviews,setReviews]=useState<Preview[]>([]),[encoding,setEncoding]=useState<ADIFImportEncoding>("utf-8");
   const [working,setWorking]=useState(false),[error,setError]=useState(""),[progress,setProgress]=useState(""),[revision,setRevision]=useState(-1);
   const ticket=useRef(0),applying=useRef(false);
-  useEffect(()=>{ticket.current++;setRecords([]);setReviews([]);setError("");setProgress("");},[scope.sessionID,scope.workspaceGeneration]);
-  useEffect(()=>{if(!applying.current){ticket.current++;setReviews([]);}},[scope.revision]);
+  // Invalidated reads cannot run their finally handler for the newer ticket.
+  // Retire their busy state here; Apply owns its own lifetime across revisions.
+  useEffect(()=>{ticket.current++;setRecords([]);setReviews([]);setError("");setProgress("");
+    if(!applying.current)setWorking(false);},[scope.sessionID,scope.workspaceGeneration]);
+  useEffect(()=>{if(!applying.current){ticket.current++;setReviews([]);setProgress("");setWorking(false);}},[scope.revision]);
   const choose=async(file:File)=>{const id=++ticket.current;setWorking(true);setReviews([]);setRecords([]);setError("");setProgress("");try{
     const parsed=await historicalADIFRecords(await file.arrayBuffer(),encoding);
     if(ticket.current===id)setRecords(parsed);

@@ -50,6 +50,11 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: prototype/package-lock.json
+      - name: Install supported contest Python before native tests
+        uses: actions/setup-python@v5
+        id: contest-python
+        with:
+          python-version: '3.12.4'
       - name: Restore native dependency/build cache
         uses: actions/cache/restore@v4
         with:
@@ -95,16 +100,33 @@ jobs:
           swift --version
           rustc --version
           node --version
-      - name: Test portable Swift core (Unix)
+      - name: Install frontend dependencies
+        working-directory: prototype
+        run: npm ci
+      - name: Frontend tests and build
+        working-directory: prototype
+        env:
+          XLOG_CONTEST_PYTHON: ${{ steps.contest-python.outputs.python-path }}
+        run: npm test && npm run build
+      - name: Test FLEX IQ loopback fixture (Mac)
+        if: runner.os == 'macOS'
+        env:
+          XLOG_PORTABLE_ONLY: '1'
+          XLOG_CONTEST_PYTHON: ${{ steps.contest-python.outputs.python-path }}
+          XLOG_IQ_FIXTURE_DIAGNOSTICS: '1'
+        run: swift test --scratch-path .build/prototype-tests --no-parallel --filter FlexIQSubscriptionTests
+      - name: Test complete portable Swift core (Unix)
         if: runner.os != 'Windows'
         env:
           XLOG_PORTABLE_ONLY: '1'
-        run: swift test --scratch-path .build/prototype-tests
+          XLOG_CONTEST_PYTHON: ${{ steps.contest-python.outputs.python-path }}
+        run: swift test --scratch-path .build/prototype-tests --no-parallel
       - name: Test portable Swift core (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         env:
           XLOG_PORTABLE_ONLY: '1'
+          XLOG_CONTEST_PYTHON: ${{ steps.contest-python.outputs.python-path }}
           # Random fixture identities only, removed by the test's exact cleanup.
           XLOG_TEST_NATIVE_VAULT: '1'
         run: |
@@ -117,12 +139,6 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./prototype/scripts/build-worker.ps1
-      - name: Install frontend dependencies
-        working-directory: prototype
-        run: npm ci
-      - name: Frontend tests and build
-        working-directory: prototype
-        run: npm test && npm run build
       - name: Stage isolated worker
         run: node prototype/scripts/stage-worker.mjs
       - name: Build pinned Hamlib radio and rotor helpers (Mac integration)
@@ -146,6 +162,8 @@ jobs:
           exit $LASTEXITCODE
       - name: Shell contract tests
         working-directory: prototype/src-tauri
+        env:
+          XLOG_TEST_PYTHON: ${{ steps.contest-python.outputs.python-path }}
         run: cargo test --locked
       - name: Bundled Hamlib dummy protocol and lifecycle tests
         if: runner.os != 'Windows'
@@ -168,20 +186,17 @@ jobs:
         run: npx tauri build --no-bundle
       - name: Collect resolved dependency inventory and notices
         run: node prototype/scripts/distribution-metadata.mjs
-      - name: Install packageable Python runtime
-        if: runner.os == 'macOS'
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12.4'
       - name: Package macOS application
-        if: runner.os == 'macOS'
+        # PR/main gates build and test without minting another application
+        # candidate under an already released version. Releases are explicit.
+        if: runner.os == 'macOS' && github.event_name == 'workflow_dispatch'
         env:
           XLOG_PYTHON_FRAMEWORK: /Library/Frameworks/Python.framework
         run: |
           bash prototype/scripts/package-macos.sh
           ditto -c -k --sequesterRsrc --keepParent "prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app" prototype/OM0RX-xLog-macOS.zip
       - name: Upload macOS package
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: om0rx-xlog-macos-${{ github.sha }}

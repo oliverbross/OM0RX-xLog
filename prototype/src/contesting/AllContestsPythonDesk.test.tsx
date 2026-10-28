@@ -61,11 +61,18 @@ function pythonHost() {
       pending.get(message.id)?.resolve(message); pending.delete(message.id);
     }
   });
-  process.on("exit", () => {
-    for (const request of pending.values()) request.reject(Error(`Python exited: ${stderr}`));
-    pending.clear();
+  let terminalError: Error | null = null;
+  const exited = new Promise<void>(resolve => {
+    const finish = (error: Error) => {
+      terminalError = error;
+      for (const waiter of pending.values()) waiter.reject(error);
+      pending.clear(); resolve();
+    };
+    process.once("error", error => finish(error));
+    process.once("exit", () => finish(Error(`Python exited: ${stderr}`)));
   });
   const request = async (method: string, params: Record<string, any> = {}): Promise<any> => {
+    if (terminalError) throw terminalError;
     const id = crypto.randomUUID();
     if (method === "contest_scp_status") return { id, ok: true, result: { dataset: null, unavailableReason: "not_imported" } };
     if (method === "contest_history_status") return { id, ok: true, result: { status: "inactive", active: null, pending: null } };
@@ -78,8 +85,8 @@ function pythonHost() {
     });
   };
   return { request, close: async () => {
-    const exited = new Promise<void>(resolve => process.once("exit", () => resolve()));
-    process.stdin.end(); await exited; rmSync(directory, { recursive: true });
+    if (!terminalError) process.stdin.end();
+    await exited; rmSync(directory, { recursive: true });
   } };
 }
 

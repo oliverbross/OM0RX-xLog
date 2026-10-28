@@ -1095,7 +1095,7 @@ it("offers a separate callsign search and highlights the exact review contact",a
   render(<DetachedContestSurface/>);
   const input=await screen.findByRole("searchbox",{name:"Search callsign"});
   expect((input as HTMLInputElement).value).toBe("UA6LUQ");
-  expect(screen.getByRole("button",{name:"UA6LUQ"}).closest("tr")?.dataset.reviewTarget).toBe("true");
+  await waitFor(()=>expect(screen.getByRole("button",{name:"UA6LUQ"}).closest("tr")?.dataset.reviewTarget).toBe("true"));
   fireEvent.change(input,{target:{value:"UA6L"}});fireEvent.click(screen.getByRole("button",{name:"Search"}));
   await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="log_search")?.[1])
     .toMatchObject({panelID:"logbook",params:{query:"UA6L"}}));
@@ -2205,7 +2205,7 @@ it("serializes rapid Python tab-map focus changes and sends exact report focus t
     throw new Error(command);
   });
   render(<DetachedContestSurface/>);const receive=await screen.findByLabelText("RCV"),exchange=screen.getByLabelText("Power");
-  expect(document.activeElement).toBe(receive);fireEvent.keyDown(receive,{key:"Enter"});
+  await waitFor(()=>expect(document.activeElement).toBe(receive));fireEvent.keyDown(receive,{key:"Enter"});
   await waitFor(()=>expect(actions[0]).toMatchObject({action:"entry_operator_key",params:{key:"Enter",focusedField:"receive"}}));
   fireEvent.keyDown(receive,{key:"Tab"});
   expect(document.activeElement).toBe(exchange);fireEvent.keyDown(exchange,{key:"Tab"});
@@ -2227,7 +2227,7 @@ it("uses the pinned plugin space-advance fields instead of limiting space to Cal
     throw new Error(command);
   });
   render(<DetachedContestSurface/>);const sent=await screen.findByLabelText("SNT"),receive=screen.getByLabelText("RCV");
-  expect(document.activeElement).toBe(sent);fireEvent.keyDown(sent,{key:" "});
+  await waitFor(()=>expect(document.activeElement).toBe(sent));fireEvent.keyDown(sent,{key:" "});
   expect(document.activeElement).toBe(receive);
 });
 
@@ -2758,16 +2758,16 @@ it("admits only Escape across benign refresh churn",async()=>{
     functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   const base:any={...snapshot,projection:{...projection,schemaVersion:2,
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
-  let reads=0;const actions:Record<string,any>[]=[];native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
-    if(command==="contest_surface_snapshot"){reads+=1;return structuredClone(reads>=4?{...base,projectionRevision:7,
+  let actionReads:number|null=null;const actions:Record<string,any>[]=[];native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot"){const churn=actionReads!==null&&++actionReads>=2;return structuredClone(churn?{...base,projectionRevision:7,
       projection:{...base.projection,draft:{...base.projection.draft,revision:6}}}:base);}
     if(command==="contest_surface_action"){actions.push(args);return {requestID:args.requestID,status:"queued"};}throw new Error(command);
   });
-  const view=render(<DetachedContestSurface/>),callsign=await screen.findByLabelText("Callsign");fireEvent.keyDown(callsign,{key:"Escape"});
+  const view=render(<DetachedContestSurface/>),callsign=await screen.findByLabelText("Callsign");await act(async()=>{});actionReads=0;fireEvent.keyDown(callsign,{key:"Escape"});
   await waitFor(()=>expect(actions).toHaveLength(1));expect(actions[0]).toMatchObject({projectionRevision:6,action:"entry_operator_key",params:{key:"Escape",expectedDraftRevision:5}});
-  view.unmount();reads=0;actions.length=0;render(<DetachedContestSurface/>);const ordinary=await screen.findByLabelText("Callsign");fireEvent.keyDown(ordinary,{key:"Enter"});
-  await waitFor(()=>expect(reads).toBeGreaterThanOrEqual(4));
-  expect(await screen.findByRole("alert")).toHaveProperty("textContent","The shared contest panel changed before this action could be applied.");expect(actions).toHaveLength(0);
+  expect(actionReads).toBeGreaterThanOrEqual(2);
+  view.unmount();actionReads=null;actions.length=0;render(<DetachedContestSurface/>);const ordinary=await screen.findByLabelText("Callsign");await act(async()=>{});actionReads=0;fireEvent.keyDown(ordinary,{key:"Enter"});
+  await waitFor(()=>expect(screen.getByRole("alert")).toHaveProperty("textContent","The shared contest panel changed before this action could be applied."));expect(actions).toHaveLength(0);expect(actionReads).toBeGreaterThanOrEqual(2);
 });
 
 it("does not silently rebase a control action after another surface revision wins",async()=>{

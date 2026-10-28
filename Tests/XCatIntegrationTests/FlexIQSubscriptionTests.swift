@@ -3,12 +3,26 @@ import XCTest
 @testable import XCatIntegrationCore
 #if os(macOS)
 @preconcurrency import Network
+import Darwin
 
 final class FlexIQSubscriptionTests:XCTestCase {
     private func setup() async throws -> (FlexRadioClient,FlexIQFixtureRadio) {
-        let wire=FlexIQFixtureRadio(),port=try await wire.start()
+        let wire=FlexIQFixtureRadio()
+        addTeardownBlock { await wire.stop() }
+        let port=try await wire.start()
         let radio=FlexRadioClient(host:"127.0.0.1",port:port,stationName:"Fixture")
+        addTeardownBlock { await radio.stopTransportOnly() }
         await radio.start()
+        if ProcessInfo.processInfo.environment["XLOG_IQ_FIXTURE_DIAGNOSTICS"] == "1" {
+            let monitor=Task {
+                for _ in 0..<5 {
+                    try? await Task.sleep(for:.milliseconds(500))
+                    guard !Task.isCancelled else{return}
+                    print("IQ_FIXTURE \(await radio.fixtureIQDiagnostics()) sent=\(await wire.sentDatagrams)")
+                }
+            }
+            addTeardownBlock { monitor.cancel() }
+        }
         for _ in 0..<200 {
             let capability=await radio.iqCapabilities()
             if capability.ready,capability.panadapters.count==2 {
@@ -29,6 +43,14 @@ final class FlexIQSubscriptionTests:XCTestCase {
             group.addTask {try await Task.sleep(for:.seconds(2));throw FlexIQSubscriptionError.noData}
             defer{group.cancelAll()};return try await group.next()!
         }
+    }
+    private func admittedCapture(_ radio:FlexRadioClient,leaseID:UUID) async throws -> FlexIQCapture? {
+        let clock=ContinuousClock(),deadline=ContinuousClock.now.advanced(by:.seconds(2))
+        repeat {
+            if let capture=await radio.currentIQCapture(leaseID:leaseID){return capture}
+            try await Task.sleep(for:.milliseconds(10))
+        } while clock.now<deadline
+        return nil
     }
     func testHandoffIsExplicitAndMetadataBoundBeforeAnyEnablingCommand() async throws {
         let (radio,wire)=try await setup()
@@ -85,12 +107,12 @@ final class FlexIQSubscriptionTests:XCTestCase {
         let drain=Task{for try await _ in subscription.blocks{}}
         await wire.status("display pan 0x40000000 center=14.035000 rxant=ANT2")
         try await Task.sleep(for:.milliseconds(40));let quarantined=await radio.currentIQCapture(leaseID:lease);XCTAssertNil(quarantined)
-        try await Task.sleep(for:.milliseconds(600));let retuned=await radio.currentIQCapture(leaseID:lease)
+        let retuned=try await admittedCapture(radio,leaseID:lease)
         XCTAssertEqual(retuned?.panadapter.centreHz,14035000);XCTAssertNotEqual(retuned?.streamToken,first.capture.streamToken)
         await wire.status("interlock state=TRANSMITTING")
         try await Task.sleep(for:.milliseconds(40));let muted=await radio.currentIQCapture(leaseID:lease);XCTAssertNil(muted)
         await wire.status("interlock state=READY")
-        try await Task.sleep(for:.milliseconds(600));let resumed=await radio.currentIQCapture(leaseID:lease)
+        let resumed=try await admittedCapture(radio,leaseID:lease)
         XCTAssertNotNil(resumed);XCTAssertNotEqual(resumed?.streamToken,retuned?.streamToken)
         await radio.stopIQ(leaseID:lease);drain.cancel();await radio.stopTransportOnly();await wire.stop()
     }
@@ -143,7 +165,7 @@ final class FlexIQSubscriptionTests:XCTestCase {
         await wire.status("interlock state=TRANSMITTING state=READY")
         try await Task.sleep(for:.milliseconds(40));let unknown=await radio.currentIQCapture(leaseID:lease);XCTAssertNil(unknown)
         await wire.status("interlock state=READY")
-        try await Task.sleep(for:.milliseconds(600));let restored=await radio.currentIQCapture(leaseID:lease);XCTAssertNotNil(restored)
+        let restored=try await admittedCapture(radio,leaseID:lease);XCTAssertNotNil(restored)
         await wire.status("stream 0x80000001 client_handle=0x9999")
         try await Task.sleep(for:.milliseconds(40));let changed=await radio.currentIQCapture(leaseID:lease),commands=await wire.commands
         XCTAssertNil(changed);XCTAssertFalse(commands.contains(where:{$0.hasPrefix("stream remove")}))
@@ -151,6 +173,11 @@ final class FlexIQSubscriptionTests:XCTestCase {
     }
 }
 private extension FlexRadioClient {
+    func fixtureIQDiagnostics() -> String {
+        let context=iqControlContext()
+        let flows=iqState.flows.mapValues { "last=\($0.lastReceipt) cleanAfter=\($0.cleanAfter) capture=\($0.capture != nil) admitted=\($0.admitted)" }
+        return "context=\(String(describing:context)) streams=\(iqState.inventory.streams) flows=\(flows)"
+    }
     func fixtureIQIdentity(port:UInt16) {
         // Only discovery is replaced. TCP binding, stream commands/status and
         // UDP delivery in these tests use the actual Network.framework path.
@@ -159,8 +186,12 @@ private extension FlexRadioClient {
 }
 private actor FlexIQFixtureRadio {
     private let queue=DispatchQueue(label:"xlog.fixture.flex-iq")
-    private var listener:NWListener?,connection:NWConnection?,udp:NWConnection?
-    private var ready=false,buffer=Data(),pump:Task<Void,Never>?
+    private var listener:NWListener?,connection:NWConnection?
+    private var udpSocket:Int32 = -1
+    private var udpDestination:sockaddr_in?
+    private(set) var sentDatagrams=0
+    private var ready=false,buffer=Data(),pump:DispatchSourceTimer?
+    private let sampleQueue=DispatchQueue(label:"xlog.fixture.flex-iq.samples",qos:.userInteractive)
     private var streams:[UInt32:(Int,UInt8)]=[:]
     private var held=false,pendingCreate:Int?
     private(set) var commands:[String]=[]
@@ -200,10 +231,27 @@ private actor FlexIQFixtureRadio {
             status("display pan 0x40000001 client_handle=0x1234 daxiq_channel=2 center=7.025000 rxant=ANT1")
         }
         if body.hasPrefix("client udpport "),let port=UInt16(body.split(separator:" ").last!) {
-            let parameters=NWParameters.udp;parameters.requiredLocalEndpoint = .hostPort(host:"127.0.0.1",port:4991)
-            let udp=NWConnection(host:"127.0.0.1",port:NWEndpoint.Port(rawValue:port)!,using:parameters)
-            self.udp=udp;udp.start(queue:queue)
-            pump=Task{[weak self] in while !Task.isCancelled {try? await Task.sleep(for:.milliseconds(10));guard !Task.isCancelled else{return};await self?.emit()}}
+            // The receiver requires the radio's exact source port. Bind it
+            // synchronously and check every datagram; the old NW sender ignored
+            // readiness/send failures and left port 4991 held after a test threw.
+            let fd=Darwin.socket(AF_INET,SOCK_DGRAM,0)
+            guard fd >= 0 else { XCTFail("Fixture UDP socket: \(errno)"); return }
+            var local=sockaddr_in();local.sin_len=UInt8(MemoryLayout<sockaddr_in>.size)
+            local.sin_family=sa_family_t(AF_INET);local.sin_port=UInt16(4991).bigEndian
+            local.sin_addr.s_addr=inet_addr("127.0.0.1")
+            let bound=withUnsafePointer(to:&local) { pointer in
+                pointer.withMemoryRebound(to:sockaddr.self,capacity:1) { Darwin.bind(fd,$0,socklen_t(MemoryLayout<sockaddr_in>.size)) }
+            }
+            guard bound == 0 else { let error=errno;Darwin.close(fd);XCTFail("Fixture UDP bind: \(error)");return }
+            udpSocket=fd;local.sin_port=port.bigEndian;udpDestination=local
+            // macOS-14 CI coalesces Task.sleep(10ms) to 30–50ms. That is
+            // slower than three 1024-sample packets at 96k and correctly trips
+            // the real continuity gate. Supply the advertised fixture cadence;
+            // do not weaken production freshness/quarantine to fit the runner.
+            let timer=DispatchSource.makeTimerSource(flags:.strict,queue:sampleQueue)
+            timer.schedule(deadline:.now(),repeating:.nanoseconds(10_666_667),leeway:.nanoseconds(0))
+            timer.setEventHandler {[weak self] in Task(priority:.high) { await self?.emit() }}
+            pump=timer;timer.resume()
         }
         if body.hasPrefix("stream create ") {
             if held{pendingCreate=sequence;return}
@@ -231,9 +279,18 @@ private actor FlexIQFixtureRadio {
                 var value=word.bigEndian;withUnsafeBytes(of:&value){data.append(contentsOf:$0)}
             }
             data.append(Data(repeating:0,count:8192));streams[id]=(rate,(counter+1)%16)
-            udp?.send(content:data,completion:.contentProcessed{_ in})
+            guard udpSocket >= 0,var destination=udpDestination else { return }
+            let written=data.withUnsafeBytes { bytes in
+                withUnsafePointer(to:&destination) { pointer in
+                    pointer.withMemoryRebound(to:sockaddr.self,capacity:1) {
+                        Darwin.sendto(udpSocket,bytes.baseAddress,data.count,0,$0,socklen_t(MemoryLayout<sockaddr_in>.size))
+                    }
+                }
+            }
+            if written != data.count { XCTFail("Fixture UDP send: \(errno), bytes \(written)/\(data.count)");pump?.cancel();return }
+            sentDatagrams+=1
         }
     }
-    func stop(){pump?.cancel();pump=nil;udp?.cancel();udp=nil;connection?.cancel();connection=nil;listener?.cancel();listener=nil}
+    func stop(){pump?.cancel();pump=nil;if udpSocket >= 0 { Darwin.close(udpSocket);udpSocket = -1 };udpDestination=nil;connection?.cancel();connection=nil;listener?.cancel();listener=nil}
 }
 #endif
