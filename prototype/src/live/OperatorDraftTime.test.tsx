@@ -35,6 +35,12 @@ it.each([false, true])("shows and submits retained manual time after remount (fu
 it("accepts legacy provenance omission, preserves explicit false, and rejects malformed provenance", () => {
   const snapshot = { revision: 1, qso: initial };
   expect(validDraftSnapshot(snapshot)).toBe(true);
+  expect(validDraftSnapshot({ ...snapshot, automaticStart: true })).toBe(true);
   expect(validDraftSnapshot({ ...snapshot, automaticStart: false })).toBe(true);
   expect(validDraftSnapshot({ ...snapshot, automaticStart: "false" })).toBe(false);
 });
+
+it.each([null, 0, 1, NaN, [], {}, "true", new Boolean(false)])(
+  "rejects non-boolean canonical time provenance %j", automaticStart => {
+    expect(validDraftSnapshot({ revision: 1, qso: initial, automaticStart })).toBe(false);
+  });
