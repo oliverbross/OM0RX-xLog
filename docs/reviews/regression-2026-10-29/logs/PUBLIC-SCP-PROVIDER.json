@@ -1,0 +1,22 @@
+{
+  "id": "PUBLIC-SCP-PROVIDER",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "env",
+    "XLOG_SCP_LIVE_TEST=1",
+    "XLOG_CONTEST_N1MM_UDP_ALLOWED=0",
+    "/Applications/Xcode.app/Contents/Developer/usr/bin/xctest",
+    "-XCTest",
+    "XLogPrototypeTests.ContestSCPProviderTests/testLiveOfficialDownloadIntoDisposableCacheWhenEnabled",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase4-20261029/portable/out/Products/Debug/XLogPrototypeTests.xctest"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T17:51:11.476259+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/PUBLIC-SCP-PROVIDER.log",
+  "pid": 64908,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 5.237,
+  "finishedUTC": "2026-10-28T17:51:16.713065+00:00"
+}

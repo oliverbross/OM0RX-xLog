@@ -1,0 +1,8 @@
+{
+  "path": "query-benchmark-copy.sqlite",
+  "integrity": [
+    "ok"
+  ],
+  "foreignKeyViolations": [],
+  "qsoCount": 0
+}

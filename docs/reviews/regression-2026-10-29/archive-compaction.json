@@ -1,0 +1,38 @@
+{
+  "compressedBrowserTraces": [
+    "browser-declarative/evidence/acceptance.json.gz",
+    "browser-family/evidence/acceptance.json.gz",
+    "browser-scp/evidence/acceptance.json.gz",
+    "browser-operator/evidence/acceptance.json.gz"
+  ],
+  "omittedDuplicateBootstrapResources": [
+    "worker-bootstrap-r2/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle/Contents/Resources/CountryReferences/cqww-2026-country-reference.json",
+    "worker-bootstrap-r2/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle/Contents/Resources/ContestDefinitions/k1usn_sst.runtime-draft.json",
+    "worker-bootstrap-r2/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle/Contents/Resources/ContestDefinitions/cwt.runtime-draft.json",
+    "worker-bootstrap-r2/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle/Contents/Resources/ContestDefinitions/10_10_fall_cw.runtime-draft.json",
+    "worker-bootstrap-r2/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle/Contents/Resources/ContestDefinitions/10_10_summer_phone.runtime-draft.json",
+    "worker-bootstrap-r2/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle/Contents/Resources/ContestDefinitions/10_10_spring_cw.runtime-draft.json",
+    "worker-bootstrap-r2/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle/Contents/Resources/ContestDefinitions/10_10_winter_phone.runtime-draft.json",
+    "worker-bootstrap-r2/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle/Contents/Resources/ContestDefinitions/manifest.json",
+    "worker-bootstrap-r2/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle/Contents/Resources/ContestDefinitions/icwc_mst.runtime-draft.json",
+    "worker-bootstrap-r2/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle/Contents/Resources/ContestDefinitions/cwo.runtime-draft.json",
+    "worker-bootstrap-r2/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle/Contents/Resources/ham-award-jarl-prefectures.json",
+    "worker-bootstrap-r2/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle/Contents/Resources/ham-award-jarl-entities.json",
+    "worker-bootstrap-r2/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle/Contents/Resources/ham-award-wcsa-schools.json",
+    "worker-bootstrap-r2/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle/Contents/Resources/ham-award-research-registry.json",
+    "worker-bootstrap/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle/Contents/Resources/CountryReferences/cqww-2026-country-reference.json",
+    "worker-bootstrap/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle/Contents/Resources/ContestDefinitions/k1usn_sst.runtime-draft.json",
+    "worker-bootstrap/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle/Contents/Resources/ContestDefinitions/cwt.runtime-draft.json",
+    "worker-bootstrap/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle/Contents/Resources/ContestDefinitions/10_10_fall_cw.runtime-draft.json",
+    "worker-bootstrap/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle/Contents/Resources/ContestDefinitions/10_10_summer_phone.runtime-draft.json",
+    "worker-bootstrap/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle/Contents/Resources/ContestDefinitions/10_10_spring_cw.runtime-draft.json",
+    "worker-bootstrap/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle/Contents/Resources/ContestDefinitions/10_10_winter_phone.runtime-draft.json",
+    "worker-bootstrap/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle/Contents/Resources/ContestDefinitions/manifest.json",
+    "worker-bootstrap/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle/Contents/Resources/ContestDefinitions/icwc_mst.runtime-draft.json",
+    "worker-bootstrap/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle/Contents/Resources/ContestDefinitions/cwo.runtime-draft.json",
+    "worker-bootstrap/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle/Contents/Resources/ham-award-jarl-prefectures.json",
+    "worker-bootstrap/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle/Contents/Resources/ham-award-jarl-entities.json",
+    "worker-bootstrap/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle/Contents/Resources/ham-award-wcsa-schools.json",
+    "worker-bootstrap/bootstrap/OM0RX-xLog Contesting Worker Bootstrap.app/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle/Contents/Resources/ham-award-research-registry.json"
+  ]
+}

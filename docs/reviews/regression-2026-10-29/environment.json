@@ -1,0 +1,140 @@
+{
+  "dateUTC": "2026-10-28T16:30:55.218937+00:00",
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "machine": "arm64",
+  "cpuCount": 8,
+  "tools": {
+    "git": {
+      "command": [
+        "git",
+        "--version"
+      ],
+      "exitCode": 0,
+      "output": "git version 2.54.0 (Apple Git-157)"
+    },
+    "swift": {
+      "command": [
+        "swift",
+        "--version"
+      ],
+      "exitCode": 0,
+      "output": "swift-driver version: 1.168.6 Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0"
+    },
+    "rust": {
+      "command": [
+        "rustc",
+        "--version"
+      ],
+      "exitCode": 0,
+      "output": "rustc 1.98.0 (88d9e12ae 2026-08-18) (Homebrew)"
+    },
+    "cargo": {
+      "command": [
+        "cargo",
+        "--version"
+      ],
+      "exitCode": 0,
+      "output": "cargo 1.98.0 (797e8a9bc 2026-08-05) (Homebrew)"
+    },
+    "node": {
+      "command": [
+        "node",
+        "--version"
+      ],
+      "exitCode": 0,
+      "output": "v24.11.1"
+    },
+    "npm": {
+      "command": [
+        "npm",
+        "--version"
+      ],
+      "exitCode": 0,
+      "output": "11.6.3"
+    },
+    "python": {
+      "command": [
+        "python3.12",
+        "--version"
+      ],
+      "exitCode": 0,
+      "output": "Python 3.12.4"
+    },
+    "cmake": {
+      "command": [
+        "cmake",
+        "--version"
+      ],
+      "exitCode": 0,
+      "output": "cmake version 4.4.2\n\nCMake suite maintained and supported by Kitware (kitware.com/cmake)."
+    },
+    "clang": {
+      "command": [
+        "clang",
+        "--version"
+      ],
+      "exitCode": 0,
+      "output": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+    },
+    "agentBrowser": {
+      "command": [
+        "agent-browser",
+        "--version"
+      ],
+      "exitCode": 0,
+      "output": "agent-browser 0.32.3"
+    },
+    "cargoAudit": {
+      "command": [
+        "cargo",
+        "audit",
+        "--version"
+      ],
+      "exitCode": 101,
+      "output": "error: no such command: `audit`\n\nhelp: a command with a similar name exists: `add`\n\nhelp: view all installed commands with `cargo --list`\nhelp: find a package to install `audit` with `cargo search cargo-audit`"
+    },
+    "cargoClippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "--version"
+      ],
+      "exitCode": 0,
+      "output": "clippy 0.1.98"
+    },
+    "pipAudit": {
+      "command": [
+        "python3.12",
+        "-m",
+        "pip_audit",
+        "--version"
+      ],
+      "exitCode": 1,
+      "output": "/opt/local/bin/python3.12: No module named pip_audit"
+    },
+    "system": {
+      "command": [
+        "sw_vers"
+      ],
+      "exitCode": 0,
+      "output": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434"
+    },
+    "memory": {
+      "command": [
+        "sysctl",
+        "hw.memsize"
+      ],
+      "exitCode": 0,
+      "output": "hw.memsize: 17179869184"
+    },
+    "disk": {
+      "command": [
+        "df",
+        "-h",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog"
+      ],
+      "exitCode": 0,
+      "output": "Filesystem      Size    Used   Avail Capacity iused ifree %iused  Mounted on\n/dev/disk3s5   1.8Ti   1.4Ti   398Gi    79%    5.9M  4.2G    0%   /System/Volumes/Data"
+    }
+  }
+}

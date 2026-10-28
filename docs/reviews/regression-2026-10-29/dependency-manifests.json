@@ -1,0 +1,12 @@
+[
+  "Package.swift",
+  "docs/reviews/full-code-review-verification-2026-10-29/frontend/package.json",
+  "docs/reviews/full-code-review-verification-2026-10-29/native/Cargo.lock",
+  "docs/reviews/full-code-review-verification-2026-10-29/native/Cargo.toml",
+  "native/cw-worker/CMakeLists.txt",
+  "native/cw-worker/Package.swift",
+  "prototype/package-lock.json",
+  "prototype/package.json",
+  "prototype/src-tauri/Cargo.lock",
+  "prototype/src-tauri/Cargo.toml"
+]

@@ -1,0 +1,79 @@
+{
+  "schema": 1,
+  "status": "passed",
+  "source_commit": "26f795cb531c0b3c299e6a5dcc6d4a7f095b2058",
+  "tracked_source_dirty": false,
+  "scope": "disposable-local-transport",
+  "synthetic_data_only": true,
+  "external_network": false,
+  "station_io": false,
+  "production_limits": {
+    "connect_timeout_seconds": 15,
+    "total_timeout_seconds": 120,
+    "low_speed_bytes_per_second": 1,
+    "low_speed_seconds": 30
+  },
+  "ftp": {
+    "upload": true,
+    "independent_download": true,
+    "restore_download": true,
+    "replay_refused": true,
+    "reservation_refusal_wrote_no_object": true,
+    "lost_acknowledgement_wrote_one_object_without_replay": true,
+    "oversized_advertised_download_rejected": true,
+    "oversized_streamed_download_rejected": true,
+    "oversized_download_produced_no_verified_object": true,
+    "restore_rejected_growth_after_verification": true,
+    "control_handshake_timeout_bounded": true,
+    "timeout_wrote_no_object_and_replay_refused": true,
+    "stalled_download_rejected_without_verified_object": true,
+    "sustained_slow_download_total_deadline_enforced": true,
+    "timed_out_download_replay_refused": true,
+    "timed_out_download_remote_object_count_per_case": 1,
+    "stalled_download_elapsed_seconds": 30.089138792,
+    "total_deadline_elapsed_seconds": 120.00738991599999,
+    "upload_timeout": {
+      "stall": {
+        "store_count": 1,
+        "stored_bytes": 4096,
+        "settled": true,
+        "elapsed_seconds": 41.180135917000001,
+        "object_count": 1,
+        "partial_sha256": "0561079e4fe3390bc1d8bb706edb7d80243eeca7ddf876cefbaa8c1684db80c3",
+        "complete_package_bytes": 16777216,
+        "verified_object_authority": false,
+        "replay_refused": true
+      },
+      "deadline": {
+        "store_count": 1,
+        "stored_bytes": 4640768,
+        "settled": true,
+        "elapsed_seconds": 120.023900083,
+        "object_count": 1,
+        "partial_sha256": "f905fd609b6beea03db8d4f836dafd1599aa9f6e28463e9047218058a137702c",
+        "complete_package_bytes": 16777216,
+        "verified_object_authority": false,
+        "replay_refused": true
+      }
+    },
+    "object_count": 1,
+    "sha256": "f34c985f8321a0125c87bd86d38293d95ef84a82920a604efaaf0b05b573d426"
+  },
+  "ftps": {
+    "trusted_certificate_success": true,
+    "upload": true,
+    "independent_download": true,
+    "restore_download": true,
+    "replay_refused": true,
+    "untrusted_certificate_rejected": true,
+    "wrong_ca_rejected": true,
+    "wrong_hostname_rejected": true,
+    "rejected_attempts_created_no_reservation": true,
+    "peer_verification_required": true,
+    "hostname_verification_required": true,
+    "object_count": 1,
+    "sha256": "2ee4ba8e84847c0c07ae623d73eeaa2ecf0e4d10631db3866151ff2f6727b98f",
+    "ca_pem_sha256": "c7170028d57103856f39ca10a57b23ab9f93d1c5cbbe4891d9e16f13a5378b23",
+    "ca_revision": 1
+  }
+}

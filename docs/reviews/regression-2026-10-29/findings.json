@@ -1,0 +1,63 @@
+[
+  {
+    "id": "REG-P4-001",
+    "severity": "Medium",
+    "title": "Clean npm build exceeds the unchanged Logbook startup budget",
+    "status": "Confirmed regression; not fixed in this testing phase",
+    "observed": "A fresh npm ci from the committed lockfile completes. npm run build passes TypeScript and Vite but fails the bundle gate:405218 bytes versus405200.",
+    "evidence": [
+      "logs/CLEAN-NPM-INSTALL.json",
+      "logs/FRONTEND-CLEAN-BUILD.json",
+      "logs/FRONTEND-CLEAN-BUILD.log.gz",
+      "logs/FRONTEND-STANDARD-BUILD.json",
+      "logs/FRONTEND-STANDARD-BUILD.log.gz",
+      "logs/CLEAN-NPM-STANDARD.json",
+      "npm-lifecycle-comparison.json",
+      "frontend-ref-530de4c4.json",
+      "frontend-ref-875b5254.json",
+      "frontend-ref-26f795cb.json",
+      "logs/ORIGINAL-TREE-BUILD.json",
+      "dependency-tree-comparison.json"
+    ],
+    "impact": "The documented clean frontend build does not pass its existing release gate.",
+    "origin": "Controlled Git-blob builds with identical clean npm dependencies: pre-remediation530de4c4=405185/PASS; first remediation875b5254=405224/FAIL; current26f795cb=405218/FAIL. Current-source control reproduces the official build exactly. Phase3 time-provenance frontend changes introduced the gate regression. The original untracked pnpm tree differs from the npm lock in React/ReactDOM, Tauri API/CLI and user-event versions; its prior pass was not clean-lock reproducibility evidence.",
+    "recommendation": "Identify reproducible dependency/source byte growth and restore the existing gate without hiding the failure or changing expected budgets. No code fix in this phase.",
+    "independentControl": "Current source with restored original pnpm dependencies passes at405194; clean committed npm dependencies fail at405218. Ordinary and ignore-scripts npm installs have8907 matching installed-file hashes with no content changes. Budgets and expected results were never changed.",
+    "trackerDisposition": "CR-008 build/integration verification reopened as Fixed but Unverified; original manual-time preservation tests still pass. CR-001 native functional status remains verified."
+  },
+  {
+    "id": "REG-P4-002",
+    "severity": "Low",
+    "title": "Complete Swift concurrency checking fails on an actor-isolated default closure",
+    "status": "Confirmed check failure; not fixed in this testing phase",
+    "observed": "Both the full portable build and a focused XLogPrototypeSupport rebuild fail with -strict-concurrency=complete and -warn-concurrency at LiveOpportunitiesMethods.swift:44: actor-isolated default value in a nonisolated context. Standard builds/tests and the selected Thread Sanitizer checks pass.",
+    "evidence": [
+      "logs/SWIFT-STRICT-PORTABLE.json",
+      "logs/SWIFT-STRICT-PORTABLE.log.gz",
+      "logs/SWIFT-STRICT-R2.json",
+      "logs/SWIFT-STRICT-R2.log.gz"
+    ],
+    "impact": "The worker cannot complete this stronger compiler concurrency check. This does not demonstrate a runtime data race or a standard-build failure.",
+    "origin": "Pre-existing: LiveOpportunitiesMethods.swift and the referenced cluster callback are unchanged from the pre-remediation baseline. The same error reproduces in a focused rebuild.",
+    "recommendation": "Make callback isolation and Sendability explicit, or construct/pass the callback in its matching actor context; retain the stricter check and rerun related opportunities, cluster and sanitizer tests. Do not silence the diagnostic as a substitute for resolving ownership."
+  },
+  {
+    "id": "REG-P4-003",
+    "severity": "Low",
+    "title": "Standalone process acceptance bootstrap omits the current contest runtime",
+    "status": "Confirmed pre-existing acceptance-harness defect; no production runtime defect inferred",
+    "observed": "The clean release worker builds, but accept-contesting-worker-process.mjs fails its first contest_catalog expectation with contest_host_unavailable instead of workspace_required. The bootstrap copies only the native logbook/contest resource bundles; it does not stage Python.framework, its CA file or Not1MM resources required by the selected process-worker backend.",
+    "evidence": [
+      "worker-release-build.json",
+      "logs/WORKER-BOOTSTRAP.json",
+      "logs/WORKER-BOOTSTRAP.log.gz",
+      "worker-bootstrap/evidence/acceptance.json",
+      "logs/WORKER-BOOTSTRAP-R2.json",
+      "logs/WORKER-BOOTSTRAP-R2.log.gz",
+      "worker-bootstrap-r2/evidence/acceptance.json"
+    ],
+    "impact": "This gate cannot validate current process-worker contest persistence, restart and export workflows. In-process legacy browser fixtures and direct host tests do not repair that gap.",
+    "origin": "Pre-existing: the builder/acceptor and PythonContestHostConfiguration.bundled are unchanged since the pre-remediation baseline. The process-owner selection of the Python backend is from6b2787e4 on20October2026, before Phase3.",
+    "recommendation": "Stage the verified application-relative Python framework, CA and pinned Not1MM assets in a test-only bootstrap and exercise the current backend. Keep workspace/isolation expectations and fail-closed runtime checks; do not substitute a user PATH interpreter or accept an unavailable engine as success. No fix was made in this phase."
+  }
+]

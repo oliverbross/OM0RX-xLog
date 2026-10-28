@@ -1,0 +1,49 @@
+{
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "head": {
+    "command": [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    "exitCode": 0,
+    "output": "26f795cb531c0b3c299e6a5dcc6d4a7f095b2058"
+  },
+  "originMain": {
+    "command": [
+      "git",
+      "rev-parse",
+      "origin/main"
+    ],
+    "exitCode": 0,
+    "output": "26f795cb531c0b3c299e6a5dcc6d4a7f095b2058"
+  },
+  "status": {
+    "command": [
+      "git",
+      "status",
+      "--porcelain=v1"
+    ],
+    "exitCode": 0,
+    "output": ""
+  },
+  "branch": {
+    "command": [
+      "git",
+      "branch",
+      "--show-current"
+    ],
+    "exitCode": 0,
+    "output": "main"
+  },
+  "submodules": {
+    "command": [
+      "git",
+      "submodule",
+      "status"
+    ],
+    "exitCode": 0,
+    "output": ""
+  },
+  "trackedFiles": 2672
+}

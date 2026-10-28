@@ -1,10 +1,12 @@
 # Phase 3 defect remediation
 
+**Current Phase 4 disposition — 29 October 2026:** Eleven original findings retain Fixed and Verified status within their source/fixture limits. **CR-008 is reopened as Fixed but Unverified for clean build/integration acceptance**, linked to REG-P4-001; the original timestamp behavior still passes. Independent testing found one Medium build regression, two Low pre-existing compiler/harness defects, an unresolved NAQP browser failure and an overload observation. No application fixes were made in Phase 4. See [REGRESSION_TEST_REPORT.md](/Users/oliver/Documents/Projects/OM0RX-xLog/REGRESSION_TEST_REPORT.md) and the dated section below. Release acceptance is not met.
+
 Started 29 October 2026 on clean canonical `main` at `530de4c4e4b23281ec60585cc7a2e5ca011476fb`, fetched and fast-forward checked. Scope: the twelve confirmed findings in CODE_REVIEW.md. The wider manual audit remains incomplete as recorded in REVIEW_COVERAGE.md.
 
 Work proceeds by severity and shared dependencies: CR-001/008, CR-002, CR-003, contest replication/serial/scoring/recorder, retained imports/exports, ADX and power attribution. Each logical completed change is tested, committed and pushed immediately. No production data, installed application, live provider account or physical station is used. Source/build verification does not establish native UI, RF, external watchdog or sponsor submission acceptance. Review evidence directories remain immutable.
 
-All twelve confirmed findings (2 High, 9 Medium, 1 Low) are **Fixed and Verified** within the source/fixture boundaries below. None is Blocked or Not Fixed. This does not claim an exhaustive defect-free application or retrospective repair of historical data.
+At the close of Phase 3, all twelve confirmed findings (2 High, 9 Medium, 1 Low) were recorded as **Fixed and Verified** within the source/fixture boundaries below. Phase 4 supersedes CR-008's build-verification status as described above. This does not claim an exhaustive defect-free application or retrospective repair of historical data.
 
 ## CR-001 — High
 
@@ -85,7 +87,7 @@ All twelve confirmed findings (2 High, 9 Medium, 1 Low) are **Fixed and Verified
 
 ## CR-008 — Medium
 
-- **Status:** Fixed and Verified.
+- **Status:** Fixed but Unverified — clean build/integration acceptance reopened in Phase 4. Original manual-time preservation tests continue to pass; no reproduced return of the original time-loss defect.
 - **Root cause:** Editor remounts derive time intent from new-versus-existing contact rather than canonical draft provenance.
 - **Files modified:** `prototype/src/live/operatorDraftSession.ts`, `QSOEditorCore.tsx`, `OperatorDesk.tsx`, `DetachedQSOSurface.tsx`, `DetachedQSOSurface.test.tsx`, `OperatorDraftTime.test.tsx`; `prototype/src/LiveApp.tsx`.
 - **Fix:** Carry optional canonical time provenance through validated snapshots and main/detached form props. Initialize/reset display mode from it; retain local unfinished time buffers. Native owns automatic Save time. Standalone forms without a native owner retain their prior callback-time contract.
@@ -93,6 +95,7 @@ All twelve confirmed findings (2 High, 9 Medium, 1 Low) are **Fixed and Verified
 - **Verification commands/results:** Before fix: extended Swift test failed four assertions and both React remount cases failed. After fix: `XLOG_PORTABLE_ONLY=1 swift test --scratch-path .build/prototype-tests --no-parallel --filter 'OperatorDraft|DraftPower|SpotDraft'` PASS 93 tests/10 suites; focused six-file Vitest run PASS 154; final validator/session rerun PASS 41 (overlap); `npm run build` PASS tsc/Vite/unchanged window-bundle budgets. Initial build exceeded Logbook budget by 26, then 4 bytes; equivalent compact validation restored the gate without raising it.
 - **Remaining limitations:** Source/fixture verification only. No native/installed UI, provider, station or production-data operation. No retrospective rewrite of old contacts. Legacy renderer journals without provenance remain readable; production editors conservatively show their retained timestamp until a fresh native snapshot arrives.
 - **Evidence:** [stage logs](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/remediation-2026-10-29/time-provenance).
+- **Phase 4 verification:** On clean source 26f795cb, both ordinary and ignore-scripts npm installs pass 4,721 Vitest + 2 Node tests, but the unchanged frontend build gate fails at 405,218 > 405,200 Logbook bytes. Current source with the original pnpm tree passes at 405,194. Identical clean-dependency Git-blob controls: pre-remediation 530de4c4=405,185/PASS; shared time-provenance commit 875b5254=405,224/FAIL; current=405,218/FAIL. Reopened build status is linked to **REG-P4-001 (Medium)**; timestamp validation and the budget were not changed. No fix was attempted during the independent testing phase. [Commands and evidence](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/regression-2026-10-29/COMMANDS.md).
 
 ## CR-009 — Medium
 
@@ -139,7 +142,7 @@ All twelve confirmed findings (2 High, 9 Medium, 1 Low) are **Fixed and Verified
 - **Evidence:** [stage logs](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/remediation-2026-10-29/adx-schema).
 
 
-## Completion and integration verification — 29 October 2026
+## Historical Phase 3 completion and integration verification — 29 October 2026
 
 All twelve confirmed, actionable findings are implemented and individually verified. Ten logical remediation commits, followed by the integration test readiness correction, were committed and pushed on canonical main. Application source is `11db003d35b9b16e7c4b80cfbe57cb556879951f`; the final test/source checkout is `d60895176bfb3b7fc0e27e94a39752860a73bf1d`. The subsequent closing commit adds documentation/evidence only. No candidate was packaged or installed, so the application version remains 1.3.60.
 
@@ -147,7 +150,7 @@ All twelve confirmed, actionable findings are implemented and individually verif
 | --- | --- |
 | Full Python unittest discovery, contest UDP disabled | PASS 549 tests, 237.938s |
 | All-catalogue readiness | PASS 97/97 plugins; 1,353 checks PASS, 5 NOT APPLICABLE |
-| `swift test --no-parallel` | PASS 315 XCTest and 340 Swift Testing cases; no skips |
+| `swift test --no-parallel` | PASS 315 XCTest and 340 Swift Testing cases in the Phase 3 summary; see Phase 4 for explicit disabled-case accounting |
 | Full portable Swift command from integration manifest | PASS 1,171 XCTest cases including 6 skips, plus 536 Swift Testing cases |
 | Locked Rust test suite | PASS 914 unit and 26 integration tests |
 | Final `npm test` | PASS 339 files/4,721 Vitest tests and 2 Node tests |
@@ -166,3 +169,21 @@ Earlier integration runs identify earlier commits because Python, Rust and Swift
 - Existing issued serial receipts, old cached change-page receipts, historical contacts and recorder cursors/bookmarks are preserved. Previously skipped recorder bookmarks are not automatically backfilled; conflicting old serial grants require reconciliation, and cached pre-upgrade change reads require a fresh request ID. Legacy imports without recoverable identity evidence still fail closed. Per-finding entries describe these boundaries.
 - Retained SwiftUI import now rejects invalid documents atomically and enforces strict UTF-8/32 MiB; export explicitly includes the entire non-deleted logbook. Large-file UI latency/memory was not qualified. Existing exported files are not rewritten. ADX is verified against the pinned 3.1.7 vocabulary; the original XSD's unrelated regex compilation limitation remains.
 - No production data/configuration, installed app, live provider account, real radio/audio device or RF operation was used. Forced process/OS termination, external watchdog/release behavior, station recovery and sponsor submission acceptance remain unverified. Source/build checks are not installed or hardware acceptance.
+
+## Phase 4 independent regression — 29 October 2026
+
+Testing baseline: clean canonical main at **26f795cb531c0b3c299e6a5dcc6d4a7f095b2058**, fetched and fast-forward checked. Application code, tests, expected results, configuration and lockfiles were unchanged. Original dependency/CW fixture directories and all 180 original dist files were restored by identity/hash. Current test evidence is separate from the immutable earlier review/remediation artifacts.
+
+| New issue / observation | Severity / origin | Status and evidence |
+| --- | --- | --- |
+| REG-P4-001: clean npm Logbook bundle gate | Medium; introduced by shared Phase 3 frontend provenance changes with the committed npm dependency tree | **Not Fixed** in this testing-only phase; CR-008 build verification reopened as **Fixed but Unverified**. Root cause/evidence and reproducibility controls are above and in the report. Preserve provenance validation and existing budgets |
+| REG-P4-002: actor-isolated default callback under complete concurrency checking | Low; pre-existing, affected source unchanged since pre-remediation | **Not Fixed**; full and focused strict Swift builds fail at LiveOpportunitiesMethods.swift:44. Standard builds/tests and selected TSAN pass. No runtime race established; resolve callback isolation/Sendability in another remediation cycle |
+| REG-P4-003: process acceptance bootstrap omits Python/CA/Not1MM runtime | Low; pre-existing test-harness defect | **Not Fixed**; fresh release worker builds, standalone acceptance fails twice at contest_catalog. Does not establish a shipping bundle defect. Update the fixture to the current backend without bypassing runtime/isolation guards |
+| INV-P4-001: NAQP first simulated CQ absent | Severity/origin unassigned; unresolved acceptance failure | **Not Fixed / investigate**; three traces, both clean npm and original pnpm, fail after unchanged 10-second wait with no simulated output. Arming/focus/edit-generation cause unestablished; no production-radio defect or remediation origin claimed |
+| INV-P4-002: overloaded CW synthetic pacing | Resource-boundary observation; no established code regression | First profile stops at 5.504/60 s with stable=false under compiler load; identical idle-load repeat passes 60 s. Keep overload/soak acceptance open; exit 0 was not counted as semantic success |
+
+Fresh Phase 4 suites pass within their recorded layers: frontend 4,721 + 2 Node; Python 549; runtime readiness 97 plugins / 1,353 PASS / 5 NOT APPLICABLE; pinned generator 42; Rust 914 + 26 default and 921 contesting-feature tests with overlap; native Swift 315 XCTest and Swift Testing summary 340; portable Swift 1,171 XCTest including 6 skips and Swift Testing summary 536. Native Swift Testing also disables 12 opt-in cases and portable disables 7; these are explicitly enumerated in the report, rather than subsumed by the older "no skips" wording. The native opt-ins and all portable opt-ins except account-bound remote history/Windows credentials were subsequently exercised. Browser NAQP/process bootstrap/strict compiler/clean frontend failures remain failures despite the broad suite passes.
+
+Additional verification includes 82 selected TSAN cases, CW ASAN/UBSAN and 13 child-wire cases, NumPy oracle, bounded 60-second synthetic inference, 68k merge/Save and 100k log/spot/award fixtures, 15 read-only disposable database integrity checks, real loopback Hamlib model-1 and FTP/FTPS, and public SCP/propagation/DXpedition feeds. No production credentials, data, installed app, physical station or RF was used. No full packaged native/current-engine UI acceptance, multi-hour soak, force-quit/power-loss or Windows/Linux native acceptance is claimed. Dependency advisory matches are qualified by feature/caller triage; a version match is not treated as an established application exploit.
+
+**Next cycle:** resolve the clean build and current-process fixture, repair strict callback isolation, diagnose NAQP output admission, review dependency patches, then repeat these gates and qualify an isolated native candidate with explicit provider/hardware limits. [Full report](/Users/oliver/Documents/Projects/OM0RX-xLog/REGRESSION_TEST_REPORT.md), [command ledger](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/regression-2026-10-29/COMMANDS.md), [confirmed issues](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/regression-2026-10-29/findings.json), [open investigations](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/regression-2026-10-29/open-investigations.json).

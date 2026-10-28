@@ -1,0 +1,33 @@
+{
+  "id": "HAMLIB-REAL-DUMMY-ADAPTER",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "env",
+    "XLOG_TEST_RIGCTLD=/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/binaries/rigctld-aarch64-apple-darwin",
+    "XLOG_TEST_ROTCTLD=/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/binaries/rotctld-aarch64-apple-darwin",
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "--jobs",
+    "2",
+    "--target-dir",
+    "/tmp/xlog-phase4-20261029-26f795cb/cargo-target",
+    "--manifest-path",
+    "prototype/src-tauri/Cargo.toml",
+    "--test",
+    "hamlib_dummy",
+    "opt_in_dummy_daemons_read_back_radio_and_rotor",
+    "--",
+    "--exact"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T17:35:23.453766+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/HAMLIB-REAL-DUMMY-ADAPTER.log",
+  "pid": 63241,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 3.315,
+  "finishedUTC": "2026-10-28T17:35:26.768697+00:00"
+}

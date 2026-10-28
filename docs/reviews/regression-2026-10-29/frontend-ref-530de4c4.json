@@ -1,0 +1,39 @@
+{
+  "ref": "530de4c4e4b23281ec60585cc7a2e5ca011476fb",
+  "method": "Read-only Vite pre-load overrides from git blobs for every changed production frontend file; canonical source files and budgets are unchanged.",
+  "overrides": [
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src/LiveApp.tsx",
+      "loaded": true,
+      "sha256": "7161d15c00798d0161d28bb3c9ffa58a302dea16e932faedc64b2f532c7450ef"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src/live/DetachedQSOSurface.tsx",
+      "loaded": true,
+      "sha256": "d54f53651cbb8b2da95a11d7cf48d6878ac16a1cca6641e98ad595e276d36231"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src/live/OperatorDesk.tsx",
+      "loaded": true,
+      "sha256": "ce758f4d3123f816902febec67396e311cc8230747f13e9e504af1d73c24ec69"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src/live/QSOEditorCore.tsx",
+      "loaded": true,
+      "sha256": "ee4c4b193c7b081211891960f0bb3386194faff607040d5b987b593d2303608c"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src/live/adifTransfer.ts",
+      "loaded": true,
+      "sha256": "a8f587b3dcc6a678c1e6f3e16cd1b74f669ea2f20a2b4897edc0ee26b556256f"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src/live/operatorDraftSession.ts",
+      "loaded": true,
+      "sha256": "28f841bd476f95fd2d3bcdeabbe1603bfcd7f9a1ab6d140f7c0eff7058a52a26"
+    }
+  ],
+  "originalCheckerSHA256": "eddbd85cce749f508ccb39ba02e737d6885e4206ffdb413e1d4006ef6437c114",
+  "outDir": "/tmp/xlog-phase4-20261029-26f795cb/frontend-ref-530de4c4",
+  "gate": "PASS"
+}

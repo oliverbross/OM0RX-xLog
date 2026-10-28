@@ -1,0 +1,9 @@
+{
+  "ref": "26f795cb531c0b3c299e6a5dcc6d4a7f095b2058",
+  "method": "Read-only Vite pre-load overrides from git blobs for every changed production frontend file; canonical source files and budgets are unchanged.",
+  "overrides": [],
+  "originalCheckerSHA256": "eddbd85cce749f508ccb39ba02e737d6885e4206ffdb413e1d4006ef6437c114",
+  "outDir": "/tmp/xlog-phase4-20261029-26f795cb/frontend-ref-26f795cb",
+  "gate": "FAIL",
+  "error": "AssertionError [ERR_ASSERTION]: Logbook startup JavaScript exceeds the 405.2 kB budget: 405218"
+}

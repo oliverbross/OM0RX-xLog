@@ -1,0 +1,20 @@
+{
+  "id": "CW-ASAN-BUILD",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "cmake",
+    "--build",
+    "/tmp/xlog-phase4-20261029-26f795cb/cw-asan",
+    "--parallel",
+    "2"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T16:50:16.846024+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/CW-ASAN-BUILD.log",
+  "pid": 34266,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 15.221,
+  "finishedUTC": "2026-10-28T16:50:32.066730+00:00"
+}

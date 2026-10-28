@@ -1,0 +1,26 @@
+{
+  "verifiedUTC": "2026-10-28T18:41:56.154292+00:00",
+  "testedSourceHead": "26f795cb531c0b3c299e6a5dcc6d4a7f095b2058",
+  "applicationSourceFilesUnchanged": 1819,
+  "allowedRootDocumentation": [
+    "CODE_REVIEW.md",
+    "REGRESSION_TEST_REPORT.md",
+    "REMEDIATION_TRACKER.md",
+    "REVIEW_COVERAGE.md"
+  ],
+  "restoredOriginalNodeModulesInode": 560040948,
+  "restoredOriginalCWFixtureInode": 589158794,
+  "restoredDistHashes": 180,
+  "completedRunnerCommands": 61,
+  "rawLogsVerified": 61,
+  "rawExportsVerified": 118,
+  "localReportLinksChecked": 211,
+  "taskOwnedProcessesRemaining": [],
+  "processInventoryBoundary": "Process-only check against exact task scratch/build markers, excluding this inspector and its ancestors. No app/UI binding, signals, relaunch or unrelated-process termination.",
+  "rootReportSHA256": {
+    "CODE_REVIEW.md": "317055c7139ff6eaf2757e0090d356295d2505ac3a33df8a9941a698064e9a08",
+    "REGRESSION_TEST_REPORT.md": "92e42f6a8fe0a4bb686ac1870492739162b6666f3be4f5d4f4938bf88652a1d1",
+    "REMEDIATION_TRACKER.md": "7416f66f87e7e83a5d839395a9c84fb2567838848ecaa2a2263691cb2ad66fc3",
+    "REVIEW_COVERAGE.md": "afbd9c36a19a0a17c9f77e65d8431d7b11ed27a2ea5eee39dead35fed3aa311e"
+  }
+}

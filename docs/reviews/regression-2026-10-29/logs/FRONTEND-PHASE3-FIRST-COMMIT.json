@@ -1,0 +1,18 @@
+{
+  "id": "FRONTEND-PHASE3-FIRST-COMMIT",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "node",
+    "/tmp/xlog-phase4-20261029-26f795cb/scripts/compare_frontend_ref.mjs",
+    "875b5254"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T16:50:16.846763+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/FRONTEND-PHASE3-FIRST-COMMIT.log",
+  "pid": 34267,
+  "exitCode": 1,
+  "timedOut": false,
+  "durationSeconds": 6.011,
+  "finishedUTC": "2026-10-28T16:50:22.857989+00:00"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "CW-SUSTAINED-60S-R2",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "/tmp/xlog-phase4-20261029-26f795cb/cw-native/cw-load-profile",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/vendor/deepcw-engine/model.onnx",
+    "4",
+    "60",
+    "2"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T17:15:02.204036+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/CW-SUSTAINED-60S-R2.log",
+  "pid": 42174,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 60.216,
+  "finishedUTC": "2026-10-28T17:16:02.419754+00:00"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "PINNED-CONTEST-CORPUS",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "/opt/homebrew/bin/python3.14",
+    "-B",
+    "tools/contest_plugin_generator/verify_pinned_corpus.py",
+    "--upstream",
+    "/Users/oliver/Documents/Projects/contest-sw",
+    "--ledger",
+    "docs/contesting/contest-acceptance-ledger.json",
+    "--inventory",
+    "docs/contesting/generated/python-plugin-inventory.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T18:28:09.560747+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/PINNED-CONTEST-CORPUS.log",
+  "pid": 70568,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 2.001,
+  "finishedUTC": "2026-10-28T18:28:11.561942+00:00"
+}

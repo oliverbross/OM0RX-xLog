@@ -1,0 +1,23 @@
+{
+  "id": "WORKER-BOOTSTRAP",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "node",
+    "prototype/scripts/accept-contesting-worker-process.mjs",
+    "--build-manifest",
+    "/tmp/xlog-phase4-20261029-26f795cb/worker-release-build.json",
+    "--expected-head",
+    "26f795cb531c0b3c299e6a5dcc6d4a7f095b2058",
+    "--output",
+    "/tmp/xlog-phase4-20261029-26f795cb/worker-bootstrap"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T17:19:12.501144+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/WORKER-BOOTSTRAP.log",
+  "pid": 42444,
+  "exitCode": 1,
+  "timedOut": false,
+  "durationSeconds": 2.194,
+  "finishedUTC": "2026-10-28T17:19:14.695304+00:00"
+}

@@ -1,0 +1,18 @@
+{
+  "id": "DISPOSABLE-FTP-FTPS",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "bash",
+    "prototype/scripts/run-disposable-ftp-acceptance.sh",
+    "/tmp/xlog-phase4-20261029-26f795cb/disposable-ftp-ftps.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T17:29:46.199310+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/DISPOSABLE-FTP-FTPS.log",
+  "pid": 62332,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 193.947,
+  "finishedUTC": "2026-10-28T17:33:00.158361+00:00"
+}

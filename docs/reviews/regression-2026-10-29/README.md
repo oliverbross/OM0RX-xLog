@@ -1,0 +1,13 @@
+# Phase 4 independent regression evidence — 29 October 2026
+
+Source: clean canonical main at26f795cb531c0b3c299e6a5dcc6d4a7f095b2058, version1.3.60. This directory records a testing-only phase; application sources and expected test results were unchanged. No application candidate was packaged, installed or deployed.
+
+Read the root REGRESSION_TEST_REPORT.md for interpretation and coverage. COMMANDS.md contains every completed runner command, exact arguments, UTC times, exit codes and raw-log links. results.json records counts, browser boundaries, source hashes and private-database integrity. findings.json contains three confirmed check/harness issues. open-investigations.json separately retains the unresolved NAQP acceptance failure and the overloaded CW pacing observation. security-triage.json distinguishes advisory matches from established application defects.
+
+Each .log.gz preserves raw bytes; command metadata records their uncompressed SHA256. Text/JSON copies outside compressed logs are whitespace-normalized, and SHA256SUMS covers the archived bytes. The original scratch directory is /tmp/xlog-phase4-20261029-26f795cb; task builds remain under .build/phase4-20261029. Paths in receipts identify the actual execution paths and may expire. Large binaries, dependencies, disposable databases and caches are omitted from Git; database schema/integrity receipts, synthetic exports, browser observations, source guards, build provenance and reproduction commands are retained.
+
+frontend-preservation.json and fixture-restoration.json show that the original node_modules and CW fixture directories were restored by inode and all180 original frontend dist file hashes match. Fresh npm trees and generated build outputs were preserved in separate ignored task paths. No unique user work was discarded. Native GUI, installed application, physical radio/RF, production credentials/data, sponsor submission and Windows/Linux native acceptance are outside this evidence.
+
+Large browser traces are retained as acceptance.json.gz with a separate acceptance-summary.json. archive-compaction.json lists omitted duplicate bootstrap resources; the original resources remain in the task scratch and canonical source. This does not remove failing trace evidence.
+
+All synthetic ADIF and Cabrillo exports are gzip-compressed from their original bytes, preserving CRLF and matching each browser export size/SHA256. export-byte-verification.json records every match. The initial staged whitespace gate rejected plain CRLF ADIF artifacts; no commit proceeded. Archiving original bytes avoids changing interchange evidence or weakening the whitespace check.

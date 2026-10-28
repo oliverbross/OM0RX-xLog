@@ -1,0 +1,26 @@
+{
+  "id": "PYTHON-FULL-R2",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "env",
+    "PYTHONPATH=python",
+    "XLOG_CONTEST_N1MM_UDP_ALLOWED=0",
+    "python3.12",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "python/tests",
+    "-v"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T16:47:39.949051+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/PYTHON-FULL-R2.log",
+  "pid": 33022,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 224.738,
+  "finishedUTC": "2026-10-28T16:51:24.686240+00:00"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "CLEAN-NPM-INSTALL",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "npm",
+    "ci",
+    "--ignore-scripts",
+    "--no-audit",
+    "--fund=false"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-28T16:39:12.039633+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/CLEAN-NPM-INSTALL.log",
+  "pid": 24475,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 3.085,
+  "finishedUTC": "2026-10-28T16:39:15.124475+00:00"
+}

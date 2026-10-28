@@ -1,0 +1,354 @@
+{
+  "queries": [
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "serde_json"
+      },
+      "version": "1.0.154"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "serde_repr"
+      },
+      "version": "0.1.21"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "serde_spanned"
+      },
+      "version": "0.6.9"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "serde_spanned"
+      },
+      "version": "1.1.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "serde_urlencoded"
+      },
+      "version": "0.7.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "serde_with"
+      },
+      "version": "3.24.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "serde_with_macros"
+      },
+      "version": "3.24.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "serialize-to-javascript"
+      },
+      "version": "0.1.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "serialize-to-javascript-impl"
+      },
+      "version": "0.1.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "serialport"
+      },
+      "version": "4.10.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "servo_arc"
+      },
+      "version": "0.4.3"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "sha2"
+      },
+      "version": "0.10.9"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "shlex"
+      },
+      "version": "2.0.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "signal-hook-registry"
+      },
+      "version": "1.4.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "simd-adler32"
+      },
+      "version": "0.3.10"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "simd_cesu8"
+      },
+      "version": "1.2.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "simdutf8"
+      },
+      "version": "0.1.5"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "siphasher"
+      },
+      "version": "1.0.4"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "slab"
+      },
+      "version": "0.4.12"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "smallvec"
+      },
+      "version": "1.16.3"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "socket2"
+      },
+      "version": "0.6.5"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "softbuffer"
+      },
+      "version": "0.4.8"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "soup3"
+      },
+      "version": "0.5.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "soup3-sys"
+      },
+      "version": "0.5.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "stable_deref_trait"
+      },
+      "version": "1.2.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "string_cache"
+      },
+      "version": "0.9.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "string_cache_codegen"
+      },
+      "version": "0.6.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "strsim"
+      },
+      "version": "0.11.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "subtle"
+      },
+      "version": "2.6.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "swift-rs"
+      },
+      "version": "1.0.9"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "syn"
+      },
+      "version": "1.0.109"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "syn"
+      },
+      "version": "2.0.119"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "syn"
+      },
+      "version": "3.0.8"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "sync_wrapper"
+      },
+      "version": "1.0.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "synstructure"
+      },
+      "version": "0.14.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "system-deps"
+      },
+      "version": "6.2.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "tao"
+      },
+      "version": "0.37.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "tao-macros"
+      },
+      "version": "0.1.4"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "target-lexicon"
+      },
+      "version": "0.12.16"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "tauri"
+      },
+      "version": "2.12.3"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "tauri-build"
+      },
+      "version": "2.7.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "tauri-codegen"
+      },
+      "version": "2.7.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "tauri-macros"
+      },
+      "version": "2.7.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "tauri-plugin"
+      },
+      "version": "2.7.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "tauri-plugin-notification"
+      },
+      "version": "2.6.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "tauri-plugin-single-instance"
+      },
+      "version": "2.5.3"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "tauri-runtime"
+      },
+      "version": "2.12.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "tauri-runtime-wry"
+      },
+      "version": "2.12.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "tauri-utils"
+      },
+      "version": "2.10.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "tauri-winres"
+      },
+      "version": "0.3.6"
+    }
+  ]
+}

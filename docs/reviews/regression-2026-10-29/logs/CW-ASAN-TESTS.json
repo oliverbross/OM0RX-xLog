@@ -1,0 +1,22 @@
+{
+  "id": "CW-ASAN-TESTS",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "env",
+    "ASAN_OPTIONS=halt_on_error=1:abort_on_error=1",
+    "UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1",
+    "ctest",
+    "--test-dir",
+    "/tmp/xlog-phase4-20261029-26f795cb/cw-asan",
+    "--output-on-failure"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T16:58:46.551766+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/CW-ASAN-TESTS.log",
+  "pid": 37378,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 35.386,
+  "finishedUTC": "2026-10-28T16:59:21.937761+00:00"
+}

@@ -1,0 +1,25 @@
+{
+  "id": "NATIVE-RELEASE-COMPILE",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "swift",
+    "build",
+    "--configuration",
+    "release",
+    "--scratch-path",
+    ".build/phase4-20261029/native-release",
+    "--jobs",
+    "2",
+    "--product",
+    "om0rx-xlog"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T17:21:15.072328+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/NATIVE-RELEASE-COMPILE.log",
+  "pid": 46536,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 118.325,
+  "finishedUTC": "2026-10-28T17:23:13.396672+00:00"
+}

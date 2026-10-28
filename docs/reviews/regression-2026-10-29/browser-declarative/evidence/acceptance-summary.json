@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 2,
+  "ok": true,
+  "boundary": "Headless Vite UI driving a SwiftPM test host around the real isolated LiveWorker; not a packaged worker/app, native window, RF, audio, PTT, hardware, or sponsor-submission acceptance.",
+  "source": {
+    "expectedHead": "26f795cb531c0b3c299e6a5dcc6d4a7f095b2058",
+    "actualHead": "26f795cb531c0b3c299e6a5dcc6d4a7f095b2058",
+    "dirty": false,
+    "status": [],
+    "trackedDiffBytes": 0,
+    "trackedDiffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untrackedSourceDigests": {}
+  },
+  "testHost": {
+    "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase4-20261029/portable/out/Products/Debug/XLogPrototypeTests.xctest/Contents/MacOS/XLogPrototypeTests",
+    "sha256": "b11e102091863ede251a8daddab60a4a07b829680ef4795c44b9e5bbdf5c97fd"
+  },
+  "testRunner": {
+    "path": "/Applications/Xcode.app/Contents/Developer/usr/bin/xctest",
+    "sha256": "bb67eef5b58848d18f3422eda610ceae5a84f24ac216b881042f7cc7820be5c7"
+  },
+  "processRecoveryProbe": {
+    "ok": true,
+    "deadline": {
+      "code": "deadline_exceeded",
+      "signal": "SIGKILL",
+      "reapedPID": 55967
+    },
+    "processGroupDeadline": {
+      "code": "deadline_exceeded",
+      "signal": "SIGKILL",
+      "reapedPIDs": [
+        55970,
+        55971
+      ]
+    },
+    "spawnFailure": "spawn_failed"
+  },
+  "runID": "3f1c1cf7-3153-4d59-9f2b-9f7bd6ddbd93",
+  "url": "http://127.0.0.1:61561/tests/acceptance/contest-operator-worker.html",
+  "frameCount": 1036,
+  "protectedDatabaseMetadataUnchanged": true,
+  "failure": null,
+  "rawTrace": "acceptance.json.gz",
+  "traceSHA256": "09149f577a339cfaaccb7a736e499cdafb13823365f2288f3734ce7b76fc8ddd",
+  "caseCount": 11,
+  "observationCount": 298,
+  "simulatedOutputCount": 286,
+  "exportCount": 44
+}

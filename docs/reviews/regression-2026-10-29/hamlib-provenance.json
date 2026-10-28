@@ -1,0 +1,14 @@
+{
+  "recipeSHA256": "bb04df6ce5ef0dfe92f17d0688e729192f5e773b068bf68aa2da53bcf8e10980",
+  "files": [
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/binaries/rigctld-aarch64-apple-darwin",
+      "sha256": "d30cdf3b646bd2a4514bad15147052b6c34de5dd2fbf014ff3b906cd552cdf28"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/binaries/rotctld-aarch64-apple-darwin",
+      "sha256": "f3ff4e829a2b70025f59efa18f07fa33cf52a225463b89d1c436ecca819372c1"
+    }
+  ],
+  "scope": "Pinned local Hamlib helpers; subsequent tests use only model1 on loopback."
+}

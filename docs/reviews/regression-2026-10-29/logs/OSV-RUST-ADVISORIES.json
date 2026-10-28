@@ -1,0 +1,18 @@
+{
+  "id": "OSV-RUST-ADVISORIES",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "python3.12",
+    "-B",
+    "/tmp/xlog-phase4-20261029-26f795cb/scripts/osv_check.py"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T17:00:41.028395+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/OSV-RUST-ADVISORIES.log",
+  "pid": 40175,
+  "exitCode": 1,
+  "timedOut": false,
+  "durationSeconds": 2.316,
+  "finishedUTC": "2026-10-28T17:00:43.344860+00:00"
+}

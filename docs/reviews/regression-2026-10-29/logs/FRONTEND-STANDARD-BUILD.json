@@ -1,0 +1,18 @@
+{
+  "id": "FRONTEND-STANDARD-BUILD",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "npm",
+    "run",
+    "build"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-28T17:51:11.476416+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/FRONTEND-STANDARD-BUILD.log",
+  "pid": 64907,
+  "exitCode": 1,
+  "timedOut": false,
+  "durationSeconds": 28.606,
+  "finishedUTC": "2026-10-28T17:51:40.082300+00:00"
+}

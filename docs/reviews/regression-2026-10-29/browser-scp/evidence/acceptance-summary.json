@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "boundary": "Headless UI with a test-owned picker shim drives the production SCP panel/client and real isolated LiveWorker service. Native OS chooser, packaged app, network, RF, audio, PTT and hardware are not exercised.",
+  "source": {
+    "expectedHead": "26f795cb531c0b3c299e6a5dcc6d4a7f095b2058",
+    "actualHead": "26f795cb531c0b3c299e6a5dcc6d4a7f095b2058",
+    "dirty": false,
+    "status": [],
+    "trackedDiffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untrackedSourceDigests": {}
+  },
+  "testHost": {
+    "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase4-20261029/portable/out/Products/Debug/XLogPrototypeTests.xctest/Contents/MacOS/XLogPrototypeTests",
+    "sha256": "b11e102091863ede251a8daddab60a4a07b829680ef4795c44b9e5bbdf5c97fd"
+  },
+  "testRunner": {
+    "path": "/Applications/Xcode.app/Contents/Developer/usr/bin/xctest",
+    "sha256": "bb67eef5b58848d18f3422eda610ceae5a84f24ac216b881042f7cc7820be5c7"
+  },
+  "runID": "87298c0d-635f-4945-b6e7-6765f7dd41fc",
+  "url": "http://127.0.0.1:62941/tests/acceptance/contest-operator-worker.html",
+  "frameCount": 134,
+  "protectedDatabaseMetadataUnchanged": true,
+  "failure": null,
+  "rawTrace": "acceptance.json.gz",
+  "traceSHA256": "93d40d4c49c84e2a6295233ef37b125a2a78ecdcb251c8cf27c820e7b7bdd89a",
+  "caseCount": 0,
+  "observationCount": 8,
+  "simulatedOutputCount": 0,
+  "exportCount": 2
+}

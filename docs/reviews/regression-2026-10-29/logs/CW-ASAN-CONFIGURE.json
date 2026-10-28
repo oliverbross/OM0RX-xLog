@@ -1,0 +1,24 @@
+{
+  "id": "CW-ASAN-CONFIGURE",
+  "command": [
+    "cmake",
+    "-S",
+    "native/cw-worker",
+    "-B",
+    "/tmp/xlog-phase4-20261029-26f795cb/cw-asan",
+    "-DCMAKE_BUILD_TYPE=Debug",
+    "-DONNXRUNTIME_INCLUDE_DIR=/Users/oliver/Documents/Projects/OM0RX-xLog/.build/cw-package/runtime/include",
+    "-DONNXRUNTIME_LIBRARY=/Users/oliver/Documents/Projects/OM0RX-xLog/.build/cw-package/runtime/lib/libonnxruntime.1.24.3.dylib",
+    "-DCMAKE_C_FLAGS=-fsanitize=address,undefined",
+    "-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined",
+    "-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T16:47:39.930160+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/CW-ASAN-CONFIGURE.log",
+  "pid": 33021,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 5.582,
+  "finishedUTC": "2026-10-28T16:47:45.512485+00:00"
+}

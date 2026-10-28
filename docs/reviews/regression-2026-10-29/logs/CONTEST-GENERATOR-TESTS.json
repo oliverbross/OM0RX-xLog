@@ -1,0 +1,23 @@
+{
+  "id": "CONTEST-GENERATOR-TESTS",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "python3.12",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tools/contest_plugin_generator/tests",
+    "-v"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T18:27:16.042995+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/CONTEST-GENERATOR-TESTS.log",
+  "pid": 70291,
+  "exitCode": 1,
+  "timedOut": false,
+  "durationSeconds": 1.129,
+  "finishedUTC": "2026-10-28T18:27:17.171900+00:00"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "CW-WIRE-HARNESS",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "env",
+    "XLOG_PORTABLE_ONLY=1",
+    "XCW_TEST_RUNTIME=/Users/oliver/Documents/Projects/OM0RX-xLog/.build/cw-package/runtime/lib/libonnxruntime.1.24.3.dylib",
+    "swift",
+    "test",
+    "--package-path",
+    "native/cw-worker",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase4-20261029/cw-wire",
+    "--jobs",
+    "2",
+    "--no-parallel"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T17:07:03.631261+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/CW-WIRE-HARNESS.log",
+  "pid": 40846,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 54.72,
+  "finishedUTC": "2026-10-28T17:07:58.350706+00:00"
+}

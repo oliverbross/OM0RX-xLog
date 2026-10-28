@@ -1,0 +1,27 @@
+{
+  "id": "PUBLIC-FEED-PROBES",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "env",
+    "XLOG_PORTABLE_ONLY=1",
+    "XLOG_PROPAGATION_LIVE_PROBE=1",
+    "XLOG_DXMAP_LIVE_AUDIT_FILE=/tmp/xlog-phase4-20261029-26f795cb/public-dxmap-result.json",
+    "swift",
+    "test",
+    "--skip-build",
+    "--scratch-path",
+    ".build/phase4-20261029/portable",
+    "--no-parallel",
+    "--filter",
+    "livePropagationRefresh|liveProviders"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T18:28:22.170601+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/PUBLIC-FEED-PROBES.log",
+  "pid": 70911,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 9.419,
+  "finishedUTC": "2026-10-28T18:28:31.589452+00:00"
+}

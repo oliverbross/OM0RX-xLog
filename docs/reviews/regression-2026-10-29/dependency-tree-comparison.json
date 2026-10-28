@@ -1,0 +1,82 @@
+[
+  {
+    "name": "@tauri-apps/api",
+    "original": "2.12.4",
+    "clean": "2.12.3"
+  },
+  {
+    "name": "@tauri-apps/cli",
+    "original": "2.12.4",
+    "clean": "2.12.2"
+  },
+  {
+    "name": "@testing-library/react",
+    "original": "16.3.3",
+    "clean": "16.3.3"
+  },
+  {
+    "name": "@testing-library/user-event",
+    "original": "14.6.8",
+    "clean": "14.6.7"
+  },
+  {
+    "name": "@types/node",
+    "original": "22.20.5",
+    "clean": "22.20.5"
+  },
+  {
+    "name": "@types/react",
+    "original": "19.3.0",
+    "clean": "19.3.0"
+  },
+  {
+    "name": "@types/react-dom",
+    "original": "19.3.0",
+    "clean": "19.3.0"
+  },
+  {
+    "name": "@vitejs/plugin-react",
+    "original": "6.1.2",
+    "clean": "6.1.2"
+  },
+  {
+    "name": "jsdom",
+    "original": "27.4.0",
+    "clean": "27.4.0"
+  },
+  {
+    "name": "lucide-react",
+    "original": "0.468.0",
+    "clean": "0.468.0"
+  },
+  {
+    "name": "maplibre-gl",
+    "original": "6.14.0",
+    "clean": "6.14.0"
+  },
+  {
+    "name": "react",
+    "original": "19.3.1",
+    "clean": "19.3.0"
+  },
+  {
+    "name": "react-dom",
+    "original": "19.3.1",
+    "clean": "19.3.0"
+  },
+  {
+    "name": "typescript",
+    "original": "5.9.3",
+    "clean": "5.9.3"
+  },
+  {
+    "name": "vite",
+    "original": "8.3.4",
+    "clean": "8.3.4"
+  },
+  {
+    "name": "vitest",
+    "original": "5.0.3",
+    "clean": "5.0.3"
+  }
+]

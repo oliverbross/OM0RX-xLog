@@ -1,0 +1,59 @@
+{
+  "initialLongCommands": {
+    "ids": [
+      "CLEAN-NATIVE-BUILD",
+      "CLEAN-PORTABLE-TESTS",
+      "CLEAN-RUST-TESTS",
+      "PYTHON-FULL"
+    ],
+    "outcome": "The lean-ctx command collector reached its120-second limit before the runner wrote exit metadata. Isolated child checks continued and their complete raw logs are preserved. These lost receipts are not counted as clean command passes. The native product was rebuilt in a new scratch directory; Rust, Python and portable Swift checks were repeated with durable detached receipts.",
+    "replacementIDs": [
+      "CLEAN-NATIVE-BUILD-R2",
+      "PORTABLE-TESTS-R2",
+      "RUST-TESTS-R2",
+      "PYTHON-FULL-R2"
+    ]
+  },
+  "otherIncidents": [
+    {
+      "id": "HAMLIB-DUMMY-SMOKE",
+      "result": "Invalid initial invocation omitted the two required executable paths. No helper was started. HAMLIB-DUMMY-SMOKE-R2 supplies the verified staged paths."
+    },
+    {
+      "id": "CW-NUMPY-ORACLE",
+      "result": "System Python3.12 lacks NumPy. The unchanged oracle was rerun with the bundled scientific Python runtime; no global packages were changed."
+    },
+    {
+      "id": "OSV-RUST-ADVISORIES",
+      "result": "The private Python trust store failed certificate verification. OSV-RUST-ADVISORIES-R2 uses system curl with normal TLS verification, not an insecure override."
+    },
+    {
+      "id": "cargo-audit tool command",
+      "result": "Installed cargo-audit0.22.2 in task-private security-tools. Direct execution was denied by lean-ctx's command allowlist. It was not retried through another executor; a separate public OSV API query was used."
+    },
+    {
+      "id": "sysctl vm.loadavg tool command",
+      "result": "Direct sysctl execution was denied by the command allowlist. Resource receipts use time-l metrics and the read-only standard-library load-average API; no policy change was made."
+    },
+    {
+      "id": "CONTEST-GENERATOR-TESTS",
+      "result": "Initial invocation lacked required CONTEST_SW_ROOT and used Python3.12:42 tests,12 fixture-setup failures. Correctly configured Python3.14 rerun passes42/42 and independently verifies the exact pinned upstream corpus. No expected results changed."
+    },
+    {
+      "id": "fixture restoration preflight",
+      "result": "A preflight assertion initially compared /private/tmp with /tmp lexically and stopped before any mutation. Comparing both canonical paths allowed identity-checked restoration; original fixture inodes and all180 dist hashes match."
+    },
+    {
+      "id": "QUERY-BENCHMARK-COPY",
+      "result": "SwiftPM waited for the preceding same-scratch performance run. The test body took0.147s; the76.353s command duration includes lock waiting. Its disposable browser-workspace copy has0 normal-log QSOs; this is empty-log behavior, not a large-log measurement."
+    },
+    {
+      "id": "optional inline Python version inspection",
+      "result": "A combined read-only process/version inspection was blocked because the bundled Python -c invocation is disallowed by the tool allowlist. It was not executed or retried through another executor. A separate permitted process inventory found no task-owned worker/browser/dummy services. No policy settings were changed."
+    },
+    {
+      "id": "staged evidence whitespace gate",
+      "result": "git diff --cached --check rejected raw CRLF ADIF artifacts before commit. All ADIF/Cabrillo exports were re-archived as gzip directly from original scratch bytes, and every size/SHA256 was checked against the browser receipt. No application output, expected result or whitespace policy was changed. The final staged gate is required to pass."
+    }
+  ]
+}

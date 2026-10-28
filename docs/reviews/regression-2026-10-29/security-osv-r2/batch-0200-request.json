@@ -1,0 +1,354 @@
+{
+  "queries": [
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "jni-sys-macros"
+      },
+      "version": "0.4.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "jobserver"
+      },
+      "version": "0.1.35"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "js-sys"
+      },
+      "version": "0.3.102"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "json-patch"
+      },
+      "version": "4.2.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "jsonptr"
+      },
+      "version": "0.7.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "keyboard-types"
+      },
+      "version": "0.8.3"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "libappindicator"
+      },
+      "version": "0.9.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "libappindicator-sys"
+      },
+      "version": "0.9.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "libc"
+      },
+      "version": "0.2.190"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "libdbus-sys"
+      },
+      "version": "0.2.7"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "libloading"
+      },
+      "version": "0.7.4"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "libloading"
+      },
+      "version": "0.8.9"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "libredox"
+      },
+      "version": "0.1.25"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "linux-raw-sys"
+      },
+      "version": "0.12.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "litemap"
+      },
+      "version": "0.8.3"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "lock_api"
+      },
+      "version": "0.4.14"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "log"
+      },
+      "version": "0.4.34"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "lru-slab"
+      },
+      "version": "0.1.3"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "mac-notification-sys"
+      },
+      "version": "0.6.15"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "mach2"
+      },
+      "version": "0.4.3"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "mach2"
+      },
+      "version": "0.6.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "markup5ever"
+      },
+      "version": "0.39.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "memchr"
+      },
+      "version": "2.8.3"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "memoffset"
+      },
+      "version": "0.9.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "mime"
+      },
+      "version": "0.3.17"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "miniz_oxide"
+      },
+      "version": "0.8.9"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "miniz_oxide"
+      },
+      "version": "0.9.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "mio"
+      },
+      "version": "1.2.4"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "muda"
+      },
+      "version": "0.20.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "ndk"
+      },
+      "version": "0.9.0"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "ndk-context"
+      },
+      "version": "0.1.1"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "ndk-sys"
+      },
+      "version": "0.6.0+11769913"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "new_debug_unreachable"
+      },
+      "version": "1.0.6"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "nix"
+      },
+      "version": "0.26.4"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "notify-rust"
+      },
+      "version": "4.18.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "num-conv"
+      },
+      "version": "0.2.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "num-derive"
+      },
+      "version": "0.4.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "num-traits"
+      },
+      "version": "0.2.19"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "num_enum"
+      },
+      "version": "0.7.6"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "num_enum_derive"
+      },
+      "version": "0.7.6"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "objc2"
+      },
+      "version": "0.6.5"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "objc2-app-kit"
+      },
+      "version": "0.3.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "objc2-audio-toolbox"
+      },
+      "version": "0.3.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "objc2-avf-audio"
+      },
+      "version": "0.3.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "objc2-cloud-kit"
+      },
+      "version": "0.3.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "objc2-core-audio"
+      },
+      "version": "0.3.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "objc2-core-audio-types"
+      },
+      "version": "0.3.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "objc2-core-data"
+      },
+      "version": "0.3.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "objc2-core-foundation"
+      },
+      "version": "0.3.2"
+    },
+    {
+      "package": {
+        "ecosystem": "crates.io",
+        "name": "objc2-core-graphics"
+      },
+      "version": "0.3.2"
+    }
+  ]
+}

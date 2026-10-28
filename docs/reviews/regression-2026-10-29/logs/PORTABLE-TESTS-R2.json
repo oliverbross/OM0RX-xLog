@@ -1,0 +1,24 @@
+{
+  "id": "PORTABLE-TESTS-R2",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "env",
+    "XLOG_PORTABLE_ONLY=1",
+    "swift",
+    "test",
+    "--scratch-path",
+    ".build/phase4-20261029/portable",
+    "--jobs",
+    "2",
+    "--no-parallel"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T16:47:39.991282+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/PORTABLE-TESTS-R2.log",
+  "pid": 33026,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 364.636,
+  "finishedUTC": "2026-10-28T16:53:44.625476+00:00"
+}

@@ -1,0 +1,18 @@
+{
+  "id": "FRONTEND-BASELINE-COMPARISON",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "node",
+    "/tmp/xlog-phase4-20261029-26f795cb/scripts/compare_frontend_ref.mjs",
+    "530de4c4"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T16:48:17.517899+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/FRONTEND-BASELINE-COMPARISON.log",
+  "pid": 33596,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 3.683,
+  "finishedUTC": "2026-10-28T16:48:21.200591+00:00"
+}

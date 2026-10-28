@@ -1,0 +1,26 @@
+{
+  "id": "QUERY-BENCHMARK-COPY",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "env",
+    "XLOG_PORTABLE_ONLY=1",
+    "XLOG_PERF_DB=/tmp/xlog-phase4-20261029-26f795cb/query-benchmark-copy.sqlite",
+    "swift",
+    "test",
+    "--skip-build",
+    "--scratch-path",
+    ".build/phase4-20261029/portable",
+    "--no-parallel",
+    "--filter",
+    "isolatedLogbookBenchmark"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T18:26:43.501293+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/QUERY-BENCHMARK-COPY.log",
+  "pid": 70179,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 76.353,
+  "finishedUTC": "2026-10-28T18:27:59.853870+00:00"
+}

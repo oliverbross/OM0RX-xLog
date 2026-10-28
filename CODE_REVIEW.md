@@ -1,6 +1,8 @@
 # Application code review — second verification, 29 October 2026
 
-**Phase 3 remediation:** All twelve confirmed findings are Fixed and Verified within the recorded source/fixture limits. Current implementation, final integration results and remaining recovery/acceptance limitations are in [REMEDIATION_TRACKER.md](/Users/oliver/Documents/Projects/OM0RX-xLog/REMEDIATION_TRACKER.md). The review narrative/evidence below describes its recorded pre-fix baseline.
+**Phase 4 update:** Independent regression testing reopens CR-008's clean build/integration verification as Fixed but Unverified; its original functional tests still pass. One introduced Medium build regression, two pre-existing Low compiler/harness defects and unresolved acceptance observations are recorded in [REGRESSION_TEST_REPORT.md](/Users/oliver/Documents/Projects/OM0RX-xLog/REGRESSION_TEST_REPORT.md). Application code was unchanged in Phase 4. Current statuses are in the tracker; the audit narrative/evidence below remains historical.
+
+**Historical Phase 3 remediation:** All twelve confirmed findings were recorded as Fixed and Verified within the recorded source/fixture limits. Current implementation, final integration results and remaining recovery/acceptance limitations are in [REMEDIATION_TRACKER.md](/Users/oliver/Documents/Projects/OM0RX-xLog/REMEDIATION_TRACKER.md). The review narrative/evidence below describes its recorded pre-fix baseline.
 
 **Verification baseline:** clean canonical `main` at
 `12824393f2799f21c223fadcb19d03305a5bf2f8`, fetched and fast-forward checked.

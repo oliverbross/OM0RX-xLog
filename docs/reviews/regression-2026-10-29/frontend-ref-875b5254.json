@@ -1,0 +1,20 @@
+{
+  "ref": "875b52549737c2423ae4404fca4d88de99bdda17",
+  "method": "Read-only Vite pre-load overrides from git blobs for every changed production frontend file; canonical source files and budgets are unchanged.",
+  "overrides": [
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src/live/QSOEditorCore.tsx",
+      "loaded": true,
+      "sha256": "c3055f107cdc395bb17a1cb3e882df66df01c9044c973422271e0c92b00fe6b7"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src/live/adifTransfer.ts",
+      "loaded": true,
+      "sha256": "a8f587b3dcc6a678c1e6f3e16cd1b74f669ea2f20a2b4897edc0ee26b556256f"
+    }
+  ],
+  "originalCheckerSHA256": "eddbd85cce749f508ccb39ba02e737d6885e4206ffdb413e1d4006ef6437c114",
+  "outDir": "/tmp/xlog-phase4-20261029-26f795cb/frontend-ref-875b5254",
+  "gate": "FAIL",
+  "error": "AssertionError [ERR_ASSERTION]: Logbook startup JavaScript exceeds the 405.2 kB budget: 405224"
+}

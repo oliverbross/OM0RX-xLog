@@ -1,0 +1,30 @@
+[
+  {
+    "id": "INV-P4-001",
+    "status": "Unresolved repeated acceptance failure; no confirmed production UI defect or remediation attribution",
+    "title": "NAQP simulated CQ is absent in the first CW Run browser case",
+    "observations": "Three independent runs fail accept-contest-naqp-operator-browser.mjs:299 after the unchanged10-second polling loop: actual[] versus expected[CQ]. Both clean-npm runs and the original-pnpm control have19 worker frames and zero simulated-output callbacks; later planned cases are not reached.",
+    "context": "Last draft is20m/14.05MHz/CW with canSendCQ=true. The simulation branch calls a browser callback directly; no native operator RPC is required. Arming, keyboard focus and edit-generation/context retirement remain possible causes; no guard or expected result was changed.",
+    "origin": "Examined NAQP script, operator UI path and npm lock are unchanged since530de4c4. Historical UI execution was not performed, so pre-existing status is not proved. Failure with both dependency trees rules out a failure confined to the clean npm tree, but does not establish the cause.",
+    "recommendation": "Capture the arm/context/edit-generation state at Enter and the simulation callback in the isolated harness. Establish whether a legitimate context update clears the arm or the event fails to reach admission. Preserve fail-closed output guards. Then rerun all six cases against the current production-engine fixture.",
+    "evidence": [
+      "browser-naqp/evidence/acceptance.json",
+      "browser-naqp-r2/evidence/acceptance.json",
+      "browser-naqp-original-tree/evidence/acceptance.json"
+    ],
+    "limits": "Legacy Swift typed contest backend, headless Vite UI only. No native window, packaged Python engine, audio, radio or RF. No video was collected; this is an unresolved acceptance failure, not a claimed interactive production-radio reproduction."
+  },
+  {
+    "id": "INV-P4-002",
+    "status": "Resource boundary observation; overload stability remains unqualified",
+    "title": "CW synthetic pacing misses its deadline under concurrent build load",
+    "observations": "The first requested60-second profile reports stable_under_this_synthetic_load=false despite exit0. It stops at5.504 seconds when its250ms lateness bound is exceeded (255.246ms), with zero inferred tracks. The unchanged instrument intentionally breaks on that bound. An identical rerun after compiler work finishes delivers60 seconds, eight inferred tracks and stable=true.",
+    "origin": "No production defect or remediation regression established. Do not erase the first observation or use exit0 as semantic success.",
+    "recommendation": "Retain a controlled CPU-contention/long-soak qualification for future acceptance, including whole-app responsiveness, queue bounds and explicit degraded status. The60-second idle-load pass alone is insufficient.",
+    "evidence": [
+      "logs/CW-SUSTAINED-60S.log.gz",
+      "logs/CW-SUSTAINED-60S-R2.log.gz",
+      "native/cw-worker/load_profile.cpp:83-112"
+    ]
+  }
+]

@@ -1,0 +1,18 @@
+{
+  "scope": "OSV lock-version matches checked against enabled Cargo features, direct callers and current maintainer advisories. No exploit against the application or a production endpoint was attempted.",
+  "source": "security-osv-r2/result.json",
+  "rawVersionQueries": 549,
+  "rawAdvisoryIDs": 18,
+  "selectedMacOSPackages": 4,
+  "selectedUniqueAdvisoriesAfterAliases": 7,
+  "triage": [
+    {"package":"block-buffer0.10.4","advisory":"GHSA-qwgh-2vcv-g2f7","result":"Excluded version false positive: current maintainer advisory affects >=0.11.0,<0.12.1. The selected0.10.4 is outside that range, despite the OSV match.","source":"https://github.com/RustCrypto/utils/security/advisories/GHSA-qwgh-2vcv-g2f7"},
+    {"package":"rustls0.23.45","advisory":"RUSTSEC-2026-0348 / GHSA-h2v8-394m-p7vv","result":"Excluded feature condition: the non-default brotli feature is absent from the selected graph. No affected Brotli decompressor is enabled.","source":"https://rustsec.org/advisories/RUSTSEC-2026-0348.html"},
+    {"package":"rustls0.23.45","advisory":"RUSTSEC-2026-0346 / GHSA-c8m5-c952-6cm4","result":"Conditional dependency risk: no direct application Debug formatting of client session secrets was found. Not an established application secret leak.","source":"https://rustsec.org/advisories/RUSTSEC-2026-0346.html"},
+    {"package":"rustls0.23.45","advisory":"RUSTSEC-2026-0347 / GHSA-vp88-798v-h67f","result":"Conditional ECH path: no ECH configuration was found in the application's reqwest client. Not an established application data leak.","source":"https://rustsec.org/advisories/RUSTSEC-2026-0347.html"},
+    {"package":"rustls0.23.45","advisory":"RUSTSEC-2026-0349 / GHSA-w44r-93j7-qv28","result":"Review remains open: selected AWS-LC features and an HTTPS client exist, but cache-downgrade exploitability was not demonstrated. Review/update to the maintainer's patched release rather than treating a version match as an exploit.","source":"https://rustsec.org/advisories/RUSTSEC-2026-0349.html"},
+    {"package":"rustls-webpki0.103.15","advisory":"RUSTSEC-2026-0382","result":"Not confirmed as a macOS application certificate bypass: reqwest0.13.5's default verifier uses rustls-platform-verifier0.7.1, whose Apple backend delegates chain evaluation to SecTrust. No app tls_certs_only/custom webpki chain setup was found. Other-platform paths and exploitability remain unverified; review patched dependency releases.","source":"https://rustsec.org/advisories/RUSTSEC-2026-0382.html"},
+    {"package":"tokio1.53.2","advisory":"RUSTSEC-2026-0386","result":"Informational unsoundness advisory: no direct application AsyncFd constructor use was found. Transitive call paths were not exhaustively proven safe; review/update to the patched release. No application use-after-free was demonstrated.","source":"https://rustsec.org/advisories/RUSTSEC-2026-0386.html"}
+  ],
+  "limitations": "No claim that dependencies are free of vulnerabilities. Native prebuilt ONNX runtime, model, system frameworks and provider-account authorization were not covered by Cargo/NPM advisory scans. Cargo-audit was installed privately but execution was blocked by the command allowlist; no global allowlist changes or execution bypass were made. The first OSV client failed Python certificate verification; the successful retry used system curl with TLS verification enabled."
+}

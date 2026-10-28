@@ -1,0 +1,14 @@
+{
+  "UTC": "2026-10-28T18:25:16.811679+00:00",
+  "originalNodeModulesRestored": true,
+  "nodeModulesInode": 560040948,
+  "validatedStandardModulesPreserved": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase4-20261029/validated-standard-node_modules",
+  "originalCWFixtureRestored": true,
+  "cwInode": 589158794,
+  "standardDistPreserved": "/tmp/xlog-phase4-20261029-26f795cb/frontend-dist-standard",
+  "originalDistPendingRestoreAfterControl": false,
+  "originalDistRestored": true,
+  "originalDistFileCount": 180,
+  "originalDistHashesMatch": true,
+  "finishedUTC": "2026-10-28T18:26:37.648663+00:00"
+}

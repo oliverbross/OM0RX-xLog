@@ -1,0 +1,19 @@
+{
+  "id": "HAMLIB-DUMMY-SMOKE-R2",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "node",
+    "prototype/scripts/hamlib-dummy-smoke.mjs",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/binaries/rigctld-aarch64-apple-darwin",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/binaries/rotctld-aarch64-apple-darwin"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T17:38:10.865020+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/HAMLIB-DUMMY-SMOKE-R2.log",
+  "pid": 63939,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 2.853,
+  "finishedUTC": "2026-10-28T17:38:13.717697+00:00"
+}

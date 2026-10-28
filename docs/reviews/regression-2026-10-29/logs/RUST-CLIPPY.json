@@ -1,0 +1,26 @@
+{
+  "id": "RUST-CLIPPY",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "cargo",
+    "clippy",
+    "--locked",
+    "--offline",
+    "--all-targets",
+    "--jobs",
+    "2",
+    "--target-dir",
+    "/tmp/xlog-phase4-20261029-26f795cb/cargo-target",
+    "--manifest-path",
+    "prototype/src-tauri/Cargo.toml"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T16:50:16.818282+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/RUST-CLIPPY.log",
+  "pid": 34262,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 197.394,
+  "finishedUTC": "2026-10-28T16:53:34.212947+00:00"
+}

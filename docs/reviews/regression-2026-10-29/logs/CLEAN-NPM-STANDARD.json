@@ -1,0 +1,19 @@
+{
+  "id": "CLEAN-NPM-STANDARD",
+  "command": [
+    "/usr/bin/time",
+    "-l",
+    "npm",
+    "ci",
+    "--no-audit",
+    "--fund=false"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-28T17:47:37.228166+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/CLEAN-NPM-STANDARD.log",
+  "pid": 64440,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 2.317,
+  "finishedUTC": "2026-10-28T17:47:39.545444+00:00"
+}

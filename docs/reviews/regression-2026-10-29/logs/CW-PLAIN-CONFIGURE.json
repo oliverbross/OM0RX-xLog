@@ -1,0 +1,21 @@
+{
+  "id": "CW-PLAIN-CONFIGURE",
+  "command": [
+    "cmake",
+    "-S",
+    "native/cw-worker",
+    "-B",
+    "/tmp/xlog-phase4-20261029-26f795cb/cw-native",
+    "-DCMAKE_BUILD_TYPE=RelWithDebInfo",
+    "-DONNXRUNTIME_INCLUDE_DIR=/Users/oliver/Documents/Projects/OM0RX-xLog/.build/cw-package/runtime/include",
+    "-DONNXRUNTIME_LIBRARY=/Users/oliver/Documents/Projects/OM0RX-xLog/.build/cw-package/runtime/lib/libonnxruntime.1.24.3.dylib"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-28T16:58:46.547354+00:00",
+  "log": "/tmp/xlog-phase4-20261029-26f795cb/logs/CW-PLAIN-CONFIGURE.log",
+  "pid": 37377,
+  "exitCode": 0,
+  "timedOut": false,
+  "durationSeconds": 2.211,
+  "finishedUTC": "2026-10-28T16:58:48.757950+00:00"
+}
