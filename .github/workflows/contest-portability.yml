@@ -283,6 +283,8 @@ jobs:
             --inventory docs/contesting/generated/python-plugin-inventory.json
       - name: Test contest definition generator
         run: python3 -m unittest discover -s tools/contest_plugin_generator/tests -v
+      - name: Verify reviewed Rust dependency patch floors
+        run: python3 tools/check_reviewed_security_patches.py
 
   contest-native-tests:
     name: Contest native tests (${{ matrix.os }})
