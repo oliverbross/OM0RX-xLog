@@ -52,7 +52,8 @@ struct NativeDraftPowerCaptureTests {
         let delivery = NativeDraftPowerDelivery()
         let worker = LiveWorker(logbook: service, powerCapture: gate, powerDelivery: delivery)
         await worker.startPowerCapture(registerStation: false)
-        _ = try await request(worker, "station_power_selection", ["radio_id": "radio1", "provider": "direct_agent", "selection_id": UUID().uuidString, "sequence": 1])
+        _ = try await request(worker, "station_power_selection", ["radio_id": "radio1", "provider": "direct_agent", "selection_id": UUID().uuidString, "sequence": 1,
+            "active_radio_id": "radio1", "active_generation": 1])
         gate.attach(sourceID: source, endpointID: "fixture")
         gate.connection(sourceID: source, sequence: 1, sessionID: session, startedAt: Date().addingTimeInterval(-1), ready: true)
         await worker.drainPowerCapture()
@@ -87,6 +88,7 @@ struct NativeDraftPowerCaptureTests {
         await worker.startBackgroundServices()
         let source = UUID(), session = UUID()
         gate.select(provider: "direct_agent", selectionID: UUID().uuidString)
+        gate.activate(radioID: "radio1", generation: 1)
         gate.attach(sourceID: source, endpointID: "fixture")
         gate.connection(sourceID: source, sequence: 1, sessionID: session,
             startedAt: Date().addingTimeInterval(-1), ready: true)
@@ -138,6 +140,41 @@ struct NativeDraftPowerCaptureTests {
         }
     }
 
+    @Test("Inactive metadata preserves active capture and explicit routing changes the committed meter")
+    func activeRadioCapture() async throws {
+        try await fixture { worker, service, gate, source, session, _ in
+            let otherSource = UUID(), otherSession = UUID(), selection = UUID().uuidString
+            gate.attach(sourceID: otherSource, endpointID: "other-radio", radioID: "radio2")
+            gate.connection(sourceID: otherSource, sequence: 1, sessionID: otherSession,
+                startedAt: Date().addingTimeInterval(-1), ready: true)
+            func metadata(_ sequence: Int, provider: Any, id: Any) async throws {
+                _ = try await request(worker, "station_power_selection", ["radio_id": "radio2", "provider": provider,
+                    "selection_id": id, "sequence": sequence, "active_radio_id": "radio1", "active_generation": 1])
+            }
+            try await metadata(1, provider: "direct_agent", id: selection)
+            try await metadata(2, provider: NSNull(), id: NSNull())
+            try await metadata(3, provider: "direct_agent", id: selection)
+            await worker.drainPowerCapture()
+            try emit(gate, source: otherSource, session: otherSession, watts: 800)
+            try emit(gate, source: source, session: session, watts: 300)
+            await worker.drainPowerCapture()
+            #expect(try service.powerOwnerSnapshot().draft.qso.txPower == "300")
+            _ = try await request(worker, "station_power_selection", ["active_radio_id": NSNull(), "active_generation": 2])
+            _ = try await request(worker, "station_power_selection", ["active_radio_id": "radio2", "active_generation": 3])
+            await worker.drainPowerCapture()
+            #expect(try service.powerOwnerSnapshot().draft.power?.activeScope?.context.sessionID == otherSession)
+            try emit(gate, source: source, session: session, watts: 900)
+            try emit(gate, source: otherSource, session: otherSession, watts: 450)
+            await worker.drainPowerCapture()
+            let captured = try service.powerOwnerSnapshot()
+            #expect(captured.draft.qso.txPower == "450")
+            _ = try await request(worker, "logbook_operator_draft_apply", ["generation": captured.workspaceID.uuidString,
+                "operationID": UUID().uuidString, "draftID": captured.draft.qso.id.uuidString,
+                "expectedRevision": captured.draft.revision, "action": "save"])
+            #expect(try service.openedDatabase().lookup(localID: captured.draft.qso.id)?.txPower == "450")
+        }
+    }
+
     @Test("Manual intent including blank survives callbacks; explicit resume rearms")
     func manual() async throws {
         try await fixture { worker, service, gate, source, session, _ in
@@ -155,7 +192,8 @@ struct NativeDraftPowerCaptureTests {
     @Test("Provider fence and terminal shutdown retire emission/commit eligibility")
     func lifecycle() async throws {
         try await fixture { worker, service, gate, source, session, _ in
-        _ = try await request(worker, "station_power_selection", ["radio_id": "radio1", "provider": NSNull(), "selection_id": NSNull(), "sequence": 2])
+            _ = try await request(worker, "station_power_selection", ["radio_id": "radio1", "provider": NSNull(), "selection_id": NSNull(), "sequence": 2,
+                "active_radio_id": "radio1", "active_generation": 1])
             await worker.drainPowerCapture()
             let before = try service.powerOwnerSnapshot()
             try emit(gate, source: source, session: session, watts: 500)

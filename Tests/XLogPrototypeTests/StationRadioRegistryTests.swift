@@ -85,6 +85,7 @@ final class StationRadioRegistryTests: XCTestCase {
         let gate = NativeDraftPowerGate(), first = UUID(), second = UUID(), firstSession = UUID(), secondSession = UUID()
         let start = Date(), selection = UUID().uuidString
         gate.select(provider: "direct_agent", selectionID: selection, radioID: "radio1")
+        gate.activate(radioID: "radio1", generation: 1)
         gate.attach(sourceID: first, endpointID: "radio1", radioID: "radio1")
         gate.connection(sourceID: first, sequence: 1, sessionID: firstSession, startedAt: start, ready: true)
         let before = gate.state()
@@ -93,6 +94,7 @@ final class StationRadioRegistryTests: XCTestCase {
         XCTAssertEqual(gate.state().context?.sessionID, firstSession)
         XCTAssertEqual(gate.state().epoch, before.epoch)
         gate.select(provider: "direct_agent", selectionID: selection, radioID: "radio2")
+        gate.activate(radioID: "radio2", generation: 2)
         XCTAssertEqual(gate.state().context?.sessionID, secondSession)
         gate.detach(radioID: "radio1")
         XCTAssertEqual(gate.state().context?.sessionID, secondSession)

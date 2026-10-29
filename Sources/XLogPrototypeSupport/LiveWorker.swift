@@ -557,14 +557,32 @@ public actor LiveWorker {
                     throw WorkerFailure("inactive_operating_module", "Contesting belongs to the inactive operating module.")
                 }
             } else if method == "station_power_selection" {
+                func counter(_ raw: Any?) -> UInt64? {
+                    guard let raw, let data = try? JSONSerialization.data(withJSONObject: [raw]),
+                          let value = try? JSONDecoder().decode([UInt64].self, from: data).first,
+                          (1...9_007_199_254_740_991).contains(value) else { return nil }
+                    return value
+                }
+                let authorityOnly = Set(params.keys) == ["active_radio_id", "active_generation"]
                 guard !terminalShutdown,
-                      Set(params.keys) == ["radio_id", "provider", "selection_id", "sequence"],
+                      authorityOnly || Set(params.keys) == ["radio_id", "provider", "selection_id", "sequence", "active_radio_id", "active_generation"],
+                      let activeGeneration = counter(params["active_generation"]),
+                      params["active_radio_id"] is NSNull || ["radio1", "radio2"].contains(params["active_radio_id"] as? String ?? "") else {
+                    throw WorkerFailure("invalid_params", "Invalid native active radio authority.")
+                }
+                // Authority may arrive on a newer routing generation even when
+                // this slot's metadata notice was coalesced or superseded.
+                if authorityOnly {
+                    let activeAdmission = powerCapture.activate(radioID: params["active_radio_id"] as? String,
+                                                                generation: activeGeneration)
+                    return encode(["id": id, "ok": true, "result": [
+                        "accepted": activeAdmission != .superseded,
+                        "superseded": activeAdmission == .superseded]])
+                }
+                guard
                       let radioID = params["radio_id"] as? String,
                       ["radio1", "radio2"].contains(radioID),
-                      let sequenceValue = params["sequence"],
-                      let sequenceData = try? JSONSerialization.data(withJSONObject: [sequenceValue]),
-                      let sequence = try? JSONDecoder().decode([UInt64].self, from: sequenceData).first,
-                      (1...9_007_199_254_740_991).contains(sequence) else {
+                      let sequence = counter(params["sequence"]) else {
                     throw WorkerFailure("invalid_params", "Invalid native selection context.")
                 }
                 let selectedProvider: String?
@@ -579,6 +597,8 @@ public actor LiveWorker {
                     }
                     selectedProvider = provider; selectionID = selection
                 }
+                let activeAdmission = powerCapture.activate(radioID: params["active_radio_id"] as? String,
+                                                            generation: activeGeneration)
                 // select() revokes the emission/commit lease synchronously.
                 // DB metadata cleanup is queued, never a prerequisite for a
                 // radio disconnect while a long import holds the logbook lane.
@@ -589,7 +609,7 @@ public actor LiveWorker {
                 } else {
                     // A delayed startup publication cannot restore the context
                     // retired by a newer provider handover or connection fence.
-                    result = ["accepted": false, "superseded": true]
+                    result = ["accepted": activeAdmission == .applied, "superseded": activeAdmission != .applied]
                 }
             } else if method == "cluster_history" || method.hasPrefix("spot_draft_") || method.hasPrefix("workspace_") || method.hasPrefix("logbook_") || method.hasPrefix("settings_") || method.hasPrefix("backup_") {
                 if method == "logbook_operator_draft_apply", params["action"] as? String == "save" {

@@ -24,8 +24,10 @@ final class NativeDraftPowerGate: @unchecked Sendable {
     }
     private let lock = NSRecursiveLock()
     private var epoch: UInt64 = 0
-    private var provider: String?
-    private var selectionID: String?
+    private struct Selection { let provider: String?; let id: String? }
+    private var selections: [String: Selection] = [:]
+    private var provider: String? { radioID.flatMap { selections[$0]?.provider } }
+    private var selectionID: String? { radioID.flatMap { selections[$0]?.id } }
     private struct Source {
         let id: UUID
         let endpointID: String
@@ -34,13 +36,15 @@ final class NativeDraftPowerGate: @unchecked Sendable {
         var startedAt: Date?
         var ready = false
     }
-    private var radioID = "radio1"
+    private var radioID: String?
+    private var activeGeneration: UInt64 = 0
     private var sources: [String: Source] = [:]
-    private var sourceID: UUID? { sources[radioID]?.id }
-    private var endpointID: String? { sources[radioID]?.endpointID }
-    private var sessionID: UUID? { sources[radioID]?.sessionID }
-    private var startedAt: Date? { sources[radioID]?.startedAt }
-    private var ready: Bool { sources[radioID]?.ready == true }
+    private var source: Source? { radioID.flatMap { sources[$0] } }
+    private var sourceID: UUID? { source?.id }
+    private var endpointID: String? { source?.endpointID }
+    private var sessionID: UUID? { source?.sessionID }
+    private var startedAt: Date? { source?.startedAt }
+    private var ready: Bool { source?.ready == true }
     private var suspended = false
     private var terminated = false
     private var lease: Lease?
@@ -57,12 +61,31 @@ final class NativeDraftPowerGate: @unchecked Sendable {
     func select(provider: String?, selectionID: String?, radioID: String = "radio1") {
         let callback = lock.withLock { () -> (@Sendable () -> Void)? in
             guard !terminated, ["radio1", "radio2"].contains(radioID) else { return nil }
-            guard self.provider != provider || self.selectionID != selectionID || self.radioID != radioID else { return nil }
-            self.provider = provider; self.selectionID = selectionID
-            self.radioID = radioID
+            let previous = selections[radioID]
+            guard previous?.provider != provider || previous?.id != selectionID else { return nil }
+            selections[radioID] = Selection(provider: provider, id: selectionID)
+            guard self.radioID == radioID else { return nil }
             retire(); return changed
         }
         callback?()
+    }
+
+    enum ActiveAdmission: Equatable { case applied, unchanged, superseded }
+
+    /// Selection notices retain per-slot metadata; only native routing authority
+    /// selects the draft's meter. A nil authority fences capture during routing.
+    @discardableResult func activate(radioID: String?, generation: UInt64) -> ActiveAdmission {
+        let (admission, callback) = lock.withLock { () -> (ActiveAdmission, (@Sendable () -> Void)?) in
+            guard !terminated, generation > 0, radioID.map({ ["radio1", "radio2"].contains($0) }) ?? true else { return (.superseded, nil) }
+            guard generation >= activeGeneration else { return (.superseded, nil) }
+            if generation == activeGeneration {
+                return (self.radioID == radioID ? .unchanged : .superseded, nil)
+            }
+            activeGeneration = generation; self.radioID = radioID
+            retire(); return (.applied, changed)
+        }
+        callback?()
+        return admission
     }
 
     func attach(sourceID: UUID, endpointID: String, radioID: String = "radio1") {

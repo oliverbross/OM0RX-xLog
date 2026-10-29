@@ -2215,11 +2215,24 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
     let module_admission = station_session_changes_state(&action).then(|| operating_module::owner()?.admit_current()).transpose()?;
     if action == "set_active_radio" {
         if params.as_object().is_none_or(|value| value.len() != 2) { return Err("Invalid active radio request.".into()); }
-        let value = radio_slots::set_active(&app, &radio_id)?;
+        let routing_app = app.clone();
+        let target = radio_id.clone();
+        let result = tauri::async_runtime::spawn_blocking(move || {
+            radio_slots::set_active(&routing_app, &target, |authority| {
+                let request = authority.request();
+                let response = worker::request(request.clone())?;
+                if response["id"] != request["id"] || response["ok"] != true || response["result"]["accepted"] != true {
+                    return Err("Active radio power authority was not confirmed; inspect the current radio selection before retrying.".into());
+                }
+                Ok(())
+            })
+        }).await.map_err(|_| "Active radio change task failed.".to_string()).and_then(|result| result);
+        // A durable route may have changed before its final metadata reply was
+        // lost. Publish canonical-state invalidation on both success and error.
         for label in ["main", "station-control", "contest--station-control"] {
             let _ = app.emit_to(label, "xlog:station-session", serde_json::json!({"radio_id":radio_id}));
         }
-        return Ok(value);
+        return result;
     }
     let owner = station_session::owner_for(&app, &radio_id)?;
     station_session::reject_duplicate_configuration(&app, &radio_id, &params)?;

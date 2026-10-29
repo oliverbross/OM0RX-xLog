@@ -851,6 +851,9 @@ pub(crate) fn retained_snapshot_for(radio_id: &str) -> Result<Value, String> {
 /// Called after worker registry unlock. Never initializes a preference or sends
 /// through worker::request, which would recurse back into active_session.
 pub(crate) fn worker_generation_started(generation: u64, transport: Arc<Transport>) {
+    let transport: Arc<Transport> = Arc::new(move |request| {
+        transport(crate::radio_slots::bind_power_authority(request)?)
+    });
     if let Some(slot) = OWNERS.get() {
         if let Ok(slot) = slot.lock() {
             for owner in slot.iter().flatten() {
@@ -877,6 +880,7 @@ pub fn owner_for(app: &tauri::AppHandle, radio_id: &str) -> Result<Arc<Selection
         return Err("Radio session is shutting down.".into());
     }
     let index = crate::radio_slots::index(radio_id)?;
+    crate::radio_slots::prepare_power_authority(app)?;
     let mut owners = OWNERS
         .get_or_init(|| Mutex::new([None, None]))
         .lock()
@@ -896,6 +900,7 @@ pub fn owner_for(app: &tauri::AppHandle, radio_id: &str) -> Result<Arc<Selection
         Some(radio_id),
         Some(&legacy),
         Arc::new(|request| {
+            let request = crate::radio_slots::bind_power_authority(request)?;
             if request["method"]
                 .as_str()
                 .is_some_and(|method| method.starts_with("hamlib_"))

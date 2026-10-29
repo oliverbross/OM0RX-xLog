@@ -67,6 +67,7 @@ struct NativeDraftPowerAdmissionTests {
         let readings = NativeAdmissionBox<[NativeDraftPowerGate.Reading]>([])
         gate.install(changed: {}, received: { reading in readings.update { $0.append(reading) } })
         gate.select(provider: "direct_agent", selectionID: UUID().uuidString)
+        gate.activate(radioID: "radio1", generation: 1)
         gate.attach(sourceID: source, endpointID: "fixture")
         gate.connection(sourceID: source, sequence: 1, sessionID: UUID(), startedAt: Date().addingTimeInterval(-1), ready: true)
         let state = gate.state(), owner = try service.powerOwnerSnapshot()
