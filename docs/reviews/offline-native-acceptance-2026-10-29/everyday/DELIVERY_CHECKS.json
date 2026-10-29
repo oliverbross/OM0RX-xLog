@@ -1,0 +1,22 @@
+{
+  "source": "c09ecfdd5f9eec9834733f7dff3ae3bccffa8be7",
+  "rawArtifacts": 202,
+  "originalAndStoredHashesVerified": true,
+  "sourceInputHashes": 1843,
+  "sourceHashesMatch": true,
+  "originalDistFiles": 180,
+  "originalDistInode": 603456013,
+  "historicalAuditReportsByteIdentical": [
+    "CODE_REVIEW.md",
+    "REVIEW_COVERAGE.md",
+    "REGRESSION_TEST_REPORT.md",
+    "FINAL_CODE_AUDIT.md"
+  ],
+  "historicalImplementationBodiesPreserved": true,
+  "verifiedLocalLinks": 121,
+  "missingLinks": [],
+  "privateNativeProcesses": [],
+  "loopbackListener": false,
+  "actualNativeFileMatchesArchivedBytes": true,
+  "releaseDisposition": "NO-GO"
+}
