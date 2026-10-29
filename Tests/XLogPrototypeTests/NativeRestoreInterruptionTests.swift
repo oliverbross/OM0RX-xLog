@@ -14,6 +14,7 @@ import Darwin
 import Glibc
 #endif
 #if os(macOS)
+import MachO
 @testable import XLogCore
 #else
 @testable import XLogPortableCore
@@ -151,6 +152,20 @@ final class NativeRestoreInterruptionTests: XCTestCase {
         process.arguments = [selector]
         #endif
         var environment = ProcessInfo.processInfo.environment
+        #if os(macOS)
+        // xctest loads the instrumented bundle dynamically; its child needs the
+        // same loaded TSAN runtime at startup so interceptors are installed.
+        for index in 0..<_dyld_image_count() {
+            guard let name = _dyld_get_image_name(index) else { continue }
+            let runtime = String(cString: name)
+            guard URL(fileURLWithPath: runtime).lastPathComponent == "libclang_rt.tsan_osx_dynamic.dylib" else { continue }
+            let inserted = environment["DYLD_INSERT_LIBRARIES"] ?? ""
+            if !inserted.split(separator: ":").contains(Substring(runtime)) {
+                environment["DYLD_INSERT_LIBRARIES"] = inserted.isEmpty ? runtime : "\(runtime):\(inserted)"
+            }
+            break
+        }
+        #endif
         environment["XLOG_RESTORE_CHILD_ROOT"] = root.path
         environment["XLOG_RESTORE_CHILD_SUITE"] = suite
         process.environment = environment
