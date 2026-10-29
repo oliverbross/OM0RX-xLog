@@ -774,9 +774,11 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                     throw WorkerFailure("spot_activation_busy", "Wait for the current spot activation before changing this draft.")
                 }
                 do {
+                    let db = try readyDatabase()
+                    let mutation = try preservingOperatorDraftWireDates(mutation, database: db)
                     let settings = try currentSettings()
                     guard let workspaceID = UUID(uuidString: generation) else { throw invalid() }
-                    let receipt = try readyDatabase().applyOperatorDraft(mutation, nextDraft: newOperatorDraft(),
+                    let receipt = try db.applyOperatorDraft(mutation, nextDraft: newOperatorDraft(),
                         powerConfiguration: (workspaceID, settings.automaticTransmitPower, settings.defaultPower))
                     return ["status": "applied", "receipt": try scopedReceipt(receipt, field: "draft", generation: generation)]
                 } catch OperatorDraftError.conflict(let current) {
@@ -2190,6 +2192,31 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
     private func decode<T: Decodable>(_ object: [String: Any]) throws -> T {
         guard JSONSerialization.isValidJSONObject(object) else { throw invalid() }
         return try decoder.decode(T.self, from: JSONSerialization.data(withJSONObject: object))
+    }
+
+    /// The wire format exposes whole seconds; unchanged wire dates retain the
+    /// native precision before the database evaluates explicit time changes.
+    /// Called under the workspace lock; the database still fences the revision.
+    private func preservingOperatorDraftWireDates(_ mutation: OperatorDraftMutation,
+                                                  database: LogbookDatabase) throws -> OperatorDraftMutation {
+        guard mutation.action == .replace, var replacement = mutation.qso else { return mutation }
+        let reference: QSO
+        if let receipt = try database.operatorDraftReceipt(operationID: mutation.operationID) {
+            // Replay must use the original input, even after automatic callsign
+            // capture refreshed the draft time or Save advanced to another draft.
+            guard let previous = receipt.mutation.qso else { return mutation }
+            reference = previous
+        } else {
+            guard let current = try database.operatorDraft() else { throw OperatorDraftError.notInitialized }
+            guard current.qso.id == mutation.draftID, current.revision == mutation.expectedRevision else { return mutation }
+            reference = current.qso
+        }
+        let wire = try decoder.decode(QSO.self, from: encoder.encode(reference))
+        if replacement.start == wire.start { replacement.start = reference.start }
+        if replacement.end == wire.end { replacement.end = reference.end }
+        return OperatorDraftMutation(operationID: mutation.operationID, draftID: mutation.draftID,
+            expectedRevision: mutation.expectedRevision, action: mutation.action,
+            qso: replacement, powerIntent: mutation.powerIntent)
     }
 
     private func rotorConfiguration(_ object: [String: Any]) throws -> RotorConfiguration {

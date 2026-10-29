@@ -1303,6 +1303,11 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// Read the canonical snapshot without creating a draft.
+    public func operatorDraft() throws -> OperatorDraftSnapshot? {
+        try withDatabaseLock { try readOperatorDraft() }
+    }
+
     /// Initial creation and all mutations use SQLite's write lock as well as the
     /// instance lock, so two service instances cannot accept the same revision.
     public func operatorDraft(initial: QSO) throws -> OperatorDraftSnapshot {
