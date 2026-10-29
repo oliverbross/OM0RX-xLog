@@ -1,0 +1,21 @@
+{
+  "command": [
+    "/usr/local/bin/node",
+    "node_modules/typescript/bin/tsc",
+    "--noEmit"
+  ],
+  "nodeVersion": "v24.11.1",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "sourceHead": "1cb92f8f812178f4a3ac9d461f097e5033ae68bb",
+  "startedUTC": "2026-10-29T12:08:24.871672+00:00",
+  "finishedUTC": "2026-10-29T12:09:12.961188+00:00",
+  "exit": 2,
+  "sourceInputs": {
+    "prototype/src/live/operatorDraftSession.ts": "5a93994d55ec7bc3efa9eab93129e5aeca38a39b6f13d837c711fcbce1910f35",
+    "prototype/src/live/operatorDraftSession.test.ts": "b261ead18a83229cec8c0fcd56fe8bf9c9e52274915425dbf86dad8b39dd90d9"
+  },
+  "sourceInputsUnchanged": true,
+  "diffSHA256": "28057677b4be7707e46b2f0584ec5277e26824b3e0b25777562d346ab226ab17",
+  "logSHA256": "10b04e04907719fef242b6196047cc8333b264ac16bae7dd99b052c714451491",
+  "log": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/precision-queued-typescript.log"
+}

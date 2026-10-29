@@ -1,0 +1,371 @@
+{
+  "utc": "2026-10-29T11:12:42.356828+00:00",
+  "root": "/private/tmp/xlog-wave1-offline-native-5__wfphw",
+  "marker": {
+    "schema": 1,
+    "id": "77fb24fd-bdba-46a1-a037-e95c12479424",
+    "connectedLoopback": false
+  },
+  "app": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/XLog Offline Development.app",
+  "executable": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/XLog Offline Development.app/Contents/MacOS/xlog-prototype",
+  "worker": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/XLog Offline Development.app/Contents/MacOS/xlog-prototype-worker",
+  "health": {
+    "connections_require_explicit_action": true,
+    "contesting_available": true,
+    "contesting_engine": "not1mm-python",
+    "credentials_accessed": false,
+    "isolated_workspace": true,
+    "live_cluster": false,
+    "local_callsign_lookup": true,
+    "local_logbook": true,
+    "loopback_fixture_io": false,
+    "mode": "contesting_test",
+    "network_contact": false,
+    "platform": "macOS",
+    "platform_services": false,
+    "public_conditions": true,
+    "public_opportunities": true,
+    "station_io": false,
+    "synthetic_only": false,
+    "version": "0.4.0-alpha.9"
+  },
+  "workspace": {
+    "automatic_sync": false,
+    "generation": "b8ec6acd-0717-4eb9-be38-56d3abf735c9",
+    "native_log_exists": false,
+    "outbox_count": 0,
+    "pending_sync_count": 0,
+    "qso_count": 0,
+    "source": "isolated_workspace",
+    "workspace_exists": true
+  },
+  "normalDraft": {
+    "draft": {
+      "automaticStart": true,
+      "generation": "b8ec6acd-0717-4eb9-be38-56d3abf735c9",
+      "qso": {
+        "antennaPath": "",
+        "band": "20m",
+        "call": "",
+        "comment": "",
+        "continent": "",
+        "country": "",
+        "county": "",
+        "cqZone": "",
+        "dok": "",
+        "email": "",
+        "extraFields": {},
+        "gridSquare": "",
+        "id": "6448E40C-5FD2-468D-93BE-EBD65D64C789",
+        "iota": "",
+        "isDirty": true,
+        "ituZone": "",
+        "lotwReceived": "",
+        "lotwSent": "",
+        "mode": "SSB",
+        "myCall": "OM0RX",
+        "myGrid": "",
+        "name": "",
+        "notes": "",
+        "operatorCall": "OM0RX",
+        "potaReference": "",
+        "propagationMode": "",
+        "qslMessage": "",
+        "qslMethod": "",
+        "qslReceived": "",
+        "qslSent": "",
+        "qslVia": "",
+        "qth": "",
+        "radio": "OM0RX-xCat",
+        "receiveBand": "",
+        "rstReceived": "59",
+        "rstSent": "59",
+        "sig": "",
+        "sigInfo": "",
+        "sotaReference": "",
+        "start": "2026-10-29T11:12:41Z",
+        "state": "",
+        "stationLocation": "",
+        "submode": "",
+        "txPower": "100",
+        "updatedAt": "2026-10-29T11:12:41Z",
+        "wwffReference": ""
+      },
+      "revision": 0
+    },
+    "power_capture_status": "off"
+  },
+  "contestSession": "8b9c6663-bccd-4701-9f83-5fbc7c705251",
+  "contestProjection": {
+    "advanceOnSpace": [
+      "callsign",
+      "sent",
+      "receive",
+      "other_1",
+      "other_2"
+    ],
+    "allocatedSerialFieldID": "other_1",
+    "allowDuplicateCommit": false,
+    "authoritySerialRequestID": null,
+    "band": 14,
+    "callContext": {
+      "callsign": "K1KEEP",
+      "continent": "NA",
+      "country": "UNITED STATES",
+      "cqZone": 5,
+      "distanceKm": null,
+      "entity": "UNITED STATES",
+      "headingDegrees": null,
+      "ituZone": 8,
+      "longPathHeadingDegrees": null,
+      "primaryPrefix": "K"
+    },
+    "columns": [
+      "YYYY-MM-DD HH:MM:SS",
+      "Call",
+      "Freq",
+      "Snt",
+      "Rcv",
+      "SentNr",
+      "RcvNr",
+      "WPX",
+      "M1",
+      "PTS"
+    ],
+    "coordinationIdentity": {
+      "coordinationDigest": "3d4e3f3b5ab69dd65d048f3eba0aa926f8c57aba4267140935ba8ee7baed7f0c",
+      "pluginID": "cq_wpx_cw",
+      "referenceID": "bundled-cty-fnv64-cf9c48a44d4b5e66",
+      "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f"
+    },
+    "countryResolved": true,
+    "cwSpeedWpm": null,
+    "digitalLoggingSupported": false,
+    "draftID": "acf8a2a4-370c-42be-8def-3d08557e9f61",
+    "dupe": false,
+    "dupeExplanation": "Worked on this band.",
+    "duplicateChecking": true,
+    "engine": "not1mm-python",
+    "entryPolicy": {
+      "clearOnVFOChange": false,
+      "enter": "esm",
+      "leaveRunOnRetune": false
+    },
+    "exchangeWarnings": [],
+    "exportFormats": [
+      "cabrillo",
+      "adif"
+    ],
+    "fields": [
+      {
+        "accessibleName": "Call",
+        "enabled": true,
+        "id": "callsign",
+        "label": "Call",
+        "readOnly": false,
+        "value": "K1KEEP",
+        "visible": true
+      },
+      {
+        "accessibleName": "RST Sent",
+        "enabled": true,
+        "id": "sent",
+        "label": "SNT",
+        "readOnly": false,
+        "value": "599",
+        "visible": true
+      },
+      {
+        "accessibleName": "RCV",
+        "enabled": true,
+        "id": "receive",
+        "label": "RCV",
+        "readOnly": false,
+        "value": "599",
+        "visible": true
+      },
+      {
+        "accessibleName": "Sent Number",
+        "enabled": true,
+        "id": "other_1",
+        "label": "SentNR",
+        "readOnly": true,
+        "value": "002",
+        "visible": true
+      },
+      {
+        "accessibleName": "Received Number",
+        "enabled": true,
+        "id": "other_2",
+        "label": "RcvNR",
+        "readOnly": false,
+        "value": "315",
+        "visible": true
+      }
+    ],
+    "filterSpotRanges": false,
+    "fldigiReceiveSupported": false,
+    "fldigiTransmitAvailable": false,
+    "fldigiTransmitSupported": false,
+    "focus": "callsign",
+    "frequencyHz": 14025000,
+    "functionKeys": [
+      {
+        "highlighted": false,
+        "id": "F1",
+        "label": "CQ",
+        "template": "cq test {MYCALL} {MYCALL} test"
+      },
+      {
+        "highlighted": false,
+        "id": "F2",
+        "label": "HisCall",
+        "template": "{CALL}"
+      },
+      {
+        "highlighted": false,
+        "id": "F3",
+        "label": "Exch",
+        "template": "{RST} {SENTNR}"
+      },
+      {
+        "highlighted": false,
+        "id": "F4",
+        "label": "empty",
+        "template": " "
+      },
+      {
+        "highlighted": true,
+        "id": "F5",
+        "label": "MyCall",
+        "template": "{MYCALL}"
+      },
+      {
+        "highlighted": false,
+        "id": "F6",
+        "label": "?",
+        "template": "?"
+      },
+      {
+        "highlighted": false,
+        "id": "F7",
+        "label": "Roger",
+        "template": "rr"
+      },
+      {
+        "highlighted": false,
+        "id": "F8",
+        "label": "73",
+        "template": "73"
+      },
+      {
+        "highlighted": false,
+        "id": "F9",
+        "label": "AGN",
+        "template": "agn"
+      },
+      {
+        "highlighted": false,
+        "id": "F10",
+        "label": "Call?",
+        "template": "cl?"
+      },
+      {
+        "highlighted": false,
+        "id": "F11",
+        "label": "NR??",
+        "template": "NR?"
+      },
+      {
+        "highlighted": false,
+        "id": "F12",
+        "label": "TU",
+        "template": "tu"
+      }
+    ],
+    "history": "",
+    "matrixTrackers": [],
+    "mode": "CW",
+    "multiplierViewStatus": {
+      "countries": "not-applicable",
+      "zones": "not-applicable"
+    },
+    "nextField": "other_2",
+    "operator": "OM0RX",
+    "pluginID": "cq_wpx_cw",
+    "pluginName": "CQ WPX CW",
+    "practice": null,
+    "referenceID": "bundled-cty-fnv64-cf9c48a44d4b5e66",
+    "replicaAuthority": null,
+    "replicaCursor": null,
+    "reservedSerial": 2,
+    "revision": 4,
+    "roverLocation": "",
+    "ruleIdentity": {
+      "edition": "not1mm-python",
+      "id": "cq-wpx-cw",
+      "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
+      "version": "26.10.11"
+    },
+    "run": false,
+    "score": {
+      "countries": 0,
+      "multipliers": 1,
+      "points": 3,
+      "prefixes": 1,
+      "qsos": 1,
+      "total": 3,
+      "zones": 0
+    },
+    "sessionID": "8b9c6663-bccd-4701-9f83-5fbc7c705251",
+    "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
+    "spaceNext": {
+      "callsign": "other_2"
+    },
+    "spotModeCategory": "CW",
+    "supportedBands": [
+      "160m",
+      "80m",
+      "40m",
+      "20m",
+      "15m",
+      "10m"
+    ],
+    "supportedModes": [
+      "CW"
+    ],
+    "tabNext": {
+      "callsign": "sent",
+      "other_1": "other_2",
+      "other_2": "callsign",
+      "receive": "other_1",
+      "sent": "receive"
+    },
+    "tabPrevious": {
+      "callsign": "other_2",
+      "other_1": "receive",
+      "other_2": "other_1",
+      "receive": "sent",
+      "sent": "callsign"
+    },
+    "workspaceGeneration": "b8ec6acd-0717-4eb9-be38-56d3abf735c9"
+  },
+  "importFields": {
+    "CONTEST_ID": "CQ-WPX-CW",
+    "STATION_CALLSIGN": "OM0RX",
+    "CALL": "K2IMP",
+    "QSO_DATE": "20261017",
+    "TIME_ON": "100001",
+    "FREQ": "14.025",
+    "BAND": "20m",
+    "MODE": "CW",
+    "RST_SENT": "599",
+    "RST_RCVD": "579",
+    "STX_STRING": "003",
+    "SRX_STRING": "316",
+    "OPERATOR": "TESTOP",
+    "COMMENT": "Reviewed offline native import"
+  },
+  "importPath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/reviewed-import.adi",
+  "importSHA256": "59c90c369ce250ecbcef5db5d65477e62a5033b10c51c79cc6065e8ea8524e81"
+}

@@ -1,0 +1,11 @@
+{
+  "utc": "2026-10-29T11:18:52.977813+00:00",
+  "pid": 12076,
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "argv": [
+    "npm",
+    "run",
+    "dev"
+  ],
+  "supportedScript": "vite --host 127.0.0.1 --port 1420 --strictPort"
+}

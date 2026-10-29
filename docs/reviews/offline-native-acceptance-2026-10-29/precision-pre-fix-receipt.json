@@ -1,0 +1,26 @@
+{
+  "command": [
+    "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift",
+    "test",
+    "-c",
+    "release",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/restore-release-clean",
+    "--jobs",
+    "2",
+    "--no-parallel",
+    "--filter",
+    "OperatorDraftReversalAcceptanceTests.fractionalHandlerRoundTrip"
+  ],
+  "environment": {
+    "XLOG_PORTABLE_ONLY": "1"
+  },
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "head": "e1570231dcd315a68cf3f485ffc48345af0c3cd1",
+  "startedUTC": "2026-10-29T11:32:31.852936+00:00",
+  "finishedUTC": "2026-10-29T11:36:54.400529+00:00",
+  "exit": 1,
+  "log": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/precision-pre-fix.log",
+  "logSHA256": "0b0b08c4e2a30b4af31cdd67bcf8365259b0367c9a003a8c0fb6cf1b3d9780ff",
+  "diffSHA256": "bbe6413552b9211e551ba464f293fa1d3a8f1d39c50912cecc977acbbcdaf5e2"
+}

@@ -1,0 +1,21 @@
+{
+  "utc": "2026-10-29T12:30:52.036615+00:00",
+  "source": "actual worker begin/read on UI-created QSOs; not a native Blob download receipt",
+  "byteCount": 697,
+  "sha256": "2644ff9b12415042d98c8b8b3ac8ede526b90303dc18b2557951a3e14a5db5b3",
+  "opened": {
+    "token": "CB208A23-EF85-48AE-9039-23FFAB2D1990",
+    "total": 3
+  },
+  "exported": {
+    "count": 3,
+    "fieldMetadata": [
+      null,
+      null,
+      null
+    ],
+    "offset": 0,
+    "text": "<ADIF_VER:5>3.1.7<EOH>\r\n<BAND:3>20m<CALL:6>K4AUTO<COMMENT:29>Detached final automatic save<FREQ:9>14.025000<MODE:3>SSB<OPERATOR:5>OM0RX<QSO_DATE:8>20261029<RST_RCVD:2>59<RST_SENT:2>59<STATION_CALLSIGN:5>OM0RX<TIME_ON:6>122733<TX_PWR:3>100<EOR>\r\n<BAND:3>20m<CALL:8>K3MANUAL<COMMENT:35>Full manual UTC 2026-10-29 12:25:08<FREQ:9>14.025000<MODE:3>SSB<OPERATOR:5>OM0RX<QSO_DATE:8>20261029<RST_RCVD:2>59<RST_SENT:2>59<STATION_CALLSIGN:5>OM0RX<TIME_ON:6>122508<TX_PWR:3>100<EOR>\r\n<BAND:3>20m<CALL:6>K2AUTO<COMMENT:31>Final fixed Desk automatic save<FREQ:9>14.025000<MODE:3>SSB<OPERATOR:5>OM0RX<QSO_DATE:8>20261029<RST_RCVD:2>59<RST_SENT:2>59<STATION_CALLSIGN:5>OM0RX<TIME_ON:6>122409<TX_PWR:3>100<EOR>\r\n",
+    "total": 3
+  }
+}

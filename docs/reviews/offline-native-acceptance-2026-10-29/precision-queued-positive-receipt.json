@@ -1,0 +1,31 @@
+{
+  "command": [
+    "/usr/local/bin/node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "src/live/operatorDraftSession.test.ts",
+    "src/live/operatorDraftPowerSession.test.ts",
+    "src/live/operatorDraftWindows.test.ts",
+    "src/live/operatorDraftTransport.test.ts",
+    "src/live/operatorDraftHealth.test.tsx",
+    "src/live/OperatorDraftTime.test.tsx",
+    "src/live/spotActivation.test.ts",
+    "src/live/spotEditorRegistration.test.ts",
+    "src/live/spotEditorInput.test.tsx",
+    "--maxWorkers=1"
+  ],
+  "nodeVersion": "v24.11.1",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "sourceHead": "1cb92f8f812178f4a3ac9d461f097e5033ae68bb",
+  "startedUTC": "2026-10-29T12:08:24.871675+00:00",
+  "finishedUTC": "2026-10-29T12:08:44.701992+00:00",
+  "exit": 0,
+  "sourceInputs": {
+    "prototype/src/live/operatorDraftSession.ts": "5a93994d55ec7bc3efa9eab93129e5aeca38a39b6f13d837c711fcbce1910f35",
+    "prototype/src/live/operatorDraftSession.test.ts": "b261ead18a83229cec8c0fcd56fe8bf9c9e52274915425dbf86dad8b39dd90d9"
+  },
+  "sourceInputsUnchanged": true,
+  "diffSHA256": "28057677b4be7707e46b2f0584ec5277e26824b3e0b25777562d346ab226ab17",
+  "logSHA256": "1939bcd9e5b16337711c2099d3810f62a55917d96e4f49584790f5d3d028f5e7",
+  "log": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/precision-queued-positive.log"
+}

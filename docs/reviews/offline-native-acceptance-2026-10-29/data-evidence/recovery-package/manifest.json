@@ -1,0 +1,14 @@
+{
+  "contestDatabaseCount" : 1,
+  "createdAt" : "2026-10-29T11:42:18Z",
+  "databaseBytes" : 638976,
+  "databaseSHA256" : "e1b5cf2b7017fd3aec2be96d795abe870eda98e363d4a7f85d9963067d3f2ebd",
+  "formatVersion" : 3,
+  "includesContestingData" : true,
+  "includesPreferences" : true,
+  "includesReferenceData" : true,
+  "includesSettings" : true,
+  "lastQSOAt" : "2026-10-29T11:12:42Z",
+  "pendingSyncCount" : 1,
+  "qsoCount" : 1
+}

@@ -1,0 +1,246 @@
+{
+  "selected-package": {
+    "manifest.json": {
+      "contestDatabaseCount": 1,
+      "createdAt": "2026-10-29T11:41:34Z",
+      "databaseBytes": 638976,
+      "databaseSHA256": "e1b5cf2b7017fd3aec2be96d795abe870eda98e363d4a7f85d9963067d3f2ebd",
+      "formatVersion": 3,
+      "includesContestingData": true,
+      "includesPreferences": true,
+      "includesReferenceData": true,
+      "includesSettings": true,
+      "lastQSOAt": "2026-10-29T11:12:42Z",
+      "pendingSyncCount": 1,
+      "qsoCount": 1
+    },
+    "package-seal.json": {
+      "entries": [
+        {
+          "byteCount": 389120,
+          "path": "Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite",
+          "sha256": "590da7c613c6976578de2694eac1de4768d45ce0fc995ba98e0f5baa1f2eb339"
+        },
+        {
+          "byteCount": 638976,
+          "path": "OM0RX-xLog.sqlite",
+          "sha256": "e1b5cf2b7017fd3aec2be96d795abe870eda98e363d4a7f85d9963067d3f2ebd"
+        },
+        {
+          "byteCount": 426,
+          "path": "manifest.json",
+          "sha256": "1b6604ff4a1c6b0287ee783c3d19302f438bf1cddce83c46a65ead9c001fe74c"
+        },
+        {
+          "byteCount": 617,
+          "path": "preferences.json",
+          "sha256": "3d7a46bbfaf325998e169c4fb99db722aca8e6737cfb57cfe68befabaac96e93"
+        },
+        {
+          "byteCount": 967,
+          "path": "settings.json",
+          "sha256": "14e13c4009d06fa1668ffc0984832f557af0d79fd239f35ee56067bfb54ecc15"
+        }
+      ],
+      "version": 1
+    },
+    "preferences.json": {
+      "bandMapFontScale": 1,
+      "clusterSpotOpensFullEditor": false,
+      "deskBandMapBands": [
+        "20m"
+      ],
+      "deskBandMapFollowsRadio": true,
+      "detachedBandMapBands": [
+        "160m",
+        "80m",
+        "60m",
+        "40m",
+        "30m",
+        "20m",
+        "17m",
+        "15m",
+        "12m",
+        "10m"
+      ],
+      "detachedBandMapFollowsRadio": false,
+      "detachedBandMapLayout": "Adaptive grid",
+      "detachedBandMapModes": [
+        "cw",
+        "data",
+        "phone"
+      ],
+      "intelligenceBands": [
+        "160m",
+        "80m",
+        "60m",
+        "40m",
+        "30m",
+        "20m",
+        "17m",
+        "15m",
+        "12m",
+        "10m"
+      ],
+      "savedLogbookFilters": []
+    },
+    "settings.json": {
+      "automaticSync": false,
+      "automaticTransmitPower": false,
+      "callsignLookupProvider": "qrz",
+      "clearAfterQSY": false,
+      "clubLogCTYURL": "https://cdn.clublog.org/cty.php",
+      "defaultPower": "100",
+      "defaultRadio": "OM0RX-xCat",
+      "ftpBackup": {
+        "directory": "/OM0RX-xLog",
+        "endpoint": "",
+        "plainFTPConfirmed": false,
+        "protocol": "disabled",
+        "username": ""
+      },
+      "gridSquare": "",
+      "hamqthUsername": "",
+      "logbookMode": "local",
+      "lotwActivityURL": "https://lotw.arrl.org/lotw-user-activity.csv",
+      "operatorCall": "OM0RX",
+      "qrzEnabled": false,
+      "qrzUsername": "",
+      "stationCall": "OM0RX",
+      "stationEquipment": {
+        "antenna": "vertical",
+        "bands": [],
+        "display": "automatic",
+        "name": ""
+      },
+      "stationLocation": "",
+      "syncIntervalMinutes": 5,
+      "wavelogStationID": 0,
+      "wavelogURL": "https://om0rx.wavelog.online",
+      "xcatHost": "127.0.0.1",
+      "xcatRigCtlPort": 14532
+    }
+  },
+  "recovery-package": {
+    "manifest.json": {
+      "contestDatabaseCount": 1,
+      "createdAt": "2026-10-29T11:42:18Z",
+      "databaseBytes": 638976,
+      "databaseSHA256": "e1b5cf2b7017fd3aec2be96d795abe870eda98e363d4a7f85d9963067d3f2ebd",
+      "formatVersion": 3,
+      "includesContestingData": true,
+      "includesPreferences": true,
+      "includesReferenceData": true,
+      "includesSettings": true,
+      "lastQSOAt": "2026-10-29T11:12:42Z",
+      "pendingSyncCount": 1,
+      "qsoCount": 1
+    },
+    "package-seal.json": {
+      "entries": [
+        {
+          "byteCount": 389120,
+          "path": "Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite",
+          "sha256": "590da7c613c6976578de2694eac1de4768d45ce0fc995ba98e0f5baa1f2eb339"
+        },
+        {
+          "byteCount": 638976,
+          "path": "OM0RX-xLog.sqlite",
+          "sha256": "e1b5cf2b7017fd3aec2be96d795abe870eda98e363d4a7f85d9963067d3f2ebd"
+        },
+        {
+          "byteCount": 426,
+          "path": "manifest.json",
+          "sha256": "42b54c3312c1d2c1aac8e56e86344c1c3be331808bb3e9144baa74427de95743"
+        },
+        {
+          "byteCount": 617,
+          "path": "preferences.json",
+          "sha256": "3d7a46bbfaf325998e169c4fb99db722aca8e6737cfb57cfe68befabaac96e93"
+        },
+        {
+          "byteCount": 967,
+          "path": "settings.json",
+          "sha256": "14e13c4009d06fa1668ffc0984832f557af0d79fd239f35ee56067bfb54ecc15"
+        }
+      ],
+      "version": 1
+    },
+    "preferences.json": {
+      "bandMapFontScale": 1,
+      "clusterSpotOpensFullEditor": false,
+      "deskBandMapBands": [
+        "20m"
+      ],
+      "deskBandMapFollowsRadio": true,
+      "detachedBandMapBands": [
+        "160m",
+        "80m",
+        "60m",
+        "40m",
+        "30m",
+        "20m",
+        "17m",
+        "15m",
+        "12m",
+        "10m"
+      ],
+      "detachedBandMapFollowsRadio": false,
+      "detachedBandMapLayout": "Adaptive grid",
+      "detachedBandMapModes": [
+        "cw",
+        "data",
+        "phone"
+      ],
+      "intelligenceBands": [
+        "160m",
+        "80m",
+        "60m",
+        "40m",
+        "30m",
+        "20m",
+        "17m",
+        "15m",
+        "12m",
+        "10m"
+      ],
+      "savedLogbookFilters": []
+    },
+    "settings.json": {
+      "automaticSync": false,
+      "automaticTransmitPower": false,
+      "callsignLookupProvider": "qrz",
+      "clearAfterQSY": false,
+      "clubLogCTYURL": "https://cdn.clublog.org/cty.php",
+      "defaultPower": "100",
+      "defaultRadio": "OM0RX-xCat",
+      "ftpBackup": {
+        "directory": "/OM0RX-xLog",
+        "endpoint": "",
+        "plainFTPConfirmed": false,
+        "protocol": "disabled",
+        "username": ""
+      },
+      "gridSquare": "",
+      "hamqthUsername": "",
+      "logbookMode": "local",
+      "lotwActivityURL": "https://lotw.arrl.org/lotw-user-activity.csv",
+      "operatorCall": "OM0RX",
+      "qrzEnabled": false,
+      "qrzUsername": "",
+      "stationCall": "OM0RX",
+      "stationEquipment": {
+        "antenna": "vertical",
+        "bands": [],
+        "display": "automatic",
+        "name": ""
+      },
+      "stationLocation": "",
+      "syncIntervalMinutes": 5,
+      "wavelogStationID": 0,
+      "wavelogURL": "https://om0rx.wavelog.online",
+      "xcatHost": "127.0.0.1",
+      "xcatRigCtlPort": 14532
+    }
+  }
+}

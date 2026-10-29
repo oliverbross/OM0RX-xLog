@@ -1,0 +1,26 @@
+{
+  "mainTableDifferences": {
+    "xlog_restore_authority": {
+      "before": [],
+      "after": [
+        {
+          "singleton": 1,
+          "payload": {
+            "stationID": 0,
+            "url": "https://om0rx.wavelog.online",
+            "version": 1
+          }
+        }
+      ]
+    }
+  },
+  "contestTableDifferences": {},
+  "packageComponentHashesEqual": {
+    "OM0RX-xLog.sqlite": true,
+    "Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite": true,
+    "settings.json": true,
+    "preferences.json": true
+  },
+  "allDatabaseIntegrityPass": true,
+  "nativeExportVsBeforeRestoreContestRowsEqual": true
+}

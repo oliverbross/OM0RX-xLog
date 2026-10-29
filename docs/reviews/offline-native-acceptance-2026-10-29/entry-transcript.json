@@ -1,0 +1,141 @@
+[
+  {
+    "request": {
+      "id": "49cb64dc-0eee-496f-8816-2fba80956adb",
+      "method": "health",
+      "params": {}
+    },
+    "response": {
+      "id": "49cb64dc-0eee-496f-8816-2fba80956adb",
+      "ok": true,
+      "result": {
+        "connections_require_explicit_action": true,
+        "contesting_available": true,
+        "contesting_engine": "not1mm-python",
+        "credentials_accessed": false,
+        "isolated_workspace": true,
+        "live_cluster": false,
+        "local_callsign_lookup": true,
+        "local_logbook": true,
+        "loopback_fixture_io": false,
+        "mode": "contesting_test",
+        "network_contact": false,
+        "platform": "macOS",
+        "platform_services": false,
+        "public_conditions": true,
+        "public_opportunities": true,
+        "station_io": false,
+        "synthetic_only": false,
+        "version": "0.4.0-alpha.9"
+      }
+    }
+  },
+  {
+    "request": {
+      "id": "a4904255-f2ca-408a-8bd0-dda1d14bd406",
+      "method": "workspace_create",
+      "params": {
+        "mode": "empty"
+      }
+    },
+    "response": {
+      "id": "a4904255-f2ca-408a-8bd0-dda1d14bd406",
+      "ok": true,
+      "result": {
+        "automatic_sync": false,
+        "mode": "empty",
+        "outbox_count": 0,
+        "pending_sync_count": 0,
+        "qso_count": 0
+      }
+    }
+  },
+  {
+    "request": {
+      "id": "f37ff17d-b2a2-48b2-8bc3-292c4afb1670",
+      "method": "workspace_status",
+      "params": {}
+    },
+    "response": {
+      "id": "f37ff17d-b2a2-48b2-8bc3-292c4afb1670",
+      "ok": true,
+      "result": {
+        "automatic_sync": false,
+        "generation": "dbad5491-fdaa-4971-b4f2-d24916c23278",
+        "native_log_exists": false,
+        "outbox_count": 0,
+        "pending_sync_count": 0,
+        "qso_count": 0,
+        "source": "isolated_workspace",
+        "workspace_exists": true
+      }
+    }
+  },
+  {
+    "request": {
+      "id": "c3c97e45-c334-472f-add3-2e996d948e9a",
+      "method": "logbook_operator_draft",
+      "params": {}
+    },
+    "response": {
+      "id": "c3c97e45-c334-472f-add3-2e996d948e9a",
+      "ok": true,
+      "result": {
+        "draft": {
+          "automaticStart": true,
+          "generation": "dbad5491-fdaa-4971-b4f2-d24916c23278",
+          "qso": {
+            "antennaPath": "",
+            "band": "20m",
+            "call": "",
+            "comment": "",
+            "continent": "",
+            "country": "",
+            "county": "",
+            "cqZone": "",
+            "dok": "",
+            "email": "",
+            "extraFields": {},
+            "gridSquare": "",
+            "id": "F5E73E1C-4FE7-4A10-80AD-7867EB520477",
+            "iota": "",
+            "isDirty": true,
+            "ituZone": "",
+            "lotwReceived": "",
+            "lotwSent": "",
+            "mode": "SSB",
+            "myCall": "OM0RX",
+            "myGrid": "",
+            "name": "",
+            "notes": "",
+            "operatorCall": "OM0RX",
+            "potaReference": "",
+            "propagationMode": "",
+            "qslMessage": "",
+            "qslMethod": "",
+            "qslReceived": "",
+            "qslSent": "",
+            "qslVia": "",
+            "qth": "",
+            "radio": "OM0RX-xCat",
+            "receiveBand": "",
+            "rstReceived": "59",
+            "rstSent": "59",
+            "sig": "",
+            "sigInfo": "",
+            "sotaReference": "",
+            "start": "2026-10-29T11:59:59Z",
+            "state": "",
+            "stationLocation": "",
+            "submode": "",
+            "txPower": "100",
+            "updatedAt": "2026-10-29T11:59:59Z",
+            "wwffReference": ""
+          },
+          "revision": 0
+        },
+        "power_capture_status": "off"
+      }
+    }
+  }
+]

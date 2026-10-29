@@ -1,0 +1,18 @@
+{
+  "utc": "2026-10-29T12:31:18.208022+00:00",
+  "identifiedProcesses": [
+    {
+      "pid": 12076,
+      "ppid": 1,
+      "details": "npm run dev      npm run dev"
+    },
+    {
+      "pid": 12097,
+      "ppid": 12076,
+      "details": "node             node /Users/oliver/Documents/Projects/OM0RX-xLog/prototype/node_modules/.bin/../vite/bin/vite.js --host 127.0.0.1 --port 1420 --strictPort"
+    }
+  ],
+  "listenerRemaining": false,
+  "signal": "SIGTERM",
+  "privateAppsStopped": true
+}

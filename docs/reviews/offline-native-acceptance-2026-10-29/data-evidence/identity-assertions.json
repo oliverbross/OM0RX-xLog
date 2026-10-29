@@ -1,0 +1,35 @@
+{
+  "checks": {
+    "normalQSORowsEqualAcrossRequestedSnapshots": true,
+    "unfinishedDraftPayloadEqualAcrossRequestedSnapshots": true,
+    "actualSaveReceiptMatchesSQLiteIdentityAndTime": true,
+    "selectedPackageSettingsMatchAfterRestoreDB": true,
+    "selectedMainPackageLogicalTablesMatchBeforeRestore": true,
+    "selectedContestPackageLogicalTablesMatchAfterRestore": true
+  },
+  "historicalImportRecord": {
+    "qso_id": "f87f2719-d705-5766-9b24-46512a5e565e",
+    "semantic_digest": "0e85a67e417dd7ea0fa7d1b2b3470b0207d684a8236bc3efa5b4ed010a54d6fa",
+    "source": {
+      "metadata": null,
+      "raw": {
+        "BAND": "20m",
+        "CALL": "K2IMP",
+        "COMMENT": "Reviewed offline native import",
+        "CONTEST_ID": "CQ-WPX-CW",
+        "FREQ": "14.025",
+        "MODE": "CW",
+        "OPERATOR": "TESTOP",
+        "QSO_DATE": "20261017",
+        "RST_RCVD": "579",
+        "RST_SENT": "599",
+        "SRX_STRING": "316",
+        "STATION_CALLSIGN": "OM0RX",
+        "STX_STRING": "003",
+        "TIME_ON": "100001"
+      },
+      "sourceSHA256": "59c90c369ce250ecbcef5db5d65477e62a5033b10c51c79cc6065e8ea8524e81"
+    }
+  },
+  "reviewedImportSHA256": "59c90c369ce250ecbcef5db5d65477e62a5033b10c51c79cc6065e8ea8524e81"
+}

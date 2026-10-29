@@ -1,0 +1,47 @@
+[
+  {
+    "request": {
+      "id": "9ac1b88d-0f36-46be-a12d-94c45eceaa79",
+      "method": "logbook_export_adif",
+      "params": {
+        "action": "begin",
+        "scope": "all"
+      }
+    },
+    "response": {
+      "id": "9ac1b88d-0f36-46be-a12d-94c45eceaa79",
+      "ok": true,
+      "result": {
+        "token": "CB208A23-EF85-48AE-9039-23FFAB2D1990",
+        "total": 3
+      }
+    }
+  },
+  {
+    "request": {
+      "id": "009f80b4-691d-4aab-bb3d-9a147ee30696",
+      "method": "logbook_export_adif",
+      "params": {
+        "action": "read",
+        "token": "CB208A23-EF85-48AE-9039-23FFAB2D1990",
+        "offset": 0,
+        "limit": 25
+      }
+    },
+    "response": {
+      "id": "009f80b4-691d-4aab-bb3d-9a147ee30696",
+      "ok": true,
+      "result": {
+        "count": 3,
+        "fieldMetadata": [
+          null,
+          null,
+          null
+        ],
+        "offset": 0,
+        "text": "<ADIF_VER:5>3.1.7<EOH>\r\n<BAND:3>20m<CALL:6>K4AUTO<COMMENT:29>Detached final automatic save<FREQ:9>14.025000<MODE:3>SSB<OPERATOR:5>OM0RX<QSO_DATE:8>20261029<RST_RCVD:2>59<RST_SENT:2>59<STATION_CALLSIGN:5>OM0RX<TIME_ON:6>122733<TX_PWR:3>100<EOR>\r\n<BAND:3>20m<CALL:8>K3MANUAL<COMMENT:35>Full manual UTC 2026-10-29 12:25:08<FREQ:9>14.025000<MODE:3>SSB<OPERATOR:5>OM0RX<QSO_DATE:8>20261029<RST_RCVD:2>59<RST_SENT:2>59<STATION_CALLSIGN:5>OM0RX<TIME_ON:6>122508<TX_PWR:3>100<EOR>\r\n<BAND:3>20m<CALL:6>K2AUTO<COMMENT:31>Final fixed Desk automatic save<FREQ:9>14.025000<MODE:3>SSB<OPERATOR:5>OM0RX<QSO_DATE:8>20261029<RST_RCVD:2>59<RST_SENT:2>59<STATION_CALLSIGN:5>OM0RX<TIME_ON:6>122409<TX_PWR:3>100<EOR>\r\n",
+        "total": 3
+      }
+    }
+  }
+]

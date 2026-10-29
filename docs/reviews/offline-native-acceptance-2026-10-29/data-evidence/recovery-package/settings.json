@@ -1,0 +1,38 @@
+{
+  "automaticSync" : false,
+  "automaticTransmitPower" : false,
+  "callsignLookupProvider" : "qrz",
+  "clearAfterQSY" : false,
+  "clubLogCTYURL" : "https:\/\/cdn.clublog.org\/cty.php",
+  "defaultPower" : "100",
+  "defaultRadio" : "OM0RX-xCat",
+  "ftpBackup" : {
+    "directory" : "\/OM0RX-xLog",
+    "endpoint" : "",
+    "plainFTPConfirmed" : false,
+    "protocol" : "disabled",
+    "username" : ""
+  },
+  "gridSquare" : "",
+  "hamqthUsername" : "",
+  "logbookMode" : "local",
+  "lotwActivityURL" : "https:\/\/lotw.arrl.org\/lotw-user-activity.csv",
+  "operatorCall" : "OM0RX",
+  "qrzEnabled" : false,
+  "qrzUsername" : "",
+  "stationCall" : "OM0RX",
+  "stationEquipment" : {
+    "antenna" : "vertical",
+    "bands" : [
+
+    ],
+    "display" : "automatic",
+    "name" : ""
+  },
+  "stationLocation" : "",
+  "syncIntervalMinutes" : 5,
+  "wavelogStationID" : 0,
+  "wavelogURL" : "https:\/\/om0rx.wavelog.online",
+  "xcatHost" : "127.0.0.1",
+  "xcatRigCtlPort" : 14532
+}

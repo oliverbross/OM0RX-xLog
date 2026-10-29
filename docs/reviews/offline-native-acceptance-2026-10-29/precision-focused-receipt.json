@@ -1,0 +1,26 @@
+{
+  "command": [
+    "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift",
+    "test",
+    "-c",
+    "release",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/restore-release-clean",
+    "--jobs",
+    "2",
+    "--no-parallel",
+    "--filter",
+    "OperatorDraftReversalAcceptanceTests|OperatorDraftTests|OperatorDraftPowerDatabaseTests|OperatorDraftPowerTests|LiveDraftPowerServiceTests|NativeDraftPowerAdmissionTests|NativeDraftPowerCaptureTests|OperatorDraftRadioReadTests|OperatorDraftRadioFollowTests|OperatorDraftQSYClearTests|RestoreAtomicityTests|NativeRestoreInterruptionTests|BackupRestoreAuthorityTests|LiveLogbookMethodsTests"
+  ],
+  "environment": {
+    "XLOG_PORTABLE_ONLY": "1"
+  },
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "head": "e1570231dcd315a68cf3f485ffc48345af0c3cd1",
+  "startedUTC": "2026-10-29T11:37:40.151986+00:00",
+  "finishedUTC": "2026-10-29T11:43:04.392171+00:00",
+  "exit": 0,
+  "log": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/precision-focused.log",
+  "logSHA256": "48d276cb8dd6da7ad08d6462ebb607760907570a00d6b71645ff6a988b57931f",
+  "diffSHA256": "700eef8507b60f36265299d4a9700d35cceb5e853c3945d9a9377d22ede04c49"
+}

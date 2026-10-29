@@ -1,0 +1,166 @@
+{
+  "source": "e6cab56f50953798f08df8d16142bfc90fd193b1",
+  "checks": {
+    "K2AUTO": {
+      "utc": "2026-10-29T12:24:09.419261+00:00",
+      "lowerBound": "2026-10-29T12:24:03.676462+00:00",
+      "upperBound": "2026-10-29T12:24:16.988017+00:00",
+      "buttonTimeBound": true,
+      "id": "347C557B-26E6-4705-A8F0-4BCD92118775",
+      "backendADIFDate": "20261029",
+      "backendADIFTime": "122409"
+    },
+    "K4AUTO": {
+      "utc": "2026-10-29T12:27:33.261386+00:00",
+      "lowerBound": "2026-10-29T12:27:08.488287+00:00",
+      "upperBound": "2026-10-29T12:27:44.873310+00:00",
+      "buttonTimeBound": true,
+      "id": "98D26EAD-B84C-4CD5-B770-415A1ED9A8A8",
+      "backendADIFDate": "20261029",
+      "backendADIFTime": "122733"
+    },
+    "K3MANUAL": {
+      "utc": "2026-10-29T12:25:08+00:00",
+      "matchesObservedFullAndDeskTime": true,
+      "id": "6DEDD62D-007B-49B0-B3A8-92DE02DF11D3",
+      "backendADIFDate": "20261029",
+      "backendADIFTime": "122508"
+    }
+  },
+  "replayThreeOriginalSaveOperations": true,
+  "retainedDraft": {
+    "qso": {
+      "operatorCall": "OM0RX",
+      "start": 814969685.315166,
+      "ituZone": "",
+      "name": "",
+      "cqZone": "",
+      "gridSquare": "",
+      "radio": "OM0RX-xCat",
+      "rstSent": "59",
+      "sigInfo": "",
+      "qslMethod": "",
+      "lotwSent": "",
+      "isDirty": true,
+      "sotaReference": "",
+      "iota": "",
+      "potaReference": "",
+      "submode": "",
+      "sig": "",
+      "myGrid": "",
+      "receiveBand": "",
+      "mode": "SSB",
+      "wwffReference": "",
+      "dok": "",
+      "stationLocation": "",
+      "propagationMode": "",
+      "rstReceived": "59",
+      "antennaPath": "",
+      "qslSent": "",
+      "qslReceived": "",
+      "continent": "",
+      "extraFields": {},
+      "comment": "Final retained unfinished draft",
+      "country": "",
+      "email": "",
+      "qth": "",
+      "call": "K5KEEP",
+      "county": "",
+      "updatedAt": 814969653,
+      "id": "7155E427-B3A7-47FC-9CCE-672B0B5DB110",
+      "notes": "",
+      "band": "20m",
+      "state": "",
+      "txPower": "100",
+      "qslVia": "",
+      "lotwReceived": "",
+      "myCall": "OM0RX",
+      "qslMessage": ""
+    },
+    "automaticStart": true,
+    "revision": 15
+  },
+  "backendADIFOnlyNotNativeDownload": true,
+  "integrity": [
+    {
+      "source": "snapshots/desk-ready-final/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+      "sha256": "6c9220c0344af3bc97b99341825029fbf5b717ef2edf12b7cde9a260803cb376",
+      "integrity": [
+        [
+          "ok"
+        ]
+      ],
+      "foreignKeys": []
+    },
+    {
+      "source": "snapshots/desk-saved-final/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+      "sha256": "fd5cf968c7b54f58062e104b8f3f75aaeb70aaad695f36c3b666fe4f0ffa8c78",
+      "integrity": [
+        [
+          "ok"
+        ]
+      ],
+      "foreignKeys": []
+    },
+    {
+      "source": "snapshots/detached-ready-final/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+      "sha256": "4242ff197df30bf7b5e797884d8201e3334d4f76991021290896facece5aa670",
+      "integrity": [
+        [
+          "ok"
+        ]
+      ],
+      "foreignKeys": []
+    },
+    {
+      "source": "snapshots/final-reopen-quit/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+      "sha256": "507a48557159668e674cc4429ce66142b0394960079d9937a605af56edb1c700",
+      "integrity": [
+        [
+          "ok"
+        ]
+      ],
+      "foreignKeys": []
+    },
+    {
+      "source": "snapshots/final-saves-quit/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+      "sha256": "507a48557159668e674cc4429ce66142b0394960079d9937a605af56edb1c700",
+      "integrity": [
+        [
+          "ok"
+        ]
+      ],
+      "foreignKeys": []
+    },
+    {
+      "source": "snapshots/final-ui-saves/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+      "sha256": "5626ac46fe9a7bbd7348fb10d84757ffd1bae2b88f082e48a83a7e008d64c758",
+      "integrity": [
+        [
+          "ok"
+        ]
+      ],
+      "foreignKeys": []
+    },
+    {
+      "source": "snapshots/full-reversal-attempt/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+      "sha256": "d0b51e3ca7c00ca32e69a2f44e6d0b1fcf5974b5473385144e93bc424ae42582",
+      "integrity": [
+        [
+          "ok"
+        ]
+      ],
+      "foreignKeys": []
+    },
+    {
+      "source": "snapshots/precision-first-fields/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+      "sha256": "31ab2ac24f58809d5e05b567c71753fcf24018b242c447c8aede373f00ff100a",
+      "integrity": [
+        [
+          "ok"
+        ]
+      ],
+      "foreignKeys": []
+    }
+  ]
+}

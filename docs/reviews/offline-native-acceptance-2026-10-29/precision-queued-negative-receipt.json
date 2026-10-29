@@ -1,0 +1,25 @@
+{
+  "command": [
+    "/usr/local/bin/node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "src/live/operatorDraftSession.test.ts",
+    "--maxWorkers=1",
+    "-t",
+    "queued automatic UTC receipt merge"
+  ],
+  "nodeVersion": "v24.11.1",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "sourceHead": "1cb92f8f812178f4a3ac9d461f097e5033ae68bb",
+  "startedUTC": "2026-10-29T12:06:39.654869+00:00",
+  "finishedUTC": "2026-10-29T12:06:40.623042+00:00",
+  "exit": 1,
+  "sourceInputs": {
+    "prototype/src/live/operatorDraftSession.ts": "b5f2a27b26536d864e094692aa96e9d0698e2fb61a6c7f6be89cd08c5f4edb21",
+    "prototype/src/live/operatorDraftSession.test.ts": "b261ead18a83229cec8c0fcd56fe8bf9c9e52274915425dbf86dad8b39dd90d9"
+  },
+  "sourceInputsUnchanged": true,
+  "diffSHA256": "8e0e0b3ad4b79ea66f0d68ccf13e371304571395d5c96129417f3123fb05f516",
+  "logSHA256": "66ccc0712715ee248d226dbc43b4d4d58180fbcce17c4f6bf3948d505e2502cb",
+  "log": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/precision-queued-negative.log"
+}

@@ -1,0 +1,42 @@
+{
+  "bandMapFontScale" : 1,
+  "clusterSpotOpensFullEditor" : false,
+  "deskBandMapBands" : [
+    "20m"
+  ],
+  "deskBandMapFollowsRadio" : true,
+  "detachedBandMapBands" : [
+    "160m",
+    "80m",
+    "60m",
+    "40m",
+    "30m",
+    "20m",
+    "17m",
+    "15m",
+    "12m",
+    "10m"
+  ],
+  "detachedBandMapFollowsRadio" : false,
+  "detachedBandMapLayout" : "Adaptive grid",
+  "detachedBandMapModes" : [
+    "cw",
+    "data",
+    "phone"
+  ],
+  "intelligenceBands" : [
+    "160m",
+    "80m",
+    "60m",
+    "40m",
+    "30m",
+    "20m",
+    "17m",
+    "15m",
+    "12m",
+    "10m"
+  ],
+  "savedLogbookFilters" : [
+
+  ]
+}

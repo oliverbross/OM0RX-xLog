@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "npx",
+    "vitest",
+    "run",
+    "src/live/rotorConfigurationSession.test.ts",
+    "--maxWorkers=1"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-29T11:24:51.775031+00:00",
+  "finishedUTC": "2026-10-29T11:24:54.446303+00:00",
+  "elapsedSeconds": 2.6708772080019116,
+  "exit": 1,
+  "head": "6e8bc944870279941c6a9e675037d004c4f9649f",
+  "diff": "diff --git a/prototype/src/live/rotorConfigurationSession.test.ts b/prototype/src/live/rotorConfigurationSession.test.ts\nindex e6edbf91..133ae7b6 100644\n--- a/prototype/src/live/rotorConfigurationSession.test.ts\n+++ b/prototype/src/live/rotorConfigurationSession.test.ts\n@@ -1,5 +1,6 @@\n // @vitest-environment jsdom\n import { beforeEach, describe, expect, it, vi } from \"vitest\";\n+import { readFileSync } from \"node:fs\";\n import { autoRotorBands, checkedRotorConfiguration, clearLegacyRotorConfiguration, defaultRotorConfiguration, legacyRotorConfiguration,\n   readRotorConfigurationJournal, RotorConfigurationSession, rotorConfigurationDirty } from \"./rotorConfigurationSession\";\n \n@@ -35,6 +36,28 @@ function backend() {\n beforeEach(() => localStorage.clear());\n \n describe(\"shared rotor configuration session\", () => {\n+  it(\"loads the native default band policy without losing valid bands or issuing a save\", async () => {\n+    // Captured from the disposable native window's SQLite configuration after\n+    // startup failed. Do not derive this wire fixture from the frontend default.\n+    const configuration = {\n+      owner: \"native_dcu1\", native_dcu1: { host: \"\", port: 4001, name: \"Rotor\" },\n+      hamlib: { baud: 9600, host: \"127.0.0.1\", mode: \"managed\", path: \"\", port: 4533, serial: {} },\n+      auto_rotor_bands: [\"160m\", \"80m\", \"60m\", \"40m\", \"30m\", \"20m\", \"17m\", \"15m\", \"12m\", \"10m\", \"6m\", \"4m\", \"2m\", \"70cm\", \"23cm\", \"13cm\"],\n+      auto_rotor_at_startup: true,\n+    };\n+    // Keep the cross-language contract tied to its actual native owner.\n+    const models = readFileSync(\"../Sources/XLogCore/Models.swift\", \"utf8\");\n+    const nativeBands = JSON.parse(models.match(/public static let bands = (\\[[^\\n]+\\])/)![1]);\n+    expect(configuration.auto_rotor_bands).toEqual(nativeBands);\n+    const request = vi.fn(async () => ({ revision: 0, generation, configuration }));\n+    const session = new RotorConfigurationSession(request);\n+    await session.load();\n+    expect(session.getSnapshot()).toMatchObject({ error: \"\", pending: null, base: { configuration } });\n+    expect(request.mock.calls).toEqual([[\"workspace_rotor_configuration_load\", {}]]);\n+    expect(autoRotorBands).toEqual(nativeBands);\n+    const narrower = { ...configuration, auto_rotor_at_startup: false, auto_rotor_bands: [\"20m\"] };\n+    expect(checkedRotorConfiguration(narrower)).toEqual(narrower);\n+  });\n   it(\"defaults launch permission on and rejects unbounded automatic-rotor bands\", () => {\n     const defaults = defaultRotorConfiguration();\n     expect(defaults.auto_rotor_at_startup).toBe(true);\n"
+}

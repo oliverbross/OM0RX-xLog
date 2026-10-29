@@ -1,0 +1,32 @@
+{
+  "command": [
+    "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift",
+    "test",
+    "-c",
+    "release",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/restore-release-clean",
+    "--jobs",
+    "2",
+    "--no-parallel",
+    "--filter",
+    "OperatorDraftReversalAcceptanceTests|OperatorDraftTests|OperatorDraftPowerDatabaseTests|OperatorDraftPowerTests|LiveDraftPowerServiceTests|NativeDraftPowerAdmissionTests|NativeDraftPowerCaptureTests|OperatorDraftRadioReadTests|OperatorDraftRadioFollowTests|OperatorDraftQSYClearTests|RestoreAtomicityTests|NativeRestoreInterruptionTests|BackupRestoreAuthorityTests|LiveLogbookMethodsTests"
+  ],
+  "environment": {
+    "XLOG_PORTABLE_ONLY": "1"
+  },
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "head": "e1570231dcd315a68cf3f485ffc48345af0c3cd1",
+  "startedUTC": "2026-10-29T11:44:17.122391+00:00",
+  "finishedUTC": "2026-10-29T11:51:19.148043+00:00",
+  "exit": 0,
+  "log": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/precision-final.log",
+  "logSHA256": "9ea24ceee5ac0cdb3554864b6739011a5ac9ef1ecce2fa31ce5dc4ac284d06ac",
+  "diffSHA256": "a36152c597225ba2cef5a814b3589f03fd0dfef0a73d8420af62f676d4282970",
+  "sourceInputs": {
+    "Sources/XLogCore/LogbookDatabase.swift": "70b67f44f19ae0bed1e8ae242752ad0789869b4eca20d85ab76a1b0433fa59ff",
+    "Sources/XLogPrototypeSupport/LiveLogbookMethods.swift": "f00ec17dfcae0d163033e7e26915c905a926e58d5fd0240bb7e6e82015e1e168",
+    "Tests/XLogPrototypeTests/OperatorDraftReversalAcceptanceTests.swift": "c7bf2f942563961e2a126188d7c4cc8f1a6b5f06c3b5bda7ea48cf7f0fa32529"
+  },
+  "sourceInputsUnchanged": true
+}

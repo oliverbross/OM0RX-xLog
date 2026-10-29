@@ -1,0 +1,16 @@
+{
+  "changes": [
+    {
+      "copy": "snapshot-copies/manual-save-detached/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite-shm",
+      "afterInspectionExists": false,
+      "reason": "SQLite inspection can checkpoint or remove WAL/SHM files on the disposable copy; freeze again from unchanged exact source bytes."
+    },
+    {
+      "copy": "snapshot-copies/manual-save-detached/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite-wal",
+      "afterInspectionExists": false,
+      "reason": "SQLite inspection can checkpoint or remove WAL/SHM files on the disposable copy; freeze again from unchanged exact source bytes."
+    }
+  ],
+  "originalSourceBytesPreserved": true,
+  "scope": "Only disposable copied SQLite/WAL/SHM artifacts; no original package/snapshot/private database opened for checks."
+}

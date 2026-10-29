@@ -1,0 +1,12 @@
+{
+  "utc": "2026-10-29T11:48:59.832429+00:00",
+  "originalRoot": "/private/tmp/xlog-wave1-offline-native-5__wfphw",
+  "markerID": "77fb24fd-bdba-46a1-a037-e95c12479424",
+  "copiedFiles": 46,
+  "restoreIncompleteMarkers": [],
+  "sourceBytesPreservedAtCopy": true,
+  "sqliteChecksOnlyOnCopies": true,
+  "command": [
+    ".build/offline-native-acceptance-20261029-6e8bc944/data_capture.py"
+  ]
+}

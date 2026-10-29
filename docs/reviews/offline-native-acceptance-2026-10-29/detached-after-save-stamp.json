@@ -1,0 +1,17 @@
+{
+  "utc": "2026-10-29T12:27:44.873310+00:00",
+  "processes": [
+    {
+      "pid": 26090,
+      "ppid": 1,
+      "details": "/Users/oliver/Do /Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/XLog Offline Precision Development.app/Contents/MacOS/xlog-prototype --offline-contest-acceptance=/private/tmp/xlog-wave1-offline-entry-ph2780eu"
+    },
+    {
+      "pid": 26098,
+      "ppid": 26090,
+      "details": "/Users/oliver/Do /Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/XLog Offline Precision Development.app/Contents/MacOS/xlog-prototype-worker --offline-contest-acceptance=/private/tmp/xlog-wave1-offline-entry-ph2780eu"
+    }
+  ],
+  "seed": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/entry.json",
+  "head": "e6cab56f50953798f08df8d16142bfc90fd193b1"
+}

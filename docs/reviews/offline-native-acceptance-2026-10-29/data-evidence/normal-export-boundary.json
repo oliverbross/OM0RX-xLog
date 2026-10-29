@@ -1,0 +1,14 @@
+{
+  "searchedOnly": [
+    "/private/tmp/xlog-wave1-offline-native-5__wfphw",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944"
+  ],
+  "adiPaths": [
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/native-reviewed-contest.adi",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/reviewed-import.adi"
+  ],
+  "normalExportArtifactFound": false,
+  "reason": "No normal ADIF artifact exists in the allowed private root/stage. Renderer LogbookPanel.tsx:381-387 emits an in-memory Blob download and then reports success. Backend returns in-memory text; there is no evidence of an NSSavePanel for this route. UI action/notice are separate root-agent observations.",
+  "manualSaveUTC": "2026-10-29T11:12:42+00:00",
+  "manualSaveID": "6448E40C-5FD2-468D-93BE-EBD65D64C789"
+}

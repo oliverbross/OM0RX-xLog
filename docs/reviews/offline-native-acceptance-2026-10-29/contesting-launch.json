@@ -1,0 +1,71 @@
+{
+  "utc": "2026-10-29T11:32:29.784550+00:00",
+  "pid": 17588,
+  "root": "/private/tmp/xlog-wave1-offline-native-5__wfphw",
+  "app": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/XLog Offline Development.app",
+  "webKitID": "77fb24fd-bdba-46a1-a037-e95c12479424",
+  "webKitPIDsBefore": [
+    249,
+    654,
+    671,
+    1022,
+    3143,
+    5783,
+    7376,
+    7380,
+    10665,
+    10667,
+    10682,
+    11640,
+    12131,
+    13075,
+    24206,
+    34001,
+    34659,
+    34673,
+    39052,
+    48984,
+    49198,
+    49210,
+    51923,
+    71454,
+    78552,
+    93727,
+    93760,
+    93778,
+    95118,
+    95121,
+    96548,
+    97478,
+    97621,
+    97627,
+    99832,
+    99855
+  ],
+  "automaticRestartFrom": "rotor-fixed",
+  "previousProcesses": [
+    {
+      "pid": 13367,
+      "ppid": 1,
+      "details": "/Users/oliver/Do /Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/XLog Offline Development.app/Contents/MacOS/xlog-prototype --offline-contest-acceptance=/private/tmp/xlog-wave1-offline-native-5__wfphw"
+    },
+    {
+      "pid": 13373,
+      "ppid": 13367,
+      "details": "/Users/oliver/Do /Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/XLog Offline Development.app/Contents/MacOS/xlog-prototype-worker --offline-contest-acceptance=/private/tmp/xlog-wave1-offline-native-5__wfphw"
+    }
+  ],
+  "currentProcesses": [
+    {
+      "pid": 17588,
+      "ppid": 1,
+      "details": "/Users/oliver/Do /Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/XLog Offline Development.app/Contents/MacOS/xlog-prototype --offline-contest-acceptance=/private/tmp/xlog-wave1-offline-native-5__wfphw"
+    },
+    {
+      "pid": 17591,
+      "ppid": 17588,
+      "details": "/Users/oliver/Do /Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/XLog Offline Development.app/Contents/MacOS/xlog-prototype-worker --offline-contest-acceptance=/private/tmp/xlog-wave1-offline-native-5__wfphw"
+    }
+  ],
+  "explicitLaunchPerformedByHarness": false
+}

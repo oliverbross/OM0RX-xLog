@@ -1,0 +1,10 @@
+{
+  "reusedWithoutRerunning": {
+    "docs/reviews/remediation-fa010-fa017-2026-10-29/README.md": "d59c4e8848ee21302d921ea55dade47742c77f50f131f15e18ef7a244f3b32ff",
+    "docs/reviews/remediation-fa010-fa017-2026-10-29/agents/restore/closing-source.json": "a8f6117c18504ffa9a3abaf63593657f5ed706ea986398ad2301d167f742de0f",
+    "docs/reviews/remediation-fa010-fa017-2026-10-29/agents/restore/modern-negative-source.json": "ab47c8c08c86b0264bf6d7ece988ac3dbd53d11e2336b78208f5fe4ebdafcc94",
+    "docs/reviews/remediation-fa010-fa017-2026-10-29/final-integrity-r2/integrity.json": "e3acbfaa723e6879de0ca4c81be4e21431931f6dd49fb5ddbfb497eb4378e72b",
+    "docs/reviews/remediation-fa010-fa017-2026-10-29/final-integrity-r2/native-restore-evidence.tar.gz": "aa8fafa9f3723aa61bd87e1ca3bc14d449eda9a4c6c0d060c0efb50de9c470f4"
+  },
+  "scope": "Existing FA015/FA016 source-swap and controlled owned-child interruption evidence is fixture/native-owner evidence. Current modern Tauri GUI restore does not qualify separate SwiftUI caller, incomplete-restore GUI recovery, physical power loss, credentials or live providers."
+}

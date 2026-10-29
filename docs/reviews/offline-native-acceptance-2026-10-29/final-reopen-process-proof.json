@@ -1,0 +1,64 @@
+{
+  "utc": "2026-10-29T12:30:12.889965+00:00",
+  "processes": [
+    {
+      "pid": 26342,
+      "ppid": 1,
+      "details": "/Users/oliver/Do /Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/XLog Offline Precision Development.app/Contents/MacOS/xlog-prototype --offline-contest-acceptance=/private/tmp/xlog-wave1-offline-entry-ph2780eu"
+    },
+    {
+      "pid": 26348,
+      "ppid": 26342,
+      "details": "/Users/oliver/Do /Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/XLog Offline Precision Development.app/Contents/MacOS/xlog-prototype-worker --offline-contest-acceptance=/private/tmp/xlog-wave1-offline-entry-ph2780eu"
+    }
+  ],
+  "webKit": [
+    {
+      "process": {
+        "pid": 26345,
+        "ppid": 1,
+        "details": "/System/Library/ /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent"
+      },
+      "matchingHandles": [
+        "com.apple 26345 oliver  txt    REG   1,18    63736           609253713 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/NetworkCache/Version 17/Records/62223954ABEEA4F8D0A35F240A6B30F49B0CEE5D/Resource/286CDFE5DA30194DAAA673A715372366D81A9935-blob",
+        "com.apple 26345 oliver  txt    REG   1,18    51102           609253705 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/NetworkCache/Version 17/Records/62223954ABEEA4F8D0A35F240A6B30F49B0CEE5D/Resource/4998856C1CEC6FC00ED28B5A8EBD98CC8D74ACC9-blob",
+        "com.apple 26345 oliver  txt    REG   1,18    50946           609253718 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/NetworkCache/Version 17/Records/62223954ABEEA4F8D0A35F240A6B30F49B0CEE5D/Resource/D523A92C9EDA9A10CA91DE254C0CFA6A538889DE-blob",
+        "com.apple 26345 oliver  txt    REG   1,18    33370           609253722 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/NetworkCache/Version 17/Records/62223954ABEEA4F8D0A35F240A6B30F49B0CEE5D/Resource/18FBC31C39A9682BD33F6DF729C7461D9F4384E4-blob",
+        "com.apple 26345 oliver  txt    REG   1,18    35817           609253656 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/NetworkCache/Version 17/Records/62223954ABEEA4F8D0A35F240A6B30F49B0CEE5D/Resource/D65E02DD159BDCA50D99146298A7FB31DD754992-blob",
+        "com.apple 26345 oliver  txt    REG   1,18    22524           609253709 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/NetworkCache/Version 17/Records/62223954ABEEA4F8D0A35F240A6B30F49B0CEE5D/Resource/CFEA38314F9678DFE3246E6EEF09B95970D7053A-blob",
+        "com.apple 26345 oliver  txt    REG   1,18   223612           609253726 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/NetworkCache/Version 17/Records/62223954ABEEA4F8D0A35F240A6B30F49B0CEE5D/Resource/9ACEA74115D6926F64EB9FC94A12E2D641A95407-blob",
+        "com.apple 26345 oliver  txt    REG   1,18   135841           609253660 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/NetworkCache/Version 17/Records/62223954ABEEA4F8D0A35F240A6B30F49B0CEE5D/Resource/9808C9864D20D7FEC370B419BBCABA31A1BC5696-blob",
+        "com.apple 26345 oliver  txt    REG   1,18  3716338           609253774 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/NetworkCache/Version 17/Records/62223954ABEEA4F8D0A35F240A6B30F49B0CEE5D/Resource/2572C421D02BA92DB2B6BDC834F4A6A43AB37C2D-blob",
+        "com.apple 26345 oliver  txt    REG   1,18  3132515           609253631 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/NetworkCache/Version 17/Records/62223954ABEEA4F8D0A35F240A6B30F49B0CEE5D/Resource/AE5E00DF1C244F21F12CFE9A1F80C84856D41FA9-blob",
+        "com.apple 26345 oliver  txt    REG   1,18  4263751           609253983 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/NetworkCache/Version 17/Records/62223954ABEEA4F8D0A35F240A6B30F49B0CEE5D/Resource/CC8E5C0AB8023C73967C3A1222E66B87974E5110-blob",
+        "com.apple 26345 oliver  txt    REG   1,18   222308           609253619 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/NetworkCache/Version 17/Records/62223954ABEEA4F8D0A35F240A6B30F49B0CEE5D/Resource/CF7600DD6C77034DC6D71F430AE9EF6D18F61C57-blob"
+      ]
+    },
+    {
+      "process": {
+        "pid": 26346,
+        "ppid": 1,
+        "details": "/System/Library/ /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking"
+      },
+      "matchingHandles": [
+        "com.apple 26346 oliver  txt       REG               1,18    32768           609253546 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/AlternativeServices/AlternativeService.sqlite-shm",
+        "com.apple 26346 oliver  txt       REG               1,18    32768           609253582 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/ResourceLoadStatistics/observations.db-shm",
+        "com.apple 26346 oliver  txt       REG               1,18    32768           609254198 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/ResourceLoadStatistics/pcm.db-shm",
+        "com.apple 26346 oliver  txt       REG               1,18    32768           609254183 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/Origins/5IXmgybxblrwaZ9TceBJXvI-r-_YlEbDi5goHgFHpyE/5IXmgybxblrwaZ9TceBJXvI-r-_YlEbDi5goHgFHpyE/LocalStorage/localstorage.sqlite3-shm",
+        "com.apple 26346 oliver    4u      REG               1,18     4096           609253542 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/AlternativeServices/AlternativeService.sqlite",
+        "com.apple 26346 oliver    5u      REG               1,18    24752           609253545 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/AlternativeServices/AlternativeService.sqlite-wal",
+        "com.apple 26346 oliver    6u      REG               1,18    32768           609253546 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/AlternativeServices/AlternativeService.sqlite-shm",
+        "com.apple 26346 oliver    8u      REG               1,18    28672           609254180 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/Origins/5IXmgybxblrwaZ9TceBJXvI-r-_YlEbDi5goHgFHpyE/5IXmgybxblrwaZ9TceBJXvI-r-_YlEbDi5goHgFHpyE/LocalStorage/localstorage.sqlite3",
+        "com.apple 26346 oliver    9u      REG               1,18        0           609254182 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/Origins/5IXmgybxblrwaZ9TceBJXvI-r-_YlEbDi5goHgFHpyE/5IXmgybxblrwaZ9TceBJXvI-r-_YlEbDi5goHgFHpyE/LocalStorage/localstorage.sqlite3-wal",
+        "com.apple 26346 oliver   10u      REG               1,18    32768           609254183 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/Origins/5IXmgybxblrwaZ9TceBJXvI-r-_YlEbDi5goHgFHpyE/5IXmgybxblrwaZ9TceBJXvI-r-_YlEbDi5goHgFHpyE/LocalStorage/localstorage.sqlite3-shm",
+        "com.apple 26346 oliver   11u      REG               1,18   118784           609253579 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/ResourceLoadStatistics/observations.db",
+        "com.apple 26346 oliver   12u      REG               1,18   135992           609253581 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/ResourceLoadStatistics/observations.db-wal",
+        "com.apple 26346 oliver   13u      REG               1,18    32768           609253582 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/ResourceLoadStatistics/observations.db-shm",
+        "com.apple 26346 oliver   20u      REG               1,18    28672           609254195 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/ResourceLoadStatistics/pcm.db",
+        "com.apple 26346 oliver   22u      REG               1,18        0           609254197 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/ResourceLoadStatistics/pcm.db-wal",
+        "com.apple 26346 oliver   23u      REG               1,18    32768           609254198 /Users/oliver/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b310d9cd-ad95-4c56-8bb0-b7f740e7c97d/ResourceLoadStatistics/pcm.db-shm"
+      ]
+    }
+  ],
+  "guiBindingPermitted": true
+}

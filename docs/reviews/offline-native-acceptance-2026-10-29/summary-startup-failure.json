@@ -1,0 +1,140 @@
+{
+  "worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite": {
+    "xlog_qso_revision": [
+      {
+        "singleton": 1,
+        "revision": 0
+      }
+    ],
+    "xlog_rotor_configuration": [
+      {
+        "singleton": 1,
+        "payload": {
+          "configuration": {
+            "native_dcu1": {
+              "host": "",
+              "port": 4001,
+              "name": "Rotor"
+            },
+            "owner": "native_dcu1",
+            "hamlib": {
+              "baud": 9600,
+              "host": "127.0.0.1",
+              "mode": "managed",
+              "path": "",
+              "port": 4533,
+              "serial": {}
+            },
+            "auto_rotor_bands": [
+              "160m",
+              "80m",
+              "60m",
+              "40m",
+              "30m",
+              "20m",
+              "17m",
+              "15m",
+              "12m",
+              "10m",
+              "6m",
+              "4m",
+              "2m",
+              "70cm",
+              "23cm",
+              "13cm"
+            ],
+            "auto_rotor_at_startup": true
+          },
+          "revision": 0
+        }
+      }
+    ],
+    "xlog_operator_draft": [
+      {
+        "singleton": 1,
+        "payload": {
+          "qso": {
+            "sig": "",
+            "extraFields": {},
+            "sotaReference": "",
+            "receiveBand": "",
+            "continent": "",
+            "radio": "OM0RX-xCat",
+            "qslSent": "",
+            "qslMethod": "",
+            "gridSquare": "",
+            "lotwReceived": "",
+            "qth": "",
+            "country": "",
+            "isDirty": true,
+            "start": 814965161.409445,
+            "myGrid": "",
+            "myCall": "OM0RX",
+            "qslMessage": "",
+            "propagationMode": "",
+            "lotwSent": "",
+            "updatedAt": 814965161.409445,
+            "id": "6448E40C-5FD2-468D-93BE-EBD65D64C789",
+            "call": "",
+            "county": "",
+            "mode": "SSB",
+            "sigInfo": "",
+            "rstSent": "59",
+            "state": "",
+            "dok": "",
+            "email": "",
+            "ituZone": "",
+            "cqZone": "",
+            "name": "",
+            "rstReceived": "59",
+            "wwffReference": "",
+            "notes": "",
+            "stationLocation": "",
+            "iota": "",
+            "txPower": "100",
+            "antennaPath": "",
+            "operatorCall": "OM0RX",
+            "comment": "",
+            "qslReceived": "",
+            "band": "20m",
+            "qslVia": "",
+            "submode": "",
+            "potaReference": ""
+          },
+          "automaticStart": true,
+          "revision": 0
+        }
+      }
+    ]
+  },
+  "worker/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite": {
+    "xlog_draft_contact": [
+      {
+        "draft_id": "46807830-7d69-4325-b1b9-f94eba83eb05",
+        "qso_id": "1ad2c8ac-1f5f-4029-a722-e3c561e62d48"
+      }
+    ],
+    "xlog_qso_identity": [
+      {
+        "id": "1ad2c8ac-1f5f-4029-a722-e3c561e62d48",
+        "raw_fields": "{\"callsign\":\"K1SAFE\",\"other_1\":\"001\",\"other_2\":\"314\",\"receive\":\"599\",\"sent\":\"599\"}",
+        "country": "{\"continent\":\"NA\",\"cq\":5,\"entity\":\"UNITED STATES\",\"itu\":8,\"primary_pfx\":\"K\"}",
+        "deleted": 0
+      }
+    ],
+    "xlog_qso_audit": [
+      {
+        "sequence": 1,
+        "revision": 3,
+        "operation_id": "5635375f-7ca1-48e4-9243-c424d212a1e0",
+        "qso_id": "1ad2c8ac-1f5f-4029-a722-e3c561e62d48",
+        "kind": "commit",
+        "before_json": "null",
+        "after_json": "{\"Band\":14.0,\"CK\":0,\"CLAIMEDQSO\":1,\"Call\":\"K1SAFE\",\"Comment\":\"\",\"ContactType\":\"\",\"ContestNR\":1,\"ContestName\":\"CQ-WPX-CW\",\"Continent\":\"NA\",\"CountryPrefix\":\"K\",\"Exchange1\":\"\",\"Freq\":14025.0,\"GridSquare\":\"\",\"ID\":\"1ad2c8ac-1f5f-4029-a722-e3c561e62d48\",\"IsMultiplier1\":1,\"IsMultiplier2\":0,\"IsOriginal\":1,\"IsRunQSO\":0,\"MiscText\":\"\",\"Mode\":\"CW\",\"NR\":\"314\",\"Name\":\"\",\"NetBiosName\":\"\",\"NetworkedCompNr\":1,\"Operator\":\"OM0RX\",\"Points\":3,\"Power\":0,\"Prec\":\"\",\"QSXFreq\":14025.0,\"QTH\":\"\",\"RCV\":\"599\",\"RadioInterfaced\":\"\",\"RadioNR\":\"\",\"RoverLocation\":\"\",\"Run1Run2\":1,\"SNT\":\"599\",\"Sect\":\"\",\"SentNr\":\"001\",\"StationPrefix\":\"OM0RX\",\"TS\":\"2026-10-29 11:12:42\",\"WPXPrefix\":\"K1\",\"ZN\":5,\"isMultiplier3\":0}",
+        "reason": "",
+        "before_identity_json": null,
+        "after_identity_json": "{\"country\":{\"continent\":\"NA\",\"cq\":5,\"entity\":\"UNITED STATES\",\"itu\":8,\"primary_pfx\":\"K\"},\"deleted\":false,\"rawFields\":{\"callsign\":\"K1SAFE\",\"other_1\":\"001\",\"other_2\":\"314\",\"receive\":\"599\",\"sent\":\"599\"}}"
+      }
+    ]
+  }
+}

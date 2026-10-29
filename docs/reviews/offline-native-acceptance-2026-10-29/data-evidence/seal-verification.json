@@ -1,0 +1,60 @@
+{
+  "selected-package": {
+    "version": 1,
+    "entries": [
+      {
+        "path": "Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite",
+        "pass": true
+      },
+      {
+        "path": "OM0RX-xLog.sqlite",
+        "pass": true
+      },
+      {
+        "path": "manifest.json",
+        "pass": true
+      },
+      {
+        "path": "preferences.json",
+        "pass": true
+      },
+      {
+        "path": "settings.json",
+        "pass": true
+      }
+    ],
+    "exactPayloadSet": true,
+    "mainManifestHashMatches": true,
+    "mainManifestBytesMatch": true,
+    "referencePayloads": []
+  },
+  "recovery-package": {
+    "version": 1,
+    "entries": [
+      {
+        "path": "Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite",
+        "pass": true
+      },
+      {
+        "path": "OM0RX-xLog.sqlite",
+        "pass": true
+      },
+      {
+        "path": "manifest.json",
+        "pass": true
+      },
+      {
+        "path": "preferences.json",
+        "pass": true
+      },
+      {
+        "path": "settings.json",
+        "pass": true
+      }
+    ],
+    "exactPayloadSet": true,
+    "mainManifestHashMatches": true,
+    "mainManifestBytesMatch": true,
+    "referencePayloads": []
+  }
+}

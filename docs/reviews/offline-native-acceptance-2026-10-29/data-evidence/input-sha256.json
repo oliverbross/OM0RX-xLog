@@ -1,0 +1,232 @@
+{
+  "/private/tmp/xlog-wave1-offline-native-5__wfphw/worker/OM0RX-xLog-Integrated Preview/Backups/OM0RX-xLog-2026-10-29T11-41-34Z.xlogbackup/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite": {
+    "sha256": "590da7c613c6976578de2694eac1de4768d45ce0fc995ba98e0f5baa1f2eb339",
+    "copy": "selected-package/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite",
+    "bytes": 389120
+  },
+  "/private/tmp/xlog-wave1-offline-native-5__wfphw/worker/OM0RX-xLog-Integrated Preview/Backups/OM0RX-xLog-2026-10-29T11-41-34Z.xlogbackup/OM0RX-xLog.sqlite": {
+    "sha256": "e1b5cf2b7017fd3aec2be96d795abe870eda98e363d4a7f85d9963067d3f2ebd",
+    "copy": "selected-package/OM0RX-xLog.sqlite",
+    "bytes": 638976
+  },
+  "/private/tmp/xlog-wave1-offline-native-5__wfphw/worker/OM0RX-xLog-Integrated Preview/Backups/OM0RX-xLog-2026-10-29T11-41-34Z.xlogbackup/manifest.json": {
+    "sha256": "1b6604ff4a1c6b0287ee783c3d19302f438bf1cddce83c46a65ead9c001fe74c",
+    "copy": "selected-package/manifest.json",
+    "bytes": 426
+  },
+  "/private/tmp/xlog-wave1-offline-native-5__wfphw/worker/OM0RX-xLog-Integrated Preview/Backups/OM0RX-xLog-2026-10-29T11-41-34Z.xlogbackup/package-seal.json": {
+    "sha256": "f052430e6355ae68b4cbb87a87eb60c28d9268329f3d2273e6aa70ee84ead136",
+    "copy": "selected-package/package-seal.json",
+    "bytes": 682
+  },
+  "/private/tmp/xlog-wave1-offline-native-5__wfphw/worker/OM0RX-xLog-Integrated Preview/Backups/OM0RX-xLog-2026-10-29T11-41-34Z.xlogbackup/preferences.json": {
+    "sha256": "3d7a46bbfaf325998e169c4fb99db722aca8e6737cfb57cfe68befabaac96e93",
+    "copy": "selected-package/preferences.json",
+    "bytes": 617
+  },
+  "/private/tmp/xlog-wave1-offline-native-5__wfphw/worker/OM0RX-xLog-Integrated Preview/Backups/OM0RX-xLog-2026-10-29T11-41-34Z.xlogbackup/settings.json": {
+    "sha256": "14e13c4009d06fa1668ffc0984832f557af0d79fd239f35ee56067bfb54ecc15",
+    "copy": "selected-package/settings.json",
+    "bytes": 967
+  },
+  "/private/tmp/xlog-wave1-offline-native-5__wfphw/worker/OM0RX-xLog-Integrated Preview/Recovery/pre-restore-65EF601E-26B7-4EE8-9CCB-928D9F85BB17.xlogbackup/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite": {
+    "sha256": "590da7c613c6976578de2694eac1de4768d45ce0fc995ba98e0f5baa1f2eb339",
+    "copy": "recovery-package/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite",
+    "bytes": 389120
+  },
+  "/private/tmp/xlog-wave1-offline-native-5__wfphw/worker/OM0RX-xLog-Integrated Preview/Recovery/pre-restore-65EF601E-26B7-4EE8-9CCB-928D9F85BB17.xlogbackup/OM0RX-xLog.sqlite": {
+    "sha256": "e1b5cf2b7017fd3aec2be96d795abe870eda98e363d4a7f85d9963067d3f2ebd",
+    "copy": "recovery-package/OM0RX-xLog.sqlite",
+    "bytes": 638976
+  },
+  "/private/tmp/xlog-wave1-offline-native-5__wfphw/worker/OM0RX-xLog-Integrated Preview/Recovery/pre-restore-65EF601E-26B7-4EE8-9CCB-928D9F85BB17.xlogbackup/manifest.json": {
+    "sha256": "42b54c3312c1d2c1aac8e56e86344c1c3be331808bb3e9144baa74427de95743",
+    "copy": "recovery-package/manifest.json",
+    "bytes": 426
+  },
+  "/private/tmp/xlog-wave1-offline-native-5__wfphw/worker/OM0RX-xLog-Integrated Preview/Recovery/pre-restore-65EF601E-26B7-4EE8-9CCB-928D9F85BB17.xlogbackup/package-seal.json": {
+    "sha256": "ae082f2b9a18d0242a7eaca3c64007657534a402e158da8e1ecfd049a0d56af2",
+    "copy": "recovery-package/package-seal.json",
+    "bytes": 682
+  },
+  "/private/tmp/xlog-wave1-offline-native-5__wfphw/worker/OM0RX-xLog-Integrated Preview/Recovery/pre-restore-65EF601E-26B7-4EE8-9CCB-928D9F85BB17.xlogbackup/preferences.json": {
+    "sha256": "3d7a46bbfaf325998e169c4fb99db722aca8e6737cfb57cfe68befabaac96e93",
+    "copy": "recovery-package/preferences.json",
+    "bytes": 617
+  },
+  "/private/tmp/xlog-wave1-offline-native-5__wfphw/worker/OM0RX-xLog-Integrated Preview/Recovery/pre-restore-65EF601E-26B7-4EE8-9CCB-928D9F85BB17.xlogbackup/settings.json": {
+    "sha256": "14e13c4009d06fa1668ffc0984832f557af0d79fd239f35ee56067bfb54ecc15",
+    "copy": "recovery-package/settings.json",
+    "bytes": 967
+  },
+  "/private/tmp/xlog-wave1-offline-native-5__wfphw/.xlog-offline-acceptance.json": {
+    "sha256": "3bec1f84c9d25f4b622e4fc4b58d7173a1456b652602b82f329c607323cb59b2",
+    "copy": "private-metadata/.xlog-offline-acceptance.json",
+    "bytes": 87
+  },
+  "/private/tmp/xlog-wave1-offline-native-5__wfphw/native/operating-module.json": {
+    "sha256": "54a2c0d20082f3c8cf6351c72f1c5f13e217ade16f40e85b137633b19ee455f5",
+    "copy": "private-metadata/native/operating-module.json",
+    "bytes": 41
+  },
+  "/private/tmp/xlog-wave1-offline-native-5__wfphw/worker/OM0RX-xLog-Integrated Preview/workspace.json": {
+    "sha256": "569ac372bc7afa9bee205f8e3b9c726ed0a19266cf79702b1aa6a31d63ab11b6",
+    "copy": "private-metadata/worker/OM0RX-xLog-Integrated Preview/workspace.json",
+    "bytes": 223
+  },
+  "/private/tmp/xlog-wave1-offline-native-5__wfphw/worker/OM0RX-xLog-Integrated Preview/edit-generation.json": {
+    "sha256": "968fc8c695df97a35a629fa50cd9f509f878395709aa9868397c8abc175de64b",
+    "copy": "private-metadata/worker/OM0RX-xLog-Integrated Preview/edit-generation.json",
+    "bytes": 38
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/manual-save-detached/worker/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite": {
+    "sha256": "1d85fa1777b9d504e0a70cdf936728cd218372c7e32da3be73fbcc50ab651a0a",
+    "copy": "snapshot-copies/manual-save-detached/worker/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite",
+    "bytes": 380928
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/manual-save-detached/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite": {
+    "sha256": "7f00c34733b2b2828a80c7d21ed28fe71c0c1bf45d8574a0d1ff6112a1c781fc",
+    "copy": "snapshot-copies/manual-save-detached/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+    "bytes": 638976
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/manual-save-detached/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite-shm": {
+    "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+    "copy": "snapshot-copies/manual-save-detached/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite-shm",
+    "bytes": 32768
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/manual-save-detached/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite-wal": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "copy": "snapshot-copies/manual-save-detached/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite-wal",
+    "bytes": 0
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshot-manual-save-detached.json": {
+    "sha256": "26cc856b8277551945b827fa01090322b6c77ffe7825d8d0c3595db4e5b6b63b",
+    "copy": "snapshot-receipts/snapshot-manual-save-detached.json",
+    "bytes": 922523
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/switch-veto/worker/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite": {
+    "sha256": "1d85fa1777b9d504e0a70cdf936728cd218372c7e32da3be73fbcc50ab651a0a",
+    "copy": "snapshot-copies/switch-veto/worker/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite",
+    "bytes": 380928
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/switch-veto/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite": {
+    "sha256": "7f00c34733b2b2828a80c7d21ed28fe71c0c1bf45d8574a0d1ff6112a1c781fc",
+    "copy": "snapshot-copies/switch-veto/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+    "bytes": 638976
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshot-switch-veto.json": {
+    "sha256": "97d645359bced61d32f3ccde43008819bd63e74c2f10b6621f91f49a52f332ae",
+    "copy": "snapshot-receipts/snapshot-switch-veto.json",
+    "bytes": 922519
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/contesting-restart/worker/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite": {
+    "sha256": "1d85fa1777b9d504e0a70cdf936728cd218372c7e32da3be73fbcc50ab651a0a",
+    "copy": "snapshot-copies/contesting-restart/worker/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite",
+    "bytes": 380928
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/contesting-restart/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite": {
+    "sha256": "7f00c34733b2b2828a80c7d21ed28fe71c0c1bf45d8574a0d1ff6112a1c781fc",
+    "copy": "snapshot-copies/contesting-restart/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+    "bytes": 638976
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshot-contesting-restart.json": {
+    "sha256": "8eb22f3fb2bbc27d7164fb2976fb5b6620697e0beaa4ad258c18770dbc6f8033",
+    "copy": "snapshot-receipts/snapshot-contesting-restart.json",
+    "bytes": 922519
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/contest-export/worker/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite": {
+    "sha256": "e85a81bdcd2423d9c4ecedb3fd05787856cd6cb7cba3d6f20ca7eefeb84f696a",
+    "copy": "snapshot-copies/contest-export/worker/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite",
+    "bytes": 389120
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/contest-export/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite": {
+    "sha256": "7f00c34733b2b2828a80c7d21ed28fe71c0c1bf45d8574a0d1ff6112a1c781fc",
+    "copy": "snapshot-copies/contest-export/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+    "bytes": 638976
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshot-contest-export.json": {
+    "sha256": "a4b0d1f887e2f4fbdaf0950fa042adc9f92735ed050a54bfc493306a6fb328d7",
+    "copy": "snapshot-receipts/snapshot-contest-export.json",
+    "bytes": 939601
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/before-native-restore/worker/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite": {
+    "sha256": "e85a81bdcd2423d9c4ecedb3fd05787856cd6cb7cba3d6f20ca7eefeb84f696a",
+    "copy": "snapshot-copies/before-native-restore/worker/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite",
+    "bytes": 389120
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/before-native-restore/worker/OM0RX-xLog-Integrated Preview/Backups/OM0RX-xLog-2026-10-29T11-41-34Z.xlogbackup/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite": {
+    "sha256": "e85a81bdcd2423d9c4ecedb3fd05787856cd6cb7cba3d6f20ca7eefeb84f696a",
+    "copy": "snapshot-copies/before-native-restore/worker/OM0RX-xLog-Integrated Preview/Backups/OM0RX-xLog-2026-10-29T11-41-34Z.xlogbackup/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite",
+    "bytes": 389120
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/before-native-restore/worker/OM0RX-xLog-Integrated Preview/Backups/OM0RX-xLog-2026-10-29T11-41-34Z.xlogbackup/OM0RX-xLog.sqlite": {
+    "sha256": "890a0ff86befb6cd96d68eeea227447eb109da2e0c5a3dd63cc8cf4dbf05c41c",
+    "copy": "snapshot-copies/before-native-restore/worker/OM0RX-xLog-Integrated Preview/Backups/OM0RX-xLog-2026-10-29T11-41-34Z.xlogbackup/OM0RX-xLog.sqlite",
+    "bytes": 638976
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/before-native-restore/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite": {
+    "sha256": "7f00c34733b2b2828a80c7d21ed28fe71c0c1bf45d8574a0d1ff6112a1c781fc",
+    "copy": "snapshot-copies/before-native-restore/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+    "bytes": 638976
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshot-before-native-restore.json": {
+    "sha256": "4a644d5100289ee6c49ccc601ef8ee75a6effb5ed4395ed96e510155d581d244",
+    "copy": "snapshot-receipts/snapshot-before-native-restore.json",
+    "bytes": 1878515
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/after-native-restore/worker/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite": {
+    "sha256": "e85a81bdcd2423d9c4ecedb3fd05787856cd6cb7cba3d6f20ca7eefeb84f696a",
+    "copy": "snapshot-copies/after-native-restore/worker/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite",
+    "bytes": 389120
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/after-native-restore/worker/Contesting/Python-before-restore-940463AF-4AB4-406D-866F-7A7EAF6E703C/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite": {
+    "sha256": "e85a81bdcd2423d9c4ecedb3fd05787856cd6cb7cba3d6f20ca7eefeb84f696a",
+    "copy": "snapshot-copies/after-native-restore/worker/Contesting/Python-before-restore-940463AF-4AB4-406D-866F-7A7EAF6E703C/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite",
+    "bytes": 389120
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/after-native-restore/worker/OM0RX-xLog-Integrated Preview/Backups/OM0RX-xLog-2026-10-29T11-41-34Z.xlogbackup/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite": {
+    "sha256": "e85a81bdcd2423d9c4ecedb3fd05787856cd6cb7cba3d6f20ca7eefeb84f696a",
+    "copy": "snapshot-copies/after-native-restore/worker/OM0RX-xLog-Integrated Preview/Backups/OM0RX-xLog-2026-10-29T11-41-34Z.xlogbackup/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite",
+    "bytes": 389120
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/after-native-restore/worker/OM0RX-xLog-Integrated Preview/Backups/OM0RX-xLog-2026-10-29T11-41-34Z.xlogbackup/OM0RX-xLog.sqlite": {
+    "sha256": "890a0ff86befb6cd96d68eeea227447eb109da2e0c5a3dd63cc8cf4dbf05c41c",
+    "copy": "snapshot-copies/after-native-restore/worker/OM0RX-xLog-Integrated Preview/Backups/OM0RX-xLog-2026-10-29T11-41-34Z.xlogbackup/OM0RX-xLog.sqlite",
+    "bytes": 638976
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/after-native-restore/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog-before-restore-2026-10-29T11-42-18Z-830502D1-0184-4CAD-8CEC-9C4AC05866B1.sqlite": {
+    "sha256": "7f00c34733b2b2828a80c7d21ed28fe71c0c1bf45d8574a0d1ff6112a1c781fc",
+    "copy": "snapshot-copies/after-native-restore/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog-before-restore-2026-10-29T11-42-18Z-830502D1-0184-4CAD-8CEC-9C4AC05866B1.sqlite",
+    "bytes": 638976
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/after-native-restore/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite": {
+    "sha256": "870569ba82a4ceabf4b68edb8064dd478c3440683cbde7a06c7a09602a660f81",
+    "copy": "snapshot-copies/after-native-restore/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+    "bytes": 638976
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/after-native-restore/worker/OM0RX-xLog-Integrated Preview/Recovery/pre-restore-65EF601E-26B7-4EE8-9CCB-928D9F85BB17.xlogbackup/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite": {
+    "sha256": "e85a81bdcd2423d9c4ecedb3fd05787856cd6cb7cba3d6f20ca7eefeb84f696a",
+    "copy": "snapshot-copies/after-native-restore/worker/OM0RX-xLog-Integrated Preview/Recovery/pre-restore-65EF601E-26B7-4EE8-9CCB-928D9F85BB17.xlogbackup/Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251/contest.sqlite",
+    "bytes": 389120
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshots/after-native-restore/worker/OM0RX-xLog-Integrated Preview/Recovery/pre-restore-65EF601E-26B7-4EE8-9CCB-928D9F85BB17.xlogbackup/OM0RX-xLog.sqlite": {
+    "sha256": "890a0ff86befb6cd96d68eeea227447eb109da2e0c5a3dd63cc8cf4dbf05c41c",
+    "copy": "snapshot-copies/after-native-restore/worker/OM0RX-xLog-Integrated Preview/Recovery/pre-restore-65EF601E-26B7-4EE8-9CCB-928D9F85BB17.xlogbackup/OM0RX-xLog.sqlite",
+    "bytes": 638976
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/snapshot-after-native-restore.json": {
+    "sha256": "718be3d8d3b99e851728e49d79a87002483431bd65730f5066e931f91c655df1",
+    "copy": "snapshot-receipts/snapshot-after-native-restore.json",
+    "bytes": 3756582
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/native-reviewed-contest.adi": {
+    "sha256": "ed6ec06d4ffb82b80dbaffaf79aaed83c729c1ca9713da885a3c27b5bed91791",
+    "copy": "native-reviewed-contest.adi",
+    "bytes": 1853
+  },
+  "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/reviewed-import.adi": {
+    "sha256": "59c90c369ce250ecbcef5db5d65477e62a5033b10c51c79cc6065e8ea8524e81",
+    "copy": "reviewed-import.adi",
+    "bytes": 315
+  }
+}

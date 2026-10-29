@@ -1,0 +1,52 @@
+{
+  "utc": "2026-10-29T11:56:07.011675+00:00",
+  "claims": {
+    "contestNativeSavedBytes": "PASS: retained1853-byte native ADIF equals independent candidate PythonHost export of exact retained revision6 snapshot, sameQSOIDs. Native prepared receipt was not retained.",
+    "manualSaveTime": "PASS: UI-issued saved receipt and SQLite K1MANUAL ID6448E40C-5FD2-468D-93BE-EBD65D64C789 retain2026-10-29T11:12:42Z.",
+    "unfinishedDraftRetention": "PASS: K1UNFIN IDBAA9E0E1-0399-4D13-AA92-8D7A8FE1C205 full payload equal acrossmanual-save-detached,contesting-restart,switch-veto,before/after-native-restore.",
+    "selectedAndRecoveryPackageSeals": "PASS: each complete5-payload seal matches sizes andSHA256; main+contest+settings+preferences components equal.",
+    "sqliteIntegrity": "PASS:24 copied databases integrity_check=ok; foreign_key_check=[]; originals not opened for these checks.",
+    "restoreComponentIdentity": "PASS: main all tables equal except newly installedxlog_restore_authority; every contest table equal; normalQSO/draft retained,2contest rows retained.",
+    "selectedDestinationAndSettings": "PASS: actual fixture local/automaticSyncfalse,stationID0; before/after DB integration settings equal and selected payload retained; no sync dispatch.",
+    "preferences": "PASS package payload seals/equality and GUI restore success; UNVERIFIED independent post-restore live UserDefaults value read under copy-only scope.",
+    "references": "PASS empty-reference case: selected,recovery,andlive Reference Data directories exist and contain0files; UNVERIFIED nonempty reference restoration in this GUI run.",
+    "restoreIncompleteMarkers": "PASS positive-private-root has0markers atcapture andfinalization; archived controlled-child markers preserved separately.",
+    "normalExportPersistedBytes": "UNVERIFIED: actualUI initiation/successnotice observed byroot; no downloaded normalADIF in allowedprivateRoot/stage. No normalNSSavePanel claim.",
+    "separateNativeGUIRecovery": "UNVERIFIED: currentmodernTauriGUI does not qualify separateSwiftUIcallerorincompleteGUIrecovery; reusedarchivedFA015/016fixtureevidence."
+  },
+  "identityAssertions": {
+    "normalQSORowsEqualAcrossRequestedSnapshots": true,
+    "unfinishedDraftPayloadEqualAcrossRequestedSnapshots": true,
+    "actualSaveReceiptMatchesSQLiteIdentityAndTime": true,
+    "selectedPackageSettingsMatchAfterRestoreDB": true,
+    "selectedMainPackageLogicalTablesMatchBeforeRestore": true,
+    "selectedContestPackageLogicalTablesMatchAfterRestore": true
+  },
+  "noSourceApplicationTestsReportsChanged": true,
+  "restoreIncompleteMarkers": [],
+  "originalCapturedFilesStillMatch": true,
+  "commands": [
+    {
+      "argv": [
+        "/opt/local/bin/python3.12",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/data_capture.py"
+      ],
+      "exit": 0,
+      "outcomes": "46 files copied; 24 databases inspected on copies"
+    },
+    {
+      "argv": [
+        "/opt/local/bin/python3.12",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/data_verify.py"
+      ],
+      "exit": 0,
+      "outcomes": "Seals/identity/independent export PASS; rerun refreshed typed JSON only and preserved first independent receipt"
+    },
+    {
+      "argv": [
+        ".build/offline-native-acceptance-20261029-6e8bc944/data_finalize.py"
+      ],
+      "outcomes": "Finalizing evidence manifest"
+    }
+  ]
+}

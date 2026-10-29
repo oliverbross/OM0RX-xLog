@@ -1,0 +1,14 @@
+{
+  "utc": "2026-10-29T11:18:48.571231+00:00",
+  "previousProcess": [
+    {
+      "pid": 11952,
+      "ppid": 1,
+      "details": "/Users/oliver/Do /Users/oliver/Documents/Projects/OM0RX-xLog/.build/offline-native-acceptance-20261029-6e8bc944/XLog Offline Development.app/Contents/MacOS/xlog-prototype --offline-contest-acceptance=/private/tmp/xlog-wave1-offline-native-5__wfphw"
+    }
+  ],
+  "signal": "SIGTERM",
+  "ordinaryQuit": false,
+  "GUIBindingUsed": false,
+  "remainingProcesses": []
+}

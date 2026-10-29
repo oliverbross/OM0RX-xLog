@@ -1,0 +1,153 @@
+{
+  "selectedSettings": {
+    "automaticSync": false,
+    "automaticTransmitPower": false,
+    "callsignLookupProvider": "qrz",
+    "clearAfterQSY": false,
+    "clubLogCTYURL": "https://cdn.clublog.org/cty.php",
+    "defaultPower": "100",
+    "defaultRadio": "OM0RX-xCat",
+    "ftpBackup": {
+      "directory": "/OM0RX-xLog",
+      "endpoint": "",
+      "plainFTPConfirmed": false,
+      "protocol": "disabled",
+      "username": ""
+    },
+    "gridSquare": "",
+    "hamqthUsername": "",
+    "logbookMode": "local",
+    "lotwActivityURL": "https://lotw.arrl.org/lotw-user-activity.csv",
+    "operatorCall": "OM0RX",
+    "qrzEnabled": false,
+    "qrzUsername": "",
+    "stationCall": "OM0RX",
+    "stationEquipment": {
+      "antenna": "vertical",
+      "bands": [],
+      "display": "automatic",
+      "name": ""
+    },
+    "stationLocation": "",
+    "syncIntervalMinutes": 5,
+    "wavelogStationID": 0,
+    "wavelogURL": "https://om0rx.wavelog.online",
+    "xcatHost": "127.0.0.1",
+    "xcatRigCtlPort": 14532
+  },
+  "beforeIntegrationSettings": [
+    {
+      "singleton": 1,
+      "payload": {
+        "syncTargetRevision": 0,
+        "settings": {
+          "xcatHost": "127.0.0.1",
+          "clearAfterQSY": false,
+          "callsignLookupProvider": "qrz",
+          "stationCall": "OM0RX",
+          "qrzEnabled": false,
+          "hamqthUsername": "",
+          "automaticTransmitPower": false,
+          "automaticSync": false,
+          "operatorCall": "OM0RX",
+          "defaultRadio": "OM0RX-xCat",
+          "logbookMode": "local",
+          "gridSquare": "",
+          "wavelogURL": "https://om0rx.wavelog.online",
+          "syncIntervalMinutes": 5,
+          "lotwActivityURL": "https://lotw.arrl.org/lotw-user-activity.csv",
+          "stationEquipment": {
+            "antenna": "vertical",
+            "name": "",
+            "bands": [],
+            "display": "automatic"
+          },
+          "wavelogStationID": 0,
+          "defaultPower": "100",
+          "xcatRigCtlPort": 14532,
+          "stationLocation": "",
+          "qrzUsername": "",
+          "clubLogCTYURL": "https://cdn.clublog.org/cty.php",
+          "ftpBackup": {
+            "username": "",
+            "protocol": "disabled",
+            "plainFTPConfirmed": false,
+            "directory": "/OM0RX-xLog",
+            "endpoint": ""
+          }
+        },
+        "revision": 0
+      }
+    }
+  ],
+  "afterIntegrationSettings": [
+    {
+      "singleton": 1,
+      "payload": {
+        "settings": {
+          "xcatRigCtlPort": 14532,
+          "operatorCall": "OM0RX",
+          "qrzUsername": "",
+          "syncIntervalMinutes": 5,
+          "clearAfterQSY": false,
+          "gridSquare": "",
+          "stationLocation": "",
+          "wavelogURL": "https://om0rx.wavelog.online",
+          "qrzEnabled": false,
+          "stationCall": "OM0RX",
+          "stationEquipment": {
+            "display": "automatic",
+            "antenna": "vertical",
+            "name": "",
+            "bands": []
+          },
+          "wavelogStationID": 0,
+          "clubLogCTYURL": "https://cdn.clublog.org/cty.php",
+          "ftpBackup": {
+            "plainFTPConfirmed": false,
+            "protocol": "disabled",
+            "endpoint": "",
+            "directory": "/OM0RX-xLog",
+            "username": ""
+          },
+          "automaticSync": false,
+          "defaultRadio": "OM0RX-xCat",
+          "lotwActivityURL": "https://lotw.arrl.org/lotw-user-activity.csv",
+          "hamqthUsername": "",
+          "defaultPower": "100",
+          "xcatHost": "127.0.0.1",
+          "automaticTransmitPower": false,
+          "callsignLookupProvider": "qrz",
+          "logbookMode": "local"
+        },
+        "syncTargetRevision": 0,
+        "revision": 0
+      }
+    }
+  ],
+  "afterRestoreAuthority": [
+    {
+      "singleton": 1,
+      "payload": {
+        "stationID": 0,
+        "url": "https://om0rx.wavelog.online",
+        "version": 1
+      }
+    }
+  ],
+  "syncCounts": {
+    "before-native-restore": {
+      "sync_outbox": 0,
+      "xlog_sync_runs": 0,
+      "xlog_online_log_enrollments": 0,
+      "xlog_online_log_deliveries": 0
+    },
+    "after-native-restore": {
+      "sync_outbox": 0,
+      "xlog_sync_runs": 0,
+      "xlog_online_log_enrollments": 0,
+      "xlog_online_log_deliveries": 0
+    }
+  },
+  "scope": "Actual fixture local logbook, automaticSync=false, stationID=0, configured URL string retained. No credential discovery or sync dispatch performed."
+}

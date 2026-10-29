@@ -1,0 +1,26 @@
+{
+  "selected-package": {
+    "directories": [
+      "Contesting",
+      "Contesting/Python",
+      "Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251",
+      "Reference Data"
+    ],
+    "referenceDirectoryPresent": true,
+    "referenceFiles": []
+  },
+  "recovery-package": {
+    "directories": [
+      "Contesting",
+      "Contesting/Python",
+      "Contesting/Python/8b9c6663-bccd-4701-9f83-5fbc7c705251",
+      "Reference Data"
+    ],
+    "referenceDirectoryPresent": true,
+    "referenceFiles": []
+  },
+  "live-private-reference": {
+    "exists": true,
+    "files": []
+  }
+}
