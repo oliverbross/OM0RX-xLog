@@ -42,6 +42,13 @@ for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "Calls
   const graph = closure(entry, closure("index.html"));
   assert(!graph.has(main), `${name} imports the main station workspace`);
   assert(!graph.has("src/Map.tsx"), `${name} imports the map UI`);
+  if (name === "Logbook") {
+    for (const panel of ["CTYCorrectionPreview", "OnlineLogFollowUp"]) {
+      const optionalEntry = `src/live/${panel}.tsx`;
+      assert(manifest[optionalEntry], `${panel} lazy entry is missing`);
+      assert(!graph.has(optionalEntry), `Logbook loads ${panel} before it is opened`);
+    }
+  }
   assert(!graph.has("src/live/DetachedDXpeditionMapSurface.tsx"), `${name} imports the DXpedition Map UI`);
   if (name !== "CWDecode") assert(![...graph].some(key => manifest[key].file.includes("CWDecodePanel")), `${name} imports the IQ decoding UI`);
   const lateCss = [...graph].flatMap(key => manifest[key].css ?? []).filter(file => !eagerCss.has(file));

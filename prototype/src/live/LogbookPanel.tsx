@@ -8,13 +8,13 @@ import { LogbookColumnHeader, LogbookColumns, useLogbookColumns } from "./Logboo
 import { orderedLogbookColumns, type LogbookColumn, type LogbookColumnContext } from "./logbookColumnPreferences";
 import { adifImportBatches, decodeADIFDocument, ADIFExportDocument, type ADIFExportFormat, type ADIFImportEncoding, type ADIFFieldMetadata } from "./adifTransfer";
 import { LogbookSavedFilters } from "./LogbookSavedFilters";
-import { CTYCorrectionPreview } from "./CTYCorrectionPreview";
-import { OnlineLogFollowUpPanel } from "./OnlineLogFollowUp";
 import { clusterBandColors, clusterModeColors, paletteColor } from "./clusterPalette";
 import { countryDisplay } from "./countryDisplay";
 import { retryStartupRead, startupReadFailureMessage } from "./startupReadRecovery";
 
 const LogbookContactReview = lazy(() => import("./LogbookContactReview").then(module => ({ default: module.LogbookContactReview })));
+const CTYCorrectionPreview = lazy(() => import("./CTYCorrectionPreview").then(module => ({ default: module.CTYCorrectionPreview })));
+const OnlineLogFollowUpPanel = lazy(() => import("./OnlineLogFollowUp").then(module => ({ default: module.OnlineLogFollowUpPanel })));
 
 type QSO = Record<string, unknown> & {
   id: string;
@@ -445,8 +445,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
       </header>}
       {columnsOpen && <LogbookColumns id={columnsID} preferences={columnPreferences} onChange={setColumnPreferences} context={resolvedColumnContext}
         onDone={() => { setColumnsOpen(false); columnsButton.current?.focus(); }} />}
-      {ctyPreviewOpen && <CTYCorrectionPreview onRequest={onRequest} refreshKey={refreshKey} />}
-      {followUpOpen && selected && <OnlineLogFollowUpPanel key={selected.id} contactID={selected.id} call={selected.call} onRequest={onRequest} refreshKey={refreshKey} onClose={() => setFollowUpOpen(false)} />}
+      {ctyPreviewOpen && <Suspense fallback={<p role="status">Opening country preview…</p>}><CTYCorrectionPreview onRequest={onRequest} refreshKey={refreshKey} /></Suspense>}
+      {followUpOpen && selected && <Suspense fallback={<p role="status">Opening upload follow-up…</p>}><OnlineLogFollowUpPanel key={selected.id} contactID={selected.id} call={selected.call} onRequest={onRequest} refreshKey={refreshKey} onClose={() => setFollowUpOpen(false)} /></Suspense>}
       {filtersOpen && <LogbookSavedFilters onRequest={onRequest} currentQuery={query} disabled={busy}
         onApply={value => { cancelDelete(); setQuery(value); setOffset(0); setSearch(value); }} />}
       {error && <p className="live-logbook-feedback error" role="alert">{error} <button type="button" disabled={loading} onClick={() => setReadRetry(value => value + 1)}>Retry logbook</button></p>}

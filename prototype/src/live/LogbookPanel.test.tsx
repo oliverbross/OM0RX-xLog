@@ -177,12 +177,39 @@ describe("retained upload follow-up entry", () => {
     fireEvent.focus(row);
     fireEvent.click(action);
     expect(edit).not.toHaveBeenCalled();
+    const refresh = await screen.findByText("Refresh retained status");
     expect(request.mock.calls.map(([method]) => method)).toEqual(["logbook_list"]);
-    fireEvent.click(screen.getByText("Refresh retained status"));
+    fireEvent.click(refresh);
     fireEvent.click(screen.getByText("Close follow-up"));
     await act(async () => finish({ generation, contact: { generation, qso: { id: first.id } } }));
     expect(screen.queryByLabelText("Upload follow-up for OM0RX")).toBeNull();
     expect(request.mock.calls.map(([method]) => method)).toEqual(["logbook_list", "logbook_contact"]);
+  });
+});
+
+describe("on-demand country preview", () => {
+  it("reads only after opening and can close without changing the selected contact", async () => {
+    const request = vi.fn(async (method: string) => {
+      if (method === "logbook_list") return page();
+      if (method === "logbook_cty_preview") return { source: "bundled", preview: {
+        rows: [], affectedCount: 0, protectedOverrideCount: 3, offset: 0, limit: 20,
+      } };
+      throw new Error(`Unexpected method ${method}`);
+    });
+    const edit = vi.fn();
+    render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={edit} refreshKey={0} />);
+    await screen.findByText("OM0RX");
+    fireEvent.click(screen.getByText("OM0RX").closest("tr")!);
+    expect(request.mock.calls.map(([method]) => method)).toEqual(["logbook_list"]);
+    const toggle = screen.getByRole("button", { name: "PJ country preview" });
+    fireEvent.click(toggle);
+    await screen.findByText("No inferred PJ classifications differ in this local logbook.");
+    expect(request).toHaveBeenCalledWith("logbook_cty_preview", { limit: 20, offset: 0 });
+    fireEvent.click(toggle);
+    expect(screen.queryByRole("region", { name: "PJ country inference preview" })).toBeNull();
+    expect(request.mock.calls.map(([method]) => method)).toEqual(["logbook_list", "logbook_cty_preview"]);
+    fireEvent.click(screen.getByRole("button", { name: /^Edit$/ }));
+    expect(edit).toHaveBeenCalledWith(first);
   });
 });
 
