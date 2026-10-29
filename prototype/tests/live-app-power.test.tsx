@@ -72,7 +72,8 @@ it("periodically merges measured power with unsaved notes and wires same-value m
   expect(current.power?.manualOverride).toBe(true); expect(screen.getByText("Manual override.")).toBeTruthy();
   const manual = calls.request.mock.calls.filter(([method]) => method === "logbook_operator_draft_apply").at(-1)![1];
   expect(manual.powerIntent).toEqual({ action: "manual", value: "550" });
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Use automatic" })); });
+  const powerField = within(screen.getByLabelText("TX power W").closest(".qso-power-field")! as HTMLElement);
+  await act(async () => { fireEvent.click(powerField.getByRole("button", { name: "Use automatic" })); });
   expect(current.power?.manualOverride).toBe(false);
   expect((screen.getByLabelText("TX power W") as HTMLInputElement).value).toBe("100");
   expect((screen.getByLabelText("QSO note") as HTMLTextAreaElement).value).toBe("Unfinished note survives meter updates.");

@@ -508,20 +508,29 @@ it("preserves two different preference controls emitted from the same rendered f
 });
 
 it("cancels pending automatic motion on independent stop and never replays it", async () => {
+  const poll = controlOneSecondPolls();
   render(<LiveApp />);
   await waitForDesk();
+  const navigation = within(screen.getByRole("navigation"));
   expect(bridge.request.mock.calls.some(([method]) => ["rotor_connect", "rotor_goto"].includes(method))).toBe(false);
   await armAutoRotor();
-  fireEvent.click(screen.getByRole("button", { name: "DX Cluster" }));
-  fireEvent.click(await screen.findByRole("button", { name: "Select test spot" }));
+  fireEvent.click(navigation.getByRole("button", { name: "DX Cluster" }));
+  fireEvent.click(await within(screen.getByRole("main")).findByRole("button", { name: "Select test spot" }));
   await waitFor(() => expect(bridge.tune).not.toBeNull());
-  await openRotorSettings();
-  fireEvent.click(await screen.findByRole("button", { name: "Stop rotor" }));
+  const rotor = within(await openRotorSettings());
+  fireEvent.click(await rotor.findByRole("button", { name: "Stop rotor" }));
   await waitFor(() => expect(bridge.request).toHaveBeenCalledWith("rotor_stop", { owner: "native_dcu1", generation: 4 }));
-  await act(async () => { bridge.tune?.({ accepted: true, confirmed: true }); });
-  expect(bridge.request.mock.calls.some(([method]) => method === "rotor_goto")).toBe(false);
-  fireEvent.click(screen.getByRole("button", { name: "Operator Desk" }));
+  await poll();
   expect(bridge.autoState.armed).toBe(false);
+  expect(bridge.request.mock.calls.some(([method]) => method === "rotor_goto")).toBe(false);
+  await act(async () => { bridge.tune?.({ accepted: true, confirmed: true }); });
+  await poll();
+  expect(bridge.request.mock.calls.some(([method]) => method === "rotor_goto")).toBe(false);
+  expect(bridge.autoState.armed).toBe(false);
+  fireEvent.click(navigation.getByRole("button", { name: "Operator Desk" }));
+  await poll();
+  expect(bridge.autoState.armed).toBe(false);
+  expect(bridge.request.mock.calls.some(([method]) => method === "rotor_goto")).toBe(false);
 });
 
 it("controls the existing native Auto rotor owner from Settings", async () => {

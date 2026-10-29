@@ -41,7 +41,9 @@ it("creates an entityless JIDX maritime preview through the shared structured UI
   fireEvent.change(within(form).getByLabelText("CQ zone"), { target: { value: payload.station.cqZone } });
   fireEvent.change(within(form).getByLabelText("Station prefecture or CQ Zone"), { target: { value: payload.station.exchangeFields.number } });
   fireEvent.click(within(form).getByRole("button", { name: "Create and open" }));
-  await screen.findByText(/JIDX CW Preview · JIDX CW MM/);
+  const title = await screen.findByText(/JIDX CW Preview · JIDX CW MM/);
+  const header = within(title.closest("header")!);
+  const entry = within(await screen.findByRole("form", { name: "CW contest entry" }));
   expect(await screen.findByLabelText("Operating style")).toBeTruthy();
   expect(screen.getByText("Maritime mobile")).toBeTruthy();
   const sent = screen.getByLabelText("Sent exchange");
@@ -49,7 +51,7 @@ it("creates an entityless JIDX maritime preview through the shared structured UI
   expect(within(sent).getByText("3")).toBeTruthy();
   const create = request.mock.calls.find(([method]) => method === "contest_create")![1] as any;
   expect(create.payload.station).toEqual({ callsign: "OM0RX/MM", cqZone: "3", dxccEntity: "", exchangeFields: { number: "3" } });
-  fireEvent.change(screen.getByRole("textbox", { name: "Contest callsign" }), { target: { value: "JA1AAA" } });
+  fireEvent.change(entry.getByRole("textbox", { name: "Contest callsign" }), { target: { value: "JA1AAA" } });
   const received = screen.getByLabelText("Received Prefecture or CQ Zone");
   fireEvent.change(received, { target: { value: "3" } });
   await waitFor(() => expect(request.mock.calls.some(([method]) => method === "contest_draft_apply")).toBe(true));
@@ -57,7 +59,7 @@ it("creates an entityless JIDX maritime preview through the shared structured UI
   expect(applied.payload.fields).toMatchObject({ sentExchange: "3", receivedExchange: "3",
     sentExchangeFields: { number: "3" }, receivedExchangeFields: { number: "3" } });
   expect((received as HTMLInputElement).value).toBe("3");
-  fireEvent.click(screen.getByRole("button", { name: /Export/ }));
+  fireEvent.click(header.getByRole("button", { name: /Export/ }));
   expect(await screen.findByText(/Sponsor acceptance of the maritime-mobile ENTITY token/)).toBeTruthy();
   await waitFor(() => expect(ids).toHaveLength(0));
 });

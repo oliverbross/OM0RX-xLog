@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { spots } from "../src/model";
 const request = vi.hoisted(() => vi.fn());
@@ -29,11 +29,12 @@ it("updates classifications after logging and ignores a superseded response", as
   });
   render(<App />);
   const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: "DX Cluster" }));
-  await user.click(screen.getByRole("button", { name: "W1AW" }));
+  await user.click(within(screen.getByRole("navigation", { name: "Workspaces" })).getByRole("button", { name: "DX Cluster" }));
+  const cluster = within(screen.getByRole("heading", { name: "Integrated DX Cluster" }).closest("section")!);
+  await user.click(cluster.getByRole("button", { name: "W1AW" }));
   fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
   await waitFor(() => expect(batches).toBe(2));
-  await user.click(screen.getByRole("button", { name: "DX Cluster" }));
+  await user.click(within(screen.getByRole("navigation", { name: "Workspaces" })).getByRole("button", { name: "DX Cluster" }));
   await waitFor(() => expect(screen.getAllByText("W")).toHaveLength(9));
   resolveFirst(classified(false));
   await waitFor(() => expect(screen.queryAllByText("ATNO")).toHaveLength(0));
@@ -46,9 +47,10 @@ it("does not present fixture labels as native results when worker fails and allo
     : Promise.resolve({ id: "health", ok: true, result: {} }));
   render(<App />);
   const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: "DX Cluster" }));
+  await user.click(within(screen.getByRole("navigation", { name: "Workspaces" })).getByRole("button", { name: "DX Cluster" }));
   await waitFor(() => expect(screen.getByRole("status").textContent).toContain("Classification unavailable"));
   expect(screen.queryAllByText("ATNO")).toHaveLength(0);
-  await user.click(screen.getByRole("button", { name: "Refresh classification" }));
+  const consolePanel = within(screen.getByRole("heading", { name: "Fixture console" }).parentElement!);
+  await user.click(consolePanel.getByRole("button", { name: "Refresh classification" }));
   await waitFor(() => expect(screen.getAllByText("ATNO")).toHaveLength(9));
 });

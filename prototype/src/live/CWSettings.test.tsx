@@ -54,7 +54,8 @@ describe("CW preferences and preview never transmit", () => {
     function Editor() { const [profile, setProfile] = useState<CWProfile>({ ...defaultCWProfile, macros: [] }); return <CWSettings value={profile} onChange={setProfile} />; }
     render(<Editor />);
     expect(screen.getByText(/Add a macro to create your first message/)).toBeTruthy();
-    for (let i = 0; i < 20; i++) fireEvent.click(screen.getByRole("button", { name: "Add CW macro" }));
+    const addMacro = screen.getByRole("button", { name: "Add CW macro" });
+    for (let i = 0; i < 20; i++) fireEvent.click(addMacro);
     expect((screen.getByRole("button", { name: "Add CW macro" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getAllByRole("tab")).toHaveLength(20);
     fireEvent.keyDown(screen.getByRole("tab", { selected: true }), { key: "Home" });

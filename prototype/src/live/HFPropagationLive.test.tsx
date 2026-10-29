@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import HFPropagationLive from "./HFPropagationLive";
 import { loadWindowSurface } from "../windowSurface";
@@ -29,18 +29,21 @@ it("renders the complete native dashboard and keeps its settings isolated from s
     throw new Error(`Unexpected source ${source}`);
   });
   render(<HFPropagationLive initialOwnCall="OM0RX" initialLocator="JN88TQ" transport={transport} />);
-  expect(screen.getByRole("heading", { name: "HF Propagation live" })).toBeTruthy();
+  const title = screen.getByRole("heading", { name: "HF Propagation live" });
+  expect(title).toBeTruthy();
+  const header = within(title.closest("header")!);
   expect(screen.getByRole("heading", { name: "Band × continent activity" })).toBeTruthy();
   expect(screen.getByRole("heading", { name: "NOAA SWPC outlook" })).toBeTruthy();
-  const arrange = screen.getByRole("button", { name: "Arrange panels" });
-  expect(arrange.compareDocumentPosition(screen.getByRole("button", { name: "Settings" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  const arrange = header.getByRole("button", { name: "Arrange panels" });
+  expect(arrange.compareDocumentPosition(header.getByRole("button", { name: "Settings" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   fireEvent.click(arrange);
-  expect(screen.getByRole("button", { name: "Finish arranging" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Move Band × continent activity" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Resize Band × continent activity right edge" })).toBeTruthy();
+  expect(header.getByRole("button", { name: "Finish arranging" })).toBeTruthy();
+  const activityPanel = within(screen.getByLabelText("Band × continent activity panel"));
+  expect(activityPanel.getByRole("button", { name: "Move Band × continent activity" })).toBeTruthy();
+  expect(activityPanel.getByRole("button", { name: "Resize Band × continent activity right edge" })).toBeTruthy();
   fireEvent.change(screen.getByLabelText("Information size"), { target: { value: "compact" } });
   expect(screen.getByLabelText("HF Propagation live").classList.contains("is-compact")).toBe(true);
-  const resize = screen.getByRole("button", { name: "Resize Band × continent activity right edge" });
+  const resize = activityPanel.getByRole("button", { name: "Resize Band × continent activity right edge" });
   fireEvent.keyDown(resize, { key: "ArrowRight" });
   fireEvent.keyUp(resize, { key: "ArrowRight" });
   await waitFor(() => expect(JSON.parse(localStorage.getItem("xlog.hf-propagation.canvas-layout.v1") || "{}").panels
@@ -52,7 +55,7 @@ it("renders the complete native dashboard and keeps its settings isolated from s
   expect(screen.getByText("MM9PSY")).toBeTruthy();
   expect(screen.getByText("+21 dB")).toBeTruthy();
   expect(transport).toHaveBeenCalledWith("wspr", expect.objectContaining({ bands: expect.arrayContaining([14]) }));
-  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  fireEvent.click(header.getByRole("button", { name: "Settings" }));
   expect(screen.getByRole("heading", { name: "HF propagation settings" })).toBeTruthy();
   expect(screen.getByText(/never radio or rotor control/i)).toBeTruthy();
   expect(screen.queryByText(/Switch to operate/i)).toBeNull();
