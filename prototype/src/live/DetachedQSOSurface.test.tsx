@@ -82,6 +82,19 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
+it.each(["Simple", "Full"])("shows the detached %s duplicate advisory while allowing deliberate Save", async mode => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  api.read.mockImplementation(async (method, params) => ({ result: method === "logbook_duplicate"
+    ? { ...params, last_worked_at: "2026-01-02T03:04:05Z" }
+    : method === "lookup_call" ? { call: params.call } : method === "logbook_previous" ? { qsos: [] } : { cells: [] } }));
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  if (mode === "Simple") fireEvent.click(screen.getByRole("button", { name: "Simple" }));
+  await screen.findByText("Dupe: Worked on 02/01/26");
+  const save = screen.getByRole("button", { name: "Log QSO" }) as HTMLButtonElement;
+  expect(save.disabled).toBe(false); fireEvent.click(save);
+  await waitFor(() => expect(f.contacts).toHaveLength(1));
+});
+
 it.each(["Simple", "Full"])("preserves acknowledged manual UTC across remount into %s and Save", async mode => {
   const f = backend(); api.draft.mockImplementation(f.request);
   vi.setSystemTime(new Date("2026-10-28T12:34:56Z"));

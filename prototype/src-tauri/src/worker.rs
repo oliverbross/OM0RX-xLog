@@ -110,7 +110,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     if label == "log-qso" {
         return if matches!(request["method"].as_str(), Some("logbook_operator_draft"
             | "logbook_operator_draft_apply" | "logbook_operator_draft_receipt"
-            | "lookup_call" | "logbook_previous" | "logbook_matrix" | "cluster_history" | "reference_resolve")) {
+            | "lookup_call" | "logbook_previous" | "logbook_duplicate" | "logbook_matrix" | "cluster_history" | "reference_resolve")) {
             Ok(())
         } else { Err("Log QSO can only edit the shared new-contact draft and read its lookup evidence.".into()) };
     }
@@ -1605,7 +1605,7 @@ mod tests {
     #[test]
     fn detached_qso_has_only_canonical_draft_and_required_lookup_reads() {
         for method in ["logbook_operator_draft", "logbook_operator_draft_apply", "logbook_operator_draft_receipt",
-            "lookup_call", "logbook_previous", "logbook_matrix", "cluster_history", "workspace_layout_load", "reference_resolve"] {
+            "lookup_call", "logbook_previous", "logbook_duplicate", "logbook_matrix", "cluster_history", "workspace_layout_load", "reference_resolve"] {
             assert!(validate_surface("log-qso", &json!({"id":"qso","method":method,"params":{}})).is_ok(), "{method}");
         }
         for method in ["settings_load", "settings_save", "workspace_rotor_configuration_load", "workspace_rotor_configuration_save", "workspace_preferences_save", "workspace_layout_apply", "workspace_create",
@@ -1909,10 +1909,12 @@ mod tests {
         }
     }
     #[test]
-    fn duplicate_history_query_is_main_only() {
+    fn duplicate_history_query_is_scoped_to_qso_editors() {
         let request = json!({"id":"test", "method":"logbook_duplicate", "params":{"call":"W1AW", "band":"20m", "mode":"CW"}});
-        assert!(validate_surface("main", &request).is_ok());
-        for label in ["monitor", "logbook", "awards", "world-map", "band-maps", "dx-cluster", "unknown"] {
+        for label in ["main", "log-qso"] {
+            assert!(validate_surface(label, &request).is_ok(), "{label}");
+        }
+        for label in ["monitor", "logbook", "awards", "world-map", "band-maps", "dx-cluster", "callsign-intelligence", "previous-qsos", "settings", "contest-setup", "contest--active-qso", "unknown", ""] {
             assert!(validate_surface(label, &request).is_err(), "{label}");
         }
     }
