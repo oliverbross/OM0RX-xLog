@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import OperatorDesk, { rotorPathDistance } from "./OperatorDesk";
+import userEvent from "@testing-library/user-event";
+import OperatorDesk, { DeskQSO, rotorPathDistance } from "./OperatorDesk";
 import type { RotorSnapshot } from "./rotorControl";
 const initial = { id: "native-qso-id", call: "W7AIT", start: "2026-10-11T22:47:12Z", frequencyHz: 18160000, band: "17m", mode: "SSB", rstSent: "59", rstReceived: "59", name: "C OLHEISER, II", comment: "CQ", gridSquare: "CM97LQ", country: "United States of America", county: "Stanislaus", sig: "", extraFields: { APP_CUSTOM: "Keep me" }, customField: { unchanged: true } };
 const lookup = { call: "W7AIT", name: "C OLHEISER, II", country: "United States of America", dxcc: 291, gridSquare: "CM97LQ", continent: "NA", cqZone: "5", ituZone: "6", source: "CTY approximate", latitude: 37, longitude: -121, bearing: 73, long_path_bearing: 253, distance_km: 12500 };
@@ -111,6 +112,37 @@ it("keeps native QSO identity and unknown metadata while editing references and 
   expect(screen.queryByLabelText("Follow radio")).toBeNull();
   fireEvent.change(screen.getByLabelText("Desk UTC time"), { target: { value: "23:15:30" } });
   expect(draft().start).toBe(`${new Date().toISOString().slice(0,10)}T23:15:30Z`);
+});
+it("retains each manually typed MHz character while the draft updates", async () => {
+  const user = userEvent.setup();
+  const request = vi.fn(async () => ({})), save = vi.fn(), clear = vi.fn(), setFollow = vi.fn();
+  function FrequencyHarness() {
+    const [value, setValue] = useState<Record<string, any> | null>({ ...initial, frequencyHz: null, band: "" });
+    return <><DeskQSO draft={value} setDraft={setValue} save={save} clear={clear} busy={false}
+      follow={false} setFollow={setFollow} request={request} refresh={0} />
+      <output data-testid="draft">{JSON.stringify(value)}</output></>;
+  }
+  render(<FrequencyHarness />);
+  const frequency = screen.getByLabelText("Desk Frequency MHz") as HTMLInputElement;
+  let typed = "";
+  for (const character of "14.250") {
+    typed += character;
+    await user.type(frequency, character);
+    expect(frequency.value).toBe(typed);
+  }
+  expect(draft()).toMatchObject({ frequencyHz: 14250000, band: "20m" });
+  while (typed) {
+    await user.keyboard("{Backspace}");
+    typed = typed.slice(0, -1);
+    expect(frequency.value).toBe(typed);
+  }
+  expect(draft().frequencyHz).toBeNull();
+  for (const character of "7.025") {
+    typed += character;
+    await user.type(frequency, character);
+    expect(frequency.value).toBe(typed);
+  }
+  expect(draft()).toMatchObject({ frequencyHz: 7025000, band: "40m" });
 });
 it("does not save invalid manual MHz or incomplete UTC and leaves readback failures intact", async () => {
   const save = vi.fn(), onReadRadio = vi.fn(async () => { throw new Error("Radio offline"); });

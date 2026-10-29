@@ -53,9 +53,10 @@ export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftL
     if (!previous || previous.id !== next.id) return;
     // Retain unfinished text, but stop showing an acknowledged older value
     // after a same-ID canonical replacement (including native spot activation).
+    // Matching the next value would also erase raw text after each local key.
     if (previous.frequencyHz !== next.frequencyHz) setFrequencyText(text => text !== null &&
       (text === "" ? previous.frequencyHz == null : /^\d+(?:\.\d{0,6})?$/.test(text) && Number(text) > 0 &&
-        [previous.frequencyHz, next.frequencyHz].includes(Math.round(Number(text) * 1e6))) ? null : text);
+        Math.round(Number(text) * 1e6) === previous.frequencyHz) ? null : text);
     if (previous.start !== next.start) setTimeText(parts => {
       if (!parts?.date || !parts.time) return parts;
       const candidate = `${parts.date}T${parts.time.length === 5 ? parts.time + ":00" : parts.time}Z`;
