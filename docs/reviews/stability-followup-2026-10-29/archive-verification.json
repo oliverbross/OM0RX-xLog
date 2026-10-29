@@ -1,0 +1,24 @@
+{
+  "sourceHead": "f3f6e3dee40af29cb6801ef8ee422c521629e168",
+  "originalByteArchivesVerified": 434,
+  "sourceInputsVerified": 1838,
+  "commandReceipts": 52,
+  "mandatoryGatesPassed": 24,
+  "findingStatuses": {
+    "FA-001": "### FA-001 \u2014 High \u2014 Fixed and Verified",
+    "FA-002": "### FA-002 \u2014 Medium \u2014 Fixed and Verified",
+    "FA-003": "### FA-003 \u2014 Medium \u2014 Fixed and Verified",
+    "FA-004": "### FA-004 \u2014 Medium \u2014 Fixed and Verified",
+    "FA-005": "### FA-005 \u2014 Medium \u2014 Fixed and Verified",
+    "FA-006": "### FA-006 \u2014 Medium \u2014 Fixed and Verified",
+    "FA-007": "### FA-007 \u2014 Low \u2014 Fixed and Verified",
+    "FA-008": "### FA-008 \u2014 High \u2014 Fixed and Verified",
+    "FA-009": "### FA-009 \u2014 Low \u2014 Fixed and Verified (test harness)"
+  },
+  "privateDatabasesVerified": 12,
+  "exportArtifactsVerified": 12,
+  "originalDistFilesVerified": 180,
+  "historicalReportsUnchanged": true,
+  "operatorReleaseCreated": false,
+  "boundary": "Passing named executable gates and preserved byte identities; external/hardware/provider/manual coverage limits remain in STABILITY_REPORT.md."
+}

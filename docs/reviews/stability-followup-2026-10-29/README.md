@@ -1,0 +1,32 @@
+# Post-audit Phase 5 follow-up evidence
+
+This archive preserves the additional Phase 5 cycle following the independent Phase 6 audit. The iteration history is [STABILITY_REPORT.md](/Users/oliver/Documents/Projects/OM0RX-xLog/STABILITY_REPORT.md); per-finding root cause, changed files, tests, status and limitations are in [REMEDIATION_TRACKER.md](/Users/oliver/Documents/Projects/OM0RX-xLog/REMEDIATION_TRACKER.md).
+
+Initial clean canonical source: `fd774aef41f196e5f3b7da627a1b221af6594ba7`, fetched/fast-forward checked. First seven-repair source: `9a003a2b34e7cc107a8a6fab5ed9d1da6e6b68c7`. Intermediate settings/CI-harness source: `fd2fc49e79d691a02323a635f0db157ca5b22e29`. Final application source: **`f3f6e3dee40af29cb6801ef8ee422c521629e168`**. Ten logical implementation commits were pushed immediately; the subsequent report/evidence commit does not alter compiled inputs. Three GPT-6.1 Sol agents at High reasoning worked in separate scopes with independent caller/report checks.
+
+Seven audit findings plus newly confirmed FA-008 (High ordinary-settings authority, including the automatic-grid writer bypass) and FA-009 (Low hosted test readiness) are tracked. Their combined severity is two High, five Medium and two Low. Early passing results are not substituted for subsequent repaired-source checks. The first oversized build, two path-identity preflight failures, original valid-history data-loss proof, incomplete first settings repair, failing CI listener assertion, compiler/staging investigations and incomplete orchestration attempt remain available.
+
+All **24 named final local gates pass**. The final native/portable Swift suites, strict/release builds, 15 sanitizer tests, unused-scratch clean worker build, framing and actual 81-exchange current Python process run return exit0 on `f3f6e3de`. Complete unchanged-component suites also pass: frontend 4,742/339 plus six Node, Python 558, Rust 924 unit +31 integration and feature931. All three exact-source hosted workflows pass; Linux/Windows runtime acceptance and operator packaging are explicitly skipped. Individual receipts establish actual command completion and source identity; original-byte archive verification is retained separately.
+
+| Evidence | Contents |
+| --- | --- |
+| [COMMANDS.md](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/stability-followup-2026-10-29/COMMANDS.md) / [results.json](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/stability-followup-2026-10-29/results.json) | Exact root validation arguments, cwd, UTC start/end, duration, exit, source heads/diff and raw log SHA |
+| [artifact-index.json](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/stability-followup-2026-10-29/artifact-index.json) | Every archived original path, byte count and original/compressed SHA; gzip is byte preserving |
+| [archive-verification.json](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/stability-followup-2026-10-29/archive-verification.json) / [SHA256SUMS](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/stability-followup-2026-10-29/SHA256SUMS) | Independent original-byte/source/mandatory-gate/status/preservation checks and final file checksums |
+| `task/checks/` | Unabridged build/test/analysis/security output and receipts; failed commands are retained |
+| `task/agents/` | Targeted regressions, patches, pre-fix counterexamples, peer QA, exact hosted run/job logs and annotations |
+| `task/*source*.json.gz`, `task/component-bindings.json.gz` | Initial/intermediate/final input hashes; 1,838 final inputs; immutable component comparison for earlier passing Python/Rust/frontend checks |
+| `process/` | Actual process protocol evidence, ordinary worker restart/replay, rejection evidence, stdout/stderr and exact ADIF/Cabrillo artifacts |
+| `task/preservation-validation.json.gz` | Original dependency/CW directory inodes, all 180 original dist hashes, private read-only SQLite integrity/foreign-key checks and export byte/hash checks |
+| `task/osv/`, `task/advisory-triage.json.gz` | Current locked-version public advisory observations, primary-range adjudication and conditional platform limits |
+| `task/source-commits.json.gz`, `task/complete-repair.diff.gz` | Exact source commits, files and complete application/test repair diff |
+
+Python/tool inputs (248) match their complete-suite source `e15c6008`; Rust/native inputs (121) match `9a003a2b`; all tracked prototype inputs (983) match the complete frontend/build source `fd2fc49e`. These are component identity proofs, not a claim every command ran on the final Git HEAD. Final native/portable Swift suites, strict/release/TSAN and fresh worker checks establish their own final-source receipts. Test counts overlap; skipped/disabled opt-ins are not executions.
+
+Preservation checks cover **12 private SQLite databases**, **12 exact export artifacts**, **1,838 source inputs**, original dependency/CW directory inodes and all **180 original dist files**. No task build/test/worker process remains. These counts overlap across repeated process runs and do not describe operator data.
+
+Final independent verification passes **434 original-byte archives**, **52 command receipts**, all **24 named mandatory gates**, nine finding statuses and the preservation checks above. Every gzip is indexed with original/compressed SHA; the final SHA256SUMS manifest is rechecked. Raw historical failures remain in the 52-receipt history and agent evidence. This is a checked final acceptance subset, not a claim every archived command passed.
+
+The manual review ledger remains incomplete. Installed/native/current-engine GUI, account-bound providers/Keychain, physical CAT/FLEX/DAX/TCI/fldigi/CW/audio/RF, forced termination/power loss, long soak and the conditional Linux GLib dependency risk remain outside completed qualification. Earlier input-delivery and loaded scheduling investigations are retained. Overall hosted workflow conclusions are reported independently from their successful steps. No unqualified release-readiness or bug-free conclusion is made.
+
+Binaries, SQLite/sidecars, runtime payloads, dependency trees and build caches are omitted. Scratch and canonical `.build/phase5-followup-20261029` retain those disposable payloads separately. No operator release/install candidate, deployment, native GUI launch, live service account/credential or station/RF operation was performed. Version remains 1.3.60. Earlier CODE_REVIEW.md, REGRESSION_TEST_REPORT.md and FINAL_CODE_AUDIT.md remain byte-identical.

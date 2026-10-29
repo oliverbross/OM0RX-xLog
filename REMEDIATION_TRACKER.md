@@ -1,6 +1,6 @@
 # Defect remediation tracker
 
-**Current Phase 5 disposition — 29 October 2026:** All twelve original findings, including CR-008's reopened clean build, are **Fixed and Verified** within the recorded source/fixture limits. All safely compatible confirmed Phase 4/5 repairs pass the final 32 current-source gates. Conditional Linux GLib remains **Blocked**; intermittent SCP input and overloaded timing investigations remain **Not Fixed**. Manual review and native/provider/hardware acceptance remain incomplete. Current source 58da5d49 and actual results are in [STABILITY_REPORT.md](/Users/oliver/Documents/Projects/OM0RX-xLog/STABILITY_REPORT.md).
+**Current Phase 5 follow-up — 29 October 2026:** All nine confirmed findings (two High, five Medium, two Low) are **Fixed and Verified within the recorded source/fixture scope**. Final application source is `f3f6e3dee40af29cb6801ef8ee422c521629e168`; ten logical repair commits are pushed. All 24 final local gates and all three exact-source CI workflows pass. Explicitly skipped runtime/package jobs, conditional Linux dependency risk and manual/hardware/provider limits remain open. See the follow-up section and [STABILITY_REPORT.md](/Users/oliver/Documents/Projects/OM0RX-xLog/STABILITY_REPORT.md). Historical results retain their original source and limits.
 
 **Historical Phase 4 disposition — 29 October 2026:** Eleven original findings retain Fixed and Verified status within their source/fixture limits. **CR-008 is reopened as Fixed but Unverified for clean build/integration acceptance**, linked to REG-P4-001; the original timestamp behavior still passes. Independent testing found one Medium build regression, two Low pre-existing compiler/harness defects, an unresolved NAQP browser failure and an overload observation. No application fixes were made in Phase 4. See [REGRESSION_TEST_REPORT.md](/Users/oliver/Documents/Projects/OM0RX-xLog/REGRESSION_TEST_REPORT.md) and the dated section below. Release acceptance is not met.
 
@@ -349,3 +349,95 @@ Frozen snapshot: **2026-10-28T22:29:20.241Z**, source **58da5d49359f7333852b0403
 The main Swift CI job has a fresh checkout without a build-cache step and passes test/package/resource checks. Contest portability verifies three Swift, three native and one generator/security job. Prototype push gates build a desktop executable; operator-release packaging is workflow_dispatch-only. No hosted package is designated as an installed operator release. Earlier exact failed-job and no-runner histories remain preserved. Any incomplete/failed row above remains a limit regardless of another workflow passing.
 
 Archived 224 command receipts; 19 disposable databases pass read-only integrity/foreign-key checks; 136 export artifacts across runs match their receipt byte counts and SHA. Original fixtures/source were restored and checked before archive verification. All original historical-data/recovery/compatibility limits remain.
+
+## Post-Phase-6 Phase 5 follow-up — 29 October 2026
+
+Entry source: clean canonical `main`, `fd774aef41f196e5f3b7da627a1b221af6594ba7`, fetched/fast-forward checked. The independent audit remains an immutable historical record. Its seven findings were reconfirmed against current callers; follow-up checks found another High application defect (FA-008) and a Low asynchronous test-harness defect (FA-009). Evidence: [follow-up archive](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/stability-followup-2026-10-29/README.md), [commands](/Users/oliver/Documents/Projects/OM0RX-xLog/docs/reviews/stability-followup-2026-10-29/COMMANDS.md), and [iteration history](/Users/oliver/Documents/Projects/OM0RX-xLog/STABILITY_REPORT.md). Counts below overlap between configurations and reruns; tests using injected transports do not operate a real station.
+
+**Original finding reconciliation:** FA-003 closes the specific pre-flush scope for which Phase 6 correctly rejected CR-008's unqualified Fixed status. FA-002 closes the repeated-import scoring/catch-up omission adjacent to CR-004. FA-004/005 qualify and repair the selection/retirement assurances adjacent to CR-002. The other original mechanisms remain covered by the complete current component suites and their existing historical-data/acceptance limits. None of these statements turns an original specific root-cause repair into a whole-subsystem or physical-radio certification.
+
+### FA-001 — High — Fixed and Verified
+
+- **Root cause:** retained restore could replace the database while retaining settings for another Wavelog URL/station; later component failure could retain incorrect authority. Package selection was also not bound to the later installed preview.
+- **Files modified:** `Sources/XLogCore/BackupManager.swift`, `Sources/XLogApp/AppModel.swift`, `Sources/XLogPrototypeSupport/LiveLogbookMethods.swift`, paired `Tests/XLogCoreTests/BackupRestoreAuthorityTests.swift` and `Tests/XLogPrototypeTests/BackupRestoreAuthorityTests.swift`.
+- **Fix:** shared preview/settings policy rejects missing identity and keep-settings destination mismatch before replacement. Installation re-inspects and compares the full expected preview and verifies staged database bytes. Retained restore saves disabled automatic-sync consent before closing/replacing the logbook, and selects the installed destination before later reference operations can fail. Modern restore uses the same policy. Commit `a00365e6`.
+- **Regressions:** six cases in each core configuration cover URL/station mismatch, missing settings, same-destination preservation and consent, explicit backup settings, linked identifiers/recovery, and replacing a selected package with another valid package. Existing modern restore tests retain their own consent/data controls.
+- **Verification:** focused tests and subsequent complete native/portable suites pass; supported application release and complete-concurrency builds pass. Exact commands/exits and source hashes are archived.
+- **Limits:** no production restore, forced-termination/power-loss or physical preference/database crash-atomicity qualification. Existing historical-data recovery requirements remain. A same-destination restore is deliberately still supported.
+
+### FA-002 — Medium — Fixed and Verified
+
+- **Root cause:** replica scoring rebuilt all contacts using only the current page's enrichment, discarding durable country facts on earlier imported contacts.
+- **Files modified:** `python/contest_host/host.py`, `python/tests/test_remediation_import_replica.py`.
+- **Fix:** replica rebuild hydrates call-country facts from each retained durable contact identity through the existing validator before scoring the complete projection. No authority history or issued receipt is rewritten. Commit `e15c6008`.
+- **Regressions:** native-shaped station-only fixture; two added cases independently check separately enriched import pages, earlier-row scoring (12 rather than 6), correction/replay/reopen, immutable authority history, and malformed-country rollback followed by a valid retry.
+- **Verification:** baseline scoring failure reproduced; 33 focused tests plus eight final import tests pass (overlap). Complete Python suite passes 558 tests; append-equivalence and catalogue gates pass.
+- **Limits:** already-diverged replicas still fail their before-image guard and need an operator-reviewed matching baseline. This repair does not silently reconcile incompatible historical identities or replicate all authority-local raw import metadata.
+
+### FA-003 — Medium — Fixed and Verified
+
+- **Root cause:** switching editors before the pending patch flushed used acknowledged base provenance for an unsent locally manual timestamp. The newly mounted form could display automatic current time and alter the date on a follow-on edit.
+- **Files modified:** `prototype/src/LiveApp.tsx`, `prototype/src/live/DetachedQSOSurface.tsx`, new `prototype/src/live/operatorDraftTimeIntent.ts`, `prototype/src/live/operatorDraftSession.test.ts`, `prototype/src/live/DetachedQSOSurface.test.tsx`.
+- **Fix:** both forms derive effective local time intent through the same helper and semantic UUID/start/end comparison. Save flush and native provenance validation remain. The helper lives in an editor module to preserve existing bundle budgets. Commit `8f47b19c`.
+- **Regressions:** three rendered DetachedQSOSurface Full/Simple pre-flush switches; subsequent time-only edit; direct Save; journal recovery; pending/reversed edits; equivalent ISO/UUID spelling and automatic controls. MainLiveApp wiring is source-reviewed and uses the shared helper; no new rendered main-window pre-flush case is claimed. An intermediate uncommitted helper incorrectly compared UUID spelling bytewise; the final helper normalizes UUID case and reuses semantic timestamp comparison.
+- **Verification:** original rendered/UUID failures retained; 168 targeted cases and 96 after module isolation pass (overlap). Complete 4,742-test frontend suite plus six Node tests pass. Clean-lock build passes at 405,194 bytes against the unchanged 405,200-byte Logbook limit; initial 405,353-byte failure is retained.
+- **Limits:** no installed native editor or uncontrolled process-loss acceptance. Legacy journal compatibility remains conservative; no historical contacts are rewritten. The six-byte budget margin remains small.
+
+### FA-004 — Medium — Fixed and Verified
+
+- **Root cause:** power publication from an inactive slot could replace selected-radio capture authority; direct backend Hamlib TX reacquisition did not share the routing transition guard.
+- **Files modified:** `Sources/XLogPrototypeSupport/NativeDraftPowerGate.swift`, `LiveStationMethods.swift`, `LiveWorker.swift`; `Tests/XLogPrototypeTests/NativeDraftPowerAdmissionTests.swift`, `NativeDraftPowerCaptureTests.swift`, `NativePowerSelectionTests.swift`, `StationRadioRegistryTests.swift`; `prototype/src-tauri/src/radio_slots.rs`, `station_selection.rs`, `main.rs`.
+- **Fix:** retain per-slot metadata separately from explicit monotonic active authority. Native routing acknowledges a nil capture fence before persistence, does not hold the routing lock over worker IPC, and republishes safely on retry/failure. Normal/bootstrap selections are stamped with native authority; backend lease reacquisition uses the shared transition guard. Commit `7ba6ccc7`.
+- **Regressions:** inactive publication and late callbacks; current active scope/readiness/generation; switch/failure/retry; worker and database capture; routing/TX denial during transition; existing ownership controls retained.
+- **Verification:** the combined focused Swift run passes 83 cases (55 radio and 28 sync/restore controls); Rust passes 68 functions (8 routing, 53 selection, 7 shutdown). Complete native/portable Swift and default/feature Rust suites and Clippy pass. Selected thread-sanitizer tests pass. A staging-only partial-patch error was corrected before commit; tested working sources and pushed commits did not contain it.
+- **Limits:** no real radio/RF, external watchdog, native GUI switch latency or physical telemetry acceptance. Startup capture-install ordering and same-target TCI readiness observations remain unverified audit concerns, not proven defects closed by these tests.
+
+### FA-005 — Medium — Fixed and Verified
+
+- **Root cause:** a failed owned FLEX release could be retired as a successful terminal shutdown, hiding uncertainty at the native boundary.
+- **Files modified:** `Sources/XLogPrototypeSupport/LiveFlexSession.swift`, `LiveStationMethods.swift`, `LiveWorker.swift`; `Tests/XLogPrototypeTests/StationRadioRegistryTests.swift`; `prototype/src-tauri/src/worker.rs`.
+- **Fix:** owner retirement returns structured unconfirmed radio IDs; the failed owner retains release duty and admits only release/disconnect recovery while its channel is open. Worker reports nonrestartable exit 74 and native shutdown presents the specific uncertainty. Existing runtime-profile external-I/O denials remain. Commit `9a003a2b`.
+- **Regressions:** fake owned release fails, remains uncertain, denies new acquisition, and can complete a release-only retry in process; native exit 71/74 propagation is checked inside the existing seven shutdown functions.
+- **Verification:** targeted Swift/Rust controls above and complete default/feature suites pass; actual worker framing and terminal behavior pass with injected providers.
+- **Limits:** production EOF closes stdin, attempts shutdown once and exits 74 on uncertainty. It provides no post-EOF retry channel. Physical state requires external/operator verification; no automatic reconnect, transmit replay or RF-off claim is introduced. Forced process loss remains outside acceptance.
+
+### FA-006 — Medium — Fixed and Verified
+
+- **Root cause:** native detached-window allowlisting denied the editor's implemented duplicate-advisory request.
+- **Files modified:** `prototype/src-tauri/src/worker.rs`, `prototype/src/live/DetachedQSOSurface.test.tsx`.
+- **Fix:** add `logbook_duplicate` only to the `log-qso` role; all unrelated role denials remain. Commit `095f8fa8`.
+- **Regressions:** actual native allow/deny gate and rendered duplicate advisory, preserving intentional duplicate Save and journal/authority behavior. These are separate Rust and React fake-transport fixtures, not one end-to-end native IPC test.
+- **Verification:** pre-fix native control fails; focused Rust/frontend tests and complete frontend/default/feature suites pass.
+- **Limits:** advisory is intentionally non-blocking. Installed native-window interaction remains unqualified.
+
+### FA-007 — Low — Fixed and Verified
+
+- **Root cause:** acceptance reported stale-generation rejection without sending a stale generation, conflating it with a revision test.
+- **Files modified:** `prototype/scripts/contesting-worker-current-scenario.mjs`, `accept-contesting-worker-process.mjs`, new `contesting-worker-current-scenario.node-test.mjs`, `prototype/package.json`.
+- **Fix:** execute a valid generation-bound network-context read, stale-generation read and stale-revision correction; assert exact independent rejection codes and unchanged persisted projection. Each report field derives from its own observed evidence; the combined bit requires both. Ledger advances from 78 to 81 exchanges. Commit `9dc6772e`.
+- **Regressions:** six Node cases (four new/current-scenario and two retained legacy helper tests), including deliberately missing/incorrect rejection evidence.
+- **Verification:** all Node cases pass; real freshly built worker acceptance passes all 81 exchanges on a canonical private `.build` root, including ordinary restart/replay and four byte/hash-verified exports. Earlier `/tmp`/`/private/tmp` lexical-identity preflight failures are retained; no isolation assertion was weakened.
+- **Limits:** stale-generation evidence covers the implemented generation-bound network-context read, not every mutation. This CLI worker profile denies external I/O and does not exercise the Rust GUI host or installed application.
+
+### FA-008 — High — Fixed and Verified
+
+- **Root cause:** retained SwiftUI settings are editable live. Pre-Save timer/manual sync and backup capture could treat pending Wavelog URL/station B as authority for linked database A. Ordinary Save also allowed relabeling linked history. A rotor-grid automatic writer persisted the entire editable object and bypassed the first repair.
+- **Files modified:** `Sources/XLogCore/Settings.swift`, `Sources/XLogCore/BackupManager.swift`, `Sources/XLogApp/AppModel.swift`, `Sources/XLogPrototypeSupport/LiveLogbookMethods.swift`, paired `Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift` and `Tests/XLogPrototypeTests/WavelogDestinationAuthorityTests.swift`.
+- **Fix:** shared literal URL/station comparison; guarded Save checks linked rows including tombstones and fails closed without a usable database **for destination changes**. Unchanged-destination edits remain allowed without a database. Sync captures one validated configuration, and reference refresh uses the same captured URL/token. Backup/recovery capture rejects unsaved destination while preserving the draft. Restore and modern Save reuse the comparator. Initial commit `afe1cadf` was incomplete; `f3f6e3de` closes the automatic writer by accepting only a grid string and applying it solely to an empty grid in the saved snapshot. Other reviewed writers use validated restore snapshots or initialize a fresh isolated workspace from saved preferences with automatic sync disabled.
+- **Regressions:** nine paired private-store/SQLite cases cover linked/tombstoned rows, missing/closed database, unlinked and non-destination controls, literal URL changes, zero transport on rejection and valid synchronization; an explicit unguarded counterexample proves the failure mechanism. The automatic-writer case verifies pending URL/station/operator/power preservation through grid autofill, saved-grid preservation, zero transport and linked-row survival.
+- **Verification:** independent pre-fix driver uses valid complete history from B (remote ID84), tombstoning clean A42 for both station and URL changes; saved-A control preserves the row. All requests are intercepted; no real service or write is used. First repair's 14 focused cases were insufficient and are retained. Final targeted destination/restore15, complete native330 XCTest plus Swift Testing summary340, portable1,191 XCTest including six skips plus summary541, strict/release, thread-sanitized destination/restore15 and fresh worker/81-exchange checks pass. Source is frozen at `f3f6e3de` through those final checks.
+- **Limits:** changes to a linked destination now require an explicit matching history/settings recovery path; no silent reassignment or historical relinking occurs. Existing raw SyncEngine callers must establish their authority before construction. Physical preference crash durability and installed settings UI remain unqualified.
+
+### FA-009 — Low — Fixed and Verified (test harness)
+
+- **Root cause:** detached editor test considered rendered controls sufficient readiness even though the passive native-event subscription effect had not registered; exact-source hosted CI observed one listener instead of two.
+- **Files modified:** `prototype/tests/detached-logbook.test.tsx`.
+- **Fix:** use the existing bounded wait helper for the exact two-listener subscription state and exact one-listener cleanup state. Existing final zero-listener, authority, recovery, conflict, journal and intentional-Save assertions remain. No timeout is increased. Commit `fd2fc49e`.
+- **Regressions / verification:** four focused tests and closing complete 4,742-test frontend suite pass; the previously failing exact hosted step passes on `fd2fc49e` and final `f3f6e3de`. Listener counts refer to the mocked event bridge registered by the real editor effect, not a live native event service. The original 4,741/4,742 CI failure and skipped later steps are preserved rather than attributed to application behavior.
+- **Limits:** synchronizes this fixture's actual effect readiness; does not establish absence of every UI timing issue. Earlier SCP input-delivery and overloaded timing investigations remain open within their recorded limits.
+
+### Follow-up verification and residual acceptance boundaries
+
+All 24 named final local gates pass: final affected Swift/native/worker checks plus unchanged component-verified frontend/Python/Rust suites, builds, analysis, catalogue/runtime and dependency checks. Twelve disposable databases pass read-only integrity/foreign-key checks; twelve export artifacts match recorded bytes and SHA. All 1,838 application inputs and 180 original dist files match, and original node_modules/CW directory inodes are preserved. No task build/test/worker process remains. Exact main CI, all seven portability jobs and the prototype Mac job pass; Linux/Windows runtime acceptance and operator packaging are skipped. Own run/job logs and archival verification are recorded in STABILITY_REPORT.md. Conditional Linux GLib risk DEP-P5-003 remains **Blocked** for the same incompatible GTK API/dependency reason. Historical SCP and overloaded scheduling observations remain **Not Fixed** investigations, with passing unchanged controls; they are not recast as confirmed new application failures.
+
+The frozen manual inventory remains **INCOMPLETE**. Real CAT/FLEX/DAX/TCI/fldigi/CW/audio/RF, provider/Keychain accounts, installed/native/current-engine GUI, forced termination/power loss and long soak remain unqualified. Production data and station configuration were not operated. No operator release/install candidate was created; version remains 1.3.60.
