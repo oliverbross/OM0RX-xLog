@@ -3223,8 +3223,8 @@ fn contest_contact_editor_close(window: tauri::WebviewWindow) -> Result<(), Stri
 }
 
 fn validate_contest_contact_editor_open_caller(label: &str) -> Result<(), String> {
-    if label == "contest--logbook" { Ok(()) }
-    else { Err("Only Contest Log Display can open Edit Contact.".into()) }
+    if matches!(label, "contest--logbook" | "contest--active-qso") { Ok(()) }
+    else { Err("Only Contest Main Logging or Log Display can open Edit Contact.".into()) }
 }
 
 fn validate_contest_contact_editor_close_caller(label: &str) -> Result<(), String> {
@@ -4617,10 +4617,12 @@ mod workspace_layout_tests {
     }
 
     #[test]
-    fn contest_contact_editor_is_logbook_owned_and_self_closing() {
-        assert!(super::validate_contest_contact_editor_open_caller("contest--logbook").is_ok());
+    fn contest_contact_editor_is_logging_owned_and_self_closing() {
+        for label in ["contest--logbook", "contest--active-qso"] {
+            assert!(super::validate_contest_contact_editor_open_caller(label).is_ok(), "not opened from {label:?}");
+        }
         assert!(super::validate_contest_contact_editor_close_caller("contest--edit-contact").is_ok());
-        for label in ["contest-setup", "contest--active-qso", "contest--edit-contact", "logbook", "main", ""] {
+        for label in ["contest-setup", "contest--edit-contact", "logbook", "main", "contest--monitor", "unknown", ""] {
             assert!(super::validate_contest_contact_editor_open_caller(label).is_err(), "opened from {label:?}");
         }
         for label in ["contest--logbook", "contest-setup", "logbook", "main", ""] {

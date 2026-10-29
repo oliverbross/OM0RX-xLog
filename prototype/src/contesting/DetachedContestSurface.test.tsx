@@ -701,6 +701,59 @@ it("shows Loading instead of No contacts while the initial log page is pending",
   expect(screen.queryByText("No contacts")).toBeNull();
 });
 
+it.each(["applied","queued"] as const)("opens native Edit Contact from Edit last after the owner is %s and preserves the occupied entry",async status=>{
+  const view={...projection,schemaVersion:2,draft:{...projection.draft,callsign:"K1KEEP",frequencyHz:7_025_000,frequencyText:"7025000",frequencyError:"",
+    band:"40m",reservedSerial:2,receivedFields:[{id:"other_2",label:"RcvNR",value:"315",required:true,maximumUTF8Bytes:128}]},
+    descriptor:{bands:["160m","80m","40m"],modes:["CW"],allowDuplicateCommit:true,automaticSerial:true,
+      sentFields:[{id:"other_1",label:"SentNR",value:"002",required:true,maximumUTF8Bytes:32}],
+      serial:{requirement:"requiredForCommit",allocatedFieldID:"other_1",reservedSerial:2}},operator:null};
+  let current:any={...snapshot,projection:view};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return current;
+    if(command==="contest_surface_action"){
+      current={...current,receipts:[{requestID:args.requestID,status:"applied",message:null,projectionRevision:6}]};
+      return {requestID:args.requestID,status};
+    }
+    if(command==="contest_contact_editor_open"||command==="contest_surface_diagnostic_report")return;
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);fireEvent.click(await screen.findByRole("button",{name:"Edit last"}));
+  await waitFor(()=>expect(native.invoke).toHaveBeenCalledWith("contest_contact_editor_open",{operatingContext,sessionID,workspaceGeneration}));
+  const actions=native.invoke.mock.calls.filter(([command])=>command==="contest_surface_action");
+  expect(actions).toHaveLength(1);
+  expect(actions[0][1]).toMatchObject({panelID:"active-qso",action:"entry_edit_last",projectionRevision:6,
+    params:{draftID:"draft-1",expectedDraftRevision:5}});
+  expect(native.invoke.mock.calls.filter(([command])=>command==="contest_contact_editor_open")).toHaveLength(1);
+  expect(screen.getByLabelText("Callsign")).toHaveProperty("value","K1KEEP");
+  expect(screen.getByLabelText("RcvNR")).toHaveProperty("value","315");
+  expect(screen.getByLabelText("Sent exchange")).toHaveProperty("value","002");
+  expect(screen.queryByRole("heading",{name:"Edit Contact"})).toBeNull();
+});
+
+it.each(["owner rejection","native window failure"] as const)("reports Edit last %s without clearing the occupied entry",async failure=>{
+  const view={...projection,schemaVersion:2,draft:{...projection.draft,callsign:"K1KEEP",frequencyHz:14_025_000,frequencyText:"14025000",frequencyError:""},
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator:null};
+  let current:any={...snapshot,projection:view};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return current;
+    if(command==="contest_surface_action"){
+      if(failure==="owner rejection"){
+        current={...current,receipts:[{requestID:args.requestID,status:"rejected",projectionRevision:6,message:"The last contact is unavailable."}]};
+        return {requestID:args.requestID,status:"rejected"};
+      }
+      return {requestID:args.requestID,status:"applied"};
+    }
+    if(command==="contest_contact_editor_open")throw new Error("The Edit Contact window could not be opened.");
+    if(command==="contest_surface_diagnostic_report")return;
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);fireEvent.click(await screen.findByRole("button",{name:"Edit last"}));
+  expect((await screen.findByRole("alert")).textContent).toBe(failure==="owner rejection"
+    ?"The last contact is unavailable.":"The Edit Contact window could not be opened.");
+  expect(screen.getByLabelText("Callsign")).toHaveProperty("value","K1KEEP");
+  expect(native.invoke.mock.calls.filter(([command])=>command==="contest_contact_editor_open")).toHaveLength(failure==="owner rejection"?0:1);
+});
+
 it("opens editing from Log Display in a separate native Edit Contact window",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
   const row={qsoID:"logged-qso",workedAt:"2026-10-20T12:00:00.000Z",callsign:"K1ABC",band:"20m",mode:"CW",
