@@ -900,8 +900,12 @@ final class AppModel: ObservableObject {
     }
 
     func saveSettings() {
-        settingsStore.save(settings)
+        guard !isWorking else {
+            banner = AppBanner(message: "Wait for current work to finish before saving settings.", kind: .warning)
+            return
+        }
         do {
+            try settingsStore.save(settings, protecting: database)
             try secrets.save(wavelogToken, for: .wavelogToken)
             try secrets.save(qrzPassword, for: .qrzPassword)
             try secrets.save(clubLogAPIKey, for: .clubLogAPIKey)
@@ -924,15 +928,19 @@ final class AppModel: ObservableObject {
 
     func synchronize() async {
         guard !isWorking else { return }
-        guard let database, let baseURL = URL(string: settings.wavelogURL), settings.wavelogStationID > 0, !wavelogToken.isEmpty else {
+        guard let database else { syncStatus = "Open a logbook"; return }
+        let config: WavelogConfiguration
+        do {
+            config = try settingsStore.wavelogConfiguration(for: settings, token: wavelogToken)
+        } catch {
             syncStatus = "Configure Wavelog"
+            banner = AppBanner(message: error.localizedDescription, kind: .error)
             return
         }
         isWorking = true; syncStatus = "Syncing…"
         let started = Date()
         defer { isWorking = false }
         do {
-            let config = try WavelogConfiguration(baseURL: baseURL, token: wavelogToken, stationID: settings.wavelogStationID)
             let report = try await SyncEngine(database: database, configuration: config).synchronize()
             lastSyncReport = report
             syncStatus = report.failed > 0 ? "\(report.failed) retrying" : (report.conflicts == 0 ? "Up to date" : "Needs review")
@@ -944,7 +952,7 @@ final class AppModel: ObservableObject {
                 succeeded: report.failed == 0
             ))
             if let updater = try? ReferenceDataUpdater(),
-               let catalogState = try? await updater.refreshWavelogCatalog(baseURL: baseURL, token: wavelogToken) {
+               let catalogState = try? await updater.refreshWavelogCatalog(baseURL: config.baseURL, token: config.token) {
                 referenceState = catalogState
             }
             reload()
@@ -1038,6 +1046,12 @@ final class AppModel: ObservableObject {
             destination.appendPathExtension(XLogBackupManager.packageExtension)
         }
 
+        do {
+            try settingsStore.validateCurrentDestination(settings)
+        } catch {
+            banner = AppBanner(message: error.localizedDescription, kind: .error)
+            return
+        }
         let settings = settings
         let preferences = currentBackupPreferences()
         let referenceDataURL = try? ReferenceDataUpdater.defaultDirectory()
@@ -1099,6 +1113,12 @@ final class AppModel: ObservableObject {
         guard !isWorking,
               let preview = pendingRestorePreview,
               let database else { return }
+        do {
+            try settingsStore.validateCurrentDestination(settings)
+        } catch {
+            banner = AppBanner(message: error.localizedDescription, kind: .error)
+            return
+        }
         let liveURL = database.url
         let currentSettings = settings
         let currentPreferences = currentBackupPreferences()

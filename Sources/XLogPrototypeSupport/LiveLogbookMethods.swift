@@ -1224,8 +1224,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                             "receipt": try scopedReceipt(receipt, field: "snapshot", generation: generation),
                             "automatic_sync": current.automaticSync]
                 }
-                let destinationChanged = previous.settings.wavelogURL != safe.wavelogURL
-                    || previous.settings.wavelogStationID != safe.wavelogStationID
+                let destinationChanged = !previous.settings.hasSameWavelogDestination(as: safe)
                 let targetChanged = previous.settings.logbookMode != safe.logbookMode || destinationChanged
                 if manualSyncActive && targetChanged {
                     throw WorkerFailure("sync_busy", "Wait for synchronization to finish before changing the Wavelog destination or mode.")

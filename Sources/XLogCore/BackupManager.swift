@@ -154,8 +154,7 @@ public struct XLogBackupPreview: Equatable, Sendable {
     public func settingsForRestore(keeping current: XLogSettings,
                                    restoreSettings: Bool) throws -> XLogSettings {
         guard let settings else { throw XLogBackupError.settingsMissing }
-        if !restoreSettings,
-           settings.wavelogURL != current.wavelogURL || settings.wavelogStationID != current.wavelogStationID {
+        if !restoreSettings, !settings.hasSameWavelogDestination(as: current) {
             throw XLogBackupError.syncDestinationChange
         }
         return IntegrationWorkspace.safeSettings(from: restoreSettings ? settings : current)

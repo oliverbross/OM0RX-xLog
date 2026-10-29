@@ -97,6 +97,30 @@ public struct XLogSettings: Codable, Equatable, Sendable {
     )
 }
 
+/// Remote IDs are meaningful only within their exact saved Wavelog destination.
+public enum WavelogDestinationError: Error, LocalizedError {
+    case linkedContacts
+    case databaseUnavailable
+    case unsavedDestination
+
+    public var errorDescription: String? {
+        switch self {
+        case .linkedContacts:
+            return "This logbook contains Wavelog-linked contacts. Create a new workspace or use a reviewed migration before changing the destination."
+        case .databaseUnavailable:
+            return "Open the logbook before changing its Wavelog destination."
+        case .unsavedDestination:
+            return "Save or undo the pending Wavelog destination change before synchronizing or creating a backup."
+        }
+    }
+}
+
+extension XLogSettings {
+    public func hasSameWavelogDestination(as other: XLogSettings) -> Bool {
+        wavelogURL == other.wavelogURL && wavelogStationID == other.wavelogStationID
+    }
+}
+
 /// Integration-only settings state. The original SwiftUI application continues
 /// to use `SettingsStore`; the isolated workspace owns this revisioned snapshot.
 public struct IntegrationSettingsSnapshot: Codable, Equatable, Sendable {
@@ -398,5 +422,32 @@ public final class SettingsStore: @unchecked Sendable {
 
     public func save(_ value: XLogSettings) {
         if let data = try? JSONEncoder().encode(value) { defaults.set(data, forKey: key) }
+    }
+
+    /// Check before persisting either settings or secrets. Tombstones retain
+    /// remote authority and are included by linkedRemoteCount().
+    public func validateDestinationChange(to value: XLogSettings, database: LogbookDatabase?) throws {
+        guard !load().hasSameWavelogDestination(as: value) else { return }
+        guard let database else { throw WavelogDestinationError.databaseUnavailable }
+        guard try database.linkedRemoteCount() == 0 else { throw WavelogDestinationError.linkedContacts }
+    }
+
+    public func save(_ value: XLogSettings, protecting database: LogbookDatabase?) throws {
+        try validateDestinationChange(to: value, database: database)
+        let data = try JSONEncoder().encode(value)
+        defaults.set(data, forKey: key)
+    }
+
+    /// Pending form values must not relabel the current logbook's authority.
+    public func validateCurrentDestination(_ value: XLogSettings) throws {
+        guard load().hasSameWavelogDestination(as: value) else {
+            throw WavelogDestinationError.unsavedDestination
+        }
+    }
+
+    public func wavelogConfiguration(for value: XLogSettings, token: String) throws -> WavelogConfiguration {
+        try validateCurrentDestination(value)
+        guard let url = URL(string: value.wavelogURL) else { throw WavelogClientError.invalidURL }
+        return try WavelogConfiguration(baseURL: url, token: token, stationID: value.wavelogStationID)
     }
 }
