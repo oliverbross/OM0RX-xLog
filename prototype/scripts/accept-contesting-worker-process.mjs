@@ -10,7 +10,7 @@ import {
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { currentContestScenario } from "./contesting-worker-current-scenario.mjs";
+import { currentContestScenario, rejectionAssertions } from "./contesting-worker-current-scenario.mjs";
 
 const scriptRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const scenarioPath = join(scriptRoot, "prototype/scripts/contesting-worker-current-scenario.mjs");
@@ -426,7 +426,7 @@ assert.equal(statusBefore.workspace_exists, false);
 assert.equal(statusBefore.native_log_exists, false);
 const scenario = await currentContestScenario({ first, record, success: expectSuccess, error: expectError,
   WorkerProcess, inspectDescriptors, assertNormalWorkspaceEmpty, evidenceRoot });
-assert.equal(exchanges.length, 78, "The current-engine process acceptance ledger changed unexpectedly.");
+assert.equal(exchanges.length, 81, "The current-engine process acceptance ledger changed unexpectedly.");
 return { missingProfile, ...scenario, operationCount: exchanges.length };
 }
 
@@ -512,13 +512,14 @@ const evidence = {
     afterMutations: completed.descriptorEvidenceAfterMutations, restart: completed.descriptorEvidenceRestart } : null,
   operationCount: exchanges.length,
   contestMutation: completed?.contestMutation ?? null,
+  rejectedRequests: completed?.rejectedRequests ?? null,
   processes: workerProcesses.map(worker => ({ label: worker.label, pid: worker.child.pid, exit: worker.exit,
     stderr: worker.stderr, responseFrames: worker.frames.length })),
   assertions: {
     onboardingBeforeWorkspace: Boolean(completed), emptyWorkspaceCreated: Boolean(completed), cqWWCommitted: Boolean(completed),
     cqWPXReservedAndCommitted: Boolean(completed), exactCommitReplay: Boolean(completed), receiptSurvivedRestart: Boolean(completed),
     fullQSOReadBeforeEdit: Boolean(completed), countryChangingCorrection: Boolean(completed), forgedEntityRejected: Boolean(completed),
-    staleGenerationAndRevisionRejected: Boolean(completed), deletionTombstoneObserved: Boolean(completed),
+    ...rejectionAssertions(completed?.rejectedRequests), deletionTombstoneObserved: Boolean(completed),
     exactQSOChangeReplayAfterRestart: Boolean(completed), qsoChangeReceiptsSurvivedRestart: Boolean(completed),
     postEditDraftDupeRevalidated: Boolean(completed), serialAllocationContinued: Boolean(completed),
     externalMethodsDenied: Boolean(completed), noNetworkSocketsObserved: Boolean(completed),

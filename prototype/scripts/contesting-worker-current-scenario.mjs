@@ -1,6 +1,38 @@
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { join } from "node:path";
+
+// Exercise the current host's generation-bound network-context read separately
+// from mutation revision admission. Neither rejected request may change a draft.
+export async function checkStaleContestRequests({ call, fail, worker, sessionID, generation, projection, correction }) {
+  const valid = await call(worker, "contest_network_pending", { sessionID, workspaceGeneration: generation, limit: 1 });
+  assert.equal(valid.workspaceGeneration, generation);
+  const rejectedGeneration = randomUUID();
+  assert.notEqual(rejectedGeneration, generation);
+  const contextError = await fail(worker, "contest_network_pending",
+    { sessionID, workspaceGeneration: rejectedGeneration, limit: 1 }, "stale_generation");
+  assert.equal(contextError.code, "stale_generation");
+  const expectedRevision = projection.revision - 1;
+  const revisionError = await fail(worker, "contest_qso_correct",
+    { sessionID, operationID: randomUUID(), expectedRevision, ...correction }, "stale_revision");
+  assert.equal(revisionError.code, "stale_revision");
+  assert.deepEqual((await call(worker, "contest_projection", { sessionID })).projection, projection);
+  return { generation: { method: "contest_network_pending", code: contextError.code,
+      requested: rejectedGeneration, current: generation },
+    revision: { method: "contest_qso_correct", code: revisionError.code,
+      requested: expectedRevision, current: projection.revision } };
+}
+
+export function rejectionAssertions(checks) {
+  const staleGenerationRejected = checks?.generation?.method === "contest_network_pending" &&
+    checks.generation.code === "stale_generation" && typeof checks.generation.current === "string" &&
+    typeof checks.generation.requested === "string" && checks.generation.requested !== checks.generation.current;
+  const staleRevisionRejected = checks?.revision?.method === "contest_qso_correct" &&
+    checks.revision.code === "stale_revision" && Number.isSafeInteger(checks.revision.requested) &&
+    Number.isSafeInteger(checks.revision.current) && checks.revision.requested < checks.revision.current;
+  return { staleGenerationRejected, staleRevisionRejected,
+    staleGenerationAndRevisionRejected: staleGenerationRejected && staleRevisionRejected };
+}
 import { writeFileSync } from "node:fs";
 
 // The process-owning worker runs the current Python protocol. Keep the legacy
@@ -119,7 +151,8 @@ export async function currentContestScenario({ first, record, success, error, Wo
   const forged = await fail(first, "contest_qso_correct", { sessionID: wpx.id, operationID: randomUUID(), expectedRevision: wpx.projection.revision,
     ...correction, fields: { ...correction.fields, CountryPrefix: "FORGED" } }, "invalid_request");
   assert.match(forged.message, /Unknown correction field/);
-  await fail(first, "contest_qso_correct", { sessionID: wpx.id, operationID: randomUUID(), expectedRevision: wpx.projection.revision - 1, ...correction }, "stale_revision");
+  const rejectedRequests = await checkStaleContestRequests({ call, fail, worker: first,
+    sessionID: wpx.id, generation, projection: wpx.projection, correction });
   const corrected = await mutate(wpx, "contest_qso_correct", correction); wpx.operations.push(corrected);
   await score(first, wpx, { qsos: 1, points: 6, multipliers: 1, total: 6 });
   const correctedRow = (await log(first, wpx)).rows[0];
@@ -163,7 +196,7 @@ export async function currentContestScenario({ first, record, success, error, Wo
   assertNormalWorkspaceEmpty(await call(second, "workspace_status"));
   const descriptorEvidenceRestart = await inspectDescriptors(second), secondExit = await second.stop();
   assert.equal(exportChecks.length, 4);
-  return { descriptorEvidenceFirst, descriptorEvidenceAfterMutations, descriptorEvidenceRestart, firstExit, secondExit, first, second,
+  return { descriptorEvidenceFirst, descriptorEvidenceAfterMutations, descriptorEvidenceRestart, firstExit, secondExit, first, second, rejectedRequests,
     contestMutation: { engine: "not1mm-python", originalQSOID: wpx.qsoID, replacementQSOID: replacementID,
       correctionRequestID: corrected.params.operationID, deletionRequestID: deleted.params.operationID,
       correctedCountryPrefix: correctedRow.CountryPrefix, committedSerials: [1, 2], nextReservedSerial: 3,
