@@ -1,0 +1,27 @@
+{
+  "id": "F-WORKER-PROCESS",
+  "command": [
+    "node",
+    "prototype/scripts/accept-contesting-worker-process.mjs",
+    "--build-manifest",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/worker-build-manifest.json",
+    "--output",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/process-acceptance",
+    "--expected-head",
+    "4ec11a7a17f28992814d8f8451adbfdfb10eae74"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T08:03:42.158031+00:00",
+  "finishedUTC": "2026-10-29T08:04:02.604990+00:00",
+  "seconds": 20.447,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "4ec11a7a17f28992814d8f8451adbfdfb10eae74",
+  "sourceHeadEnd": "4ec11a7a17f28992814d8f8451adbfdfb10eae74",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/F-WORKER-PROCESS.log",
+  "logBytes": 185,
+  "logSHA256": "6dd556f7256a986f3fa0b5e465f864af05103f20d53d21f527de2b61714e6af2",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

@@ -1,0 +1,30 @@
+{
+  "id": "F-CLOSED-AUTHORITY-NEGATIVE",
+  "command": [
+    "swift",
+    "test",
+    "--jobs",
+    "2",
+    "--scratch-path",
+    ".build/remediation-followup-20261029-86a971e0/portable-clean",
+    "--no-parallel",
+    "--filter",
+    "testRestoredAuthorityValidationPreservesClosedConnectionErrors|testLateRemoteAcknowledgementCannotWriteAfterDatabaseClose"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T08:54:15.487938+00:00",
+  "finishedUTC": "2026-10-29T08:54:23.097580+00:00",
+  "seconds": 7.609,
+  "exit": 1,
+  "timedOut": false,
+  "sourceHeadStart": "4ec11a7a17f28992814d8f8451adbfdfb10eae74",
+  "sourceHeadEnd": "4ec11a7a17f28992814d8f8451adbfdfb10eae74",
+  "sourceDiffSHA256": "ac49989be1caacabedc7c22116ebd8ce2ab2b264a0152908200dd92ad2f4317a",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/F-CLOSED-AUTHORITY-NEGATIVE.log",
+  "logBytes": 12170,
+  "logSHA256": "dc8e6695406023d542e1c2c384f6a8401332bae97bf7545b6e2c2e94dcbc16fe",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {
+    "XLOG_PORTABLE_ONLY": "1"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "F-WORKER-BUILD",
+  "command": [
+    "node",
+    "prototype/scripts/build-contesting-worker-process.mjs",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/worker-clean",
+    "--output",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/worker-build-manifest.json"
+  ],
+  "startedUTC": "2026-10-29T08:00:27.302647+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}

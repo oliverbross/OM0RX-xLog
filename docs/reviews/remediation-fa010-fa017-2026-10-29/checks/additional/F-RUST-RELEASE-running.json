@@ -1,0 +1,13 @@
+{
+  "id": "F-RUST-RELEASE",
+  "command": [
+    "cargo",
+    "build",
+    "--locked",
+    "--release",
+    "--jobs",
+    "2"
+  ],
+  "startedUTC": "2026-10-29T07:51:23.524095+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri"
+}

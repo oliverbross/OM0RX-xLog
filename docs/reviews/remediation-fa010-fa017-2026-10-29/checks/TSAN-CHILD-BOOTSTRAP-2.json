@@ -1,0 +1,32 @@
+{
+  "id": "TSAN-CHILD-BOOTSTRAP-2",
+  "command": [
+    "swift",
+    "test",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/tsan-clean",
+    "--jobs",
+    "2",
+    "--sanitize",
+    "thread",
+    "--no-parallel",
+    "--filter",
+    "NativeRestoreInterruptionTests/testControlledProcessInterruptionAtDatabasePublicationBlocksFreshOwner"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T08:56:55.535500+00:00",
+  "finishedUTC": "2026-10-29T08:58:00.298313+00:00",
+  "seconds": 64.762,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "4ec11a7a17f28992814d8f8451adbfdfb10eae74",
+  "sourceHeadEnd": "36d908d7959d9eaa518029bad3afca1c118767d7",
+  "sourceDiffSHA256": "c6f1e86f2506067f2f01904ff7289c8d5415b105ed5c13d036d90be61da6bf0f",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/TSAN-CHILD-BOOTSTRAP-2.log",
+  "logBytes": 5560,
+  "logSHA256": "32369847e038a28489286bca791e3004137f150c2fdf4fa23e91c924d4b953ee",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {
+    "XLOG_PORTABLE_ONLY": "1"
+  }
+}

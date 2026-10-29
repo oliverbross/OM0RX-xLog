@@ -1,0 +1,15 @@
+{
+  "id": "F-WORKER-PROCESS",
+  "command": [
+    "node",
+    "prototype/scripts/accept-contesting-worker-process.mjs",
+    "--build-manifest",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/worker-build-manifest.json",
+    "--output",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/process-acceptance",
+    "--expected-head",
+    "4ec11a7a17f28992814d8f8451adbfdfb10eae74"
+  ],
+  "startedUTC": "2026-10-29T08:03:42.158031+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}

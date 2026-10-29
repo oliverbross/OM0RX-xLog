@@ -1,0 +1,30 @@
+{
+  "id": "F-CLOSED-AUTHORITY-CLOSING",
+  "command": [
+    "swift",
+    "test",
+    "--jobs",
+    "2",
+    "--scratch-path",
+    ".build/remediation-followup-20261029-86a971e0/portable-clean",
+    "--no-parallel",
+    "--filter",
+    "BoundedSyncReconciliationTests|NativeRestoreInterruptionTests|AutomaticSyncTests|WavelogDestinationAuthorityTests"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T08:56:39.029382+00:00",
+  "finishedUTC": "2026-10-29T08:57:05.125927+00:00",
+  "seconds": 26.096,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "4ec11a7a17f28992814d8f8451adbfdfb10eae74",
+  "sourceHeadEnd": "4ec11a7a17f28992814d8f8451adbfdfb10eae74",
+  "sourceDiffSHA256": "5b84e199cd526a97908148796087ba764172ffded2e7b22ffce6c81f9df4265b",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/F-CLOSED-AUTHORITY-CLOSING.log",
+  "logBytes": 21083,
+  "logSHA256": "eea2ed5910bdff44a0628df7b47b935433136c06a5213dc8beb502278a71a465",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {
+    "XLOG_PORTABLE_ONLY": "1"
+  }
+}

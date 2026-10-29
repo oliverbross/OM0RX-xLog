@@ -1,0 +1,16 @@
+{
+  "id": "F-CLOSED-AUTHORITY-CLOSING",
+  "command": [
+    "swift",
+    "test",
+    "--jobs",
+    "2",
+    "--scratch-path",
+    ".build/remediation-followup-20261029-86a971e0/portable-clean",
+    "--no-parallel",
+    "--filter",
+    "BoundedSyncReconciliationTests|NativeRestoreInterruptionTests|AutomaticSyncTests|WavelogDestinationAuthorityTests"
+  ],
+  "startedUTC": "2026-10-29T08:56:39.029382+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}

@@ -1,0 +1,17 @@
+{
+  "id": "F-NATIVE-RELEASE",
+  "command": [
+    "swift",
+    "build",
+    "-c",
+    "release",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/native-release-clean",
+    "--jobs",
+    "2",
+    "--product",
+    "om0rx-xlog"
+  ],
+  "startedUTC": "2026-10-29T07:43:13.208065+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}

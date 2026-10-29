@@ -1,0 +1,26 @@
+{
+  "id": "F-NATIVE-FULL",
+  "command": [
+    "swift",
+    "test",
+    "--jobs",
+    "2",
+    "--scratch-path",
+    ".build/remediation-followup-20261029-86a971e0/native-clean",
+    "--no-parallel"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T07:38:12.168127+00:00",
+  "finishedUTC": "2026-10-29T07:41:24.285202+00:00",
+  "seconds": 192.129,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "5644b3a8d4b6d9a9224f722821c777eea8ec6b9f",
+  "sourceHeadEnd": "5644b3a8d4b6d9a9224f722821c777eea8ec6b9f",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/F-NATIVE-FULL.log",
+  "logBytes": 189237,
+  "logSHA256": "97a0a2a32862af70254e41104bba061e03a19670ec93581df7d75ced2d5ada7d",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

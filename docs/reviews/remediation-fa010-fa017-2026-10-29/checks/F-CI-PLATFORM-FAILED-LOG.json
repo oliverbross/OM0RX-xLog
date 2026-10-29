@@ -1,0 +1,28 @@
+{
+  "id": "F-CI-PLATFORM-FAILED-LOG",
+  "command": [
+    "gh",
+    "run",
+    "view",
+    "40834632964",
+    "--repo",
+    "oliverbross/OM0RX-xLog",
+    "--job",
+    "123316424354",
+    "--log-failed"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T07:39:40.849994+00:00",
+  "finishedUTC": "2026-10-29T07:39:45.935110+00:00",
+  "seconds": 5.085,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "5644b3a8d4b6d9a9224f722821c777eea8ec6b9f",
+  "sourceHeadEnd": "5644b3a8d4b6d9a9224f722821c777eea8ec6b9f",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/F-CI-PLATFORM-FAILED-LOG.log",
+  "logBytes": 1293771,
+  "logSHA256": "4e0d72fa23967baa85e174c6558bfd5f36ac51a5f3763b6a422944c8c7f97c46",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

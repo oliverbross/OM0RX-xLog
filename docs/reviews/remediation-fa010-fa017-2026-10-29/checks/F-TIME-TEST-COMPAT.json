@@ -1,0 +1,30 @@
+{
+  "id": "F-TIME-TEST-COMPAT",
+  "command": [
+    "swift",
+    "test",
+    "--jobs",
+    "2",
+    "--scratch-path",
+    ".build/phase7-validation-20261029-b8926639/portable",
+    "--no-parallel",
+    "--filter",
+    "OperatorDraftReversalAcceptanceTests"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T07:41:41.609490+00:00",
+  "finishedUTC": "2026-10-29T07:42:02.736887+00:00",
+  "seconds": 21.128,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "5644b3a8d4b6d9a9224f722821c777eea8ec6b9f",
+  "sourceHeadEnd": "5644b3a8d4b6d9a9224f722821c777eea8ec6b9f",
+  "sourceDiffSHA256": "a1098da8b4f7273b27f3b0866a50a920293a3f21b35d9e6a227c4389858683ac",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/F-TIME-TEST-COMPAT.log",
+  "logBytes": 1432,
+  "logSHA256": "927a99bb1c05470a35a88eceaeaf45e84d07c7f11ef5f82b2b58677fbd51b1d9",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {
+    "XLOG_PORTABLE_ONLY": "1"
+  }
+}

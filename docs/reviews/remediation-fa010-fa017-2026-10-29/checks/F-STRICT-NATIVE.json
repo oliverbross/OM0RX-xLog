@@ -1,0 +1,29 @@
+{
+  "id": "F-STRICT-NATIVE",
+  "command": [
+    "swift",
+    "build",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/strict-native-clean",
+    "--jobs",
+    "2",
+    "-Xswiftc",
+    "-strict-concurrency=complete",
+    "-Xswiftc",
+    "-warn-concurrency"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T07:45:48.323260+00:00",
+  "finishedUTC": "2026-10-29T07:47:03.585261+00:00",
+  "seconds": 75.262,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "4ec11a7a17f28992814d8f8451adbfdfb10eae74",
+  "sourceHeadEnd": "4ec11a7a17f28992814d8f8451adbfdfb10eae74",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/F-STRICT-NATIVE.log",
+  "logBytes": 9292,
+  "logSHA256": "5fea9368afeb907cc5f27e42306aff4cf2419a15953ae6577c0befbbe3745be0",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

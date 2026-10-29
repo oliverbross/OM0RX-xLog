@@ -1,0 +1,27 @@
+{
+  "id": "F-RUST-FULL",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--jobs",
+    "2"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri",
+  "startedUTC": "2026-10-29T07:42:46.166423+00:00",
+  "finishedUTC": "2026-10-29T07:48:06.195354+00:00",
+  "seconds": 320.027,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "4ec11a7a17f28992814d8f8451adbfdfb10eae74",
+  "sourceHeadEnd": "4ec11a7a17f28992814d8f8451adbfdfb10eae74",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/F-RUST-FULL.log",
+  "logBytes": 109024,
+  "logSHA256": "1e2ff3a1f62b3133f2d807eb90c635b1d436fed2219a565ca0285056288a4a36",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {
+    "CARGO_TARGET_DIR": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/rust-clean",
+    "XLOG_SOURCE_COMMIT": "4ec11a7a17f28992814d8f8451adbfdfb10eae74"
+  }
+}

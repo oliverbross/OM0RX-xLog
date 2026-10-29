@@ -1,0 +1,22 @@
+{
+  "id": "F-SECURITY-FLOOR",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "tools/check_reviewed_security_patches.py"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T07:38:57.903082+00:00",
+  "finishedUTC": "2026-10-29T07:38:58.061512+00:00",
+  "seconds": 0.158,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "5644b3a8d4b6d9a9224f722821c777eea8ec6b9f",
+  "sourceHeadEnd": "5644b3a8d4b6d9a9224f722821c777eea8ec6b9f",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/F-SECURITY-FLOOR.log",
+  "logBytes": 273,
+  "logSHA256": "0b8a854b94a4b037210b54749bc62284d4abbe8fac79843e57fa7f867da9e637",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

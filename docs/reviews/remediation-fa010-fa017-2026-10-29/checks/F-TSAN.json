@@ -1,0 +1,32 @@
+{
+  "id": "F-TSAN",
+  "command": [
+    "swift",
+    "test",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/tsan-clean",
+    "--jobs",
+    "2",
+    "--sanitize",
+    "thread",
+    "--no-parallel",
+    "--filter",
+    "LiveFldigiBridgeTests|DirectAgentLifecycleTests|StationRadioRegistryTests|NativeRestoreInterruptionTests|NativePowerSelectionTests|NativeDraftPowerCaptureTests|NativeDraftPowerAdmissionTests|AutomaticSyncTests|RestoreAtomicityTests|BackupRestoreAuthorityTests|WavelogDestinationAuthorityTests|OperatorDraftReversalAcceptanceTests"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T07:48:44.234111+00:00",
+  "finishedUTC": "2026-10-29T07:53:27.560454+00:00",
+  "seconds": 283.326,
+  "exit": 1,
+  "timedOut": false,
+  "sourceHeadStart": "4ec11a7a17f28992814d8f8451adbfdfb10eae74",
+  "sourceHeadEnd": "4ec11a7a17f28992814d8f8451adbfdfb10eae74",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/F-TSAN.log",
+  "logBytes": 47161,
+  "logSHA256": "e53279e9e3d543a299f28de557c30cf2631d94156efe4fa9bb7eb865e5a69780",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {
+    "XLOG_PORTABLE_ONLY": "1"
+  }
+}

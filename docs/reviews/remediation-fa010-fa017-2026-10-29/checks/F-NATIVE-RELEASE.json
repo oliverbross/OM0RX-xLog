@@ -1,0 +1,29 @@
+{
+  "id": "F-NATIVE-RELEASE",
+  "command": [
+    "swift",
+    "build",
+    "-c",
+    "release",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/native-release-clean",
+    "--jobs",
+    "2",
+    "--product",
+    "om0rx-xlog"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T07:43:13.208065+00:00",
+  "finishedUTC": "2026-10-29T07:45:48.086812+00:00",
+  "seconds": 154.856,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "4ec11a7a17f28992814d8f8451adbfdfb10eae74",
+  "sourceHeadEnd": "4ec11a7a17f28992814d8f8451adbfdfb10eae74",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/F-NATIVE-RELEASE.log",
+  "logBytes": 1084,
+  "logSHA256": "2925674774e4bbd37247d9a97a1d34443785320916eb3c1221aec55975d3a359",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}
