@@ -123,6 +123,40 @@ final class StationPowerSessionEventSource: @unchecked Sendable {
     private var sessionID = UUID()
     private var startedAt: Date?
     private var latestEvent: StationPowerSessionEvent?
+    private var capture: NativeDraftPowerGate?
+
+    /// Install against the live source, even when connect beat worker startup.
+    /// Callback stamping and attachment share one lock, so a concurrent READY
+    /// cannot be lost or replayed before attachment.
+    func installPowerCapture(_ capture: NativeDraftPowerGate, endpointID: String, radioID: String) {
+        lock.withLock {
+            guard self.capture !== capture else { return }
+            self.capture = capture
+            capture.attach(sourceID: id, endpointID: endpointID, radioID: radioID)
+            if let event = latestEvent { forward(event) }
+        }
+    }
+
+    private func forward(_ event: StationPowerSessionEvent) {
+        capture?.connection(sourceID: id, sequence: event.sequence, sessionID: event.sessionID,
+            startedAt: event.startedAt, ready: event.state == .ready)
+    }
+
+    func observe(_ snapshot: XCatIntegrationCore.RadioSnapshot) {
+        lock.withLock {
+            guard let event = latestEvent, event.state == .ready,
+                  let startedAt = event.startedAt, snapshot.isConnected, snapshot.isTransmitting,
+                  let meter = snapshot.measuredTransmitPower,
+                  meter.isFresh(at: Date(), sessionStartedAt: startedAt),
+                  snapshot.vfos.filter({ $0.isTransmit }).count == 1,
+                  let tx = snapshot.vfos.first(where: { $0.isTransmit }),
+                  let sample = OperatorDraftPowerSample(source: meter.source.rawValue, watts: meter.watts,
+                    observedAt: meter.observedAt, radioObservedAt: meter.radioObservedAt,
+                    amplifierObservedAt: meter.amplifierObservedAt, receivedAt: meter.receivedAt,
+                    sessionID: event.sessionID) else { return }
+            capture?.observe(sourceID: id, sample: sample, frequencyHz: tx.frequencyHz, mode: tx.mode)
+        }
+    }
 
     func stamp(_ state: RadioConnectionState, at now: Date = Date()) -> StationPowerSessionEvent {
         lock.withLock {
@@ -134,6 +168,7 @@ final class StationPowerSessionEventSource: @unchecked Sendable {
             let event = StationPowerSessionEvent(sequence: sequence, state: state,
                                                  sessionID: sessionID, startedAt: startedAt)
             latestEvent = event
+            forward(event)
             return event
         }
     }
@@ -193,6 +228,8 @@ struct StationAgentCredentialCache {
 /// Explicitly connected direct Remote Station Agent owner. This uses the same
 /// authenticated HTTPS/WSS client and authoritative state decoder as xCat.
 actor LiveStationSession {
+    typealias Factory = @Sendable (String, String, @escaping RemoteAgentClient.StateHandler,
+        @escaping RemoteAgentClient.SnapshotHandler) throws -> RemoteAgentClient
     private var carrierIntent = StationCarrierIntent()
     private var carrierReadbackAfter: Date?
     private var carrierCancelAcknowledged = false
@@ -200,11 +237,18 @@ actor LiveStationSession {
     private let rotor: LiveRotorSession
     private let receiveReadbackTimeout: Duration
     private let radioID: String
+    private let factory: Factory
 
-    init(radioID: String = "radio1", rotor: LiveRotorSession = .shared, receiveReadbackTimeout: Duration = .seconds(4)) {
+    init(radioID: String = "radio1", rotor: LiveRotorSession = .shared, receiveReadbackTimeout: Duration = .seconds(4),
+         credentialCache: StationAgentCredentialCache = .init(),
+         factory: @escaping Factory = { endpoint, token, state, observed in
+             try RemoteAgentClient(baseURL: endpoint, token: token, onState: state, onObservedSnapshot: observed)
+         }) {
         self.radioID = radioID
         self.rotor = rotor
         self.receiveReadbackTimeout = receiveReadbackTimeout
+        self.credentialCache = credentialCache
+        self.factory = factory
     }
 
     private var client: RemoteAgentClient?
@@ -226,12 +270,20 @@ actor LiveStationSession {
     private var catRetirement = StationCATRetirement()
     private var lifecycleTransitions = 0
     private var terminalShutdown = false
+    private var retirementPending = false
+    private var retirementTask: Task<StationOwnerRetirement, Never>?
     private var directTransmitAcquisitions = 0
     private var credentialCache = StationAgentCredentialCache()
 
     func installPowerCapture(_ capture: NativeDraftPowerGate) {
-        // Worker startup registers before requests can explicitly connect.
         powerCapture = capture
+        if !retirementPending, let powerEvents, let baseURL {
+            powerEvents.installPowerCapture(capture, endpointID: Self.powerEndpointID(baseURL), radioID: radioID)
+        }
+    }
+
+    private static func powerEndpointID(_ endpoint: String) -> String {
+        "direct_agent:" + SHA256.hash(data: Data(endpoint.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 
     static let methods: Set<String> = ["station_connect", "station_disconnect", "station_reconnect",
@@ -241,6 +293,14 @@ actor LiveStationSession {
                                         "station_add_spot", "station_remove_spot", "station_cat_servers"]
 
     func handle(_ method: String, params: [String: Any]) async throws -> [String: Any] {
+        // The terminal worker admits only this exact release route. It cannot
+        // reconnect, change credentials, or transfer duty to another client.
+        if method == "station_disconnect" {
+            if terminalShutdown && client == nil { try requireActive() }
+            try requireKeys(params, allowed: ["provider"])
+            guard await shutdown() == .retired else { throw releaseUnconfirmed() }
+            return await snapshot()
+        }
         try requireActive()
         switch method {
         case "station_cat_servers":
@@ -309,30 +369,20 @@ actor LiveStationSession {
             let expectedGeneration = connectionGeneration
             try await ensureExclusiveWriter()
             guard expectedGeneration == connectionGeneration else { throw lifecycleChanged() }
+            if client != nil {
+                guard await shutdown() == .retired else { throw releaseUnconfirmed() }
+            }
+            try requireActive()
             let next: RemoteAgentClient
             let generation = connectionGeneration &+ 1
             let nextPowerEvents = StationPowerSessionEventSource()
-            let capture = powerCapture
             do {
-                next = try RemoteAgentClient(baseURL: endpoint, token: token,
-                    onState: { [weak self] state, _ in
+                next = try factory(endpoint, token,
+                    { [weak self] state, _ in
                         let event = nextPowerEvents.stamp(state)
-                        capture?.connection(sourceID: nextPowerEvents.id, sequence: event.sequence,
-                            sessionID: event.sessionID, startedAt: event.startedAt, ready: state == .ready)
                         Task { await self?.recordState(event, generation: generation) }
-                    }, onObservedSnapshot: { snapshot in
-                        guard let event = nextPowerEvents.latest(), event.state == .ready,
-                              let startedAt = event.startedAt, snapshot.isConnected, snapshot.isTransmitting,
-                              let meter = snapshot.measuredTransmitPower,
-                              meter.isFresh(at: Date(), sessionStartedAt: startedAt),
-                              snapshot.vfos.filter({ $0.isTransmit }).count == 1,
-                              let tx = snapshot.vfos.first(where: { $0.isTransmit }),
-                              let sample = OperatorDraftPowerSample(source: meter.source.rawValue, watts: meter.watts,
-                                observedAt: meter.observedAt, radioObservedAt: meter.radioObservedAt,
-                                amplifierObservedAt: meter.amplifierObservedAt, receivedAt: meter.receivedAt,
-                                sessionID: event.sessionID) else { return }
-                        capture?.observe(sourceID: nextPowerEvents.id, sample: sample,
-                                         frequencyHz: tx.frequencyHz, mode: tx.mode)
+                    }, { snapshot in
+                        nextPowerEvents.observe(snapshot)
                     })
             } catch {
                 throw WorkerFailure("invalid_params", "Invalid Remote Station Agent connection settings.")
@@ -340,16 +390,12 @@ actor LiveStationSession {
             connectionGeneration = generation
             powerSession = StationPowerSessionState()
             powerEvents = nextPowerEvents
-            capture?.attach(sourceID: nextPowerEvents.id,
-                endpointID: "direct_agent:" + SHA256.hash(data: Data(endpoint.utf8)).map { String(format: "%02x", $0) }.joined(), radioID: radioID)
-            let current = client
-            client = nil
+            if let capture = powerCapture {
+                nextPowerEvents.installPowerCapture(capture, endpointID: Self.powerEndpointID(endpoint), radioID: radioID)
+            }
             transportState = .stopped
             allowTransmit = false
             await stopCATServers()
-            if let current {
-                await stop(current)
-            }
             guard generation == connectionGeneration else { throw lifecycleChanged() }
             try requireActive()
             client = next
@@ -365,11 +411,6 @@ actor LiveStationSession {
                 await next.stop()
                 throw lifecycleChanged()
             }
-            return await snapshot()
-
-        case "station_disconnect":
-            try requireKeys(params, allowed: ["provider"])
-            await shutdown()
             return await snapshot()
 
         case "station_reconnect":
@@ -397,7 +438,7 @@ actor LiveStationSession {
             try beginLifecycleTransition()
             defer { lifecycleTransitions -= 1 }
             if endpoint == baseURL, client != nil {
-                await shutdown()
+                guard await shutdown() == .retired else { throw releaseUnconfirmed() }
             }
             try requireActive()
             try StationAgentKeychain(endpoint: endpoint, radioID: radioID).delete()
@@ -554,15 +595,16 @@ actor LiveStationSession {
         reconcilePowerObservationSession()
         guard generation == connectionGeneration, sessionID == powerSessionID,
               self.client === client else { return await snapshot() }
-        if carrierCancelAcknowledged, directTransmitAcquisitions == 0, !carrierReleaseUnconfirmed(observed) {
+        if !retirementPending, carrierCancelAcknowledged, directTransmitAcquisitions == 0, !carrierReleaseUnconfirmed(observed) {
             transmitOwnership.completeAction(.cancel)
             carrierCancelAcknowledged = false
         }
-        guiPTT.observe(observed,canRelease:directTransmitAcquisitions == 0)
+        if !retirementPending { guiPTT.observe(observed,canRelease:directTransmitAcquisitions == 0) }
         var result = Self.project(observed, transport: transportState, allowTransmit: allowTransmit,
                                   generation: generation, powerSessionID: powerSessionID,
                                   powerSessionStartedAt: powerSessionStartedAt)
         result["rotor"] = rotorProjection
+        result["release_uncertain"] = retirementPending
         result["ptt"] = guiPTT.ownerID == nil && embeddedCATPTT
             ? ["source":"embedded_cat","owner_id":NSNull(),"release_required":true,"pending":false,"confirmed":false,"transmitting":NSNull()]
             : guiPTT.projection
@@ -573,30 +615,42 @@ actor LiveStationSession {
     }
 
     /// Used by explicit disconnect and worker EOF; a monitoring session issues
-    /// no station commands, while activated controls get a best-effort release.
-    func terminate() async {
+    /// no station commands. Failed owned release retains its exact client/duty.
+    @discardableResult func terminate() async -> StationOwnerRetirement {
         terminalShutdown = true
-        await shutdown()
+        return await shutdown()
     }
 
-    func shutdown() async {
+    @discardableResult func shutdown() async -> StationOwnerRetirement {
+        if let retirementTask { return await retirementTask.value }
+        retirementPending = true
+        let task = Task { await self.retireCurrent() }
+        retirementTask = task
+        let result = await task.value
+        retirementTask = nil
+        return result
+    }
+
+    private func retireCurrent() async -> StationOwnerRetirement {
         lifecycleTransitions += 1
         defer { lifecycleTransitions -= 1 }
         connectionGeneration &+= 1
         powerCapture?.detach(radioID: radioID)
         powerSession = StationPowerSessionState()
-        powerEvents = nil
         let current = client
-        client = nil
-        baseURL = nil
-        transportState = .stopped
         allowTransmit = false
         await stopCATServers()
         // Leave most of the desktop host's eight-second EOF grace period for
         // the actual RF release requests. A stalled transmit acquisition must
         // not consume the only opportunity to send PTT-off/CW/tune releases.
         await drainDirectTransmitAcquisitions(for: .seconds(1))
-        if let current { await stop(current) }
+        if let current, !(await stop(current)) { return .unconfirmed }
+        client = nil
+        baseURL = nil
+        powerEvents = nil
+        transportState = .stopped
+        retirementPending = false
+        return .retired
     }
 
     private func beginLifecycleTransition() throws {
@@ -985,27 +1039,38 @@ actor LiveStationSession {
         }
     }
 
-    private func stop(_ current: RemoteAgentClient) async {
+    private func stop(_ current: RemoteAgentClient) async -> Bool {
         var releases = transmitOwnership.releases
         if guiPTT.ownerID != nil && !releases.contains(.releasePTT) {releases.append(.releasePTT)}
-        guiPTT = StationGUIPTT()
-        embeddedCATPTT = false
-        transmitOwnership = StationTransmitOwnership()
+        let overlappedAcquisition = directTransmitAcquisitions > 0
         // Attempt every owned release immediately: a stalled CW/cancel reply
         // must not delay PTT-off. The desktop bounds graceful EOF to eight
         // seconds; crashes or missing acknowledgments cannot confirm RF safety.
-        await withTaskGroup(of: Void.self) { group in
+        let released = await withTaskGroup(of: Bool.self) { group in
             for release in releases {
                 group.addTask {
-                    switch release {
-                    case .clearCW: try? await current.shutdownClearCW()
-                    case .cancelTune: try? await current.shutdownCancelTune()
-                    case .releasePTT: try? await current.shutdownReleasePTT()
-                    }
+                    do {
+                        switch release {
+                        case .clearCW: try await current.shutdownClearCW()
+                        case .cancelTune: try await current.shutdownCancelTune()
+                        case .releasePTT: try await current.shutdownReleasePTT()
+                        }
+                        return true
+                    } catch { return false }
                 }
             }
+            var successful = true
+            for await result in group { if !result { successful = false } }
+            return successful
         }
+        guard released, !overlappedAcquisition, directTransmitAcquisitions == 0 else { return false }
+        guiPTT = StationGUIPTT()
+        embeddedCATPTT = false
+        transmitOwnership = StationTransmitOwnership()
+        carrierReadbackAfter = nil
+        carrierCancelAcknowledged = false
         await current.stop()
+        return true
     }
 
     private func authorizeCATMutation(_ mutation: EmbeddedCATServers.Mutation, generation: UInt64, epoch: UInt64) async -> Bool {
@@ -1099,6 +1164,11 @@ actor LiveStationSession {
         guard !terminalShutdown else {
             throw WorkerFailure("worker_stopping", "The station service is shutting down; no new station command was started.")
         }
+        guard !retirementPending else { throw releaseUnconfirmed() }
+    }
+
+    private func releaseUnconfirmed() -> WorkerFailure {
+        WorkerFailure("release_unconfirmed", "Owned Agent transmit release was not confirmed; the original connection is retained for release-only retry.")
     }
 
     /// A TCP connect probe sends no CAT/RigCtlD bytes and cannot command a radio.

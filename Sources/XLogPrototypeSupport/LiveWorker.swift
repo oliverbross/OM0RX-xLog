@@ -448,7 +448,7 @@ public actor LiveWorker {
             }
             id = requestID
             let terminalStationRetirement = method == "station_disconnect"
-                && params["provider"] as? String == "direct_flex_lan"
+                && ["direct_flex_lan", "direct_agent"].contains(params["provider"] as? String ?? "")
                 && Set(params.keys) == ["provider", "radio_id"]
                 && ["radio1", "radio2"].contains(params["radio_id"] as? String ?? "")
                 && stationRegistry != nil

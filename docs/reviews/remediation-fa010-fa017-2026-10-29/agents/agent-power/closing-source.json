@@ -1,0 +1,20 @@
+{
+  "findings": [
+    "FA-011",
+    "FA-012"
+  ],
+  "verification": [
+    "B-POWER-PRECISION-R1",
+    "B-POWER-PRECISION-R2",
+    "B-POWER-PRECISION-R3",
+    "B-ALL-TEN",
+    "D-RESTORE-CLOSING-R2"
+  ],
+  "files": {
+    "Sources/XLogPrototypeSupport/LiveStationSession.swift": "bcb12a0dc4563071eb6a3b23ed6b99ac97fc0556bd4a92176c9a9a955e473f89",
+    "Sources/XLogPrototypeSupport/LiveStationMethods.swift": "792c0642b232dc0131f772f5fd57a1fdc6094372490291c33af6ec702d184a2d",
+    "Sources/XLogPrototypeSupport/LiveWorker.swift": "4982126adee7a418534991149b206c13fcde3c65638e8be0eb6cd2ec8bd21895",
+    "Tests/XLogPrototypeTests/DirectAgentLifecycleTests.swift": "d552326437162265f63661106453b4e31227fdc2d84ab21c14b8a0c77743309e"
+  },
+  "qualification": "B-ALL-TEN executes the known compiled precision-run binary, not a fresh build. D-RESTORE-CLOSING-R2 recompiles and executes all10. The original intermediate failure lacks packet timestamps; its exact cause remains unproved. No physical hardware/RF evidence."
+}

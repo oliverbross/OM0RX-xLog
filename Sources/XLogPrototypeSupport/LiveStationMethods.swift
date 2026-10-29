@@ -56,7 +56,7 @@ struct StationRadioRegistry: Sendable {
 
     func terminate() async -> StationRetirementResult {
         await withTaskGroup(of: (String, StationOwnerRetirement).self) { group in
-            for (id, owner) in agents { group.addTask { await owner.terminate(); return (id, .retired) } }
+            for (id, owner) in agents { group.addTask { (id, await owner.terminate()) } }
             for (id, owner) in flex { group.addTask { (id, await owner.terminate()) } }
             for (id, owner) in tci { group.addTask { await owner.terminate(); return (id, .retired) } }
             var unconfirmed = Set<String>()
