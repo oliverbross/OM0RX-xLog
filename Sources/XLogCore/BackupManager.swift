@@ -17,6 +17,9 @@ public enum XLogBackupError: Error, LocalizedError {
     case integrityFailed(String)
     case restoreFailed(String)
     case rollbackFailed
+    case settingsMissing
+    case syncDestinationChange
+    case packageChanged
 
     public var errorDescription: String? {
         switch self {
@@ -32,6 +35,12 @@ public enum XLogBackupError: Error, LocalizedError {
             return "The xLog database could not be restored: \(message)"
         case .rollbackFailed:
             return "Restore failed and an original component could not be put back. Recover the pre-restore backup before continuing."
+        case .settingsMissing:
+            return "Restoring requires backup settings so its Wavelog destination can be verified."
+        case .syncDestinationChange:
+            return "The backup belongs to a different Wavelog destination. Restore its settings or use a reviewed migration."
+        case .packageChanged:
+            return "The selected backup changed after inspection. Inspect it again before restoring."
         }
     }
 }
@@ -137,6 +146,19 @@ public struct XLogBackupPreview: Equatable, Sendable {
         self.manifest = manifest
         self.settings = settings
         self.preferences = preferences
+    }
+
+    /// Linked remote IDs belong to the backup's destination. Keeping another
+    /// destination would let its history replace or delete those restored rows.
+    /// A restore never carries automatic-sync consent into the replaced log.
+    public func settingsForRestore(keeping current: XLogSettings,
+                                   restoreSettings: Bool) throws -> XLogSettings {
+        guard let settings else { throw XLogBackupError.settingsMissing }
+        if !restoreSettings,
+           settings.wavelogURL != current.wavelogURL || settings.wavelogStationID != current.wavelogStationID {
+            throw XLogBackupError.syncDestinationChange
+        }
+        return IntegrationWorkspace.safeSettings(from: restoreSettings ? settings : current)
     }
 }
 
@@ -303,8 +325,12 @@ public final class XLogBackupManager: @unchecked Sendable {
         )
     }
 
-    public func installDatabase(from packageURL: URL, to liveURL: URL) throws -> URL? {
+    public func installDatabase(from packageURL: URL, to liveURL: URL,
+                                expectedPreview: XLogBackupPreview? = nil) throws -> URL? {
         let preview = try inspect(at: packageURL)
+        // Callers that select destination/settings from a preview must install
+        // that same database. Staging below rechecks this manifest's byte hash.
+        if let expectedPreview, preview != expectedPreview { throw XLogBackupError.packageChanged }
         let directory = liveURL.deletingLastPathComponent()
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         let staging = directory.appendingPathComponent(".restore-\(UUID().uuidString).sqlite")

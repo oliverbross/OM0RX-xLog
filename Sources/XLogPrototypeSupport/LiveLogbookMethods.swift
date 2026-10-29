@@ -1474,15 +1474,14 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                     ($0, try db.workspaceLayout(scope: $0))
                 }
                 let retainedSettings = try storedSettingsSnapshot()
-                if !restoreSettings {
-                    guard let backupSettings = preview.settings.map(IntegrationWorkspace.safeSettings(from:)) else {
-                        throw WorkerFailure("backup_settings_missing", "Keep-settings restore requires backup settings so its Wavelog destination can be verified.")
-                    }
-                    let destinationChanged = backupSettings.wavelogURL != retainedSettings.settings.wavelogURL
-                        || backupSettings.wavelogStationID != retainedSettings.settings.wavelogStationID
-                    guard !destinationChanged else {
-                        throw WorkerFailure("sync_destination_change_blocked", "The backup belongs to a different Wavelog destination. Restore its settings or use a reviewed migration.")
-                    }
+                let settingsAfterRestore: XLogSettings
+                do {
+                    settingsAfterRestore = try preview.settingsForRestore(keeping: retainedSettings.settings,
+                                                                         restoreSettings: restoreSettings)
+                } catch XLogBackupError.settingsMissing {
+                    throw WorkerFailure("backup_settings_missing", XLogBackupError.settingsMissing.localizedDescription)
+                } catch XLogBackupError.syncDestinationChange {
+                    throw WorkerFailure("sync_destination_change_blocked", XLogBackupError.syncDestinationChange.localizedDescription)
                 }
                 let retainedRotorConfiguration = try db.rotorConfiguration(seed: .defaults)
                 let reference = try referenceDirectoryURL()
@@ -1512,7 +1511,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 var replacements: [(live: URL, previous: URL?)] = []
                 do {
                     let liveDatabase = workspaceURL.appendingPathComponent("OM0RX-xLog.sqlite")
-                    let previousDatabase = try manager.installDatabase(from: package, to: liveDatabase)
+                    let previousDatabase = try manager.installDatabase(from: package, to: liveDatabase,
+                                                                       expectedPreview: preview)
                     replacements.append((liveDatabase, previousDatabase))
                     if preview.manifest.includesContestingData == true {
                         let previous = try manager.installContestingData(from: package, to: contestingDataURL)
@@ -1529,7 +1529,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                         }
                     }
                     guard let database else { throw WorkerFailure("workspace_unavailable", "The restored database is unavailable.") }
-                    let restoredSeed = restoreSettings ? preview.settings.map(IntegrationWorkspace.safeSettings(from:)) : nil
+                    let restoredSeed = restoreSettings ? settingsAfterRestore : nil
                     let installed = try database.integrationSettings(seed: restoredSeed ?? retainedSettings.settings)
                     let settingsSnapshot: IntegrationSettingsSnapshot
                     if let restoredSeed {

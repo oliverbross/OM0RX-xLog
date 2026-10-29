@@ -1104,6 +1104,14 @@ final class AppModel: ObservableObject {
         let currentPreferences = currentBackupPreferences()
         let restoreSettings = restoreSettingsFromBackup
         let restoreWorkspace = restoreWorkspaceFromBackup
+        let settingsAfterRestore: XLogSettings
+        do {
+            settingsAfterRestore = try preview.settingsForRestore(keeping: currentSettings,
+                                                                 restoreSettings: restoreSettings)
+        } catch {
+            banner = AppBanner(message: error.localizedDescription, kind: .error)
+            return
+        }
         let manager = XLogBackupManager()
         let supportDirectory = liveURL.deletingLastPathComponent()
         let recoveryDirectory = supportDirectory.appendingPathComponent("Recovery", isDirectory: true)
@@ -1132,12 +1140,22 @@ final class AppModel: ObservableObject {
                         referenceDataURL: referenceDataURL
                     )
                 }.value
+                // Retire saved consent before replacement, including failures
+                // in later reference-data installation or database reopening.
+                var pausedSettings = currentSettings
+                pausedSettings.automaticSync = false
+                settings = pausedSettings
+                settingsStore.save(pausedSettings)
                 database.close()
                 self.database = nil
 
                 _ = try await Task.detached {
-                    try manager.installDatabase(from: preview.packageURL, to: liveURL)
+                    try manager.installDatabase(from: preview.packageURL, to: liveURL, expectedPreview: preview)
                 }.value
+                // The database now belongs to this destination even if a later
+                // component fails. Never resume with the previous destination.
+                settings = settingsAfterRestore
+                settingsStore.save(settingsAfterRestore)
                 if preview.manifest.includesReferenceData, let referenceDataURL {
                     _ = try await Task.detached {
                         try manager.installReferenceData(from: preview.packageURL, to: referenceDataURL)
@@ -1145,10 +1163,6 @@ final class AppModel: ObservableObject {
                 }
 
                 self.database = try LogbookDatabase(url: liveURL)
-                if restoreSettings, let restoredSettings = preview.settings {
-                    settings = restoredSettings
-                    settingsStore.save(restoredSettings)
-                }
                 if restoreWorkspace, let preferences = preview.preferences {
                     applyBackupPreferences(preferences)
                 }
