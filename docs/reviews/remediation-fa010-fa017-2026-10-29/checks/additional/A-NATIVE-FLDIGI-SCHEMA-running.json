@@ -1,0 +1,15 @@
+{
+  "id": "A-NATIVE-FLDIGI-SCHEMA",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--jobs",
+    "2",
+    "--bin",
+    "xlog-prototype",
+    "contest_surface::tests::"
+  ],
+  "startedUTC": "2026-10-29T05:05:43.921297+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "fa017-owner-r1",
+  "command": [
+    "npm",
+    "run",
+    "test:vitest",
+    "--",
+    "src/contesting/Not1MMContestWorkspace.test.tsx",
+    "src/contesting/DetachedContestSetupDialog.test.tsx",
+    "-t",
+    "fldigi|Digital|digital"
+  ],
+  "startedUTC": "2026-10-29T05:08:09.150772+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype"
+}

@@ -118,6 +118,124 @@ final class LiveFldigiBridgeTests: XCTestCase {
         XCTAssertEqual(calls.map(\.0), ["main.rx"])
     }
 
+    func testExplicitStopAttemptsRXAndKeepsStorageAndReleaseFailuresSeparate() async throws {
+        for rxFails in [false, true] {
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent("fldigi-stop-storage-\(UUID())")
+            defer { try? FileManager.default.removeItem(at: root) }
+            let directory = root.appendingPathComponent("settings"), retained = root.appendingPathComponent("retained-settings")
+            let rpc = FakeFldigiRPC(), lease = destination()
+            let bridge = LiveFldigiBridge(configurationURL: directory.appendingPathComponent("fldigi.json"),
+                externalIOAllowed: { true }, rpc: rpc)
+            _ = try await bridge.handle(method: "fldigi_configure", params: ["configuration": ["receive_enabled": false, "transmit_enabled": true]],
+                receiveDestination: nil, transmitDestination: lease, contestImporter: nil)
+            var outgoing = action(lease); outgoing["rxAfter"] = false
+            _ = try await bridge.handle(method: "fldigi_send", params: ["actions": [outgoing]],
+                receiveDestination: nil, transmitDestination: lease, contestImporter: nil)
+            try FileManager.default.moveItem(at: directory, to: retained)
+            try Data("A regular file blocks the settings directory".utf8).write(to: directory)
+            await rpc.setFailureMethodForTesting(rxFails ? "main.rx" : nil)
+
+            var stopped: [String: Any]?
+            do {
+                stopped = try await bridge.handle(method: "fldigi_stop", params: [:],
+                    receiveDestination: nil, transmitDestination: lease, contestImporter: nil)
+            } catch { XCTFail("Storage failure must return separate Stop evidence after attempting RX: \(error)") }
+            let calls = await rpc.recorded()
+            XCTAssertEqual(calls.map(\.0), ["main.tx", "text.add_tx", "main.rx"])
+            let snapshot = try await bridge.handle(method: "fldigi_snapshot", params: [:],
+                receiveDestination: nil, transmitDestination: lease, contestImporter: nil)
+            XCTAssertEqual((snapshot["configuration"] as? [String: Bool])?["transmit_enabled"], false)
+            XCTAssertFalse((snapshot["configuration_error"] as? String ?? "").isEmpty)
+            XCTAssertEqual(snapshot["transmit_release_required"] as? Bool, rxFails)
+            XCTAssertEqual(snapshot["transmit_release_uncertain"] as? Bool, rxFails)
+            XCTAssertNotNil(stopped)
+            if rxFails { XCTAssertTrue((snapshot["status"] as? String ?? "").contains("unconfirmed")) }
+            do {
+                _ = try await bridge.handle(method: "fldigi_send", params: ["actions": [outgoing]],
+                    receiveDestination: nil, transmitDestination: lease, contestImporter: nil)
+                XCTFail("Stop must revoke sending in memory even when persistence fails")
+            } catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "fldigi_transmit_disabled") }
+
+            try FileManager.default.removeItem(at: directory)
+            try FileManager.default.moveItem(at: retained, to: directory)
+            await rpc.setFailureMethodForTesting(nil)
+            let retried = try await bridge.handle(method: "fldigi_stop", params: [:],
+                receiveDestination: nil, transmitDestination: lease, contestImporter: nil)
+            XCTAssertEqual(retried["transmit_release_required"] as? Bool, false)
+            XCTAssertEqual(retried["transmit_release_uncertain"] as? Bool, false)
+            XCTAssertTrue(retried["configuration_error"] is NSNull)
+            let finalCalls = await rpc.recorded()
+            XCTAssertEqual(finalCalls.map(\.0), ["main.tx", "text.add_tx", "main.rx", "main.rx"])
+        }
+    }
+
+    func testExplicitStopDoesNotReadDamagedConfigurationBeforeEmergencyRX() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("fldigi-stop-read-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let path = root.appendingPathComponent("fldigi.json")
+        try Data("not JSON".utf8).write(to: path)
+        let rpc = FakeFldigiRPC(), bridge = LiveFldigiBridge(configurationURL: path, externalIOAllowed: { true }, rpc: rpc)
+        var reply: [String: Any]?
+        do { reply = try await bridge.handle(method: "fldigi_stop", params: [:], receiveDestination: nil, transmitDestination: nil, contestImporter: nil) }
+        catch { XCTFail("Stop must not require a readable configuration: \(error)") }
+        let calls = await rpc.recorded()
+        XCTAssertEqual(calls.map(\.0), ["main.rx"])
+        XCTAssertEqual((reply?["configuration"] as? [String: Bool])?["transmit_enabled"], false)
+        XCTAssertEqual(reply?["transmit_release_uncertain"] as? Bool, false)
+    }
+
+    func testStorageFailureCannotBypassStopProfileDenial() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("fldigi-stop-denied-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let obstruction = root.appendingPathComponent("settings")
+        try Data("not a directory".utf8).write(to: obstruction)
+        let rpc = FakeFldigiRPC(), bridge = LiveFldigiBridge(configurationURL: obstruction.appendingPathComponent("fldigi.json"),
+            externalIOAllowed: { false }, rpc: rpc)
+        var reply: [String: Any]?
+        do { reply = try await bridge.handle(method: "fldigi_stop", params: [:], receiveDestination: nil, transmitDestination: nil, contestImporter: nil) }
+        catch { XCTFail("Local Stop evidence must survive a persistence error: \(error)") }
+        let calls = await rpc.recorded()
+        XCTAssertTrue(calls.isEmpty)
+        XCTAssertFalse((reply?["configuration_error"] as? String ?? "").isEmpty)
+        XCTAssertEqual((reply?["configuration"] as? [String: Bool])?["transmit_enabled"], false)
+    }
+
+    func testStopStorageFailurePreservesPendingSendFinalRelease() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("fldigi-stop-pending-storage-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let directory = root.appendingPathComponent("settings"), retained = root.appendingPathComponent("retained-settings")
+        let rpc = FakeFldigiRPC(), lease = destination()
+        let bridge = LiveFldigiBridge(configurationURL: directory.appendingPathComponent("fldigi.json"), externalIOAllowed: { true }, rpc: rpc)
+        _ = try await bridge.handle(method: "fldigi_configure", params: ["configuration": ["receive_enabled": false, "transmit_enabled": true]],
+            receiveDestination: nil, transmitDestination: lease, contestImporter: nil)
+        await rpc.setGateForTesting(true)
+        let pending = Task { try await bridge.handle(method: "fldigi_send", params: ["actions": [self.action(lease)]],
+            receiveDestination: nil, transmitDestination: lease, contestImporter: nil) }
+        for _ in 0..<200 {
+            if !(await rpc.recorded()).isEmpty { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        try FileManager.default.moveItem(at: directory, to: retained)
+        try Data("not a directory".utf8).write(to: directory)
+        var stopped: [String: Any]?
+        do { stopped = try await bridge.handle(method: "fldigi_stop", params: [:], receiveDestination: nil, transmitDestination: lease, contestImporter: nil) }
+        catch { XCTFail("Stop must attempt RX before returning storage failure evidence: \(error)") }
+        let beforeRelease = await rpc.recorded()
+        XCTAssertEqual(beforeRelease.map(\.0), ["main.tx", "main.rx"])
+        XCTAssertEqual(stopped?["transmit_release_required"] as? Bool, true)
+        await rpc.release()
+        do { _ = try await pending.value; XCTFail("Retired pending send continued") }
+        catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "stale_context") }
+        let snapshot = try await bridge.handle(method: "fldigi_snapshot", params: [:], receiveDestination: nil, transmitDestination: lease, contestImporter: nil)
+        XCTAssertEqual(snapshot["transmit_release_required"] as? Bool, false)
+        XCTAssertEqual(snapshot["transmit_release_uncertain"] as? Bool, false)
+        XCTAssertFalse((snapshot["configuration_error"] as? String ?? "").isEmpty)
+        let calls = await rpc.recorded()
+        XCTAssertEqual(calls.map(\.0), ["main.tx", "main.rx", "main.rx"])
+    }
+
     func testWorkspaceRetirementDuringPendingTextCannotStartTheNextAction() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("fldigi-text-\(UUID())")
         defer { try? FileManager.default.removeItem(at: root) }

@@ -1,0 +1,29 @@
+{
+  "id": "A-NATIVE-FLDIGI-SCHEMA",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--jobs",
+    "2",
+    "--bin",
+    "xlog-prototype",
+    "contest_surface::tests::"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri",
+  "startedUTC": "2026-10-29T05:05:43.921297+00:00",
+  "finishedUTC": "2026-10-29T05:06:11.527896+00:00",
+  "seconds": 27.605,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "86a971e0338a7ce6432607f5648dfc1c23ec2a68",
+  "sourceHeadEnd": "86a971e0338a7ce6432607f5648dfc1c23ec2a68",
+  "sourceDiffSHA256": "d44195d9e3a62e7249544a28bb2cfa631663b97c2abcf16994baf874971b1b99",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/A-NATIVE-FLDIGI-SCHEMA.log",
+  "logBytes": 4238,
+  "logSHA256": "1470b15c852e388593176fd628b148c9fb77b3ea49ed80f4dcbde1210e567519",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {
+    "CARGO_TARGET_DIR": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/rust"
+  }
+}

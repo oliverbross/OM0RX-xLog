@@ -1,0 +1,38 @@
+{
+  "negative": {
+    "command": [
+      "npm",
+      "run",
+      "test:vitest",
+      "--",
+      "src/contesting/Not1MMContestWorkspace.test.tsx",
+      "-t",
+      "retains fldigi Stop recovery"
+    ],
+    "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+    "exit": 1,
+    "result": "2 failed; 195 skipped; 197 total",
+    "outputArchive": "/Users/oliver/.local/share/lean-ctx/archives/2d/2d9efbf982e4983b.txt",
+    "preservedOutput": "/tmp/xlog-remediation-20261029-86a971e0/agents/frontend/fa017-negative-original-tool-output.txt",
+    "outputSHA256": "7e7d26fd905d85fc7ea0bc0208f63a25575dee3624e5aa3c13961d591a88f2ae",
+    "sourceCommit": "86a971e0338a7ce6432607f5648dfc1c23ec2a68",
+    "sourceState": "Production source matched baseline; only the initial 2-case maintained regression was added before this run.",
+    "limitation": "This pre-runner negative has original tool output and observed exit, not a run_check UTC/source-diff receipt. The test input was subsequently extended; no claim that the later test file is the exact negative input."
+  },
+  "baselineProductionSHA256": {
+    "prototype/src/contesting/Not1MMContestWorkspace.tsx": "519289c6204c775f4901c612892d70b63e6b914379491a38a8af88f3a454eb99",
+    "prototype/src/contesting/contestSetupDialogs.ts": "73081c3e03e03f45558b7fa54d8846462ae82b61e2d9eeee6f0628ffd02c3172",
+    "prototype/src/contesting/DetachedContestDigitalDialog.tsx": "b01817a5b4f171b43ebae1d7ed96b59486e4932cc02294ece020fca04112563d",
+    "prototype/src/contesting/DetachedContestSurface.tsx": "bb9604a7bff390292e10e516e606a5e321aaa44c56f58585d90aef669c8b2c2e",
+    "prototype/src/contesting/contestSurfaceProtocol.ts": "107e5a9cce4b8c765336a13d8daf2c011c6f8bffa60ec78179cb3b10d942cd6d",
+    "prototype/src-tauri/src/contest_surface.rs": "b6daa3b963d4a4e67978cf46bd46071147596bde919f920645a32a839c027a1c"
+  },
+  "currentProductionSHA256": {
+    "prototype/src/contesting/Not1MMContestWorkspace.tsx": "66438d0526d0b445a3a0f6f1243018db011463d43cd13231a260b134e740de55",
+    "prototype/src/contesting/contestSetupDialogs.ts": "69b5fe7efa83448d2d0e843940ddee4b35b4e1965d7cd1d82aee6b9404b8cb61",
+    "prototype/src/contesting/DetachedContestDigitalDialog.tsx": "a9f36174b2f429058565fc740c978e0c24ab6465410914a643f29a81921afeb6",
+    "prototype/src/contesting/DetachedContestSurface.tsx": "d9054f24a344b777268c6ae66cc86bacf45702eea69a1cbfecc4dda4c1d67579",
+    "prototype/src/contesting/contestSurfaceProtocol.ts": "07241357ac2501a65917300a7fb91d56488a108d1683977642d28d55507c1693",
+    "prototype/src-tauri/src/contest_surface.rs": "48f780df03735f49ebb9f75cc081fcbc78becf543aa05de7a7ddc84a7e0852a4"
+  }
+}

@@ -329,6 +329,30 @@ it("routes Digital logging changes through the existing setup owner", async () =
   expect(native.invoke).toHaveBeenCalledWith("contest_setup_dialog_request", { method:"complete",
     params:expect.objectContaining({requestID:"digital-1",ok:true}) });
 });
+it("publishes retained fldigi release evidence before completing a failed Stop receipt",async()=>{
+  const source=snapshot(),digital={configuration:{enabled:false,address:"127.0.0.1",port:2237,destination:"active_contest" as const},
+    running:false,status:"Off",receive_only:true,contest_target_supported:true,
+    fldigi:{configuration:{receive_enabled:false,transmit_enabled:false},receive_running:false,receive_supported:true,transmit_supported:true,
+      udp_endpoint:"127.0.0.1:9876",xmlrpc_endpoint:"http://127.0.0.1:7362/RPC2",status:"Release unconfirmed.",
+      transmit_release_required:true,transmit_release_uncertain:true,configuration_error:"Settings could not be saved."}};
+  let delivered=false,changed=false;
+  const saveDigital=vi.fn(async()=>{changed=true;throw new Error("Settings could not be saved.");});
+  native.invoke.mockImplementation(async(_command,{method,params})=>{
+    if(method==="next"&&!delivered){delivered=true;return{...source,requestID:"stop-failed",kind:"digital",digital:{configuration:digital.configuration,action:"stop"}};}
+    if(method==="complete"){
+      const publications=native.invoke.mock.calls.filter(([,args])=>args.method==="publish");
+      expect(publications.at(-1)?.[1].params.auxiliary.digital).toEqual(digital);
+      expect(params).toMatchObject({requestID:"stop-failed",ok:false,message:"Settings could not be saved."});
+    }
+    return method==="next"?null:source;
+  });
+  function Owner(){useContestSetupDialogs({enabled:true,context:source.context,document:source.document,auxiliary:source.auxiliary,
+    readDigital:()=>changed?digital:undefined,save:vi.fn(),saveRover:vi.fn(),saveDigital,report:vi.fn()});return null;}
+  render(<Owner/>);
+  await waitFor(()=>expect(native.invoke.mock.calls.some(([,args])=>args.method==="complete")).toBe(true));
+  expect(saveDigital).toHaveBeenCalledOnce();
+});
+
 it("accepts the native sorted digital snapshot without treating status text as configuration", async () => {
   const digital={configuration:{enabled:false,address:"127.0.0.1",port:2237,destination:"active_contest" as const},running:false,status:"Off",receive_only:true,contest_target_supported:true,active_contest:{session_id:"session",plugin_id:"cq_ww_rtty"}};
   const source={...snapshot(),auxiliary:{...snapshot().auxiliary,digital}};

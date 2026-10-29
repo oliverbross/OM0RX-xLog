@@ -1554,6 +1554,9 @@ fn validate_entry_operator(value: &Value) -> Result<(), String> {
     if operator.contains_key("autoCQ") {
         fields.push("autoCQ");
     }
+    if operator.contains_key("fldigi") {
+        fields.push("fldigi");
+    }
     exact(
         operator,
         &fields,
@@ -1646,6 +1649,14 @@ fn validate_entry_operator(value: &Value) -> Result<(), String> {
         "canCommit",
     ] {
         boolean(&readiness[key], "operator readiness")?;
+    }
+    if let Some(fldigi) = operator.get("fldigi") {
+        let fldigi = object(fldigi, "operator fldigi")?;
+        exact(fldigi, &["transmit_release_required", "transmit_release_uncertain", "configuration_error", "status"], "operator fldigi")?;
+        boolean(&fldigi["transmit_release_required"], "fldigi release duty")?;
+        boolean(&fldigi["transmit_release_uncertain"], "fldigi uncertain release")?;
+        nullable_text(&fldigi["configuration_error"], 2048, "fldigi configuration error")?;
+        text_value(&fldigi["status"], 512, true, "fldigi status")?;
     }
     if let Some(auto_cq) = operator.get("autoCQ") {
         let auto_cq = object(auto_cq, "operator Auto CQ")?;
@@ -4027,6 +4038,27 @@ mod tests {
             )
             .collect::<Vec<_>>());
         assert!(validate_projection("active-qso", &excessive_trace).is_err());
+    }
+
+    #[test]
+    fn entry_operator_retains_bounded_fldigi_release_evidence() {
+        let legacy = entry_v2();
+        assert!(validate_projection("active-qso", &legacy).is_ok());
+        let mut entry = legacy;
+        entry["operator"]["fldigi"] = json!({"transmit_release_required":true,"transmit_release_uncertain":true,
+            "configuration_error":"Settings could not be saved.","status":"Receive release is unconfirmed."});
+        assert!(validate_projection("active-qso", &entry).is_ok());
+        entry["operator"]["fldigi"]["configuration_error"] = Value::Null;
+        assert!(validate_projection("active-qso", &entry).is_ok());
+        for (key, value) in [("extra", json!(true)), ("transmit_release_required", json!(1)),
+            ("transmit_release_uncertain", json!("true")), ("configuration_error", json!(42)),
+            ("configuration_error", json!("x".repeat(2049))), ("status", json!("x".repeat(513)))] {
+            let mut invalid = entry.clone();
+            invalid["operator"]["fldigi"][key] = value;
+            assert!(validate_projection("active-qso", &invalid).is_err(), "{key}");
+        }
+        entry["operator"]["fldigi"] = Value::Null;
+        assert!(validate_projection("active-qso", &entry).is_err());
     }
 
     #[test]

@@ -1,0 +1,29 @@
+{
+  "id": "fa017-ui-r3",
+  "command": [
+    "npm",
+    "run",
+    "test:vitest",
+    "--",
+    "src/contesting/Not1MMContestWorkspace.test.tsx",
+    "src/contesting/DetachedContestDigitalDialog.test.tsx",
+    "src/contesting/DetachedContestSurface.test.tsx",
+    "src/contesting/contestSurfaceProtocol.test.ts",
+    "-t",
+    "fldigi"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-29T05:03:45.813190+00:00",
+  "finishedUTC": "2026-10-29T05:03:53.326619+00:00",
+  "seconds": 7.513,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "86a971e0338a7ce6432607f5648dfc1c23ec2a68",
+  "sourceHeadEnd": "86a971e0338a7ce6432607f5648dfc1c23ec2a68",
+  "sourceDiffSHA256": "3d3a85834d7a9f19b01617f660d7607c80f5c5e7945f3c4c6008405441bab607",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/fa017-ui-r3.log",
+  "logBytes": 1846,
+  "logSHA256": "53880c589f2a6412e09a82ee3677244ae3c94ab361ac92ace7cc0802f3d4ac2e",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

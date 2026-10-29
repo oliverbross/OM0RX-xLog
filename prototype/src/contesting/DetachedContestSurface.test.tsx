@@ -1840,6 +1840,31 @@ it.each([{available:false},{available:true}])("keeps original RTTY macros visibl
   }
 });
 
+it.each(["RTTY","SSB"])("keeps fldigi release-only Stop and Escape available while uncertain in %s",async mode=>{
+  const fldigi={transmit_release_required:true,transmit_release_uncertain:true,configuration_error:"Settings could not be saved.",status:"Receive release is unconfirmed."};
+  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode},
+    descriptor:{bands:["20m"],modes:[mode],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
+    operator:{output:"xlog-native",outputAvailable:false,outputUnavailableReason:"Transmit disabled pending release.",armed:true,
+      style:"run",status:"uncertain",pending:null,focusedField:"callsign",...tabMaps,fldigi,
+      functionKeys:[{key:"F1",macro:"CQ TEST",highlighted:true}],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,
+        canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return view;
+    if(command==="contest_surface_action")return{requestID:args.requestID,status:"applied"};
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);
+  const retry=await screen.findByRole("button",{name:"Retry fldigi release"});
+  expect(screen.getByText(/Receive release is unconfirmed/)).toBeTruthy();
+  expect(screen.getByText("Settings could not be saved.")).toBeTruthy();
+  expect((screen.getByRole("button",{name:"F1 CQ TEST"}) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(retry);
+  await waitFor(()=>expect(native.invoke.mock.calls.filter(([command,args])=>command==="contest_surface_action"&&args.action==="entry_operator_key"&&args.params.key==="Escape")).toHaveLength(1));
+  fireEvent.keyDown(screen.getByRole("region",{name:"Main Logging"}),{key:"Escape"});
+  await waitFor(()=>expect(native.invoke.mock.calls.filter(([command,args])=>command==="contest_surface_action"&&args.action==="entry_operator_key"&&args.params.key==="Escape")).toHaveLength(2));
+  expect(native.invoke.mock.calls.filter(([command,args])=>command==="contest_surface_action").every(([,args])=>args.params.key==="Escape")).toBe(true);
+});
+
 it.each([{armed:false,label:"Arm recorded phone",next:true},{armed:true,label:"Disarm",next:false}])(
   "routes truthful production SSB $label controls through the owner",async({armed,label,next})=>{
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode:"SSB",sentReport:"59",receivedReport:"59"},

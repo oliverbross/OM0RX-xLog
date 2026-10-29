@@ -9,7 +9,8 @@ export type ContestDigitalSnapshot = { configuration: { enabled: boolean; addres
   active_contest?: { session_id: string; plugin_id: string } | null;
   fldigi?: { configuration: { receive_enabled: boolean; transmit_enabled: boolean };
     receive_supported: boolean; transmit_supported: boolean; receive_running: boolean; status: string;
-    udp_endpoint: string; xmlrpc_endpoint: string } };
+    udp_endpoint: string; xmlrpc_endpoint: string; transmit_release_required?: boolean;
+    transmit_release_uncertain?: boolean; configuration_error?: string | null } };
 export type ContestDigitalSave = { configuration: ContestDigitalSnapshot["configuration"];
   fldigi_configuration?: { receive_enabled: boolean; transmit_enabled: boolean }; action: "save" | "start" | "stop" };
 export type SetupDialogAuxiliary = { roverLocation: string; activeSessionID?: string; effectiveMacros?: ContestSetupDocument["macros"];
@@ -58,7 +59,9 @@ function dialogOwnedState(snapshot: SetupDialogSnapshot, kind: SetupDialogKind):
       running:value.running,receive_only:value.receive_only,contest_target_supported:value.contest_target_supported,
       active_contest:value.active_contest?{session_id:value.active_contest.session_id,plugin_id:value.active_contest.plugin_id}:null,
       fldigi:value.fldigi?{configuration:{receive_enabled:value.fldigi.configuration.receive_enabled,transmit_enabled:value.fldigi.configuration.transmit_enabled},
-        receive_supported:value.fldigi.receive_supported,transmit_supported:value.fldigi.transmit_supported,receive_running:value.fldigi.receive_running}:null};
+        receive_supported:value.fldigi.receive_supported,transmit_supported:value.fldigi.transmit_supported,receive_running:value.fldigi.receive_running,
+        transmit_release_required:value.fldigi.transmit_release_required,transmit_release_uncertain:value.fldigi.transmit_release_uncertain,
+        configuration_error:value.fldigi.configuration_error}:null};
   }
   return { preferences: snapshot.document.preferences, network: snapshot.document.network };
 }
@@ -101,6 +104,7 @@ export async function saveContestSetupDialog(snapshot: SetupDialogSnapshot, docu
 
 export function useContestSetupDialogs(options: { enabled: boolean; context: string; document: ContestSetupDocument; auxiliary: SetupDialogAuxiliary;
   save: (document: ContestSetupDocument) => Promise<void>; saveRover: (location: string) => Promise<void>;
+  readDigital?: () => ContestDigitalSnapshot | undefined;
   saveDigital?: (digital: ContestDigitalSave) => Promise<void>; report: (message: string) => void }) {
   const latest = useRef(options); latest.current = options;
   useEffect(() => {
@@ -136,6 +140,13 @@ export function useContestSetupDialogs(options: { enabled: boolean; context: str
               result.ok = true;
             } catch (cause) { result.message = errorMessage(cause, "Setup could not be saved."); }
             completed.set(pending.requestID, result);
+          }
+          // A Stop can publish retained release duty even when saving settings fails.
+          // Complete only after a fresh dialog snapshot can expose that evidence.
+          if (pending.kind === "digital") {
+            const current = latest.current;
+            await setupDialogRequest("publish", { epoch, context:current.context, document:current.document,
+              auxiliary:{...current.auxiliary,digital:current.readDigital ? current.readDigital() : current.auxiliary.digital} });
           }
           await setupDialogRequest("complete", result);
         }

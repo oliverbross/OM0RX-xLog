@@ -62,3 +62,30 @@ it("keeps Stop available and submits the saved configuration when the draft is i
   await waitFor(() => expect(invoke).toHaveBeenCalledWith("contest_setup_dialog_request", expect.objectContaining({method:"submit",
     params:expect.objectContaining({digital:expect.objectContaining({configuration:snapshot.auxiliary.digital.configuration,action:"stop"})})})));
 });
+
+it("retains fldigi release-only recovery with transmit disabled and both errors visible",async()=>{
+  const uncertain={...snapshot,auxiliary:{...snapshot.auxiliary,digital:{...snapshot.auxiliary.digital,fldigi:{...snapshot.auxiliary.digital.fldigi,
+    transmit_release_required:true,transmit_release_uncertain:true,status:"fldigi receive release is unconfirmed.",configuration_error:"Settings could not be saved."}}}};
+  let current=uncertain,stops=0;
+  invoke.mockImplementation(async(_command,{method,params}:any)=>{
+    if(method==="snapshot")return current;
+    if(method==="submit"){
+      expect(params.digital.action).toBe("stop");stops++;
+      if(stops===2)current={...uncertain,auxiliary:{...uncertain.auxiliary,digital:{...uncertain.auxiliary.digital,fldigi:{...uncertain.auxiliary.digital.fldigi,
+        transmit_release_required:false,transmit_release_uncertain:false,status:"Off",configuration_error:null as any}}}};
+      return{requestID:params.requestID,status:"saved"};
+    }
+    return null;
+  });
+  render(<DetachedContestDigitalDialog/>);await screen.findByRole("button",{name:"Retry fldigi release"});
+  expect(screen.getByText("fldigi receive release is unconfirmed.")).toBeTruthy();
+  expect(screen.getByText("Settings could not be saved.")).toBeTruthy();
+  expect((screen.getByLabelText("Enable fldigi macro transmit") as HTMLInputElement).disabled).toBe(true);
+  expect((screen.getByRole("button",{name:"Save and listen"}) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button",{name:"Retry fldigi release"}));
+  await waitFor(()=>expect(stops).toBe(1));
+  await waitFor(()=>expect((screen.getByRole("button",{name:"Retry fldigi release"}) as HTMLButtonElement).disabled).toBe(false));
+  expect(invoke.mock.calls.some(([,args])=>args.method==="close")).toBe(false);
+  fireEvent.click(screen.getByRole("button",{name:"Retry fldigi release"}));
+  await waitFor(()=>expect(invoke.mock.calls.some(([,args])=>args.method==="close")).toBe(true));
+});

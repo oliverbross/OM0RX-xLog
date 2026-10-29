@@ -94,6 +94,7 @@ public actor LiveFldigiBridge {
     private var rxText: (id:String,text:String,instance:String,version:String,at:Date,destination:WSJTXContestDestination)?
     private var completed: [FldigiCompleted] = []
     private var completedRecoveryError:String?
+    private var configurationPersistenceError: String?
     private let ingress = SpotIngressGate(limit: 64)
     // Set before an admitted TX request can reach RPC. A lost reply retains
     // the duty; configuration alone never grants cleanup of another engine.
@@ -101,6 +102,7 @@ public actor LiveFldigiBridge {
     private var sendInFlight = false
     private var releasesInFlight = 0
     private var releaseUncertain = false
+    private var explicitStopRequested = false
 
     init(configurationURL: URL? = nil,
          externalIOAllowed: @escaping @Sendable () -> Bool = { AppRuntimeProfile.current.externalIOAllowed },
@@ -192,6 +194,7 @@ public actor LiveFldigiBridge {
             }
             let next = FldigiConfiguration(receiveEnabled: receive, transmitEnabled: transmit)
             try save(FldigiConfiguration(receiveEnabled: false, transmitEnabled: transmit)); configuration = next
+            if receive || transmit { explicitStopRequested = false }
         case "fldigi_start":
             try require(params, allowed: [])
             let config = try load()
@@ -204,9 +207,16 @@ public actor LiveFldigiBridge {
         case "fldigi_stop":
             try require(params, allowed: [])
             stopReceiver(); retireDestination(); transmitGeneration = UUID()
-            var next = try load(); next.receiveEnabled = false; next.transmitEnabled = false
-            try save(next); configuration = next; status = "Off"
+            // Revocation and the explicit receive attempt do not depend on a
+            // readable/writable preferences file. Never reload old TX consent.
+            configuration = FldigiConfiguration()
+            explicitStopRequested = true
+            status = "fldigi Stop requested; receive release is pending."
             await returnToReceive(emergency: true)
+            // Actor reentrancy may admit a newer explicit configuration while
+            // RX is pending. Persist the current memory state, not an old copy.
+            do { try save(configuration ?? FldigiConfiguration()) }
+            catch { /* The separate snapshot error retains this failure. */ }
         case "fldigi_send":
             try require(params, allowed: ["actions"], required: ["actions"])
             guard externalIOAllowed(), !terminalShutdown else {
@@ -223,6 +233,7 @@ public actor LiveFldigiBridge {
             }
             let generation = transmitGeneration
             let duty = UUID()
+            explicitStopRequested = false
             transmitDuty = duty; sendInFlight = true
             defer { sendInFlight = false }
             do {
@@ -309,7 +320,12 @@ public actor LiveFldigiBridge {
     private func returnToReceive(duty: UUID? = nil, retiringSend: Bool = false, emergency: Bool = false) async {
         let expected = duty ?? transmitDuty
         guard emergency || expected != nil else { return }
-        guard externalIOAllowed() else { releaseUncertain = expected != nil; return }
+        guard externalIOAllowed() else {
+            releaseUncertain = releaseUncertain || expected != nil
+            if releaseUncertain { status = "fldigi receive release is unconfirmed; external services are disabled." }
+            else if explicitStopRequested { status = "fldigi is disabled locally; external services are disabled." }
+            return
+        }
         releasesInFlight += 1
         defer { releasesInFlight -= 1 }
         do {
@@ -318,6 +334,9 @@ public actor LiveFldigiBridge {
             // issue its own final release before this duty can be forgotten.
             if transmitDuty == expected, !sendInFlight || retiringSend {
                 transmitDuty = nil; releaseUncertain = false
+                if explicitStopRequested { status = "fldigi receive command acknowledged." }
+            } else if explicitStopRequested {
+                status = "fldigi Stop requested; pending output must retire before release is acknowledged."
             }
         } catch {
             releaseUncertain = true
@@ -348,6 +367,7 @@ public actor LiveFldigiBridge {
                 "receive_supported": receiveDestination != nil, "transmit_supported": transmitDestination != nil,
                 "receive_running": receiver != nil, "received_count": receivedCount, "imported_count": importedCount,
                 "transmit_release_required": transmitDuty != nil, "transmit_release_uncertain": releaseUncertain,
+                "configuration_error": configurationPersistenceError as Any? ?? NSNull(),
                 "duplicate_count": duplicateCount, "rejected_count": rejectedCount, "status": status,
                 "completed":completed.filter{$0.destination==receiveDestination}.map{["id":$0.id,"sender":$0.sender,"packet":$0.packet,"state":"externally_completed_pending_review","instanceEvidence":"UDP has no engine identity; verify the external app before accepting"] as [String:Any]},
                 "recovery_error":completedRecoveryError as Any? ?? NSNull(),
@@ -362,10 +382,16 @@ public actor LiveFldigiBridge {
         let value = try JSONDecoder().decode(FldigiConfiguration.self, from: data); configuration = value; return value
     }
     private func save(_ value: FldigiConfiguration) throws {
-        let directory = configurationURL.deletingLastPathComponent()
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-        try JSONEncoder().encode(value).write(to: configurationURL, options: .atomic)
-        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: configurationURL.path)
+        do {
+            let directory = configurationURL.deletingLastPathComponent()
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+            try JSONEncoder().encode(value).write(to: configurationURL, options: .atomic)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: configurationURL.path)
+            configurationPersistenceError = nil
+        } catch {
+            configurationPersistenceError = "Could not persist fldigi settings. Changes may be lost on restart; check storage."
+            throw error
+        }
     }
     private func require(_ params: [String: Any], allowed: Set<String>, required: Set<String> = []) throws {
         guard Set(params.keys).isSubset(of: allowed), required.isSubset(of: Set(params.keys)) else { throw invalid() }

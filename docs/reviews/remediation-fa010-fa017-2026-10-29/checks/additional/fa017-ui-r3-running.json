@@ -1,0 +1,17 @@
+{
+  "id": "fa017-ui-r3",
+  "command": [
+    "npm",
+    "run",
+    "test:vitest",
+    "--",
+    "src/contesting/Not1MMContestWorkspace.test.tsx",
+    "src/contesting/DetachedContestDigitalDialog.test.tsx",
+    "src/contesting/DetachedContestSurface.test.tsx",
+    "src/contesting/contestSurfaceProtocol.test.ts",
+    "-t",
+    "fldigi"
+  ],
+  "startedUTC": "2026-10-29T05:03:45.813190+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "fa017-not1mm-complete-r3",
+  "command": [
+    "npm",
+    "run",
+    "test:vitest",
+    "--",
+    "src/contesting/Not1MMContestWorkspace.test.tsx"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-29T05:15:13.987464+00:00",
+  "finishedUTC": "2026-10-29T05:16:05.583183+00:00",
+  "seconds": 51.594,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "86a971e0338a7ce6432607f5648dfc1c23ec2a68",
+  "sourceHeadEnd": "86a971e0338a7ce6432607f5648dfc1c23ec2a68",
+  "sourceDiffSHA256": "5ebfd43330f95b5532c2c14f99aa89d3f2f3fd143ecd3f6527571eda2e02c3c9",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/fa017-not1mm-complete-r3.log",
+  "logBytes": 5524,
+  "logSHA256": "4301c8fcadc8df9537dae8a2ebd85583f73955fbb4126b930af5b97c8892a1f4",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

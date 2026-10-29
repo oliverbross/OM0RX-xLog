@@ -28,11 +28,25 @@ export function DetachedContestDigitalDialog() {
     const configuration = action === "stop" ? snapshot.auxiliary.digital?.configuration ?? draft : draft;
     if (!validWSJTXConfiguration(configuration)) return;
     setSaving(true); setError("");
-    try { await saveContestDigitalDialog(snapshot, { configuration, fldigi_configuration: fldigiDraft, action }); await closeContestSetupDialog(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : typeof cause === "string" ? cause : "Digital logging settings could not be saved."); }
+    try {
+      await saveContestDigitalDialog(snapshot, { configuration, fldigi_configuration: fldigiDraft, action });
+      if (action === "stop") {
+        const current = await setupDialogRequest<SetupDialogSnapshot>("snapshot"); setSnapshot(current);
+        setFldigiDraft(current.auxiliary.digital?.fldigi?.configuration ?? fldigiDraft);
+        const fldigi = current.auxiliary.digital?.fldigi;
+        if (fldigi?.transmit_release_required || fldigi?.transmit_release_uncertain || fldigi?.configuration_error) return;
+      }
+      await closeContestSetupDialog();
+    }
+    catch (cause) {
+      setError(cause instanceof Error ? cause.message : typeof cause === "string" ? cause : "Digital logging settings could not be saved.");
+      if (action === "stop") try { const current = await setupDialogRequest<SetupDialogSnapshot>("snapshot"); setSnapshot(current);
+        setFldigiDraft(current.auxiliary.digital?.fldigi?.configuration ?? fldigiDraft); } catch { /* Retain the last confirmed release state. */ }
+    }
     finally { setSaving(false); }
   };
   const digital = snapshot?.auxiliary.digital;
+  const releaseRequired = digital?.fldigi?.transmit_release_required || digital?.fldigi?.transmit_release_uncertain;
   return <main className="contest-digital-dialog" aria-label="Digital logging setup">
     <header><div><h1>Digital logging</h1><p>Configure xLog’s native receive-only WSJT-X service and choose the destination for accepted contacts.</p></div>
       <span className={digital?.running ? "is-listening" : "is-inactive"}>{digital?.running ? "Listening" : digital ? "Stopped" : "Unavailable"}</span></header>
@@ -51,20 +65,21 @@ export function DetachedContestDigitalDialog() {
       <p className="digital-safety">Review decodes in Productivity → Entry &amp; stack. Select binds the exact current instance and lane; completed ADIF is a separate event. Reply remains unavailable without a qualified output/release contract. This listener sends no CAT or PTT.</p>
       {digital?.contest_target_supported && digital.active_contest && <p className="digital-safety">Active contest routes through the original <code>{digital.active_contest.plugin_id}</code> digital handler. Changing or closing that contest stops this listener; late packets are rejected.</p>}
     </section>
-    <section aria-labelledby="fldigi-heading"><div className="digital-section-heading"><div><h2 id="fldigi-heading">fldigi</h2><p>Receive logged ADIF on loopback UDP and send admitted F1–F12 text through loopback XML-RPC.</p></div><strong>{digital?.fldigi?.receive_running ? "Receiving" : fldigiDraft.transmit_enabled ? "Transmit enabled" : "Stopped"}</strong></div>
+    <section aria-labelledby="fldigi-heading"><div className="digital-section-heading"><div><h2 id="fldigi-heading">fldigi</h2><p>Receive logged ADIF on loopback UDP and send admitted F1–F12 text through loopback XML-RPC.</p></div><strong>{releaseRequired ? digital?.fldigi?.status : digital?.fldigi?.receive_running ? "Receiving" : fldigiDraft.transmit_enabled ? "Transmit enabled" : "Stopped"}</strong></div>
       <div className="digital-fields"><label><span>Logged-QSO receive</span><input aria-label="Enable fldigi logged-QSO receive" type="checkbox"
         checked={fldigiDraft.receive_enabled} disabled={!digital?.fldigi?.receive_supported}
         onChange={event => setFldigiDraft({...fldigiDraft,receive_enabled:event.target.checked})}/></label>
         <label><span>F1–F12 macro transmit</span><input aria-label="Enable fldigi macro transmit" type="checkbox"
-          checked={fldigiDraft.transmit_enabled} disabled={!digital?.fldigi?.transmit_supported}
+          checked={fldigiDraft.transmit_enabled} disabled={saving || !!releaseRequired || !digital?.fldigi?.transmit_supported}
           onChange={event => setFldigiDraft({...fldigiDraft,transmit_enabled:event.target.checked})}/></label></div>
       <dl><div><dt>Logged ADIF UDP</dt><dd><code>{digital?.fldigi?.udp_endpoint ?? "127.0.0.1:9876"}</code></dd></div><div><dt>XML-RPC</dt><dd><code>{digital?.fldigi?.xmlrpc_endpoint ?? "http://127.0.0.1:7362/RPC2"}</code></dd></div><div><dt>Text order</dt><dd><code>main.tx</code>, then <code>text.add_tx</code></dd></div></dl>
       <p className="digital-safety">Review non-destructive received text and completed ADIF in Productivity → Entry &amp; stack. UDP does not identify the fldigi instance: verify the external app and explicitly accept its completed event. Transmit is separate: <code>^M</code> becomes a newline and <code>^r</code> returns fldigi to receive.</p>
     </section>
+    {digital?.fldigi?.configuration_error && <p role="alert" className="digital-error">{digital.fldigi.configuration_error}</p>}
     {error && <p role="alert" className="digital-error">{error}</p>}
     <footer><button type="button" disabled={saving} onClick={() => void closeContestSetupDialog()}>Cancel</button>
-      <button type="button" disabled={saving || !digital || !(digital.running || digital.configuration.enabled)} onClick={() => void submit("stop")}>Stop listening</button>
-      <button type="button" disabled={saving || !draft || !validWSJTXConfiguration(draft)} onClick={() => void submit("save")}>Save settings</button>
-      <button type="button" className="contest-primary" disabled={saving || !draft || !validWSJTXConfiguration(draft)} onClick={() => void submit("start")}>{saving ? "Applying…" : "Save and listen"}</button></footer>
+      <button type="button" disabled={saving || !digital || !(digital.running || digital.configuration.enabled || digital.fldigi?.configuration.transmit_enabled || digital.fldigi?.receive_running || releaseRequired)} onClick={() => void submit("stop")}>{releaseRequired ? "Retry fldigi release" : "Stop listening"}</button>
+      <button type="button" disabled={saving || !!releaseRequired || !draft || !validWSJTXConfiguration(draft)} onClick={() => void submit("save")}>Save settings</button>
+      <button type="button" className="contest-primary" disabled={saving || !!releaseRequired || !draft || !validWSJTXConfiguration(draft)} onClick={() => void submit("start")}>{saving ? "Applying…" : "Save and listen"}</button></footer>
   </main>;
 }

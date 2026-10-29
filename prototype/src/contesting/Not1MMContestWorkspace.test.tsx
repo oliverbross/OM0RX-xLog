@@ -249,6 +249,89 @@ it("routes Digital logging saves, starts, and stops through the real host servic
   ]);
 });
 
+it.each([{uncertain:true,storageError:null,pendingFinal:false},{uncertain:false,storageError:null,pendingFinal:false},
+  {uncertain:false,storageError:"Settings could not be saved.",pendingFinal:false},{uncertain:true,storageError:"Settings could not be saved.",pendingFinal:false},
+  {uncertain:false,storageError:null,pendingFinal:true}])(
+  "retains fldigi Stop recovery until a confirmed release ($uncertain, $storageError, pending=$pendingFinal)",async({uncertain,storageError,pendingFinal})=>{
+  let current:any={...projection(),pluginID:"cq_ww_rtty",pluginName:"CQ WW RTTY",mode:"RTTY",supportedModes:["RTTY","SSB","CW"],fldigiTransmitAvailable:true};
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    if(method==="contest_draft_apply"){
+      current={...current,revision:current.revision+1,mode:params.mode??current.mode};
+      if(params.mode==="CW")current.operatingLanes={version:1,mode:"SO2V",keyboardLaneID:"laneA",lanes:["laneA","laneB"].map(laneID=>({...current,
+        laneID,draftID:current.draftID,bindingVersion:1,binding:null}))};
+      return{id:crypto.randomUUID(),ok:true,result:{projection:current,actions:[],messages:[]}};
+    }
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{plugins:[{id:"cq_ww_rtty",name:"CQ WW RTTY",modes:["RTTY"]}]}:
+      method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:method==="contest_log_page"?{rows:[],total:0}:method==="contest_score"?{score:current.score}:null;
+    if(!result)throw Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  const digital={configuration:{enabled:false,address:"224.0.0.1",port:42424,destination:"active_contest"},running:false,status:"Stopped",receive_only:true,contest_target_supported:true,active_contest:{session_id:current.sessionID,plugin_id:current.pluginID}};
+  let fldigi={configuration:{receive_enabled:false,transmit_enabled:true},receive_supported:true,transmit_supported:true,receive_running:false,status:"Sent 1 fldigi macro.",udp_endpoint:"127.0.0.1:9876",xmlrpc_endpoint:"http://127.0.0.1:7362/RPC2",transmit_release_required:true,transmit_release_uncertain:false,configuration_error:null as string|null};
+  let retryPending:Promise<void>|null=null,finishRetry:(()=>void)|undefined,wsjtxUnavailable=false;
+  const serviceRequest=vi.fn(async(method:string,params?:Record<string,unknown>)=>{
+    if(method==="wsjtx_snapshot"&&wsjtxUnavailable)throw Error("WSJT-X snapshot unavailable");
+    if(method==="wsjtx_snapshot"||method==="wsjtx_stop")return digital;
+    if(method==="fldigi_snapshot"){if(wsjtxUnavailable)fldigi={...fldigi,status:"Fresh fldigi release is unconfirmed."};return fldigi;}
+    if(method==="fldigi_stop"){if(retryPending)await retryPending;fldigi={...fldigi,configuration:{receive_enabled:false,transmit_enabled:false},status:uncertain?"fldigi receive release is unconfirmed; use Stop to retry before transmitting.":pendingFinal?"fldigi receive release is pending.":"Off",transmit_release_required:uncertain||pendingFinal,transmit_release_uncertain:uncertain,configuration_error:storageError};return fldigi;}
+    return request(method,params);
+  });
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={serviceRequest} {...workspaceProps}/>);
+  await createContestThroughSetup();await userEvent.click(screen.getByRole("button",{name:"Productivity desk"}));
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].operator.outputAvailable).toBe(true));
+  await act(async()=>{fireEvent.click(screen.getByRole("button",{name:"Stop"}));});
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].operator.status).toBe(uncertain?"uncertain":pendingFinal?"waiting":"disarmed"));
+  expect(setupDialogOwner.current.auxiliary.digital.fldigi).toEqual(fldigi);
+  expect(surfaceOwner.current.projections["active-qso"].operator.fldigi).toMatchObject({transmit_release_required:uncertain||pendingFinal,
+    transmit_release_uncertain:uncertain,configuration_error:storageError});
+  expect(validContestSurfaceProjection("active-qso",surfaceOwner.current.projections["active-qso"])).toBe(true);
+  if(uncertain||pendingFinal){
+    expect(screen.getAllByText(/receive release is (unconfirmed|pending)/).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button",{name:"Retry fldigi release"})).toBeTruthy();
+    const entry=surfaceOwner.current.projections["active-qso"];
+    expect(entry.operator.readiness).toMatchObject({canSendCQ:false,canSendCall:false,canSendDuplicate:false});
+    const stops=serviceRequest.mock.calls.filter(([method])=>method==="fldigi_stop").length;
+    await act(async()=>{const escape=surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_operator_key",params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Escape",focusedField:"callsign"}});
+      if(storageError)await expect(escape).rejects.toThrow(storageError);else await escape;});
+    expect(serviceRequest.mock.calls.filter(([method])=>method==="fldigi_stop")).toHaveLength(stops+1);
+    expect(nativeCW.stop).not.toHaveBeenCalled();
+    if(uncertain&&!storageError){
+      for(const mode of ["SSB","CW"]){
+        const draft=surfaceOwner.current.projections["active-qso"].draft;
+        await act(async()=>{await surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_set_mode",params:{draftID:current.draftID,expectedDraftRevision:draft.revision,value:mode}});});
+        expect(surfaceOwner.current.projections["active-qso"].operator).toMatchObject({armed:true,status:"uncertain",readiness:{canSendCQ:false}});
+        expect(screen.getByRole("button",{name:"Retry fldigi release"})).toBeTruthy();
+        const before=serviceRequest.mock.calls.filter(([method])=>method==="fldigi_stop").length;
+        await act(async()=>{await surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_operator_key",params:{draftID:current.draftID,expectedDraftRevision:surfaceOwner.current.projections["active-qso"].draft.revision,key:"Escape",focusedField:"callsign"}});});
+        expect(serviceRequest.mock.calls.filter(([method])=>method==="fldigi_stop")).toHaveLength(before+1);
+        expect(nativeCW.stop).not.toHaveBeenCalled();
+      }
+      wsjtxUnavailable=true;fldigi={...fldigi,status:"Fresh fldigi release is unconfirmed."};
+      await act(async()=>{await expect(setupDialogOwner.current.saveDigital({configuration:digital.configuration,action:"stop"})).rejects.toThrow("WSJT-X snapshot unavailable");});
+      expect(surfaceOwner.current.projections["active-qso"].operator.fldigi.status).toBe(fldigi.status);
+      expect(setupDialogOwner.current.auxiliary.digital.fldigi).toEqual(fldigi);
+      wsjtxUnavailable=false;
+    }
+    await act(async()=>{await expect(setupDialogOwner.current.saveDigital({configuration:digital.configuration,action:"stop"})).rejects.toThrow(storageError??/release is (unconfirmed|pending)/);});
+    expect(setupDialogOwner.current.auxiliary.digital.fldigi).toEqual(fldigi);
+    retryPending=new Promise<void>(resolve=>{finishRetry=resolve;});
+    await act(async()=>{fireEvent.click(screen.getByRole("button",{name:"Retry fldigi release"}));});
+    expect((screen.getByRole("button",{name:"Retry fldigi release"}) as HTMLButtonElement).disabled).toBe(true);
+    expect(surfaceOwner.current.projections["active-qso"].operator.readiness.canSendCQ).toBe(false);
+    const calls=serviceRequest.mock.calls.length;
+    await expect(surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_operator_key",params:{draftID:current.draftID,expectedDraftRevision:surfaceOwner.current.projections["active-qso"].draft.revision,key:"F1",focusedField:"callsign"}})).rejects.toThrow(/release is unconfirmed/);
+    expect(serviceRequest.mock.calls).toHaveLength(calls);
+    uncertain=false;storageError=null;pendingFinal=false;
+    await act(async()=>{finishRetry!();await retryPending;});
+    await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].operator.status).toBe("disarmed"));
+    expect(screen.queryByRole("button",{name:"Retry fldigi release"})).toBeNull();
+    expect(setupDialogOwner.current.auxiliary.digital.fldigi).toMatchObject({transmit_release_required:false,transmit_release_uncertain:false,configuration_error:null});
+  } else if(storageError){
+    expect(screen.getAllByText(storageError).length).toBeGreaterThan(0);
+  }
+});
+
 it("persists exact confirm, mark, marked-only and delete spot lifecycle semantics",()=>{
   const base={receivedAt:1,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,frequencyText:"14025.0",comment:"CQ",
     band:"20m",mode:"CW",country:"Germany",adif:230,continent:"EU",cqZone:14,ituZone:28,callStatus:"New",dxccStatus:"New",

@@ -1,0 +1,27 @@
+{
+  "id": "fa017-owner-r1",
+  "command": [
+    "npm",
+    "run",
+    "test:vitest",
+    "--",
+    "src/contesting/Not1MMContestWorkspace.test.tsx",
+    "src/contesting/DetachedContestSetupDialog.test.tsx",
+    "-t",
+    "fldigi|Digital|digital"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-29T05:08:09.150772+00:00",
+  "finishedUTC": "2026-10-29T05:08:14.424521+00:00",
+  "seconds": 5.273,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "86a971e0338a7ce6432607f5648dfc1c23ec2a68",
+  "sourceHeadEnd": "86a971e0338a7ce6432607f5648dfc1c23ec2a68",
+  "sourceDiffSHA256": "9b045c9741da97fee565c8d792ad82d58ed9b50b6ed3ddb7edd7afa673d35fb3",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/fa017-owner-r1.log",
+  "logBytes": 1618,
+  "logSHA256": "4caa144e7d814359a64b9e18020631c03d0aa8c4d77bd77ff99dabf1afe14cba",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

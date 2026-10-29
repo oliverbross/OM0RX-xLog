@@ -1,0 +1,866 @@
+
+> om0rx-xlog-p1-prototype@1.3.60 test:vitest
+> vitest run --maxWorkers=1 src/contesting/Not1MMContestWorkspace.test.tsx -t retains fldigi Stop recovery
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.3 [39m[90m/Users/oliver/Documents/Projects/OM0RX-xLog/prototype[39m
+
+ [31m❯[39m src/contesting/Not1MMContestWorkspace.test.tsx [2m([22m[2m197 tests[22m[2m | [22m[31m2 failed[39m[2m | [22m[33m195 skipped[39m[2m)[22m[33m 1718[2mms[22m[39m
+   [2m[90m↓[39m[22m calculates the main logger route from the same home and target coordinates as the map
+   [2m[90m↓[39m[22m reports RTC success and failure before the next scheduled attempt
+   [2m[90m↓[39m[22m selects only the nearest contest spot inside N1MM's 300 Hz tuning tolerance
+   [2m[90m↓[39m[22m creates a local marked S&P spot at the frequency being left without transmitting it
+   [2m[90m↓[39m[22m fails closed for missing, legacy, or malformed replicated contact revisions
+   [2m[90m↓[39m[22m ignores unrelated corrupt pending records before parsing the current scope
+   [2m[90m↓[39m[22m blocks stale current-scope pending evidence unless the operator confirms quarantine
+   [2m[90m↓[39m[22m quarantines confirmed corrupt current-scope evidence without discarding its raw bytes
+   [2m[90m↓[39m[22m keeps the detached owner on the compact Contest Setup panel instead of embedding a contest desk
+   [2m[90m↓[39m[22m keeps a detached owner rejection out of the contest workspace
+   [2m[90m↓[39m[22m keeps New Contest unavailable until the contest catalog is ready
+   [2m[90m↓[39m[22m replaces a cold catalog protocol failure with an actionable retry
+   [2m[90m↓[39m[22m opens all separate setup dialogs from the hub and Contest menu before a session exists
+   [2m[90m↓[39m[22m routes Digital logging saves, starts, and stops through the real host service
+[31m   [31m×[31m retains fldigi Stop recovery until a confirmed release (uncertain=true)[39m[33m 1362[2mms[22m[39m
+[31m   [31m×[31m retains fldigi Stop recovery until a confirmed release (uncertain=false)[39m[33m 354[2mms[22m[39m
+   [2m[90m↓[39m[22m persists exact confirm, mark, marked-only and delete spot lifecycle semantics
+   [2m[90m↓[39m[22m namespaces, expires, compacts and quota-retries bounded persisted spot overlays
+   [2m[90m↓[39m[22m never resurrects dropped confirmed or unmarked authority while retaining a marked local overlay
+   [2m[90m↓[39m[22m persists station settings before the first contest exists
+   [2m[90m↓[39m[22m queries the full contest log for partials and retains raw rows beyond the displayed page
+   [2m[90m↓[39m[22m keeps the focused Call enabled and preserves buffered typing during an automatic reminder claim
+   [2m[90m↓[39m[22m recovers a first-call contest_log_page failure without blocking the other auxiliary panels
+   [2m[90m↓[39m[22m recovers a first-call contest_score failure without blocking the other auxiliary panels
+   [2m[90m↓[39m[22m recovers a first-call contest_rates failure without blocking the other auxiliary panels
+   [2m[90m↓[39m[22m keeps detached log, score, rates and multiplier windows stable while a callsign edit advances the draft
+   [2m[90m↓[39m[22m publishes log rows without waiting for a pending sibling auxiliary lane
+   [2m[90m↓[39m[22m retains the last good log page when a later refresh fails
+   [2m[90m↓[39m[22m projects the final seven plugin contracts into the compact contest setup form
+   [2m[90m↓[39m[22m projects WIA-like wide-band and aliased modes through the canonical detached surface contract
+   [2m[90m↓[39m[22m projects the expected country universe, classified opportunities, hourly timeline and advisory received-zone values
+   [2m[90m↓[39m[22m suppresses entry multiplier status while owner callsign edits await the worker
+   [2m[90m↓[39m[22m suppresses entry multiplier status while owner other_2 edits await the worker
+   [2m[90m↓[39m[22m does not report an unresolved country for an empty draft
+   [2m[90m↓[39m[22m projects only fenced host contest points without replacing cluster opportunity scores
+   [2m[90m↓[39m[22m preserves authoritative CQ WW SSB dupe and country-zone multiplier classifications in both spot surfaces
+   [2m[90m↓[39m[22m retains a manually entered CQ WW QSO and publishes it to Band Map and radio only when Show worked is enabled
+   [2m[90m↓[39m[22m projects only the configured mode and bands into Cluster and Band Map even when the plug-in supports more modes
+   [2m[90m↓[39m[22m keeps inferred FT8 and out-of-range phone spots out of the CQ WW SSB desk
+   [2m[90m↓[39m[22m keeps publishing live contest spots when an older full-list preview is overtaken
+   [2m[90m↓[39m[22m finishes in-flight classification across passive draft edits and classifies only arriving spots
+   [2m[90m↓[39m[22m coalesces burst spot arrivals behind one in-flight preview without duplicate candidates
+   [2m[90m↓[39m[22m retains rebuild progress across arrivals and publishes the new score classification atomically
+   [2m[90m↓[39m[22m discards an in-flight pre-QSO classification and drains the new scoring revision
+   [2m[90m↓[39m[22m retains completed classifications when new spots supersede an in-flight list
+   [2m[90m↓[39m[22m stops a superseded classification list before issuing its remaining batches
+   [2m[90m↓[39m[22m recovers native radio publication after startup failure without changing owner
+   [2m[90m↓[39m[22m recovers native radio publication after delivery rejection without changing owner
+   [2m[90m↓[39m[22m recovers native radio publication after worker restart without changing owner
+   [2m[90m↓[39m[22m does not rotate or repeatedly retry a natively retired radio publisher
+   [2m[90m↓[39m[22m renews ready active-band radio spots while a new 20m classification is pending
+   [2m[90m↓[39m[22m renews ready active-band radio spots while a new 40m classification is pending
+   [2m[90m↓[39m[22m coalesces radio subsets and validates admitted chunks across unchanged
+   [2m[90m↓[39m[22m coalesces radio subsets and validates admitted chunks across draft and arrival
+   [2m[90m↓[39m[22m coalesces radio subsets and validates admitted chunks across QSO
+   [2m[90m↓[39m[22m discards queued pre-QSO snapshots and stale retries after an accepted receipt
+   [2m[90m↓[39m[22m discards queued pre-QSO snapshots and stale retries after an rejected receipt
+   [2m[90m↓[39m[22m publishes fresh active-band scoring after a QSO while a 20m row is rebuilding
+   [2m[90m↓[39m[22m publishes fresh active-band scoring after a QSO while a 40m row is rebuilding
+   [2m[90m↓[39m[22m renews an unchanged ready contest radio publication every minute
+   [2m[90m↓[39m[22m isolates malformed cluster callsigns from classification batches and radio readiness
+   [2m[90m↓[39m[22m clears contest radio spots when the active radio band is outside the configured contest bands
+   [2m[90m↓[39m[22m retains the last spot classification until a QSO mutation preview swaps atomically
+   [2m[90m↓[39m[22m retries a transient spot preview failure without blanking contest colors
+   [2m[90m↓[39m[22m routes the visible SPOT_DX action through the owned native contest spot adapter
+   [2m[90m↓[39m[22m marks only the exact typed callsign at the current observed VFO and creates a local overlay spot
+   [2m[90m↓[39m[22m reconciles a hidden marked-only selection and rejects Ctrl-G tuning it
+   [2m[90m↓[39m[22m rejects a current-revision native selection for a spot hidden by marked-only
+   [2m[90m↓[39m[22m drops stale confirmed overlay state when authority disappears and reappears in the same mount
+   [2m[90m↓[39m[22m projects Python exportFormats and rejects an unsupported Cabrillo owner action
+   [2m[90m↓[39m[22m routes detached EDI export through the prepared native single-completion owner
+   [2m[90m↓[39m[22m routes detached ADIF export and manual recalculation through the active Python owner
+   [2m[90m↓[39m[22m consumes native terminal export completion for { status: 'cancelled', …(2) }
+   [2m[90m↓[39m[22m consumes native terminal export completion for { status: 'failed', …(3) }
+   [2m[90m↓[39m[22m leaves pre-native export failures for the React action owner to reject
+   [2m[90m↓[39m[22m publishes ready empty CQ WW trackers and preserves populated matrices (worked=false)
+   [2m[90m↓[39m[22m publishes ready empty CQ WW trackers and preserves populated matrices (worked=true)
+   [2m[90m↓[39m[22m refreshes the current contest Rates snapshot every ten seconds
+   [2m[90m↓[39m[22m adopts an externally committed digital revision and republishes Log and Stats
+   [2m[90m↓[39m[22m publishes exact Statistics v3 once per score refresh without adding a statistics timer
+   [2m[90m↓[39m[22m fails closed on a Statistics response with a wrong session
+   [2m[90m↓[39m[22m fails closed on a Statistics response with a stale revision
+   [2m[90m↓[39m[22m fails closed on a Statistics response with a malformed
+   [2m[90m↓[39m[22m rejects an initial Rates snapshot with a wrong session
+   [2m[90m↓[39m[22m rejects an initial Rates snapshot with a stale revision
+   [2m[90m↓[39m[22m searches the complete log, focuses an exact repeated call and corrects only its callsign
+   [2m[90m↓[39m[22m projects CWT Name as received input and admits edits through the detached owner
+   [2m[90m↓[39m[22m projects the real host field roles for qso_party_sn Main Logging
+   [2m[90m↓[39m[22m projects the real host field roles for ca_qso_party Main Logging
+   [2m[90m↓[39m[22m projects the real host field roles for raem Main Logging
+   [2m[90m↓[39m[22m opens cwt corrections with the plugin-owned historical exchanges
+   [2m[90m↓[39m[22m opens k1usn_sst corrections with the plugin-owned historical exchanges
+   [2m[90m↓[39m[22m opens euhfc corrections with the plugin-owned historical exchanges
+   [2m[90m↓[39m[22m projects ICWC serial, original exchange labels, unique calls and editable packed name/serial
+   [2m[90m↓[39m[22m renders EUHFC host multiplier semantics without country fallbacks
+   [2m[90m↓[39m[22m renders IARU HF host multiplier semantics without country fallbacks
+   [2m[90m↓[39m[22m renders NAC VHF host multiplier semantics without country fallbacks
+   [2m[90m↓[39m[22m renders CQ WW RTTY host multiplier semantics without country fallbacks
+   [2m[90m↓[39m[22m renders ARRL DX SSB host multiplier semantics without country fallbacks
+   [2m[90m↓[39m[22m renders CQWS host multiplier semantics without country fallbacks
+   [2m[90m↓[39m[22m renders RDA Contest host multiplier semantics without country fallbacks
+   [2m[90m↓[39m[22m renders RDXC host multiplier semantics without country fallbacks
+   [2m[90m↓[39m[22m changes EUHFC current operating mode without rewriting the MIXED entry category
+   [2m[90m↓[39m[22m changes IARU HF current operating mode without rewriting the MIXED entry category
+   [2m[90m↓[39m[22m changes ARRL 10M current operating mode without rewriting the MIXED entry category
+   [2m[90m↓[39m[22m projects CWOPS Open serial/name exchange, retained dupes and unique-call score
+   [2m[90m↓[39m[22m projects Trans Tasman low bands, serial exchange, plugin dupe period and retained duplicate logging
+   [2m[90m↓[39m[22m projects the actual CQ WW SSB log columns, exchange, multiplier and correction prefill
+   [2m[90m↓[39m[22m projects the actual Oceania DX SSB log columns, exchange, multiplier and correction prefill
+   [2m[90m↓[39m[22m projects the actual Oceania DX CW log columns, exchange, multiplier and correction prefill
+   [2m[90m↓[39m[22m projects the actual CQ WPX CW log columns, exchange, multiplier and correction prefill
+   [2m[90m↓[39m[22m projects the actual CQ WPX SSB log columns, exchange, multiplier and correction prefill
+   [2m[90m↓[39m[22m projects the actual ARRL Sweepstakes CW log columns, exchange, multiplier and correction prefill
+   [2m[90m↓[39m[22m projects the actual ARRL Sweepstakes Phone log columns, exchange, multiplier and correction prefill
+   [2m[90m↓[39m[22m creates an SSB session from catalog metadata and runs ESM without native CW admission
+   [2m[90m↓[39m[22m simulates only claimed CQ WPX SSB voice-keyer intents in Contesting Test
+   [2m[90m↓[39m[22m simulates only claimed ARRL Sweepstakes Phone voice-keyer intents in Contesting Test
+   [2m[90m↓[39m[22m keeps production CQ WW SSB voice optional while logging Enter without output
+   [2m[90m↓[39m[22m keeps production CQ WPX SSB voice optional while logging Enter without output
+   [2m[90m↓[39m[22m keeps production ARRL Sweepstakes Phone voice optional while logging Enter without output
+   [2m[90m↓[39m[22m confirms a durable Enter save before auxiliary reads and fences their stale replies (publication fails: false)
+   [2m[90m↓[39m[22m confirms a durable Enter save before auxiliary reads and fences their stale replies (publication fails: true)
+   [2m[90m↓[39m[22m projects original RTTY macros with truthful fldigi availability (false)
+   [2m[90m↓[39m[22m projects original RTTY macros with truthful fldigi availability (true)
+   [2m[90m↓[39m[22m projects and routes production recorded-phone arm and stop only with a saved profile
+   [2m[90m↓[39m[22m runs detached Shift-F1 Auto CQ immediately in Run and cancels it on callsign input
+   [2m[90m↓[39m[22m records only a confirmed CQ at the observed VFO and returns through the owned tune route
+   [2m[90m↓[39m[22m keeps detached Escape scoped to contest output and independent from rotor availability
+   [2m[90m↓[39m[22m projects only configured bands into detached Main Logging
+   [2m[90m↓[39m[22m applies log Check Partial only through the revision-fenced Python draft
+   [2m[90m↓[39m[22m applies cluster Check Partial only through the revision-fenced Python draft
+   [2m[90m↓[39m[22m publishes imported plugin history to Check Partial and clears it with the next QSO
+   [2m[90m↓[39m[22m applies a mixed-mode Band Map contest spot mode to the radio and authoritative Not1MM draft exactly once
+   [2m[90m↓[39m[22m applies a single-mode Cluster contest spot mode to the radio and authoritative Not1MM draft exactly once
+   [2m[90m↓[39m[22m steps the observed VFO only through the injected durable station owner
+   [2m[90m↓[39m[22m steps through distinct displayed spots from the last mouse selection and reconciles a changed list
+   [2m[90m↓[39m[22m navigates only fresh needed multipliers on the current band in frequency order and rejects old scoring during rebuild
+   [2m[90m↓[39m[22m tunes the selected spot ID when duplicate callsigns exist and rejects an ambiguous callsign fallback
+   [2m[90m↓[39m[22m loads the spot before returning tune failures and blocks tune after detached band-maps draft failures
+   [2m[90m↓[39m[22m loads the spot before returning tune failures and blocks tune after detached dx-cluster draft failures
+   [2m[90m↓[39m[22m admits an offline contest only after the operator enters a valid manual frequency (initial "")
+   [2m[90m↓[39m[22m admits an offline contest only after the operator enters a valid manual frequency (initial "10.1")
+   [2m[90m↓[39m[22m admits an offline contest only after the operator enters a valid manual frequency (initial "invalid")
+   [2m[90m↓[39m[22m marks only a fresh observed VFO transition for authoritative S&P clearing
+   [2m[90m↓[39m[22m leaving a CQ WW SSB Run frequency switches to S&P and loads a nearby spot
+   [2m[90m↓[39m[22m adopts the radio-follow CQ zone and preserves a manual override through delayed lookup
+   [2m[90m↓[39m[22m keeps an SSB entry across small VFO steps but clears and captures beyond the fixed configured tolerance anchor
+   [2m[90m↓[39m[22m retains a manually typed callsign at its entry frequency when the operator tunes away
+   [2m[90m↓[39m[22m does not create heard spots when refocus and host revisions change at an unchanged authoritative VFO
+   [2m[90m↓[39m[22m keeps a clicked SX5P draft at 7150 while old and intermediate radio telemetry wait for the owned tune readback
+   [2m[90m↓[39m[22m follows a manual third frequency after a confirmed tune whose target React never rendered and navigates from the live VFO
+   [2m[90m↓[39m[22m keeps Run state and entry intact when CAT reconnects at a frequency
+   [2m[90m↓[39m[22m wipes the entry with one mutation while keeping committed auxiliary panels mounted
+   [2m[90m↓[39m[22m imports bounded CQ WW SSB ADIF batches through the normal commit path and restores the live draft
+   [2m[90m↓[39m[22m uses manual 50.125 MHz when the observed radio frequency is stale and outside the selected VHF contest
+   [2m[90m↓[39m[22m uses manual 144.200 MHz when the observed radio frequency is stale and outside the selected VHF contest
+   [2m[90m↓[39m[22m uses the manual VHF frequency when creating CQ WW VHF from an active HF session with stale HF CAT
+   [2m[90m↓[39m[22m admits 50125000 outside HF only when the plugin supports its band (true)
+   [2m[90m↓[39m[22m admits 144200000 outside HF only when the plugin supports its band (true)
+   [2m[90m↓[39m[22m admits 222100000 outside HF only when the plugin supports its band (true)
+   [2m[90m↓[39m[22m admits 2300100000 outside HF only when the plugin supports its band (true)
+   [2m[90m↓[39m[22m admits 134100000000 outside HF only when the plugin supports its band (true)
+   [2m[90m↓[39m[22m admits 50125000 outside HF only when the plugin supports its band (false)
+   [2m[90m↓[39m[22m restores the saved manual frequency when reopening a session without CAT
+   [2m[90m↓[39m[22m hides prior-session log rows while independently refreshing a newly opened session
+   [2m[90m↓[39m[22m defers a native contest window command until the saved session is fully restored
+   [2m[90m↓[39m[22m does not open Main Logging until its ready projection is published
+   [2m[90m↓[39m[22m acknowledges a native contest window command with Setup after startup finds no session
+   [2m[90m↓[39m[22m owns detached Not1MM frequency and mode commands through confirmed station tune and Python draft apply
+   [2m[90m↓[39m[22m creates a Python CQ WW session and logs through the actual-host wire
+   [2m[90m↓[39m[22m sends one native ESM operation with buffered fields and accepts its confirmed log even when CW fails
+   [2m[90m↓[39m[22m authorizes detached free-form CW through the native contest lease and never calls a raw output service
+   [2m[90m↓[39m[22m pages past QSO 100 and sends the complete correction contract
+   [2m[90m↓[39m[22m uses the replicated contact revision for a client correction and closes only after native sync
+   [2m[90m↓[39m[22m never falls back to local logging while a configured client is discovering
+   [2m[90m↓[39m[22m never falls back to local logging while a configured client is lease_lost
+   [2m[90m↓[39m[22m keeps the latent direct Log Now path fenced through shared client commit while discovering
+   [2m[90m↓[39m[22m keeps the latent direct Log Now path fenced through shared client commit while leasing
+   [2m[90m↓[39m[22m keeps the latent direct Log Now path fenced through shared client commit while connected
+   [2m[90m↓[39m[22m does not overwrite operator input when a background client replica page returns
+   [2m[90m↓[39m[22m retains one authored identity across a paged client commit and clears it only after the matching page
+   [2m[90m↓[39m[22m applies detached Entry mutations and commit through the Python session owner
+   [2m[90m↓[39m[22m keeps an uncertain detached commit receipt uncertain
+   [2m[90m↓[39m[22m keeps a lost focus reply uncertain and never reports a following failed ESM as applied
+   [2m[90m↓[39m[22m preserves original raw plugin fields on a unchanged contact correction
+   [2m[90m↓[39m[22m preserves original raw plugin fields on a callsign-only contact correction
+   [2m[90m↓[39m[22m preserves original raw plugin fields on a metadata contact correction
+   [2m[90m↓[39m[22m pages, edits, and deletes through the detached Log owner actions
+   [2m[90m↓[39m[22m applies retained SCP selection through the active Python draft owner
+   [2m[90m↓[39m[22m refreshes detached Check Partial after Main Logging changes the callsign
+   [2m[90m↓[39m[22m keeps legacy-generation Python sessions open in the main desk with detached windows disabled
+   [2m[90m↓[39m[22m recovers a stale remembered session to a discovered contest in Contest Setup
+   [2m[90m↓[39m[22m clears a stale remembered session and leaves multiple discovered contests for the operator to choose
+   [2m[90m↓[39m[22m prefers the Python host active contest when renderer storage is stale and multiple contests exist
+   [2m[90m↓[39m[22m strict native cold start opens only the supplied host-active contest without consulting renderer authority
+   [2m[90m↓[39m[22m shows a failed cold-start open and retries the same preserved contest
+   [2m[90m↓[39m[22m strict native cold start resumes the supplied contest even when the catalog is unavailable
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[33m195 skipped[39m[90m (197)[39m
+[2m   Start at [22m 14:26:15
+[2m   Duration [22m 4.76s[2m (tests 40%, transform 30%, environment 21%, import 8%)[22m
+
+
+--- stderr ---
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/contesting/Not1MMContestWorkspace.test.tsx[2m > [22mretains fldigi Stop recovery until a confirmed release (uncertain=true)
+[31m[1mAssertionError[22m[39m: expected 'disarmed' to be 'uncertain' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<main[39m
+        [33mclass[39m=[32m"contest-workspace is-setup-only"[39m
+      [36m>[39m
+        [36m<h1[39m
+          [33mclass[39m=[32m"contest-visually-hidden"[39m
+        [36m>[39m
+          [0mContest Setup[0m
+        [36m</h1>[39m
+        [36m<nav[39m
+          [33maria-label[39m=[32m"Contest workspace views"[39m
+          [33mclass[39m=[32m"contest-productivity-nav"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-pressed[39m=[32m"false"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mContest setup[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-pressed[39m=[32m"true"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mProductivity desk[0m
+          [36m</button>[39m
+        [36m</nav>[39m
+        [36m<section[39m
+          [33maria-label[39m=[32m"Contest identity"[39m
+          [33mclass[39m=[32m"contest-snapshot"[39m
+        [36m>[39m
+          [36m<div>[39m
+            [36m<span>[39m
+              [0mStation[0m
+            [36m</span>[39m
+            [36m<strong>[39m
+              [0mOM0RX[0m
+            [36m</strong>[39m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<span>[39m
+              [0mEngine[0m
+            [36m</span>[39m
+            [36m<strong>[39m
+              [0mNot1MM Python[0m
+            [36m</strong>[39m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<span>[39m
+              [0mPlugin[0m
+            [36m</span>[39m
+            [36m<strong>[39m
+              [0mcq_ww_rtty[0m
+            [36m</strong>[39m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<span>[39m
+              [0mRevision[0m
+            [36m</span>[39m
+            [36m<strong>[39m
+              [0m1[0m
+            [36m</strong>[39m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<span>[39m
+              [0mSource[0m
+            [36m</span>[39m
+            [36m<small>[39m
+              [0m7c8b499225a7[0m
+              [0m · [0m
+              [0mcty-test[0m
+            [36m</small>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33maria-label[39m=[32m"Productivity desk"[39m
+          [33mclass[39m=[32m"contest-productivity-desk"[39m
+        [36m>[39m
+          [36m<nav[39m
+            [33maria-label[39m=[32m"Productivity tools"[39m
+            [33mclass[39m=[32m"contest-productivity-nav"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-pressed[39m=[32m"true"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mEntry & stack[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-pressed[39m=[32m"false"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mCheck[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-pressed[39m=[32m"false"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mLog & notes[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-pressed[39m=[32m"false"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mSkeds[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-pressed[39m=[32m"false"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mOpportunities[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-pressed[39m=[32m"false"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mInfo & time[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-pressed[39m=[32m"false"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mMessages[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-pressed[39m=[32m"false"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mQTC[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-pressed[39m=[32m"false"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mVHF & sites[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-pressed[39m=[32m"false"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mDeveloper kit[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-pressed[39m=[32m"false"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mHistorical import[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-pressed[39m=[32m"false"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mSubmission[0m
+            [36m</button>[39m
+          [36m</nav>[39m
+          [36m<span[39m
+            [33maria-live[39m=[32m"polite"[39m
+            [33mclass[39m=[32m"contest-reminder-announcement"[39m
+            [33mrole[39m=[32m"status"[39m
+          [36m/>[39m
+          [36m<section[39m
+            [33maria-label[39m=[32m"Contest skeds and reminders"[39m
+            [33mclass[39m=[32m"contest-reminders contest-productivity-section"[39m
+            [33mhidden[39m=[32m""[39m
+          [36m>[39m
+            [36m<h2>[39m
+              [0mSkeds & reminders[0m
+            [36m</h2>[39m
+            [36m<p>[39m
+              [0mUTC reminders stay in this contest. Loading and tuning are explicit actions; completion is separate.[0m
+            [36m</p>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"contest-productivity-actions"[39m
+            [36m>[39m
+              [36m<button>[39m
+                [0mNew sked[0m
+              [36m</button>[39m
+              [36m<label>[39m
+                [36m<input[39m
+                  [33mtype[39m=[32m"checkbox"[39m
+                [36m/>[39m
+                [0m Include closed reminders[0m
+              [36m</label>[39m
+              [36m<span>[39m
+                [0m0[0m
+                [0m due[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mrole[39m=[32m"alert"[39m
+            [36m>[39m
+              [0mcontest_strategy[0m
+            [36m</p>[39m
+            [36m<ul[39m
+              [33maria-label[39m=[32m"Contest reminders"[39m
+              [33mclass[39m=[32m"contest-sked-list"[39m
+            [36m/>[39m
+          [36m</section>[39m
+          [36m<details[39m
+            [33maria-label[39m=[32m"Operating lane configuration"[39m
+            [33mclass[39m=[32m"contest-entry"[39m
+          [36m>[39m
+            [36m<summary>[39m
+              [0mOperating lanes · [0m
+              [0mSO1V[0m
+            [36m</summary>[39m
+            [36m<p>[39m
+              [0mSO1V keeps the existing entry. Two-lane routes are available only when the native owner supplies exact receiver bindings.[0m
+            [36m</p>[39m
+            [36m<button[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mReview native lane routes[0m
+            [36m</button>[39m
+          [36m</details>[39m
+          [36m<form[39m
+            [33maria-label[39m=[32m"CQ WW RTTY entry"[39m
+            [33mclass[39m=[32m"contest-entry"[39m
+          [36m>[39m
+            [36m<header>[39m
+              [36m<div>[39m
+                [36m<h2>[39m
+                  [36m<svg[39m
+                    [33mclass[39m=[32m"lucide lucide-radio"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"15"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"15"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M4.9 19.1C1 15.2 1 8.8 4.9 4.9"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"[39m
+                    [36m/>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"12"[39m
+                      [33mcy[39m=[32m"12"[39m
+                      [33mr[39m=[32m"2"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M19.1 4.9C23 8.8 23 15.1 19.1 19"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                  [0m [0m
+                  [0mCQ WW RTTY[0m
+                  [0m · Not1MM[0m
+                [36m</h2>[39m
+                [36m<p>[39m
+                  [0mActual pinned Python plugin · [0m
+                  [0mSearch & Pounce[0m
+                [36m</p>[39m
+              [36m</div>[39m
+              [36m<span>[39m
+                [0mReady[0m
+              [36m</span>[39m
+            [36m</header>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"contest-entry-fields"[39m
+            [36m>[39m
+              [36m<label[39m
+                [33mclass[39m=[32m"contest-call"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"contest-field-label"[39m
+                  [33mtitle[39m=[32m"Call"[39m
+                [36m>[39m
+                  [0mCall[0m
+                [36m</span>[39m
+                [36m<input[39m
+                  [33maria-label[39m=[32m"Call"[39m
+                  [33mautocomplete[39m=[32m"off"[39m
+                  [33mdata-contest-field[39m=[32m"callsign"[39m
+                  [33mvalue[39m=[32m""[39m
+                [36m/>[39m
+              [36m</label>[39m
+              [36m<label>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"contest-field-label"[39m
+                  [33mtitle[39m=[32m"SNT"[39m
+                [36m>[39m
+                  [0mSNT[0m
+                [36m</span>[39m
+                [36m<input[39m
+                  [33maria-label[39m=[32m"SNT"[39m
+                  [33mdata-contest-field[39m=[32m"sent"[39m
+                  [33mvalue[39m=[32m"599"[39m
+                [36m/>[39m
+              [36m</label>[39m
+              [36m<label>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"contest-field-label"[39m
+                  [33mtitle[39m=[32m"RCV"[39m
+                [36m>[39m
+                  [0mRCV[0m
+                [36m</span>[39m
+                [36m<input[39m
+                  [33maria-label[39m=[32m"RCV"[39m
+                  [33mdata-contest-field[39m=[32m"receive"[39m
+                  [33mvalue[39m=[32m"599"[39m
+                [36m/>[39m
+              [36m</label>[39m
+              [36m<label>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"contest-field-label"[39m
+                  [33mtitle[39m=[32m"CQ Zone"[39m
+                [36m>[39m
+                  [0mCQ Zone[0m
+                [36m</span>[39m
+                [36m<input[39m
+                  [33maria-label[39m=[32m"CQ Zone"[39m
+                  [33mdata-contest-field[39m=[32m"other_2"[39m
+                  [33mvalue[39m=[32m""[39m
+                [36m/>[39m
+              [36m</label>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"contest-entry-context"[39m
+            [36m>[39m
+              [36m<div>[39m
+                [36m<span>[39m
+                  [0mFrequency[0m
+                [36m</span>[39m
+                [36m<strong>[39m
+                  [0m14.025000[0m
+                  [0m MHz · radio observed[0m
+                [36m</strong>[39m
+              [36m</div>[39m
+              [36m<div>[39m
+                [36m<span>[39m
+                  [0mBand / mode[0m
+                [36m</span>[39m
+                [36m<strong>[39m
+                  [0m20m[0m
+                  [0m · [0m
+                  [0mRTTY[0m
+                [36m</strong>[39m
+              [36m</div>[39m
+              [36m<div>[39m
+                [36m<span>[39m
+                  [0mOperating style[0m
+                [36m</span>[39m
+                [36m<button[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0mS&P[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"contest-validation is-clear"[39m
+            [36m>[39m
+              [36m<strong>[39m
+                [0mDupe check[0m
+              [36m</strong>[39m
+              [36m<span>[39m
+                [0mCountry resolved by xLog CTY data.[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<section[39m
+              [33maria-label[39m=[32m"fldigi controls"[39m
+              [33mclass[39m=[32m"contest-operator"[39m
+            [36m>[39m
+              [36m<strong>[39m
+                [0mESM and fldigi[0m
+              [36m</strong>[39m
+              [36m<p>[39m
+                [0mfldigi macro output is unavailable. Enable the supported fldigi transmit path in Digital Logging Setup before sending. Manual logging and received-text selection remain separate.[0m
+              [36m</p>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"contest-operator-keys"[39m
+              [36m>[39m
+                [36m<button[39m
+                  [33mdisabled[39m=[32m""[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0mF1[0m
+                [36m</button>[39m
+                [36m<button[39m
+                  [33mdisabled[39m=[32m""[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0mF2[0m
+                [36m</button>[39m
+                [36m<button[39m
+                  [33mdisabled[39m=[32m""[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0mF3[0m
+                [36m</button>[39m
+                [36m<button[39m
+                  [33mdisabled[39m=[32m""[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0mF4[0m
+                [36m</button>[39m
+                [36m<button[39m
+                  [33mdisabled[39m=[32m""[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0mF5[0m
+                [36m</button>[39m
+                [36m<button[39m
+                  [33mdisabled[39m=[32m""[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0mF6[0m
+                [36m</button>[39m
+                [36m<button[39m
+                  [33mdisabled[39m=[32m""[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0mF7[0m
+                [36m</button>[39m
+                [36m<button[39m
+                  [33mdisabled[39m=[32m""[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0mF8[0m
+                [36m</button>[39m
+                [36m<button[39m
+                  [33mdisabled[39m=[32m""[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0mF9[0m
+                [36m</button>[39m
+                [36m<button[39m
+                  [33mdisabled[39m=[32m""[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0mF10[0m
+                [36m</button>[39m
+                [36m<button[39m
+                  [33mdisabled[39m=[32m""[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0mF11[0m
+                [36m</button>[39m
+                [36m<button[39m
+                  [33mdisabled[39m=[32m""[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0mF12[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</section>[39m
+            [36m<footer>[39m
+              [36m<button[39m
+                [33mdisabled[39m=[32m""[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [0mEnter / ESM[0m
+              [36m</button>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"contest-primary"[39m
+                [33mtype[39m=[32m"submit"[39m
+              [36m>[39m
+                [0mLog Now[0m
+              [36m</button>[39m
+            [36m</footer>[39m
+          [36m</form>[39m
+          [36m<section[39m
+            [33maria-label[39m=[32m"Call Stack"[39m
+            [33mclass[39m=[32m"contest-call-stack"[39m
+          [36m>[39m
+            [36m<header>[39m
+              [36m<h2>[39m
+                [0mCall Stack[0m
+              [36m</h2>[39m
+              [36m<p>[39m
+                [0mManual order · [0m
+                [0m0[0m
+                [0m queued · heard fragments only[0m
+              [36m</p>[39m
+              [36m<label>[39m
+                [36m<input[39m
+                  [33mchecked[39m=[32m""[39m
+                  [33mtype[39m=[32m"checkbox"[39m
+                [36m/>[39m
+                [0m Show On Deck[0m
+              [36m</label>[39m
+            [36m</header>[39m
+            [36m<p[39m
+              [33maria-label[39m=[32m"On Deck"[39m
+            [36m>[39m
+              [0mOn Deck: [0m
+              [36m<strong>[39m
+                [0mNo queued caller[0m
+              [36m</strong>[39m
+            [36m</p>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"contest-call-stack-add"[39m
+            [36m>[39m
+              [36m<label>[39m
+                [0mHeard call or partial [0m
+                [36m<input[39m
+                  [33maria-label[39m=[32m"Add heard call to stack"[39m
+                  [33mautocomplete[39m=[32m"off"[39m
+                  [33mmaxlength[39m=[32m"32"[39m
+                  [33mvalue[39m=[32m""[39m
+                [36m/>[39m
+              [36m</label>[39m
+              [36m<button[39m
+                [33mdisabled[39m=[32m""[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [0mAdd caller[0m
+              [36m</button>[39m
+            [36m</div>[39m
+            [36m<ol[39m
+              [33maria-label[39m=[32m"Queued callers"[39m
+            [36m/>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"contest-call-stack-actions"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mdisabled[39m=[32m""[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [0mLoad selected[0m
+              [36m</button>[39m
+              [36m<button[39m
+                [33mdisabled[39m=[32m""[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [0mLoad next[0m
+              [36m</button>[39m
+              [36m<button[39m
+                [33mdisabled[39m=[32m""[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [0mLog and load next[0m
+              [36m</button>[39m
+            [36m</div>[39m
+            [36m<p>[39m
+              [0mLoading changes Entry only. Calls containing ? must be completed before a contact can be saved.[0m
+            [36m</p>[39m
+          [36m</section>[39m
+        [36m</section>[39m
+        [36m<div[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mhidden[39m=[32m""[39m
+        [36m>[39m
+          [36m<section[39m
+            [33maria-label[39m=[32m"Check Partial"[39m
+            [33mclass[39m=[32m"contest-score"[39m
+          [36m>[39m
+            [36m<h2>[39m
+              [0mCheck Partial[0m
+            [36m</h2>[39m
+            [36m<section[39m
+              [33maria-label[39m=[32m"Super Check Partial"[39m
+              [33mclass[39m=[32m"contest-scp"[39m
+            [36m>[39m
+              [36m<header>[39m
+                [36m<strong>[39m
+                  [0mSuper Check Partial[0m
+                [36m</strong>[39m
+                [36m<button[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0mDownload latest[0m
+                [36m</button>[39m
+                [36m<button[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0mImport local file[0m
+                [36m</button>[39m
+              [36m</header>[39m
+              [36m<p>[39m
+                [0mNo MASTER.SCP dataset is active. Download the latest official file or import a local file.[0m
+              [36m</p>[39m
+            [36m</section>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"contest-source"[39m
+            [36m>[39m
+              [0mK1ABC United States[0m
+            [36m</p>[39m
+            [36m<p>[39m
+              [0mCountry resolved · not a duplicate[0m
+            [36m</p>[39m
+          [36m</section>[39m
+        [36m</div>[39m
+      [36m</main>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+
+Expected: [32m"uncertain"[39m
+Received: [31m"disarmed"[39m
+
+[36m [2m❯[22m src/contesting/Not1MMContestWorkspace.test.tsx:[2m273:92[22m[39m
+    [90m271|[39m   await waitFor(()=>expect(surfaceOwner.current.projections["active-qs…
+    [90m272|[39m   await act(async()=>{fireEvent.click(screen.getByRole("button",{name:…
+    [90m273|[39m   await waitFor(()=>expect(surfaceOwner.current.projections["active-qs…
+    [90m   |[39m                                                                                            [31m^[39m
+    [90m274|[39m   expect(setupDialogOwner.current.auxiliary.digital.fldigi).toEqual(fl…
+    [90m275|[39m   if(uncertain){
+[90m [2m❯[22m runWithExpensiveErrorDiagnosticsDisabled node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:[2m47:12[22m[39m
+[90m [2m❯[22m checkCallback node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:[2m124:77[22m[39m
+[90m [2m❯[22m Timeout.checkRealTimersCallback node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:[2m118:16[22m[39m
+
+
+[41m[1m FAIL [22m[49m src/contesting/Not1MMContestWorkspace.test.tsx[2m > [22mretains fldigi Stop recovery until a confirmed release (uncertain=false)
+[31m[1mAssertionError[22m: expected { configuration: { …(2) }, …(6) } to deeply equal { configuration: { …(2) }, …(9) }[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[2m    "configuration": {[22m
+[2m      "receive_enabled": false,[22m
+[2m      "transmit_enabled": false,[22m
+[2m    },[22m
+[32m-   "configuration_error": null,[39m
+[2m    "receive_running": false,[22m
+[2m    "receive_supported": true,[22m
+[2m    "status": "Off",[22m
+[32m-   "transmit_release_required": false,[39m
+[32m-   "transmit_release_uncertain": false,[39m
+[2m    "transmit_supported": true,[22m
+[2m    "udp_endpoint": "127.0.0.1:9876",[22m
+[2m    "xmlrpc_endpoint": "http://127.0.0.1:7362/RPC2",[22m
+[2m  }[22m
+
+[36m [2m❯[22m src/contesting/Not1MMContestWorkspace.test.tsx:[2m274:61[22m[39m
+    [90m272|[39m   await act(async()=>{fireEvent.click(screen.getByRole("button",{name:…
+    [90m273|[39m   await waitFor(()=>expect(surfaceOwner.current.projections["active-qs…
+    [90m274|[39m   expect(setupDialogOwner.current.auxiliary.digital.fldigi).toEqual(fl…
+    [90m   |[39m                                                             [31m^[39m
+    [90m275|[39m   if(uncertain){
+    [90m276|[39m     expect(screen.getByText(/receive release is unconfirmed/)).toBeTru…
+
+
+
+[exit:1]

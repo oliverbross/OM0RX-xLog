@@ -322,6 +322,17 @@ describe("contest native surface projection v1", () => {
     expect(validContestSurfaceProjection("logbook",{...projection,editing:{...projection.editing,details:{...details,points:3}}})).toBe(false);
   });
 
+  it("retains bounded fldigi release evidence without changing legacy operators",()=>{
+    const fldigi={transmit_release_required:true,transmit_release_uncertain:true,configuration_error:"Settings could not be saved.",status:"Receive release is unconfirmed."};
+    const entry=(value:unknown)=>({...entryProjectionV2,operator:{...entryProjectionV2.operator,fldigi:value}});
+    expect(validContestSurfaceProjection("active-qso",entryProjectionV2)).toBe(true);
+    expect(validContestSurfaceProjection("active-qso",entry(fldigi))).toBe(true);
+    expect(validContestSurfaceProjection("active-qso",entry({...fldigi,configuration_error:null}))).toBe(true);
+    for(const value of [null,{...fldigi,extra:true},{...fldigi,transmit_release_required:1},{...fldigi,transmit_release_uncertain:"true"},
+      {...fldigi,configuration_error:42},{...fldigi,configuration_error:"x".repeat(2049)},{...fldigi,status:"x".repeat(513)}])
+      expect(validContestSurfaceProjection("active-qso",entry(value))).toBe(false);
+  });
+
   it("admits bounded original phone macro labels and payloads in the simulation trace", () => {
     const phone = { ...entryProjectionV2, operator: { ...entryProjectionV2.operator,
       trace: [{ operationID:"operation-1:0", mode:"SSB", macro:"Their call", text:"K1ABC", status:"confirmed" }] } };

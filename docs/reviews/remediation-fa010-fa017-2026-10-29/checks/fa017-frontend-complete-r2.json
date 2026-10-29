@@ -1,0 +1,28 @@
+{
+  "id": "fa017-frontend-complete-r2",
+  "command": [
+    "npm",
+    "run",
+    "test:vitest",
+    "--",
+    "src/contesting/Not1MMContestWorkspace.test.tsx",
+    "src/contesting/DetachedContestDigitalDialog.test.tsx",
+    "src/contesting/DetachedContestSurface.test.tsx",
+    "src/contesting/contestSurfaceProtocol.test.ts",
+    "src/contesting/DetachedContestSetupDialog.test.tsx"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-29T05:08:49.082161+00:00",
+  "finishedUTC": "2026-10-29T05:09:55.410307+00:00",
+  "seconds": 66.328,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "86a971e0338a7ce6432607f5648dfc1c23ec2a68",
+  "sourceHeadEnd": "86a971e0338a7ce6432607f5648dfc1c23ec2a68",
+  "sourceDiffSHA256": "9b045c9741da97fee565c8d792ad82d58ed9b50b6ed3ddb7edd7afa673d35fb3",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/fa017-frontend-complete-r2.log",
+  "logBytes": 7121,
+  "logSHA256": "0b4e18687cc04df55899d27fe528f015d4223d91579e5934f83dbed4a5fc9fdc",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

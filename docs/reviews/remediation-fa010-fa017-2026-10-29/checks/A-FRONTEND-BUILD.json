@@ -1,0 +1,22 @@
+{
+  "id": "A-FRONTEND-BUILD",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/frontend_build.py"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T05:15:06.835258+00:00",
+  "finishedUTC": "2026-10-29T05:15:51.716934+00:00",
+  "seconds": 44.88,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "86a971e0338a7ce6432607f5648dfc1c23ec2a68",
+  "sourceHeadEnd": "86a971e0338a7ce6432607f5648dfc1c23ec2a68",
+  "sourceDiffSHA256": "5ebfd43330f95b5532c2c14f99aa89d3f2f3fd143ecd3f6527571eda2e02c3c9",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/A-FRONTEND-BUILD.log",
+  "logBytes": 31940,
+  "logSHA256": "3f5e62a74e4b918fdceb136da7cc4c50d992e90eb673edab1617c07fdc60a487",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

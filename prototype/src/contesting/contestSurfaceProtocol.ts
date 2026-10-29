@@ -113,6 +113,7 @@ export type ContestEntrySurfaceProjectionV2 = Omit<ContestEntrySurfaceProjection
     functionKeys: { key: "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F7" | "F8" | "F9" | "F10" | "F11" | "F12";
       macro: string; highlighted: boolean }[];
     autoCQ?: { active: boolean; delaySeconds: number; remainingMs: number | null };
+    fldigi?: { transmit_release_required: boolean; transmit_release_uncertain: boolean; configuration_error: string | null; status: string };
     readiness: { canSendCQ: boolean; canSendCall: boolean; canSendDuplicate: boolean; canReserveCall: boolean;
       canReserveCommit: boolean; canCommit: boolean };
     trace: { operationID: string; mode: "CW" | "SSB" | "AM" | "FM"; macro: string;
@@ -318,7 +319,10 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
     Object.keys(descriptor.spaceNext).length <= contestInputFieldIDs.length &&
     Object.entries(descriptor.spaceNext).every(([from, to]) => oneOf(from, contestInputFieldIDs) && oneOf(to, contestInputFieldIDs));
   const operatorValid = value.operator === null || !!operator &&
-    optionalKeys(operator, ["output", "outputAvailable", "outputUnavailableReason", "armed", "style", "status", "pending", "focusedField", "tabNext", "tabPrevious", "functionKeys", "readiness", "trace"], ["autoCQ"]) &&
+    optionalKeys(operator, ["output", "outputAvailable", "outputUnavailableReason", "armed", "style", "status", "pending", "focusedField", "tabNext", "tabPrevious", "functionKeys", "readiness", "trace"], ["autoCQ", "fldigi"]) &&
+    (operator.fldigi === undefined || record(operator.fldigi) && exact(operator.fldigi,["transmit_release_required","transmit_release_uncertain","configuration_error","status"]) &&
+      typeof operator.fldigi.transmit_release_required === "boolean" && typeof operator.fldigi.transmit_release_uncertain === "boolean" &&
+      (operator.fldigi.configuration_error === null || text(operator.fldigi.configuration_error,2048,true)) && text(operator.fldigi.status,512,true)) &&
     oneOf(operator.output, ["simulation-only", "xlog-native", "test-simulation"]) && typeof operator.outputAvailable === "boolean" &&
     (operator.outputUnavailableReason === null || text(operator.outputUnavailableReason, 512)) &&
     (operator.outputAvailable ? operator.outputUnavailableReason === null : operator.outputUnavailableReason !== null) &&
