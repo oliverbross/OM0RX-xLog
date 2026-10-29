@@ -281,6 +281,28 @@ final class BoundedSyncReconciliationTests: XCTestCase {
         }
     }
 
+    func testRestoredAuthorityValidationPreservesClosedConnectionErrors() async throws {
+        try await withDatabase { db in
+            let destination = try WavelogConfiguration(baseURL: URL(string: "https://bounded.synthetic.invalid")!,
+                                                       token: "wl2_synthetic", stationID: 1)
+            db.close()
+            XCTAssertThrowsError(try db.validateRestoredWavelogAuthority(settings: .defaults)) { error in
+                guard case LogbookDatabaseError.closed = error else {
+                    return XCTFail("Expected closed database, got \(error)")
+                }
+            }
+            XCTAssertThrowsError(try db.validateRestoredWavelogAuthority(configuration: destination)) { error in
+                guard case LogbookDatabaseError.syncRunChanged = error else {
+                    return XCTFail("Expected invalidated sync session, got \(error)")
+                }
+            }
+            let (sync, session) = try engine(db)
+            defer { session.invalidateAndCancel() }
+            do { _ = try await sync.synchronize(); XCTFail("Closed sync was accepted") }
+            catch LogbookDatabaseError.syncRunChanged {}
+        }
+    }
+
     func testLateRemoteAcknowledgementCannotWriteAfterDatabaseClose() async throws {
         try await withDatabase { db in
             // Use the actual verified wire baseline, including missing-field

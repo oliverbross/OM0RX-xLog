@@ -559,6 +559,7 @@ public final class LogbookDatabase: @unchecked Sendable {
 
     internal func validateRestoredWavelogAuthority(settings: XLogSettings) throws {
         try withDatabaseLock {
+            guard handle != nil else { throw LogbookDatabaseError.closed }
             if let authority = try readRestoredWavelogAuthority(), !authority.matches(settings) {
                 throw XLogBackupError.syncDestinationChange
             }
@@ -567,6 +568,9 @@ public final class LogbookDatabase: @unchecked Sendable {
 
     internal func validateRestoredWavelogAuthority(configuration: WavelogConfiguration) throws {
         try withDatabaseLock {
+            // A late provider response must retain the reconciliation lifecycle
+            // error, rather than preparing an authority query on a closed handle.
+            guard handle != nil else { throw LogbookDatabaseError.syncRunChanged }
             if let authority = try readRestoredWavelogAuthority(), !authority.matches(configuration) {
                 throw XLogBackupError.syncDestinationChange
             }
