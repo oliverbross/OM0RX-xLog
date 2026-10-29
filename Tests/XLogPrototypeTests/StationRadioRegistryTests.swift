@@ -103,5 +103,69 @@ final class StationRadioRegistryTests: XCTestCase {
         gate.connection(sourceID: second, sequence: 2, sessionID: secondSession, startedAt: start, ready: true)
         XCTAssertNil(gate.state().context, "Late callback cannot restore a detached source")
     }
+
+    func testUnconfirmedFlexRetirementBlocksRestartAndAllowsOnlyReleaseRecovery() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("registry-release-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let box = FlexFixtureBox()
+        let owner = LiveFlexSession(readbackTimeout: .milliseconds(60)) { _, state, snapshot in
+            let radio = FakeFlexRadio(snapshot: RadioSnapshot(frequencyHz: 14_074_000), onState: state, onSnapshot: snapshot)
+            box.store(radio); return radio
+        }
+        let registry = StationRadioRegistry(flex: ["radio1": owner, "radio2": LiveFlexSession()])
+        let worker = LiveWorker(logbook: LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false),
+                                stationRegistry: registry)
+        _ = try await LiveStationMethods.handle("station_connect", params: ["provider": "direct_flex_lan", "radio_id": "radio1",
+            "host": "192.168.1.20", "station_name": "fixture", "allow_transmit": true], registry: registry)
+        for _ in 0..<2000 {
+            let value = try await owner.handle("station_snapshot", params: ["provider": "direct_flex_lan"])
+            if value["available"] as? Bool == true { break }; await Task.yield()
+        }
+        _ = try await owner.handle("station_radio_control", params: ["provider": "direct_flex_lan", "control": "ptt", "enabled": true])
+        let radio = try XCTUnwrap(box.get())
+        await radio.setObserveRelease(false)
+        let failed = await worker.shutdownOutcome()
+        XCTAssertEqual(failed, .stationRetirementUnconfirmed)
+        XCTAssertFalse(failed.permitsRestart)
+        let retained = await owner.isAttached()
+        XCTAssertTrue(retained)
+        let retirement = await registry.terminate()
+        XCTAssertEqual(retirement.unconfirmedRadioIDs, ["radio1"])
+        func request(_ method: String, _ params: [String: Any]) async throws -> [String: Any] {
+            let data = try JSONSerialization.data(withJSONObject: ["id": UUID().uuidString, "method": method, "params": params])
+            let reply = await worker.response(to: data)
+            return try XCTUnwrap(JSONSerialization.jsonObject(with: reply) as? [String: Any])
+        }
+        let acquire = try await request("station_action", ["provider": "direct_flex_lan", "radio_id": "radio1", "action": "tune"])
+        XCTAssertEqual((acquire["error"] as? [String: Any])?["code"] as? String, "worker_stopping")
+        let release = ["provider": "direct_flex_lan", "radio_id": "radio1"]
+        let uncertain = try await request("station_disconnect", release)
+        XCTAssertEqual((uncertain["error"] as? [String: Any])?["code"] as? String, "release_unconfirmed")
+        await radio.setObserveRelease(true)
+        let recovered = try await request("station_disconnect", release)
+        XCTAssertEqual(recovered["ok"] as? Bool, true)
+        let attached = await owner.isAttached(), commands = await radio.commandLog()
+        XCTAssertFalse(attached)
+        XCTAssertEqual(commands.filter { $0 == "ptt_on" }.count, 1)
+        XCTAssertEqual(commands.filter { $0 == "stop_transport" }.count, 1)
+        let repeated = await worker.shutdownOutcome()
+        XCTAssertEqual(repeated, .clean)
+        let sealed = try await request("station_connect", ["provider": "direct_flex_lan", "radio_id": "radio1"])
+        XCTAssertEqual((sealed["error"] as? [String: Any])?["code"] as? String, "worker_stopping")
+    }
+
+    func testTerminalReleaseRecoveryDoesNotBypassTestProfileIODenial() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("registry-offline-release-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let worker = LiveWorker(logbook: LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false),
+            runtimeProfile: .contestingTest(supportRoot: root), stationRegistry: StationRadioRegistry())
+        await worker.beginTerminalShutdown()
+        let data = try JSONSerialization.data(withJSONObject: ["id": "release-denied", "method": "station_disconnect",
+            "params": ["provider": "direct_flex_lan", "radio_id": "radio1"]])
+        let response = await worker.response(to: data)
+        let reply = try XCTUnwrap(JSONSerialization.jsonObject(with: response) as? [String: Any])
+        XCTAssertEqual((reply["error"] as? [String: Any])?["code"] as? String, "external_io_disabled")
+        _ = await worker.shutdownOutcome()
+    }
 }
 #endif

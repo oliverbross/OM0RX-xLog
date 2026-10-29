@@ -27,6 +27,7 @@ public enum LiveWorkerShutdownOutcome: Int32, Sendable {
     case contestSpotWithdrawalFailed = 71
     case backgroundRetirementFailed = 72
     case contestSpotCleanupDeferred = 73
+    case stationRetirementUnconfirmed = 74
 
     /// Cosmetic marker receipts retain cleanup uncertainty across a restart.
     /// Their removal is not a prerequisite for releasing station ownership.
@@ -34,8 +35,9 @@ public enum LiveWorkerShutdownOutcome: Int32, Sendable {
         self == .clean || self == .contestSpotCleanupDeferred
     }
 
-    static func resolve(onlineLogsRetired: Bool, contestSpotsRetired: Bool) -> Self {
-        switch (onlineLogsRetired, contestSpotsRetired) {
+    static func resolve(onlineLogsRetired: Bool, contestSpotsRetired: Bool, stationRetired: Bool = true) -> Self {
+        guard stationRetired else { return .stationRetirementUnconfirmed }
+        return switch (onlineLogsRetired, contestSpotsRetired) {
         case (true, true): .clean
         case (false, true): .onlineLogRecoveryFailed
         case (true, false): .contestSpotCleanupDeferred
@@ -421,10 +423,15 @@ public actor LiveWorker {
         contestSpotsRetired = await cluster.terminate(deferRadioSpotCleanup: true)
         #endif
         #if os(macOS)
-        await stationRegistry?.terminate()
+        let stationRetirement = await stationRegistry?.terminate()
         #endif
         await services.terminate()
+        #if os(macOS)
+        return .resolve(onlineLogsRetired: onlineLogsRetired, contestSpotsRetired: contestSpotsRetired,
+                        stationRetired: stationRetirement?.unconfirmedRadioIDs.isEmpty ?? true)
+        #else
         return .resolve(onlineLogsRetired: onlineLogsRetired, contestSpotsRetired: contestSpotsRetired)
+        #endif
     }
 
     public func response(to data: Data) async -> Data {
@@ -440,6 +447,11 @@ public actor LiveWorker {
                 throw WorkerFailure("invalid_request", "Expected a bounded, correlated request.")
             }
             id = requestID
+            let terminalStationRetirement = method == "station_disconnect"
+                && params["provider"] as? String == "direct_flex_lan"
+                && Set(params.keys) == ["provider", "radio_id"]
+                && ["radio1", "radio2"].contains(params["radio_id"] as? String ?? "")
+                && stationRegistry != nil
             if terminalShutdown && method.hasPrefix("cw_decode_") {
                 throw WorkerFailure("worker_stopping", "CW Decode is shutting down.")
             }
@@ -468,7 +480,7 @@ public actor LiveWorker {
             if ["sync_run", "sync_configure", "sync_retry", "sync_resolve"].contains(method) {
                 throw WorkerFailure("sync_owner_required", "Use the shared generation-bound Sync mutation owner.")
             }
-            if terminalShutdown && (method.hasPrefix("contest_") || method.hasPrefix("reference_") || method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("online_log_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("wsjtx_") || method.hasPrefix("fldigi_") || method.hasPrefix("spot_history_") || method.hasPrefix("spot_draft_") || method.hasPrefix("opportunities_") || method.hasPrefix("operating_goals_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "propagation_refresh", "lookup_call", "workspace_create", "backup_restore"].contains(method)) {
+            if terminalShutdown && !terminalStationRetirement && (method.hasPrefix("contest_") || method.hasPrefix("reference_") || method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("online_log_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("wsjtx_") || method.hasPrefix("fldigi_") || method.hasPrefix("spot_history_") || method.hasPrefix("spot_draft_") || method.hasPrefix("opportunities_") || method.hasPrefix("operating_goals_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "propagation_refresh", "lookup_call", "workspace_create", "backup_restore"].contains(method)) {
                 throw WorkerFailure("worker_stopping", "The worker is shutting down; no new service request was started.")
             }
             if method == "health" {

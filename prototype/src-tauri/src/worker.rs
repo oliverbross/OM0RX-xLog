@@ -764,6 +764,7 @@ fn worker_retirement_exit_message(code: Option<i32>) -> String {
         Some(70) => "The station service could not settle online-log delivery state before retirement.".into(),
         Some(71) => "The station service could not confirm removal of contest-owned radio spots before retirement.".into(),
         Some(72) => "The station service could not settle online-log delivery state or remove contest-owned radio spots before retirement.".into(),
+        Some(74) => "The station service could not confirm owned station transmit release before retirement. Inspect and release at the station before restarting.".into(),
         Some(code) => format!("The station service exited unsuccessfully during retirement (exit {code})."),
         None => "The station service was terminated during retirement.".into(),
     }
@@ -2145,6 +2146,7 @@ mod tests {
         IgnoreEof,
         NonzeroExit,
         ContestSpotFailure,
+        StationReleaseFailure,
         UnsolicitedEof,
         MissingReply,
         MalformedReply,
@@ -2168,6 +2170,9 @@ mod tests {
                 }
                 ShutdownFixture::ContestSpotFailure => {
                     "while IFS= read -r request; do :; done; exit 71"
+                }
+                ShutdownFixture::StationReleaseFailure => {
+                    "while IFS= read -r request; do :; done; exit 74"
                 }
                 ShutdownFixture::UnsolicitedEof => "exit 0",
                 ShutdownFixture::MissingReply => {
@@ -2203,6 +2208,7 @@ mod tests {
                 ),
                 ShutdownFixture::NonzeroExit => "set /p request= & exit /b 7",
                 ShutdownFixture::ContestSpotFailure => "set /p request= & exit /b 71",
+                ShutdownFixture::StationReleaseFailure => "set /p request= & exit /b 74",
                 ShutdownFixture::UnsolicitedEof => "exit /b 0",
                 ShutdownFixture::MissingReply => {
                     "set /p request= & set /p extra= & exit /b 0"
@@ -2621,11 +2627,14 @@ mod tests {
     #[cfg(any(unix, windows))]
     #[test]
     fn shutdown_reports_spot_retirement_failure_instead_of_a_deadline() {
-        let session = shutdown_fixture_session(ShutdownFixture::ContestSpotFailure);
-        let failure = session.shutdown_result_with_grace(Duration::from_secs(2)).unwrap_err();
-        assert!(failure.contains("contest-owned radio spots"));
-        assert!(!failure.contains("deadline"));
-        assert!(session.child.lock().unwrap().is_none());
+        for (fixture, expected) in [(ShutdownFixture::ContestSpotFailure, "contest-owned radio spots"),
+                                    (ShutdownFixture::StationReleaseFailure, "owned station transmit release")] {
+            let session = shutdown_fixture_session(fixture);
+            let failure = session.shutdown_result_with_grace(Duration::from_secs(2)).unwrap_err();
+            assert!(failure.contains(expected));
+            assert!(!failure.contains("deadline"));
+            assert!(session.child.lock().unwrap().is_none());
+        }
     }
 
     #[cfg(any(unix, windows))]

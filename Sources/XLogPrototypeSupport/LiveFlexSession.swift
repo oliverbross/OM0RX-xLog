@@ -114,7 +114,16 @@ actor LiveFlexSession {
 
     func handle(_ method: String, params: [String: Any]) async throws -> [String: Any] {
         guard params["provider"] as? String == "direct_flex_lan" else { throw invalid() }
-        if terminal { throw WorkerFailure("worker_stopping", "The direct FLEX session is shutting down.") }
+        if terminal {
+            // Retained release uncertainty permits retirement only. No receive
+            // mutation, reconnect or transmit acquisition can reopen this owner.
+            guard method == "station_disconnect", radio != nil else {
+                throw WorkerFailure("worker_stopping", "The direct FLEX session is shutting down.")
+            }
+            try keys(params, ["provider"])
+            try await disconnect()
+            return snapshot()
+        }
         switch method {
         case "station_connect":
             let config = try Self.configuration(params)
@@ -177,9 +186,10 @@ actor LiveFlexSession {
         }
     }
 
-    func terminate() async {
+    @discardableResult func terminate() async -> StationOwnerRetirement {
         terminal = true
-        try? await disconnect()
+        do { try await disconnect(); return .retired }
+        catch { return .unconfirmed }
     }
 
     func isAttached() -> Bool { radio != nil || transitioning }

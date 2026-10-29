@@ -27,6 +27,12 @@ actor StationProviderClaim {
 
 /// Routing, capture registration and retirement share these exact owners.
 /// A private registry may be injected without owning any process-wide service.
+struct StationRetirementResult: Sendable, Equatable {
+    let unconfirmedRadioIDs: Set<String>
+}
+
+enum StationOwnerRetirement: Sendable, Equatable { case retired, unconfirmed }
+
 struct StationRadioRegistry: Sendable {
     static let shared = StationRadioRegistry()
     #if os(macOS)
@@ -48,11 +54,14 @@ struct StationRadioRegistry: Sendable {
         for owner in agents.values { await owner.installPowerCapture(capture) }
     }
 
-    func terminate() async {
-        await withTaskGroup(of: Void.self) { group in
-            for owner in agents.values { group.addTask { await owner.terminate() } }
-            for owner in flex.values { group.addTask { await owner.terminate() } }
-            for owner in tci.values { group.addTask { await owner.terminate() } }
+    func terminate() async -> StationRetirementResult {
+        await withTaskGroup(of: (String, StationOwnerRetirement).self) { group in
+            for (id, owner) in agents { group.addTask { await owner.terminate(); return (id, .retired) } }
+            for (id, owner) in flex { group.addTask { (id, await owner.terminate()) } }
+            for (id, owner) in tci { group.addTask { await owner.terminate(); return (id, .retired) } }
+            var unconfirmed = Set<String>()
+            for await (id, outcome) in group where outcome == .unconfirmed { unconfirmed.insert(id) }
+            return StationRetirementResult(unconfirmedRadioIDs: unconfirmed)
         }
     }
     #endif
