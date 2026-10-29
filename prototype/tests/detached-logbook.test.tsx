@@ -34,6 +34,8 @@ async function openEditor() {
   await waitFor(() => expect(api.blocked?.()).toBe(false));
   fireEvent.click(screen.getByText("W1AW"));
   await screen.findByRole("button", { name: "Update QSO" });
+  // Rendering can precede the shared editor's passive subscription effect.
+  await waitFor(() => expect(api.changes.size).toBe(2));
 }
 it("uses the shared editor with its own journal and no radio authority", async () => {
   localStorage.setItem("xlog.integration.contactEdit.main.v1", "main view's journal");
@@ -46,7 +48,7 @@ it("uses the shared editor with its own journal and no radio authority", async (
   expect(JSON.parse(localStorage.getItem(detachedContactJournalKey)!).draft.comment).toBe("Detached edit");
   fireEvent.click(screen.getByRole("button", { name: "Update QSO" }));
   await screen.findByText("Detached edit"); expect(backend.updates).toBe(1);
-  expect(api.changes.size).toBe(1); // Editor cleanup retains the outer listener.
+  await waitFor(() => expect(api.changes.size).toBe(1)); // Editor cleanup retains the outer listener.
   expect(localStorage.getItem(detachedContactJournalKey)).toBeNull();
   expect(localStorage.getItem("xlog.integration.contactEdit.main.v1")).toBe("main view's journal");
   expect(api.request.mock.calls.some(([method]) => /station|rotor|hamlib|winkeyer|operator_draft|settings|sync/.test(method))).toBe(false);
