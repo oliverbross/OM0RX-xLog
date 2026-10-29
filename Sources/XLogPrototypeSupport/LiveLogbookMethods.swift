@@ -1458,9 +1458,10 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 let restoreReference = params["restore_reference_data"] as? Bool ?? true
                 let package = try existingBackup(named: params["name"])
                 let manager = XLogBackupManager(fileManager: fileManager)
-                let preview = try manager.inspect(at: package)
+                let envelope = try manager.prepareRestoreEnvelope(at: package)
+                let preview = envelope.preview
                 if restoreReference, preview.manifest.includesReferenceData {
-                    try manager.preflightReferenceDataInstallation(from: package)
+                    try manager.preflightReferenceDataInstallation(from: envelope)
                 }
                 if restorePreferences {
                     guard let preferences = preview.preferences else {
@@ -1510,15 +1511,15 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 var replacements: [(live: URL, previous: URL?)] = []
                 do {
                     let liveDatabase = workspaceURL.appendingPathComponent("OM0RX-xLog.sqlite")
-                    let previousDatabase = try manager.installDatabase(from: package, to: liveDatabase,
-                                                                       expectedPreview: preview)
+                    let previousDatabase = try manager.installDatabase(from: envelope, to: liveDatabase,
+                                                                       restoredSettings: settingsAfterRestore)
                     replacements.append((liveDatabase, previousDatabase))
                     if preview.manifest.includesContestingData == true {
-                        let previous = try manager.installContestingData(from: package, to: contestingDataURL)
+                        let previous = try manager.installContestingData(from: envelope, to: contestingDataURL)
                         replacements.append((contestingDataURL, previous))
                     }
                     if restoreReference, preview.manifest.includesReferenceData {
-                        let previous = try manager.installReferenceData(from: package, to: reference)
+                        let previous = try manager.installReferenceData(from: envelope, to: reference)
                         replacements.append((reference, previous))
                     }
                     database = try LogbookDatabase(url: workspaceURL.appendingPathComponent("OM0RX-xLog.sqlite"))

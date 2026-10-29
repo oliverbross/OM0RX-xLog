@@ -5,6 +5,41 @@ import CryptoKit
 import Crypto
 #endif
 
+/// A single validated local selection for every restore component. Legacy local
+/// packages retain their original integrity limits; this is not a remote receipt.
+public struct XLogBackupRestoreEnvelope: Sendable {
+    public let preview: XLogBackupPreview
+    public let identity: RemoteBackupPackageIdentity
+    internal let files: [String: Data]
+    internal let hasPackageSeal: Bool
+    internal let legacyDatabaseSnapshot: XLogLegacyRestoreSnapshot?
+
+    internal init(preview: XLogBackupPreview, files: [String: Data], hasPackageSeal: Bool,
+                  legacyDatabaseSnapshot: XLogLegacyRestoreSnapshot? = nil) throws {
+        self.preview = preview
+        self.files = files
+        self.hasPackageSeal = hasPackageSeal
+        self.legacyDatabaseSnapshot = legacyDatabaseSnapshot
+        let captured = try BackupPackageSeal.encode(files)
+        // A legacy local fingerprint binds its validated database SHA/size through
+        // the captured manifest. It supplies neither a seal nor a remote receipt.
+        let databaseBytes = legacyDatabaseSnapshot == nil ? 0 : preview.manifest.databaseBytes
+        let total = Int64(captured.count).addingReportingOverflow(databaseBytes)
+        guard !total.overflow else { throw XLogBackupError.invalidPackage("legacy package size is invalid") }
+        identity = try RemoteBackupPackageIdentity(sha256: BackupPackageSeal.hash(captured), byteCount: total.partialValue)
+    }
+}
+
+/// Only the envelope owns this protected clone. Copies of the value retain it;
+/// dropping the final value removes its private staging directory.
+internal final class XLogLegacyRestoreSnapshot: Sendable {
+    let directory: URL
+    var databaseURL: URL { directory.appendingPathComponent("OM0RX-xLog.sqlite") }
+
+    init(directory: URL) { self.directory = directory }
+    deinit { try? FileManager.default.removeItem(at: directory) }
+}
+
 /// Content integrity, not authentication or encryption. A future executor must upload
 /// these exact bytes and independently verify their identity on the destination.
 public struct XLogBackupEnvelope: Sendable {
@@ -88,7 +123,7 @@ internal struct BackupPackageSeal: Codable, Equatable {
     }
 
     /// Reject links and special files. Never follows a package's link outside its root.
-    static func capture(_ root: URL, fileManager: FileManager) throws -> [String: Data] {
+    static func capture(_ root: URL, fileManager: FileManager, excludingPaths: Set<String> = []) throws -> [String: Data] {
         guard try root.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey]).isDirectory == true,
               try root.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink != true else {
             throw XLogBackupError.invalidPackage("package must be a real directory")
@@ -107,8 +142,11 @@ internal struct BackupPackageSeal: Codable, Equatable {
                     guard directories <= 100_000 else { throw XLogBackupError.invalidPackage("too many directories") }
                     try walk(url, prefix: path + "/")
                 } else {
-                    guard values.isRegularFile == true, let size = values.fileSize,
-                          size <= maximumBytes - total, files.count < 100_000 else {
+                    guard values.isRegularFile == true, let size = values.fileSize else {
+                        throw XLogBackupError.invalidPackage("unsupported payload file")
+                    }
+                    if excludingPaths.contains(path) { continue }
+                    guard size <= maximumBytes - total, files.count < 100_000 else {
                         throw XLogBackupError.invalidPackage("unsupported file or package exceeds staging limit")
                     }
                     let handle = try FileHandle(forReadingFrom: url)

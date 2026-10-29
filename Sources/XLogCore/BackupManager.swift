@@ -20,6 +20,7 @@ public enum XLogBackupError: Error, LocalizedError {
     case settingsMissing
     case syncDestinationChange
     case packageChanged
+    case restoreRecoveryRequired
 
     public var errorDescription: String? {
         switch self {
@@ -41,6 +42,8 @@ public enum XLogBackupError: Error, LocalizedError {
             return "The backup belongs to a different Wavelog destination. Restore its settings or use a reviewed migration."
         case .packageChanged:
             return "The selected backup changed after inspection. Inspect it again before restoring."
+        case .restoreRecoveryRequired:
+            return "An interrupted restore needs recovery from the pre-restore backup in the Recovery folder before continuing."
         }
     }
 }
@@ -189,6 +192,7 @@ public final class XLogBackupManager: @unchecked Sendable {
         guard !fileManager.fileExists(atPath: packageURL.path) else {
             throw XLogBackupError.destinationExists
         }
+        try database.validateRestoredWavelogAuthority(settings: settings)
         let parent = packageURL.deletingLastPathComponent()
         try fileManager.createDirectory(at: parent, withIntermediateDirectories: true)
         let temporary = parent.appendingPathComponent(".xlogbackup-\(UUID().uuidString)", isDirectory: true)
@@ -330,6 +334,32 @@ public final class XLogBackupManager: @unchecked Sendable {
         // Callers that select destination/settings from a preview must install
         // that same database. Staging below rechecks this manifest's byte hash.
         if let expectedPreview, preview != expectedPreview { throw XLogBackupError.packageChanged }
+        return try installDatabase(preview: preview, to: liveURL, restoredSettings: nil) { source in
+            if preview.manifest.formatVersion >= 2 {
+                let (_, files) = try BackupPackageSeal.verifiedFiles(packageURL, fileManager: self.fileManager)
+                try files["OM0RX-xLog.sqlite"]!.write(to: source, options: .atomic)
+            } else {
+                try self.fileManager.copyItem(at: packageURL.appendingPathComponent("OM0RX-xLog.sqlite"), to: source)
+            }
+        }
+    }
+
+    public func installDatabase(from envelope: XLogBackupRestoreEnvelope, to liveURL: URL,
+                                restoredSettings: XLogSettings? = nil) throws -> URL? {
+        guard let selected = restoredSettings ?? envelope.preview.settings else { throw XLogBackupError.settingsMissing }
+        let authority = try envelope.preview.settingsForRestore(keeping: selected, restoreSettings: false)
+        return try installDatabase(preview: envelope.preview, to: liveURL, restoredSettings: authority) { source in
+            if let snapshot = envelope.legacyDatabaseSnapshot {
+                try self.fileManager.copyItem(at: snapshot.databaseURL, to: source)
+                try LocalFilePermissions.protectFile(source, fileManager: self.fileManager)
+            } else {
+                try envelope.files["OM0RX-xLog.sqlite"]!.write(to: source, options: .atomic)
+            }
+        }
+    }
+
+    private func installDatabase(preview: XLogBackupPreview, to liveURL: URL,
+                                 restoredSettings: XLogSettings?, stageSource: (URL) throws -> Void) throws -> URL? {
         let directory = liveURL.deletingLastPathComponent()
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         let staging = directory.appendingPathComponent(".restore-\(UUID().uuidString).sqlite")
@@ -340,12 +370,7 @@ public final class XLogBackupManager: @unchecked Sendable {
             }
         }
         do {
-            if preview.manifest.formatVersion >= 2 {
-                let (_, files) = try BackupPackageSeal.verifiedFiles(packageURL, fileManager: fileManager)
-                try files["OM0RX-xLog.sqlite"]!.write(to: source, options: .atomic)
-            } else {
-                try fileManager.copyItem(at: packageURL.appendingPathComponent("OM0RX-xLog.sqlite"), to: source)
-            }
+            try stageSource(source)
             // Verify the bytes actually staged, not the source path checked earlier.
             guard try sha256(of: source) == preview.manifest.databaseSHA256 else {
                 throw XLogBackupError.checksumMismatch
@@ -357,6 +382,7 @@ public final class XLogBackupManager: @unchecked Sendable {
             // errors in later preference/reference installation. A standalone
             // SQLite backup includes the transaction without relying on WAL moves.
             try restored.disableOnlineLogDeliveryAfterRestore()
+            if let restoredSettings { try restored.installRestoredWavelogAuthority(restoredSettings) }
             try restored.backup(to: staging)
             _ = try inspectDatabase(at: staging)
         } catch {
@@ -400,6 +426,19 @@ public final class XLogBackupManager: @unchecked Sendable {
         let preview = try inspect(at: packageURL)
         guard preview.manifest.includesContestingData == true else { return nil }
         let (_, files) = try BackupPackageSeal.verifiedFiles(packageURL, fileManager: fileManager)
+        return try installContestingFiles(files, to: liveURL)
+    }
+
+    @discardableResult
+    public func installContestingData(from envelope: XLogBackupRestoreEnvelope, to liveURL: URL) throws -> URL? {
+        guard envelope.preview.manifest.includesContestingData == true else { return nil }
+        guard envelope.hasPackageSeal else {
+            throw XLogBackupError.invalidPackage("legacy backup has no package seal for contest data")
+        }
+        return try installContestingFiles(envelope.files, to: liveURL)
+    }
+
+    private func installContestingFiles(_ files: [String: Data], to liveURL: URL) throws -> URL? {
         let contestFiles = Dictionary(uniqueKeysWithValues: files.compactMap { path, data in
             path.hasPrefix("Contesting/Python/") ? (String(path.dropFirst("Contesting/Python/".count)), data) : nil
         })
@@ -432,6 +471,13 @@ public final class XLogBackupManager: @unchecked Sendable {
         _ = try prepareEnvelope(at: packageURL)
     }
 
+    public func preflightReferenceDataInstallation(from envelope: XLogBackupRestoreEnvelope) throws {
+        guard envelope.preview.manifest.includesReferenceData else { return }
+        guard envelope.hasPackageSeal else {
+            throw XLogBackupError.invalidPackage("legacy backup has no package seal; create a new backup for full-package validation")
+        }
+    }
+
     @discardableResult
     public func installReferenceData(from packageURL: URL, to liveURL: URL) throws -> URL? {
         try preflightReferenceDataInstallation(from: packageURL)
@@ -439,6 +485,17 @@ public final class XLogBackupManager: @unchecked Sendable {
         let files = try decoder.decode(BackupPackageSeal.Payload.self, from: envelope.data).files
         let manifest = try decoder.decode(XLogBackupManifest.self, from: files["manifest.json"]!)
         guard manifest.includesReferenceData else { return nil }
+        return try installReferenceFiles(files, to: liveURL)
+    }
+
+    @discardableResult
+    public func installReferenceData(from envelope: XLogBackupRestoreEnvelope, to liveURL: URL) throws -> URL? {
+        try preflightReferenceDataInstallation(from: envelope)
+        guard envelope.preview.manifest.includesReferenceData else { return nil }
+        return try installReferenceFiles(envelope.files, to: liveURL)
+    }
+
+    private func installReferenceFiles(_ files: [String: Data], to liveURL: URL) throws -> URL? {
         let parent = liveURL.deletingLastPathComponent()
         try fileManager.createDirectory(at: parent, withIntermediateDirectories: true)
         let staging = parent.appendingPathComponent(".reference-restore-\(UUID().uuidString)", isDirectory: true)
@@ -470,6 +527,131 @@ public final class XLogBackupManager: @unchecked Sendable {
             }
             throw XLogBackupError.restoreFailed("Reference Data: \(error.localizedDescription)")
         }
+    }
+
+    /// Captures the original path once. Every subsequent validation and installer
+    /// consumes these bytes, including settings, contest databases and references.
+    public func prepareRestoreEnvelope(at packageURL: URL,
+                                       expectedPreview: XLogBackupPreview? = nil) throws -> XLogBackupRestoreEnvelope {
+        if !fileManager.fileExists(atPath: packageURL.appendingPathComponent(BackupPackageSeal.filename).path) {
+            return try prepareLegacyRestoreEnvelope(at: packageURL, expectedPreview: expectedPreview)
+        }
+        return try prepareCapturedRestoreEnvelope(at: packageURL, expectedPreview: expectedPreview)
+    }
+
+    private func prepareCapturedRestoreEnvelope(at packageURL: URL,
+                                               expectedPreview: XLogBackupPreview?) throws -> XLogBackupRestoreEnvelope {
+        let files = try BackupPackageSeal.capture(packageURL, fileManager: fileManager)
+        var payload = files
+        let sealData = payload.removeValue(forKey: BackupPackageSeal.filename)
+        if let sealData {
+            try decoder.decode(BackupPackageSeal.self, from: sealData).validate(payload)
+        } else {
+            guard let manifestData = payload["manifest.json"],
+                  try decoder.decode(XLogBackupManifest.self, from: manifestData).formatVersion == 1 else {
+                throw XLogBackupError.invalidPackage("package seal is missing")
+            }
+        }
+        let root = fileManager.temporaryDirectory.appendingPathComponent("xlog-local-restore-\(UUID().uuidString)")
+        defer { try? fileManager.removeItem(at: root) }
+        try BackupPackageSeal.materialize(files, at: root, fileManager: fileManager)
+        let staged = try inspect(at: root)
+        let preview = XLogBackupPreview(packageURL: packageURL, manifest: staged.manifest,
+                                        settings: staged.settings, preferences: staged.preferences)
+        if let expectedPreview, preview != expectedPreview { throw XLogBackupError.packageChanged }
+        guard preview.manifest.includesSettings == (payload["settings.json"] != nil),
+              preview.manifest.includesPreferences == (payload["preferences.json"] != nil),
+              preview.manifest.databaseBytes == Int64(payload["OM0RX-xLog.sqlite"]?.count ?? -1),
+              payload["Reference Data"] == nil,
+              preview.manifest.includesReferenceData || !payload.keys.contains(where: { $0.hasPrefix("Reference Data/") }) else {
+            throw XLogBackupError.invalidPackage("payload presence or database size differs from manifest")
+        }
+        if let settings = preview.settings {
+            let database = try LogbookDatabase(url: root.appendingPathComponent("OM0RX-xLog.sqlite"))
+            defer { database.close() }
+            try database.validateRestoredWavelogAuthority(settings: settings)
+        }
+        if preview.manifest.includesContestingData == true, sealData == nil {
+            throw XLogBackupError.invalidPackage("legacy backup has no package seal for contest data")
+        }
+        return try XLogBackupRestoreEnvelope(preview: preview, files: files, hasPackageSeal: sealData != nil)
+    }
+
+    private func prepareLegacyRestoreEnvelope(at packageURL: URL,
+                                             expectedPreview: XLogBackupPreview?) throws -> XLogBackupRestoreEnvelope {
+        // Preserve the legacy streamed database path without raising the bounded
+        // in-memory metadata limit or the sealed/remote package limit.
+        let metadata = try BackupPackageSeal.capture(packageURL, fileManager: fileManager,
+                                                      excludingPaths: ["OM0RX-xLog.sqlite"])
+        if metadata[BackupPackageSeal.filename] != nil {
+            return try prepareCapturedRestoreEnvelope(at: packageURL, expectedPreview: expectedPreview)
+        }
+        guard let manifestData = metadata["manifest.json"],
+              try decoder.decode(XLogBackupManifest.self, from: manifestData).formatVersion == 1 else {
+            throw XLogBackupError.invalidPackage("package seal is missing")
+        }
+        let snapshot = XLogLegacyRestoreSnapshot(directory: fileManager.temporaryDirectory
+            .appendingPathComponent("xlog-legacy-restore-\(UUID().uuidString)", isDirectory: true))
+        try BackupPackageSeal.materialize(metadata, at: snapshot.directory, fileManager: fileManager)
+        try fileManager.copyItem(at: packageURL.appendingPathComponent("OM0RX-xLog.sqlite"), to: snapshot.databaseURL)
+        let values = try snapshot.databaseURL.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
+        guard values.isRegularFile == true, values.isSymbolicLink != true, let databaseBytes = values.fileSize else {
+            throw XLogBackupError.invalidPackage("legacy database snapshot is not a regular file")
+        }
+        // Inspect only the owned copy. Its original manifest checksum is checked
+        // by streaming before this snapshot can reach any live installer.
+        let staged = try inspect(at: snapshot.directory)
+        let preview = XLogBackupPreview(packageURL: packageURL, manifest: staged.manifest,
+                                        settings: staged.settings, preferences: staged.preferences)
+        if let expectedPreview, preview != expectedPreview { throw XLogBackupError.packageChanged }
+        guard preview.manifest.databaseBytes == Int64(databaseBytes),
+              preview.manifest.includesSettings == (metadata["settings.json"] != nil),
+              preview.manifest.includesPreferences == (metadata["preferences.json"] != nil),
+              metadata["Reference Data"] == nil,
+              preview.manifest.includesReferenceData || !metadata.keys.contains(where: { $0.hasPrefix("Reference Data/") }) else {
+            throw XLogBackupError.invalidPackage("payload presence or database size differs from manifest")
+        }
+        guard preview.manifest.includesContestingData != true else {
+            throw XLogBackupError.invalidPackage("legacy backup has no package seal for contest data")
+        }
+        if let settings = preview.settings { try validateLegacySnapshotAuthority(at: snapshot.databaseURL, settings: settings) }
+        #if !os(Windows)
+        try fileManager.setAttributes([.posixPermissions: 0o400], ofItemAtPath: snapshot.databaseURL.path)
+        #endif
+        return try XLogBackupRestoreEnvelope(preview: preview, files: metadata, hasPackageSeal: false,
+                                             legacyDatabaseSnapshot: snapshot)
+    }
+
+    private func validateLegacySnapshotAuthority(at url: URL, settings: XLogSettings) throws {
+        var handle: OpaquePointer?
+        guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
+              let handle else {
+            sqlite3_close(handle)
+            throw XLogBackupError.integrityFailed("legacy database authority could not be read")
+        }
+        defer { sqlite3_close(handle) }
+        var schema: OpaquePointer?
+        guard sqlite3_prepare_v2(handle, "SELECT 1 FROM sqlite_master WHERE type='table' AND name='xlog_restore_authority' COLLATE NOCASE;", -1, &schema, nil) == SQLITE_OK else {
+            throw XLogBackupError.integrityFailed("legacy database schema could not be read")
+        }
+        defer { sqlite3_finalize(schema) }
+        let schemaStep = sqlite3_step(schema)
+        if schemaStep == SQLITE_DONE { return }
+        guard schemaStep == SQLITE_ROW else { throw XLogBackupError.integrityFailed("legacy database schema is invalid") }
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(handle, "SELECT payload FROM xlog_restore_authority WHERE singleton=1;", -1, &statement, nil) == SQLITE_OK else {
+            throw XLogBackupError.integrityFailed("legacy database authority is invalid")
+        }
+        defer { sqlite3_finalize(statement) }
+        let step = sqlite3_step(statement)
+        if step == SQLITE_DONE { return }
+        guard step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0),
+              (1...65_536).contains(Int(sqlite3_column_bytes(statement, 0))) else {
+            throw XLogBackupError.integrityFailed("legacy database authority is invalid")
+        }
+        let authority = try decoder.decode(RestoredWavelogAuthority.self,
+            from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+        guard authority.version == 1, authority.matches(settings) else { throw XLogBackupError.syncDestinationChange }
     }
 
     /// Captures and re-verifies every file, then validates SQLite and settings from

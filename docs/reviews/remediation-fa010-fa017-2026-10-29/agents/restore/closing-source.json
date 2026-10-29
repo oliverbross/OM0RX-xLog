@@ -1,0 +1,21 @@
+{
+  "findings": [
+    "FA-015",
+    "FA-016"
+  ],
+  "verification": "D-RESTORE-CLOSING-R2",
+  "files": {
+    "Package.swift": "06f7d0b236098881c8de0df5aa6a836e758b60577b2e857f4b3c4fccf1d11898",
+    "Sources/XLogApp/AppModel.swift": "643e8b1b86e29cf78d8cce21ce58c05ff3b924631c06e457e16014bef6de0120",
+    "Sources/XLogCore/BackupEnvelope.swift": "98b5eab120794dff05b0edd8c596fe605b7ac37fde8198078abb8ffcc1309095",
+    "Sources/XLogCore/BackupManager.swift": "84e74febfbb2f78d7e95ae052eb7d4eaa8fd26f6fc31f01d88e7fee8a9a985d0",
+    "Sources/XLogCore/NativeBackupRestoreOwner.swift": "48c8c4ec2c7c9bcf9e61c05e496e07bb9bdafc2efc7abb75dbc53f0e35128c3a",
+    "Sources/XLogCore/LogbookDatabase.swift": "176eddfc3d49de7d26a5f26e8e62bdefcfcb887b819c67bd79c21b575fd33eef",
+    "Sources/XLogCore/Settings.swift": "44682be976affa249d4b8811049ca4182aacb56bb7eccea639091aa78d5451dc",
+    "Sources/XLogCore/SyncEngine.swift": "997dade314b9e4a4ce9efe0a0693a45ca3cc17f043d9126ceba2ddc647d5dfbe",
+    "Sources/XLogPrototypeSupport/LiveLogbookMethods.swift": "58f7aea5af8a8e6dacca585b5aea64f22bb039509c246c2a564faf2569482ade",
+    "Tests/XLogPrototypeTests/NativeRestoreInterruptionTests.swift": "722b7da8643df1a280f86ae1e8baab36d73e53f8b614179385ab54eabd881c11",
+    "Tests/XLogPrototypeTests/RestoreAtomicityTests.swift": "92f7ad41f4a12116dda0cc6f11c4303c6e732bce7ceb9d8114436136ff0d8645"
+  },
+  "scope": "59 XCTest cases (one helper skip),37 Swift Testing functions pass. Includes real native/modern owners,13 native restore tests, controlled owned-child interruption and >512MiB legacy streamed compatibility. No GUI/physical-power-loss/provider qualification."
+}

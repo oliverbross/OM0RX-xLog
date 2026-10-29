@@ -78,6 +78,7 @@ private func historyIdentity(_ qso: QSO) -> String {
 public actor SyncEngine {
     private let database: LogbookDatabase
     private let client: WavelogClient
+    private let configuration: WavelogConfiguration
     private let validateRun: @Sendable () throws -> Void
     private let receiptID: UUID?
     // Internal rendezvous permits deterministic scheduling tests without IPC.
@@ -89,6 +90,7 @@ public actor SyncEngine {
     public init(database: LogbookDatabase, configuration: WavelogConfiguration, session: URLSession = .shared,
                 validateRun: @escaping @Sendable () throws -> Void = {}, receiptID: UUID? = nil) {
         self.database = database
+        self.configuration = configuration
         self.client = WavelogClient(configuration: configuration, session: session)
         self.validateRun = validateRun
         self.receiptID = receiptID
@@ -559,6 +561,8 @@ public actor SyncEngine {
 
     private func validateSyncRun() throws {
         try Task.checkCancellation()
+        try XLogRestoreRecoveryFence.validate(databaseURL: database.url)
+        try database.validateRestoredWavelogAuthority(configuration: configuration)
         try validateRun()
     }
 

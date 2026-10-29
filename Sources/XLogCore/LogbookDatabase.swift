@@ -551,6 +551,71 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// This association is installed in the staged database before publication.
+    /// Linked numeric IDs cannot be reconciled under independently saved settings.
+    internal func installRestoredWavelogAuthority(_ settings: XLogSettings) throws {
+        try withDatabaseLock { try writeRestoredWavelogAuthority(RestoredWavelogAuthority(settings: settings)) }
+    }
+
+    internal func validateRestoredWavelogAuthority(settings: XLogSettings) throws {
+        try withDatabaseLock {
+            if let authority = try readRestoredWavelogAuthority(), !authority.matches(settings) {
+                throw XLogBackupError.syncDestinationChange
+            }
+        }
+    }
+
+    internal func validateRestoredWavelogAuthority(configuration: WavelogConfiguration) throws {
+        try withDatabaseLock {
+            if let authority = try readRestoredWavelogAuthority(), !authority.matches(configuration) {
+                throw XLogBackupError.syncDestinationChange
+            }
+        }
+    }
+
+    /// Only an explicit, already guarded settings save can change this binding.
+    /// Ordinary unbound logbooks retain their existing destination policy.
+    internal func rebindRestoredWavelogAuthorityIfUnlinked(to settings: XLogSettings) throws {
+        try withDatabaseLock {
+            guard let authority = try readRestoredWavelogAuthority(), !authority.matches(settings) else { return }
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                try rebindRestoredWavelogAuthorityWithinTransaction(to: settings)
+                try execute("COMMIT;")
+            } catch { try? execute("ROLLBACK;"); throw error }
+        }
+    }
+
+    private func rebindRestoredWavelogAuthorityWithinTransaction(to settings: XLogSettings) throws {
+        guard let authority = try readRestoredWavelogAuthority(), !authority.matches(settings) else { return }
+        guard try linkedRemoteCount() == 0 else { throw WavelogDestinationError.linkedContacts }
+        try writeRestoredWavelogAuthority(RestoredWavelogAuthority(settings: settings))
+    }
+
+    private func readRestoredWavelogAuthority() throws -> RestoredWavelogAuthority? {
+        try withStatement("SELECT payload FROM xlog_restore_authority WHERE singleton=1;") { statement in
+            let step = sqlite3_step(statement)
+            if step == SQLITE_DONE { return nil }
+            guard step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0),
+                  (1...65_536).contains(Int(sqlite3_column_bytes(statement, 0))) else {
+                throw LogbookDatabaseError.corruptRecord
+            }
+            let value = try decoder.decode(RestoredWavelogAuthority.self,
+                from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+            guard value.version == 1 else { throw LogbookDatabaseError.corruptRecord }
+            return value
+        }
+    }
+
+    private func writeRestoredWavelogAuthority(_ authority: RestoredWavelogAuthority) throws {
+        let payload = try encoder.encode(authority)
+        guard payload.count <= 65_536 else { throw LogbookDatabaseError.corruptRecord }
+        try withStatement("INSERT OR REPLACE INTO xlog_restore_authority(singleton,payload) VALUES(1,?);") { statement in
+            _ = payload.withUnsafeBytes { sqlite3_bind_blob(statement, 1, $0.baseAddress, Int32($0.count), Self.transient) }
+            try stepDone(statement)
+        }
+    }
+
     public func onlineLogDeliverySummary(service: OnlineLogService) throws -> OnlineLogDeliverySummary {
         try withDatabaseLock {
             var counts = Dictionary(uniqueKeysWithValues: OnlineLogDeliveryState.allCases.map { ($0, 0) })
@@ -1478,6 +1543,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                     syncTargetRevision: current.syncTargetRevision + (targetChanged ? 1 : 0)
                 )
                 try next.validate()
+                try rebindRestoredWavelogAuthorityWithinTransaction(to: next.settings)
                 if next != current { try writeIntegrationSettings(next) }
                 let receipt = IntegrationSettingsReceipt(mutation: mutation, snapshot: next)
                 let payload = try encoder.encode(receipt)
@@ -3659,6 +3725,10 @@ public final class LogbookDatabase: @unchecked Sendable {
           payload BLOB NOT NULL
         );
         CREATE TABLE IF NOT EXISTS xlog_integration_settings(
+          singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+          payload BLOB NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS xlog_restore_authority(
           singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
           payload BLOB NOT NULL
         );

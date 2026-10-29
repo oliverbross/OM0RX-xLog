@@ -442,8 +442,10 @@ public final class SettingsStore: @unchecked Sendable {
     }
 
     public func save(_ value: XLogSettings, protecting database: LogbookDatabase?) throws {
+        let destinationChanged = !load().hasSameWavelogDestination(as: value)
         try validateDestinationChange(to: value, database: database)
         let data = try JSONEncoder().encode(value)
+        if destinationChanged { try database?.rebindRestoredWavelogAuthorityIfUnlinked(to: value) }
         defaults.set(data, forKey: key)
     }
 

@@ -362,7 +362,7 @@ final class AppModel: ObservableObject {
         }
         restoreSavedDraft()
         do {
-            database = try LogbookDatabase()
+            database = try NativeBackupRestoreOwner.openDatabase(at: LogbookDatabase.defaultURL(), settings: settings)
             reload()
         } catch {
             banner = AppBanner(message: error.localizedDescription, kind: .error)
@@ -931,6 +931,7 @@ final class AppModel: ObservableObject {
         guard let database else { syncStatus = "Open a logbook"; return }
         let config: WavelogConfiguration
         do {
+            try NativeBackupRestoreOwner.validateSyncAdmission(database: database, settings: settings)
             config = try settingsStore.wavelogConfiguration(for: settings, token: wavelogToken)
         } catch {
             syncStatus = "Configure Wavelog"
@@ -1146,11 +1147,6 @@ final class AppModel: ObservableObject {
         isWorking = true
         Task {
             do {
-                if preview.manifest.includesReferenceData, referenceDataURL != nil {
-                    try await Task.detached {
-                        try manager.preflightReferenceDataInstallation(from: preview.packageURL)
-                    }.value
-                }
                 _ = try await Task.detached {
                     try manager.create(
                         database: database,
@@ -1160,30 +1156,20 @@ final class AppModel: ObservableObject {
                         referenceDataURL: referenceDataURL
                     )
                 }.value
-                // Retire saved consent before replacement, including failures
-                // in later reference-data installation or database reopening.
-                var pausedSettings = currentSettings
-                pausedSettings.automaticSync = false
-                settings = pausedSettings
-                settingsStore.save(pausedSettings)
                 database.close()
                 self.database = nil
-
-                _ = try await Task.detached {
-                    try manager.installDatabase(from: preview.packageURL, to: liveURL, expectedPreview: preview)
+                let retainedSettingsStore = settingsStore
+                let restored = try await Task.detached {
+                    let envelope = try manager.prepareRestoreEnvelope(at: preview.packageURL, expectedPreview: preview)
+                    let owner = NativeBackupRestoreOwner(settingsStore: retainedSettingsStore, manager: manager)
+                    let restoredDatabase = try owner.restore(envelope: envelope, to: liveURL, keeping: currentSettings,
+                                      settingsAfterRestore: settingsAfterRestore,
+                                      recoveryPackageURL: recoveryURL, referenceDataURL: referenceDataURL)
+                    return (database: restoredDatabase, preferences: envelope.preview.preferences)
                 }.value
-                // The database now belongs to this destination even if a later
-                // component fails. Never resume with the previous destination.
+                self.database = restored.database
                 settings = settingsAfterRestore
-                settingsStore.save(settingsAfterRestore)
-                if preview.manifest.includesReferenceData, let referenceDataURL {
-                    _ = try await Task.detached {
-                        try manager.installReferenceData(from: preview.packageURL, to: referenceDataURL)
-                    }.value
-                }
-
-                self.database = try LogbookDatabase(url: liveURL)
-                if restoreWorkspace, let preferences = preview.preferences {
+                if restoreWorkspace, let preferences = restored.preferences {
                     applyBackupPreferences(preferences)
                 }
                 loadDownloadedCTY()
@@ -1195,7 +1181,8 @@ final class AppModel: ObservableObject {
                 )
             } catch {
                 if self.database == nil {
-                    self.database = try? LogbookDatabase(url: liveURL)
+                    settings = settingsStore.load()
+                    self.database = try? NativeBackupRestoreOwner.openDatabase(at: liveURL, settings: settings)
                 }
                 configureTimers()
                 banner = AppBanner(message: error.localizedDescription, kind: .error)
