@@ -1,0 +1,14 @@
+{
+  "receipt": "B-D-NEGATIVE-E-NATIVE-R3",
+  "files": {
+    "Sources/XLogPrototypeSupport/LiveStationSession.swift": "91997631f7d61e2f693d229f087f680f3b3f344f8fe8e66f7d827f8977a5d0ba",
+    "Tests/XLogPrototypeTests/DirectAgentLifecycleTests.swift": "9daf1996a1bff44054edd1914debbe4dfef042d73bb47a329a2b6b9bb6c4f375",
+    "Sources/XLogCore/NativeBackupRestoreOwner.swift": "b6767406bdfb1fa8f2dfdbe36f895a074b4d62a146a33a9772ff319d98de2dd5",
+    "Sources/XLogApp/AppModel.swift": "08088582d4c9654bde11ce0bfc8c1a777e64989b606484806c984a20aa2cc147",
+    "Package.swift": "06f7d0b236098881c8de0df5aa6a836e758b60577b2e857f4b3c4fccf1d11898",
+    "Tests/XLogPrototypeTests/NativeRestoreInterruptionTests.swift": "61bc15d75fa15c3ef4a2e836881593aca7edae0bfe9817c210850a0dc7b5f89f",
+    "Tests/XLogPrototypeTests/OperatorDraftReversalAcceptanceTests.swift": "1f78fbc4ce2b42e622828e5011e028727b8a6c2c69c387abe8cc40a7b42d1de5"
+  },
+  "outcome": "Executed: B5 tests/20 failures; D3 tests/1 helper skip/21 failures; E2 functions/3 cases pass. R1/R2 compilation failures are not runtime proof.",
+  "scope": "B has only real-client/credential DI seams. D is a real-owner extraction preserving the original URL/settings publication order, without semantic repair. Exact new untracked sources supplement the git-diff receipt."
+}

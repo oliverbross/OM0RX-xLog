@@ -1,0 +1,30 @@
+{
+  "id": "B-D-NEGATIVE-E-NATIVE-R2",
+  "command": [
+    "swift",
+    "test",
+    "--jobs",
+    "2",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/portable",
+    "--no-parallel",
+    "--filter",
+    "DirectAgentLifecycleTests|NativeRestoreInterruptionTests|OperatorDraftReversalAcceptanceTests"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T05:41:36.183291+00:00",
+  "finishedUTC": "2026-10-29T05:42:21.522814+00:00",
+  "seconds": 45.339,
+  "exit": 1,
+  "timedOut": false,
+  "sourceHeadStart": "ef4af447d00028786f7aaa21646face8e5a78310",
+  "sourceHeadEnd": "ef4af447d00028786f7aaa21646face8e5a78310",
+  "sourceDiffSHA256": "22421a27140052c1d2c45ff84855c4b11bf56a84cd1b2457b00b554aa35e5259",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/B-D-NEGATIVE-E-NATIVE-R2.log",
+  "logBytes": 24841,
+  "logSHA256": "6307ebf48da44bc1965e647947d31da75d0bb48ac2d408f9cef1813f30468cc3",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {
+    "XLOG_PORTABLE_ONLY": "1"
+  }
+}

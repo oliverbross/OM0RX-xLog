@@ -1,0 +1,30 @@
+{
+  "id": "fa014-editors-session-r1",
+  "command": [
+    "npm",
+    "run",
+    "test:vitest",
+    "--",
+    "src/live/OperatorDraftTime.test.tsx",
+    "src/live/DetachedQSOSurface.test.tsx",
+    "src/live/QSOEditor.test.tsx",
+    "src/live/OperatorDesk.test.tsx",
+    "src/live/OperatorWorkspace.test.tsx",
+    "src/live/operatorDraftSession.test.ts",
+    "src/live/operatorDraftTransport.test.ts"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-29T05:24:39.088031+00:00",
+  "finishedUTC": "2026-10-29T05:25:11.130091+00:00",
+  "seconds": 32.042,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "ef4af447d00028786f7aaa21646face8e5a78310",
+  "sourceHeadEnd": "ef4af447d00028786f7aaa21646face8e5a78310",
+  "sourceDiffSHA256": "01374405fb19096a5120c99c698d9db82ce5191442fd7b27d336c8acc8207caa",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/fa014-editors-session-r1.log",
+  "logBytes": 5786,
+  "logSHA256": "b751ad6af308f37277a24789dde94bbb5cc025b99ceaff7093c741ca48a925f9",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

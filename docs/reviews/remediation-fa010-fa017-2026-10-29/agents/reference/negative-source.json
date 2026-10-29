@@ -1,0 +1,6 @@
+{
+  "testSHA256": "63bc3a8af3c94d2755d03701cc44f4b4fc12ff4315cb2c6fd2411e5d2fe4d176",
+  "hostSHA256BeforeFix": "6ec9ab0337d249aecc6b0f9f1c06a47a5ac10db618be2fc623e7dfd8e115feb5",
+  "commandReceipt": "C-REFERENCE-NEGATIVE",
+  "note": "New maintained test was untracked during this negative run; git diff alone does not bind its bytes. This exact source copy supplements the receipt. Production host is unchanged from ef4af447."
+}

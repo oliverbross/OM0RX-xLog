@@ -1,0 +1,12 @@
+{
+  "id": "fa014-typecheck-r1",
+  "command": [
+    "npm",
+    "exec",
+    "tsc",
+    "--",
+    "--noEmit"
+  ],
+  "startedUTC": "2026-10-29T05:25:11.600553+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype"
+}

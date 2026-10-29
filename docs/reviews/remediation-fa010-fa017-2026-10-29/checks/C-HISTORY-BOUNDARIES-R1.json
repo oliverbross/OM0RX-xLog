@@ -1,0 +1,31 @@
+{
+  "id": "C-HISTORY-BOUNDARIES-R1",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "python/tests",
+    "-p",
+    "test_remediation_reference_replica.py",
+    "-v"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T05:29:52.180651+00:00",
+  "finishedUTC": "2026-10-29T05:29:56.850824+00:00",
+  "seconds": 4.669,
+  "exit": 1,
+  "timedOut": false,
+  "sourceHeadStart": "ef4af447d00028786f7aaa21646face8e5a78310",
+  "sourceHeadEnd": "ef4af447d00028786f7aaa21646face8e5a78310",
+  "sourceDiffSHA256": "ac556a76e2e6616065df800ea9842d1119b6c6ac14b4591a4794a6f7a86bfcd2",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/C-HISTORY-BOUNDARIES-R1.log",
+  "logBytes": 2666,
+  "logSHA256": "12ec8f40055523c8bf6a539373e867e68a7b6e11e1e1d9df51971752ebaa3f50",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {
+    "PYTHONPATH": "/Users/oliver/Documents/Projects/OM0RX-xLog/python"
+  }
+}

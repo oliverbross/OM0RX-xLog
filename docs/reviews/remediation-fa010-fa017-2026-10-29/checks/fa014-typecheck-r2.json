@@ -1,0 +1,24 @@
+{
+  "id": "fa014-typecheck-r2",
+  "command": [
+    "npm",
+    "exec",
+    "tsc",
+    "--",
+    "--noEmit"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-29T05:27:00.395161+00:00",
+  "finishedUTC": "2026-10-29T05:27:31.858478+00:00",
+  "seconds": 31.463,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "ef4af447d00028786f7aaa21646face8e5a78310",
+  "sourceHeadEnd": "ef4af447d00028786f7aaa21646face8e5a78310",
+  "sourceDiffSHA256": "ac556a76e2e6616065df800ea9842d1119b6c6ac14b4591a4794a6f7a86bfcd2",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/fa014-typecheck-r2.log",
+  "logBytes": 0,
+  "logSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

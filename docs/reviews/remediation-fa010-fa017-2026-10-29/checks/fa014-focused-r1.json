@@ -1,0 +1,27 @@
+{
+  "id": "fa014-focused-r1",
+  "command": [
+    "npm",
+    "run",
+    "test:vitest",
+    "--",
+    "src/live/OperatorDraftTime.test.tsx",
+    "src/live/DetachedQSOSurface.test.tsx",
+    "-t",
+    "reversed UTC"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-29T05:23:37.233072+00:00",
+  "finishedUTC": "2026-10-29T05:23:45.084749+00:00",
+  "seconds": 7.852,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "ef4af447d00028786f7aaa21646face8e5a78310",
+  "sourceHeadEnd": "ef4af447d00028786f7aaa21646face8e5a78310",
+  "sourceDiffSHA256": "01374405fb19096a5120c99c698d9db82ce5191442fd7b27d336c8acc8207caa",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/fa014-focused-r1.log",
+  "logBytes": 1694,
+  "logSHA256": "5629910eeeb4bc61a47acd5df192a5872529e859a22a0eb61501d79d45f32f90",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

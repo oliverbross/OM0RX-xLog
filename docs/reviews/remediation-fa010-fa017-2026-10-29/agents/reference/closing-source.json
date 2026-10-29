@@ -1,0 +1,10 @@
+{
+  "receipt": "C-REFERENCE-CLOSING",
+  "tests": 62,
+  "newReferenceTests": 10,
+  "files": {
+    "python/contest_host/host.py": "1c0285709aa4256f502f30fb4d8cba3c766bbe0ed0671ac990e6f8f66e899545",
+    "python/tests/test_remediation_reference_replica.py": "fb58a50fd19578ac6b1d420ca894366d95054aab628346784f259781b4e22981"
+  },
+  "note": "Component files stayed unchanged through the closing run and this capture. Concurrent unrelated frontend/Swift work is represented by the receipt's broader working-diff hash; the new test was not yet tracked."
+}

@@ -1,0 +1,17 @@
+{
+  "id": "C-HISTORY-BOUNDARIES-R1",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "python/tests",
+    "-p",
+    "test_remediation_reference_replica.py",
+    "-v"
+  ],
+  "startedUTC": "2026-10-29T05:29:52.180651+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}

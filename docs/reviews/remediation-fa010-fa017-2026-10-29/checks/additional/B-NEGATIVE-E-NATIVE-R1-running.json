@@ -1,0 +1,16 @@
+{
+  "id": "B-NEGATIVE-E-NATIVE-R1",
+  "command": [
+    "swift",
+    "test",
+    "--jobs",
+    "2",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/portable",
+    "--no-parallel",
+    "--filter",
+    "DirectAgentLifecycleTests|OperatorDraftReversalAcceptanceTests"
+  ],
+  "startedUTC": "2026-10-29T05:37:39.660362+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}

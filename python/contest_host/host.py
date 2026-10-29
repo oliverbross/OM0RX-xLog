@@ -2194,9 +2194,16 @@ class Host:
                             kind = "commit"
                             if after_identity is None:
                                 after_identity = self.legacy_import_replica_identity(store, row, after_image)
+                        elif kind == "reference_reconcile":
+                            # Preserve local provenance and existing receipts;
+                            # the wire already represents contact updates.
+                            before_identity, after_identity = self.reference_reconcile_replica_identities(store, row)
+                            kind = "correct"
                     except (TypeError, ValueError, json.JSONDecodeError) as error:
+                        message = ("Historical reference reconciliation requires explicit recovery"
+                                   if row["kind"] == "reference_reconcile" else "Legacy contact audit image is invalid")
                         raise HostError("replica_change_unsupported",
-                                        "Legacy contact audit image is invalid") from error
+                                        message) from error
                     changes.append({"sequence": row["sequence"], "revision": row["revision"],
                                     "requestID": row["operation_id"], "qsoID": row["qso_id"],
                                     "kind": kind, "before": before, "after": after_image,
@@ -2264,6 +2271,90 @@ class Host:
                 and isinstance(identity["rawFields"], dict) and identity["deleted"] is False,
                 "Historical import identity is unavailable", "replica_change_unsupported")
         return identity
+
+    @staticmethod
+    def reference_reconcile_replica_identities(store, audit):
+        """Read-only compatibility for the former bare-country audit writer.
+
+        Raw fields come only from this event or the closest historical identity
+        across country-only events. A current row is never historical evidence.
+        Missing/conflicting history requires reviewed recovery, not rebaselining.
+        """
+        message = "Historical reference reconciliation requires explicit recovery"
+        def check(condition):
+            require(condition, message, "replica_change_unsupported")
+        def complete(value):
+            return (isinstance(value, dict) and set(value) == {"rawFields", "country", "deleted"}
+                    and isinstance(value["rawFields"], dict) and value["deleted"] is False)
+        def identity(event, side):
+            value = event[f"{side}_identity_json"]
+            return json.loads(value) if value is not None else None
+        def historical(value):
+            # Conflicting/deleted full evidence is not merely missing evidence.
+            # Do not bypass it by borrowing an identity from the other direction.
+            if isinstance(value, dict) and {"rawFields", "deleted"} & set(value):
+                check(complete(value))
+            return value
+        def countries(event):
+            check(event["kind"] == "reference_reconcile" and event["qso_id"] == audit["qso_id"])
+            before, after = (json.loads(event[f"{side}_json"]) for side in ("before", "after"))
+            check(isinstance(before, dict) and isinstance(after, dict) and
+                  before.get("ID") == after.get("ID") == audit["qso_id"])
+            check(replica_wire_equal({**before, "CountryPrefix": after.get("CountryPrefix")}, after))
+            values = [identity(event, side) for side in ("before", "after")]
+            values = [value["country"] if complete(value) else value for value in values]
+            for value in values:
+                Host.countries({str(before.get("Call", "")).strip().upper(): value})
+            old, new = values
+            check(old["primary_pfx"] == before.get("CountryPrefix") and
+                  new["primary_pfx"] == after.get("CountryPrefix") and
+                  old["entity"].upper() == new["entity"].upper() and
+                  all(old[key] == new[key] for key in ("continent", "cq", "itu")))
+            return old, new
+        try:
+            old, new = countries(audit)
+            before_identity, after_identity = (identity(audit, side) for side in ("before", "after"))
+            seed = next((value for value in (before_identity, after_identity) if complete(value)), None)
+            if seed is None:
+                expected = old
+                for previous in store.conn.execute(
+                        "SELECT * FROM xlog_qso_audit WHERE qso_id=? AND sequence<? ORDER BY sequence DESC",
+                        (audit["qso_id"], audit["sequence"])):
+                    candidate = historical(identity(previous, "after"))
+                    if complete(candidate):
+                        check(replica_wire_equal(candidate["country"], expected))
+                        seed = candidate
+                        break
+                    if previous["kind"] != "reference_reconcile":
+                        break
+                    prior_old, prior_new = countries(previous)
+                    check(replica_wire_equal(prior_new, expected))
+                    expected = prior_old
+            if seed is None:
+                expected = new
+                for following in store.conn.execute(
+                        "SELECT * FROM xlog_qso_audit WHERE qso_id=? AND sequence>? ORDER BY sequence",
+                        (audit["qso_id"], audit["sequence"])):
+                    candidate = historical(identity(following, "before"))
+                    if complete(candidate):
+                        check(replica_wire_equal(candidate["country"], expected))
+                        seed = candidate
+                        break
+                    if following["kind"] != "reference_reconcile":
+                        break
+                    following_old, following_new = countries(following)
+                    check(replica_wire_equal(following_old, expected))
+                    expected = following_new
+            check(seed is not None)
+            row = json.loads(audit["before_json"])
+            check(str(seed["rawFields"].get("callsign", "")).strip().upper() == str(row.get("Call", "")).strip().upper())
+            projected = [{"rawFields": deepcopy(seed["rawFields"]), "country": country, "deleted": False}
+                         for country in (old, new)]
+            for original, replacement in zip((before_identity, after_identity), projected):
+                check(not complete(original) or replica_wire_equal(original, replacement))
+            return tuple(projected)
+        except (HostError, KeyError, TypeError, ValueError) as error:
+            raise HostError("replica_change_unsupported", message) from error
 
     @staticmethod
     def replica_identity(store, qso_id):
@@ -2988,27 +3079,29 @@ class Host:
                             "Country repair contact does not match", "contact_conflict")
                     require(bool(identity) and not identity["deleted"] and identity["country"],
                             "Country repair identity is unavailable", "contact_conflict")
-                    before_identity = json.loads(identity["country"])
+                    before_country = json.loads(identity["country"])
                     same_endpoint = (
-                        str(before_identity.get("entity", "")).upper() == str(country["entity"]).upper()
-                        and all(before_identity.get(key) == country[key] for key in ("continent", "cq", "itu"))
+                        str(before_country.get("entity", "")).upper() == str(country["entity"]).upper()
+                        and all(before_country.get(key) == country[key] for key in ("continent", "cq", "itu"))
                     )
                     # A session may legitimately retain an older CTY endpoint.
                     # Never let that disagreement block opening the contest and
                     # never rewrite it: only primary-prefix-only matches proceed.
                     if not same_endpoint:
                         continue
-                    if str(before_identity.get("primary_pfx", "")).upper() == str(country["primary_pfx"]).upper():
+                    if str(before_country.get("primary_pfx", "")).upper() == str(country["primary_pfx"]).upper():
                         continue
                     before = dict(row)
-                    after_identity = deepcopy(country)
-                    state["reference"]["countries"][call] = after_identity
+                    before_identity = self.replica_identity(store, qso_id)
+                    after_country = deepcopy(country)
+                    state["reference"]["countries"][call] = after_country
                     store.conn.execute("UPDATE DXLOG SET CountryPrefix=? WHERE ID=?",
-                                       (after_identity["primary_pfx"], qso_id))
+                                       (after_country["primary_pfx"], qso_id))
                     store.conn.execute("UPDATE xlog_qso_identity SET country=? WHERE id=?",
-                                       (canonical(after_identity), qso_id))
+                                       (canonical(after_country), qso_id))
+                    after_identity = self.replica_identity(store, qso_id)
                     after = dict(before)
-                    after["CountryPrefix"] = after_identity["primary_pfx"]
+                    after["CountryPrefix"] = after_country["primary_pfx"]
                     self.audit(store, qso_id, "reference_reconcile", before, after,
                                reason="Bundled CTY primary-prefix correction",
                                revision=state["revision"] + 1,

@@ -1,0 +1,16 @@
+{
+  "id": "C-REFERENCE-COMPLETE",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "-m",
+    "unittest",
+    "test_remediation_reference_replica",
+    "test_remediation_import_replica",
+    "test_cq_ww_ssb_host",
+    "test_multi_operator_host",
+    "-v"
+  ],
+  "startedUTC": "2026-10-29T05:31:13.054155+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}

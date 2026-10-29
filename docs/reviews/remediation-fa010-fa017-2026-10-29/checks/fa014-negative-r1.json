@@ -1,0 +1,27 @@
+{
+  "id": "fa014-negative-r1",
+  "command": [
+    "npm",
+    "run",
+    "test:vitest",
+    "--",
+    "src/live/OperatorDraftTime.test.tsx",
+    "src/live/DetachedQSOSurface.test.tsx",
+    "-t",
+    "reversed UTC"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-29T05:22:48.203644+00:00",
+  "finishedUTC": "2026-10-29T05:22:54.180555+00:00",
+  "seconds": 5.977,
+  "exit": 1,
+  "timedOut": false,
+  "sourceHeadStart": "ef4af447d00028786f7aaa21646face8e5a78310",
+  "sourceHeadEnd": "ef4af447d00028786f7aaa21646face8e5a78310",
+  "sourceDiffSHA256": "2755c76f4eaf77d58acfb6ea6dc366eee0f6581c447203d6732861bd43902a9b",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/fa014-negative-r1.log",
+  "logBytes": 11617,
+  "logSHA256": "b4b9f5a8067973ead0c339510fb90cd0e208c8380e3eef11a6f1fa8d274567ce",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

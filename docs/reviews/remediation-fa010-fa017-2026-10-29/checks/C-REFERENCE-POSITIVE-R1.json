@@ -1,0 +1,31 @@
+{
+  "id": "C-REFERENCE-POSITIVE-R1",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "python/tests",
+    "-p",
+    "test_remediation_*replica.py",
+    "-v"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T05:26:10.045192+00:00",
+  "finishedUTC": "2026-10-29T05:26:16.338970+00:00",
+  "seconds": 6.293,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "ef4af447d00028786f7aaa21646face8e5a78310",
+  "sourceHeadEnd": "ef4af447d00028786f7aaa21646face8e5a78310",
+  "sourceDiffSHA256": "2fccf8974b79e829ff3b2a382e79a01691db95ed271f94317061cf069be740be",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/C-REFERENCE-POSITIVE-R1.log",
+  "logBytes": 2729,
+  "logSHA256": "9884e094001dd63f14021e54a66e25b285a97b1790beb323e5068394f61529ca",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {
+    "PYTHONPATH": "/Users/oliver/Documents/Projects/OM0RX-xLog/python"
+  }
+}

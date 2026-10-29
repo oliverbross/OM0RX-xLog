@@ -1,0 +1,18 @@
+{
+  "id": "fa014-editors-session-r1",
+  "command": [
+    "npm",
+    "run",
+    "test:vitest",
+    "--",
+    "src/live/OperatorDraftTime.test.tsx",
+    "src/live/DetachedQSOSurface.test.tsx",
+    "src/live/QSOEditor.test.tsx",
+    "src/live/OperatorDesk.test.tsx",
+    "src/live/OperatorWorkspace.test.tsx",
+    "src/live/operatorDraftSession.test.ts",
+    "src/live/operatorDraftTransport.test.ts"
+  ],
+  "startedUTC": "2026-10-29T05:24:39.088031+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype"
+}
