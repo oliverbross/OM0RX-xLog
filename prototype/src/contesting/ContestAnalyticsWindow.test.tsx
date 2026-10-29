@@ -189,6 +189,9 @@ describe("Contest Analytics interaction",()=>{
     expect(screen.queryByRole("alert")).toBeNull();
   });
   it("ignores a rejected old snapshot check after a manual refresh installs a new snapshot",async()=>{
+    // Reacquire the metrics region on each poll because Refresh remounts it.
+    const contactsMetric=(name:RegExp)=>within(screen.getByRole("region",{name:"Contest metrics"})).getByRole("button",{name});
+    const findContactsMetric=(name:RegExp)=>waitFor(()=>contactsMetric(name));
     let tick:(()=>Promise<void>)|undefined,rejectCheck!:(error:Error)=>void;
     const pendingCheck=new Promise((_,reject)=>{rejectCheck=reject;});
     const originalInterval=globalThis.setInterval;
@@ -209,14 +212,14 @@ describe("Contest Analytics interaction",()=>{
       return {released:true};
     });
     render(<ContestAnalyticsWindow read={read}/>);
-    await screen.findByRole("button",{name:/Contacts in view 4/});
+    await findContactsMetric(/Contacts in view 4/);
     expect(tick).toBeTypeOf("function");
     let checking!:Promise<void>;
     act(()=>{checking=tick!();});
     fireEvent.click(screen.getByRole("button",{name:"Refresh"}));
-    await screen.findByRole("button",{name:/Contacts in view 3/});
+    await findContactsMetric(/Contacts in view 3/);
     await act(async()=>{rejectCheck(new Error("Old snapshot expired"));await checking;});
-    expect(screen.getByRole("button",{name:/Contacts in view 3/})).toBeTruthy();
+    expect(contactsMetric(/Contacts in view 3/)).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
   });
   it("contains invalid UTC ranges while a comparison report is loaded and permits reset",async()=>{
