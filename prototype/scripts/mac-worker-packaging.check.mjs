@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { swiftWorkerBuildSystemArgs } from './swift-worker-build-system.mjs';
+import './mac-installer-refusal.check.mjs';
 
 // This standalone node:test gate uses .check.mjs so Vitest does not collect it.
 
@@ -53,8 +54,9 @@ test('Mac installation verifies the staged and installed resource/signature layo
   assert.match(script, /source_worker_hash=/);
   assert.match(script, /installed_worker_hash=/);
   assert.match(script, /source "\$root\/prototype\/scripts\/macos-app-process\.sh"/);
-  assert.match(script, /stop_macos_app "\$destination\/Contents\/MacOS\/\$installed_executable"/);
-  assert.ok(script.indexOf('stop_macos_app ') < script.indexOf('mv "$destination" "$backup"'));
+  assert.match(script, /verify_macos_bundle_stopped "\$destination"/);
+  assert.doesNotMatch(script, /\bstop_macos_app\b/);
+  assert.ok(script.indexOf('verify_macos_bundle_stopped ') < script.indexOf('mv "$destination" "$backup"'));
   assert.match(source('macos-app-process.sh'), /installation stopped before replacement/);
   assert.match(script, /the previous application was restored/);
 });

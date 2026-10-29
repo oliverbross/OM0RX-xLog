@@ -21,6 +21,27 @@ verify_macos_app_stopped() {
   fi
 }
 
+# Installation must also refuse an orphaned worker, interpreter or helper.
+# Match executable comm paths only within this exact bundle, never its siblings.
+verify_macos_bundle_stopped() {
+  local bundle_path="${1%/}" canonical_path pid command inventory result=0
+  canonical_path="$bundle_path"
+  if [[ -d "$bundle_path" ]]; then
+    canonical_path="$(cd "$bundle_path" && pwd -P)" || return 1
+  fi
+  inventory="$(ps -axo pid=,comm=)" || {
+    printf 'Process inventory unavailable; installation stopped before replacement: %s\n' "$bundle_path" >&2
+    return 1
+  }
+  while read -r pid command; do
+    if [[ "$command" == "$bundle_path/Contents/"* || "$command" == "$canonical_path/Contents/"* ]]; then
+      printf 'Application remains running (no relaunch or signal issued): %s [%s]\n' "$command" "$pid" >&2
+      result=1
+    fi
+  done <<< "$inventory"
+  return "$result"
+}
+
 stop_macos_app() {
   local executable_path="$1" pid remaining attempt
   remaining="$(macos_app_pids "$executable_path")" || return 1

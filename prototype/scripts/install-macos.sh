@@ -33,8 +33,9 @@ staged_worker_hash="$(shasum -a 256 "$staged/Contents/MacOS/xlog-prototype-worke
 test "$source_worker_hash" = "$staged_worker_hash"
 
 if [[ -d "$destination" ]]; then
-  installed_executable="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$destination/Contents/Info.plist")"
-  stop_macos_app "$destination/Contents/MacOS/$installed_executable"
+  # Ordinary Quit must finish through the application's unfinished-work guard.
+  # Installation only verifies that every bundled process stopped; it never signals.
+  verify_macos_bundle_stopped "$destination"
 fi
 
 if [[ -e "$destination" ]]; then
