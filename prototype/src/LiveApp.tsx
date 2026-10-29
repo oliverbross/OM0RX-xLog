@@ -82,6 +82,7 @@ import { followedLogMode } from "./live/draftRadio";
 import { changedCallDraft, enrichedDraft, normalizedCall, sameNormalLogCall } from "./live/draftEnrichment";
 import { settingsLoadingLookup } from "./live/callsignIntelligenceContext";
 import { OperatorDraftSession, readDraftJournal, type DraftQSO } from "./live/operatorDraftSession";
+import { effectiveDraftAutomaticStart } from "./live/operatorDraftTimeIntent";
 import { requestOperatorDraft } from "./live/operatorDraftTransport";
 import { connectOperatorDraftChanges, openDetachedQSO, ownDraftUpdateWarnings, protectOperatorDraftClose } from "./live/operatorDraftWindows";
 import { OperatorDraftStatus } from "./live/OperatorDraftStatus";
@@ -294,6 +295,7 @@ function MainLiveApp() {
   editing.current = !!contactEdit.draft;
   const [legacyDraft, setLegacyDraft] = useState(legacyDraftValue);
   const draft = contactEdit.draft ?? sharedDraft.draft;
+  const automaticStart = !editing.current && effectiveDraftAutomaticStart(sharedDraft);
   const editorLocked = !normalAccess.active || radioBusy || sharedDraft.activationFrozen || contactEdit.activationFrozen || sharedDraft.locked || contactEdit.locked || sharedDraft.workspaceChanged || contactEdit.workspaceChanged || !!contactEdit.draft && (logbookMutation.busy || !!logbookMutation.pending || logbookMutation.workspaceChanged || logbookMutation.conflict);
   const editorBlocked = editorLocked || !!sharedDraft.conflict || contactEdit.conflict;
   const setDraft = useCallback((next: Data | null | ((current: Data | null) => Data | null)) => {
@@ -1330,7 +1332,7 @@ function MainLiveApp() {
     if (station.radio.mode) automaticStationMetadata.push({ label: "Radio mode", value: station.radio.mode, provenance: "observed" });
   }
   const deskProps = { draftLocked: editorLocked, canAcceptLocalInput: acceptsInput, onLocalInputState: editorInputState, resetInputEpoch: spotEditorEpoch,
-    automaticStart: !editing.current && (sharedDraft.base?.automaticStart ?? false),
+    automaticStart,
     referenceEvidence, cwControls, equipment: settings?.stationEquipment, draft, setDraft: setOperatorDraft, save,
     clear: () => void run(clear), busy: busy || editorBlocked, lookup, previous, request, refresh, onEditor: () => setView("Log QSO"),
     onReadRadio: readRadioIntoDraft, follow, setFollow: setFollowImmediate, rotor: rotorState,
@@ -1433,7 +1435,7 @@ function MainLiveApp() {
         canChangeView={() => !logbookWorkingRef.current && !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookMutations.getSnapshot().busy && !logbookMutations.getSnapshot().pending} />}
         cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} onRequest={request} bandMaps={deskBands} /></div></>} />}
       {view === "Log QSO" && <QSOEditor resetInputEpoch={spotEditorEpoch} referenceEvidence={referenceEvidence} draftLocked={editorLocked} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata}
-        automaticStart={!editing.current && (sharedDraft.base?.automaticStart ?? false)}
+        automaticStart={automaticStart}
         clearLabel={editing.current ? "Cancel edit" : "Clear QSO"}
         contactActions={contactEdit.base && <ContactDeleteAction snapshot={contactEdit.base} mutations={logbookMutations}
           disabled={busy || editorBlocked} run={run} onDeleted={() => { contactSession.cancel(); setRefresh(n => n + 1); setView("Logbook"); }} />}

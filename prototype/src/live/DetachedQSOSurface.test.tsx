@@ -82,6 +82,73 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
+it.each(["Full-Simple", "Simple-Full", "Full-Simple-Full"])(
+  "preserves pre-flush manual UTC through %s, a time-only edit and Save", async path => {
+    const f = backend(); api.draft.mockImplementation(f.request);
+    render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+    vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-28T12:34:56Z"));
+    const initiallySimple = path === "Simple-Full";
+    if (initiallySimple) fireEvent.click(screen.getByRole("button", { name: "Simple" }));
+    fireEvent.change(screen.getByLabelText(initiallySimple ? "Desk UTC date" : "Start UTC date"), { target: { value: "2026-10-20" } });
+    fireEvent.change(screen.getByLabelText(initiallySimple ? "Desk UTC time" : "Start UTC time"), { target: { value: "10:15:30" } });
+    expect(journal().draft.start).toBe("2026-10-20T10:15:30Z");
+    expect(journal().base.automaticStart).toBe(true); expect(journal().pending).toBeNull();
+    expect(api.draft.mock.calls.some(([method]) => method === "logbook_operator_draft_apply")).toBe(false);
+    if (!initiallySimple) fireEvent.click(screen.getByRole("button", { name: "Simple" }));
+    const finallySimple = path === "Full-Simple";
+    if (!finallySimple) fireEvent.click(screen.getByRole("button", { name: "Full" }));
+    const date = screen.getByLabelText(finallySimple ? "Desk UTC date" : "Start UTC date") as HTMLInputElement;
+    const time = screen.getByLabelText(finallySimple ? "Desk UTC time" : "Start UTC time") as HTMLInputElement;
+    expect(date.value).toBe("2026-10-20"); expect(time.value).toBe("10:15:30");
+    fireEvent.change(time, { target: { value: "11:11:11" } });
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Log QSO" })); });
+    expect(f.contacts).toHaveLength(1); expect(f.contacts[0].start).toBe("2026-10-20T11:11:11Z");
+    expect(f.current.automaticStart).toBe(true);
+  },
+);
+
+it("saves the entered manual UTC directly after a pre-flush remount", async () => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-28T12:34:56Z"));
+  fireEvent.change(screen.getByLabelText("Start UTC date"), { target: { value: "2026-10-20" } });
+  fireEvent.change(screen.getByLabelText("Start UTC time"), { target: { value: "10:15:30" } });
+  fireEvent.click(screen.getByRole("button", { name: "Simple" }));
+  expect(journal().pending).toBeNull();
+  expect((screen.getByLabelText("Desk UTC date") as HTMLInputElement).value).toBe("2026-10-20");
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Log QSO" })); });
+  expect(f.contacts).toHaveLength(1); expect(f.contacts[0].start).toBe("2026-10-20T10:15:30Z");
+});
+
+it("renders a recovered unsent manual UTC journal before its replacement is dispatched", async () => {
+  const f = backend(); api.draft.mockImplementation(f.request);
+  localStorage.setItem(detachedQSOJournalKey, JSON.stringify({ base: f.current,
+    draft: { ...f.current.qso, start: "2026-10-20T10:15:30Z" }, pending: null }));
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  expect((screen.getByLabelText("Start UTC date") as HTMLInputElement).value).toBe("2026-10-20");
+  expect((screen.getByLabelText("Start UTC time") as HTMLInputElement).value).toBe("10:15:30");
+  expect(journal().base.automaticStart).toBe(true); expect(journal().pending).toBeNull();
+  expect(api.draft.mock.calls.some(([method]) => method === "logbook_operator_draft_apply")).toBe(false);
+});
+
+it("keeps a pending manual-time replacement fenced against mode switching", async () => {
+  const f = backend(), gate = deferred<void>();
+  api.draft.mockImplementation(async (method, params) => {
+    if (method === "logbook_operator_draft_apply" && params.action === "replace") await gate.promise;
+    return f.request(method, params);
+  });
+  render(<DetachedQSOSurface />); await screen.findByDisplayValue("K1ABC");
+  vi.useFakeTimers();
+  fireEvent.change(screen.getByLabelText("Start UTC date"), { target: { value: "2026-10-20" } });
+  await act(async () => { await vi.advanceTimersByTimeAsync(350); });
+  expect(journal().pending?.action).toBe("replace");
+  const simple = screen.getByRole("button", { name: "Simple" }) as HTMLButtonElement;
+  expect(simple.disabled).toBe(true); fireEvent.click(simple);
+  expect(screen.queryByLabelText("Desk UTC date")).toBeNull();
+  await act(async () => { gate.resolve(); });
+  expect(journal().pending).toBeNull(); expect(f.current.automaticStart).toBe(false);
+});
+
 it.each(["Simple", "Full"])("shows the detached %s duplicate advisory while allowing deliberate Save", async mode => {
   const f = backend(); api.draft.mockImplementation(f.request);
   api.read.mockImplementation(async (method, params) => ({ result: method === "logbook_duplicate"

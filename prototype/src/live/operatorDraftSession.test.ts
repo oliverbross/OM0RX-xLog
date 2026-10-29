@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { testWorkspaceGeneration } from "../../tests/operator-draft-fixture";
 import { DraftRequestRejected, OperatorDraftSession, readDraftJournal, sameDraftValue,
   type DraftJournal, type DraftMutation, type DraftSnapshot } from "./operatorDraftSession";
+import { effectiveDraftAutomaticStart } from "./operatorDraftTimeIntent";
 
 const copy = <T>(value: T): T => structuredClone(value);
 function fixture() {
@@ -34,6 +35,45 @@ function fixture() {
 }
 const type = (session: OperatorDraftSession, call: string) => session.edit({ ...session.getSnapshot().draft!, call });
 const deferred = <T>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { resolve, promise }; };
+
+it("derives automatic time only from unchanged local timestamps, including equivalent ISO values and reversal", () => {
+  const base: DraftSnapshot = { generation: testWorkspaceGeneration, revision: 0, automaticStart: true,
+    qso: { id: "draft-1", start: "2026-10-13T00:00:00Z", end: null, call: "" } };
+  const draft = { ...base.qso, call: "K1ABC", name: "Local non-time edit" };
+  expect(effectiveDraftAutomaticStart({ base, draft })).toBe(true);
+  const manual = { ...draft, start: "2026-10-20T10:15:30Z" };
+  expect(effectiveDraftAutomaticStart({ base, draft: manual })).toBe(false);
+  expect(effectiveDraftAutomaticStart({ base, draft: { ...manual, start: base.qso.start } })).toBe(true);
+  expect(effectiveDraftAutomaticStart({ base, draft: { ...draft, start: "2026-10-13T01:00:00+01:00", end: undefined } })).toBe(true);
+  expect(effectiveDraftAutomaticStart({ base, draft: { ...draft, end: "2026-10-13T00:01:00Z" } })).toBe(false);
+  expect(effectiveDraftAutomaticStart({ base: { ...base, automaticStart: false }, draft })).toBe(false);
+  expect(effectiveDraftAutomaticStart({ base: { ...base, automaticStart: undefined }, draft })).toBe(false);
+  expect(effectiveDraftAutomaticStart({ base, draft: { ...draft, id: "another-draft" } })).toBe(false);
+  expect(effectiveDraftAutomaticStart({ base: null, draft: null })).toBe(false);
+});
+
+it("retains effective manual UTC when an unsent journal is recovered before acknowledgment", async () => {
+  const f = fixture(); f.current.automaticStart = true;
+  const session = f.make(); await session.load();
+  session.edit({ ...session.getSnapshot().draft!, start: "2026-10-20T10:15:30Z" });
+  expect(session.getSnapshot().base?.automaticStart).toBe(true);
+  expect(effectiveDraftAutomaticStart(session.getSnapshot())).toBe(false);
+  expect(f.request.mock.calls.some(([method]) => method === "logbook_operator_draft_apply")).toBe(false);
+  const recovered = f.make(readDraftJournal(JSON.stringify(f.journal)));
+  await recovered.load();
+  expect(recovered.getSnapshot().draft?.start).toBe("2026-10-20T10:15:30Z");
+  expect(effectiveDraftAutomaticStart(recovered.getSnapshot())).toBe(false);
+});
+
+it("compares effective time intent with the native UUID identity rather than UUID text case", () => {
+  const base: DraftSnapshot = { generation: testWorkspaceGeneration, revision: 0, automaticStart: true,
+    qso: { id: "FFFFFFFF-AAAA-4BBB-8CCC-123456789ABC", start: "2026-10-13T00:00:00Z" } };
+  const draft = { ...base.qso, id: base.qso.id.toLowerCase(), call: "K1ABC" };
+  expect(effectiveDraftAutomaticStart({ base, draft })).toBe(true);
+  expect(effectiveDraftAutomaticStart({ base: { ...base, qso: draft }, draft: base.qso })).toBe(true);
+  expect(effectiveDraftAutomaticStart({ base, draft: { ...draft, start: "2026-10-20T10:15:30Z" } })).toBe(false);
+  expect(effectiveDraftAutomaticStart({ base, draft: { ...draft, id: "FFFFFFFF-AAAA-4BBB-8CCC-123456789ABD" } })).toBe(false);
+});
 
 it("reports verified refreshes only after an actual validated draft read", async () => {
   const f = fixture(), session = f.make();
