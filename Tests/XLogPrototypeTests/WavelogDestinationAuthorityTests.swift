@@ -182,6 +182,41 @@ final class WavelogDestinationAuthorityTests: XCTestCase {
         }
     }
 
+    func testAutomaticGridFillPersistsOnlySavedFieldAndKeepsPendingDestinationUntrusted() async throws {
+        try await withAsyncFixture { store, database, saved, session in
+            XCTAssertTrue(saved.gridSquare.isEmpty)
+            let local = self.original()
+            try database.save(local, markDirty: false)
+            var pending = self.changed(saved, url: true)
+            pending.wavelogStationID = 2
+            pending.defaultPower = "25"
+            // This is the display-only grid mutation made by pollRadio.
+            pending.gridSquare = "PH57"
+            let expectedPending = pending
+            DestinationHistoryProtocol.reset()
+
+            store.autofillGridSquare(pending.gridSquare)
+            var expectedSaved = saved
+            expectedSaved.gridSquare = "PH57"
+            XCTAssertEqual(store.load(), expectedSaved)
+            XCTAssertEqual(pending, expectedPending)
+            XCTAssertEqual(pending.operatorCall, "VK8PENDING")
+            XCTAssertEqual(pending.defaultPower, "25")
+            do {
+                let config = try store.wavelogConfiguration(for: pending, token: "wl2_fixture")
+                _ = try await SyncEngine(database: database, configuration: config, session: session).synchronize()
+                XCTFail("Telemetry must not authorize the pending destination")
+            } catch WavelogDestinationError.unsavedDestination { }
+            XCTAssertTrue(DestinationHistoryProtocol.requests.isEmpty)
+            XCTAssertNil(try database.lookup(localID: local.id)?.deletedAt)
+
+            // An already-saved grid survives subsequent telemetry unchanged.
+            store.autofillGridSquare("FN31")
+            XCTAssertEqual(store.load(), expectedSaved)
+            XCTAssertEqual(pending, expectedPending)
+        }
+    }
+
     private func original() -> QSO {
         QSO(wavelogID: 42, call: "K1ORIGINAL", start: Date(timeIntervalSince1970: 1_700_000_000),
             band: "20m", mode: "CW", isDirty: false)

@@ -1388,7 +1388,7 @@ final class AppModel: ObservableObject {
                    let homeGrid = stationSnapshot?.rotor.homeGrid,
                    MaidenheadLocator.coordinate(homeGrid) != nil {
                     settings.gridSquare = homeGrid.uppercased()
-                    settingsStore.save(settings)
+                    settingsStore.autofillGridSquare(settings.gridSquare)
                 }
             } else {
                 stationSnapshot = nil

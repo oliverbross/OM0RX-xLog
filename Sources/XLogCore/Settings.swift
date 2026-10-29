@@ -424,6 +424,15 @@ public final class SettingsStore: @unchecked Sendable {
         if let data = try? JSONEncoder().encode(value) { defaults.set(data, forKey: key) }
     }
 
+    /// Telemetry fills only this saved field, never authorizing pending form edits.
+    public func autofillGridSquare(_ gridSquare: String) {
+        guard !gridSquare.isEmpty else { return }
+        var saved = load()
+        guard saved.gridSquare.isEmpty else { return }
+        saved.gridSquare = gridSquare
+        save(saved)
+    }
+
     /// Check before persisting either settings or secrets. Tombstones retain
     /// remote authority and are included by linkedRemoteCount().
     public func validateDestinationChange(to value: XLogSettings, database: LogbookDatabase?) throws {
