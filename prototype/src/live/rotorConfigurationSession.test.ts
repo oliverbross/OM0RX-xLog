@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { autoRotorBands, checkedRotorConfiguration, clearLegacyRotorConfiguration, defaultRotorConfiguration, legacyRotorConfiguration,
   readRotorConfigurationJournal, RotorConfigurationSession, rotorConfigurationDirty } from "./rotorConfigurationSession";
 
@@ -35,6 +36,28 @@ function backend() {
 beforeEach(() => localStorage.clear());
 
 describe("shared rotor configuration session", () => {
+  it("loads the native default band policy without losing valid bands or issuing a save", async () => {
+    // Captured from the disposable native window's SQLite configuration after
+    // startup failed. Do not derive this wire fixture from the frontend default.
+    const configuration = {
+      owner: "native_dcu1", native_dcu1: { host: "", port: 4001, name: "Rotor" },
+      hamlib: { baud: 9600, host: "127.0.0.1", mode: "managed", path: "", port: 4533, serial: {} },
+      auto_rotor_bands: ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "4m", "2m", "70cm", "23cm", "13cm"],
+      auto_rotor_at_startup: true,
+    };
+    // Keep the cross-language contract tied to its actual native owner.
+    const models = readFileSync("../Sources/XLogCore/Models.swift", "utf8");
+    const nativeBands = JSON.parse(models.match(/public static let bands = (\[[^\n]+\])/)![1]);
+    expect(configuration.auto_rotor_bands).toEqual(nativeBands);
+    const request = vi.fn(async () => ({ revision: 0, generation, configuration }));
+    const session = new RotorConfigurationSession(request);
+    await session.load();
+    expect(session.getSnapshot()).toMatchObject({ error: "", pending: null, base: { configuration } });
+    expect(request.mock.calls).toEqual([["workspace_rotor_configuration_load", {}]]);
+    expect(autoRotorBands).toEqual(nativeBands);
+    const narrower = { ...configuration, auto_rotor_at_startup: false, auto_rotor_bands: ["20m"] };
+    expect(checkedRotorConfiguration(narrower)).toEqual(narrower);
+  });
   it("defaults launch permission on and rejects unbounded automatic-rotor bands", () => {
     const defaults = defaultRotorConfiguration();
     expect(defaults.auto_rotor_at_startup).toBe(true);

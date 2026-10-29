@@ -26,7 +26,7 @@ const stable = (value: any): string => JSON.stringify(value, (_key, item) => obj
   ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]])) : item);
 const sameGeneration = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 const serialKeys = new Set(["data_bits", "stop_bits", "parity", "handshake", "dtr_state", "rts_state"]);
-export const autoRotorBands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"] as const;
+export const autoRotorBands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "4m", "2m", "70cm", "23cm", "13cm"] as const;
 const autoRotorBandSet = new Set<string>(autoRotorBands);
 const migratedAutomaticPolicy = (value: any) => object(value) ? { ...value,
   ...(value.auto_rotor_at_startup === undefined ? { auto_rotor_at_startup: true } : {}),
