@@ -1,0 +1,10 @@
+{
+  "head": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "gitStatusPorcelain": "",
+  "rustReportExpectedSHA256": "6d4286bc1f528033534d6df00f45085c141150da11ef8e4de6db32bcf5068018",
+  "rustReportCurrentSHA256": "6d4286bc1f528033534d6df00f45085c141150da11ef8e4de6db32bcf5068018",
+  "workflowExpectedSHA256": "44a9e3263842ef15f798b7ccdb9e6da89f649484206792baac4ab55189dbda23",
+  "workflowCurrentSHA256": "44a9e3263842ef15f798b7ccdb9e6da89f649484206792baac4ab55189dbda23",
+  "rustReportUnchanged": true,
+  "workflowUnchanged": true
+}

@@ -1,0 +1,204 @@
+{
+  "baseline": "530de4c4e4b23281ec60585cc7a2e5ca011476fb",
+  "auditedHead": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "changedInputs": 79,
+  "removedTrackedInputs": [],
+  "applicationSupportCommits": [
+    "f3f6e3dee40af29cb6801ef8ee422c521629e168 fix(settings): keep rotor autofill from authorizing pending destination",
+    "fd2fc49e79d691a02323a635f0db157ca5b22e29 test: await detached editor history subscription and cleanup",
+    "afe1cadfb8a46f1d624a64edcf1c555133ed1a3b fix: keep unsaved Wavelog settings from reassigning linked history",
+    "9a003a2b34e7cc107a8a6fab5ed9d1da6e6b68c7 fix: propagate unconfirmed FLEX retirement and preserve release-only recovery",
+    "7ba6ccc74435ac83ef81f2a0f2fea6322a03d95c fix: bind draft power capture to explicit active radio authority",
+    "9dc6772e01d4f2fd484b597e9401325566d1da60 test: prove stale contest context and revision rejection separately",
+    "a00365e6b491de61f43dea6da64270fa255e4924 fix: bind backup restores to their verified sync destination",
+    "8f47b19cace301fcc63b0b2522e234e3b00c4980 fix: preserve unsent manual time intent across QSO form switches",
+    "095f8fa8c2665292d14137d11f88fcee6b348ce9 fix: allow duplicate history advisories in detached QSO editors",
+    "e15c60089e18233cc39da8a30f533acb9769cc41 fix: retain authoritative country facts during replica rebuilds",
+    "58da5d49359f7333852b04037a134ab04167be7b test: enforce portable primitive and capability boundaries in CI",
+    "0a7e74ab3988537176551aea4a40ed48a012d7af test: verify cluster cleanup across supported backend boundaries",
+    "d7b8cf013b9a5d313e0c002fbf747968cbc24239 fix: validate CW wire booleans without CoreFoundation on Windows",
+    "388734e1e01730a70223ac90be3323635a2418a2 ci: require all seven worker shutdown regression tests",
+    "0b47e167cbfd62aa943a97acfa8017ccac5fc8ba fix: include pure IQ types in portable Swift source slice",
+    "4298491d86e0db0fa865df8f57cc81eaf361c1dd fix: publish module preferences durably on Windows",
+    "bcfb669c3cc877b3ba8eb72f9f49b3e8c04e846f fix: remove distrusted root from alternate TLS trust bundle",
+    "79ddc92a1318b57fdbc72be82be1f29dbf1ccf9e fix: keep test runtime provenance outside production allowlist",
+    "937d40ee1e9703c8529bfb2547140d93bd4e3f71 fix: patch reviewed Rust dependencies and guard their floors",
+    "f845c73732b7c9606ed09ac41558a6f1048f5e3d test: validate process worker with its bundled Python engine",
+    "3ce3f027b3196346d1cd47652c4c8fc5f2b26de9 test: repair NAQP browser interaction and entry readiness",
+    "37f8f5b8e599aacfb6c1ac1a189f2468c1c57302 fix: construct retained cluster callback in initializer",
+    "b0e8576650edcfd80f0acdc3d2b7a29a320d0304 fix: align clean frontend build with validated bundler",
+    "d60895176bfb3b7fc0e27e94a39752860a73bf1d test: await contest editor readiness after session creation",
+    "11db003d35b9b16e7c4b80cfbe57cb556879951f Label captured QSO power with its actual meter source",
+    "ceed093012865c94c24d9937868546a88e55241e Preserve deprecated ADI fields through schema-valid ADX extensions",
+    "94396af76828c79287599813286acca7324a32b6 Fix retained SwiftUI ADIF import and full-log export",
+    "14be33f94571de0ca24b0d53bb01fd4682db79a7 fix: retain recorder origin and admission for ESM and LOGIT commits",
+    "c4a5b9b77c6debce08e1a45fdc636892f34e5420 fix: correct WAE Japanese call areas with explicit legacy adoption",
+    "5a0fa0f7cb0a943918ec62df5255622850ad5fb7 fix: honor historical serial floor for shared authority grants",
+    "ce42ed94a6df0adbf8264ddc9c709b69cd0938c9 fix: replicate historical contest imports with durable identity evidence",
+    "3d832cdfb9af291ac8224067fc277e05caec5bcf fix: require fldigi transmit ownership for automatic receive cleanup",
+    "4353f538b462b201cd75967a1981ac64a33e3dfe fix: retire routed radio owners and isolate per-radio power capture",
+    "875b52549737c2423ae4404fca4d88de99bdda17 fix: preserve canonical QSO time intent through Save and editor remounts"
+  ],
+  "manifestContracts": {
+    "Package.swift": {
+      "before": [
+        "XCWCore",
+        "XContestCore",
+        "XContestStore",
+        "XLogCore",
+        "om0rx-xlog",
+        "xlog-prototype-worker"
+      ],
+      "current": [
+        "XCWCore",
+        "XContestCore",
+        "XContestStore",
+        "XLogCore",
+        "om0rx-xlog",
+        "xlog-prototype-worker"
+      ],
+      "equal": true
+    },
+    "prototype/package.json": {
+      "before": {
+        "scripts": {
+          "dev": "vite --host 127.0.0.1 --port 1420 --strictPort",
+          "build": "tsc --noEmit && vite build && node scripts/check-window-bundles.mjs",
+          "preview": "vite preview --host 127.0.0.1",
+          "test": "npm run test:node && vitest run --maxWorkers=1",
+          "test:node": "node --test scripts/contesting-worker-acceptance-qso.node-test.mjs",
+          "test:vitest": "vitest run --maxWorkers=1",
+          "tauri": "tauri"
+        },
+        "runtimeDependencyNames": [
+          "@tauri-apps/api",
+          "lucide-react",
+          "maplibre-gl",
+          "react",
+          "react-dom"
+        ]
+      },
+      "current": {
+        "scripts": {
+          "dev": "vite --host 127.0.0.1 --port 1420 --strictPort",
+          "build": "tsc --noEmit && vite build && node scripts/check-window-bundles.mjs",
+          "preview": "vite preview --host 127.0.0.1",
+          "test": "npm run test:node && vitest run --maxWorkers=1",
+          "test:node": "node --test scripts/*.node-test.mjs",
+          "test:vitest": "vitest run --maxWorkers=1",
+          "tauri": "tauri"
+        },
+        "runtimeDependencyNames": [
+          "@tauri-apps/api",
+          "lucide-react",
+          "maplibre-gl",
+          "react",
+          "react-dom"
+        ]
+      },
+      "equal": false
+    },
+    "prototype/src-tauri/tauri.conf.json": {
+      "before": {
+        "$schema": "https://schema.tauri.app/config/2",
+        "productName": "OM0RX-xLog",
+        "version": "1.3.60",
+        "identifier": "com.oliverbross.xlog.integration",
+        "build": {
+          "beforeDevCommand": "npm run dev",
+          "beforeBuildCommand": "npm run build",
+          "devUrl": "http://127.0.0.1:1420",
+          "frontendDist": "../dist"
+        },
+        "app": {
+          "windows": [
+            {
+              "label": "main",
+              "title": "OM0RX-xLog",
+              "width": 1440,
+              "height": 940,
+              "minWidth": 1000,
+              "minHeight": 720
+            }
+          ],
+          "security": {
+            "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' ipc: http://ipc.localhost https://gibs.earthdata.nasa.gov; worker-src 'self' blob:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'"
+          }
+        },
+        "bundle": {
+          "active": true,
+          "icon": [
+            "icons/32x32.png",
+            "icons/128x128.png",
+            "icons/128x128@2x.png",
+            "icons/icon.icns",
+            "icons/icon.ico"
+          ],
+          "targets": "all",
+          "externalBin": [
+            "binaries/xlog-prototype-worker",
+            "binaries/rigctld",
+            "binaries/rotctld"
+          ],
+          "macOS": {
+            "minimumSystemVersion": "14.0",
+            "infoPlist": "Info.plist"
+          },
+          "shortDescription": "Logging, cluster and station services",
+          "category": "Utility"
+        }
+      },
+      "current": {
+        "$schema": "https://schema.tauri.app/config/2",
+        "productName": "OM0RX-xLog",
+        "version": "1.3.60",
+        "identifier": "com.oliverbross.xlog.integration",
+        "build": {
+          "beforeDevCommand": "npm run dev",
+          "beforeBuildCommand": "npm run build",
+          "devUrl": "http://127.0.0.1:1420",
+          "frontendDist": "../dist"
+        },
+        "app": {
+          "windows": [
+            {
+              "label": "main",
+              "title": "OM0RX-xLog",
+              "width": 1440,
+              "height": 940,
+              "minWidth": 1000,
+              "minHeight": 720
+            }
+          ],
+          "security": {
+            "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' ipc: http://ipc.localhost https://gibs.earthdata.nasa.gov; worker-src 'self' blob:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'"
+          }
+        },
+        "bundle": {
+          "active": true,
+          "icon": [
+            "icons/32x32.png",
+            "icons/128x128.png",
+            "icons/128x128@2x.png",
+            "icons/icon.icns",
+            "icons/icon.ico"
+          ],
+          "targets": "all",
+          "externalBin": [
+            "binaries/xlog-prototype-worker",
+            "binaries/rigctld",
+            "binaries/rotctld"
+          ],
+          "macOS": {
+            "minimumSystemVersion": "14.0",
+            "infoPlist": "Info.plist"
+          },
+          "shortDescription": "Logging, cluster and station services",
+          "category": "Utility"
+        }
+      },
+      "equal": true
+    }
+  },
+  "boundary": "No production inputs deleted and public products/runtime dependency entrypoints compared; not proof of every unchanged or native/hardware workflow. Safety/validation behavior changes and eight open final-audit defects remain explicit."
+}

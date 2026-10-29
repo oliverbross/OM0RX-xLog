@@ -1,0 +1,19 @@
+{
+  "phase": "7",
+  "reader": "root",
+  "method": "Direct web.run open of primary advisory pages during this phase; this record is a manual source-review receipt, not a raw HTTP-body hash",
+  "sources": [
+    {
+      "url": "https://rustsec.org/advisories/RUSTSEC-2024-0429.html",
+      "inspectedLines": "27-56",
+      "fact": "GLib VariantStrIter affected functions are >=0.15.0,<0.20.0; patched >=0.20.0",
+      "applicationBoundary": "Locked GLib0.18.5 is a conditional Linux stack concern; no direct app caller or affected transitive reachability established"
+    },
+    {
+      "url": "https://github.com/RustCrypto/utils/security/advisories/GHSA-qwgh-2vcv-g2f7",
+      "inspectedLines": "119-125",
+      "fact": "Current maintainer affected range >=0.11.0,<0.12.1; patched0.12.1",
+      "applicationBoundary": "Locked0.10.4 is outside that primary range; broader raw OSV match remains preserved and is not silently removed"
+    }
+  ]
+}

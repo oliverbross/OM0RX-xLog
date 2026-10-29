@@ -1,0 +1,28 @@
+{
+  "capturedUTC": "2026-10-29T03:27:44.720798+00:00",
+  "source": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "applicationSource": "f3f6e3dee40af29cb6801ef8ee422c521629e168",
+  "files": {
+    "AGENTS.md": "c9d57887981cac62d7444c1a3a6e66d0cef37cf01e4fe1ea45f04de42ab6ab60",
+    "CODE_REVIEW.md": "2b1599e9ad161492bce5506d828fd05f74740594a2f4d55f524135ae34b3354b",
+    "REVIEW_COVERAGE.md": "59d1b7e8636f3759aac1eb27c214fc11cacc3d9dde173adae704ba89f2482a85",
+    "REMEDIATION_TRACKER.md": "a317a09095f2bf133aeafc9e167ba5b58be5490f04e7da7be56d08e7cb5fd249",
+    "REGRESSION_TEST_REPORT.md": "cccba873dfb1e2c15ce9ce05df39f99ff639673ded44d8bd5c57da86611f34d1",
+    "STABILITY_REPORT.md": "71d1afab9c0ac0c3326b1d17d6a7fde0aaf5e5de9746040ae657a6d59dedbd03",
+    "FINAL_CODE_AUDIT.md": "81253e4c4826f1b89d16f33b3e92551dabe77296acc2942e3d7716e4bb3b218d",
+    "python/contest_host/host.py": "6ec9ab0337d249aecc6b0f9f1c06a47a5ac10db618be2fc623e7dfd8e115feb5",
+    "python/contest_host/store.py": "fbf41de8bf97416a3a5ce1135908fac89283c278cd25e1c52bbb108525c411ab",
+    "Sources/XLogCore/BackupManager.swift": "d055d5bf1ddc3581edb869a519928ceec02d5d1bbbfcc069e5b9b59563c7d089",
+    "Sources/XLogCore/LogbookDatabase.swift": "bac645ba76ff58fffe465129733d3dcd2b1220ce99edb46284aed2cf5bb98b2b",
+    "Sources/XLogCore/Settings.swift": "459da4ffe9e760d0d557088f434ad97108c79fc72eee051fefc31541df1b2e19",
+    "Sources/XLogApp/AppModel.swift": "2f0f2d99f8dd181ac46e0b5d7c2eaaea16ad40d322d3b245cdccaa29aa51ecc3",
+    "Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift": "3e5b8348375414fd75da3d5824bdbdc076aba29287808197dba0ee7c6295e5a5",
+    "Tests/XLogCoreTests/BackupRestoreAuthorityTests.swift": "8bc0a368d852615cdd69d37e5dc41b993c4d01b2e6298e2b958f93b1617e974a",
+    "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift": "bb4f76029842564f0056d4cf4e900d0a3efb925e5d5c892f217a125068207296",
+    "Tests/XLogCoreTests/SettingsModeTests.swift": "a057261983e169afaf48aff89f8ec261515b155b6b43242f5ea1deeaff826a53",
+    "prototype/src/live/adifTransfer.ts": "659b5261783d9fc74ca0a7972e2168083b02dc6d60cfc31dfb8d23ce83a8fa97",
+    "prototype/tests/fixtures/adx317.xsd.gz": "294c0e78734c9bfdeada8df9a840239bc34b69e6b6d858ada465960a2a950a85"
+  },
+  "probeCopyBytesEqual": true,
+  "schemaHelperCopyBytesEqual": true
+}

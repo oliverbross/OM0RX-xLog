@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 2,
+  "sourceHead": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceHeadAfterBuild": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "compiledInputsClean": true,
+  "toolchain": {
+    "swiftPath": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift",
+    "swiftVersion": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0"
+  },
+  "build": {
+    "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+    "environment": {
+      "XLOG_PORTABLE_ONLY": "1"
+    },
+    "command": [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift",
+      "build",
+      "--build-system",
+      "xcode",
+      "-j",
+      "2",
+      "--scratch-path",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/worker-clean",
+      "-c",
+      "release",
+      "--product",
+      "xlog-prototype-worker"
+    ],
+    "showBinPathCommand": [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift",
+      "build",
+      "--build-system",
+      "xcode",
+      "-j",
+      "2",
+      "--scratch-path",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/worker-clean",
+      "-c",
+      "release",
+      "--show-bin-path"
+    ],
+    "scratchPath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/worker-clean"
+  },
+  "worker": {
+    "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/worker-clean/apple/Products/Release/xlog-prototype-worker",
+    "size": 52985960,
+    "sha256": "c8ee1ca5f9db9d7fa36fe8e651277a63a043cc270d1411f36aeb4bc1e4667de6"
+  },
+  "resources": {
+    "logbook": {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/worker-clean/apple/Products/Release/OM0RXXLogPrototype_XLogCore.bundle",
+      "files": [
+        {
+          "path": "Contents/Info.plist",
+          "size": 1227,
+          "sha256": "b55b1ed3012071c40a356d9a5ed4f1d03db337138a526ed00a567973ac4e528a"
+        },
+        {
+          "path": "Contents/Resources/DXCC_BOUNDARIES_SOURCE.md",
+          "size": 793,
+          "sha256": "4090c9034c67dc322a200ce64a2afac03abc3f0c5009b2204993706bdf27b73d"
+        },
+        {
+          "path": "Contents/Resources/cty.csv",
+          "size": 102372,
+          "sha256": "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d"
+        },
+        {
+          "path": "Contents/Resources/dxcc-boundaries.geojson",
+          "size": 831833,
+          "sha256": "e9b086eff7fb690e9990e10855f3fb494f9d1115e4af1928f6a8b545efef4568"
+        },
+        {
+          "path": "Contents/Resources/ham-award-jarl-entities.json",
+          "size": 364058,
+          "sha256": "436457aa8988f3fcd6b2688e2f8d07773d01db71718c8c353bfc815bc8916188"
+        },
+        {
+          "path": "Contents/Resources/ham-award-jarl-prefectures.json",
+          "size": 5195,
+          "sha256": "73b77874e85d5b609f978e24450bcbc753bbc90efc131d9a1c48ca3edb665485"
+        },
+        {
+          "path": "Contents/Resources/ham-award-research-registry.json",
+          "size": 427613,
+          "sha256": "7dee79f26e51ef6682faef3b96a6d1d735a5d80330d927e0ff1ff5fcfc7d48e2"
+        },
+        {
+          "path": "Contents/Resources/ham-award-tools-LICENSE.md",
+          "size": 1063,
+          "sha256": "d01591b6b8b8390cac01d573f30afd348891db1ed613156d4bb92f3a0e67a30c"
+        },
+        {
+          "path": "Contents/Resources/ham-award-wcsa-schools.json",
+          "size": 2093,
+          "sha256": "10d5f37450abccd9ec035a045a2803157de1f16e2be42fcc5a0fc757d0789200"
+        },
+        {
+          "path": "Contents/Resources/ham-awards-registry-NOTICE.md",
+          "size": 1211,
+          "sha256": "6944fd44762ce06974dd312f15e7f919d2274d6e172511e962228b84d41dcef6"
+        }
+      ],
+      "treeSha256": "748093a0e25253926e8440a7afc997947da0211c1a7d11ee4d695e57cdc3d1b3"
+    },
+    "contest": {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/worker-clean/apple/Products/Release/OM0RXXLogPrototype_XContestCore.bundle",
+      "files": [
+        {
+          "path": "Contents/Info.plist",
+          "size": 1239,
+          "sha256": "ce1126bfa5311aaa2509bf663f6faab1d4fe374b03081e6ba3ce5ae254d665da"
+        },
+        {
+          "path": "Contents/Resources/ContestDefinitions/10_10_fall_cw.runtime-draft.json",
+          "size": 6207,
+          "sha256": "d066bdd75d2db59c8a25bf3b5dabc30e84aaba8a5176a17a36571d6f48c78a8c"
+        },
+        {
+          "path": "Contents/Resources/ContestDefinitions/10_10_spring_cw.runtime-draft.json",
+          "size": 6211,
+          "sha256": "efade3985deece15f149855c0caccc632953e5756a229b41259410d58f3781b3"
+        },
+        {
+          "path": "Contents/Resources/ContestDefinitions/10_10_summer_phone.runtime-draft.json",
+          "size": 7055,
+          "sha256": "58b6d423bc3a2956c5c72a2c1e5dd259ba61bb0ad66bb389a2c5752b160af63d"
+        },
+        {
+          "path": "Contents/Resources/ContestDefinitions/10_10_winter_phone.runtime-draft.json",
+          "size": 7055,
+          "sha256": "8034607537763e3c62b14056c1a5c8c6d2c891dd8b6d47fee59fbdbbcd9f0d00"
+        },
+        {
+          "path": "Contents/Resources/ContestDefinitions/cwo.runtime-draft.json",
+          "size": 4933,
+          "sha256": "1fc3ec4eae8d77d5655b8e309d44f55371d5c2951cb599e7b8da14962a775ceb"
+        },
+        {
+          "path": "Contents/Resources/ContestDefinitions/cwt.runtime-draft.json",
+          "size": 5039,
+          "sha256": "f5d33e2b6701a5ac234b3018827e2a55dc5f7e940b9dacd44f31225d47a212ae"
+        },
+        {
+          "path": "Contents/Resources/ContestDefinitions/icwc_mst.runtime-draft.json",
+          "size": 4989,
+          "sha256": "d9f55f192ebc810ed2f414386df556b97f5b7f98e7edc65ddb37306ccb731d35"
+        },
+        {
+          "path": "Contents/Resources/ContestDefinitions/k1usn_sst.runtime-draft.json",
+          "size": 6955,
+          "sha256": "8c82a5f389a19df615048e3d8a2c32fa9ca73a75878a5c2fc5ae95c2f8b39691"
+        },
+        {
+          "path": "Contents/Resources/ContestDefinitions/manifest.json",
+          "size": 3201,
+          "sha256": "88bbcc8ee0f121a7995726cb1262ba2c41a2ec5ac198903c6d8de6efbb826573"
+        },
+        {
+          "path": "Contents/Resources/CountryReferences/cqww-2026-country-reference.json",
+          "size": 91990,
+          "sha256": "3f4e9752188f47677661a156790ddbbf1ac8afde8b282d3e2ebbbc9f68ba070b"
+        }
+      ],
+      "treeSha256": "d27a89320b4b776de75f858bb1761a28b3509b2aca0141b9aee530be02d6932d"
+    }
+  }
+}

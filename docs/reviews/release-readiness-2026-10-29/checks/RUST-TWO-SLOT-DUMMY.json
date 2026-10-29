@@ -1,0 +1,34 @@
+{
+  "id": "RUST-TWO-SLOT-DUMMY",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--jobs",
+    "2",
+    "--bin",
+    "xlog-prototype",
+    "station_session::tests::opt_in_two_slot_saved_profiles_connect_real_bundled_dummy_receivers_independently",
+    "--",
+    "--exact",
+    "--nocapture"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri",
+  "startedUTC": "2026-10-29T03:32:21.469354+00:00",
+  "finishedUTC": "2026-10-29T03:32:22.859439+00:00",
+  "seconds": 1.39,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceHeadEnd": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-phase7-20261029-b8926639/checks/RUST-TWO-SLOT-DUMMY.log",
+  "logBytes": 477,
+  "logSHA256": "88644b2cef3dd762522c17326fa4d2243edc4167e4dd2dbec10c7effa7b4cd6b",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {
+    "CARGO_TARGET_DIR": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/rust",
+    "XLOG_TEST_RIGCTLD": "/opt/homebrew/bin/rigctld",
+    "XLOG_TEST_ROTCTLD": "/opt/homebrew/bin/rotctld"
+  }
+}

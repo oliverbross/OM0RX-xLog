@@ -1,0 +1,146 @@
+{
+  "RUST-FULL": {
+    "diagnosticCount": 14,
+    "diagnosticHeaders": {
+      "warning: function `valid` is never used": 1,
+      "warning: function `load` is never used": 1,
+      "warning: function `routing_owner` is never used": 1,
+      "warning: function `with_routing` is never used": 1,
+      "warning: function `active` is never used": 1,
+      "warning: function `prepare_power_authority` is never used": 1,
+      "warning: function `bind_power_authority` is never used": 1,
+      "warning: function `set_active` is never used": 1,
+      "warning: function `claim_active_tx` is never used": 1,
+      "warning: function `contest_setup_dialog_kind` is never used": 1,
+      "warning: associated items `as_str` and `parse` are never used": 1,
+      "warning: methods `begin` and `begin_restart` are never used": 1,
+      "warning: function `prepare` is never used": 1,
+      "warning: methods `media_path` and `coverage` are never used": 1
+    },
+    "compilerSummaries": [
+      "warning: `xlog-prototype` (test \"hamlib_dummy\") generated 9 warnings",
+      "warning: `xlog-prototype` (bin \"xlog-prototype\") generated 5 warnings"
+    ],
+    "clippyHelpCategories": {}
+  },
+  "RUST-FEATURE-R2": {
+    "diagnosticCount": 0,
+    "diagnosticHeaders": {},
+    "compilerSummaries": [],
+    "clippyHelpCategories": {}
+  },
+  "RUST-HAMLIB-DUMMY": {
+    "diagnosticCount": 14,
+    "diagnosticHeaders": {
+      "warning: function `valid` is never used": 1,
+      "warning: function `load` is never used": 1,
+      "warning: function `routing_owner` is never used": 1,
+      "warning: function `with_routing` is never used": 1,
+      "warning: function `active` is never used": 1,
+      "warning: function `prepare_power_authority` is never used": 1,
+      "warning: function `bind_power_authority` is never used": 1,
+      "warning: function `set_active` is never used": 1,
+      "warning: function `claim_active_tx` is never used": 1,
+      "warning: function `contest_setup_dialog_kind` is never used": 1,
+      "warning: associated items `as_str` and `parse` are never used": 1,
+      "warning: methods `begin` and `begin_restart` are never used": 1,
+      "warning: function `prepare` is never used": 1,
+      "warning: methods `media_path` and `coverage` are never used": 1
+    },
+    "compilerSummaries": [
+      "warning: `xlog-prototype` (test \"hamlib_dummy\") generated 9 warnings",
+      "warning: `xlog-prototype` (bin \"xlog-prototype\") generated 5 warnings"
+    ],
+    "clippyHelpCategories": {}
+  },
+  "RUST-TWO-SLOT-DUMMY": {
+    "diagnosticCount": 0,
+    "diagnosticHeaders": {},
+    "compilerSummaries": [],
+    "clippyHelpCategories": {}
+  },
+  "RUST-CLIPPY": {
+    "diagnosticCount": 62,
+    "diagnosticHeaders": {
+      "warning: function `valid` is never used": 1,
+      "warning: function `load` is never used": 1,
+      "warning: function `routing_owner` is never used": 1,
+      "warning: function `with_routing` is never used": 1,
+      "warning: function `active` is never used": 1,
+      "warning: function `prepare_power_authority` is never used": 1,
+      "warning: function `bind_power_authority` is never used": 1,
+      "warning: function `set_active` is never used": 1,
+      "warning: function `claim_active_tx` is never used": 1,
+      "warning: this function has too many arguments (8/7)": 5,
+      "warning: this looks like an `else if` but the `else` is missing": 1,
+      "warning: function `contest_setup_dialog_kind` is never used": 1,
+      "warning: associated items `as_str` and `parse` are never used": 1,
+      "warning: methods `begin` and `begin_restart` are never used": 1,
+      "warning: function `prepare` is never used": 1,
+      "warning: methods `media_path` and `coverage` are never used": 1,
+      "warning: this `if` has identical blocks": 1,
+      "warning: match expression looks like `matches!` macro": 1,
+      "warning: called `unwrap` on `owner` after checking its variant with `is_some`": 1,
+      "warning: this method chain can be written more clearly with `if .. else ..`": 1,
+      "warning: needless call to `as_bytes`": 4,
+      "warning: manual implementation of `.is_multiple_of()`": 2,
+      "warning: using `chunks_exact` with a constant chunk size": 3,
+      "warning: using `contains()` instead of `iter().any()` is more efficient": 1,
+      "warning: manual `RangeInclusive::contains` implementation": 1,
+      "warning: very complex type used. Consider factoring parts into `type` definitions": 4,
+      "warning: this `if` statement can be collapsed": 1,
+      "warning: writing `&PathBuf` instead of `&Path` involves a new object where a slice will do": 1,
+      "warning: casting to the same type is unnecessary (`u64` -> `u64`)": 1,
+      "warning: this function has too many arguments (9/7)": 1,
+      "warning: this function has too many arguments (10/7)": 1,
+      "warning: this `if` can be collapsed into the outer `match`": 1,
+      "warning: this expression creates a reference which is immediately dereferenced by the compiler": 6,
+      "warning: the borrowed expression implements the required traits": 2,
+      "warning: this assertion has a constant value": 1,
+      "warning: unnecessary use of `clone` to create a slice from a reference": 7,
+      "warning: field assignment outside of initializer for an instance created with Default::default()": 1
+    },
+    "compilerSummaries": [
+      "warning: `xlog-prototype` (test \"hamlib_dummy\") generated 10 warnings",
+      "warning: `xlog-prototype` (bin \"xlog-prototype\") generated 32 warnings (run `cargo clippy --fix --bin \"xlog-prototype\" -p xlog-prototype -- ` to apply 14 suggestions)",
+      "warning: `xlog-prototype` (bin \"xlog-prototype\" test) generated 46 warnings (26 duplicates) (run `cargo clippy --fix --bin \"xlog-prototype\" -p xlog-prototype --tests -- ` to apply 15 suggestions)"
+    ],
+    "clippyHelpCategories": {
+      "too_many_arguments": 7,
+      "possible_missing_else": 1,
+      "if_same_then_else": 1,
+      "match_like_matches_macro": 1,
+      "unnecessary_unwrap": 1,
+      "obfuscated_if_else": 1,
+      "needless_as_bytes": 4,
+      "manual_is_multiple_of": 2,
+      "chunks_exact_to_as_chunks": 3,
+      "manual_contains": 1,
+      "manual_range_contains": 1,
+      "type_complexity": 4,
+      "collapsible_if": 1,
+      "ptr_arg": 1,
+      "unnecessary_cast": 1,
+      "collapsible_match": 1,
+      "needless_borrow": 6,
+      "needless_borrows_for_generic_args": 2,
+      "assertions_on_constants": 1,
+      "cloned_ref_to_slice_refs": 7,
+      "field_reassign_with_default": 1
+    }
+  },
+  "RUST-RELEASE": {
+    "diagnosticCount": 5,
+    "diagnosticHeaders": {
+      "warning: function `contest_setup_dialog_kind` is never used": 1,
+      "warning: associated items `as_str` and `parse` are never used": 1,
+      "warning: methods `begin` and `begin_restart` are never used": 1,
+      "warning: function `prepare` is never used": 1,
+      "warning: methods `media_path` and `coverage` are never used": 1
+    },
+    "compilerSummaries": [
+      "warning: `xlog-prototype` (bin \"xlog-prototype\") generated 5 warnings"
+    ],
+    "clippyHelpCategories": {}
+  }
+}

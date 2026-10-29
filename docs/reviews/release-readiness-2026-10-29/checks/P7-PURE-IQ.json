@@ -1,0 +1,26 @@
+{
+  "id": "P7-PURE-IQ",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "tools/check_portable_iq_sources.py",
+    "--repository",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog",
+    "--output",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/pure-iq"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T03:42:08.308394+00:00",
+  "finishedUTC": "2026-10-29T03:42:40.273247+00:00",
+  "seconds": 31.965,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceHeadEnd": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-phase7-20261029-b8926639/checks/P7-PURE-IQ.log",
+  "logBytes": 7843,
+  "logSHA256": "d3073be104b6419d0ff9ec844c4fbf389822321cae61bcadc11d79861c53b6d1",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

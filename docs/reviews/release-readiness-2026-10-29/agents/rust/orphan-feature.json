@@ -1,0 +1,24 @@
+{
+  "id": "RUST-FEATURE",
+  "status": "INCOMPLETE_RUNNER",
+  "reason": "Detached CLI driver disappeared before receipt finalization; log displays 931 passing tests but lacks completed receipt. RUST-FEATURE-R2 supersedes it.",
+  "log": "/tmp/xlog-phase7-20261029-b8926639/checks/RUST-FEATURE.log",
+  "logBytes": 93881,
+  "logSHA256": "5e7afd93c15a9e3fde054335d2181a9af300c69b84c7e4e8f13f5fa388e54e0c",
+  "runningMarker": {
+    "id": "RUST-FEATURE",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--jobs",
+      "2",
+      "--bin",
+      "xlog-prototype",
+      "--features",
+      "contesting-test"
+    ],
+    "startedUTC": "2026-10-29T03:27:57.610159+00:00",
+    "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri"
+  }
+}

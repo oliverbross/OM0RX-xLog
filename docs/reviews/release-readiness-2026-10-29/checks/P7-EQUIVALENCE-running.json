@@ -1,0 +1,10 @@
+{
+  "id": "P7-EQUIVALENCE",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "tools/check_contest_append_equivalence.py"
+  ],
+  "startedUTC": "2026-10-29T03:15:45.042809+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}

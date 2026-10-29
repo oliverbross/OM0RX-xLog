@@ -1,0 +1,15 @@
+{
+  "id": "P7-GENERATOR-R2",
+  "command": [
+    "/opt/homebrew/bin/python3.14",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tools/contest_plugin_generator/tests",
+    "-v"
+  ],
+  "startedUTC": "2026-10-29T03:23:19.215054+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}

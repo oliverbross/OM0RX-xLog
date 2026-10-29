@@ -1,0 +1,24 @@
+{
+  "id": "P7-JOB-123258658911-ANNOTATIONS",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "/tmp/xlog-phase7-20261029-b8926639/platform_fetch.py",
+    "123258658911",
+    "annotations"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T04:26:00.994236+00:00",
+  "finishedUTC": "2026-10-29T04:26:01.809229+00:00",
+  "seconds": 0.815,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceHeadEnd": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-phase7-20261029-b8926639/checks/P7-JOB-123258658911-ANNOTATIONS.log",
+  "logBytes": 883,
+  "logSHA256": "1fabff66445adb03fea98e47a0a9ab34b9a6a788845c105fe36932d185c4ff0c",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

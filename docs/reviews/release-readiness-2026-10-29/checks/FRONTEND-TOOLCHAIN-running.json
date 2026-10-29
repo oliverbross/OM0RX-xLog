@@ -1,0 +1,9 @@
+{
+  "id": "FRONTEND-TOOLCHAIN",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "/tmp/xlog-phase7-20261029-b8926639/frontend_toolchain.py"
+  ],
+  "startedUTC": "2026-10-29T03:23:26.275283+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}

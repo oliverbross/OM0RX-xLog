@@ -1,0 +1,24 @@
+{
+  "jobId": 123258658907,
+  "jobName": "Contest native tests (windows-2022)",
+  "head": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "kind": "annotations",
+  "command": [
+    "gh",
+    "api",
+    "repos/oliverbross/OM0RX-xLog/check-runs/123258658907/annotations?per_page=100"
+  ],
+  "startedUTC": "2026-10-29T04:17:13.211996+00:00",
+  "seconds": 0.748,
+  "exit": 0,
+  "streamBytes": 530,
+  "streamSHA256": "5f825cacfcf2d1245458181e0162b83763660c6bbd0db2f84bb87d173ef19b69",
+  "fullStreamSaved": true,
+  "savedFile": "/tmp/xlog-phase7-20261029-b8926639/agents/platform/123258658907-annotations.json",
+  "savedBytes": 530,
+  "savedSHA256": "5f825cacfcf2d1245458181e0162b83763660c6bbd0db2f84bb87d173ef19b69",
+  "stderrFile": "/tmp/xlog-phase7-20261029-b8926639/agents/platform/123258658907-annotations-stderr.log",
+  "stderrBytes": 0,
+  "annotationCount": 1,
+  "paginationRequired": false
+}

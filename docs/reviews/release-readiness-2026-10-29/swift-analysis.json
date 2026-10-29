@@ -1,0 +1,1563 @@
+[
+  {
+    "id": "P7-NATIVE",
+    "exit": 0,
+    "seconds": 381.223,
+    "xctSummaries": [
+      [
+        "4",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "1",
+        "",
+        "0"
+      ],
+      [
+        "9",
+        "",
+        "0"
+      ],
+      [
+        "20",
+        "",
+        "0"
+      ],
+      [
+        "20",
+        "",
+        "0"
+      ],
+      [
+        "2",
+        "",
+        "0"
+      ],
+      [
+        "4",
+        "",
+        "0"
+      ],
+      [
+        "2",
+        "",
+        "0"
+      ],
+      [
+        "14",
+        "",
+        "0"
+      ],
+      [
+        "4",
+        "",
+        "0"
+      ],
+      [
+        "5",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "2",
+        "",
+        "0"
+      ],
+      [
+        "2",
+        "",
+        "0"
+      ],
+      [
+        "3",
+        "",
+        "0"
+      ],
+      [
+        "34",
+        "",
+        "0"
+      ],
+      [
+        "5",
+        "",
+        "0"
+      ],
+      [
+        "83",
+        "",
+        "0"
+      ],
+      [
+        "83",
+        "",
+        "0"
+      ],
+      [
+        "7",
+        "",
+        "0"
+      ],
+      [
+        "8",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "7",
+        "",
+        "0"
+      ],
+      [
+        "14",
+        "",
+        "0"
+      ],
+      [
+        "3",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "2",
+        "",
+        "0"
+      ],
+      [
+        "10",
+        "",
+        "0"
+      ],
+      [
+        "10",
+        "",
+        "0"
+      ],
+      [
+        "16",
+        "",
+        "0"
+      ],
+      [
+        "5",
+        "",
+        "0"
+      ],
+      [
+        "1",
+        "",
+        "0"
+      ],
+      [
+        "9",
+        "",
+        "0"
+      ],
+      [
+        "5",
+        "",
+        "0"
+      ],
+      [
+        "9",
+        "",
+        "0"
+      ],
+      [
+        "4",
+        "",
+        "0"
+      ],
+      [
+        "7",
+        "",
+        "0"
+      ],
+      [
+        "9",
+        "",
+        "0"
+      ],
+      [
+        "5",
+        "",
+        "0"
+      ],
+      [
+        "11",
+        "",
+        "0"
+      ],
+      [
+        "5",
+        "",
+        "0"
+      ],
+      [
+        "8",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "4",
+        "",
+        "0"
+      ],
+      [
+        "7",
+        "",
+        "0"
+      ],
+      [
+        "8",
+        "",
+        "0"
+      ],
+      [
+        "8",
+        "",
+        "0"
+      ],
+      [
+        "9",
+        "",
+        "0"
+      ],
+      [
+        "5",
+        "",
+        "0"
+      ],
+      [
+        "7",
+        "",
+        "0"
+      ],
+      [
+        "227",
+        "",
+        "0"
+      ],
+      [
+        "227",
+        "",
+        "0"
+      ]
+    ],
+    "swiftTestingSummaries": [
+      "Test run with 332 tests in 45 suites passed after 65.729 seconds.",
+      "Test run with 0 tests in 0 suites passed after 0.001 seconds.",
+      "Test run with 8 tests in 2 suites passed after 0.059 seconds."
+    ],
+    "warningHeaderCount": 0,
+    "uniqueWarningHeaders": [],
+    "skippedOrDisabledLines": [
+      "\u279c Test \"Generated catalogue calculation preserves every programme at scale\" skipped.",
+      "\u279c Test \"Trusted implicit FTPS uploads, verifies, restores and refuses replay\" skipped.",
+      "\u279c Test \"Implicit FTPS rejects wrong CA and wrong hostname before upload\" skipped.",
+      "\u279c Test \"Disposable FTP upload, independent verification and restore\" skipped.",
+      "\u279c Test \"Untrusted implicit FTPS certificate fails closed before upload\" skipped.",
+      "\u279c Test \"Disposable FTP reservation refusal writes no object\" skipped.",
+      "\u279c Test \"Lost FTP acknowledgement remains uncertain and is not replayed\" skipped.",
+      "\u279c Test \"Oversized advertised or streamed FTP download fails closed\" skipped.",
+      "\u279c Test \"FTP restore rejects an object that grew after verification\" skipped.",
+      "\u279c Test \"FTP control handshake times out before any object write\" skipped.",
+      "\u279c Test \"FTP stalled and continuously slow downloads respect production time limits\" skipped.",
+      "\u279c Test \"FTP stalled and throttled uploads remain uncertain within production time limits\" skipped.",
+      "\u25c7 Test \"Empty workspace has its own database and disabled sync settings\" started.",
+      "\u2714 Test \"Empty workspace has its own database and disabled sync settings\" passed after 0.027 seconds."
+    ]
+  },
+  {
+    "id": "P7-PORTABLE",
+    "exit": 0,
+    "seconds": 776.434,
+    "xctSummaries": [
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "17",
+        "",
+        "0"
+      ],
+      [
+        "23",
+        "",
+        "0"
+      ],
+      [
+        "23",
+        "",
+        "0"
+      ],
+      [
+        "16",
+        "",
+        "0"
+      ],
+      [
+        "9",
+        "",
+        "0"
+      ],
+      [
+        "19",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "1",
+        "1",
+        "0"
+      ],
+      [
+        "10",
+        "",
+        "0"
+      ],
+      [
+        "5",
+        "",
+        "0"
+      ],
+      [
+        "5",
+        "",
+        "0"
+      ],
+      [
+        "2",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "10",
+        "",
+        "0"
+      ],
+      [
+        "4",
+        "",
+        "0"
+      ],
+      [
+        "1",
+        "",
+        "0"
+      ],
+      [
+        "4",
+        "",
+        "0"
+      ],
+      [
+        "1",
+        "",
+        "0"
+      ],
+      [
+        "13",
+        "",
+        "0"
+      ],
+      [
+        "2",
+        "",
+        "0"
+      ],
+      [
+        "9",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "5",
+        "",
+        "0"
+      ],
+      [
+        "1",
+        "",
+        "0"
+      ],
+      [
+        "12",
+        "",
+        "0"
+      ],
+      [
+        "9",
+        "",
+        "0"
+      ],
+      [
+        "3",
+        "",
+        "0"
+      ],
+      [
+        "3",
+        "",
+        "0"
+      ],
+      [
+        "1",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "5",
+        "",
+        "0"
+      ],
+      [
+        "1",
+        "1",
+        "0"
+      ],
+      [
+        "5",
+        "1",
+        "0"
+      ],
+      [
+        "4",
+        "",
+        "0"
+      ],
+      [
+        "2",
+        "",
+        "0"
+      ],
+      [
+        "24",
+        "",
+        "0"
+      ],
+      [
+        "7",
+        "",
+        "0"
+      ],
+      [
+        "2",
+        "",
+        "0"
+      ],
+      [
+        "5",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "4",
+        "",
+        "0"
+      ],
+      [
+        "2",
+        "",
+        "0"
+      ],
+      [
+        "15",
+        "",
+        "0"
+      ],
+      [
+        "31",
+        "",
+        "0"
+      ],
+      [
+        "8",
+        "",
+        "0"
+      ],
+      [
+        "39",
+        "",
+        "0"
+      ],
+      [
+        "9",
+        "",
+        "0"
+      ],
+      [
+        "31",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "15",
+        "",
+        "0"
+      ],
+      [
+        "10",
+        "",
+        "0"
+      ],
+      [
+        "10",
+        "",
+        "0"
+      ],
+      [
+        "12",
+        "",
+        "0"
+      ],
+      [
+        "3",
+        "1",
+        "0"
+      ],
+      [
+        "3",
+        "",
+        "0"
+      ],
+      [
+        "4",
+        "",
+        "0"
+      ],
+      [
+        "16",
+        "",
+        "0"
+      ],
+      [
+        "1",
+        "",
+        "0"
+      ],
+      [
+        "17",
+        "",
+        "0"
+      ],
+      [
+        "5",
+        "",
+        "0"
+      ],
+      [
+        "3",
+        "",
+        "0"
+      ],
+      [
+        "3",
+        "",
+        "0"
+      ],
+      [
+        "1",
+        "1",
+        "0"
+      ],
+      [
+        "7",
+        "1",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "4",
+        "",
+        "0"
+      ],
+      [
+        "10",
+        "",
+        "0"
+      ],
+      [
+        "7",
+        "",
+        "0"
+      ],
+      [
+        "2",
+        "",
+        "0"
+      ],
+      [
+        "9",
+        "",
+        "0"
+      ],
+      [
+        "9",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "3",
+        "",
+        "0"
+      ],
+      [
+        "7",
+        "",
+        "0"
+      ],
+      [
+        "554",
+        "6",
+        "0"
+      ],
+      [
+        "554",
+        "6",
+        "0"
+      ],
+      [
+        "2",
+        "",
+        "0"
+      ],
+      [
+        "4",
+        "",
+        "0"
+      ],
+      [
+        "2",
+        "",
+        "0"
+      ],
+      [
+        "14",
+        "",
+        "0"
+      ],
+      [
+        "4",
+        "",
+        "0"
+      ],
+      [
+        "5",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "2",
+        "",
+        "0"
+      ],
+      [
+        "2",
+        "",
+        "0"
+      ],
+      [
+        "3",
+        "",
+        "0"
+      ],
+      [
+        "34",
+        "",
+        "0"
+      ],
+      [
+        "5",
+        "",
+        "0"
+      ],
+      [
+        "83",
+        "",
+        "0"
+      ],
+      [
+        "83",
+        "",
+        "0"
+      ],
+      [
+        "7",
+        "",
+        "0"
+      ],
+      [
+        "8",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "7",
+        "",
+        "0"
+      ],
+      [
+        "14",
+        "",
+        "0"
+      ],
+      [
+        "3",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "2",
+        "",
+        "0"
+      ],
+      [
+        "10",
+        "",
+        "0"
+      ],
+      [
+        "10",
+        "",
+        "0"
+      ],
+      [
+        "16",
+        "",
+        "0"
+      ],
+      [
+        "5",
+        "",
+        "0"
+      ],
+      [
+        "1",
+        "",
+        "0"
+      ],
+      [
+        "9",
+        "",
+        "0"
+      ],
+      [
+        "5",
+        "",
+        "0"
+      ],
+      [
+        "9",
+        "",
+        "0"
+      ],
+      [
+        "4",
+        "",
+        "0"
+      ],
+      [
+        "7",
+        "",
+        "0"
+      ],
+      [
+        "9",
+        "",
+        "0"
+      ],
+      [
+        "5",
+        "",
+        "0"
+      ],
+      [
+        "11",
+        "",
+        "0"
+      ],
+      [
+        "5",
+        "",
+        "0"
+      ],
+      [
+        "8",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "4",
+        "",
+        "0"
+      ],
+      [
+        "7",
+        "",
+        "0"
+      ],
+      [
+        "8",
+        "",
+        "0"
+      ],
+      [
+        "8",
+        "",
+        "0"
+      ],
+      [
+        "9",
+        "",
+        "0"
+      ],
+      [
+        "5",
+        "",
+        "0"
+      ],
+      [
+        "7",
+        "",
+        "0"
+      ],
+      [
+        "227",
+        "",
+        "0"
+      ],
+      [
+        "227",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "10",
+        "",
+        "0"
+      ],
+      [
+        "1",
+        "",
+        "0"
+      ],
+      [
+        "9",
+        "",
+        "0"
+      ],
+      [
+        "9",
+        "",
+        "0"
+      ],
+      [
+        "19",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "13",
+        "",
+        "0"
+      ],
+      [
+        "5",
+        "",
+        "0"
+      ],
+      [
+        "78",
+        "",
+        "0"
+      ],
+      [
+        "78",
+        "",
+        "0"
+      ],
+      [
+        "8",
+        "",
+        "0"
+      ],
+      [
+        "1",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "9",
+        "",
+        "0"
+      ],
+      [
+        "10",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "95",
+        "",
+        "0"
+      ],
+      [
+        "58",
+        "",
+        "0"
+      ],
+      [
+        "193",
+        "",
+        "0"
+      ],
+      [
+        "193",
+        "",
+        "0"
+      ],
+      [
+        "2",
+        "",
+        "0"
+      ],
+      [
+        "4",
+        "",
+        "0"
+      ],
+      [
+        "3",
+        "",
+        "0"
+      ],
+      [
+        "4",
+        "",
+        "0"
+      ],
+      [
+        "3",
+        "",
+        "0"
+      ],
+      [
+        "7",
+        "",
+        "0"
+      ],
+      [
+        "4",
+        "",
+        "0"
+      ],
+      [
+        "2",
+        "",
+        "0"
+      ],
+      [
+        "4",
+        "",
+        "0"
+      ],
+      [
+        "33",
+        "",
+        "0"
+      ],
+      [
+        "33",
+        "",
+        "0"
+      ]
+    ],
+    "swiftTestingSummaries": [
+      "Test run with 0 tests in 0 suites passed after 0.001 seconds.",
+      "Test run with 533 tests in 72 suites passed after 50.301 seconds.",
+      "Test run with 0 tests in 0 suites passed after 0.001 seconds.",
+      "Test run with 8 tests in 2 suites passed after 0.031 seconds.",
+      "Test run with 0 tests in 0 suites passed after 0.001 seconds.",
+      "Test run with 0 tests in 0 suites passed after 0.001 seconds.",
+      "Test run with 0 tests in 0 suites passed after 0.001 seconds."
+    ],
+    "warningHeaderCount": 6,
+    "uniqueWarningHeaders": [
+      "    \u001b[0;36m|\u001b[0;0m                                                                                         `- \u001b[1;33mwarning: \u001b[1;39mimmutable value 'contestImporter' was never used; consider replacing with '_' or removing it\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/no-usage\u001b\\NoUsage\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                                      `- \u001b[1;33mwarning: \u001b[1;39mconverting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift:43:70: \u001b[1;33mwarning: \u001b[1;39mconverting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveFldigiBridge.swift:262:89: \u001b[1;33mwarning: \u001b[1;39mimmutable value 'contestImporter' was never used; consider replacing with '_' or removing it\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/no-usage\u001b\\NoUsage\u001b]8;;\u001b\\]"
+    ],
+    "skippedOrDisabledLines": [
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/BoundedRemoteMergeContentionBenchmarkTests.swift:92: -[XLogPrototypeTests.BoundedRemoteMergeContentionBenchmarkTests testGeneratedBounded68kMergeWithRegisteredForeground] : Test skipped - Opt-in synthetic bounded 68k merge/foreground benchmark",
+      "Test Case '-[XLogPrototypeTests.BoundedRemoteMergeContentionBenchmarkTests testGeneratedBounded68kMergeWithRegisteredForeground]' skipped (0.005 seconds).",
+      "\t Executed 1 test, with 1 test skipped and 0 failures (0 unexpected) in 0.005 (0.005) seconds",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/ContestOperatorBrowserAcceptanceTests.swift:149: -[XLogPrototypeTests.ContestOperatorBrowserAcceptanceTests testRealWorkspaceAndMutationOwnerAgainstIsolatedLiveWorker] : Test skipped - Real browser/LiveWorker acceptance is opt-in.",
+      "Test Case '-[XLogPrototypeTests.ContestOperatorBrowserAcceptanceTests testRealWorkspaceAndMutationOwnerAgainstIsolatedLiveWorker]' skipped (0.006 seconds).",
+      "\t Executed 1 test, with 1 test skipped and 0 failures (0 unexpected) in 0.006 (0.006) seconds",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/ContestSCPProviderTests.swift:138: -[XLogPrototypeTests.ContestSCPProviderTests testLiveOfficialDownloadIntoDisposableCacheWhenEnabled] : Test skipped - Set XLOG_SCP_LIVE_TEST=1 for the explicit provider acceptance check.",
+      "Test Case '-[XLogPrototypeTests.ContestSCPProviderTests testLiveOfficialDownloadIntoDisposableCacheWhenEnabled]' skipped (0.002 seconds).",
+      "\t Executed 5 tests, with 1 test skipped and 0 failures (0 unexpected) in 0.038 (0.039) seconds",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/NativeCredentialStoreTests.swift:72: -[XLogPrototypeTests.NativeCredentialStoreTests testWindowsNativeRoundTripExactIdentityIsolationAndDeletion] : Test skipped - Windows Credential Manager requires a native Windows runner.",
+      "Test Case '-[XLogPrototypeTests.NativeCredentialStoreTests testWindowsNativeRoundTripExactIdentityIsolationAndDeletion]' skipped (0.004 seconds).",
+      "\t Executed 3 tests, with 1 test skipped and 0 failures (0 unexpected) in 0.005 (0.005) seconds",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/RemoteMergeContentionBenchmarkTests.swift:131: -[XLogPrototypeTests.RemoteMergeContentionBenchmarkTests testGeneratedFullSnapshotAndChangedSubsetWithForegroundDraft] : Test skipped - Opt-in synthetic 68k full-snapshot/foreground contention benchmark",
+      "Test Case '-[XLogPrototypeTests.RemoteMergeContentionBenchmarkTests testGeneratedFullSnapshotAndChangedSubsetWithForegroundDraft]' skipped (0.005 seconds).",
+      "\t Executed 1 test, with 1 test skipped and 0 failures (0 unexpected) in 0.005 (0.005) seconds",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/RemoteMergeNoOpTests.swift:214: -[XLogPrototypeTests.RemoteMergeNoOpTests testSyntheticLargeRepeatImportHasNoQSORevisionWrites] : Test skipped - Opt-in synthetic 68k remote import benchmark",
+      "Test Case '-[XLogPrototypeTests.RemoteMergeNoOpTests testSyntheticLargeRepeatImportHasNoQSORevisionWrites]' skipped (0.000 seconds).",
+      "\t Executed 7 tests, with 1 test skipped and 0 failures (0 unexpected) in 0.119 (0.120) seconds",
+      "\t Executed 554 tests, with 6 tests skipped and 0 failures (0 unexpected) in 252.826 (252.927) seconds",
+      "\t Executed 554 tests, with 6 tests skipped and 0 failures (0 unexpected) in 252.826 (252.929) seconds",
+      "\u279c Test \"Optional isolated logbook query benchmark\" skipped.",
+      "\u279c Test \"Opt-in primary-provider comparison exports a disposable browser snapshot\" skipped.",
+      "\u279c Test \"Isolate cold database work from native rendering\" skipped.",
+      "\u25c7 Test \"Transferred forwarding settings remain readable and can be disabled on every platform\" started.",
+      "\u2714 Test \"Transferred forwarding settings remain readable and can be disabled on every platform\" passed after 0.073 seconds.",
+      "\u279c Test \"Live propagation feed refreshes through the production transport\" skipped.",
+      "\u25c7 Test \"Disabled capture retains selected evidence but retires eligibility\" started.",
+      "\u2714 Test \"Disabled capture retains selected evidence but retires eligibility\" passed after 0.001 seconds.",
+      "\u25c7 Test \"Legacy and fresh settings keep QSY clearing disabled\" started.",
+      "\u2714 Test \"Legacy and fresh settings keep QSY clearing disabled\" passed after 0.039 seconds.",
+      "\u279c Test \"Opt-in generated 68k log durable-save timing\" skipped.",
+      "\u25c7 Test \"Disabled sources neither become due nor set the next deadline\" started.",
+      "\u25c7 Test case passing 2 arguments clubLog \u2192 false, wavelog \u2192 false to \"Disabled sources neither become due nor set the next deadline\" started.",
+      "\u25c7 Test case passing 2 arguments clubLog \u2192 false, wavelog \u2192 true to \"Disabled sources neither become due nor set the next deadline\" started.",
+      "\u25c7 Test case passing 2 arguments clubLog \u2192 true, wavelog \u2192 false to \"Disabled sources neither become due nor set the next deadline\" started.",
+      "\u25c7 Test case passing 2 arguments clubLog \u2192 true, wavelog \u2192 true to \"Disabled sources neither become due nor set the next deadline\" started.",
+      "\u2714 Test \"Disabled sources neither become due nor set the next deadline\" with 4 test cases passed after 0.001 seconds.",
+      "\u279c Test inspectRemoteHistory() skipped.",
+      "\u279c Test \"Opt-in 100k archive measurement\" skipped."
+    ]
+  },
+  {
+    "id": "P7-STRICT",
+    "exit": 0,
+    "seconds": 106.937,
+    "xctSummaries": [],
+    "swiftTestingSummaries": [],
+    "warningHeaderCount": 238,
+    "uniqueWarningHeaders": [
+      "   \u001b[0;36m|\u001b[0;0m                                        `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to @concurrent context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "   \u001b[0;36m|\u001b[0;0m                                        |- \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                                                         `- \u001b[1;33mwarning: \u001b[1;39mimmutable value 'contestImporter' was never used; consider replacing with '_' or removing it\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/no-usage\u001b\\NoUsage\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                                        `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'snapshot()' to nonisolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                                      `- \u001b[1;33mwarning: \u001b[1;39mconverting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races\u001b[0;0m",
+      "    \u001b[0;36m|\u001b[0;0m                                                                `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:receiveDestination:transmitDestination:contestImporter:transmitDestinationProvider:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                                |- \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                               `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                               `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:route:contestDestinationProvider:contestImporter:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                               |- \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                              `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                              `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handleAssistance(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                              `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handleCallHistory(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                              `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'providerStatusFields(service:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                              |- \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                             `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                             |- \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                            `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                            |- \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                          `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to @concurrent context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                          |- \u001b[1;33mwarning: \u001b[1;39msending 'projection' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                       `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:request:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                       |- \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                      `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(_:params:)' to nonisolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                      |- \u001b[1;33mwarning: \u001b[1;39msending 'rotorParams' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                     `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                     |- \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                    `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                    `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[[String : Any]]'-typed result can not be returned from actor-isolated instance method 'dxpeditionHistory(callsigns:)' to @concurrent context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                    `- \u001b[1;33mwarning: \u001b[1;39mreference to captured var 'self' in concurrently-executing code\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sendable-closure-captures\u001b\\SendableClosureCaptures\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                    |- \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                   `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                   |- \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                  `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                  |- \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                 `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to @concurrent context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                 `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                 |- \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                `- \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "    \u001b[0;36m|\u001b[0;0m                                              `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(_:params:)' to nonisolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                              `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'tune(frequencyHz:mode:expectedGeneration:)' to nonisolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                              |- \u001b[1;33mwarning: \u001b[1;39msending 'routed' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                             `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(_:params:)' to nonisolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                             `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'snapshot()' to nonisolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                             `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[[String : Any]]'-typed result can not be returned from actor-isolated instance method 'currentSpotRowsIfStarted()' to @concurrent context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                             |- \u001b[1;33mwarning: \u001b[1;39msending 'routed' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                            `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                            `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]?'-typed result can not be returned from actor-isolated instance method 'reconcileCurrent()' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                            |- \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                           `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'perform(method:params:)' to @concurrent context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                           `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[[String : Any]]'-typed result can not be returned from actor-isolated instance method 'currentSpotRowsIfStarted()' to @concurrent context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                           |- \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                          `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'action(_:expectedGeneration:expectedNativeIntent:)' to nonisolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                          `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'snapshot()' to nonisolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                        `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(_:params:)' to nonisolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                        |- \u001b[1;33mwarning: \u001b[1;39msending 'routed' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                       `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'configure' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                       `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'sendNow()' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                    `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable type '[String : Any]' of nonisolated property 'value' cannot be sent to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "    \u001b[0;36m|\u001b[0;0m                                    `- \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "    \u001b[0;36m|\u001b[0;0m                                   `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'status()' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                `- \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "    \u001b[0;36m|\u001b[0;0m                               `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                               |- \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                            `- \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "    \u001b[0;36m|\u001b[0;0m                          `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable type 'Task<[String : Any], any Error>' cannot exit actor-isolated context in call to nonisolated property 'value'; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/getting-non-sendable-values-out-of-actors\u001b\\NonSendableExitingActor\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                         `- \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "    \u001b[0;36m|\u001b[0;0m                |- \u001b[1;33mwarning: \u001b[1;39msending value of non-Sendable type '() async -> Void' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m               |- \u001b[1;33mwarning: \u001b[1;39msending 'group' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m             `- \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "    \u001b[0;36m|\u001b[0;0m           |- \u001b[1;33mwarning: \u001b[1;39msending 'group' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "     \u001b[0;36m|\u001b[0;0m                                                      `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "     \u001b[0;36m|\u001b[0;0m                                                      |- \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "     \u001b[0;36m|\u001b[0;0m                                                     |- \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "     \u001b[0;36m|\u001b[0;0m                                                   `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'projection()' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "     \u001b[0;36m|\u001b[0;0m                                                `- \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "     \u001b[0;36m|\u001b[0;0m                                           `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'projection()' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "     \u001b[0;36m|\u001b[0;0m                                          `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(_:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "     \u001b[0;36m|\u001b[0;0m                                          |- \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "     \u001b[0;36m|\u001b[0;0m                                    `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable type '[String : Any]' of nonisolated property 'value' cannot be sent to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "     \u001b[0;36m|\u001b[0;0m                                    `- \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "     \u001b[0;36m|\u001b[0;0m                          `- \u001b[1;33mwarning: \u001b[1;39mnon-Sendable type 'Task<[String : Any], any Error>' cannot exit actor-isolated context in call to nonisolated property 'value'; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/getting-non-sendable-values-out-of-actors\u001b\\NonSendableExitingActor\u001b]8;;\u001b\\]",
+      "     \u001b[0;36m|\u001b[0;0m                         `- \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "     \u001b[0;36m|\u001b[0;0m                |- \u001b[1;33mwarning: \u001b[1;39msending value of non-Sendable type '() async -> Void' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "     \u001b[0;36m|\u001b[0;0m             `- \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XClusterIntegrationCore/ClusterTCPTransport.swift:120:52: \u001b[1;33mwarning: \u001b[1;39mreference to captured var 'self' in concurrently-executing code\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sendable-closure-captures\u001b\\SendableClosureCaptures\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestLane.swift:100:26: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable type 'Task<[String : Any], any Error>' cannot exit actor-isolated context in call to nonisolated property 'value'; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/getting-non-sendable-values-out-of-actors\u001b\\NonSendableExitingActor\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestLane.swift:100:36: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable type '[String : Any]' of nonisolated property 'value' cannot be sent to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestLane.swift:100:36: \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestLane.swift:132:54: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestLane.swift:132:54: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestLane.swift:95:13: \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestLane.swift:95:25: \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestLane.swift:99:16: \u001b[1;33mwarning: \u001b[1;39msending value of non-Sendable type '() async -> Void' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestLane.swift:99:48: \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestLogTransferService.swift:104:58: \u001b[1;33mwarning: \u001b[1;39msending 'projection' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestRecorderAcceptance.swift:22:40: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to @concurrent context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestRecorderAcceptance.swift:22:40: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift:43:70: \u001b[1;33mwarning: \u001b[1;39mconverting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift:163:44: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]?'-typed result can not be returned from actor-isolated instance method 'reconcileCurrent()' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift:172:16: \u001b[1;33mwarning: \u001b[1;39msending value of non-Sendable type '() async -> Void' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift:172:48: \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift:173:26: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable type 'Task<[String : Any], any Error>' cannot exit actor-isolated context in call to nonisolated property 'value'; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/getting-non-sendable-values-out-of-actors\u001b\\NonSendableExitingActor\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift:173:36: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable type '[String : Any]' of nonisolated property 'value' cannot be sent to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift:173:36: \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift:289:31: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift:289:31: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift:301:13: \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift:301:25: \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift:306:44: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift:306:44: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift:308:16: \u001b[1;33mwarning: \u001b[1;39msending value of non-Sendable type '() async -> Void' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift:308:48: \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift:309:26: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable type 'Task<[String : Any], any Error>' cannot exit actor-isolated context in call to nonisolated property 'value'; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/getting-non-sendable-values-out-of-actors\u001b\\NonSendableExitingActor\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift:309:36: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable type '[String : Any]' of nonisolated property 'value' cannot be sent to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift:309:36: \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift:320:43: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'perform(method:params:)' to @concurrent context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift:320:43: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift:99:13: \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift:99:25: \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveClusterMethods.swift:316:53: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveFTPBackupPresentation.swift:173:32: \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveFTPBackupPresentation.swift:257:28: \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveFTPBackupPresentation.swift:354:28: \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveFldigiBridge.swift:262:89: \u001b[1;33mwarning: \u001b[1;39mimmutable value 'contestImporter' was never used; consider replacing with '_' or removing it\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/no-usage\u001b\\NoUsage\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveOpportunitiesMethods.swift:49:45: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[[String : Any]]'-typed result can not be returned from actor-isolated instance method 'currentSpotRowsIfStarted()' to @concurrent context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveRemoteBackupPresentation.swift:170:28: \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveRemoteBackupPresentation.swift:195:28: \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveRemoteBackupPresentation.swift:57:63: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveRemoteBackupPresentation.swift:57:63: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveRemoteBackupPresentation.swift:66:32: \u001b[1;33mwarning: \u001b[1;39mtype 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift:152:54: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(_:params:)' to nonisolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift:152:54: \u001b[1;33mwarning: \u001b[1;39msending 'rotorParams' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift:164:40: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(_:params:)' to nonisolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift:164:40: \u001b[1;33mwarning: \u001b[1;39msending 'routed' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift:168:42: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'snapshot()' to nonisolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift:176:45: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(_:params:)' to nonisolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift:176:45: \u001b[1;33mwarning: \u001b[1;39msending 'routed' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift:198:46: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(_:params:)' to nonisolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift:198:46: \u001b[1;33mwarning: \u001b[1;39msending 'routed' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift:202:45: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'snapshot()' to nonisolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift:211:45: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'snapshot()' to nonisolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift:217:45: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'snapshot()' to nonisolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift:231:72: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'snapshot()' to nonisolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift:239:46: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'tune(frequencyHz:mode:expectedGeneration:)' to nonisolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift:254:42: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'action(_:expectedGeneration:expectedNativeIntent:)' to nonisolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationSession.swift:461:42: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(_:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationSession.swift:461:42: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationSession.swift:541:43: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'projection()' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationSession.swift:665:51: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'projection()' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:277:52: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[[String : Any]]'-typed result can not be returned from actor-isolated instance method 'dxpeditionHistory(callsigns:)' to @concurrent context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:278:43: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[[String : Any]]'-typed result can not be returned from actor-isolated instance method 'currentSpotRowsIfStarted()' to @concurrent context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:538:55: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:request:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:538:55: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:539:49: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to @concurrent context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:539:49: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:552:62: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handleAssistance(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:552:62: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:558:62: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handleCallHistory(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:558:62: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:560:62: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:560:62: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:567:52: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:567:52: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:654:53: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:654:53: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:709:61: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:709:61: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:711:50: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:711:50: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:713:51: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:713:51: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:715:44: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:715:44: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:717:51: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:717:51: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:725:60: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:725:60: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:730:62: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'providerStatusFields(service:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:753:49: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:753:49: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:757:51: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:757:51: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:761:62: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:761:62: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:772:63: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:route:contestDestinationProvider:contestImporter:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:772:63: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:789:64: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:receiveDestination:transmitDestination:contestImporter:transmitDestinationProvider:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:789:64: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:794:49: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:794:49: \u001b[1;33mwarning: \u001b[1;39msending 'params' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:828:58: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to @concurrent context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:841:35: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'status()' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:853:39: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'configure' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift:857:39: \u001b[1;33mwarning: \u001b[1;39mnon-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'sendNow()' to actor-isolated context; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeWorker/main.swift:153:15: \u001b[1;33mwarning: \u001b[1;39msending 'group' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeWorker/main.swift:157:11: \u001b[1;33mwarning: \u001b[1;39msending 'group' risks causing data races; this is an error in the Swift 6 language mode\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/region-isolation\u001b\\RegionIsolation\u001b]8;;\u001b\\::\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race\u001b\\SendingRisksDataRace\u001b]8;;\u001b\\]"
+    ],
+    "skippedOrDisabledLines": []
+  },
+  {
+    "id": "P7-NATIVE-RELEASE",
+    "exit": 0,
+    "seconds": 125.023,
+    "xctSummaries": [],
+    "swiftTestingSummaries": [],
+    "warningHeaderCount": 0,
+    "uniqueWarningHeaders": [],
+    "skippedOrDisabledLines": []
+  },
+  {
+    "id": "P7-TSAN",
+    "exit": 0,
+    "seconds": 286.905,
+    "xctSummaries": [
+      [
+        "0",
+        "",
+        "0"
+      ],
+      [
+        "0",
+        "",
+        "0"
+      ],
+      [
+        "19",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "31",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "9",
+        "",
+        "0"
+      ],
+      [
+        "71",
+        "",
+        "0"
+      ],
+      [
+        "71",
+        "",
+        "0"
+      ],
+      [
+        "0",
+        "",
+        "0"
+      ],
+      [
+        "0",
+        "",
+        "0"
+      ],
+      [
+        "0",
+        "",
+        "0"
+      ],
+      [
+        "0",
+        "",
+        "0"
+      ],
+      [
+        "0",
+        "",
+        "0"
+      ],
+      [
+        "0",
+        "",
+        "0"
+      ],
+      [
+        "0",
+        "",
+        "0"
+      ],
+      [
+        "0",
+        "",
+        "0"
+      ],
+      [
+        "0",
+        "",
+        "0"
+      ],
+      [
+        "0",
+        "",
+        "0"
+      ]
+    ],
+    "swiftTestingSummaries": [
+      "Test run with 21 tests in 4 suites passed after 5.936 seconds."
+    ],
+    "warningHeaderCount": 6,
+    "uniqueWarningHeaders": [
+      "    \u001b[0;36m|\u001b[0;0m                                                                                         `- \u001b[1;33mwarning: \u001b[1;39mimmutable value 'contestImporter' was never used; consider replacing with '_' or removing it\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/no-usage\u001b\\NoUsage\u001b]8;;\u001b\\]",
+      "    \u001b[0;36m|\u001b[0;0m                                                                      `- \u001b[1;33mwarning: \u001b[1;39mconverting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift:43:70: \u001b[1;33mwarning: \u001b[1;39mconverting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races\u001b[0;0m",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveFldigiBridge.swift:262:89: \u001b[1;33mwarning: \u001b[1;39mimmutable value 'contestImporter' was never used; consider replacing with '_' or removing it\u001b[0;0m [#\u001b]8;;https://docs.swift.org/compiler/documentation/diagnostics/no-usage\u001b\\NoUsage\u001b]8;;\u001b\\]"
+    ],
+    "skippedOrDisabledLines": []
+  },
+  {
+    "id": "P7-PURE-IQ",
+    "exit": 0,
+    "seconds": 31.965,
+    "xctSummaries": [
+      [
+        "8",
+        "",
+        "0"
+      ],
+      [
+        "1",
+        "",
+        "0"
+      ],
+      [
+        "6",
+        "",
+        "0"
+      ],
+      [
+        "15",
+        "",
+        "0"
+      ],
+      [
+        "15",
+        "",
+        "0"
+      ]
+    ],
+    "swiftTestingSummaries": [
+      "Test run with 0 tests in 0 suites passed after 0.001 seconds."
+    ],
+    "warningHeaderCount": 0,
+    "uniqueWarningHeaders": [],
+    "skippedOrDisabledLines": []
+  },
+  {
+    "id": "P7-CLEAN-WORKER",
+    "exit": 0,
+    "seconds": 276.234,
+    "xctSummaries": [],
+    "swiftTestingSummaries": [],
+    "warningHeaderCount": 9,
+    "uniqueWarningHeaders": [
+      "    |                                                                                         `- warning: immutable value 'contestImporter' was never used; consider replacing with '_' or removing it [#NoUsage]",
+      "    |                                                                      `- warning: converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift:43:70: warning: converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveFldigiBridge.swift:262:89: warning: immutable value 'contestImporter' was never used; consider replacing with '_' or removing it [#NoUsage]",
+      "warning: '--build-system xcode' has been deprecated and will be removed in a future release; please report an issue at https://github.com/swiftlang/swift-package-manager/issues if you are unable to adopt the default build system."
+    ],
+    "skippedOrDisabledLines": []
+  },
+  {
+    "id": "P7-FRAMING",
+    "exit": 0,
+    "seconds": 1.779,
+    "xctSummaries": [],
+    "swiftTestingSummaries": [],
+    "warningHeaderCount": 0,
+    "uniqueWarningHeaders": [],
+    "skippedOrDisabledLines": [
+      "\u2139 skipped 0"
+    ]
+  },
+  {
+    "id": "P7-CURRENT-PROCESS",
+    "exit": 0,
+    "seconds": 20.269,
+    "xctSummaries": [],
+    "swiftTestingSummaries": [],
+    "warningHeaderCount": 0,
+    "uniqueWarningHeaders": [],
+    "skippedOrDisabledLines": []
+  }
+]

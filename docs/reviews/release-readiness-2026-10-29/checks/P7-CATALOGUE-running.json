@@ -1,0 +1,13 @@
+{
+  "id": "P7-CATALOGUE",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "tools/check_all_contests_readiness.py",
+    "--family-tests",
+    "--output",
+    "/tmp/xlog-phase7-20261029-b8926639/all-contests-readiness.json"
+  ],
+  "startedUTC": "2026-10-29T03:15:44.596884+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}

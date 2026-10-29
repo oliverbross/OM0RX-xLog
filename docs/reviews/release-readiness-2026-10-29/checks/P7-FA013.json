@@ -1,0 +1,22 @@
+{
+  "id": "P7-FA013",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "/tmp/xlog-phase7-20261029-b8926639/agents/data/probe_country_reconcile.py"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T03:21:22.954108+00:00",
+  "finishedUTC": "2026-10-29T03:21:27.243550+00:00",
+  "seconds": 4.285,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceHeadEnd": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-phase7-20261029-b8926639/checks/P7-FA013.log",
+  "logBytes": 774,
+  "logSHA256": "af11cb77d3ac2ea826a7344f38b8d1891dcf5fcb1e9cf5bbb29981056f1a637d",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

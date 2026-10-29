@@ -1,0 +1,13 @@
+{
+  "id": "P7-CLEAN-WORKER",
+  "command": [
+    "node",
+    "prototype/scripts/build-contesting-worker-process.mjs",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/worker-clean",
+    "--output",
+    "/tmp/xlog-phase7-20261029-b8926639/worker-build-manifest.json"
+  ],
+  "startedUTC": "2026-10-29T03:42:40.504233+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}

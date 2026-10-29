@@ -1,0 +1,22 @@
+{
+  "id": "P7-FRAMING",
+  "command": [
+    "node",
+    "Tests/XLogPrototypeTests/worker-process.test.mjs",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/worker-clean/apple/Products/Release/xlog-prototype-worker"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T03:47:16.782538+00:00",
+  "finishedUTC": "2026-10-29T03:47:18.560999+00:00",
+  "seconds": 1.779,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceHeadEnd": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-phase7-20261029-b8926639/checks/P7-FRAMING.log",
+  "logBytes": 821,
+  "logSHA256": "d474b3e985aa75aef7e146960b33dad957c600a06c3d39e41555fb7cf92c6c10",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

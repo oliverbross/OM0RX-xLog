@@ -1,0 +1,21 @@
+{
+  "id": "FRONTEND-FULL-TEST",
+  "command": [
+    "npm",
+    "test"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-29T03:18:40.035233+00:00",
+  "finishedUTC": "2026-10-29T03:32:50.343239+00:00",
+  "seconds": 850.31,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceHeadEnd": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-phase7-20261029-b8926639/checks/FRONTEND-FULL-TEST.log",
+  "logBytes": 110547,
+  "logSHA256": "988d6ec534d528a019fbf2b8810a3491c5b2e3528ad0963d6fe6a553ada92c64",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

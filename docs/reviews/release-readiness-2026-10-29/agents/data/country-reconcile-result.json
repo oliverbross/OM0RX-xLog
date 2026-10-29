@@ -1,0 +1,17 @@
+{
+  "errorCode": "invalid_request",
+  "message": "Replica change kind is invalid",
+  "replicaUnchanged": true,
+  "masterAudit": [
+    {
+      "kind": "commit",
+      "before_identity_json": null,
+      "after_identity_json": "{\"country\":{\"continent\":\"EU\",\"cq\":15,\"entity\":\"Austria\",\"itu\":28,\"primary_pfx\":\"*4U1V\"},\"deleted\":false,\"rawFields\":{\"callsign\":\"OE8DDX\",\"other_1\":\"15\",\"other_2\":\"15\",\"receive\":\"59\",\"sent\":\"59\"}}"
+    },
+    {
+      "kind": "reference_reconcile",
+      "before_identity_json": "{\"continent\":\"EU\",\"cq\":15,\"entity\":\"Austria\",\"itu\":28,\"primary_pfx\":\"*4U1V\"}",
+      "after_identity_json": "{\"continent\":\"EU\",\"cq\":15,\"entity\":\"Austria\",\"itu\":28,\"primary_pfx\":\"OE\"}"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "jobId": 123258658626,
+  "jobName": "Contest definition generator",
+  "head": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "kind": "annotations",
+  "command": [
+    "gh",
+    "api",
+    "repos/oliverbross/OM0RX-xLog/check-runs/123258658626/annotations?per_page=100"
+  ],
+  "startedUTC": "2026-10-29T04:15:52.241854+00:00",
+  "seconds": 0.545,
+  "exit": 0,
+  "streamBytes": 537,
+  "streamSHA256": "eda56dcba1dbbcc249139e913b4eedf1a497b59ff67f1ef213623795c56f35d7",
+  "fullStreamSaved": true,
+  "savedFile": "/tmp/xlog-phase7-20261029-b8926639/agents/platform/123258658626-annotations.json",
+  "savedBytes": 537,
+  "savedSHA256": "eda56dcba1dbbcc249139e913b4eedf1a497b59ff67f1ef213623795c56f35d7",
+  "stderrFile": "/tmp/xlog-phase7-20261029-b8926639/agents/platform/123258658626-annotations-stderr.log",
+  "stderrBytes": 0,
+  "annotationCount": 1,
+  "paginationRequired": false
+}

@@ -1,0 +1,1014 @@
+[
+  {
+    "id": "P7-NATIVE",
+    "xctestTopLevelGroups": [
+      {
+        "tests": 20,
+        "skipped": 0,
+        "failures": 0
+      },
+      {
+        "tests": 83,
+        "skipped": 0,
+        "failures": 0
+      },
+      {
+        "tests": 227,
+        "skipped": 0,
+        "failures": 0
+      }
+    ],
+    "xctestTotal": 330,
+    "xctestSkips": 0,
+    "swiftTestingGroups": [
+      {
+        "tests": 332,
+        "suites": 45
+      },
+      {
+        "tests": 0,
+        "suites": 0
+      },
+      {
+        "tests": 8,
+        "suites": 2
+      }
+    ],
+    "swiftTestingSummaryTotal": 340,
+    "sourceWarningHeaders": 0,
+    "uniqueSourceWarnings": [],
+    "skipLines": [
+      "\u279c Test \"Generated catalogue calculation preserves every programme at scale\" skipped.",
+      "\u279c Test \"Trusted implicit FTPS uploads, verifies, restores and refuses replay\" skipped.",
+      "\u279c Test \"Implicit FTPS rejects wrong CA and wrong hostname before upload\" skipped.",
+      "\u279c Test \"Disposable FTP upload, independent verification and restore\" skipped.",
+      "\u279c Test \"Untrusted implicit FTPS certificate fails closed before upload\" skipped.",
+      "\u279c Test \"Disposable FTP reservation refusal writes no object\" skipped.",
+      "\u279c Test \"Lost FTP acknowledgement remains uncertain and is not replayed\" skipped.",
+      "\u279c Test \"Oversized advertised or streamed FTP download fails closed\" skipped.",
+      "\u279c Test \"FTP restore rejects an object that grew after verification\" skipped.",
+      "\u279c Test \"FTP control handshake times out before any object write\" skipped.",
+      "\u279c Test \"FTP stalled and continuously slow downloads respect production time limits\" skipped.",
+      "\u279c Test \"FTP stalled and throttled uploads remain uncertain within production time limits\" skipped."
+    ],
+    "sourceErrors": []
+  },
+  {
+    "id": "P7-PORTABLE",
+    "xctestTopLevelGroups": [
+      {
+        "tests": 23,
+        "skipped": 0,
+        "failures": 0
+      },
+      {
+        "tests": 554,
+        "skipped": 6,
+        "failures": 0
+      },
+      {
+        "tests": 83,
+        "skipped": 0,
+        "failures": 0
+      },
+      {
+        "tests": 227,
+        "skipped": 0,
+        "failures": 0
+      },
+      {
+        "tests": 78,
+        "skipped": 0,
+        "failures": 0
+      },
+      {
+        "tests": 193,
+        "skipped": 0,
+        "failures": 0
+      },
+      {
+        "tests": 33,
+        "skipped": 0,
+        "failures": 0
+      }
+    ],
+    "xctestTotal": 1191,
+    "xctestSkips": 6,
+    "swiftTestingGroups": [
+      {
+        "tests": 0,
+        "suites": 0
+      },
+      {
+        "tests": 533,
+        "suites": 72
+      },
+      {
+        "tests": 0,
+        "suites": 0
+      },
+      {
+        "tests": 8,
+        "suites": 2
+      },
+      {
+        "tests": 0,
+        "suites": 0
+      },
+      {
+        "tests": 0,
+        "suites": 0
+      },
+      {
+        "tests": 0,
+        "suites": 0
+      }
+    ],
+    "swiftTestingSummaryTotal": 541,
+    "sourceWarningHeaders": 3,
+    "uniqueSourceWarnings": [
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift",
+        "line": 43,
+        "column": 70,
+        "message": "converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveFldigiBridge.swift",
+        "line": 262,
+        "column": 89,
+        "message": "immutable value 'contestImporter' was never used; consider replacing with '_' or removing it [#NoUsage]"
+      }
+    ],
+    "skipLines": [
+      "Test Case '-[XLogPrototypeTests.BoundedRemoteMergeContentionBenchmarkTests testGeneratedBounded68kMergeWithRegisteredForeground]' skipped (0.005 seconds).",
+      "Test Case '-[XLogPrototypeTests.ContestOperatorBrowserAcceptanceTests testRealWorkspaceAndMutationOwnerAgainstIsolatedLiveWorker]' skipped (0.006 seconds).",
+      "Test Case '-[XLogPrototypeTests.ContestSCPProviderTests testLiveOfficialDownloadIntoDisposableCacheWhenEnabled]' skipped (0.002 seconds).",
+      "Test Case '-[XLogPrototypeTests.NativeCredentialStoreTests testWindowsNativeRoundTripExactIdentityIsolationAndDeletion]' skipped (0.004 seconds).",
+      "Test Case '-[XLogPrototypeTests.RemoteMergeContentionBenchmarkTests testGeneratedFullSnapshotAndChangedSubsetWithForegroundDraft]' skipped (0.005 seconds).",
+      "Test Case '-[XLogPrototypeTests.RemoteMergeNoOpTests testSyntheticLargeRepeatImportHasNoQSORevisionWrites]' skipped (0.000 seconds).",
+      "\u279c Test \"Optional isolated logbook query benchmark\" skipped.",
+      "\u279c Test \"Opt-in primary-provider comparison exports a disposable browser snapshot\" skipped.",
+      "\u279c Test \"Isolate cold database work from native rendering\" skipped.",
+      "\u279c Test \"Live propagation feed refreshes through the production transport\" skipped.",
+      "\u279c Test \"Opt-in generated 68k log durable-save timing\" skipped.",
+      "\u279c Test inspectRemoteHistory() skipped.",
+      "\u279c Test \"Opt-in 100k archive measurement\" skipped."
+    ],
+    "sourceErrors": []
+  },
+  {
+    "id": "P7-STRICT",
+    "xctestTopLevelGroups": [],
+    "xctestTotal": 0,
+    "xctestSkips": 0,
+    "swiftTestingGroups": [],
+    "swiftTestingSummaryTotal": 0,
+    "sourceWarningHeaders": 119,
+    "uniqueSourceWarnings": [
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XClusterIntegrationCore/ClusterTCPTransport.swift",
+        "line": 120,
+        "column": 52,
+        "message": "reference to captured var 'self' in concurrently-executing code [#SendableClosureCaptures]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift",
+        "line": 43,
+        "column": 70,
+        "message": "converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveOpportunitiesMethods.swift",
+        "line": 49,
+        "column": 45,
+        "message": "non-Sendable '[[String : Any]]'-typed result can not be returned from actor-isolated instance method 'currentSpotRowsIfStarted()' to @concurrent context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 277,
+        "column": 52,
+        "message": "non-Sendable '[[String : Any]]'-typed result can not be returned from actor-isolated instance method 'dxpeditionHistory(callsigns:)' to @concurrent context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 278,
+        "column": 43,
+        "message": "non-Sendable '[[String : Any]]'-typed result can not be returned from actor-isolated instance method 'currentSpotRowsIfStarted()' to @concurrent context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestLane.swift",
+        "line": 95,
+        "column": 25,
+        "message": "type 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestLane.swift",
+        "line": 95,
+        "column": 13,
+        "message": "type 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestLane.swift",
+        "line": 99,
+        "column": 48,
+        "message": "type 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestLane.swift",
+        "line": 100,
+        "column": 36,
+        "message": "type 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestLane.swift",
+        "line": 100,
+        "column": 26,
+        "message": "non-Sendable type 'Task<[String : Any], any Error>' cannot exit actor-isolated context in call to nonisolated property 'value'; this is an error in the Swift 6 language mode [#NonSendableExitingActor]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestLane.swift",
+        "line": 100,
+        "column": 36,
+        "message": "non-Sendable type '[String : Any]' of nonisolated property 'value' cannot be sent to actor-isolated context; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestLane.swift",
+        "line": 132,
+        "column": 54,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestLane.swift",
+        "line": 132,
+        "column": 54,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestLane.swift",
+        "line": 99,
+        "column": 16,
+        "message": "sending value of non-Sendable type '() async -> Void' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestLogTransferService.swift",
+        "line": 104,
+        "column": 58,
+        "message": "sending 'projection' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestRecorderAcceptance.swift",
+        "line": 22,
+        "column": 40,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestRecorderAcceptance.swift",
+        "line": 22,
+        "column": 40,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to @concurrent context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+        "line": 152,
+        "column": 54,
+        "message": "sending 'rotorParams' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+        "line": 152,
+        "column": 54,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(_:params:)' to nonisolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+        "line": 164,
+        "column": 40,
+        "message": "sending 'routed' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+        "line": 164,
+        "column": 40,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(_:params:)' to nonisolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+        "line": 168,
+        "column": 42,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'snapshot()' to nonisolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+        "line": 176,
+        "column": 45,
+        "message": "sending 'routed' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+        "line": 176,
+        "column": 45,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(_:params:)' to nonisolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+        "line": 198,
+        "column": 46,
+        "message": "sending 'routed' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+        "line": 198,
+        "column": 46,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(_:params:)' to nonisolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+        "line": 202,
+        "column": 45,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'snapshot()' to nonisolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+        "line": 231,
+        "column": 72,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'snapshot()' to nonisolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+        "line": 239,
+        "column": 46,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'tune(frequencyHz:mode:expectedGeneration:)' to nonisolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+        "line": 254,
+        "column": 42,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'action(_:expectedGeneration:expectedNativeIntent:)' to nonisolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+        "line": 211,
+        "column": 45,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'snapshot()' to nonisolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+        "line": 217,
+        "column": 45,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'snapshot()' to nonisolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationSession.swift",
+        "line": 541,
+        "column": 43,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'projection()' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationSession.swift",
+        "line": 461,
+        "column": 42,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationSession.swift",
+        "line": 461,
+        "column": 42,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(_:params:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveStationSession.swift",
+        "line": 665,
+        "column": 51,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'projection()' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 841,
+        "column": 35,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'status()' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 853,
+        "column": 39,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'configure' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 857,
+        "column": 39,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'sendNow()' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 709,
+        "column": 61,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 711,
+        "column": 50,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 713,
+        "column": 51,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 715,
+        "column": 44,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 717,
+        "column": 51,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 725,
+        "column": 60,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 753,
+        "column": 49,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 757,
+        "column": 51,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 761,
+        "column": 62,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 794,
+        "column": 49,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 538,
+        "column": 55,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 789,
+        "column": 64,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 552,
+        "column": 62,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 558,
+        "column": 62,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 560,
+        "column": 62,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 567,
+        "column": 52,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 654,
+        "column": 53,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 772,
+        "column": 63,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 538,
+        "column": 55,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:request:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 552,
+        "column": 62,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handleAssistance(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 558,
+        "column": 62,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handleCallHistory(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 560,
+        "column": 62,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 567,
+        "column": 52,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 654,
+        "column": 53,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 709,
+        "column": 61,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 711,
+        "column": 50,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 713,
+        "column": 51,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 715,
+        "column": 44,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 717,
+        "column": 51,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 725,
+        "column": 60,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 730,
+        "column": 62,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'providerStatusFields(service:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 753,
+        "column": 49,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 757,
+        "column": 51,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 761,
+        "column": 62,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 772,
+        "column": 63,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:route:contestDestinationProvider:contestImporter:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 789,
+        "column": 64,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:receiveDestination:transmitDestination:contestImporter:transmitDestinationProvider:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 794,
+        "column": 49,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 539,
+        "column": 49,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 539,
+        "column": 49,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to @concurrent context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveWorker.swift",
+        "line": 828,
+        "column": 58,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to @concurrent context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveFTPBackupPresentation.swift",
+        "line": 173,
+        "column": 32,
+        "message": "type 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveFTPBackupPresentation.swift",
+        "line": 257,
+        "column": 28,
+        "message": "type 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveFTPBackupPresentation.swift",
+        "line": 354,
+        "column": 28,
+        "message": "type 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveFldigiBridge.swift",
+        "line": 262,
+        "column": 89,
+        "message": "immutable value 'contestImporter' was never used; consider replacing with '_' or removing it [#NoUsage]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveRemoteBackupPresentation.swift",
+        "line": 66,
+        "column": 32,
+        "message": "type 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveRemoteBackupPresentation.swift",
+        "line": 170,
+        "column": 28,
+        "message": "type 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveRemoteBackupPresentation.swift",
+        "line": 195,
+        "column": 28,
+        "message": "type 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveRemoteBackupPresentation.swift",
+        "line": 57,
+        "column": 63,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveRemoteBackupPresentation.swift",
+        "line": 57,
+        "column": 63,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeWorker/main.swift",
+        "line": 153,
+        "column": 15,
+        "message": "sending 'group' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeWorker/main.swift",
+        "line": 157,
+        "column": 11,
+        "message": "sending 'group' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+        "line": 99,
+        "column": 25,
+        "message": "type 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+        "line": 99,
+        "column": 13,
+        "message": "type 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+        "line": 172,
+        "column": 48,
+        "message": "type 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+        "line": 173,
+        "column": 36,
+        "message": "type 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+        "line": 173,
+        "column": 26,
+        "message": "non-Sendable type 'Task<[String : Any], any Error>' cannot exit actor-isolated context in call to nonisolated property 'value'; this is an error in the Swift 6 language mode [#NonSendableExitingActor]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+        "line": 173,
+        "column": 36,
+        "message": "non-Sendable type '[String : Any]' of nonisolated property 'value' cannot be sent to actor-isolated context; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+        "line": 301,
+        "column": 25,
+        "message": "type 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+        "line": 301,
+        "column": 13,
+        "message": "type 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+        "line": 308,
+        "column": 48,
+        "message": "type 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+        "line": 309,
+        "column": 36,
+        "message": "type 'Any' does not conform to the 'Sendable' protocol; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+        "line": 309,
+        "column": 26,
+        "message": "non-Sendable type 'Task<[String : Any], any Error>' cannot exit actor-isolated context in call to nonisolated property 'value'; this is an error in the Swift 6 language mode [#NonSendableExitingActor]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+        "line": 309,
+        "column": 36,
+        "message": "non-Sendable type '[String : Any]' of nonisolated property 'value' cannot be sent to actor-isolated context; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+        "line": 172,
+        "column": 16,
+        "message": "sending value of non-Sendable type '() async -> Void' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+        "line": 163,
+        "column": 44,
+        "message": "non-Sendable '[String : Any]?'-typed result can not be returned from actor-isolated instance method 'reconcileCurrent()' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+        "line": 289,
+        "column": 31,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+        "line": 289,
+        "column": 31,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+        "line": 308,
+        "column": 16,
+        "message": "sending value of non-Sendable type '() async -> Void' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+        "line": 306,
+        "column": 44,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+        "line": 306,
+        "column": 44,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'handle(method:params:)' to actor-isolated context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+        "line": 320,
+        "column": 43,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+        "line": 320,
+        "column": 43,
+        "message": "non-Sendable '[String : Any]'-typed result can not be returned from actor-isolated instance method 'perform(method:params:)' to @concurrent context; this is an error in the Swift 6 language mode [#RegionIsolation]"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveClusterMethods.swift",
+        "line": 316,
+        "column": 53,
+        "message": "sending 'params' risks causing data races; this is an error in the Swift 6 language mode [#RegionIsolation::SendingRisksDataRace]"
+      }
+    ],
+    "skipLines": [],
+    "sourceErrors": []
+  },
+  {
+    "id": "P7-STRICT-NATIVE",
+    "xctestTopLevelGroups": [],
+    "xctestTotal": 0,
+    "xctestSkips": 0,
+    "swiftTestingGroups": [],
+    "swiftTestingSummaryTotal": 0,
+    "sourceWarningHeaders": 5,
+    "uniqueSourceWarnings": [
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogApp/AppModel.swift",
+        "line": 395,
+        "column": 18,
+        "message": "cannot access property 'syncTimer' with a non-Sendable type 'Timer?' from nonisolated deinit; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogApp/AppModel.swift",
+        "line": 396,
+        "column": 19,
+        "message": "cannot access property 'radioTimer' with a non-Sendable type 'Timer?' from nonisolated deinit; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogApp/AppModel.swift",
+        "line": 397,
+        "column": 25,
+        "message": "cannot access property 'clusterFeedTimer' with a non-Sendable type 'Timer?' from nonisolated deinit; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogApp/AppModel.swift",
+        "line": 398,
+        "column": 21,
+        "message": "cannot access property 'weatherTimer' with a non-Sendable type 'Timer?' from nonisolated deinit; this is an error in the Swift 6 language mode"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogApp/AppModel.swift",
+        "line": 1062,
+        "column": 46,
+        "message": "passing closure as a 'sending' parameter risks causing data races between main actor-isolated code and concurrent execution of the closure; this is an error in the Swift 6 language mode [#RegionIsolation::SendingClosureRisksDataRace]"
+      }
+    ],
+    "skipLines": [],
+    "sourceErrors": []
+  },
+  {
+    "id": "P7-NATIVE-RELEASE",
+    "xctestTopLevelGroups": [],
+    "xctestTotal": 0,
+    "xctestSkips": 0,
+    "swiftTestingGroups": [],
+    "swiftTestingSummaryTotal": 0,
+    "sourceWarningHeaders": 0,
+    "uniqueSourceWarnings": [],
+    "skipLines": [],
+    "sourceErrors": []
+  },
+  {
+    "id": "P7-TSAN",
+    "xctestTopLevelGroups": [
+      {
+        "tests": 0,
+        "skipped": 0,
+        "failures": 0
+      },
+      {
+        "tests": 71,
+        "skipped": 0,
+        "failures": 0
+      },
+      {
+        "tests": 0,
+        "skipped": 0,
+        "failures": 0
+      },
+      {
+        "tests": 0,
+        "skipped": 0,
+        "failures": 0
+      },
+      {
+        "tests": 0,
+        "skipped": 0,
+        "failures": 0
+      },
+      {
+        "tests": 0,
+        "skipped": 0,
+        "failures": 0
+      },
+      {
+        "tests": 0,
+        "skipped": 0,
+        "failures": 0
+      }
+    ],
+    "xctestTotal": 71,
+    "xctestSkips": 0,
+    "swiftTestingGroups": [
+      {
+        "tests": 21,
+        "suites": 4
+      }
+    ],
+    "swiftTestingSummaryTotal": 21,
+    "sourceWarningHeaders": 3,
+    "uniqueSourceWarnings": [
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift",
+        "line": 43,
+        "column": 70,
+        "message": "converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveFldigiBridge.swift",
+        "line": 262,
+        "column": 89,
+        "message": "immutable value 'contestImporter' was never used; consider replacing with '_' or removing it [#NoUsage]"
+      }
+    ],
+    "skipLines": [],
+    "sourceErrors": []
+  },
+  {
+    "id": "P7-PURE-IQ",
+    "xctestTopLevelGroups": [
+      {
+        "tests": 15,
+        "skipped": 0,
+        "failures": 0
+      }
+    ],
+    "xctestTotal": 15,
+    "xctestSkips": 0,
+    "swiftTestingGroups": [
+      {
+        "tests": 0,
+        "suites": 0
+      }
+    ],
+    "swiftTestingSummaryTotal": 0,
+    "sourceWarningHeaders": 0,
+    "uniqueSourceWarnings": [],
+    "skipLines": [],
+    "sourceErrors": []
+  },
+  {
+    "id": "P7-CLEAN-WORKER",
+    "xctestTopLevelGroups": [],
+    "xctestTotal": 0,
+    "xctestSkips": 0,
+    "swiftTestingGroups": [],
+    "swiftTestingSummaryTotal": 0,
+    "sourceWarningHeaders": 4,
+    "uniqueSourceWarnings": [
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift",
+        "line": 43,
+        "column": 70,
+        "message": "converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races"
+      },
+      {
+        "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/LiveFldigiBridge.swift",
+        "line": 262,
+        "column": 89,
+        "message": "immutable value 'contestImporter' was never used; consider replacing with '_' or removing it [#NoUsage]"
+      }
+    ],
+    "skipLines": [],
+    "sourceErrors": []
+  }
+]

@@ -1,0 +1,82 @@
+{
+  "observedUTC": "2026-10-29T04:04:46.377499+00:00",
+  "queriedVersions": 549,
+  "endpoint": "https://api.osv.dev/v1/querybatch",
+  "tlsVerification": "Default certificate and hostname verification enabled",
+  "matches": [
+    {
+      "package": "block-buffer",
+      "version": "0.10.4",
+      "vulnerabilities": [
+        {
+          "id": "GHSA-qwgh-2vcv-g2f7",
+          "modified": "2026-08-19T19:30:06.686866Z"
+        }
+      ]
+    },
+    {
+      "package": "glib",
+      "version": "0.18.5",
+      "vulnerabilities": [
+        {
+          "id": "GHSA-wrw7-89jp-8q8g",
+          "modified": "2025-10-28T06:29:26.473225Z"
+        },
+        {
+          "id": "RUSTSEC-2024-0429",
+          "modified": "2025-10-28T06:29:26.473225Z"
+        }
+      ]
+    },
+    {
+      "package": "proc-macro-error",
+      "version": "1.0.4",
+      "vulnerabilities": [
+        {
+          "id": "RUSTSEC-2024-0370",
+          "modified": "2026-06-07T20:00:03.923932Z"
+        }
+      ]
+    },
+    {
+      "package": "zbus_names",
+      "version": "4.3.4",
+      "vulnerabilities": [
+        {
+          "id": "RUSTSEC-2026-0371",
+          "modified": "2026-10-17T15:30:02.407875Z"
+        }
+      ]
+    },
+    {
+      "package": "zvariant",
+      "version": "5.15.0",
+      "vulnerabilities": [
+        {
+          "id": "RUSTSEC-2026-0370",
+          "modified": "2026-10-17T15:30:02.390032Z"
+        }
+      ]
+    },
+    {
+      "package": "zvariant_derive",
+      "version": "5.15.0",
+      "vulnerabilities": [
+        {
+          "id": "RUSTSEC-2026-0372",
+          "modified": "2026-10-17T15:30:02.394812Z"
+        }
+      ]
+    }
+  ],
+  "advisoryIDs": [
+    "GHSA-qwgh-2vcv-g2f7",
+    "GHSA-wrw7-89jp-8q8g",
+    "RUSTSEC-2024-0370",
+    "RUSTSEC-2024-0429",
+    "RUSTSEC-2026-0370",
+    "RUSTSEC-2026-0371",
+    "RUSTSEC-2026-0372"
+  ],
+  "boundary": "Version matches require affected-range, feature, target and caller triage; not established application exploits."
+}

@@ -1,0 +1,168 @@
+{
+  "operationCount": 81,
+  "outcome": {
+    "ok": true
+  },
+  "boundary": {
+    "fixtureKind": "worker-bootstrap-with-verified-contest-runtime",
+    "finalApplicationPackage": false,
+    "rustHostExercised": false,
+    "installed": false,
+    "launchedApplicationUI": false,
+    "networkSocketsObserved": false,
+    "radioDeviceDescriptorsObserved": false,
+    "healthReportedCredentialAccess": false
+  },
+  "contestRuntimePythonVersion": "3.12.4",
+  "assertions": {
+    "onboardingBeforeWorkspace": true,
+    "emptyWorkspaceCreated": true,
+    "cqWWCommitted": true,
+    "cqWPXReservedAndCommitted": true,
+    "exactCommitReplay": true,
+    "receiptSurvivedRestart": true,
+    "fullQSOReadBeforeEdit": true,
+    "countryChangingCorrection": true,
+    "forgedEntityRejected": true,
+    "staleGenerationRejected": true,
+    "staleRevisionRejected": true,
+    "staleGenerationAndRevisionRejected": true,
+    "deletionTombstoneObserved": true,
+    "exactQSOChangeReplayAfterRestart": true,
+    "qsoChangeReceiptsSurvivedRestart": true,
+    "postEditDraftDupeRevalidated": true,
+    "serialAllocationContinued": true,
+    "externalMethodsDenied": true,
+    "noNetworkSocketsObserved": true,
+    "noRadioDeviceDescriptorsObserved": true,
+    "protectedMetadataUnchanged": true
+  },
+  "processes": [
+    {
+      "label": "first",
+      "pid": 8837,
+      "exit": {
+        "code": 0,
+        "signal": null
+      },
+      "stderr": "",
+      "responseFrames": 59
+    },
+    {
+      "label": "restart",
+      "pid": 8847,
+      "exit": {
+        "code": 0,
+        "signal": null
+      },
+      "stderr": "",
+      "responseFrames": 22
+    }
+  ],
+  "exportChecks": [
+    {
+      "plugin": "cq_ww_cw",
+      "format": "adif",
+      "sha256": "42eb70273135e9c1a037a0dd421e9eb556932b19c5e20ee6a39632cd0cff0938",
+      "bytes": 542
+    },
+    {
+      "plugin": "cq_ww_cw",
+      "format": "cabrillo",
+      "sha256": "2e6f4870dcec2623ce9f4830791d4dc2c04bda1f8545f995e320a3cef38ae391",
+      "bytes": 493
+    },
+    {
+      "plugin": "cq_wpx_cw",
+      "format": "adif",
+      "sha256": "20123df6296d04da49f5e43a2eeba36071d4f908d049e18d9ab2544cfa7ef3b6",
+      "bytes": 546
+    },
+    {
+      "plugin": "cq_wpx_cw",
+      "format": "cabrillo",
+      "sha256": "d591cc3c7356b9b9bdb9d964acf2c374650181620b2eff693ebe280431bcc952",
+      "bytes": 494
+    }
+  ],
+  "protectedMetadataEvidence": {
+    "before": {
+      "/Users/oliver/Library/Application Support/OM0RX-xLog/OM0RX-xLog.sqlite": {
+        "exists": false
+      },
+      "/Users/oliver/Library/Application Support/OM0RX-xLog/OM0RX-xLog.sqlite-wal": {
+        "exists": false
+      },
+      "/Users/oliver/Library/Application Support/OM0RX-xLog/OM0RX-xLog.sqlite-shm": {
+        "exists": false
+      },
+      "/Users/oliver/Library/Application Support/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite": {
+        "exists": true,
+        "device": "16777234",
+        "inode": "586062803",
+        "size": "318550016",
+        "modifiedNs": "1793194728104528615",
+        "changedNs": "1793194728104528615",
+        "kind": "file"
+      },
+      "/Users/oliver/Library/Application Support/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite-wal": {
+        "exists": true,
+        "device": "16777234",
+        "inode": "586062704",
+        "size": "638632",
+        "modifiedNs": "1793195029026627165",
+        "changedNs": "1793195029026627165",
+        "kind": "file"
+      },
+      "/Users/oliver/Library/Application Support/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite-shm": {
+        "exists": true,
+        "device": "16777234",
+        "inode": "586062700",
+        "size": "32768",
+        "modifiedNs": "1793194464086271265",
+        "changedNs": "1793195030457817973",
+        "kind": "file"
+      }
+    },
+    "after": {
+      "/Users/oliver/Library/Application Support/OM0RX-xLog/OM0RX-xLog.sqlite": {
+        "exists": false
+      },
+      "/Users/oliver/Library/Application Support/OM0RX-xLog/OM0RX-xLog.sqlite-wal": {
+        "exists": false
+      },
+      "/Users/oliver/Library/Application Support/OM0RX-xLog/OM0RX-xLog.sqlite-shm": {
+        "exists": false
+      },
+      "/Users/oliver/Library/Application Support/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite": {
+        "exists": true,
+        "device": "16777234",
+        "inode": "586062803",
+        "size": "318550016",
+        "modifiedNs": "1793194728104528615",
+        "changedNs": "1793194728104528615",
+        "kind": "file"
+      },
+      "/Users/oliver/Library/Application Support/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite-wal": {
+        "exists": true,
+        "device": "16777234",
+        "inode": "586062704",
+        "size": "638632",
+        "modifiedNs": "1793195029026627165",
+        "changedNs": "1793195029026627165",
+        "kind": "file"
+      },
+      "/Users/oliver/Library/Application Support/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite-shm": {
+        "exists": true,
+        "device": "16777234",
+        "inode": "586062700",
+        "size": "32768",
+        "modifiedNs": "1793194464086271265",
+        "changedNs": "1793195030457817973",
+        "kind": "file"
+      }
+    },
+    "equal": true,
+    "contentsRead": false
+  }
+}

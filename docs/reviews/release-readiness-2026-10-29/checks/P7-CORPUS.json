@@ -1,0 +1,28 @@
+{
+  "id": "P7-CORPUS",
+  "command": [
+    "/opt/homebrew/bin/python3.14",
+    "-B",
+    "tools/contest_plugin_generator/verify_pinned_corpus.py",
+    "--upstream",
+    "/Users/oliver/Documents/Projects/contest-sw",
+    "--ledger",
+    "docs/contesting/contest-acceptance-ledger.json",
+    "--inventory",
+    "docs/contesting/generated/python-plugin-inventory.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T03:17:49.461071+00:00",
+  "finishedUTC": "2026-10-29T03:17:57.613739+00:00",
+  "seconds": 8.141,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceHeadEnd": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-phase7-20261029-b8926639/checks/P7-CORPUS.log",
+  "logBytes": 107,
+  "logSHA256": "36d4c30516c06905f55daf838c312c4365a302dbc95ac57f5ae0bc535b438156",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

@@ -1,0 +1,11 @@
+{
+  "id": "P7-DATA-INTEGRITY",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "/tmp/xlog-phase7-20261029-b8926639/agents/data/evidence_summary.py",
+    "--integrity"
+  ],
+  "startedUTC": "2026-10-29T03:24:17.111281+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}

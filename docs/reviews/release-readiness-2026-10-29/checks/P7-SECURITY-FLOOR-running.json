@@ -1,0 +1,10 @@
+{
+  "id": "P7-SECURITY-FLOOR",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "tools/check_reviewed_security_patches.py"
+  ],
+  "startedUTC": "2026-10-29T03:21:05.761284+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}

@@ -1,0 +1,31 @@
+{
+  "id": "FRONTEND-FA014-FORMS",
+  "command": [
+    "node",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/node_modules/vitest/vitest.mjs",
+    "run",
+    "--config",
+    "/tmp/xlog-phase7-20261029-b8926639/agents/frontend/scratch/vitest.config.mjs",
+    "--configLoader",
+    "native",
+    "--cache",
+    "false",
+    "--maxWorkers",
+    "1",
+    "reversal.test.tsx"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-29T03:33:27.148445+00:00",
+  "finishedUTC": "2026-10-29T03:33:31.370722+00:00",
+  "seconds": 4.222,
+  "exit": 1,
+  "timedOut": false,
+  "sourceHeadStart": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceHeadEnd": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-phase7-20261029-b8926639/checks/FRONTEND-FA014-FORMS.log",
+  "logBytes": 6895,
+  "logSHA256": "3187d9e10bdc6042d263ce6d3f09a93af00968841ba6c941c4870263b22e3a89",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

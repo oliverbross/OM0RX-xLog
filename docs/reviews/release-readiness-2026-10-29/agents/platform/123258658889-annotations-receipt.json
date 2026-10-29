@@ -1,0 +1,24 @@
+{
+  "jobId": 123258658889,
+  "jobName": "Contest native tests (macos-14)",
+  "head": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "kind": "annotations",
+  "command": [
+    "gh",
+    "api",
+    "repos/oliverbross/OM0RX-xLog/check-runs/123258658889/annotations?per_page=100"
+  ],
+  "startedUTC": "2026-10-29T04:16:09.919543+00:00",
+  "seconds": 0.801,
+  "exit": 0,
+  "streamBytes": 892,
+  "streamSHA256": "1734717c6b6bc9af7b8e3f75bc247784771ec160a6170f7afb25db7dd5d95ddc",
+  "fullStreamSaved": true,
+  "savedFile": "/tmp/xlog-phase7-20261029-b8926639/agents/platform/123258658889-annotations.json",
+  "savedBytes": 892,
+  "savedSHA256": "1734717c6b6bc9af7b8e3f75bc247784771ec160a6170f7afb25db7dd5d95ddc",
+  "stderrFile": "/tmp/xlog-phase7-20261029-b8926639/agents/platform/123258658889-annotations-stderr.log",
+  "stderrBytes": 0,
+  "annotationCount": 2,
+  "paginationRequired": false
+}

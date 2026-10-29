@@ -1,0 +1,19 @@
+{
+  "verifiedUTC": "2026-10-29T04:12:50.651230+00:00",
+  "expectedHead": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "originMain": "b892663915cbc0768b26dc5a7bf7ec116869e409\trefs/heads/main",
+  "workflow": "contest-portability.yml",
+  "workflowSHA256": "44a9e3263842ef15f798b7ccdb9e6da89f649484206792baac4ab55189dbda23",
+  "scope": "Inspected complete current workflow: contents read; Swift portable tests on macOS/Linux/Windows, pinned corpus/generator/security-floor policy checks, Rust contesting-test discovery/tests on all three OS. Test config bundle active false and no externalBin. No packaging, release, deploy or live station step. Only existing contest-portability.yml dispatch authorized.",
+  "expectedJobCount": 7,
+  "expectedJobs": [
+    "Contest tests (macos-14)",
+    "Contest tests (ubuntu-24.04)",
+    "Contest tests (windows-2022)",
+    "Contest native tests (macos-14)",
+    "Contest native tests (ubuntu-24.04)",
+    "Contest native tests (windows-2022)",
+    "Contest definition generator"
+  ],
+  "rustReportSHA256": "6d4286bc1f528033534d6df00f45085c141150da11ef8e4de6db32bcf5068018"
+}

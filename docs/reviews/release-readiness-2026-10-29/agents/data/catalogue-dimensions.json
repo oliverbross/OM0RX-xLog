@@ -1,0 +1,3085 @@
+[
+  {
+    "pluginID": "cq_ww_cw",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "PASS",
+    "zoneMultiplierView": "PASS",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "PASS",
+        "reason": "Bounded analytical adapter: explicitly selected saved contact supplies country evidence; proposed band/received zone/points remain assumptions. Unknown new calls/exchanges stay unverified. Existing live station preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "cq_ww_ssb",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "PASS",
+    "zoneMultiplierView": "PASS",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "PASS",
+        "reason": "Bounded analytical adapter: explicitly selected saved contact supplies country evidence; proposed band/received zone/points remain assumptions. Unknown new calls/exchanges stay unverified. Existing live station preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "cq_ww_rtty",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "PASS",
+    "zoneMultiplierView": "PASS",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "cq_wpx_cw",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "cq_wpx_ssb",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "cq_wpx_rtty",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "arrl_ss_cw",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "arrl_ss_phone",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "arrl_dx_cw",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "arrl_dx_ssb",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "naqp_cw",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "naqp_ssb",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "naqp_rtty",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "phone_weekly_test",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "weekly_rtty",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "icwc_mst",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "cwt",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "cwo",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "k1usn_sst",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "trans_tasman",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "sum-of-utc-block-products",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "oceania_dx_cw",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "oceania_dx_ssb",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "sac_cw",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "sac_ssb",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "iaru_fieldday_r1_cw",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "iaru_fieldday_r1_ssb",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "10_10_fall_cw",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "UNVERIFIED",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "NOT APPLICABLE",
+        "reason": "This definition has no acquired multiplier identity."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "stored-points",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "No finite eligible Needed universe is supplied for this definition."
+      },
+      "candidateNeeded": {
+        "status": "NOT APPLICABLE",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "10_10_spring_cw",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "UNVERIFIED",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "NOT APPLICABLE",
+        "reason": "This definition has no acquired multiplier identity."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "stored-points",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "No finite eligible Needed universe is supplied for this definition."
+      },
+      "candidateNeeded": {
+        "status": "NOT APPLICABLE",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "10_10_winter_phone",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "UNVERIFIED",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "NOT APPLICABLE",
+        "reason": "This definition has no acquired multiplier identity."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "stored-points",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "No finite eligible Needed universe is supplied for this definition."
+      },
+      "candidateNeeded": {
+        "status": "NOT APPLICABLE",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "10_10_summer_phone",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "UNVERIFIED",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "NOT APPLICABLE",
+        "reason": "This definition has no acquired multiplier identity."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "stored-points",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "No finite eligible Needed universe is supplied for this definition."
+      },
+      "candidateNeeded": {
+        "status": "NOT APPLICABLE",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "jidx_cw",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "jidx_ph",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "aadx_cw",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "model": "aadx-pinned-prefix-rebuild",
+        "initialScore": 0,
+        "reason": "Corrected-log reconstruction of the pinned AADX rebuild, including non-Asian prefix multiplier reset when the final contact is a duplicate; not the historical operator display or sponsor certification."
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "aadx_ssb",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "model": "aadx-pinned-prefix-rebuild",
+        "initialScore": 0,
+        "reason": "Corrected-log reconstruction of the pinned AADX rebuild, including non-Asian prefix multiplier reset when the final contact is a duplicate; not the historical operator display or sponsor certification."
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "cq_160_cw",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "cq_160_ssb",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "euhfc",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "iaru_hf",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "UNVERIFIED",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "arrl_10m",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "arrl_160m",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "arrl_field_day",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "arrl_rtty_ru",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "arrl_vhf_jan",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "arrl_vhf_jun",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "arrl_vhf_sep",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "ea_majestad_cw",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "ea_majestad_ssb",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "ref_cw",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "ref_ssb",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "rsgb_80m_cc",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "UNVERIFIED",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "NOT APPLICABLE",
+        "reason": "This definition has no acquired multiplier identity."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "stored-points",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "No finite eligible Needed universe is supplied for this definition."
+      },
+      "candidateNeeded": {
+        "status": "NOT APPLICABLE",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "rsgb_commonwealth_beru",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "UNVERIFIED",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "NOT APPLICABLE",
+        "reason": "This definition has no acquired multiplier identity."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "stored-points",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "No finite eligible Needed universe is supplied for this definition."
+      },
+      "candidateNeeded": {
+        "status": "NOT APPLICABLE",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "es_field_day",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-identities-plus-one",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "es_ll_kv",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-identities-plus-one",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "es_manual_key",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw. Initial station-seniority score is 15; contact growth excludes that baseline.",
+        "model": "points-plus-seniority-times-identities-plus-one",
+        "factor": 1,
+        "initialScore": 15,
+        "constantBonus": 15
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "es_open",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "hadx",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "helvetia",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "pacc",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "spdx",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-at-least-one-identity",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "ari_dx",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "darc_xmas",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "eudx",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "lz-dx",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "wag",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "ari_40_80",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "ea_rtty",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "ok1wc",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "ssa_mt_cw",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "ssa_mt_ssb",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "dxpedition",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "NOT APPLICABLE",
+        "reason": "This definition has no acquired multiplier identity."
+      },
+      "scoreHistory": {
+        "status": "NOT APPLICABLE",
+        "reason": "Utility definition has no contest claimed-score history.",
+        "model": null
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "No finite eligible Needed universe is supplied for this definition."
+      },
+      "candidateNeeded": {
+        "status": "NOT APPLICABLE",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "general_logging",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "NOT APPLICABLE",
+        "reason": "This definition has no acquired multiplier identity."
+      },
+      "scoreHistory": {
+        "status": "NOT APPLICABLE",
+        "reason": "Utility definition has no contest claimed-score history.",
+        "model": null
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "No finite eligible Needed universe is supplied for this definition."
+      },
+      "candidateNeeded": {
+        "status": "NOT APPLICABLE",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "randomgram",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "NOT APPLICABLE",
+        "reason": "This definition has no acquired multiplier identity."
+      },
+      "scoreHistory": {
+        "status": "NOT APPLICABLE",
+        "reason": "Utility definition has no contest claimed-score history.",
+        "model": null
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "No finite eligible Needed universe is supplied for this definition."
+      },
+      "candidateNeeded": {
+        "status": "NOT APPLICABLE",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "qso_party_rst",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "qso_party_sn",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "ca_qso_party",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-capped-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0,
+        "identityCap": 58
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "canada_day",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-at-least-one-identity",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "cqws",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "darc_schwaben",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "NOT APPLICABLE",
+        "reason": "This definition has no acquired multiplier identity."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "stored-points",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "No finite eligible Needed universe is supplied for this definition."
+      },
+      "candidateNeeded": {
+        "status": "NOT APPLICABLE",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "winter_field_day",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "PASS",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "agcw_qrp",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "raem",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "NOT APPLICABLE",
+        "reason": "This definition has no acquired multiplier identity."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "station-latitude-factor",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "No finite eligible Needed universe is supplied for this definition."
+      },
+      "candidateNeeded": {
+        "status": "NOT APPLICABLE",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "rda_contest",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "rdxc",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "rsgb_iota",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "stew_perry_topband",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "NOT APPLICABLE",
+        "reason": "This definition has no acquired multiplier identity."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "stored-points",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "No finite eligible Needed universe is supplied for this definition."
+      },
+      "candidateNeeded": {
+        "status": "NOT APPLICABLE",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "ukeidx",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "wia_remembrance",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "NOT APPLICABLE",
+        "reason": "This definition has no acquired multiplier identity."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "stored-points",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "No finite eligible Needed universe is supplied for this definition."
+      },
+      "candidateNeeded": {
+        "status": "NOT APPLICABLE",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "cq_ww_vhf",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "darc_vhf",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "NOT APPLICABLE",
+        "reason": "This definition has no acquired multiplier identity."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "stored-points",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "No finite eligible Needed universe is supplied for this definition."
+      },
+      "candidateNeeded": {
+        "status": "NOT APPLICABLE",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "john_moyle_field_day",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "labre_rs_digi",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "nac_vhf",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "stored-points",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "ta_vhf_uhf_contest",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "NOT APPLICABLE",
+        "reason": "This definition has no acquired multiplier identity."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "stored-points",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "NOT APPLICABLE",
+        "reason": "No finite eligible Needed universe is supplied for this definition."
+      },
+      "candidateNeeded": {
+        "status": "NOT APPLICABLE",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "vhf_sprint",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "NOT APPLICABLE",
+    "zoneMultiplierView": "NOT APPLICABLE",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "PASS",
+        "reason": "Credited keys reconcile with the host multiplier total."
+      },
+      "scoreHistory": {
+        "status": "PASS",
+        "reason": "Corrected category log reconstruction; not an immutable record of what the operator saw.",
+        "model": "points-times-credited-identities",
+        "factor": 1,
+        "initialScore": 0,
+        "constantBonus": 0
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "Only the explicitly identified finite dimensions/reference scopes are enumerated; inspect each dimension's provenance and unavailable dimensions."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "wae_cw",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "UNVERIFIED",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "UNVERIFIED",
+        "reason": "A reconciled identity adapter is not available for this configuration."
+      },
+      "scoreHistory": {
+        "status": "UNVERIFIED",
+        "reason": "WAE score includes the separate QTC journal; QSO-only chronological growth is not a verified history model.",
+        "model": null
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "No finite eligible Needed universe is supplied for this definition."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "wae_ssb",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "UNVERIFIED",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "UNVERIFIED",
+        "reason": "A reconciled identity adapter is not available for this configuration."
+      },
+      "scoreHistory": {
+        "status": "UNVERIFIED",
+        "reason": "WAE score includes the separate QTC journal; QSO-only chronological growth is not a verified history model.",
+        "model": null
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "No finite eligible Needed universe is supplied for this definition."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  },
+  {
+    "pluginID": "wae_rtty",
+    "fixtureLifecycle": "PASS",
+    "countryMultiplierView": "UNVERIFIED",
+    "zoneMultiplierView": "UNVERIFIED",
+    "capabilities": {
+      "multiplierAcquisition": {
+        "status": "UNVERIFIED",
+        "reason": "A reconciled identity adapter is not available for this configuration."
+      },
+      "scoreHistory": {
+        "status": "UNVERIFIED",
+        "reason": "WAE score includes the separate QTC journal; QSO-only chronological growth is not a verified history model.",
+        "model": null
+      },
+      "neededUniverse": {
+        "status": "UNVERIFIED",
+        "reason": "No finite eligible Needed universe is supplied for this definition."
+      },
+      "candidateNeeded": {
+        "status": "UNVERIFIED",
+        "reason": "This analytical copy contains no verified candidate adapter; existing station-owned spot preview is separate."
+      }
+    },
+    "allCategoriesAndBands": "UNVERIFIED",
+    "currentSponsorRuleCurrency": "UNVERIFIED",
+    "packagedNativeGUI": "UNVERIFIED",
+    "externalSubmission": "UNVERIFIED"
+  }
+]

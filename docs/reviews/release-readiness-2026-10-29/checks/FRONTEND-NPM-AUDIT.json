@@ -1,0 +1,22 @@
+{
+  "id": "FRONTEND-NPM-AUDIT",
+  "command": [
+    "npm",
+    "audit",
+    "--json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/frontend-deps",
+  "startedUTC": "2026-10-29T03:18:37.061734+00:00",
+  "finishedUTC": "2026-10-29T03:18:44.477370+00:00",
+  "seconds": 7.413,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceHeadEnd": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-phase7-20261029-b8926639/checks/FRONTEND-NPM-AUDIT.log",
+  "logBytes": 365,
+  "logSHA256": "7cf223849727f27f62b0febdd86887c3a11c70e69054436d934c9701fb953fa0",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

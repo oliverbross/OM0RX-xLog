@@ -1,0 +1,74 @@
+[
+  {
+    "surface": "Current Python schema / interrupted upgrade",
+    "status": "PASS",
+    "evidence": "P7-PYTHON: test_interrupted_schema_upgrade_repairs_index_and_null_audit_revision; test_legacy_ledger_migrates_without_losing_issued_rows",
+    "limit": "Disposable legacy fixtures only; not a production migration or OS power-loss run"
+  },
+  {
+    "surface": "Historical import / legacy identities / serial floor / operation replay",
+    "status": "PASS",
+    "evidence": "P7-PYTHON: test_remediation_import_replica, test_legacy_import, test_wpx_host",
+    "limit": "Legacy missing identity fails closed; already-diverged peer history is not automatically rebaselined"
+  },
+  {
+    "surface": "Legacy WAE arithmetic / explicit scoring adoption",
+    "status": "PASS",
+    "evidence": "P7-PYTHON: test_remediation_wae; test_score_revision_host",
+    "limit": "Pinned fixture policy, not universal rule-currency certification"
+  },
+  {
+    "surface": "Swift retained contest schema v1/v2 / rollback / read-only snapshots",
+    "status": "PASS",
+    "evidence": "Parent P7-NATIVE.log: testConcurrentFirstOpenAndFailedMigrationRollback; testVersionOneMigrationPreservesRealSessionQSOReservationCounterAndReceiptReplay; testVersionOneMigrationFailureRollsBackAndCorrectionResultIsBounded; testVersionTwoSnapshotInspectionIsReadOnlyAndRestoredCopyMigratesOnReopen",
+    "limit": "Test fixtures; production files untouched"
+  },
+  {
+    "surface": "Saved settings backwards compatibility",
+    "status": "PASS",
+    "evidence": "Parent P7-NATIVE.log: Logbook mode migration, legacyMigration; invalidMode; freshDefaults",
+    "limit": "Disposable UserDefaults suite; installed profile migration not run"
+  },
+  {
+    "surface": "Restore / saved destination authority / unsaved settings / consent",
+    "status": "PASS",
+    "evidence": "Parent P7-NATIVE.log: BackupRestoreAuthorityTests 6; WavelogDestinationAuthorityTests 9, including intercepted request and unguarded control",
+    "limit": "Ordinary path only; these 15 overlap parent totals and do not cover FA-015/FA-016"
+  },
+  {
+    "surface": "ADX standard schema vocabulary / legacy export compatibility",
+    "status": "PASS",
+    "evidence": "P7-ADX-SCHEMA: 179/179 exact RECORD names; no missing/extra; full frontend round trips owned by frontend agent",
+    "limit": "Vocabulary equality, not full original XSD compilation; historical unrelated XSD regex limitation retained"
+  },
+  {
+    "surface": "Fresh disposable SQLite integrity",
+    "status": "PASS",
+    "evidence": "P7-DATA-INTEGRITY: 2 databases, integrity_check ok, foreign_key_check empty, unchanged byte hashes",
+    "limit": "Actual-Host FA-013 master/client databases only"
+  },
+  {
+    "surface": "Automatic country-prefix reconcile / replica catch-up",
+    "status": "FAIL",
+    "evidence": "P7-FA013: invalid_request, Replica change kind is invalid, replicaUnchanged true",
+    "limit": "Current FA-013 confirmed; rollback preserves existing replica data; no actual LAN peer"
+  },
+  {
+    "surface": "Cross-component package identity during replacement",
+    "status": "UNVERIFIED",
+    "evidence": "FA-015 current source ordering rechecked at BackupManager.swift:327/399/436/475 and AppModel.swift:1173/1181",
+    "limit": "Source-confirmed gap; no execution of previously blocked custom data-proof; external replacement trigger"
+  },
+  {
+    "surface": "Retained native interruption between DB and destination settings publication",
+    "status": "UNVERIFIED",
+    "evidence": "FA-016 current source rechecked AppModel.swift:1163-1181; old settings pause at1168, DB install1173, new settings1177-1178",
+    "limit": "No termination/power-loss/native app run; pause is a safeguard; later manual sync also needed"
+  },
+  {
+    "surface": "Production migration / full crash durability / installed configuration",
+    "status": "UNVERIFIED",
+    "evidence": "Not accessed in this stage",
+    "limit": "No production DB/settings/profile, native GUI, credential, provider, device or RF access"
+  }
+]

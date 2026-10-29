@@ -1,0 +1,28 @@
+{
+  "head": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "gitStatusPorcelain": "",
+  "baselineInputCount": 1838,
+  "mismatches": [],
+  "cargoInputs": {
+    "prototype/src-tauri/Cargo.toml": "1f94f45830b83cc4a0c90b23ef2393cd1fb59f7c4d2f4c5ef46b560eb3e89859",
+    "prototype/src-tauri/Cargo.lock": "0659bbd18a42b8578c48c9303ee686e88cbaebb89850aec4a823102f067304c0"
+  },
+  "helpers": {
+    "/opt/homebrew/bin/rigctld": {
+      "resolvedPath": "/opt/homebrew/Cellar/hamlib/4.6.5/bin/rigctld",
+      "sha256": "b49c38e1aead555e961725734e3e488d3ad5ebae44ecbc0a9423b401bd5b2197"
+    },
+    "/opt/homebrew/bin/rotctld": {
+      "resolvedPath": "/opt/homebrew/Cellar/hamlib/4.6.5/bin/rotctld",
+      "sha256": "d795ec5ed1dc3e77df2717636b97f25ecb503f967632c856d2593e84be03abfd"
+    }
+  },
+  "targetDirectory": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/rust",
+  "originalTargetCachesCleaned": false,
+  "releaseBinary": {
+    "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/rust/release/xlog-prototype",
+    "bytes": 30043712,
+    "sha256": "139565d37abafc6d20b0e8552a673358b86adaf59f27f9713614afa38758e623",
+    "executed": false
+  }
+}

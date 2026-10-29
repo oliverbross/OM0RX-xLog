@@ -1,0 +1,33 @@
+{
+  "id": "FRONTEND-FA017-STOP",
+  "command": [
+    "node",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/node_modules/vitest/vitest.mjs",
+    "run",
+    "--config",
+    "/tmp/xlog-phase7-20261029-b8926639/agents/frontend/scratch/vitest.config.mjs",
+    "--configLoader",
+    "native",
+    "--cache",
+    "false",
+    "--maxWorkers",
+    "1",
+    "fldigi-stop.test.tsx",
+    "--testNamePattern",
+    "fresh fldigi uncertain Stop"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-29T03:33:33.873013+00:00",
+  "finishedUTC": "2026-10-29T03:33:38.163195+00:00",
+  "seconds": 4.29,
+  "exit": 1,
+  "timedOut": false,
+  "sourceHeadStart": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceHeadEnd": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-phase7-20261029-b8926639/checks/FRONTEND-FA017-STOP.log",
+  "logBytes": 28951,
+  "logSHA256": "f02d3983f6799ccc39cfe5ea687baeef5a467d8cca0f98d1107fd2b9dc1ed05a",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

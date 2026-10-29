@@ -1,0 +1,12 @@
+{
+  "id": "P7-JOB-123258658626-LOG",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "/tmp/xlog-phase7-20261029-b8926639/platform_fetch.py",
+    "123258658626",
+    "log"
+  ],
+  "startedUTC": "2026-10-29T04:15:49.126564+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}

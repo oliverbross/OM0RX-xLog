@@ -1,0 +1,15 @@
+{
+  "id": "P7-PYTHON",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "python/tests",
+    "-v"
+  ],
+  "startedUTC": "2026-10-29T03:15:44.425036+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}

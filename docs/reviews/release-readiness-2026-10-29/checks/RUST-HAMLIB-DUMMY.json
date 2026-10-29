@@ -1,0 +1,32 @@
+{
+  "id": "RUST-HAMLIB-DUMMY",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--jobs",
+    "2",
+    "--test",
+    "hamlib_dummy",
+    "--",
+    "--nocapture"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri",
+  "startedUTC": "2026-10-29T03:31:55.639671+00:00",
+  "finishedUTC": "2026-10-29T03:32:04.584345+00:00",
+  "seconds": 8.944,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceHeadEnd": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-phase7-20261029-b8926639/checks/RUST-HAMLIB-DUMMY.log",
+  "logBytes": 6724,
+  "logSHA256": "670ea3e12b1ec36dcb24da33bbaa5a39adbd87f3b8a7270b86c61b17323f6b7e",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {
+    "CARGO_TARGET_DIR": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/rust",
+    "XLOG_TEST_RIGCTLD": "/opt/homebrew/bin/rigctld",
+    "XLOG_TEST_ROTCTLD": "/opt/homebrew/bin/rotctld"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "nodeModulesOriginalInode": 560040948,
+  "nodeModulesRestoredInode": 560040948,
+  "nodeModulesRestoredByInode": true,
+  "originalDistFiles": 180,
+  "originalDistBytes": 5745506,
+  "originalDistRestored": true,
+  "trackedFrontendSourceFiles": 983,
+  "trackedFrontendSourceUnchanged": true,
+  "freshDependenciesPreserved": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/frontend-deps/node_modules",
+  "generatedDistPreserved": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/frontend-generated-dist",
+  "checks": {
+    "FRONTEND-FULL-TEST": 0,
+    "FRONTEND-BUILD": 0,
+    "FRONTEND-FA014-FORMS": 1,
+    "FRONTEND-FA014-DETACHED": 1,
+    "FRONTEND-FA017-STOP": 1
+  }
+}

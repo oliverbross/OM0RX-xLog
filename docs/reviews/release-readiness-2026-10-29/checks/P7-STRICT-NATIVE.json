@@ -1,0 +1,29 @@
+{
+  "id": "P7-STRICT-NATIVE",
+  "command": [
+    "swift",
+    "build",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/strict-native",
+    "--jobs",
+    "2",
+    "-Xswiftc",
+    "-strict-concurrency=complete",
+    "-Xswiftc",
+    "-warn-concurrency"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T04:30:50.061100+00:00",
+  "finishedUTC": "2026-10-29T04:31:43.804170+00:00",
+  "seconds": 53.742,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceHeadEnd": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-phase7-20261029-b8926639/checks/P7-STRICT-NATIVE.log",
+  "logBytes": 9165,
+  "logSHA256": "dcee1ba0d85b973af50284bfc6d05ff16ad53dc37d84545160faa212dfdeced4",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "receiptCount": 11,
+  "receiptHashesAndSourcesVerified": true,
+  "retainedSetupFailures": 1,
+  "qualifiedRetry": 1,
+  "dimensionRows": 97,
+  "countryViewsUnverified": 26,
+  "zoneViewsUnverified": 10,
+  "pluginsWithUnimplementedViews": 27,
+  "actualHostCounterexampleReproduced": true,
+  "integrityDBs": 2,
+  "schemaNames": 179,
+  "compatibilityRows": 12
+}

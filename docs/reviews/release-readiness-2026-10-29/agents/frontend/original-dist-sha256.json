@@ -1,0 +1,722 @@
+{
+  "index.html": {
+    "sha256": "4d2180d552b473cddb680c45c0db1f6af31c00e6ead8aa96235301927db686f1",
+    "bytes": 595
+  },
+  "assets/ownSpotPreferences-DfBgwFHf.js": {
+    "sha256": "3678b856587fca626bbda12d46d147b9704b555753fee380014281914ff5475d",
+    "bytes": 794
+  },
+  "assets/contestBandPlan-BKlDUeJN.js": {
+    "sha256": "f96ad2b31bb270ed54f2cc4d206f109fe635156e9ae65fb98b4b05e51c58a0c5",
+    "bytes": 2094
+  },
+  "assets/integratedAcceptance-Dijkotlj.js": {
+    "sha256": "4f54ee935f4842cbf245d960a1927959ff994e07df78dc183b4e8794c49f04af",
+    "bytes": 55009
+  },
+  "assets/index-BXUPR0Wf.css": {
+    "sha256": "877ade569f3c86ebd2730f86eb63809de0ec5bff294f97d485a745dd264abc96",
+    "bytes": 324044
+  },
+  "assets/contestGroupChat-BhbOAZlc.js": {
+    "sha256": "2386812122ad7865a57b5abccc30fa553db9041a35aec75bdf435188080667f6",
+    "bytes": 8581
+  },
+  "assets/canvasGeometry-C17Q7OgH.js": {
+    "sha256": "1137115ba9ad69cf3ba2775807a1297f0748b61a75e72325a68933c33a38692c",
+    "bytes": 1805
+  },
+  "assets/useSpotActivation-BtA2z-oI.js": {
+    "sha256": "d1dd7fa150efdfa648461ec9947a9d2df535835a59915ee27fb7486f007da9eb",
+    "bytes": 958
+  },
+  "assets/WorkspaceSettings-BlYtB9Cq.js": {
+    "sha256": "8a506e397b43e982c757375adef98921f1b2723740a0d736032ab47a2bb33304",
+    "bytes": 92729
+  },
+  "assets/external-link-CVUvZtFh.js": {
+    "sha256": "28bcdc6875df965a1b075dd88b81d9df999c4de69b9bf1c50fecb059c504a2b2",
+    "bytes": 250
+  },
+  "assets/workspaceLayoutSession-D6oe_JJu.js": {
+    "sha256": "19946818ab36d63d19f3934cd83ed79c7ebdfde62bb95463da006936fccb703e",
+    "bytes": 9357
+  },
+  "assets/ClusterPanel-B3QRIwmu.js": {
+    "sha256": "dbb182ae7f136c0537ee92cf40a425664d02c9cba5bc671be8fc7a7b81fd3139",
+    "bytes": 47667
+  },
+  "assets/DetachedStationControlSurface-CBT9aZpq.js": {
+    "sha256": "12b0ba0a09d6b6a66d641c216a8fdbaa88c6be9dac4429c530cd3c580346616e",
+    "bytes": 6786
+  },
+  "assets/OpportunitiesPanel-DEBcQGSm.js": {
+    "sha256": "6e06dfed4d99d9c118009bc1eec8146e632fd0440f7555ec8abe03f566aaeb8e",
+    "bytes": 16924
+  },
+  "assets/SpotHistoryPanel-CZ9L_ion.js": {
+    "sha256": "4c9cc18eaae8a59a08e498cf6eec29ee41bcdcbb4fd29f1bb02c0f3e57480aef",
+    "bytes": 24155
+  },
+  "assets/DetachedAwardsSurface-CWjxlr54.js": {
+    "sha256": "e0ddac8ab9284a69a4b3cd60524b433bb79f962ed9801b8f5aa4bc83b35094ca",
+    "bytes": 671
+  },
+  "assets/DetachedWorldMapSurface-CsO4aXqO.js": {
+    "sha256": "04c865ae550efcddae2fbdfeb371d8e6f2c912c39d05f9e1a54225fafea30838",
+    "bytes": 1787
+  },
+  "assets/operatingModulePreparation-BsxVkZ_C.js": {
+    "sha256": "74012761ca1b7e253df3ef01064d9ec5cea7a2a2abf082fd4bae931bcb567d43",
+    "bytes": 1353
+  },
+  "assets/rotate-ccw-BoBOLmfJ.js": {
+    "sha256": "0a7d4dcfb777310dd6042881a8bfa233327395c2bd78b175b2ecaeed6a12d32e",
+    "bytes": 199
+  },
+  "assets/callsignIntelligenceContext-2ryjVVWa.js": {
+    "sha256": "5aa5b1394a6a08fdb275dfb47b4af4cbccef93790c907f1ee77f5902776e7ea4",
+    "bytes": 2940
+  },
+  "assets/propagationPreferences-DokhXLnb.js": {
+    "sha256": "99582f7aef71181c699c1879e3dd80cfe4893eb8df374017e52ba77a5602e869",
+    "bytes": 812
+  },
+  "assets/worker-Cv28JJtL.js": {
+    "sha256": "22221cb8ff2e49873585b60c82bbed55719648540c6d57fdf9372f95d4d52567",
+    "bytes": 3533
+  },
+  "assets/ContestWorkspace-BDZJdFh1.css": {
+    "sha256": "31433d5bed2a038782912d44145f655ff001ce9cf56dda1a8b1728e5ce7c4261",
+    "bytes": 17753
+  },
+  "assets/CWDecodePanel-CC5-OfEQ.js": {
+    "sha256": "48b5078c7940f34160f91d0193e66784ea5c576a473670c684cad4a93e6406cf",
+    "bytes": 23456
+  },
+  "assets/DetachedContestSetupSurface-BLO7c_2r.js": {
+    "sha256": "bc9a2b45782ae8e2eb764bbaf5f0f7857659c7e6abbdfbb876986a4a85fe7831",
+    "bytes": 333109
+  },
+  "assets/DetachedDXpeditionMapSurface-BuL4GAAl.js": {
+    "sha256": "bdc29692225367c4f1afb26c59ab174cfe7fcfc7742b0ebdf329ec8f2225daab",
+    "bytes": 23749
+  },
+  "assets/useWorkspaceWindows-C_zmAFhf.js": {
+    "sha256": "9a2171af56debe5722b96e1d662c782a6786895bfa5b1bc9e07b18490ba2950b",
+    "bytes": 4596
+  },
+  "assets/TCISplitObservation-CYXssbqo.js": {
+    "sha256": "705ddb73b3c3839da93add1349283a2d95d37fe6c490950b2a44480502b93006",
+    "bytes": 3353
+  },
+  "assets/DetachedContestQRZDetailsSurface-OB197Hw4.js": {
+    "sha256": "b6c62b318570c7788f061c5cec29a6b27d5b2c73b879974fc12588fee88e1628",
+    "bytes": 4630
+  },
+  "assets/DetachedOpportunitiesSurface-DumkSj1q.js": {
+    "sha256": "60885eb7e712193da2a78c0155020a19cad9addef40e9dd198d06d498336c2c1",
+    "bytes": 1300
+  },
+  "assets/clusterResume-Dg00fJFK.js": {
+    "sha256": "a528a5ef4342a5e8524a5699998ae66140f180604b16019db3b13ad5295a627f",
+    "bytes": 1164
+  },
+  "assets/DetachedContestQRZDetailsSurface-BzqgiRf3.css": {
+    "sha256": "b9e67f758d99f26a35d42c670793ad83e71c135ca85c3f01235fa2bb0988d110",
+    "bytes": 2000
+  },
+  "assets/DetachedQSOSurface-humruHoW.js": {
+    "sha256": "e860ad072672d51bb398cc83b1282ca0f81f0cd3b342142b185ebfb7300f50ac",
+    "bytes": 8940
+  },
+  "assets/x-QmfRDesV.js": {
+    "sha256": "dbc3186f7adc53e547b2ccc391f5a5006811f12b04e8aa05993332c69963996e",
+    "bytes": 154
+  },
+  "assets/logbookCapacity-CrnDI1rX.js": {
+    "sha256": "434db0333b2151d03875e504f6a2def11a58e7ba97f4d60dba7d89a33fe2db6f",
+    "bytes": 860
+  },
+  "assets/useSpotEditor-DC3j_sQP.js": {
+    "sha256": "bb8432c6d31ee93d808e6c48e7def223b6b84ce0b3b0721887a0e24ae8d7477e",
+    "bytes": 3070
+  },
+  "assets/move-diagonal-2-CsTEbgzW.js": {
+    "sha256": "0e704c259321cebe664ae60ce08ab77aa80d56990d1816b95b546ee9c3c59bdf",
+    "bytes": 657
+  },
+  "assets/dxcc-boundaries-al1ecw9_.geojson": {
+    "sha256": "e9b086eff7fb690e9990e10855f3fb494f9d1115e4af1928f6a8b545efef4568",
+    "bytes": 831833
+  },
+  "assets/download-BWIZE9l8.js": {
+    "sha256": "10fed69eea52a236f2e47bfdde46d2119085478e3c34555ad3673dc987d76f56",
+    "bytes": 262
+  },
+  "assets/logReview.worker-3pfLCTmN.js": {
+    "sha256": "62c154a58aa57ba350efa7ba7f59ee9de585a1cd722bcac469e815092bcca7e5",
+    "bytes": 5940
+  },
+  "assets/book-open-DCp4tuCj.js": {
+    "sha256": "461dce322b30a7da0ac75e137d7fe2dc380b956f5a5e072234a37da14ac1e967",
+    "bytes": 278
+  },
+  "assets/DetachedClusterBridge-DPB-pOUv.js": {
+    "sha256": "65650f4e31b2547c0159261a70fceff3d19de895540bdde3b971be54b2de1875",
+    "bytes": 32289
+  },
+  "assets/manualTune-Bhj7De9E.js": {
+    "sha256": "ec4dc12993019e7dac80a629ad14a1265eeee9bb6bf7a60883c99bf6ea7e3bf8",
+    "bytes": 5579
+  },
+  "assets/DetachedCWSurface-CVlaT9lw.js": {
+    "sha256": "5eb7dddc98fe30e1ebc477e39ecdbdea0e33e3cc94b8d90a1392e005bef89cee",
+    "bytes": 1591
+  },
+  "assets/ContactEditStatus-DauxwUwU.js": {
+    "sha256": "3df529b14fb05697938bae8fbdaf767ddc5b73a94c366f64333995c01761c3a8",
+    "bytes": 60071
+  },
+  "assets/WSJTXPanel-D9vH7YgE.js": {
+    "sha256": "26acbf983d7b2a0f6b7f9466c7db508e712b6bc16335eab4eab0600989598ff8",
+    "bytes": 4845
+  },
+  "assets/radio-B-m_tz9-.js": {
+    "sha256": "93eab0b03b78670f3c9276c7fd7380f7a385362ea3fa61d70b890b2439ec26c3",
+    "bytes": 369
+  },
+  "assets/DetachedContestAuxiliaryDialog-CIVKQhPj.css": {
+    "sha256": "0106b37ad200e0863654dc8d3434a2dc7565cec4d7086e6ecbcf50b8f0e97a53",
+    "bytes": 2040
+  },
+  "assets/contestCallHistory-B8DJIA5u.js": {
+    "sha256": "ee850c685c68492f30306c7bb7307720b478e6a0afcc345613d6dff70c883f24",
+    "bytes": 10348
+  },
+  "assets/hamlibStation-C7_D1oES.js": {
+    "sha256": "85ea39fdc1ff65ce68106c63d17b493695546e424df2bd2184ca936e3a6e4d5a",
+    "bytes": 3275
+  },
+  "assets/operatingModule-CDPSXDDu.js": {
+    "sha256": "ef61967b24d5b17aecdc863c49afe21aeff23bf5d78cf00ca60e3fee9827864e",
+    "bytes": 221
+  },
+  "assets/ContestRecorderWindow-B9S2pd2_.css": {
+    "sha256": "5a278982c1c2d0359be562f904f2204256a337db9aa483372f59de6f1f25b4a3",
+    "bytes": 2091
+  },
+  "assets/RotorPanel-v8aHwQlI.js": {
+    "sha256": "808f5066dea59e0b4f4d73f3f974cdc0fe74b9815fa9e97bf7d7e812ff25d93e",
+    "bytes": 74583
+  },
+  "assets/DetachedContestGroupChat-C5cJHV0_.css": {
+    "sha256": "c7d1449f31b0b4b932885c7e7ad8f6c3814672d97a7dfc665b0f2ff6f5304a7e",
+    "bytes": 1967
+  },
+  "assets/useMapContext-H9DonG50.js": {
+    "sha256": "a4e8220107091e34952a1af9027a6f93b0fb24b1b1d9d76d29bfdce842402076",
+    "bytes": 1618
+  },
+  "assets/countryDisplay-Bm2UG4zx.js": {
+    "sha256": "7a86293ceec7597a76ea1669356df24bcbf255bb9c451fa5d2c792861d3abed7",
+    "bytes": 634
+  },
+  "assets/stationSelection-CzVN5G6N.js": {
+    "sha256": "97252ac8b6205e267d7c9de56b8b9f3ccacf6a31e409bdbebae8e5bf18ec1961",
+    "bytes": 1043
+  },
+  "assets/arrow-right-BW-Nse4d.js": {
+    "sha256": "3c80b2754d34e90d5524fff016228206e49c2c03eea9537b9978de98c5f0add9",
+    "bytes": 275
+  },
+  "assets/ContestRecorderWindow-CltMTu1s.js": {
+    "sha256": "55f7c357c035bf6deeed3a889dfbfab8abcc14044bb4022d4ae034ebe593e066",
+    "bytes": 240
+  },
+  "assets/ContestLogTransferWindow-Cztqj3sC.js": {
+    "sha256": "282522099354b57244f8892540257ec1a0f44a7340b6c8d5c61334a549322ba8",
+    "bytes": 10796
+  },
+  "assets/play-CgfHWZNu.js": {
+    "sha256": "85dfc4503d3e49dd6d6c6c1342e4cde81d9626a90b6d6b6d9d273d0edd049f79",
+    "bytes": 134
+  },
+  "assets/logbookColumnPreferences-DFRuFEkh.js": {
+    "sha256": "c9e207f67714376c4fb4129f6a570b96eae17f515058b4702b84dcfff2b5952b",
+    "bytes": 1767
+  },
+  "assets/QSOEditorCore-D35RzkZk.js": {
+    "sha256": "0c8d132cef0f557a09de86777c8aa6b23019bcef622d48ae2d81999542209670",
+    "bytes": 35236
+  },
+  "assets/rotorTelemetry-DY6kD6MS.js": {
+    "sha256": "06690e74c04e9d224fbd656e67f3950950a294f3e22c35e0c9043d30403a4a12",
+    "bytes": 868
+  },
+  "assets/RecorderAudioAction-NhP3R8Ri.js": {
+    "sha256": "3627d7224104bb442d1fe2eef1a906455f5330be764a74cdddfc3cdf4fcbca0b",
+    "bytes": 1209
+  },
+  "assets/ContestPresentation-C-WgkMRh.js": {
+    "sha256": "83ddf3225fe38c08f913b678f407315c6d981f06ee333b39120324e4ff7da31d",
+    "bytes": 3410
+  },
+  "assets/ContestRecorderWindow-Ax4XVA1I.js": {
+    "sha256": "fe40a3e5778dbb11e523ecfe869b169697ff531d120b2c937ee6e91c39b2550c",
+    "bytes": 18819
+  },
+  "assets/DetachedCallsignIntelligenceSurface-Mcp32JPx.js": {
+    "sha256": "d5f99a26f05d66ee466c49777e78fcb8f2348f6b9ac572e32f5aeae0c5f1cfe2",
+    "bytes": 4038
+  },
+  "assets/contestSurfaceNative-DmJ1cWJn.js": {
+    "sha256": "15dfe120880cfb42b04809bca07eb3facb3f80d74c3cf86b2ef6f08c33c57732",
+    "bytes": 38619
+  },
+  "assets/clusterPalette-DEC5iLYt.js": {
+    "sha256": "06a211b3997234bae7e0b0e9c0647896e0000b6735bcdc39f4fe99b3daad027b",
+    "bytes": 1677
+  },
+  "assets/ContestOperatorDialog-C1omhbYJ.js": {
+    "sha256": "35aa0a51e1b127222a88c4106142b4c2102e050a4a6ce6f2b4e7301a802f540c",
+    "bytes": 1899
+  },
+  "assets/DetachedSettingsSurface-aFG0WvzX.js": {
+    "sha256": "8c07f344d647f8397803d27ba5df7d5862af24030df10ce6e10e88df5b60cea4",
+    "bytes": 5080
+  },
+  "assets/DetachedCWDecodeSurface-D1CgkLmO.js": {
+    "sha256": "b440d1eb76b3bd49c1936bece3d751c5bc086c15fae5fff0a2efabcca80de71e",
+    "bytes": 323
+  },
+  "assets/SettingsSaveToast-CaLRKrsI.js": {
+    "sha256": "53f7224dbefd693836559209cbcd30b5c721f78193f49c6f7eaa1366589f3b8f",
+    "bytes": 686
+  },
+  "assets/monitorContext-Cg-kkWE1.js": {
+    "sha256": "e3bce45e9c777ba15f601d5c5b835d15d61a9ef4dc086777934afd5c9003a3d1",
+    "bytes": 20014
+  },
+  "assets/ContestLogReviewWindow-BYLgyq8l.css": {
+    "sha256": "b6782fe95f6340f69cfd466e89f24c67976fec7901ddc4070ff56f945d896149",
+    "bytes": 3112
+  },
+  "assets/DetachedStationIdentitySurface-XRmFbBqz.js": {
+    "sha256": "025d97dec12694802bfb4a986543c98eba2bed044b7d7f1291ad848e9bb48a85",
+    "bytes": 3448
+  },
+  "assets/square-BJFE9qxW.js": {
+    "sha256": "dd599e158c832ab85ad102e5d825dbff4cab53cdceb6fa5ff8d30e341c8326b3",
+    "bytes": 147
+  },
+  "assets/startupReadRecovery-gImxBLYi.js": {
+    "sha256": "85cf514a665c7ccdc198a5aacef4921a044418966cf2ab69010a695f33ea8ce2",
+    "bytes": 863
+  },
+  "assets/DetachedContestDigitalDialog-CN73IaJA.js": {
+    "sha256": "45c756680c9638d6dca9c7c23c566169e30700d92d2e6120749d354dcb3f20ca",
+    "bytes": 6761
+  },
+  "assets/ContestSecondaryPanels-CrIxZe3E.js": {
+    "sha256": "29b35941238ba8d876f887da792a2132d1a4e80aa24ebda30a9b4afefc59621d",
+    "bytes": 15860
+  },
+  "assets/createLucideIcon-DHW_SaXk.js": {
+    "sha256": "2019a226c275aa96780dc0f560a7393b947b6b361a7ef5ab0abce1586bf9d738",
+    "bytes": 902
+  },
+  "assets/core-BKnwzu3A.js": {
+    "sha256": "bbe515bea10f3c961daeab0862382b0bf08fd641926954b4b8182eb9115986e2",
+    "bytes": 1138
+  },
+  "assets/DetachedContestSetupSurface-MJi2mmUB.css": {
+    "sha256": "6367c03707c5ae793f118aa51a54a57937e8b45f05c345c93ac49b309c4a0b75",
+    "bytes": 11930
+  },
+  "assets/contestSetupDialogs-DQNWbFlw.js": {
+    "sha256": "e5cdbcd60cebbc1aa0ac62d8f6e704621ac6bd0309ad1bde7607701becd5366b",
+    "bytes": 4341
+  },
+  "assets/maplibre-gl-worker-DxGNRm0a.mjs": {
+    "sha256": "5f1e2f0e1624082b7e88a06e4c86085992b0f8c02929801e552f3f7a119856a9",
+    "bytes": 508314
+  },
+  "assets/operatorWorkspacePreferences-CN9Yv1Z_.js": {
+    "sha256": "610f0e522f8401bd930871cb9daa230fa4b2b4e59f0a72302dddb5e8db685d4c",
+    "bytes": 1432
+  },
+  "assets/contact-round-ByQlgti9.js": {
+    "sha256": "caa4e6d4972abc046caa855565a69bfb91165f3a4fa4fd40ee4ebef7cce258bf",
+    "bytes": 325
+  },
+  "assets/StableFeedbackLayer-pwh5Bm2p.js": {
+    "sha256": "158af7300aff37025aa7a5567d154670bb568846445e646e82632f14a3b26e18",
+    "bytes": 160
+  },
+  "assets/contestSetupServices-BK9pVh78.css": {
+    "sha256": "d111f788c70b8d1f40b4db5a6b3616c2d2f493133f8273d84a4c5ca78cc0f633",
+    "bytes": 7308
+  },
+  "assets/DetachedClusterSurface-D8lxrUp9.js": {
+    "sha256": "9644597530b1944275430b9af14fbf3193faf4cc36aafdb9eb0c51ba433fb9df",
+    "bytes": 2205
+  },
+  "assets/contestSetupServices-Cc7eSAx-.js": {
+    "sha256": "d38b37595b64c96c254ac25e093df97efa3d371726e6325104f87411ef1dea5e",
+    "bytes": 666264
+  },
+  "assets/useSharedCW-svOw_PCn.js": {
+    "sha256": "6554c771c86c52bc2d2ffd009393ccca287d2be076785fa603e00f583dfbc5b2",
+    "bytes": 3497
+  },
+  "assets/rotorControl-CFocEdpD.js": {
+    "sha256": "ab12c0adf44f97d6a441084d9eaa67a475499d658e7362564853e191a35ddf44",
+    "bytes": 1195
+  },
+  "assets/ContestAnalyticsWindow-Bqxmpusl.css": {
+    "sha256": "9114460507c350e410e09fef7331a17aecff8ecb9ad58b4c9bf284fdba460a76",
+    "bytes": 13099
+  },
+  "assets/ContestOperatorDialog-NCWZOS9S.css": {
+    "sha256": "75de60b4f1b1dc38794bfb7adea8acafa8b5ff73b71fca029328b64c9d88fab9",
+    "bytes": 869
+  },
+  "assets/DetachedConnectionDoctorSurface-CsD24zG3.css": {
+    "sha256": "766cc8cb3dc797c539ed8067afbf9389709f5762d93c6ed6e5999c4df5e46d01",
+    "bytes": 1887
+  },
+  "assets/logReview-B_dzkLNg.js": {
+    "sha256": "1a803d9b38fb2e851d93fbbd53c9f87217ad114ab529d504310c229005686b5c",
+    "bytes": 5069
+  },
+  "assets/refresh-cw-YdsOcEwl.js": {
+    "sha256": "c0f717b5d464029bfce806f53b0b810cfebd6f137e64352ce5b72151f016c2fc",
+    "bytes": 320
+  },
+  "assets/operatorDraftWindows-CjfeCkaI.js": {
+    "sha256": "f21e1d39f5e06fde68638395bee43b3e591e4935f2b4ba941152926b0aaa5b22",
+    "bytes": 1904
+  },
+  "assets/canvasClose-BV9jv6Db.js": {
+    "sha256": "caaea3f0f38a04fe78706d49dbaab392865d5949ba39cff468a70eaa803ef800",
+    "bytes": 466
+  },
+  "assets/LiveApp-BVnJ27g7.js": {
+    "sha256": "b77d55151d2465219bbf7c7c39b84f54e723e1f2776173696b20af00948b23c1",
+    "bytes": 171716
+  },
+  "assets/DetachedSpotHistorySurface-CQRELS2r.js": {
+    "sha256": "0fa179b03a58bed77f10939c85275702f2cd13ad0516ed081acf95b12daf103c",
+    "bytes": 736
+  },
+  "assets/DetachedBandMapsSurface-tjkE0BMr.js": {
+    "sha256": "1aa79fd8d7f6ba439170107dda71866fbe1154df7af8a80baf548dcd5c6cfe41",
+    "bytes": 1728
+  },
+  "assets/DetachedContestSurface-Blw_mjn_.css": {
+    "sha256": "065d55065745d5071055146bcebda340eb6213c3bf9bb625aee597cccf8986ba",
+    "bytes": 40675
+  },
+  "assets/mapContext-BMawVuU_.js": {
+    "sha256": "10e7e4538748cb2268f67a33543f85a047fae29dcb0132a454eff4a73e5385fb",
+    "bytes": 6047
+  },
+  "assets/circle-check-BBGiMIsp.js": {
+    "sha256": "ae90aaef412a1dc26d652787b50fd793b6bdf90afc2de9159ee7a856c0749015",
+    "bytes": 177
+  },
+  "assets/panels-top-left-BH-4mR-G.js": {
+    "sha256": "bbe7a6e9601d8799b6ff8bada16c97ef49848899e2f1e8a2adaeb40744bba979",
+    "bytes": 226
+  },
+  "assets/LogbookContactReview-BnOy9s1n.js": {
+    "sha256": "610454ea982863326743bbce4f8a839dca029d5fa68d94588f9d6cd9c5493798",
+    "bytes": 11359
+  },
+  "assets/RadioSpotSettings-C_iPoXrb.js": {
+    "sha256": "38c01ecec8e5aa8d9e78d30497bc7d4043b9be4feffa6ee43a1d3ac72dc138de",
+    "bytes": 5865
+  },
+  "assets/cwMacros-DqhQcGVd.js": {
+    "sha256": "9559e0fa379ec416ef7900d57807d591cacc74ae9ca14194f9f64cb6c2c5e90d",
+    "bytes": 3784
+  },
+  "assets/QSOEditor-CDZpCof1.js": {
+    "sha256": "359677908b9327fc57cd42f7a93cc83d1743c635287a4f5c276017146fb1032e",
+    "bytes": 6077
+  },
+  "assets/radio-tower-DyWotybY.js": {
+    "sha256": "8b583107d65fe10304dd0b0238b1fecd9cdccbc85fc24fe4898b6c444d6d39ae",
+    "bytes": 453
+  },
+  "assets/clusterAppearance-Vu4qCNfe.js": {
+    "sha256": "5407a93de8e0e063aa533ff50c729f789cdd55c2785fad67a70938ed82c87747",
+    "bytes": 935
+  },
+  "assets/DetachedLogbookSurface-DPNyzZYR.js": {
+    "sha256": "a41f9453b6d914a71dd91f4dfc2d11264ffa7cdc49d32310cdf6f6266717a7db",
+    "bytes": 5034
+  },
+  "assets/DetachedOperatingGoalsSurface-BdTNynXM.js": {
+    "sha256": "0a18eb8a777b7b92927f77b2b067c6632eb1f901a65ee96e5c0fcf74a3266dd3",
+    "bytes": 12054
+  },
+  "assets/DetachedConnectionDoctorSurface-BpN7nUSG.js": {
+    "sha256": "b4df6009687c6413e10b671cc705300b54f5c8a5418e9147dce8a9efa9dbb383",
+    "bytes": 7321
+  },
+  "assets/DetachedContestAuxiliaryDialog-DodWo3Jx.js": {
+    "sha256": "53154dc2fd75a18760cc9f7460ab3b4dafa907e3958c99387e57c2d70d2ef541",
+    "bytes": 3150
+  },
+  "assets/contestKeyBindings-Cy2KuDTU.js": {
+    "sha256": "fcbe323a06e40dbbe52c9ab1b865c1c47184c6c0fae52cfef08051cab7696a50",
+    "bytes": 8385
+  },
+  "assets/SpotBridgePanel-C5u0IFta.js": {
+    "sha256": "02c65818ea558a2586ac85c42939be980aa6885a52dceb82e05ae6998a4e9bed",
+    "bytes": 7089
+  },
+  "assets/operatorDraftSession-N3aVQGpV.js": {
+    "sha256": "15ec2397e872713d46d1a2253257850f9c1f1a30cb3cf5c33852da7cf0216692",
+    "bytes": 21118
+  },
+  "assets/Map-Bb9g8l0w.js": {
+    "sha256": "bb430bdabd8a8c908bdacffcfbccfaa7141092f71228d178156aa15f9722446b",
+    "bytes": 1089290
+  },
+  "assets/DetachedPreviousQSOsSurface-Cq8XQxOZ.js": {
+    "sha256": "093f7bf19e762be721ff9fd0fd7a87c053480cb9a7fe2a0e0d55a162336f1e3c",
+    "bytes": 6802
+  },
+  "assets/loadContestWindowSurface-Cgowk_1O.js": {
+    "sha256": "d51a4a2fae315a20f4a35c29fe5c1018898aa747ea7d41eaf55da6d7df917446",
+    "bytes": 8144
+  },
+  "assets/spotFrequency-CqWyebZ8.js": {
+    "sha256": "10d8f2d9c612e041888c75aa11d0bc5ad846ef8f79e7c0aa525fd9d2efd18ffb",
+    "bytes": 179
+  },
+  "assets/DetachedContestGroupChat-C35PrjSX.js": {
+    "sha256": "7feb6d5c1c856491f3bfba39051f104bc139dc0bf4b52b4d396bba316502672a",
+    "bytes": 6276
+  },
+  "assets/trash-2-DVTsMS7V.js": {
+    "sha256": "bce7e8e6aa4c61171c7418ab04684652a2a04dbf5dddbcccc5e9732a83036cf9",
+    "bytes": 357
+  },
+  "assets/band-BO46iU9G.js": {
+    "sha256": "3ae4ecd3d2416acd63edf9eaa31f04951da6a27f6f06367908bc3bece80bf9a8",
+    "bytes": 750
+  },
+  "assets/LiveApp-BGhL_ra5.css": {
+    "sha256": "952e82153774ad025fabce0da17aed549d58b024ed50e6327f84be9bf2a496ad",
+    "bytes": 8071
+  },
+  "assets/CWDesk-BQ-4rfui.js": {
+    "sha256": "a4e6c3a52dda859f96d12333d3c9fe6fe088589e46d7eabf21297adf2b48cf23",
+    "bytes": 2609
+  },
+  "assets/ManualRotorControl-C0c-tiau.js": {
+    "sha256": "35f580bd3096ddb2348379c7f8fe757b5be22e2273f1be1cbb1c581a1d5c8e9d",
+    "bytes": 6089
+  },
+  "assets/DetachedContestSurface-BmF9b95a.js": {
+    "sha256": "af5a8a3456378ed618113f332fbbdf88659ee95d2412f5b041ae287d95e9531b",
+    "bytes": 90588
+  },
+  "assets/MapGrid-j7Dm0f-w.js": {
+    "sha256": "64eb3a465b46e3b81c541eed452cfe52844b221599be87e13f55a448ce1be894",
+    "bytes": 4159
+  },
+  "assets/DetachedAlertsSurface-IiUG7ZeZ.js": {
+    "sha256": "081766dc117968b7692d8c8ce2a3bf9ab35a553a6a79b046bbb366280456e45a",
+    "bytes": 21608
+  },
+  "assets/DetachedContestSetupDialog-BSW5lh-D.css": {
+    "sha256": "cd9b386ce3c86d28a4363fafb0c56d2c611415790557fc54341d71e2b562fd1f",
+    "bytes": 4589
+  },
+  "assets/DetachedContestCallHistorySurface-xbhi1eO2.js": {
+    "sha256": "92f935313e21218c513fd10f8fb30ca524f417f54e493ce3c37db65960d6dcfc",
+    "bytes": 11455
+  },
+  "assets/DetachedAntennaSurface-BNM530Z9.js": {
+    "sha256": "e8a85e4a9cebe657f661b6f1f894a25120ad9d29ccd1d3e707a8d10e3eacb669",
+    "bytes": 2954
+  },
+  "assets/contestSchedule-RlqCfcnJ.js": {
+    "sha256": "0e6a92cd6558fd1764a7d683789df32553c7121aa808ac1ed5176f2237f5d2cd",
+    "bytes": 1503
+  },
+  "assets/xlog-logo-mark-BUgLATh9.png": {
+    "sha256": "82a0e7557129d1110273e383aef217ead2a50d8da15bd013e263bbf9c78eafc0",
+    "bytes": 55596
+  },
+  "assets/RotorCompass-BYRxcP4W.js": {
+    "sha256": "eeabb29ac20ff9a0abe5c2848ce7fb407856be90e2e6eab7b5c5a237455d5316",
+    "bytes": 4717
+  },
+  "assets/draftEnrichment-DnEUnyA0.js": {
+    "sha256": "d4935e48018e96bab1eda96816154a2827913fb4a852bfb7cd21420842935103",
+    "bytes": 2127
+  },
+  "assets/adifTransfer-C_Iggfli.js": {
+    "sha256": "12717652661d62056f3c574ed8d039022d9aa2baaf9e78f39860bf131f693f53",
+    "bytes": 25651
+  },
+  "assets/file-up-DJzJsyKF.js": {
+    "sha256": "f8a88179487809af1cab3506a6968bb0a46a0f090345fac586f2cd7f7c7dd621",
+    "bytes": 300
+  },
+  "assets/logbookWindows-B1tNuJ-a.js": {
+    "sha256": "4797240b3c7290cd771d4f0a2c65213fe77e5f5872e4b285e98c73194d989747",
+    "bytes": 1330
+  },
+  "assets/CallsignIntelligence-CIggbuox.js": {
+    "sha256": "a3a632abe148fb7c2723a174b164a1c3d9556a0b7ff3b7e233e0993b978dce2c",
+    "bytes": 4568
+  },
+  "assets/ManualSimplexTune-CLdwXOQD.js": {
+    "sha256": "19210dde2c7c3b47a802088491a9f3604feaebb9af94b9ecf706f6836aeb77d9",
+    "bytes": 2098
+  },
+  "assets/contestAnalytics.worker-D51b6hmS.js": {
+    "sha256": "5aa0b0adfe846086cdeb92c28bb7cfed70f0238f7c73771b34a703d288ef456a",
+    "bytes": 8280
+  },
+  "assets/DetachedStationStatusSurface-DnbGIq9p.js": {
+    "sha256": "e3dd2338292c712959caddd65355d51514e12337eb1ba5ba23ae2d1660af8cb1",
+    "bytes": 4730
+  },
+  "assets/OperatorDraftStatus-DBgp9ny5.js": {
+    "sha256": "571b61db3284aecf956dcf38e7ad5ebce5ed09d53110f797f4668fa28d983782",
+    "bytes": 13002
+  },
+  "assets/ContestLogReviewWindow-BioZRwVA.js": {
+    "sha256": "6a192f9d6bff32da4ba631a13668c46a5eefd20fd038555310dae5d6bb930647",
+    "bytes": 18393
+  },
+  "assets/workspaceNavigation-D3M6xxxB.js": {
+    "sha256": "9df4e7af78b689f1b5c3be5bea6610839d5ef98f255bac58dc049bb8517849cf",
+    "bytes": 3727
+  },
+  "assets/contestRecorder-CYhNn-EN.js": {
+    "sha256": "64409c8a661cc78f79b6d59292fa4b236d6e53264f8516b43b7221069ee2b19a",
+    "bytes": 1576
+  },
+  "assets/index-hBXtNLN8.js": {
+    "sha256": "4ccc429b6d10b43215e2bfa99aa756e865e496b9e50fb5e85eb19e1861e76e7a",
+    "bytes": 258472
+  },
+  "assets/QRZLookupTest-Epx7-0Ix.js": {
+    "sha256": "1430426779139b911e16075114a626a8081d24757e9a890dd755d62e24d029ff",
+    "bytes": 1417
+  },
+  "assets/manualRotorGoto-C4Yu_mq-.js": {
+    "sha256": "eabf9b482db9048cdc5a7d594064b102b4bef1a0bed96cb3fb905944d4797dc3",
+    "bytes": 4216
+  },
+  "assets/DetachedMonitorSurface-k1I7UEUm.js": {
+    "sha256": "8f96308549d78b8707397d759a17e7fa9529af2596d4033631474b7abc8ea4c2",
+    "bytes": 17989
+  },
+  "assets/useQSOFieldPreferences-DagluMt6.js": {
+    "sha256": "46221bd2b143638fa308aebca9bb7b20419432b92b2029beea6588542b23f062",
+    "bytes": 3396
+  },
+  "assets/StationEquipment-D3wzapSh.js": {
+    "sha256": "8c4f24b01d1b01aee4af81e54df90232c944555fae238b42164ec59a6a9b2830",
+    "bytes": 4630
+  },
+  "assets/HFPropagationLive-Jr4SKhuf.js": {
+    "sha256": "f9bd315fb105ef66ae328f42e9392029a8461099866d90ef2b5386bd683600ea",
+    "bytes": 40638
+  },
+  "assets/AwardsPanel-BAf1c3kb.js": {
+    "sha256": "fb555d7734074e62e10cd52b2debd3f9b7f9fc10db21ce68a356f79a1293f392",
+    "bytes": 16338
+  },
+  "assets/useAutoRotor-BIuTtKC1.js": {
+    "sha256": "9a05a30dadddf1f94c6121a905027ba133f147401ca80b491541f93df7913b75",
+    "bytes": 2166
+  },
+  "assets/search-tMNs9lZI.js": {
+    "sha256": "4ba1c0d67e19175a427802b115a23070f5845cf6d1aa22dc55fa6acb695342c2",
+    "bytes": 172
+  },
+  "assets/clock-3-W1DQuvs0.js": {
+    "sha256": "fc334db01620999851d60e9cb3e423acc26cfd72ff202e9b8611ee7e912588b7",
+    "bytes": 186
+  },
+  "assets/SpotActivationStatus-DcJMSGxG.js": {
+    "sha256": "eb0333cea7906cb505de825b1f74a6aa718f8b711fb6b090acf3635d12bd7748",
+    "bytes": 9654
+  },
+  "assets/deskMapLogbookPreferences-BseRCKD9.js": {
+    "sha256": "ddccc1e47425c12bc088a58bbf6b9ef13584188e9d288e5566c317610dd5f435",
+    "bytes": 853
+  },
+  "assets/DetachedRotorSurface-BHNnjPjv.js": {
+    "sha256": "61a174ccae0774e39b75937f6286c4c6c860ab9e8f9bbffa198df2860a20fd76",
+    "bytes": 5941
+  },
+  "assets/ContestLogTransferWindow-BBojk7GU.css": {
+    "sha256": "b7382429f054b78e9ab3aa8156bccaa7ad2bc202eb97c1644de7f2833d81280a",
+    "bytes": 3553
+  },
+  "assets/SharedPropagationConditions-Cmdkvuwl.js": {
+    "sha256": "d16cbd41df818c3008f42e17314a319a942daa4c3852cdc656f56d67a7a4a901",
+    "bytes": 6769
+  },
+  "assets/activity-D1zuxKzi.js": {
+    "sha256": "ffa02661dae9c7a704ed4ec55f86ccac612202cd8fa383ba515adc9d5758bdea",
+    "bytes": 234
+  },
+  "assets/event-DjdGxSZA.js": {
+    "sha256": "167f9779135f1ac8faaac931057127d47079d906b6b979fca9fd0b58d1e17c9f",
+    "bytes": 1315
+  },
+  "assets/unfinishedEditors-Bq2tkywN.js": {
+    "sha256": "4b1696b4fc3d6b4d42bf504b134a0b8ae12d0939ea8bdce4e71bec109c5788cd",
+    "bytes": 5687
+  },
+  "assets/DataManagementPanel-s3kulBau.js": {
+    "sha256": "982aae14234b5ecb0f173d3da33bb1daffdfefbeb795aee58b0975f8c209be11",
+    "bytes": 21009
+  },
+  "assets/ContestAnalyticsWindow-CB44pyxd.js": {
+    "sha256": "7fb9014b1607268fa22542b471ac7b851538284e698663bfb731862f3f98dae6",
+    "bytes": 69792
+  },
+  "assets/DetachedContestSetupDialog-DmIoVk3h.js": {
+    "sha256": "533ad0b84a8fa5efdd0627668342df79720dfd03043d0f303d319480375ec28e",
+    "bytes": 5214
+  },
+  "assets/DetachedPropagationSurface-DLDHkY-s.js": {
+    "sha256": "3269dfd8c33b5662dda511ae7c8c4def7c739b1d7de260b8b2fc74b9b3b2b509",
+    "bytes": 361
+  },
+  "assets/settings-2-DBuNfDld.js": {
+    "sha256": "edc13da5b1cc5e563e2cfb9dc5a0d7e5210917f05301ea65bc9e692d44403ad5",
+    "bytes": 252
+  },
+  "assets/ClusterFilterDialog-B8ngl8l6.js": {
+    "sha256": "b2ee88f0b8cec72dfeedd31c764628b5c0fff14a9e67999c8e455b1b2d566975",
+    "bytes": 2579
+  },
+  "assets/DetachedHFPropagationLiveSurface-BQig9gra.js": {
+    "sha256": "f86d1995d31b1bcbdbc8e5970a36e8001af48bf828f307bb5765b29dfb169f39",
+    "bytes": 189
+  },
+  "assets/DetachedContestDigitalDialog-DXSQSMk1.css": {
+    "sha256": "c65fb6bc256cd3760f11af90c52bdf703b83d4dc9e188f34347e08fd19c0537a",
+    "bytes": 2355
+  },
+  ".vite/manifest.json": {
+    "sha256": "7785a97b940d2e79eddd38d37601e76ec540a1510eebfc780016abbad424275c",
+    "bytes": 54065
+  }
+}

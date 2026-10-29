@@ -1,0 +1,19 @@
+{
+  "id": "FRONTEND-FA014-DETACHED",
+  "command": [
+    "node",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/node_modules/vitest/vitest.mjs",
+    "run",
+    "--config",
+    "/tmp/xlog-phase7-20261029-b8926639/agents/frontend/scratch/vitest.config.mjs",
+    "--configLoader",
+    "native",
+    "--cache",
+    "false",
+    "--maxWorkers",
+    "1",
+    "detached-reversal.test.tsx"
+  ],
+  "startedUTC": "2026-10-29T03:33:31.412501+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype"
+}

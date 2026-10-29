@@ -1,0 +1,75 @@
+{
+  "lane": "rust",
+  "nonValidationToolAttempts": [
+    {
+      "tool": "exec_command cat /Users/oliver/.codex/skills/lean-ctx/SKILL.md; cat /Users/oliver/.codex/LEAN-CTX.md",
+      "outcome": "hook returned path escapes prior active project root; process exit 0 did not mean content read",
+      "classification": "tool access boundary"
+    },
+    {
+      "tool": "exec_command LEAN_CTX_EXTRA_ROOTS=... lean-ctx read ...",
+      "outcome": "PreToolUse rejected both commands; no command executed",
+      "classification": "tool policy"
+    },
+    {
+      "tool": "ctx_read external lean skill/rules",
+      "outcome": "path escapes current repo root",
+      "classification": "tool access boundary"
+    },
+    {
+      "tool": "ctx_shell with LEAN_CTX_EXTRA_ROOTS env",
+      "outcome": "refused env key; nothing run",
+      "classification": "tool policy"
+    },
+    {
+      "tool": "functions cell 11 background status + independent coverage reads",
+      "outcome": "no response after repeated waits; cell terminated, no Cargo termination requested",
+      "classification": "tool response boundary"
+    },
+    {
+      "tool": "functions cell 12 simple ctx_shell tail/ls with timeout 10000",
+      "outcome": "no response >60 seconds; cell terminated",
+      "classification": "tool response boundary"
+    },
+    {
+      "tool": "lean-ctx CLI fallback",
+      "outcome": "explicitly supported CLI route succeeded; external skill/rules read with cwd /Users/oliver/.codex",
+      "classification": "recovery"
+    },
+    {
+      "tool": "ls TASK/checks/RUST-FULL.json while build active",
+      "outcome": "exit 1 file absent; full check still running",
+      "classification": "expected readiness observation"
+    },
+    {
+      "tool": "CLI waiting rust_checks.py foreground",
+      "outcome": "exit 1; lean-ctx reported output truncated at 8 MB / 120s limit; no feature command started",
+      "classification": "runner cap"
+    },
+    {
+      "tool": "CLI nohup remaining-check driver",
+      "outcome": "detached driver disappeared before feature receipt; original feature log displays 931 pass; no surviving driver/Cargo process found; cause unproven; accepted rerun RUST-FEATURE-R2",
+      "classification": "incomplete runner"
+    },
+    {
+      "tool": "ctx_read TASK feature receipt",
+      "outcome": "temporary path outside project root denied; ctx_shell read succeeded",
+      "classification": "tool access boundary"
+    },
+    {
+      "tool": "large collector extension",
+      "outcome": "ctx_shell rejected command 8223 bytes above 8192 limit; nothing ran; shorter extension accepted",
+      "classification": "command size"
+    },
+    {
+      "tool": "initial JavaScript report builder",
+      "outcome": "SyntaxError Unexpected identifier xlog; no nested tool/command ran",
+      "classification": "orchestration syntax"
+    }
+  ],
+  "notes": [
+    "No permanently blocked cargo-audit or custom Swift executable retried or wrapped.",
+    "CLI uses /opt/homebrew/bin/lean-ctx -c for shell compression after MCP response failure.",
+    "All failed/pending tool attempts are distinct from Cargo application/test outcomes."
+  ]
+}

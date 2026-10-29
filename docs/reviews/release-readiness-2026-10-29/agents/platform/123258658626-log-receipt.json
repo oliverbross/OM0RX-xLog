@@ -1,0 +1,22 @@
+{
+  "jobId": 123258658626,
+  "jobName": "Contest definition generator",
+  "head": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "kind": "log",
+  "command": [
+    "gh",
+    "api",
+    "repos/oliverbross/OM0RX-xLog/actions/jobs/123258658626/logs"
+  ],
+  "startedUTC": "2026-10-29T04:15:49.222505+00:00",
+  "seconds": 2.443,
+  "exit": 0,
+  "streamBytes": 38924,
+  "streamSHA256": "49c7540b2cec12468ea92bc1837ebcbb92921c2003b7e6e583fa2164f9404215",
+  "fullStreamSaved": true,
+  "savedFile": "/tmp/xlog-phase7-20261029-b8926639/agents/platform/123258658626-log.log",
+  "savedBytes": 38924,
+  "savedSHA256": "49c7540b2cec12468ea92bc1837ebcbb92921c2003b7e6e583fa2164f9404215",
+  "stderrFile": "/tmp/xlog-phase7-20261029-b8926639/agents/platform/123258658626-log-stderr.log",
+  "stderrBytes": 0
+}

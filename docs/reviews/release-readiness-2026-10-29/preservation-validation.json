@@ -1,0 +1,104 @@
+{
+  "observedUTC": "2026-10-29T04:36:11.954706+00:00",
+  "sourceHead": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceInputsUnchanged": 1838,
+  "historicalReportsUnchanged": 6,
+  "originalNodeModulesInode": 560040948,
+  "originalCWNativeInode": 589158794,
+  "originalDistFilesMatching": 180,
+  "privateProcessDatabases": [
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/process-acceptance/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/Contesting/Python/82e27b81-fba4-490c-b864-422d396870a9/contest.sqlite",
+      "integrity": "ok",
+      "foreignKeyViolations": 0,
+      "userVersion": 0,
+      "sha256": "f70e4f93eabd0146110c4f4b0c1cf216ec648c9f72ede5b0e227eabb7a6d4d33",
+      "unchangedByReadOnlyCheck": true
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/process-acceptance/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/Contesting/Python/8e8c5400-67a9-41b3-a41e-638ea8504282/contest.sqlite",
+      "integrity": "ok",
+      "foreignKeyViolations": 0,
+      "userVersion": 0,
+      "sha256": "0fba41ec45f82235739e78c6ab53bd6bbc74c36ebf832221c4b38400676f7a55",
+      "unchangedByReadOnlyCheck": true
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/process-acceptance/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+      "integrity": "ok",
+      "foreignKeyViolations": 0,
+      "userVersion": 0,
+      "sha256": "4ced2fafd81bba54d5dd6d6a2064ffbd563c6e94d3e89e45f44e0484baab2c4d",
+      "unchangedByReadOnlyCheck": true
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/process-acceptance/isolated-home/Library/Application Support/OM0RX-xLog Integration Services/forwarded-radio-spots.json.sqlite",
+      "integrity": "ok",
+      "foreignKeyViolations": 0,
+      "userVersion": 0,
+      "sha256": "2e96884c16791c7d4bde90a6db2c9da33c2a2aab3e52088adc148c368552a423",
+      "unchangedByReadOnlyCheck": true
+    }
+  ],
+  "verifiedExports": [
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/process-acceptance/evidence/cq_ww_cw-3.adi",
+      "plugin": "cq_ww_cw",
+      "format": "adif",
+      "bytes": 542,
+      "sha256": "42eb70273135e9c1a037a0dd421e9eb556932b19c5e20ee6a39632cd0cff0938"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/process-acceptance/evidence/cq_ww_cw-3.log",
+      "plugin": "cq_ww_cw",
+      "format": "cabrillo",
+      "bytes": 493,
+      "sha256": "2e6f4870dcec2623ce9f4830791d4dc2c04bda1f8545f995e320a3cef38ae391"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/process-acceptance/evidence/cq_wpx_cw-3.adi",
+      "plugin": "cq_wpx_cw",
+      "format": "adif",
+      "bytes": 546,
+      "sha256": "20123df6296d04da49f5e43a2eeba36071d4f908d049e18d9ab2544cfa7ef3b6"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/process-acceptance/evidence/cq_wpx_cw-3.log",
+      "plugin": "cq_wpx_cw",
+      "format": "cabrillo",
+      "bytes": 494,
+      "sha256": "d591cc3c7356b9b9bdb9d964acf2c374650181620b2eff693ebe280431bcc952"
+    }
+  ],
+  "standardCompletedExit0Commands": [
+    "FRONTEND-NPM-CI",
+    "FRONTEND-FULL-TEST",
+    "FRONTEND-BUILD",
+    "FRONTEND-NPM-AUDIT",
+    "P7-PYTHON",
+    "P7-CATALOGUE",
+    "P7-EQUIVALENCE",
+    "P7-GENERATOR-R2",
+    "P7-CORPUS",
+    "P7-RELOCATION",
+    "P7-SECURITY-FLOOR",
+    "P7-NATIVE",
+    "P7-PORTABLE",
+    "P7-STRICT",
+    "P7-STRICT-NATIVE",
+    "P7-NATIVE-RELEASE",
+    "P7-TSAN",
+    "P7-PURE-IQ",
+    "P7-CLEAN-WORKER",
+    "P7-FRAMING",
+    "P7-CURRENT-PROCESS",
+    "RUST-FULL",
+    "RUST-FEATURE-R2",
+    "RUST-CLIPPY",
+    "RUST-RELEASE",
+    "P7-OSV-LOCK"
+  ],
+  "validatedCommandReceipts": 58,
+  "remainingTaskBuildTestWorkerProcesses": [],
+  "boundary": "Read-only fixture checks under named phase7 roots only; no production data, GUI, account, credential, externalhardware or RF acceptance. Advisory command completion is not a vulnerability-free verdict."
+}

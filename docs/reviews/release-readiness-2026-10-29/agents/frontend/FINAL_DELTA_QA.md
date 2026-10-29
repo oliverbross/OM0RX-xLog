@@ -1,0 +1,10 @@
+# Final readiness delta QA
+
+Reviewed final draft SHA256 `14b6a30732b3b7085710d5cab5c4de95c982f37ab7bdb7c9a9095b59da791279`. No concrete inaccuracy or overclaim found in the final deltas; accepted for archival. The NO-GO recommendation and all eight open application findings remain unchanged.
+
+- CI: fetched run 40816487097 is completed/success at exact head `b892663915cbc0768b26dc5a7bf7ec116869e409`. The seven independently successful jobs are three Swift OS jobs, three Rust native OS jobs and one generator/policy job. Platform QA records seven complete logs, 53 verified artifact hashes and native groups 24/7/1/16/3/6/7. The draft correctly preserves OS-conditional skipped steps, source-slice/filter scope, annotations, and lack of packaged GUI/runtime/signing/install acceptance. No placeholder remains in the reviewed section.
+- Strict native: `P7-STRICT-NATIVE` has a completed exit-0, 53.742-second receipt, exact source binding and empty source diff. Its raw colored log and updated qualification record show **five** source warning headers, not zero: four nonisolated Timer deinit accesses and one sending-closure diagnostic in AppModel. Zero source errors are recorded. Native and portable strict builds are accurately separated; Swift 6 language-mode certification is not claimed.
+- Runtime provenance: environment evidence identifies Homebrew unit-test Python **3.12.13**; process-summary evidence identifies the actual staged worker engine as **3.12.4**. The draft now distinguishes them and retains the worker-bootstrap/no Rust host/no application UI boundary.
+- Ledger/preservation: updated results contain **58** completed receipts; preservation records **26** named standard commands, 58 validated receipts, **1,838** unchanged source inputs and **six** unchanged historical reports. The draft's local-command count excludes the separately classified CI metadata fetches. Earlier frontend totals, overlap, skips, warnings and restoration evidence remain accurate.
+
+This was evidence inspection only. No tests, builds or probes were rerun; no dependency/source/draft/historical-report/Git changes were made. Only this scratch QA note was added.

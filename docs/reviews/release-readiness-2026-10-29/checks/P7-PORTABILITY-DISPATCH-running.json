@@ -1,0 +1,15 @@
+{
+  "id": "P7-PORTABILITY-DISPATCH",
+  "command": [
+    "gh",
+    "workflow",
+    "run",
+    "contest-portability.yml",
+    "--repo",
+    "oliverbross/OM0RX-xLog",
+    "--ref",
+    "main"
+  ],
+  "startedUTC": "2026-10-29T04:12:56.700347+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}

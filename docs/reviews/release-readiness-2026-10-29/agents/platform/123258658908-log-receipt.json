@@ -1,0 +1,22 @@
+{
+  "jobId": 123258658908,
+  "jobName": "Contest tests (macos-14)",
+  "head": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "kind": "log",
+  "command": [
+    "gh",
+    "api",
+    "repos/oliverbross/OM0RX-xLog/actions/jobs/123258658908/logs"
+  ],
+  "startedUTC": "2026-10-29T04:24:11.771059+00:00",
+  "seconds": 4.542,
+  "exit": 0,
+  "streamBytes": 1243228,
+  "streamSHA256": "3b00e48da1d0d670ec040aeeb9e401edb12a2820a0a6032ff829ced213f4c9ae",
+  "fullStreamSaved": true,
+  "savedFile": "/tmp/xlog-phase7-20261029-b8926639/agents/platform/123258658908-log.log",
+  "savedBytes": 1243228,
+  "savedSHA256": "3b00e48da1d0d670ec040aeeb9e401edb12a2820a0a6032ff829ced213f4c9ae",
+  "stderrFile": "/tmp/xlog-phase7-20261029-b8926639/agents/platform/123258658908-log-stderr.log",
+  "stderrBytes": 0
+}

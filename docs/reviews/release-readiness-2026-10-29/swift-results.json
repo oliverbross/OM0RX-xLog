@@ -1,0 +1,38 @@
+[
+  {
+    "id": "P7-NATIVE",
+    "exit": 0
+  },
+  {
+    "id": "P7-PORTABLE",
+    "exit": 0
+  },
+  {
+    "id": "P7-STRICT",
+    "exit": 0
+  },
+  {
+    "id": "P7-NATIVE-RELEASE",
+    "exit": 0
+  },
+  {
+    "id": "P7-TSAN",
+    "exit": 0
+  },
+  {
+    "id": "P7-PURE-IQ",
+    "exit": 0
+  },
+  {
+    "id": "P7-CLEAN-WORKER",
+    "exit": 0
+  },
+  {
+    "id": "P7-FRAMING",
+    "exit": 0
+  },
+  {
+    "id": "P7-CURRENT-PROCESS",
+    "exit": 0
+  }
+]

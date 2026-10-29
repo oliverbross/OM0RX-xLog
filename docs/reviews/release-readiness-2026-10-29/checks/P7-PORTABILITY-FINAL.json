@@ -1,0 +1,27 @@
+{
+  "id": "P7-PORTABILITY-FINAL",
+  "command": [
+    "gh",
+    "run",
+    "view",
+    "40816487097",
+    "--repo",
+    "oliverbross/OM0RX-xLog",
+    "--json",
+    "databaseId,workflowName,headSha,status,conclusion,url,event,createdAt,updatedAt,jobs"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T04:25:53.988727+00:00",
+  "finishedUTC": "2026-10-29T04:25:56.575415+00:00",
+  "seconds": 2.586,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceHeadEnd": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-phase7-20261029-b8926639/checks/P7-PORTABILITY-FINAL.log",
+  "logBytes": 19746,
+  "logSHA256": "e2f516cf3bbdb579490276d6809c9279fa7cfd2eba3fc44ab9b65b3844ee95cb",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

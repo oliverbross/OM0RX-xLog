@@ -1,0 +1,98 @@
+{
+  "RUST-FULL": {
+    "shutdown_fixture": [
+      "worker::tests::shutdown_cannot_relabel_unsolicited_eof_retirement_graceful",
+      "worker::tests::shutdown_rejects_malformed_final_response_racing_clean_exit",
+      "worker::tests::shutdown_rejects_nonzero_worker_exit",
+      "worker::tests::shutdown_rejects_clean_exit_without_accepted_reply",
+      "worker::tests::shutdown_reports_spot_retirement_failure_instead_of_a_deadline",
+      "worker::tests::shutdown_with_active_request_delivers_eof_and_release_before_reap",
+      "worker::tests::shutdown_watchdog_reaps_a_worker_that_ignores_eof"
+    ],
+    "native_feature_admission": [],
+    "runtime_profile": [
+      "runtime_profile::tests::offline_acceptance_requires_private_marked_temporary_storage_and_blocks_outputs",
+      "runtime_profile::tests::offline_bootstrap_defers_default_store_views_to_the_explicit_builder",
+      "runtime_profile::tests::production_build_does_not_claim_test_identity"
+    ],
+    "operating_module": [
+      "operating_module::tests::begin_rejects_stale_unknown_and_already_selected_targets_without_changing_state",
+      "operating_module::tests::active_admissions_must_drain_before_a_transition_begins",
+      "operating_module::tests::classification_keeps_reads_shared_and_mutations_exclusive",
+      "operating_module::tests::commit_requires_the_begun_target_and_rotates_context",
+      "operating_module::tests::explicit_workspace_restart_rotates_context_even_when_module_is_already_selected",
+      "operating_module::tests::delayed_contest_open_blocks_a_module_switch_until_its_admission_retires",
+      "operating_module::tests::failed_publication_preserves_state_and_previous_preference_bytes_fail_closed",
+      "operating_module::tests::queued_restart_timeout_preserves_live_work_and_reopens_admission",
+      "operating_module::tests::requested_restart_seals_new_work_and_finishes_after_admitted_work_drains",
+      "operating_module::tests::scoped_and_shared_admission_obey_the_selected_module",
+      "operating_module::tests::only_a_missing_preference_defaults_to_normal_logging",
+      "operating_module::tests::invalid_preference_destination_preserves_selection_and_restart_fence",
+      "operating_module::tests::stale_context_and_inactive_module_fail_closed_across_away_and_back",
+      "operating_module::tests::target_validation_is_explicit",
+      "operating_module::tests::transition_blocks_new_scoped_and_shared_work_until_cancelled",
+      "operating_module::tests::persisted_selection_binds_the_next_worker_generation_after_restart"
+    ],
+    "selected_role_or_safety": [
+      "cw_session::tests::cw_admission_is_closed_to_other_surfaces_isolation_shutdown_and_raw_actions",
+      "ptt_session::tests::ptt_native_on_admission_requires_exact_fresh_policy_off_retains_stale_authority",
+      "station_telemetry::tests::exact_receive_admission_requires_fresh_known_receive_vfo_connection_and_capability_without_io",
+      "worker::tests::cw_child_has_no_raw_worker_or_device_authority",
+      "worker::tests::power_selection_is_native_only_on_every_renderer_surface",
+      "workspace_layout_tests::rotor_stop_is_available_only_to_exact_live_control_surfaces",
+      "workspace_layout_tests::spot_activation_capabilities_are_role_scoped_and_never_bypass_isolation_or_shutdown"
+    ]
+  },
+  "RUST-FEATURE-R2": {
+    "shutdown_fixture": [
+      "worker::tests::shutdown_cannot_relabel_unsolicited_eof_retirement_graceful",
+      "worker::tests::shutdown_rejects_malformed_final_response_racing_clean_exit",
+      "worker::tests::shutdown_rejects_nonzero_worker_exit",
+      "worker::tests::shutdown_reports_spot_retirement_failure_instead_of_a_deadline",
+      "worker::tests::shutdown_with_active_request_delivers_eof_and_release_before_reap",
+      "worker::tests::shutdown_rejects_clean_exit_without_accepted_reply",
+      "worker::tests::shutdown_watchdog_reaps_a_worker_that_ignores_eof"
+    ],
+    "native_feature_admission": [
+      "contesting_test_native_admission_tests::aborted_waiter_cannot_release_queued_chooser_lease",
+      "contesting_test_native_admission_tests::aborted_waiter_cannot_release_worker_dispatch_lease",
+      "contesting_test_native_admission_tests::fldigi_send_uses_the_shared_output_acquisition",
+      "contesting_test_native_admission_tests::group_chat_mutations_stop_before_socket_owner_in_contesting_test",
+      "contesting_test_native_admission_tests::local_workspace_mutations_bypass_native_rotor_owner",
+      "contesting_test_native_admission_tests::packaged_profile_reaches_native_device_validators",
+      "contesting_test_native_admission_tests::scp_path_import_is_native_only"
+    ],
+    "runtime_profile": [
+      "runtime_profile::tests::offline_bootstrap_defers_default_store_views_to_the_explicit_builder",
+      "runtime_profile::tests::production_build_does_not_claim_test_identity",
+      "runtime_profile::tests::test_build_blocks_external_worker_methods"
+    ],
+    "operating_module": [
+      "operating_module::tests::active_admissions_must_drain_before_a_transition_begins",
+      "operating_module::tests::begin_rejects_stale_unknown_and_already_selected_targets_without_changing_state",
+      "operating_module::tests::commit_requires_the_begun_target_and_rotates_context",
+      "operating_module::tests::classification_keeps_reads_shared_and_mutations_exclusive",
+      "operating_module::tests::explicit_workspace_restart_rotates_context_even_when_module_is_already_selected",
+      "operating_module::tests::delayed_contest_open_blocks_a_module_switch_until_its_admission_retires",
+      "operating_module::tests::failed_publication_preserves_state_and_previous_preference_bytes_fail_closed",
+      "operating_module::tests::queued_restart_timeout_preserves_live_work_and_reopens_admission",
+      "operating_module::tests::requested_restart_seals_new_work_and_finishes_after_admitted_work_drains",
+      "operating_module::tests::invalid_preference_destination_preserves_selection_and_restart_fence",
+      "operating_module::tests::scoped_and_shared_admission_obey_the_selected_module",
+      "operating_module::tests::only_a_missing_preference_defaults_to_normal_logging",
+      "operating_module::tests::target_validation_is_explicit",
+      "operating_module::tests::stale_context_and_inactive_module_fail_closed_across_away_and_back",
+      "operating_module::tests::transition_blocks_new_scoped_and_shared_work_until_cancelled",
+      "operating_module::tests::persisted_selection_binds_the_next_worker_generation_after_restart"
+    ],
+    "selected_role_or_safety": [
+      "cw_session::tests::cw_admission_is_closed_to_other_surfaces_isolation_shutdown_and_raw_actions",
+      "ptt_session::tests::ptt_native_on_admission_requires_exact_fresh_policy_off_retains_stale_authority",
+      "station_telemetry::tests::exact_receive_admission_requires_fresh_known_receive_vfo_connection_and_capability_without_io",
+      "worker::tests::cw_child_has_no_raw_worker_or_device_authority",
+      "worker::tests::power_selection_is_native_only_on_every_renderer_surface",
+      "workspace_layout_tests::rotor_stop_is_available_only_to_exact_live_control_surfaces",
+      "workspace_layout_tests::spot_activation_capabilities_are_role_scoped_and_never_bypass_isolation_or_shutdown"
+    ]
+  }
+}

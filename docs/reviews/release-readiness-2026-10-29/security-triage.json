@@ -1,0 +1,39 @@
+{
+  "observedUTC": "2026-10-29T04:04:46.377499+00:00",
+  "queriedVersions": 549,
+  "rawPackageMatches": 6,
+  "rawIDs": 7,
+  "items": [
+    {
+      "package": "block-buffer",
+      "version": "0.10.4",
+      "status": "Version false positive by current primary maintainer range",
+      "range": ">=0.11.0,<0.12.1",
+      "source": "https://github.com/RustCrypto/utils/security/advisories/GHSA-qwgh-2vcv-g2f7"
+    },
+    {
+      "package": "glib",
+      "version": "0.18.5",
+      "status": "DEP-P5-003 remains Blocked conditional Linux affected-function risk; application severity/reachability unassigned",
+      "patched": ">=0.20.0",
+      "source": "https://rustsec.org/advisories/RUSTSEC-2024-0429.html"
+    },
+    {
+      "package": "proc-macro-error",
+      "status": "Upstream maintenance notice; no new application vulnerability demonstrated"
+    },
+    {
+      "package": "zbus_names",
+      "status": "Upstream maintenance notice; no new application vulnerability demonstrated"
+    },
+    {
+      "package": "zvariant",
+      "status": "Upstream maintenance notice; no new application vulnerability demonstrated"
+    },
+    {
+      "package": "zvariant_derive",
+      "status": "Upstream maintenance notice; no new application vulnerability demonstrated"
+    }
+  ],
+  "scope": "Current locked registry query and primary affected-range review. No cargo-audit bypass, universal SBOM/runtime/OS security claim, incompatible override or exploitation test."
+}

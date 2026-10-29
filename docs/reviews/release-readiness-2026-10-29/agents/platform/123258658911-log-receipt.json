@@ -1,0 +1,22 @@
+{
+  "jobId": 123258658911,
+  "jobName": "Contest tests (windows-2022)",
+  "head": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "kind": "log",
+  "command": [
+    "gh",
+    "api",
+    "repos/oliverbross/OM0RX-xLog/actions/jobs/123258658911/logs"
+  ],
+  "startedUTC": "2026-10-29T04:25:57.068535+00:00",
+  "seconds": 3.514,
+  "exit": 0,
+  "streamBytes": 807557,
+  "streamSHA256": "e8ed3a0598aa3ebcb513032750590420147dafaed2cc2a1c1c77bb269fd759cd",
+  "fullStreamSaved": true,
+  "savedFile": "/tmp/xlog-phase7-20261029-b8926639/agents/platform/123258658911-log.log",
+  "savedBytes": 807557,
+  "savedSHA256": "e8ed3a0598aa3ebcb513032750590420147dafaed2cc2a1c1c77bb269fd759cd",
+  "stderrFile": "/tmp/xlog-phase7-20261029-b8926639/agents/platform/123258658911-log-stderr.log",
+  "stderrBytes": 0
+}

@@ -1,0 +1,18 @@
+{
+  "verifiedUTC": "2026-10-29T04:27:43.892869+00:00",
+  "artifactHashesVerified": 53,
+  "jobs": 7,
+  "successfulJobs": 7,
+  "fullRawLogsSaved": 7,
+  "head": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "nativeGroupCountsVerified": [
+    24,
+    7,
+    1,
+    16,
+    3,
+    6,
+    7
+  ],
+  "skippedStepsCountedAsPass": false
+}

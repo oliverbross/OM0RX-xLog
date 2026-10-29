@@ -1,0 +1,25 @@
+{
+  "id": "P7-CATALOGUE",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "tools/check_all_contests_readiness.py",
+    "--family-tests",
+    "--output",
+    "/tmp/xlog-phase7-20261029-b8926639/all-contests-readiness.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T03:15:44.596884+00:00",
+  "finishedUTC": "2026-10-29T03:21:33.473605+00:00",
+  "seconds": 348.873,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceHeadEnd": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-phase7-20261029-b8926639/checks/P7-CATALOGUE.log",
+  "logBytes": 2095,
+  "logSHA256": "bc8e72453613f4ff3f445e771046200513af8781d9b2ff5ca4b64c7467802889",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

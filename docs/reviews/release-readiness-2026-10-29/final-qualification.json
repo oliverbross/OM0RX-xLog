@@ -1,0 +1,20 @@
+{
+  "verifiedUTC": "2026-10-29T04:37:42.185184+00:00",
+  "head": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "reportDraftSHA256": "14b6a30732b3b7085710d5cab5c4de95c982f37ab7bdb7c9a9095b59da791279",
+  "standardLocalExit0Commands": 26,
+  "completedCommandReceipts": 58,
+  "platformJobsSucceeded": 7,
+  "platformOwnFullLogsRetained": 7,
+  "privateDatabasesIntegrityChecked": 6,
+  "workerExportsVerified": 4,
+  "sourceInputsUnchanged": 1838,
+  "historicalReportsUnchanged": 6,
+  "nativeStrictWarningHeaders": 5,
+  "remainingFindings": {
+    "High": 1,
+    "Medium": 7
+  },
+  "readiness": "NO-GO",
+  "noApplicationChanges": true
+}

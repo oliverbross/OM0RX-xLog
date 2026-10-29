@@ -1,0 +1,22 @@
+{
+  "id": "P7-EQUIVALENCE",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "tools/check_contest_append_equivalence.py"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T03:15:45.042809+00:00",
+  "finishedUTC": "2026-10-29T03:18:17.067360+00:00",
+  "seconds": 152.023,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceHeadEnd": "b892663915cbc0768b26dc5a7bf7ec116869e409",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-phase7-20261029-b8926639/checks/P7-EQUIVALENCE.log",
+  "logBytes": 862,
+  "logSHA256": "498d3b786157e582f590b8f9729cb5b6bff2d61992d8dfd667a05a581d09edae",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}
