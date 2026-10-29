@@ -5,8 +5,10 @@ import { DraftRequestRejected, OperatorDraftSession, readDraftJournal, sameDraft
 import { effectiveDraftAutomaticStart } from "./operatorDraftTimeIntent";
 
 const copy = <T>(value: T): T => structuredClone(value);
-function fixture() {
-  let current: DraftSnapshot = { generation: testWorkspaceGeneration, revision: 0, qso: { id: "draft-1", call: "", start: "2026-10-13T00:00:00Z", band: "20m", mode: "CW" } };
+function fixture(clock?: { capturedAt: string; savedAt: string; automaticStart?: boolean }) {
+  let current: DraftSnapshot = { generation: testWorkspaceGeneration, revision: 0,
+    ...(clock ? { automaticStart: clock.automaticStart } : {}),
+    qso: { id: "draft-1", call: "", start: "2026-10-13T00:00:00Z", band: "20m", mode: "CW" } };
   const receipts = new Map<string, any>();
   const contacts: any[] = [];
   const request = vi.fn(async (method: string, params: any = {}) => {
@@ -20,9 +22,18 @@ function fixture() {
     if (mutation.draftID !== current.qso.id || mutation.expectedRevision !== current.revision)
       return { status: "conflict", draft: copy(current) };
     if (mutation.action === "save" && !current.qso.call) throw new DraftRequestRejected("A callsign is required.");
-    const savedQSO = mutation.action === "save" ? copy(current.qso) : null;
+    // Model the native owner: first callsign capture advances an automatic
+    // start, a genuine date change makes it manual, and Save uses its own clock.
+    let automaticStart = current.automaticStart;
+    const replacement = mutation.action === "replace" ? copy(mutation.qso!) : null;
+    if (clock && replacement) {
+      if (!sameDraftValue({ start: replacement.start, end: replacement.end }, { start: current.qso.start, end: current.qso.end })) automaticStart = false;
+      else if (automaticStart && !current.qso.call.trim() && replacement.call.trim()) replacement.start = clock.capturedAt;
+    }
+    const savedQSO = mutation.action === "save" ? { ...copy(current.qso), ...(clock && automaticStart ? { start: clock.savedAt } : {}) } : null;
     if (savedQSO) contacts.push(savedQSO);
-    current = { generation: current.generation, revision: current.revision + 1, qso: mutation.action === "replace" ? copy(mutation.qso!) :
+    current = { generation: current.generation, revision: current.revision + 1,
+      ...(clock ? { automaticStart: mutation.action === "replace" ? automaticStart : true } : {}), qso: replacement ??
       { ...current.qso, id: `draft-${current.revision + 2}`, call: "" } };
     const receipt = { mutation: copy(mutation), draft: copy(current), savedQSO };
     receipts.set(mutation.operationID, receipt);
@@ -35,6 +46,108 @@ function fixture() {
 }
 const type = (session: OperatorDraftSession, call: string) => session.edit({ ...session.getSnapshot().draft!, call });
 const deferred = <T>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { resolve, promise }; };
+
+describe("queued automatic UTC receipt merge", () => {
+  const capturedAt = "2026-10-13T00:00:05Z", savedAt = "2026-10-13T00:00:10Z";
+  const cases = (["direct", "receipt-remount", "retry-remount"] as const).flatMap(path =>
+    (["untouched", "reversed", "manual-start", "manual-end", "manual-both", "manual-power"] as const).map(intent => ({ path, intent })));
+  it.each(cases)("merges $intent UTC through $path", async ({ path, intent }) => {
+      const f = fixture({ capturedAt, savedAt, automaticStart: true });
+      let session = f.make(); await session.load();
+      const originalStart = session.getSnapshot().draft!.start;
+      type(session, "K2AUTO");
+      const backend = f.request.getMockImplementation()!, started = deferred<void>(), reply = deferred<void>();
+      let first = true;
+      f.request.mockImplementation(async (method, params) => {
+        if (method === "logbook_operator_draft_receipt" && path === "receipt-remount") throw new Error("receipt unavailable");
+        if (method === "logbook_operator_draft_apply" && first) {
+          first = false;
+          const result = path === "retry-remount" ? null : await backend(method, params);
+          started.resolve(); await reply.promise;
+          if (path !== "direct") throw new Error("reply lost");
+          return result!;
+        }
+        return backend(method, params);
+      });
+      const flushing = session.flush(); await started.promise;
+      session.edit({ ...session.getSnapshot().draft!, frequencyHz: 14_025_000, comment: "queued before acknowledgement", name: "Local name" });
+      if (intent === "reversed") {
+        session.edit({ ...session.getSnapshot().draft!, start: "2026-10-15T00:00:00Z", end: "2026-10-15T00:01:00Z" });
+        session.edit({ ...session.getSnapshot().draft!, start: "2026-10-13T00:00:00.000Z", end: null });
+      }
+      if (intent === "manual-start" || intent === "manual-both") session.edit({ ...session.getSnapshot().draft!, start: "2026-10-12T23:59:00Z" });
+      if (intent === "manual-end" || intent === "manual-both") session.edit({ ...session.getSnapshot().draft!, end: "2026-10-13T00:01:00Z" });
+      if (intent === "manual-power") session.setManualPower("25");
+      const local = copy(session.getSnapshot().draft!);
+      reply.resolve();
+      if (path === "direct") await flushing;
+      else {
+        await expect(flushing).rejects.toThrow("reply lost");
+        f.request.mockImplementation(backend);
+        session = f.make(readDraftJournal(JSON.stringify(f.journal))); await session.load();
+        await session.flush();
+      }
+      const manual = intent.startsWith("manual-") && intent !== "manual-power";
+      const replacements = f.request.mock.calls.filter(([method, params]) => method === "logbook_operator_draft_apply" && params.action === "replace");
+      const queued = replacements.at(-1)![1] as DraftMutation;
+      expect(queued.qso).toMatchObject({ frequencyHz: 14_025_000, comment: "queued before acknowledgement", name: "Local name" });
+      expect(queued.qso!.start).toBe(manual ? local.start : capturedAt);
+      expect(sameDraftValue({ end: queued.qso!.end }, { end: local.end })).toBe(true);
+      expect(session.getSnapshot().base?.automaticStart).toBe(!manual);
+      expect(f.current.qso.start).toBe(manual ? local.start : capturedAt);
+      expect(f.current.qso.start).not.toBe(manual ? capturedAt : originalStart);
+      if (intent === "manual-power") {
+        expect(queued.powerIntent).toEqual({ action: "manual", value: "25" });
+        expect(session.getSnapshot().powerIntent).toBeNull();
+      }
+      const saved = await session.commit("save");
+      expect(saved).toMatchObject({ call: "K2AUTO", frequencyHz: 14_025_000, comment: "queued before acknowledgement", name: "Local name", start: manual ? local.start : savedAt });
+      expect(sameDraftValue({ end: saved!.end }, { end: local.end })).toBe(true);
+      expect(f.contacts).toHaveLength(1);
+      expect(session.getSnapshot().base?.automaticStart).toBe(true);
+  });
+
+  it.each([false, undefined])("does not infer automatic provenance from a %s receipt", async automaticStart => {
+    const f = fixture({ capturedAt, savedAt, automaticStart }), session = f.make(); await session.load(); type(session, "K2AUTO");
+    const backend = f.request.getMockImplementation()!, started = deferred<void>(), reply = deferred<void>();
+    f.request.mockImplementationOnce(async (method, params) => {
+      const result = await backend(method, params);
+      // A changed date without authoritative automatic provenance must not
+      // overwrite local dates while later text is queued.
+      f.current.qso.start = result.receipt.draft.qso.start = capturedAt;
+      started.resolve(); await reply.promise; return result;
+    });
+    const flushing = session.flush(); await started.promise;
+    const originalStart = session.getSnapshot().draft!.start;
+    session.edit({ ...session.getSnapshot().draft!, comment: "retain local dates" });
+    reply.resolve(); await flushing;
+    expect(session.getSnapshot().draft!.start).toBe(originalStart);
+    expect(effectiveDraftAutomaticStart(session.getSnapshot())).toBe(false);
+  });
+});
+
+it.each(["automatic", "manual", "different-contact"])("merges power provenance without losing ordinary fields or the %s guard", async admission => {
+  const f = fixture();
+  f.current.qso.txPower = "100";
+  f.current.qso.extraFields = { OTHER: "original", app_om0rxxlog_power_old: "old native provenance" };
+  f.current.power = { revision: 0, enabled: true, fallback: "100", manualOverride: false, selectedValue: "100",
+    contact: { workspaceID: testWorkspaceGeneration, draftID: f.current.qso.id, call: "", band: "20m", mode: "CW" } };
+  const session = f.make(); await session.load();
+  session.edit({ ...session.getSnapshot().draft!, comment: "pending text", extraFields: { ...f.current.qso.extraFields, OTHER: "local", LOCAL: "keep" },
+    ...(admission === "different-contact" ? { call: "K1ABC" } : {}) });
+  if (admission === "manual") session.setManualPower("25");
+  const before = copy(session.getSnapshot().draft!);
+  const current = copy(f.current);
+  current.power = { ...current.power!, revision: 1, selectedValue: "500" };
+  current.qso = { ...current.qso, txPower: "500", extraFields: { OTHER: "original", APP_OM0RXXLOG_POWER_NEW: "new native provenance" } };
+  session.receiveSnapshot(current);
+  expect(session.getSnapshot().conflict).toBeNull();
+  if (admission === "automatic") expect(session.getSnapshot().draft).toMatchObject({ comment: "pending text", txPower: "500",
+    extraFields: { OTHER: "local", LOCAL: "keep", APP_OM0RXXLOG_POWER_NEW: "new native provenance" } });
+  else expect(session.getSnapshot().draft).toEqual(before);
+  if (admission === "automatic") expect(session.getSnapshot().draft!.extraFields).not.toHaveProperty("app_om0rxxlog_power_old");
+  expect(f.current.qso.extraFields).toHaveProperty("app_om0rxxlog_power_old");
+});
 
 it("derives automatic time only from unchanged local timestamps, including equivalent ISO values and reversal", () => {
   const base: DraftSnapshot = { generation: testWorkspaceGeneration, revision: 0, automaticStart: true,

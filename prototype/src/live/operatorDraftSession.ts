@@ -87,10 +87,11 @@ export function validDraftPower(value: any): value is DraftPowerState {
 }
 const validPowerIntent = (value: any): value is DraftPowerIntent => object(value) &&
   (value.action === "manual" ? bounded(value.value, 343) : value.action === "automatic" && value.value === undefined);
+const powerFields = (fields: Record<string, unknown>, include: boolean) =>
+  Object.fromEntries(Object.entries(fields).filter(([key]) => key.toUpperCase().startsWith("APP_OM0RXXLOG_POWER_") === include));
 const withoutPower = (qso: DraftQSO): DraftQSO => {
   const result = clone(qso); delete result.txPower;
-  if (object(result.extraFields)) result.extraFields = Object.fromEntries(Object.entries(result.extraFields)
-    .filter(([key]) => !key.toUpperCase().startsWith("APP_OM0RXXLOG_POWER_")));
+  if (object(result.extraFields)) result.extraFields = powerFields(result.extraFields, false);
   return result;
 };
 export const validScopedSnapshot = (value: any): value is DraftSnapshot & { generation: string } => validDraftSnapshot(value) && validGeneration(value.generation);
@@ -273,7 +274,7 @@ export class OperatorDraftSession {
       if (currentPowerRevision > basePowerRevision) {
         // A delayed power notification cannot resolve an existing text conflict
         // or an uncertain operation; only explicit reconciliation may do that.
-        this.update({ base: clone(current), draft: this.mergePower(this.state.draft!, current) });
+        this.update({ base: clone(current), draft: this.mergeDraft(this.state.draft!, current) });
         return;
       }
     }
@@ -297,13 +298,17 @@ export class OperatorDraftSession {
       throw new Error("The draft receipt could not be verified. Check the saved operation before retrying.");
     return value;
   }
-  private mergePower(local: DraftQSO, snapshot: DraftSnapshot, intent = this.state.powerIntent): DraftQSO {
-    if (!snapshot.power || intent?.action === "manual" || !matchesPowerContact(local, snapshot.power.contact)) return clone(local);
-    const result = clone(local); result.txPower = snapshot.qso.txPower;
+  private mergeDraft(local: DraftQSO, snapshot: DraftSnapshot, intent = this.state.powerIntent, replaced?: DraftQSO): DraftQSO {
+    const result = clone(local);
+    // Native first-callsign capture can refresh automatic UTC while other
+    // fields are queued. Preserve a local time edit; rebase an untouched pair.
+    if (snapshot.automaticStart === true && replaced &&
+      sameDraftValue({ start: local.start, end: local.end }, { start: replaced.start, end: replaced.end }))
+      Object.assign(result, { start: snapshot.qso.start, end: snapshot.qso.end });
+    if (!snapshot.power || intent?.action === "manual" || !matchesPowerContact(local, snapshot.power.contact)) return result;
+    result.txPower = snapshot.qso.txPower;
     if (object(result.extraFields)) {
-      result.extraFields = Object.fromEntries(Object.entries(result.extraFields).filter(([key]) => !key.toUpperCase().startsWith("APP_OM0RXXLOG_POWER_")));
-      for (const [key, value] of Object.entries(snapshot.qso.extraFields ?? {}))
-        if (key.toUpperCase().startsWith("APP_OM0RXXLOG_POWER_")) result.extraFields[key] = value;
+      result.extraFields = { ...powerFields(result.extraFields, false), ...powerFields(snapshot.qso.extraFields ?? {}, true) };
     }
     return result;
   }
@@ -314,7 +319,7 @@ export class OperatorDraftSession {
     // Reads issued before this write cannot describe the new canonical state.
     this.lifecycle++;
     this.update({ base: clone(receipt.draft),
-      draft: unchanged && !powerIntent || receipt.mutation.action !== "replace" ? clone(receipt.draft.qso) : this.mergePower(this.state.draft!, receipt.draft, powerIntent),
+      draft: unchanged && !powerIntent || receipt.mutation.action !== "replace" ? clone(receipt.draft.qso) : this.mergeDraft(this.state.draft!, receipt.draft, powerIntent, receipt.mutation.qso),
       pending: null, pendingPowerIntentID: null, powerIntent, powerIntentID: powerIntent ? this.state.powerIntentID : null,
       conflict: null, error: "", locked: !!this.action || this.restoring });
   }
@@ -429,7 +434,7 @@ export class OperatorDraftSession {
     const local = clone(this.state.draft);
     this.update({ locked: true }, false);
     this.action = this.apply(pending).then(saved => {
-      if (keepTyping) this.update({ draft: this.mergePower(local!, this.state.base!, this.state.powerIntent) });
+      if (keepTyping) this.update({ draft: this.mergeDraft(local!, this.state.base!, this.state.powerIntent, pending.qso) });
       return saved;
     }).finally(() => { this.action = null; this.update({ locked: !this.state.workspaceChanged && !!this.state.pending && this.state.pending.action !== "replace" }, false); });
     const saved = await this.action;
@@ -456,7 +461,7 @@ export class OperatorDraftSession {
     this.spotFence.assertWritable();
     if (this.work || this.action || this.state.pending || this.state.locked || this.state.workspaceChanged || !this.state.conflict || this.state.conflict.qso.id !== this.state.draft?.id)
       throw new Error("The original draft was saved or cleared. Copy your text before loading the current draft.");
-    this.update({ base: clone(this.state.conflict), draft: this.mergePower(this.state.draft!, this.state.conflict), conflict: null, error: "" });
+    this.update({ base: clone(this.state.conflict), draft: this.mergeDraft(this.state.draft!, this.state.conflict), conflict: null, error: "" });
   }
   reset() {
     this.spotFence.assertWritable();
