@@ -86,7 +86,9 @@ vi.mock("./contestVoiceOutput", () => ({ ContestVoiceOutput: class {
   play = nativeVoice.play; stop = nativeVoice.stop;
 } }));
 
-afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); vi.restoreAllMocks(); surfaceOwner.current = null; setupDialogOwner.current = null; });
+afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); vi.restoreAllMocks();
+  surfaceOwner.waitForPublication.mockReset().mockResolvedValue(undefined);
+  surfaceOwner.current = null; setupDialogOwner.current = null; });
 
 const operatingContext = "44444444-4444-4444-8444-444444444444";
 const workspaceGeneration = "33333333-3333-4333-8333-333333333333";
@@ -3952,6 +3954,7 @@ it("does not open Main Logging until its ready projection is published", async (
   let releasePublication!: () => void;
   const publication = new Promise<void>(resolve => { releasePublication = resolve; });
   surfaceOwner.waitForPublication.mockReturnValueOnce(publication);
+  try {
   let route: ((value: string) => boolean | Promise<boolean>) | null = null;
   const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
     const support = workspaceSupport(method, params, current); if (support) return support;
@@ -3983,6 +3986,9 @@ it("does not open Main Logging until its ready projection is published", async (
   expect(surfaceWindow.open).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}), "messages");
   expect(surfaceWindow.open).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}), "rotor");
   expect(request.mock.calls.some(([method]) => method === "contest_draft_apply")).toBe(false);
+  } finally {
+    releasePublication();
+  }
 });
 
 it("acknowledges a native contest window command with Setup after startup finds no session", async () => {
