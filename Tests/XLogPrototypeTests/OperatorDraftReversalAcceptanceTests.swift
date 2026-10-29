@@ -110,8 +110,10 @@ struct OperatorDraftReversalAcceptanceTests {
         let receipt = try #require(try database.operatorDraftReceipt(operationID: operationID))
         let saved = try #require(receipt.savedQSO)
         if manual {
-            #expect(saved.start == (try date("2026-10-15T00:00:00Z")))
-            #expect(saved.end == (try date("2026-10-15T00:10:00Z")))
+            let expectedStart = try date("2026-10-15T00:00:00Z")
+            let expectedEnd = try date("2026-10-15T00:10:00Z")
+            #expect(saved.start == expectedStart)
+            #expect(saved.end == expectedEnd)
             #expect(saved.adifRecord.fields["QSO_DATE"] == "20261015")
             #expect(saved.adifRecord.fields["TIME_ON"] == "000000")
         } else {
