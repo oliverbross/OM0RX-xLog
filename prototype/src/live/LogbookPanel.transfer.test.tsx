@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import LogbookPanel from "./LogbookPanel";
 import { LogbookMutationSession } from "./logbookMutationSession";
 
+const native = vi.hoisted(() => ({ invoke: vi.fn(), isTauri: vi.fn(() => false) }));
+vi.mock("@tauri-apps/api/core", () => native);
+beforeEach(() => { native.invoke.mockReset(); native.isTauri.mockReturnValue(false); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 const contact = { id: "1d9961f9-3eb1-42ca-8d0a-063eb21b4577", call: "W1AW", start: "2026-10-14T00:00:00Z", band: "20m", mode: "CW" };
 const adif = "<CALL:4>W1AW<QSO_DATE:8>20261014<TIME_ON:6>000000<BAND:3>20m<MODE:2>CW<EOR>";
@@ -28,6 +31,98 @@ function setup(issue = false, contacts = [contact]) {
   }
   return { request, pick };
 }
+
+it.each([["all","adi"],["filtered","adi"],["selected","adi"],["all","adx"],["filtered","adx"],["selected","adx"]] as const)(
+  "saves native %s as %s through the chooser without a browser download", async (scope, format) => {
+    native.isTauri.mockReturnValue(true); native.invoke.mockResolvedValue({ saved: true, cancelled: false });
+    const objectURL = vi.fn(() => "blob:forbidden");
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: objectURL });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    const { request } = setup(); await screen.findByText("W1AW");
+    fireEvent.change(screen.getByRole("combobox", { name: "Export format" }), { target: { value: format } });
+    if (scope === "filtered") {
+      fireEvent.change(screen.getByRole("textbox", { name: "Search logbook" }), { target: { value: "W1AW" } });
+      fireEvent.click(screen.getByRole("button", { name: "Search" }));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Export filtered" })).toHaveProperty("disabled", false));
+    }
+    if (scope === "selected") fireEvent.click(screen.getByRole("checkbox", { name: /Select W1AW .* for export/ }));
+    fireEvent.click(screen.getByRole("button", { name: `Export ${scope}` }));
+    await screen.findByText("1 QSOs exported from the integrated logbook.");
+    expect(request).toHaveBeenCalledWith("logbook_export_adif", { action: "begin", scope,
+      ...(scope === "filtered" ? { search: "W1AW" } : scope === "selected" ? { ids: [contact.id] } : {}) });
+    expect(request).toHaveBeenCalledWith("logbook_export_adif", { action: "read", token: "frozen", offset: 0, limit: 20 });
+    expect(native.invoke).toHaveBeenCalledOnce();
+    const [command, args] = native.invoke.mock.calls[0];
+    expect(command).toBe("logbook_export_file");
+    expect(Object.keys(args).sort()).toEqual(["content", "filename"]);
+    expect(args.filename).toMatch(new RegExp(`^OM0RX-xLog-integrated-\\d{4}-\\d{2}-\\d{2}\\.${format}$`));
+    if (format === "adi") expect(args.content).toBe(adif);
+    else {
+      const xml = new DOMParser().parseFromString(args.content, "application/xml");
+      expect(xml.querySelector("parsererror")).toBeNull();
+      expect(xml.querySelector("RECORD CALL")?.textContent).toBe("W1AW");
+      expect(xml.querySelectorAll("RECORD")).toHaveLength(1);
+    }
+    expect(objectURL).not.toHaveBeenCalled(); expect(click).not.toHaveBeenCalled();
+  });
+
+it("retains browser preview downloads for sixty seconds through the shared helper", async () => {
+  const objectURL = vi.fn(() => "blob:browser-logbook"), revoke = vi.fn();
+  Object.defineProperty(URL, "createObjectURL", { configurable: true, value: objectURL });
+  Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: revoke });
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  setup(); await screen.findByText("W1AW");
+  const timer = vi.spyOn(globalThis, "setTimeout");
+  fireEvent.click(screen.getByRole("button", { name: "Export all" }));
+  await screen.findByText("1 QSOs exported from the integrated logbook.");
+  expect(native.invoke).not.toHaveBeenCalled(); expect(objectURL).toHaveBeenCalledOnce(); expect(revoke).not.toHaveBeenCalled();
+  const retained = timer.mock.calls.findIndex(([, delay]) => delay === 60_000);
+  expect(retained).toBeGreaterThanOrEqual(0);
+  clearTimeout(timer.mock.results[retained].value);
+});
+
+it("keeps one native export pending until the chooser acknowledges its save", async () => {
+  native.isTauri.mockReturnValue(true);
+  let finish!: (value: { saved: boolean; cancelled: boolean }) => void;
+  native.invoke.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  const { request } = setup(); await screen.findByText("W1AW");
+  const button = screen.getByRole("button", { name: "Export all" });
+  fireEvent.click(button); fireEvent.click(button);
+  await waitFor(() => expect(native.invoke).toHaveBeenCalledOnce());
+  expect(button).toHaveProperty("disabled", true);
+  expect(screen.queryByText("1 QSOs exported from the integrated logbook.")).toBeNull();
+  expect(screen.getByText("Choose where to save the export…")).toBeTruthy();
+  expect(request.mock.calls.filter(([method, params]) => method === "logbook_export_adif" && params?.action === "begin")).toHaveLength(1);
+  await act(async () => finish({ saved: true, cancelled: false }));
+  expect(screen.getByText("1 QSOs exported from the integrated logbook.")).toBeTruthy();
+  expect(button).toHaveProperty("disabled", false);
+});
+
+it.each([["all","cancelled"],["filtered","cancelled"],["selected","cancelled"],["all","failed"],["filtered","failed"],["selected","failed"],
+  ["all","unverified"],["filtered","unverified"],["selected","unverified"]] as const)("distinguishes native %s export that is %s and permits retry", async (scope, outcome) => {
+  native.isTauri.mockReturnValue(true);
+  if (outcome === "failed") native.invoke.mockRejectedValueOnce(new Error("Choose another destination."));
+  else native.invoke.mockResolvedValueOnce(outcome === "cancelled" ? { saved: false, cancelled: true } : { saved: false, cancelled: false });
+  native.invoke.mockResolvedValue({ saved: true, cancelled: false });
+  setup(); await screen.findByText("W1AW");
+  if (scope === "filtered") {
+    fireEvent.change(screen.getByRole("textbox", { name: "Search logbook" }), { target: { value: "W1AW" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Export filtered" })).toHaveProperty("disabled", false));
+  }
+  if (scope === "selected") fireEvent.click(screen.getByRole("checkbox", { name: /Select W1AW .* for export/ }));
+  const button = screen.getByRole("button", { name: `Export ${scope}` });
+  fireEvent.click(button);
+  if (outcome === "cancelled") {
+    await screen.findByText("Export cancelled."); expect(screen.queryByRole("alert")).toBeNull();
+  } else expect((await screen.findByRole("alert")).textContent).toContain(outcome === "failed"
+    ? "Choose another destination." : "The export did not complete. Please try again.");
+  expect(screen.queryByText("1 QSOs exported from the integrated logbook.")).toBeNull();
+  expect(button).toHaveProperty("disabled", false);
+  fireEvent.click(button);
+  await screen.findByText("1 QSOs exported from the integrated logbook.");
+  expect(native.invoke).toHaveBeenCalledTimes(2); expect(screen.queryByRole("alert")).toBeNull();
+});
 
 it("validates before consent and imports only after explicit confirmation", async () => {
   const { request, pick } = setup(); await screen.findByText("W1AW");

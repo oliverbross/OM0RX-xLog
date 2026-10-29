@@ -1,17 +1,25 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { useRef, useState } from "react";
 
-export async function saveAnalyticsFile(filename:string,content:string,type="application/json"):Promise<string>{
+export async function saveTextFile(filename:string,content:string,type="application/json",
+    command:"contest_analytics_export"|"logbook_export_file"="contest_analytics_export"):Promise<string>{
   if(isTauri()){
-    const result=await invoke<{saved:boolean;cancelled:boolean}>("contest_analytics_export",{filename,content});
-    if(result.cancelled)return "Export cancelled.";
-    if(result.saved)return "Export saved.";
+    const result=await invoke<{saved:boolean;cancelled:boolean}>(command,{filename,content});
+    if(result?.cancelled===true&&result.saved===false)return "Export cancelled.";
+    if(result?.saved===true&&result.cancelled===false)return "Export saved.";
     throw new Error("The export did not complete. Please try again.");
   }
   const url=URL.createObjectURL(new Blob([content],{type})),anchor=document.createElement("a");
   try{anchor.href=url;anchor.download=filename;document.body.appendChild(anchor);anchor.click();}
-  finally{anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+  finally{anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),command==="logbook_export_file"?60_000:1000);}
   return "Download requested.";
+}
+
+export const saveAnalyticsFile=saveTextFile;
+
+export function saveLogbookFile(content:string,format:"adi"|"adx"):Promise<string>{
+  return saveTextFile(`OM0RX-xLog-integrated-${new Date().toISOString().slice(0,10)}.${format}`,content,
+    format==="adx"?"application/xml;charset=utf-8":"text/plain;charset=utf-8","logbook_export_file");
 }
 
 export function useAnalyticsExport(){

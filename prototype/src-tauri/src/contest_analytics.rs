@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 pub const WINDOW: &str = "contest-analytics";
 pub const MENU_ID: &str = "contest_analytics";
 const MAX_EXPORT_BYTES: usize = 64 * 1024 * 1024;
+const MAX_LOGBOOK_EXPORT_BYTES: usize = 32 * 1024 * 1024;
 static EXPORT_PENDING: AtomicBool = AtomicBool::new(false);
 
 fn validate_export(label: &str, filename: &str, content: &str) -> Result<&'static str, String> {
@@ -27,11 +28,27 @@ fn validate_export(label: &str, filename: &str, content: &str) -> Result<&'stati
     Ok(extension)
 }
 
+fn validate_logbook_export(label: &str, filename: &str, content: &str) -> Result<&'static str, String> {
+    if !matches!(label, "main" | "logbook") { return Err("Only the integrated Logbook can export ADIF files.".into()); }
+    if filename.is_empty() || filename.len() > 128
+        || !filename.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.')) {
+        return Err("Use a simple ADI or ADX filename.".into());
+    }
+    let extension = match Path::new(filename).extension().and_then(|value| value.to_str()) {
+        Some("adi") => "adi", Some("adx") => "adx",
+        _ => return Err("Logbook exports must be ADI or ADX files.".into()),
+    };
+    if content.is_empty() || content.len() > MAX_LOGBOOK_EXPORT_BYTES || content.contains('\0') {
+        return Err("The Logbook export must contain between 1 byte and 32 MiB of text.".into());
+    }
+    Ok(extension)
+}
+
 struct ExportLease;
 impl ExportLease {
     fn acquire() -> Result<Self, String> {
         EXPORT_PENDING.compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
-            .map(|_| Self).map_err(|_| "An Analytics export is already open.".to_string())
+            .map(|_| Self).map_err(|_| "An export is already open.".to_string())
     }
 }
 impl Drop for ExportLease {
@@ -42,11 +59,11 @@ fn save_export(path: Option<PathBuf>, extension: &str, content: &str) -> Result<
     use std::io::Write;
     let Some(path) = path else { return Ok(json!({"saved":false,"cancelled":true})); };
     if !path.extension().and_then(|value| value.to_str()).is_some_and(|value| value.eq_ignore_ascii_case(extension)) {
-        return Err(format!("Choose a .{extension} file for this Analytics export."));
+        return Err(format!("Choose a .{extension} file for this export."));
     }
     match std::fs::symlink_metadata(&path) {
-        Ok(metadata) if !metadata.file_type().is_file() => return Err("Choose a regular report file, not a folder or link.".into()),
-        Err(error) if error.kind() != std::io::ErrorKind::NotFound => return Err("The selected report destination is unavailable.".into()),
+        Ok(metadata) if !metadata.file_type().is_file() => return Err("Choose a regular export file, not a folder or link.".into()),
+        Err(error) if error.kind() != std::io::ErrorKind::NotFound => return Err("The selected export destination is unavailable.".into()),
         _ => {}
     }
     let write = || -> Result<(), Box<dyn std::error::Error>> {
@@ -56,7 +73,7 @@ fn save_export(path: Option<PathBuf>, extension: &str, content: &str) -> Result<
         temporary.persist(&path)?;
         Ok(())
     };
-    write().map_err(|_| "The Analytics report could not be saved. Choose another destination and retry.".to_string())?;
+    write().map_err(|_| "The export could not be saved. Choose another destination and retry.".to_string())?;
     Ok(json!({"saved":true,"cancelled":false}))
 }
 
@@ -67,8 +84,8 @@ async fn choose_export(window: tauri::WebviewWindow, filename: String, _extensio
     use objc2_foundation::NSString;
     let (sender, receiver) = std::sync::mpsc::sync_channel(1);
     window.run_on_main_thread(move || {
-        let selected = if crate::APP_EXITING.load(Ordering::Acquire) { Err("Analytics export is unavailable during shutdown.") }
-        else { MainThreadMarker::new().ok_or("Analytics export chooser is unavailable.").map(|main| {
+        let selected = if crate::APP_EXITING.load(Ordering::Acquire) { Err("Export is unavailable during shutdown.") }
+        else { MainThreadMarker::new().ok_or("Export chooser is unavailable.").map(|main| {
             let panel = NSSavePanel::savePanel(main);
             panel.setNameFieldStringValue(&NSString::from_str(&filename));
             panel.setMessage(Some(&NSString::from_str(purpose)));
@@ -77,10 +94,10 @@ async fn choose_export(window: tauri::WebviewWindow, filename: String, _extensio
             } else { None }
         }) };
         let _ = sender.send(selected);
-    }).map_err(|_| "Analytics export chooser is unavailable.".to_string())?;
+    }).map_err(|_| "Export chooser is unavailable.".to_string())?;
     tauri::async_runtime::spawn_blocking(move || receiver.recv()
-        .map_err(|_| "Analytics export chooser closed unexpectedly.".to_string())?.map_err(str::to_string))
-        .await.map_err(|_| "Analytics export chooser is unavailable.".to_string())?
+        .map_err(|_| "Export chooser closed unexpectedly.".to_string())?.map_err(str::to_string))
+        .await.map_err(|_| "Export chooser is unavailable.".to_string())?
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -88,8 +105,8 @@ async fn choose_export(_window: tauri::WebviewWindow, filename: String, extensio
     let extension = extension.to_owned();
     tauri::async_runtime::spawn_blocking(move || rfd::FileDialog::new()
         .set_title(purpose).set_file_name(filename)
-        .add_filter("Analytics report", &[extension]).save_file())
-        .await.map_err(|_| "Analytics export chooser is unavailable.".to_string())
+        .add_filter("Export file", &[extension]).save_file())
+        .await.map_err(|_| "Export chooser is unavailable.".to_string())
 }
 
 #[tauri::command]
@@ -102,6 +119,18 @@ pub async fn contest_analytics_export(window: tauri::WebviewWindow, filename: St
         if crate::APP_EXITING.load(Ordering::Acquire) { return Err("Analytics export is unavailable during shutdown.".into()); }
         save_export(path, extension, &content)
     }).await.map_err(|_| "Analytics export task failed.".to_string())?
+}
+
+#[tauri::command]
+pub async fn logbook_export_file(window: tauri::WebviewWindow, filename: String, content: String) -> Result<Value, String> {
+    let extension = validate_logbook_export(window.label(), &filename, &content)?;
+    if crate::APP_EXITING.load(Ordering::Acquire) { return Err("Logbook export is unavailable during shutdown.".into()); }
+    let _lease = ExportLease::acquire()?;
+    let path = choose_export(window, filename, extension, "Save the prepared ADIF copy. The integrated logbook remains unchanged.").await?;
+    tauri::async_runtime::spawn_blocking(move || {
+        if crate::APP_EXITING.load(Ordering::Acquire) { return Err("Logbook export is unavailable during shutdown.".into()); }
+        save_export(path, extension, &content)
+    }).await.map_err(|_| "Logbook export task failed.".to_string())?
 }
 
 fn validate_messages_export(label: &str, filename: &str, content: &str) -> Result<(), String> {
@@ -223,6 +252,45 @@ mod tests {
         }
         for content in ["", "invalid JSON", "{}\0"] { assert!(validate_export(WINDOW, "report.json", content).is_err()); }
         assert!(validate_export(WINDOW, "report.csv", &"x".repeat(MAX_EXPORT_BYTES + 1)).is_err());
+    }
+
+    #[test]
+    fn logbook_export_accepts_only_normal_logbook_owners_and_bounded_adif_text() {
+        let adi = "<CALL:5>OM0RX<COMMENT:7>Žilina<EOR>";
+        for label in ["main", "logbook"] {
+            assert_eq!(validate_logbook_export(label, "OM0RX-xLog-integrated-2026-10-29.adi", adi).unwrap(), "adi");
+            assert_eq!(validate_logbook_export(label, "xlog.adx", "<ADX><HEADER/><RECORDS/></ADX>").unwrap(), "adx");
+        }
+        for label in [WINDOW, "contest--logbook", "contest--active-qso", "contest-setup", "settings", "unknown", ""] {
+            assert!(validate_logbook_export(label, "xlog.adi", adi).is_err(), "{label}");
+        }
+        for filename in ["", "../xlog.adi", "/tmp/xlog.adx", "xlog\\evil.adi", "xlog.adi/other", "xlog.json", "xlog.csv", "xlog.sqlite", "xlog.adi ", "Žilina.adi"] {
+            assert!(validate_logbook_export("main", filename, adi).is_err(), "{filename}");
+        }
+        assert!(validate_logbook_export("main", &format!("{}.adi", "x".repeat(124)), adi).is_ok());
+        assert!(validate_logbook_export("main", &format!("{}.adi", "x".repeat(125)), adi).is_err());
+        for content in ["", "<EOR>\0"] { assert!(validate_logbook_export("main", "xlog.adi", content).is_err()); }
+        assert!(validate_logbook_export("main", "xlog.adi", &"x".repeat(MAX_LOGBOOK_EXPORT_BYTES)).is_ok());
+        assert!(validate_logbook_export("main", "xlog.adi", &"x".repeat(MAX_LOGBOOK_EXPORT_BYTES + 1)).is_err());
+        assert!(validate_logbook_export("main", "xlog.adx", &"é".repeat(MAX_LOGBOOK_EXPORT_BYTES / 2 + 1)).is_err());
+    }
+
+    #[test]
+    fn logbook_export_reuses_cancelled_and_atomic_utf8_persistence_without_changing_other_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let unrelated = directory.path().join("station.sqlite");
+        std::fs::write(&unrelated, "station sentinel").unwrap();
+        for (extension, content) in [("adi", "<CALL:5>OM0RX<COMMENT:7>Žilina<EOR>"), ("adx", "<ADX><HEADER/><RECORDS><RECORD><COMMENT>Žilina</COMMENT></RECORD></RECORDS></ADX>")] {
+            assert_eq!(save_export(None, extension, content).unwrap(), json!({"saved":false,"cancelled":true}));
+            let path = directory.path().join(format!("export.{extension}"));
+            std::fs::write(&path, "old export").unwrap();
+            assert_eq!(save_export(Some(path.clone()), extension, content).unwrap(), json!({"saved":true,"cancelled":false}));
+            assert_eq!(std::fs::read(&path).unwrap(), content.as_bytes());
+            assert!(save_export(Some(unrelated.clone()), extension, content).is_err());
+            assert!(save_export(Some(directory.path().join(format!("missing/export.{extension}"))), extension, content).is_err());
+            assert_eq!(std::fs::read_to_string(&unrelated).unwrap(), "station sentinel");
+            assert_eq!(std::fs::read(&path).unwrap(), content.as_bytes());
+        }
     }
 
     #[test]

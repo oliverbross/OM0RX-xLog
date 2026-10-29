@@ -378,15 +378,12 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         exported += response.count;
         setNotice(`Preparing ADIF · ${exported.toLocaleString()} of ${total.toLocaleString()} QSOs`);
       }
-      const url = URL.createObjectURL(new Blob([exportDocument.finish()], { type: format === "adx" ? "application/xml;charset=utf-8" : "text/plain;charset=utf-8" }));
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `OM0RX-xLog-integrated-${new Date().toISOString().slice(0, 10)}.${format}`;
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      setNotice("Choose where to save the export…");
+      const outcome = await (await import("../contesting/contestAnalyticsExport")).saveLogbookFile(exportDocument.finish(), format);
+      if (outcome === "Export cancelled.") { setNotice(outcome); return; }
       setNotice(`${exported.toLocaleString()} QSOs exported from the integrated logbook.`);
     } catch (cause) {
-      setError(errorMessage(cause));
+      setNotice(""); setError(errorMessage(cause));
     } finally { finishWorking(); }
   }
 

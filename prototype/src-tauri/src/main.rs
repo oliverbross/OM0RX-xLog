@@ -4273,7 +4273,7 @@ fn main() {
             workspace_windows_status, workspace_windows_reconcile, contest_window_open, contest_window_toggle, contest_contact_editor_open, contest_contact_editor_close, contest_surface_context_close, contest_setup_service_open,
             contest_log_review::contest_log_review_read,
             contest_analytics::contest_analytics_read,
-            contest_analytics::contest_analytics_export, contest_lane_output_request,
+            contest_analytics::contest_analytics_export, contest_analytics::logbook_export_file, contest_lane_output_request,
         contest_analytics::contest_messages_export,
             contest_analytics::contest_analytics_print,
             open_contest_recorder, contest_recorder::contest_recorder_request, contest_recorder::contest_recorder_stop_replay,
