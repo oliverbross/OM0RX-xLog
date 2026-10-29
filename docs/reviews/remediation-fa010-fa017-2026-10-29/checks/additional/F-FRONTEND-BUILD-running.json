@@ -1,0 +1,10 @@
+{
+  "id": "F-FRONTEND-BUILD",
+  "command": [
+    "npm",
+    "run",
+    "build"
+  ],
+  "startedUTC": "2026-10-29T06:04:32.858901+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype"
+}

@@ -1,0 +1,9 @@
+{
+  "receipt": "D-LEGACY-COMPATIBILITY-NEGATIVE",
+  "files": {
+    "Sources/XLogCore/BackupEnvelope.swift": "0f106fb274a8c9e844f5d3a42d3259f3a58cb74e8f5c4f27dee1e3a41e3e77cb",
+    "Sources/XLogCore/BackupManager.swift": "b96d8f295ef5636ded22a4a70e8e98e3ddf60defb32a7b25d94fc5aee98e3cfd",
+    "Tests/XLogPrototypeTests/NativeRestoreInterruptionTests.swift": "1b3fa84daafecc291ba57dcfc3e1de05209417d13a7ba468542e311a302285f6"
+  },
+  "outcome": "Two cases execute: valid sparse v1 SQLite >512MiB passes old inspect/URL-install and source-preservation controls, then new memory-envelope capture rejects at its cap (one unexpected error). Non-nil reference destination/absent reference component control passes, confirming an existing safeguard rather than another defect."
+}

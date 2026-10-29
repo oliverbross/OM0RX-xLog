@@ -1,0 +1,30 @@
+{
+  "id": "D15-NEGATIVE-E-NATIVE",
+  "command": [
+    "swift",
+    "test",
+    "--jobs",
+    "2",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/portable",
+    "--no-parallel",
+    "--filter",
+    "testNativeOwnerUsesSelectedReferenceBytesWhenPackageIsReplacedAfterDatabasePublication|OperatorDraftReversalAcceptanceTests"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T05:50:12.126325+00:00",
+  "finishedUTC": "2026-10-29T05:50:45.230762+00:00",
+  "seconds": 33.107,
+  "exit": 1,
+  "timedOut": false,
+  "sourceHeadStart": "684366246a437820d33270f3f68b737ef0b65f54",
+  "sourceHeadEnd": "684366246a437820d33270f3f68b737ef0b65f54",
+  "sourceDiffSHA256": "29fd606e50b674e053ee9746ced7e33153f9a4c2816cc565912e570c164e56e2",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/D15-NEGATIVE-E-NATIVE.log",
+  "logBytes": 7009,
+  "logSHA256": "a43e2cdb58c1db7b75fa37ca216e2642871088fca69d380d52c012fd879a9830",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {
+    "XLOG_PORTABLE_ONLY": "1"
+  }
+}

@@ -186,7 +186,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
         if (previous[key] === next[key]) continue;
         const candidate = fromParts(parts.date, parts.time);
         const acknowledged = key === "end" && !parts.date && !parts.time ? previous[key] == null
-          : validDate(candidate) && Date.parse(candidate) === Date.parse(previous[key] ?? "");
+          : validDate(candidate) && [previous[key], next[key]].some(value => Date.parse(candidate) === Date.parse(value ?? ""));
         if (acknowledged) { changed ??= { ...current }; delete changed[key]; }
       }
       return changed ?? current;

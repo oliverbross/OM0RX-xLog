@@ -1,0 +1,29 @@
+{
+  "id": "F-PYTHON",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "python/tests",
+    "-v"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T05:52:23.221426+00:00",
+  "finishedUTC": "2026-10-29T05:56:56.810769+00:00",
+  "seconds": 273.585,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "684366246a437820d33270f3f68b737ef0b65f54",
+  "sourceHeadEnd": "684366246a437820d33270f3f68b737ef0b65f54",
+  "sourceDiffSHA256": "d6faa3b53c06ffb5706ce33fb2d3cfcb33e17bf25190f11c6f382856b956c697",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/F-PYTHON.log",
+  "logBytes": 101731,
+  "logSHA256": "21653906b1ad6d61abc1ac369cbce59bf9f2f3f58a00ab3a0ea71f8a7b6d058c",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {
+    "PYTHONPATH": "/Users/oliver/Documents/Projects/OM0RX-xLog/python"
+  }
+}

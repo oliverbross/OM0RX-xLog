@@ -1,0 +1,17 @@
+{
+  "id": "B-ALL-TEN",
+  "command": [
+    "swift",
+    "test",
+    "--skip-build",
+    "--jobs",
+    "2",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/portable",
+    "--no-parallel",
+    "--filter",
+    "DirectAgentLifecycleTests"
+  ],
+  "startedUTC": "2026-10-29T06:38:02.813827+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}

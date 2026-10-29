@@ -1,0 +1,31 @@
+{
+  "id": "BD-POSITIVE-MODERN-NEGATIVE-R1",
+  "command": [
+    "swift",
+    "test",
+    "--jobs",
+    "2",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/portable",
+    "--no-parallel",
+    "--filter",
+    "DirectAgentLifecycleTests|NativeRestoreInterruptionTests|RestoreAtomicityTests|OperatorDraftReversalAcceptanceTests|StationRadioRegistryTests|WorkerTerminalShutdownTests|Native.*Power|MeasuredTransmitPowerObservationTests|LiveStationMethodsTests|BackupRestoreAuthorityTests|BackupEnvelopeTests|WavelogDestinationAuthorityTests|IntegrationSettingsTests"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T06:05:17.013371+00:00",
+  "finishedUTC": "2026-10-29T06:06:48.549726+00:00",
+  "seconds": 91.536,
+  "exit": 1,
+  "timedOut": false,
+  "sourceHeadStart": "684366246a437820d33270f3f68b737ef0b65f54",
+  "sourceHeadEnd": "684366246a437820d33270f3f68b737ef0b65f54",
+  "sourceDiffSHA256": "05f24d833d5d175c5b5e0d55764bac340628a577abddd2acf07d711d9340e8fd",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/BD-POSITIVE-MODERN-NEGATIVE-R1.log",
+  "logBytes": 41506,
+  "logSHA256": "5529582c9a0cb32879cf08a39c3df400d9edec28a577c86306f231062e46f6e4",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {
+    "XLOG_PORTABLE_ONLY": "1",
+    "XLOG_RESTORE_EVIDENCE_ROOT": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/native-restore-acceptance"
+  }
+}

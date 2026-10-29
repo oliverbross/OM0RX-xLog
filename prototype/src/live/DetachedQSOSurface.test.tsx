@@ -82,6 +82,36 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
+it.each(["Full-rapid","Simple-rapid","Full-blur-clock","Simple-blur-clock","Full-remount","Simple-remount"])(
+  "reconciles reversed UTC display and Save with automatic session intent after %s",async path=>{
+    const f=backend();api.draft.mockImplementation(f.request);
+    render(<DetachedQSOSurface/>);await screen.findByDisplayValue("K1ABC");
+    vi.useFakeTimers();vi.setSystemTime(new Date("2026-10-28T12:34:56Z"));
+    const simple=path.startsWith("Simple");if(simple)fireEvent.click(screen.getByRole("button",{name:"Simple"}));
+    const dateLabel=simple?"Desk UTC date":"Start UTC date",timeLabel=simple?"Desk UTC time":"Start UTC time";
+    fireEvent.change(screen.getByLabelText(dateLabel),{target:{value:"2026-10-15"}});
+    fireEvent.change(screen.getByLabelText(timeLabel),{target:{value:"00:00:00"}});
+    fireEvent.change(screen.getByLabelText(dateLabel),{target:{value:"2026-10-14"}});
+    expect(journal().base.automaticStart).toBe(true);expect(journal().draft.start).toBe(f.current.qso.start);
+    expect(journal().pending).toBeNull();
+    if(path.endsWith("blur-clock")){
+      fireEvent.blur(screen.getByLabelText(dateLabel));fireEvent.focus(screen.getByLabelText(simple?"Desk Callsign":"Callsign"));
+      await act(async()=>{await vi.advanceTimersByTimeAsync(1500);});
+    }
+    if(path.endsWith("remount")){
+      fireEvent.click(screen.getByRole("button",{name:simple?"Full":"Simple"}));
+      fireEvent.click(screen.getByRole("button",{name:simple?"Simple":"Full"}));
+    }
+    const shownDate=(screen.getByLabelText(dateLabel) as HTMLInputElement).value,shownTime=(screen.getByLabelText(timeLabel) as HTMLInputElement).value;
+    expect(shownDate).toBe("2026-10-28");expect(shownTime).toBe(path.endsWith("blur-clock")?"12:34:57":"12:34:56");
+    expect(api.draft.mock.calls.some(([method])=>method==="logbook_operator_draft_apply")).toBe(false);
+    await act(async()=>{fireEvent.click(screen.getByRole("button",{name:"Log QSO"}));});
+    expect(f.contacts).toHaveLength(1);expect(f.contacts[0].start.slice(0,19)).toBe(`${shownDate}T${shownTime}`);
+    expect(f.contacts[0].extraFields).toEqual({OTHER:"keep"});
+    expect(api.draft.mock.calls.filter(([method])=>method==="logbook_operator_draft_apply").map(([,params])=>params.action)).toEqual(["save"]);
+    expect(f.current.automaticStart).toBe(true);
+  });
+
 it.each(["Full-Simple", "Simple-Full", "Full-Simple-Full"])(
   "preserves pre-flush manual UTC through %s, a time-only edit and Save", async path => {
     const f = backend(); api.draft.mockImplementation(f.request);

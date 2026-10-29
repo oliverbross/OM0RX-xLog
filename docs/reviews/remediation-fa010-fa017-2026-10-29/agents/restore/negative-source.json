@@ -1,0 +1,8 @@
+{
+  "receipt": "D15-NEGATIVE-E-NATIVE",
+  "files": {
+    "Sources/XLogCore/NativeBackupRestoreOwner.swift": "b6767406bdfb1fa8f2dfdbe36f895a074b4d62a146a33a9772ff319d98de2dd5",
+    "Tests/XLogPrototypeTests/NativeRestoreInterruptionTests.swift": "1a71c04a96bcd75105271e7cf773c16bff57985a57a3afb264e647868719ebff"
+  },
+  "outcome": "Actual owner source-replacement test: one executed assertion failure, replacement-reference-B instead of selected-reference-A. DB, settings, retained original and recovery controls pass. E native two functions/three cases pass separately in the same command."
+}

@@ -1,0 +1,31 @@
+{
+  "id": "BDE-CLOSING-R1",
+  "command": [
+    "swift",
+    "test",
+    "--jobs",
+    "2",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/portable",
+    "--no-parallel",
+    "--filter",
+    "DirectAgentLifecycleTests|NativeRestoreInterruptionTests|RestoreAtomicityTests|OperatorDraftReversalAcceptanceTests|StationRadioRegistryTests|WorkerTerminalShutdownTests|Native.*Power|MeasuredTransmitPowerObservationTests|LiveStationMethodsTests|LiveLogbookMethodsTests|BackupRestoreAuthorityTests|BackupEnvelopeTests|WavelogDestinationAuthorityTests|IntegrationSettingsTests"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T06:11:40.494291+00:00",
+  "finishedUTC": "2026-10-29T06:12:39.561490+00:00",
+  "seconds": 59.063,
+  "exit": 1,
+  "timedOut": false,
+  "sourceHeadStart": "684366246a437820d33270f3f68b737ef0b65f54",
+  "sourceHeadEnd": "684366246a437820d33270f3f68b737ef0b65f54",
+  "sourceDiffSHA256": "10f5d51aeb9ed55d1cf7502637a4e6c16be507f7ce702607f12b071edebdd2b7",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/BDE-CLOSING-R1.log",
+  "logBytes": 41926,
+  "logSHA256": "bd3d031e9fca77918f5e0c7672a9648e9b28e54aaf966e01050a896dd1372a86",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {
+    "XLOG_PORTABLE_ONLY": "1",
+    "XLOG_RESTORE_EVIDENCE_ROOT": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/native-restore-acceptance"
+  }
+}

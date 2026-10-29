@@ -111,6 +111,37 @@
     }
   },
   {
+    "id": "B-ALL-TEN",
+    "command": [
+      "swift",
+      "test",
+      "--skip-build",
+      "--jobs",
+      "2",
+      "--scratch-path",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/portable",
+      "--no-parallel",
+      "--filter",
+      "DirectAgentLifecycleTests"
+    ],
+    "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+    "startedUTC": "2026-10-29T06:38:02.813827+00:00",
+    "finishedUTC": "2026-10-29T06:38:11.541725+00:00",
+    "seconds": 8.727,
+    "exit": 0,
+    "timedOut": false,
+    "sourceHeadStart": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceHeadEnd": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceDiffSHA256": "10f5d51aeb9ed55d1cf7502637a4e6c16be507f7ce702607f12b071edebdd2b7",
+    "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/B-ALL-TEN.log",
+    "logBytes": 6068,
+    "logSHA256": "86e4f4d0312ce2dd061e8c79457f71691a5bc4d4315cbb018739adcefbecafa5",
+    "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+    "explicitEnvironment": {
+      "XLOG_PORTABLE_ONLY": "1"
+    }
+  },
+  {
     "id": "B-D-NEGATIVE-E-NATIVE-R2",
     "command": [
       "swift",
@@ -198,6 +229,158 @@
     "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
     "explicitEnvironment": {
       "XLOG_PORTABLE_ONLY": "1"
+    }
+  },
+  {
+    "id": "B-POWER-PRECISION-R1",
+    "command": [
+      "swift",
+      "test",
+      "--jobs",
+      "2",
+      "--scratch-path",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/portable",
+      "--no-parallel",
+      "--filter",
+      "DirectAgentLifecycleTests/(testLateInstalledRealClientCapturesMeterAndRejectsStaleAndInactivePacketsAcrossReconnects|testMeterPacketRoundedBeforeArmIsRejectedThenLaterPacketCaptures)"
+    ],
+    "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+    "startedUTC": "2026-10-29T06:29:07.256557+00:00",
+    "finishedUTC": "2026-10-29T06:29:34.451137+00:00",
+    "seconds": 27.194,
+    "exit": 0,
+    "timedOut": false,
+    "sourceHeadStart": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceHeadEnd": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceDiffSHA256": "10f5d51aeb9ed55d1cf7502637a4e6c16be507f7ce702607f12b071edebdd2b7",
+    "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/B-POWER-PRECISION-R1.log",
+    "logBytes": 4327,
+    "logSHA256": "55808e03ec1d9131aab7f693a9dd7bcaf5749c46f74ca2d71daf765a0c953d49",
+    "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+    "explicitEnvironment": {
+      "XLOG_PORTABLE_ONLY": "1"
+    }
+  },
+  {
+    "id": "B-POWER-PRECISION-R2",
+    "command": [
+      "swift",
+      "test",
+      "--jobs",
+      "2",
+      "--scratch-path",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/portable",
+      "--no-parallel",
+      "--filter",
+      "DirectAgentLifecycleTests/(testLateInstalledRealClientCapturesMeterAndRejectsStaleAndInactivePacketsAcrossReconnects|testMeterPacketRoundedBeforeArmIsRejectedThenLaterPacketCaptures)"
+    ],
+    "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+    "startedUTC": "2026-10-29T06:34:53.306046+00:00",
+    "finishedUTC": "2026-10-29T06:35:02.961320+00:00",
+    "seconds": 9.656,
+    "exit": 0,
+    "timedOut": false,
+    "sourceHeadStart": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceHeadEnd": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceDiffSHA256": "10f5d51aeb9ed55d1cf7502637a4e6c16be507f7ce702607f12b071edebdd2b7",
+    "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/B-POWER-PRECISION-R2.log",
+    "logBytes": 3995,
+    "logSHA256": "684452ad202b465af1496eb81b5d79a336ab8947c118b6d76484a53245cccb71",
+    "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+    "explicitEnvironment": {
+      "XLOG_PORTABLE_ONLY": "1"
+    }
+  },
+  {
+    "id": "B-POWER-PRECISION-R3",
+    "command": [
+      "swift",
+      "test",
+      "--jobs",
+      "2",
+      "--scratch-path",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/portable",
+      "--no-parallel",
+      "--filter",
+      "DirectAgentLifecycleTests/(testLateInstalledRealClientCapturesMeterAndRejectsStaleAndInactivePacketsAcrossReconnects|testMeterPacketRoundedBeforeArmIsRejectedThenLaterPacketCaptures)"
+    ],
+    "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+    "startedUTC": "2026-10-29T06:35:03.747779+00:00",
+    "finishedUTC": "2026-10-29T06:35:12.201161+00:00",
+    "seconds": 8.453,
+    "exit": 0,
+    "timedOut": false,
+    "sourceHeadStart": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceHeadEnd": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceDiffSHA256": "10f5d51aeb9ed55d1cf7502637a4e6c16be507f7ce702607f12b071edebdd2b7",
+    "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/B-POWER-PRECISION-R3.log",
+    "logBytes": 4009,
+    "logSHA256": "9e9f6bb75ee224dbff155cbe32dc37b7e2b1c1cff9f8d45c5ae6d88b722d275a",
+    "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+    "explicitEnvironment": {
+      "XLOG_PORTABLE_ONLY": "1"
+    }
+  },
+  {
+    "id": "BD-POSITIVE-MODERN-NEGATIVE-R1",
+    "command": [
+      "swift",
+      "test",
+      "--jobs",
+      "2",
+      "--scratch-path",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/portable",
+      "--no-parallel",
+      "--filter",
+      "DirectAgentLifecycleTests|NativeRestoreInterruptionTests|RestoreAtomicityTests|OperatorDraftReversalAcceptanceTests|StationRadioRegistryTests|WorkerTerminalShutdownTests|Native.*Power|MeasuredTransmitPowerObservationTests|LiveStationMethodsTests|BackupRestoreAuthorityTests|BackupEnvelopeTests|WavelogDestinationAuthorityTests|IntegrationSettingsTests"
+    ],
+    "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+    "startedUTC": "2026-10-29T06:05:17.013371+00:00",
+    "finishedUTC": "2026-10-29T06:06:48.549726+00:00",
+    "seconds": 91.536,
+    "exit": 1,
+    "timedOut": false,
+    "sourceHeadStart": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceHeadEnd": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceDiffSHA256": "05f24d833d5d175c5b5e0d55764bac340628a577abddd2acf07d711d9340e8fd",
+    "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/BD-POSITIVE-MODERN-NEGATIVE-R1.log",
+    "logBytes": 41506,
+    "logSHA256": "5529582c9a0cb32879cf08a39c3df400d9edec28a577c86306f231062e46f6e4",
+    "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+    "explicitEnvironment": {
+      "XLOG_PORTABLE_ONLY": "1",
+      "XLOG_RESTORE_EVIDENCE_ROOT": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/native-restore-acceptance"
+    }
+  },
+  {
+    "id": "BDE-CLOSING-R1",
+    "command": [
+      "swift",
+      "test",
+      "--jobs",
+      "2",
+      "--scratch-path",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/portable",
+      "--no-parallel",
+      "--filter",
+      "DirectAgentLifecycleTests|NativeRestoreInterruptionTests|RestoreAtomicityTests|OperatorDraftReversalAcceptanceTests|StationRadioRegistryTests|WorkerTerminalShutdownTests|Native.*Power|MeasuredTransmitPowerObservationTests|LiveStationMethodsTests|LiveLogbookMethodsTests|BackupRestoreAuthorityTests|BackupEnvelopeTests|WavelogDestinationAuthorityTests|IntegrationSettingsTests"
+    ],
+    "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+    "startedUTC": "2026-10-29T06:11:40.494291+00:00",
+    "finishedUTC": "2026-10-29T06:12:39.561490+00:00",
+    "seconds": 59.063,
+    "exit": 1,
+    "timedOut": false,
+    "sourceHeadStart": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceHeadEnd": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceDiffSHA256": "10f5d51aeb9ed55d1cf7502637a4e6c16be507f7ce702607f12b071edebdd2b7",
+    "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/BDE-CLOSING-R1.log",
+    "logBytes": 41926,
+    "logSHA256": "bd3d031e9fca77918f5e0c7672a9648e9b28e54aaf966e01050a896dd1372a86",
+    "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+    "explicitEnvironment": {
+      "XLOG_PORTABLE_ONLY": "1",
+      "XLOG_RESTORE_EVIDENCE_ROOT": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/native-restore-acceptance"
     }
   },
   {
@@ -354,6 +537,66 @@
     }
   },
   {
+    "id": "D-LEGACY-COMPATIBILITY-NEGATIVE",
+    "command": [
+      "swift",
+      "test",
+      "--jobs",
+      "2",
+      "--scratch-path",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/portable",
+      "--no-parallel",
+      "--filter",
+      "NativeRestoreInterruptionTests/(testLegacyDatabaseOnlyNativeRestoreKeepsANonNilReferenceDestinationUntouched|testLegacyDatabaseAboveMemoryEnvelopeLimitUsesOneImmutableFileSnapshot)"
+    ],
+    "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+    "startedUTC": "2026-10-29T06:42:27.458338+00:00",
+    "finishedUTC": "2026-10-29T06:42:51.578649+00:00",
+    "seconds": 24.12,
+    "exit": 1,
+    "timedOut": false,
+    "sourceHeadStart": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceHeadEnd": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceDiffSHA256": "10f5d51aeb9ed55d1cf7502637a4e6c16be507f7ce702607f12b071edebdd2b7",
+    "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/D-LEGACY-COMPATIBILITY-NEGATIVE.log",
+    "logBytes": 4572,
+    "logSHA256": "565f144bb49c3051b2326c5533c08cdbd06fabc05f35a41b635216fbcc33cd23",
+    "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+    "explicitEnvironment": {
+      "XLOG_PORTABLE_ONLY": "1"
+    }
+  },
+  {
+    "id": "D15-NEGATIVE-E-NATIVE",
+    "command": [
+      "swift",
+      "test",
+      "--jobs",
+      "2",
+      "--scratch-path",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/portable",
+      "--no-parallel",
+      "--filter",
+      "testNativeOwnerUsesSelectedReferenceBytesWhenPackageIsReplacedAfterDatabasePublication|OperatorDraftReversalAcceptanceTests"
+    ],
+    "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+    "startedUTC": "2026-10-29T05:50:12.126325+00:00",
+    "finishedUTC": "2026-10-29T05:50:45.230762+00:00",
+    "seconds": 33.107,
+    "exit": 1,
+    "timedOut": false,
+    "sourceHeadStart": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceHeadEnd": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceDiffSHA256": "29fd606e50b674e053ee9746ced7e33153f9a4c2816cc565912e570c164e56e2",
+    "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/D15-NEGATIVE-E-NATIVE.log",
+    "logBytes": 7009,
+    "logSHA256": "a43e2cdb58c1db7b75fa37ca216e2642871088fca69d380d52c012fd879a9830",
+    "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+    "explicitEnvironment": {
+      "XLOG_PORTABLE_ONLY": "1"
+    }
+  },
+  {
     "id": "E-FRONTEND-BUILD",
     "command": [
       "/opt/homebrew/bin/python3.12",
@@ -375,6 +618,121 @@
     "logSHA256": "fe03617ac4fba8bd4f9950f7e9901cf81632dae16c839e59d8afaeda7539aab6",
     "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
     "explicitEnvironment": {}
+  },
+  {
+    "id": "F-FRONTEND-BUILD",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+    "startedUTC": "2026-10-29T06:04:32.858901+00:00",
+    "finishedUTC": "2026-10-29T06:05:03.163072+00:00",
+    "seconds": 30.304,
+    "exit": 0,
+    "timedOut": false,
+    "sourceHeadStart": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceHeadEnd": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceDiffSHA256": "05f24d833d5d175c5b5e0d55764bac340628a577abddd2acf07d711d9340e8fd",
+    "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/F-FRONTEND-BUILD.log",
+    "logBytes": 31698,
+    "logSHA256": "5c22ab686cfb8cf45a136299de86dff7d50631c4fcde8bd5e8f00fb5be9fecfb",
+    "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+    "explicitEnvironment": {}
+  },
+  {
+    "id": "F-FRONTEND-FULL",
+    "command": [
+      "npm",
+      "test"
+    ],
+    "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+    "startedUTC": "2026-10-29T05:51:34.604144+00:00",
+    "finishedUTC": "2026-10-29T06:04:32.497031+00:00",
+    "seconds": 777.887,
+    "exit": 0,
+    "timedOut": false,
+    "sourceHeadStart": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceHeadEnd": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceDiffSHA256": "05f24d833d5d175c5b5e0d55764bac340628a577abddd2acf07d711d9340e8fd",
+    "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/F-FRONTEND-FULL.log",
+    "logBytes": 98658,
+    "logSHA256": "139fa7ce4643786e9847d155f53e9a8cacdd664f94adcd40be546b437ce4760e",
+    "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+    "explicitEnvironment": {}
+  },
+  {
+    "id": "F-NPM-AUDIT",
+    "command": [
+      "npm",
+      "audit",
+      "--json"
+    ],
+    "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+    "startedUTC": "2026-10-29T06:05:03.296937+00:00",
+    "finishedUTC": "2026-10-29T06:05:04.353638+00:00",
+    "seconds": 1.057,
+    "exit": 0,
+    "timedOut": false,
+    "sourceHeadStart": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceHeadEnd": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceDiffSHA256": "05f24d833d5d175c5b5e0d55764bac340628a577abddd2acf07d711d9340e8fd",
+    "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/F-NPM-AUDIT.log",
+    "logBytes": 365,
+    "logSHA256": "7cf223849727f27f62b0febdd86887c3a11c70e69054436d934c9701fb953fa0",
+    "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+    "explicitEnvironment": {}
+  },
+  {
+    "id": "F-NPM-CI",
+    "command": [
+      "npm",
+      "ci"
+    ],
+    "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+    "startedUTC": "2026-10-29T05:51:30.274197+00:00",
+    "finishedUTC": "2026-10-29T05:51:34.442078+00:00",
+    "seconds": 4.168,
+    "exit": 0,
+    "timedOut": false,
+    "sourceHeadStart": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceHeadEnd": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceDiffSHA256": "29fd606e50b674e053ee9746ced7e33153f9a4c2816cc565912e570c164e56e2",
+    "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/F-NPM-CI.log",
+    "logBytes": 143,
+    "logSHA256": "45f5262252941d56d7ea4a3ab32a1d4fc5a60bafba7cd14492877a5a94e6f7e0",
+    "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+    "explicitEnvironment": {}
+  },
+  {
+    "id": "F-PYTHON",
+    "command": [
+      "/opt/homebrew/bin/python3.12",
+      "-B",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "python/tests",
+      "-v"
+    ],
+    "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+    "startedUTC": "2026-10-29T05:52:23.221426+00:00",
+    "finishedUTC": "2026-10-29T05:56:56.810769+00:00",
+    "seconds": 273.585,
+    "exit": 0,
+    "timedOut": false,
+    "sourceHeadStart": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceHeadEnd": "684366246a437820d33270f3f68b737ef0b65f54",
+    "sourceDiffSHA256": "d6faa3b53c06ffb5706ce33fb2d3cfcb33e17bf25190f11c6f382856b956c697",
+    "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/F-PYTHON.log",
+    "logBytes": 101731,
+    "logSHA256": "21653906b1ad6d61abc1ac369cbce59bf9f2f3f58a00ab3a0ea71f8a7b6d058c",
+    "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+    "explicitEnvironment": {
+      "PYTHONPATH": "/Users/oliver/Documents/Projects/OM0RX-xLog/python"
+    }
   },
   {
     "id": "fa014-editors-session-r1",

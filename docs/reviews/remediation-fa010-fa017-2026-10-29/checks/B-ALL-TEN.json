@@ -1,0 +1,31 @@
+{
+  "id": "B-ALL-TEN",
+  "command": [
+    "swift",
+    "test",
+    "--skip-build",
+    "--jobs",
+    "2",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/portable",
+    "--no-parallel",
+    "--filter",
+    "DirectAgentLifecycleTests"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T06:38:02.813827+00:00",
+  "finishedUTC": "2026-10-29T06:38:11.541725+00:00",
+  "seconds": 8.727,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "684366246a437820d33270f3f68b737ef0b65f54",
+  "sourceHeadEnd": "684366246a437820d33270f3f68b737ef0b65f54",
+  "sourceDiffSHA256": "10f5d51aeb9ed55d1cf7502637a4e6c16be507f7ce702607f12b071edebdd2b7",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/B-ALL-TEN.log",
+  "logBytes": 6068,
+  "logSHA256": "86e4f4d0312ce2dd061e8c79457f71691a5bc4d4315cbb018739adcefbecafa5",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {
+    "XLOG_PORTABLE_ONLY": "1"
+  }
+}

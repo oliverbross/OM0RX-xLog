@@ -1,0 +1,22 @@
+{
+  "id": "F-FRONTEND-BUILD",
+  "command": [
+    "npm",
+    "run",
+    "build"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype",
+  "startedUTC": "2026-10-29T06:04:32.858901+00:00",
+  "finishedUTC": "2026-10-29T06:05:03.163072+00:00",
+  "seconds": 30.304,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "684366246a437820d33270f3f68b737ef0b65f54",
+  "sourceHeadEnd": "684366246a437820d33270f3f68b737ef0b65f54",
+  "sourceDiffSHA256": "05f24d833d5d175c5b5e0d55764bac340628a577abddd2acf07d711d9340e8fd",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/F-FRONTEND-BUILD.log",
+  "logBytes": 31698,
+  "logSHA256": "5c22ab686cfb8cf45a136299de86dff7d50631c4fcde8bd5e8f00fb5be9fecfb",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

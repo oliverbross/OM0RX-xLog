@@ -1,0 +1,98 @@
+{
+  "capturedUTC": "2026-10-29T06:38:13.269777+00:00",
+  "commands": {
+    "macOS": {
+      "command": [
+        "sw_vers"
+      ],
+      "exit": 0,
+      "output": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434"
+    },
+    "architecture": {
+      "command": [
+        "uname",
+        "-m"
+      ],
+      "exit": 0,
+      "output": "arm64"
+    },
+    "Xcode": {
+      "command": [
+        "xcodebuild",
+        "-version"
+      ],
+      "exit": 0,
+      "output": "Xcode 27.1\nBuild version 27A9275"
+    },
+    "Swift": {
+      "command": [
+        "swift",
+        "--version"
+      ],
+      "exit": 0,
+      "output": "swift-driver version: 1.168.6 Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0"
+    },
+    "Rust": {
+      "command": [
+        "rustc",
+        "-Vv"
+      ],
+      "exit": 0,
+      "output": "rustc 1.98.0 (88d9e12ae 2026-08-18) (Homebrew)\nbinary: rustc\ncommit-hash: 88d9e12ae178fab0fb5cc050a94da85685d449ea\ncommit-date: 2026-08-18\nhost: aarch64-apple-darwin\nrelease: 1.98.0\nLLVM version: 22.1.8"
+    },
+    "Cargo": {
+      "command": [
+        "cargo",
+        "--version"
+      ],
+      "exit": 0,
+      "output": "cargo 1.98.0 (797e8a9bc 2026-08-05) (Homebrew)"
+    },
+    "Node": {
+      "command": [
+        "node",
+        "--version"
+      ],
+      "exit": 0,
+      "output": "v24.11.1"
+    },
+    "npm": {
+      "command": [
+        "npm",
+        "--version"
+      ],
+      "exit": 0,
+      "output": "11.6.3"
+    },
+    "Python": {
+      "command": [
+        "/opt/homebrew/bin/python3.12",
+        "--version"
+      ],
+      "exit": 0,
+      "output": "Python 3.12.13"
+    },
+    "memoryBytes": {
+      "command": [
+        "sysctl",
+        "-n",
+        "hw.memsize"
+      ],
+      "exit": 0,
+      "output": "17179869184"
+    },
+    "logicalCPUs": {
+      "command": [
+        "sysctl",
+        "-n",
+        "hw.ncpu"
+      ],
+      "exit": 0,
+      "output": "8"
+    }
+  },
+  "locks": {
+    "prototype/package-lock.json": "527b256030de0eb664c771b2a82275e8e83532d2f32d12167f3a5b5b6279609a",
+    "prototype/src-tauri/Cargo.lock": "0659bbd18a42b8578c48c9303ee686e88cbaebb89850aec4a823102f067304c0"
+  }
+}

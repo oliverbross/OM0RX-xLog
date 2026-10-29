@@ -1,0 +1,30 @@
+{
+  "id": "D-LEGACY-COMPATIBILITY-NEGATIVE",
+  "command": [
+    "swift",
+    "test",
+    "--jobs",
+    "2",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase7-validation-20261029-b8926639/portable",
+    "--no-parallel",
+    "--filter",
+    "NativeRestoreInterruptionTests/(testLegacyDatabaseOnlyNativeRestoreKeepsANonNilReferenceDestinationUntouched|testLegacyDatabaseAboveMemoryEnvelopeLimitUsesOneImmutableFileSnapshot)"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T06:42:27.458338+00:00",
+  "finishedUTC": "2026-10-29T06:42:51.578649+00:00",
+  "seconds": 24.12,
+  "exit": 1,
+  "timedOut": false,
+  "sourceHeadStart": "684366246a437820d33270f3f68b737ef0b65f54",
+  "sourceHeadEnd": "684366246a437820d33270f3f68b737ef0b65f54",
+  "sourceDiffSHA256": "10f5d51aeb9ed55d1cf7502637a4e6c16be507f7ce702607f12b071edebdd2b7",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/D-LEGACY-COMPATIBILITY-NEGATIVE.log",
+  "logBytes": 4572,
+  "logSHA256": "565f144bb49c3051b2326c5533c08cdbd06fabc05f35a41b635216fbcc33cd23",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {
+    "XLOG_PORTABLE_ONLY": "1"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "head": "ef4af447d00028786f7aaa21646face8e5a78310",
+  "phase": "positive",
+  "sha256": {
+    "prototype/src/live/QSOEditorCore.tsx": "7b66a9b1fae5451f983d4548cd25c1e3228ee1d323ffd398fb959bb0d048531f",
+    "prototype/src/live/OperatorDraftTime.test.tsx": "41f59644087e187c1d1dd8118820a2819bbaa773687185b88c966ce540d26973",
+    "prototype/src/live/DetachedQSOSurface.test.tsx": "8c207bb5689b06b16d0a5b6133d860e0f1c18ceafbf2339edda2f3696973db9d"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "receipt": "BD-POSITIVE-MODERN-NEGATIVE-R1",
+  "files": {
+    "Sources/XLogPrototypeSupport/LiveLogbookMethods.swift": "7a1a736cc597f0ed1c4607cee908660a13761c8f038b81302b68439998922057",
+    "Tests/XLogPrototypeTests/RestoreAtomicityTests.swift": "92f7ad41f4a12116dda0cc6f11c4303c6e732bce7ceb9d8114436136ff0d8645"
+  },
+  "outcome": "Actual modern backup_restore: two executed source-swap assertion failures, references and contest log from replacement B while selected main DB A and original/recovery controls pass. Combined84 XCTest/1 helper skip/0 failures, including B9 and D8, is separate from these expected SwiftTesting failures."
+}

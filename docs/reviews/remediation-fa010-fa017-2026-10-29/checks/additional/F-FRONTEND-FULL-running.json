@@ -1,0 +1,9 @@
+{
+  "id": "F-FRONTEND-FULL",
+  "command": [
+    "npm",
+    "test"
+  ],
+  "startedUTC": "2026-10-29T05:51:34.604144+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype"
+}
