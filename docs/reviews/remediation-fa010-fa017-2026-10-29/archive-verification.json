@@ -1,0 +1,61 @@
+{
+  "verified": true,
+  "validationHead": "280f6db21c2bc7ccbf465cfa90beaa1a13af1bcb",
+  "applicationInputs": 1843,
+  "receiptCount": 83,
+  "acceptedGates": [
+    "F-NPM-CI",
+    "F-FRONTEND-FULL",
+    "F-FRONTEND-BUILD",
+    "F-NPM-AUDIT",
+    "F-PYTHON",
+    "F-RUST-FULL",
+    "F-RUST-FEATURE",
+    "F-RUST-CLIPPY",
+    "F-RUST-RELEASE",
+    "F-SECURITY-FLOOR",
+    "CLOSE-NATIVE-FULL",
+    "CLOSE-PORTABLE-FULL",
+    "CLOSE-NATIVE-RELEASE",
+    "CLOSE-STRICT-NATIVE",
+    "CLOSE-STRICT-PORTABLE",
+    "CLOSE-TSAN",
+    "CLOSE-OPTIMIZED",
+    "CLOSE-WORKER-BUILD",
+    "CLOSE-WORKER-PROCESS",
+    "CLOSE-WORKER-FRAMING",
+    "CLOSE-CATALOGUE",
+    "CLOSE-APPEND"
+  ],
+  "archivedFiles": 366,
+  "unmodifiedHistoricalReports": [
+    "CODE_REVIEW.md",
+    "REVIEW_COVERAGE.md",
+    "REGRESSION_TEST_REPORT.md",
+    "FINAL_CODE_AUDIT.md"
+  ],
+  "findingStatusCount": 8,
+  "disposableDatabases": 23,
+  "exactIssuedExportArtifacts": 8,
+  "workerOperations": 81,
+  "ci": {
+    "ci": {
+      "source": "280f6db21c2bc7ccbf465cfa90beaa1a13af1bcb",
+      "conclusion": "success"
+    },
+    "portability": {
+      "source": "280f6db21c2bc7ccbf465cfa90beaa1a13af1bcb",
+      "conclusion": "success"
+    },
+    "prototype": {
+      "source": "c8cc1a134ee7fdacfb4b389f1648b47e18a059a1",
+      "conclusion": "success"
+    }
+  },
+  "releaseRecommendation": "NO-GO",
+  "catalogueStatusCounts": {
+    "PASS": 1353,
+    "NOT APPLICABLE": 5
+  },
+  "checksumManifestSHA256": "d16dbcb57e15c10819e66670b97b8473e902c7ac739fb921851c1446bdea3a45"
+}

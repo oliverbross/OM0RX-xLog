@@ -1,0 +1,10 @@
+{
+  "id": "CLOSE-WORKER-FRAMING",
+  "command": [
+    "node",
+    "Tests/XLogPrototypeTests/worker-process.test.mjs",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/worker-clean-r2/apple/Products/Release/xlog-prototype-worker"
+  ],
+  "startedUTC": "2026-10-29T09:29:56.143546+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}

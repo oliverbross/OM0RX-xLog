@@ -1,0 +1,17 @@
+{
+  "id": "CLOSE-STRICT-PORTABLE",
+  "command": [
+    "swift",
+    "build",
+    "--jobs",
+    "2",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/strict-portable-clean",
+    "-Xswiftc",
+    "-strict-concurrency=complete",
+    "-Xswiftc",
+    "-warn-concurrency"
+  ],
+  "startedUTC": "2026-10-29T09:14:13.371974+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}

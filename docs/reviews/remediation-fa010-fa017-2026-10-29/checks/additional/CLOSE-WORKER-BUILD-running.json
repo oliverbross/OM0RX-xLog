@@ -1,0 +1,13 @@
+{
+  "id": "CLOSE-WORKER-BUILD",
+  "command": [
+    "node",
+    "prototype/scripts/build-contesting-worker-process.mjs",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/worker-clean-r2",
+    "--output",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/worker-build-manifest-r2.json"
+  ],
+  "startedUTC": "2026-10-29T09:20:35.671190+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "CLOSE-CATALOGUE",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "tools/check_all_contests_readiness.py",
+    "--output",
+    ".build/remediation-followup-20261029-86a971e0/all-contests-readiness.json"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T09:05:21.388143+00:00",
+  "finishedUTC": "2026-10-29T09:06:07.653236+00:00",
+  "seconds": 46.265,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "280f6db21c2bc7ccbf465cfa90beaa1a13af1bcb",
+  "sourceHeadEnd": "280f6db21c2bc7ccbf465cfa90beaa1a13af1bcb",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/CLOSE-CATALOGUE.log",
+  "logBytes": 1600,
+  "logSHA256": "403252f5c219314ed500b69d66ee0a42faf3d150ee8c7e54af789098fd720373",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

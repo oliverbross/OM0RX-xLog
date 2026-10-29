@@ -1,0 +1,28 @@
+{
+  "id": "CLOSE-PORTABLE-FULL",
+  "command": [
+    "swift",
+    "test",
+    "--jobs",
+    "2",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/portable-clean-r2",
+    "--no-parallel"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T09:02:10.001351+00:00",
+  "finishedUTC": "2026-10-29T09:14:39.742571+00:00",
+  "seconds": 749.746,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "280f6db21c2bc7ccbf465cfa90beaa1a13af1bcb",
+  "sourceHeadEnd": "280f6db21c2bc7ccbf465cfa90beaa1a13af1bcb",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/CLOSE-PORTABLE-FULL.log",
+  "logBytes": 528066,
+  "logSHA256": "0f093e20c855dd429b479a419379d92b5a88e91ec1dbc4c15ebaa9c6f66d3b9b",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {
+    "XLOG_PORTABLE_ONLY": "1"
+  }
+}

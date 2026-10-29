@@ -1,0 +1,308 @@
+{
+  "databases": [
+    {
+      "path": "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/OM0RX-xLog-before-restore-2026-10-29T07-03-04Z-FD2128E2-049E-4E5D-A5EF-B0E35E8D9AF0.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/live.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/recovery.xlogbackup/OM0RX-xLog.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/selected.xlogbackup/OM0RX-xLog.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/source.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/OM0RX-xLog-before-restore-2026-10-29T06-12-28Z-C137F7BD-4529-4FCB-8FFE-23D961629919.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/live.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/recovery.xlogbackup/OM0RX-xLog.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/selected.xlogbackup/OM0RX-xLog.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/source.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/OM0RX-xLog-before-restore-2026-10-29T06-06-40Z-A092BFBD-893C-4D32-B182-0159EB0C6C5E.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/live.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/recovery.xlogbackup/OM0RX-xLog.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/selected.xlogbackup/OM0RX-xLog.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/source.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "process-acceptance/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/Contesting/Python/75714056-bd65-49e2-8b00-c892b9c9e468/contest.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "process-acceptance/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/Contesting/Python/bf835274-7387-4f9a-a5a5-d1ec81c4886c/contest.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "process-acceptance/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "process-acceptance/isolated-home/Library/Application Support/OM0RX-xLog Integration Services/forwarded-radio-spots.json.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "process-acceptance-r2/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/Contesting/Python/2371a241-1c4e-4726-b1e7-9d21be6b851a/contest.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "process-acceptance-r2/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/Contesting/Python/68403b97-0889-455b-af6e-9a4e9d48278f/contest.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "process-acceptance-r2/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    },
+    {
+      "path": "process-acceptance-r2/isolated-home/Library/Application Support/OM0RX-xLog Integration Services/forwarded-radio-spots.json.sqlite",
+      "integrity": [
+        "ok"
+      ],
+      "foreignKeyViolations": []
+    }
+  ],
+  "inputFiles": 97,
+  "readOnlyBytesPreserved": true,
+  "exports": {
+    "process-acceptance/cq_wpx_cw-3.adi": {
+      "bytes": 546,
+      "sha256": "1f3739418643a9df0d87a7fba2a96201e15ea1a5288d9026087e70a80d0fcad3"
+    },
+    "process-acceptance/cq_wpx_cw-3.log": {
+      "bytes": 494,
+      "sha256": "d591cc3c7356b9b9bdb9d964acf2c374650181620b2eff693ebe280431bcc952"
+    },
+    "process-acceptance/cq_ww_cw-3.adi": {
+      "bytes": 542,
+      "sha256": "142d2c83008a4ace4464df549a57e6856f44945b6351e518dec105178e570f88"
+    },
+    "process-acceptance/cq_ww_cw-3.log": {
+      "bytes": 493,
+      "sha256": "2e6f4870dcec2623ce9f4830791d4dc2c04bda1f8545f995e320a3cef38ae391"
+    },
+    "process-acceptance-r2/cq_wpx_cw-3.adi": {
+      "bytes": 546,
+      "sha256": "0ed51fb4b06259ad033ba76cc5ae3f66f9ae27d2122855cabbdd88b67965f2fc"
+    },
+    "process-acceptance-r2/cq_wpx_cw-3.log": {
+      "bytes": 494,
+      "sha256": "d591cc3c7356b9b9bdb9d964acf2c374650181620b2eff693ebe280431bcc952"
+    },
+    "process-acceptance-r2/cq_ww_cw-3.adi": {
+      "bytes": 542,
+      "sha256": "f3374cc43f277acd9ecfe95524ce417cac41b964719aea33d6f75695daa8c839"
+    },
+    "process-acceptance-r2/cq_ww_cw-3.log": {
+      "bytes": 493,
+      "sha256": "2e6f4870dcec2623ce9f4830791d4dc2c04bda1f8545f995e320a3cef38ae391"
+    }
+  },
+  "fileHashes": {
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/.restore-A867A3E5-C069-4090-9412-68C38AF99CCE.sqlite-shm": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/.restore-incomplete": "8ed8c3c7953460dc9e8a185305a47203a2ac4cb2b8f4983980e939afb282730d",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/OM0RX-xLog-before-restore-2026-10-29T07-03-04Z-FD2128E2-049E-4E5D-A5EF-B0E35E8D9AF0.sqlite": "806f9ec444b9738e2f374a08a399aeb7b080f17aa294e6913e0b3c2129c73017",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/OM0RX-xLog-before-restore-2026-10-29T07-03-04Z-FD2128E2-049E-4E5D-A5EF-B0E35E8D9AF0.sqlite-shm": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/OM0RX-xLog-before-restore-2026-10-29T07-03-04Z-FD2128E2-049E-4E5D-A5EF-B0E35E8D9AF0.sqlite-wal": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/database-published.json": "df4baa5a334803fae092a02f9ac217a7fb09feeef45b711c7f9a1baaf40d3e2e",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/live.sqlite": "950cdfa127605fe5c58d832eef83f3a61cc386d974f06d0354d8e276aa5046a1",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/live.sqlite-shm": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/live.sqlite-wal": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/recovery.xlogbackup/OM0RX-xLog.sqlite": "cdec491997959794014bd0b31bda3fd4e5c7893ed53967b7f4392389014edcca",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/recovery.xlogbackup/OM0RX-xLog.sqlite-shm": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/recovery.xlogbackup/OM0RX-xLog.sqlite-wal": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/recovery.xlogbackup/manifest.json": "0d353ddffb32852350ce3c93335178cabc25f7480dfa01dd1e258596eedde915",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/recovery.xlogbackup/package-seal.json": "ec22658030a4098f1d16d566f8a6388603b43643c19ef5cae46ec2ff21eaabd6",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/recovery.xlogbackup/preferences.json": "0abc147c5b2cbd2aabd838d14cbd87952b2adefa2769a9d9eb91985b68161404",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/recovery.xlogbackup/settings.json": "20cd49bd2b768cf1cb8c380b4c3775658bc99d8028e64affd743b6926dffb8c7",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/saved-settings-before-restore.json": "b6970cc921daca7d9e20ecb4e0818816c4a12c413cd0b1037c741bb07e8003cb",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/selected.xlogbackup/OM0RX-xLog.sqlite": "a3939480b268c9517c65158527fc0e24ac2ed3800062416e259473e44c0a9657",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/selected.xlogbackup/manifest.json": "a0b757abb47c26ea118e4cebf247232027b09dd9a0a2b0e160c6cdd4dc17e500",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/selected.xlogbackup/package-seal.json": "4b3c7985b46bf837f79dad825cb6e886f7a41079159fcc3061ae879252a8cee6",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/selected.xlogbackup/preferences.json": "0abc147c5b2cbd2aabd838d14cbd87952b2adefa2769a9d9eb91985b68161404",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/selected.xlogbackup/settings.json": "6b89f9c633d34f0308c2f1d5d5206b27a1a99cc39d0ef95e99d1005f408d885c",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/source.sqlite": "2be8948813e03c5a06145b78814625bbe1bfe4665aacbec039d15eb363acee32",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/source.sqlite-shm": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+    "native-restore-acceptance/xlog-native-process-22D89EC0-9E41-4ECD-A91C-8A0DF4257F9C/source.sqlite-wal": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/.restore-A7DBA0A4-3B8C-43DF-9D97-17173139C581.sqlite-shm": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/.restore-incomplete": "136abaff04017251607f1a1612cbd9810b72e03e899ff8d6bb1797d96ba33009",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/OM0RX-xLog-before-restore-2026-10-29T06-12-28Z-C137F7BD-4529-4FCB-8FFE-23D961629919.sqlite": "d71d40f0b6880c7aad515faed9c438639781df28d47f91b27aef80092d388cd5",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/OM0RX-xLog-before-restore-2026-10-29T06-12-28Z-C137F7BD-4529-4FCB-8FFE-23D961629919.sqlite-shm": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/OM0RX-xLog-before-restore-2026-10-29T06-12-28Z-C137F7BD-4529-4FCB-8FFE-23D961629919.sqlite-wal": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/database-published.json": "6205c6f9307926bfe5da01b845544edf21b0f11d018360a270c59a9a85740184",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/live.sqlite": "416d17914fd0c1424ac4746a720b2b17f914bb8d4b0da74865ee70e7a637b1d9",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/live.sqlite-shm": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/live.sqlite-wal": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/recovery.xlogbackup/OM0RX-xLog.sqlite": "837fb1dcc950a892216870d686faee0f732b112be20fb2d6657eb473bea33d91",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/recovery.xlogbackup/OM0RX-xLog.sqlite-shm": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/recovery.xlogbackup/OM0RX-xLog.sqlite-wal": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/recovery.xlogbackup/manifest.json": "0eb37558840da8386051095a98ae3b061d9a9a2acdbc37076c9ea2c1c827e2da",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/recovery.xlogbackup/package-seal.json": "1684b81239b27326ab28debfad18df23e9c2fad8dbc6ddfd93fe7be4e31c1bcb",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/recovery.xlogbackup/preferences.json": "0abc147c5b2cbd2aabd838d14cbd87952b2adefa2769a9d9eb91985b68161404",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/recovery.xlogbackup/settings.json": "20cd49bd2b768cf1cb8c380b4c3775658bc99d8028e64affd743b6926dffb8c7",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/saved-settings-before-restore.json": "332aa590a325a3e78a25818594e06058ab335decd5d52f7f0e49b7fa1e866bf7",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/selected.xlogbackup/OM0RX-xLog.sqlite": "6be4e43778ec8d1a5cc62a0ae2d1b39def034c43804148a07f89b4593b72abca",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/selected.xlogbackup/manifest.json": "5ea9c5765bca58ab18d038b6b9aad19c8188cb8d9999d5367608358a4890ba2d",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/selected.xlogbackup/package-seal.json": "28acdb609467f0b49d5147699469c01041b87c071e880de13893fe22ee3d3523",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/selected.xlogbackup/preferences.json": "0abc147c5b2cbd2aabd838d14cbd87952b2adefa2769a9d9eb91985b68161404",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/selected.xlogbackup/settings.json": "6b89f9c633d34f0308c2f1d5d5206b27a1a99cc39d0ef95e99d1005f408d885c",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/source.sqlite": "17136b4b782eb631c55cb8770606a6b1285ddcf4fcbe15499687e8ce0369991e",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/source.sqlite-shm": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+    "native-restore-acceptance/xlog-native-process-386A51AF-35C4-45DE-AD6C-648DF4119446/source.sqlite-wal": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/.restore-E535D9DE-790A-4920-8418-959F04ABF998.sqlite-shm": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/.restore-incomplete": "e54c22e65d179dd76eb1b6e205d57b0a44368f8b88475cd42ec579c315087cda",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/OM0RX-xLog-before-restore-2026-10-29T06-06-40Z-A092BFBD-893C-4D32-B182-0159EB0C6C5E.sqlite": "3d99ce34b08f69196de95827ed1fb35b770b3ba09549afe71da598825cb979c5",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/OM0RX-xLog-before-restore-2026-10-29T06-06-40Z-A092BFBD-893C-4D32-B182-0159EB0C6C5E.sqlite-shm": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/OM0RX-xLog-before-restore-2026-10-29T06-06-40Z-A092BFBD-893C-4D32-B182-0159EB0C6C5E.sqlite-wal": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/database-published.json": "4e9d3699f637ae831b32b3f408e17ca84631334e373a31d7ea2178a2d7f3a672",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/live.sqlite": "2c52dd4337004aba50fc4d14c3a990e1bb31d35288fbf98209ae9a797e76c9cf",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/live.sqlite-shm": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/live.sqlite-wal": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/recovery.xlogbackup/OM0RX-xLog.sqlite": "1092de65e747b8bfc8f3af4cdcb1e126c8e3fc208c27ba471613dd3db9949e17",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/recovery.xlogbackup/OM0RX-xLog.sqlite-shm": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/recovery.xlogbackup/OM0RX-xLog.sqlite-wal": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/recovery.xlogbackup/manifest.json": "f8ffcbd64c342fee15521cb80571a8429e69a3eaca4ce9be52942602511e950c",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/recovery.xlogbackup/package-seal.json": "a9f1b19a9bdca5660f3ec9a0b55f547a864d679aefb2e83ab4b35046e7dbefed",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/recovery.xlogbackup/preferences.json": "0abc147c5b2cbd2aabd838d14cbd87952b2adefa2769a9d9eb91985b68161404",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/recovery.xlogbackup/settings.json": "20cd49bd2b768cf1cb8c380b4c3775658bc99d8028e64affd743b6926dffb8c7",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/saved-settings-before-restore.json": "631558243db65f36442f2efb159b37f4f6c98a796240077279f1cd2461701447",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/selected.xlogbackup/OM0RX-xLog.sqlite": "e11693060f0a23fa20302255e34071afdcc259cfb498ee1cd37e107fcd30ec50",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/selected.xlogbackup/manifest.json": "3ed8d1286489cd3f84c54fc28cdaf5389829a7de61642d46fb18d51c83e305d1",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/selected.xlogbackup/package-seal.json": "4fff39759fc8cda5744c830b39253305af5f371fb876e806a3f4e11632686b4f",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/selected.xlogbackup/preferences.json": "0abc147c5b2cbd2aabd838d14cbd87952b2adefa2769a9d9eb91985b68161404",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/selected.xlogbackup/settings.json": "6b89f9c633d34f0308c2f1d5d5206b27a1a99cc39d0ef95e99d1005f408d885c",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/source.sqlite": "96f99b3c77a0fae249e22f7485cd6816adfbd83a3b44aa7c2676e90732a43baa",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/source.sqlite-shm": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+    "native-restore-acceptance/xlog-native-process-97247E30-896A-40B4-B154-816D1BB0D5D4/source.sqlite-wal": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "process-acceptance/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/Contesting/Python/75714056-bd65-49e2-8b00-c892b9c9e468/contest.sqlite": "7a0900c7326a66555c2114b13c8e714ec39200742cc9750899607644b8f229c4",
+    "process-acceptance/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/Contesting/Python/active-session.json": "125ef4976f1003851caef4172fd97ccbc544dbde9dfa75af9029ce37dd543537",
+    "process-acceptance/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/Contesting/Python/bf835274-7387-4f9a-a5a5-d1ec81c4886c/contest.sqlite": "4bc7df67b79a4451bc25ec32d676036ea065d69696c21318c6875e5c18afc51f",
+    "process-acceptance/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite": "89bd4138e7d006cc8422bece2289a9c8e7acacfd5e9b8cfff4b96a938bfaa1b9",
+    "process-acceptance/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite-shm": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+    "process-acceptance/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite-wal": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "process-acceptance/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/OM0RX-xLog-Integrated Preview/edit-generation.json": "2abf0d1f2e1455cf2fef00b75cae2d3e3196494372a7039309e671132e254225",
+    "process-acceptance/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/OM0RX-xLog-Integrated Preview/workspace.json": "aa04364b4b81890d6f687c27be9042654a341d369bc449faaa71a21d9cda6af9",
+    "process-acceptance/isolated-home/Library/Application Support/OM0RX-xLog Integration Services/forwarded-radio-spots.json.sqlite": "2e96884c16791c7d4bde90a6db2c9da33c2a2aab3e52088adc148c368552a423",
+    "process-acceptance/isolated-home/Library/Application Support/OM0RX-xLog Integration Services/forwarded-radio-spots.json.sqlite-shm": "9acdd0fa80529316388036f74db13792c8507e62ea937906126f16d4dd771bb0",
+    "process-acceptance/isolated-home/Library/Application Support/OM0RX-xLog Integration Services/forwarded-radio-spots.json.sqlite-wal": "7a500a7c46b362175943e5c8e67aa60dc7e8af6f6d82f26f2bd91f63c86eaa43",
+    "process-acceptance-r2/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/Contesting/Python/2371a241-1c4e-4726-b1e7-9d21be6b851a/contest.sqlite": "33ad578d569f908f41d4af91f8f1952b94ae8beeec40d408f8aa719685e79c77",
+    "process-acceptance-r2/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/Contesting/Python/68403b97-0889-455b-af6e-9a4e9d48278f/contest.sqlite": "12b5f29d846a3b5e47427881f1d84d5a22e984e8fdcd5b4e718a4692dfcc715c",
+    "process-acceptance-r2/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/Contesting/Python/active-session.json": "e962a706500eb67fabeb7da3c4b7f5e34bcd52d4b8eaf442f749c840ef47ce76",
+    "process-acceptance-r2/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite": "db7bff4bb80cf5328b90dd25e2ef1f2982ee570f79bc2a7cbaef8a0efe1015a0",
+    "process-acceptance-r2/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite-shm": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+    "process-acceptance-r2/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite-wal": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "process-acceptance-r2/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/OM0RX-xLog-Integrated Preview/edit-generation.json": "891db37f4b8a3645c1ed9e9b8569736ca9a45f16c7cd6f3a04c091de71da06d9",
+    "process-acceptance-r2/isolated-home/Library/Application Support/OM0RX-xLog Contesting Test/OM0RX-xLog-Integrated Preview/workspace.json": "df045f9e49e7615f3c8eb925604e0060442c7ba99ac3287dce4487772a5b6b28",
+    "process-acceptance-r2/isolated-home/Library/Application Support/OM0RX-xLog Integration Services/forwarded-radio-spots.json.sqlite": "2e96884c16791c7d4bde90a6db2c9da33c2a2aab3e52088adc148c368552a423",
+    "process-acceptance-r2/isolated-home/Library/Application Support/OM0RX-xLog Integration Services/forwarded-radio-spots.json.sqlite-shm": "6e5e335be377f1bc5f2b6a3a6a57c22ca830c6a2ff5b39b5d51b0b88d2fe2d29",
+    "process-acceptance-r2/isolated-home/Library/Application Support/OM0RX-xLog Integration Services/forwarded-radio-spots.json.sqlite-wal": "996573152728cb7b8d1e9611d39d6a593ffee623d115ed58df984a4557e3fb97"
+  },
+  "issuedExportReceiptsValidated": 8,
+  "crossRunComparison": {
+    "cq_wpx_cw-3.adi": "All bytes except the explicitly fresh scenario QSO UUID match; original bytes match their own issued receipt",
+    "cq_wpx_cw-3.log": "Exact bytes match across both isolated runs",
+    "cq_ww_cw-3.adi": "All bytes except the explicitly fresh scenario QSO UUID match; original bytes match their own issued receipt",
+    "cq_ww_cw-3.log": "Exact bytes match across both isolated runs"
+  },
+  "method": "Exact disposable copies checked read-only; original archived inputs hash-identical across corrected check. Initial in-place mode=ro check failed sidecar preservation assertion because SQLite can change SHM read marks; no pre-check primary/WAL hash equivalence is inferred."
+}

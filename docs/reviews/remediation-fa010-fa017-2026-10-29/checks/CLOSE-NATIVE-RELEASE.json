@@ -1,0 +1,29 @@
+{
+  "id": "CLOSE-NATIVE-RELEASE",
+  "command": [
+    "swift",
+    "build",
+    "-c",
+    "release",
+    "--jobs",
+    "2",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/native-release-clean-r2",
+    "--product",
+    "om0rx-xlog"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T09:07:27.450188+00:00",
+  "finishedUTC": "2026-10-29T09:11:08.753815+00:00",
+  "seconds": 221.307,
+  "exit": 0,
+  "timedOut": false,
+  "sourceHeadStart": "280f6db21c2bc7ccbf465cfa90beaa1a13af1bcb",
+  "sourceHeadEnd": "280f6db21c2bc7ccbf465cfa90beaa1a13af1bcb",
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "log": "/tmp/xlog-remediation-20261029-86a971e0/checks/CLOSE-NATIVE-RELEASE.log",
+  "logBytes": 1306,
+  "logSHA256": "5e60a6d0cd24f232c4eea184d860c37749e2521b5d690e7e09ec4c500a6ff4ba",
+  "environmentPolicy": "Inherited XLOG_/XCW_ opt-ins removed without printing values; private temp paths, explicit test Python and denied contest UDP. No production roots/providers/hardware.",
+  "explicitEnvironment": {}
+}

@@ -446,7 +446,7 @@ The frozen manual inventory remains **INCOMPLETE**. Real CAT/FLEX/DAX/TCI/fldigi
 
 Entry: clean canonical `main` at `86a971e0338a7ce6432607f5648dfc1c23ec2a68`, fetched/fast-forward checked once. Assessed application baseline: `f3f6e3dee40af29cb6801ef8ee422c521629e168`, not the earlier candidate. This append supersedes only the dispositions explicitly updated below; earlier reports, counterexamples and qualification limits remain historical evidence. [Evidence and limits](docs/reviews/remediation-fa010-fa017-2026-10-29/README.md) and [exact commands/results](docs/reviews/remediation-fa010-fa017-2026-10-29/COMMANDS.md).
 
-### FA-010 — High — Fixed and Verified (targeted; closing acceptance pending)
+### FA-010 — High — Fixed and Verified (protocol and scoped native acceptance)
 
 - **Root cause:** explicit Stop read/wrote settings before RX; failed storage skipped release and left cached transmit consent enabled.
 - **Files modified:** `Sources/XLogPrototypeSupport/LiveFldigiBridge.swift`, `Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift`; FA-017 supplies its visible error/recovery consumers.
@@ -455,7 +455,7 @@ Entry: clean canonical `main` at `86a971e0338a7ce6432607f5648dfc1c23ec2a68`, fet
 - **Verification:** `A-FLDIGI-NEGATIVE` executed four tests before the production change: exit1/31 assertion failures. `A-FLDIGI-POSITIVE`: exit0/28 tests, including all 19 fldigi tests plus registry/terminal controls. Exact argv and hashes are in the command ledger. Existing concurrency and unused-binding warnings remain.
 - **Remaining limits:** no physical engine/RF state or release latency certification; final coherent-source gates and native acceptance remain closing work. No package/install or production operation.
 
-### FA-017 — Medium — Fixed and Verified (targeted; closing acceptance pending)
+### FA-017 — Medium — Fixed and Verified (rendered ownership and native schema scope)
 
 - **Root cause:** bounded snapshots, setup ownership and operator projection discarded release evidence; fulfilled Stop fabricated Off, hid retry after disabling TX and could route Escape to a different output owner.
 - **Files modified:** `prototype/src/contesting/Not1MMContestWorkspace.tsx`, `DetachedContestSurface.tsx`, `DetachedContestDigitalDialog.tsx`, `contestSetupDialogs.ts`, `contestSurfaceProtocol.ts`, their maintained tests (including `DetachedContestSetupDialog.test.tsx`), and `prototype/src-tauri/src/contest_surface.rs` with its native validator regression.
@@ -468,7 +468,7 @@ Entry: clean canonical `main` at `86a971e0338a7ce6432607f5648dfc1c23ec2a68`, fet
 
 FA-011/012 (agent retirement/registration), FA-013 (replica reconciliation), FA-015/016 (immutable restore/interruption authority) and FA-014 (timestamp reversal) remain **Not Fixed** at this append. Owners have reconfirmed and planned their deterministic triggers. No fixed status is inferred from earlier passing suites. Readiness remains **NO-GO**; no installation, release, version relabelling or further general audit is authorized by this follow-up.
 
-### FA-013 — Medium — Fixed and Verified (targeted; closing acceptance pending)
+### FA-013 — Medium — Fixed and Verified (paired Host and historical evidence scope)
 
 - **Root cause:** the primary-prefix writer emitted local `reference_reconcile` provenance and bare country identities into a stream accepting only complete commit/correct/delete images. A legitimate event blocked contiguous catch-up.
 - **Files modified:** `python/contest_host/host.py`, new `python/tests/test_remediation_reference_replica.py`.
@@ -477,7 +477,7 @@ FA-011/012 (agent retirement/registration), FA-013 (replica reconciliation), FA-
 - **Verification:** `C-REFERENCE-NEGATIVE` executes five intended-behavior failures, including actual rejected replica application and unchanged client dump. The untracked new test's exact source/SHA supplement that receipt. `C-REFERENCE-POSITIVE-R1` passes 13 related cases; an additional boundary test catches and corrects an incomplete deleted-identity fallback (`C-HISTORY-BOUNDARIES-R1`, one failure/eight tests). Closing `C-REFERENCE-CLOSING` passes all 62 reference/import/CQ WW/multi-operator cases. A second owner reviewed this bounded repair without edits; no additional defect was confirmed.
 - **Remaining limits:** already-issued legacy change-page receipts retain their original unsupported wire result, as required by receipt immutability. Obtain a fresh request ID at the same cursor to publish the same event compatibly; never skip it or automatically rebaseline. Insufficient historical evidence still requires reviewed recovery. No remote station/provider or production replica was operated. Full final-source gates and native matrix remain pending.
 
-### FA-014 — Medium — Fixed and Verified (rendered editors and native SQLite; closing acceptance pending)
+### FA-014 — Medium — Fixed and Verified (rendered editors and native SQLite)
 
 - **Root cause:** Full acknowledged a valid time buffer only against the previous draft value. Reversing an edit restored automatic intent but left a buffer equal to the next canonical timestamp masking the live automatic display. Desk already acknowledged both values.
 - **Files modified:** `prototype/src/live/QSOEditorCore.tsx`, `OperatorDraftTime.test.tsx`, `DetachedQSOSurface.test.tsx`, new `Tests/XLogPrototypeTests/OperatorDraftReversalAcceptanceTests.swift`.
@@ -486,7 +486,7 @@ FA-011/012 (agent retirement/registration), FA-013 (replica reconciliation), FA-
 - **Verification:** `fa014-negative-r1`: three failures/five passing controls before the one-line fix; `fa014-focused-r1`: eight pass; seven related editor/session files pass 199 cases; final time-file 15 and TypeScript pass (overlap). Native cases pass in `B-D-NEGATIVE-E-NATIVE-R3`, `D15-NEGATIVE-E-NATIVE` and subsequent focused runs; those commands' overall failures belong to explicitly identified B/D counterexamples, not E. Initial fixture compilation errors are retained and are not runtime evidence. Fresh-lock `F-FRONTEND-FULL` passes 4,760 Vitest cases in 339 files plus its Node helper suite; fresh TypeScript/Vite/window gates and npm audit (zero reported npm advisories) pass. All 794 frontend inputs remain unchanged across those gates; original dependency/dist inodes and all 180 generated files are restored.
 - **Remaining limits:** rendered editor/session execution and actual native handler/SQLite execution are separate layers, not one live GUI-to-SQLite run. Native window/keyboard/unsaved-work acceptance, hardware/provider and final complete Swift/build gates remain pending. No installed application, production data or new package/candidate was operated.
 
-### FA-011 — Medium — Fixed and Verified (intercepted real-client scope; closing acceptance pending)
+### FA-011 — Medium — Fixed and Verified (intercepted real-client and worker scope)
 
 - **Root cause:** agent retirement discarded CW/Tune/PTT release errors and cleared client/duty before the registry unconditionally reported clean retirement.
 - **Files modified:** `Sources/XLogPrototypeSupport/LiveStationSession.swift`, `LiveStationMethods.swift`, `LiveWorker.swift`, new `Tests/XLogPrototypeTests/DirectAgentLifecycleTests.swift`.
@@ -495,7 +495,7 @@ FA-011/012 (agent retirement/registration), FA-013 (replica reconciliation), FA-
 - **Verification:** `B-D-NEGATIVE-E-NATIVE-R3` executes the original five B tests with 20 failures (including FA-012 controls). Corrected producer passes its initial nine tests and related registry/terminal/power controls. Final `D-RESTORE-CLOSING-R2` recompiles and passes all ten B tests within 59 XCTest cases (one unrelated helper skip) plus 37 Swift Testing functions. `B-ALL-TEN` also executes all ten with exit0, explicitly reusing the known compiled precision-test binary via `--skip-build`; it is not a clean-build claim. Initial R1/R2 fixture compile failures and intermediate failures remain archived.
 - **Remaining limits:** protocol acknowledgement is not physical RF certification. Recovery retains the original client only while the process/channel survives; actual EOF uncertainty exits74 and has no post-exit retry channel. External/operator station inspection, watchdog and forced-loss acceptance remain required. No real agent, radio or provider was operated.
 
-### FA-012 — Medium — Fixed and Verified (real-client callbacks and native gate; closing acceptance pending)
+### FA-012 — Medium — Fixed and Verified (real-client callbacks and native gate)
 
 - **Root cause:** connect-before-worker registration captured a nil power gate permanently in connection callbacks; reconnect reused those closures.
 - **Files modified:** the same session and maintained real-client test files as FA-011; no station-core dependency cycle or synthetic READY telemetry added.
@@ -504,7 +504,7 @@ FA-011/012 (agent retirement/registration), FA-013 (replica reconciliation), FA-
 - **Verification:** original missing-context failures execute before the fix. Ten real-client tests pass in closing verification. An intermediate `BDE-CLOSING-R1` run records two power assertions failing after a new connection. Investigation demonstrates a fixture eligibility defect: millisecond ISO wire observations can precede precise arm time, and the gate correctly rejects them. Positive fixtures now wait for an actually representable post-arm observation; the strict guard, assertions and existing1.5s bounds remain unchanged. A new control proves pre-arm rejection/post-arm capture. Both precision tests pass three consecutive standard Swift test runs; the complete ten-test class also passes. Original failure packets were not retained, so its exact cause remains qualified rather than retroactively proved by later passes.
 - **Remaining limits:** no measured real-radio watts, reconnect/sleep or GUI latency acceptance. Test timestamp eligibility and packet routing are demonstrated; whole-application clean checks remain closing work.
 
-### FA-015 — Medium — Fixed and Verified (native/modern restore owners; closing acceptance pending)
+### FA-015 — Medium — Fixed and Verified (native/modern restore owners and legacy compatibility)
 
 - **Root cause:** database, reference and contest installers independently reopened a mutable selected URL; individually valid components from different packages could be accepted together.
 - **Files modified:** `Sources/XLogCore/BackupEnvelope.swift`, `BackupManager.swift`, new `NativeBackupRestoreOwner.swift`, `Sources/XLogApp/AppModel.swift`, `Sources/XLogPrototypeSupport/LiveLogbookMethods.swift`, `Package.swift`, new `Tests/XLogPrototypeTests/NativeRestoreInterruptionTests.swift`, and `RestoreAtomicityTests.swift`. Related authority changes are recorded under FA-016.
@@ -513,7 +513,7 @@ FA-011/012 (agent retirement/registration), FA-013 (replica reconciliation), FA-
 - **Verification:** native `D15-NEGATIVE-E-NATIVE` executes one selected-reference failure; `BD-POSITIVE-MODERN-NEGATIVE-R1` executes two modern reference/contest failures with selected main DB preserved. Their exact pre-fix sources are archived. First memory-only implementation introduced a legacy size regression: `D-LEGACY-COMPATIBILITY-NEGATIVE` proves old streamed inspect/install succeeds before the new capture rejects the same valid >512MiB DB. File-backed correction then passes. The suspected absent-reference issue is a passing existing safeguard, not a defect or code-fix claim. Closing `D-RESTORE-CLOSING-R2` exits0:59 XCTest cases (one helper skip) plus37 Swift Testing functions, including all13 native restore cases, modern rollback/source-swap and actual native timestamp Save.
 - **Remaining limits:** unsealed legacy metadata still lacks full-package authentication; no seal or remote receipt is invented. Raw URL convenience APIs remain for compatibility and do not define a multi-component restore transaction; both implemented application callers use captured envelopes. No production restore, physical power loss or live GUI restore is claimed. Normal AppModel/release compilation and complete source-frozen gates remain closing work.
 
-### FA-016 — Medium — Fixed and Verified (controlled interruption and intercepted sync; closing acceptance pending)
+### FA-016 — Medium — Fixed and Verified (controlled interruption and intercepted sync)
 
 - **Root cause:** retained native restore could publish linked DB B before saving settings B. A restart/manual sync could then use saved authority A; a persisted automatic-sync pause did not bind the data itself.
 - **Files modified:** `Sources/XLogCore/NativeBackupRestoreOwner.swift`, `LogbookDatabase.swift`, `Settings.swift`, `SyncEngine.swift`, `Sources/XLogApp/AppModel.swift`, the immutable DB installer and tests listed above. Ordinary unbound databases retain their prior contract.
@@ -527,3 +527,24 @@ FA-011/012 (agent retirement/registration), FA-013 (replica reconciliation), FA-
 The first complete portable run and the independent hosted prototype run both exposed a regression introduced by the FA-016 authority validator: after database close it prepared SQLite before preserving the existing invalidated-sync error. `36d908d7` adds the locked lifecycle guards (settings admission reports `closed`; sync admission reports `syncRunChanged`), with a new direct/engine regression and the unchanged late-acknowledgement persistence oracle. `F-CLOSED-AUTHORITY-CLOSING` passes all selected bounded reconciliation, restore, automatic-sync and destination controls. The two preceding new-fixture commands failed compilation because the fixture used a nonexistent settings initializer; neither is counted as an executed negative control. The actual complete-suite and hosted late-ack failures provide the runtime counterexample.
 
 CI also found two new timestamp assertions incompatible with its older Swift Testing macro. `4ec11a7a` evaluates throwing expected dates before the unchanged comparisons; local native acceptance and all seven exact-head portability jobs then pass. The separate prototype failure at that head is retained, not hidden behind portability success. The first sanitizer run fails because the owned interruption child's runtime loads too late. `c8cc1a13` preloads the exact already-loaded sanitizer image in that child's environment, preserving instrumentation, identity fences and the 12-second deadline. Its focused child executes one test successfully; the first retry had only the initializer compilation failure. Full closing verification remains pending at this checkpoint.
+
+### Final closing disposition — source `280f6db2`
+
+The eight findings above are **Fixed and Verified within their stated scopes**. Their earlier “closing pending” limitations are superseded by this completed iteration; hardware, provider and manual boundaries remain. Final application/test inputs are those of `c8cc1a134ee7fdacfb4b389f1648b47e18a059a1`, validated from clean canonical documentation HEAD `280f6db21c2bc7ccbf465cfa90beaa1a13af1bcb`. All 1,843 frozen inputs still match. There are 35 changed application/support/test inputs relative to entry and no deleted tracked inputs. Every completed repair commit was pushed.
+
+| Finding | Severity | Final status and demonstrated boundary |
+| --- | --- | --- |
+| FA-010 | High | **Fixed and Verified:** storage failure cannot skip explicit RX; separate storage/release errors, pending-send final release and fresh retry execute over fake RPC. Physical RF state remains unverified. |
+| FA-011 | Medium | **Fixed and Verified:** actual registry/worker preserves failed original agent duties/client, reports uncertainty and admits bounded exact-owner release-only recovery. No post-exit or physical-release certification. |
+| FA-012 | Medium | **Fixed and Verified:** both slots, connect-before-install/during-connect, reconnect/new connection and stale/inactive/chronology rejection execute through the real client/native gate. Hardware watts remain unverified. |
+| FA-013 | Medium | **Fixed and Verified:** actual paired Hosts, historical projection, later commit/correct/delete, replay and reopen pass. Unsupported history and immutable old receipts retain explicit recovery limits. |
+| FA-014 | Medium | **Fixed and Verified:** eight rendered reversal cases plus real native Save/SQLite/receipt/reopen controls preserve automatic and manual timestamps. A single live GUI-to-SQLite execution remains unperformed. |
+| FA-015 | Medium | **Fixed and Verified:** real native/modern component swaps, sealed validation, >512MiB legacy streaming capture and optimized value-copy lifetime/cleanup pass. Legacy v1 authentication is unchanged. |
+| FA-016 | Medium | **Fixed and Verified:** identified owned-child interruption, fresh-owner/manual/automatic admission, overlap/missing IDs and matching authority controls pass; the closing closed-handle regression is corrected. Physical power loss and live-provider recovery remain unverified. |
+| FA-017 | Medium | **Fixed and Verified:** uncertainty/status/storage errors survive ownership/projection/schema boundaries; visible retry and Stop/Escape retain fldigi with TX disabled while acquisition remains fenced. Physical engine/UI acceptance remains qualified. |
+
+All 22 accepted closing/component gates pass: clean native and portable suites, clean native release, both strict-concurrency configurations, selected TSAN, optimized restore/Save/reconciliation, fresh worker build/81-operation acceptance/eight framing tests, catalogue/append checks, complete frozen frontend/Python/Rust suites, frontend/release builds, Clippy, npm audit and reviewed dependency floors. The [command ledger](docs/reviews/remediation-fa010-fa017-2026-10-29/COMMANDS.md) retains exact commands, boundaries and failures; [readiness](RELEASE_READINESS.md) gives counts, skips and CI distinctions. Counts overlap; skipped/disabled and silent opt-in cases are not executed acceptance.
+
+The final clean portable run reports 1,219 XCTest cases including seven skips, and Swift Testing summaries536+8 including seven disabled tests. TSAN reports93 XCTest including one helper skip plus24 Swift Testing cases; optimized verification reports24 XCTest including one helper skip plus five Swift Testing functions. Fresh final-source worker acceptance passes81 exchanges and exact issued export receipts. Twenty-three disposable databases pass integrity/foreign-key checks on exact working copies. Eight export artifacts match their own issued byte counts/SHA; independent runs deliberately use different QSO UUIDs, while Cabrillo bytes and non-UUID ADIF bytes agree.
+
+No requested finding remains open, blocked or fixed-but-unverified at its demonstrated root-cause scope. **Production readiness remains NO-GO.** DEP-P5-003 remains Blocked conditional Linux dependency risk; earlier intermittent/timing investigations retain their unresolved causal limits. Compiler/concurrency warnings, native GUI, physical radio/engine/watchdog, account-bound providers, actual power loss, long soak, platform runtime and distribution acceptance remain outstanding. No production sync/provider write, RF/PTT/rotor/audio operation, installation, old-bundle promotion or operator release occurred. This closes this implementation batch and does not authorize another audit, feature batch or installation.

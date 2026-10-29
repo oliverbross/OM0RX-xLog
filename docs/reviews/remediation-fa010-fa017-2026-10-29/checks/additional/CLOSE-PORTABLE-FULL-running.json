@@ -1,0 +1,14 @@
+{
+  "id": "CLOSE-PORTABLE-FULL",
+  "command": [
+    "swift",
+    "test",
+    "--jobs",
+    "2",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/remediation-followup-20261029-86a971e0/portable-clean-r2",
+    "--no-parallel"
+  ],
+  "startedUTC": "2026-10-29T09:02:10.001351+00:00",
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog"
+}
