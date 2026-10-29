@@ -1,0 +1,20 @@
+[
+  {
+    "path": "agents/data/runtime/country-client/4ea9cc1f-254b-452d-93e2-48bb36d39478/contest.sqlite",
+    "integrity": [
+      [
+        "ok"
+      ]
+    ],
+    "foreignKeyViolations": []
+  },
+  {
+    "path": "agents/data/runtime/country-master/4ea9cc1f-254b-452d-93e2-48bb36d39478/contest.sqlite",
+    "integrity": [
+      [
+        "ok"
+      ]
+    ],
+    "foreignKeyViolations": []
+  }
+]

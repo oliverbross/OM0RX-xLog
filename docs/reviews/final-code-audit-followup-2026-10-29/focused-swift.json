@@ -1,0 +1,22 @@
+{
+  "id": "focused-swift",
+  "command": [
+    "swift",
+    "test",
+    "--skip-build",
+    "--scratch-path",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-followup-20261029/portable",
+    "--no-parallel",
+    "--filter",
+    "BackupRestoreAuthorityTests|WavelogDestinationAuthorityTests|LiveFldigiBridgeTests|StationRadioRegistryTests|NativePowerSelectionTests|CWComputeWirePrimitiveTests|LiveOpportunitiesMethodsTests|portablePriorCleanupUsesFirstAdmissionClock"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T02:36:13.568209+00:00",
+  "finishedUTC": "2026-10-29T02:36:27.094903+00:00",
+  "seconds": 13.529,
+  "exit": 0,
+  "logSHA256": "855da2b46271aed85dd0f3096cc67d332704563725f409ca95f803354b098824",
+  "sourceHead": "0375a8e1a385252519a99127fe9d8f40d639365a",
+  "buildBoundary": "Existing exact-source cached build; no fresh build or hardware/provider acceptance claimed",
+  "environment": "Inherited XLOG/XCW opts removed; UDP denied; Python and portable test profile explicit"
+}

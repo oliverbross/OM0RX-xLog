@@ -1,0 +1,43 @@
+{
+  "canonicalHead": "0375a8e1a385252519a99127fe9d8f40d639365a",
+  "applicationSource": "f3f6e3dee40af29cb6801ef8ee422c521629e168",
+  "sourceSHA256": {
+    "Sources/XLogApp/AppModel.swift": "2f0f2d99f8dd181ac46e0b5d7c2eaaea16ad40d322d3b245cdccaa29aa51ecc3",
+    "Sources/XLogCore/Settings.swift": "459da4ffe9e760d0d557088f434ad97108c79fc72eee051fefc31541df1b2e19",
+    "Sources/XLogCore/BackupManager.swift": "d055d5bf1ddc3581edb869a519928ceec02d5d1bbbfcc069e5b9b59563c7d089",
+    "Sources/XLogCore/BackupEnvelope.swift": "0274b2f1ee8ed7863d95571fb73e50133ac2f13b8597257e3bd4323cc2e7a5b6",
+    "Sources/XLogCore/LogbookDatabase.swift": "bac645ba76ff58fffe465129733d3dcd2b1220ce99edb46284aed2cf5bb98b2b",
+    "Sources/XLogCore/SyncEngine.swift": "9dc4e23d8df59f9e095bff49a3091e396a2df598a554df5399e1b1f643c89c56",
+    "Sources/XLogCore/ADIF.swift": "fe43ae60eb7fe83865657dc5661493311204dcf18bd39b1f7115780d9360193e",
+    "Sources/XLogPrototypeSupport/LiveLogbookMethods.swift": "7a1a736cc597f0ed1c4607cee908660a13761c8f038b81302b68439998922057",
+    "Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift": "3e5b8348375414fd75da3d5824bdbdc076aba29287808197dba0ee7c6295e5a5",
+    "python/contest_host/host.py": "6ec9ab0337d249aecc6b0f9f1c06a47a5ac10db618be2fc623e7dfd8e115feb5",
+    "python/contest_host/store.py": "fbf41de8bf97416a3a5ce1135908fac89283c278cd25e1c52bbb108525c411ab",
+    "python/contest_host/adif_import.py": "865d4e4e9cc833197927e92f767b7439313d3ca39fbadd5075aed8cff1f3d9f3",
+    "python/contest_host/wae.py": "124e7dc0d670b5b01d25e3ae65b3ec550e7a091072898fe448aebc2e92b831a5",
+    "python/contest_host/recorder.py": "543a49c94d25c13c500c6e3ec84152b4d0e8418acf5db423386406e544fc3d32",
+    "python/contest_host/developer.py": "82b83091c2dcda2604abb6ba6f379488950166ea6bbe34d9e6ac1f63d215be24",
+    "prototype/src-tauri/src/contest_recorder.rs": "f87be9bd8c68ab98a9a1363a6d1d87a1604dddb0a3a315151fffc34bdc826303",
+    "prototype/src-tauri/src/durable_file.rs": "d1bf1ccbc91d2dc09aac55a5623d9d8bc6dc66d7d5dc4063b6a626893e820140",
+    "prototype/src-tauri/src/module_restart_intent.rs": "0ad9e52bbe8d169b530b890890620ab4768ac9547552f5b19eb6e761152599d1",
+    "prototype/src-tauri/src/operating_module.rs": "32c64b9378b5983d729239f08e5004e72ebf56de3301eb8c5b15398b56c27722"
+  },
+  "objectSHA256": {
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-followup-20261029/native/out/Products/Debug/XLogCore.o": "ebb12ad252db659570548237f75979d5657328b52bbbb3938a8262181710edca",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-followup-20261029/native/out/Products/Debug/CCurlBackup.o": "6ca14e3789853cd91895e08b79a602526bce82e004a0bf0c0313ea5d84b9ab4b"
+  },
+  "moduleSHA256": {
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-followup-20261029/native/out/Products/Debug/XLogCore.swiftmodule/arm64-apple-macos.swiftdoc": "eac43046b8fd4d228fa6ad2d6e61ac02ab87892a6ca768f1c70a0fdca4d29a0a",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-followup-20261029/native/out/Products/Debug/XLogCore.swiftmodule/arm64-apple-macos.swiftmodule": "e8bc30d92f474a10f8e14afffd8f27671066357141ab3d2f32218cdfac038544",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-followup-20261029/native/out/Products/Debug/XLogCore.swiftmodule/arm64-apple-macos.abi.json": "4277ac6b49f8511196028a5ac20f5b1b1dfa754c24615d34068089f0b1739728",
+    "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-followup-20261029/native/out/Products/Debug/XLogCore.swiftmodule/Project/arm64-apple-macos.swiftsourceinfo": "32725f9ab7671eebd7277211ac7c1352adddb9aab74db2876960d1753df10020"
+  },
+  "driverSHA256": "1d84259c4e1246a040bc51e5c07d65fccbacf337f87cae8b8f4c7dad23c8a3a3",
+  "compilerResult": "swiftc exit0 after retaining @testable for the current injected URLProtocol test prefix",
+  "runtimeResult": "NOT RUN: direct data-proof command permanently blocked by lean-ctx shell allowlist; no bypass attempted",
+  "python": "17 targeted tests pass, plus executed country-reconcile counterexample",
+  "duplicateTestPairs": {
+    "BackupRestoreAuthorityTests.swift": true,
+    "WavelogDestinationAuthorityTests.swift": true
+  }
+}

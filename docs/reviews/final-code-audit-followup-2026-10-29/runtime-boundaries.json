@@ -1,0 +1,17 @@
+{
+  "id": "runtime-boundaries",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "prototype/scripts/test-contest-python-relocation.py"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T02:36:13.164101+00:00",
+  "finishedUTC": "2026-10-29T02:36:13.424549+00:00",
+  "seconds": 0.261,
+  "exit": 0,
+  "logSHA256": "5cd53a53d04023de114b2eeda7623449bed3d63b39f9d54d792ddacfe315b8e9",
+  "sourceHead": "0375a8e1a385252519a99127fe9d8f40d639365a",
+  "buildBoundary": "Existing exact-source cached build; no fresh build or hardware/provider acceptance claimed",
+  "environment": "Inherited XLOG/XCW opts removed; UDP denied; Python and portable test profile explicit"
+}

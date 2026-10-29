@@ -1,0 +1,225 @@
+[
+  {
+    "path": "Package.swift",
+    "scope": "Manifest branch/source selection and product/dependency/runtime policy",
+    "ranges": [
+      [
+        1,
+        156
+      ]
+    ],
+    "lineCount": 156
+  },
+  {
+    "path": ".github/workflows/contest-portability.yml",
+    "scope": "Complete workflow, changed source filters, discovery assertions, OS loops and release boundaries",
+    "ranges": [
+      [
+        1,
+        415
+      ]
+    ],
+    "lineCount": 415
+  },
+  {
+    "path": "Sources/XCWCore/CWComputeWire.swift",
+    "scope": "number/integer/boolean/isJSONBoolean/isFoundationBoolean/event plus parser callers",
+    "ranges": [
+      [
+        1,
+        197
+      ]
+    ],
+    "lineCount": 197
+  },
+  {
+    "path": "Tests/XCWCoreTests/CWComputeWirePrimitiveTests.swift",
+    "scope": "All3primitive regression bodies and positive/negative oracles",
+    "ranges": [
+      [
+        1,
+        53
+      ]
+    ],
+    "lineCount": 53
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveOpportunitiesMethods.swift",
+    "scope": "Changed initializer, retained cluster callback, snapshot, shutdown and cache boundaries",
+    "ranges": [
+      [
+        1,
+        365
+      ]
+    ],
+    "lineCount": 365
+  },
+  {
+    "path": "Tests/XLogPrototypeTests/LiveOpportunitiesMethodsTests.swift",
+    "scope": "Changed default-callback constructibility/terminal test and injected callback controls",
+    "ranges": [
+      [
+        1,
+        180
+      ]
+    ],
+    "lineCount": 447
+  },
+  {
+    "path": "Tests/XLogPrototypeTests/LiveClusterMethodsTests.swift",
+    "scope": "Changed helpers, macOS-only real-broker guards, portable first-admission regression and callers",
+    "ranges": [
+      [
+        32,
+        116
+      ],
+      [
+        252,
+        436
+      ],
+      [
+        642,
+        782
+      ]
+    ],
+    "lineCount": 1293
+  },
+  {
+    "path": "prototype/src-tauri/src/durable_file.rs",
+    "scope": "Complete shared atomic publication/remove implementation and3regressions",
+    "ranges": [
+      [
+        1,
+        110
+      ]
+    ],
+    "lineCount": 110
+  },
+  {
+    "path": "prototype/src-tauri/src/module_restart_intent.rs",
+    "scope": "Complete publication/load/consume/decision/validation plus all tests; UI/main callers",
+    "ranges": [
+      [
+        1,
+        188
+      ]
+    ],
+    "lineCount": 188
+  },
+  {
+    "path": "prototype/src-tauri/src/operating_module.rs",
+    "scope": "Changed publication/commit behavior, owner fencing and regression oracles",
+    "ranges": [
+      [
+        190,
+        340
+      ],
+      [
+        705,
+        834
+      ]
+    ],
+    "lineCount": 834
+  },
+  {
+    "path": "prototype/scripts/relocate-contest-python.py",
+    "scope": "Complete source/runtime path/provenance/linkage/CA/selftest and main dispatcher",
+    "ranges": [
+      [
+        1,
+        372
+      ]
+    ],
+    "lineCount": 372
+  },
+  {
+    "path": "prototype/scripts/test-contest-python-relocation.py",
+    "scope": "Complete12boundary test bodies, failure and mockedtool contracts",
+    "ranges": [
+      [
+        1,
+        190
+      ]
+    ],
+    "lineCount": 190
+  },
+  {
+    "path": "prototype/scripts/accept-contesting-worker-process.mjs",
+    "scope": "Complete artifact/source/profile/stream/timeout/restart/cleanup/reporting implementation",
+    "ranges": [
+      [
+        1,
+        542
+      ]
+    ],
+    "lineCount": 542
+  },
+  {
+    "path": "tools/check_portable_iq_sources.py",
+    "scope": "Complete manifest-slice fixture/source identity/test outcome implementation",
+    "ranges": [
+      [
+        1,
+        61
+      ]
+    ],
+    "lineCount": 61
+  },
+  {
+    "path": "tools/check_reviewed_security_patches.py",
+    "scope": "Complete narrowpatch policy/CLI and all callsites",
+    "ranges": [
+      [
+        1,
+        49
+      ]
+    ],
+    "lineCount": 49
+  },
+  {
+    "path": "python/tests/test_reviewed_security_patches.py",
+    "scope": "Complete7policy oracles, old/unknown/prerelease/duplicate edge cases",
+    "ranges": [
+      [
+        1,
+        44
+      ]
+    ],
+    "lineCount": 44
+  },
+  {
+    "path": "prototype/package.json",
+    "scope": "Complete Node/Vitest/build entrypoints, scripts and declared dependency lines",
+    "ranges": [
+      [
+        1,
+        35
+      ]
+    ],
+    "lineCount": 35
+  },
+  {
+    "path": "prototype/package-lock.json",
+    "scope": "Programmatic complete changed-package fields, native Rolldown binding alignment/integrities; no full advisory scan",
+    "ranges": [],
+    "lineCount": 2473
+  },
+  {
+    "path": "prototype/src-tauri/Cargo.lock",
+    "scope": "Programmatic complete changed versions/dependency edges and four patch floors; conditional platform risk retained",
+    "ranges": [],
+    "lineCount": 5899
+  },
+  {
+    "path": "prototype/tests/fixtures/adx317.README.md",
+    "scope": "Pinned fixture provenance and stated vocabulary-only scope; independently checked with data/frontend reviewers",
+    "ranges": [],
+    "lineCount": 5
+  },
+  {
+    "path": "prototype/tests/fixtures/adx317.xsd.gz",
+    "scope": "Compressed byte identity and independent179-name RECORD vocabulary comparison, not fullscalar schema certification",
+    "ranges": [],
+    "lineCount": null
+  }
+]

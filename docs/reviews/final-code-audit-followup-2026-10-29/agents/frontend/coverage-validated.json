@@ -1,0 +1,787 @@
+{
+    "head": "0375a8e1a385252519a99127fe9d8f40d639365a",
+    "applicationSource": "f3f6e3de",
+    "diffBases": [
+        "530de4c4",
+        "fd774aef"
+    ],
+    "scope": "frontend changed functions and tests, native duplicate boundary, process scenario and changed browser acceptance helpers; root owns other process/provenance/security/build scripts",
+    "entries": [
+        {
+            "path": "prototype/src/LiveApp.tsx",
+            "functions": [
+                {
+                    "name": "MainLiveApp and all local hooks/callbacks",
+                    "ranges": [
+                        [
+                            218,
+                            1479
+                        ]
+                    ],
+                    "status": "complete source body reviewed",
+                    "callers": [
+                        "LiveApp:210-216",
+                        "main.tsx/windowSurface routing"
+                    ],
+                    "tests": [
+                        "DetachedQSOSurface.test.tsx analogy only",
+                        "OperatorDraftTime.test.tsx",
+                        "operatorDraftSession.test.ts"
+                    ],
+                    "notes": "Main native navigation not freshly rendered; automaticStart derivation298 and both form props1334-1340/1437-1448 fully traced."
+                }
+            ]
+        },
+        {
+            "path": "prototype/src/live/DetachedQSOSurface.tsx",
+            "functions": [
+                {
+                    "name": "DetachedQSOSurface and all hooks/callbacks",
+                    "ranges": [
+                        [
+                            32,
+                            223
+                        ]
+                    ],
+                    "status": "complete source body reviewed",
+                    "callers": [
+                        "windowSurface.ts loadWindowSurface log-qso",
+                        "QSOEditorCore",
+                        "DeskQSO",
+                        "OperatorDraftSession"
+                    ],
+                    "tests": [
+                        "DetachedQSOSurface.test.tsx",
+                        "scratch detached-reversal.test.tsx"
+                    ],
+                    "notes": "Actual component and session exercised; transport/window/spot ownership mocked. Reversal defect confirmed."
+                }
+            ]
+        },
+        {
+            "path": "prototype/src/live/QSOEditorCore.tsx",
+            "functions": [
+                {
+                    "name": "draftPowerDescription",
+                    "ranges": [
+                        [
+                            103,
+                            119
+                        ]
+                    ],
+                    "status": "complete source body reviewed",
+                    "callers": [
+                        "QSOEditor field txPower:324-330",
+                        "QSOEditor.tsx re-export"
+                    ],
+                    "tests": [
+                        "QSOEditorPower.test.tsx"
+                    ]
+                },
+                {
+                    "name": "QSOEditor including buffer/layout/passive effects, validators, submit and field render callbacks",
+                    "ranges": [
+                        [
+                            121,
+                            430
+                        ]
+                    ],
+                    "status": "complete source body reviewed",
+                    "callers": [
+                        "QSOEditor.tsx wrapper",
+                        "MainLiveApp:1437",
+                        "DetachedQSOSurface:199",
+                        "DetachedLogbookSurface contact editor"
+                    ],
+                    "tests": [
+                        "OperatorDraftTime.test.tsx",
+                        "QSOEditorPower.test.tsx",
+                        "DetachedQSOSurface.test.tsx",
+                        "tests/detached-logbook.test.tsx",
+                        "scratch reversal.test.tsx",
+                        "scratch detached-reversal.test.tsx"
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "prototype/src/live/OperatorDesk.tsx",
+            "functions": [
+                {
+                    "name": "DeskQSO including automatic state effects, time/frequency buffers, changeTime, canSave and saveCurrent",
+                    "ranges": [
+                        [
+                            18,
+                            21
+                        ],
+                        [
+                            34,
+                            128
+                        ]
+                    ],
+                    "status": "complete changed body reviewed",
+                    "callers": [
+                        "OperatorDesk",
+                        "MainLiveApp deskProps/OperatorCanvas",
+                        "DetachedQSOSurface simple mode"
+                    ],
+                    "tests": [
+                        "OperatorDraftTime.test.tsx",
+                        "DetachedQSOSurface.test.tsx",
+                        "scratch reversal.test.tsx"
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "prototype/src/live/operatorDraftTimeIntent.ts",
+            "functions": [
+                {
+                    "name": "effectiveDraftAutomaticStart",
+                    "ranges": [
+                        [
+                            1,
+                            7
+                        ]
+                    ],
+                    "status": "complete source body reviewed",
+                    "callers": [
+                        "MainLiveApp:298",
+                        "DetachedQSOSurface:46"
+                    ],
+                    "tests": [
+                        "operatorDraftSession.test.ts:39-75",
+                        "DetachedQSOSurface.test.tsx:85-194",
+                        "scratch reversal.test.tsx",
+                        "scratch detached-reversal.test.tsx"
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "prototype/src/live/operatorDraftSession.ts",
+            "functions": [
+                {
+                    "name": "DraftSnapshot/validDraftSnapshot",
+                    "ranges": [
+                        [
+                            18,
+                            18
+                        ],
+                        [
+                            47,
+                            52
+                        ]
+                    ],
+                    "status": "complete changed function reviewed",
+                    "callers": [
+                        "validScopedSnapshot",
+                        "readDraftJournal",
+                        "OperatorDraftSession.verifiedReceipt/refresh/receiveSnapshot"
+                    ],
+                    "tests": [
+                        "OperatorDraftTime.test.tsx:35-46",
+                        "operatorDraftSession.test.ts"
+                    ]
+                },
+                {
+                    "name": "Unchanged full session lifecycle context",
+                    "ranges": [
+                        [
+                            1,
+                            499
+                        ]
+                    ],
+                    "status": "source reviewed",
+                    "callers": [
+                        "MainLiveApp",
+                        "DetachedQSOSurface",
+                        "OperatorDraftStatus"
+                    ],
+                    "tests": [
+                        "operatorDraftSession.test.ts",
+                        "DetachedQSOSurface.test.tsx"
+                    ],
+                    "notes": "Journals, dirty equivalence, local input fences, stale read sequences, apply receipt, lost acknowledgement, flush/commit, retry/conflicts/restores traced."
+                }
+            ]
+        },
+        {
+            "path": "prototype/src/live/adifTransfer.ts",
+            "functions": [
+                {
+                    "name": "standardADXFields vocabulary",
+                    "ranges": [
+                        [
+                            86,
+                            107
+                        ]
+                    ],
+                    "status": "complete changed constant reviewed",
+                    "callers": [
+                        "validateFieldMetadata",
+                        "ADIFExportDocument.append",
+                        "adxToADI.field"
+                    ],
+                    "tests": [
+                        "adifTransfer.schema.test.ts",
+                        "adifTransfer.test.ts"
+                    ]
+                },
+                {
+                    "name": "adxToADI and nested field parser",
+                    "ranges": [
+                        [
+                            495,
+                            609
+                        ]
+                    ],
+                    "status": "complete changed function reviewed",
+                    "callers": [
+                        "decodeADIF:426-438",
+                        "decodeADIFDocument:401-404",
+                        "LogbookPanel importFile:296-297"
+                    ],
+                    "tests": [
+                        "adifTransfer.test.ts",
+                        "adifTransfer.schema.test.ts"
+                    ]
+                },
+                {
+                    "name": "ADIFExportDocument append/finish supporting changed vocabulary",
+                    "ranges": [
+                        [
+                            291,
+                            399
+                        ]
+                    ],
+                    "status": "complete related body reviewed",
+                    "callers": [
+                        "LogbookPanel.exportAll:355-390"
+                    ],
+                    "tests": [
+                        "adifTransfer.test.ts",
+                        "adifTransfer.schema.test.ts"
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "prototype/src/live/DetachedQSOSurface.test.tsx",
+            "functions": [
+                {
+                    "name": "backend",
+                    "ranges": [
+                        [
+                            23,
+                            70
+                        ]
+                    ],
+                    "status": "complete changed fixture reviewed",
+                    "callers": [
+                        "all component cases"
+                    ],
+                    "tests": [
+                        "fresh full file pass"
+                    ]
+                },
+                {
+                    "name": "new preflush manual UTC/remount/journal/pending fence/duplicate/acknowledged/manual/automatic cases",
+                    "ranges": [
+                        [
+                            85,
+                            194
+                        ]
+                    ],
+                    "status": "all changed test bodies reviewed and run",
+                    "callers": [
+                        "Vitest"
+                    ],
+                    "tests": [
+                        "fresh full file pass"
+                    ]
+                }
+            ],
+            "additionalReviewedRanges": [
+                [
+                    1,
+                    85
+                ],
+                [
+                    418,
+                    455
+                ]
+            ],
+            "limitations": "Other unchanged test names inventoried and full file executed, not every unchanged body individually re-read."
+        },
+        {
+            "path": "prototype/src/live/OperatorDraftTime.test.tsx",
+            "functions": [
+                {
+                    "name": "Harness and all tests",
+                    "ranges": [
+                        [
+                            1,
+                            46
+                        ]
+                    ],
+                    "status": "all new file reviewed and run",
+                    "callers": [
+                        "Vitest"
+                    ],
+                    "tests": [
+                        "13 fresh passes"
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "prototype/src/live/operatorDraftSession.test.ts",
+            "functions": [
+                {
+                    "name": "fixture and new effective intent/recovered unsent journal/UUID equality tests",
+                    "ranges": [
+                        [
+                            1,
+                            75
+                        ]
+                    ],
+                    "status": "all changed bodies reviewed and entire file run",
+                    "callers": [
+                        "Vitest"
+                    ],
+                    "tests": [
+                        "fresh full file pass"
+                    ]
+                }
+            ],
+            "notes": "Concurrency/recovery names inventoried; fixture does not model automaticStart on mutation."
+        },
+        {
+            "path": "prototype/src/live/QSOEditorPower.test.tsx",
+            "functions": [
+                {
+                    "name": "capturedPower, Harness and changed capture attribution tests",
+                    "ranges": [
+                        [
+                            1,
+                            95
+                        ]
+                    ],
+                    "status": "complete file reviewed and run",
+                    "callers": [
+                        "Vitest"
+                    ],
+                    "tests": [
+                        "10 fresh passes"
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "prototype/src/live/adifTransfer.schema.test.ts",
+            "functions": [
+                {
+                    "name": "independent ADX vocabulary/roundtrip regression",
+                    "ranges": [
+                        [
+                            1,
+                            36
+                        ]
+                    ],
+                    "status": "complete new file reviewed and run",
+                    "callers": [
+                        "Vitest"
+                    ],
+                    "tests": [
+                        "1 fresh pass"
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "prototype/src/live/adifTransfer.test.ts",
+            "functions": [
+                {
+                    "name": "legacy GUEST_OP/VE_PROV import and USERDEF export regression",
+                    "ranges": [
+                        [
+                            545,
+                            556
+                        ]
+                    ],
+                    "status": "changed test reviewed; entire file run",
+                    "callers": [
+                        "Vitest"
+                    ],
+                    "tests": [
+                        "1314 fresh passes"
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "prototype/tests/detached-logbook.test.tsx",
+            "functions": [
+                {
+                    "name": "openEditor and shared editor listener teardown expectation",
+                    "ranges": [
+                        [
+                            29,
+                            54
+                        ]
+                    ],
+                    "status": "changed bodies reviewed in diff; entire file run",
+                    "callers": [
+                        "Vitest"
+                    ],
+                    "tests": [
+                        "fresh full file pass"
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "prototype/src/contesting/ContestOperatorPanel.test.tsx",
+            "functions": [
+                {
+                    "name": "StrictMode blank NAQP CQ regression",
+                    "ranges": [
+                        [
+                            427,
+                            436
+                        ]
+                    ],
+                    "status": "changed test body reviewed; not run by this agent",
+                    "callers": [
+                        "StructuredHarness",
+                        "Vitest"
+                    ],
+                    "tests": [
+                        "root broad suite may cover; not claimed here"
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "prototype/src/contesting/ContestWorkspace.arrlDX.test.tsx",
+            "functions": [
+                {
+                    "name": "creates ARRL DX preview async field readiness expectation",
+                    "ranges": [
+                        [
+                            55,
+                            62
+                        ]
+                    ],
+                    "status": "changed line and surrounding diff reviewed; not run by this agent",
+                    "callers": [
+                        "Vitest"
+                    ],
+                    "tests": [
+                        "root broad suite may cover; not claimed here"
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "prototype/src-tauri/src/worker.rs",
+            "functions": [
+                {
+                    "name": "validate_surface log-qso role gate",
+                    "ranges": [
+                        [
+                            20,
+                            145
+                        ]
+                    ],
+                    "status": "complete relevant role gate traced",
+                    "callers": [
+                        "main.rs worker_request:2402,2453",
+                        "validate_request generic allowlist396",
+                        "passive reads1258"
+                    ],
+                    "tests": [
+                        "detached_qso_has_only_canonical_draft_and_required_lookup_reads:1606",
+                        "duplicate_history_query_is_scoped_to_qso_editors:1911"
+                    ],
+                    "notes": "Changed duplicate admission tests read in diff. Retirement changes delegated to root/other agent, not covered here."
+                }
+            ]
+        },
+        {
+            "path": "prototype/scripts/contesting-worker-current-scenario.mjs",
+            "functions": [
+                {
+                    "name": "checkStaleContestRequests",
+                    "ranges": [
+                        [
+                            1,
+                            25
+                        ]
+                    ],
+                    "status": "complete new function reviewed",
+                    "callers": [
+                        "currentContestScenario:156-157"
+                    ],
+                    "tests": [
+                        "contesting-worker-current-scenario.node-test.mjs"
+                    ]
+                },
+                {
+                    "name": "rejectionAssertions",
+                    "ranges": [
+                        [
+                            27,
+                            36
+                        ]
+                    ],
+                    "status": "complete function reviewed",
+                    "callers": [
+                        "accept-contesting-worker-process.mjs:522"
+                    ],
+                    "tests": [
+                        "contesting-worker-current-scenario.node-test.mjs"
+                    ]
+                },
+                {
+                    "name": "currentContestScenario with fields/mutate/score/log/replay/receipt/exports closures",
+                    "ranges": [
+                        [
+                            39,
+                            204
+                        ]
+                    ],
+                    "status": "complete new scenario reviewed",
+                    "callers": [
+                        "accept-contesting-worker-process.mjs:427"
+                    ],
+                    "tests": [
+                        "Node tests cover stale helper only; no process launch here"
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "prototype/scripts/contesting-worker-current-scenario.node-test.mjs",
+            "functions": [
+                {
+                    "name": "fixture and all four tests",
+                    "ranges": [
+                        [
+                            1,
+                            71
+                        ]
+                    ],
+                    "status": "complete new file reviewed and run",
+                    "callers": [
+                        "node --test"
+                    ],
+                    "tests": [
+                        "4 fresh passes"
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "prototype/scripts/accept-contesting-worker-process.mjs",
+            "functions": [
+                {
+                    "name": "complete source including staging/runtimeReceipt/resourceManifest/WorkerProcess/record/performAcceptance/evidence output",
+                    "ranges": [
+                        [
+                            1,
+                            542
+                        ]
+                    ],
+                    "status": "complete file source reviewed",
+                    "callers": [
+                        "process acceptance CLI",
+                        "currentContestScenario",
+                        "rejectionAssertions",
+                        "relocate-contest-python.py"
+                    ],
+                    "tests": [
+                        "Node helper unit suite only; no process acceptance run here"
+                    ],
+                    "notes": "Root deep reviews provenance/relocation boundaries; this review covers scenario/evidence integration."
+                }
+            ]
+        },
+        {
+            "path": "prototype/scripts/accept-contest-naqp-operator-browser.mjs",
+            "functions": [
+                {
+                    "name": "select and click",
+                    "ranges": [
+                        [
+                            103,
+                            114
+                        ]
+                    ],
+                    "status": "complete changed helper bodies reviewed",
+                    "callers": [
+                        "createNAQPSession",
+                        "commitNAQP",
+                        "createNAQPCase",
+                        "createRTTYCase",
+                        "createDXCase",
+                        "exportCase",
+                        "top-level correction/deletion flow"
+                    ],
+                    "tests": [
+                        "source-only; no browser/native run here"
+                    ]
+                },
+                {
+                    "name": "createNAQPCase",
+                    "ranges": [
+                        [
+                            294,
+                            373
+                        ]
+                    ],
+                    "status": "complete changed body reviewed",
+                    "callers": [
+                        "top-level cases loop399"
+                    ],
+                    "tests": [
+                        "source-only"
+                    ]
+                },
+                {
+                    "name": "top-level try/catch/finally/evidence",
+                    "ranges": [
+                        [
+                            395,
+                            447
+                        ]
+                    ],
+                    "status": "complete changed block reviewed",
+                    "callers": [
+                        "acceptance CLI"
+                    ],
+                    "tests": [
+                        "source-only"
+                    ]
+                }
+            ],
+            "supportingReviewedRanges": [
+                [
+                    1,
+                    130
+                ],
+                [
+                    235,
+                    293
+                ],
+                [
+                    374,
+                    394
+                ]
+            ],
+            "notes": "No browser skill execution; static code review only."
+        }
+    ],
+    "crossBoundarySources": [
+        {
+            "path": "prototype/src/live/operatorDraftTransport.ts",
+            "range": [
+                1,
+                35
+            ],
+            "purpose": "request context, correlation and explicit rejection versus lost IPC"
+        },
+        {
+            "path": "prototype/src/live/operatorDraftWindows.ts",
+            "range": [
+                1,
+                103
+            ],
+            "purpose": "subscribe-before-read, wake coalescing, close/module fences"
+        },
+        {
+            "path": "prototype/src/live/useCurrentUTC.ts",
+            "range": [
+                1,
+                15
+            ],
+            "purpose": "automatic ticking, passive effect lifecycle"
+        },
+        {
+            "path": "prototype/src/live/useDuplicateContact.ts",
+            "range": [
+                1,
+                38
+            ],
+            "purpose": "parameters, stale response key and advisory display"
+        },
+        {
+            "path": "prototype/src-tauri/src/main.rs",
+            "ranges": [
+                [
+                    2387,
+                    2464
+                ],
+                [
+                    2637,
+                    2675
+                ]
+            ],
+            "purpose": "role gate call chain before worker dispatch"
+        },
+        {
+            "path": "Sources/XLogPrototypeSupport/LiveLogbookMethods.swift",
+            "range": [
+                975,
+                1005
+            ],
+            "purpose": "native duplicate dispatch exact parameters and response"
+        },
+        {
+            "path": "Sources/XLogCore/LogbookDatabase.swift",
+            "range": [
+                1900,
+                1998
+            ],
+            "purpose": "native Replace/Save time semantics, atomic receipt and rollback"
+        },
+        {
+            "path": "prototype/scripts/check-window-bundles.mjs",
+            "range": [
+                37,
+                79
+            ],
+            "purpose": "current unchanged budget thresholds, no fresh build"
+        }
+    ],
+    "execution": {
+        "existingFrontend": {
+            "files": 8,
+            "tests": 1442,
+            "status": "pass",
+            "log": "existing-tests.log"
+        },
+        "nodeStaleContract": {
+            "tests": 4,
+            "status": "pass",
+            "log": "node-stale.log"
+        },
+        "scratchForms": {
+            "pass": 1,
+            "fail": 1,
+            "log": "reversal-r2.log"
+        },
+        "scratchDetached": {
+            "pass": 1,
+            "fail": 2,
+            "log": "detached-reversal-r2.log"
+        }
+    },
+    "limitations": [
+        "No fresh native GUI, process acceptance, browser acceptance, whole clean dependency install or frontend build by this agent",
+        "Main full body source reviewed; actual rendered navigation remains unverified",
+        "Native timestamp persistence is source traced and simulated in the scratch component proof; root owns actual Swift persistence validation",
+        "Root owns other changed tooling/security/provenance/build functions and integrates overall79path inventory"
+    ]
+}

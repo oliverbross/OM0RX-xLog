@@ -1,0 +1,50 @@
+[
+  {
+    "id": "FA-010",
+    "severity": "High",
+    "disposition": "Return to Phase5; no repair in independent audit",
+    "evidence": "Source-confirmed failure mechanism; runtime verification unexecuted"
+  },
+  {
+    "id": "FA-011",
+    "severity": "Medium",
+    "disposition": "Return to Phase5; no repair in independent audit",
+    "evidence": "Source-confirmed failure mechanism; runtime verification unexecuted"
+  },
+  {
+    "id": "FA-012",
+    "severity": "Medium",
+    "disposition": "Return to Phase5; no repair in independent audit",
+    "evidence": "Source-confirmed failure mechanism; runtime verification unexecuted"
+  },
+  {
+    "id": "FA-013",
+    "severity": "Medium",
+    "disposition": "Return to Phase5; no repair in independent audit",
+    "evidence": "Executed counterexample using actual current Hosts"
+  },
+  {
+    "id": "FA-014",
+    "severity": "Medium",
+    "disposition": "Return to Phase5; no repair in independent audit",
+    "evidence": "Executed counterexample with native/backend semantics simulated"
+  },
+  {
+    "id": "FA-015",
+    "severity": "Medium",
+    "disposition": "Return to Phase5; no repair in independent audit",
+    "evidence": "Source-confirmed failure mechanism; runtime verification unexecuted"
+  },
+  {
+    "id": "FA-016",
+    "severity": "Medium",
+    "disposition": "Return to Phase5; no repair in independent audit",
+    "evidence": "Source-confirmed failure mechanism; runtime verification unexecuted"
+  },
+  {
+    "id": "FA-017",
+    "severity": "Medium",
+    "disposition": "Return to Phase5; no repair in independent audit",
+    "evidence": "Executed counterexample with native/backend semantics simulated"
+  }
+]

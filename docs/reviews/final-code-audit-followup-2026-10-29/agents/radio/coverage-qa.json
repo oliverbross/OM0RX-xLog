@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "entries_validated": 132,
+  "range_kind": "declaration-through-complete-body",
+  "locator": "signature-parenthesis-aware, skips comments and quoted strings; manually checked key complete body anchors",
+  "manual_anchors": [
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+      "symbol": "init(agents:",
+      "range": [
+        44,
+        51
+      ],
+      "expected": [
+        44,
+        51
+      ]
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveOpportunitiesMethods.swift",
+      "symbol": "init(logbook:",
+      "range": [
+        42,
+        60
+      ],
+      "expected": [
+        42,
+        60
+      ]
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveWorker.swift",
+      "symbol": "static func resolve(onlineLogsRetired:",
+      "range": [
+        38,
+        46
+      ],
+      "expected": [
+        38,
+        46
+      ]
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveWorker.swift",
+      "symbol": "public func response(to data:",
+      "range": [
+        437,
+        814
+      ],
+      "expected": [
+        437,
+        814
+      ]
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationSession.swift",
+      "symbol": "func handle(_ method:",
+      "range": [
+        243,
+        534
+      ],
+      "expected": [
+        243,
+        534
+      ]
+    }
+  ],
+  "failures": [],
+  "source_hashes_current": true,
+  "evidence_frozen_after_this_qa": true,
+  "artifact_sha256": {
+    "REVIEW.md": "1ed7457648e9f1a09ae647dd15e8e285b1e7769937b82f977bbf5f2f739e7966",
+    "coverage.json": "2de4e4ba50741ee8d141240427a2e111b95752f4033be581d2cfb4cc132acabf",
+    "static-proofs.json": "e02bb657c825ee0183b3a61609d66d6b07fc5c0a7b59113cc34351fb8e65ed92",
+    "proof-source-binding.json": "cad1073409e601bf4fbf4d69e7cdff0e6aae4923a4439834ab3b588d56d66ed8",
+    "write_coverage.py": "7f5b29336f19e45f90b9b4b973f9800a51821bbac6bf112b98d53efaf0f61f6d",
+    "static_proofs.py": "9284398775eac9ad4f276e45c6ebb742c026331dcc52eae88047e019e805bc01",
+    "build_proofs.py": "1f8155e2c727026a65e4834fcf278dee3da2f42c84eb07b86e3889d45fffbc34"
+  }
+}

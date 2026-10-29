@@ -1,0 +1,731 @@
+[
+  {
+    "path": ".github/workflows/contest-portability.yml",
+    "sha256": "44a9e3263842ef15f798b7ccdb9e6da89f649484206792baac4ab55189dbda23",
+    "reviewers": [
+      "root"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": "No function in lockfiles/manifests/fixtures; policy/source/content assessment applies"
+  },
+  {
+    "path": "Package.swift",
+    "sha256": "f59e13d1cb74c8570a6a6b9b3a59e66133ad4358647f634ed3087a2c8948dfe4",
+    "reviewers": [
+      "root"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Sources/XCWCore/CWComputeWire.swift",
+    "sha256": "2ae4f3069c06a0c1355a52e2819650df6fbcd8cddb873096cbb6ecf28edfff05",
+    "reviewers": [
+      "radio",
+      "root"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Sources/XLogApp/AppModel.swift",
+    "sha256": "2f0f2d99f8dd181ac46e0b5d7c2eaaea16ad40d322d3b245cdccaa29aa51ecc3",
+    "reviewers": [
+      "data"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Sources/XLogCore/ADIF.swift",
+    "sha256": "fe43ae60eb7fe83865657dc5661493311204dcf18bd39b1f7115780d9360193e",
+    "reviewers": [
+      "data"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Sources/XLogCore/BackupManager.swift",
+    "sha256": "d055d5bf1ddc3581edb869a519928ceec02d5d1bbbfcc069e5b9b59563c7d089",
+    "reviewers": [
+      "data"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Sources/XLogCore/LogbookDatabase.swift",
+    "sha256": "bac645ba76ff58fffe465129733d3dcd2b1220ce99edb46284aed2cf5bb98b2b",
+    "reviewers": [
+      "data",
+      "frontend"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Sources/XLogCore/Settings.swift",
+    "sha256": "459da4ffe9e760d0d557088f434ad97108c79fc72eee051fefc31541df1b2e19",
+    "reviewers": [
+      "data"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveFldigiBridge.swift",
+    "sha256": "a3932fd831c3b754763d5d73edb6f2efa8ce512d3058123007656ef5becd7bb1",
+    "reviewers": [
+      "frontend",
+      "radio"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveFlexSession.swift",
+    "sha256": "5b961b6aa7d7552a68984ed94ed6478d8c6ee074587f1b7d96f22ea269002d8e",
+    "reviewers": [
+      "radio"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveLogbookMethods.swift",
+    "sha256": "7a1a736cc597f0ed1c4607cee908660a13761c8f038b81302b68439998922057",
+    "reviewers": [
+      "data",
+      "frontend"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveOpportunitiesMethods.swift",
+    "sha256": "cacd9127938839fa3abe0242272a84956e25b4a19328b94065a5ab5342289ca9",
+    "reviewers": [
+      "radio",
+      "root"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+    "sha256": "8bee22c827ee9897bfdd7e19376372b0aeaf55c567286a7759e1e131bda984ad",
+    "reviewers": [
+      "radio"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveStationSession.swift",
+    "sha256": "4c03e304c8abdd976e5ef238e88aab13570e0f2a40c161b160e1db93d7f3afa0",
+    "reviewers": [
+      "radio"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/LiveWorker.swift",
+    "sha256": "22226c8f7c71d5e7944ad92d74184a7c854b9bb1bb9fdf4467c9c4bf3ff37c73",
+    "reviewers": [
+      "radio"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Sources/XLogPrototypeSupport/NativeDraftPowerGate.swift",
+    "sha256": "bbf5a94de2bb4a90480316c6e7f65415f94fa50ea985af06502ba4f76bf848af",
+    "reviewers": [
+      "radio"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Tests/XCWCoreTests/CWComputeWirePrimitiveTests.swift",
+    "sha256": "687429b31910701c356a5b24df939ee8354a1b00a3ce7e3f98da2a7f1f4f574b",
+    "reviewers": [
+      "radio",
+      "root"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Tests/XLogCoreTests/BackupRestoreAuthorityTests.swift",
+    "sha256": "8bc0a368d852615cdd69d37e5dc41b993c4d01b2e6298e2b958f93b1617e974a",
+    "reviewers": [
+      "data"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift",
+    "sha256": "bb4f76029842564f0056d4cf4e900d0a3efb925e5d5c892f217a125068207296",
+    "reviewers": [
+      "data"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Tests/XLogPrototypeTests/BackupRestoreAuthorityTests.swift",
+    "sha256": "8bc0a368d852615cdd69d37e5dc41b993c4d01b2e6298e2b958f93b1617e974a",
+    "reviewers": [
+      "data"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Tests/XLogPrototypeTests/LegacyADIFTransferTests.swift",
+    "sha256": "ce3ac811e543ac59b8348e3175a283fee492629206e80a87ff5ee8e19828f032",
+    "reviewers": [
+      "data"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Tests/XLogPrototypeTests/LiveClusterMethodsTests.swift",
+    "sha256": "768e3fefe40faa4ecfad8ee5047c1cea610a091852624be607da7bbe66074ae9",
+    "reviewers": [
+      "radio",
+      "root"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift",
+    "sha256": "fabf4eb4f0ee5e27bfaab789ab1ae90fbbd8e53db82d60f8c36bfc4a4772b9ff",
+    "reviewers": [
+      "radio"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Tests/XLogPrototypeTests/LiveOpportunitiesMethodsTests.swift",
+    "sha256": "a35e974247c0fc7aec9b254ebf107d383c3b192ccbe481e4dc5af513828932f6",
+    "reviewers": [
+      "radio",
+      "root"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Tests/XLogPrototypeTests/LiveTCISessionTests.swift",
+    "sha256": "d83d1862aad148891aac50ea523ead91f7d0e415a4fcce428739729a39645174",
+    "reviewers": [
+      "radio"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Tests/XLogPrototypeTests/NativeDraftPowerAdmissionTests.swift",
+    "sha256": "61d66626109036351211532a58217cf0e32de2b4cf2662cbe82d3d664cbd578b",
+    "reviewers": [
+      "radio"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Tests/XLogPrototypeTests/NativeDraftPowerCaptureTests.swift",
+    "sha256": "7569b73ef6c0859f2dd3c1f6191fe94bf081860927467917000f5337f226ac35",
+    "reviewers": [
+      "radio"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Tests/XLogPrototypeTests/NativePowerSelectionTests.swift",
+    "sha256": "a9a51121c6497d5ea2240e6ffe52f5accca98cde9c361abf2333dd47801d90e0",
+    "reviewers": [
+      "radio"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Tests/XLogPrototypeTests/OperatorDraftTests.swift",
+    "sha256": "d917ace17f18ebc56b31d58b5268cc88364075851c72db56c27f8006117bb397",
+    "reviewers": [
+      "data"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Tests/XLogPrototypeTests/StationRadioRegistryTests.swift",
+    "sha256": "36bceff11c52c6652db36568dafa33b3abb69f5939b2ec1a7d1ad8eb6ffdd464",
+    "reviewers": [
+      "radio"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "Tests/XLogPrototypeTests/WavelogDestinationAuthorityTests.swift",
+    "sha256": "bb4f76029842564f0056d4cf4e900d0a3efb925e5d5c892f217a125068207296",
+    "reviewers": [
+      "data"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/package-lock.json",
+    "sha256": "527b256030de0eb664c771b2a82275e8e83532d2f32d12167f3a5b5b6279609a",
+    "reviewers": [
+      "root"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": "No function in lockfiles/manifests/fixtures; policy/source/content assessment applies"
+  },
+  {
+    "path": "prototype/package.json",
+    "sha256": "831ad8c0f81573dbeab8c66d75e4ece463a2b305a5dc2d382cb9f45a803c6d4c",
+    "reviewers": [
+      "root"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": "No function in lockfiles/manifests/fixtures; policy/source/content assessment applies"
+  },
+  {
+    "path": "prototype/scripts/accept-contest-naqp-operator-browser.mjs",
+    "sha256": "846655fd29310d71cfb4aa943302c65bcdf431672783e462bd2cb90fd73d63c7",
+    "reviewers": [
+      "frontend"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/scripts/accept-contesting-worker-process.mjs",
+    "sha256": "98c2cd47566486ce24eb1fab51044968dbf6b8572eb134f8bfe54e1a9a922640",
+    "reviewers": [
+      "frontend",
+      "root"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/scripts/contesting-worker-current-scenario.mjs",
+    "sha256": "77b8608f35ef936dbbb78fc097b120a221719245c6900a3fe87fce192dcdbafd",
+    "reviewers": [
+      "frontend"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/scripts/contesting-worker-current-scenario.node-test.mjs",
+    "sha256": "c8af9691beb3308eef0bb231705d08572109d5543662c34648b796b382dce308",
+    "reviewers": [
+      "frontend"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/scripts/relocate-contest-python.py",
+    "sha256": "1cb20812dd8b7dad447104963fad782a5e65a1a2ce01b04ce2e5c52acbc9c2cc",
+    "reviewers": [
+      "root"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/scripts/test-contest-python-relocation.py",
+    "sha256": "3cdd8e056a200903790eeaf9fa5e81bb00d06306854aecca8763d09521ce2152",
+    "reviewers": [
+      "root"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src-tauri/Cargo.lock",
+    "sha256": "0659bbd18a42b8578c48c9303ee686e88cbaebb89850aec4a823102f067304c0",
+    "reviewers": [
+      "root"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": "No function in lockfiles/manifests/fixtures; policy/source/content assessment applies"
+  },
+  {
+    "path": "prototype/src-tauri/src/contest_recorder.rs",
+    "sha256": "f87be9bd8c68ab98a9a1363a6d1d87a1604dddb0a3a315151fffc34bdc826303",
+    "reviewers": [
+      "data"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src-tauri/src/durable_file.rs",
+    "sha256": "d1bf1ccbc91d2dc09aac55a5623d9d8bc6dc66d7d5dc4063b6a626893e820140",
+    "reviewers": [
+      "data",
+      "root"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src-tauri/src/main.rs",
+    "sha256": "5908102e5ea0a64edccfd574458bff24b6c1d98f8b418420bdce371a5a21a230",
+    "reviewers": [
+      "data",
+      "frontend",
+      "radio"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src-tauri/src/module_restart_intent.rs",
+    "sha256": "0ad9e52bbe8d169b530b890890620ab4768ac9547552f5b19eb6e761152599d1",
+    "reviewers": [
+      "data",
+      "root"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src-tauri/src/operating_module.rs",
+    "sha256": "32c64b9378b5983d729239f08e5004e72ebf56de3301eb8c5b15398b56c27722",
+    "reviewers": [
+      "data",
+      "root"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src-tauri/src/radio_slots.rs",
+    "sha256": "e92624d3dc7af32a7b60dae5b7726ff94a5241b74255e489744d965914336a2d",
+    "reviewers": [
+      "radio"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src-tauri/src/station_selection.rs",
+    "sha256": "5d937bb549bc2ae5740ee2bc279c5834edbefc044f9a468041f550d93a0dfe79",
+    "reviewers": [
+      "radio"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src-tauri/src/worker.rs",
+    "sha256": "ff973865944a4aab5377371ca29ff27d856a1c0fcf0f34ab9a5901955dbad36f",
+    "reviewers": [
+      "frontend",
+      "radio"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src/LiveApp.tsx",
+    "sha256": "6c246810cdab3a8eb0ca47733303f6bb9f226a80f995f06184034926aa9df77a",
+    "reviewers": [
+      "frontend"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src/contesting/ContestOperatorPanel.test.tsx",
+    "sha256": "8fed42951c19498e4fcb3bafc04dc956008e35bcaa2278656d6a6970fa20e20a",
+    "reviewers": [
+      "frontend"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src/contesting/ContestWorkspace.arrlDX.test.tsx",
+    "sha256": "d10c81a86a8e118d82e0bb756471c3a02f57a52545d7a64a1e109e7dabacb794",
+    "reviewers": [
+      "frontend"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src/live/DetachedQSOSurface.test.tsx",
+    "sha256": "fe3e09d7f065ebd7607d984a735d56943effa1a98fdd71d5c2a6a3c57391ed39",
+    "reviewers": [
+      "frontend"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src/live/DetachedQSOSurface.tsx",
+    "sha256": "5eca5c45339459c1e90ab5d9b2182b844c8df4aac01e27aeaf75a7ac5d896faf",
+    "reviewers": [
+      "frontend"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src/live/OperatorDesk.tsx",
+    "sha256": "84946de269644f2a6bebee560900d294788d78a39711ac7e0b998f8c77f497f7",
+    "reviewers": [
+      "frontend"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src/live/OperatorDraftTime.test.tsx",
+    "sha256": "06d11ed60f3fc8d12b39afe2fe64c0dce95017f23df229d7fcf542a56800fd07",
+    "reviewers": [
+      "frontend"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src/live/QSOEditorCore.tsx",
+    "sha256": "7e26e81e81e8b4af406a6641b76d3d609563e5067d0acc1b73f58ba6acce882c",
+    "reviewers": [
+      "frontend"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src/live/QSOEditorPower.test.tsx",
+    "sha256": "13393d2aeff73198d25f2d3436fb8093b98227b472bd27e3a5b7f87dbe20c791",
+    "reviewers": [
+      "frontend"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src/live/adifTransfer.schema.test.ts",
+    "sha256": "a02faaafdccfb6849180f2940af10af277a872505c9be73c5c85187b4055ab8e",
+    "reviewers": [
+      "data",
+      "frontend"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src/live/adifTransfer.test.ts",
+    "sha256": "1efd1d8d22e624f70c2655511d7e9bcb44ec0bd813274f3c0c33094af7bed919",
+    "reviewers": [
+      "data",
+      "frontend"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src/live/adifTransfer.ts",
+    "sha256": "659b5261783d9fc74ca0a7972e2168083b02dc6d60cfc31dfb8d23ce83a8fa97",
+    "reviewers": [
+      "data",
+      "frontend"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src/live/operatorDraftSession.test.ts",
+    "sha256": "e23cbbc5b7c39b1790e6493dd09d418872095f24f1a7f24b9daf8c42281d0c50",
+    "reviewers": [
+      "frontend"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src/live/operatorDraftSession.ts",
+    "sha256": "b5f2a27b26536d864e094692aa96e9d0698e2fb61a6c7f6be89cd08c5f4edb21",
+    "reviewers": [
+      "frontend"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/src/live/operatorDraftTimeIntent.ts",
+    "sha256": "b5fcbad59f7deba70167d45490bc5c07a6cdbb35b7d2c57a340c62c74d6e6f5a",
+    "reviewers": [
+      "frontend"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/tests/detached-logbook.test.tsx",
+    "sha256": "e4907cef74e49d9fe267264007a663535ffebd2f4102fb176fbc86f1ad09d69d",
+    "reviewers": [
+      "frontend"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "prototype/tests/fixtures/adx317.README.md",
+    "sha256": "6263a57cff1a9c6f97fe68f3aae23e93235e612c99da78198142f1723a4ff503",
+    "reviewers": [
+      "root"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": "No function in lockfiles/manifests/fixtures; policy/source/content assessment applies"
+  },
+  {
+    "path": "prototype/tests/fixtures/adx317.xsd.gz",
+    "sha256": "294c0e78734c9bfdeada8df9a840239bc34b69e6b6d858ada465960a2a950a85",
+    "reviewers": [
+      "root"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": "No function in lockfiles/manifests/fixtures; policy/source/content assessment applies"
+  },
+  {
+    "path": "python/contest_host/adif_import.py",
+    "sha256": "865d4e4e9cc833197927e92f767b7439313d3ca39fbadd5075aed8cff1f3d9f3",
+    "reviewers": [
+      "data"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "python/contest_host/developer.py",
+    "sha256": "82b83091c2dcda2604abb6ba6f379488950166ea6bbe34d9e6ac1f63d215be24",
+    "reviewers": [
+      "data"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "python/contest_host/host.py",
+    "sha256": "6ec9ab0337d249aecc6b0f9f1c06a47a5ac10db618be2fc623e7dfd8e115feb5",
+    "reviewers": [
+      "data"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "python/contest_host/recorder.py",
+    "sha256": "543a49c94d25c13c500c6e3ec84152b4d0e8418acf5db423386406e544fc3d32",
+    "reviewers": [
+      "data"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "python/contest_host/store.py",
+    "sha256": "fbf41de8bf97416a3a5ce1135908fac89283c278cd25e1c52bbb108525c411ab",
+    "reviewers": [
+      "data"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "python/contest_host/wae.py",
+    "sha256": "124e7dc0d670b5b01d25e3ae65b3ec550e7a091072898fe448aebc2e92b831a5",
+    "reviewers": [
+      "data"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "python/tests/test_recorder.py",
+    "sha256": "82caf2aab86daae7cb8b08960e54f1043aeebe0409b102f9667838d6b57b1574",
+    "reviewers": [
+      "data"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "python/tests/test_remediation_import_replica.py",
+    "sha256": "fe93dd02fcdb1abe485c97917c15592eeda4a54c5943e1f874e89318cf2f3b60",
+    "reviewers": [
+      "data"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "python/tests/test_remediation_wae.py",
+    "sha256": "7c89772a221d0a39ec6747f115e5b7fd9031f06dcf56a0879a61e48959d1c454",
+    "reviewers": [
+      "data"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "python/tests/test_reviewed_security_patches.py",
+    "sha256": "0645a487106937e5d32be05e5aed18f0336cd0f31836c2a507edaf77d1f9a229",
+    "reviewers": [
+      "root"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "python/tests/test_wave5_developer_host.py",
+    "sha256": "62c688916034d5246efa9f6204f5cf6f69070eddc5c405a8ac8502b9fbe462c0",
+    "reviewers": [
+      "data"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "tools/check_portable_iq_sources.py",
+    "sha256": "56d5ec87968c79fe9bce5a3d573783d47aa4aa292eb0c7c6fce26f69cc863533",
+    "reviewers": [
+      "root"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  },
+  {
+    "path": "tools/check_reviewed_security_patches.py",
+    "sha256": "a11ef6e290680efaacf148edccebf74077181e1b89f6cd64796ebec7a0980464",
+    "reviewers": [
+      "root"
+    ],
+    "coverage": "changed bodies/declarations/oracles and associated callers in reviewer ledgers",
+    "note": ""
+  }
+]

@@ -1,0 +1,6 @@
+{
+  "driverSHA256": "1d84259c4e1246a040bc51e5c07d65fccbacf337f87cae8b8f4c7dad23c8a3a3",
+  "protocolSource": "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift",
+  "protocolExtraction": "Verbatim prefix before XCTestCase, remove XCTest import only; retain @testable for internal test DTO initializers",
+  "allRequestsIntercepted": true
+}

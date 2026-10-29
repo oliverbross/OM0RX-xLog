@@ -1,0 +1,16 @@
+{
+  "source_commit": "0375a8e1a385252519a99127fe9d8f40d639365a",
+  "source_files": {
+    "Sources/XCatIntegrationCore/TCIProtocol.swift": "3734de6cd7d5d4682a477fff0730f1b4ab5096be16acfee667fe885ef0718734",
+    "Sources/XCatIntegrationCore/TCIIQFrame.swift": "4fab85ee68d3e8803846cb3db6ee437d34491de879f10819f68ba1eac7cabac4",
+    "Sources/XCatIntegrationCore/TCIIQSubscription.swift": "a4cf498e0463423a1d5aef9b29e138a15cbdf60a863a54d269a1cc13bfae2ced",
+    "Sources/XCatIntegrationCore/TCIWebSocketSession.swift": "9993785c44395c6dd308f0b765e89eccf6233f692fb359e9d6aa3f436c54f158"
+  },
+  "agent_proof_exact_bodies": [
+    "StationTransmitOwnership",
+    "LiveStationSession.stop",
+    "StationRadioRegistry.terminate",
+    "StationRadioRegistry.init"
+  ],
+  "agent_proof_neighbors": "RemoteAgentClient throwing fake; lifecycle shell terminates by invoking exact stop; passive FLEX/TCI stubs; not a whole worker proof"
+}

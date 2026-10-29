@@ -1,0 +1,17 @@
+{
+  "id": "patch-floors",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "tools/check_reviewed_security_patches.py"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T02:36:13.463849+00:00",
+  "finishedUTC": "2026-10-29T02:36:13.548850+00:00",
+  "seconds": 0.086,
+  "exit": 0,
+  "logSHA256": "0b8a854b94a4b037210b54749bc62284d4abbe8fac79843e57fa7f867da9e637",
+  "sourceHead": "0375a8e1a385252519a99127fe9d8f40d639365a",
+  "buildBoundary": "Existing exact-source cached build; no fresh build or hardware/provider acceptance claimed",
+  "environment": "Inherited XLOG/XCW opts removed; UDP denied; Python and portable test profile explicit"
+}

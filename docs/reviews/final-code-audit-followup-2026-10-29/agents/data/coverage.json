@@ -1,0 +1,1739 @@
+{
+  "canonicalHead": "0375a8e1a385252519a99127fe9d8f40d639365a",
+  "applicationInputs": "f3f6e3dee40af29cb6801ef8ee422c521629e168",
+  "reviewPolicy": "source first; prior reports consulted only after independent reasoning; no application/test/config or Git mutations",
+  "changedFunctionsReviewed": [
+    {
+      "path": "Sources/XLogApp/AppModel.swift",
+      "function": "saveSettings",
+      "ranges": [
+        [
+          902,
+          927
+        ]
+      ],
+      "reviewDepth": "changed bodies and startup/manual-sync/catch/error path; UI rendering not executed",
+      "callers": [
+        "retained native SwiftUI settings/import/export/backup actions; startup328-391; settingsStore factories; XLogBackupManager; SyncEngine"
+      ],
+      "tests": [
+        "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift:51-267 (byte-identical prototype copy); guarded-save error paths, saved config fake-transport positive/negative control, tombstones, closed DB, field-only autofill",
+        "Tests/XLogCoreTests/BackupRestoreAuthorityTests.swift:9-151 (byte-identical prototype copy); exact authority rejection before replacing, safe selected settings, IDs/history retained, swapped pre-install package rejected",
+        "Tests/XLogPrototypeTests/LegacyADIFTransferTests.swift:9-80; invalid mixed input all-or-none, real late SQLite trigger failure, retry counts, strict UTF8 and cap, frozen2003-row export"
+      ]
+    },
+    {
+      "path": "Sources/XLogApp/AppModel.swift",
+      "function": "synchronize",
+      "ranges": [
+        [
+          929,
+          971
+        ]
+      ],
+      "reviewDepth": "changed bodies and startup/manual-sync/catch/error path; UI rendering not executed",
+      "callers": [
+        "retained native SwiftUI settings/import/export/backup actions; startup328-391; settingsStore factories; XLogBackupManager; SyncEngine"
+      ],
+      "tests": [
+        "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift:51-267 (byte-identical prototype copy); guarded-save error paths, saved config fake-transport positive/negative control, tombstones, closed DB, field-only autofill",
+        "Tests/XLogCoreTests/BackupRestoreAuthorityTests.swift:9-151 (byte-identical prototype copy); exact authority rejection before replacing, safe selected settings, IDs/history retained, swapped pre-install package rejected",
+        "Tests/XLogPrototypeTests/LegacyADIFTransferTests.swift:9-80; invalid mixed input all-or-none, real late SQLite trigger failure, retry counts, strict UTF8 and cap, frozen2003-row export"
+      ]
+    },
+    {
+      "path": "Sources/XLogApp/AppModel.swift",
+      "function": "importADIF",
+      "ranges": [
+        [
+          1001,
+          1016
+        ]
+      ],
+      "reviewDepth": "changed bodies and startup/manual-sync/catch/error path; UI rendering not executed",
+      "callers": [
+        "retained native SwiftUI settings/import/export/backup actions; startup328-391; settingsStore factories; XLogBackupManager; SyncEngine"
+      ],
+      "tests": [
+        "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift:51-267 (byte-identical prototype copy); guarded-save error paths, saved config fake-transport positive/negative control, tombstones, closed DB, field-only autofill",
+        "Tests/XLogCoreTests/BackupRestoreAuthorityTests.swift:9-151 (byte-identical prototype copy); exact authority rejection before replacing, safe selected settings, IDs/history retained, swapped pre-install package rejected",
+        "Tests/XLogPrototypeTests/LegacyADIFTransferTests.swift:9-80; invalid mixed input all-or-none, real late SQLite trigger failure, retry counts, strict UTF8 and cap, frozen2003-row export"
+      ]
+    },
+    {
+      "path": "Sources/XLogApp/AppModel.swift",
+      "function": "exportADIF",
+      "ranges": [
+        [
+          1018,
+          1032
+        ]
+      ],
+      "reviewDepth": "changed bodies and startup/manual-sync/catch/error path; UI rendering not executed",
+      "callers": [
+        "retained native SwiftUI settings/import/export/backup actions; startup328-391; settingsStore factories; XLogBackupManager; SyncEngine"
+      ],
+      "tests": [
+        "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift:51-267 (byte-identical prototype copy); guarded-save error paths, saved config fake-transport positive/negative control, tombstones, closed DB, field-only autofill",
+        "Tests/XLogCoreTests/BackupRestoreAuthorityTests.swift:9-151 (byte-identical prototype copy); exact authority rejection before replacing, safe selected settings, IDs/history retained, swapped pre-install package rejected",
+        "Tests/XLogPrototypeTests/LegacyADIFTransferTests.swift:9-80; invalid mixed input all-or-none, real late SQLite trigger failure, retry counts, strict UTF8 and cap, frozen2003-row export"
+      ]
+    },
+    {
+      "path": "Sources/XLogApp/AppModel.swift",
+      "function": "createVerifiedBackup",
+      "ranges": [
+        [
+          1034,
+          1080
+        ]
+      ],
+      "reviewDepth": "changed bodies and startup/manual-sync/catch/error path; UI rendering not executed",
+      "callers": [
+        "retained native SwiftUI settings/import/export/backup actions; startup328-391; settingsStore factories; XLogBackupManager; SyncEngine"
+      ],
+      "tests": [
+        "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift:51-267 (byte-identical prototype copy); guarded-save error paths, saved config fake-transport positive/negative control, tombstones, closed DB, field-only autofill",
+        "Tests/XLogCoreTests/BackupRestoreAuthorityTests.swift:9-151 (byte-identical prototype copy); exact authority rejection before replacing, safe selected settings, IDs/history retained, swapped pre-install package rejected",
+        "Tests/XLogPrototypeTests/LegacyADIFTransferTests.swift:9-80; invalid mixed input all-or-none, real late SQLite trigger failure, retry counts, strict UTF8 and cap, frozen2003-row export"
+      ]
+    },
+    {
+      "path": "Sources/XLogApp/AppModel.swift",
+      "function": "restorePendingBackup",
+      "ranges": [
+        [
+          1112,
+          1205
+        ]
+      ],
+      "reviewDepth": "changed bodies and startup/manual-sync/catch/error path; UI rendering not executed",
+      "callers": [
+        "retained native SwiftUI settings/import/export/backup actions; startup328-391; settingsStore factories; XLogBackupManager; SyncEngine"
+      ],
+      "tests": [
+        "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift:51-267 (byte-identical prototype copy); guarded-save error paths, saved config fake-transport positive/negative control, tombstones, closed DB, field-only autofill",
+        "Tests/XLogCoreTests/BackupRestoreAuthorityTests.swift:9-151 (byte-identical prototype copy); exact authority rejection before replacing, safe selected settings, IDs/history retained, swapped pre-install package rejected",
+        "Tests/XLogPrototypeTests/LegacyADIFTransferTests.swift:9-80; invalid mixed input all-or-none, real late SQLite trigger failure, retry counts, strict UTF8 and cap, frozen2003-row export"
+      ]
+    },
+    {
+      "path": "Sources/XLogApp/AppModel.swift",
+      "function": "pollRadio",
+      "ranges": [
+        [
+          1349,
+          1415
+        ]
+      ],
+      "reviewDepth": "changed bodies and startup/manual-sync/catch/error path; UI rendering not executed",
+      "callers": [
+        "retained native SwiftUI settings/import/export/backup actions; startup328-391; settingsStore factories; XLogBackupManager; SyncEngine"
+      ],
+      "tests": [
+        "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift:51-267 (byte-identical prototype copy); guarded-save error paths, saved config fake-transport positive/negative control, tombstones, closed DB, field-only autofill",
+        "Tests/XLogCoreTests/BackupRestoreAuthorityTests.swift:9-151 (byte-identical prototype copy); exact authority rejection before replacing, safe selected settings, IDs/history retained, swapped pre-install package rejected",
+        "Tests/XLogPrototypeTests/LegacyADIFTransferTests.swift:9-80; invalid mixed input all-or-none, real late SQLite trigger failure, retry counts, strict UTF8 and cap, frozen2003-row export"
+      ]
+    },
+    {
+      "path": "Sources/XLogCore/ADIF.swift",
+      "function": "fileText",
+      "ranges": [
+        [
+          379,
+          396
+        ]
+      ],
+      "reviewDepth": "full changed function plus cited callers",
+      "callers": [
+        "AppModel.importADIF1001-1016; importBatch2444-2482; QSOADIF43-100 conversion"
+      ],
+      "tests": [
+        "Tests/XLogPrototypeTests/LegacyADIFTransferTests.swift:9-80; invalid mixed input all-or-none, real late SQLite trigger failure, retry counts, strict UTF8 and cap, frozen2003-row export"
+      ]
+    },
+    {
+      "path": "Sources/XLogCore/ADIF.swift",
+      "function": "importADIFDocument",
+      "ranges": [
+        [
+          643,
+          656
+        ]
+      ],
+      "reviewDepth": "full changed function plus cited callers",
+      "callers": [
+        "AppModel.importADIF1001-1016; importBatch2444-2482; QSOADIF43-100 conversion"
+      ],
+      "tests": [
+        "Tests/XLogPrototypeTests/LegacyADIFTransferTests.swift:9-80; invalid mixed input all-or-none, real late SQLite trigger failure, retry counts, strict UTF8 and cap, frozen2003-row export"
+      ]
+    },
+    {
+      "path": "Sources/XLogCore/BackupManager.swift",
+      "function": "settingsForRestore",
+      "ranges": [
+        [
+          154,
+          161
+        ]
+      ],
+      "reviewDepth": "full changed functions; create181-280, inspect, installContestingData399-425, installReferenceData436-473, envelope475-534, SQLite staging selected ranges",
+      "callers": [
+        "AppModel.restorePendingBackup1112-1205; LiveLogbookMethods.backup_restore1444-1583"
+      ],
+      "tests": [
+        "Tests/XLogCoreTests/BackupRestoreAuthorityTests.swift:9-151 (byte-identical prototype copy); exact authority rejection before replacing, safe selected settings, IDs/history retained, swapped pre-install package rejected"
+      ]
+    },
+    {
+      "path": "Sources/XLogCore/BackupManager.swift",
+      "function": "installDatabase",
+      "ranges": [
+        [
+          327,
+          391
+        ]
+      ],
+      "reviewDepth": "full changed functions; create181-280, inspect, installContestingData399-425, installReferenceData436-473, envelope475-534, SQLite staging selected ranges",
+      "callers": [
+        "AppModel.restorePendingBackup1112-1205; LiveLogbookMethods.backup_restore1444-1583"
+      ],
+      "tests": [
+        "Tests/XLogCoreTests/BackupRestoreAuthorityTests.swift:9-151 (byte-identical prototype copy); exact authority rejection before replacing, safe selected settings, IDs/history retained, swapped pre-install package rejected"
+      ]
+    },
+    {
+      "path": "Sources/XLogCore/Settings.swift",
+      "function": "hasSameWavelogDestination",
+      "ranges": [
+        [
+          119,
+          121
+        ]
+      ],
+      "reviewDepth": "full changed function plus cited callers",
+      "callers": [
+        "all production SettingsStore writers: AppModel908,1168,1178; autofill1364; LiveLogbookMethods workspace_create616; native manual sync929"
+      ],
+      "tests": [
+        "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift:51-267 (byte-identical prototype copy); guarded-save error paths, saved config fake-transport positive/negative control, tombstones, closed DB, field-only autofill"
+      ]
+    },
+    {
+      "path": "Sources/XLogCore/Settings.swift",
+      "function": "autofillGridSquare",
+      "ranges": [
+        [
+          428,
+          434
+        ]
+      ],
+      "reviewDepth": "full changed function plus cited callers",
+      "callers": [
+        "all production SettingsStore writers: AppModel908,1168,1178; autofill1364; LiveLogbookMethods workspace_create616; native manual sync929"
+      ],
+      "tests": [
+        "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift:51-267 (byte-identical prototype copy); guarded-save error paths, saved config fake-transport positive/negative control, tombstones, closed DB, field-only autofill"
+      ]
+    },
+    {
+      "path": "Sources/XLogCore/Settings.swift",
+      "function": "validateDestinationChange",
+      "ranges": [
+        [
+          438,
+          442
+        ]
+      ],
+      "reviewDepth": "full changed function plus cited callers",
+      "callers": [
+        "all production SettingsStore writers: AppModel908,1168,1178; autofill1364; LiveLogbookMethods workspace_create616; native manual sync929"
+      ],
+      "tests": [
+        "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift:51-267 (byte-identical prototype copy); guarded-save error paths, saved config fake-transport positive/negative control, tombstones, closed DB, field-only autofill"
+      ]
+    },
+    {
+      "path": "Sources/XLogCore/Settings.swift",
+      "function": "save",
+      "ranges": [
+        [
+          423,
+          425
+        ],
+        [
+          444,
+          448
+        ]
+      ],
+      "reviewDepth": "full changed function plus cited callers",
+      "callers": [
+        "all production SettingsStore writers: AppModel908,1168,1178; autofill1364; LiveLogbookMethods workspace_create616; native manual sync929"
+      ],
+      "tests": [
+        "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift:51-267 (byte-identical prototype copy); guarded-save error paths, saved config fake-transport positive/negative control, tombstones, closed DB, field-only autofill"
+      ]
+    },
+    {
+      "path": "Sources/XLogCore/Settings.swift",
+      "function": "validateCurrentDestination",
+      "ranges": [
+        [
+          451,
+          455
+        ]
+      ],
+      "reviewDepth": "full changed function plus cited callers",
+      "callers": [
+        "all production SettingsStore writers: AppModel908,1168,1178; autofill1364; LiveLogbookMethods workspace_create616; native manual sync929"
+      ],
+      "tests": [
+        "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift:51-267 (byte-identical prototype copy); guarded-save error paths, saved config fake-transport positive/negative control, tombstones, closed DB, field-only autofill"
+      ]
+    },
+    {
+      "path": "Sources/XLogCore/Settings.swift",
+      "function": "wavelogConfiguration",
+      "ranges": [
+        [
+          457,
+          461
+        ]
+      ],
+      "reviewDepth": "full changed function plus cited callers",
+      "callers": [
+        "all production SettingsStore writers: AppModel908,1168,1178; autofill1364; LiveLogbookMethods workspace_create616; native manual sync929"
+      ],
+      "tests": [
+        "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift:51-267 (byte-identical prototype copy); guarded-save error paths, saved config fake-transport positive/negative control, tombstones, closed DB, field-only autofill"
+      ]
+    },
+    {
+      "path": "Sources/XLogCore/LogbookDatabase.swift",
+      "function": "applyOperatorDraft",
+      "ranges": [
+        [
+          1880,
+          1991
+        ]
+      ],
+      "reviewDepth": "full1880-1991 body; selected save/import/sync authority/recovery owners158-212,543-551,1454-1518,2429-2482,3237-3298",
+      "callers": [
+        "LiveLogbookMethods operator_draft admission; draft identity/revision/Save receipts; prospective enrollment save"
+      ],
+      "tests": [
+        "Tests/XLogPrototypeTests/OperatorDraftTests.swift:69-115 explicit auto/manual times, end, ADIF UTC, replay, reopen; conflicts117+"
+      ]
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveLogbookMethods.swift",
+      "function": "handle",
+      "ranges": [
+        [
+          569,
+          1588
+        ]
+      ],
+      "reviewDepth": "changed settings_save1198-1252 and backup_restore1444-1583 branches; selected import1009-1084, workspace_create595-625; not all handle569-1588 branches",
+      "callers": [
+        "LiveWorker; owner lock; currentSettings221-230; automatic-sync authorization440-488; rollback1754-1771; loadWorkspace1773-1794"
+      ],
+      "tests": [
+        "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift:51-267 (byte-identical prototype copy); guarded-save error paths, saved config fake-transport positive/negative control, tombstones, closed DB, field-only autofill",
+        "Tests/XLogCoreTests/BackupRestoreAuthorityTests.swift:9-151 (byte-identical prototype copy); exact authority rejection before replacing, safe selected settings, IDs/history retained, swapped pre-install package rejected"
+      ]
+    },
+    {
+      "path": "python/contest_host/adif_import.py",
+      "function": "apply",
+      "ranges": [
+        [
+          109,
+          133
+        ]
+      ],
+      "reviewDepth": "full review/apply modules; cloned country cache, historical facts/site/serial, stored source digest, unchanged-import no-op",
+      "callers": [
+        "Host.mutate strategy_apply/adif_import; review bounds/provenance/source-identity1-110; Host.audit; rebuild"
+      ],
+      "tests": [
+        "python/tests/test_remediation_import_replica.py all8 tests executed"
+      ]
+    },
+    {
+      "path": "python/contest_host/developer.py",
+      "function": "describe",
+      "ranges": [
+        [
+          16,
+          40
+        ]
+      ],
+      "reviewDepth": "full16-40 current body; module import version",
+      "callers": [
+        "finite developer template projection and pinned source/version metadata"
+      ],
+      "tests": [
+        "python/tests/test_wave5_developer_host.py changed WAE version expectation source reviewed"
+      ]
+    },
+    {
+      "path": "python/contest_host/host.py",
+      "function": "coordination_identity",
+      "ranges": [
+        [
+          537,
+          550
+        ]
+      ],
+      "reviewDepth": "changed branch/function review; mutate2561-3237 selected transaction/replay/adif/country/recalc paths, not every unrelated contest branch; rebuild4626-4746 selected complete scoring loop and hydration, unchanged individual plugins not comprehensively reviewed",
+      "callers": [
+        "Host.dispatch; apply_replica2302-2559; actual master/client tests; native PythonContestLane124-128/527-568; country_reconcile2980-3021"
+      ],
+      "tests": [
+        "python/tests/test_remediation_import_replica.py8 executed; test_remediation_wae.py3 executed; test_recorder.py6 executed; independent probe_country_reconcile.py executed"
+      ]
+    },
+    {
+      "path": "python/contest_host/host.py",
+      "function": "coordinate",
+      "ranges": [
+        [
+          2082,
+          2229
+        ]
+      ],
+      "reviewDepth": "changed branch/function review; mutate2561-3237 selected transaction/replay/adif/country/recalc paths, not every unrelated contest branch; rebuild4626-4746 selected complete scoring loop and hydration, unchanged individual plugins not comprehensively reviewed",
+      "callers": [
+        "Host.dispatch; apply_replica2302-2559; actual master/client tests; native PythonContestLane124-128/527-568; country_reconcile2980-3021"
+      ],
+      "tests": [
+        "python/tests/test_remediation_import_replica.py8 executed; test_remediation_wae.py3 executed; test_recorder.py6 executed; independent probe_country_reconcile.py executed"
+      ]
+    },
+    {
+      "path": "python/contest_host/host.py",
+      "function": "legacy_import_replica_identity",
+      "ranges": [
+        [
+          2241,
+          2266
+        ]
+      ],
+      "reviewDepth": "changed branch/function review; mutate2561-3237 selected transaction/replay/adif/country/recalc paths, not every unrelated contest branch; rebuild4626-4746 selected complete scoring loop and hydration, unchanged individual plugins not comprehensively reviewed",
+      "callers": [
+        "Host.dispatch; apply_replica2302-2559; actual master/client tests; native PythonContestLane124-128/527-568; country_reconcile2980-3021"
+      ],
+      "tests": [
+        "python/tests/test_remediation_import_replica.py8 executed; test_remediation_wae.py3 executed; test_recorder.py6 executed; independent probe_country_reconcile.py executed"
+      ]
+    },
+    {
+      "path": "python/contest_host/host.py",
+      "function": "mutate",
+      "ranges": [
+        [
+          2561,
+          3236
+        ]
+      ],
+      "reviewDepth": "changed branch/function review; mutate2561-3237 selected transaction/replay/adif/country/recalc paths, not every unrelated contest branch; rebuild4626-4746 selected complete scoring loop and hydration, unchanged individual plugins not comprehensively reviewed",
+      "callers": [
+        "Host.dispatch; apply_replica2302-2559; actual master/client tests; native PythonContestLane124-128/527-568; country_reconcile2980-3021"
+      ],
+      "tests": [
+        "python/tests/test_remediation_import_replica.py8 executed; test_remediation_wae.py3 executed; test_recorder.py6 executed; independent probe_country_reconcile.py executed"
+      ]
+    },
+    {
+      "path": "python/contest_host/host.py",
+      "function": "verify_engine",
+      "ranges": [
+        [
+          3460,
+          3495
+        ]
+      ],
+      "reviewDepth": "changed branch/function review; mutate2561-3237 selected transaction/replay/adif/country/recalc paths, not every unrelated contest branch; rebuild4626-4746 selected complete scoring loop and hydration, unchanged individual plugins not comprehensively reviewed",
+      "callers": [
+        "Host.dispatch; apply_replica2302-2559; actual master/client tests; native PythonContestLane124-128/527-568; country_reconcile2980-3021"
+      ],
+      "tests": [
+        "python/tests/test_remediation_import_replica.py8 executed; test_remediation_wae.py3 executed; test_recorder.py6 executed; independent probe_country_reconcile.py executed"
+      ]
+    },
+    {
+      "path": "python/contest_host/host.py",
+      "function": "rebuild",
+      "ranges": [
+        [
+          4626,
+          4736
+        ]
+      ],
+      "reviewDepth": "changed branch/function review; mutate2561-3237 selected transaction/replay/adif/country/recalc paths, not every unrelated contest branch; rebuild4626-4746 selected complete scoring loop and hydration, unchanged individual plugins not comprehensively reviewed",
+      "callers": [
+        "Host.dispatch; apply_replica2302-2559; actual master/client tests; native PythonContestLane124-128/527-568; country_reconcile2980-3021"
+      ],
+      "tests": [
+        "python/tests/test_remediation_import_replica.py8 executed; test_remediation_wae.py3 executed; test_recorder.py6 executed; independent probe_country_reconcile.py executed"
+      ]
+    },
+    {
+      "path": "python/contest_host/host.py",
+      "function": "export_artifact",
+      "ranges": [
+        [
+          4769,
+          4830
+        ]
+      ],
+      "reviewDepth": "changed branch/function review; mutate2561-3237 selected transaction/replay/adif/country/recalc paths, not every unrelated contest branch; rebuild4626-4746 selected complete scoring loop and hydration, unchanged individual plugins not comprehensively reviewed",
+      "callers": [
+        "Host.dispatch; apply_replica2302-2559; actual master/client tests; native PythonContestLane124-128/527-568; country_reconcile2980-3021"
+      ],
+      "tests": [
+        "python/tests/test_remediation_import_replica.py8 executed; test_remediation_wae.py3 executed; test_recorder.py6 executed; independent probe_country_reconcile.py executed"
+      ]
+    },
+    {
+      "path": "python/contest_host/store.py",
+      "function": "reserve_shared_serial",
+      "ranges": [
+        [
+          376,
+          391
+        ]
+      ],
+      "reviewDepth": "full376-391 body; schema uniqueness68-89, contact_changes398-405, state/replay transaction selected",
+      "callers": [
+        "Host.coordinate immediate transaction; historical floor persisted by adif_import.apply"
+      ],
+      "tests": [
+        "test_remediation_import_replica.py:182-236 replay/reopen/commit/concurrent Hosts"
+      ]
+    },
+    {
+      "path": "python/contest_host/wae.py",
+      "function": "multiplier",
+      "ranges": [
+        [
+          34,
+          56
+        ]
+      ],
+      "reviewDepth": "full changed functions and direct identity/european/qso_eligible/qso_credits/plugin/export callers; no organizer certification",
+      "callers": [
+        "plugin points/calc_score; Host coordination/verify/recalculate/export"
+      ],
+      "tests": [
+        "test_remediation_wae.py all3 executed"
+      ]
+    },
+    {
+      "path": "python/contest_host/wae.py",
+      "function": "score",
+      "ranges": [
+        [
+          84,
+          97
+        ]
+      ],
+      "reviewDepth": "full changed functions and direct identity/european/qso_eligible/qso_credits/plugin/export callers; no organizer certification",
+      "callers": [
+        "plugin points/calc_score; Host coordination/verify/recalculate/export"
+      ],
+      "tests": [
+        "test_remediation_wae.py all3 executed"
+      ]
+    },
+    {
+      "path": "python/contest_host/recorder.py",
+      "function": "changes",
+      "ranges": [
+        [
+          6,
+          37
+        ]
+      ],
+      "reviewDepth": "entire37-line module; correction/delete update existing link only; future local commit admission contract",
+      "callers": [
+        "Host.dispatch recorder_changes; Rust recorder store reconcile656-722"
+      ],
+      "tests": [
+        "test_recorder.py all6 executed; import suite ensures imported/master remote events nonlocal"
+      ]
+    },
+    {
+      "path": "prototype/src-tauri/src/contest_recorder.rs",
+      "function": "admission",
+      "ranges": [
+        [
+          84,
+          89
+        ]
+      ],
+      "reviewDepth": "changed functions/full added test; selected reconciliation owner, not full audio/archive subsystem",
+      "callers": [
+        "worker admission before dispatch; confirmed114-145; contest_recorder_store.reconcile656-722"
+      ],
+      "tests": [
+        "local_entry_admission_marks_esm_logit_and_direct_commits_without_audio_devices1460+ source reviewed; no fresh Rust execution"
+      ]
+    },
+    {
+      "path": "prototype/src-tauri/src/contest_recorder.rs",
+      "function": "admission_to",
+      "ranges": [
+        [
+          91,
+          113
+        ]
+      ],
+      "reviewDepth": "changed functions/full added test; selected reconciliation owner, not full audio/archive subsystem",
+      "callers": [
+        "worker admission before dispatch; confirmed114-145; contest_recorder_store.reconcile656-722"
+      ],
+      "tests": [
+        "local_entry_admission_marks_esm_logit_and_direct_commits_without_audio_devices1460+ source reviewed; no fresh Rust execution"
+      ]
+    },
+    {
+      "path": "prototype/src-tauri/src/durable_file.rs",
+      "function": "parent",
+      "ranges": [
+        [
+          4,
+          7
+        ]
+      ],
+      "reviewDepth": "entire110-line module, both Unix and Windows cfg branches source only",
+      "callers": [
+        "operating_module.publish_preference311-314; module_restart_intent.publish76-81/consume97-104"
+      ],
+      "tests": [
+        "all3 module tests source reviewed: unicode replace/invalid destination/data preservation/named removal; Windows runtime unverified"
+      ]
+    },
+    {
+      "path": "prototype/src-tauri/src/durable_file.rs",
+      "function": "replace",
+      "ranges": [
+        [
+          10,
+          13
+        ],
+        [
+          16,
+          41
+        ]
+      ],
+      "reviewDepth": "entire110-line module, both Unix and Windows cfg branches source only",
+      "callers": [
+        "operating_module.publish_preference311-314; module_restart_intent.publish76-81/consume97-104"
+      ],
+      "tests": [
+        "all3 module tests source reviewed: unicode replace/invalid destination/data preservation/named removal; Windows runtime unverified"
+      ]
+    },
+    {
+      "path": "prototype/src-tauri/src/durable_file.rs",
+      "function": "publish",
+      "ranges": [
+        [
+          43,
+          53
+        ]
+      ],
+      "reviewDepth": "entire110-line module, both Unix and Windows cfg branches source only",
+      "callers": [
+        "operating_module.publish_preference311-314; module_restart_intent.publish76-81/consume97-104"
+      ],
+      "tests": [
+        "all3 module tests source reviewed: unicode replace/invalid destination/data preservation/named removal; Windows runtime unverified"
+      ]
+    },
+    {
+      "path": "prototype/src-tauri/src/durable_file.rs",
+      "function": "remove",
+      "ranges": [
+        [
+          55,
+          69
+        ]
+      ],
+      "reviewDepth": "entire110-line module, both Unix and Windows cfg branches source only",
+      "callers": [
+        "operating_module.publish_preference311-314; module_restart_intent.publish76-81/consume97-104"
+      ],
+      "tests": [
+        "all3 module tests source reviewed: unicode replace/invalid destination/data preservation/named removal; Windows runtime unverified"
+      ]
+    },
+    {
+      "path": "prototype/src-tauri/src/module_restart_intent.rs",
+      "function": "publish",
+      "ranges": [
+        [
+          76,
+          81
+        ]
+      ],
+      "reviewDepth": "full changed functions and adjacent load/decision; no Rust run",
+      "callers": [
+        "restart destination owner; load83-95; decision58-72"
+      ],
+      "tests": [
+        "replacement_and_consumption_preserve_unicode_parent_and_current_destination111-122; other existing corrupt/replay tests reviewed"
+      ]
+    },
+    {
+      "path": "prototype/src-tauri/src/module_restart_intent.rs",
+      "function": "consume",
+      "ranges": [
+        [
+          97,
+          104
+        ]
+      ],
+      "reviewDepth": "full changed functions and adjacent load/decision; no Rust run",
+      "callers": [
+        "restart destination owner; load83-95; decision58-72"
+      ],
+      "tests": [
+        "replacement_and_consumption_preserve_unicode_parent_and_current_destination111-122; other existing corrupt/replay tests reviewed"
+      ]
+    },
+    {
+      "path": "prototype/src-tauri/src/operating_module.rs",
+      "function": "publish_preference",
+      "ranges": [
+        [
+          311,
+          314
+        ]
+      ],
+      "reviewDepth": "changed publisher and callers/tests; not entire owner module",
+      "callers": [
+        "Owner.commit267-300 and transition fence302-308"
+      ],
+      "tests": [
+        "invalid_preference_destination_preserves_selection_and_restart_fence759-771; failed_publication774+; persisted selection738-756"
+      ]
+    },
+    {
+      "path": "prototype/src/live/adifTransfer.ts",
+      "function": "validateFieldMetadata",
+      "ranges": [
+        [
+          60,
+          84
+        ]
+      ],
+      "reviewDepth": "changed declarations/compatibility branch65-107,495-535; frontend authoring scope otherwise delegated by root",
+      "callers": [
+        "ADIFExportDocument standard-vocabulary classification; two deprecated tags now extension declarations"
+      ],
+      "tests": [
+        "adifTransfer.schema.test.ts1-36 reviewed; independent schema_compare.py executed179 names exact"
+      ]
+    },
+    {
+      "path": "prototype/src/live/adifTransfer.ts",
+      "function": "adxToADI",
+      "ranges": [
+        [
+          495,
+          609
+        ]
+      ],
+      "reviewDepth": "changed declarations/compatibility branch65-107,495-535; frontend authoring scope otherwise delegated by root",
+      "callers": [
+        "ADIFExportDocument standard-vocabulary classification; two deprecated tags now extension declarations"
+      ],
+      "tests": [
+        "adifTransfer.schema.test.ts1-36 reviewed; independent schema_compare.py executed179 names exact"
+      ]
+    },
+    {
+      "path": "Sources/XLogCore/ADIF.swift",
+      "function": "ADIFImportPreview.maximumFileBytes",
+      "ranges": [
+        [
+          376,
+          400
+        ]
+      ],
+      "reviewDepth": "changed declaration and direct consumers reviewed",
+      "callers": [
+        "listed function owners above"
+      ],
+      "tests": [
+        "associated file regressions above"
+      ]
+    },
+    {
+      "path": "Sources/XLogCore/ADIF.swift",
+      "function": "ADIFDocumentImportError and result/skippedCount",
+      "ranges": [
+        [
+          628,
+          639
+        ]
+      ],
+      "reviewDepth": "changed declaration and direct consumers reviewed",
+      "callers": [
+        "listed function owners above"
+      ],
+      "tests": [
+        "associated file regressions above"
+      ]
+    },
+    {
+      "path": "Sources/XLogCore/BackupManager.swift",
+      "function": "XLogBackupError.errorDescription",
+      "ranges": [
+        [
+          13,
+          47
+        ]
+      ],
+      "reviewDepth": "changed declaration and direct consumers reviewed",
+      "callers": [
+        "listed function owners above"
+      ],
+      "tests": [
+        "associated file regressions above"
+      ]
+    },
+    {
+      "path": "Sources/XLogCore/Settings.swift",
+      "function": "WavelogDestinationError.errorDescription",
+      "ranges": [
+        [
+          100,
+          116
+        ]
+      ],
+      "reviewDepth": "changed declaration and direct consumers reviewed",
+      "callers": [
+        "listed function owners above"
+      ],
+      "tests": [
+        "associated file regressions above"
+      ]
+    },
+    {
+      "path": "python/contest_host/wae.py",
+      "function": "DEFINITION_VERSION and LEGACY_DEFINITION_VERSION",
+      "ranges": [
+        [
+          14,
+          15
+        ]
+      ],
+      "reviewDepth": "changed declaration and direct consumers reviewed",
+      "callers": [
+        "listed function owners above"
+      ],
+      "tests": [
+        "associated file regressions above"
+      ]
+    },
+    {
+      "path": "prototype/src-tauri/src/main.rs",
+      "function": "mod durable_file",
+      "ranges": [
+        [
+          28,
+          28
+        ]
+      ],
+      "reviewDepth": "changed declaration and direct consumers reviewed",
+      "callers": [
+        "listed function owners above"
+      ],
+      "tests": [
+        "associated file regressions above"
+      ]
+    }
+  ],
+  "originalFindings": {
+    "CR-001": {
+      "verdict": "original core root repaired",
+      "independentEvidence": "operatorDraft current.automaticStart and one transaction; manual/replay/reopen test oracle reviewed"
+    },
+    "CR-004": {
+      "verdict": "specific import root repaired; adjacent DATA-001 confirmed",
+      "independentEvidence": "8 actual import tests pass; old/new imports immutable receipt handling; unsupported reference-reconcile stream event independently executed"
+    },
+    "CR-005": {
+      "verdict": "fresh allocator root repaired",
+      "independentEvidence": "actual concurrent grant102/103 after historical101; issued grant replay remains stable"
+    },
+    "CR-006": {
+      "verdict": "targeted Japanese area root repaired",
+      "independentEvidence": "all3 actual WAE tests pass; explicit6/12-score, legacy/recalculate/digest assertions"
+    },
+    "CR-007": {
+      "verdict": "future/retained-unconsumed event root repaired",
+      "independentEvidence": "6 Python recorder tests pass; native local admission and Rust final consumer source reviewed; no historical migration claim"
+    },
+    "CR-009": {
+      "verdict": "helper/caller root repaired by source; Swift runtime not repeated",
+      "independentEvidence": "strict UTF8 whole-document atomic import, actual trigger failure oracle reviewed"
+    },
+    "CR-011": {
+      "verdict": "helper/caller root repaired by source; Swift runtime not repeated",
+      "independentEvidence": "all-scope frozen query rather than displayed2000 cap;2003-row oracle reviewed"
+    },
+    "CR-012": {
+      "verdict": "targeted vocabulary root repaired",
+      "independentEvidence": "independent current179 source names exactly match pinned XSD vocabulary"
+    },
+    "FA-001": {
+      "verdict": "ordinary authority/consent root repaired; interruption candidate separate",
+      "independentEvidence": "restore helper selects or rejects exact authority; native interrupted-publication source gap not runtime verified"
+    },
+    "FA-002": {
+      "verdict": "original repeated-page hydration root repaired",
+      "independentEvidence": "8 focused tests pass including station-only initial map and untouched prior row/score/receipt/reopen assertions"
+    },
+    "FA-008": {
+      "verdict": "ordinary manual save/grid writer root repaired by source; tests reviewed",
+      "independentEvidence": "all SettingsStore production writers traced; guarded save/tombstones/unsaved sync and backup/field-only telemetry; authority test duplicate pairs SHA equal"
+    }
+  },
+  "confirmed": [
+    {
+      "id": "DATA-001",
+      "priority": 2,
+      "verification": "executed current actual two-Host counterexample; complete failed-client dump unchanged",
+      "path": "python/contest_host/host.py",
+      "ranges": [
+        [
+          2189,
+          2204
+        ],
+        [
+          2395,
+          2425
+        ],
+        [
+          2991,
+          3015
+        ]
+      ],
+      "origin": "preexisting adjacent audit-kind compatibility gap; country producer unchanged by remediation"
+    }
+  ],
+  "unexecutedCandidates": [
+    {
+      "id": "DATA-C01",
+      "priorityProposed": 2,
+      "mechanism": "independent package reloads permit mixed main/contest/reference snapshots under concurrent external replacement",
+      "verification": "compiled core-only driver; custom runtime permanently blocked; no ordinary in-process writer identified"
+    },
+    {
+      "id": "DATA-C02",
+      "priorityProposed": 2,
+      "mechanism": "native DB publication precedes persisted settings authority; no native startup restore marker",
+      "verification": "source confirmed persisted-state gap, compiled core-only driver; interruption and subsequent sync not executed"
+    }
+  ],
+  "execution": {
+    "pythonTests": 17,
+    "pythonFailures": 0,
+    "pythonErrors": 0,
+    "independentCountryProbe": "confirmed",
+    "independentSchemaVocabulary": {
+      "actual": 179,
+      "expected": 179,
+      "extra": [],
+      "missing": []
+    },
+    "swift": "compile-only driver success using parent-provenance existing native exactf3 objects; no new application build",
+    "swiftRuntime": "permanent lean-ctx allowlist rejection, no retry/bypass",
+    "rust": "source-only selected changed functions/tests, no fresh execution"
+  },
+  "limits": [
+    "No GUI, provider credentials/network, devices, RF/audio",
+    "No Windows runtime or actual crash/power-loss qualification",
+    "No entire unchanged database migration or every scoring plugin audit",
+    "Source-confirmed mechanism is distinguished from runtime demonstration",
+    "Initial country probe symlink-root rejection and XSD top-level lookup error corrected only in scratch; both successful corrected proofs preserved"
+  ],
+  "testFunctionsReviewed": [
+    {
+      "path": "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift",
+      "function": "testLinkedLiveRowsAndTombstonesBlockEitherDestinationChangeWithoutPersisting",
+      "ranges": [
+        [
+          52,
+          73
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift",
+      "function": "testMissingOrClosedDatabaseFailsClosedForDestinationChanges",
+      "ranges": [
+        [
+          75,
+          83
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift",
+      "function": "testUnlinkedLogbookAllowsSavingNewDestinationAndFactoryUsesSavedAuthority",
+      "ranges": [
+        [
+          85,
+          95
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift",
+      "function": "testUnchangedDestinationAllowsOtherEditsWithoutDatabaseAndCapturesToken",
+      "ranges": [
+        [
+          97,
+          112
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift",
+      "function": "testExactDestinationComparisonAlsoProtectsBackupSettingsCapture",
+      "ranges": [
+        [
+          114,
+          128
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift",
+      "function": "testUnsavedDestinationIsRejectedBeforeAnySyncRequestOrLocalMutation",
+      "ranges": [
+        [
+          130,
+          148
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift",
+      "function": "testSavedDestinationControlActuallySynchronizesThroughInterceptedTransport",
+      "ranges": [
+        [
+          150,
+          164
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift",
+      "function": "testUnguardedConfigurationCounterexampleCanTombstoneAnotherDestinationsLinkedRow",
+      "ranges": [
+        [
+          168,
+          183
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift",
+      "function": "testAutomaticGridFillPersistsOnlySavedFieldAndKeepsPendingDestinationUntrusted",
+      "ranges": [
+        [
+          185,
+          218
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/WavelogDestinationAuthorityTests.swift",
+      "function": "testLinkedLiveRowsAndTombstonesBlockEitherDestinationChangeWithoutPersisting",
+      "ranges": [
+        [
+          52,
+          73
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/WavelogDestinationAuthorityTests.swift",
+      "function": "testMissingOrClosedDatabaseFailsClosedForDestinationChanges",
+      "ranges": [
+        [
+          75,
+          83
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/WavelogDestinationAuthorityTests.swift",
+      "function": "testUnlinkedLogbookAllowsSavingNewDestinationAndFactoryUsesSavedAuthority",
+      "ranges": [
+        [
+          85,
+          95
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/WavelogDestinationAuthorityTests.swift",
+      "function": "testUnchangedDestinationAllowsOtherEditsWithoutDatabaseAndCapturesToken",
+      "ranges": [
+        [
+          97,
+          112
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/WavelogDestinationAuthorityTests.swift",
+      "function": "testExactDestinationComparisonAlsoProtectsBackupSettingsCapture",
+      "ranges": [
+        [
+          114,
+          128
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/WavelogDestinationAuthorityTests.swift",
+      "function": "testUnsavedDestinationIsRejectedBeforeAnySyncRequestOrLocalMutation",
+      "ranges": [
+        [
+          130,
+          148
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/WavelogDestinationAuthorityTests.swift",
+      "function": "testSavedDestinationControlActuallySynchronizesThroughInterceptedTransport",
+      "ranges": [
+        [
+          150,
+          164
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/WavelogDestinationAuthorityTests.swift",
+      "function": "testUnguardedConfigurationCounterexampleCanTombstoneAnotherDestinationsLinkedRow",
+      "ranges": [
+        [
+          168,
+          183
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/WavelogDestinationAuthorityTests.swift",
+      "function": "testAutomaticGridFillPersistsOnlySavedFieldAndKeepsPendingDestinationUntrusted",
+      "ranges": [
+        [
+          185,
+          218
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogCoreTests/BackupRestoreAuthorityTests.swift",
+      "function": "testKeepSettingsRejectsEitherDestinationCoordinateBeforeReplacingLinkedHistory",
+      "ranges": [
+        [
+          10,
+          31
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogCoreTests/BackupRestoreAuthorityTests.swift",
+      "function": "testMissingBackupSettingsCannotSilentlyRetainUnknownDestination",
+      "ranges": [
+        [
+          33,
+          45
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogCoreTests/BackupRestoreAuthorityTests.swift",
+      "function": "testMatchingDestinationRetainsStationConfigurationButRequiresFreshSyncConsent",
+      "ranges": [
+        [
+          47,
+          60
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogCoreTests/BackupRestoreAuthorityTests.swift",
+      "function": "testExplicitSettingsRestoreSelectsBackupAuthorityWithoutInheritingConsent",
+      "ranges": [
+        [
+          62,
+          73
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogCoreTests/BackupRestoreAuthorityTests.swift",
+      "function": "testAcceptedRestorePreservesLinkedIDsAndRecoveryHistoryWithoutDetachingOrUploading",
+      "ranges": [
+        [
+          75,
+          97
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogCoreTests/BackupRestoreAuthorityTests.swift",
+      "function": "testReplacementOfAnInspectedPackageCannotInstallAnotherDestination",
+      "ranges": [
+        [
+          99,
+          127
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/BackupRestoreAuthorityTests.swift",
+      "function": "testKeepSettingsRejectsEitherDestinationCoordinateBeforeReplacingLinkedHistory",
+      "ranges": [
+        [
+          10,
+          31
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/BackupRestoreAuthorityTests.swift",
+      "function": "testMissingBackupSettingsCannotSilentlyRetainUnknownDestination",
+      "ranges": [
+        [
+          33,
+          45
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/BackupRestoreAuthorityTests.swift",
+      "function": "testMatchingDestinationRetainsStationConfigurationButRequiresFreshSyncConsent",
+      "ranges": [
+        [
+          47,
+          60
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/BackupRestoreAuthorityTests.swift",
+      "function": "testExplicitSettingsRestoreSelectsBackupAuthorityWithoutInheritingConsent",
+      "ranges": [
+        [
+          62,
+          73
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/BackupRestoreAuthorityTests.swift",
+      "function": "testAcceptedRestorePreservesLinkedIDsAndRecoveryHistoryWithoutDetachingOrUploading",
+      "ranges": [
+        [
+          75,
+          97
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/BackupRestoreAuthorityTests.swift",
+      "function": "testReplacementOfAnInspectedPackageCannotInstallAnotherDestination",
+      "ranges": [
+        [
+          99,
+          127
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/LegacyADIFTransferTests.swift",
+      "function": "mixedInvalidInputAndRepeatImportHaveTruthfulAtomicCounts",
+      "ranges": [],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/LegacyADIFTransferTests.swift",
+      "function": "laterSQLiteFailureRollsBackEarlierRowsAndRetryIsSafe",
+      "ranges": [],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/LegacyADIFTransferTests.swift",
+      "function": "fileReaderRejectsInvalidUTF8AndLimitsBeforeImport",
+      "ranges": [],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/LegacyADIFTransferTests.swift",
+      "function": "entireLogExportExceedsDisplayCapAndRetainsFrozenScope",
+      "ranges": [],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/OperatorDraftTests.swift",
+      "function": "automaticAndManualStartProvenance",
+      "ranges": [
+        [
+          70,
+          115
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and failure oracle reviewed; duplicate core/prototype authority copies verified byte-identical"
+    },
+    {
+      "path": "python/tests/test_remediation_import_replica.py",
+      "function": "test_new_import_catchup_replay_reopen_and_followup_changes",
+      "ranges": [
+        [
+          85,
+          94
+        ]
+      ],
+      "executedHere": true,
+      "reviewDepth": "full body and failure oracle reviewed"
+    },
+    {
+      "path": "python/tests/test_remediation_import_replica.py",
+      "function": "test_separate_enriched_import_pages_preserve_prior_scores_and_history",
+      "ranges": [
+        [
+          96,
+          129
+        ]
+      ],
+      "executedHere": true,
+      "reviewDepth": "full body and failure oracle reviewed"
+    },
+    {
+      "path": "python/tests/test_remediation_import_replica.py",
+      "function": "test_invalid_replica_country_rolls_back_rows_reference_and_receipts",
+      "ranges": [
+        [
+          131,
+          144
+        ]
+      ],
+      "executedHere": true,
+      "reviewDepth": "full body and failure oracle reviewed"
+    },
+    {
+      "path": "python/tests/test_remediation_import_replica.py",
+      "function": "test_legacy_unchanged_import_survives_reopen_without_rewriting_audit",
+      "ranges": [
+        [
+          146,
+          151
+        ]
+      ],
+      "executedHere": true,
+      "reviewDepth": "full body and failure oracle reviewed"
+    },
+    {
+      "path": "python/tests/test_remediation_import_replica.py",
+      "function": "test_legacy_import_identity_is_reconstructed_before_later_correction_and_delete",
+      "ranges": [
+        [
+          153,
+          166
+        ]
+      ],
+      "executedHere": true,
+      "reviewDepth": "full body and failure oracle reviewed"
+    },
+    {
+      "path": "python/tests/test_remediation_import_replica.py",
+      "function": "test_legacy_missing_identity_fails_closed_without_inventing_provenance",
+      "ranges": [
+        [
+          168,
+          175
+        ]
+      ],
+      "executedHere": true,
+      "reviewDepth": "full body and failure oracle reviewed"
+    },
+    {
+      "path": "python/tests/test_remediation_import_replica.py",
+      "function": "test_shared_serial_honors_import_floor_replay_reopen_and_commit",
+      "ranges": [
+        [
+          190,
+          209
+        ]
+      ],
+      "executedHere": true,
+      "reviewDepth": "full body and failure oracle reviewed"
+    },
+    {
+      "path": "python/tests/test_remediation_import_replica.py",
+      "function": "test_concurrent_shared_serial_grants_exceed_historical_floor",
+      "ranges": [
+        [
+          211,
+          227
+        ]
+      ],
+      "executedHere": true,
+      "reviewDepth": "full body and failure oracle reviewed"
+    },
+    {
+      "path": "python/tests/test_remediation_wae.py",
+      "function": "test_all_wae_modes_share_numerical_area_and_export_correct_claim",
+      "ranges": [
+        [
+          34,
+          46
+        ]
+      ],
+      "executedHere": true,
+      "reviewDepth": "full body and failure oracle reviewed"
+    },
+    {
+      "path": "python/tests/test_remediation_wae.py",
+      "function": "test_legacy_score_is_retained_incomplete_until_explicit_recalculate",
+      "ranges": [
+        [
+          48,
+          72
+        ]
+      ],
+      "executedHere": true,
+      "reviewDepth": "full body and failure oracle reviewed"
+    },
+    {
+      "path": "python/tests/test_remediation_wae.py",
+      "function": "test_national_prefix_digit_is_not_portable_area",
+      "ranges": [
+        [
+          74,
+          78
+        ]
+      ],
+      "executedHere": true,
+      "reviewDepth": "full body and failure oracle reviewed"
+    },
+    {
+      "path": "python/tests/test_recorder.py",
+      "function": "test_enabled_esm_commit_is_local_across_replay_reopen",
+      "ranges": [
+        [
+          39,
+          40
+        ]
+      ],
+      "executedHere": true,
+      "reviewDepth": "full body and failure oracle reviewed"
+    },
+    {
+      "path": "python/tests/test_recorder.py",
+      "function": "test_disabled_esm_enter_commit_is_local_across_replay_reopen",
+      "ranges": [
+        [
+          42,
+          43
+        ]
+      ],
+      "executedHere": true,
+      "reviewDepth": "full body and failure oracle reviewed"
+    },
+    {
+      "path": "python/tests/test_recorder.py",
+      "function": "test_function_key_logit_commit_is_local_across_replay_reopen",
+      "ranges": [
+        [
+          45,
+          46
+        ]
+      ],
+      "executedHere": true,
+      "reviewDepth": "full body and failure oracle reviewed"
+    },
+    {
+      "path": "python/tests/test_recorder.py",
+      "function": "test_commit_retry_invalid_commit_and_read_only_pages",
+      "ranges": [
+        [
+          48,
+          67
+        ]
+      ],
+      "executedHere": true,
+      "reviewDepth": "full body and failure oracle reviewed"
+    },
+    {
+      "path": "python/tests/test_recorder.py",
+      "function": "test_correction_delete_pagination_preserve_original_images",
+      "ranges": [
+        [
+          69,
+          82
+        ]
+      ],
+      "executedHere": true,
+      "reviewDepth": "full body and failure oracle reviewed"
+    },
+    {
+      "path": "python/tests/test_recorder.py",
+      "function": "test_untrusted_parameters_are_bounded_and_do_not_change_log",
+      "ranges": [
+        [
+          84,
+          90
+        ]
+      ],
+      "executedHere": true,
+      "reviewDepth": "full body and failure oracle reviewed"
+    },
+    {
+      "path": "python/tests/test_wave5_developer_host.py",
+      "function": "test_bundled_template_and_unsupported_udc_reads_preserve_complete_session",
+      "ranges": [
+        [
+          13,
+          25
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "changed WAE definition-version expectation only; not full developer suite"
+    },
+    {
+      "path": "python/tests/test_wave5_developer_host.py",
+      "function": "test_definition_version_mismatch_does_not_upgrade_or_rescore_existing_session",
+      "ranges": [
+        [
+          27,
+          39
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "changed WAE definition-version expectation only; not full developer suite"
+    },
+    {
+      "path": "prototype/src/live/adifTransfer.schema.test.ts",
+      "function": "pinned schema vocabulary/deprecated USERDEF test",
+      "ranges": [
+        [
+          1,
+          36
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "changed test and independent XML-vocabulary oracle reviewed; separate Python179-name comparison executed"
+    },
+    {
+      "path": "prototype/src/live/adifTransfer.test.ts",
+      "function": "changed deprecated-element expected vocabulary branch",
+      "ranges": [
+        [
+          515,
+          583
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "changed test and independent XML-vocabulary oracle reviewed; separate Python179-name comparison executed"
+    },
+    {
+      "path": "prototype/src-tauri/src/contest_recorder.rs",
+      "function": "local_entry_admission_marks_esm_logit_and_direct_commits_without_audio_devices",
+      "ranges": [
+        [
+          1478,
+          1520
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and assertion oracle reviewed"
+    },
+    {
+      "path": "prototype/src-tauri/src/durable_file.rs",
+      "function": "publication_replaces_exact_bytes_in_unicode_directory_without_temp_leaks",
+      "ranges": [
+        [
+          76,
+          84
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and assertion oracle reviewed"
+    },
+    {
+      "path": "prototype/src-tauri/src/durable_file.rs",
+      "function": "invalid_destination_preserves_existing_data_and_cleans_temporary_file",
+      "ranges": [
+        [
+          87,
+          95
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and assertion oracle reviewed"
+    },
+    {
+      "path": "prototype/src-tauri/src/durable_file.rs",
+      "function": "removal_retires_only_the_named_journal_and_reports_missing_paths",
+      "ranges": [
+        [
+          98,
+          109
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and assertion oracle reviewed"
+    },
+    {
+      "path": "prototype/src-tauri/src/module_restart_intent.rs",
+      "function": "replacement_and_consumption_preserve_unicode_parent_and_current_destination",
+      "ranges": [
+        [
+          111,
+          122
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and assertion oracle reviewed"
+    },
+    {
+      "path": "prototype/src-tauri/src/operating_module.rs",
+      "function": "invalid_preference_destination_preserves_selection_and_restart_fence",
+      "ranges": [
+        [
+          759,
+          771
+        ]
+      ],
+      "executedHere": false,
+      "reviewDepth": "full changed test body and assertion oracle reviewed"
+    }
+  ],
+  "reviewedPaths": [
+    "Sources/XLogApp/AppModel.swift",
+    "Sources/XLogCore/ADIF.swift",
+    "Sources/XLogCore/BackupEnvelope.swift",
+    "Sources/XLogCore/BackupManager.swift",
+    "Sources/XLogCore/LogbookDatabase.swift",
+    "Sources/XLogCore/QSOADIF.swift",
+    "Sources/XLogCore/Settings.swift",
+    "Sources/XLogCore/SyncEngine.swift",
+    "Sources/XLogPrototypeSupport/Contesting/PythonContestLane.swift",
+    "Sources/XLogPrototypeSupport/LiveLogbookMethods.swift",
+    "Sources/XLogPrototypeSupport/LiveServiceMethods.swift",
+    "Tests/XLogCoreTests/BackupRestoreAuthorityTests.swift",
+    "Tests/XLogCoreTests/WavelogDestinationAuthorityTests.swift",
+    "Tests/XLogPrototypeTests/BackupRestoreAuthorityTests.swift",
+    "Tests/XLogPrototypeTests/LegacyADIFTransferTests.swift",
+    "Tests/XLogPrototypeTests/OperatorDraftTests.swift",
+    "Tests/XLogPrototypeTests/WavelogDestinationAuthorityTests.swift",
+    "prototype/src-tauri/src/contest_recorder.rs",
+    "prototype/src-tauri/src/contest_recorder_store.rs",
+    "prototype/src-tauri/src/durable_file.rs",
+    "prototype/src-tauri/src/main.rs",
+    "prototype/src-tauri/src/module_restart_intent.rs",
+    "prototype/src-tauri/src/operating_module.rs",
+    "prototype/src/live/adifTransfer.schema.test.ts",
+    "prototype/src/live/adifTransfer.test.ts",
+    "prototype/src/live/adifTransfer.ts",
+    "python/contest_host/adif_import.py",
+    "python/contest_host/developer.py",
+    "python/contest_host/host.py",
+    "python/contest_host/recorder.py",
+    "python/contest_host/store.py",
+    "python/contest_host/wae.py",
+    "python/tests/test_recorder.py",
+    "python/tests/test_remediation_import_replica.py",
+    "python/tests/test_remediation_wae.py",
+    "python/tests/test_wave5_developer_host.py"
+  ],
+  "schema": {
+    "changedFunctionsReviewed": "array of {path,function,ranges:[[one-based-start,end]],reviewDepth,callers:string[],tests:string[]}; includes changed declarations",
+    "testFunctionsReviewed": "array of {path,function,ranges,executedHere,reviewDepth}; false means source-only, never runtime acceptance",
+    "originalFindings": "map original ID to independent verdict/evidence; all11 requested IDs enumerated",
+    "reviewedPaths": "unique repository-relative paths for parent79-input merge; selected unchanged dependencies included, depth explicit",
+    "confirmed": "current executed findings; unexecutedCandidates remain separate with their verification limit"
+  }
+}

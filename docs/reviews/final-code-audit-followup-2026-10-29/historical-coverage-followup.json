@@ -1,0 +1,362 @@
+{
+  "scope": "Intersection with frozen historical inventory; range review is not automatic whole-file promotion",
+  "ledgerKeyedCurrentPaths": 90,
+  "matchedHistoricalPaths": 70,
+  "historicalDepthCounts": {
+    "partially reviewed": 27,
+    "fully reviewed": 17,
+    "scanned only": 26
+  },
+  "rows": [
+    {
+      "path": ".github/workflows/contest-portability.yml",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Package.swift",
+      "historicalDepth": "fully reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Sources/XCWCore/CWComputeWire.swift",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Sources/XCatIntegrationCore/TCIWebSocketSession.swift",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Sources/XLogApp/AppModel.swift",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Sources/XLogCore/ADIF.swift",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Sources/XLogCore/BackupManager.swift",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Sources/XLogCore/LogbookDatabase.swift",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Sources/XLogCore/Settings.swift",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveFldigiBridge.swift",
+      "historicalDepth": "fully reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveFlexSession.swift",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveLogbookMethods.swift",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveOpportunitiesMethods.swift",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+      "historicalDepth": "fully reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationSession.swift",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveTCISession.swift",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveWorker.swift",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/NativeDraftPowerGate.swift",
+      "historicalDepth": "fully reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/LiveClusterMethodsTests.swift",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/LiveOpportunitiesMethodsTests.swift",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/LiveTCISessionTests.swift",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/NativeDraftPowerAdmissionTests.swift",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/NativeDraftPowerCaptureTests.swift",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/NativePowerSelectionTests.swift",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/OperatorDraftTests.swift",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/package-lock.json",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/package.json",
+      "historicalDepth": "fully reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/scripts/accept-contest-naqp-operator-browser.mjs",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/scripts/accept-contesting-worker-process.mjs",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/scripts/check-window-bundles.mjs",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/scripts/relocate-contest-python.py",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/scripts/test-contest-python-relocation.py",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src-tauri/Cargo.lock",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src-tauri/src/contest_recorder.rs",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src-tauri/src/main.rs",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src-tauri/src/module_restart_intent.rs",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src-tauri/src/operating_module.rs",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src-tauri/src/radio_slots.rs",
+      "historicalDepth": "fully reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src-tauri/src/station_selection.rs",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src-tauri/src/worker.rs",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src/LiveApp.tsx",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src/contesting/ContestOperatorPanel.test.tsx",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src/contesting/ContestWorkspace.arrlDX.test.tsx",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src/contesting/DetachedContestDigitalDialog.tsx",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src/contesting/Not1MMContestWorkspace.tsx",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src/contesting/contestSetupDialogs.ts",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src/live/DetachedLogbookSurface.tsx",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src/live/DetachedQSOSurface.test.tsx",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src/live/DetachedQSOSurface.tsx",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src/live/OperatorDesk.tsx",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src/live/QSOEditorCore.tsx",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src/live/QSOEditorPower.test.tsx",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src/live/adifTransfer.test.ts",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src/live/adifTransfer.ts",
+      "historicalDepth": "fully reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src/live/operatorDraftSession.test.ts",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src/live/operatorDraftSession.ts",
+      "historicalDepth": "fully reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src/live/operatorDraftTransport.ts",
+      "historicalDepth": "fully reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src/live/operatorDraftWindows.ts",
+      "historicalDepth": "fully reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src/live/useCurrentUTC.ts",
+      "historicalDepth": "fully reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/src/live/useDuplicateContact.ts",
+      "historicalDepth": "fully reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "prototype/tests/detached-logbook.test.tsx",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "python/contest_host/adif_import.py",
+      "historicalDepth": "fully reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "python/contest_host/developer.py",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "python/contest_host/host.py",
+      "historicalDepth": "partially reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "python/contest_host/recorder.py",
+      "historicalDepth": "fully reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "python/contest_host/store.py",
+      "historicalDepth": "fully reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "python/contest_host/wae.py",
+      "historicalDepth": "fully reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "python/tests/test_recorder.py",
+      "historicalDepth": "fully reviewed",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    },
+    {
+      "path": "python/tests/test_wave5_developer_host.py",
+      "historicalDepth": "scanned only",
+      "freshDepth": "See current function/range ledgers; no automatic whole-file promotion"
+    }
+  ]
+}

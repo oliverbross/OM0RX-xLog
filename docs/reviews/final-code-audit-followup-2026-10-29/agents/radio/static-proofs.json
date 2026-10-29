@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "kind": "source assertions only; no runtime proof",
+  "entry": "0375a8e1a385252519a99127fe9d8f40d639365a",
+  "comparand": "530de4c4",
+  "checks": {
+    "install_power_capture_body_unchanged": true,
+    "stop_agent_body_unchanged": true,
+    "background_startup_body_unchanged": true,
+    "worker_entry_file_unchanged": true,
+    "fldigi_stop_branch_unchanged_except_explicit_emergency_argument": true,
+    "fldigi_save_precedes_release": true
+  },
+  "actual_source_sha256": {
+    "Sources/XLogPrototypeSupport/LiveStationSession.swift": "4c03e304c8abdd976e5ef238e88aab13570e0f2a40c161b160e1db93d7f3afa0",
+    "Sources/XLogPrototypeSupport/LiveWorker.swift": "22226c8f7c71d5e7944ad92d74184a7c854b9bb1bb9fdf4467c9c4bf3ff37c73",
+    "Sources/XLogPrototypeWorker/main.swift": "7bf4699d777cc843c6429e6bb42f97cd2b465023376f1a62468794d295ff11b8",
+    "Sources/XLogPrototypeSupport/LiveFldigiBridge.swift": "a3932fd831c3b754763d5d73edb6f2efa8ce512d3058123007656ef5becd7bb1"
+  }
+}

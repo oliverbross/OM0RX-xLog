@@ -1,0 +1,18 @@
+{
+  "id": "node-evidence",
+  "command": [
+    "node",
+    "--test",
+    "prototype/scripts/contesting-worker-acceptance-qso.node-test.mjs",
+    "prototype/scripts/contesting-worker-current-scenario.node-test.mjs"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T02:36:12.641582+00:00",
+  "finishedUTC": "2026-10-29T02:36:12.990074+00:00",
+  "seconds": 0.348,
+  "exit": 0,
+  "logSHA256": "0782ffbac561cad1f98f743fbb819d10b0940b8f64d6fc4e746b0ba02f2db9c6",
+  "sourceHead": "0375a8e1a385252519a99127fe9d8f40d639365a",
+  "buildBoundary": "Existing exact-source cached build; no fresh build or hardware/provider acceptance claimed",
+  "environment": "Inherited XLOG/XCW opts removed; UDP denied; Python and portable test profile explicit"
+}

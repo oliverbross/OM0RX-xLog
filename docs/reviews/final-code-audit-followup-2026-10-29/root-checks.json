@@ -1,0 +1,100 @@
+[
+  {
+    "id": "node-evidence",
+    "command": [
+      "node",
+      "--test",
+      "prototype/scripts/contesting-worker-acceptance-qso.node-test.mjs",
+      "prototype/scripts/contesting-worker-current-scenario.node-test.mjs"
+    ],
+    "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+    "startedUTC": "2026-10-29T02:36:12.641582+00:00",
+    "finishedUTC": "2026-10-29T02:36:12.990074+00:00",
+    "seconds": 0.348,
+    "exit": 0,
+    "logSHA256": "0782ffbac561cad1f98f743fbb819d10b0940b8f64d6fc4e746b0ba02f2db9c6",
+    "sourceHead": "0375a8e1a385252519a99127fe9d8f40d639365a",
+    "buildBoundary": "Existing exact-source cached build; no fresh build or hardware/provider acceptance claimed",
+    "environment": "Inherited XLOG/XCW opts removed; UDP denied; Python and portable test profile explicit"
+  },
+  {
+    "id": "security-policy",
+    "command": [
+      "/opt/homebrew/bin/python3.12",
+      "-B",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "python/tests",
+      "-p",
+      "test_reviewed_security_patches.py",
+      "-v"
+    ],
+    "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+    "startedUTC": "2026-10-29T02:36:13.006805+00:00",
+    "finishedUTC": "2026-10-29T02:36:13.147519+00:00",
+    "seconds": 0.141,
+    "exit": 0,
+    "logSHA256": "e9e8a9727eeb2b0ca3224d670a4d58e66e9804f5d992b557a439324ce5df54b9",
+    "sourceHead": "0375a8e1a385252519a99127fe9d8f40d639365a",
+    "buildBoundary": "Existing exact-source cached build; no fresh build or hardware/provider acceptance claimed",
+    "environment": "Inherited XLOG/XCW opts removed; UDP denied; Python and portable test profile explicit"
+  },
+  {
+    "id": "runtime-boundaries",
+    "command": [
+      "/opt/homebrew/bin/python3.12",
+      "-B",
+      "prototype/scripts/test-contest-python-relocation.py"
+    ],
+    "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+    "startedUTC": "2026-10-29T02:36:13.164101+00:00",
+    "finishedUTC": "2026-10-29T02:36:13.424549+00:00",
+    "seconds": 0.261,
+    "exit": 0,
+    "logSHA256": "5cd53a53d04023de114b2eeda7623449bed3d63b39f9d54d792ddacfe315b8e9",
+    "sourceHead": "0375a8e1a385252519a99127fe9d8f40d639365a",
+    "buildBoundary": "Existing exact-source cached build; no fresh build or hardware/provider acceptance claimed",
+    "environment": "Inherited XLOG/XCW opts removed; UDP denied; Python and portable test profile explicit"
+  },
+  {
+    "id": "patch-floors",
+    "command": [
+      "/opt/homebrew/bin/python3.12",
+      "-B",
+      "tools/check_reviewed_security_patches.py"
+    ],
+    "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+    "startedUTC": "2026-10-29T02:36:13.463849+00:00",
+    "finishedUTC": "2026-10-29T02:36:13.548850+00:00",
+    "seconds": 0.086,
+    "exit": 0,
+    "logSHA256": "0b8a854b94a4b037210b54749bc62284d4abbe8fac79843e57fa7f867da9e637",
+    "sourceHead": "0375a8e1a385252519a99127fe9d8f40d639365a",
+    "buildBoundary": "Existing exact-source cached build; no fresh build or hardware/provider acceptance claimed",
+    "environment": "Inherited XLOG/XCW opts removed; UDP denied; Python and portable test profile explicit"
+  },
+  {
+    "id": "focused-swift",
+    "command": [
+      "swift",
+      "test",
+      "--skip-build",
+      "--scratch-path",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/phase5-followup-20261029/portable",
+      "--no-parallel",
+      "--filter",
+      "BackupRestoreAuthorityTests|WavelogDestinationAuthorityTests|LiveFldigiBridgeTests|StationRadioRegistryTests|NativePowerSelectionTests|CWComputeWirePrimitiveTests|LiveOpportunitiesMethodsTests|portablePriorCleanupUsesFirstAdmissionClock"
+    ],
+    "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+    "startedUTC": "2026-10-29T02:36:13.568209+00:00",
+    "finishedUTC": "2026-10-29T02:36:27.094903+00:00",
+    "seconds": 13.529,
+    "exit": 0,
+    "logSHA256": "855da2b46271aed85dd0f3096cc67d332704563725f409ca95f803354b098824",
+    "sourceHead": "0375a8e1a385252519a99127fe9d8f40d639365a",
+    "buildBoundary": "Existing exact-source cached build; no fresh build or hardware/provider acceptance claimed",
+    "environment": "Inherited XLOG/XCW opts removed; UDP denied; Python and portable test profile explicit"
+  }
+]

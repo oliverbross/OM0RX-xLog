@@ -1,0 +1,10 @@
+{
+  "observedUTC": "2026-10-29T02:09:52.107036+00:00",
+  "head": "0375a8e1a385252519a99127fe9d8f40d639365a",
+  "applicationSource": "f3f6e3dee40af29cb6801ef8ee422c521629e168",
+  "cleanAtEntry": true,
+  "FFMainChecked": true,
+  "inputs": 1838,
+  "priorReportSHA256": "b4ec929f38cfa5b0989c72320f6e337a82b8f485ddf5a00bb151839778830104",
+  "scope": "Read-only current-source audit; report/evidence changes only; no production/provider/hardware/UI operation."
+}

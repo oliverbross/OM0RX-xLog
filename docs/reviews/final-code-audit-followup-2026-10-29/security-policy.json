@@ -1,0 +1,24 @@
+{
+  "id": "security-policy",
+  "command": [
+    "/opt/homebrew/bin/python3.12",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "python/tests",
+    "-p",
+    "test_reviewed_security_patches.py",
+    "-v"
+  ],
+  "cwd": "/Users/oliver/Documents/Projects/OM0RX-xLog",
+  "startedUTC": "2026-10-29T02:36:13.006805+00:00",
+  "finishedUTC": "2026-10-29T02:36:13.147519+00:00",
+  "seconds": 0.141,
+  "exit": 0,
+  "logSHA256": "e9e8a9727eeb2b0ca3224d670a4d58e66e9804f5d992b557a439324ce5df54b9",
+  "sourceHead": "0375a8e1a385252519a99127fe9d8f40d639365a",
+  "buildBoundary": "Existing exact-source cached build; no fresh build or hardware/provider acceptance claimed",
+  "environment": "Inherited XLOG/XCW opts removed; UDP denied; Python and portable test profile explicit"
+}

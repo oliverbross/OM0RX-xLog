@@ -1,0 +1,40 @@
+{
+  "observedUTC": "2026-10-29T02:56:10.399891+00:00",
+  "versions": {
+    "uname -srm": {
+      "exit": 0,
+      "stdout": "Darwin 27.0.0 arm64\n",
+      "stderr": ""
+    },
+    "swift --version": {
+      "exit": 0,
+      "stdout": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0\n",
+      "stderr": "swift-driver version: 1.168.6 "
+    },
+    "node --version": {
+      "exit": 0,
+      "stdout": "v24.11.1\n",
+      "stderr": ""
+    },
+    "npm --version": {
+      "exit": 0,
+      "stdout": "11.6.3\n",
+      "stderr": ""
+    },
+    "/opt/homebrew/bin/python3.12 --version": {
+      "exit": 0,
+      "stdout": "Python 3.12.13\n",
+      "stderr": ""
+    },
+    "rustc --version": {
+      "exit": 0,
+      "stdout": "rustc 1.98.0 (88d9e12ae 2026-08-18) (Homebrew)\n",
+      "stderr": ""
+    },
+    "cargo --version": {
+      "exit": 0,
+      "stdout": "cargo 1.98.0 (797e8a9bc 2026-08-05) (Homebrew)\n",
+      "stderr": ""
+    }
+  }
+}

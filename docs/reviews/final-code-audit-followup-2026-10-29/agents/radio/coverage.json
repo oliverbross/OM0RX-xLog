@@ -1,0 +1,2597 @@
+{
+  "schema": 1,
+  "review": "fresh Phase6 radio/native lifecycle",
+  "entry": "0375a8e1a385252519a99127fe9d8f40d639365a",
+  "application": "f3f6e3d",
+  "comparison": "530de4c4",
+  "functions": [
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+      "symbol": "init(agents:",
+      "range": [
+        44,
+        51
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 45,
+      "changed": true,
+      "callers": [
+        "LiveWorker.init:285",
+        "LiveWorker.startPowerCapture:379",
+        "LiveWorker.shutdownOutcome:426",
+        "LiveStationMethods.handle:133-255"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-168"
+      ],
+      "assessment": "Correct routed registry ownership; agent failures unconditionally mapped retired; startup install not a barrier."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+      "symbol": "func installPowerCapture(_ capture:",
+      "range": [
+        53,
+        55
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 53,
+      "changed": true,
+      "callers": [
+        "LiveWorker.init:285",
+        "LiveWorker.startPowerCapture:379",
+        "LiveWorker.shutdownOutcome:426",
+        "LiveStationMethods.handle:133-255"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-168"
+      ],
+      "assessment": "Correct routed registry ownership; agent failures unconditionally mapped retired; startup install not a barrier."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+      "symbol": "func terminate() async -> StationRetirementResult",
+      "range": [
+        57,
+        66
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 57,
+      "changed": true,
+      "callers": [
+        "LiveWorker.init:285",
+        "LiveWorker.startPowerCapture:379",
+        "LiveWorker.shutdownOutcome:426",
+        "LiveStationMethods.handle:133-255"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-168"
+      ],
+      "assessment": "Correct routed registry ownership; agent failures unconditionally mapped retired; startup install not a barrier."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+      "symbol": "static func cwFlexCapabilities",
+      "range": [
+        74,
+        74
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 74,
+      "changed": true,
+      "callers": [
+        "LiveWorker.response:527,759",
+        "LiveCWDecodeMethods IQ provider callbacks"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-168",
+        "LiveTCISessionTests.swift:90-102"
+      ],
+      "assessment": "Helpers route shared production registry; direct injected worker router uses its exact registry; per-slot claims retained; terminal/profile paths checked."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+      "symbol": "static func cwFlexRevokeHandoffs",
+      "range": [
+        75,
+        79
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 75,
+      "changed": true,
+      "callers": [
+        "LiveWorker.response:527,759",
+        "LiveCWDecodeMethods IQ provider callbacks"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-168",
+        "LiveTCISessionTests.swift:90-102"
+      ],
+      "assessment": "Helpers route shared production registry; direct injected worker router uses its exact registry; per-slot claims retained; terminal/profile paths checked."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+      "symbol": "static func cwFlexHandoff",
+      "range": [
+        80,
+        83
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 80,
+      "changed": true,
+      "callers": [
+        "LiveWorker.response:527,759",
+        "LiveCWDecodeMethods IQ provider callbacks"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-168",
+        "LiveTCISessionTests.swift:90-102"
+      ],
+      "assessment": "Helpers route shared production registry; direct injected worker router uses its exact registry; per-slot claims retained; terminal/profile paths checked."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+      "symbol": "static func cwStartFlex",
+      "range": [
+        84,
+        87
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 84,
+      "changed": true,
+      "callers": [
+        "LiveWorker.response:527,759",
+        "LiveCWDecodeMethods IQ provider callbacks"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-168",
+        "LiveTCISessionTests.swift:90-102"
+      ],
+      "assessment": "Helpers route shared production registry; direct injected worker router uses its exact registry; per-slot claims retained; terminal/profile paths checked."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+      "symbol": "static func cwStopFlex",
+      "range": [
+        88,
+        88
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 88,
+      "changed": true,
+      "callers": [
+        "LiveWorker.response:527,759",
+        "LiveCWDecodeMethods IQ provider callbacks"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-168",
+        "LiveTCISessionTests.swift:90-102"
+      ],
+      "assessment": "Helpers route shared production registry; direct injected worker router uses its exact registry; per-slot claims retained; terminal/profile paths checked."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+      "symbol": "static func cwFlexCapture",
+      "range": [
+        89,
+        89
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 89,
+      "changed": true,
+      "callers": [
+        "LiveWorker.response:527,759",
+        "LiveCWDecodeMethods IQ provider callbacks"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-168",
+        "LiveTCISessionTests.swift:90-102"
+      ],
+      "assessment": "Helpers route shared production registry; direct injected worker router uses its exact registry; per-slot claims retained; terminal/profile paths checked."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+      "symbol": "static func cwTCICapabilities",
+      "range": [
+        90,
+        92
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 90,
+      "changed": true,
+      "callers": [
+        "LiveWorker.response:527,759",
+        "LiveCWDecodeMethods IQ provider callbacks"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-168",
+        "LiveTCISessionTests.swift:90-102"
+      ],
+      "assessment": "Helpers route shared production registry; direct injected worker router uses its exact registry; per-slot claims retained; terminal/profile paths checked."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+      "symbol": "static func cwStartTCI",
+      "range": [
+        93,
+        96
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 93,
+      "changed": true,
+      "callers": [
+        "LiveWorker.response:527,759",
+        "LiveCWDecodeMethods IQ provider callbacks"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-168",
+        "LiveTCISessionTests.swift:90-102"
+      ],
+      "assessment": "Helpers route shared production registry; direct injected worker router uses its exact registry; per-slot claims retained; terminal/profile paths checked."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+      "symbol": "static func cwStopTCI",
+      "range": [
+        97,
+        97
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 97,
+      "changed": true,
+      "callers": [
+        "LiveWorker.response:527,759",
+        "LiveCWDecodeMethods IQ provider callbacks"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-168",
+        "LiveTCISessionTests.swift:90-102"
+      ],
+      "assessment": "Helpers route shared production registry; direct injected worker router uses its exact registry; per-slot claims retained; terminal/profile paths checked."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+      "symbol": "static func cwTCICapture",
+      "range": [
+        98,
+        100
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 98,
+      "changed": true,
+      "callers": [
+        "LiveWorker.response:527,759",
+        "LiveCWDecodeMethods IQ provider callbacks"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-168",
+        "LiveTCISessionTests.swift:90-102"
+      ],
+      "assessment": "Helpers route shared production registry; direct injected worker router uses its exact registry; per-slot claims retained; terminal/profile paths checked."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationMethods.swift",
+      "symbol": "static func handle(_ method:",
+      "range": [
+        133,
+        334
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 133,
+      "changed": true,
+      "callers": [
+        "LiveWorker.response:527,759",
+        "LiveCWDecodeMethods IQ provider callbacks"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-168",
+        "LiveTCISessionTests.swift:90-102"
+      ],
+      "assessment": "Helpers route shared production registry; direct injected worker router uses its exact registry; per-slot claims retained; terminal/profile paths checked."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationSession.swift",
+      "symbol": "func handle(_ method:",
+      "range": [
+        243,
+        534
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 243,
+      "changed": true,
+      "callers": [
+        "LiveStationMethods.handle:169-255",
+        "LiveStationSession.terminate:577-580"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-31,84-105"
+      ],
+      "assessment": "Changed attach/detach use radioID; connect captures optional gate before callbacks; reconnect does not recreate client."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationSession.swift",
+      "symbol": "func shutdown() async",
+      "range": [
+        582,
+        600
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 582,
+      "changed": true,
+      "callers": [
+        "LiveStationMethods.handle:169-255",
+        "LiveStationSession.terminate:577-580"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-31,84-105"
+      ],
+      "assessment": "Changed attach/detach use radioID; connect captures optional gate before callbacks; reconnect does not recreate client."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationSession.swift",
+      "symbol": "func installPowerCapture",
+      "range": [
+        232,
+        235
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 232,
+      "changed": false,
+      "callers": [
+        "LiveStationMethods.installPowerCapture:53-55",
+        "LiveStationSession.handle/connect:315-344",
+        "LiveStationSession.shutdown:599"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-31",
+        "AgentProof.swift compile-only unusable stale binary"
+      ],
+      "assessment": "Unchanged interactions independently traced; late registration cannot attach source; all release failures swallowed and ownership cleared."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationSession.swift",
+      "symbol": "private func recordState",
+      "range": [
+        954,
+        961
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 954,
+      "changed": false,
+      "callers": [
+        "LiveStationMethods.installPowerCapture:53-55",
+        "LiveStationSession.handle/connect:315-344",
+        "LiveStationSession.shutdown:599"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-31",
+        "AgentProof.swift compile-only unusable stale binary"
+      ],
+      "assessment": "Unchanged interactions independently traced; late registration cannot attach source; all release failures swallowed and ownership cleared."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationSession.swift",
+      "symbol": "private func reconcilePowerObservationSession",
+      "range": [
+        963,
+        967
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 963,
+      "changed": false,
+      "callers": [
+        "LiveStationMethods.installPowerCapture:53-55",
+        "LiveStationSession.handle/connect:315-344",
+        "LiveStationSession.shutdown:599"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-31",
+        "AgentProof.swift compile-only unusable stale binary"
+      ],
+      "assessment": "Unchanged interactions independently traced; late registration cannot attach source; all release failures swallowed and ownership cleared."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationSession.swift",
+      "symbol": "private func stop(_ current:",
+      "range": [
+        988,
+        1009
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 988,
+      "changed": false,
+      "callers": [
+        "LiveStationMethods.installPowerCapture:53-55",
+        "LiveStationSession.handle/connect:315-344",
+        "LiveStationSession.shutdown:599"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-31",
+        "AgentProof.swift compile-only unusable stale binary"
+      ],
+      "assessment": "Unchanged interactions independently traced; late registration cannot attach source; all release failures swallowed and ownership cleared."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveStationSession.swift",
+      "symbol": "func terminate() async",
+      "range": [
+        577,
+        580
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 577,
+      "changed": false,
+      "callers": [
+        "LiveStationMethods.installPowerCapture:53-55",
+        "LiveStationSession.handle/connect:315-344",
+        "LiveStationSession.shutdown:599"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-31",
+        "AgentProof.swift compile-only unusable stale binary"
+      ],
+      "assessment": "Unchanged interactions independently traced; late registration cannot attach source; all release failures swallowed and ownership cleared."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveFlexSession.swift",
+      "symbol": "func handle(_ method:",
+      "range": [
+        115,
+        187
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 115,
+      "changed": true,
+      "callers": [
+        "LiveStationMethods.handle:177-197",
+        "StationRadioRegistry.terminate:60"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:52-82,107-168"
+      ],
+      "assessment": "FLEX failure propagated; terminal exact disconnect-only recovery; new acquisition sealed."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveFlexSession.swift",
+      "symbol": "@discardableResult func terminate()",
+      "range": [
+        189,
+        193
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 189,
+      "changed": true,
+      "callers": [
+        "LiveStationMethods.handle:177-197",
+        "StationRadioRegistry.terminate:60"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:52-82,107-168"
+      ],
+      "assessment": "FLEX failure propagated; terminal exact disconnect-only recovery; new acquisition sealed."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveFlexSession.swift",
+      "symbol": "private func disconnect()",
+      "range": [
+        224,
+        229
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 224,
+      "changed": false,
+      "callers": [
+        "LiveFlexSession.terminate:189",
+        "LiveFlexSession.handle:124,134"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:107-155"
+      ],
+      "assessment": "Retains failed owned duty/radio; off observation required; busy activeControl/release barrier retained."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveFlexSession.swift",
+      "symbol": "private func retireCurrent()",
+      "range": [
+        231,
+        253
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 231,
+      "changed": false,
+      "callers": [
+        "LiveFlexSession.terminate:189",
+        "LiveFlexSession.handle:124,134"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:107-155"
+      ],
+      "assessment": "Retains failed owned duty/radio; off observation required; busy activeControl/release barrier retained."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveFlexSession.swift",
+      "symbol": "private func releaseOwned(",
+      "range": [
+        255,
+        270
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 255,
+      "changed": false,
+      "callers": [
+        "LiveFlexSession.terminate:189",
+        "LiveFlexSession.handle:124,134"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:107-155"
+      ],
+      "assessment": "Retains failed owned duty/radio; off observation required; busy activeControl/release barrier retained."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveWorker.swift",
+      "symbol": "static func resolve(onlineLogsRetired:",
+      "range": [
+        38,
+        46
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 38,
+      "changed": true,
+      "callers": [
+        "XLogPrototypeWorker/main.swift:101-119,158-167",
+        "LiveWorker.startBackgroundServices:342"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-168",
+        "NativePowerSelectionTests.swift:7-131",
+        "NativeDraftPowerCaptureTests.swift:39-205"
+      ],
+      "assessment": "Registry injection and structured FLEX error checked; terminal recovery profile gate retained; native active authority and per-slot metadata validated; startup race remains."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveWorker.swift",
+      "symbol": "init(logbook:",
+      "range": [
+        173,
+        286
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 187,
+      "changed": true,
+      "callers": [
+        "XLogPrototypeWorker/main.swift:101-119,158-167",
+        "LiveWorker.startBackgroundServices:342"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-168",
+        "NativePowerSelectionTests.swift:7-131",
+        "NativeDraftPowerCaptureTests.swift:39-205"
+      ],
+      "assessment": "Registry injection and structured FLEX error checked; terminal recovery profile gate retained; native active authority and per-slot metadata validated; startup race remains."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveWorker.swift",
+      "symbol": "func startPowerCapture(",
+      "range": [
+        372,
+        382
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 372,
+      "changed": true,
+      "callers": [
+        "XLogPrototypeWorker/main.swift:101-119,158-167",
+        "LiveWorker.startBackgroundServices:342"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-168",
+        "NativePowerSelectionTests.swift:7-131",
+        "NativeDraftPowerCaptureTests.swift:39-205"
+      ],
+      "assessment": "Registry injection and structured FLEX error checked; terminal recovery profile gate retained; native active authority and per-slot metadata validated; startup race remains."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveWorker.swift",
+      "symbol": "public func shutdownOutcome()",
+      "range": [
+        390,
+        435
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 390,
+      "changed": true,
+      "callers": [
+        "XLogPrototypeWorker/main.swift:101-119,158-167",
+        "LiveWorker.startBackgroundServices:342"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-168",
+        "NativePowerSelectionTests.swift:7-131",
+        "NativeDraftPowerCaptureTests.swift:39-205"
+      ],
+      "assessment": "Registry injection and structured FLEX error checked; terminal recovery profile gate retained; native active authority and per-slot metadata validated; startup race remains."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveWorker.swift",
+      "symbol": "public func response(to data:",
+      "range": [
+        437,
+        814
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 437,
+      "changed": true,
+      "callers": [
+        "XLogPrototypeWorker/main.swift:101-119,158-167",
+        "LiveWorker.startBackgroundServices:342"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:8-168",
+        "NativePowerSelectionTests.swift:7-131",
+        "NativeDraftPowerCaptureTests.swift:39-205"
+      ],
+      "assessment": "Registry injection and structured FLEX error checked; terminal recovery profile gate retained; native active authority and per-slot metadata validated; startup race remains."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveWorker.swift",
+      "symbol": "public func startBackgroundServices()",
+      "range": [
+        333,
+        356
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 333,
+      "changed": false,
+      "callers": [
+        "XLogPrototypeWorker/main.swift:106,162",
+        "LiveWorker.startPowerCapture:376-381",
+        "LiveWorker.response Save drain:628-634"
+      ],
+      "tests": [
+        "NativeDraftPowerAdmissionTests.swift:40-312",
+        "NativeDraftPowerCaptureTests.swift:39-205"
+      ],
+      "assessment": "Background startup is unawaited; gate callbacks serialized, DB authorization rechecked without holding source lock over DB waiting."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveWorker.swift",
+      "symbol": "func beginTerminalShutdown()",
+      "range": [
+        288,
+        300
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 288,
+      "changed": false,
+      "callers": [
+        "XLogPrototypeWorker/main.swift:106,162",
+        "LiveWorker.startPowerCapture:376-381",
+        "LiveWorker.response Save drain:628-634"
+      ],
+      "tests": [
+        "NativeDraftPowerAdmissionTests.swift:40-312",
+        "NativeDraftPowerCaptureTests.swift:39-205"
+      ],
+      "assessment": "Background startup is unawaited; gate callbacks serialized, DB authorization rechecked without holding source lock over DB waiting."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveWorker.swift",
+      "symbol": "func reconcilePower()",
+      "range": [
+        91,
+        116
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 91,
+      "changed": false,
+      "callers": [
+        "XLogPrototypeWorker/main.swift:106,162",
+        "LiveWorker.startPowerCapture:376-381",
+        "LiveWorker.response Save drain:628-634"
+      ],
+      "tests": [
+        "NativeDraftPowerAdmissionTests.swift:40-312",
+        "NativeDraftPowerCaptureTests.swift:39-205"
+      ],
+      "assessment": "Background startup is unawaited; gate callbacks serialized, DB authorization rechecked without holding source lock over DB waiting."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveWorker.swift",
+      "symbol": "func capturePower(",
+      "range": [
+        118,
+        133
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 118,
+      "changed": false,
+      "callers": [
+        "XLogPrototypeWorker/main.swift:106,162",
+        "LiveWorker.startPowerCapture:376-381",
+        "LiveWorker.response Save drain:628-634"
+      ],
+      "tests": [
+        "NativeDraftPowerAdmissionTests.swift:40-312",
+        "NativeDraftPowerCaptureTests.swift:39-205"
+      ],
+      "assessment": "Background startup is unawaited; gate callbacks serialized, DB authorization rechecked without holding source lock over DB waiting."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/NativeDraftPowerGate.swift",
+      "symbol": "func select(",
+      "range": [
+        61,
+        71
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 61,
+      "changed": true,
+      "callers": [
+        "LiveWorker.response:588-619",
+        "LiveStationSession.handle:320,334,343",
+        "LiveStationSession.shutdown:586"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:84-105",
+        "NativePowerSelectionTests.swift:23-80",
+        "NativeDraftPowerCaptureTests.swift:143-179"
+      ],
+      "assessment": "Per-slot metadata/sources and separate active generation fence; inactive metadata cannot replace active meter; old source callbacks rejected."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/NativeDraftPowerGate.swift",
+      "symbol": "@discardableResult func activate(",
+      "range": [
+        77,
+        89
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 77,
+      "changed": true,
+      "callers": [
+        "LiveWorker.response:588-619",
+        "LiveStationSession.handle:320,334,343",
+        "LiveStationSession.shutdown:586"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:84-105",
+        "NativePowerSelectionTests.swift:23-80",
+        "NativeDraftPowerCaptureTests.swift:143-179"
+      ],
+      "assessment": "Per-slot metadata/sources and separate active generation fence; inactive metadata cannot replace active meter; old source callbacks rejected."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/NativeDraftPowerGate.swift",
+      "symbol": "func attach(",
+      "range": [
+        91,
+        99
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 91,
+      "changed": true,
+      "callers": [
+        "LiveWorker.response:588-619",
+        "LiveStationSession.handle:320,334,343",
+        "LiveStationSession.shutdown:586"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:84-105",
+        "NativePowerSelectionTests.swift:23-80",
+        "NativeDraftPowerCaptureTests.swift:143-179"
+      ],
+      "assessment": "Per-slot metadata/sources and separate active generation fence; inactive metadata cannot replace active meter; old source callbacks rejected."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/NativeDraftPowerGate.swift",
+      "symbol": "func connection(",
+      "range": [
+        101,
+        112
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 101,
+      "changed": true,
+      "callers": [
+        "LiveWorker.response:588-619",
+        "LiveStationSession.handle:320,334,343",
+        "LiveStationSession.shutdown:586"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:84-105",
+        "NativePowerSelectionTests.swift:23-80",
+        "NativeDraftPowerCaptureTests.swift:143-179"
+      ],
+      "assessment": "Per-slot metadata/sources and separate active generation fence; inactive metadata cannot replace active meter; old source callbacks rejected."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/NativeDraftPowerGate.swift",
+      "symbol": "func detach(",
+      "range": [
+        114,
+        121
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 114,
+      "changed": true,
+      "callers": [
+        "LiveWorker.response:588-619",
+        "LiveStationSession.handle:320,334,343",
+        "LiveStationSession.shutdown:586"
+      ],
+      "tests": [
+        "StationRadioRegistryTests.swift:84-105",
+        "NativePowerSelectionTests.swift:23-80",
+        "NativeDraftPowerCaptureTests.swift:143-179"
+      ],
+      "assessment": "Per-slot metadata/sources and separate active generation fence; inactive metadata cannot replace active meter; old source callbacks rejected."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/NativeDraftPowerGate.swift",
+      "symbol": "func state()",
+      "range": [
+        134,
+        144
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 134,
+      "changed": false,
+      "callers": [
+        "LiveWorker.LogbookLane:91-132",
+        "LiveWorker.response:630"
+      ],
+      "tests": [
+        "NativeDraftPowerAdmissionTests.swift:129-312",
+        "NativeDraftPowerCaptureTests.swift:143-179"
+      ],
+      "assessment": "Unchanged gate/DB/FIFO safeguards checked for changed routing interactions; no numeric cross-slot corruption path found."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/NativeDraftPowerGate.swift",
+      "symbol": "func arm(",
+      "range": [
+        146,
+        155
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 146,
+      "changed": false,
+      "callers": [
+        "LiveWorker.LogbookLane:91-132",
+        "LiveWorker.response:630"
+      ],
+      "tests": [
+        "NativeDraftPowerAdmissionTests.swift:129-312",
+        "NativeDraftPowerCaptureTests.swift:143-179"
+      ],
+      "assessment": "Unchanged gate/DB/FIFO safeguards checked for changed routing interactions; no numeric cross-slot corruption path found."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/NativeDraftPowerGate.swift",
+      "symbol": "func observe(",
+      "range": [
+        159,
+        184
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 159,
+      "changed": false,
+      "callers": [
+        "LiveWorker.LogbookLane:91-132",
+        "LiveWorker.response:630"
+      ],
+      "tests": [
+        "NativeDraftPowerAdmissionTests.swift:129-312",
+        "NativeDraftPowerCaptureTests.swift:143-179"
+      ],
+      "assessment": "Unchanged gate/DB/FIFO safeguards checked for changed routing interactions; no numeric cross-slot corruption path found."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/NativeDraftPowerGate.swift",
+      "symbol": "func permits(",
+      "range": [
+        189,
+        195
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 189,
+      "changed": false,
+      "callers": [
+        "LiveWorker.LogbookLane:91-132",
+        "LiveWorker.response:630"
+      ],
+      "tests": [
+        "NativeDraftPowerAdmissionTests.swift:129-312",
+        "NativeDraftPowerCaptureTests.swift:143-179"
+      ],
+      "assessment": "Unchanged gate/DB/FIFO safeguards checked for changed routing interactions; no numeric cross-slot corruption path found."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/NativeDraftPowerGate.swift",
+      "symbol": "func recordCaptured(",
+      "range": [
+        198,
+        211
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 198,
+      "changed": false,
+      "callers": [
+        "LiveWorker.LogbookLane:91-132",
+        "LiveWorker.response:630"
+      ],
+      "tests": [
+        "NativeDraftPowerAdmissionTests.swift:129-312",
+        "NativeDraftPowerCaptureTests.swift:143-179"
+      ],
+      "assessment": "Unchanged gate/DB/FIFO safeguards checked for changed routing interactions; no numeric cross-slot corruption path found."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/NativeDraftPowerGate.swift",
+      "symbol": "func enqueue(",
+      "range": [
+        233,
+        238
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 233,
+      "changed": false,
+      "callers": [
+        "LiveWorker.LogbookLane:91-132",
+        "LiveWorker.response:630"
+      ],
+      "tests": [
+        "NativeDraftPowerAdmissionTests.swift:129-312",
+        "NativeDraftPowerCaptureTests.swift:143-179"
+      ],
+      "assessment": "Unchanged gate/DB/FIFO safeguards checked for changed routing interactions; no numeric cross-slot corruption path found."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/NativeDraftPowerGate.swift",
+      "symbol": "func drain()",
+      "range": [
+        240,
+        243
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 240,
+      "changed": false,
+      "callers": [
+        "LiveWorker.LogbookLane:91-132",
+        "LiveWorker.response:630"
+      ],
+      "tests": [
+        "NativeDraftPowerAdmissionTests.swift:129-312",
+        "NativeDraftPowerCaptureTests.swift:143-179"
+      ],
+      "assessment": "Unchanged gate/DB/FIFO safeguards checked for changed routing interactions; no numeric cross-slot corruption path found."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveFldigiBridge.swift",
+      "symbol": "public func handle(method:",
+      "range": [
+        140,
+        253
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 143,
+      "changed": true,
+      "callers": [
+        "LiveWorker.response:776-792",
+        "LiveFldigiBridge.stopForShutdown:127-130",
+        "LiveFldigiBridge.suspendForWorkspaceChange:132-138"
+      ],
+      "tests": [
+        "LiveFldigiBridgeTests.swift:39-319"
+      ],
+      "assessment": "Automatic cleanup duty and overlap policy correct; completed send followed by explicit Stop storage failure skips RX; all actions prevalidated."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveFldigiBridge.swift",
+      "symbol": "private func returnToReceive(",
+      "range": [
+        309,
+        326
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 309,
+      "changed": true,
+      "callers": [
+        "LiveWorker.response:776-792",
+        "LiveFldigiBridge.stopForShutdown:127-130",
+        "LiveFldigiBridge.suspendForWorkspaceChange:132-138"
+      ],
+      "tests": [
+        "LiveFldigiBridgeTests.swift:39-319"
+      ],
+      "assessment": "Automatic cleanup duty and overlap policy correct; completed send followed by explicit Stop storage failure skips RX; all actions prevalidated."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveFldigiBridge.swift",
+      "symbol": "private func snapshot(",
+      "range": [
+        345,
+        356
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 345,
+      "changed": true,
+      "callers": [
+        "LiveWorker.response:776-792",
+        "LiveFldigiBridge.stopForShutdown:127-130",
+        "LiveFldigiBridge.suspendForWorkspaceChange:132-138"
+      ],
+      "tests": [
+        "LiveFldigiBridgeTests.swift:39-319"
+      ],
+      "assessment": "Automatic cleanup duty and overlap policy correct; completed send followed by explicit Stop storage failure skips RX; all actions prevalidated."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveFldigiBridge.swift",
+      "symbol": "public func stopForShutdown()",
+      "range": [
+        127,
+        130
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 127,
+      "changed": false,
+      "callers": [
+        "LiveWorker.shutdownOutcome:400",
+        "LiveWorker.response/workspace:650",
+        "LiveFldigiBridge.handle/stop:207-209"
+      ],
+      "tests": [
+        "LiveFldigiBridgeTests.swift:39-319"
+      ],
+      "assessment": "Unchanged caller/storage interactions inspected; lifecycle cleanup bypasses save; explicit Stop does not. load cached; do not claim JSON corruption trigger."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveFldigiBridge.swift",
+      "symbol": "public func suspendForWorkspaceChange()",
+      "range": [
+        132,
+        138
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 132,
+      "changed": false,
+      "callers": [
+        "LiveWorker.shutdownOutcome:400",
+        "LiveWorker.response/workspace:650",
+        "LiveFldigiBridge.handle/stop:207-209"
+      ],
+      "tests": [
+        "LiveFldigiBridgeTests.swift:39-319"
+      ],
+      "assessment": "Unchanged caller/storage interactions inspected; lifecycle cleanup bypasses save; explicit Stop does not. load cached; do not claim JSON corruption trigger."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveFldigiBridge.swift",
+      "symbol": "private func load()",
+      "range": [
+        358,
+        363
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 358,
+      "changed": false,
+      "callers": [
+        "LiveWorker.shutdownOutcome:400",
+        "LiveWorker.response/workspace:650",
+        "LiveFldigiBridge.handle/stop:207-209"
+      ],
+      "tests": [
+        "LiveFldigiBridgeTests.swift:39-319"
+      ],
+      "assessment": "Unchanged caller/storage interactions inspected; lifecycle cleanup bypasses save; explicit Stop does not. load cached; do not claim JSON corruption trigger."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveFldigiBridge.swift",
+      "symbol": "private func save(_ value:",
+      "range": [
+        364,
+        369
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 364,
+      "changed": false,
+      "callers": [
+        "LiveWorker.shutdownOutcome:400",
+        "LiveWorker.response/workspace:650",
+        "LiveFldigiBridge.handle/stop:207-209"
+      ],
+      "tests": [
+        "LiveFldigiBridgeTests.swift:39-319"
+      ],
+      "assessment": "Unchanged caller/storage interactions inspected; lifecycle cleanup bypasses save; explicit Stop does not. load cached; do not claim JSON corruption trigger."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveTCISession.swift",
+      "symbol": "func handle(_ method:",
+      "range": [
+        32,
+        169
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 32,
+      "changed": false,
+      "callers": [
+        "LiveStationMethods.handle:165-166",
+        "StationRadioRegistry.terminate:61"
+      ],
+      "tests": [
+        "LiveTCISessionTests.swift:8-36,104-149,186-212",
+        "StationRadioRegistryTests.swift:34-50"
+      ],
+      "assessment": "Receive-only lifecycle; generation and exact identity before recording results; no new defect established."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveTCISession.swift",
+      "symbol": "func terminate() async",
+      "range": [
+        171,
+        171
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 171,
+      "changed": false,
+      "callers": [
+        "LiveStationMethods.handle:165-166",
+        "StationRadioRegistry.terminate:61"
+      ],
+      "tests": [
+        "LiveTCISessionTests.swift:8-36,104-149,186-212",
+        "StationRadioRegistryTests.swift:34-50"
+      ],
+      "assessment": "Receive-only lifecycle; generation and exact identity before recording results; no new defect established."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveTCISession.swift",
+      "symbol": "private func disconnect()",
+      "range": [
+        188,
+        194
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 188,
+      "changed": false,
+      "callers": [
+        "LiveStationMethods.handle:165-166",
+        "StationRadioRegistry.terminate:61"
+      ],
+      "tests": [
+        "LiveTCISessionTests.swift:8-36,104-149,186-212",
+        "StationRadioRegistryTests.swift:34-50"
+      ],
+      "assessment": "Receive-only lifecycle; generation and exact identity before recording results; no new defect established."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveTCISession.swift",
+      "symbol": "private func record(",
+      "range": [
+        199,
+        202
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 199,
+      "changed": false,
+      "callers": [
+        "LiveStationMethods.handle:165-166",
+        "StationRadioRegistry.terminate:61"
+      ],
+      "tests": [
+        "LiveTCISessionTests.swift:8-36,104-149,186-212",
+        "StationRadioRegistryTests.swift:34-50"
+      ],
+      "assessment": "Receive-only lifecycle; generation and exact identity before recording results; no new defect established."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveTCISession.swift",
+      "symbol": "private func snapshot()",
+      "range": [
+        203,
+        247
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 203,
+      "changed": false,
+      "callers": [
+        "LiveStationMethods.handle:165-166",
+        "StationRadioRegistry.terminate:61"
+      ],
+      "tests": [
+        "LiveTCISessionTests.swift:8-36,104-149,186-212",
+        "StationRadioRegistryTests.swift:34-50"
+      ],
+      "assessment": "Receive-only lifecycle; generation and exact identity before recording results; no new defect established."
+    },
+    {
+      "path": "Sources/XCatIntegrationCore/TCIWebSocketSession.swift",
+      "symbol": "private func receiveCommand(",
+      "range": [
+        547,
+        647
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 548,
+      "changed": false,
+      "callers": [
+        "LiveTCISession.handle/station_tune:93-106",
+        "TCIReadOnlyWebSocketSession.tuneReceive:414-422"
+      ],
+      "tests": [
+        "LiveTCISessionTests.swift:104-149",
+        "TCIProof.swift compile-only (execution blocked)"
+      ],
+      "assessment": "READY-only same-target evidence hypothesis; real protocol trigger/consequence unverified; reconnect failure/generation safeguards remain."
+    },
+    {
+      "path": "Sources/XCatIntegrationCore/TCIWebSocketSession.swift",
+      "symbol": "private static func waitForTuneReadback(",
+      "range": [
+        649,
+        684
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 658,
+      "changed": false,
+      "callers": [
+        "LiveTCISession.handle/station_tune:93-106",
+        "TCIReadOnlyWebSocketSession.tuneReceive:414-422"
+      ],
+      "tests": [
+        "LiveTCISessionTests.swift:104-149",
+        "TCIProof.swift compile-only (execution blocked)"
+      ],
+      "assessment": "READY-only same-target evidence hypothesis; real protocol trigger/consequence unverified; reconnect failure/generation safeguards remain."
+    },
+    {
+      "path": "Sources/XCatIntegrationCore/TCIWebSocketSession.swift",
+      "symbol": "private func process(",
+      "range": [
+        686,
+        749
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 693,
+      "changed": false,
+      "callers": [
+        "LiveTCISession.handle/station_tune:93-106",
+        "TCIReadOnlyWebSocketSession.tuneReceive:414-422"
+      ],
+      "tests": [
+        "LiveTCISessionTests.swift:104-149",
+        "TCIProof.swift compile-only (execution blocked)"
+      ],
+      "assessment": "READY-only same-target evidence hypothesis; real protocol trigger/consequence unverified; reconnect failure/generation safeguards remain."
+    },
+    {
+      "path": "Sources/XCatIntegrationCore/TCIWebSocketSession.swift",
+      "symbol": "private func isConfiguredEvidence(",
+      "range": [
+        829,
+        843
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 829,
+      "changed": false,
+      "callers": [
+        "LiveTCISession.handle/station_tune:93-106",
+        "TCIReadOnlyWebSocketSession.tuneReceive:414-422"
+      ],
+      "tests": [
+        "LiveTCISessionTests.swift:104-149",
+        "TCIProof.swift compile-only (execution blocked)"
+      ],
+      "assessment": "READY-only same-target evidence hypothesis; real protocol trigger/consequence unverified; reconnect failure/generation safeguards remain."
+    },
+    {
+      "path": "prototype/src-tauri/src/radio_slots.rs",
+      "symbol": "pub(crate) fn request(&self)",
+      "range": [
+        42,
+        46
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 42,
+      "changed": true,
+      "callers": [
+        "main.rs:2216-2235,2271",
+        "station_selection.rs:853-855,878-911",
+        "hamlib.rs reconnect claim_tx"
+      ],
+      "tests": [
+        "radio_slots.rs:284-400"
+      ],
+      "assessment": "Native route fence before durable change; no lock over publication IPC; routing\u2192TX order consistent; Hamlib reacquisition shares fence; failed final publication retryable."
+    },
+    {
+      "path": "prototype/src-tauri/src/radio_slots.rs",
+      "symbol": "fn admit_tx_route(",
+      "range": [
+        71,
+        74
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 71,
+      "changed": true,
+      "callers": [
+        "main.rs:2216-2235,2271",
+        "station_selection.rs:853-855,878-911",
+        "hamlib.rs reconnect claim_tx"
+      ],
+      "tests": [
+        "radio_slots.rs:284-400"
+      ],
+      "assessment": "Native route fence before durable change; no lock over publication IPC; routing\u2192TX order consistent; Hamlib reacquisition shares fence; failed final publication retryable."
+    },
+    {
+      "path": "prototype/src-tauri/src/radio_slots.rs",
+      "symbol": "fn load(",
+      "range": [
+        76,
+        97
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 76,
+      "changed": true,
+      "callers": [
+        "main.rs:2216-2235,2271",
+        "station_selection.rs:853-855,878-911",
+        "hamlib.rs reconnect claim_tx"
+      ],
+      "tests": [
+        "radio_slots.rs:284-400"
+      ],
+      "assessment": "Native route fence before durable change; no lock over publication IPC; routing\u2192TX order consistent; Hamlib reacquisition shares fence; failed final publication retryable."
+    },
+    {
+      "path": "prototype/src-tauri/src/radio_slots.rs",
+      "symbol": "fn routing_owner(",
+      "range": [
+        121,
+        130
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 121,
+      "changed": true,
+      "callers": [
+        "main.rs:2216-2235,2271",
+        "station_selection.rs:853-855,878-911",
+        "hamlib.rs reconnect claim_tx"
+      ],
+      "tests": [
+        "radio_slots.rs:284-400"
+      ],
+      "assessment": "Native route fence before durable change; no lock over publication IPC; routing\u2192TX order consistent; Hamlib reacquisition shares fence; failed final publication retryable."
+    },
+    {
+      "path": "prototype/src-tauri/src/radio_slots.rs",
+      "symbol": "fn with_routing",
+      "range": [
+        132,
+        136
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 132,
+      "changed": true,
+      "callers": [
+        "main.rs:2216-2235,2271",
+        "station_selection.rs:853-855,878-911",
+        "hamlib.rs reconnect claim_tx"
+      ],
+      "tests": [
+        "radio_slots.rs:284-400"
+      ],
+      "assessment": "Native route fence before durable change; no lock over publication IPC; routing\u2192TX order consistent; Hamlib reacquisition shares fence; failed final publication retryable."
+    },
+    {
+      "path": "prototype/src-tauri/src/radio_slots.rs",
+      "symbol": "pub fn active(",
+      "range": [
+        138,
+        140
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 138,
+      "changed": true,
+      "callers": [
+        "main.rs:2216-2235,2271",
+        "station_selection.rs:853-855,878-911",
+        "hamlib.rs reconnect claim_tx"
+      ],
+      "tests": [
+        "radio_slots.rs:284-400"
+      ],
+      "assessment": "Native route fence before durable change; no lock over publication IPC; routing\u2192TX order consistent; Hamlib reacquisition shares fence; failed final publication retryable."
+    },
+    {
+      "path": "prototype/src-tauri/src/radio_slots.rs",
+      "symbol": "pub(crate) fn prepare_power_authority",
+      "range": [
+        143,
+        145
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 143,
+      "changed": true,
+      "callers": [
+        "main.rs:2216-2235,2271",
+        "station_selection.rs:853-855,878-911",
+        "hamlib.rs reconnect claim_tx"
+      ],
+      "tests": [
+        "radio_slots.rs:284-400"
+      ],
+      "assessment": "Native route fence before durable change; no lock over publication IPC; routing\u2192TX order consistent; Hamlib reacquisition shares fence; failed final publication retryable."
+    },
+    {
+      "path": "prototype/src-tauri/src/radio_slots.rs",
+      "symbol": "pub(crate) fn bind_power_authority",
+      "range": [
+        149,
+        155
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 149,
+      "changed": true,
+      "callers": [
+        "main.rs:2216-2235,2271",
+        "station_selection.rs:853-855,878-911",
+        "hamlib.rs reconnect claim_tx"
+      ],
+      "tests": [
+        "radio_slots.rs:284-400"
+      ],
+      "assessment": "Native route fence before durable change; no lock over publication IPC; routing\u2192TX order consistent; Hamlib reacquisition shares fence; failed final publication retryable."
+    },
+    {
+      "path": "prototype/src-tauri/src/radio_slots.rs",
+      "symbol": "fn stamp_power_authority",
+      "range": [
+        157,
+        162
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 157,
+      "changed": true,
+      "callers": [
+        "main.rs:2216-2235,2271",
+        "station_selection.rs:853-855,878-911",
+        "hamlib.rs reconnect claim_tx"
+      ],
+      "tests": [
+        "radio_slots.rs:284-400"
+      ],
+      "assessment": "Native route fence before durable change; no lock over publication IPC; routing\u2192TX order consistent; Hamlib reacquisition shares fence; failed final publication retryable."
+    },
+    {
+      "path": "prototype/src-tauri/src/radio_slots.rs",
+      "symbol": "fn set_active_on(",
+      "range": [
+        164,
+        214
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 168,
+      "changed": true,
+      "callers": [
+        "main.rs:2216-2235,2271",
+        "station_selection.rs:853-855,878-911",
+        "hamlib.rs reconnect claim_tx"
+      ],
+      "tests": [
+        "radio_slots.rs:284-400"
+      ],
+      "assessment": "Native route fence before durable change; no lock over publication IPC; routing\u2192TX order consistent; Hamlib reacquisition shares fence; failed final publication retryable."
+    },
+    {
+      "path": "prototype/src-tauri/src/radio_slots.rs",
+      "symbol": "pub(crate) fn set_active(",
+      "range": [
+        216,
+        223
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 217,
+      "changed": true,
+      "callers": [
+        "main.rs:2216-2235,2271",
+        "station_selection.rs:853-855,878-911",
+        "hamlib.rs reconnect claim_tx"
+      ],
+      "tests": [
+        "radio_slots.rs:284-400"
+      ],
+      "assessment": "Native route fence before durable change; no lock over publication IPC; routing\u2192TX order consistent; Hamlib reacquisition shares fence; failed final publication retryable."
+    },
+    {
+      "path": "prototype/src-tauri/src/radio_slots.rs",
+      "symbol": "pub fn claim_active_tx(",
+      "range": [
+        228,
+        234
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 228,
+      "changed": true,
+      "callers": [
+        "main.rs:2216-2235,2271",
+        "station_selection.rs:853-855,878-911",
+        "hamlib.rs reconnect claim_tx"
+      ],
+      "tests": [
+        "radio_slots.rs:284-400"
+      ],
+      "assessment": "Native route fence before durable change; no lock over publication IPC; routing\u2192TX order consistent; Hamlib reacquisition shares fence; failed final publication retryable."
+    },
+    {
+      "path": "prototype/src-tauri/src/radio_slots.rs",
+      "symbol": "pub fn claim_tx(",
+      "range": [
+        238,
+        250
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 238,
+      "changed": true,
+      "callers": [
+        "main.rs:2216-2235,2271",
+        "station_selection.rs:853-855,878-911",
+        "hamlib.rs reconnect claim_tx"
+      ],
+      "tests": [
+        "radio_slots.rs:284-400"
+      ],
+      "assessment": "Native route fence before durable change; no lock over publication IPC; routing\u2192TX order consistent; Hamlib reacquisition shares fence; failed final publication retryable."
+    },
+    {
+      "path": "prototype/src-tauri/src/radio_slots.rs",
+      "symbol": "fn claim_tx_lease(",
+      "range": [
+        252,
+        262
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 252,
+      "changed": true,
+      "callers": [
+        "main.rs:2216-2235,2271",
+        "station_selection.rs:853-855,878-911",
+        "hamlib.rs reconnect claim_tx"
+      ],
+      "tests": [
+        "radio_slots.rs:284-400"
+      ],
+      "assessment": "Native route fence before durable change; no lock over publication IPC; routing\u2192TX order consistent; Hamlib reacquisition shares fence; failed final publication retryable."
+    },
+    {
+      "path": "prototype/src-tauri/src/station_selection.rs",
+      "symbol": "pub(crate) fn worker_generation_started(",
+      "range": [
+        853,
+        864
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 853,
+      "changed": true,
+      "callers": [
+        "worker.rs:announce_session:metadata bootstrap",
+        "main.rs:2075-2085,2245,2264"
+      ],
+      "tests": [
+        "radio_slots.rs:290-302",
+        "NativePowerSelectionTests.swift:23-80"
+      ],
+      "assessment": "Initialize routing before selection transport; stamp ordinary and exact-child bootstrap notices; no RPC while worker registry lock held."
+    },
+    {
+      "path": "prototype/src-tauri/src/station_selection.rs",
+      "symbol": "pub fn owner_for(",
+      "range": [
+        878,
+        922
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 878,
+      "changed": true,
+      "callers": [
+        "worker.rs:announce_session:metadata bootstrap",
+        "main.rs:2075-2085,2245,2264"
+      ],
+      "tests": [
+        "radio_slots.rs:290-302",
+        "NativePowerSelectionTests.swift:23-80"
+      ],
+      "assessment": "Initialize routing before selection transport; stamp ordinary and exact-child bootstrap notices; no RPC while worker registry lock held."
+    },
+    {
+      "path": "prototype/src-tauri/src/station_selection.rs",
+      "symbol": "fn allocate_notice(",
+      "range": [
+        209,
+        237
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 214,
+      "changed": false,
+      "callers": [
+        "station_selection.rs:853-864,878-921",
+        "main.rs:2264-2302"
+      ],
+      "tests": [
+        "Existing per-slot selection tests; radio_slots stamp tests"
+      ],
+      "assessment": "Unchanged notice sequence/coalescing/identity and active-control locks challenged against new authority; delayed notices cannot restore stale active generation."
+    },
+    {
+      "path": "prototype/src-tauri/src/station_selection.rs",
+      "symbol": "fn send_power(",
+      "range": [
+        244,
+        256
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 244,
+      "changed": false,
+      "callers": [
+        "station_selection.rs:853-864,878-921",
+        "main.rs:2264-2302"
+      ],
+      "tests": [
+        "Existing per-slot selection tests; radio_slots stamp tests"
+      ],
+      "assessment": "Unchanged notice sequence/coalescing/identity and active-control locks challenged against new authority; delayed notices cannot restore stale active generation."
+    },
+    {
+      "path": "prototype/src-tauri/src/station_selection.rs",
+      "symbol": "fn finish_power(",
+      "range": [
+        257,
+        278
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 262,
+      "changed": false,
+      "callers": [
+        "station_selection.rs:853-864,878-921",
+        "main.rs:2264-2302"
+      ],
+      "tests": [
+        "Existing per-slot selection tests; radio_slots stamp tests"
+      ],
+      "assessment": "Unchanged notice sequence/coalescing/identity and active-control locks challenged against new authority; delayed notices cannot restore stale active generation."
+    },
+    {
+      "path": "prototype/src-tauri/src/station_selection.rs",
+      "symbol": "fn bootstrap_worker(",
+      "range": [
+        360,
+        399
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 360,
+      "changed": false,
+      "callers": [
+        "station_selection.rs:853-864,878-921",
+        "main.rs:2264-2302"
+      ],
+      "tests": [
+        "Existing per-slot selection tests; radio_slots stamp tests"
+      ],
+      "assessment": "Unchanged notice sequence/coalescing/identity and active-control locks challenged against new authority; delayed notices cannot restore stale active generation."
+    },
+    {
+      "path": "prototype/src-tauri/src/station_selection.rs",
+      "symbol": "pub fn initialize(",
+      "range": [
+        413,
+        450
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 413,
+      "changed": false,
+      "callers": [
+        "station_selection.rs:853-864,878-921",
+        "main.rs:2264-2302"
+      ],
+      "tests": [
+        "Existing per-slot selection tests; radio_slots stamp tests"
+      ],
+      "assessment": "Unchanged notice sequence/coalescing/identity and active-control locks challenged against new authority; delayed notices cannot restore stale active generation."
+    },
+    {
+      "path": "prototype/src-tauri/src/station_selection.rs",
+      "symbol": "fn exclusive_tune<",
+      "range": [
+        636,
+        666
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 637,
+      "changed": false,
+      "callers": [
+        "station_selection.rs:853-864,878-921",
+        "main.rs:2264-2302"
+      ],
+      "tests": [
+        "Existing per-slot selection tests; radio_slots stamp tests"
+      ],
+      "assessment": "Unchanged notice sequence/coalescing/identity and active-control locks challenged against new authority; delayed notices cannot restore stale active generation."
+    },
+    {
+      "path": "prototype/src-tauri/src/main.rs",
+      "symbol": "async fn station_session_request(",
+      "range": [
+        2204,
+        2310
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 2204,
+      "changed": true,
+      "callers": [
+        "Tauri command station_session_request",
+        "station_session::owner_for/apply"
+      ],
+      "tests": [
+        "main.rs:5015-5034",
+        "radio_slots.rs:306-368"
+      ],
+      "assessment": "Changed set_active branch inspected with surrounding role/runtime/module/TX and event invalidation gates; no profile bypass found."
+    },
+    {
+      "path": "prototype/src-tauri/src/worker.rs",
+      "symbol": "fn worker_retirement_exit_message(",
+      "range": [
+        762,
+        771
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 762,
+      "changed": true,
+      "callers": [
+        "Session.shutdown_result_with_grace:695",
+        "worker::shutdown_for_module_transition:1035-1043"
+      ],
+      "tests": [
+        "worker.rs:2629-2639"
+      ],
+      "assessment": "Exit74 surfaced distinctly; child fixture mapping does not test production Swift emission."
+    },
+    {
+      "path": "prototype/src-tauri/src/worker.rs",
+      "symbol": "pub fn validate_surface(",
+      "range": [
+        20,
+        177
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 20,
+      "changed": true,
+      "callers": [
+        "main.rs worker_request native admission"
+      ],
+      "tests": [
+        "worker.rs:1606-1620,1913-1925"
+      ],
+      "assessment": "Narrow detached duplicate whitelist amendment inspected; detailed frontend behavior owned by parent/frontend review."
+    },
+    {
+      "path": "prototype/src-tauri/src/worker.rs",
+      "symbol": "fn shutdown_result_with_grace(",
+      "range": [
+        660,
+        759
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 660,
+      "changed": false,
+      "callers": [
+        "main.rs module/quit retirement",
+        "worker.rs existing_session/active_session"
+      ],
+      "tests": [
+        "worker.rs:2592-2675"
+      ],
+      "assessment": "Unchanged native EOF failure propagation, pending reply drain, watchdog, announcement barrier examined. Ordinary shutdown ignores Result by design; module transition propagates."
+    },
+    {
+      "path": "prototype/src-tauri/src/worker.rs",
+      "symbol": "pub fn shutdown_for_module_transition()",
+      "range": [
+        1035,
+        1044
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 1035,
+      "changed": false,
+      "callers": [
+        "main.rs module/quit retirement",
+        "worker.rs existing_session/active_session"
+      ],
+      "tests": [
+        "worker.rs:2592-2675"
+      ],
+      "assessment": "Unchanged native EOF failure propagation, pending reply drain, watchdog, announcement barrier examined. Ordinary shutdown ignores Result by design; module transition propagates."
+    },
+    {
+      "path": "prototype/src-tauri/src/worker.rs",
+      "symbol": "fn session_from_registry(",
+      "range": [
+        978,
+        1020
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 982,
+      "changed": false,
+      "callers": [
+        "main.rs module/quit retirement",
+        "worker.rs existing_session/active_session"
+      ],
+      "tests": [
+        "worker.rs:2592-2675"
+      ],
+      "assessment": "Unchanged native EOF failure propagation, pending reply drain, watchdog, announcement barrier examined. Ordinary shutdown ignores Result by design; module transition propagates."
+    },
+    {
+      "path": "Sources/XCWCore/CWComputeWire.swift",
+      "symbol": "private static func number(",
+      "range": [
+        70,
+        73
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 70,
+      "changed": true,
+      "callers": [
+        "CWComputeWire.event:111-147",
+        "CWComputeProcess.consume:160"
+      ],
+      "tests": [
+        "CWComputeWirePrimitiveTests.swift:10-53"
+      ],
+      "assessment": "CoreFoundation primary boolean distinction retained; canonical singleton-identity fallback rejects boxed numeric truthiness; source reviewed, no platform execution."
+    },
+    {
+      "path": "Sources/XCWCore/CWComputeWire.swift",
+      "symbol": "private static func boolean(",
+      "range": [
+        79,
+        82
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 79,
+      "changed": true,
+      "callers": [
+        "CWComputeWire.event:111-147",
+        "CWComputeProcess.consume:160"
+      ],
+      "tests": [
+        "CWComputeWirePrimitiveTests.swift:10-53"
+      ],
+      "assessment": "CoreFoundation primary boolean distinction retained; canonical singleton-identity fallback rejects boxed numeric truthiness; source reviewed, no platform execution."
+    },
+    {
+      "path": "Sources/XCWCore/CWComputeWire.swift",
+      "symbol": "private static func isJSONBoolean(",
+      "range": [
+        83,
+        89
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 83,
+      "changed": true,
+      "callers": [
+        "CWComputeWire.event:111-147",
+        "CWComputeProcess.consume:160"
+      ],
+      "tests": [
+        "CWComputeWirePrimitiveTests.swift:10-53"
+      ],
+      "assessment": "CoreFoundation primary boolean distinction retained; canonical singleton-identity fallback rejects boxed numeric truthiness; source reviewed, no platform execution."
+    },
+    {
+      "path": "Sources/XCWCore/CWComputeWire.swift",
+      "symbol": "static func isFoundationBoolean(",
+      "range": [
+        92,
+        94
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 92,
+      "changed": true,
+      "callers": [
+        "CWComputeWire.event:111-147",
+        "CWComputeProcess.consume:160"
+      ],
+      "tests": [
+        "CWComputeWirePrimitiveTests.swift:10-53"
+      ],
+      "assessment": "CoreFoundation primary boolean distinction retained; canonical singleton-identity fallback rejects boxed numeric truthiness; source reviewed, no platform execution."
+    },
+    {
+      "path": "Sources/XLogPrototypeSupport/LiveOpportunitiesMethods.swift",
+      "symbol": "init(logbook:",
+      "range": [
+        42,
+        60
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 44,
+      "changed": true,
+      "callers": [
+        "LiveWorker.init opportunities owner",
+        "LiveOpportunitiesMethods.snapshot:170"
+      ],
+      "tests": [
+        "LiveOpportunitiesMethodsTests.swift:15-29"
+      ],
+      "assessment": "Moves default async actor callback construction inside actor init; retained cluster read only currentSpotRowsIfStarted:552-555, never connects."
+    }
+  ],
+  "changed_tests": [
+    {
+      "path": "Tests/XLogPrototypeTests/StationRadioRegistryTests.swift",
+      "symbol": "func testWorkerRegistersBothRoutedAgentsAndRetiresEverySlotWithoutGlobalServices",
+      "range": [
+        8,
+        32
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 8,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Actual worker/router/registry with injected or passive owners; no native subprocess EOF. Explicitly awaited startup hides registration race; no failing agent client. FLEX missing off and profile denial useful."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/StationRadioRegistryTests.swift",
+      "symbol": "func testWorkerRetiresConnectedTCIWithoutSendingReceiveOrTransmitControls",
+      "range": [
+        34,
+        50
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 34,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Actual worker/router/registry with injected or passive owners; no native subprocess EOF. Explicitly awaited startup hides registration race; no failing agent client. FLEX missing off and profile denial useful."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/StationRadioRegistryTests.swift",
+      "symbol": "func testWorkerReleasesOwnedFlexTuneButOnlyStopsPassiveSlotTransport",
+      "range": [
+        52,
+        82
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 52,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Actual worker/router/registry with injected or passive owners; no native subprocess EOF. Explicitly awaited startup hides registration race; no failing agent client. FLEX missing off and profile denial useful."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/StationRadioRegistryTests.swift",
+      "symbol": "func testPowerSourcesRemainBoundToTheirSelectedRadioAcrossOtherSlotReconnectAndDetach",
+      "range": [
+        84,
+        105
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 84,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Actual worker/router/registry with injected or passive owners; no native subprocess EOF. Explicitly awaited startup hides registration race; no failing agent client. FLEX missing off and profile denial useful."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/StationRadioRegistryTests.swift",
+      "symbol": "func testUnconfirmedFlexRetirementBlocksRestartAndAllowsOnlyReleaseRecovery",
+      "range": [
+        107,
+        155
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 107,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Actual worker/router/registry with injected or passive owners; no native subprocess EOF. Explicitly awaited startup hides registration race; no failing agent client. FLEX missing off and profile denial useful."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/StationRadioRegistryTests.swift",
+      "symbol": "func testTerminalReleaseRecoveryDoesNotBypassTestProfileIODenial",
+      "range": [
+        157,
+        169
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 157,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Actual worker/router/registry with injected or passive owners; no native subprocess EOF. Explicitly awaited startup hides registration race; no failing agent client. FLEX missing off and profile denial useful."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift",
+      "symbol": "func call(method:",
+      "range": [
+        22,
+        26
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 22,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Fake RPC records before waiting; one continuation enough because sendInFlight serializes sends, RX unheld. Matrix covers unowned/ownership/TX-text retirement/late release/prevalidate. Writable storage everywhere; no RX state proof."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift",
+      "symbol": "func testAutomaticLifecycleNeverControlsUnownedFldigi",
+      "range": [
+        39,
+        61
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 39,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Fake RPC records before waiting; one continuation enough because sendInFlight serializes sends, RX unheld. Matrix covers unowned/ownership/TX-text retirement/late release/prevalidate. Writable storage everywhere; no RX state proof."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift",
+      "symbol": "func testOwnedLifecycleReleasesOnceAndUncertainReleaseBlocksNewOutputUntilExplicitStop",
+      "range": [
+        63,
+        88
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 63,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Fake RPC records before waiting; one continuation enough because sendInFlight serializes sends, RX unheld. Matrix covers unowned/ownership/TX-text retirement/late release/prevalidate. Writable storage everywhere; no RX state proof."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift",
+      "symbol": "func testAutomaticShutdownRetainsPendingTXDutyUntilLateAttemptRetires",
+      "range": [
+        90,
+        110
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 90,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Fake RPC records before waiting; one continuation enough because sendInFlight serializes sends, RX unheld. Matrix covers unowned/ownership/TX-text retirement/late release/prevalidate. Writable storage everywhere; no RX state proof."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift",
+      "symbol": "func testExplicitEmergencyStopStillSendsRXWithoutPriorTransmitDuty",
+      "range": [
+        112,
+        119
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 112,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Fake RPC records before waiting; one continuation enough because sendInFlight serializes sends, RX unheld. Matrix covers unowned/ownership/TX-text retirement/late release/prevalidate. Writable storage everywhere; no RX state proof."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift",
+      "symbol": "func testWorkspaceRetirementDuringPendingTextCannotStartTheNextAction",
+      "range": [
+        121,
+        138
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 121,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Fake RPC records before waiting; one continuation enough because sendInFlight serializes sends, RX unheld. Matrix covers unowned/ownership/TX-text retirement/late release/prevalidate. Writable storage everywhere; no RX state proof."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift",
+      "symbol": "func testInvalidLaterActionNeverPartiallyTransmitsTheBundle",
+      "range": [
+        140,
+        153
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 140,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Fake RPC records before waiting; one continuation enough because sendInFlight serializes sends, RX unheld. Matrix covers unowned/ownership/TX-text retirement/late release/prevalidate. Writable storage everywhere; no RX state proof."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift",
+      "symbol": "func setTextGateForTesting",
+      "range": [
+        326,
+        326
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 326,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Fake RPC records before waiting; one continuation enough because sendInFlight serializes sends, RX unheld. Matrix covers unowned/ownership/TX-text retirement/late release/prevalidate. Writable storage everywhere; no RX state proof."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/NativePowerSelectionTests.swift",
+      "symbol": "private func send(",
+      "range": [
+        7,
+        15
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 9,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Actual worker response and gate; synthetic source callbacks; stale/conflicting/malformed/idempotent generations and inactive metadata covered; no Rust IPC or startup connection callback."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/NativePowerSelectionTests.swift",
+      "symbol": "private func activate(",
+      "range": [
+        17,
+        21
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 17,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Actual worker response and gate; synthetic source callbacks; stale/conflicting/malformed/idempotent generations and inactive metadata covered; no Rust IPC or startup connection callback."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/NativePowerSelectionTests.swift",
+      "symbol": "func independentActiveAuthority()",
+      "range": [
+        24,
+        57
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 24,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Actual worker response and gate; synthetic source callbacks; stale/conflicting/malformed/idempotent generations and inactive metadata covered; no Rust IPC or startup connection callback."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/NativePowerSelectionTests.swift",
+      "symbol": "func invalidActiveAuthority()",
+      "range": [
+        60,
+        79
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 60,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Actual worker response and gate; synthetic source callbacks; stale/conflicting/malformed/idempotent generations and inactive metadata covered; no Rust IPC or startup connection callback."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/NativeDraftPowerCaptureTests.swift",
+      "symbol": "private func fixture",
+      "range": [
+        42,
+        64
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 42,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Actual DB and worker lane with manually attached sources; active route commit and save covered; fixture starts capture before synthetic sources, so no registration schedule coverage."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/NativeDraftPowerCaptureTests.swift",
+      "symbol": "func activeRadioCapture()",
+      "range": [
+        144,
+        176
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 144,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Actual DB and worker lane with manually attached sources; active route commit and save covered; fixture starts capture before synthetic sources, so no registration schedule coverage."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/NativeDraftPowerCaptureTests.swift",
+      "symbol": "func lifecycle()",
+      "range": [
+        193,
+        208
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 193,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Actual DB and worker lane with manually attached sources; active route commit and save covered; fixture starts capture before synthetic sources, so no registration schedule coverage."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/NativeDraftPowerAdmissionTests.swift",
+      "symbol": "private func fixture(",
+      "range": [
+        50,
+        80
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 51,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Only change activates explicit native route in existing contention/durable peak fixture; meaningful tests keep DB/service waits outside source lock, synthetic source."
+    },
+    {
+      "path": "Tests/XCWCoreTests/CWComputeWirePrimitiveTests.swift",
+      "symbol": "func testFoundationFallbackSeparatesJSONBooleansAndBoxedNumbers",
+      "range": [
+        10,
+        23
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 10,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Direct fallback checks JSON bool vs boxed numbers and parser coercion negatives; no claim target no-CoreFoundation runtime was tested here."
+    },
+    {
+      "path": "Tests/XCWCoreTests/CWComputeWirePrimitiveTests.swift",
+      "symbol": "func testReadyNumericFieldsNeverAcceptBooleanOrStringCoercion",
+      "range": [
+        25,
+        35
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 25,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Direct fallback checks JSON bool vs boxed numbers and parser coercion negatives; no claim target no-CoreFoundation runtime was tested here."
+    },
+    {
+      "path": "Tests/XCWCoreTests/CWComputeWirePrimitiveTests.swift",
+      "symbol": "func testTrackBooleanFieldsNeverAcceptNumericTruthiness",
+      "range": [
+        37,
+        52
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 37,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Direct fallback checks JSON bool vs boxed numbers and parser coercion negatives; no claim target no-CoreFoundation runtime was tested here."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/LiveOpportunitiesMethodsTests.swift",
+      "symbol": "func defaultClusterProjection()",
+      "range": [
+        16,
+        29
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 16,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Uses default retained cluster callback and actual private logbook; verifies output flags and terminal rejection; no injected default closure/no transport start."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/LiveClusterMethodsTests.swift",
+      "symbol": "func recordCleanup(cutoff:",
+      "range": [
+        78,
+        78
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 78,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Portable replacement validates first-admission cutoff and exactly one cleanup. macOS branch asserts forwarding; nonmacOS deliberately expects zero backend acceptance despite injected callbacks. macOS durable inventory tests remain cfg-gated; portable pass is not native inventory proof."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/LiveClusterMethodsTests.swift",
+      "symbol": "func cutoffSnapshot()",
+      "range": [
+        79,
+        79
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 79,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Portable replacement validates first-admission cutoff and exactly one cleanup. macOS branch asserts forwarding; nonmacOS deliberately expects zero backend acceptance despite injected callbacks. macOS durable inventory tests remain cfg-gated; portable pass is not native inventory proof."
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/LiveClusterMethodsTests.swift",
+      "symbol": "func portablePriorCleanupUsesFirstAdmissionClock()",
+      "range": [
+        325,
+        414
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 325,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Portable replacement validates first-admission cutoff and exactly one cleanup. macOS branch asserts forwarding; nonmacOS deliberately expects zero backend acceptance despite injected callbacks. macOS durable inventory tests remain cfg-gated; portable pass is not native inventory proof."
+    },
+    {
+      "path": "prototype/src-tauri/src/radio_slots.rs",
+      "symbol": "fn fixture(path:",
+      "range": [
+        284,
+        287
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 284,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Injected function closures/isolated files or synthetic child exit74; meaningful policy test, not whole production call-chain execution."
+    },
+    {
+      "path": "prototype/src-tauri/src/radio_slots.rs",
+      "symbol": "fn ordinary_and_bootstrap_metadata_keep_their_slot_under_native_active_authority",
+      "range": [
+        290,
+        303
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 290,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Injected function closures/isolated files or synthetic child exit74; meaningful policy test, not whole production call-chain execution."
+    },
+    {
+      "path": "prototype/src-tauri/src/radio_slots.rs",
+      "symbol": "fn active_power_is_fenced_before_persist_and_published_even_without_metadata_changes",
+      "range": [
+        306,
+        326
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 306,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Injected function closures/isolated files or synthetic child exit74; meaningful policy test, not whole production call-chain execution."
+    },
+    {
+      "path": "prototype/src-tauri/src/radio_slots.rs",
+      "symbol": "fn rejected_fence_preserves_route_and_advances_restoration_generation",
+      "range": [
+        329,
+        343
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 329,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Injected function closures/isolated files or synthetic child exit74; meaningful policy test, not whole production call-chain execution."
+    },
+    {
+      "path": "prototype/src-tauri/src/radio_slots.rs",
+      "symbol": "fn failed_persistence_restores_old_authority_and_failed_final_reply_is_retryable",
+      "range": [
+        346,
+        362
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 346,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Injected function closures/isolated files or synthetic child exit74; meaningful policy test, not whole production call-chain execution."
+    },
+    {
+      "path": "prototype/src-tauri/src/radio_slots.rs",
+      "symbol": "fn owned_transmit_vetoes_active_power_change_before_any_publication",
+      "range": [
+        365,
+        369
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 365,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Injected function closures/isolated files or synthetic child exit74; meaningful policy test, not whole production call-chain execution."
+    },
+    {
+      "path": "prototype/src-tauri/src/worker.rs",
+      "symbol": "fn shutdown_reports_spot_retirement_failure_instead_of_a_deadline",
+      "range": [
+        2629,
+        2638
+      ],
+      "range_kind": "declaration-through-complete-body",
+      "body_open_line": 2629,
+      "changed": true,
+      "callers": [
+        "Production functions identified in assessment"
+      ],
+      "tests": [],
+      "assessment": "Injected function closures/isolated files or synthetic child exit74; meaningful policy test, not whole production call-chain execution."
+    }
+  ],
+  "test_only_visibility_changes": [
+    {
+      "path": "Tests/XLogPrototypeTests/LiveTCISessionTests.swift",
+      "range": [
+        378,
+        404
+      ],
+      "change": "TCIFixtureSocket and TCIFixtureConnector private removed for registry test reuse; no assertions changed"
+    }
+  ],
+  "original_verdicts": {
+    "CR-002": "original owner root repaired; startup capture remains incomplete",
+    "CR-003": "unowned automatic RX repaired; explicit Stop storage ordering remains",
+    "CR-010": "label source repaired, frontend four cases inspected not rerun",
+    "FA-004": "explicit active authority root repaired; no surviving wrong-meter path found",
+    "FA-005": "specific FLEX failure/recovery root repaired; direct-agent uncertainty remains"
+  },
+  "findings": [
+    "R6-RADIO-003",
+    "R6-RADIO-001",
+    "R6-RADIO-002"
+  ],
+  "finding_severity": {
+    "R6-RADIO-003": "High",
+    "R6-RADIO-001": "Medium",
+    "R6-RADIO-002": "Medium"
+  },
+  "supplementary_caller_ranges": [
+    {
+      "path": "prototype/src/contesting/Not1MMContestWorkspace.tsx",
+      "ranges": [
+        [
+          2335,
+          2341
+        ],
+        [
+          3794,
+          3800
+        ]
+      ],
+      "assessment": "Explicit visible operator/configuration Stop calls fldigi_stop with no compensating RX fallback"
+    }
+  ],
+  "unverified": [
+    "TCI same-target READY synthetic confirmation hypothesis; no protocol reachability or wrong target consequence established"
+  ],
+  "execution": {
+    "repository_tests_run": false,
+    "scratch_tci_compiled": true,
+    "scratch_tci_run": false,
+    "scratch_tci_execution": "Explicit lean-ctx allowlist block; not retried or bypassed",
+    "scratch_agent_compiled_prior_revision": true,
+    "scratch_agent_binary": "STALE AND UNUSABLE after neighbor fake correction",
+    "scratch_agent_run": false,
+    "hardware_or_network_io": false,
+    "gui_launch": false
+  },
+  "limits": [
+    "Source and test review primary; compiler success is not runtime acceptance",
+    "Agent fixture uses exact stop/registry but neighboring lifecycle/client stubs; no dynamic result",
+    "No source/test/config/Git mutations",
+    "Parent owns build/provenance and complete archive criteria; sibling frontend/persistence coverage not claimed"
+  ],
+  "source_sha256": {
+    "Sources/XCWCore/CWComputeWire.swift": "2ae4f3069c06a0c1355a52e2819650df6fbcd8cddb873096cbb6ecf28edfff05",
+    "Sources/XCatIntegrationCore/TCIWebSocketSession.swift": "9993785c44395c6dd308f0b765e89eccf6233f692fb359e9d6aa3f436c54f158",
+    "Sources/XLogPrototypeSupport/LiveFldigiBridge.swift": "a3932fd831c3b754763d5d73edb6f2efa8ce512d3058123007656ef5becd7bb1",
+    "Sources/XLogPrototypeSupport/LiveFlexSession.swift": "5b961b6aa7d7552a68984ed94ed6478d8c6ee074587f1b7d96f22ea269002d8e",
+    "Sources/XLogPrototypeSupport/LiveOpportunitiesMethods.swift": "cacd9127938839fa3abe0242272a84956e25b4a19328b94065a5ab5342289ca9",
+    "Sources/XLogPrototypeSupport/LiveStationMethods.swift": "8bee22c827ee9897bfdd7e19376372b0aeaf55c567286a7759e1e131bda984ad",
+    "Sources/XLogPrototypeSupport/LiveStationSession.swift": "4c03e304c8abdd976e5ef238e88aab13570e0f2a40c161b160e1db93d7f3afa0",
+    "Sources/XLogPrototypeSupport/LiveTCISession.swift": "1b1abb769652c5869f9878954aca887b74b69ca63da600ef83ec9e994461372b",
+    "Sources/XLogPrototypeSupport/LiveWorker.swift": "22226c8f7c71d5e7944ad92d74184a7c854b9bb1bb9fdf4467c9c4bf3ff37c73",
+    "Sources/XLogPrototypeSupport/NativeDraftPowerGate.swift": "bbf5a94de2bb4a90480316c6e7f65415f94fa50ea985af06502ba4f76bf848af",
+    "Tests/XCWCoreTests/CWComputeWirePrimitiveTests.swift": "687429b31910701c356a5b24df939ee8354a1b00a3ce7e3f98da2a7f1f4f574b",
+    "Tests/XLogPrototypeTests/LiveClusterMethodsTests.swift": "768e3fefe40faa4ecfad8ee5047c1cea610a091852624be607da7bbe66074ae9",
+    "Tests/XLogPrototypeTests/LiveFldigiBridgeTests.swift": "fabf4eb4f0ee5e27bfaab789ab1ae90fbbd8e53db82d60f8c36bfc4a4772b9ff",
+    "Tests/XLogPrototypeTests/LiveOpportunitiesMethodsTests.swift": "a35e974247c0fc7aec9b254ebf107d383c3b192ccbe481e4dc5af513828932f6",
+    "Tests/XLogPrototypeTests/NativeDraftPowerAdmissionTests.swift": "61d66626109036351211532a58217cf0e32de2b4cf2662cbe82d3d664cbd578b",
+    "Tests/XLogPrototypeTests/NativeDraftPowerCaptureTests.swift": "7569b73ef6c0859f2dd3c1f6191fe94bf081860927467917000f5337f226ac35",
+    "Tests/XLogPrototypeTests/NativePowerSelectionTests.swift": "a9a51121c6497d5ea2240e6ffe52f5accca98cde9c361abf2333dd47801d90e0",
+    "Tests/XLogPrototypeTests/StationRadioRegistryTests.swift": "36bceff11c52c6652db36568dafa33b3abb69f5939b2ec1a7d1ad8eb6ffdd464",
+    "prototype/src-tauri/src/main.rs": "5908102e5ea0a64edccfd574458bff24b6c1d98f8b418420bdce371a5a21a230",
+    "prototype/src-tauri/src/radio_slots.rs": "e92624d3dc7af32a7b60dae5b7726ff94a5241b74255e489744d965914336a2d",
+    "prototype/src-tauri/src/station_selection.rs": "5d937bb549bc2ae5740ee2bc279c5834edbefc044f9a468041f550d93a0dfe79",
+    "prototype/src-tauri/src/worker.rs": "ff973865944a4aab5377371ca29ff27d856a1c0fcf0f34ab9a5901955dbad36f"
+  }
+}
