@@ -65,6 +65,7 @@ fn retain(feed:&mut Feed,worker:u64,response:&mut Value)->Result<(),String> {
         if row.get("selection").is_none(){continue;}
         if result["state"]!="running" {return Err("CW selection is not running.".into());}
         let target=target(row,&result["sessionID"],false)?;let id=uuid(&row["trackID"])?;
+        if row["muted"]==true || !target["frequencyHz"].is_u64(){continue;}
         if next.contains_key(&id){return Err("CW track identity is ambiguous.".into());}
         let version=feed.rows.get(&id).filter(|old|old.worker==worker&&old.target==target)
             .map(|old|old.version.clone()).unwrap_or_else(||uuid::Uuid::new_v4().to_string());
@@ -73,6 +74,12 @@ fn retain(feed:&mut Feed,worker:u64,response:&mut Value)->Result<(),String> {
     }
     // Validate everything before replacing identities or annotating the reply.
     feed.rows=next;feed.signals=signals;
+    // Action grants belong to this native read. Never preserve a producer's or
+    // cached projection's old grant after mapping/ownership has been withdrawn.
+    if let Some(rows)=response["result"]["tracks"].as_array_mut(){for row in rows{
+        if let Some(selection)=row.get_mut("selection").and_then(Value::as_object_mut){selection.remove("activation");}
+        if let Some(object)=row.as_object_mut(){object.remove("controlActivation");}
+    }}
     for (index,activation) in annotations {response["result"]["tracks"][index]["selection"]["activation"]=activation;}
     for (index,activation) in signal_annotations {response["result"]["tracks"][index]["controlActivation"]=activation;}
     Ok(())
@@ -114,8 +121,11 @@ pub fn resolve_signal(request:&crate::spot_activation::Request)->Result<Value,St
     crate::worker::require_existing_generation(retained.worker)?;Ok(result)
 }
 fn resolve_with(retained:&Retained,read:impl FnOnce(Value,u64)->Result<Value,String>)->Result<Value,String> {
+    if retained.target["frequencyHz"].as_u64().is_none_or(|hz|!(100_000..=1_000_000_000).contains(&hz)){
+        return Err("CW RF mapping is unqualified; diagnostic copy cannot authorize an action.".into());
+    }
     let id=format!("native-cw-selection-{}",uuid::Uuid::new_v4());
-    let response=read(json!({"id":id,"method":"cw_decode_resolve_selection","params":{"reference":retained.target["reference"],"require_frequency":false}}),retained.worker)?;
+    let response=read(json!({"id":id,"method":"cw_decode_resolve_selection","params":{"reference":retained.target["reference"],"require_frequency":true}}),retained.worker)?;
     if response["id"]!=id || response["ok"]!=true {return Err("CW evidence could not be revalidated.".into());}
     let mut current=response["result"].clone();
     if current.is_object() && current.get("frequencyHz").is_none(){current["frequencyHz"]=Value::Null;}
@@ -137,8 +147,8 @@ mod tests {
     fn feed_fixture()->Feed {Feed{epoch:uuid::Uuid::new_v4().to_string(),rows:BTreeMap::new(),signals:BTreeMap::new()}}
     fn response()->Value {
         let session=uuid::Uuid::new_v4().to_string();let source=uuid::Uuid::new_v4().to_string();let token=uuid::Uuid::new_v4().to_string();let track=uuid::Uuid::new_v4().to_string();
-        json!({"ok":true,"result":{"state":"running","sessionID":session,"tracks":[{"sourceID":source,"trackID":track,"revision":"1","ambiguous":false,
-            "descriptor":{"sessionID":session,"sourceID":source,"streamToken":token,"epoch":"2","radioID":"radio2","provider":"tci_iq","replay":false,"mappingQualified":false},
+        json!({"ok":true,"result":{"state":"running","sessionID":session,"tracks":[{"sourceID":source,"trackID":track,"revision":"1","ambiguous":false,"frequencyHz":14025600,
+            "descriptor":{"sessionID":session,"sourceID":source,"streamToken":token,"epoch":"2","radioID":"radio2","provider":"tci_iq","replay":false,"mappingQualified":true},
             "selection":{"callsign":"K1ABC","reference":{"sessionID":session,"sourceID":source,"streamToken":token,"epoch":"2","trackID":track,"revision":"1","selectionID":uuid::Uuid::new_v4().to_string()}}}]}})
     }
     #[test]
@@ -161,17 +171,40 @@ mod tests {
         }
         let mut invalid=original.clone();invalid["result"]["tracks"]=json!(vec![original["result"]["tracks"][0].clone();33]);assert!(retain(&mut feed,1,&mut invalid).is_err());
         let mut invalid=original.clone();invalid["result"]["tracks"]=json!(vec![original["result"]["tracks"][0].clone();2]);assert!(retain(&mut feed,1,&mut invalid).is_err());
-        let mut invalid=original;invalid["result"]["tracks"][0]["frequencyHz"]=json!(14025000);assert!(retain(&mut feed,1,&mut invalid).is_err());
+        let mut invalid=original;invalid["result"]["tracks"][0]["descriptor"]["mappingQualified"]=json!(false);assert!(retain(&mut feed,1,&mut invalid).is_err());
     }
     #[test]
     fn resolution_uses_only_retained_reference_and_discards_rf_from_callsign_command() {
         let mut feed=feed_fixture();retain(&mut feed,7,&mut response()).unwrap();let retained=feed.rows.values().next().unwrap();
         let result=resolve_with(retained,|request,worker|{
-            assert_eq!(worker,7);assert_eq!(request["params"].as_object().unwrap().len(),2);assert_eq!(request["params"]["require_frequency"],false);
+            assert_eq!(worker,7);assert_eq!(request["params"].as_object().unwrap().len(),2);assert_eq!(request["params"]["require_frequency"],true);
             Ok(json!({"id":request["id"],"ok":true,"result":retained.target}))
         }).unwrap();
         assert_eq!(result["call"],"K1ABC");assert!(result["frequencyHz"].is_null());assert_eq!(result["cwCallsign"],retained.target["reference"]);
         assert!(resolve_with(retained,|request,_|{let mut target=retained.target.clone();target["callsign"]=json!("K2XYZ");Ok(json!({"id":request["id"],"ok":true,"result":target}))}).is_err());
+    }
+    #[test]
+    fn unknown_rf_or_mute_withdraws_action_tokens_but_keeps_diagnostic_call() {
+        let mut original=response();let row=&mut original["result"]["tracks"][0];row["controlReference"]=row["selection"]["reference"].clone();
+        let mut feed=feed_fixture();let mut first=original.clone();
+        retain(&mut feed,7,&mut first).unwrap();assert_eq!(feed.rows.len(),1);assert_eq!(feed.signals.len(),1);
+        let mut diagnostic=first.clone();let row=&mut diagnostic["result"]["tracks"][0];
+        row["descriptor"]["mappingQualified"]=json!(false);row.as_object_mut().unwrap().remove("frequencyHz");
+        retain(&mut feed,7,&mut diagnostic).unwrap();
+        assert!(feed.rows.is_empty());assert!(feed.signals.is_empty());
+        assert_eq!(diagnostic["result"]["tracks"][0]["selection"]["callsign"],"K1ABC");
+        assert!(diagnostic["result"]["tracks"][0]["selection"].get("activation").is_none());
+        assert!(diagnostic["result"]["tracks"][0].get("controlActivation").is_none());
+        let mut muted=first;muted["result"]["tracks"][0]["muted"]=json!(true);
+        retain(&mut feed,7,&mut muted).unwrap();assert!(feed.rows.is_empty());assert!(feed.signals.is_empty());
+        assert!(muted["result"]["tracks"][0]["selection"].get("activation").is_none());
+        assert!(muted["result"]["tracks"][0].get("controlActivation").is_none());
+    }
+    #[test]
+    fn unqualified_cached_call_cannot_enter_an_effect_readback() {
+        let mut feed=feed_fixture();retain(&mut feed,7,&mut response()).unwrap();
+        let mut retained=feed.rows.values().next().unwrap().clone();retained.target["frequencyHz"]=Value::Null;
+        assert!(resolve_with(&retained,|_,_|panic!("Unknown RF must fail before any worker read or draft effect")).is_err());
     }
     #[test]
     fn call_less_signal_has_separate_native_rf_tokens_and_revalidates_exact_target() {
@@ -179,6 +212,7 @@ mod tests {
         row["controlReference"]=row["selection"]["reference"].clone();row.as_object_mut().unwrap().remove("selection");
         row["descriptor"]["mappingQualified"]=json!(true);row["frequencyHz"]=json!(14025600);
         retain(&mut feed,7,&mut response).unwrap();assert!(feed.rows.is_empty());assert_eq!(feed.signals.len(),1);
+        assert!(response["result"]["tracks"][0].get("selection").is_none());
         let retained=feed.signals.values().next().unwrap();assert!(retained.target.get("callsign").is_none());
         let target=resolve_signal_with(retained,|request,worker|{
             assert_eq!(worker,7);assert_eq!(request["method"],"cw_decode_resolve_signal");

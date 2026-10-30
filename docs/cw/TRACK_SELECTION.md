@@ -6,7 +6,8 @@ durable receipt recovery use the current owners. Installed recovery acceptance
 remains pending; this source work does not qualify CW for release.
 
 A track gets an opaque selection reference only when committed aligned text
-identifies one plausible transmitting callsign in the last sixty channel seconds.
+identifies one plausible transmitting callsign from two distinct self-ID
+occurrences in the last sixty channel seconds.
 Provisional text and competing identities do not qualify. Ambiguous/replay tracks
 have no reference. The reference pins session, source, stream token, epoch, track,
 revision and a generated selection UUID. A different call, qualified frequency,
@@ -16,15 +17,24 @@ reference across passive snapshots. Native track UUID case is preserved safely.
 `CWDecodeSession.resolveSelection` reads the retained track and existing provider,
 then rechecks the actor after the asynchronous provider read. Stop, changed lease,
 source, epoch or selection fail closed. Input must be at most 250 ms old and the
-selection must have been renewed by a decode within two seconds. Callsign-only
-resolution may work with unqualified RF; it returns no invented frequency.
-Requesting an RF target additionally requires qualified mapping and a real
+selection must have been renewed by a decode within two seconds. Passive
+diagnostic resolution may work with unqualified RF; it returns no invented
+frequency. Both callsign loading and Tune require qualified mapping and a real
 in-passband frequency. The resolver has no side effects.
 
 The frontend projection validates callsign shape and every reference field
 against the same track/capture. Renderer-supplied fields cannot become a native
-callsign or frequency; future action admission must resolve the retained native
-reference again at its owning draft/control boundary.
+callsign or frequency; action admission resolves the retained native reference
+again at its owning draft/control boundary. The native projection withdraws
+callsign and control activation tokens when RF becomes unqualified or the track
+is muted, including tokens left in a cached projection. Callsign loading requests
+fresh RF-qualified readback, then removes frequency from the draft-only command.
+Diagnostic calls remain visible without an action grant.
+
+The RF action regression failed before this repair. Afterward, 72 focused native
+CW/ownership cases passed; the seven affected selection cases also pass after
+checking that a call-less signal never gains a null selection field. These are
+source regressions, not installed action acceptance.
 
 Validation: eleven focused session tests passed, including unqualified RF
 refusal, invented selection, stale input, changed provider, ambiguity and Stop
