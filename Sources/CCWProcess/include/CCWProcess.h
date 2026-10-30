@@ -16,6 +16,9 @@ int xcw_spawn(const char *executable, const char *model, XCWChild *child);
 // 0 running, 1 reaped, negative POSIX error; normalized exit code on reap.
 int xcw_poll(int32_t pid, int *exit_code);
 int xcw_terminate(int32_t pid, int force);
+// Exact current resident bytes; returns a POSIX error and leaves output
+// untouched when unavailable. The supervisor queries only its owned child.
+int xcw_resident_bytes(int32_t pid, uint64_t *bytes);
 #ifdef __cplusplus
 }
 #endif

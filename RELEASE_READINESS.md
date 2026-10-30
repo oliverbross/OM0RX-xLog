@@ -13,8 +13,12 @@ installed or production capability enabled by this checkpoint; the accepted
 
 31 October CW source progress: durable original draft-action reconciliation,
 actual slow-client isolation and offline relocated component-payload checks pass.
-The bounded static-CoreML experiment in `864b1b53` improves one measured run but
-still coalesces 53 jobs; capacity is unqualified. Overload now invalidates affected
+CPU, bounded static-CoreML, GPU and tensor-preserving attention-fusion candidates
+retain strict capacity failures; diagnostics preserve each measured result.
+Native callsign actions now require fresh qualified RF (`b307a624`); a child RSS
+guard releases receive leases without automatic reacquisition after memory faults.
+Real-rate replay currently misses the unchanged 250-ms deadline on this busy host.
+Overload now invalidates affected
 text revisions and queued-publication proof, with focused regressions recorded in
 the CW checklist. AetherSDR has native TCP access, while a raw five-second UDP
 4992 probe receives zero discovery datagrams. Actual radio spans/RF, held-out

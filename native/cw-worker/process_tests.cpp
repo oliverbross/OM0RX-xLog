@@ -27,6 +27,9 @@ std::string read_pipe(int fd) {
 int main(int argc,char** argv) {
   try {
     if(argc!=2) throw std::runtime_error("Probe path required");
+    uint64_t resident=19;
+    if(xcw_resident_bytes(-1,&resident)!=EINVAL || resident!=19 || xcw_resident_bytes(getpid(),nullptr)!=EINVAL) throw std::runtime_error("Invalid memory query changed evidence");
+    if(xcw_resident_bytes(getpid(),&resident)!=0 || resident==0) throw std::runtime_error("Resident memory sample unavailable");
     setenv("XCW_PARENT_SECRET","must-not-cross-process-boundary",1);
     const int unrelated=open("/dev/null",O_RDONLY); // deliberately no CLOEXEC
     XCWChild child;

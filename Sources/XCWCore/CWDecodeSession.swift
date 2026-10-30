@@ -276,16 +276,23 @@ public actor CWDecodeSession {
                         await self?.receive(event,id:id,generation:generation)
                     }
                     if !Task.isCancelled {await self?.childFailed(id:id,generation:generation)}
-                } catch {if !Task.isCancelled {await self?.childFailed(id:id,generation:generation)}}
+                } catch {if !Task.isCancelled {await self?.childFailed(id:id,generation:generation,error:error as? CWComputeError)}}
             }
-        } catch {await childFailed(id:id,generation:generation)}
+        } catch {await childFailed(id:id,generation:generation,error:error as? CWComputeError)}
     }
-    private func childFailed(id: UUID,generation:UUID) async {
+    private func childFailed(id: UUID,generation:UUID,error:CWComputeError?=nil) async {
         guard intent==id,computeGeneration==generation else {return}
         computeGeneration=nil;load=nil;pendingMetrics=nil
         state="recovering";failure="compute_unavailable"
+        let requiresOperatorRestart:Bool
+        switch error {
+        case .memoryLimitExceeded:failure="compute_memory_limit";requiresOperatorRestart=true
+        case .memoryMetricsUnavailable:failure="compute_memory_unknown";requiresOperatorRestart=true
+        default:requiresOperatorRestart=false
+        }
         await releaseAll();await compute.stop()
         guard intent==id else {return}
+        guard !requiresOperatorRestart else {state="blocked";return}
         guard childAttempt<3 else {state="blocked";return}
         let delay=UInt64(1<<childAttempt)*1_000_000_000;childAttempt+=1
         do {try await sleep(delay)} catch {return}

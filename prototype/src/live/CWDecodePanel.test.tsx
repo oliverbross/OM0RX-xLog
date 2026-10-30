@@ -14,6 +14,16 @@ function service(initial = cwDecodeFixture()) {
   return { request, set: (next: CWDecodeSnapshot) => { current = next; } };
 }
 describe("CW Decode shared native view", () => {
+  it.each([
+    ["compute_memory_limit", /exceeded its 1.5 GiB memory ceiling/],
+    ["compute_memory_unknown", /memory measurement is unavailable/],
+  ])("explains %s without automatically restarting capture", async (failure, message) => {
+    const owner=service({...cwDecodeFixture(),state:"blocked",failure});
+    render(<CWDecodePanel request={owner.request} />);
+    await screen.findByText(message);
+    expect(screen.getByText(/Stop decoding, then start again deliberately/)).toBeTruthy();
+    expect(owner.request.mock.calls.every(([method])=>method==="cw_decode_snapshot")).toBe(true);
+  });
   it("shows existing opportunity annotations and keeps unavailable classification explicit", async () => {
     const fixture=cwDecodeTrackFixture();fixture.tracks[0].opportunity={callStatus:"Worked",dxccStatus:"Confirmed"};
     const owner=service(fixture);render(<CWDecodePanel request={owner.request} />);

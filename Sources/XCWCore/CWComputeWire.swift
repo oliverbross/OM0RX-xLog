@@ -7,6 +7,7 @@ import CoreFoundation
 public enum CWComputeError: Error, Equatable, Sendable {
     case invalidEvent, invalidFrame, resourceValidation, occupied, spawnFailed(Int32)
     case startupTimeout, outputOverflow, inputOverflow, staleInput, childExited(Int32), stopped
+    case memoryLimitExceeded, memoryMetricsUnavailable
 }
 
 public struct CWNativeTrack: Sendable {

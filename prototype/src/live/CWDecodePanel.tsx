@@ -10,6 +10,10 @@ const stateName = (state: string) => ({ stopped: "Stopped", preparing: "Preparin
   muted: "Muted", recovering: "Recovering", blocked: "Needs attention", stopping: "Stopping", off: "Off", starting: "Starting", listening: "Listening", occupied: "Port occupied", failed: "Unavailable", loop_blocked: "Self-loop blocked" }[state] ?? state);
 const mhz = (hz: number) => `${(hz / 1e6).toFixed(6)} MHz`;
 const offset = (hz: number) => `${hz >= 0 ? "+" : ""}${(hz / 1000).toFixed(3)} kHz`;
+const computeFailures: Record<string, string> = {
+  compute_memory_limit: "The decoder exceeded its 1.5 GiB memory ceiling. Capture stopped. Stop decoding, then start again deliberately.",
+  compute_memory_unknown: "The decoder memory measurement is unavailable. Capture stopped. Stop decoding, then start again deliberately.",
+};
 
 export function CWDecodePanel({ detached = false, onUndock, request = requestCWDecode, callsignRequest, tuneRequest }: {
   detached?: boolean; onUndock?: () => void; request?: typeof requestCWDecode; callsignRequest?: CWCallsignRequest; tuneRequest?: CWTuneRequest;
@@ -44,7 +48,7 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
     {!snapshot ? <div className="cw-decode-empty"><h3>Waiting for the native CW service</h3><p>Open the main xLog window, then read the decoder state. Opening this view does not start capture.</p></div> : <>
       {!snapshot.resourcesAvailable && <p className="cw-decode-notice">The offline decoder is unavailable in this build. Install a complete CW Decode build before starting capture.</p>}
       {snapshot.featureEnabled === false && <p className="cw-decode-notice">CW Decode is disabled in this build while input and release qualification are incomplete.</p>}
-      {snapshot.failure && <p className="cw-decode-notice" role="alert">The decoder process is unavailable. Stop decoding, check the offline installation, then start again.</p>}
+      {snapshot.failure && <p className="cw-decode-notice" role="alert">{computeFailures[snapshot.failure] ?? "The decoder process is unavailable. Stop decoding, check the offline installation, then start again."}</p>}
       {!snapshot.automaticSpotsQualified && <p className="cw-decode-quality">Automatic spots are off while live decoding quality and RF mapping await qualification.</p>}
       {snapshot.spotOutputFailure && <p className="cw-decode-notice" role="alert">A Local CW spot could not be delivered. Check the local cluster history and server state. IQ decoding continues.</p>}
       <p aria-label="CW compute load">{snapshot.load ? `Tracks ${snapshot.load.tracks} · pending ${snapshot.load.pending} · inferring ${snapshot.load.inFlight} · coalesced ${snapshot.load.coalesced} · dropped events ${snapshot.load.droppedEvents}` : "Compute load unavailable"}</p>

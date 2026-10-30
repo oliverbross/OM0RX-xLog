@@ -2,8 +2,8 @@
 
 `XCWCore.CWComputeProcess` owns one native child on behalf of the existing Swift
 application worker. No Tauri or renderer process creates a competing compute
-child. This is an implementation component; it is not yet exposed as a live
-radio feature or included in an application candidate.
+child. The shared receive UI uses this owner through the gated engineering path;
+production qualification and exact application-candidate acceptance remain open.
 
 ## Boundaries
 
@@ -31,8 +31,20 @@ radio feature or included in an application candidate.
   escalates to SIGKILL after the bounded grace interval. Reaping runs independently
   of cancellation of the reader/monitor that detected the failure.
 - Retry waits for old-child cleanup. A newer Stop cancels a queued retry. The
-  top-level decode session still needs to implement the bounded 1/2/4-second
-  automatic recovery policy, manage provider leases and reset track evidence.
+  shared decode session applies bounded 1/2/4-second recovery, releases its own
+  provider leases and resets track evidence before a new child generation.
+- The existing 50-ms child monitor reads current child RSS with Darwin
+  `proc_pidinfo(PROC_PIDTASKINFO)`. Above **1536 MiB**, or when an alive child's
+  memory measurement stays unavailable/zero across two monitor samples, it
+  retires and reaps the owned child. One 50-ms retry lets a concurrently exiting
+  child retain crash classification and its existing bounded recovery behavior.
+  The shared session releases its receive leases, clears evidence and stays
+  blocked until explicit Stop/Start; memory faults do not automatically reacquire
+  radio resources. The UI distinguishes the limit and unknown-measurement cases.
+  Unknown current RSS is nil, never zero; the largest sampled RSS is retained
+  for diagnostics. The fixed ceiling has no renderer setter. This sampled
+  child-only guard is separate from the under-1-GiB target and complete decoder
+  process-tree/headroom/responsiveness qualification; it does not measure them.
 
 The sidecar API has no QSO, credential, public cluster, PTT, CW-send, tuning or
 rotor operation. It is a reliability/interface boundary, not an OS sandbox.
@@ -61,3 +73,25 @@ SIGKILL/reap and successful creation of a fresh child afterward.
 The harness has no live radio, cluster listener or QSO writer. Its generated IQ
 is explicitly replay. This evidence does not close live-provider, automatic-spot,
 32-track, packaging, installed-UI or soak acceptance.
+
+The memory regression first fails without the monitor hook (`7c9d9e1fc7bbd3f4`).
+The session regression also reproduces automatic reacquisition after a memory
+failure (`25a2b3b942e8276f`). After correction, all 23 session cases pass
+(`e8b9b0a113aaa5b1`). A deterministic internal sampler tests the exact ceiling,
+one byte above it, unavailable/zero values, cleanup and explicit restart without
+allocating 1.5 GiB. Native process tests verify positive actual RSS and error
+results that leave prior output untouched. The real-child handshake verifies
+actual child RSS. Twelve panel cases pass with specific failure messages and
+passive capture behavior. Installed cleanup and resource measurements remain.
+The three affected real-child cases, including a SIGKILL racing a memory read,
+pass after the bounded telemetry retry (`ee2a9707a668aa9c`); crash classification
+and explicit restart are preserved. That fixture signals only its own isolated
+child, never an application or station process.
+
+The complete 16-case harness has 15 passes and one continuous-replay failure
+(`e6c3f40c1db5bee3`). A single isolated diagnostic rerun also fails at sample
+851968 / sequence 104, with 255.208 ms deadline lateness and no child failure
+(`b08d12779e7182b8`). This exceeds the unchanged 250-ms input limit. Host load
+was 77.28/73.73/47.21 after the build; no competing task build/test ran during
+the replay. It is not an all-green harness result or installed performance pass.
+The diagnostic now records the failed deadline instead of hiding that loss.

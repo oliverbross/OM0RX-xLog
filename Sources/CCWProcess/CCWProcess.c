@@ -8,6 +8,9 @@
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#if defined(__APPLE__)
+#include <libproc.h>
+#endif
 
 static int make_pipe(int ends[2]) {
     int raw[2];
@@ -78,4 +81,18 @@ int xcw_poll(int32_t pid,int *exit_code) {
 int xcw_terminate(int32_t pid,int force) {
     if(pid<=0 || (force!=0 && force!=1)) return EINVAL;
     return kill((pid_t)pid,force?SIGKILL:SIGTERM)==0?0:errno;
+}
+
+int xcw_resident_bytes(int32_t pid,uint64_t *bytes) {
+    if(pid<=0 || !bytes) return EINVAL;
+#if defined(__APPLE__)
+    struct proc_taskinfo info={0};
+    errno=0;
+    if(proc_pidinfo(pid,PROC_PIDTASKINFO,0,&info,sizeof(info))!=(int)sizeof(info)) return errno?errno:EIO;
+    if(info.pti_resident_size==0) return EIO;
+    *bytes=info.pti_resident_size;
+    return 0;
+#else
+    return ENOTSUP;
+#endif
 }

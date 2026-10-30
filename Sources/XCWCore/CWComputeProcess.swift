@@ -44,6 +44,9 @@ public struct CWComputeSnapshot:Sendable {
     public let sources:Int
     public let queuedBytes:Int
     public let failure:CWComputeError?
+    public let residentBytes:UInt64?
+    /// Largest observed 50-ms sample, not the OS lifetime high-water mark.
+    public let peakResidentBytes:UInt64?
 }
 
 /// Only the existing Swift worker creates this owner. No renderer/supervisor
@@ -73,7 +76,17 @@ public actor CWComputeProcess {
     private var stdout=Data(),stderr=Data()
     private var sources:[String:CWStreamDescriptor]=[:],gates:[String:CWContinuityGate]=[:]
     private var writes:[Write]=[],activeWrite:Write?
-    public init() {}
+    static let residentCeilingBytes:UInt64=1536*1024*1024
+    private let residentSample:@Sendable(Int32)->UInt64?
+    private var residentBytes:UInt64?,peakResidentBytes:UInt64?
+    private var missingResidentSamples=0
+    public init() {residentSample={Self.sampleResidentBytes($0)}}
+    // Internal deterministic fault seam; no renderer setter or configurable ceiling.
+    init(residentSample:@escaping @Sendable(Int32)->UInt64?) {self.residentSample=residentSample}
+    private nonisolated static func sampleResidentBytes(_ pid:Int32)->UInt64? {
+        var bytes:UInt64=0
+        return xcw_resident_bytes(pid,&bytes)==0 ? bytes:nil
+    }
 
     deinit {
         pump?.cancel();monitor?.cancel();ingress?.finish();events?.finish()
@@ -91,7 +104,7 @@ public actor CWComputeProcess {
     private static func key(_ descriptor:CWStreamDescriptor) -> String { descriptor.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased() }
     private var now:UInt64 {DispatchTime.now().uptimeNanoseconds}
     private var queuedBytes:Int {writes.reduce(activeWrite?.bytes.count ?? 0){$0+$1.bytes.count}}
-    public func snapshot() -> CWComputeSnapshot {CWComputeSnapshot(state:state,runtimeVersion:runtimeVersion,sources:sources.count,queuedBytes:queuedBytes,failure:failure)}
+    public func snapshot() -> CWComputeSnapshot {CWComputeSnapshot(state:state,runtimeVersion:runtimeVersion,sources:sources.count,queuedBytes:queuedBytes,failure:failure,residentBytes:residentBytes,peakResidentBytes:peakResidentBytes)}
 
     public func start(resources:CWComputeResources) async throws -> AsyncThrowingStream<CWComputeEvent,Error> {
         let intent=intentFence
@@ -104,6 +117,7 @@ public actor CWComputeProcess {
         guard result==0 else {state="failed";failure = .spawnFailed(Int32(result));throw CWComputeError.spawnFailed(Int32(result))}
         let id=UUID();pid=child.pid;childID=id;self.resources=resources;state="starting";failure=nil;runtimeVersion=nil;startedNS=now
         stdout.removeAll();stderr.removeAll();sources.removeAll();gates.removeAll();writes.removeAll();activeWrite=nil
+        residentBytes=nil;peakResidentBytes=nil;missingResidentSamples=0
         let incoming=AsyncThrowingStream<Chunk,Error>.makeStream(bufferingPolicy:.bufferingOldest(8))
         let outgoing=AsyncThrowingStream<CWComputeEvent,Error>.makeStream(bufferingPolicy:.bufferingOldest(64))
         ingress=incoming.continuation;events=outgoing.continuation
@@ -255,6 +269,16 @@ public actor CWComputeProcess {
         guard childID==id,let pid else{return}
         var code:Int32=0;let result=xcw_poll(pid,&code)
         if result != 0 {self.pid=nil;await fail(.childExited(result==1 ? code:result),id:id);return}
+        guard let bytes=residentSample(pid),bytes>0 else {
+            residentBytes=nil;missingResidentSamples+=1
+            // Exit may race proc_pidinfo after the preceding waitpid. Let the
+            // next monitor reap it as a crash; an alive child gets one retry.
+            if missingResidentSamples>=2 {await fail(.memoryMetricsUnavailable,id:id)}
+            return
+        }
+        missingResidentSamples=0
+        residentBytes=bytes;peakResidentBytes=max(peakResidentBytes ?? bytes,bytes)
+        guard bytes<=Self.residentCeilingBytes else {await fail(.memoryLimitExceeded,id:id);return}
         if state=="starting",now-startedNS>5_000_000_000 {await fail(.startupTimeout,id:id);return}
         if let activeWrite,now-activeWrite.receivedNS>1_000_000_000 {await fail(.inputOverflow,id:id)}
     }
@@ -278,6 +302,7 @@ public actor CWComputeProcess {
     private func retire(preserveFailure:Bool) async {
         guard !retiring else{return};retiring=true
         childID=nil;sources.removeAll();gates.removeAll();writes.removeAll();activeWrite=nil
+        residentBytes=nil
         monitor?.cancel();monitor=nil;pump?.cancel();pump=nil
         ingress?.finish();ingress=nil
         if preserveFailure {events?.finish(throwing:failure ?? CWComputeError.stopped)} else {events?.finish()};events=nil

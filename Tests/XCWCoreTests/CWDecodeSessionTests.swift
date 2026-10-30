@@ -78,6 +78,21 @@ final class CWDecodeSessionTests: XCTestCase {
         try await wait{await compute.counts().sends==1}
         await session.stop()
     }
+    func testMemoryFailureReleasesBothSourcesWithoutAutomaticReacquisition() async throws {
+        for error in [CWComputeError.memoryLimitExceeded,.memoryMetricsUnavailable] {
+            let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),sleeps=CWSessionTestSleeps()
+            let session=CWDecodeSession(provider:provider,compute:compute,sleep:{await sleeps.record($0)})
+            try await session.start(configuration:CWDecodeConfiguration(sources:[source(),source("1")]),resources:resources)
+            try await wait{await provider.leaseCount()==2}
+            await compute.fail(error)
+            try await wait{await session.snapshot().state=="blocked"}
+            let snapshot=await session.snapshot(),counts=await compute.counts(),delays=await sleeps.values(),leases=await provider.leaseCount()
+            XCTAssertEqual(snapshot.failure,error == .memoryLimitExceeded ? "compute_memory_limit":"compute_memory_unknown")
+            XCTAssertEqual(counts.starts,1);XCTAssertTrue(delays.isEmpty);XCTAssertEqual(leases,0)
+            XCTAssertTrue(snapshot.tracks.isEmpty);XCTAssertTrue(snapshot.sources.allSatisfy{$0.descriptor==nil})
+            await session.stop()
+        }
+    }
     func testChildRetriesStopAfterThreeBackoffs() async throws {
         let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),sleeps=CWSessionTestSleeps()
         await compute.failStarts()
@@ -430,6 +445,7 @@ private actor CWSessionTestCompute:CWComputeControlling {
         events=pair.continuation;events?.yield(.ready(runtime:"test"));return pair.stream
     }
     func emit(_ event:CWComputeEvent){events?.yield(event)}
+    func fail(_ error:CWComputeError){events?.finish(throwing:error)}
     func open(_ descriptor:CWStreamDescriptor){count.opens+=1}
     func send(_ block:CWIQBlock){count.sends+=1}
     func end(_ descriptor:CWStreamDescriptor,gap:Bool){count.ends+=1}
