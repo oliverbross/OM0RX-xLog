@@ -409,3 +409,43 @@ ceiling. This is a profiler-process guard, not whole-application memory
 qualification. All current process-tree/headroom/responsiveness and exact-package
 gates remain open. Neither GPU experiment justifies changing the production
 backend, model, workload, windows or qualification limits.
+
+### Pinned attention graph fusion
+
+Inspection of the retained ORT trace attributes 13.9998 s of accumulated kernel
+time to MatMul, 7.55467 s to Conv, 2.93283 s to FusedMatMul and 2.40947 s to
+Softmax. These concurrent kernel sums are diagnostic costs, not elapsed time.
+The model has six self-attention blocks, each with six 32-element heads.
+
+`fuse_attention_model.py` is a developer-only transformation of the exact pinned
+model. It replaces each exported QKV/attention subgraph with the pinned runtime's
+[Attention operator](https://github.com/microsoft/onnxruntime/blob/v1.24.3/docs/ContribOperators.md#com.microsoft.Attention),
+retaining all original tensors byte-for-byte, preprocessing, complete variable
+windows, alphabet and metadata. It prunes unreachable nodes, 504 to 315. The
+candidate SHA-256 is
+`c3dffa9c85dbef501252c7f43fe6a9c132ea23e4996a5ea499b61742dcf22800`;
+original licence/source/metadata copies and an exact transformation manifest
+accompany it outside ordinary Git. No payload or production backend selects it.
+
+`verify_fused_model.py` freezes its synthetic profile before inference and checks
+all original tensors, numerical outputs and per-frame argmax for 24 cases:
+334/401/467/534/601/667 frames, batches 1/2, silence/random log features. All pass;
+maximum absolute difference is 0.0000133514, maximum per-case mean difference
+0.00000179735, with identical argmax. Native text, signed drift, convergence and
+overload checks pass. Four quality scorer/provenance cases pass, including refusal
+of altered fusion contracts. An independent generated session, seed 83100634,
+excludes original-session messages and passes 150 sequences / 960 characters
+with zero errors (`7ef0fa0fce4b683f`). This remains clean synthetic mono evidence;
+held-out real RF and spot metrics remain unknown.
+
+The unchanged `16 15 4 cpu 1 - inherited arena dynamic` load **fails**
+(`6929e8fe89dd9599`). It services all 32 tracks but aborts at 7.76533 of 15 seconds
+when input lateness reaches 314.56 ms. Of 64 submitted jobs, 54 complete and ten
+coalesce; zero events drop or invalidate. P95 decode age is 2933.25 ms, model Run
+mean/p95 280.521/660.524 ms, peak RSS 100.25 MiB and process workload CPU 7.11693 s
+over 9.9733 wall seconds. No task build/test overlapped. Host load before the run
+was 10.18/13.92/17.04; AetherSDR and background services, including locate indexing,
+remained running. No recorded thermal/performance warning is not a sustained
+budget pass. The exact ignored `attention-capacity-01` receipt retains source,
+binary/model hashes, arguments and before/after host conditions. This failed,
+shortened run does not establish a throughput improvement or qualify capacity.

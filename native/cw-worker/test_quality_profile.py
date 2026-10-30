@@ -37,4 +37,19 @@ class QualityScoringTests(unittest.TestCase):
             with self.assertRaises(ValueError): model_binding(model, pinned, path)
             with self.assertRaises(ValueError): model_binding(model, pinned, None)
 
+    def test_attention_candidate_requires_exact_fusion_contract(self):
+        from fuse_attention_model import TRANSFORMATION
+        with tempfile.TemporaryDirectory() as directory:
+            model = Path(directory) / "model.onnx"
+            model.write_bytes(b"fused engineering candidate")
+            path = Path(directory) / "transformation.json"
+            manifest = {"status": "engineering_only_quality_unqualified", "source_model": {"sha256": "original"},
+                "output": {"sha256": digest(model)}, "transformation": dict(TRANSFORMATION)}
+            path.write_text(json.dumps(manifest))
+            self.assertEqual(model_binding(model, {"model_sha256": "original"}, path)["kind"], "transformed_engineering_candidate_unqualified")
+            for key, value in (("num_heads", 8), ("learned_tensors_unchanged", 1), ("blocks", 5)):
+                manifest["transformation"] = dict(TRANSFORMATION, **{key: value})
+                path.write_text(json.dumps(manifest))
+                with self.assertRaises(ValueError): model_binding(model, {"model_sha256": "original"}, path)
+
 if __name__ == "__main__": unittest.main()

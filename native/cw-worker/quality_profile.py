@@ -74,12 +74,17 @@ def model_binding(model, pinned, candidate_manifest):
     if candidate_manifest is None or candidate_manifest.stat().st_size > 65536:
         raise ValueError("A transformed model requires its explicit bounded provenance manifest")
     manifest = json.loads(candidate_manifest.read_text())
-    constant_only = manifest.get("transformation", {}).get("extra_options", {}).get("MatMulConstBOnly")
-    if type(constant_only) is not bool:
-        raise ValueError("Candidate must identify its exact MatMul quantization profile")
-    expected = {"method": "onnxruntime.quantization.quantize_dynamic", "op_types": ["MatMul"],
-        "per_channel": True, "weight_type": "QInt8", "extra_options": {"MatMulConstBOnly": constant_only}}
-    if manifest.get("status") != "engineering_only_quality_unqualified" or manifest.get("source_model", {}).get("sha256") != pinned["model_sha256"] or manifest.get("output", {}).get("sha256") != actual or manifest.get("transformation") != expected:
+    transformation = manifest.get("transformation", {})
+    if transformation.get("method") == "xlog.pinned_attention_fusion.v1":
+        from fuse_attention_model import TRANSFORMATION
+        expected = TRANSFORMATION
+    else:
+        constant_only = transformation.get("extra_options", {}).get("MatMulConstBOnly")
+        if type(constant_only) is not bool:
+            raise ValueError("Candidate must identify its exact bounded transformation")
+        expected = {"method": "onnxruntime.quantization.quantize_dynamic", "op_types": ["MatMul"],
+            "per_channel": True, "weight_type": "QInt8", "extra_options": {"MatMulConstBOnly": constant_only}}
+    if manifest.get("status") != "engineering_only_quality_unqualified" or manifest.get("source_model", {}).get("sha256") != pinned["model_sha256"] or manifest.get("output", {}).get("sha256") != actual or json.dumps(transformation, sort_keys=True) != json.dumps(expected, sort_keys=True):
         raise ValueError("Candidate does not match its original-model/transformation provenance")
     return {"kind": "transformed_engineering_candidate_unqualified", "sha256": actual,
         "manifest_sha256": digest(candidate_manifest), "transformation": manifest}
