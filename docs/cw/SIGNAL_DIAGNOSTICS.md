@@ -678,3 +678,30 @@ recorded thermal warning. These are process-only metrics, excluding CoreML
 service processes and complete app responsiveness. Strict thresholds remain.
 Receipt `9b7efec67d0bf4ca`; original hashes, source, parity logs, process and
 thermal evidence are retained in `original-dynamic-neural-capacity-01`.
+
+## Bounded eight-caller shared-session experiment
+
+An engineering-only eight-job-worker budget uses the existing shared CPU session,
+one intra-op thread, the separate integer-attention candidate and unchanged input,
+windows, stride, history and job accounting. Forty concurrent fixture copies
+preserve scalar text, token boundaries and scores (`61cb2dac530c32db`). This is
+execution parity, not independent RF quality. No per-track runtimes are added.
+
+The eight-worker standard run stops after **2.176 seconds**, before any inference
+job is submitted, with **329.292 ms** input lateness. Its zero jobs/coalesces and
+unknown decode age cannot establish eight-worker throughput or a speedup. The
+paired four-worker control delivers all 15 seconds and services all 32 tracks,
+but completes **228/288 jobs with 60 coalesced** (zero dropped/invalidated/faults),
+so strict capacity remains false despite **1805.827667 ms p95 decode age** and
+79.5146 ms maximum input lateness. Model Run mean/p95 is 161.94043/288.867209 ms;
+queue wait 469.471006/1044.952917 ms; features 4.081328/7.995417 ms. Preparation
+is 118.93 ms, peak process RSS 166.047 MiB, workload CPU/wall 27.803/15.9941 s.
+
+No task compiler/test overlaps either load. Ordinary applications remain running;
+host loads are 8.15→8.06 and 8.06→9.07. These are process-only measurements, not
+complete app responsiveness or sustained thermal qualification. Exact receipts
+are `int8-shared-workers-{8,4}-01`, archive `d59c710c240c3320`. The three-file
+worker-budget experiment is removed and retained privately with SHA-256
+`b498181d65cd7f7924d3aae06a4b6f3ffa0d66a8b5eccc4a1dbfdb29d2aeaae6`.
+Only the bounded `cpu-shared8` parity selector remains; production keeps four
+workers and the original model. No failed-run retry or threshold change follows.

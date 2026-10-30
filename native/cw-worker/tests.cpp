@@ -4,6 +4,7 @@
 #include "skimmer.h"
 #include "job_order.h"
 #include <cmath>
+#include <future>
 #include <iostream>
 #include <map>
 #include <random>
@@ -35,7 +36,7 @@ int main(int argc,char** argv) {
     require(argc==2 || (argc==3 && (std::string(argv[2])=="coreml" || std::string(argv[2])=="coreml-neural" || std::string(argv[2])=="system-allocator" ||
       std::string(argv[2])=="cpu-steady" || std::string(argv[2])=="coreml-steady" || std::string(argv[2])=="coreml-neural-steady" ||
       std::string(argv[2])=="coreml-neural-gpu" || std::string(argv[2])=="coreml-neural-gpu-steady" ||
-      std::string(argv[2])=="cpu-intra4")),"Model path and bounded provider/allocator/shape/thread profile required");
+      std::string(argv[2])=="cpu-intra4" || std::string(argv[2])=="cpu-shared8")),"Model path and bounded provider/allocator/shape/thread profile required");
     cw::JobOrder jobs;
     const auto ready=[](const auto&){return true;};
     jobs.push("oldest");jobs.push("second");jobs.push("selected");jobs.focus("selected");
@@ -146,17 +147,29 @@ int main(int argc,char** argv) {
       cw::Engine accelerated(argv[1],profile);
       auto full=morse(20);full.resize(32000);
       for(const auto& audio:{std::vector<float>(19200),morse(20),morse(30),std::vector<float>(32000),full}) {
-        const auto cpu=engine.decode(audio,3200),other=accelerated.decode(audio,3200);
-        if(profile.steady_ten_second) require(other.used_steady_plan==(audio.size()/48+1==667),"Exact shape selects bounded shared plan");
-        require(cpu.text==other.text && cpu.tokens.size()==other.tokens.size(),"Profile/CPU fixture text parity");
-        for(size_t i=0;i<cpu.tokens.size();++i) {
-          const auto a=cpu.tokens[i],b=other.tokens[i];
-          if(a.symbol!=b.symbol || a.first_sample!=b.first_sample || a.end_sample!=b.end_sample)
-            std::cerr<<"Profile token mismatch: samples="<<audio.size()<<" steady="<<other.used_steady_plan<<" token="<<i
-              <<" CPU="<<a.symbol<<":"<<a.first_sample<<".."<<a.end_sample<<" profile="<<b.symbol<<":"<<b.first_sample<<".."<<b.end_sample<<"\n";
-          require(a.symbol==b.symbol && a.first_sample==b.first_sample && a.end_sample==b.end_sample,"Profile/CPU fixture sample alignment parity");
-          if(profile.provider==cw::ExecutionProvider::cpu) require(std::abs(a.log_score-b.log_score)<0.0001,"CPU profile fixture score parity");
+        const auto cpu=engine.decode(audio,3200);
+        std::vector<cw::Decode> copies;
+        if(selected=="cpu-shared8") {
+          std::vector<std::future<cw::Decode>> jobs;
+          for(size_t i=0;i<8;++i) jobs.push_back(std::async(std::launch::async,[&]{return accelerated.decode(audio,3200);}));
+          for(auto& job:jobs) copies.push_back(job.get());
+        } else copies.push_back(accelerated.decode(audio,3200));
+        for(const auto& other:copies) {
+          if(profile.steady_ten_second) require(other.used_steady_plan==(audio.size()/48+1==667),"Exact shape selects bounded shared plan");
+          require(cpu.text==other.text && cpu.tokens.size()==other.tokens.size(),"Profile/CPU fixture text parity");
+          for(size_t i=0;i<cpu.tokens.size();++i) {
+            const auto a=cpu.tokens[i],b=other.tokens[i];
+            if(a.symbol!=b.symbol || a.first_sample!=b.first_sample || a.end_sample!=b.end_sample)
+              std::cerr<<"Profile token mismatch: samples="<<audio.size()<<" steady="<<other.used_steady_plan<<" token="<<i
+                <<" CPU="<<a.symbol<<":"<<a.first_sample<<".."<<a.end_sample<<" profile="<<b.symbol<<":"<<b.first_sample<<".."<<b.end_sample<<"\n";
+            require(a.symbol==b.symbol && a.first_sample==b.first_sample && a.end_sample==b.end_sample,"Profile/CPU fixture sample alignment parity");
+            if(profile.provider==cw::ExecutionProvider::cpu) require(std::abs(a.log_score-b.log_score)<0.0001,"CPU profile fixture score parity");
+          }
         }
+      }
+      if(selected=="cpu-shared8") {
+        std::cout<<"40 shared-session CPU text/token/sample/score parity cases passed\n";
+        return 0;
       }
     }
     require(engine.decode(std::vector<float>(19200),0).text.empty(),"Silence must not decode a call");

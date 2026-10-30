@@ -102,6 +102,11 @@ held-out evaluation. AC30/P8/P9 remain outside this Mac launch.
   then strict load fails at 7.97867 s: 40/64 completed, 24 coalesced, 439.385-ms
   input lateness and 6178.386-ms p95 decode age. This separate provider control
   and its exact conditions are retained in `SIGNAL_DIAGNOSTICS.md`.
+- Eight shared CPU callers preserve 40 fixture copies, but their load run misses
+  the input deadline before inference. The paired four-worker integer-candidate
+  control completes 228/288 jobs with 60 coalesced, despite 1805.828-ms p95 age.
+  Neither qualifies capacity. The worker-budget experiment is preserved and
+  removed; only its bounded parity selector remains. See `SIGNAL_DIAGNOSTICS.md`.
 - Read-only authorized router/client inspection identifies TP-Link EC120-F5 v1
   and the current Mac VPN address **10.8.0.10** (previous .6 is historical).
   Inspected stock OpenVPN controls provide no bridge/discovery relay. Windows
