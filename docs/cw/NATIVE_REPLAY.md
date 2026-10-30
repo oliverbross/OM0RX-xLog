@@ -167,3 +167,53 @@ expires the unchanged 250-ms input deadline during a concurrent CTest run
 receipt is a capacity or soak claim. Original failing drift/convergence receipts
 are `ae6e9323bf95aa63`, `8a720964109852b2` and `47dd002dc8e80eb2`. Actual real-RF
 drift/crossing, frequency p95 and transmitting-station precision remain required.
+
+## Seal corpus inputs before evaluation
+
+`native/cw-worker/corpus_manifest.py` is a development-only stdlib utility,
+separate from the decoder and preserved contest Python. It streams IQ SHA-256
+with 1-MiB buffers, checks CF32 file size against lossless sample counts, pins
+consent/licence and independent annotation provenance, and refuses shared
+recording-family/session/operator groups across calibration and held-out splits.
+Identical IQ cannot count as independent recordings. Case/outer-space group aliases,
+changed inputs, linked artifacts, duplicate JSON keys and unreviewed truth fail.
+No radio, decoder, destination, application configuration or quality gate is used.
+
+Keep the manifest, annotations, seals and large IQ outside ordinary Git (the
+private completion `.build` directory is suitable for local development). A
+manifest uses `schema_version: 1`, the exact frozen `QUALITY_CONTRACT.json`
+SHA-256, and `normalization: "trim_outer_whitespace_only_v1"`. It contains
+`recordings` with the following required fields:
+
+| Field | Required meaning |
+| --- | --- |
+| `id`, `recording_family_id`, `capture_session_id`, `operator_id` | Auditable original recording/session/operator identities, retained across snippets; do not invent new IDs to evade split separation. |
+| `split` | `calibration` or `held_out`, fixed before evaluating held-out data. |
+| `kind`, `provider` | `real_iq` with `flex_dax_iq`/`tci_iq`, or `synthetic_iq` with `synthetic`; never relabel synthetic input as RF. |
+| `sample_rate`, `format` | Actual `96000` and `cf32_le_interleaved_iq`; this seal profile does not qualify a 192-kHz profile. |
+| `first_sample`, `complex_samples` | Canonical UInt64 decimal strings, nonzero count, valid exclusive end; exact file bytes must equal count × 8. |
+| `permission` | Object with `basis` (`operator_consent`, `licence`, or synthetic-only `owned_synthetic`) and an actual nonempty `reference` to the permission/provenance record. |
+| `iq_path`, `iq_sha256`, `annotations_path`, `annotations_sha256` | Existing regular files and their exact lowercase SHA-256; relative paths resolve against the manifest directory. |
+
+Annotation JSON must identify `schema_version: 1`, matching `recording_id`, an
+`annotator_id`, explicit `independent_of_decoder: true`, and `truth_review` of
+`reviewed` or `reviewed_with_uncertainty`. Its actual labels and uncertain truth
+remain in that independently hashed file. These are provenance assertions to
+review, not proof of correct or complete annotations. This utility deliberately
+does not accept decoder guesses as truth or claim to validate label semantics.
+
+From canonical source:
+
+```sh
+python3 native/cw-worker/corpus_manifest.py seal /private/corpus/manifest.json /private/corpus/seal.json
+python3 native/cw-worker/corpus_manifest.py verify /private/corpus/seal.json
+```
+
+The output is exclusive-create, mode 0600, byte-bounded and file-synced. It pins
+the validator source hash and exact manifest/annotation/IQ hashes. Reverify just
+before evaluation; changed tool/input/receipt content fails. Status is always
+`sealed_inputs_not_scored_or_qualified`. Recorded sample seconds are **not**
+unique negative band-hours: source gaps, overlap, band coverage and eligible
+exposure still require separate accounting. Nothing here establishes CER,
+precision, recall, frequency error, latency, actual native output or a soak.
+No real corpus has yet been supplied or sealed for launch qualification.

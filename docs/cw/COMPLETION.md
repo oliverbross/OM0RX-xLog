@@ -113,6 +113,13 @@ held-out evaluation. AC30/P8/P9 remain outside this Mac launch.
   no IQ/radio controls and no persistent networking. New privileged driver use
   needs concrete operator approval. No helper implementation, driver installation
   or verified forwarding is yet claimed; Mac integration ownership remains here.
+- NL-09 corpus preparation now has a bounded sealing/reverification tool: actual
+  IQ hashes/counts, permission provenance, independent annotation hashes and
+  recording-family/session/operator split separation. It has no decode/output or
+  qualification authority. Fixture tests do not provide real RF, held-out scores
+  or negative band-hours. Fifteen corpus/provenance and existing scoring-fixture
+  tests pass; an outer-space operator alias first reproduced split leakage, then
+  is rejected. Input format and limits are in `NATIVE_REPLAY.md`.
 
 Private raw tool receipts and reference copies are retained under
 `.build/cw-completion-20261030` and lossless lean-ctx archives. No production
