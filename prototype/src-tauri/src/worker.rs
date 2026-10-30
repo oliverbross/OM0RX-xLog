@@ -383,7 +383,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "logbook_operator_draft_qsy_clear",
         "logbook_operator_draft_radio_read",
         "logbook_operator_draft_radio_follow",
-        "spot_draft_apply", "spot_draft_status", "spot_draft_stage", "spot_draft_finish", "spot_draft_abandon", "spot_draft_cw_status", "spot_draft_cw_pending",
+        "spot_draft_apply", "spot_draft_status", "spot_draft_stage", "spot_draft_finish", "spot_draft_abandon", "spot_draft_cw_status", "spot_draft_cw_pending", "spot_draft_cw_reconcile",
         "logbook_contact",
         "logbook_contact_apply",
         "logbook_contact_receipt",
@@ -1261,6 +1261,9 @@ fn request_is_non_retiring_read(request: &Value) -> bool {
     matches!(request["method"].as_str(), Some(
         "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot" | "cw_decode_snapshot" | "cw_decode_resolve_selection" | "cw_decode_resolve_signal" |
         "spot_draft_cw_status" | "spot_draft_cw_pending" |
+        // Exact original-receipt metadata reconciliation is also safe to keep
+        // pending after a deadline; it cannot apply a draft or station effect.
+        "spot_draft_cw_reconcile" |
         "lookup_call" | "logbook_previous" | "logbook_duplicate" |
         "logbook_matrix" | "cluster_history" | "cluster_snapshot" |
         "opportunities_snapshot" | "opportunities_refresh" |
@@ -1348,6 +1351,15 @@ mod tests {
             assert_passive_timeout_preserves_worker(method);
         }
     }
+    #[cfg(unix)]
+    #[test]
+    fn cw_original_reconcile_is_native_metadata_only_and_preserves_worker_on_lost_reply(){
+        let method="spot_draft_cw_reconcile";let request=json!({"method":method});
+        assert!(request_blocks_module_transition(&request));
+        assert!(!request_can_change_station_state(&request));
+        assert_eq!(request_timeout(&request),PASSIVE_READ_TIMEOUT);
+        assert_passive_timeout_preserves_worker(method);
+    }
     #[test]
     fn worker_arguments_compose_runtime_profile_and_local_acceptance() {
         assert_eq!(super::worker_arguments(false, false), Vec::<&str>::new());
@@ -1375,7 +1387,7 @@ mod tests {
     }
     #[test]
     fn native_activation_journal_never_crosses_renderer_surfaces() {
-        for method in ["spot_draft_apply","spot_draft_status","spot_draft_stage","spot_draft_finish","spot_draft_abandon","spot_draft_cw_status","spot_draft_cw_pending"] {
+        for method in ["spot_draft_apply","spot_draft_status","spot_draft_stage","spot_draft_finish","spot_draft_abandon","spot_draft_cw_status","spot_draft_cw_pending","spot_draft_cw_reconcile"] {
             let request=serde_json::json!({"id":"native-only","method":method,"params":{}});
             super::validate_request(&request).unwrap();
             for label in ["main","cw-decode","contest--cw-decode","contest-setup","monitor","log-qso","logbook","world-map","band-maps","dx-cluster","awards","spot-history","callsign-intelligence","settings"] {

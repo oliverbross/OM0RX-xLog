@@ -1598,28 +1598,24 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             guard let workspaceID = UUID(uuidString: generation) else { throw invalid() }
             return ["operationIds": try db.pendingCWSpotDraftOperationIDs(generation: workspaceID).map(\.uuidString)]
         }
-        if method == "spot_draft_cw_status" {
-            // Native-only recovery reads the durable command's CW marker.
-            // It neither needs a surviving decoder/source pool nor grants a
-            // draft apply, lease release, tombstone or station effect.
+        if ["spot_draft_cw_status","spot_draft_cw_reconcile"].contains(method) {
+            // Reconcile may close only the proven original CW receipt metadata.
+            // Neither path applies a draft, releases a lease or grants RF authority.
             try requireKeys(params, allowed: ["operationID"], required: ["operationID"])
             guard let rawID=params["operationID"] as? String, let operationID=UUID(uuidString:rawID),
                   operationID != UUID(uuid:(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)) else {throw invalid()}
             var result:[String:Any]=["operationId":rawID,"phase":"uncertain","reservationActive":false,
                 "draftOnly":true,"tuneConfirmed":false,"rotor":"not_requested"]
-            guard let record=try db.spotDraftRecord(operationID:operationID) else {
+            guard let workspaceID=UUID(uuidString:generation) else {throw invalid()}
+            let stored:SpotDraftRecord?
+            do {stored=try method=="spot_draft_cw_reconcile" ? db.reconcileCWSpotDraft(operationID:operationID,generation:workspaceID):db.spotDraftRecord(operationID:operationID)}
+            catch {throw WorkerFailure("cw_receipt_unverified","This durable receipt cannot verify that CW callsign action.")}
+            guard let record=stored else {
                 result["error"]="No retained CW callsign receipt was found. Review Main Logging; no action was repeated."
                 return result
             }
-            do {try record.command.validate()}
+            do {try record.validateCWReceipt(operationID:operationID,generation:workspaceID)}
             catch {throw WorkerFailure("cw_receipt_unverified","This durable receipt cannot verify that CW callsign action.")}
-            guard record.command.operationID==operationID, record.receipt.operationID==operationID,
-                  record.command.generation==record.receipt.generation,
-                  record.command.generation==UUID(uuidString:generation), record.receipt.phase == .draft_applied,
-                  record.command.spot.cwCallsign != nil,
-                  [.draft_applied,.confirmed,.failed,.uncertain].contains(record.phase) else {
-                throw WorkerFailure("cw_receipt_unverified","This durable receipt cannot verify that CW callsign action.")
-            }
             let active=db.spotDraftLiveLease(for:record) != nil
             result["phase"]=record.phase == .draft_applied && !active ? "uncertain":record.phase.rawValue
             result["reservationActive"]=active

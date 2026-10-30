@@ -51,9 +51,15 @@ fn durable_status_with(operation:&str, read:impl FnOnce(Value)->Result<Value,Str
 /// Native-only read of an existing worker's durable CW-marked draft receipt.
 /// Missing/uncertain outcomes stay held. No source resolution or effect replay.
 pub fn durable_status(operation:&str)->Result<Value,String> {
+    durable_read(operation,"spot_draft_cw_status")
+}
+pub fn durable_reconcile(operation:&str)->Result<Value,String> {
+    durable_read(operation,"spot_draft_cw_reconcile")
+}
+fn durable_read(operation:&str,method:&str)->Result<Value,String> {
     let generation=crate::worker::generation();crate::worker::require_existing_generation(generation)?;
     durable_status_with(operation,|params|{
-        let request=json!({"id":format!("cw-receipt-{}",uuid::Uuid::new_v4()),"method":"spot_draft_cw_status","params":params});
+        let request=json!({"id":format!("cw-receipt-{}",uuid::Uuid::new_v4()),"method":method,"params":params});
         let response=crate::worker::request_existing_generation(request.clone(),generation)?;
         if response["id"]!=request["id"] || response["ok"]!=true || !response["error"].is_null()
             || crate::worker::generation()!=generation{return Err("CW receipt read is unavailable. No action was repeated.".into());}

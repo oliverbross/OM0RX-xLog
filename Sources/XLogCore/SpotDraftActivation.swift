@@ -148,6 +148,19 @@ public struct SpotDraftRecord: Codable, Equatable, Sendable {
     public let receipt: SpotDraftReceipt
     public let leaseID: UUID
     public internal(set) var phase: SpotDraftPhase
+
+    /// Proof of the original callsign-only draft commit, never fresh RF authority.
+    public func validateCWReceipt(operationID: UUID, generation: UUID) throws {
+        try command.validate();try receipt.draft.validate()
+        let zero=UUID(uuid:(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
+        guard [operationID,generation,command.draftID,leaseID].allSatisfy({$0 != zero}),
+              command.operationID==operationID,receipt.operationID==operationID,
+              command.generation==generation,receipt.generation==generation,
+              command.spot.cwCallsign != nil,receipt.phase == .draft_applied,
+              receipt.draft.qso.id==command.draftID,receipt.draft.revision==command.expectedRevision+1,
+              receipt.draft.qso.call==command.spot.call.trimmingCharacters(in:.whitespacesAndNewlines).uppercased(),
+              [.draft_applied,.confirmed,.failed,.uncertain].contains(phase) else {throw SpotDraftError.invalid}
+    }
 }
 
 public struct SpotDraftApplyResult: Sendable {

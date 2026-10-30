@@ -320,6 +320,36 @@ TypeScript pass, including stopped capture, a lost window ID, two original draft
 owners, malformed discovered data, preserved corrupt storage and changed workspace
 generation. Installed process/window-loss qualification remains open.
 
+### Explicit reconciliation of an interrupted Normal original
+
+`spot_draft_cw_status` remains a read. The explicit original-action reconciliation
+can additionally close only the original CW receipt's metadata after worker
+replacement. It requires a validated callsign-only command, matching non-nil
+operation/workspace/draft/lease identities, the immutable draft-applied receipt,
+the exact callsign and consecutive draft revision, and an allowed non-RF phase.
+The receipt's indexed phase must agree with its stored payload. These checks
+are shared by status, discovery and reconciliation.
+
+That durable receipt proves the callsign-only draft transaction committed; CW
+records cannot stage Tune/rotor effects. If its original lease is still live,
+reconciliation leaves it active. Otherwise only the same operation's interrupted
+phase may become confirmed. The command and original receipt remain intact;
+no current draft fields, revision, timestamp, power state or unrelated lease are
+changed. Missing, substituted, malformed and wrong-generation evidence cannot
+authorize completion. No new operation ID or tombstone is created.
+
+This native-only metadata route blocks a module transition while admitted but
+keeps the shared worker after a lost reply, so checking the same original is
+safe. An unrelated unreadable Contest journal still vetoes new actions and ID
+discovery; it cannot prevent an identified Normal original from proving its own
+receipt. Stop remains independent.
+
+The interrupted-original regression failed with method_not_allowed before
+implementation. All 22 Swift draft/reservation and 70 CW-filtered native cases
+pass afterward, including live-lease refusal, process-owner replacement, later
+operator edits, idempotent original completion, missing evidence and substituted
+identity/callsign/revision/RF phase. Full installed recovery acceptance remains.
+
 Validation: 57 CW-focused native cases, 25 callsign bridge/response/projection UI cases,
 four sole-Entry controller cases and TypeScript pass. The controller fixture
 checks field preservation, no Tune/Stop and refusal of a stale semantic revision;

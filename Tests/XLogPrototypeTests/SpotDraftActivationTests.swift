@@ -122,6 +122,65 @@ struct SpotDraftActivationTests {
         }
     }
 
+    @Test("Explicit CW reconciliation completes only the proven original receipt after restart and preserves later edits")
+    func cwReconcileInterruptedOriginal() throws {
+        try fixture { service, root in
+            var request=try command(snapshot(service));request["spot"]=cwSelection()
+            _ = try service.handle(method:"spot_draft_apply",params:request)
+            let params=["operationID":try #require(request["operationID"])]
+            let active=try service.handle(method:"spot_draft_cw_reconcile",params:params)
+            #expect(active["phase"] as? String == "draft_applied");#expect(active["reservationActive"] as? Bool == true)
+            #expect(try service.openedDatabase().spotDraftActivationActive)
+            try service.openedDatabase().close()
+            let replacement=LiveLogbookMethods(supportDirectory:root,inheritNativePreferences:false)
+            defer {try? replacement.openedDatabase().close()}
+            let current=try snapshot(replacement),db=try replacement.openedDatabase()
+            let draft=try db.operatorDraft(initial:QSO(call:"",band:"20m",mode:"CW"))
+            var edited=draft.qso;edited.call="K2XYZ";edited.comment="Later operator text"
+            _ = try db.applyOperatorDraft(OperatorDraftMutation(operationID:UUID(),draftID:draft.qso.id,
+                expectedRevision:draft.revision,action:.replace,qso:edited),nextDraft:QSO(call:"",band:"20m",mode:"CW"))
+            let before=try snapshot(replacement)
+            #expect(current["qso"] != nil)
+            #expect((try replacement.handle(method:"spot_draft_cw_status",params:params))["phase"] as? String == "uncertain")
+            let reconciled=try replacement.handle(method:"spot_draft_cw_reconcile",params:params)
+            #expect(reconciled["phase"] as? String == "confirmed");#expect(reconciled["reservationActive"] as? Bool == false)
+            #expect(reconciled["draft"] == nil)
+            #expect(NSDictionary(dictionary:before).isEqual(to:try snapshot(replacement)))
+            #expect((try replacement.handle(method:"spot_draft_cw_pending",params:[:]))["operationIds"] as? [String] == [])
+            #expect(NSDictionary(dictionary:reconciled).isEqual(to:try replacement.handle(method:"spot_draft_cw_reconcile",params:params)))
+            #expect((try replacement.handle(method:"spot_draft_cw_reconcile",params:["operationID":UUID().uuidString]))["phase"] as? String == "uncertain")
+            #expect(throws:WorkerFailure.self){try replacement.handle(method:"spot_draft_cw_reconcile",params:["operationID":try #require(request["operationID"]),"clear":true])}
+            try JSONEncoder().encode(UUID()).write(to:replacement.workspaceDirectoryURL.appendingPathComponent("edit-generation.json"),options:.atomic)
+            #expect(throws:WorkerFailure.self){try replacement.handle(method:"spot_draft_cw_reconcile",params:params)}
+        }
+    }
+
+    @Test("CW original receipt proof rejects substituted identities, revision, callsign and RF phases")
+    func cwOriginalReceiptProofCorrelation() throws {
+        try fixture { service, _ in
+            var request=try command(snapshot(service));request["spot"]=cwSelection()
+            _ = try service.handle(method:"spot_draft_apply",params:request)
+            let rawID=try #require(request["operationID"] as? String),operation=try #require(UUID(uuidString:rawID))
+            let db=try service.openedDatabase(),stored=try db.spotDraftRecord(operationID:operation)
+            let record=try #require(stored)
+            func reject(_ mutate:(inout [String:Any])->Void) throws {
+                let encoded=try JSONEncoder().encode(record),decoded=try JSONSerialization.jsonObject(with:encoded)
+                var raw=try #require(decoded as? [String:Any])
+                mutate(&raw)
+                let changed=try JSONDecoder().decode(SpotDraftRecord.self,from:JSONSerialization.data(withJSONObject:raw))
+                #expect(throws:SpotDraftError.self){try changed.validateCWReceipt(operationID:operation,generation:record.command.generation)}
+            }
+            try reject{$0["phase"]="tune_started"}
+            try reject{$0["leaseID"]="00000000-0000-0000-0000-000000000000"}
+            try reject{var receipt=$0["receipt"] as! [String:Any];receipt["operationID"]=UUID().uuidString;$0["receipt"]=receipt}
+            try reject{var receipt=$0["receipt"] as! [String:Any];receipt["generation"]=UUID().uuidString;$0["receipt"]=receipt}
+            try reject{var receipt=$0["receipt"] as! [String:Any],draft=receipt["draft"] as! [String:Any]
+                draft["revision"]=record.receipt.draft.revision+1;receipt["draft"]=draft;$0["receipt"]=receipt}
+            try reject{var receipt=$0["receipt"] as! [String:Any],draft=receipt["draft"] as! [String:Any],qso=draft["qso"] as! [String:Any]
+                qso["call"]="K2XYZ";draft["qso"]=qso;receipt["draft"]=draft;$0["receipt"]=receipt}
+        }
+    }
+
     @Test("CW pending discovery recovers the original ID without a surviving window or source")
     func cwPendingIdentityDiscovery() throws {
         try fixture { service, root in

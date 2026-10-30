@@ -397,7 +397,10 @@ async fn cw_callsign_request(window:tauri::WebviewWindow,app:tauri::AppHandle,st
     cw_callsign_bridge::validate_surface(window.label(),runtime_profile::isolated(state.path.is_some()),APP_EXITING.load(Ordering::Acquire))?;
     let action=cw_callsign_bridge::parse(params)?;let owner=activation_owner(&app);
     let journal_app=app.clone();
-    tauri::async_runtime::spawn_blocking(move||cw_contest_callsign::initialize(&journal_app)).await.map_err(|_|"CW Entry journal could not be opened.".to_string())??;
+    let journal_result=tauri::async_runtime::spawn_blocking(move||cw_contest_callsign::initialize(&journal_app)).await.map_err(|_|"CW Entry journal could not be opened.".to_string())?;
+    // An unrelated unreadable Contest journal vetoes new actions and discovery,
+    // while an identified Normal original can still prove its own receipt.
+    if matches!(&action,cw_callsign_bridge::Action::Apply(..)|cw_callsign_bridge::Action::Retained){journal_result?;}
     match action {
         cw_callsign_bridge::Action::Retained=>tauri::async_runtime::spawn_blocking(move||{
             let mut operations=Vec::new();
@@ -432,7 +435,7 @@ async fn cw_callsign_request(window:tauri::WebviewWindow,app:tauri::AppHandle,st
         cw_callsign_bridge::Action::Reconcile(operation)=>{
             if cw_contest_callsign::owns(&operation){return tauri::async_runtime::spawn_blocking(move||cw_contest_callsign::status(&operation)).await.map_err(|_|"CW Entry status unavailable.".to_string())?;}
             if !owner.source_epoch(&operation).is_ok_and(|source|cw_track_selection::owns(&source)){
-                return tauri::async_runtime::spawn_blocking(move||cw_callsign_bridge::durable_status(&operation)).await.map_err(|_|"CW receipt read unavailable.".to_string())?;
+                return tauri::async_runtime::spawn_blocking(move||cw_callsign_bridge::durable_reconcile(&operation)).await.map_err(|_|"Original CW receipt reconciliation is uncertain; check the same operation again.".to_string())?;
             }
             tauri::async_runtime::spawn_blocking(move||cw_callsign_bridge::project(owner.reconcile(&operation)?)).await.map_err(|_|"CW action readback failed.".to_string())?
         }

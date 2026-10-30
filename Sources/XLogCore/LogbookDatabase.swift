@@ -2095,13 +2095,31 @@ public final class LogbookDatabase: @unchecked Sendable {
 
     public func spotDraftRecord(operationID: UUID) throws -> SpotDraftRecord? {
         try withDatabaseLock {
-            try withStatement("SELECT payload FROM xlog_spot_draft_receipts WHERE operation_id = ?;") { statement in
+            try withStatement("SELECT payload,phase FROM xlog_spot_draft_receipts WHERE operation_id = ?;") { statement in
                 bind(operationID.uuidString, to: 1, in: statement)
                 let step = sqlite3_step(statement)
                 if step == SQLITE_DONE { return nil }
                 guard step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0) else { throw error() }
-                return try decoder.decode(SpotDraftRecord.self, from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+                let record=try decoder.decode(SpotDraftRecord.self, from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+                guard let phase=sqlite3_column_text(statement,1),record.phase.rawValue==String(cString:phase) else {throw LogbookDatabaseError.corruptRecord}
+                return record
             }
+        }
+    }
+
+    /// Reconcile only the original CW receipt metadata. No draft write, lease
+    /// acquisition/release or station action can follow this proof-only path.
+    public func reconcileCWSpotDraft(operationID: UUID,generation: UUID) throws -> SpotDraftRecord? {
+        try withDatabaseLock {
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                guard var record=try spotDraftRecord(operationID:operationID) else {try execute("COMMIT;");return nil}
+                try record.validateCWReceipt(operationID:operationID,generation:generation)
+                if spotDraftLeaseID != record.leaseID,[.draft_applied,.uncertain].contains(record.phase) {
+                    record.phase = .confirmed;try writeSpotDraftRecord(record)
+                }
+                try execute("COMMIT;");return record
+            } catch {try? execute("ROLLBACK;");throw error}
         }
     }
 
@@ -2129,6 +2147,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                           record.command.operationID == record.receipt.operationID,
                           record.command.generation == record.receipt.generation else { throw LogbookDatabaseError.corruptRecord }
                     if record.command.generation == generation, record.command.spot.cwCallsign != nil {
+                        try record.validateCWReceipt(operationID:record.command.operationID,generation:generation)
                         result.append(record.command.operationID)
                     }
                 }
