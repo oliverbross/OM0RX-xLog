@@ -106,4 +106,31 @@ with `unavailable` before the correction; all **12 subscription tests** then
 passed. Coverage includes settings retention without creation of RX, rejected
 states followed by settings, malformed/duplicate/unknown settings, reset,
 TX/quarantine, competing consumers and passive command scope. Inspector build
-and the no-network parser self-test passed. Hardware validation remains pending.
+and the no-network parser self-test passed. Hardware validation remained pending
+at that historical milestone.
+
+## Current per-band correction — 30 October 2026
+
+The live 8400 at the operator-selected endpoint 192.168.0.199 exposed the next
+distinct configuration form: `interlock band <id> ...`. A bounded 32-entry
+diagnostic history established a real READY report followed by per-band settings
+that erased IQ receive evidence. The pinned official FlexLib 4.3.16 archive was
+rehashed (same SHA-256 recorded above); its Radio dispatch explicitly separates
+this form into TxBandSettings. No manufacturer implementation was copied.
+
+The independent parser now preserves preceding state only for a canonical
+0–255 band ID and a bounded set of unique, typed configuration fields. Boolean
+flags accept 0/1/T/F, power settings 0–100 and band names bounded ASCII. Unknown,
+duplicate, malformed or empty fields still invalidate receive evidence. A state
+field inside a band-configuration message cannot manufacture READY. A valid
+configuration message after TX/unknown/reset cannot establish RX.
+
+The focused regression first failed three assertions (lost RX, absent retention,
+and forged band-state admission). All 14 subscription cases pass after repair,
+including bounded/redacted diagnostic history and transport reset. A fresh
+12-second hardware read then observed Station OM0RX-WIN10, handle 624524688,
+panadapter 40000000, DAX IQ 1, ANT1, centre 24.915 MHz, pre +16 dB, WIDE/loopa/loopb
+0 and known-off IQ transmit state. This validates the settings correction on
+actual messages. It does not yet prove discovery identity, native sample arrival,
+RF orientation, usable width or one/two-span acceptance. No stream was created
+by those passive inspections; each closed only its own transport.

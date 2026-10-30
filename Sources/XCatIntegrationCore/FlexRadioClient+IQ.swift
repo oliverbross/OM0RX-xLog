@@ -34,6 +34,32 @@ private enum FlexIQInterlockSettings {
         }
         return true
     }
+    // The pinned manufacturer dispatches this configuration form separately
+    // from RF state. It may preserve previous state, never supply a new one.
+    static func recognizesBand(_ words:ArraySlice<Substring>)->Bool {
+        let tokens=Array(words)
+        guard (3...14).contains(tokens.count),tokens[0]=="band",
+              let band=UInt8(tokens[1]),String(band)==tokens[1] else{return false}
+        let bandFlags:Set<String>=["hwalc_enabled","inhibit","acc_txreq_enable","rca_txreq_enable",
+            "acc_tx_enabled","tx1_enabled","tx2_enabled","tx3_enabled","tune_tx_suppress"]
+        var seen=Set<String>()
+        for word in tokens.dropFirst(2) {
+            let pair=word.split(separator:"=",maxSplits:1,omittingEmptySubsequences:false)
+            guard pair.count==2 else{return false}
+            let key=String(pair[0]),value=String(pair[1])
+            guard seen.insert(key).inserted else{return false}
+            if bandFlags.contains(key) {
+                guard ["0","1","T","F"].contains(value) else{return false}
+            } else if key=="rfpower" || key=="tunepower" {
+                guard let number=UInt8(value),number<=100,String(number)==value else{return false}
+            } else if key=="band_name" {
+                guard (1...32).contains(value.utf8.count),value.utf8.allSatisfy({
+                    (65...90).contains($0)||(97...122).contains($0)||(48...57).contains($0)||$0==45||$0==95
+                }) else{return false}
+            } else{return false}
+        }
+        return true
+    }
 }
 struct FlexIQState {
     var inventory=FlexIQResourceInventory()
@@ -42,6 +68,7 @@ struct FlexIQState {
     var identity:FlexIQIdentity?
     var receiveKnown=false
     var interlockEvidence:FlexIQReceiveEvidence?
+    var interlockEvidenceHistory:[FlexIQReceiveEvidence]=[]
     var stationMatches:Set<UInt32>=[]
     var handoffs:[UInt32:FlexIQHandoff]=[:]
     var receiver:FlexIQDatagramReceiver?
@@ -82,7 +109,7 @@ extension FlexRadioClient {
             panadapters:iqState.inventory.pans.values.sorted{$0.id<$1.id},requestableSampleRates:[48000,96000,192000],
             transmitStateKnownOff:context?.knownReceive ?? false,
             handoffPanadapters:iqState.handoffs.filter{$0.value.expiresNS>now}.keys.map(FlexIQResourceInventory.identifier).sorted(),
-            interlockEvidence:iqState.interlockEvidence)
+            interlockEvidence:iqState.interlockEvidence,interlockEvidenceHistory:iqState.interlockEvidenceHistory)
     }
     /// Called only by the product's explicit handoff action after the operator
     /// releases other DAX consumers. Merely opening a window never grants this.
@@ -176,9 +203,12 @@ extension FlexRadioClient {
         let words=body.split(separator:" ")
         if words.first=="interlock" {
             let states=words.dropFirst().filter{$0.hasPrefix("state=")}
-            let settingsOnly=states.isEmpty && FlexIQInterlockSettings.recognizes(words.dropFirst())
+            let bandConfiguration=words.dropFirst().first=="band"
+            let settingsOnly=states.isEmpty && (bandConfiguration
+                ? FlexIQInterlockSettings.recognizesBand(words.dropFirst())
+                : FlexIQInterlockSettings.recognizes(words.dropFirst()))
             if !settingsOnly {
-                iqState.receiveKnown=states.count==1 && ["state=READY","state=RECEIVE"].contains(String(states[0]))
+                iqState.receiveKnown = !bandConfiguration && states.count==1 && ["state=READY","state=RECEIVE"].contains(String(states[0]))
             }
             let raw=states.count==1 ? String(states[0].dropFirst(6)):nil
             let safe=raw.flatMap{value in (1...32).contains(value.utf8.count) && value.utf8.allSatisfy({
@@ -194,8 +224,12 @@ extension FlexRadioClient {
                 names.insert(String(parts[0]))
             }
             iqState.interlockEvidence=FlexIQReceiveEvidence(stateFields:states.isEmpty ? "none":states.count==1 ? "single":"multiple",
-                rawState:safe,acceptedReceive:iqState.receiveKnown,messageKind:settingsOnly ? "interlock_settings":words.dropFirst().first=="band" ? "band_configuration":"interlock",
+                rawState:safe,acceptedReceive:iqState.receiveKnown,messageKind:bandConfiguration ? "band_configuration":settingsOnly ? "interlock_settings":"interlock",
                 fieldNames:names.sorted(),stateRetained:settingsOnly)
+            if let evidence=iqState.interlockEvidence {
+                iqState.interlockEvidenceHistory.append(evidence)
+                if iqState.interlockEvidenceHistory.count>32 {iqState.interlockEvidenceHistory.removeFirst()}
+            }
             iqRevalidate()
         }
         if iqState.inventory.consume(body){iqResolveCreatedStreams();iqRevalidate()}
