@@ -1,5 +1,7 @@
 # OM0RX-xLog — unified N1MM Next Level master plan
 
+> **Current closeout — 30 October 2026:** scoped macOS baseline **1.3.63 installed and verified**, application source `19508f4f58eeadea381bc589c56d9bd0a29b2afe`. Public/all-platform release remains **NO-GO**. [Final disposition](../../RELEASE_READINESS.md#review-closeout--30-october-2026). Earlier sections retain their dated historical scope.
+
 **Reconciled: 27 October 2026 (Australia/Darwin).** This is the single planning entry point for the retained unfinished work and the next-level contesting roadmap. It combines the **33 consolidation work owners (NL-01–NL-33)** with **all 24 original roadmap packages (W01–W24)**. These are cross-linked views of overlapping scope, **not 57 independent projects or 57 confirmed defects**.
 
 The original planning reconciliation preserved all unfinished work without starting the roadmap or changing the installation. Subsequent authorized Waves 1–5 scoped candidate deliveries and installations are recorded in the checkpoints below, most recently the separately authorized 28 October Wave 5 installation. Candidate acceptance does not itself authorize installation or physical/provider qualification.
@@ -318,3 +320,11 @@ Close only the demonstrated scope. Code present, catalog registered, generic smo
 ## Documentation-only completion note
 
 This reconciliation preserves every NL-01–NL-33 owner and recovery object, restores an explicit W01–W24 scope/acceptance reference, adds the overlap and execution rules, and leaves the historical evidence register unchanged. The original detailed 26 October comparison remains a retained source, not a competing current-status authority. No application implementation, test rerun, local cleanup, installation, sync/upload or station action was performed for this planning update.
+
+## Review closeout baseline — 30 October 2026
+
+Current personal Apple Silicon macOS development/operating baseline: **installed and verified1.3.63**, exact application source `19508f4f58eeadea381bc589c56d9bd0a29b2afe`. [Final review closeout/readiness](../../RELEASE_READINESS.md#review-closeout--30-october-2026) is the current delivery disposition; older version/recovery records above remain historical. Original CR/FA and FA-010–FA-017/NA-001–NA-005 repairs are retained, with the scoped installer/Desk/recovery fixes and measured Logbook headroom added.
+
+Final native/installed everyday workflows, source-bound automated gates, signed/notarized exact bytes, protected current-state backup/1.3.60 rollback and closed-data preservation are complete at stated scope. Public/all-platform remains NO-GO; existing hardware/provider, compiler migration, conditional Linux/security, special recovery/replica, synthetic startup-probe and extended resource owners/qualifications remain unchanged. No useful capability was removed or unqualified output enabled.
+
+All NL-01–NL-33/W01–W24 ownership and unique source/stash/recovery refs stay intact. This closeout starts no new wave/audit/cleanup/qualification task. Application remains closed in original Normal workspace. Documentation commits do not relabel its embedded 19508source. Review closeout complete; ready for the next explicitly requested development task.

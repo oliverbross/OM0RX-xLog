@@ -1,5 +1,7 @@
 # Everyday logging native acceptance — 29 October 2026
 
+> **Current closeout — 30 October 2026:** scoped macOS baseline **1.3.63 installed and verified**, application source `19508f4f58eeadea381bc589c56d9bd0a29b2afe`. Public/all-platform release remains **NO-GO**. [Final disposition](../../../../RELEASE_READINESS.md#review-closeout--30-october-2026). Earlier sections retain their dated historical scope.
+
 **Bounded task complete; release remains NO-GO.** Normal export and Edit last pass after two directly encountered repairs. Exact native timestamp reversal remains **UNVERIFIED** because the required complete-pair, pre-flush condition was not established. No general audit, release candidate, package, installation or promotion followed.
 
 ## Exact source and component identities
@@ -75,3 +77,19 @@ SQLite evidence uses coherent backup copies and compares actual logical rows/rec
 **NO-GO remains.** Exact native complete-pair reversal still needs a demonstrable supported pre-flush sequence/manual qualification. Earlier restore/provider/replica results keep their actual earlier source boundaries. No new fldigi infrastructure, replica/recovery UI, SwiftUI restore, compiler migration, Linux dependency work or hardware qualification was attempted.
 
 Existing owners retain fldigi owned uncertainty/Stop/retry and physical RX/watchdog; replica catch-up/unsupported history; incomplete GUI restore recovery, separate SwiftUI restore, nonempty references/live preference readback; compiler/concurrency and Swift-language-mode warnings; DEP-P5-003 conditional Linux/security tooling; both-slot CAT/TCI/Flex/DAX/engine/audio/providers/credentials/disconnect/sleep; physical crash/power loss;8–24h combined resource soak; platform/runtime and signing/notarization/installer/update/rollback acceptance; and final exact-source mandatory release gates. Eventual candidate creation requires a new unused version and separate authorization. This task stops here.
+
+## Final authorized installed baseline — 30 October 2026
+
+Later explicit closeout supersedes the earlier no-package/no-install stop for this delivery only. **1.3.63 installed and verified**, application/test source `19508f4f58eeadea381bc589c56d9bd0a29b2afe`. NA-001–NA-005 stay preserved; new CL-002 per-key frequency and CL-003 recovery-banner fixes are separately tracked. [Current readiness](../../../../RELEASE_READINESS.md#review-closeout--30-october-2026).
+
+| Everyday check at final packaged source | Actual outcome |
+| --- | --- |
+| Normal real-file export | PASS, Cancel then NSSavePanel file444bytes / 2 reviewed automatic/manual records; SHA256 `7d74c96c44e6c44090c968205088b7fc227c1725fe0ad8c425fc86d3edbb1f44`; actual parse/SQLite/draft/receipt equality. No final prepared digest receipt exists. |
+| Main Logging Edit last | PASS actual dedicated editor for the known last fixture, explicit Cancel preserves unrelated draft/contact/serial/audits. Deeper single correction/reopen evidence remains1.3.62 / 83d2. |
+| Exact pair reversal | UNVERIFIED and not retried; existing deterministic and actual automatic/manual controls remain. |
+
+Final actual automatic Full Save SQLite UTC `2026-10-30T02:11:50.372118+00:00` is within button bounds; genuine manual UTC `2026-10-30T03:13:04+00:00` survives Full→Desk→Full and Save. Desk first keys remain1/14/14.250. W4KEEP stays unfinished; ordinary Quit/reopen and Normal→Contest→Normal preserve both fixture drafts and all data/receipts. A first ambiguous Log QSO sidebar click was navigation, not counted as Save. Clipboard/early process-admission failures remain distinct; the initial worker-not-yet-spawned observation denied GUI, then a fresh complete live proof preceded binding, without exited-launch fallback.
+
+Final Contest file551bytes / 1 record SHA256 `bdedaf0760e8b7190da98e0acaf930028a212319a96205f4bb7d77def58ef413` reaches a real native file and matches reviewed identity/UTC/exchange. Prepared in-memory digest was not captured, none fabricated. Current recovery warning persists despite periodic failures/Dismiss/failed Retry, with unchanged marker/DB/sidecars and ordinary Quit. Earlier hardware/provider/restore/replica qualifications keep their original source; this is not a repeat of the whole matrix.
+
+Installed smoke is read-only:69,456 active Normal contacts,775current-contest contacts, preserved chooser/settings, return to original Normal and ordinary Quit. No production QSO/serial/import/rescore/restore/manual sync or control.62 closed stores and all protected work/media/configuration/recovery are preserved; two auto sync runs cancel with0 attempts, terminal history follows existing caps. Fresh backup/rollback and exact manifest/signature/Gatekeeper acceptance are documented in readiness. Public/all-platform NO-GO and all remaining qualifications are explicit. [Lossless closeout evidence](../closeout-1.3.63-evidence.json.gz). Stop after closeout.
