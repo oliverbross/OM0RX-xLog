@@ -100,7 +100,7 @@ int main(int argc,char** argv) {
     std::vector<double> model_ms,features_ms,ctc_ms,queue_ms;
     std::vector<double> startup_model_ms,steady_model_ms;
     size_t fault_events=0,startup_jobs=0,steady_jobs=0;
-    size_t maximum_tracks=0,maximum_pending=0;
+    size_t maximum_tracks=0,maximum_pending=0,maximum_in_flight=0;
     double maximum_lag=0,generation_ms=0,feed_ms=0;
     bool deadline_missed=false;
     const auto start=Clock::now();
@@ -119,6 +119,7 @@ int main(int argc,char** argv) {
         latencies.push_back(std::max(0.0,milliseconds(Clock::now()-start)-expected*1000));
       }
       const auto metrics=skimmer.metrics();maximum_tracks=std::max(maximum_tracks,metrics.tracks);maximum_pending=std::max(maximum_pending,metrics.pending);
+      maximum_in_flight=std::max(maximum_in_flight,metrics.in_flight);
     };
     uint64_t sequence[2]={0,0},samples_fed=0;
     for(uint64_t first=0;first<uint64_t(seconds*rate);first+=4096) {
@@ -174,6 +175,7 @@ int main(int argc,char** argv) {
       <<",\"sample_rate\":"<<rate<<",\"requested_seconds\":"<<seconds<<",\"delivered_seconds\":"<<double(samples_fed)/rate
       <<",\"wall_seconds\":"<<milliseconds(Clock::now()-start)/1000<<",\"maximum_tracks\":"<<maximum_tracks
       <<",\"inferred_tracks\":"<<decoded.size()<<",\"inference_events\":"<<latencies.size()<<",\"maximum_pending\":"<<maximum_pending
+      <<",\"maximum_observed_in_flight_jobs\":"<<maximum_in_flight
       <<",\"coalesced\":"<<metrics.coalesced<<",\"dropped_events\":"<<metrics.dropped_events
       <<",\"submitted_jobs\":"<<metrics.submitted_jobs<<",\"model_jobs_started\":"<<metrics.model_jobs_started
       <<",\"model_jobs_completed\":"<<metrics.model_jobs_completed<<",\"invalidated_jobs\":"<<metrics.invalidated_jobs
@@ -184,6 +186,7 @@ int main(int argc,char** argv) {
       <<",\"cpu_measurement_scope\":\"profiler-process-only\",\"engine_preparation_cpu_seconds\":"<<workload_cpu_start-preparation_cpu_start
       <<",\"workload_cpu_seconds\":"<<process_cpu_seconds()-workload_cpu_start
       <<",\"stable_under_this_synthetic_load\":"<<(stable?"true":"false");
+    std::cout<<",\"timing_population\":\"emitted decode jobs\"";
     timing("model_run",model_ms);timing("feature_extraction",features_ms);timing("ctc",ctc_ms);timing("queue_wait",queue_ms);
     if(profile.steady_ten_second) {timing("startup_model_run",startup_model_ms);timing("steady_model_run",steady_model_ms);}
     std::cout<<"}"<<std::endl;

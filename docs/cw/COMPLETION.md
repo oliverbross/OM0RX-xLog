@@ -72,6 +72,12 @@ held-out evaluation. AC30/P8/P9 remain outside this Mac launch.
   it was removed from active source. An engineering CoreML MLProgram attempt
   through the bundled runtime fails model-plan construction; CPU remains the
   production default. These experiments do not qualify a new profile or model.
+- Retrying bounded CPU-startup batches with the original model and static CoreML
+  steady plan passes scalar/token/ownership parity, then fails strict load at
+  batches four and two (82/27 coalesced, 3/4 dropped). The one-item control misses
+  the input deadline before inference. The experiment is preserved and removed;
+  no batching speedup or production promotion is claimed. Exact runs and hashes
+  are recorded in `SIGNAL_DIAGNOSTICS.md`; further identical retries are avoided.
 
 Private raw tool receipts and reference copies are retained under
 `.build/cw-completion-20261030` and lossless lean-ctx archives. No production

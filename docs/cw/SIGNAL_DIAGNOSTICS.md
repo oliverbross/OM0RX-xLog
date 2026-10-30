@@ -504,3 +504,43 @@ No timing tolerance or qualification target is relaxed. The failed code is
 removed from active source, retained privately as a patch with SHA-256
 `7cefae6caac4daa6bac4c755ab1985a9acdbfac8f269df613009160cd6ad7acd`.
 The useful window/plan/token mismatch diagnostic remains in the native harness.
+
+## Bounded CPU startup batching with the original model
+
+After the two-plan work, a separate bounded experiment retries batches of up to
+four already-ready, equal-feature-count CPU windows. It retains the original
+model, windows, stride, fair scheduling, RF observations and per-job loss ledger;
+the full-window CoreML MLProgram plan stays batch one. It never waits to fill a
+batch or pads input. Scalar/batch 2/3/4 text, exact token boundaries, independent
+sample origins and scores pass, including silence/noise. Two-span mute/focus/
+retirement tests and CPU-startup/CoreML-steady parity also pass. CTest is 2/2.
+
+All three unchanged 16-track/span, 15-second, four-worker profiles **fail**:
+
+| Maximum CPU batch | Delivered seconds | Completed/submitted | Coalesced / dropped | Input lateness ms | P95 decode age ms | RSS MiB |
+| --- | --- | --- | --- | --- | --- | --- |
+| 4 | 11.2213 | 110/192 | 82 / 3 | 253.403 | 2447.785 | 578.547 |
+| 1 control | 5.54667 | 0/0 | 0 / 0 | 347.148 | Unknown | 113.328 |
+| 2 | 9.984 | 101/128 | 27 / 4 | 665.791 | 6322.903 | 449.000 |
+
+The batch-four run emits 107 jobs (44/0/3/60 at actual batch sizes 1/2/3/4),
+services all 32 tracks and reaches 16 in-flight jobs. Inclusive model Run
+mean/p95 are 707.546/1199.884 ms per emitted job; startup mean is 1012.975 ms,
+steady mean 215.881 ms. Batch two emits 97 jobs, 92 in pairs, services all 32
+tracks and reaches eight in-flight jobs. No profile has inference faults or
+invalidated jobs. Run time is not divided by batch size to report latency.
+Process workload CPU/wall seconds are 15.3283/13.5841 and 14.9403/15.4111 for
+batches four/two. Cold preparation takes 8325.38/6232.14/6479.25 ms respectively,
+also exceeding the unchanged five-second child Ready deadline.
+
+No compiler/test overlaps these runs. One-minute host load ranges from 12.45 to
+19.28; ordinary applications remain running and no thermal warning is recorded.
+The control misses the input deadline **before inference**, so it cannot support
+a batching speedup or attribution of all lateness to the decoder. Loss/deadline
+and age limits are unchanged. No further identical retries are used as a pass.
+Private per-run source patches, hashes, process/thermal records and results are
+in `bounded-batch-coreml-{4,1,2}-01` under the completion evidence directory.
+The failed implementation is removed from active source and retained as patch
+SHA-256 `d77636a3891355882634c8f6f7b9959e75b8ee11ff55daf2ed9fc4d7e89c375b`.
+Only the useful observed-in-flight count and explicit emitted-job timing
+population remain in the profiler. Production retains its original CPU path.
