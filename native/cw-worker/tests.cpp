@@ -31,7 +31,7 @@ std::vector<float> morse(int wpm,const std::string& text="CQ OM0RX",bool envelop
 }
 int main(int argc,char** argv) {
   try {
-    require(argc==2 || (argc==3 && (std::string(argv[2])=="coreml" || std::string(argv[2])=="coreml-neural")),"Model path and optional CoreML profile required");
+    require(argc==2 || (argc==3 && (std::string(argv[2])=="coreml" || std::string(argv[2])=="coreml-neural" || std::string(argv[2])=="system-allocator")),"Model path and optional CoreML/allocator profile required");
     cw::JobOrder jobs;
     const auto ready=[](const auto&){return true;};
     jobs.push("oldest");jobs.push("second");jobs.push("selected");jobs.focus("selected");
@@ -118,14 +118,17 @@ int main(int argc,char** argv) {
     }
     cw::Engine engine(argv[1]);
     if(argc==3) {
-      cw::EngineProfile profile;profile.provider=std::string(argv[2])=="coreml"?cw::ExecutionProvider::core_ml:cw::ExecutionProvider::core_ml_neural_network;
+      cw::EngineProfile profile;
+      if(std::string(argv[2])=="system-allocator") profile.cpu_mem_arena=false;
+      else profile.provider=std::string(argv[2])=="coreml"?cw::ExecutionProvider::core_ml:cw::ExecutionProvider::core_ml_neural_network;
       cw::Engine accelerated(argv[1],profile);
       for(const auto& audio:{std::vector<float>(19200),morse(20),morse(30)}) {
         const auto cpu=engine.decode(audio,3200),other=accelerated.decode(audio,3200);
-        require(cpu.text==other.text && cpu.tokens.size()==other.tokens.size(),"CoreML/CPU fixture text parity");
+        require(cpu.text==other.text && cpu.tokens.size()==other.tokens.size(),"Profile/CPU fixture text parity");
         for(size_t i=0;i<cpu.tokens.size();++i) {
           const auto a=cpu.tokens[i],b=other.tokens[i];
-          require(a.symbol==b.symbol && a.first_sample==b.first_sample && a.end_sample==b.end_sample,"CoreML/CPU fixture sample alignment parity");
+          require(a.symbol==b.symbol && a.first_sample==b.first_sample && a.end_sample==b.end_sample,"Profile/CPU fixture sample alignment parity");
+          if(!profile.cpu_mem_arena) require(std::abs(a.log_score-b.log_score)<0.0001,"CPU allocator fixture score parity");
         }
       }
     }

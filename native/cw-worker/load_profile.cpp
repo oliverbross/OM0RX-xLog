@@ -38,7 +38,7 @@ struct Signal {std::vector<float> key;std::complex<double> oscillator{1,0},step;
 }
 int main(int argc,char** argv) {
   try {
-    if(argc<4 || argc>9) throw std::invalid_argument("Usage: cw-load-profile model.onnx tracks_per_span seconds (10..60) [workers (1..4)] [cpu|coreml|coreml-neural] [ORT intra-op threads (1..4)] [ORT profiling prefix or -] [inherited|user-initiated]");
+    if(argc<4 || argc>10) throw std::invalid_argument("Usage: cw-load-profile model.onnx tracks_per_span seconds (10..60) [workers (1..4)] [cpu|coreml|coreml-neural] [ORT intra-op threads (1..4)] [ORT profiling prefix or -] [inherited|user-initiated] [arena|system]");
     const int count=std::stoi(argv[2]),seconds=std::stoi(argv[3]),rate=96000;
     const int workers=argc>=5?std::stoi(argv[4]):2;
     const std::string provider=argc>=6?argv[5]:"cpu";
@@ -48,6 +48,9 @@ int main(int argc,char** argv) {
     if(argc>=8 && std::string(argv[7])!="-") profile.profiling_prefix=argv[7];
     const std::string scheduling=argc>=9?argv[8]:"inherited";
     if(scheduling!="inherited" && scheduling!="user-initiated") throw std::invalid_argument("Unsupported scheduling profile");
+    const std::string allocator=argc>=10?argv[9]:"arena";
+    if(allocator!="arena" && allocator!="system") throw std::invalid_argument("Unsupported CPU allocator profile");
+    profile.cpu_mem_arena=allocator=="arena";
     std::string actual_qos="null";
 #if defined(__APPLE__)
     if(scheduling=="user-initiated" && pthread_set_qos_class_self_np(QOS_CLASS_USER_INITIATED,0)!=0) throw std::runtime_error("Cannot apply requested scheduling profile");
@@ -137,6 +140,7 @@ int main(int argc,char** argv) {
     std::cout<<"{\"instrument\":\"synthetic-paced-cw-v1\",\"replay\":true,\"spans\":2,\"tracks_per_span\":"<<count
       <<",\"inference_workers\":"<<workers
       <<",\"execution_provider_profile\":\""<<provider<<"\",\"ort_intra_op_threads\":"<<profile.intra_op_threads
+      <<",\"cpu_allocator_profile\":\""<<allocator<<"\""
       <<",\"engine_preparation_ms\":"<<preparation_ms
       <<",\"scheduling_profile\":\""<<scheduling<<"\",\"main_thread_qos\":"<<actual_qos
       <<",\"sample_rate\":"<<rate<<",\"requested_seconds\":"<<seconds<<",\"delivered_seconds\":"<<double(samples_fed)/rate

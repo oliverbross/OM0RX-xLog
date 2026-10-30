@@ -60,6 +60,7 @@ struct Engine::Impl {
   Impl(const std::string& path,const EngineProfile& profile) {
     if(profile.intra_op_threads<1 || profile.intra_op_threads>4) throw std::invalid_argument("ORT shared pool outside bounded profile");
     options.SetIntraOpNumThreads(profile.intra_op_threads); options.SetInterOpNumThreads(1);
+    if(!profile.cpu_mem_arena) options.DisableCpuMemArena();
     options.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
     if(!profile.profiling_prefix.empty()) options.EnableProfiling(profile.profiling_prefix.c_str());
     if(profile.provider!=ExecutionProvider::cpu) {

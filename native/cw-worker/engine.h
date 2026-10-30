@@ -22,6 +22,7 @@ enum class ExecutionProvider { cpu, core_ml, core_ml_neural_network };
 struct EngineProfile {
   ExecutionProvider provider=ExecutionProvider::cpu;
   int intra_op_threads=1;
+  bool cpu_mem_arena=true;
   std::string profiling_prefix;
 };
 class Engine {

@@ -237,6 +237,15 @@ build/test competing; ordinary applications and background services remained
 running. Priority alone is not a capacity correction. These isolated-child
 measurements do not establish whole-application headroom or responsiveness.
 
+The allocator experiment keeps one shared session and the same model/workload.
+Disabling ORT's CPU arena passes silence/20/30-WPM text, sample-range and score
+parity, but its `16 15 4` load fails: 32 tracks, 152 serviced jobs, 136 coalesced,
+zero dropped, 178.585 ms maximum lateness, 3062.21 ms p95 age and 433.844 MiB peak
+RSS. The sequential same-binary arena control also fails: 176 jobs, 112 coalesced,
+zero dropped, 141.118 ms maximum lateness, 2484.01 ms p95 age and 285.172 MiB peak
+RSS. No build/test overlapped either run. The arena stays enabled by default;
+system allocation did not establish a throughput or memory improvement.
+
 ### Clean mono-copy profile
 
 `native/cw-worker/quality_profile.py` freezes and writes its generated corpus
