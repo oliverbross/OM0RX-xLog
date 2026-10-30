@@ -18,7 +18,13 @@ struct SkimmerEvent {
   std::optional<double> estimated_snr_db{},estimated_wpm{};
   double queue_wait_ms=0; // Internal developer timing, excluded from wire output.
 };
-struct SkimmerMetrics { size_t sources,tracks,pending,in_flight; uint64_t coalesced,dropped_events; };
+struct SkimmerMetrics {
+  size_t sources,tracks,pending,in_flight;
+  uint64_t coalesced,dropped_events;
+  // Internal profiler ledger, not additional fields in the bundled v1 status.
+  // Completed models can also have an invalidated result; these are not additive.
+  uint64_t submitted_jobs,model_jobs_started,model_jobs_completed,invalidated_jobs;
+};
 /// One instance owns two spans and a fixed shared CPU inference pool. Radio
 /// control, RF mapping, committed text and spot publication stay in the parent.
 class Skimmer {

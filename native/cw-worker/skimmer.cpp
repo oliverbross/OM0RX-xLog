@@ -106,6 +106,7 @@ struct Skimmer::Impl {
   std::vector<std::thread> threads;
   size_t in_flight=0,output_bytes=0;
   uint64_t coalesced=0,dropped=0;
+  std::atomic<uint64_t> submitted{0},model_started{0},model_completed{0},invalidated{0};
   bool stopping=false;
   Impl(Engine& engine,size_t workers,size_t cap):engine(engine),cap(cap) {
     if(workers<1 || workers>4 || cap<1 || cap>16) throw std::invalid_argument("CW capacity outside fixed profile");
@@ -151,6 +152,7 @@ struct Skimmer::Impl {
   void enqueue(Job job) {
     job.enqueued=std::chrono::steady_clock::now();
     std::lock_guard<std::mutex> lock(jobs_mutex);
+    ++submitted;
     const auto id=job.track->id;
     if(pending.count(id)) {
       const auto lost_end=pending.at(id).end;
@@ -176,21 +178,27 @@ struct Skimmer::Impl {
         if(found==pending.end()) continue;
         job=std::move(found->second); pending.erase(found); busy.insert(id); ++in_flight;
       }
+      bool invalidated_job=true;
       if(job.track->valid && !job.track->muted && job.track->revision==job.revision) {
         try {
           const double queue_ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-job.enqueued).count();
+          ++model_started;
           auto copy=engine.decode(job.audio,job.first);
+          ++model_completed;
           if(job.track->valid && !job.track->muted && job.track->revision==job.revision) {
             SkimmerEvent event{"decode",job.token,job.track->id,"provisional",job.epoch,job.first,job.end,job.offset,false,std::move(copy)};
             event.estimated_snr_db=job.snr;event.estimated_wpm=job.wpm;
             event.queue_wait_ms=queue_ms;
             emit(std::move(event),job.track,job.revision);
+            invalidated_job=false;
           }
         } catch(...) {
           job.track->valid=false;
           emit({"fault",job.token,job.track->id,"inference_failed",job.epoch,0,0,0,false,{}},job.track);
+          invalidated_job=false; // The separate fault event describes this loss.
         }
       }
+      if(invalidated_job) ++invalidated;
       {
         std::lock_guard<std::mutex> lock(jobs_mutex); --in_flight; busy.erase(job.track->id);
         if(pending.empty() && in_flight==0) idle.notify_all();
@@ -200,7 +208,7 @@ struct Skimmer::Impl {
   }
   void retire(const std::string& token,Span& span,const std::shared_ptr<Track>& track) {
     track->valid=false;
-    { std::lock_guard<std::mutex> lock(jobs_mutex); pending.erase(track->id); order.remove(track->id); }
+    { std::lock_guard<std::mutex> lock(jobs_mutex); invalidated+=pending.erase(track->id); order.remove(track->id); }
     emit({"retired",token,track->id,"retired",span.epoch,0,0,track->offset,false,{}},track);
   }
 };
@@ -230,7 +238,7 @@ bool Skimmer::mute(const std::string& token,uint64_t epoch,const std::string& id
   if(match==span.tracks.end()) return false;
   const auto& track=*match;track->muted=true;
   { std::lock_guard<std::mutex> lock(impl->jobs_mutex);
-    impl->pending.erase(id);impl->order.remove(id);
+    impl->invalidated+=impl->pending.erase(id);impl->order.remove(id);
     if(impl->pending.empty() && impl->in_flight==0) impl->idle.notify_all(); }
   impl->emit({"track",token,id,"muted",span.epoch,0,0,track->offset,false,{}},track);
   return true;
@@ -354,7 +362,7 @@ std::vector<SkimmerEvent> Skimmer::events() {
   for(auto& item:impl->output) {
     if(item.event.kind=="decode") {
       const auto track=item.track.lock();
-      if(!track || !track->valid || track->muted || track->revision!=item.revision) continue;
+      if(!track || !track->valid || track->muted || track->revision!=item.revision) {++impl->invalidated;continue;}
     }
     result.push_back(std::move(item.event));
   }
@@ -370,6 +378,7 @@ bool Skimmer::wait_idle(double seconds) {
 SkimmerMetrics Skimmer::metrics() {
   size_t tracks=0; for(const auto& source:impl->spans) tracks+=source.second.tracks.size();
   std::scoped_lock lock(impl->jobs_mutex,impl->events_mutex);
-  return {impl->spans.size(),tracks,impl->pending.size(),impl->in_flight,impl->coalesced,impl->dropped};
+  return {impl->spans.size(),tracks,impl->pending.size(),impl->in_flight,impl->coalesced,impl->dropped,
+    impl->submitted.load(),impl->model_started.load(),impl->model_completed.load(),impl->invalidated.load()};
 }
 }

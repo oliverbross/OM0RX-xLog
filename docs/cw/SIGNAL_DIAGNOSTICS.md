@@ -351,3 +351,32 @@ child still uses its original single dynamic CPU session; capacity, model/backen
 quality, production admission and installed qualification remain open. Lossless
 receipts: `7aea3c8d947ff847` (CoreML parity), `86767527253e1e13` (first load),
 `d22094181e5d24e2` (CPU control), `48fcba7fee0240eb` (per-plan load).
+
+### Submitted/model/invalidated work ledger
+
+The native profiler also reports submitted jobs, started/completed model jobs
+and invalidated work/results. A model can complete before its result becomes
+stale, so completed and invalidated counters are not additive. Coalesced pending
+jobs and dropped derived events retain their existing meanings. Standard-load
+success now additionally requires every submitted job to start and complete,
+with zero invalidated jobs; no original loss/latency limit is relaxed. These
+internal counters do not change the bundled v1 status or renderer authority.
+
+Native CTest passes 2/2 (`d483c1b4f9ff66d4`). The isolated drift fixtures complete
+every submitted job. Injected unread-output overload records six submitted /
+six completed, five dropped events; injected inference overload records 18
+submitted / three completed, 15 coalesced and two invalidated results. Timing
+distributions describe emitted decode events, not unobserved timing of discarded
+work. Process CPU includes actual execution even when a result is invalidated.
+
+The fresh unchanged `16 15 4 cpu 1 - inherited arena dynamic` workload delivers
+15 seconds and services all 32 tracks, but completes only **129 of 288** submitted
+jobs, with **159 coalesced**, zero dropped/invalidated/fault events. Maximum input
+lateness is 122.431 ms, p95 decode age **3102.10 ms**, peak RSS 286.547 MiB and
+workload process CPU 22.9126 s / 17.3103 wall seconds: **FAIL**. All 129 model
+jobs have timing observations in this run; model Run mean/p95 are
+340.965 / 592.737 ms. The same model, generated IQ, input rate, windows and stride
+remain in use. No build/test overlapped the profile. Host load averages were
+12.20/11.80/12.15, with ordinary applications/background services retained and
+no recorded thermal/performance warning. Whole-app budgets remain unmeasured.
+Exact receipt: `240c58fc03992059`.

@@ -153,7 +153,8 @@ int main(int argc,char** argv) {
       /1024;
 #endif
     const bool stable=!deadline_missed && drained && decoded.size()==size_t(count*2) && maximum_tracks==size_t(count*2) &&
-      !latencies.empty() && p95<=2000 && metrics.coalesced==0 && metrics.dropped_events==0 && fault_events==0;
+      !latencies.empty() && p95<=2000 && metrics.coalesced==0 && metrics.dropped_events==0 && fault_events==0 &&
+      metrics.invalidated_jobs==0 && metrics.submitted_jobs==metrics.model_jobs_started && metrics.submitted_jobs==metrics.model_jobs_completed;
     std::cout<<"{\"instrument\":\"synthetic-paced-cw-v1\",\"replay\":true,\"spans\":2,\"tracks_per_span\":"<<count
       <<",\"inference_workers\":"<<workers
       <<",\"execution_provider_profile\":\""<<provider<<"\",\"ort_intra_op_threads\":"<<profile.intra_op_threads
@@ -165,6 +166,8 @@ int main(int argc,char** argv) {
       <<",\"wall_seconds\":"<<milliseconds(Clock::now()-start)/1000<<",\"maximum_tracks\":"<<maximum_tracks
       <<",\"inferred_tracks\":"<<decoded.size()<<",\"inference_events\":"<<latencies.size()<<",\"maximum_pending\":"<<maximum_pending
       <<",\"coalesced\":"<<metrics.coalesced<<",\"dropped_events\":"<<metrics.dropped_events
+      <<",\"submitted_jobs\":"<<metrics.submitted_jobs<<",\"model_jobs_started\":"<<metrics.model_jobs_started
+      <<",\"model_jobs_completed\":"<<metrics.model_jobs_completed<<",\"invalidated_jobs\":"<<metrics.invalidated_jobs
       <<",\"fault_events\":"<<fault_events<<",\"startup_plan_jobs\":"<<startup_jobs<<",\"steady_plan_jobs\":"<<steady_jobs
       <<",\"maximum_input_lateness_ms\":"<<maximum_lag<<",\"decode_p95_ms\":"<<(latencies.empty()?"null":std::to_string(p95))
       <<",\"signal_generation_ms\":"<<generation_ms<<",\"dsp_ingress_ms\":"<<feed_ms<<",\"peak_rss_mib\":"<<rss

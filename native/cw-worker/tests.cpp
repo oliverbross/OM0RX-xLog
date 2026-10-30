@@ -269,6 +269,9 @@ int main(int argc,char** argv) {
       require(copies>0 && identified,"Original decoder follows keyed drift without losing copy");
       require(identities.size()==1 && moving.metrics().tracks==1,"Drift retains one track, without mirrored or duplicate carriers");
       require(moving.metrics().coalesced==0 && moving.metrics().dropped_events==0,"Drift fixture does not hide lost work");
+      const auto complete=moving.metrics();
+      require(complete.submitted_jobs==copies && complete.model_jobs_started==copies && complete.model_jobs_completed==copies && complete.invalidated_jobs==0,
+        "Every submitted isolated-drift job completes without hidden invalidation");
       std::cout<<"Signed drift "<<drift<<" Hz/s: "<<copies<<" copies, maximum RF error "<<maximum_error<<" Hz\n";
       moving.stop();
     }
@@ -331,12 +334,15 @@ int main(int argc,char** argv) {
       if(drain_inference) require(unread.wait_idle(10),"Unread-output inference drain");
     }
     require(unread.wait_idle(10),"Injected overload eventually drains");
+    const auto results=unread.events();
     const auto loss=unread.metrics();
-    std::cout<<"Injected "<<(drain_inference?"output":"inference")<<" overload: "<<loss.coalesced<<" coalesced / "<<loss.dropped_events<<" dropped events\n";
+    std::cout<<"Injected "<<(drain_inference?"output":"inference")<<" overload: "<<loss.coalesced<<" coalesced / "<<loss.dropped_events
+      <<" dropped events, submitted="<<loss.submitted_jobs<<" started="<<loss.model_jobs_started<<" completed="<<loss.model_jobs_completed<<" invalidated="<<loss.invalidated_jobs<<"\n";
+    require(loss.model_jobs_completed==loss.model_jobs_started && loss.model_jobs_completed<=loss.submitted_jobs,"Overload ledger retains actual completed model work");
     if(drain_inference) require(loss.coalesced==0 && loss.dropped_events>0,"Real derived output loss was injected");
-    else require(loss.coalesced>0,"Real pending inference loss was injected");
+    else require(loss.coalesced>0 && loss.submitted_jobs>loss.model_jobs_completed,"Real pending inference loss was injected and reported");
     bool revised_copy=false;
-    for(const auto& event:unread.events()) if(event.kind=="decode") {
+    for(const auto& event:results) if(event.kind=="decode") {
       require(event.track_revision>0,"Lost derived copy invalidates track continuity");
       require(!unread.focus(source,10,event.track_id,0),"Pre-loss control revision cannot survive output loss");
       revised_copy=true;
