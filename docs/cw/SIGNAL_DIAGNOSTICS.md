@@ -256,3 +256,28 @@ substitution, repeated words and slash loss. This establishes the declared clean
 mono-copy slice. RF spot precision/recall, negative band-hours and committed-text
 latency are explicitly unknown in the receipt; this run cannot close G4 or the
 complete AC02/exact-package gate.
+
+### Reproducible int8 engineering candidates
+
+`native/cw-worker/transform_model.py` preserves the original pinned model,
+metadata, source manifest and AGPL licence. It records the exact original and
+output hashes, transformation/tool source hashes and pinned ORT/ONNX/NumPy tool
+versions. Outputs remain outside ordinary Git and outside the payload manifest.
+The quality runner requires the corresponding bounded transformation manifest;
+it cannot silently evaluate a replacement as the pinned original.
+
+Dynamic per-channel QInt8 constant-weight MatMul conversion produced model SHA-256
+`74f9e7f87e51925c21db868c8b7806edca38c32ea83e3a36a27e3ab17be03e3e`.
+Seed 83100631, excluding the original corpus texts, passed 150/150 sequences,
+0/960 character errors. Its unchanged capacity load failed: 174 serviced jobs,
+114 coalesced, zero dropped, 215.26 ms maximum lateness and 1770.75 ms p95 age.
+The separately declared all-MatMul variant produced SHA-256
+`fd06b9761e73aa2be479005aed77215bda103744841e22121e61b12bae78f1e5`.
+Seed 83100632 also passed 150/150 sequences, 0/960 errors, but capacity failed:
+191 serviced jobs, 97 coalesced, zero dropped, 248.202 ms maximum lateness and
+3237.86 ms p95 age. All 32 tracks were serviced in both runs. No metric or job
+cadence changed. Three scoring/provenance tests pass.
+
+These generated mono results are not real-RF held-out evaluation or a deployment
+approval. Neither candidate closes capacity, RF quality or release admission;
+the original model and production support gates remain unchanged.

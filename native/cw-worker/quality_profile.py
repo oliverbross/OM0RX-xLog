@@ -35,13 +35,13 @@ def edit_distance(reference, observed):
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
-def generate():
+def generate(seed=SEED, excluded_texts=()):
     source = ROOT / "Tests/fixtures/cw/generate.py"
     spec = importlib.util.spec_from_file_location("cw_original_fixtures", source)
     fixtures = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(fixtures)
-    rng = random.Random(SEED)
-    used, records, frames = set(), [], bytearray()
+    rng = random.Random(seed)
+    used, records, frames = set(excluded_texts), [], bytearray()
     for wpm in SPEEDS:
         for amplitude in AMPLITUDES:
             for index in range(CASES_PER_CONDITION):
@@ -67,13 +67,37 @@ def generate():
                     "amplitude": amplitude, "sample_sha256": hashlib.sha256(payload).hexdigest(), "labels": labels})
     return records, frames, digest(source)
 
-def run(worker, model, output):
+def model_binding(model, pinned, candidate_manifest):
+    actual = digest(model)
+    if actual == pinned["model_sha256"] and candidate_manifest is None:
+        return {"kind": "pinned_original", "sha256": actual}
+    if candidate_manifest is None or candidate_manifest.stat().st_size > 65536:
+        raise ValueError("A transformed model requires its explicit bounded provenance manifest")
+    manifest = json.loads(candidate_manifest.read_text())
+    constant_only = manifest.get("transformation", {}).get("extra_options", {}).get("MatMulConstBOnly")
+    if type(constant_only) is not bool:
+        raise ValueError("Candidate must identify its exact MatMul quantization profile")
+    expected = {"method": "onnxruntime.quantization.quantize_dynamic", "op_types": ["MatMul"],
+        "per_channel": True, "weight_type": "QInt8", "extra_options": {"MatMulConstBOnly": constant_only}}
+    if manifest.get("status") != "engineering_only_quality_unqualified" or manifest.get("source_model", {}).get("sha256") != pinned["model_sha256"] or manifest.get("output", {}).get("sha256") != actual or manifest.get("transformation") != expected:
+        raise ValueError("Candidate does not match its original-model/transformation provenance")
+    return {"kind": "transformed_engineering_candidate_unqualified", "sha256": actual,
+        "manifest_sha256": digest(candidate_manifest), "transformation": manifest}
+
+def run(worker, model, output, *, seed=SEED, candidate_manifest=None, exclude_corpus=None):
     output.mkdir(mode=0o700, parents=False, exist_ok=False)
     contract = ROOT / "docs/cw/QUALITY_CONTRACT.json"
     pinned = json.loads(contract.read_text())
-    if digest(model) != pinned["model_sha256"]: raise ValueError("Model is outside the frozen contract")
-    records, frames, generator_sha = generate()
-    provenance = {"instrument": "synthetic-clean-native-mono-v1", "synthetic_only": True, "seed": SEED,
+    binding = model_binding(model, pinned, candidate_manifest)
+    if not 0 <= seed < 2**32: raise ValueError("Seed outside the declared 32-bit profile")
+    excluded = ()
+    if exclude_corpus is not None:
+        if exclude_corpus.stat().st_size > 2*1024*1024: raise ValueError("Exclusion manifest exceeds its bound")
+        excluded = [row["text"] for row in json.loads(exclude_corpus.read_text())["cases"]]
+    records, frames, generator_sha = generate(seed, excluded)
+    provenance = {"instrument": "synthetic-clean-native-mono-v1", "synthetic_only": True, "seed": seed,
+        "synthetic_session_id": f"clean-mono-generation-{seed}", "model_binding": binding,
+        "excluded_corpus_sha256": digest(exclude_corpus) if exclude_corpus else None,
         "profile_frozen_before_execution": {"wpm": SPEEDS, "amplitudes": AMPLITUDES,
             "cases_per_condition": CASES_PER_CONDITION, "sample_rate": RATE, "window_seconds": 10,
             "carrier_hz": 800, "key_shape": "existing original rectangular fixture envelope", "normalization": NORMALIZATION,
@@ -122,5 +146,10 @@ def run(worker, model, output):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("worker", type=Path); parser.add_argument("model", type=Path); parser.add_argument("output", type=Path)
+    parser.add_argument("--candidate-manifest", type=Path)
+    parser.add_argument("--seed", type=int, default=SEED)
+    parser.add_argument("--exclude-corpus", type=Path)
     args = parser.parse_args()
-    raise SystemExit(0 if run(args.worker.resolve(), args.model.resolve(), args.output.resolve()) else 1)
+    raise SystemExit(0 if run(args.worker.resolve(), args.model.resolve(), args.output.resolve(), seed=args.seed,
+        candidate_manifest=args.candidate_manifest.resolve() if args.candidate_manifest else None,
+        exclude_corpus=args.exclude_corpus.resolve() if args.exclude_corpus else None) else 1)
