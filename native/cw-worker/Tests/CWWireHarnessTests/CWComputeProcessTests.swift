@@ -70,6 +70,7 @@ final class CWComputeProcessTests:XCTestCase {
         defer {try? file.close()}
         let source=try source();try await owner.open(source)
         var sequence:UInt64=0,first:UInt64=0
+        let started=DispatchTime.now().uptimeNanoseconds
         do {
             while let data=try file.read(upToCount:8192*8),!data.isEmpty {
                 try await wait{await owner.snapshot().queuedBytes==0}
@@ -79,8 +80,15 @@ final class CWComputeProcessTests:XCTestCase {
                 for at in stride(from:0,to:bytes.count,by:4) {
                     samples.append(Float(bitPattern:UInt32(bytes[at])|UInt32(bytes[at+1])<<8|UInt32(bytes[at+2])<<16|UInt32(bytes[at+3])<<24))
                 }
+                // This is continuous real-rate ingress, not accelerated exposure
+                // without child flow control. Keep the original block deadline:
+                // a delayed producer must still fail the 250-ms freshness guard.
+                let end=first+UInt64(samples.count/2)
+                let due=started+end*1_000_000_000/UInt64(source.sampleRate)
+                let now=DispatchTime.now().uptimeNanoseconds
+                if now<due{try await Task.sleep(nanoseconds:due-now)}
                 try await owner.send(CWIQBlock(descriptor:source,sequence:sequence,firstSample:first,
-                    receivedMonotonicNS:DispatchTime.now().uptimeNanoseconds,samples:samples))
+                    receivedMonotonicNS:due,samples:samples))
                 first+=UInt64(samples.count/2);sequence+=1
             }
             try await wait {

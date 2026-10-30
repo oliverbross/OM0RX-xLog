@@ -34,6 +34,11 @@ held-out evaluation. AC30/P8/P9 remain outside this Mac launch.
 ## Qualification records
 
 - Native CTest: 2/2 pass on the merged FIR/tracker implementation.
+- Integrated source f2fb7686: full native suite 954/954 and frontend production
+  build/all window budgets pass. The payload fixture passes offline relocation,
+  provenance/tamper and loader-path checks; it is not an application package.
+  The real-child harness passed 14 unchanged cases; its unpaced continuous-copy
+  fixture failed continuity, then passes with honest 96-kHz sample deadlines.
 - Focused native CW/ownership: 64/64 pass; full native unit suite 949/949 pass;
   real-child/wire harness 15/15 pass; focused frontend and TypeScript pass;
   selected Swift CW/provider/draft/power/cluster/shutdown tests complete exit 0.

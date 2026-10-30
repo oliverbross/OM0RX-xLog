@@ -53,5 +53,25 @@ Fixture preparation records dirty-source paths and native input hashes, and its
 payload is rejected from a real application bundle. Production preparation
 requires a clean source tree. Fixture manifests cannot enable CW acquisition.
 
+## Completion payload fixture
+
+Clean canonical `f2fb768647a9a1d7ee9b8a2d56f408f6a635f770` produced a separate
+non-application fixture at `.build/cw-completion-payload-20261030`. Its manifest
+keeps `fixtureOnly: true` and `experimentalEnabled: false`. Offline handshake,
+relocation into a path with spaces, source-candidate mismatch, executable tamper
+and external-rpath rejection checks pass. The fixture contains arm64 child/runtime,
+the original pinned model/metadata, notices and corresponding-source archive.
+
+| Exact fixture component | SHA-256 |
+| --- | --- |
+| Ad-hoc-signed child | `ffcb34c61ed9703618fbaba1615188be499e33c773fad7aaf1af505f168b3a59` |
+| Ad-hoc-signed runtime | `68e893b10b59af74a24aeaecb10ac868f5281c6c9b3bc51ff25e6427184c75ca` |
+| Corresponding-source archive | `a9d034ecc8d0a2b1693fc6d607b47a8fad556f0b5603bb9fbb903948f06b6d22` |
+
+This component fixture has no application UI or Info.plist. It is not a versioned,
+signed/notarized application, exact-candidate pilot or installed acceptance.
+The installed application remains 1.3.63. Later changes outside the recorded
+native inputs do not turn this fixture into evidence for a newer full package.
+
 Runtime source: [official 1.24.3 release assets](https://github.com/microsoft/onnxruntime/releases/expanded_assets/v1.24.3).
 The archive SHA-256 is `c255663d40755f84b1b86373bdb9870bb65f3a2c3d779b3d7ae31aaa00cebb4f`.

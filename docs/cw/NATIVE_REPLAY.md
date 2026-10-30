@@ -119,3 +119,17 @@ Parent supervision/IPC, live Flex resource acquisition, worker-facing TCI leases
 shared UI, direct local cluster ingestion/server and release/hardware/corpus/soak
 acceptance remain outstanding. Automatic spots remain disabled by the production
 quality gate.
+
+## Completion replay ingress correction
+
+The integrated real-child supervisor/wire run passed 14 cases and rejected the
+continuous-copy case with `discontinuity` when that fixture pushed a 96-kHz file
+as fast as its pipe drained. Pipe completion is not child sample consumption.
+The fixture now paces every block at its original sample-end deadline and passes
+that deadline as its receipt timestamp. Delayed input still fails the unchanged
+250-ms freshness gate; no late block is relabelled fresh, skipped or retried.
+
+The affected real-child case then passes in 12.324 seconds, recovering both
+expected calls with their signed offsets and stopping/reaping the child. The
+other 14 unchanged cases retain their passing receipts. This functional replay
+neither qualifies 32-track throughput nor supplies live RF or soak evidence.
