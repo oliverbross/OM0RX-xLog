@@ -57,9 +57,19 @@ struct Engine::Impl {
   Ort::Env env{ORT_LOGGING_LEVEL_WARNING,"xlog-cw"};
   Ort::SessionOptions options;
   Ort::Session session{nullptr};
-  Impl(const std::string& path) {
-    options.SetIntraOpNumThreads(1); options.SetInterOpNumThreads(1);
+  Impl(const std::string& path,const EngineProfile& profile) {
+    if(profile.intra_op_threads<1 || profile.intra_op_threads>4) throw std::invalid_argument("ORT shared pool outside bounded profile");
+    options.SetIntraOpNumThreads(profile.intra_op_threads); options.SetInterOpNumThreads(1);
     options.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
+    if(!profile.profiling_prefix.empty()) options.EnableProfiling(profile.profiling_prefix.c_str());
+    if(profile.provider!=ExecutionProvider::cpu) {
+#if defined(__APPLE__)
+      options.AppendExecutionProvider("CoreML",{{"ModelFormat",profile.provider==ExecutionProvider::core_ml?"MLProgram":"NeuralNetwork"},{"MLComputeUnits","CPUAndNeuralEngine"},
+        {"RequireStaticInputShapes","0"},{"EnableOnSubgraphs","0"}});
+#else
+      throw std::invalid_argument("CoreML profile requires Apple Silicon Mac qualification");
+#endif
+    }
     session=Ort::Session(env,path.c_str(),options);
     if (session.GetInputCount()!=1 || session.GetOutputCount()!=1) throw std::runtime_error("Unexpected model I/O count");
     const auto inputInfo=session.GetInputTypeInfo(0);
@@ -74,7 +84,7 @@ struct Engine::Impl {
       throw std::runtime_error("Model tensor contract mismatch");
   }
 };
-Engine::Engine(const std::string& path):impl(std::make_unique<Impl>(path)) {}
+Engine::Engine(const std::string& path,const EngineProfile& profile):impl(std::make_unique<Impl>(path,profile)) {}
 std::string Engine::runtime_version() { return OrtGetApiBase()->GetVersionString(); }
 Engine::~Engine()=default;
 Decode Engine::decode(const std::vector<float>& audio,uint64_t first) {

@@ -225,6 +225,18 @@ the silence/20/30-WPM text/alignment comparison, but its same 16/15/4 load fails
 7216.11 ms p95 decode age and 1166.53 MiB peak RSS. This is no qualified backend.
 The shipped child still selects the existing CPU profile by default.
 
+The profiler accepts explicit, bounded execution-provider, ORT intra-op and
+macOS scheduling choices; the production child exposes none of these switches.
+On the same `16 15 4` workload, user-initiated QoS (observed class 25) delivered
+15 s, serviced 32 tracks/182 jobs, coalesced 106, dropped zero, and measured
+76.0454 ms maximum input lateness, 2530.76 ms p95 decode age, 274.266 MiB peak
+RSS and 28.9389 CPU seconds/16.7389 wall seconds. Inherited QoS (observed class
+33) also failed: 140 serviced jobs, 148 coalesced, zero dropped, 181.933 ms maximum
+lateness and 3616.17 ms p95 decode age. The runs were sequential with no task
+build/test competing; ordinary applications and background services remained
+running. Priority alone is not a capacity correction. These isolated-child
+measurements do not establish whole-application headroom or responsiveness.
+
 ### Clean mono-copy profile
 
 `native/cw-worker/quality_profile.py` freezes and writes its generated corpus

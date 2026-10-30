@@ -18,9 +18,15 @@ struct Decode {
 };
 void fft(std::vector<std::complex<double>>& values);
 std::vector<float> features(const std::vector<float>& audio);
+enum class ExecutionProvider { cpu, core_ml, core_ml_neural_network };
+struct EngineProfile {
+  ExecutionProvider provider=ExecutionProvider::cpu;
+  int intra_op_threads=1;
+  std::string profiling_prefix;
+};
 class Engine {
  public:
-  explicit Engine(const std::string& model_path);
+  explicit Engine(const std::string& model_path,const EngineProfile& profile={});
   static std::string runtime_version();
   ~Engine();
   Engine(const Engine&) = delete;

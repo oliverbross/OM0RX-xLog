@@ -10,6 +10,10 @@
 #include <set>
 #include <thread>
 #include <sys/resource.h>
+#if defined(__APPLE__)
+#include <pthread.h>
+#include <sys/qos.h>
+#endif
 
 namespace {
 using Clock=std::chrono::steady_clock;
@@ -34,11 +38,29 @@ struct Signal {std::vector<float> key;std::complex<double> oscillator{1,0},step;
 }
 int main(int argc,char** argv) {
   try {
-    if(argc!=4 && argc!=5) throw std::invalid_argument("Usage: cw-load-profile model.onnx tracks_per_span seconds (10..60) [workers (1..4)]");
+    if(argc<4 || argc>9) throw std::invalid_argument("Usage: cw-load-profile model.onnx tracks_per_span seconds (10..60) [workers (1..4)] [cpu|coreml|coreml-neural] [ORT intra-op threads (1..4)] [ORT profiling prefix or -] [inherited|user-initiated]");
     const int count=std::stoi(argv[2]),seconds=std::stoi(argv[3]),rate=96000;
-    const int workers=argc==5?std::stoi(argv[4]):2;
+    const int workers=argc>=5?std::stoi(argv[4]):2;
+    const std::string provider=argc>=6?argv[5]:"cpu";
+    if(provider!="cpu" && provider!="coreml" && provider!="coreml-neural") throw std::invalid_argument("Unsupported execution provider profile");
+    cw::EngineProfile profile;profile.provider=provider=="coreml"?cw::ExecutionProvider::core_ml:provider=="coreml-neural"?cw::ExecutionProvider::core_ml_neural_network:cw::ExecutionProvider::cpu;
+    profile.intra_op_threads=argc>=7?std::stoi(argv[6]):1;
+    if(argc>=8 && std::string(argv[7])!="-") profile.profiling_prefix=argv[7];
+    const std::string scheduling=argc>=9?argv[8]:"inherited";
+    if(scheduling!="inherited" && scheduling!="user-initiated") throw std::invalid_argument("Unsupported scheduling profile");
+    std::string actual_qos="null";
+#if defined(__APPLE__)
+    if(scheduling=="user-initiated" && pthread_set_qos_class_self_np(QOS_CLASS_USER_INITIATED,0)!=0) throw std::runtime_error("Cannot apply requested scheduling profile");
+    qos_class_t observed_qos=QOS_CLASS_UNSPECIFIED;
+    if(pthread_get_qos_class_np(pthread_self(),&observed_qos,nullptr)!=0) throw std::runtime_error("Cannot read current scheduling profile");
+    actual_qos=std::to_string(observed_qos);
+#else
+    if(scheduling!="inherited") throw std::invalid_argument("Explicit Mac scheduling profile is unavailable");
+#endif
     if(count<1 || count>16 || seconds<10 || seconds>60 || workers<1 || workers>4) throw std::invalid_argument("Outside bounded profile");
-    cw::Engine engine(argv[1]);cw::Skimmer skimmer(engine,size_t(workers),16);
+    const auto preparing=Clock::now();
+    cw::Engine engine(argv[1],profile);cw::Skimmer skimmer(engine,size_t(workers),16);
+    const double preparation_ms=milliseconds(Clock::now()-preparing);
     const std::string tokens[2]={"00112233445566778899aabbccddeeff","ffeeddccbbaa99887766554433221100"};
     for(int span=0;span<2;++span)skimmer.open(tokens[span],uint64_t(span+1),rate,-39000,39000,true);
     std::vector<Signal> signals[2];
@@ -114,6 +136,9 @@ int main(int argc,char** argv) {
       !latencies.empty() && p95<=2000 && metrics.coalesced==0 && metrics.dropped_events==0;
     std::cout<<"{\"instrument\":\"synthetic-paced-cw-v1\",\"replay\":true,\"spans\":2,\"tracks_per_span\":"<<count
       <<",\"inference_workers\":"<<workers
+      <<",\"execution_provider_profile\":\""<<provider<<"\",\"ort_intra_op_threads\":"<<profile.intra_op_threads
+      <<",\"engine_preparation_ms\":"<<preparation_ms
+      <<",\"scheduling_profile\":\""<<scheduling<<"\",\"main_thread_qos\":"<<actual_qos
       <<",\"sample_rate\":"<<rate<<",\"requested_seconds\":"<<seconds<<",\"delivered_seconds\":"<<double(samples_fed)/rate
       <<",\"wall_seconds\":"<<milliseconds(Clock::now()-start)/1000<<",\"maximum_tracks\":"<<maximum_tracks
       <<",\"inferred_tracks\":"<<decoded.size()<<",\"inference_events\":"<<latencies.size()<<",\"maximum_pending\":"<<maximum_pending
