@@ -16,6 +16,7 @@ struct SkimmerEvent {
   bool replay=false;
   uint64_t track_revision=0;
   std::optional<double> estimated_snr_db{},estimated_wpm{};
+  double queue_wait_ms=0; // Internal developer timing, excluded from wire output.
 };
 struct SkimmerMetrics { size_t sources,tracks,pending,in_flight; uint64_t coalesced,dropped_events; };
 /// One instance owns two spans and a fixed shared CPU inference pool. Radio
@@ -28,6 +29,9 @@ class Skimmer {
   void feed(const std::string& token,uint64_t epoch,uint64_t sequence,uint64_t first_sample,
             int actual_rate,const std::vector<std::complex<float>>& iq);
   void end(const std::string& token);
+  bool mute(const std::string& token,uint64_t epoch,const std::string& track_id);
+  bool focus(const std::string& token,uint64_t epoch,const std::string& track_id,uint64_t revision);
+  void clear_focus();
   void stop();
   std::vector<SkimmerEvent> events();
   bool wait_idle(double timeout_seconds);

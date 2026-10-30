@@ -36,7 +36,7 @@ class Channelizer {
  private:
   int rate;
   std::complex<double> mixer{1,0}, step;
-  std::vector<std::complex<float>> ring;
+  std::vector<float> real_ring,imaginary_ring;
   std::vector<std::vector<float>> coefficients;
   uint64_t received=0,emitted=0,next_numerator=0;
   [[maybe_unused]] bool accelerated;

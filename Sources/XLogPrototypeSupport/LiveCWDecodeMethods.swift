@@ -2,8 +2,14 @@
 #if os(macOS)
 import Foundation
 import XCWCore
+import XClusterIntegrationCore
 
 actor LiveCWDecodeMethods {
+    private struct SelectionRequest:Decodable {
+        let reference:CWTrackReference
+        let requireFrequency:Bool
+        enum CodingKeys:String,CodingKey {case reference;case requireFrequency="require_frequency"}
+    }
     private let store: CWConfigurationStore
     private let session: CWDecodeSession
     private let resources: @Sendable () throws -> CWComputeResources
@@ -12,6 +18,7 @@ actor LiveCWDecodeMethods {
     private let ingestSpot:@Sendable (CWConfirmedSpot,String) async throws -> Bool
     private let stationCallsign:@Sendable () throws -> String
     private let featureEnabled:@Sendable ()->Bool
+    private let classify:@Sendable (String,Int64) async -> ClusterClassification?
     private var publisher:Task<Void,Never>?
     private var spotOutputFailure:String?
     private var listenerIntent=UUID()
@@ -22,6 +29,7 @@ actor LiveCWDecodeMethods {
          resources: @escaping @Sendable () throws -> CWComputeResources = {try CWBundleResources.locate()},
          listener:CWLocalClusterServer = CWLocalClusterServer(),prepareListener:@escaping @Sendable () async throws -> Void = {},
          ingestSpot:@escaping @Sendable (CWConfirmedSpot,String) async throws -> Bool = {_,_ in false},
+         classify:@escaping @Sendable (String,Int64) async -> ClusterClassification? = {_,_ in nil},
          featureEnabled:@escaping @Sendable ()->Bool={CWBundleResources.experimentalEnabled()}) {
         let url=configurationURL ?? (logbook === LiveLogbookMethods.shared
             ? FileManager.default.urls(for:.applicationSupportDirectory,in:.userDomainMask)[0]
@@ -31,11 +39,12 @@ actor LiveCWDecodeMethods {
         self.listener=listener;self.prepareListener=prepareListener
         self.ingestSpot=ingestSpot;stationCallsign={try logbook.currentSettings().stationCall}
         self.featureEnabled=featureEnabled
+        self.classify=classify
     }
     func terminate() async {terminated=true;publisher?.cancel();publisher=nil;listenerIntent=UUID();handoffIntent=UUID();await LiveStationMethods.cwFlexRevokeHandoffs();await listener.stop();await session.stop()}
     func handle(method: String,params: [String:Any]) async throws -> [String:Any] {
         guard !terminated else {throw WorkerFailure("worker_stopping","CW Decode is shutting down.")}
-        if ["cw_decode_start","cw_decode_listener_start","cw_decode_flex_handoff"].contains(method),!featureEnabled() {
+        if ["cw_decode_start","cw_decode_listener_start","cw_decode_flex_handoff","cw_decode_resolve_selection","cw_decode_resolve_signal","cw_decode_track_mute","cw_decode_track_focus"].contains(method),!featureEnabled() {
             throw WorkerFailure("cw_feature_disabled","CW Decode is disabled in this build while input and release qualification are incomplete.")
         }
         if publisher==nil {
@@ -43,6 +52,50 @@ actor LiveCWDecodeMethods {
             publisher=Task{[weak self] in for await spot in events {guard !Task.isCancelled else{return};await self?.publish(spot)}}
         }
         switch method {
+        case "cw_decode_track_focus":
+            guard Set(params.keys)==["reference"] else{throw invalid()}
+            if params["reference"] is NSNull {try await session.focus(nil)}
+            else {
+                guard let object=params["reference"] as? [String:Any],Set(object.keys)==["sessionID","sourceID","streamToken","epoch","trackID","revision","selectionID"] else{throw invalid()}
+                let reference:CWTrackReference
+                do{reference=try JSONDecoder().decode(CWTrackReference.self,from:JSONSerialization.data(withJSONObject:object))}catch{throw invalid()}
+                do{try await session.focus(reference)}catch CWTrackSelectionError.staleEvidence{throw WorkerFailure("cw_selection_stale","This signal changed or expired. Select its current row again.")}
+            }
+        case "cw_decode_resolve_signal":
+            guard Set(params.keys)==["reference"],let object=params["reference"] as? [String:Any],
+                  Set(object.keys)==["sessionID","sourceID","streamToken","epoch","trackID","revision","selectionID"] else{throw invalid()}
+            let reference:CWTrackReference
+            do{reference=try JSONDecoder().decode(CWTrackReference.self,from:JSONSerialization.data(withJSONObject:object))}catch{throw invalid()}
+            do{
+                let resolved=try await session.resolveSignal(reference)
+                guard !terminated else{throw WorkerFailure("worker_stopping","CW Decode is shutting down.")}
+                return try Self.object(resolved)
+            }
+            catch CWTrackSelectionError.staleEvidence{throw WorkerFailure("cw_selection_stale","This signal changed or expired. Select its current row again.")}
+            catch CWTrackSelectionError.frequencyUnqualified{throw WorkerFailure("cw_frequency_unqualified","RF mapping for this signal is not qualified.")}
+        case "cw_decode_track_mute":
+            guard Set(params.keys)==["reference"],let object=params["reference"] as? [String:Any],
+                  Set(object.keys)==["sessionID","sourceID","streamToken","epoch","trackID","revision","selectionID"] else{throw invalid()}
+            let reference:CWTrackReference
+            do{reference=try JSONDecoder().decode(CWTrackReference.self,from:JSONSerialization.data(withJSONObject:object))}catch{throw invalid()}
+            do{try await session.mute(reference)}catch CWTrackSelectionError.staleEvidence{
+                throw WorkerFailure("cw_selection_stale","This signal changed or expired. Select its current row again.")
+            }
+        case "cw_decode_resolve_selection":
+            guard Set(params.keys)==["reference","require_frequency"],let reference=params["reference"] as? [String:Any],
+                  Set(reference.keys)==["sessionID","sourceID","streamToken","epoch","trackID","revision","selectionID"] else {throw invalid()}
+            let request:SelectionRequest
+            do {request=try JSONDecoder().decode(SelectionRequest.self,from:JSONSerialization.data(withJSONObject:params))}
+            catch {throw invalid()}
+            do {
+                let resolved=try await session.resolveSelection(request.reference,requireFrequency:request.requireFrequency)
+                guard !terminated else {throw WorkerFailure("worker_stopping","CW Decode is shutting down.")}
+                return try Self.object(resolved)
+            } catch CWTrackSelectionError.frequencyUnqualified {
+                throw WorkerFailure("cw_frequency_unqualified","RF mapping for this signal is not qualified.")
+            } catch CWTrackSelectionError.staleEvidence {
+                throw WorkerFailure("cw_selection_stale","This signal changed or expired. Select its current row again.")
+            }
         case "cw_decode_snapshot":
             guard params.isEmpty else {throw invalid()}
         case "cw_decode_stop":
@@ -130,6 +183,15 @@ actor LiveCWDecodeMethods {
         if let spotOutputFailure{result["spotOutputFailure"]=spotOutputFailure}
         result["listener"]=try Self.object(await listener.snapshot())
         guard featureEnabled() else{result["capabilities"]=[];return result}
+        var tracks=result["tracks"] as? [[String:Any]] ?? []
+        for (index,track) in snapshot.tracks.enumerated() {
+            guard snapshot.state=="running",!track.muted,!track.ambiguous,!track.descriptor.replay,
+                  track.descriptor.mappingQualified,let frequency=track.frequencyHz,let selection=track.selection,
+                  let value=await classify(selection.callsign,frequency) else{continue}
+            tracks[index]["opportunity"]=["callStatus":value.callStatus,"dxccStatus":value.dxccStatus]
+        }
+        guard !terminated else{throw WorkerFailure("worker_stopping","CW Decode is shutting down.")}
+        result["tracks"]=tracks
         async let first=LiveStationMethods.cwTCICapabilities(radioID:"radio1")
         async let second=LiveStationMethods.cwTCICapabilities(radioID:"radio2")
         async let flexFirst=LiveStationMethods.cwFlexCapabilities(radioID:"radio1")

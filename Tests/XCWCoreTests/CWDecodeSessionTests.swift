@@ -94,6 +94,203 @@ final class CWDecodeSessionTests: XCTestCase {
     func testProductionPolicyCannotEmitEvenWithPreferenceAndQualifiedFixtureRF() async throws {
         try await spotFixture(qualifiedForTests:false)
     }
+    func testManualSelectionHasNativeCallWithoutInventingUnqualifiedFrequency() async throws {
+        let (session,_,_,_,_,_)=try await selectionFixture()
+        let snapshot=await session.snapshot(),selection=try XCTUnwrap(snapshot.tracks.first?.selection)
+        let result=try await session.resolveSelection(selection.reference)
+        XCTAssertEqual(result.callsign,"K1ABC");XCTAssertEqual(result.radioID,"radio1");XCTAssertNil(result.frequencyHz)
+        do {_ = try await session.resolveSelection(selection.reference,requireFrequency:true);XCTFail("Unqualified tune target accepted")}
+        catch {XCTAssertEqual(error as? CWTrackSelectionError,.frequencyUnqualified)}
+        await session.stop()
+        do {_ = try await session.resolveSelection(selection.reference);XCTFail("Stopped selection accepted")}
+        catch {XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+    }
+    func testSelectionPinsEvidenceAndRejectsStaleInputOrChangedProvider() async throws {
+        let (session,provider,_,clock,source,_)=try await selectionFixture(qualified:true)
+        let snapshot=await session.snapshot(),selection=try XCTUnwrap(snapshot.tracks.first?.selection),reference=selection.reference
+        let result=try await session.resolveSelection(reference,requireFrequency:true)
+        XCTAssertEqual(result.frequencyHz,14025600)
+        let invented=CWTrackReference(sessionID:reference.sessionID,sourceID:reference.sourceID,streamToken:reference.streamToken,
+            epoch:reference.epoch,trackID:reference.trackID,revision:reference.revision,selectionID:UUID())
+        do {_ = try await session.resolveSelection(invented);XCTFail("Invented selection accepted")}
+        catch {XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+        clock.advance(300_000_000)
+        do {_ = try await session.resolveSelection(reference);XCTFail("Stale input accepted")}
+        catch {XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+        _ = try await provider.emit(source.id,receipt:clock.now(),qualified:true)
+        await provider.invalidate(source.id)
+        do {_ = try await session.resolveSelection(reference);XCTFail("Changed provider accepted")}
+        catch {XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+        await session.stop()
+    }
+    func testStopDuringProviderReadCannotResolveOldSelection() async throws {
+        let (session,provider,_,_,_,_)=try await selectionFixture()
+        let snapshot=await session.snapshot(),selection=try XCTUnwrap(snapshot.tracks.first?.selection)
+        await provider.setCurrentHold()
+        let resolving=Task{try await session.resolveSelection(selection.reference)}
+        try await wait{await provider.currentWaiterCount()>0}
+        await session.stop();await provider.resumeCurrent()
+        do {_ = try await resolving.value;XCTFail("Selection survived Stop during readback")}
+        catch {XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+    }
+    func testAmbiguousTrackClearsRetainedManualSelection() async throws {
+        let (session,_,compute,_,_,capture)=try await selectionFixture()
+        let snapshot=await session.snapshot(),view=try XCTUnwrap(snapshot.tracks.first),selection=try XCTUnwrap(view.selection)
+        let ambiguous=CWNativeTrack(kind:"track",streamToken:capture.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased(),
+            epoch:1,trackID:view.trackID,revision:0,state:"ambiguous",firstSample:3200,endSample:22400,sourceFirstSample:0,
+            filterDelaySeconds:0.02,offsetHz:600,ambiguous:true,replay:false)
+        await compute.emit(.track(ambiguous))
+        try await wait{await session.snapshot().tracks.first?.selection==nil}
+        do {_ = try await session.resolveSelection(selection.reference);XCTFail("Ambiguous identity remained selectable")}
+        catch {XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+        await session.stop()
+    }
+    func testSignalEstimatesSurviveMetadataOnlyUpdatesAndExpireWithoutAnotherDecode() async throws {
+        let (session,_,compute,clock,_,capture)=try await selectionFixture(measured:true)
+        let initial=await session.snapshot(),view=try XCTUnwrap(initial.tracks.first)
+        XCTAssertEqual(view.estimatedWPM,24);XCTAssertEqual(view.estimatedSNRDB,12)
+        let metadata=CWNativeTrack(kind:"track",streamToken:capture.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased(),
+            epoch:1,trackID:view.trackID,revision:0,state:"acquiring",firstSample:3200,endSample:22400,sourceFirstSample:0,
+            filterDelaySeconds:0.02,offsetHz:601,ambiguous:false,replay:false)
+        await compute.emit(.track(metadata))
+        try await wait{await session.snapshot().tracks.first?.offsetHz==601}
+        let retained=await session.snapshot();XCTAssertEqual(retained.tracks.first?.estimatedWPM,24)
+        XCTAssertEqual(retained.tracks.first?.estimatedSNRDB,12);XCTAssertEqual(retained.tracks.first?.snrReferenceHz,2500)
+        clock.advance(2_000_000_001)
+        let expired=await session.snapshot();XCTAssertNil(expired.tracks.first?.estimatedWPM)
+        XCTAssertNil(expired.tracks.first?.estimatedSNRDB);XCTAssertNil(expired.tracks.first?.snrReferenceHz)
+        await session.stop()
+    }
+    func testAmbiguityClearsMeasuredEstimates() async throws {
+        let (session,_,compute,_,_,capture)=try await selectionFixture(measured:true)
+        let initial=await session.snapshot(),view=try XCTUnwrap(initial.tracks.first)
+        let metadata=CWNativeTrack(kind:"track",streamToken:capture.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased(),
+            epoch:1,trackID:view.trackID,revision:0,state:"ambiguous",firstSample:3200,endSample:22400,sourceFirstSample:0,
+            filterDelaySeconds:0.02,offsetHz:600,ambiguous:true,replay:false)
+        await compute.emit(.track(metadata))
+        try await wait{await session.snapshot().tracks.first?.ambiguous==true}
+        let ambiguous=await session.snapshot();XCTAssertNil(ambiguous.tracks.first?.estimatedWPM)
+        XCTAssertNil(ambiguous.tracks.first?.estimatedSNRDB);XCTAssertNil(ambiguous.tracks.first?.selection)
+        await session.stop()
+    }
+    func testMuteNeedsRetainedControlEvidenceAndStopsSelectionAndLateDecode() async throws {
+        let (session,_,compute,_,_,capture)=try await selectionFixture()
+        let snapshot=await session.snapshot(),view=try XCTUnwrap(snapshot.tracks.first),reference=try XCTUnwrap(view.controlReference)
+        let forged=CWTrackReference(sessionID:reference.sessionID,sourceID:reference.sourceID,streamToken:reference.streamToken,
+            epoch:reference.epoch,trackID:reference.trackID,revision:reference.revision,selectionID:UUID())
+        do{try await session.mute(forged);XCTFail("Invented track mute accepted")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+        try await session.mute(reference)
+        let muted=await session.snapshot(),childMuted=await compute.isMuted(reference.trackID)
+        XCTAssertTrue(childMuted);XCTAssertEqual(muted.tracks.first?.muted,true);XCTAssertNil(muted.tracks.first?.selection)
+        let metadata=CWNativeTrack(kind:"decode",streamToken:capture.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased(),
+            epoch:1,trackID:view.trackID,revision:0,state:"provisional",firstSample:3200,endSample:22400,sourceFirstSample:0,
+            filterDelaySeconds:0.02,offsetHz:600,ambiguous:false,replay:false)
+        await compute.emit(.decode(CWNativeDecode(track:metadata,text:"",tokens:[],inferenceMilliseconds:10)))
+        try await Task.sleep(nanoseconds:5_000_000)
+        let late=await session.snapshot();XCTAssertEqual(late.tracks.first?.committed,view.committed);XCTAssertNil(late.tracks.first?.selection)
+        await session.stop()
+        do{try await session.mute(reference);XCTFail("Stopped mute accepted")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+    }
+    func testPriorityRequiresCurrentControlProofAndClearsWithoutMutingOrStopping() async throws {
+        let (session,provider,compute,clock,source,_)=try await selectionFixture()
+        let snapshot=await session.snapshot(),view=try XCTUnwrap(snapshot.tracks.first),reference=try XCTUnwrap(view.controlReference)
+        let forged=CWTrackReference(sessionID:reference.sessionID,sourceID:reference.sourceID,streamToken:reference.streamToken,
+            epoch:reference.epoch,trackID:reference.trackID,revision:reference.revision,selectionID:UUID())
+        do{try await session.focus(forged);XCTFail("Forged focus accepted")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+        try await session.focus(reference)
+        let focused=await compute.focusedTrack(),selected=await session.snapshot()
+        XCTAssertEqual(focused,reference.trackID);XCTAssertEqual(selected.tracks.first?.priorityRequested,true)
+        XCTAssertEqual(selected.tracks.first?.selection,view.selection);XCTAssertEqual(selected.state,"running")
+        try await session.focus(nil)
+        let cleared=await compute.focusedTrack(),plain=await session.snapshot();XCTAssertNil(cleared);XCTAssertEqual(plain.tracks.first?.priorityRequested,false)
+        clock.advance(300_000_000)
+        do{try await session.focus(reference);XCTFail("Stale input prioritized")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+        _ = try await provider.emit(source.id,receipt:clock.now())
+        await session.stop()
+        do{try await session.focus(reference);XCTFail("Stopped signal prioritized")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+    }
+    func testPrioritySerializesWindowRequestsAndStopFencesPendingProviderRead() async throws {
+        let (session,provider,compute,_,_,_)=try await selectionFixture()
+        let snapshot=await session.snapshot(),reference=try XCTUnwrap(snapshot.tracks.first?.controlReference)
+        await provider.setCurrentHold()
+        let request=Task{try await session.focus(reference)}
+        try await wait{await provider.currentWaiterCount()>0}
+        do{try await session.focus(nil);XCTFail("Concurrent priority controls were reordered")}catch{XCTAssertEqual(error as? CWComputeError,.occupied)}
+        await session.stop();await provider.resumeCurrent()
+        do{try await request.value;XCTFail("Priority survived Stop")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+        let focused=await compute.focusedTrack();XCTAssertNil(focused)
+    }
+    func testLoadRequiresCurrentMetricsRequestAndExpiresOnPassiveRead() async throws {
+        let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),clock=CWSessionTestClock()
+        let session=CWDecodeSession(provider:provider,compute:compute,clock:{clock.now()})
+        try await session.start(configuration:CWDecodeConfiguration(sources:[source()]),resources:resources)
+        try await wait{await compute.lastMetricsRequest() != nil}
+        let requested=await compute.lastMetricsRequest(),sequence=try XCTUnwrap(requested)
+        await compute.emit(.metrics(CWNativeMetrics(requestSequence:sequence+1,sources:1,tracks:8,pending:2,inFlight:4,coalesced:3,droppedEvents:0)))
+        try await Task.sleep(nanoseconds:5_000_000)
+        let wrong=await session.snapshot();XCTAssertNil(wrong.load)
+        await compute.emit(.metrics(CWNativeMetrics(requestSequence:sequence,sources:1,tracks:8,pending:2,inFlight:4,coalesced:UInt64.max,droppedEvents:0)))
+        try await wait{await session.snapshot().load != nil}
+        let current=await session.snapshot();XCTAssertEqual(current.load?.tracks,8);XCTAssertEqual(current.load?.inFlight,4)
+        XCTAssertEqual(current.load?.coalesced,"18446744073709551615")
+        clock.advance(2_000_000_001)
+        let expired=await session.snapshot();XCTAssertNil(expired.load)
+        await session.stop()
+        let stopped=await session.snapshot();XCTAssertNil(stopped.load)
+    }
+    func testQualifiedSignalResolutionDoesNotNeedCallsignAndCannotSurviveMuteOrStaleIQ() async throws {
+        let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),clock=CWSessionTestClock(),source=try source()
+        let session=CWDecodeSession(provider:provider,compute:compute,clock:{clock.now()})
+        try await session.start(configuration:CWDecodeConfiguration(sources:[source]),resources:resources)
+        try await wait{await provider.leaseCount()==1}
+        let descriptor=try await provider.emit(source.id,receipt:clock.now(),qualified:true)
+        try await wait{await compute.counts().sends==1}
+        await compute.emit(.track(track(descriptor)))
+        try await wait{await session.snapshot().tracks.count==1}
+        let snapshot=await session.snapshot(),view=try XCTUnwrap(snapshot.tracks.first),reference=try XCTUnwrap(view.controlReference)
+        XCTAssertNil(view.selection)
+        let result=try await session.resolveSignal(reference)
+        XCTAssertEqual(result.frequencyHz,14025600);XCTAssertEqual(result.radioID,"radio1")
+        clock.advance(300_000_000)
+        do{_ = try await session.resolveSignal(reference);XCTFail("Stale signal accepted")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+        _ = try await provider.emit(source.id,receipt:clock.now(),qualified:true)
+        try await wait{await compute.counts().sends==2}
+        try await session.mute(reference)
+        do{_ = try await session.resolveSignal(reference);XCTFail("Muted signal accepted")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+        await session.stop()
+    }
+    func testSignalResolutionRefusesUnqualifiedMappingAndStopDuringReadback() async throws {
+        let (session,provider,_,_,_,_)=try await selectionFixture()
+        let snapshot=await session.snapshot(),reference=try XCTUnwrap(snapshot.tracks.first?.controlReference)
+        do{_ = try await session.resolveSignal(reference);XCTFail("Unqualified RF accepted")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.frequencyUnqualified)}
+        await provider.setCurrentHold()
+        let resolving=Task{try await session.resolveSignal(reference)}
+        try await wait{await provider.currentWaiterCount()>0}
+        await session.stop();await provider.resumeCurrent()
+        do{_ = try await resolving.value;XCTFail("Stopped RF target accepted")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+    }
+    private func selectionFixture(qualified:Bool=false,measured:Bool=false) async throws -> (CWDecodeSession,CWSessionTestProvider,CWSessionTestCompute,CWSessionTestClock,CWSourceConfiguration,CWStreamDescriptor) {
+        let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),clock=CWSessionTestClock(),source=try source()
+        let session=CWDecodeSession(provider:provider,compute:compute,clock:{clock.now()})
+        try await session.start(configuration:CWDecodeConfiguration(sources:[source]),resources:resources)
+        try await wait{await provider.leaseCount()==1}
+        var descriptor:CWStreamDescriptor?
+        for count in 1...84 {
+            descriptor=try await provider.emit(source.id,receipt:clock.now(),qualified:qualified,samples:8192)
+            try await wait{await compute.counts().sends==count}
+        }
+        let capture=try XCTUnwrap(descriptor),id=UUID().uuidString.lowercased()
+        let tokens="CQ K1ABC K1ABC ".enumerated().map{index,symbol in CWNativeToken(symbol:String(symbol),firstSample:4000+UInt64(index*80),endSample:4060+UInt64(index*80),logScore:-0.1)}
+        for (first,end):(UInt64,UInt64) in [(0,19200),(3200,22400)] {
+            let metadata=CWNativeTrack(kind:"decode",streamToken:capture.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased(),
+                epoch:1,trackID:id,revision:0,state:"provisional",firstSample:first,endSample:end,sourceFirstSample:0,
+                filterDelaySeconds:0.02,offsetHz:600,ambiguous:false,replay:false)
+            await compute.emit(.decode(CWNativeDecode(track:metadata,text:"CQ K1ABC K1ABC ",tokens:tokens,inferenceMilliseconds:10,
+                estimatedWPM:measured ? 24:nil,estimatedSNRDB:measured ? 12:nil,snrReferenceHz:measured ? 2500:nil)))
+        }
+        try await wait{await session.snapshot().tracks.first?.selection != nil}
+        return(session,provider,compute,clock,source,capture)
+    }
     private func spotFixture(qualifiedForTests:Bool) async throws {
         let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),a=try source(),clock=CWSessionTestClock(),origin=UUID()
         let policy=qualifiedForTests ? CWSpotPolicy(qualifiedForTests:true,origin:origin):CWSpotPolicy(origin:origin)
@@ -120,6 +317,9 @@ final class CWDecodeSessionTests: XCTestCase {
             let values=await collector.values(),spot=try XCTUnwrap(values.first)
             XCTAssertEqual(spot.callsign,"K1ABC");XCTAssertEqual(spot.originInstanceID,origin);XCTAssertEqual(spot.frequencyHz,14025600)
             let current=await session.canPublish(spot);XCTAssertTrue(current)
+            let snapshot=await session.snapshot(),view=try XCTUnwrap(snapshot.tracks.first),reference=try XCTUnwrap(view.controlReference)
+            try await session.mute(reference)
+            let muted=await session.canPublish(spot);XCTAssertFalse(muted)
             await provider.invalidate(a.id)
             let stale=await session.canPublish(spot);XCTAssertFalse(stale)
         } else {
@@ -146,6 +346,15 @@ private final class CWSessionTestClock:@unchecked Sendable {
     func advance(_ amount:UInt64){lock.lock();value+=amount;lock.unlock()}
 }
 private actor CWSessionTestCompute:CWComputeControlling {
+    private var focused:UUID?
+    func focus(_ descriptor:CWStreamDescriptor?,trackID:UUID?,revision:UInt64){focused=trackID}
+    func focusedTrack()->UUID?{focused}
+    private var requestedMetrics:UInt64?
+    func metrics(sequence:UInt64){requestedMetrics=sequence}
+    func lastMetricsRequest()->UInt64?{requestedMetrics}
+    private var muted:Set<UUID>=[]
+    func mute(_ descriptor:CWStreamDescriptor,trackID:UUID) {muted.insert(trackID)}
+    func isMuted(_ id:UUID)->Bool {muted.contains(id)}
     struct Counts {var starts=0,opens=0,sends=0,ends=0,stops=0}
     private var count=Counts(),fail=false
     private var events:AsyncThrowingStream<CWComputeEvent,Error>.Continuation?
@@ -170,6 +379,10 @@ private actor CWSessionTestProvider:CWIQSourceProviding {
     }
     private var leases:[UUID:Lease]=[:],failed:Set<UUID>=[],counts:[UUID:Int]=[:]
     private var releases=0,hold=false,waiter:CheckedContinuation<Void,Never>?
+    private var holdCurrent=false,currentWaiters:[CheckedContinuation<Void,Never>]=[]
+    func setCurrentHold(){holdCurrent=true}
+    func currentWaiterCount()->Int{currentWaiters.count}
+    func resumeCurrent(){holdCurrent=false;let pending=currentWaiters;currentWaiters=[];for waiter in pending{waiter.resume()}}
     func setHold(_ value:Bool){hold=value}
     func resumeAcquire(){hold=false;waiter?.resume();waiter=nil}
     func failSource(_ id:UUID){failed.insert(id)}
@@ -184,7 +397,8 @@ private actor CWSessionTestProvider:CWIQSourceProviding {
         if hold{await withCheckedContinuation{waiter=$0}}
         return pair.stream
     }
-    func current(_ source:CWSourceConfiguration,sessionID:UUID,leaseID:UUID)->CWStreamDescriptor? {
+    func current(_ source:CWSourceConfiguration,sessionID:UUID,leaseID:UUID) async -> CWStreamDescriptor? {
+        if holdCurrent{await withCheckedContinuation{currentWaiters.append($0)}}
         guard let lease=leases[source.id],lease.session==sessionID,lease.id==leaseID else{return nil}
         return lease.descriptor
     }

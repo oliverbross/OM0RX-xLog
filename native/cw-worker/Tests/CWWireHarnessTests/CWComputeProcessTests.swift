@@ -37,6 +37,12 @@ final class CWComputeProcessTests:XCTestCase {
                                samples:Array(repeating:0,count:4096))
         try await owner.send(block);try await owner.metrics(sequence:9)
         try await wait{await events.metrics(sequence:9)?.sources==2}
+        // A nonexistent native target is a bounded no-op. Exact focus/clear
+        // frames must keep the real child and both source leases alive.
+        try await owner.focus(first,trackID:UUID(),revision:0)
+        try await owner.focus(nil,trackID:nil,revision:0)
+        try await owner.metrics(sequence:11)
+        try await wait{await events.metrics(sequence:11)?.sources==2}
         await owner.end(first);try await owner.metrics(sequence:10)
         try await wait{await events.metrics(sequence:10)?.sources==1}
         let state=await owner.snapshot();XCTAssertEqual(state.sources,1);XCTAssertEqual(state.runtimeVersion,"1.24.3")

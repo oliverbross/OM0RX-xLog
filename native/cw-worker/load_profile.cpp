@@ -6,6 +6,7 @@
 #include <cmath>
 #include <iostream>
 #include <map>
+#include <numeric>
 #include <set>
 #include <thread>
 #include <sys/resource.h>
@@ -49,6 +50,7 @@ int main(int argc,char** argv) {
     }
     std::set<std::string> decoded;
     std::vector<double> latencies;
+    std::vector<double> model_ms,features_ms,ctc_ms,queue_ms;
     size_t maximum_tracks=0,maximum_pending=0;
     double maximum_lag=0,generation_ms=0,feed_ms=0;
     bool deadline_missed=false;
@@ -56,6 +58,8 @@ int main(int argc,char** argv) {
     const auto drain=[&] {
       for(const auto& event:skimmer.events())if(event.kind=="decode") {
         decoded.insert(event.track_id);
+        model_ms.push_back(event.copy.inference_ms);features_ms.push_back(event.copy.features_ms);
+        ctc_ms.push_back(event.copy.ctc_ms);queue_ms.push_back(event.queue_wait_ms);
         const double expected=double(event.source_first_sample)/rate+double(event.end_sample)/3200;
         latencies.push_back(std::max(0.0,milliseconds(Clock::now()-start)-expected*1000));
       }
@@ -92,6 +96,14 @@ int main(int argc,char** argv) {
     std::sort(latencies.begin(),latencies.end());
     const double p95=latencies.empty()?0:latencies[std::min(latencies.size()-1,size_t(std::ceil(latencies.size()*0.95))-1)];
     const auto metrics=skimmer.metrics();struct rusage usage{};getrusage(RUSAGE_SELF,&usage);
+    const auto timing=[](const char* name,std::vector<double> values) {
+      std::sort(values.begin(),values.end());
+      const double sum=std::accumulate(values.begin(),values.end(),0.0);
+      const double p95=values.empty()?0:values[std::min(values.size()-1,size_t(std::ceil(values.size()*0.95))-1)];
+      std::cout<<",\""<<name<<"\":{\"count\":"<<values.size()<<",\"sum_ms\":"<<sum
+        <<",\"mean_ms\":"<<(values.empty()?0:sum/values.size())<<",\"p95_ms\":"<<p95
+        <<",\"maximum_ms\":"<<(values.empty()?0:values.back())<<"}";
+    };
     const double rss=double(usage.ru_maxrss)
 #if defined(__APPLE__)
       /1024/1024;
@@ -109,7 +121,9 @@ int main(int argc,char** argv) {
       <<",\"maximum_input_lateness_ms\":"<<maximum_lag<<",\"decode_p95_ms\":"<<p95
       <<",\"signal_generation_ms\":"<<generation_ms<<",\"dsp_ingress_ms\":"<<feed_ms<<",\"peak_rss_mib\":"<<rss
       <<",\"cpu_seconds\":"<<double(usage.ru_utime.tv_sec+usage.ru_stime.tv_sec)+double(usage.ru_utime.tv_usec+usage.ru_stime.tv_usec)/1e6
-      <<",\"stable_under_this_synthetic_load\":"<<(stable?"true":"false")<<"}"<<std::endl;
+      <<",\"stable_under_this_synthetic_load\":"<<(stable?"true":"false");
+    timing("model_run",model_ms);timing("feature_extraction",features_ms);timing("ctc",ctc_ms);timing("queue_wait",queue_ms);
+    std::cout<<"}"<<std::endl;
     skimmer.stop();return 0;
   } catch(const std::exception& error){std::cerr<<error.what()<<std::endl;return 1;}
 }

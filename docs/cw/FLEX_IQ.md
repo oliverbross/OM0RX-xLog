@@ -48,3 +48,62 @@ ZIP SHA-256 `60978db51dac6ea781899dd80832ad4e7876ce96ed72532b57106376fc26463f`.
 Reviewed `Discovery.cs`, `DAXIQStream.cs`, `Radio.cs`, `Panadapter.cs` and the VITA
 packet definitions as wire-format references only. No manufacturer implementation
 is copied, linked or redistributed. See [protocol source register](PROTOCOL_SOURCES.md).
+
+## Passive receive-state refusal diagnostics
+
+The coordinated hardware inventory found a normal control RX observation while
+the separate IQ receive gate remained false. No acquisition followed that
+discrepancy. `interlockEvidence` now exposes the latest IQ parser's state-field
+shape (`none`, `single`, `multiple`), a single ASCII alphanumeric/underscore
+token of at most 32 bytes when valid, and the existing acceptance result.
+Missing/duplicate/unknown states retain their existing refusal behavior. This
+diagnostic does not grant receive state, repair malformed evidence, add radio
+commands or change the acquisition predicate.
+
+The [manufacturer's interlock status specification](https://github.com/flexradio/smartsdr-api-docs/wiki/SmartSDR-Status-Responses#interlock--ptt-status)
+describes the state as always present. A missing field will therefore not be
+treated as an implicit receive confirmation. Eleven loopback IQ subscription
+tests pass, including bounded diagnostics, missing/duplicate/lowercase/transitional
+state refusal, lifecycle reset and the passive command allowlist. The developer
+inspector rebuilt and passed its no-network parser self-test. This is source and
+fixture evidence at that stage; the coordinated hardware reads follow below.
+
+A coordinated read subsequently confirmed `stateFields=none`, alongside the
+normal owner's receive observation. The next diagnostic extension distinguishes
+per-band configuration from the ordinary interlock message and captures at most
+16 unique field names, each at most 32 ASCII alphanumeric/underscore bytes,
+without values. Reviewing the pinned official FlexLib `Radio.cs` confirmed its
+separate band-configuration dispatch; no manufacturer code was copied. The
+receive predicate remained unchanged while the actual message kind was being
+identified. The test also verifies bounded names and exclusion of values.
+
+## Separate validated settings from RF-state messages
+
+The next coordinated read observed a global transmitter-settings packet with
+relay-enable/delay, timeout and `tune_tx_suppress` fields, without `state`. The
+manufacturer reference processes configuration keys separately from its RF-state
+property. Previously the IQ parser treated every such settings notification as
+an incomplete state report and erased the earlier valid READY/RECEIVE evidence.
+The normal control owner retained it, explaining the observed discrepancy.
+
+The IQ parser now recognizes only the fifteen bounded configuration fields
+observed/referenced for this form. Flag values must be 0/1/T/F; delay/timeout
+values must be canonical nonnegative decimal integers within signed 32-bit range.
+Unknown keys, duplicates, malformed values and an empty message are refused.
+A validated settings-only message retains the preceding receive predicate,
+including false/unknown/TX; it cannot establish receive evidence. Diagnostics
+label this form `interlock_settings` with `stateRetained=true`.
+
+Explicit state reports keep the original strict single-field READY/RECEIVE rule.
+Missing state in other forms, duplicate state, unfamiliar/transitional/TX values
+and malformed settings remain blocking. Transport reset clears prior proof.
+No RF control, discovery, handoff, stream request or qualification override was
+introduced. Per-band messages are not newly admitted by this correction.
+
+The loopback radio now emits a synthetic-valued settings packet with the actual
+observed field names after READY. The real TCP/UDP lifecycle test first failed
+with `unavailable` before the correction; all **12 subscription tests** then
+passed. Coverage includes settings retention without creation of RX, rejected
+states followed by settings, malformed/duplicate/unknown settings, reset,
+TX/quarantine, competing consumers and passive command scope. Inspector build
+and the no-network parser self-test passed. Hardware validation remains pending.

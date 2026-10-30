@@ -54,6 +54,11 @@ impl Coordinator {
         state.operations.get(operation).map(|value| value.outcome.clone()).or_else(|| state.retired.get(operation).cloned())
             .ok_or_else(|| "This activation is not retained by this native session. Check the durable draft receipt; do not automatically tune again.".into())
     }
+    pub fn source_epoch(&self,operation:&str)->Result<String,String> {
+        let state=self.state.lock().map_err(|_|"Activation source unavailable.")?;
+        state.operations.get(operation).map(|value|value.request.source_epoch.clone())
+            .ok_or_else(||"The previous action is not retained. Review Main Logging before starting another.".into())
+    }
     /// Recovery only reads the durable receipt and releases an exact lease.
     /// It cannot apply a draft, stage an effect, tune, or turn the rotor.
     pub fn reconcile(&self, operation_id: &str) -> Result<Value, String> {

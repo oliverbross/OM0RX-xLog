@@ -3,22 +3,30 @@ import { workerRequest } from "../worker";
 export type CWIQSource = { id: string; radioID: "radio1" | "radio2"; provider: "tci_iq" | "flex_dax_iq"; receiverID: string; sampleRate: number };
 export type CWDecodeConfiguration = { version: 1; revision: string; sources: CWIQSource[]; listenerEnabled: boolean; listenerPort: number; automaticSpots: boolean };
 export type CWDescriptor = { sessionID: string; sourceID: string; radioID: string; receiverID: string; streamToken: string; epoch: string;
-  provider: string; centreHz: number; sampleRate: number; mappingQualified: boolean; replay: boolean };
+  provider: string; centreHz: number; sampleRate: number; mappingQualified: boolean; replay: boolean; usableLowerHz?: number; usableUpperHz?: number };
+export type CWTrackReference = { sessionID: string; sourceID: string; streamToken: string; epoch: string; trackID: string; revision: string; selectionID: string };
+export type CWTrackSelection = { reference: CWTrackReference; callsign: string; activation?: { sourceEpoch: string; spotVersion: string } };
 export type CWDecodeTrack = { sourceID: string; trackID: string; descriptor: CWDescriptor; revision: string; offsetHz: number; frequencyHz?: number;
   committed: string; provisional: string; ambiguous: boolean; inferenceMilliseconds?: number; spotRejection?: string;
-  estimatedWPM?: number; estimatedSNRDB?: number; snrReferenceHz?: number };
+  estimatedWPM?: number; estimatedSNRDB?: number; snrReferenceHz?: number; selection?: CWTrackSelection; controlReference?: CWTrackReference;
+  controlActivation?: { sourceEpoch: string; spotVersion: string }; muted?: boolean; priorityRequested?: boolean;
+  opportunity?: { callStatus: string; dxccStatus: string } };
 export type CWCapability = { radioID: string; provider: string; ready: boolean; device?: string; protocolVersion?: string;
   receivers: { receiver: number; enabled?: boolean; centreHz?: number }[]; requestableSampleRates: number[]; transmitStateKnownOff?: boolean;
   inventoryRevision?: string; identity?: { serial: string; model: string; address: string; controlPort: number }; stationHandle?: number;
   panadapters?: { id: string; clientHandle?: number; channel?: number; centreHz?: number; receiveAntenna?: string }[]; handoffPanadapters?: string[] };
 export type CWDecodeSnapshot = { sessionID?: string; state: string; failure?: string; automaticSpotsQualified: boolean; resourcesAvailable: boolean;
+  operatingModule?: "normal_logging" | "contesting";
+  operatingContext?: string;
+  activeRadioID?: "radio1" | "radio2";
   spotOutputFailure?: string;
   featureEnabled?: boolean;
+  load?: { sources: number; tracks: number; pending: number; inFlight: number; coalesced: string; droppedEvents: string };
   configuration: CWDecodeConfiguration; sources: { configuration: CWIQSource; state: string; descriptor?: CWDescriptor; retryCount: number; failure?: string }[];
   tracks: CWDecodeTrack[]; capabilities: CWCapability[];
   listener: { state: string; address: string; port?: number; clients: number; authenticatedClients: number; retainedSpots: number;
     acceptedConnections: number; refusedConnections: number; slowDisconnects: number; protocolDisconnects: number } };
-export const cwDecodeMethods = ["cw_decode_snapshot", "cw_decode_configuration_save", "cw_decode_start", "cw_decode_stop", "cw_decode_listener_start", "cw_decode_listener_stop", "cw_decode_flex_handoff"] as const;
+export const cwDecodeMethods = ["cw_decode_snapshot", "cw_decode_configuration_save", "cw_decode_start", "cw_decode_stop", "cw_decode_listener_start", "cw_decode_listener_stop", "cw_decode_flex_handoff", "cw_decode_track_mute", "cw_decode_track_focus"] as const;
 export type CWDecodeMethod = typeof cwDecodeMethods[number];
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const counter = /^(0|[1-9][0-9]{0,19})$/;
@@ -30,12 +38,52 @@ const source = (value: unknown): value is CWIQSource => object(value) && uuid.te
 const descriptor = (value: unknown): value is CWDescriptor => object(value) && ["sessionID", "sourceID", "streamToken"].every(key => typeof value[key] === "string" && uuid.test(value[key])) &&
   ["radio1", "radio2"].includes(value.radioID) && typeof value.receiverID === "string" && value.receiverID.length <= 128 &&
   typeof value.epoch === "string" && counter.test(value.epoch) && ["tci_iq", "flex_dax_iq"].includes(value.provider) &&
-  integer(value.centreHz, 100000, 1e9) && [48000, 96000, 192000].includes(value.sampleRate) && typeof value.mappingQualified === "boolean" && value.replay === false;
+  integer(value.centreHz, 100000, 1e9) && [24000, 48000, 96000, 192000, 384000].includes(value.sampleRate) && typeof value.mappingQualified === "boolean" && value.replay === false &&
+  (value.usableLowerHz === undefined && value.usableUpperHz === undefined ||
+    integer(value.usableLowerHz, 1, 1e9) && integer(value.usableUpperHz, 1, 1e9) && value.usableLowerHz < value.usableUpperHz &&
+    value.usableLowerHz >= value.centreHz - value.sampleRate / 2 && value.usableUpperHz <= value.centreHz + value.sampleRate / 2);
+const trackSelection = (track: Record<string, any>): boolean => {
+  if (track.selection === undefined) return true;
+  const selection = track.selection, reference = selection?.reference;
+  return !track.ambiguous && object(selection) && object(reference) && Object.keys(reference).length === 7 &&
+    ["sessionID", "sourceID", "streamToken", "trackID", "selectionID"].every(key => typeof reference[key] === "string" && uuid.test(reference[key])) &&
+    ["sessionID", "sourceID", "streamToken"].every(key => reference[key].toLowerCase() === track.descriptor[key].toLowerCase()) &&
+    reference.trackID.toLowerCase() === track.trackID.toLowerCase() && reference.epoch === track.descriptor.epoch && reference.revision === track.revision &&
+    typeof selection.callsign === "string" && selection.callsign.length >= 3 && selection.callsign.length <= 20 &&
+    /^(?=.*[A-Z])(?=.*[0-9])[A-Z0-9]+(?:\/[A-Z0-9]+)*$/.test(selection.callsign) &&
+    (selection.activation === undefined || object(selection.activation) && Object.keys(selection.activation).length === 2 &&
+      ["sourceEpoch", "spotVersion"].every(key => typeof selection.activation[key] === "string" && uuid.test(selection.activation[key])));
+};
+const trackControl = (track: Record<string, any>): boolean => {
+  const reference = track.controlReference;
+  return (track.muted === undefined || typeof track.muted === "boolean") && (!track.muted || track.selection === undefined) &&
+    (track.priorityRequested === undefined || typeof track.priorityRequested === "boolean" && (!track.priorityRequested || reference !== undefined && !track.muted && !track.ambiguous)) &&
+    (track.controlActivation === undefined || reference !== undefined && !track.muted && !track.ambiguous && track.frequencyHz !== undefined &&
+      object(track.controlActivation) && Object.keys(track.controlActivation).length === 2 &&
+      ["sourceEpoch", "spotVersion"].every(key => typeof track.controlActivation[key] === "string" && uuid.test(track.controlActivation[key]))) &&
+    (reference === undefined || object(reference) && Object.keys(reference).length === 7 &&
+      ["sessionID", "sourceID", "streamToken", "trackID", "selectionID"].every(key => typeof reference[key] === "string" && uuid.test(reference[key])) &&
+      ["sessionID", "sourceID", "streamToken"].every(key => reference[key].toLowerCase() === track.descriptor[key].toLowerCase()) &&
+      reference.trackID.toLowerCase() === track.trackID.toLowerCase() && reference.epoch === track.descriptor.epoch && reference.revision === track.revision);
+};
+const trackOpportunity = (track: Record<string, any>): boolean => {
+  const value = track.opportunity;
+  return value === undefined || object(value) && Object.keys(value).length === 2 && track.selection !== undefined &&
+    track.frequencyHz !== undefined && !track.muted && !track.ambiguous && !track.descriptor.replay &&
+    ["Unknown", "New Call", "New Band+Mode", "New Band", "New Mode", "Worked", "Confirmed"].includes(value.callStatus) &&
+    ["Unknown", "ATNO", "Worked", "Confirmed", "C/New Band+Mode", "C/New Band", "C/New Mode", "W/New Band+Mode", "W/New Band", "W/New Mode"].includes(value.dxccStatus);
+};
 
 export function parseCWDecodeSnapshot(value: unknown): CWDecodeSnapshot {
   if (!object(value) || !["stopped", "preparing", "running", "recovering", "blocked", "stopping"].includes(value.state) ||
     typeof value.resourcesAvailable !== "boolean" || typeof value.automaticSpotsQualified !== "boolean" ||
     value.featureEnabled !== undefined && typeof value.featureEnabled !== "boolean" ||
+    value.operatingModule !== undefined && !["normal_logging", "contesting"].includes(value.operatingModule) ||
+    value.operatingContext !== undefined && (typeof value.operatingContext !== "string" || !uuid.test(value.operatingContext)) ||
+    value.activeRadioID !== undefined && !["radio1", "radio2"].includes(value.activeRadioID) ||
+    value.load !== undefined && (!object(value.load) || !integer(value.load.sources, 0, 2) || !integer(value.load.tracks, 0, 32) ||
+      !integer(value.load.pending, 0, 32) || !integer(value.load.inFlight, 0, 4) ||
+      ![value.load.coalesced, value.load.droppedEvents].every(number => typeof number === "string" && counter.test(number) && BigInt(number) <= 18446744073709551615n)) ||
     value.spotOutputFailure !== undefined && value.spotOutputFailure !== "local_cw_output_unavailable" ||
     value.sessionID !== undefined && (typeof value.sessionID !== "string" || !uuid.test(value.sessionID))) throw new Error("CW Decode returned an invalid session state.");
   const config = value.configuration;
@@ -51,6 +99,7 @@ export function parseCWDecodeSnapshot(value: unknown): CWDecodeSnapshot {
     typeof track.revision === "string" && counter.test(track.revision) && typeof track.offsetHz === "number" && Number.isFinite(track.offsetHz) &&
     Math.abs(track.offsetHz) <= track.descriptor.sampleRate / 2 && typeof track.committed === "string" && track.committed.length <= 1024 &&
     typeof track.provisional === "string" && track.provisional.length <= 1024 && typeof track.ambiguous === "boolean" &&
+    trackSelection(track) && trackControl(track) && trackOpportunity(track) &&
     (track.frequencyHz === undefined || track.descriptor.mappingQualified && integer(track.frequencyHz, 100000, 1e9)) &&
     (track.spotRejection === undefined || ["quality_not_qualified", "replay", "stale_source", "unmapped_frequency", "contaminated", "ambiguous", "insufficient_occurrences", "cooldown", "invalid_evidence"].includes(track.spotRejection)) &&
     (track.estimatedWPM === undefined || Number.isFinite(track.estimatedWPM) && track.estimatedWPM >= 5 && track.estimatedWPM <= 80) &&

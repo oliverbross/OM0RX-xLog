@@ -37,6 +37,75 @@ final class FlexIQSubscriptionTests:XCTestCase {
         let capabilities=await radio.iqCapabilities()
         try await radio.authorizeIQHandoff(panadapterID:id,inventoryRevision:capabilities.inventoryRevision)
     }
+    func testPassiveInventoryAndTransportCloseNeverAcquireOrReleaseRadioOutput() async throws {
+        let (radio,wire)=try await setup()
+        let capabilities=await radio.iqCapabilities();XCTAssertTrue(capabilities.ready);XCTAssertEqual(capabilities.panadapters.count,2)
+        await radio.stopTransportOnly()
+        let commands=await wire.commands
+        let allowed:Set<String>=["sub client all","sub slice all","sub radio all","sub tx all","keepalive enable","slice list","ping",
+                                 "sub pan all","sub audio_stream all","sub daxiq all","sub dax all"]
+        XCTAssertTrue(commands.allSatisfy{allowed.contains($0) || $0.hasPrefix("client bind client_id=")},"Unexpected command: \(commands)")
+        XCTAssertFalse(commands.contains{$0.hasPrefix("stream ") || $0.hasPrefix("client udpport")})
+        await wire.stop()
+    }
+    func testInterlockRefusalDiagnosticsAreBoundedAndCannotAuthorizeMissingOrAmbiguousState() async throws {
+        let (radio,wire)=try await setup()
+        for (body,fields,raw,accepted) in [
+            ("interlock state=READY","single","READY",true),
+            ("interlock tx_allowed=1","none",nil,false),
+            ("interlock state=TRANSMITTING state=READY","multiple",nil,false),
+            ("interlock state=ready","single","ready",false),
+            ("interlock state=PTT_REQUESTED","single","PTT_REQUESTED",false),
+            ("interlock state="+String(repeating:"X",count:100),"single",nil,false)
+        ] as [(String,String,String?,Bool)] {
+            await radio.iqConsumeStatus(body)
+            let value=await radio.iqCapabilities()
+            XCTAssertEqual(value.interlockEvidence?.stateFields,fields)
+            XCTAssertEqual(value.interlockEvidence?.rawState,raw)
+            XCTAssertEqual(value.interlockEvidence?.acceptedReceive,accepted)
+            XCTAssertEqual(value.transmitStateKnownOff,accepted)
+        }
+        await radio.iqConsumeStatus("interlock band 3 tx1_enabled=1 tx2_enabled=0")
+        let band=await radio.iqCapabilities()
+        XCTAssertEqual(band.interlockEvidence?.messageKind,"band_configuration")
+        XCTAssertEqual(band.interlockEvidence?.fieldNames,["tx1_enabled","tx2_enabled"])
+        XCTAssertFalse(band.transmitStateKnownOff) // diagnostics do not change admission
+        await radio.iqConsumeStatus("interlock "+(0..<40).map{"field_\($0)=PRIVATE_VALUE"}.joined(separator:" "))
+        let bounded=await radio.iqCapabilities()
+        XCTAssertEqual(bounded.interlockEvidence?.fieldNames.count,16)
+        XCTAssertFalse(String(decoding:try JSONEncoder().encode(bounded),as:UTF8.self).contains("PRIVATE_VALUE"))
+        let commands=await wire.commands
+        XCTAssertFalse(commands.contains{$0.hasPrefix("stream ")||$0.hasPrefix("client udpport")})
+        await radio.stopTransportOnly()
+        let closed=await radio.iqCapabilities();XCTAssertNil(closed.interlockEvidence)
+        await wire.stop()
+    }
+    func testValidatedInterlockSettingsRetainButNeverCreateReceiveEvidence() async throws {
+        let (radio,wire)=try await setup()
+        let ready=await radio.iqCapabilities();XCTAssertTrue(ready.transmitStateKnownOff)
+        XCTAssertEqual(ready.interlockEvidence?.messageKind,"interlock_settings")
+        XCTAssertEqual(ready.interlockEvidence?.stateRetained,true)
+        for state in ["PTT_REQUESTED","TRANSMITTING","NOT_READY","UNRECOGNIZED"] {
+            await radio.iqConsumeStatus("interlock state="+state)
+            await radio.iqConsumeStatus("interlock tx1_enabled=1 timeout=60000 tx_delay=0")
+            let value=await radio.iqCapabilities();XCTAssertFalse(value.transmitStateKnownOff)
+            XCTAssertEqual(value.interlockEvidence?.stateRetained,true)
+        }
+        for malformed in ["interlock tx1_enabled=2","interlock tx_delay=-1","interlock timeout=2147483648",
+            "interlock tx_delay=0 tx_delay=0","interlock tx_delay=0 unknown=1","interlock tx_allowed=1",
+            "interlock state=TRANSMITTING state=READY","interlock state=READY tx_delay=0 state=PTT_REQUESTED"] {
+            await radio.iqConsumeStatus("interlock state=READY")
+            await radio.iqConsumeStatus(malformed)
+            let value=await radio.iqCapabilities();XCTAssertFalse(value.transmitStateKnownOff)
+            XCTAssertEqual(value.interlockEvidence?.stateRetained,false)
+        }
+        await radio.stopTransportOnly()
+        await radio.iqConsumeStatus("interlock tx1_enabled=1 timeout=60000")
+        let closed=await radio.iqCapabilities();XCTAssertFalse(closed.transmitStateKnownOff)
+        XCTAssertEqual(closed.interlockEvidence?.acceptedReceive,false)
+        let commands=await wire.commands;XCTAssertFalse(commands.contains{$0.hasPrefix("stream ")||$0.hasPrefix("client udpport")})
+        await wire.stop()
+    }
     private func next(_ subscription:FlexIQSubscription) async throws -> FlexIQBlock {
         try await withThrowingTaskGroup(of:FlexIQBlock.self) {group in
             group.addTask {var iterator=subscription.blocks.makeAsyncIterator();guard let block=try await iterator.next() else{throw FlexIQSubscriptionError.stopped};return block}
@@ -226,6 +295,11 @@ private actor FlexIQFixtureRadio {
     }
     private func command(_ body:String,sequence:Int) {
         commands.append(body)
+        if body=="sub radio all" {
+            // Synthetic values with the settings field names observed on the
+            // real 8400. This packet follows the explicit READY observation.
+            status("interlock acc_tx_delay=0 acc_tx_enabled=0 acc_txreq_enable=0 acc_txreq_polarity=0 rca_txreq_enable=0 rca_txreq_polarity=0 timeout=60000 tune_tx_suppress=0 tx1_delay=0 tx1_enabled=0 tx2_delay=0 tx2_enabled=0 tx3_delay=0 tx3_enabled=0 tx_delay=0")
+        }
         if body=="sub pan all" {
             status("display pan 0x40000000 client_handle=0x1234 daxiq_channel=1 center=14.025000 rxant=ANT1")
             status("display pan 0x40000001 client_handle=0x1234 daxiq_channel=2 center=7.025000 rxant=ANT1")

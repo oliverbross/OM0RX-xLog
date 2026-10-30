@@ -869,6 +869,16 @@ public actor ClusterSessionService {
         if console.count > 400 { console.removeFirst(console.count - 400) }
     }
 
+    /// Passive logbook annotation for an already resolved CW identity. It does
+    /// not publish a spot, alter evidence, connect or repair the callsign.
+    public func classifyLocalCW(call:String,frequencyHz:Int64) -> ClusterClassification? {
+        guard !terminated,hasContactSnapshot,(100_000...1_000_000_000).contains(frequencyHz),
+              call.count>=3,call.count<=20,call==call.uppercased(),
+              call.range(of:#"^(?=.*[A-Z])(?=.*[0-9])[A-Z0-9]+(?:/[A-Z0-9]+)*$"#,options:.regularExpression) != nil else{return nil}
+        let band=SpotLogic.band(for:Double(frequencyHz)/1000)
+        guard band != "OTHER" else{return nil}
+        return classify(call:call,band:band,mode:"CW",adif:countries.resolve(call)?.adif)
+    }
     private func classify(call: String, band: String, mode: String, adif: Int?) -> ClusterClassification {
         guard hasContactSnapshot else {
             return ClusterClassification(callStatus: "Unknown", dxccStatus: "Unknown", workedBefore: nil)

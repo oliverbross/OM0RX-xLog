@@ -2,6 +2,7 @@
 #include "engine.h"
 #include "dsp.h"
 #include "skimmer.h"
+#include "job_order.h"
 #include <cmath>
 #include <iostream>
 #include <map>
@@ -31,6 +32,25 @@ std::vector<float> morse(int wpm,const std::string& text="CQ OM0RX",bool envelop
 int main(int argc,char** argv) {
   try {
     require(argc==2,"Model path required");
+    cw::JobOrder jobs;
+    const auto ready=[](const auto&){return true;};
+    jobs.push("oldest");jobs.push("second");jobs.push("selected");jobs.focus("selected");
+    require(jobs.take(ready)=="selected","Selected pending track gets bounded priority");jobs.push("selected");
+    require(jobs.take(ready)=="oldest","Priority cannot starve oldest ready work");
+    require(jobs.take(ready)=="selected","Selected priority resumes after ordinary service");jobs.push("selected");
+    jobs.focus("second");require(jobs.take(ready)=="second","Changing focus does not reset ordinary FIFO turn");
+    jobs.push("ordinary");jobs.focus("selected");
+    require(jobs.take([](const auto& id){return id!="selected";})=="ordinary","Busy focused track cannot stall another track");
+    jobs.remove("selected");require(!jobs.ready(ready),"Retirement clears pending preference");
+    jobs.push("a");jobs.push("b");jobs.focus("b");jobs.clear();require(!jobs.take(ready),"Stop clears scheduler state");
+    for(int i=0;i<32;++i) jobs.push(std::to_string(i));jobs.focus("31");
+    std::map<std::string,size_t> served;
+    for(int turn=0;turn<63;++turn) {
+      const auto next=jobs.take(ready);require(bool(next),"Fairness profile retains pending work");++served[*next];
+      if(*next=="31") jobs.push(*next);
+    }
+    require(served.size()==32,"Every admitted track receives service with one continuously pending focused track");
+    jobs.clear();
     auto zero=cw::features(std::vector<float>(19200));
     require(zero.size()==401*65,"Centred reflect shape");
     for(float f:zero) require(f==0,"Silence features");
@@ -70,7 +90,7 @@ int main(int argc,char** argv) {
     }
     cw::KeyingSpeed carrier_speed;for(int tick=0;tick<1000;++tick) carrier_speed.tick(true);
     require(!carrier_speed.estimate(),"Unmodulated carrier has no invented WPM");
-    for(int rate:{24000,48000,96000,192000}) {
+    for(int rate:{24000,48000,96000,192000,384000}) {
       cw::Channelizer channel(rate,6200);
       cw::Channelizer reference_channel(rate,6200,false);
       std::vector<float> audio;
@@ -118,6 +138,9 @@ int main(int argc,char** argv) {
     std::mt19937 random(728396); std::normal_distribution<float> noise(0,0.002f);
     uint64_t sequence=0,second_sequence=0;
     std::map<std::string,std::string> transcripts;
+    std::string mute_target;
+    bool muted_during_feed=false;
+    bool focus_exercised=false;
     for(size_t first=0;first<96000*10;first+=4096) {
       const size_t count=std::min(size_t(4096),size_t(96000*10)-first);
       std::vector<std::complex<float>> block(count);
@@ -140,11 +163,22 @@ int main(int argc,char** argv) {
         other[i]=std::complex<float>(std::polar(key,2*pi*8500*n/48000))+std::complex<float>(noise(random),noise(random));
       }
       skimmer.feed(second_source,9,second_sequence++,first/2,48000,other);
+      if(!muted_during_feed && first>=96000*8 && !mute_target.empty()) {
+        require(skimmer.mute(source,7,mute_target),"Mute during active source ingestion");muted_during_feed=true;
+      }
       require(skimmer.wait_idle(10),"Bounded inference drain");
       for(const auto& event:skimmer.events()) { if(event.kind=="track") std::cout<<"Track "<<event.offset_hz<<" "<<event.state<<"\n"; if(event.kind=="decode") {
+        require(!muted_during_feed || event.track_id!=mute_target,"No decode after mute during continued IQ");
         require((event.epoch==7 && event.stream_token==source)||(event.epoch==9&&event.stream_token==second_source),"Original capture identity on multitrack copy");
         require(event.replay,"Replay provenance on derived copy");
         transcripts[event.stream_token==second_source?"second":event.offset_hz>0?"positive":"negative"]=event.copy.text;
+        if(event.stream_token==source && event.offset_hz>0) {
+          mute_target=event.track_id;
+          require(!skimmer.focus(second_source,7,event.track_id,event.track_revision),"Focus cannot cross stream identity");
+          require(!skimmer.focus(source,8,event.track_id,event.track_revision),"Focus cannot cross capture epoch");
+          require(!skimmer.focus(source,7,event.track_id,UINT64_MAX),"Focus cannot cross track revision");
+          require(skimmer.focus(source,7,event.track_id,event.track_revision),"Current native track receives priority");focus_exercised=true;
+        }
         std::cout<<"IQ "<<event.offset_hz<<" Hz ["<<event.copy.text<<"]\n";
       } }
     }
@@ -153,6 +187,18 @@ int main(int argc,char** argv) {
     require(transcripts["negative"].find("DL1ABC")!=std::string::npos,"Negative IQ carrier independently decoded");
     require(transcripts["second"].find("DL1ABC")!=std::string::npos,"Independent second-rate span decoded");
     require(skimmer.metrics().tracks==3,"Independent carrier tracking, no mirrored station");
+    require(!mute_target.empty(),"Retained mute target exists");
+    require(muted_during_feed,"Mute exercised with continued IQ after admission");
+    require(focus_exercised,"Native focused scheduling exercised during two-span decoding");skimmer.clear_focus();
+    require(!skimmer.mute(second_source,9,mute_target),"Mute cannot cross stream identity");
+    require(!skimmer.mute(source,8,mute_target),"Mute cannot cross capture epoch");
+    require(skimmer.mute(source,7,mute_target),"Mute retained track");
+    bool muted=false;
+    for(const auto& event:skimmer.events()) {
+      require(event.kind!="decode" || event.track_id!=mute_target,"Queued muted result cannot escape");
+      if(event.track_id==mute_target && event.state=="muted") muted=true;
+    }
+    require(muted,"Native mute acknowledges exact track");
     skimmer.feed(source,7,sequence+1,960000,96000,std::vector<std::complex<float>>(512));
     require(skimmer.metrics().sources==1,"A sample gap retires only its source");
     skimmer.feed(second_source,9,second_sequence,480000,48000,std::vector<std::complex<float>>(512));

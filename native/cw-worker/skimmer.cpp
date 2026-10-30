@@ -1,5 +1,6 @@
 // Copyright © 2026 Oliver Bross OM0RX. SPDX-License-Identifier: GPL-3.0-only
 #include "skimmer.h"
+#include "job_order.h"
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -32,6 +33,7 @@ struct Track {
   const uint64_t origin;
   const bool replay;
   std::atomic<bool> valid{true};
+  std::atomic<bool> muted{false};
   std::atomic<uint64_t> revision{0};
   double offset;
   Channelizer channel;
@@ -80,6 +82,7 @@ struct Job {
   uint64_t epoch,revision,first,end;
   std::vector<float> audio;
   std::optional<double> snr{},wpm{};
+  std::chrono::steady_clock::time_point enqueued{};
 };
 struct QueuedEvent {
   SkimmerEvent event;
@@ -95,7 +98,7 @@ struct Skimmer::Impl {
   std::mutex jobs_mutex,events_mutex;
   std::condition_variable work,idle;
   std::map<std::string,Job> pending;
-  std::deque<std::string> order;
+  JobOrder order;
   std::set<std::string> busy;
   std::deque<QueuedEvent> output;
   std::vector<std::thread> threads;
@@ -130,10 +133,11 @@ struct Skimmer::Impl {
     output_bytes+=item.bytes(); output.push_back(std::move(item));
   }
   void enqueue(Job job) {
+    job.enqueued=std::chrono::steady_clock::now();
     std::lock_guard<std::mutex> lock(jobs_mutex);
     const auto id=job.track->id;
     if(pending.count(id)) { pending[id]=std::move(job); ++coalesced; }
-    else { order.push_back(id); pending.emplace(id,std::move(job)); }
+    else { order.push(id); pending.emplace(id,std::move(job)); }
     work.notify_one();
   }
   void run() {
@@ -141,20 +145,23 @@ struct Skimmer::Impl {
       Job job;
       {
         std::unique_lock<std::mutex> lock(jobs_mutex);
-        work.wait(lock,[this]{return stopping || std::any_of(order.begin(),order.end(),[this](const auto& id){return !busy.count(id);});});
+        work.wait(lock,[this]{return stopping || order.ready([this](const auto& id){return !busy.count(id);});});
         if(stopping) return;
-        const auto next=std::find_if(order.begin(),order.end(),[this](const auto& id){return !busy.count(id);});
-        const auto id=*next; order.erase(next);
+        const auto next=order.take([this](const auto& id){return !busy.count(id);});
+        if(!next) continue;
+        const auto id=*next;
         auto found=pending.find(id);
         if(found==pending.end()) continue;
         job=std::move(found->second); pending.erase(found); busy.insert(id); ++in_flight;
       }
-      if(job.track->valid && job.track->revision==job.revision) {
+      if(job.track->valid && !job.track->muted && job.track->revision==job.revision) {
         try {
+          const double queue_ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-job.enqueued).count();
           auto copy=engine.decode(job.audio,job.first);
-          if(job.track->valid && job.track->revision==job.revision) {
+          if(job.track->valid && !job.track->muted && job.track->revision==job.revision) {
             SkimmerEvent event{"decode",job.token,job.track->id,"provisional",job.epoch,job.first,job.end,job.track->offset,false,std::move(copy)};
             event.estimated_snr_db=job.snr;event.estimated_wpm=job.wpm;
+            event.queue_wait_ms=queue_ms;
             emit(std::move(event),job.track,job.revision);
           }
         } catch(...) {
@@ -171,7 +178,7 @@ struct Skimmer::Impl {
   }
   void retire(const std::string& token,Span& span,const std::shared_ptr<Track>& track) {
     track->valid=false;
-    { std::lock_guard<std::mutex> lock(jobs_mutex); pending.erase(track->id); order.erase(std::remove(order.begin(),order.end(),track->id),order.end()); }
+    { std::lock_guard<std::mutex> lock(jobs_mutex); pending.erase(track->id); order.remove(track->id); }
     emit({"retired",token,track->id,"retired",span.epoch,0,0,track->offset,false,{}},track);
   }
 };
@@ -193,6 +200,31 @@ void Skimmer::end(const std::string& token) {
   for(auto& track:found->second.tracks) impl->retire(token,found->second,track);
   impl->spans.erase(found);
 }
+bool Skimmer::mute(const std::string& token,uint64_t epoch,const std::string& id) {
+  const auto found=impl->spans.find(token);
+  if(found==impl->spans.end() || found->second.epoch!=epoch) return false;
+  auto& span=found->second;
+  const auto match=std::find_if(span.tracks.begin(),span.tracks.end(),[&](const auto& track){return track->id==id && track->valid;});
+  if(match==span.tracks.end()) return false;
+  const auto& track=*match;track->muted=true;
+  { std::lock_guard<std::mutex> lock(impl->jobs_mutex);
+    impl->pending.erase(id);impl->order.remove(id);
+    if(impl->pending.empty() && impl->in_flight==0) impl->idle.notify_all(); }
+  impl->emit({"track",token,id,"muted",span.epoch,0,0,track->offset,false,{}},track);
+  return true;
+}
+bool Skimmer::focus(const std::string& token,uint64_t epoch,const std::string& id,uint64_t revision) {
+  const auto found=impl->spans.find(token);
+  if(found==impl->spans.end() || found->second.epoch!=epoch) return false;
+  const auto& tracks=found->second.tracks;
+  const auto match=std::find_if(tracks.begin(),tracks.end(),[&](const auto& track){return track->id==id && track->valid && !track->muted && track->revision==revision;});
+  if(match==tracks.end()) return false;
+  { std::lock_guard<std::mutex> lock(impl->jobs_mutex);impl->order.focus(id); }
+  impl->work.notify_all();return true;
+}
+void Skimmer::clear_focus() {
+  std::lock_guard<std::mutex> lock(impl->jobs_mutex);impl->order.focus("");
+}
 void Skimmer::feed(const std::string& token,uint64_t epoch,uint64_t sequence,uint64_t first,
                    int actualRate,const std::vector<std::complex<float>>& iq) {
   auto found=impl->spans.find(token);
@@ -208,7 +240,7 @@ void Skimmer::feed(const std::string& token,uint64_t epoch,uint64_t sequence,uin
   ++span.sequence; span.sample+=iq.size();
   span.history.insert(span.history.end(),iq.begin(),iq.end());
   if(span.history.size()>size_t(span.rate)) span.history.erase(span.history.begin(),span.history.begin()+std::ptrdiff_t(span.history.size()-span.rate));
-  for(auto& track:span.tracks) if(track->valid) track->append(iq);
+  for(auto& track:span.tracks) if(track->valid && !track->muted) track->append(iq);
   span.analysis.insert(span.analysis.end(),iq.begin(),iq.end());
   size_t admitted=0;
   while(span.analysis.size()>=8192) {
@@ -260,6 +292,7 @@ void Skimmer::feed(const std::string& token,uint64_t epoch,uint64_t sequence,uin
       impl->emit({"track",token,track->id,collision?"ambiguous":"acquiring",span.epoch,0,0,track->offset,collision,{}},track);
     }
     if(span.sample-track->last_peak>uint64_t(span.rate)*12 || !track->valid) { impl->retire(token,span,track); continue; }
+    if(track->muted) continue;
     const auto last=track->channel.output_samples();
     if(!collision && track->cw_keying() && last>=track->next_job && track->audio.size()>=19200) {
       track->next_job=last+3200;
@@ -277,7 +310,7 @@ std::vector<SkimmerEvent> Skimmer::events() {
   for(auto& item:impl->output) {
     if(item.event.kind=="decode") {
       const auto track=item.track.lock();
-      if(!track || !track->valid || track->revision!=item.revision) continue;
+      if(!track || !track->valid || track->muted || track->revision!=item.revision) continue;
     }
     result.push_back(std::move(item.event));
   }

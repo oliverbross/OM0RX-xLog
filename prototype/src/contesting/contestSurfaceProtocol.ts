@@ -15,6 +15,7 @@ export type ContestSurfaceAction =
   | { action: "spot_set_marked_only"; params: DraftRevision & { markedOnly: boolean } }
   | { action: "spot_set_show_worked"; params: DraftRevision & { showWorked: boolean } }
   | { action: "entry_set_text"; params: DraftRevision & { field: "callsign" | "sentReport" | "receivedReport"; value: string } }
+  | { action: "entry_cw_callsign"; params: DraftRevision & { sourceEpoch: string; spotID: string; spotVersion: string } }
   | { action: "entry_set_exchange"; params: DraftRevision & { fieldID: string; value: string } }
   | { action: "entry_set_frequency_text"; params: DraftRevision & { value: string; callsignCommand?: true } }
   | { action: "entry_set_band"; params: DraftRevision & { value: string } }
@@ -658,6 +659,8 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "spot_set_show_worked") return draft(params, ["showWorked"]) && typeof params.showWorked === "boolean";
   if (action === "entry_set_text") return draft(params, ["field", "value"]) &&
     oneOf(params.field, ["callsign", "sentReport", "receivedReport"]) && text(params.value, 160, true);
+  if (action === "entry_cw_callsign") return draft(params,["sourceEpoch","spotID","spotVersion"]) &&
+    [params.sourceEpoch,params.spotID,params.spotVersion].every(validContestSurfaceUUID);
   if (action === "entry_set_exchange") return draft(params, ["fieldID", "value"]) && text(params.fieldID, 64) && text(params.value, 1024, true);
   if (action === "entry_set_frequency_text") return draft(params, ["value"], ["callsignCommand"]) && text(params.value, 11, true) &&
     (params.callsignCommand === undefined || params.callsignCommand === true);

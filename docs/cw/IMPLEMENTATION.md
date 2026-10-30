@@ -56,7 +56,7 @@ earlier remaining-source descriptions where applicable.
 | TCI acquisition | Existing socket/receiver leases, negotiated binary parser and DDS/source-width fences | Real SunSDR2 DX one/two local-radio spans, RF mapping, reconnect/sleep/wake |
 | Local spots | Typed local_cw history/classification, bounded single consumer and fresh-source rechecks; [spot output](SPOT_OUTPUT.md) | Production quality remains false; independent corpus calibration and real frequency mapping |
 | Loopback cluster | Bounded clients, queue/command/history limits, collision and loop guards; [server](LOCAL_CLUSTER_SERVER.md) | Real external logger and exact-package soak |
-| Main/detached view | Shared passive owner, source/server configuration, signal copy/diagnostics and partial/committed distinction; [UI](DECODE_UI.md) | Explicit Tune/Use-callsign routes and final installed functional acceptance |
+| Main/detached view | Shared passive owner, source/server configuration, signal copy/diagnostics, explicit Tune/Use-callsign routes and partial/committed distinction; [UI](DECODE_UI.md) | Final installed functional and action-recovery acceptance |
 | Offline packaging | Pinned ORT 1.24.3 arm64, model, source archive/notices, loader relocation, nested signing and offline probe; [packaging](PACKAGING.md) | Public release/notarization, supported-architecture and full CW package qualification |
 
 The human authorized shipping contest updates with CW disabled. The signed
@@ -73,6 +73,115 @@ availability, the SmartSDR Station name, bound discovery and usable IQ remain
 unverified. The current installed radio route uses the Remote Station Agent;
 it does not establish native IQ readiness. This CW task has not acquired live IQ
 or issued radio, RF, PTT, rotor, audio or recording test actions.
+
+## Isolated follow-up source and integration evidence
+
+Follow-up commits on `codex/cw-skimmer` add retained callsign/control references,
+Normal Logging and contest callsign-only loading through their existing owners,
+committed-text Copy, evidence details, native per-track Mute, expiring signal
+estimates, fresh worker-load counts and requested/actual source coverage. The
+contest menu opens a context-bound CW Decode window sharing the receive service.
+Details and open recovery gates: [track actions](TRACK_SELECTION.md),
+[UI](DECODE_UI.md), [signal/load evidence](SIGNAL_DIAGNOSTICS.md).
+
+The developer-only [passive Flex inspector](../../tools/CWFlexInspect/README.md)
+was built and passed its no-network parser self-test and real-loopback metadata
+command allowlist test. The human expects Station **Red-Dingo** and offered the
+optional VPN route to **192.168.0.199**. This is not verified inventory. Both
+installed-mode acceptance owners released their live test hold; the human's
+VPN-ready indication was then received. The single twelve-second passive
+inspection connected but found Maestro while waiting for Red-Dingo. A second
+coordinated run used the human's corrected OM0RX-WIN10 name and found its owned
+DAX IQ 1 / ANT1 panadapter at 7.074 MHz, with TX-known-off false; see the
+[historical inventory receipt](FLEX_PASSIVE_INSPECTION_2026-10-26.md). No live IQ
+or radio-control action has been taken by this CW chat.
+
+Merge `a462bc84` incorporates accepted canonical `main` through `cbc6a1f9` into
+the isolated branch, including the 1.3.32 playback and mode-switch corrections.
+Combined validation passed: **899 native tests**, **232 focused frontend tests**,
+TypeScript/Vite and all configured window-bundle checks. The CW Decode startup
+graph is **298,414 bytes**. The subsequent focused Swift run passed 25 XCTest
+cases plus 17 Swift Testing activation/reservation cases (42 total).
+
+This source remains isolated and unpackaged. Installed 1.3.32 remains the other
+chats' accepted contest build with CW disabled. Installed Tune/Opportunity acceptance,
+live selected-track scheduling acceptance, complete restart recovery, real source
+and RF mapping, held-out quality, measured standard capacity, external-client
+and 8/24-hour soak gates remain open. No reduced launch scope or completed CW
+release is claimed.
+
+Subsequent isolated source milestones, all pushed:
+
+- `f31aa963`: explicit identity-only Tune through the existing durable station
+  owner; all 904 native tests and 31 focused frontend cases passed, together with
+  TypeScript/Vite/window graph checks.
+- `e66b6f65`: passive existing-logbook Opportunity annotations; 14 Swift and 33
+  focused frontend cases plus TypeScript passed. No contact scan or cluster
+  connection is started by the annotation reader.
+- `92274993`: explicit focused-track preference with bounded ordinary FIFO
+  service; native CTest 2/2, 26 Swift session/method, 15 real-child/wire, 19
+  frontend and the native receive-only authority case passed. The integrated
+  frontend build/window graph checks passed (CW Decode 303,329 bytes).
+- `7cc3a288`: offline-prepared passive inspector v2 separates the control
+  transmit observation from IQ readiness. Build, no-network parser self-test
+  and the loopback metadata command-allowlist case passed; v2 has not been run
+  against the radio.
+- `71db46b6`: DSP attribution instrument compiled, but execution was blocked by
+  the local shell allowlist. No timings or capacity acceptance were produced.
+
+The human confirmed the exact OM0RX-WIN10 DAX IQ 1 resource was released. A new
+mode-switch failure in the canonical chat then imposed a coordinated live-action
+hold. This chat holds no live connection and has not granted a handoff or started
+IQ. Receive-state, physical identity, provider/RF qualification, held-out quality,
+measured launch capacity, action recovery, real external-client and soak/release
+gates remain open. The installed contest app keeps CW disabled.
+
+After the human authorized the profiler's single-command allowlist entry, DSP
+attribution identified the strided channel FIR as the main measured cost.
+Contiguous split buffers reduced channel CPU about 15-fold while preserving the
+existing filter/timing contract; native CTest 2/2 and the real-child/wire harness
+15/15 passed. A subsequent 15-second, 32-track paced replay delivered all input
+and inferred all tracks, but still coalesced 48 jobs, so capacity acceptance
+remains false. Exact measurements are in [signal diagnostics](SIGNAL_DIAGNOSTICS.md).
+
+Merge `014f37c7` brings accepted canonical 1.3.34 through `38295c6b` into this
+isolated branch, including deferred contest-marker cleanup and queued module
+switches. It does not merge CW into canonical or create an application candidate.
+Integration validation passed: **908 native Rust tests**, **57 focused frontend
+cases**, TypeScript/Vite/all configured window graph checks, and the selected
+Swift CW/session, local ingress, cluster bridge, spot retirement, shutdown and
+sync-journal suites (78 XCTest plus 27 Swift Testing cases). CW Decode startup
+remains 303,329 bytes. The pre-existing ContestSCPService Sendable warning remains.
+
+The latest passive Flex v2 run did not establish TCP connectivity. The human
+then confirmed the VPN remained connected and the Flex awake. A further bounded
+passive retry is awaiting coordination with the current live owner; no receive,
+identity or acquisition gate has been bypassed.
+
+Later coordinated passive reads connected and attributed the receive-state
+discrepancy to global interlock configuration messages. `c398f5a3` retains prior
+state only across strictly validated settings-only messages; twelve loopback
+subscription tests and inspector build/self-test passed. Its subsequent
+coordinated hardware check at 14:02:14Z failed to establish TCP and therefore
+could not validate that correction on the radio. See the complete chronological
+[passive inspection receipt](FLEX_PASSIVE_INSPECTION_2026-10-26.md).
+
+`7872428f` prevents a malformed or unreadable retained callsign identity from
+being mistaken for no pending operation. Four red/green regression cases and
+the combined 27 callsign/Tune frontend cases pass; TypeScript passes. Complete
+action recovery remains open. Other chats report installed 1.3.36 accepted from
+`079570505b06f0a5aba403aa6105909148652c91`, with CW disabled. This CW branch remains
+isolated and unpackaged; no source or live qualification is implied by that
+contest-release acceptance.
+
+The Normal Logging callsign status/reconcile path now falls back to a minimal
+read of the existing worker's durable CW-marked draft receipt when the original
+native source pool is gone. It does not resubmit the action or expose/replace a
+historical draft. Missing/uncertain receipts remain held. Nineteen Swift
+draft/reservation cases, a subsequent workspace-generation refusal case, 909
+full native Rust cases and the separately added passive-timeout case pass.
+Complete contest, missing-journal and installed restart recovery remain open;
+see [track action recovery](TRACK_SELECTION.md).
 
 ## Native compute contract v1
 

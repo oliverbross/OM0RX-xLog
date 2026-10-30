@@ -97,12 +97,30 @@ final class LiveCWDecodeMethodsTests:XCTestCase {
         let provider=CWMethodsTestProvider(),owner=LiveCWDecodeMethods(configurationURL:file(),provider:provider,featureEnabled:{false})
         let snapshot=try await owner.handle(method:"cw_decode_snapshot",params:[:])
         XCTAssertEqual(snapshot["featureEnabled"] as? Bool,false);XCTAssertEqual((snapshot["capabilities"] as? [Any])?.count,0)
-        for method in ["cw_decode_start","cw_decode_listener_start","cw_decode_flex_handoff"] {
+        for method in ["cw_decode_start","cw_decode_listener_start","cw_decode_flex_handoff","cw_decode_resolve_selection","cw_decode_resolve_signal","cw_decode_track_mute","cw_decode_track_focus"] {
             do {_ = try await owner.handle(method:method,params:[:]);XCTFail("Disabled build must not acquire or listen")}
             catch {XCTAssertEqual((error as? WorkerFailure)?.code,"cw_feature_disabled")}
         }
         let attempts=await provider.acquisitions();XCTAssertEqual(attempts,0)
         _ = try await owner.handle(method:"cw_decode_stop",params:[:]);await owner.terminate()
+    }
+    func testSelectionReadRejectsArbitraryFieldsNumericBooleanAndExpiredReference() async throws {
+        let provider=CWMethodsTestProvider(),owner=LiveCWDecodeMethods(configurationURL:file(),provider:provider,featureEnabled:{true})
+        let reference:[String:Any]=["sessionID":UUID().uuidString,"sourceID":UUID().uuidString,"streamToken":UUID().uuidString,
+            "epoch":"1","trackID":UUID().uuidString,"revision":"0","selectionID":UUID().uuidString]
+        var extra=reference;extra["callsign"]="K1ABC"
+        for params:[String:Any] in [
+            ["reference":extra,"require_frequency":false],
+            ["reference":reference,"require_frequency":1],
+            ["reference":reference,"require_frequency":false,"frequency_hz":14025000]
+        ] {
+            do {_ = try await owner.handle(method:"cw_decode_resolve_selection",params:params);XCTFail("Untrusted selection parameters accepted")}
+            catch {XCTAssertEqual((error as? WorkerFailure)?.code,"invalid_params")}
+        }
+        do {_ = try await owner.handle(method:"cw_decode_resolve_selection",params:["reference":reference,"require_frequency":false]);XCTFail("Expired selection accepted")}
+        catch {XCTAssertEqual((error as? WorkerFailure)?.code,"cw_selection_stale")}
+        let attempts=await provider.acquisitions();XCTAssertEqual(attempts,0)
+        await owner.terminate()
     }
 }
 private actor CWMethodsTestProvider:CWIQSourceProviding {

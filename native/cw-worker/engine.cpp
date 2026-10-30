@@ -79,7 +79,9 @@ std::string Engine::runtime_version() { return OrtGetApiBase()->GetVersionString
 Engine::~Engine()=default;
 Decode Engine::decode(const std::vector<float>& audio,uint64_t first) {
   if (audio.size()<16000 || audio.size()>32000 || first>UINT64_MAX-audio.size()) throw std::invalid_argument("Inference requires 5..10 seconds and a valid sample range");
+  const auto feature_start=std::chrono::steady_clock::now();
   auto data=features(audio);
+  const double feature_ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-feature_start).count();
   std::array<int64_t,4> shape{1,1,int64_t(data.size()/65),65};
   auto mem=Ort::MemoryInfo::CreateCpu(OrtArenaAllocator,OrtMemTypeDefault);
   auto input=Ort::Value::CreateTensor<float>(mem,data.data(),data.size(),shape.data(),shape.size());
@@ -89,6 +91,8 @@ Decode Engine::decode(const std::vector<float>& audio,uint64_t first) {
   const auto dims=tensors[0].GetTensorTypeAndShapeInfo().GetShape();
   if (dims.size()!=3 || dims[0]!=1 || dims[1]!=shape[2] || dims[2]!=42) throw std::runtime_error("Unexpected output shape");
   Decode result{"",{},std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count()};
+  result.features_ms=feature_ms;
+  const auto ctc_start=std::chrono::steady_clock::now();
   const float* logits=tensors[0].GetTensorData<float>();
   int previous=-1;
   for (int64_t t=0;t<dims[1];++t) {
@@ -104,6 +108,7 @@ Decode Engine::decode(const std::vector<float>& audio,uint64_t first) {
     } else result.tokens.back().end_sample=end;
     previous=best;
   }
+  result.ctc_ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-ctc_start).count();
   return result;
 }
 }

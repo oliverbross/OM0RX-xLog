@@ -31,6 +31,32 @@ coalesced with counters; queue order gives other admitted tracks a turn. The
 event queue is capped at 64 entries / 1 MiB, coalesces superseded track copy and
 reports drops. No renderer or network client participates in the compute path.
 
+The explicit Prioritize track action adds a single shared preference, bound to
+the current capture, track UUID and revision. One preferred dispatch alternates
+with oldest-ready work. A busy preferred track cannot block another ready track;
+changing focus does not reset its quota. This bounds priority to at most one
+extra turn between ordinary FIFO turns and preserves service for all 32 admitted
+tracks. It does not add workers, backlog or track capacity. Retirement and mute
+remove that track's preference; Stop clears the scheduler.
+
+The Swift owner rechecks current provider/lease and 250-ms IQ freshness before
+writing the exact XCW1 kind-9 control. Clear uses a payload-free kind-10 frame.
+Concurrent focus controls are serialized across views, and Stop/child replacement
+fences delayed provider readback. Opening/selecting/closing a view does not alter
+priority; the operator chooses Prioritize track or Clear priority explicitly.
+The UI says Priority requested because successful enqueue is not a child
+acknowledgement or measured latency improvement. No radio or logging action is
+part of this control. Live fairness/capacity and latency qualification remain open.
+
+Focused-scheduling source validation: two native CTests, 26 Swift session/method
+cases, 15 real-child/wire cases, 19 frontend cases, the native window-authority
+case and TypeScript passed. The deterministic queue fixture services all 32 IDs
+within 63 dispatches with one continuously pending preferred track; the real
+two-span native fixture also exercises focus identity/revision refusal and
+decoding alongside mute. These fixtures do not establish real-time capacity.
+The integrated frontend build and all configured window graph checks also
+passed; CW Decode startup measured 303,329 bytes.
+
 Retirement invalidates the track before removing pending jobs. A decode is
 checked against the track revision after inference and again when events are
 drained. Epoch/sequence/sample/rate faults retire only their input span. Other

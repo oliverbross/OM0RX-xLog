@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { ExternalLink, Play, RefreshCw, Settings2, Square, X } from "lucide-react";
 import { cwSourceName, requestCWDecode, type CWCapability, type CWDecodeConfiguration, type CWDecodeSnapshot, type CWIQSource } from "./cwDecode";
 import { useCWDecode } from "./useCWDecode";
+import { CWCallsignAction, type CWCallsignRequest } from "./CWCallsignAction";
+import { CWTuneAction, type CWTuneRequest } from "./CWTuneAction";
 import "./CWDecodePanel.css";
 
 const stateName = (state: string) => ({ stopped: "Stopped", preparing: "Preparing", acquiring: "Acquiring IQ", running: "Decoding", quarantined: "Waiting for fresh IQ",
@@ -9,13 +11,15 @@ const stateName = (state: string) => ({ stopped: "Stopped", preparing: "Preparin
 const mhz = (hz: number) => `${(hz / 1e6).toFixed(6)} MHz`;
 const offset = (hz: number) => `${hz >= 0 ? "+" : ""}${(hz / 1000).toFixed(3)} kHz`;
 
-export function CWDecodePanel({ detached = false, onUndock, request = requestCWDecode }: {
-  detached?: boolean; onUndock?: () => void; request?: typeof requestCWDecode;
+export function CWDecodePanel({ detached = false, onUndock, request = requestCWDecode, callsignRequest, tuneRequest }: {
+  detached?: boolean; onUndock?: () => void; request?: typeof requestCWDecode; callsignRequest?: CWCallsignRequest; tuneRequest?: CWTuneRequest;
 }) {
   const { snapshot, error, busy, refresh, command } = useCWDecode(request);
   const [editor, setEditor] = useState<CWDecodeConfiguration | null>(null), [selected, setSelected] = useState<string | null>(null), [sourceFilter, setSourceFilter] = useState("all");
+  const [copyNotice, setCopyNotice] = useState("");
   const tracks = useMemo(() => [...(snapshot?.tracks ?? [])].filter(track => sourceFilter === "all" || track.sourceID === sourceFilter)
-    .sort((a, b) => a.descriptor.radioID.localeCompare(b.descriptor.radioID) || a.sourceID.localeCompare(b.sourceID) || a.offsetHz - b.offsetHz), [snapshot?.tracks, sourceFilter]);
+    .sort((a, b) => a.descriptor.radioID.localeCompare(b.descriptor.radioID) || a.sourceID.localeCompare(b.sourceID) ||
+      (a.frequencyHz !== undefined && b.frequencyHz !== undefined ? a.frequencyHz - b.frequencyHz : a.offsetHz - b.offsetHz)), [snapshot?.tracks, sourceFilter]);
   const signal = snapshot?.tracks.find(track => track.trackID === selected);
   const edit = () => { if (snapshot) setEditor(structuredClone(snapshot.configuration)); };
   const save = async () => {
@@ -43,10 +47,15 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
       {snapshot.failure && <p className="cw-decode-notice" role="alert">The decoder process is unavailable. Stop decoding, check the offline installation, then start again.</p>}
       {!snapshot.automaticSpotsQualified && <p className="cw-decode-quality">Automatic spots are off while live decoding quality and RF mapping await qualification.</p>}
       {snapshot.spotOutputFailure && <p className="cw-decode-notice" role="alert">A Local CW spot could not be delivered. Check the local cluster history and server state. IQ decoding continues.</p>}
+      <p aria-label="CW compute load">{snapshot.load ? `Tracks ${snapshot.load.tracks} · pending ${snapshot.load.pending} · inferring ${snapshot.load.inFlight} · coalesced ${snapshot.load.coalesced} · dropped events ${snapshot.load.droppedEvents}` : "Compute load unavailable"}</p>
       <div className="cw-decode-sources" aria-label="Monitoring spans">{configured.length ? configured.map(source => {
         const live = snapshot.sources.find(row => row.configuration.id === source.id), capability = snapshot.capabilities.find(row => row.radioID === source.radioID && row.provider === source.provider);
         return <div key={source.id}><strong>{cwSourceName(source)}</strong><span>{live ? stateName(live.state) : "Stopped"}</span>
-          <span>{live?.descriptor ? mhz(live.descriptor.centreHz) : "IQ centre unavailable"} · {source.sampleRate / 1000} kHz</span>
+          <span>Requested {source.sampleRate / 1000} kHz · {live?.descriptor ? `actual ${live.descriptor.sampleRate / 1000} kHz · centre ${mhz(live.descriptor.centreHz)}` : "actual rate and centre unavailable"}</span>
+          {live?.descriptor && <small>{live.descriptor.usableLowerHz !== undefined && live.descriptor.usableUpperHz !== undefined
+            ? live.descriptor.mappingQualified ? `Usable RF ${mhz(live.descriptor.usableLowerHz)} to ${mhz(live.descriptor.usableUpperHz)}`
+              : `Adapter usable width ${(live.descriptor.usableUpperHz - live.descriptor.usableLowerHz) / 1000} kHz · RF unqualified`
+            : "Usable coverage unavailable"}</small>}
           {!capability?.ready && snapshot.featureEnabled !== false && <small>Connect this radio in Radio Settings to receive IQ.</small>}
           {source.provider === "flex_dax_iq" && <FlexHandoff source={source} capability={capability} revision={snapshot.configuration.revision}
             disabled={snapshot.featureEnabled === false || busy || active} command={command} />}
@@ -54,18 +63,23 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
         </div>;
       }) : <div><strong>No monitoring spans selected</strong><span>Choose one or two IQ sources to begin.</span><button type="button" onClick={edit}>Choose sources</button></div>}</div>
       {editor && <CWDecodeSettings value={editor} snapshot={snapshot} busy={busy} change={setEditor} save={save} close={() => setEditor(null)} />}
+      <CWCallsignAction signal={signal} snapshot={snapshot} request={callsignRequest} />
+      <CWTuneAction signal={signal} snapshot={snapshot} request={tuneRequest} />
       <div className="cw-decode-workspace">
         <div className="cw-decode-signals"><div className="cw-decode-table-bar"><h3>Signals <span>{tracks.length}</span></h3>
           <label>Source<select value={sourceFilter} onChange={event => setSourceFilter(event.target.value)}><option value="all">All spans</option>
             {configured.map(source => <option key={source.id} value={source.id}>{cwSourceName(source)}</option>)}</select></label></div>
-          <div className="cw-decode-table-scroll"><table><thead><tr><th>Source</th><th>RF / offset</th><th>Decoded text</th><th>Est. WPM</th><th>Est. SNR</th><th>State</th></tr></thead>
+          <div className="cw-decode-table-scroll"><table><thead><tr><th>Source</th><th>RF / offset</th><th>Call</th><th>Decoded text</th><th>Est. WPM</th><th>Est. SNR</th><th>Opportunity</th><th>State</th></tr></thead>
             <tbody>{tracks.map(track => <tr key={track.trackID} aria-selected={selected === track.trackID}>
               <td><button type="button" onClick={() => setSelected(track.trackID)} aria-label={`Inspect signal ${offset(track.offsetHz)} on ${cwSourceName(track.descriptor)}`}>{cwSourceName(track.descriptor)}</button></td>
               <td className="cw-decode-frequency">{track.frequencyHz === undefined ? offset(track.offsetHz) : mhz(track.frequencyHz)}{track.frequencyHz === undefined && <small>RF unqualified</small>}</td>
+              <td>{track.selection?.callsign ?? "—"}</td>
               <td className="cw-decode-copy"><span>{track.committed}</span><span className="cw-decode-provisional" aria-label="Provisional text">{track.provisional}</span>{!track.committed && !track.provisional && <span className="cw-decode-placeholder">Waiting for copy</span>}</td>
               <td title={track.estimatedWPM === undefined ? "Speed has not been measured" : "Estimated from observed key-down durations using the PARIS timing unit"}>{track.estimatedWPM?.toFixed(1) ?? "—"}</td>
               <td title={track.estimatedSNRDB === undefined ? "Signal-to-noise ratio has not been measured" : "Estimated SNR relative to 2.5 kHz noise bandwidth; hardware calibration pending"}>{track.estimatedSNRDB === undefined ? "—" : `${track.estimatedSNRDB.toFixed(1)} dB`}</td>
-              <td>{track.ambiguous ? "Ambiguous" : track.committed ? "Committed + live tail" : "Provisional"}</td>
+              <td className="cw-decode-opportunity" title="Existing logbook classification for this observed call and CW band.">{track.opportunity?.callStatus ?? "Unavailable"}
+                {track.opportunity && <small>DXCC {track.opportunity.dxccStatus}</small>}</td>
+              <td>{track.muted ? "Muted" : track.ambiguous ? "Ambiguous" : track.committed ? "Committed + live tail" : "Provisional"}</td>
             </tr>)}</tbody></table></div>
           {!tracks.length && <div className="cw-decode-empty"><h3>{active ? "Listening for CW signals" : "No live signals"}</h3>
             <p>{active ? "Signals appear after clean, continuous IQ and CW keying are detected. Retunes and transmit periods clear old copy." : "Select connected IQ sources and start decoding. The radio's tuning and transmit controls stay with its existing owner."}</p></div>}
@@ -76,6 +90,25 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
             <div><dt>RF mapping</dt><dd>{signal.descriptor.mappingQualified ? "Qualified" : "Unqualified"}</dd></div><div><dt>Model time</dt><dd>{signal.inferenceMilliseconds === undefined ? "Unavailable" : `${signal.inferenceMilliseconds.toFixed(0)} ms`}</dd></div></dl>
           <label>Committed text<textarea readOnly value={signal.committed} rows={5} /></label>
           <label>Provisional tail<textarea readOnly value={signal.provisional} rows={3} /></label>
+          <button type="button" disabled={snapshot.featureEnabled !== true || busy || signal.muted || signal.ambiguous || !signal.controlReference || snapshot.state !== "running"}
+            onClick={() => void command("cw_decode_track_focus", { reference: signal.priorityRequested ? null : signal.controlReference })}>{signal.priorityRequested ? "Clear priority" : "Prioritize track"}</button>
+          {signal.priorityRequested && <p>Priority requested. Other ready tracks keep their turns.</p>}
+          <button type="button" disabled={snapshot.featureEnabled !== true || busy || signal.muted || !signal.controlReference || snapshot.state !== "running"}
+            onClick={() => void command("cw_decode_track_mute", { reference: signal.controlReference })}>Mute track</button>
+          {signal.muted && <p>This signal stays muted until it retires or decoding restarts. Its last text remains visible.</p>}
+          <button type="button" disabled={!signal.committed} onClick={() => {
+            void navigator.clipboard.writeText(signal.committed).then(() => setCopyNotice("Committed text copied.")).catch(() => setCopyNotice("Could not copy text. Select the committed text and copy it manually."));
+          }}>Copy committed text</button>
+          {copyNotice && <p role="status">{copyNotice}</p>}
+          <details><summary>Show evidence</summary><dl className="cw-decode-evidence">
+            <div><dt>Session</dt><dd>{signal.descriptor.sessionID}</dd></div>
+            <div><dt>Source</dt><dd>{signal.sourceID}</dd></div>
+            <div><dt>Stream</dt><dd>{signal.descriptor.streamToken}</dd></div>
+            <div><dt>Track</dt><dd>{signal.trackID}</dd></div>
+            <div><dt>Revision</dt><dd>{signal.revision}</dd></div>
+            <div><dt>Sample rate</dt><dd>{signal.descriptor.sampleRate} Hz</dd></div>
+            <div><dt>Call evidence</dt><dd>{signal.selection?.callsign ?? "No unambiguous committed identity"}</dd></div>
+          </dl></details>
           <p className="cw-decode-quality">Provisional text can change. Automatic spots require committed station identification and qualified live evidence.</p>
           {signal.spotRejection && <small>Spot withheld: {signal.spotRejection.replaceAll("_", " ")}</small>}
         </aside>}

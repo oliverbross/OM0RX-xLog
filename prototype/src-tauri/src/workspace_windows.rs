@@ -86,7 +86,8 @@ pub const SUPPORTED_WINDOWS: [WindowSpec; 25] = [
     WindowSpec { id: "antenna", title: "OM0RX-xLog — Antenna Reference", width: 780.0, height: 600.0 },
 ];
 pub const CONTEST_LABEL_PREFIX: &str = "contest--";
-pub const CONTEST_WINDOWS: [WindowSpec; 18] = [
+pub const CONTEST_WINDOWS: [WindowSpec; 19] = [
+    WindowSpec { id: "cw-decode", title: "OM0RX-xLog Contest — CW Decode", width: 1120.0, height: 740.0 },
     WindowSpec { id: "active-qso", title: "OM0RX-xLog Contest — Main Logging", width: 800.0, height: 360.0 },
     WindowSpec { id: "call-history", title: "OM0RX-xLog Contest — Call History", width: 840.0, height: 360.0 },
     WindowSpec { id: "qrz-details", title: "OM0RX-xLog Contest — Callsign Details", width: 520.0, height: 420.0 },
@@ -175,6 +176,7 @@ pub fn native_minimum(label: &str) -> (f64, f64) {
         if identity.scope == WorkspaceWindowScope::Contesting {
             return match identity.panel_id {
                 "active-qso" => (500.0, 260.0),
+                "cw-decode" => (640.0, 480.0),
                 "call-history" => (440.0, 220.0),
                 "qrz-details" => (340.0, 220.0),
                 "group-chat" => (360.0, 240.0),
@@ -413,7 +415,7 @@ mod tests {
         let ids: BTreeSet<_> = CONTEST_WINDOWS.iter().map(|window| window.id).collect();
         assert_eq!(ids.len(), CONTEST_WINDOWS.len());
         assert_eq!(ids, BTreeSet::from(["active-qso", "awards", "band-maps", "world-map", "call-history", "group-chat", "qrz-details", "callsign-intelligence",
-            "chaser-dx", "dx-cluster", "edit-contact", "logbook", "messages", "monitor", "propagation", "rotor", "score-reporting", "station-control"]));
+            "chaser-dx", "cw-decode", "dx-cluster", "edit-contact", "logbook", "messages", "monitor", "propagation", "rotor", "score-reporting", "station-control"]));
         let titles = CONTEST_WINDOWS.iter().map(|window| (window.id, window.title)).collect::<std::collections::HashMap<_, _>>();
         for (panel, title) in [
             ("world-map", "OM0RX-xLog Contest — Spots Map"),
@@ -546,6 +548,7 @@ mod tests {
     #[test]
     fn contest_windows_use_scoped_compact_minima_without_changing_normal_tools() {
         let expected = [
+            ("cw-decode", (640.0, 480.0)),
             ("active-qso", (500.0, 260.0)), ("call-history", (440.0, 220.0)), ("qrz-details", (340.0, 220.0)),
             ("edit-contact", (500.0, 480.0)),
             ("group-chat", (360.0, 240.0)),

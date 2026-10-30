@@ -7,6 +7,7 @@ import { bearingAndDistance } from "../MapGeography";
 import { contestSchedule } from "./contestSchedule";
 import { selectContestLog } from "./contestLogSelection";
 import { validReviewCall } from "./logReview";
+import { resolveContestCWCallsign } from "./cwCallsign";
 import { connectMapContext, type MapContext } from "../live/mapContext";
 import { useSharedCW } from "../live/useSharedCW";
 import { ContestAssistancePanel, type ContestSCPPanelSurface, type SCPSelectionScope } from "./ContestAssistancePanel";
@@ -3214,6 +3215,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     return()=>{cancelled=true;};
   },[authorityClientReady,surfaceContext?.operatingContext,surfaceContext?.sessionID,surfaceContext?.workspaceGeneration,
     projection?.draftID,projection?.mode,fields.callsign,operationFrequencyHz]);
+  const cwCallsignOutputBlockedRef=useRef(false);
+  cwCallsignOutputBlockedRef.current=Boolean(autoCQActiveRef.current || cw.state.armed || cw.state.pending || cw.state.error || phoneReleaseBlocking || phoneSimulationArmed || phoneSimulationPending);
   const handleSurfaceAction = async (action: ContestSurfaceActionEnvelope) => {
     const active = projectionRef.current;
     if (!active || !detachedAvailable || action.sessionID !== active.sessionID ||
@@ -3290,6 +3293,17 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
       case "entry_set_text": {
         const fieldID = { callsign: "callsign", sentReport: "sent", receivedReport: "receive" }[action.params.field];
         await persistFields(fieldID, action.params.field === "callsign" ? action.params.value.toUpperCase() : action.params.value); return;
+      }
+      case "entry_cw_callsign": {
+        const outputBlocked=()=>cwCallsignOutputBlockedRef.current;
+        if(outputBlocked())throw new Error("Disarm contest output and finish its pending operation before loading a CW callsign.");
+        const callsign=await resolveContestCWCallsign(action),current=projectionRef.current;
+        if(!current || current.sessionID!==action.sessionID || current.workspaceGeneration!==action.workspaceGeneration ||
+          current.draftID!==action.params.draftID || surfaceDraftRevisionRef.current?.revision!==action.params.expectedDraftRevision || busyRef.current || retiring || outputBlocked())
+          throw new Error("Contest Entry changed during CW callsign readback.");
+        const next={...fieldsRef.current,callsign};fieldsRef.current=next;setFields(next);editVersionRef.current+=1;
+        await runMutation(base=>mutate("contest_draft_apply",base,{fields:next}),false,false,false,true);
+        return;
       }
       case "entry_set_exchange":
         if (!active.fields.some(field => field.id === action.params.fieldID && field.visible && field.enabled && !field.readOnly))
@@ -3798,6 +3812,14 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
           setManager(true); setError("Open a contest session before opening Group Chat."); return true;
         }
         await openContestGroupChatWindow(surfaceContext);
+        return true;
+      }
+      if (route === "contest-window-cw-decode") {
+        if (startupPending) return false;
+        if (!projectionRef.current || !detachedAvailable || !surfaceContext) {
+          setManager(true); setError("Open a contest session before opening CW Decode."); return true;
+        }
+        await openContestSurfaceWindow(surfaceContext, "cw-decode");
         return true;
       }
       const panelID = route.startsWith("contest-window-") ? route.slice("contest-window-".length) as ContestSurfacePanelID : null;

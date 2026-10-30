@@ -1593,6 +1593,33 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
     private func handleSpotDraft(method: String, params: [String: Any]) throws -> [String: Any] {
         let generation = try editGeneration()
         let db = try readyDatabase()
+        if method == "spot_draft_cw_status" {
+            // Native-only recovery reads the durable command's CW marker.
+            // It neither needs a surviving decoder/source pool nor grants a
+            // draft apply, lease release, tombstone or station effect.
+            try requireKeys(params, allowed: ["operationID"], required: ["operationID"])
+            guard let rawID=params["operationID"] as? String, let operationID=UUID(uuidString:rawID),
+                  operationID != UUID(uuid:(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)) else {throw invalid()}
+            var result:[String:Any]=["operationId":rawID,"phase":"uncertain","reservationActive":false,
+                "draftOnly":true,"tuneConfirmed":false,"rotor":"not_requested"]
+            guard let record=try db.spotDraftRecord(operationID:operationID) else {
+                result["error"]="No retained CW callsign receipt was found. Review Main Logging; no action was repeated."
+                return result
+            }
+            do {try record.command.validate()}
+            catch {throw WorkerFailure("cw_receipt_unverified","This durable receipt cannot verify that CW callsign action.")}
+            guard record.command.operationID==operationID, record.receipt.operationID==operationID,
+                  record.command.generation==record.receipt.generation,
+                  record.command.generation==UUID(uuidString:generation), record.receipt.phase == .draft_applied,
+                  record.command.spot.cwCallsign != nil,
+                  [.draft_applied,.confirmed,.failed,.uncertain].contains(record.phase) else {
+                throw WorkerFailure("cw_receipt_unverified","This durable receipt cannot verify that CW callsign action.")
+            }
+            let active=db.spotDraftLiveLease(for:record) != nil
+            result["phase"]=record.phase == .draft_applied && !active ? "uncertain":record.phase.rawValue
+            result["reservationActive"]=active
+            return result
+        }
         let common: Set<String> = ["operationID", "generation"]
         switch method {
         case "spot_draft_apply":
@@ -1622,13 +1649,17 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             case "spot_draft_apply":
                 _ = try integer(params, "expectedRevision", default: -1, range: 0...9_007_199_254_740_990)
                 guard let spot = params["spot"] as? [String: Any] else { throw invalid() }
-                try requireKeys(spot, allowed: ["call", "frequencyHz", "band", "mode", "country", "dxcc", "comment", "specialTags", "opportunity"],
+                try requireKeys(spot, allowed: ["call", "frequencyHz", "band", "mode", "country", "dxcc", "comment", "specialTags", "opportunity", "cwCallsign"],
                                 required: ["call", "frequencyHz", "band", "mode", "country", "comment", "specialTags"])
-                if !(spot["frequencyHz"] is NSNull && spot["opportunity"] != nil) {
+                if !(spot["frequencyHz"] is NSNull && (spot["opportunity"] != nil || spot["cwCallsign"] != nil)) {
                     _ = try integer(spot, "frequencyHz", default: 0, range: 1...1_000_000_000_000)
                 }
                 if let opportunity = spot["opportunity"] as? [String: Any] {
                     try requireKeys(opportunity, allowed: ["kind", "reference", "referenceKind"], required: ["kind", "reference", "referenceKind"])
+                }
+                if let reference=spot["cwCallsign"] as? [String:Any] {
+                    let keys:Set<String>=["sessionID","sourceID","streamToken","epoch","trackID","revision","selectionID"]
+                    try requireKeys(reference,allowed:keys,required:keys)
                 }
                 if spot["dxcc"] != nil, !(spot["dxcc"] is NSNull) { _ = try integer(spot, "dxcc", default: 0, range: 1...1_000) }
                 guard JSONSerialization.isValidJSONObject(params), try JSONSerialization.data(withJSONObject: params).count <= 16_384 else { throw invalid() }

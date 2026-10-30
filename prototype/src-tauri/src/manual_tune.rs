@@ -177,6 +177,14 @@ pub fn execute(
     generation: u64,
     identity: &str,
 ) -> Result<Value, String> {
+    execute_guarded(app, descriptor, request, generation, identity, || Ok(()))
+}
+/// Additional evidence is checked inside the existing selection owner's
+/// admission fence, then once more immediately before the one transport send.
+pub fn execute_guarded(
+    app: &tauri::AppHandle, descriptor: &Value, request: Value, generation: u64,
+    identity: &str, guard: impl Fn() -> Result<(), String>,
+) -> Result<Value, String> {
     let worker = descriptor["worker_generation"]
         .as_u64()
         .ok_or("Missing worker generation")?;
@@ -195,6 +203,7 @@ pub fn execute(
         identity,
         control,
         || {
+            guard()?;
             if uses_worker { crate::worker::require_existing_generation(worker)?; }
             let now = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -204,6 +213,7 @@ pub fn execute(
             telemetry.control()
         },
         |request| {
+            guard()?;
             let response = if descriptor["provider"] == "hamlib" {
                 crate::hamlib::request(request)
             } else {

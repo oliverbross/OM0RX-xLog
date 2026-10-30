@@ -13,6 +13,7 @@ struct Context {
     draft: String,
     revision: u64,
     spot: Value,
+    expected_radio: Value,
     lease: Option<String>,
     permit: Option<Permit>,
 }
@@ -172,10 +173,10 @@ fn validate_receipt(response: &Value, context: &Context) -> Result<(), String> {
         || valid_uuid(&receipt["draft"]["qso"]["id"])? != context.draft
         || receipt["draft"]["revision"].as_u64() != context.revision.checked_add(1)
         || receipt["draft"]["qso"]["call"] != context.spot["call"]
-        || receipt["draft"]["qso"]["frequencyHz"] != context.spot["frequencyHz"]
+        || receipt["draft"]["qso"]["frequencyHz"] != context.expected_radio["frequencyHz"]
         || context.spot.get("opportunity").is_none() && (
-            receipt["draft"]["qso"]["mode"].as_str().map(str::to_uppercase) != context.spot["mode"].as_str().map(str::to_uppercase)
-            || receipt["draft"]["qso"]["band"].as_str().map(str::to_lowercase) != context.spot["band"].as_str().map(str::to_lowercase))
+            receipt["draft"]["qso"]["mode"].as_str().map(str::to_uppercase) != context.expected_radio["mode"].as_str().map(str::to_uppercase)
+            || receipt["draft"]["qso"]["band"].as_str().map(str::to_lowercase) != context.expected_radio["band"].as_str().map(str::to_lowercase))
         || receipt["phase"] != "draft_applied" || !phase(&response["phase"]) || !response["replay"].is_boolean() {
         return Err("Durable activation receipt did not match its canonical operation".into());
     }
@@ -230,10 +231,11 @@ impl Backend for NativeBackend {
         let worker = running_worker()?;
         recover_missing_with(operation_id, |method, params| call(worker, method, params))
     }
-    fn draft_only(&self, request: &Request) -> bool { crate::opportunity_selection::owns(&request.source_epoch) }
+    fn draft_only(&self, request: &Request) -> bool { crate::opportunity_selection::owns(&request.source_epoch) || crate::cw_track_selection::owns(&request.source_epoch) }
     fn resolve(&self, request: &Request) -> Result<Value, String> {
         if crate::worker::local_acceptance() { return Err("Live reports are unavailable in isolated acceptance".into()); }
-        if self.draft_only(request) { return crate::opportunity_selection::resolve(request); }
+        if crate::cw_track_selection::owns(&request.source_epoch) {return crate::cw_track_selection::resolve(request);}
+        if crate::opportunity_selection::owns(&request.source_epoch) { return crate::opportunity_selection::resolve(request); }
         crate::cluster_session::owner(&self.app)?.activation_spot(&request.source_epoch, &request.spot_id, &request.spot_version)
     }
     fn canonical(&self) -> Result<Value, String> {
@@ -254,8 +256,10 @@ impl Backend for NativeBackend {
         {
             let mut contexts = self.operations.lock().map_err(|_| "Activation context unavailable")?;
             if contexts.contains_key(&request.operation_id) { return Err("Activation apply was already attempted; read its durable status instead".into()); }
+            let radio=if crate::cw_track_selection::owns(&request.source_epoch) {&base["qso"]} else {spot};
+            let expected_radio=json!({"frequencyHz":radio["frequencyHz"],"mode":radio["mode"],"band":radio["band"]});
             contexts.insert(request.operation_id.clone(), Context { request:request.clone(), worker, generation:generation.clone(),
-                draft:draft.clone(), revision, spot:spot.clone(), lease:None, permit:None });
+                draft:draft.clone(), revision, spot:spot.clone(), expected_radio, lease:None, permit:None });
         }
         // Fence this target before the worker can commit it. Otherwise a
         // concurrent ordinary-follow read could turn between commit and reply.
@@ -264,7 +268,7 @@ impl Backend for NativeBackend {
                 owner.revoke()?;
                 let state = owner.snapshot()?;
                 if state["pending"] == true || !state["owner"].is_null() {
-                    return Err("Use CW Stop and verify its outcome before loading an opportunity. The draft is unchanged.".into());
+                    return Err("Use CW Stop and verify its outcome before loading a callsign. The draft is unchanged.".into());
                 }
             }
             // Draft-only selection always retires follow intent before commit.
@@ -396,6 +400,7 @@ mod tests {
             spot_id:"fixture".into(),spot_version:uuid::Uuid::new_v4().to_string() }, worker:7,
             generation:uuid::Uuid::new_v4().to_string(),draft:uuid::Uuid::new_v4().to_string(),revision:4,
             spot:json!({"call":"K1ABC","frequencyHz":14074000,"mode":"FT8","band":"20m"}),
+            expected_radio:json!({"frequencyHz":14074000,"mode":"FT8","band":"20m"}),
             lease:Some(uuid::Uuid::new_v4().to_string()),permit:None }
     }
     #[test]
@@ -475,6 +480,20 @@ mod tests {
             ("/receipt/draft/qso/band",json!("40m")),("/receipt/phase",json!("confirmed")),("/replay",json!(null))] {
             let mut changed = valid.clone(); *changed.pointer_mut(path).unwrap()=value;
             assert!(validate_receipt(&changed,&context).is_err(),"{path}");
+        }
+    }
+    #[test]
+    fn callsign_only_receipts_must_preserve_the_canonical_radio_fields() {
+        let mut context=context();
+        context.spot=json!({"call":"K1ABC","frequencyHz":null,"mode":"","band":"","cwCallsign":{}});
+        context.expected_radio=json!({"frequencyHz":7188000,"mode":"LSB","band":"40m"});
+        let mut valid=receipt(&context);
+        valid["receipt"]["draft"]["qso"]["frequencyHz"]=json!(7188000);
+        valid["receipt"]["draft"]["qso"]["mode"]=json!("LSB");valid["receipt"]["draft"]["qso"]["band"]=json!("40m");
+        validate_receipt(&valid,&context).unwrap();
+        for (field,value) in [("frequencyHz",Value::Null),("mode",json!("CW")),("band",json!("20m"))] {
+            let mut changed=valid.clone();changed["receipt"]["draft"]["qso"][field]=value;
+            assert!(validate_receipt(&changed,&context).is_err(),"{field}");
         }
     }
     #[test]

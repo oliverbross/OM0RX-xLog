@@ -166,8 +166,8 @@ export async function closeContestSurfaceContext(context: ContestSurfaceContext 
   await invoke("contest_surface_context_close", context);
 }
 
-export async function openContestSurfaceWindow(context: ContestSurfaceContext, panelID: ContestSurfacePanelID): Promise<void> {
-  if (!contextValid(context) || !contestSurfacePanelIDs.includes(panelID))
+export async function openContestSurfaceWindow(context: ContestSurfaceContext, panelID: ContestSurfacePanelID | "cw-decode"): Promise<void> {
+  if (!contextValid(context) || panelID !== "cw-decode" && !contestSurfacePanelIDs.includes(panelID))
     throw new Error("The contest window request could not be verified.");
   if (!isTauri()) throw new Error("Contest windows require the native application.");
   await invoke("contest_window_open", { ...context, panelID });

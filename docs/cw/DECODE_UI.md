@@ -19,12 +19,14 @@ occupied/failed/self-loop states. Endpoint settings can be changed while IQ
 continues when the listener is stopped. Unknown or stale worker reads clear the
 live projection; old reads or Start replies cannot overwrite a newer Stop.
 
-Native admission grants the six receive-only decoder methods only to main and
-CW Decode. It grants no transmit, tune, QSO mutation, secret or general cluster
-authority. Decoder timeout policy retains the logging/radio worker. The main
+Native worker admission grants only the receive-only decoder namespace to main
+and CW Decode surfaces. It grants no transmit, tune, QSO mutation, secret or general cluster
+authority. A separate identity-only native command owns explicit callsign loading
+through the Normal Logging editor/CAS/receipt coordinator or the sole contest
+Entry consumer. Decoder timeout policy retains the logging/radio worker. The main
 and Window-menu routes reuse the existing singleton window machinery.
 
-Verification: five component lifecycle/control tests, two bounded projection
+Original UI milestone verification: five component lifecycle/control tests, two bounded projection
 tests, direct lazy-window loading and twelve existing navigation tests pass.
 Two native role/timeout tests and 135 native workspace-related tests pass. The
 production bundle graph excludes the main controller, maps and CW transmitter
@@ -38,7 +40,43 @@ The incumbent navy/system-font console is preserved. The same input/copy styles
 and readable labels are used at both sizes; the dense table scrolls within its
 own region. These are renderer checks, not installed-app or RF acceptance.
 
-Still outstanding: native Flex acquisition/resource selection, qualified RF
-and quality evidence, measured SNR/WPM, explicit Tune/Use callsign integration,
-signed offline packaging, external-client acceptance and the required soaks.
+The isolated follow-up branch adds Call and Opportunity, native signal estimates with expiry,
+requested/actual rate and usable-width status, fresh worker load counts,
+committed-only Copy, source evidence details, native track Mute and explicit
+Use callsign in both logging modules and separate explicit Tune. See [selection/action boundaries](TRACK_SELECTION.md)
+and [signal/load evidence](SIGNAL_DIAGNOSTICS.md).
+
+The contest Window menu also opens the singleton `contest--cw-decode` using the
+existing context-bound native window owner. It loads the same lazy receive view
+and service. Every decoder request verifies its native URL has exactly one
+view/scope/operating-context/session/workspace tuple, then admits that tuple
+against current native contest authority. Renderer fields do not establish it.
+The window has no contest mutation, normal-draft, secret or station-control
+authority. Opening/closing it neither starts nor stops capture. Callsign loading
+uses the separate, fenced native action described in the selection document;
+the decoder window never acquires raw contest mutation authority.
+Validation: 137 native workspace cases and the receive-only role case pass;
+thirteen navigation/lazy-loader cases and six selected contest startup/menu cases
+pass, including the CW menu intent after session restoration. TypeScript passes.
+No installed contest-window or live CW acceptance is claimed.
+
+Still outstanding: real Flex/SunSDR input qualification, qualified RF and quality
+evidence, hardware signal calibration, installed Tune acceptance,
+complete process-restart action recovery, full CW package acceptance,
+external-client acceptance, measured capacity and the required soaks.
 This development UI does not claim the complete feature has shipped.
+
+Opportunity reads the existing cluster contact index for a resolved callsign on
+a qualified CW band. Call status and DXCC status remain distinct. This is a
+passive annotation: it cannot publish a spot, repair a callsign hypothesis or
+change worked/confirmed state. The worker uses only an already loaded current
+contact projection; it does not scan the database or connect a cluster when this
+view opens. Missing/stale contacts, call-less, ambiguous, muted, replay or
+unqualified-frequency rows show Unavailable. It does not claim contest multiplier
+or dupe classification. Contact refresh and workspace changes fence late results.
+
+Validation includes index parity for new/worked/confirmed calls, unavailable
+contact state, no published spots or opened transports, worker cache lifecycle
+and strict renderer projection. This is source/fixture evidence only.
+Fourteen Swift cases (13 XCTest and one Swift Testing), 33 focused frontend
+cases and TypeScript passed on the Opportunity change.

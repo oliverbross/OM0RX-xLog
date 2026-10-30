@@ -79,6 +79,20 @@ public actor LiveWorker {
             if method == "logbook_operator_draft" { result["power_capture_status"] = powerStatus }
             return result
         }
+        #if os(macOS)
+        func applyCWCallsign(params:[String:Any],resolver:LiveCWDecodeMethods) async throws -> [String:Any] {
+            guard let spot=params["spot"] as? [String:Any],let reference=spot["cwCallsign"],let call=spot["call"] as? String else {
+                throw WorkerFailure("invalid_params","CW callsign parameters are invalid.")
+            }
+            // Resolve after entering the database lane, rather than allowing a
+            // queued import to make an earlier router read stale before commit.
+            let resolved=try await resolver.handle(method:"cw_decode_resolve_selection",params:["reference":reference,"require_frequency":false])
+            guard resolved["callsign"] as? String==call else {
+                throw WorkerFailure("cw_selection_stale","This signal changed before the draft could be updated.")
+            }
+            return try handle(method:"spot_draft_apply",params:params)
+        }
+        #endif
 
         func workspaceGeneration() throws -> String {
             guard let generation = try service.syncOwnerContext()["generation"] as? String,
@@ -270,7 +284,8 @@ public actor LiveWorker {
         self.cluster = cluster
         #if os(macOS)
         cwDecode = LiveCWDecodeMethods(logbook:logbook,prepareListener:{try await cluster.prepareLocalCWListener()},
-            ingestSpot:{spot,call in try await cluster.ingestLocalCW(spot,stationCallsign:call)})
+            ingestSpot:{spot,call in try await cluster.ingestLocalCW(spot,stationCallsign:call)},
+            classify:{call,frequency in await cluster.classifyCWIfCurrent(call:call,frequencyHz:frequency)})
         #endif
         self.contactRefresher = contactRefresher ?? { try await cluster.refreshContacts() }
         let opportunityMethods = opportunityMethods ?? LiveOpportunitiesMethods(logbook: logbook,
@@ -624,6 +639,12 @@ public actor LiveWorker {
                     result = ["accepted": activeAdmission == .applied, "superseded": activeAdmission != .applied]
                 }
             } else if method == "cluster_history" || method.hasPrefix("spot_draft_") || method.hasPrefix("workspace_") || method.hasPrefix("logbook_") || method.hasPrefix("settings_") || method.hasPrefix("backup_") {
+                #if os(macOS)
+                let cwCallsign=method=="spot_draft_apply" && (params["spot"] as? [String:Any])?["cwCallsign"] != nil
+                if cwCallsign {
+                    guard ownsProcessSessions else {throw WorkerFailure("cw_owner_required","CW callsign loading requires the application worker owner.")}
+                }
+                #endif
                 if method == "logbook_operator_draft_apply", params["action"] as? String == "save" {
                     // Include the callback prefix already emitted before Save
                     // admission; unstructured actor Tasks alone are not FIFO.
@@ -651,7 +672,14 @@ public actor LiveWorker {
                     #endif
                     await cluster.invalidateContactsForWorkspaceChange()
                 }
-                do { result = try await logbookLane.handle(method: method, params: params) }
+                do {
+                    #if os(macOS)
+                    if cwCallsign {result=try await logbookLane.applyCWCallsign(params:params,resolver:cwDecode)}
+                    else {result = try await logbookLane.handle(method:method,params:params)}
+                    #else
+                    result = try await logbookLane.handle(method:method,params:params)
+                    #endif
+                }
                 catch {
                     // A rejected restore still owns the original workspace;
                     // rebuild its invalidated projection without hiding error.
