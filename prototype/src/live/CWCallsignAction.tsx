@@ -33,8 +33,10 @@ export function CWCallsignAction({ signal, snapshot, request = requestCWCallsign
   const [checkedOriginal, setCheckedOriginal] = useState(false);
   const [originals, setOriginals] = useState<{ operationId: string; target: string }[]>([]);
   const target = snapshot.operatingModule === "normal_logging" ? "Normal Logging" : snapshot.operatingModule === "contesting" ? "Contest Entry" : null;
+  const entryTarget=snapshot.operatingModule === "contesting" ? snapshot.callsignEntryTarget : undefined;
   const eligible = snapshot.featureEnabled === true && snapshot.state === "running" && ["normal_logging", "contesting"].includes(snapshot.operatingModule ?? "") &&
-    uuid(snapshot.operatingContext) && !!signal?.selection?.activation && !signal.ambiguous;
+    uuid(snapshot.operatingContext) && !!signal?.selection?.activation && !signal.ambiguous &&
+    (snapshot.operatingModule !== "contesting" || entryTarget !== undefined);
   const retainOriginal = (id: string) => {
     const prior = sessionStorage.getItem(key);
     if (prior !== null && !uuid(prior)) {
@@ -72,7 +74,8 @@ export function CWCallsignAction({ signal, snapshot, request = requestCWCallsign
       const selection = signal?.selection;
       const params = check ? { action: "reconcile", operationId: id } : { action: "apply", operationId: id,
         sourceEpoch: selection!.activation!.sourceEpoch, spotId: selection!.reference.trackID, spotVersion: selection!.activation!.spotVersion,
-        operatingModule:snapshot.operatingModule,operatingContext:snapshot.operatingContext };
+        operatingModule:snapshot.operatingModule,operatingContext:snapshot.operatingContext,
+        ...(entryTarget ? {entryTarget} : {}) };
       const next = parseCWCallsignOutcome(await request(params), id); setOutcome(next);
       if (["confirmed", "blocked", "failed"].includes(next.phase) && !next.reservationActive) {
         sessionStorage.removeItem(key); operation.current = null; setPending(null);
@@ -81,7 +84,9 @@ export function CWCallsignAction({ signal, snapshot, request = requestCWCallsign
     finally { inFlight.current = false; setBusy(false); }
   };
   return <div className="cw-decode-callsign" aria-label="CW callsign loading">
-    {target && <p>Target entry: <strong>{target}</strong>. Frequency and mode are kept.</p>}
+    {target && <p>Target entry: <strong>{target}{entryTarget?.laneID ? ` · Lane ${entryTarget.laneID === "laneA" ? "A" : "B"}` : ""}</strong>.
+      {entryTarget ? ` Draft ${entryTarget.draftID.slice(0,8)} · revision ${entryTarget.expectedDraftRevision}.` : ""} Frequency and mode are kept.</p>}
+    {snapshot.operatingModule === "contesting" && !entryTarget && <p>Target Entry is unavailable. Open the intended lane in Contest Entry and finish the current draft or pending edits.</p>}
     <div className="cw-decode-actions"><button type="button" disabled={!eligible || busy || !!pending || originals.length > 0} onClick={() => void run(false)}
       title="Load the observed callsign into the active logging entry, preserving its frequency, mode and operator text.">Use callsign{signal?.selection ? ` ${signal.selection.callsign}` : ""}</button>
       {pending && <button type="button" disabled={busy || !uuid(pending)} onClick={() => void run(true)}>Check original action</button>}

@@ -795,7 +795,11 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
             text_value(&params["value"], 160, true, "entry value")?;
         }
         "entry_cw_callsign" => {
-            draft(params,&["sourceEpoch","spotID","spotVersion"])?;
+            if params.contains_key("laneID") {
+                draft(params,&["sourceEpoch","spotID","spotVersion","laneID","bindingVersion"])?;
+                enum_value(&params["laneID"],&["laneA","laneB"],"CW Entry lane")?;
+                uint_value(&params["bindingVersion"],MAX_SAFE_INTEGER,"CW Entry binding")?;
+            } else {draft(params,&["sourceEpoch","spotID","spotVersion"])?;}
             for key in ["sourceEpoch","spotID","spotVersion"]{canonical_uuid_value(&params[key],"CW native selection")?;}
         }
         "entry_set_exchange" => {
@@ -3302,6 +3306,9 @@ mod tests {
     fn cw_callsign_actions_accept_only_native_identities_and_an_exact_entry_draft(){
         let params=json!({"draftID":"draft","expectedDraftRevision":2,"sourceEpoch":OPERATING,"spotID":SESSION,"spotVersion":WORKSPACE});
         assert!(validate_action_envelope(&action("entry_cw_callsign","active-qso",params.clone())).is_ok());
+        let mut scoped=params.clone();scoped["laneID"]=json!("laneB");scoped["bindingVersion"]=json!(7);
+        assert!(validate_action_envelope(&action("entry_cw_callsign","active-qso",scoped.clone())).is_ok());
+        scoped["bindingVersion"]=json!(true);assert!(validate_action_envelope(&action("entry_cw_callsign","active-qso",scoped)).is_err());
         assert!(validate_action_envelope(&action("entry_cw_callsign","band-maps",params.clone())).is_err());
         for (key,value) in [("callsign",json!("K1ABC")),("frequencyHz",json!(14025000)),("tune",json!(true))]{
             let mut wrong=params.clone();wrong[key]=value;assert!(validate_action_envelope(&action("entry_cw_callsign","active-qso",wrong)).is_err());

@@ -793,7 +793,7 @@ const operationalRequest=(current:()=>ReturnType<typeof projection>,point:(spotI
 });
 
 it("loads a fenced CW callsign through the sole Entry owner while preserving operating fields",async()=>{
-  let current=projection(1,{callsign:"DL1ABC",sent:"579",receive:"589",other_2:"14"});
+  let current=projection(1,{sent:"579",receive:"589",other_2:"14"});
   const base=operationalRequest(()=>current);
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
     if(method==="contest_draft_apply"){
@@ -818,6 +818,17 @@ it("loads a fenced CW callsign through the sole Entry owner while preserving ope
   expect(workspaceProps.stationTune).not.toHaveBeenCalled();expect(nativeCW.stop).not.toHaveBeenCalled();
   await expect(surfaceOwner.current.handle({...action,requestID:crypto.randomUUID()})).rejects.toThrow(/entry changed/i);
   expect(cwCallsignSource.resolve).toHaveBeenCalledTimes(1);
+});
+it("preserves an occupied Contest Entry instead of replacing its callsign",async()=>{
+  const current=projection(1,{callsign:"K1HOLD",other_2:"14"}),request=operationalRequest(()=>current);
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));
+  const entry=surfaceOwner.current.projections["active-qso"];
+  await expect(surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,panelID:"active-qso",projectionRevision:1,
+    requestID:crypto.randomUUID(),action:"entry_cw_callsign",params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,
+      sourceEpoch:crypto.randomUUID(),spotID:crypto.randomUUID(),spotVersion:crypto.randomUUID()}})).rejects.toThrow(/occupied/i);
+  expect(cwCallsignSource.resolve).not.toHaveBeenCalled();expect(request.mock.calls.some(([method])=>method==="contest_draft_apply")).toBe(false);
+  expect(surfaceOwner.current.projections["active-qso"].draft.callsign).toBe("K1HOLD");
 });
 it.each(["armed","pending","error"] as const)("refuses CW callsign loading while output is %s without sending Stop",async condition=>{
   if(condition==="error")nativeCW.state.error="Output release unknown";else nativeCW.state[condition]=true;

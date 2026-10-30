@@ -4,6 +4,17 @@ import { cwSourceFailureMessages, parseCWDecodeSnapshot } from "./cwDecode";
 import { cwDecodeFixture, cwDecodeTrackFixture } from "./cwDecode.fixtures";
 
 describe("native CW Decode projection", () => {
+  it("accepts only a complete native contest draft/lane target",()=>{
+    const fixture=cwDecodeFixture();fixture.operatingModule="contesting";
+    fixture.callsignEntryTarget={draftID:crypto.randomUUID(),expectedDraftRevision:4,laneID:"laneB",bindingVersion:7};
+    expect(parseCWDecodeSnapshot(fixture).callsignEntryTarget?.laneID).toBe("laneB");
+    for(const target of [{...fixture.callsignEntryTarget,laneID:"unknown"},{...fixture.callsignEntryTarget,bindingVersion:undefined},
+      {...fixture.callsignEntryTarget,bindingVersion:true},{...fixture.callsignEntryTarget,callsign:"K1ABC"},
+      {draftID:fixture.callsignEntryTarget.draftID,expectedDraftRevision:4,bindingVersion:7}]) {
+      const bad={...fixture,callsignEntryTarget:target};expect(()=>parseCWDecodeSnapshot(bad)).toThrow();
+    }
+    fixture.operatingModule="normal_logging";expect(()=>parseCWDecodeSnapshot(fixture)).toThrow();
+  });
   it("keeps native source failure codes and the operator projection in agreement", () => {
     const source=readFileSync(new URL("../../../Sources/XCWCore/CWIQSourceFailure.swift",import.meta.url),"utf8");
     const codes=[...source.matchAll(/"(iq_[a-z_]+)"/g)].map(match=>match[1]).sort();

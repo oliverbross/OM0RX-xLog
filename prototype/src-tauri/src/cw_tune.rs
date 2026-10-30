@@ -29,8 +29,8 @@ pub fn parse(value: Value) -> Result<Action, String> {
         let radio = value["radioID"].as_str().ok_or("Missing CW tune radio.")?; crate::radio_slots::index(radio)?;
         return Ok(Action::Status(operation.into(), radio.into()));
     }
-    match crate::cw_callsign_bridge::parse(value)? {
-        crate::cw_callsign_bridge::Action::Apply(request, context, module) => Ok(Action::Apply(request, context, module)),
+    match crate::cw_callsign_bridge::parse_tune(value)? {
+        crate::cw_callsign_bridge::Action::Apply(request, context, module, None) => Ok(Action::Apply(request, context, module)),
         _ => Err("CW tuning accepts an explicit apply or status read only.".into()),
     }
 }
@@ -139,6 +139,9 @@ mod tests {
     fn accepts_only_exact_identity_intents_and_status() {
         let origin=request(); let mut value=origin.clone();value["action"]=json!("apply");value["operatingModule"]=json!("normal_logging");value["operatingContext"]=json!(uuid::Uuid::new_v4().to_string());
         assert!(matches!(parse(value.clone()).unwrap(),Action::Apply(..)));
+        let mut contest=value.clone();contest["operatingModule"]=json!("contesting");
+        assert!(matches!(parse(contest.clone()).unwrap(),Action::Apply(..)));
+        contest["entryTarget"]=json!({"draftID":uuid::Uuid::new_v4().to_string(),"expectedDraftRevision":1});assert!(parse(contest).is_err());
         for key in ["frequencyHz","mode","radioID","ptt","rotor"] { let mut bad=value.clone();bad[key]=json!(true);assert!(parse(bad).is_err()); }
         assert!(parse(json!({"action":"status","operationId":origin["operationId"],"radioID":"radio2"})).is_ok());
         assert!(parse(json!({"action":"status","operationId":origin["operationId"],"radioID":"radio2","frequencyHz":14025000})).is_err());

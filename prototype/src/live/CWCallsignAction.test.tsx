@@ -17,6 +17,7 @@ function fixture() {
 }
 it.each(["normal_logging", "contesting"] as const)("mounts passively and sends only native identities in %s on one explicit click", async module => {
   const value = fixture(); value.snapshot.operatingModule = module; let finish!: (reply: unknown) => void;
+  if(module === "contesting") value.snapshot.callsignEntryTarget={draftID:crypto.randomUUID(),expectedDraftRevision:4,laneID:"laneB",bindingVersion:7};
   const request = vi.fn((_params: Record<string, unknown>) => new Promise(resolve => { finish = resolve; }));
   render(<CWCallsignAction {...value} request={request} />); expect(request).not.toHaveBeenCalled();
   const button = screen.getByRole("button", { name: "Use callsign K1ABC" });
@@ -25,10 +26,18 @@ it.each(["normal_logging", "contesting"] as const)("mounts passively and sends o
   const params = request.mock.calls[0][0] as Record<string, unknown>;
   expect(params).toEqual({ action: "apply", operationId: expect.any(String), sourceEpoch: value.signal.selection!.activation!.sourceEpoch,
     spotId: value.signal.trackID, spotVersion: value.signal.selection!.activation!.spotVersion,
-    operatingModule:module,operatingContext:value.snapshot.operatingContext });
+    operatingModule:module,operatingContext:value.snapshot.operatingContext,
+    ...(module === "contesting" ? {entryTarget:value.snapshot.callsignEntryTarget} : {}) });
+  if(module === "contesting") expect(screen.getByText("Contest Entry · Lane B")).toBeTruthy();
   finish({ operationId: params.operationId, phase: "confirmed", reservationActive: false });
   await screen.findByText("Callsign loaded into the logging entry. Frequency and mode are retained.");
   expect(sessionStorage.length).toBe(0);
+});
+it("requires the native displayed Contest Entry target and never guesses a lane",()=>{
+  const value=fixture();value.snapshot.operatingModule="contesting";const request=vi.fn();
+  render(<CWCallsignAction {...value} request={request}/>);
+  fireEvent.click(screen.getByRole("button",{name:"Use callsign K1ABC"}));expect(request).not.toHaveBeenCalled();
+  expect(screen.getByText(/Target Entry is unavailable/)).toBeTruthy();
 });
 it("retains lost acknowledgement through remount and reconciles the original identity without applying again", async () => {
   const value = fixture();

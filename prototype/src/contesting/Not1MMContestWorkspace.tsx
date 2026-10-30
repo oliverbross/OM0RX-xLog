@@ -3296,10 +3296,29 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
       case "entry_cw_callsign": {
         const outputBlocked=()=>cwCallsignOutputBlockedRef.current;
         if(outputBlocked())throw new Error("Disarm contest output and finish its pending operation before loading a CW callsign.");
+        if((fieldsRef.current.callsign??"").trim())throw new Error("Contest Entry is occupied. Finish or park this draft before loading a CW callsign.");
+        const inputVersion=editVersionRef.current,laneScope=dualContestLanes(active)?captureContestLaneScope(active):null;
+        if(laneScope ? action.params.laneID!==laneScope.laneID || action.params.bindingVersion!==laneScope.bindingVersion || action.params.draftID!==laneScope.draftID
+          : action.params.laneID!==undefined || action.params.bindingVersion!==undefined)
+          throw new Error("Contest Entry lane or receiver binding changed before CW readback.");
         const callsign=await resolveContestCWCallsign(action),current=projectionRef.current;
         if(!current || current.sessionID!==action.sessionID || current.workspaceGeneration!==action.workspaceGeneration ||
-          current.draftID!==action.params.draftID || surfaceDraftRevisionRef.current?.revision!==action.params.expectedDraftRevision || busyRef.current || retiring || outputBlocked())
+          current.draftID!==action.params.draftID || surfaceDraftRevisionRef.current?.revision!==action.params.expectedDraftRevision ||
+          editVersionRef.current!==inputVersion || busyRef.current || retiring || outputBlocked())
           throw new Error("Contest Entry changed during CW callsign readback.");
+        if(laneScope){
+          assertContestLaneScope(current,laneScope);
+          if(current.operatingLanes!.keyboardLaneID!==laneScope.laneID)throw new Error("Contest Entry lane changed during CW callsign readback.");
+          await enqueueLane(laneScope,async base=>{
+            if(outputBlocked() || surfaceDraftRevisionRef.current?.revision!==action.params.expectedDraftRevision ||
+              editVersionRef.current!==inputVersion || laneBuffer(laneScope).conflicts.length ||
+              projectionRef.current?.operatingLanes?.keyboardLaneID!==laneScope.laneID)
+              throw new Error("Contest Entry changed before CW callsign loading.");
+            const buffer=laneBuffer(laneScope);buffer.fields={...buffer.fields,callsign};buffer.version++;
+            const submitted=structuredClone(buffer);renderLaneBuffers(value=>value+1);
+            admitLaneResult(await mutate("contest_draft_apply",base,{...contestLaneParams(laneScope),fields:submitted.fields},action.requestID),laneScope,submitted);
+          },false);return;
+        }
         const next={...fieldsRef.current,callsign};fieldsRef.current=next;setFields(next);editVersionRef.current+=1;
         await runMutation(base=>mutate("contest_draft_apply",base,{fields:next},action.requestID),false,false,false,true);
         return;

@@ -1,13 +1,15 @@
 //! Explicit CW callsign intent. No renderer callsign, RF target or effect flag.
 use serde_json::{json,Value};
-pub enum Action {Apply(crate::spot_activation::Request,String,crate::operating_module::OperatingModule),Status(String),Reconcile(String),Retained}
+pub enum Action {Apply(crate::spot_activation::Request,String,crate::operating_module::OperatingModule,Option<Value>),Status(String),Reconcile(String),Retained}
 pub fn validate_surface(label:&str,isolated:bool,exiting:bool)->Result<(),String> {
     if isolated||exiting||!matches!(label,"main"|"cw-decode"|"contest--cw-decode") {Err("CW callsign actions are unavailable in this window.".into())} else {Ok(())}
 }
 fn id(value:&str)->Result<(),String> {
     if uuid::Uuid::parse_str(value).is_ok_and(|id|!id.is_nil()){Ok(())}else{Err("CW action identity is invalid.".into())}
 }
-pub fn parse(mut value:Value)->Result<Action,String> {
+pub fn parse(value:Value)->Result<Action,String> {parse_with_entry(value,true)}
+pub fn parse_tune(value:Value)->Result<Action,String> {parse_with_entry(value,false)}
+fn parse_with_entry(mut value:Value,entry:bool)->Result<Action,String> {
     if value.to_string().len()>1024 {return Err("CW action exceeds its input limit.".into());}
     let object=value.as_object_mut().ok_or("CW action is invalid.")?;
     let action=object.remove("action").and_then(|v|v.as_str().map(str::to_owned)).ok_or("CW action is missing.")?;
@@ -16,9 +18,13 @@ pub fn parse(mut value:Value)->Result<Action,String> {
         "apply"=>{
             let context=object.remove("operatingContext").and_then(|value|value.as_str().map(str::to_owned)).ok_or("CW operating context is missing.")?;id(&context)?;
             let module=serde_json::from_value(object.remove("operatingModule").ok_or("CW operating module is missing.")?).map_err(|_|"CW operating module is invalid.")?;
+            let target=object.remove("entryTarget");
+            if entry && module==crate::operating_module::OperatingModule::Contesting {
+                crate::cw_contest_callsign::validate_entry_target(target.as_ref().ok_or("Choose the displayed Contest Entry target before loading a callsign.")?)?;
+            } else if target.is_some(){return Err("An Entry target is unavailable for this action.".into());}
             let request:crate::spot_activation::Request=serde_json::from_value(value).map_err(|_|"CW selection accepts native identities only.")?;
             for value in [&request.operation_id,&request.source_epoch,&request.spot_id,&request.spot_version]{id(value)?;}
-            Ok(Action::Apply(request,context,module))
+            Ok(Action::Apply(request,context,module,target))
         },
         "status"|"reconcile"=>{
             if object.len()!=1 {return Err("CW status accepts one operation identity.".into());}
@@ -99,6 +105,11 @@ mod tests {
         assert!(parse(json!({"action":"retained","clear":true})).is_err());
         let request=json!({"action":"apply","operationId":uuid::Uuid::new_v4().to_string(),"sourceEpoch":uuid::Uuid::new_v4().to_string(),"spotId":uuid::Uuid::new_v4().to_string(),"spotVersion":uuid::Uuid::new_v4().to_string(),"operatingContext":uuid::Uuid::new_v4().to_string(),"operatingModule":"normal_logging"});
         assert!(matches!(parse(request.clone()).unwrap(),Action::Apply(..)));
+        let mut contest=request.clone();contest["operatingModule"]=json!("contesting");assert!(parse(contest.clone()).is_err());
+        contest["entryTarget"]=json!({"draftID":uuid::Uuid::new_v4().to_string(),"expectedDraftRevision":4,"laneID":"laneB","bindingVersion":7});
+        assert!(matches!(parse(contest.clone()).unwrap(),Action::Apply(_,_,_,Some(_))));
+        let mut missing=contest.clone();missing["entryTarget"].as_object_mut().unwrap().remove("bindingVersion");assert!(parse(missing).is_err());
+        let mut normal=contest;normal["operatingModule"]=json!("normal_logging");assert!(parse(normal).is_err());
         for key in ["operatingContext","operatingModule"]{let mut missing=request.clone();missing.as_object_mut().unwrap().remove(key);assert!(parse(missing).is_err());}
         for (key,value) in [("call",json!("K1ABC")),("frequencyHz",json!(14025000)),("tune",json!(true))]{let mut bad=request.clone();bad[key]=value;assert!(parse(bad).is_err());}
         let operation=request["operationId"].clone();

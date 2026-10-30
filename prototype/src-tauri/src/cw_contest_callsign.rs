@@ -71,11 +71,13 @@ fn validate_intent(operation:&str,intent:&Intent)->Result<(),String>{
     let request=&intent.request;let context=&intent.context;
     if operation!=request.operation_id || [&request.operation_id,&request.source_epoch,&request.spot_id,&request.spot_version,&context.operating_context,&context.session_id,&context.workspace_generation].iter().any(|value|!uuid(value))
         || intent.callsign.len()<3 || intent.callsign.len()>32 || !intent.callsign.bytes().all(|b|b.is_ascii_uppercase()||b.is_ascii_digit()||b==b'/')
-        || intent.draft_scope.as_object().is_none_or(|value|value.len()!=5)
+        || intent.draft_scope.as_object().is_none_or(|value|!matches!(value.len(),5|7))
         || !intent.draft_scope["draftID"].as_str().is_some_and(uuid) || !intent.draft_scope["expectedDraftRevision"].is_u64()
         || intent.draft_scope["sourceEpoch"]!=request.source_epoch || intent.draft_scope["spotID"]!=request.spot_id || intent.draft_scope["spotVersion"]!=request.spot_version{
         return Err("CW Entry journal identity or scope is malformed; it was preserved.".into());
     }
+    let mut target=intent.draft_scope.clone();for key in ["sourceEpoch","spotID","spotVersion"]{target.as_object_mut().unwrap().remove(key);}
+    validate_entry_target(&target)?;
     if let Some(value)=&intent.terminal{validate_terminal(operation,value)?;}Ok(())
 }
 static JOURNAL:OnceLock<Result<Mutex<Journal>,String>>=OnceLock::new();
@@ -114,17 +116,41 @@ fn ready(snapshot:&Value)->Result<(&Value,&Value),String>{
     let projection=&snapshot["projection"];let draft=&projection["draft"];
     if projection["status"]!="ready" || projection["busy"]!=false || projection["dirty"]!=false || projection["uncertain"]!=false
         || projection["operator"]["armed"]!=false || projection["operator"]["status"]!="disarmed"
+        || draft["callsign"].as_str().is_none_or(|call|!call.trim().is_empty())
         || !draft["draftID"].is_string() || !draft["revision"].is_u64() {
-        return Err("Finish the current Entry operation and disarm contest output before loading a CW callsign.".into());
+        return Err("Finish the occupied Entry or pending operation and disarm contest output before loading a CW callsign.".into());
     }
     Ok((projection,draft))
 }
+pub fn validate_entry_target(value:&Value)->Result<(),String>{
+    let object=value.as_object().ok_or("CW Entry target is malformed.")?;
+    if !value["draftID"].as_str().is_some_and(|id|!id.is_empty()&&id.len()<=160) || !value["expectedDraftRevision"].as_u64().is_some_and(|n|n<=9_007_199_254_740_991)
+        || if object.contains_key("laneID") {object.len()!=4 || !matches!(value["laneID"].as_str(),Some("laneA"|"laneB")) ||
+            !value["bindingVersion"].as_u64().is_some_and(|n|n<=9_007_199_254_740_991)} else {object.len()!=2}{
+        return Err("CW Entry target is malformed or its lane binding is unavailable.".into());
+    }Ok(())
+}
+fn entry_target(snapshot:&Value)->Result<Value,String>{
+    let (projection,draft)=ready(snapshot)?;
+    let mut target=json!({"draftID":draft["draftID"],"expectedDraftRevision":draft["revision"]});
+    if let Some(lane)=projection["session"].get("laneContext"){
+        if !matches!(lane["mode"].as_str(),Some("SO2V"|"SO2R")){return Err("Contest Entry lane mode is unavailable.".into());}
+        target["laneID"]=lane["laneID"].clone();target["bindingVersion"]=lane["bindingVersion"].clone();
+    }
+    validate_entry_target(&target)?;Ok(target)
+}
+/// Passive read from the existing sole Entry owner, with no new service or draft.
+pub fn displayed_target(operating_context:&str)->Option<Value>{
+    let context=crate::contest_window_context::active().ok()?;
+    if context.operating_context!=operating_context{return None;}
+    entry_target(&entry(&context).ok()?).ok()
+}
 fn envelope(snapshot:&Value,context:&crate::contest_window_context::ContestWindowContext,request:&crate::spot_activation::Request)->Result<Value,String>{
-    let (_,draft)=ready(snapshot)?;
+    let mut target=entry_target(snapshot)?;
+    target["sourceEpoch"]=json!(request.source_epoch);target["spotID"]=json!(request.spot_id);target["spotVersion"]=json!(request.spot_version);
     Ok(json!({"operatingContext":context.operating_context,"scope":"contesting","sessionID":context.session_id,
         "workspaceGeneration":context.workspace_generation,"panelID":"active-qso","projectionRevision":snapshot["projectionRevision"],
-        "requestID":request.operation_id,"action":"entry_cw_callsign","params":{"draftID":draft["draftID"],"expectedDraftRevision":draft["revision"],
-        "sourceEpoch":request.source_epoch,"spotID":request.spot_id,"spotVersion":request.spot_version}}))
+        "requestID":request.operation_id,"action":"entry_cw_callsign","params":target}))
 }
 fn outcome(operation:&str,receipt:&Value)->Result<Value,String>{
     if receipt["requestID"]!=operation {return Err("CW Entry outcome could not be correlated.".into());}
@@ -172,7 +198,9 @@ fn durable_outcome(intent:&Intent,receipt:&Value)->Result<Value,String>{
     let copy=projection["fields"].as_array().and_then(|fields|fields.iter().find(|field|field["id"]=="callsign")).and_then(|field|field["value"].as_str());
     if receipt["found"]!=true || original["method"]!="draft_apply" || params["operationID"]!=*operation
         || params["sessionID"]!=intent.context.session_id || params["draftID"]!=scope["draftID"] || params["fields"]["callsign"]!=intent.callsign
-        || params.as_object().is_none_or(|object|object.keys().any(|key|!matches!(key.as_str(),"sessionID"|"operationID"|"expectedRevision"|"draftID"|"fields"|"laneID"|"bindingVersion")))
+        || params.get("laneID")!=scope.get("laneID") || params.get("bindingVersion")!=scope.get("bindingVersion")
+        || (scope.get("laneID").is_some() || params.get("workspaceGeneration").is_some()) && params["workspaceGeneration"]!=intent.context.workspace_generation
+        || params.as_object().is_none_or(|object|object.keys().any(|key|!matches!(key.as_str(),"sessionID"|"operationID"|"expectedRevision"|"draftID"|"fields"|"laneID"|"bindingVersion"|"workspaceGeneration")))
         || result["operationID"]!=*operation || result["sessionID"]!=intent.context.session_id || result["replayed"]!=true
         || result["actions"].as_array().is_none_or(|actions|!actions.is_empty())
         || projection["sessionID"]!=intent.context.session_id || projection["workspaceGeneration"]!=intent.context.workspace_generation
@@ -182,23 +210,28 @@ fn durable_outcome(intent:&Intent,receipt:&Value)->Result<Value,String>{
     }
     Ok(json!({"operationId":operation,"phase":"confirmed","reservationActive":false}))
 }
-pub fn apply(app:&tauri::AppHandle,request:crate::spot_activation::Request)->Result<Value,String>{
+pub fn apply(app:&tauri::AppHandle,request:crate::spot_activation::Request,displayed:Value)->Result<Value,String>{
     let context=crate::contest_window_context::active()?;
     if let Ok(old)=intent(&request.operation_id){
         if old.context!=context || old.request!=request{return Err("CW Entry identity is bound to another request.".into());}
         return status(&request.operation_id);
     }
     let _output_admission=crate::carrier_tune::reserve_output()?;
+    validate_entry_target(&displayed)?;
+    if entry_target(&entry(&context)?)?!=displayed{return Err("Contest Entry target changed. Review the displayed lane and select again.".into());}
     let target=crate::cw_track_selection::resolve(&request)?;
     require_cw_idle()?;
-    let snapshot=entry(&context)?;let envelope=envelope(&snapshot,&context,&request)?;
+    let snapshot=entry(&context)?;
+    if entry_target(&snapshot)?!=displayed{return Err("Contest Entry draft or receiver binding changed during CW readback.".into());}
+    let envelope=envelope(&snapshot,&context,&request)?;
     let mut rows=journal()?.lock().map_err(|_|"CW Entry intent unavailable.")?;
     crate::radio_follow::revoke_silently();crate::auto_rotor::revoke();
     let draft_scope=envelope["params"].clone();
-    rows.insert(Intent{context,request:request.clone(),draft_scope,callsign:target["call"].as_str().ok_or("CW callsign is unavailable.")?.into(),terminal:None})?;drop(rows);
+    rows.insert(Intent{context:context.clone(),request:request.clone(),draft_scope,callsign:target["call"].as_str().ok_or("CW callsign is unavailable.")?.into(),terminal:None})?;drop(rows);
     let submitted=match (||{
         let fresh=crate::cw_track_selection::resolve(&request)?;require_cw_idle()?;
         if fresh["call"]!=target["call"]{return Err("CW callsign changed while retaining the original intent.".into());}
+        if entry_target(&entry(&context)?)?!=displayed{return Err("Contest Entry changed before callsign submission.".into());}
         crate::contest_surface::submit("contest--active-qso",envelope,false)
     })(){
         Ok(value)=>value,
@@ -207,9 +240,9 @@ pub fn apply(app:&tauri::AppHandle,request:crate::spot_activation::Request)->Res
     let _=app.emit_to("contest-setup","xlog:contest-surface",());
     outcome(&request.operation_id,&submitted)
 }
-pub fn apply_outcome(app:&tauri::AppHandle,request:crate::spot_activation::Request)->Result<Value,String>{
+pub fn apply_outcome(app:&tauri::AppHandle,request:crate::spot_activation::Request,displayed:Value)->Result<Value,String>{
     let operation=request.operation_id.clone();
-    match apply(app,request){
+    match apply(app,request,displayed){
         Ok(value)=>Ok(value),
         Err(error) if !owns(&operation)=>Ok(json!({"operationId":operation,"phase":"failed","reservationActive":false,"error":error})),
         Err(error)=>Err(error),
@@ -228,9 +261,11 @@ pub fn resolve_for_owner(operation:&str)->Result<Value,String>{
     let after=entry(&intent.context)?;
     require_cw_idle()?;
     if envelope(&after,&intent.context,&intent.request)?["params"]!=expected["params"] || target["call"]!=intent.callsign {return Err("Contest Entry or CW identity changed during readback.".into());}
-    Ok(json!({"operationId":operation,"callsign":target["call"],"draftID":expected["params"]["draftID"],
+    let mut value=json!({"operationId":operation,"callsign":target["call"],"draftID":expected["params"]["draftID"],
         "expectedDraftRevision":expected["params"]["expectedDraftRevision"],"operatingContext":intent.context.operating_context,
-        "sessionID":intent.context.session_id,"workspaceGeneration":intent.context.workspace_generation}))
+        "sessionID":intent.context.session_id,"workspaceGeneration":intent.context.workspace_generation});
+    for key in ["laneID","bindingVersion"]{if let Some(field)=expected["params"].get(key){value[key]=field.clone();}}
+    Ok(value)
 }
 use tauri::Emitter;
 
@@ -239,7 +274,7 @@ mod tests{
     use super::*;
     fn fixture()->(Value,crate::contest_window_context::ContestWindowContext,crate::spot_activation::Request){
         (json!({"projectionRevision":8,"projection":{"status":"ready","busy":false,"dirty":false,"uncertain":false,
-            "operator":{"armed":false,"status":"disarmed"},"draft":{"draftID":"draft","revision":4}}}),
+            "operator":{"armed":false,"status":"disarmed"},"draft":{"draftID":"draft","revision":4,"callsign":""}}}),
          crate::contest_window_context::ContestWindowContext{operating_context:uuid::Uuid::new_v4().to_string(),session_id:uuid::Uuid::new_v4().to_string(),workspace_generation:uuid::Uuid::new_v4().to_string()},
          crate::spot_activation::Request{operation_id:uuid::Uuid::new_v4().to_string(),source_epoch:uuid::Uuid::new_v4().to_string(),spot_id:uuid::Uuid::new_v4().to_string(),spot_version:uuid::Uuid::new_v4().to_string()})
     }
@@ -254,6 +289,32 @@ mod tests{
             "result":{"operationID":intent.request.operation_id,"sessionID":intent.context.session_id,"revision":10,"replayed":true,"actions":[],
                 "projection":{"sessionID":intent.context.session_id,"workspaceGeneration":intent.context.workspace_generation,
                     "draftID":intent.draft_scope["draftID"],"revision":10,"fields":[{"id":"callsign","value":intent.callsign}]}}})
+    }
+    #[test]
+    fn cw_entry_scope_retains_the_exact_displayed_lane_and_receiver_binding(){
+        let (mut snapshot,context,request)=fixture();
+        snapshot["projection"]["session"]=json!({"laneContext":{"mode":"SO2R","laneID":"laneB","bindingVersion":7}});
+        let value=envelope(&snapshot,&context,&request).unwrap();
+        assert_eq!(value["params"]["laneID"],"laneB");assert_eq!(value["params"]["bindingVersion"],7);
+        let mut missing=snapshot.clone();missing["projection"]["session"]["laneContext"].as_object_mut().unwrap().remove("bindingVersion");
+        assert!(entry_target(&missing).is_err());
+    }
+    #[test]
+    fn original_cw_receipt_cannot_substitute_a_lane_or_receiver_binding(){
+        let mut intent=retained();intent.draft_scope["laneID"]=json!("laneB");intent.draft_scope["bindingVersion"]=json!(7);
+        let mut receipt=original_receipt(&intent);receipt["originalRequest"]["params"]["laneID"]=json!("laneB");
+        receipt["originalRequest"]["params"]["bindingVersion"]=json!(7);
+        receipt["originalRequest"]["params"]["workspaceGeneration"]=json!(intent.context.workspace_generation);
+        assert!(durable_outcome(&intent,&receipt).is_ok());
+        receipt["originalRequest"]["params"]["laneID"]=json!("laneA");assert!(durable_outcome(&intent,&receipt).is_err());
+        receipt["originalRequest"]["params"]["laneID"]=json!("laneB");receipt["originalRequest"]["params"]["bindingVersion"]=json!(8);
+        assert!(durable_outcome(&intent,&receipt).is_err());
+        receipt["originalRequest"]["params"]["bindingVersion"]=json!(7);
+        receipt["originalRequest"]["params"]["workspaceGeneration"]=json!(uuid::Uuid::new_v4().to_string());
+        assert!(durable_outcome(&intent,&receipt).is_err());
+        let directory=tempfile::tempdir().unwrap();let path=directory.path().join("intent.json");
+        let mut journal=Journal::load(path.clone()).unwrap();journal.insert(intent.clone()).unwrap();drop(journal);
+        assert_eq!(Journal::load(path).unwrap().saved.rows[&intent.request.operation_id].draft_scope,intent.draft_scope);
     }
     #[test]
     fn durable_intent_survives_restart_and_blocks_new_actions_until_original_is_resolved(){
@@ -316,6 +377,7 @@ mod tests{
         for path in ["/projection/busy","/projection/dirty","/projection/uncertain","/projection/operator/armed"]{
             let mut denied=snapshot.clone();*denied.pointer_mut(path).unwrap()=json!(true);assert!(envelope(&denied,&context,&request).is_err());
         }
+        for call in [json!("K1HOLD"),json!(null)]{let mut denied=snapshot.clone();denied["projection"]["draft"]["callsign"]=call;assert!(entry_target(&denied).is_err());}
     }
     #[test]
     fn queued_and_taken_receipts_never_claim_completion_or_release_the_pending_intent(){

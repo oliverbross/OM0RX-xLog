@@ -16,9 +16,11 @@ export type CWCapability = { radioID: string; provider: string; ready: boolean; 
   receivers: { receiver: number; enabled?: boolean; centreHz?: number }[]; requestableSampleRates: number[]; transmitStateKnownOff?: boolean;
   inventoryRevision?: string; identity?: { serial: string; model: string; address: string; controlPort: number }; stationHandle?: number;
   panadapters?: { id: string; clientHandle?: number; channel?: number; centreHz?: number; receiveAntenna?: string }[]; handoffPanadapters?: string[] };
+export type CWCallsignEntryTarget = { draftID: string; expectedDraftRevision: number; laneID?: "laneA" | "laneB"; bindingVersion?: number };
 export type CWDecodeSnapshot = { sessionID?: string; state: string; failure?: string; automaticSpotsQualified: boolean; resourcesAvailable: boolean;
   operatingModule?: "normal_logging" | "contesting";
   operatingContext?: string;
+  callsignEntryTarget?: CWCallsignEntryTarget;
   activeRadioID?: "radio1" | "radio2";
   spotOutputFailure?: string;
   featureEnabled?: boolean;
@@ -99,6 +101,12 @@ export function parseCWDecodeSnapshot(value: unknown): CWDecodeSnapshot {
     value.featureEnabled !== undefined && typeof value.featureEnabled !== "boolean" ||
     value.operatingModule !== undefined && !["normal_logging", "contesting"].includes(value.operatingModule) ||
     value.operatingContext !== undefined && (typeof value.operatingContext !== "string" || !uuid.test(value.operatingContext)) ||
+    value.callsignEntryTarget !== undefined && (value.operatingModule !== "contesting" || !object(value.callsignEntryTarget) ||
+      typeof value.callsignEntryTarget.draftID !== "string" || !uuid.test(value.callsignEntryTarget.draftID) ||
+      !integer(value.callsignEntryTarget.expectedDraftRevision) ||
+      (value.callsignEntryTarget.laneID === undefined
+        ? Object.keys(value.callsignEntryTarget).length !== 2
+        : Object.keys(value.callsignEntryTarget).length !== 4 || !["laneA","laneB"].includes(value.callsignEntryTarget.laneID) || !integer(value.callsignEntryTarget.bindingVersion))) ||
     value.activeRadioID !== undefined && !["radio1", "radio2"].includes(value.activeRadioID) ||
     value.load !== undefined && (!object(value.load) || !integer(value.load.sources, 0, 2) || !integer(value.load.tracks, 0, 32) ||
       !integer(value.load.pending, 0, 32) || !integer(value.load.inFlight, 0, 4) ||

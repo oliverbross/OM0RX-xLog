@@ -9,6 +9,8 @@ import { Not1MMContestWorkspace } from "./Not1MMContestWorkspace";
 
 const owner=vi.hoisted(()=>({current:null as any}));
 const native=vi.hoisted(()=>({calls:[] as any[],snapshot:null as any}));
+const cwSource=vi.hoisted(()=>({resolve:vi.fn(async(_action:any)=>"K1CW")}));
+vi.mock("./cwCallsign",()=>({resolveContestCWCallsign:cwSource.resolve}));
 vi.mock("@tauri-apps/api/core",()=>({isTauri:()=>true,invoke:async(command:string,{params}:any)=>{
   if(command!=="contest_lane_output_request")throw Error("Native action prohibited");native.calls.push(structuredClone(params));
   if(params.action==="bind")native.snapshot.lanes[params.laneID]={context:{...params}};
@@ -27,7 +29,7 @@ vi.mock("../live/BandMaps",()=>({default:()=>null,deduplicateBandMapSpots:(spots
 vi.mock("../live/ClusterPanel",()=>({default:()=>null}));
 vi.mock("./contestVoiceOutput",()=>({ContestVoiceOutput:class {stop=async()=>{};play=async()=>{throw Error("Audio prohibited");};}}));
 const root=resolve(import.meta.dirname,"../../.."),fixture=JSON.parse(readFileSync(resolve(root,"python/tests/fixtures/all_contests_lifecycle.json"),"utf8")).cq_wpx_cw;
-afterEach(()=>{cleanup();localStorage.clear();owner.current=null;native.calls=[];window.history.replaceState({},"","/");});
+afterEach(()=>{cleanup();localStorage.clear();owner.current=null;native.calls=[];cwSource.resolve.mockClear();window.history.replaceState({},"","/");});
 
 // Same isolated JSONL launcher protocol used by retained Wave1StackRecovery.
 function pythonHost(){
@@ -59,6 +61,51 @@ function pythonHost(){
     await exited; rmSync(directory, { recursive: true });
   } };
 }
+it("loads a CW callsign into the retained SO2R lane through the real draft owner without touching its neighbour",async()=>{
+  const host=pythonHost(),sessionID=crypto.randomUUID(),workspaceGeneration=crypto.randomUUID();
+  const routes=[{radioID:"radio1",receiverID:"receiver1",vfo:"A",sliceID:null,generation:1},{radioID:"radio2",receiverID:"receiver1",vfo:"A",sliceID:null,generation:1}];
+  native.snapshot={simulated:true,externalIO:false,capabilities:{supported:true,routes},nativeContext:{workerGeneration:1},lanes:{},cw:{armed:false},listenLaneID:null,txLaneID:null};
+  const prohibited=vi.fn(async()=>{throw Error("Radio/spot output prohibited");});
+  try{
+    let current=(await host.request("contest_session_create",{sessionID,workspaceGeneration,operationID:crypto.randomUUID(),expectedRevision:0,
+      pluginID:"cq_wpx_cw",station:fixture.state.station,settings:fixture.state.settings,reference:fixture.state.reference,frequencyHz:14_025_000,mode:"CW"})).result.projection;
+    current=(await host.request("contest_lanes_configure",{sessionID,workspaceGeneration,operationID:crypto.randomUUID(),expectedRevision:current.revision,mode:"SO2R",bindings:{laneA:routes[0],laneB:routes[1]}})).result.projection;
+    const a=current.operatingLanes.lanes[0];
+    current=(await host.request("contest_draft_apply",{sessionID,workspaceGeneration,operationID:crypto.randomUUID(),expectedRevision:current.revision,
+      laneID:"laneA",draftID:a.draftID,bindingVersion:a.bindingVersion,fields:{...Object.fromEntries(a.fields.map((f:any)=>[f.id,f.value])),callsign:"K1HOLD"}})).result.projection;
+    const lane=current.operatingLanes.lanes[1];
+    current=(await host.request("contest_lane_select",{sessionID,workspaceGeneration,operationID:crypto.randomUUID(),expectedRevision:current.revision,
+      laneID:"laneB",draftID:lane.draftID,bindingVersion:lane.bindingVersion})).result.projection;
+    const original=structuredClone(current);
+    render(<Not1MMContestWorkspace request={host.request} serviceRequest={async()=>({})} strictHostActive={{sessionID,workspaceGeneration}}
+      operatingContext="disposable-native-context" workspaceGeneration={workspaceGeneration} stationCall="OM0RX" contestingTest radioFrequencyHz={14_025_000}
+      stationTune={prohibited} contestSpot={prohibited} spots={[]} cluster={null}/>);
+    await waitFor(()=>expect(owner.current?.projections["active-qso"]?.status).toBe("ready"),{timeout:10000});
+    // Finish the fixture's asynchronous startup voice-release acknowledgement.
+    await act(async()=>{});
+    const entry=owner.current.projections["active-qso"];
+    expect(entry.session.laneContext.laneID).toBe("laneB");
+    const action={operatingContext:"disposable-native-context",scope:"contesting",sessionID,workspaceGeneration,panelID:"active-qso",projectionRevision:1,
+      requestID:crypto.randomUUID(),action:"entry_cw_callsign",params:{draftID:lane.draftID,expectedDraftRevision:entry.draft.revision,
+      laneID:"laneB",bindingVersion:lane.bindingVersion,sourceEpoch:crypto.randomUUID(),spotID:crypto.randomUUID(),spotVersion:crypto.randomUUID()}};
+    await expect(act(async()=>owner.current.handle({...action,params:{...action.params,laneID:"laneA"}}))).rejects.toThrow(/lane|binding/i);
+    await act(async()=>owner.current.handle(action));
+    await waitFor(()=>expect(owner.current.projections["active-qso"].draft.callsign).toBe("K1CW"));
+    const after=(await host.request("contest_draft_get",{sessionID})).result.projection;
+    // The host projects its shared session revision on both lane snapshots.
+    // Every other field of the neighbouring lane must remain exact.
+    const {draftRevision:beforeRevision,...beforeA}=original.operatingLanes.lanes[0];
+    const {draftRevision:afterRevision,...afterA}=after.operatingLanes.lanes[0];
+    expect(afterA).toEqual(beforeA);expect(afterRevision).toBe(after.revision);expect(beforeRevision).toBe(original.revision);
+    const beforeFields=Object.fromEntries(original.operatingLanes.lanes[1].fields.map((f:any)=>[f.id,f.value]));
+    expect(Object.fromEntries(after.operatingLanes.lanes[1].fields.map((f:any)=>[f.id,f.value]))).toEqual({...beforeFields,callsign:"K1CW"});
+    expect(after.operatingLanes.lanes[1]).toMatchObject({draftID:lane.draftID,bindingVersion:lane.bindingVersion,frequencyHz:lane.frequencyHz,mode:lane.mode,reservedSerial:lane.reservedSerial});
+    const receipt=(await host.request("contest_operation_receipt",{sessionID,operationID:action.requestID,includeOriginalRequest:true})).result;
+    expect(receipt.originalRequest).toMatchObject({method:"draft_apply",params:{operationID:action.requestID,sessionID,workspaceGeneration,laneID:"laneB",draftID:lane.draftID,bindingVersion:lane.bindingVersion}});
+    expect(receipt.result.actions).toEqual([]);
+    expect(after.score.qsos).toBe(0);expect(prohibited).not.toHaveBeenCalled();expect(native.calls).toEqual([]);
+  }finally{cleanup();await host.close();}
+},20000);
 it("real host persists independent lane typing, tunes nonfocused B explicitly, and logs each original shared serial once",async()=>{
   const host=pythonHost(),sessionID=crypto.randomUUID(),workspaceGeneration=crypto.randomUUID();
   const routes=[{radioID:"radio1",receiverID:"receiver1",vfo:"A",sliceID:null,generation:1},{radioID:"radio2",receiverID:"receiver1",vfo:"A",sliceID:null,generation:1}];

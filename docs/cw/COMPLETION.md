@@ -26,7 +26,7 @@ held-out evaluation. AC30/P8/P9 remain outside this Mac launch.
 | NL-07/08 | AC16–19 ownership, changes, TX, failure | Independent span Stop/restart uses the same owner, waits on exact-lease cleanup and preserves the other span/child. Stopped spans stay stopped through child recovery; canceled TCI acquisition cannot issue new IQ commands or suppress cleanup. 79 focused Swift, four native role/timeout/isolation and 32 view/projection cases pass; frontend/window budgets pass. Unchanged real-child/wire evidence is 20/20. Actual ownership, sleep/wake, loss and independently intended TX observations remain. |
 | NL-09 | AC08–10 text/identity/quality | Two distinct self-IDs gate loading/spots; DE phrase/repetition and overlap counting repaired. Spots require timed RF evidence at the IDs; missing RF and modified queued payloads are refused. All 37 focused session/policy cases pass. Clean generated mono slice passes 150 sequences / 960 characters with zero errors. Consented real IQ, independent held-out splits, precision/recall, 30 negative band-hours, RF p95 and committed/spot latency remain. |
 | NL-09 | AC21/24–25 local ingress/loops/replay | Typed direct local_cw ingress, bounded listener and replay exclusion retained. Five actual socket cases pass, including an unread peer disconnected while the healthy client receives all 11,777 lines. Exact-package and useful live accepted-RF exercise remain. |
-| NL-10 | AC22 draft/tune/recovery | Current-owner callsign/Tune integrated; RF targets require timed carrier evidence, expire independently of metadata and pin capture clocks. 35 session/policy, native CTest 2/2 and 25 projection/panel cases pass. After byte-identical binary IQ encoding improvements, latest real-child/wire suite passes 20/20 with the unchanged 250-ms guard; the earlier 279.6405-ms miss remains recorded. Durable original-ID recovery preserves later edits; installed recovery remains. |
+| NL-10 | AC22 draft/tune/recovery | Current-owner callsign/Tune integrated; RF targets require timed carrier evidence, expire independently of metadata and pin capture clocks. Displayed Contest draft/lane/binding is retained through original-ID recovery; occupied callsigns cannot be replaced. Native 74-case/affected ten, projection/action 55-case and six sole Entry cases pass, including isolated real Python-host B loading with occupied A preserved. Latest unchanged real-child/wire evidence is 20/20 with the 250-ms guard; earlier 279.6405-ms miss remains. Installed action/recovery acceptance remains. |
 | NL-10 | AC23 external client | Real installed GNU Telnet 2.2 passes two isolated sessions, live fractional-kHz/slash output, original UTC history and reconnect; both exit 0, listener off. Plain TCP independently passes. Exact packaged/installed app output acceptance remains. |
 | NL-10 | AC26–28 package/UI/regression | Current ownership regressions are being validated. Production capability, RF mapping and spot quality stay independently unqualified. No package/version/install promotion before relevant gates. |
 | NL-06–10 | AC29 engineering/pilot | Eight elapsed hours and 24 elapsed hours with qualified streams/replays and operating workload remain; short profiles are not soaks. |
@@ -66,6 +66,14 @@ held-out evaluation. AC30/P8/P9 remain outside this Mac launch.
   After AetherSDR started, a separate raw BSD UDP socket successfully bound
   0.0.0.0:4992 for 5.046 seconds and received zero datagrams of any kind; that
   result is independent of VITA parsing. No stream or station command was sent.
+- After the operator's discovery-ready handoff, one fresh bounded acquisition
+  passes Station/panadapter/DAX IQ 1/RX preflight but again stops at
+  `discoveryUnavailable`, before stream creation, with zero IQ bytes. Native
+  receipt `c0cab581b48017fb`; independent raw UDP 4992 observation successfully
+  binds and receives zero datagrams from any peer over 5.0426 seconds
+  (`fd5c8d191722a047`). Forwarder device/rule/destination details are requested;
+  no blind radio retries follow. Evidence is retained in
+  `flex-discovery-ready-capture-01` and `raw-discovery-after-ready-01`.
 - Shared ORT thread tuning and independent-window batching did not pass the same
   strict workload. The unsuccessful batching patch is retained privately with
   SHA-256 dc5c011a4a1b3f7a37ce6e751df07db62374a18cd0e2b4059202a569fae76bd1;

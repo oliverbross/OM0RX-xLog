@@ -44,6 +44,36 @@ The existing automatic-spot production quality refusal remains tested and intact
 Remaining integration: explicit Tune through the durable manual-tune owner with current source
 and operating-radio admission; scoped window methods, UI and action recovery tests.
 
+## Explicit Contest Entry lane — 31 October
+
+CW snapshots passively read the existing sole Contest Entry owner's target:
+draft UUID, surface draft revision, and, for SO2V/SO2R, lane ID and binding version.
+The action shows that target and sends only those identities alongside the
+retained native signal identities. Missing/dirty/busy/armed/occupied Entry has no
+target; an existing callsign is never overwritten. Normal Loading retains its
+existing draft owner and Tune remains a separate action with no Entry target.
+
+Native admission compares the displayed target before/after RF readback and
+before submission. The sole Entry consumer checks lane scope and binding again,
+including connection generation across its awaited read; intervening operator
+edits veto loading. The existing lane queue/draft owner applies only callsign,
+retaining reports, exchange, frequency, mode, serial and the neighbouring draft.
+The original journal now retains the lane/binding pair. Reconciliation requires
+that same pair and the original workspace generation in the durable receipt.
+Legacy five-field intents remain readable; missing proof remains held for review.
+No new operation is created to clear uncertainty.
+
+Both lane regressions failed before repair (receipt `5220638eddec7836`). The
+74-case native CW/ownership run passes (`4341dc7a423f6d3c`); the affected ten
+receipt/Entry cases pass after the final workspace check (`648f9ead581ebaaf`).
+Focused projection/action tests pass 55/55 and sole Entry cases 6/6. The isolated
+real Python-host SO2R case loads B while A retains an occupied draft, verifies
+original operation/lane/workspace receipt, zero contacts and zero radio/spot
+output (`c4592f319ed0946f`). Its shared revision counter advances on both lane
+projections; every other A field remains exact. Frontend TypeScript, production
+build and window budgets pass; CW Decode graph is 311,271 bytes
+(`d09edab89128d163`). These are source/isolated-owner checks, not installed actions.
+
 ## Scoped read bridge
 
 `cw_decode_resolve_selection` accepts exactly `reference` and the boolean

@@ -110,7 +110,9 @@ installed 1.3.63 does not become a qualified skimmer through this guide.
    withheld** reason; absence of an accepted spot is not evidence of no signal.
 5. **Use callsign** requires two distinct completed self-IDs, fresh qualified RF
    attribution and deliberately targets the displayed Normal Logging or Contest
-   Entry owner. Repeated windows of one transmitted ID do not enable it.
+   Entry owner. Contest shows the intended lane, draft and revision; a changed
+   lane/draft/binding is rejected. Open the intended Entry lane and finish or park
+   any occupied callsign first. Repeated windows of one transmitted ID do not enable it.
    Diagnostic copy with unknown RF has no callsign-loading or Tune action.
    **Tune** is a separate action through the selected source's current radio
    owner. Selecting a signal performs neither action. Finish occupied/uncertain

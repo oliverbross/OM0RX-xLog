@@ -34,6 +34,19 @@ send. All 79 focused Swift, four native authority/timeout/isolation and 32 view
 checks pass, with frontend/window budgets passing. Live resource release remains
 unverified; no production capability or installed version changes.
 
+Contest callsign loading now retains the displayed draft/lane/binding and rejects
+an occupied callsign. Original receipt reconciliation checks that lane and
+workspace without replay. Native CW/ownership 74-case and affected ten-case runs,
+55 projection/action cases and six Entry cases pass, including isolated real-host
+SO2R B loading while A's occupied draft remains intact. Frontend/window budgets
+pass. These do not substitute for installed action/recovery acceptance.
+
+The operator's subsequent discovery-ready handoff still fails before stream
+creation. A separate successfully bound UDP 4992 socket receives zero packets
+over 5.0426 seconds. Forwarder configuration is requested; no IQ, RF or physical
+cleanup success is claimed. Shared CPU thread and bounded Accelerate experiments
+retain strict capacity failures in CW diagnostics; production defaults stay unchanged.
+
 31 October CW source progress: durable original draft-action reconciliation,
 actual slow-client isolation and offline relocated component-payload checks pass.
 CPU, bounded static-CoreML, GPU and tensor-preserving attention-fusion candidates

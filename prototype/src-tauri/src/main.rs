@@ -411,13 +411,13 @@ async fn cw_callsign_request(window:tauri::WebviewWindow,app:tauri::AppHandle,st
             }
             Ok(serde_json::json!({"operations":operations}))
         }).await.map_err(|_|"Original CW identity read failed; no action was repeated.".to_string())?,
-        cw_callsign_bridge::Action::Apply(request,context,module)=>{
+        cw_callsign_bridge::Action::Apply(request,context,module,entry_target)=>{
             if let Some(window_context)=contest_cw_decode_url_context(window.label(),&window.url().map_err(|error|error.to_string())?)? {contest_window_context::admit(&window_context)?;}
             if !cw_track_selection::owns(&request.source_epoch){return Err("CW source changed. Select the current signal again.".into());}
             let admission=operating_module::owner()?.admit(module,Some(&context))?;
             if module==operating_module::OperatingModule::Contesting {
                 if owner.source_epoch(&request.operation_id).is_ok(){return Err("That callsign identity belongs to Normal Logging.".into());}
-                return tauri::async_runtime::spawn_blocking(move||{let _admission=admission;cw_contest_callsign::apply_outcome(&app,request)}).await
+                return tauri::async_runtime::spawn_blocking(move||{let _admission=admission;cw_contest_callsign::apply_outcome(&app,request,entry_target.ok_or("Contest Entry target is missing.")?)}).await
                     .map_err(|_|"CW Entry outcome is unknown. Check the original action; no callsign was resubmitted.".to_string())?;
             }
             if cw_contest_callsign::owns(&request.operation_id){return Err("That callsign identity belongs to Contesting.".into());}
@@ -2530,7 +2530,14 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
             let _module_admission = task_admission;
             if request["method"]=="cw_decode_snapshot" {
                 let mut response=cw_track_selection::snapshot(request)?;
-                if response["ok"]==true {response["result"]["activeRadioID"]=serde_json::json!(radio_slots::active(&app)?);}
+                if response["ok"]==true {
+                    response["result"]["activeRadioID"]=serde_json::json!(radio_slots::active(&app)?);
+                    if response["result"]["operatingModule"]=="contesting" {
+                        if let Some(target)=response["result"]["operatingContext"].as_str().and_then(cw_contest_callsign::displayed_target){
+                            response["result"]["callsignEntryTarget"]=target;
+                        }
+                    }
+                }
                 Ok(response)
             } else {worker::request_existing(request)}
         }).await.map_err(|_| "CW Decode request failed".to_string())?;

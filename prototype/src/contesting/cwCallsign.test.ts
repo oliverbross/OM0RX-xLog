@@ -15,3 +15,11 @@ it.each(["operationId","operatingContext","sessionID","workspaceGeneration","dra
   vi.mocked(invoke).mockResolvedValue({...reply(),[field]:field==="expectedDraftRevision"?5:"changed"});
   await expect(resolveContestCWCallsign(action)).rejects.toThrow(/no longer belongs/);
 });
+it("requires the original lane and receiver binding on native readback",async()=>{
+  const scoped={...action,params:{...action.params,laneID:"laneB",bindingVersion:7}};
+  vi.mocked(invoke).mockResolvedValue({...reply(),laneID:"laneB",bindingVersion:7});
+  expect(await resolveContestCWCallsign(scoped)).toBe("K1ABC");
+  for(const changed of [{},{laneID:"laneA",bindingVersion:7},{laneID:"laneB",bindingVersion:8}]){
+    vi.mocked(invoke).mockResolvedValue({...reply(),...changed});await expect(resolveContestCWCallsign(scoped)).rejects.toThrow();
+  }
+});
