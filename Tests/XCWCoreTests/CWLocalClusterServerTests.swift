@@ -80,6 +80,51 @@ final class CWLocalClusterServerTests:XCTestCase {
         XCTAssertFalse(old)
         await server.stop()
     }
+    func testRealSlowSocketIsRemovedWhileHealthyClientKeepsEveryLiveLine() async throws {
+        // Marked isolated test sink: ephemeral loopback only, synthetic accepted
+        // records, no decoder, normal destination or external logger attached.
+        let server=CWLocalClusterServer(),port=try await listening(server)
+        let slow=try CWPlainTestClient(port,receiveBuffer:1024),healthy=try CWPlainTestClient(port)
+        defer{slow.close();healthy.close()}
+        _ = try slow.until("login: ");_ = try healthy.until("login: ")
+        try slow.send("isolated-slow\n");try healthy.send("isolated-healthy\n")
+        _ = try slow.until("Local CW spots only.\r\n");_ = try healthy.until("Local CW spots only.\r\n")
+        // The slow socket never reads again. Pace bounded overload to exercise
+        // real TCP backpressure; keep draining the independent healthy socket.
+        let start=ProcessInfo.processInfo.systemUptime
+        var published=0,received=0,tail="",publishedBytes=0
+        func drainHealthy() throws {
+            let deadline=ProcessInfo.processInfo.systemUptime+3
+            while received<published,ProcessInfo.processInfo.systemUptime<deadline {
+                tail+=healthy.available()
+                while let end=tail.range(of:"\r\n") {
+                    if tail[..<end.lowerBound].hasPrefix("DX de "){received+=1}
+                    tail.removeSubrange(..<end.upperBound)
+                }
+            }
+            XCTAssertEqual(received,published,"A slow peer must not lose a healthy client's lines")
+            if received != published{throw CWComputeError.startupTimeout}
+        }
+        while ProcessInfo.processInfo.systemUptime-start<60 {
+            for _ in 0..<512 {
+                let value=spot(),accepted=try await server.publish(value,stationCallsign:"VK8RX")
+                XCTAssertTrue(accepted);published+=1
+                publishedBytes+=try CWSpotWire.line(value,stationCallsign:"VK8RX").utf8.count
+            }
+            try drainHealthy()
+            if await server.snapshot().slowDisconnects>0{break}
+            try await Task.sleep(nanoseconds:50_000_000)
+        }
+        let elapsed=ProcessInfo.processInfo.systemUptime-start,snapshot=await server.snapshot()
+        XCTAssertGreaterThanOrEqual(elapsed,3);XCTAssertEqual(snapshot.slowDisconnects,1)
+        XCTAssertEqual(snapshot.clients,1);XCTAssertEqual(snapshot.authenticatedClients,1)
+        XCTAssertEqual(snapshot.state,"listening");XCTAssertLessThanOrEqual(snapshot.retainedSpots,100)
+        let probe=spot();_ = try await server.publish(probe,stationCallsign:"VK8RX")
+        publishedBytes+=try CWSpotWire.line(probe,stationCallsign:"VK8RX").utf8.count
+        published+=1;try drainHealthy()
+        print("CW isolated slow-socket receipt: elapsed=\(elapsed)s published=\(published) bytes=\(publishedBytes) healthyReceived=\(received) slowDisconnects=\(snapshot.slowDisconnects) peerReceiveBuffer=\(slow.receiveBufferBytes())")
+        await server.stop();let stopped=await server.snapshot();XCTAssertEqual(stopped.clients,0);XCTAssertEqual(stopped.state,"off")
+    }
 }
 private final class CWClusterTestWallClock:@unchecked Sendable {
     private let lock=NSLock();private var value=Date()
@@ -88,12 +133,15 @@ private final class CWClusterTestWallClock:@unchecked Sendable {
 }
 private final class CWPlainTestClient {
     private var descriptor:Int32
-    init(_ port:UInt16) throws {
+    init(_ port:UInt16,receiveBuffer:Int32?=nil) throws {
         descriptor=Darwin.socket(AF_INET,SOCK_STREAM,0)
         guard descriptor>=0 else {throw CWComputeError.stopped}
         var timeout=timeval(tv_sec:0,tv_usec:200_000),yes:Int32=1
         _ = setsockopt(descriptor,SOL_SOCKET,SO_RCVTIMEO,&timeout,socklen_t(MemoryLayout<timeval>.size))
         _ = setsockopt(descriptor,SOL_SOCKET,SO_NOSIGPIPE,&yes,socklen_t(MemoryLayout<Int32>.size))
+        if var bytes=receiveBuffer,setsockopt(descriptor,SOL_SOCKET,SO_RCVBUF,&bytes,socklen_t(MemoryLayout<Int32>.size)) != 0 {
+            Darwin.close(descriptor);descriptor = -1;throw CWComputeError.stopped
+        }
         var address=sockaddr_in();address.sin_len=UInt8(MemoryLayout<sockaddr_in>.size);address.sin_family=sa_family_t(AF_INET)
         address.sin_port=port.bigEndian;address.sin_addr=in_addr(s_addr:inet_addr("127.0.0.1"))
         let result=withUnsafePointer(to:&address){pointer in pointer.withMemoryRebound(to:sockaddr.self,capacity:1){
@@ -102,6 +150,10 @@ private final class CWPlainTestClient {
         guard result==0 else{Darwin.close(descriptor);descriptor = -1;throw CWComputeError.stopped}
     }
     deinit{close()}
+    func receiveBufferBytes()->Int32 {
+        var value:Int32 = -1,length=socklen_t(MemoryLayout<Int32>.size)
+        _ = getsockopt(descriptor,SOL_SOCKET,SO_RCVBUF,&value,&length);return value
+    }
     func close(){if descriptor>=0{Darwin.close(descriptor);descriptor = -1}}
     func send(_ text:String) throws {
         let bytes=Array(text.utf8)

@@ -49,3 +49,20 @@ port collision, eight-client admission, malformed-client recovery, shutdown and
 history bounds. Six protocol/queue tests cover IAC fragmentation, CR/LF, input
 budgets and active-write byte/age ceilings. A real external logger, sustained
 slow-socket exercise and production packaging remain acceptance gates.
+
+The completion run adds a real authenticated unread socket and an independently
+drained healthy client on an ephemeral, isolated loopback listener. The fixture
+paces synthetic overload in 512-line batches, bounded to 60 seconds, to fill OS
+buffers before checking the existing queue/watchdog. Initial 15-second attempts
+did not force a slow disconnect; their failures are retained. macOS enlarged the
+requested 1,024-byte receive buffer to 326,520 bytes, so the requested socket
+buffer alone was not proof of backpressure.
+
+All five socket cases pass after exercising that path. The final affected-case
+receipt measures **18.597 s**, **11,777 lines / 612,404 bytes**, one slow disconnect,
+all 11,777 lines received by the healthy client (including a final post-disconnect
+probe), one remaining authenticated client and a clean listener Stop. The prior
+full five-case run also passed; the last rerun corrects only byte accounting for
+the final probe. These are isolated synthetic server checks, not RF quality,
+an external logger, a soak or exact-package acceptance. A real external client
+and production package exercise remain open.
