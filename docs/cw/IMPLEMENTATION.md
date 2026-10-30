@@ -1,5 +1,9 @@
 # CW receive implementation
 
+Current completion work and the frozen launch acceptance contract are tracked in
+[the single W16 / NL-06–NL-10 completion checklist](COMPLETION.md). Historical
+source milestones below retain their original evidence boundaries.
+
 The requested programme is the supplied **OM0RX-xLog CW Skimmer Implementation
 Plan v1 (19 October 2026)**. Its historic source/package descriptions are not
 current acceptance. Core launch remains two IQ spans and 32 independent tracks,

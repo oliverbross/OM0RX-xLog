@@ -1,0 +1,17 @@
+{
+  "contract": "cw-two-span-mac-launch-v1",
+  "frozen_on": "2026-10-30",
+  "status": "requirements_frozen_not_qualification",
+  "owners": ["W16", "NL-06", "NL-07", "NL-08", "NL-09", "NL-10"],
+  "model_sha256": "ef120799457bca042d4690944f0faf93268eb4654e7f50f28784ad63bdc1fe02",
+  "metadata_sha256": "b4342157b90229ee7380e165f3d8036179b80d1e6ae02f2557388b7fcd558c01",
+  "onnx_runtime": "1.24.3",
+  "scope": {"platform": "macOS Apple Silicon", "spans": 2, "samples_per_second_per_span": 96000, "tracks_per_span": 16},
+  "ordinary_rf_subset": {"minimum_snr_db_in_2500_hz": 0, "wpm_min": 15, "wpm_max": 35, "distinct_self_ids_min": 2, "initial_carrier_separation_hz_min": 300, "clipping_allowed": false, "valid_rf_epoch_required": true},
+  "quality": {"clean_character_error_rate_max": 0.01, "whole_call_spot_precision_min": 0.995, "eligible_recall_min": 0.90, "emitted_spots_min": 1000, "negative_band_hours_min": 30, "accepted_false_spots_max": 0, "frequency_p95_error_hz_max": 25, "cross_band_stale_epoch_replay_tx_spots_max": 0},
+  "latency": {"startup_window_seconds": 6, "first_committed_copy_p95_seconds_max": 8, "warm_committed_character_seconds_max": 3, "spot_seconds_after_final_required_distinct_self_id_max": 12, "decode_age_p95_seconds_max": 2},
+  "capacity": {"serviced_tracks_required": 32, "coalesced_jobs_max": 0, "dropped_work_max": 0, "input_lateness_ms_max": 250, "admitted_iq_backlog_p99_ms_max": 250, "persistent_queue_growth_allowed": false},
+  "resources": {"decoder_attributable_main_thread_pause_ms_max": 100, "sustained_cpu_headroom_fraction_min": 0.30, "incremental_decoder_rss_target_bytes": 1073741824, "incremental_decoder_rss_ceiling_bytes": 1610612736, "ordinary_operation_median_and_p95_regression_fraction_max": 0.10},
+  "soaks": {"engineering_elapsed_hours_min": 8, "exact_candidate_pilot_elapsed_hours_min": 24},
+  "measurement": {"cer": "(substitutions+deletions+insertions)/reference_characters; normalization frozen with corpus annotations", "spot_precision": "correct_transmitting_call_and_frequency/emitted_accepted_spots", "recall": "correct_timely_spots/eligible_station_opportunities under frozen deduplication", "split_unit": "recording/session/operator; never overlapping snippets", "cpu_headroom": "1 - complete_decoder_process_tree_cpu_seconds/(elapsed_seconds*8_reference_Mac_logical_cores)", "rss": "simultaneous complete incremental decoder process tree relative to decoding-off app", "responsiveness": "same app, workload and operations with decoding off/on; compare per-operation median and p95", "uncertainty": "report exposure, counts and statistical intervals; unknown metrics remain unknown", "harder_conditions": "retain and report separately; do not remove after results"}
+}

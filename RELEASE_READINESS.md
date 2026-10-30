@@ -2,6 +2,15 @@
 
 > **Current closeout — 30 October 2026: scoped macOS baseline 1.3.63 INSTALLED AND VERIFIED**, exact source `19508f4f58eeadea381bc589c56d9bd0a29b2afe`. **Public/all-platform release remains NO-GO**; hardware/provider restrictions and failed/unverified qualifications remain. See [final disposition](#review-closeout--30-october-2026).
 
+**Separately authorized CW completion — 30 October:** the existing W16 /
+NL-06–NL-10 programme is active under its unchanged two-span/32-track Mac scope.
+Retained work is integrated in main `f99fc51d`; `e5788759` repairs actual Flex
+per-band settings/RX handling. [The single completion checklist](docs/cw/COMPLETION.md)
+owns remaining core gates and frozen acceptance targets. The user authorizes
+package/notarization/installation after those gates pass. No CW candidate is
+installed or production capability enabled by this checkpoint; the accepted
+1.3.63 bundle and its preservation/rollback record below remain unchanged.
+
 **Historical 29 October banner (superseded only by this authorized closeout):**
 
 > **Current status — 29 October 2026: NO-GO. FA-010–FA-017 and NA-001–NA-005 are repaired within their documented scopes.** The [latest everyday logging disposition](#everyday-logging-native-acceptance--29-october-2026) records final tested source c09ecfdd: Normal file export and Edit last pass after narrow repairs; exact native timestamp reversal remains unverified. Older open-finding and acceptance sections are dated historical evidence. No installation, candidate packaging or release promotion is authorized.
