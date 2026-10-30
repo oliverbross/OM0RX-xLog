@@ -615,3 +615,45 @@ The bounded test selector `cpu-intra4` remains for reproducibility. No decoder
 default, model, production capability or acceptance predicate changes.
 Private exact-source receipts are `thread-budget-original-{1x4,4x1}-01` under
 the completion evidence directory; native parity receipt is `e0d3dbd130e69ead`.
+
+## Bounded Accelerate MatMul experiment
+
+The recorded ORT kernel costs justify testing matrix execution next. A native
+engineering-only custom MatMul routes the original graph's 44 MatMul nodes to
+Apple `cblas_sgemm`; all learned tensors, features, windows, stride and the pinned
+ORT runtime remain unchanged. Broadcast ranks 2–4 and tensor sizes are bounded.
+macOS 15's per-calling-thread BLAS setting constrains each caller to one BLAS
+thread and is restored after each operation. One shared ONNX session and four
+existing job workers remain. This is a kernel-routing experiment, not a new
+decoder, model-quality qualification or production capability.
+
+The transformed graph SHA-256 is
+`b22a4e8b8b077f71546fd5a5756d6274adc445dfdc93861694229dd95f260b3c`.
+Original licence/metadata/source provenance and exact transformation are retained
+in `model-accelerate-matmul-02`. Against the original model, 24 tensor cases
+(batch 1/2, frames 334/401/467/534/601/667, silence/random features) compare
+757,008 outputs with maximum absolute error 0.0000152588 and identical every-frame
+argmax. Twelve native feature/CTC cases preserve text, token samples and scores,
+including origins near UInt64 maximum. Native engine, signed drift, converging
+carrier, ownership and overload checks pass on the candidate. Parity receipt:
+`cd2793b7ccef659d`; engine/load receipt: `9b275082f7b48a66`.
+
+The unchanged 15-second standard workload **fails**, stopping at 7.59467 seconds
+of input with 284.695-ms maximum lateness. It completes 64/64 submitted jobs,
+visits all 32 tracks, and reports zero coalesced/dropped/invalidated/fault events;
+that shortened population is not a no-loss full-load pass. P95 decode age is
+2389.168041 ms; model Run mean/p95 186.302/557.609 ms, queue 646.171/1871.790 ms,
+peak RSS 175.062 MiB, preparation 60.1433 ms and workload CPU/wall
+7.086/9.40938 seconds. No compiler/test overlaps the load measurement. Host
+one-minute load starts at 13.56 and ordinary applications remain running.
+No held-out RF quality evaluation or production promotion follows a failed load.
+
+The experiment is removed from active source. Its exact five-file patch is
+retained with SHA-256
+`08c114bb86aec6c0e7497dc9bb4f70b7476ece4e4524243182b13ac96abd06be`;
+the per-run source copies, binary/runtime/model hashes and process/thermal
+records remain in `accelerate-matmul-capacity-01`. The default native path and
+package configuration are unchanged. API contracts were checked against the
+pinned local ORT headers, Apple's SDK `thread_api.h` and the official
+[ORT custom operator](https://onnxruntime.ai/docs/reference/operators/add-custom-op.html)
+and [Apple SGEMM](https://developer.apple.com/documentation/accelerate/cblas_sgemm(_:_:_:_:_:_:_:_:_:_:_:_:_:_:)) documentation.

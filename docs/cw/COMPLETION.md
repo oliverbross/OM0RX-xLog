@@ -85,6 +85,11 @@ held-out evaluation. AC30/P8/P9 remain outside this Mac launch.
   alignment fails parity and is rejected before profiling. NL-06 capacity stays
   open; defaults and thresholds are unchanged. Exact conditions are recorded in
   `SIGNAL_DIAGNOSTICS.md`.
+- A bounded same-weight native Accelerate MatMul experiment preserves tensor and
+  token/sample parity but also fails the unchanged load: input stops at 7.59467 s
+  with 284.695-ms lateness and 2389.168-ms p95 age. Its 64 completed jobs / zero
+  coalesced work are an incomplete input population. Failed code is preserved
+  privately and removed; production defaults remain unchanged. NL-06 stays open.
 
 Private raw tool receipts and reference copies are retained under
 `.build/cw-completion-20261030` and lossless lean-ctx archives. No production
