@@ -380,3 +380,32 @@ remain in use. No build/test overlapped the profile. Host load averages were
 12.20/11.80/12.15, with ordinary applications/background services retained and
 no recorded thermal/performance warning. Whole-app budgets remain unmeasured.
 Exact receipt: `240c58fc03992059`.
+
+### Bounded GPU-target comparison
+
+The pinned runtime's MLProgram / CPUAndGPU configuration also fails model-plan
+construction, error -14, before any inference. Its failed patch is preserved
+privately with SHA-256
+`240cf4022b4b70c5e686154bbce21885b726316f7e4076567d4f40870c922f77`
+and receipt `bf0e7e8d5f1c5262`; that configuration is not retained as an active
+profile. The existing NeuralNetwork format with CPUAndGPU passes the same
+silence, 20/30-WPM and full-window text/token-alignment parity (`19d8241e31fb581e`).
+The engineering flag is `coreml-neural-gpu`; it requests that compute-unit policy,
+not a claim that every operator executes on the GPU. CoreML takes 282/503 nodes
+in 103 partitions. The production child remains single-session CPU.
+
+Its identical `16 15 4` load completes **84 of 288** submitted jobs, all 32 tracks,
+with **204 coalesced**, zero dropped/invalidated/fault events, 30.277 ms maximum
+input lateness, **7682.47 ms p95 decode age** and **1284.31 MiB** peak process RSS:
+**FAIL**. Workload process CPU is 25.1509 seconds / 21.8906 wall seconds. Model
+Run mean/p95 are 747.348 / 1188.00 ms. The host load averages were
+7.68/10.59/11.74; no task build/test overlapped and no thermal/performance warning
+was recorded. CoreML emitted CoreAnalytics diagnostic messages; these alone do
+not establish a measured memory leak. Receipt: `fc4c95f70350a0b7`.
+
+The profiler now checks its own peak RSS after engine construction, each input
+block and final drain, and aborts above the original **1536 MiB** protective
+ceiling. This is a profiler-process guard, not whole-application memory
+qualification. All current process-tree/headroom/responsiveness and exact-package
+gates remain open. Neither GPU experiment justifies changing the production
+backend, model, workload, windows or qualification limits.

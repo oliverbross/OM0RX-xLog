@@ -19,7 +19,7 @@ struct Decode {
 };
 void fft(std::vector<std::complex<double>>& values);
 std::vector<float> features(const std::vector<float>& audio);
-enum class ExecutionProvider { cpu, core_ml, core_ml_neural_network };
+enum class ExecutionProvider { cpu, core_ml, core_ml_neural_network, core_ml_neural_network_gpu };
 struct EngineProfile {
   ExecutionProvider provider=ExecutionProvider::cpu;
   int intra_op_threads=1;

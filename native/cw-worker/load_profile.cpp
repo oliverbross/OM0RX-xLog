@@ -22,6 +22,18 @@ double process_cpu_seconds() {
   struct rusage usage{};if(getrusage(RUSAGE_SELF,&usage)!=0) throw std::runtime_error("Cannot measure process CPU");
   return double(usage.ru_utime.tv_sec+usage.ru_stime.tv_sec)+double(usage.ru_utime.tv_usec+usage.ru_stime.tv_usec)/1e6;
 }
+double peak_rss_mib() {
+  struct rusage usage{};if(getrusage(RUSAGE_SELF,&usage)!=0) throw std::runtime_error("Cannot measure process RSS");
+#if defined(__APPLE__)
+  return double(usage.ru_maxrss)/1024/1024;
+#else
+  return double(usage.ru_maxrss)/1024;
+#endif
+}
+void memory_guard() {
+  const double peak=peak_rss_mib();
+  if(peak>1536) throw std::runtime_error("Profiler process exceeded the protective 1536-MiB RSS ceiling: "+std::to_string(peak));
+}
 std::vector<float> envelope(int wpm,const std::string& text) {
   const std::map<char,std::string> code{{'C',"-.-."},{'Q',"--.-"},{'O',"---"},{'M',"--"},{'0',"-----"},{'R',".-."},{'X',"-..-"},
     {'D',"-.."},{'L',".-.."},{'1',".----"},{'A',".-"},{'B',"-..."}};
@@ -42,12 +54,13 @@ struct Signal {std::vector<float> key;std::complex<double> oscillator{1,0},step;
 }
 int main(int argc,char** argv) {
   try {
-    if(argc<4 || argc>11) throw std::invalid_argument("Usage: cw-load-profile model.onnx tracks_per_span seconds (10..60) [workers (1..4)] [cpu|coreml|coreml-neural] [ORT intra-op threads (1..4)] [ORT profiling prefix or -] [inherited|user-initiated] [arena|system] [dynamic|steady-ten-second]");
+    if(argc<4 || argc>11) throw std::invalid_argument("Usage: cw-load-profile model.onnx tracks_per_span seconds (10..60) [workers (1..4)] [cpu|coreml|coreml-neural|coreml-neural-gpu] [ORT intra-op threads (1..4)] [ORT profiling prefix or -] [inherited|user-initiated] [arena|system] [dynamic|steady-ten-second]");
     const int count=std::stoi(argv[2]),seconds=std::stoi(argv[3]),rate=96000;
     const int workers=argc>=5?std::stoi(argv[4]):2;
     const std::string provider=argc>=6?argv[5]:"cpu";
-    if(provider!="cpu" && provider!="coreml" && provider!="coreml-neural") throw std::invalid_argument("Unsupported execution provider profile");
-    cw::EngineProfile profile;profile.provider=provider=="coreml"?cw::ExecutionProvider::core_ml:provider=="coreml-neural"?cw::ExecutionProvider::core_ml_neural_network:cw::ExecutionProvider::cpu;
+    if(provider!="cpu" && provider!="coreml" && provider!="coreml-neural" && provider!="coreml-neural-gpu") throw std::invalid_argument("Unsupported execution provider profile");
+    cw::EngineProfile profile;profile.provider=provider=="coreml"?cw::ExecutionProvider::core_ml:provider=="coreml-neural"?cw::ExecutionProvider::core_ml_neural_network:
+      provider=="coreml-neural-gpu"?cw::ExecutionProvider::core_ml_neural_network_gpu:cw::ExecutionProvider::cpu;
     profile.intra_op_threads=argc>=7?std::stoi(argv[6]):1;
     if(argc>=8 && std::string(argv[7])!="-") profile.profiling_prefix=argv[7];
     const std::string scheduling=argc>=9?argv[8]:"inherited";
@@ -70,7 +83,7 @@ int main(int argc,char** argv) {
     if(count<1 || count>16 || seconds<10 || seconds>60 || workers<1 || workers>4) throw std::invalid_argument("Outside bounded profile");
     const double preparation_cpu_start=process_cpu_seconds();
     const auto preparing=Clock::now();
-    cw::Engine engine(argv[1],profile);cw::Skimmer skimmer(engine,size_t(workers),16);
+    cw::Engine engine(argv[1],profile);memory_guard();cw::Skimmer skimmer(engine,size_t(workers),16);
     const double preparation_ms=milliseconds(Clock::now()-preparing);
     const double workload_cpu_start=process_cpu_seconds();
     const std::string tokens[2]={"00112233445566778899aabbccddeeff","ffeeddccbbaa99887766554433221100"};
@@ -109,6 +122,7 @@ int main(int argc,char** argv) {
     };
     uint64_t sequence[2]={0,0},samples_fed=0;
     for(uint64_t first=0;first<uint64_t(seconds*rate);first+=4096) {
+      memory_guard();
       const size_t length=std::min(uint64_t(4096),uint64_t(seconds*rate)-first);
       std::vector<std::complex<float>> iq[2];
       const auto generating=Clock::now();
@@ -134,7 +148,7 @@ int main(int argc,char** argv) {
       if(deadline_missed)break;
       samples_fed=first+length;
     }
-    const bool drained=skimmer.wait_idle(15);drain();
+    const bool drained=skimmer.wait_idle(15);drain();memory_guard();
     std::sort(latencies.begin(),latencies.end());
     const double p95=latencies.empty()?0:latencies[std::min(latencies.size()-1,size_t(std::ceil(latencies.size()*0.95))-1)];
     const auto metrics=skimmer.metrics();struct rusage usage{};getrusage(RUSAGE_SELF,&usage);
@@ -146,12 +160,7 @@ int main(int argc,char** argv) {
         <<",\"mean_ms\":"<<(values.empty()?"null":std::to_string(sum/values.size()))<<",\"p95_ms\":"<<(values.empty()?"null":std::to_string(p95))
         <<",\"maximum_ms\":"<<(values.empty()?"null":std::to_string(values.back()))<<"}";
     };
-    const double rss=double(usage.ru_maxrss)
-#if defined(__APPLE__)
-      /1024/1024;
-#else
-      /1024;
-#endif
+    const double rss=peak_rss_mib();
     const bool stable=!deadline_missed && drained && decoded.size()==size_t(count*2) && maximum_tracks==size_t(count*2) &&
       !latencies.empty() && p95<=2000 && metrics.coalesced==0 && metrics.dropped_events==0 && fault_events==0 &&
       metrics.invalidated_jobs==0 && metrics.submitted_jobs==metrics.model_jobs_started && metrics.submitted_jobs==metrics.model_jobs_completed;

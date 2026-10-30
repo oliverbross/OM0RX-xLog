@@ -70,7 +70,8 @@ struct Engine::Impl {
     if(!profile.profiling_prefix.empty()) options.EnableProfiling(profile.profiling_prefix.c_str());
     if(profile.provider!=ExecutionProvider::cpu) {
 #if defined(__APPLE__)
-      options.AppendExecutionProvider("CoreML",{{"ModelFormat",profile.provider==ExecutionProvider::core_ml?"MLProgram":"NeuralNetwork"},{"MLComputeUnits","CPUAndNeuralEngine"},
+      options.AppendExecutionProvider("CoreML",{{"ModelFormat",profile.provider==ExecutionProvider::core_ml?"MLProgram":"NeuralNetwork"},
+        {"MLComputeUnits",profile.provider==ExecutionProvider::core_ml_neural_network_gpu?"CPUAndGPU":"CPUAndNeuralEngine"},
         {"RequireStaticInputShapes",fixed?"1":"0"},{"EnableOnSubgraphs","0"}});
 #else
       throw std::invalid_argument("CoreML profile requires Apple Silicon Mac qualification");
