@@ -122,6 +122,28 @@ struct SpotDraftActivationTests {
         }
     }
 
+    @Test("CW pending discovery recovers the original ID without a surviving window or source")
+    func cwPendingIdentityDiscovery() throws {
+        try fixture { service, root in
+            let unrelated=try command(snapshot(service)),applied=try service.handle(method:"spot_draft_apply",params:unrelated)
+            var finish=try control(unrelated,applied);finish["outcome"]="uncertain"
+            _ = try service.handle(method:"spot_draft_finish",params:finish)
+            #expect((try service.handle(method:"spot_draft_cw_pending",params:[:]))["operationIds"] as? [String] == [])
+            var cw=try command(snapshot(service));cw["spot"]=cwSelection()
+            _ = try service.handle(method:"spot_draft_apply",params:cw)
+            let original=try #require(cw["operationID"] as? String),before=try snapshot(service)
+            #expect((try service.handle(method:"spot_draft_cw_pending",params:[:]))["operationIds"] as? [String] == [original])
+            #expect(NSDictionary(dictionary:before).isEqual(to:try snapshot(service)))
+            try service.openedDatabase().close()
+            let replacement=LiveLogbookMethods(supportDirectory:root,inheritNativePreferences:false)
+            defer {try? replacement.openedDatabase().close()}
+            #expect((try replacement.handle(method:"spot_draft_cw_pending",params:[:]))["operationIds"] as? [String] == [original])
+            #expect(throws:WorkerFailure.self){try replacement.handle(method:"spot_draft_cw_pending",params:["clear":true])}
+            try JSONEncoder().encode(UUID()).write(to:replacement.workspaceDirectoryURL.appendingPathComponent("edit-generation.json"),options:.atomic)
+            #expect((try replacement.handle(method:"spot_draft_cw_pending",params:[:]))["operationIds"] as? [String] == [])
+        }
+    }
+
     @Test("CW receipt-only read withholds missing, unrelated, malformed and unfinished outcomes")
     func cwReceiptReadBounds() throws {
         try fixture { service, root in

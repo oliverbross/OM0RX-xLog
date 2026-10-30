@@ -80,3 +80,47 @@ contact state, no published spots or opened transports, worker cache lifecycle
 and strict renderer projection. This is source/fixture evidence only.
 Fourteen Swift cases (13 XCTest and one Swift Testing), 33 focused frontend
 cases and TypeScript passed on the Opportunity change.
+
+## Operator guide for the documented launch scope
+
+These controls are implemented; the completion checklist still records the
+unclosed hardware, quality, capacity, soak and installed gates. The accepted
+installed 1.3.63 does not become a qualified skimmer through this guide.
+
+1. Connect the selected direct Flex or SunSDR/TCI slot in Radio Settings. In
+   **Sources & server**, choose one or two existing receiver spans at 96 ksample/s,
+   two spans total. Check the actual centre and usable RF coverage. Duplicated
+   audio, VFO pitch and requested rate are not evidence of received RF coverage.
+2. For Flex, select the exact SmartSDR Station and its existing panadapter with
+   assigned DAX IQ channel. Release that channel's competing consumer yourself,
+   acknowledge the displayed handoff and use **Allow xLog to acquire DAX IQ**.
+   Start within its displayed 30-second validity. Discovery, RX state, ownership
+   and fresh samples must still pass; the checkbox cannot override them. TCI uses
+   the shared connection and the explicitly selected receiver lease.
+3. Use **Start decoding** deliberately. Opening a main, detached or Contest CW
+   view and loading saved settings stay passive. All views share capture. Use
+   **Stop** to release this feature's resources; closing a view is not Stop.
+4. Inspect frequency-ordered signals and the selected track's **Show evidence**.
+   Committed text and the changing provisional tail are distinct. WPM/SNR or RF
+   shown as unavailable remain unknown. **Copy committed text** copies committed
+   text only. **Mute** lasts for that track's lifetime. Read the specific **Spot
+   withheld** reason; absence of an accepted spot is not evidence of no signal.
+5. **Use callsign** deliberately targets the current Normal or Contest entry.
+   **Tune** is a separate action through the selected source's current radio
+   owner. Selecting a signal performs neither action. Finish occupied/uncertain
+   draft work first. If a reply is lost, use **Check original action/tune**. After
+   losing a window ID, **Find original action** reads retained callsign operations
+   while capture is stopped; choose the exact original if more than one remains.
+   Review the current entry after historical confirmation. Missing or malformed
+   native evidence requires review, never repeated application or journal deletion.
+6. Set the local listener's port in **Sources & server** (default 7300), then use
+   **Start server** separately. Configure the external client for plain TCP/Telnet
+   `127.0.0.1:<port>` and send its callsign/client name. `sh/dx` requests retained
+   history at its original UTC. An occupied port is reported; stop the listener
+   before editing its endpoint. **Stop server** leaves capture independent.
+   xLog receives typed Local CW directly and must not connect to its own listener.
+7. For interruption or stale data, inspect source/stream/epoch, actual coverage,
+   pending/in-flight/coalesced/dropped counts and the displayed failure. Stop,
+   verify the released resource and offline payload, then explicitly restart.
+   Retune, TX/unknown receive state, gaps and reconnect retire stale evidence;
+   old copy cannot authorize a fresh action or spot.

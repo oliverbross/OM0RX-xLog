@@ -85,6 +85,7 @@ pub fn initialize(app:&tauri::AppHandle)->Result<(),String>{
 }
 fn journal()->Result<&'static Mutex<Journal>,String>{JOURNAL.get().ok_or("CW Entry journal has not been opened.")?.as_ref().map_err(Clone::clone)}
 pub fn owns(operation:&str)->bool{journal().is_ok_and(|journal|journal.lock().is_ok_and(|value|value.saved.rows.contains_key(operation)))}
+pub fn retained()->Result<Vec<String>,String>{Ok(journal()?.lock().map_err(|_|"CW Entry journal unavailable.")?.saved.rows.iter().filter(|(_,row)|row.terminal.is_none()).map(|(operation,_)|operation.clone()).collect())}
 pub fn pending()->bool{match JOURNAL.get(){None=>false,Some(Err(_))=>true,Some(Ok(journal))=>journal.try_lock().map_or(true,|value|value.pending())}}
 fn intent(operation:&str)->Result<Intent,String>{
     if operation.len()!=36 || !uuid::Uuid::parse_str(operation).is_ok_and(|id|!id.is_nil()){return Err("CW Entry operation identity is invalid.".into());}

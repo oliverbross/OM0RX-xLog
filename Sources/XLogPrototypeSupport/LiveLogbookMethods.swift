@@ -1593,6 +1593,11 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
     private func handleSpotDraft(method: String, params: [String: Any]) throws -> [String: Any] {
         let generation = try editGeneration()
         let db = try readyDatabase()
+        if method == "spot_draft_cw_pending" {
+            try requireKeys(params, allowed: [], required: [])
+            guard let workspaceID = UUID(uuidString: generation) else { throw invalid() }
+            return ["operationIds": try db.pendingCWSpotDraftOperationIDs(generation: workspaceID).map(\.uuidString)]
+        }
         if method == "spot_draft_cw_status" {
             // Native-only recovery reads the durable command's CW marker.
             // It neither needs a surviving decoder/source pool nor grants a

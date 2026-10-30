@@ -2105,6 +2105,37 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// Bounded read of unresolved CW-marked originals, independent of a renderer journal.
+    public func pendingCWSpotDraftOperationIDs(generation: UUID) throws -> [UUID] {
+        try withDatabaseLock {
+            try withStatement("SELECT payload,phase FROM xlog_spot_draft_receipts WHERE phase NOT IN ('confirmed','failed') ORDER BY operation_id LIMIT 65;") { statement in
+                var result: [UUID] = [], count = 0
+                while true {
+                    let step = sqlite3_step(statement)
+                    if step == SQLITE_DONE { return result }
+                    count += 1
+                    guard count <= 64 else {
+                        throw NSError(domain: "xlog.cw.pending", code: 1,
+                            userInfo: [NSLocalizedDescriptionKey: "More than 64 unresolved draft receipts require review. No history was discarded."])
+                    }
+                    let length = Int(sqlite3_column_bytes(statement, 0))
+                    guard step == SQLITE_ROW, length > 0, length <= 4 * 1024 * 1024,
+                          let bytes = sqlite3_column_blob(statement, 0), let phase = sqlite3_column_text(statement, 1) else {
+                        throw LogbookDatabaseError.corruptRecord
+                    }
+                    let record = try decoder.decode(SpotDraftRecord.self, from: Data(bytes: bytes, count: length))
+                    try record.command.validate()
+                    guard record.phase.rawValue == String(cString: phase),
+                          record.command.operationID == record.receipt.operationID,
+                          record.command.generation == record.receipt.generation else { throw LogbookDatabaseError.corruptRecord }
+                    if record.command.generation == generation, record.command.spot.cwCallsign != nil {
+                        result.append(record.command.operationID)
+                    }
+                }
+            }
+        }
+    }
+
     public func spotDraftLiveLease(for record: SpotDraftRecord) -> UUID? {
         withDatabaseLock { !record.phase.terminal && spotDraftLeaseID == record.leaseID ? record.leaseID : nil }
     }

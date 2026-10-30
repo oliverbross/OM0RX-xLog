@@ -45,7 +45,7 @@ it("retains lost acknowledgement through remount and reconciles the original ide
   fireEvent.click(screen.getByRole("button", { name: "Check original action" }));
   await waitFor(() => expect(request).toHaveBeenCalledTimes(2));
   expect(request.mock.calls[1][0]).toEqual({ action: "reconcile", operationId });
-  await screen.findByText("Callsign loaded into the logging entry. Frequency and mode are retained.");
+  await screen.findByText("Original callsign action confirmed. Review the current entry in Main Logging.");
 });
 it("does not unlock after an uncorrelated or uncertain result", async () => {
   const value = fixture(); const request = vi.fn(async (_params: Record<string, unknown>): Promise<unknown> => ({ operationId: crypto.randomUUID(), phase: "confirmed", reservationActive: false }));
@@ -71,6 +71,47 @@ it("rejects extra authority or draft data in replies", () => {
   const operation = crypto.randomUUID();
   expect(() => parseCWCallsignOutcome({ operationId: operation, phase: "confirmed", reservationActive: false, draft: {} }, operation)).toThrow();
   expect(() => parseCWCallsignOutcome({ operationId: operation, phase: "tuning", reservationActive: true }, operation)).toThrow();
+});
+it("finds the durable original after window storage loss with capture stopped and never applies again", async () => {
+  const value=fixture();value.snapshot.state="stopped";value.signal.selection=undefined;
+  const original=crypto.randomUUID(),request=vi.fn(async(params:Record<string,unknown>)=>params.action==="retained"
+    ?{operations:[{operationId:original,target:"Contest Entry"}]}:{operationId:original,phase:"confirmed",reservationActive:false});
+  render(<CWCallsignAction {...value} request={request}/>);expect(request).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button",{name:"Find original action"}));
+  await screen.findByRole("button",{name:"Check original action"});
+  expect(request.mock.calls[0][0]).toEqual({action:"retained"});expect(sessionStorage.getItem("xlog.cw.pending-callsign")).toBe(original);
+  fireEvent.click(screen.getByRole("button",{name:"Check original action"}));
+  await screen.findByText("Original callsign action confirmed. Review the current entry in Main Logging.");
+  expect(request.mock.calls[1][0]).toEqual({action:"reconcile",operationId:original});
+  expect(request.mock.calls.every(([params])=>params.action!=="apply")).toBe(true);
+});
+it("preserves unreadable window evidence before retaining a verified native original", async()=>{
+  const raw="interrupted identity",original=crypto.randomUUID();sessionStorage.setItem("xlog.cw.pending-callsign",raw);
+  const request=vi.fn(async()=>({operations:[{operationId:original,target:"Normal Logging"}]}));
+  render(<CWCallsignAction {...fixture()} request={request}/>);
+  fireEvent.click(screen.getByRole("button",{name:"Find original action"}));
+  await waitFor(()=>expect(sessionStorage.getItem("xlog.cw.pending-callsign")).toBe(original));
+  expect(sessionStorage.getItem("xlog.cw.pending-callsign.unreadable")).toBe(raw);
+  expect(request).toHaveBeenCalledExactlyOnceWith({action:"retained"});
+});
+it("requires an explicit original when both draft owners retain operations",async()=>{
+  const normal=crypto.randomUUID(),contest=crypto.randomUUID();
+  const request=vi.fn(async()=>({operations:[{operationId:normal,target:"Normal Logging"},{operationId:contest,target:"Contest Entry"}]}));
+  render(<CWCallsignAction {...fixture()} request={request}/>);
+  fireEvent.click(screen.getByRole("button",{name:"Find original action"}));
+  await screen.findByText("Choose the original action to check.");
+  expect((screen.getByRole("button",{name:"Use callsign K1ABC"}) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button",{name:`Contest Entry · ${contest}`}));
+  expect(sessionStorage.getItem("xlog.cw.pending-callsign")).toBe(contest);
+  expect(request).toHaveBeenCalledExactlyOnceWith({action:"retained"});
+});
+it("refuses malformed discovered identities and leaves the original window journal untouched", async()=>{
+  const request=vi.fn(async()=>({operations:[{operationId:crypto.randomUUID(),target:"Normal Logging",draft:{}}]}));
+  render(<CWCallsignAction {...fixture()} request={request}/>);
+  fireEvent.click(screen.getByRole("button",{name:"Find original action"}));
+  await screen.findByText(/original-action identities could not be verified/);
+  expect((screen.getByRole("button",{name:"Use callsign K1ABC"}) as HTMLButtonElement).disabled).toBe(true);
+  expect(sessionStorage.getItem("xlog.cw.pending-callsign")).toBeNull();
 });
 it.each(["invalid", "", "00000000-0000-0000-0000-000000000000"])("holds an unreadable retained callsign identity (%s) without overwriting it", raw => {
   sessionStorage.setItem("xlog.cw.pending-callsign", raw);

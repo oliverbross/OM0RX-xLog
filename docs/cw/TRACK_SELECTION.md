@@ -291,9 +291,34 @@ Validation: eight journal/Entry native cases and all 68 CW-filtered native cases
 pass. The original-request host regression failed before the change and passes
 afterward; all 67 host tests pass. These cover storage reopening, later edits,
 nil/wrong identities, unrelated/RF receipts, absent receipts, corrupt storage,
-symlinks and failed persistence. Full installed process restart, discovery after
-loss of the renderer's original ID, and recovery from missing native evidence
-remain acceptance work. Unknown evidence never authorizes replay or clearance.
+symlinks and failed persistence. Full installed process restart and recovery from
+missing native evidence remain acceptance work. Unknown evidence never authorizes
+replay or clearance.
+
+### Finding an original action after window loss
+
+The explicit **Find original action** control reads unresolved operation IDs from
+the existing native Contest journal and CW-marked Normal Logging receipts. It
+works while capture is stopped and does not start a worker or decoder. A bounded
+Normal read scans at most 64 unresolved draft receipts and checks their command,
+receipt, phase and current workspace generation. Excess or malformed evidence
+fails visibly; it is not reported as an empty history. Raw renderer worker calls
+cannot access this native-only read. Its passive timeout preserves the shared
+worker and does not hold a module transition.
+
+One discovered original is retained for **Check original action**. Multiple
+originals require an explicit target/operation choice and keep Use callsign
+blocked. No recovery click creates a mutation ID or re-applies a callsign. Before
+replacing an unreadable window ID with verified native evidence, its exact old
+value is retained under the unreadable backup key; an occupied differing backup
+refuses replacement. A historical confirmation directs the operator to inspect
+the current entry instead of claiming its old fields are current.
+
+The new discovery regression first failed with method_not_allowed. All 20 Swift
+draft/reservation cases, 69 focused native cases, 27 callsign/panel cases and
+TypeScript pass, including stopped capture, a lost window ID, two original draft
+owners, malformed discovered data, preserved corrupt storage and changed workspace
+generation. Installed process/window-loss qualification remains open.
 
 Validation: 57 CW-focused native cases, 25 callsign bridge/response/projection UI cases,
 four sole-Entry controller cases and TypeScript pass. The controller fixture

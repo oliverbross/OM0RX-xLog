@@ -1,6 +1,6 @@
 //! Explicit CW callsign intent. No renderer callsign, RF target or effect flag.
 use serde_json::{json,Value};
-pub enum Action {Apply(crate::spot_activation::Request,String,crate::operating_module::OperatingModule),Status(String),Reconcile(String)}
+pub enum Action {Apply(crate::spot_activation::Request,String,crate::operating_module::OperatingModule),Status(String),Reconcile(String),Retained}
 pub fn validate_surface(label:&str,isolated:bool,exiting:bool)->Result<(),String> {
     if isolated||exiting||!matches!(label,"main"|"cw-decode"|"contest--cw-decode") {Err("CW callsign actions are unavailable in this window.".into())} else {Ok(())}
 }
@@ -12,6 +12,7 @@ pub fn parse(mut value:Value)->Result<Action,String> {
     let object=value.as_object_mut().ok_or("CW action is invalid.")?;
     let action=object.remove("action").and_then(|v|v.as_str().map(str::to_owned)).ok_or("CW action is missing.")?;
     match action.as_str() {
+        "retained" if object.is_empty()=>Ok(Action::Retained),
         "apply"=>{
             let context=object.remove("operatingContext").and_then(|value|value.as_str().map(str::to_owned)).ok_or("CW operating context is missing.")?;id(&context)?;
             let module=serde_json::from_value(object.remove("operatingModule").ok_or("CW operating module is missing.")?).map_err(|_|"CW operating module is invalid.")?;
@@ -59,6 +60,25 @@ pub fn durable_status(operation:&str)->Result<Value,String> {
         Ok(response["result"].clone())
     })
 }
+/// Explicit recovery discovers only native CW-marked unresolved operation IDs.
+pub fn retained_normal()->Result<Vec<String>,String>{
+    let generation=crate::worker::generation();crate::worker::require_existing_generation(generation)?;
+    let request=json!({"id":format!("cw-pending-{}",uuid::Uuid::new_v4()),"method":"spot_draft_cw_pending","params":{}});
+    let response=crate::worker::request_existing_generation(request.clone(),generation)?;
+    if response["id"]!=request["id"] || response["ok"]!=true || !response["error"].is_null() || crate::worker::generation()!=generation{
+        return Err("Retained CW identities are unavailable. Open Main Logging; no action was repeated.".into());
+    }
+    retained_ids(&response["result"])
+}
+fn retained_ids(value:&Value)->Result<Vec<String>,String>{
+    if value.as_object().is_none_or(|object|object.len()!=1){return Err("Retained CW identity reply is malformed.".into());}
+    let values=value["operationIds"].as_array().filter(|values|values.len()<=64).ok_or("Retained CW identities exceed their bound.")?;
+    let mut result=Vec::new();
+    for value in values{let operation=value.as_str().ok_or("Retained CW identity is malformed.")?;id(operation)?;
+        if result.iter().any(|old:&String|old.eq_ignore_ascii_case(operation)){return Err("Retained CW identity is duplicated.".into());}
+        result.push(operation.to_owned());
+    }Ok(result)
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -69,6 +89,8 @@ mod tests {
     }
     #[test]
     fn requests_are_bounded_identity_only_and_acks_never_return_draft_fields() {
+        assert!(matches!(parse(json!({"action":"retained"})).unwrap(),Action::Retained));
+        assert!(parse(json!({"action":"retained","clear":true})).is_err());
         let request=json!({"action":"apply","operationId":uuid::Uuid::new_v4().to_string(),"sourceEpoch":uuid::Uuid::new_v4().to_string(),"spotId":uuid::Uuid::new_v4().to_string(),"spotVersion":uuid::Uuid::new_v4().to_string(),"operatingContext":uuid::Uuid::new_v4().to_string(),"operatingModule":"normal_logging"});
         assert!(matches!(parse(request.clone()).unwrap(),Action::Apply(..)));
         for key in ["operatingContext","operatingModule"]{let mut missing=request.clone();missing.as_object_mut().unwrap().remove(key);assert!(parse(missing).is_err());}
@@ -78,6 +100,15 @@ mod tests {
         let ack=json!({"operationId":operation,"phase":"confirmed","draftOnly":true,"tuneConfirmed":false,"reservationActive":false,"rotor":"not_requested","draft":{"qso":{"call":"PRIVATE"}}});
         let projected=project(ack.clone()).unwrap();assert!(projected.get("draft").is_none());
         let mut wrong=ack;wrong["tuneConfirmed"]=json!(true);assert!(project(wrong).is_err());
+    }
+    #[test]
+    fn retained_identity_discovery_is_bounded_and_cannot_return_or_modify_drafts(){
+        let operation=uuid::Uuid::new_v4().to_string();
+        assert_eq!(retained_ids(&json!({"operationIds":[operation]})).unwrap(),vec![operation.clone()]);
+        for bad in [json!({"operationIds":[operation,operation.to_uppercase()]}),json!({"operationIds":["bad"]}),
+            json!({"operationIds":[],"draft":{}}),json!({"operationIds":[uuid::Uuid::nil().to_string()]}),json!({"operationIds":vec![operation;65]})]{
+            assert!(retained_ids(&bad).is_err());
+        }
     }
     #[test]
     fn durable_read_only_uses_original_identity_and_never_promotes_missing_or_unrelated_receipts() {

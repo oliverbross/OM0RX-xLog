@@ -399,6 +399,15 @@ async fn cw_callsign_request(window:tauri::WebviewWindow,app:tauri::AppHandle,st
     let journal_app=app.clone();
     tauri::async_runtime::spawn_blocking(move||cw_contest_callsign::initialize(&journal_app)).await.map_err(|_|"CW Entry journal could not be opened.".to_string())??;
     match action {
+        cw_callsign_bridge::Action::Retained=>tauri::async_runtime::spawn_blocking(move||{
+            let mut operations=Vec::new();
+            for operation in cw_contest_callsign::retained()?{operations.push(serde_json::json!({"operationId":operation,"target":"Contest Entry"}));}
+            for operation in cw_callsign_bridge::retained_normal()?{
+                if operations.iter().any(|old|old["operationId"].as_str().is_some_and(|old|old.eq_ignore_ascii_case(&operation))){return Err("CW identity belongs to conflicting draft owners. Review Main Logging.".into());}
+                operations.push(serde_json::json!({"operationId":operation,"target":"Normal Logging"}));
+            }
+            Ok(serde_json::json!({"operations":operations}))
+        }).await.map_err(|_|"Original CW identity read failed; no action was repeated.".to_string())?,
         cw_callsign_bridge::Action::Apply(request,context,module)=>{
             if let Some(window_context)=contest_cw_decode_url_context(window.label(),&window.url().map_err(|error|error.to_string())?)? {contest_window_context::admit(&window_context)?;}
             if !cw_track_selection::owns(&request.source_epoch){return Err("CW source changed. Select the current signal again.".into());}
