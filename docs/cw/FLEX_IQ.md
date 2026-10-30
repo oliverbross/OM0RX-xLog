@@ -1,5 +1,24 @@
 # Flex companion IQ acquisition
 
+31 October transport follow-up: the operator confirms SmartSDR/Windows DAX on
+192.168.0.117; Windows DAX is now stopped while panadapter 40000000 remains on
+DAX IQ 1. One post-ready acquisition still fails manufacturer discovery before
+stream creation. A separate successfully bound raw UDP 4992 socket receives
+zero datagrams in 5.0426 seconds. No IQ is collected and no station-side stream
+cleanup success is claimed.
+
+The explicitly authorized Safari admin session identifies TP-Link EC120-F5 v1,
+firmware 3.16.0 / Build 200311 Rel.38251n. Its inspected OpenVPN page exposes
+UDP/TCP, port, subnet and client-access controls, with no bridge/discovery-relay
+control. No Save, certificate generation, export, reboot or network change is
+performed. Both router connections and the running OpenVPN Connect 3.8.1 client
+verify the current Mac tunnel address as **10.8.0.10**, port/protocol 1194/UDP;
+10.8.0.6 is historical. The saved client profile specifies `dev tun`.
+Unicast ping/TCP readiness cannot establish discovery or native IQ UDP delivery.
+An actual source-preserving LAN-side discovery path is still required; no peer
+or discovery gate is weakened. [OpenVPN's macOS FAQ](https://openvpn.net/connect-docs/macos-faq/)
+documents that Connect does not support Layer 2/TAP bridging.
+
 Source implementation and loopback fixtures, 26 October 2026. This document is
 not evidence of received FLEX-8400 samples or qualified RF mapping.
 

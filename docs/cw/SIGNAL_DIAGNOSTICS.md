@@ -657,3 +657,24 @@ package configuration are unchanged. API contracts were checked against the
 pinned local ORT headers, Apple's SDK `thread_api.h` and the official
 [ORT custom operator](https://onnxruntime.ai/docs/reference/operators/add-custom-op.html)
 and [Apple SGEMM](https://developer.apple.com/documentation/accelerate/cblas_sgemm(_:_:_:_:_:_:_:_:_:_:_:_:_:_:)) documentation.
+
+## Original dynamic NeuralNetwork / Neural Engine control
+
+The existing `coreml-neural` dynamic profile is separately checked with the
+unchanged original model. It requests CPUAndNeuralEngine, not the previously
+measured CPUAndGPU policy. Native scalar/text/token/sample, drift, track and
+overload checks pass before load; the owned parity process's largest sampled RSS
+is 755.984375 MiB (50-ms monitoring; not an exact lifetime peak). CoreML supports
+282/503 nodes in 103 partitions. No model, default, windows or cadence changes.
+
+The same `16 15 4` standard workload **fails** after 7.97867 seconds of input:
+40/64 jobs complete, 24 coalesce, none drop/invalidate/fault, and all 32 tracks
+are visited. Maximum input lateness is 439.385 ms and p95 decode age 6178.386 ms.
+Model Run mean/p95 are 707.872/3619.038 ms; queue wait 3352.709/5634.813 ms;
+preparation 4265.61 ms; peak process RSS 556.938 MiB. Workload process CPU/wall
+are 8.12034/13.1994 seconds. No task compiler/test overlaps load measurement;
+host one-minute load is 15.95→17.91 with ordinary applications retained and no
+recorded thermal warning. These are process-only metrics, excluding CoreML
+service processes and complete app responsiveness. Strict thresholds remain.
+Receipt `9b7efec67d0bf4ca`; original hashes, source, parity logs, process and
+thermal evidence are retained in `original-dynamic-neural-capacity-01`.

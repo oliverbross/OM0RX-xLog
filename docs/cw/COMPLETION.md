@@ -98,6 +98,15 @@ held-out evaluation. AC30/P8/P9 remain outside this Mac launch.
   with 284.695-ms lateness and 2389.168-ms p95 age. Its 64 completed jobs / zero
   coalesced work are an incomplete input population. Failed code is preserved
   privately and removed; production defaults remain unchanged. NL-06 stays open.
+- Existing original-model dynamic NeuralNetwork/CPUAndNeuralEngine parity passes,
+  then strict load fails at 7.97867 s: 40/64 completed, 24 coalesced, 439.385-ms
+  input lateness and 6178.386-ms p95 decode age. This separate provider control
+  and its exact conditions are retained in `SIGNAL_DIAGNOSTICS.md`.
+- Read-only authorized router/client inspection identifies TP-Link EC120-F5 v1
+  and the current Mac VPN address **10.8.0.10** (previous .6 is historical).
+  Inspected stock OpenVPN controls provide no bridge/discovery relay. Windows
+  DAX is stopped with panadapter IQ 1 retained. No router/VPN settings change;
+  actual discovery forwarding remains required. See `FLEX_IQ.md`.
 
 Private raw tool receipts and reference copies are retained under
 `.build/cw-completion-20261030` and lossless lean-ctx archives. No production
