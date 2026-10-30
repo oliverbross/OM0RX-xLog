@@ -107,6 +107,12 @@ held-out evaluation. AC30/P8/P9 remain outside this Mac launch.
   Inspected stock OpenVPN controls provide no bridge/discovery relay. Windows
   DAX is stopped with panadapter IQ 1 retained. No router/VPN settings change;
   actual discovery forwarding remains required. See `FLEX_IQ.md`.
+- The operator offers Codex on Windows 10 / 192.168.0.117 to prepare the missing
+  transport. [The bounded Windows handoff](WINDOWS_DISCOVERY_TRANSPORT_HANDOFF.md)
+  owns only genuine discovery forwarding, with original source/payload retained,
+  no IQ/radio controls and no persistent networking. New privileged driver use
+  needs concrete operator approval. No helper implementation, driver installation
+  or verified forwarding is yet claimed; Mac integration ownership remains here.
 
 Private raw tool receipts and reference copies are retained under
 `.build/cw-completion-20261030` and lossless lean-ctx archives. No production
