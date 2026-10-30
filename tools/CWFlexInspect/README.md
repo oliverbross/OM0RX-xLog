@@ -66,3 +66,35 @@ This first-stage instrument cannot qualify sample arrival, physical discovery,
 RF orientation, usable bandwidth, decoding quality, capacity or soak time. Real
 IQ acquisition still requires observed resource identity and an explicit current
 handoff after other consumers release the exact channel.
+
+## Bounded acquisition diagnostic
+
+`--verify-handoff` and `--capture` extend this same developer-only instrument;
+neither is bundled into the application. Both require the exact operator-released
+Station, panadapter and DAX IQ channel, settled RX, fresh inventory and the existing
+manufacturer discovery/peer checks. The first mode checks an expiring handoff
+without creating a stream. Capture requests exactly 96 ksample/s for 2–30 seconds
+and uses the existing scoped lease owner. It never creates/retunes a panadapter or
+removes another consumer's stream. A known competing consumer blocks admission.
+
+```sh
+xlog-cw-flex-inspect --verify-handoff --host 192.168.0.199 \
+  --station OM0RX-WIN10 --panadapter 40000000 --channel 1 --seconds 2 \
+  --directory /absolute/canonical/private/new-handoff-directory
+```
+
+After a fresh explicit resource release, substitute `--capture` and a new private
+directory to collect bounded IQ. The directory must not already exist. Raw CF32
+and per-block sequence/sample/receipt journals remain private and outside Git;
+the completion/refusal receipt includes phase, sample hash and provenance.
+Missing data, discovery, changed identity/rate/continuity and write failure retain
+partial evidence and stop this sequence. Completion requests Stop only for the
+preallocated lease and closes only this transport. Station-side cleanup is not
+claimed without separate evidence. RF mapping and independent annotations remain
+unqualified; these captures never go to spots, logging, Tune or a live listener.
+
+The parser self-test covers private addresses, exact panadapter identity, channel
+and duration bounds and absolute canonical output paths without creating files
+or opening a network. On 30 October the handoff-only attempt reached the exact
+Station/channel/RX gate but failed `physical_discovery_and_handoff: noData`.
+No stream creation occurred. TCP reachability is distinct from discovery delivery.

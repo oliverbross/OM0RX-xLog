@@ -6,7 +6,7 @@ import XCatIntegrationCore
 private struct InvalidArguments:Error,CustomStringConvertible {
     var description:String {"Use --self-test, or --inspect --host PRIVATE_IPV4 --station NAME --seconds 2..30"}
 }
-private struct Options {
+struct Options {
     let host:String,station:String,seconds:Int
     init(_ arguments:[String]) throws {
         guard arguments.count==7,arguments[0]=="--inspect" else{throw InvalidArguments()}
@@ -58,7 +58,11 @@ private struct Report:Encodable {
     static func main() async {
         do {
             let arguments=Array(CommandLine.arguments.dropFirst())
+            if ["--capture","--verify-handoff"].contains(arguments.first ?? "") {
+                try await CWFlexCapture.run(arguments,verifyOnly:arguments.first=="--verify-handoff");return
+            }
             if arguments==["--self-test"] {
+                try CWFlexCapture.selfTest()
                 _ = try Options(["--inspect","--host","192.168.0.199","--station","Red-Dingo","--seconds","12"])
                 for invalid in [[],["--host","192.168.0.199"],
                     ["--inspect","--host","8.8.8.8","--station","Test","--seconds","12"],
