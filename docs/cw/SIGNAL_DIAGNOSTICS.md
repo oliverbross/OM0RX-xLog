@@ -204,3 +204,43 @@ wall clocks do not measure per-component CPU or prove why a specific job was
 coalesced. The data does not justify changing the model, thread budget, windows,
 stride or qualification threshold without a separately measured and validated
 change. Full application responsiveness, source/RF quality and soaks remain open.
+
+## Completion measurements — 30 October 2026
+
+Reference host is MacBookPro17,1 / Apple M1 (4 performance + 4 efficiency cores),
+16 GB. Retained FIR/profile work is integrated by main f99fc51d. Fresh four-,
+six- and eight-worker CPU trials, a shared two-thread ORT pool, and independent
+two-window batches all fail the unchanged strict standard-load predicate.
+The unsuccessful batching patch is retained privately under the completion
+evidence root and removed from active source. No windows, stride, admission
+count, coalescing meaning or pass threshold was relaxed.
+
+ORT operator attribution of 170 serviced jobs records 14.000 s MatMul and
+7.555 s Conv wall time; model execution remains the dominant measured cost.
+Overlapping per-job/operator clocks are not process CPU or discarded-work age.
+CoreML MLProgram fails execution-plan creation. CoreML NeuralNetwork passes
+the silence/20/30-WPM text/alignment comparison, but its same 16/15/4 load fails:
+6.064 s engine preparation, 12.928 s delivered input, 32 serviced tracks,
+157 coalesced jobs, four dropped events, 257.031 ms maximum input lateness,
+7216.11 ms p95 decode age and 1166.53 MiB peak RSS. This is no qualified backend.
+The shipped child still selects the existing CPU profile by default.
+
+### Clean mono-copy profile
+
+`native/cw-worker/quality_profile.py` freezes and writes its generated corpus
+manifest before invoking the actual native child. It uses the original fixture
+keying generator, seed 83100630, 150 unique sequences at 15/20/25/30/35 WPM,
+amplitudes 0.03/0.2/0.6, and a 10-second/3200-Hz mono window at 800 Hz. Complete
+messages must fit the window including the original lead/tail. Slash calls and
+random letter/digit/punctuation sequences are included. Only outer ASCII spaces
+are stripped; internal repetition and slash/punctuation errors count.
+
+The pinned original model/runtime produced **0 errors / 960 reference
+characters**, all 150 exact sequences, with zero errors in each of the 15
+speed/amplitude groups. Original samples/annotations, binary/model/input hashes,
+exact Ready contract and outcomes are retained in the private corpus/result
+receipt. Two independent edit-distance tests cover deletion, insertion,
+substitution, repeated words and slash loss. This establishes the declared clean
+mono-copy slice. RF spot precision/recall, negative band-hours and committed-text
+latency are explicitly unknown in the receipt; this run cannot close G4 or the
+complete AC02/exact-package gate.
