@@ -52,4 +52,22 @@ class QualityScoringTests(unittest.TestCase):
                 path.write_text(json.dumps(manifest))
                 with self.assertRaises(ValueError): model_binding(model, {"model_sha256": "original"}, path)
 
+    def test_quantized_attention_candidate_is_separate_and_exact(self):
+        from fuse_attention_model import QUANTIZED_TRANSFORMATION
+        with tempfile.TemporaryDirectory() as directory:
+            model = Path(directory) / "model.onnx"
+            model.write_bytes(b"quantized fused engineering candidate")
+            path = Path(directory) / "transformation.json"
+            manifest = {"status": "engineering_only_quality_unqualified", "source_model": {"sha256": "original"},
+                "output": {"sha256": digest(model)}, "transformation": json.loads(json.dumps(QUANTIZED_TRANSFORMATION))}
+            path.write_text(json.dumps(manifest))
+            self.assertEqual(model_binding(model, {"model_sha256": "original"}, path)["kind"], "transformed_engineering_candidate_unqualified")
+            manifest["transformation"]["learned_tensors_unchanged"] = True
+            path.write_text(json.dumps(manifest))
+            with self.assertRaises(ValueError): model_binding(model, {"model_sha256": "original"}, path)
+            manifest["transformation"]["learned_tensors_unchanged"] = False
+            manifest["transformation"]["quantization"]["op_types"].append("Conv")
+            path.write_text(json.dumps(manifest))
+            with self.assertRaises(ValueError): model_binding(model, {"model_sha256": "original"}, path)
+
 if __name__ == "__main__": unittest.main()

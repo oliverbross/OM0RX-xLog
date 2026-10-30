@@ -449,3 +449,46 @@ remained running. No recorded thermal/performance warning is not a sustained
 budget pass. The exact ignored `attention-capacity-01` receipt retains source,
 binary/model hashes, arguments and before/after host conditions. This failed,
 shortened run does not establish a throughput improvement or qualify capacity.
+
+### Attention fusion plus dynamic integer kernels
+
+The same bounded developer tool has a separate `--dynamic-int8` candidate:
+per-channel QInt8 MatMul/Attention quantization using the pinned ORT quantizer.
+Its manifest explicitly states that the final learned tensors change; only the
+preceding fusion preserves them. It records both hashes, pinned tool versions,
+original notices/source/metadata and the exact quantizer source hash. The first
+generation fails because generic ONNX inference cannot propagate the contrib
+output type. The declared `DefaultTensorType=FLOAT` fallback resolves that known
+FLOAT-output contract; no input, window, stride or quality limit changes.
+Candidate SHA-256:
+`8fb1263d5ec17f7262da33d11f63faebb207af5eb3747a4781c8c5f1b25195cf`.
+It contains six QAttention and 32 MatMulInteger nodes, 6,400,279 bytes. Five
+scoring/provenance tests pass, including rejection of a false unchanged-tensors
+claim or additional undeclared quantized operators.
+
+Native CPU text/tracking/loss regressions pass. A new generated session, seed
+83100635, excludes the original session and passes all 150 sequences / 960
+characters with zero errors in 19.1266 seconds (`d8001800bed7819e`). RF metrics
+remain unknown. The unchanged standard CPU load delivers all 15 seconds and
+services 32 tracks, but completes **227/288** jobs with **61 coalesced**: **FAIL**
+(`7a9cfef2b61f70eb`). No dropped, invalidated or fault events; maximum input
+lateness 147.55 ms, p95 decode age **3637.54 ms**, RSS 167.859 MiB. Model Run
+mean/p95 are 200.261/383.240 ms; process workload CPU is 28.6992 s / 17.8458 wall
+seconds. Host load before/after is 18.09/20.97/29.24 and 19.71/21.07/29.08.
+
+The existing two-plan CPU-startup / static NeuralNetwork-CoreML configuration
+passes native parity (`bb6afbdb48283947`), with 264/408 nodes in 49 CoreML
+partitions. Its unchanged standard load **fails** (`7c2e579f7bad57e9`): 288
+submitted / 198 completed, 195 emitted events, **90 coalesced / three dropped**,
+zero invalidated/fault events. It aborts at 14.5067 seconds for 304.353 ms input
+lateness; p95 decode age is 3800.25 ms, RSS 370.891 MiB. Emitted-event model Run
+mean/p95 are 218.757/554.297 ms; startup mean is 132.959 ms and steady mean
+353.098 ms. Process workload CPU is 24.1236 s / 18.0085 wall seconds, preparation
+5535.15 ms. That preparation also exceeds the production child's five-second
+Ready deadline; this profile is engineering-only. Host load before/after is
+14.39/18.06/25.92 and 17.71/18.50/25.88. Neither profile overlaps a task build/test;
+ordinary applications remain running, with no recorded thermal warning.
+
+These results do not select a transformed production model or establish RF
+quality, full-app budgets, cold offline startup, strict capacity or stability.
+The original bundled model, CPU backend and independent production gates remain.

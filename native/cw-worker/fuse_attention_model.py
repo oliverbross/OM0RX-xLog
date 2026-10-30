@@ -1,8 +1,9 @@
 """Unqualified, reproducible graph-fusion candidate for the pinned model only.
 
-Keeps all learned tensors, native preprocessing, alphabet and input windows.
-Uses the Attention contract in ONNX Runtime 1.24.3 ContribOperators.md. This is
-a developer tool; its output is never selected by the production payload.
+Fusion keeps all learned tensors, native preprocessing, alphabet and windows.
+The separate optional dynamic-int8 step changes weights and needs independent
+quality validation. Uses ONNX Runtime 1.24.3 Attention/QAttention contracts. This
+developer tool never selects a production payload or changes original resources.
 """
 import argparse
 import collections
@@ -17,6 +18,10 @@ from transform_model import ROOT, digest
 TRANSFORMATION = {"method": "xlog.pinned_attention_fusion.v1", "blocks": 6,
     "domain": "com.microsoft", "operator": "Attention", "opset": 1,
     "num_heads": 6, "hidden_size": 192, "learned_tensors_unchanged": True}
+QUANTIZED_TRANSFORMATION = {"method": "xlog.pinned_attention_fusion_dynamic_int8.v1",
+    "fusion": TRANSFORMATION, "learned_tensors_unchanged": False,
+    "quantization": {"method": "onnxruntime.quantization.quantize_dynamic", "op_types": ["MatMul", "Attention"],
+        "per_channel": True, "weight_type": "QInt8", "extra_options": {"MatMulConstBOnly": True, "DefaultTensorType": 1}}}
 
 
 def fuse(model):
@@ -71,7 +76,7 @@ def fuse(model):
     return model
 
 
-def transform(output):
+def transform(output, *, dynamic_int8=False):
     import onnx
     versions = {name: importlib.metadata.version(name) for name in ("onnxruntime", "onnx", "numpy")}
     if versions != {"onnxruntime": "1.24.3", "onnx": "1.20.1", "numpy": "2.0.2"}:
@@ -86,13 +91,30 @@ def transform(output):
     output.mkdir(mode=0o700, parents=False, exist_ok=False)
     target = output / "model.onnx"
     onnx.save(fused, target)
+    fused_sha = digest(target)
+    quantizer_sha = None
+    if dynamic_int8:
+        from onnxruntime.quantization import QuantType, quantize_dynamic
+        intermediate = output / "tensor-preserving-fusion.onnx"
+        target.rename(intermediate)
+        quantize_dynamic(str(intermediate), str(target), op_types_to_quantize=["MatMul", "Attention"],
+            per_channel=True, weight_type=QuantType.QInt8,
+            # The contrib Attention output is FLOAT; generic ONNX inference
+            # cannot propagate its type into converted Gemm/MatMul nodes.
+            extra_options={"MatMulConstBOnly": True, "DefaultTensorType": onnx.TensorProto.FLOAT})
+        onnx.checker.check_model(str(target))
+        fused = onnx.load(target)
+        quantizer_sha = digest(Path(quantize_dynamic.__code__.co_filename))
+        if sum(n.op_type == "QAttention" for n in fused.graph.node) != 6:
+            raise ValueError("Missing quantized attention blocks")
     for name in ("LICENSE", "model.onnx.json", "manifest.json"):
         shutil.copyfile(upstream / name, output / ("original-" + name))
     manifest = {"schema_version": 1, "status": "engineering_only_quality_unqualified",
         "source_model": {"sha256": original["sha256"]["model.onnx"], "upstream": original["upstream"], "commit": original["commit"]},
         "output": {"path": "model.onnx", "sha256": digest(target), "bytes": target.stat().st_size},
         "metadata_sha256": original["sha256"]["model.onnx.json"], "license": original["license"], "license_sha256": original["sha256"]["LICENSE"],
-        "transformation": TRANSFORMATION, "tool_versions": versions,
+        "transformation": QUANTIZED_TRANSFORMATION if dynamic_int8 else TRANSFORMATION, "tool_versions": versions,
+        "tensor_preserving_fusion_sha256": fused_sha, "quantizer_source_sha256": quantizer_sha,
         "transform_source_sha256": digest(Path(__file__)), "source_head": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT).decode().strip(),
         "nodes_before": old_nodes, "nodes_after": len(fused.graph.node), "ops_after": dict(collections.Counter(n.op_type for n in fused.graph.node))}
     (output / "transformation.json").write_text(json.dumps(manifest, indent=2) + "\n")
@@ -102,4 +124,6 @@ def transform(output):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
-    transform(parser.parse_args().output.resolve())
+    parser.add_argument("--dynamic-int8", action="store_true", help="Separately unqualified MatMul/QAttention quantization; changes learned tensors")
+    args = parser.parse_args()
+    transform(args.output.resolve(), dynamic_int8=args.dynamic_int8)

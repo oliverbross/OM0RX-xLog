@@ -78,6 +78,9 @@ def model_binding(model, pinned, candidate_manifest):
     if transformation.get("method") == "xlog.pinned_attention_fusion.v1":
         from fuse_attention_model import TRANSFORMATION
         expected = TRANSFORMATION
+    elif transformation.get("method") == "xlog.pinned_attention_fusion_dynamic_int8.v1":
+        from fuse_attention_model import QUANTIZED_TRANSFORMATION
+        expected = QUANTIZED_TRANSFORMATION
     else:
         constant_only = transformation.get("extra_options", {}).get("MatMulConstBOnly")
         if type(constant_only) is not bool:
