@@ -1,9 +1,9 @@
 # Native two-span replay slice
 
-Development implementation, not package or hardware acceptance. Continues the
-canonical foundation in an isolated development worktree while the separate
-radio-settings release keeps canonical source frozen. No application is built,
-signed, packaged or installed from this worktree.
+Development implementation, not package or hardware acceptance. The retained
+native slice is integrated into canonical main by f99fc51d. Its original
+worktree/branch remain recoverable; application packaging uses canonical source
+only. Current qualification is tracked in [COMPLETION.md](COMPLETION.md).
 
 ## Implemented path
 
@@ -25,7 +25,9 @@ nearby peaks mark an unresolved group ambiguous. Ambiguous tracks do not submit
 inference. This profile needs closer-spacing, varied-keying and real-RF
 characterization before qualification. It is not source separation.
 
-One shared ONNX session uses a fixed two-thread executor. Each track has at most
+The Mac production default uses one shared CPU ONNX session and four inference
+workers. Explicit bounded engineering profiles remain separate from production
+admission. Each track has at most
 one job in flight and one pending latest window. Superseded pending work is
 coalesced with counters; queue order gives other admitted tracks a turn. The
 event queue is capped at 64 entries / 1 MiB, coalesces superseded track copy and
@@ -115,10 +117,10 @@ prove functional separation and bounded ownership, **not real-time throughput**.
 Benchmarking with paced input, 1/4/16/32 independent tracks, queue age, CPU,
 memory, latency distributions and thermal state remains G1/G3 work.
 
-Parent supervision/IPC, live Flex resource acquisition, worker-facing TCI leases,
-shared UI, direct local cluster ingestion/server and release/hardware/corpus/soak
-acceptance remain outstanding. Automatic spots remain disabled by the production
-quality gate.
+Parent supervision/IPC, provider lease owners, shared UI and typed local ingress /
+server are integrated in main. Actual radio/RF, strict capacity, held-out quality,
+exact application package/installed behavior and soaks remain unqualified in the
+completion checklist. Automatic spots remain disabled by the production policy.
 
 ## Completion replay ingress correction
 
@@ -133,3 +135,35 @@ The affected real-child case then passes in 12.324 seconds, recovering both
 expected calls with their signed offsets and stopping/reaping the child. The
 other 14 unchanged cases retain their passing receipts. This functional replay
 neither qualifies 32-track throughput nor supplies live RF or soak evidence.
+
+## Carrier drift and identity conflict — 31 October 2026
+
+An isolated track now follows its compatible spectral peak using the existing
+channelizer. Only the DSP mixer step changes: mixer phase, FIR history, sample
+origin/indices and delay remain continuous. The inference job snapshots that
+observed signed RF offset with its own audio window, rather than reading a later
+mutable track frequency from the model thread. No radio command is involved.
+
+The compatible-peak limit remains 75 Hz. A peak approaching within the existing
+250-Hz grouping distance of another track marks both associations ambiguous,
+even when their last isolated offsets remain farther apart. A known conflict
+requires three fresh observations at the original 300-Hz separation before
+clearing. This hysteresis prevents keying-edge/sideband jitter from silently
+restoring identity at the grouping boundary. Ambiguity entry and exit carry
+actual channel-sample fences; old windows cannot reconstruct pre-conflict IDs.
+
+Independent analytic +8/-8 Hz/s keyed chirps retain one track each and recover
+the actual call. Maximum RF errors are **3.94164 / 3.93887 Hz** in this clean
+synthetic profile. A converging 400-Hz pair first reproduces unsafe resumed copy,
+then withholds copy while unresolved; a separate returning pair resumes **17**
+windows containing fresh post-fence calls on two retained tracks. This positive
+recovery case prevents a pass obtained by withholding all output. Scalar /
+Accelerate parity across the existing rates also proves that repeated mixer-step
+updates preserve phase/counts; nonfinite/out-of-band updates fail visibly.
+
+Native CTest passes 2/2 (`74ff0009cb0acc0d`). The real-child IQ copy case first
+expires the unchanged 250-ms input deadline during a concurrent CTest run
+(`20e721f8d06af25d`), then passes alone in 15.973 s (`6bfd384ae98b4423`). Neither
+receipt is a capacity or soak claim. Original failing drift/convergence receipts
+are `ae6e9323bf95aa63`, `8a720964109852b2` and `47dd002dc8e80eb2`. Actual real-RF
+drift/crossing, frequency p95 and transmitting-station precision remain required.

@@ -60,6 +60,9 @@ new revision and equal first/end channel indices marking the lost job's end.
 The coalesced/dropped counters retain their existing meanings; neither event is
 a qualified standard-load result. Old in-flight/queued revisions cannot escape
 the native result fence.
+Ambiguity entry and recovery also use equal first/end indices at the actual
+current channel position, so an ambiguity before first inference still fences
+the historical audio. A later decode retains its own observed RF offset.
 
 The parent resets text, selection and queued-publication proof on revision loss.
 It rejects tokens preceding the continuity fence even when later overlapping

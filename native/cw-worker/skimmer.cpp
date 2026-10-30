@@ -42,7 +42,8 @@ struct Track {
   double peak_envelope=0,envelope_sum=0;
   size_t envelope_samples=0,rises=0,falls=0;
   size_t ambiguity_hits=0;
-  bool keyed=false,ambiguous=false,spectral_ambiguity=false;
+  size_t separated_hits=0;
+  bool keyed=false,ambiguous=false,spectral_ambiguity=false,association_conflict=false;
   KeyingSpeed speed;
   std::optional<double> snr{};
   Track(int rate,double offset,uint64_t origin,bool replay):origin(origin),replay(replay),offset(offset),channel(rate,offset) {}
@@ -81,6 +82,7 @@ struct Job {
   std::string token;
   uint64_t epoch,revision,first,end;
   std::vector<float> audio;
+  double offset;
   std::optional<double> snr{},wpm{};
   std::chrono::steady_clock::time_point enqueued{};
 };
@@ -179,7 +181,7 @@ struct Skimmer::Impl {
           const double queue_ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-job.enqueued).count();
           auto copy=engine.decode(job.audio,job.first);
           if(job.track->valid && !job.track->muted && job.track->revision==job.revision) {
-            SkimmerEvent event{"decode",job.token,job.track->id,"provisional",job.epoch,job.first,job.end,job.track->offset,false,std::move(copy)};
+            SkimmerEvent event{"decode",job.token,job.track->id,"provisional",job.epoch,job.first,job.end,job.offset,false,std::move(copy)};
             event.estimated_snr_db=job.snr;event.estimated_wpm=job.wpm;
             event.queue_wait_ms=queue_ms;
             emit(std::move(event),job.track,job.revision);
@@ -275,6 +277,27 @@ void Skimmer::feed(const std::string& token,uint64_t epoch,uint64_t sequence,uin
       auto match=std::find_if(span.tracks.begin(),span.tracks.end(),[&](const auto& track){return track->valid && std::abs(track->offset-peak.offset_hz)<75;});
       if(match!=span.tracks.end()) {
         auto& track=**match;
+        bool neighbour=false,separated=true;
+        for(const auto& other:span.tracks) if(other!=*match && other->valid) {
+          const double distance=std::abs(other->offset-peak.offset_hz);
+          if(distance<300) separated=false;
+          if(distance<250) {neighbour=true;other->association_conflict=true;other->separated_hits=0;}
+        }
+        if(neighbour) {track.association_conflict=true;track.separated_hits=0;}
+        else if(!peak.ambiguous && separated) {
+          // CW edge/sideband jitter must not clear a known collision at the
+          // grouping boundary. Require the declared 300-Hz initial separation
+          // and three fresh observations before re-establishing this track.
+          track.separated_hits=std::min(size_t(3),track.separated_hits+1);
+          if(track.separated_hits>=3) track.association_conflict=false;
+        } else track.separated_hits=0;
+        const bool isolated=!peak.ambiguous && !track.ambiguous && !neighbour;
+        if(isolated) {
+          // Follow this isolated carrier without resetting its NCO/FIR clock.
+          // Inference receives the observed offset with its exact input window,
+          // never a later mutable frequency read from a worker thread.
+          track.channel.retune(peak.offset_hz);track.offset=peak.offset_hz;
+        }
         track.last_peak=windowEnd;
         track.snr=peak.estimated_snr_db(span.rate);
         track.ambiguity_hits=peak.ambiguous?std::min(size_t(3),track.ambiguity_hits+1):0;
@@ -306,10 +329,11 @@ void Skimmer::feed(const std::string& token,uint64_t epoch,uint64_t sequence,uin
     span.analysis.erase(span.analysis.begin(),span.analysis.begin()+4096);
   }
   for(auto& track:span.tracks) {
-    const bool collision=track->spectral_ambiguity || std::any_of(span.tracks.begin(),span.tracks.end(),[&](const auto& other){return other!=track && other->valid && std::abs(other->offset-track->offset)<250;});
+    const bool collision=track->spectral_ambiguity || track->association_conflict || std::any_of(span.tracks.begin(),span.tracks.end(),[&](const auto& other){return other!=track && other->valid && std::abs(other->offset-track->offset)<250;});
     if(collision!=track->ambiguous) {
       track->ambiguous=collision; ++track->revision;
-      impl->emit({"track",token,track->id,collision?"ambiguous":"acquiring",span.epoch,0,0,track->offset,collision,{}},track);
+      const auto fence=track->channel.output_samples();
+      impl->emit({"track",token,track->id,collision?"ambiguous":"acquiring",span.epoch,fence,fence,track->offset,collision,{}},track);
     }
     if(span.sample-track->last_peak>uint64_t(span.rate)*12 || !track->valid) { impl->retire(token,span,track); continue; }
     if(track->muted) continue;
@@ -318,7 +342,7 @@ void Skimmer::feed(const std::string& token,uint64_t epoch,uint64_t sequence,uin
       track->next_job=last+3200;
       // Filter delay remains explicitly reported; absolute channel indices are
       // tied to this track acquisition, not synthesized hardware timestamps.
-      impl->enqueue({track,token,span.epoch,track->revision,last-track->audio.size(),last,track->audio,
+      impl->enqueue({track,token,span.epoch,track->revision,last-track->audio.size(),last,track->audio,track->offset,
           span.sample-track->last_peak<uint64_t(span.rate)/2 ? track->snr:std::nullopt,track->speed.estimate()});
     }
   }

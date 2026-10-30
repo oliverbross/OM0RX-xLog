@@ -135,6 +135,10 @@ Channelizer::Channelizer(int source_rate,double offset,bool accelerated):rate(so
     std::reverse(h.begin(),h.end());coefficients.push_back(std::move(h));
   }
 }
+void Channelizer::retune(double offset) {
+  if(!std::isfinite(offset) || std::abs(offset)>rate/2.0-400) throw std::invalid_argument("Unsupported channelizer offset");
+  step=std::polar(1.0,-2*pi*offset/rate);
+}
 std::vector<float> Channelizer::process(const std::vector<std::complex<float>>& iq) {
   if(iq.size()>16384) throw std::invalid_argument("Oversize channelizer block");
   std::vector<float> out;

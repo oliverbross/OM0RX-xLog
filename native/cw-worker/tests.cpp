@@ -7,6 +7,7 @@
 #include <iostream>
 #include <map>
 #include <random>
+#include <set>
 #include <stdexcept>
 
 void require(bool v,const char* what) { if(!v) throw std::runtime_error(what); }
@@ -101,8 +102,15 @@ int main(int argc,char** argv) {
     for(int rate:{24000,48000,96000,192000,384000}) {
       cw::Channelizer channel(rate,6200);
       cw::Channelizer reference_channel(rate,6200,false);
+      for(double invalid:{double(NAN),double(rate)/2}) {
+        bool refused=false;try {channel.retune(invalid);} catch(...) {refused=true;}
+        require(refused,"Invalid tracking offsets cannot alter a channelizer");
+      }
       std::vector<float> audio;
       for(int block=0;block<rate/4000;++block) {
+        // The independent scalar reference never retunes. Resetting NCO phase,
+        // FIR history or sample indices here would break their sample parity.
+        channel.retune(6200);
         std::vector<std::complex<float>> iq(4000);
         for(size_t i=0;i<iq.size();++i) iq[i]=std::complex<float>(std::polar(0.4,2*pi*6200*(block*4000+i)/rate));
         const auto output=channel.process(iq),reference=reference_channel.process(iq);
@@ -233,6 +241,76 @@ int main(int argc,char** argv) {
     require(skimmer.wait_idle(10),"Cancel drain");
     for(const auto& event:skimmer.events()) require(event.kind!="decode"||event.stream_token!=source,"No late copy after source retirement");
     skimmer.stop(); require(skimmer.metrics().sources==0,"Stop retires every span");
+    // Independent analytic chirps verify signed RF attribution as a carrier
+    // drifts. Offline draining isolates correctness from capacity qualification.
+    for(double drift:{8.0,-8.0}) {
+      const double initial=drift>0?6200:-6100;
+      cw::Skimmer moving(engine,1);moving.open(source,11,96000,-39000,39000,true);
+      uint64_t seq=0;size_t copies=0;double maximum_error=0;bool identified=false;
+      std::set<std::string> identities;
+      for(size_t first=0;first<96000*8;first+=4096) {
+        const size_t count=std::min(size_t(4096),size_t(96000*8)-first);
+        std::vector<std::complex<float>> block(count);
+        for(size_t i=0;i<count;++i) {
+          const size_t n=first+i,index=(n/30)%a.size();const double t=double(n)/96000,fraction=double(n%30)/30;
+          const double key=a[index]*(1-fraction)+a[(index+1)%a.size()]*fraction;
+          block[i]=std::complex<float>(std::polar(key,2*pi*(initial*t+0.5*drift*t*t)));
+        }
+        moving.feed(source,11,seq++,first,96000,block);require(moving.wait_idle(10),"Drift correctness drain");
+        for(const auto& event:moving.events()) {
+          if(event.kind=="track") identities.insert(event.track_id);
+          if(event.kind!="decode") continue;
+          ++copies;const double t=double(event.source_first_sample)/96000+double(event.end_sample)/3200;
+          maximum_error=std::max(maximum_error,std::abs(event.offset_hz-(initial+drift*t)));
+          require(maximum_error<=10,"Gradual signed drift must update RF attribution within 10 Hz");
+          identified=identified || event.copy.text.find("OM0RX")!=std::string::npos;
+        }
+      }
+      require(copies>0 && identified,"Original decoder follows keyed drift without losing copy");
+      require(identities.size()==1 && moving.metrics().tracks==1,"Drift retains one track, without mirrored or duplicate carriers");
+      require(moving.metrics().coalesced==0 && moving.metrics().dropped_events==0,"Drift fixture does not hide lost work");
+      std::cout<<"Signed drift "<<drift<<" Hz/s: "<<copies<<" copies, maximum RF error "<<maximum_error<<" Hz\n";
+      moving.stop();
+    }
+    for(const bool recover:{false,true}) {
+    cw::Skimmer converging(engine,1);converging.open(source,12,96000,-39000,39000,true);
+    bool conflict_visible=false,fresh_recovered=false;uint64_t converging_sequence=0;size_t recovered_copies=0;
+    std::map<std::string,uint64_t> fences;
+    const size_t input_samples=96000*(recover?16:8);
+    for(size_t first=0;first<input_samples;first+=4096) {
+      const size_t count=std::min(size_t(4096),input_samples-first);
+      std::vector<std::complex<float>> block(count);
+      for(size_t i=0;i<count;++i) {
+        const size_t n=first+i;const double t=double(n)/96000,fraction=double(n%30)/30;
+        const auto key=[&](const auto& message){const auto at=(n/30)%message.size();return message[at]*(1-fraction)+message[(at+1)%message.size()]*fraction;};
+        double displacement=10*t*t;
+        if(recover && t>4) {const double u=std::min(t-4,4.0);displacement=160+80*u-10*u*u;}
+        block[i]=std::complex<float>(std::polar(key(a),2*pi*(6200*t+displacement))+std::polar(key(b),2*pi*(6600*t-displacement)));
+      }
+      converging.feed(source,12,converging_sequence++,first,96000,block);
+      require(converging.wait_idle(10),"Converging-carrier correctness drain");
+      for(const auto& event:converging.events()) {
+        if(event.kind=="track" && event.track_revision>0) fences[event.track_id]=std::max(fences[event.track_id],event.end_sample);
+        if(event.kind=="track" && event.ambiguous) {
+          conflict_visible=true;
+          require(event.first_sample==event.end_sample && event.end_sample>0,"Ambiguity revision carries its actual continuity fence");
+        }
+        if(event.kind=="decode") {
+          require(recover,"Converging unresolved carriers must not resume historical copy through frozen offsets");
+          const double t=double(event.source_first_sample)/96000+double(event.end_sample)/3200;
+          const double gap=t>=8?400:t<=4?400-40*t:240+40*(t-4);
+          require(conflict_visible && gap>=300 && fences.count(event.track_id)>0,"Recovery requires fresh separated evidence and a revised track");
+          ++recovered_copies;std::string fresh;
+          for(const auto& token:event.copy.tokens) if(token.first_sample>=fences.at(event.track_id)) fresh+=token.symbol;
+          fresh_recovered=fresh_recovered || fresh.find("OM0RX")!=std::string::npos || fresh.find("DL1ABC")!=std::string::npos;
+        }
+      }
+    }
+    require(conflict_visible,"Converging carriers expose their identity conflict");
+    if(recover) require(fresh_recovered && converging.metrics().tracks==2,"Separated carriers recover fresh copy on two retained tracks");
+    std::cout<<"Converging carriers recovery="<<recover<<": "<<recovered_copies<<" post-conflict copies, fresh="<<fresh_recovered<<"\n";
+    converging.stop();
+    }
     // Deliberately leave derived output unread, while draining inference. This
     // forces output loss without depending on machine speed or a fake decoder.
     for(const bool drain_inference:{true,false}) {

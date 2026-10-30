@@ -30,6 +30,8 @@ std::vector<Carrier> carriers(const std::vector<std::complex<float>>& iq,int rat
 class Channelizer {
  public:
   Channelizer(int source_rate,double offset_hz,bool use_acceleration=true);
+  // Ingress-owner only: preserve mixer phase, FIR history and sample indices.
+  void retune(double offset_hz);
   std::vector<float> process(const std::vector<std::complex<float>>& iq);
   uint64_t output_samples() const { return emitted; }
   double group_delay_seconds() const { return (coefficients[0].size()-1)/2.0/rate; }
