@@ -46,6 +46,15 @@ sample range, source sample origin and FIR delay. Token boundaries are approxima
 CTC alignments. Log scores are uncalibrated; copy is provisional. The parent must
 recheck the current radio capture and apply transcript/identity/quality policy.
 
+An IQ token may also carry the complete pair `rf_offset_hz` (finite numeric
+measured offset) and `rf_sample` (decimal-string channel index). Both are absent
+when unknown. The observation must precede or equal the token end and be no more
+than 1600 channel samples old; partial pairs, future/stale samples, booleans and
+out-of-contract offsets fail parsing. Reflected zero-duration edge tokens still
+cannot become aligned evidence. Mono inference does not invent RF metadata.
+This additive unshipped v1 extension is validated at both bundled endpoints.
+An old child without observations cannot supply accepted-spot RF evidence.
+
 All 64-bit identities/counters/sample indices use decimal strings in JSON.
 Events are at most 667 tokens for a ten-second window; consumers must impose a
 128-KiB line limit. The worker's derived-event queue is capped at 64 entries /
@@ -53,6 +62,12 @@ Events are at most 667 tokens for a ten-second window; consumers must impose a
 independent of IQ ingress. A supervisor must drain stdout/stderr independently,
 bound its own queues and kill/reap a stalled child on its shutdown deadline.
 This process boundary is not an OS sandbox.
+
+Queue accounting allows 192 bytes per derived token, including the RF pair;
+the 128-KiB line and 1-MiB derived-event limits are unchanged. Each track retains
+at most five candidate measurements and 256 historical observations, at most
+25 recorded points per channel second. Jobs copy that bounded history, not IQ
+into JSON. The parent projects strings/track state to the UI, not raw tokens/IQ.
 
 Pending-job replacement and derived-event loss both advance the affected track's
 revision. A pending replacement also emits `track / overloaded`, with a nonzero

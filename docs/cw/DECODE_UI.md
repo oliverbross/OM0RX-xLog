@@ -128,6 +128,10 @@ installed 1.3.63 does not become a qualified skimmer through this guide.
    Retune, TX/unknown receive state, gaps and reconnect retire stale evidence;
    old copy cannot authorize a fresh action or spot.
 
+**Frequency evidence unavailable** means the self-IDs lack reliable carrier
+measurements at their sample times. Fresh measured copy must establish evidence;
+the current track frequency cannot substitute for an earlier ID's frequency.
+
 **Continuity interrupted** means a worker revision lost text evidence, including
 pending inference coalescing or a dropped derived event. The affected committed
 copy and callsign action are cleared. Overlapping old windows cannot restore

@@ -17,7 +17,10 @@ CPU, bounded static-CoreML, GPU and tensor-preserving attention-fusion candidate
 retain strict capacity failures; diagnostics preserve each measured result.
 Native callsign actions now require fresh qualified RF (`b307a624`); a child RSS
 guard releases receive leases without automatic reacquisition after memory faults.
-Real-rate replay currently misses the unchanged 250-ms deadline on this busy host.
+Replay deadline misses remain recorded; the later 18-case real-child harness
+and enhanced call-RF replay pass with the original 250-ms deadline. Spots now
+retain timed self-ID carrier measurements and exact queued-payload proof;
+32 focused session/policy cases pass. These do not qualify real RF or capacity.
 Overload now invalidates affected
 text revisions and queued-publication proof, with focused regressions recorded in
 the CW checklist. AetherSDR has native TCP access, while a raw five-second UDP

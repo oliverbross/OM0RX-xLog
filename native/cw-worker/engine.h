@@ -3,11 +3,13 @@
 #include <complex>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 namespace cw {
-struct Token { char symbol; uint64_t first_sample; uint64_t end_sample; float log_score; };
+struct CarrierObservation {uint64_t sample;double offset_hz;};
+struct Token { char symbol; uint64_t first_sample; uint64_t end_sample; float log_score; std::optional<CarrierObservation> rf{}; };
 struct Decode {
   std::string text;
   std::vector<Token> tokens;

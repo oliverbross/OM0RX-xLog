@@ -101,7 +101,7 @@ export function parseCWDecodeSnapshot(value: unknown): CWDecodeSnapshot {
     typeof track.provisional === "string" && track.provisional.length <= 1024 && typeof track.ambiguous === "boolean" &&
     trackSelection(track) && trackControl(track) && trackOpportunity(track) &&
     (track.frequencyHz === undefined || track.descriptor.mappingQualified && integer(track.frequencyHz, 100000, 1e9)) &&
-    (track.spotRejection === undefined || ["quality_not_qualified", "replay", "stale_source", "unmapped_frequency", "contaminated", "ambiguous", "insufficient_occurrences", "cooldown", "invalid_evidence", "continuity_interrupted"].includes(track.spotRejection)) &&
+    (track.spotRejection === undefined || ["quality_not_qualified", "replay", "stale_source", "unmapped_frequency", "contaminated", "ambiguous", "insufficient_occurrences", "cooldown", "invalid_evidence", "continuity_interrupted", "frequency_evidence_unavailable"].includes(track.spotRejection)) &&
     (track.estimatedWPM === undefined || Number.isFinite(track.estimatedWPM) && track.estimatedWPM >= 5 && track.estimatedWPM <= 80) &&
     (track.estimatedSNRDB === undefined ? track.snrReferenceHz === undefined : Number.isFinite(track.estimatedSNRDB) && track.estimatedSNRDB >= -100 && track.estimatedSNRDB <= 150 && track.snrReferenceHz === 2500) &&
     (track.inferenceMilliseconds === undefined || Number.isFinite(track.inferenceMilliseconds) && track.inferenceMilliseconds >= 0))) throw new Error("CW Decode track state could not be verified.");

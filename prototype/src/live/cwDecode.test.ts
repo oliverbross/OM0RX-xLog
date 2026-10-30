@@ -21,8 +21,11 @@ describe("native CW Decode projection", () => {
     expect(parseCWDecodeSnapshot(cwDecodeTrackFixture()).tracks).toHaveLength(1);
   });
   it("keeps a verified continuity interruption visible without admitting unknown withholding reasons", () => {
-    const fixture=cwDecodeTrackFixture();fixture.tracks[0].spotRejection="continuity_interrupted";
-    expect(parseCWDecodeSnapshot(fixture).tracks[0].spotRejection).toBe("continuity_interrupted");
+    const fixture=cwDecodeTrackFixture();
+    for(const reason of ["continuity_interrupted","frequency_evidence_unavailable"]) {
+      fixture.tracks[0].spotRejection=reason;
+      expect(parseCWDecodeSnapshot(fixture).tracks[0].spotRejection).toBe(reason);
+    }
     fixture.tracks[0].spotRejection="pretend_qualified";
     expect(()=>parseCWDecodeSnapshot(fixture)).toThrow();
   });

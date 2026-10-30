@@ -14,8 +14,10 @@ final class CWSpotPolicyTests: XCTestCase {
     }
     private func evaluate(_ policy:inout CWSpotPolicy,_ d:CWStreamDescriptor,_ calls:[CWIdentityOccurrence],
                           hz:Int64 = 14_025_000,now:UInt64 = 1_000_000_000,latest:UInt64 = 1_000_000_000,
-                          tx:Bool? = false,clean:Bool = true,ambiguous:Bool = false) -> CWSpotDecision {
-        policy.evaluate(descriptor:d,trackID:UUID(),frequencyHz:hz,occurrences:calls,
+                          tx:Bool? = false,clean:Bool = true,ambiguous:Bool = false,fixtureRF:Bool=true) -> CWSpotDecision {
+        let observed=calls.map{CWIdentityOccurrence(callsign:$0.callsign,firstSample:$0.firstSample,endSample:$0.endSample,pattern:$0.pattern,
+            rfObservation:fixtureRF ? try? CWCarrierObservation(offsetHz:Double(hz-d.centreHz)/Double(d.spectralSign ?? 1),sample:$0.endSample):$0.rfObservation)}
+        return policy.evaluate(descriptor:d,trackID:UUID(),frequencyHz:hz,occurrences:observed,
                         channelSample:calls.map(\.endSample).max() ?? 0,latestSampleNS:latest,
                         nowNS:now,observedAt:Date(timeIntervalSince1970:0),transmitting:tx,clean:clean,ambiguous:ambiguous)
     }
@@ -27,6 +29,17 @@ final class CWSpotPolicyTests: XCTestCase {
         XCTAssertTrue(CWTransmittingIdentity.occurrences(in:try tokens("CQ OM0RX")).isEmpty)
         for call in ["EA8/OM0RX/P","3DA0WW","GB100RSGB","N0A"] { XCTAssertTrue(CWTransmittingIdentity.plausible(call)) }
         for call in ["599","DX","OM0R?","/OM0RX","OM0RX//P"] { XCTAssertFalse(CWTransmittingIdentity.plausible(call)) }
+    }
+    func testTwoSelfIDsNeedTheirOwnPastCarrierEvidence() throws {
+        let d=try descriptor(),calls=CWTransmittingIdentity.occurrences(in:try tokens("CQ OM0RX OM0RX "))
+        var policy=CWSpotPolicy(qualifiedForTests:true)
+        XCTAssertEqual(evaluate(&policy,d,calls,fixtureRF:false).rejection,.frequencyEvidenceUnavailable)
+        let invalid=calls.map{CWIdentityOccurrence(callsign:$0.callsign,firstSample:$0.firstSample,endSample:$0.endSample,pattern:$0.pattern,
+            rfObservation:try! CWCarrierObservation(offsetHz:0,sample:$0.endSample+1))}
+        XCTAssertEqual(evaluate(&policy,d,invalid,fixtureRF:false).rejection,.frequencyEvidenceUnavailable)
+        let valid=calls.map{CWIdentityOccurrence(callsign:$0.callsign,firstSample:$0.firstSample,endSample:$0.endSample,pattern:$0.pattern,
+            rfObservation:try! CWCarrierObservation(offsetHz:600,sample:$0.endSample))}
+        XCTAssertEqual(evaluate(&policy,d,valid,fixtureRF:false).rejection,.invalidEvidence,"The current window's frequency cannot replace the measured self-ID frequency")
     }
     func testRepeatedInferenceDoesNotSupplyDistinctTransmissions() throws {
         let d=try descriptor(), one=CWTransmittingIdentity.occurrences(in:try tokens("CQ OM0RX "))

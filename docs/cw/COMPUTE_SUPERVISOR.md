@@ -95,3 +95,16 @@ The complete 16-case harness has 15 passes and one continuous-replay failure
 was 77.28/73.73/47.21 after the build; no competing task build/test ran during
 the replay. It is not an all-green harness result or installed performance pass.
 The diagnostic now records the failed deadline instead of hiding that loss.
+
+Later RF-metadata source passes all **18** real-child/wire cases
+(`487a51b6e07ef65e`), including memory/crash handling and continuous replay.
+The strengthened replay assertion requires measured RF on each decoded call's
+final character. Its first attempt misses the unchanged deadline at 266.651 ms
+(`f804cc086b9a2646`). A separate producer benchmark checks all 16,384 Float32 bit
+patterns of a 65,536-byte packet over 20 iterations: median/max per-sample-loop
+conversion 1.26104/10.5097 ms versus 0.023542/0.038708 ms for native LE byte copy
+(`8c23a3b523623505`). The fixture now uses that byte-identical copy, with an
+explicit endian guard; data, pacing, source timestamps and the 250-ms limit
+remain unchanged. The affected actual Swift → child → Swift case then passes
+in 12.284 seconds (`a496e38c7869dc7c`), with final-character RF for both calls.
+This is a two-signal transport/function check, not 32-track throughput or a soak.

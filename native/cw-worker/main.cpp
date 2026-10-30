@@ -56,7 +56,9 @@ void outputEvent(const cw::SkimmerEvent& e) {
     for(const auto& t:e.copy.tokens) {
       if(comma) std::cout<<','; comma=true;
       std::cout<<"{\"symbol\":\""<<t.symbol<<"\",\"first_sample\":\""<<t.first_sample
-        <<"\",\"end_sample\":\""<<t.end_sample<<"\",\"log_score\":"<<t.log_score<<'}';
+        <<"\",\"end_sample\":\""<<t.end_sample<<"\",\"log_score\":"<<t.log_score;
+      if(t.rf) std::cout<<",\"rf_offset_hz\":"<<t.rf->offset_hz<<",\"rf_sample\":\""<<t.rf->sample<<'"';
+      std::cout<<'}';
     }
     std::cout<<']';
   }

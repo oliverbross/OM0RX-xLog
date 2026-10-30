@@ -83,7 +83,7 @@ public actor CWDecodeSession {
         var updatedNS:UInt64=0
         var continuityStart:UInt64=0
         var lastDecodeEnd:UInt64=0
-        var publicationIDs:[UUID]=[]
+        var publicationProofs:[CWConfirmedSpot]=[]
     }
     private let provider: any CWIQSourceProviding
     private let compute: any CWComputeControlling
@@ -221,8 +221,8 @@ public actor CWDecodeSession {
         let now=clock()
         return tracks.values.contains { track in
             UUID(uuidString:track.view.trackID)==spot.trackID &&
-                track.publicationIDs.contains(spot.id) && !track.view.ambiguous &&
-                track.view.selection?.callsign==spot.callsign && track.view.frequencyHz==spot.frequencyHz &&
+                track.publicationProofs.contains(spot) && !track.view.ambiguous &&
+                track.view.selection?.callsign==spot.callsign &&
                 track.view.descriptor.streamToken==spot.streamToken && track.view.descriptor.epoch==spot.epoch &&
                 now>=track.selectionUpdatedNS && now-track.selectionUpdatedNS<=2_000_000_000
         }
@@ -435,7 +435,7 @@ public actor CWDecodeSession {
             track=nil
         }
         if value.state=="overloaded" {continuityStart=max(continuityStart,value.endSample);track=nil}
-        var publicationIDs=track?.publicationIDs ?? []
+        var publicationProofs=track?.publicationProofs ?? []
         var reconciler=track?.transcript ?? CWTranscriptReconciler()
         var committed=track?.view.committed ?? "",provisional=track?.view.provisional ?? "",ambiguous=value.ambiguous
         var occurrences:[CWIdentityOccurrence]=[]
@@ -470,15 +470,18 @@ public actor CWDecodeSession {
             } else {selection=nil;selectionUpdatedNS=0}
         }
         if ambiguous {selection=nil;selectionUpdatedNS=0}
-        if selection==nil || selection?.callsign != track?.view.selection?.callsign {publicationIDs.removeAll()}
+        if selection==nil || selection?.callsign != track?.view.selection?.callsign {publicationProofs.removeAll()}
         let recoveringContinuity=continuityStart>0 && track?.view.selection==nil
         var rejection:String?=ambiguous ? CWSpotRejection.ambiguous.rawValue:(recoveringContinuity ? "continuity_interrupted":track?.view.spotRejection)
         if decode != nil,let trackID=UUID(uuidString:key) {
             let now=clock(),latest=occurrences.map(\.endSample).max() ?? value.endSample
+            let identityFrequency=occurrences.max(by:{$0.endSample<$1.endSample}).flatMap{occurrence in
+                occurrence.rfObservation.flatMap{try? descriptor.frequency(offsetHz:$0.offsetHz)}
+            }
             let samplePosition=Double(value.sourceFirstSample)+Double(latest)*Double(descriptor.sampleRate)/3200
             let age=Double(now-source.lastReceipt)/1e9+max(0,Double(source.lastSample)-samplePosition)/Double(descriptor.sampleRate)+value.filterDelaySeconds
             var evaluatingPolicy=spotPolicy
-            let decision=evaluatingPolicy.evaluate(descriptor:descriptor,trackID:trackID,frequencyHz:frequency ?? 0,
+            let decision=evaluatingPolicy.evaluate(descriptor:descriptor,trackID:trackID,frequencyHz:identityFrequency ?? 0,
                 occurrences:occurrences,channelSample:value.endSample,latestSampleNS:source.lastReceipt,nowNS:now,
                 observedAt:wallClock().addingTimeInterval(-age),transmitting:false,clean:true,ambiguous:ambiguous)
             rejection=continuityStart>0 && occurrences.isEmpty ? "continuity_interrupted":decision.rejection?.rawValue
@@ -486,8 +489,8 @@ public actor CWDecodeSession {
             if configuration?.automaticSpots==true,let spot=decision.spot {
                 switch spotOutput.yield(spot) {
                 case .enqueued:
-                    publicationIDs.append(spot.id)
-                    if publicationIDs.count>16 {publicationIDs.removeFirst(publicationIDs.count-16)}
+                    publicationProofs.append(spot)
+                    if publicationProofs.count>16 {publicationProofs.removeFirst(publicationProofs.count-16)}
                 case .dropped:spotDeliveryDrops=min(Int.max-1,spotDeliveryDrops)+1
                 case .terminated:break
                 @unknown default:break
@@ -510,7 +513,7 @@ public actor CWDecodeSession {
         if tracks[key] != nil || tracks.count<32 {
             tracks[key]=Track(view:view,transcript:reconciler,selectionUpdatedNS:selectionUpdatedNS,
                 metricsUpdatedNS:decode != nil ? clock():(track?.metricsUpdatedNS ?? 0),updatedNS:clock(),
-                continuityStart:continuityStart,lastDecodeEnd:lastDecodeEnd,publicationIDs:publicationIDs)
+            continuityStart:continuityStart,lastDecodeEnd:lastDecodeEnd,publicationProofs:publicationProofs)
         }
     }
 }

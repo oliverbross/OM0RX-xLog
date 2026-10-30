@@ -64,6 +64,24 @@ final class CWWireHarnessTests:XCTestCase {
         XCTAssertEqual(value.text,"A ");XCTAssertEqual(value.track.epoch,17);XCTAssertTrue(value.track.replay)
         XCTAssertEqual(value.tokens.compactMap(\.aligned).map(\.symbol),["A"])
     }
+    func testRFMetadataRequiresCompletePastFreshObservationPair() throws {
+        var record=decode(),rows=record["tokens"] as! [[String:Any]]
+        rows[0]["rf_offset_hz"] = -4199.5;rows[0]["rf_sample"] = "148";record["tokens"]=rows
+        guard case .decode(let parsed)=try event(record) else {return XCTFail("Expected decode")}
+        XCTAssertEqual(parsed.tokens.first?.aligned?.rfObservation?.offsetHz,-4199.5)
+        XCTAssertEqual(parsed.tokens.first?.aligned?.rfObservation?.sample,148)
+        for fields:[String:Any] in [["rf_offset_hz":0.0],["rf_sample":"148"],
+            ["rf_offset_hz":0.0,"rf_sample":"149"],["rf_offset_hz":0.0,"rf_sample":"00148"],
+            ["rf_offset_hz":192001.0,"rf_sample":"148"],["rf_offset_hz":true,"rf_sample":"148"]] {
+            var invalid=decode(),tokens=invalid["tokens"] as! [[String:Any]]
+            tokens[0].merge(fields){_,new in new};invalid["tokens"]=tokens
+            XCTAssertThrowsError(try event(invalid))
+        }
+        rows[0]["end_sample"]="18000";rows[0]["rf_sample"]="0";record["tokens"]=rows
+        XCTAssertThrowsError(try event(record),"Old measured RF cannot authorize a later token")
+        rows[0]["rf_sample"]="16400";record["tokens"]=rows
+        XCTAssertNoThrow(try event(record),"The declared half-second boundary is inclusive")
+    }
     func testWrongShapesAndLossyCountersFailClosed() throws {
         for (key,value):(String,Any) in [("extra",1),("epoch",17),("epoch","017"),("epoch","18446744073709551616"),
                                        ("replay",1),("offset_hz",true),("text","A\n"),("state","retired"),("stream_token","bad")] {

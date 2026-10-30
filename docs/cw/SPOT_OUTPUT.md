@@ -54,3 +54,48 @@ callsign/panel cases pass (`504f379118951e5a`). The view explicitly names its
 Normal Logging or Contest Entry target; native operating-context and draft-owner
 fences remain authoritative. These source fixtures do not supply held-out RF
 precision/recall, negative band-hours, or production qualification.
+
+## Frequency tied to the self-ID — 31 October 2026
+
+Spot frequency now uses a carrier measurement at or before the final required
+self-ID, on its channel clock, rather than the later decode window's frequency.
+The track keeps five recent isolated FFT observations and selects an actual
+median observation with its original sample time. Gapped keying can make a
+sideband win one FFT window; that outlier must not relabel earlier Morse. No
+frequency is backdated or interpolated across missing evidence. A bounded
+256-point history and immutable per-job copy carry those observations into
+native token metadata. Ambiguity clears both histories. FIR delay is included
+in the source-to-channel clock conversion.
+
+Aligned committed tokens preserve this metadata. Two distinct contributing
+self-IDs need measured carrier evidence, and the newest ID must have an
+observation no later than its end and at most 1600 channel samples / 0.5 seconds
+earlier. Unknown/future/stale evidence withholds output as
+`frequency_evidence_unavailable`; the current window cannot substitute for it.
+The RF mapping and production-quality gates still apply independently. Original
+UTC continues to follow the self-ID sample position, while the track inspector
+and deliberate Tune use the current track frequency.
+
+The bounded publication proof now retains the exact accepted typed spot. A later
+carrier drift does not rewrite its historical frequency, and a copied spot ID
+cannot authorize a modified frequency or provenance. Source/stream/epoch,
+continuity, identity, freshness and ownership are still rechecked before and
+after provider awaits; Stop, mute and revision loss withdraw proof.
+
+Regressions first reproduce a +600-Hz self-ID being spotted at the later +800-Hz
+window and an accepted spot without measured identity RF (`895d4577288be66c`).
+All **32** session/policy cases pass after repair (`87ce094973f3c16b`), including
+payload tampering, missing/future RF and fresh post-loss recovery. Native chirps
+first expose a 13.159-Hz keyed-edge outlier; the observation selection repairs it
+without relaxing the fixture's 10-Hz limit or withholding completed test IDs.
+For +8/−8 Hz/s drift, all completed test IDs retain final-character RF, with
+maximum historical-token errors **0.672855 / 0.512208 Hz** (16 observed tokens per
+direction, two decoded windows). Native CTest passes 2/2 (`51af146d5bf9a415`).
+These are synthetic checks; real RF p95, held-out precision/recall and negative
+exposure remain unqualified.
+
+The actual Swift → child → Swift replay also verifies RF metadata on each
+decoded call's final character (`a496e38c7869dc7c`), using byte-identical paced
+IQ and the original 250-ms admission limit. Ten wire-parser cases reject partial,
+future, stale and malformed observation pairs. Twenty-two frontend projection/
+panel cases pass with the specific withholding reason (`725d01930f8a197e`).

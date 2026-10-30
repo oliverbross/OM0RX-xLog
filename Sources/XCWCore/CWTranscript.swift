@@ -5,12 +5,15 @@ public struct CWAlignedToken: Encodable, Equatable, Sendable {
     public let symbol: String
     public let firstSample: UInt64
     public let endSample: UInt64
-    public init(symbol: String, firstSample: UInt64, endSample: UInt64) throws {
+    public let rfObservation:CWCarrierObservation?
+    public init(symbol: String, firstSample: UInt64, endSample: UInt64,rfObservation:CWCarrierObservation?=nil) throws {
         guard symbol.utf8.count == 1, symbol.utf8.allSatisfy({ $0 == 32 || $0 == 44 || $0 == 46 || $0 == 47 ||
             (48...57).contains($0) || $0 == 63 || (65...90).contains($0) }), firstSample < endSample else {
             throw CWContractError.invalidSamples
         }
         self.symbol=symbol; self.firstSample=firstSample; self.endSample=endSample
+        guard rfObservation?.valid(at:endSample) ?? true else {throw CWContractError.invalidSamples}
+        self.rfObservation=rfObservation
     }
 }
 
@@ -71,6 +74,10 @@ public struct CWIdentityOccurrence: Hashable, Sendable {
     public let firstSample: UInt64
     public let endSample: UInt64
     public let pattern: String
+    public let rfObservation:CWCarrierObservation?
+    public init(callsign:String,firstSample:UInt64,endSample:UInt64,pattern:String,rfObservation:CWCarrierObservation?=nil) {
+        self.callsign=callsign;self.firstSample=firstSample;self.endSample=endSample;self.pattern=pattern;self.rfObservation=rfObservation
+    }
 }
 
 public enum CWTransmittingIdentity {
@@ -94,12 +101,12 @@ public enum CWTransmittingIdentity {
     }
 
     public static func occurrences(in committed: [CWAlignedToken]) -> [CWIdentityOccurrence] {
-        struct Word { let text:String; let first:UInt64; let end:UInt64 }
+        struct Word { let text:String; let first:UInt64; let end:UInt64;let rf:CWCarrierObservation? }
         var words:[Word]=[]; var current:[CWAlignedToken]=[]
         for token in committed.suffix(1024) {
             if token.symbol == " " {
                 if let start=current.first,let end=current.last {
-                    words.append(Word(text:current.map(\.symbol).joined(),first:start.firstSample,end:end.endSample)); current=[]
+                    words.append(Word(text:current.map(\.symbol).joined(),first:start.firstSample,end:end.endSample,rf:end.rfObservation)); current=[]
                 }
             } else { current.append(token) }
         }
@@ -121,7 +128,7 @@ public enum CWTransmittingIdentity {
             }
             if let context, plausible(word.text) {
                 result.append(CWIdentityOccurrence(callsign:word.text,firstSample:word.first,endSample:word.end,
-                                                   pattern:context == "DE" ? "de_self_identification" : "cq_self_identification"))
+                                                   pattern:context == "DE" ? "de_self_identification" : "cq_self_identification",rfObservation:word.rf))
             } else if word.text != "DX" {context=nil;phraseStart=result.count}
         }
         return result

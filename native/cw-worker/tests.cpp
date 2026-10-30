@@ -251,7 +251,7 @@ int main(int argc,char** argv) {
     for(double drift:{8.0,-8.0}) {
       const double initial=drift>0?6200:-6100;
       cw::Skimmer moving(engine,1);moving.open(source,11,96000,-39000,39000,true);
-      uint64_t seq=0;size_t copies=0;double maximum_error=0;bool identified=false;
+      uint64_t seq=0;size_t copies=0,rf_tokens=0;double maximum_error=0,maximum_token_rf_error=0;bool identified=false;
       std::set<std::string> identities;
       for(size_t first=0;first<96000*8;first+=4096) {
         const size_t count=std::min(size_t(4096),size_t(96000*8)-first);
@@ -268,16 +268,29 @@ int main(int argc,char** argv) {
           ++copies;const double t=double(event.source_first_sample)/96000+double(event.end_sample)/3200;
           maximum_error=std::max(maximum_error,std::abs(event.offset_hz-(initial+drift*t)));
           require(maximum_error<=10,"Gradual signed drift must update RF attribution within 10 Hz");
+          if(event.copy.text.find("OM0RX")!=std::string::npos) for(const auto& token:event.copy.tokens) if(token.symbol=='X')
+            require(bool(token.rf),"Every completed synthetic self-ID needs measured last-character RF; withholding cannot hide the frequency error");
+          for(const auto& token:event.copy.tokens) if(token.rf) {
+            require(token.rf->sample<=token.end_sample && token.end_sample-token.rf->sample<=1600,"Carrier observation must precede its token and remain within half a second");
+            const double token_time=double(event.source_first_sample)/96000+double(token.end_sample)/3200-event.filter_delay_seconds;
+            const double error=std::abs(token.rf->offset_hz-(initial+drift*token_time));
+            if(error>10) std::cerr<<"Historical RF error: symbol="<<token.symbol<<" end="<<token.end_sample<<" observed="<<token.rf->sample
+              <<" offset="<<token.rf->offset_hz<<" true_at_token="<<(initial+drift*token_time)<<" error="<<error<<"\n";
+            maximum_token_rf_error=std::max(maximum_token_rf_error,error);
+            require(maximum_token_rf_error<=10,"Historical token RF follows the independent analytic chirp within 10 Hz");++rf_tokens;
+          }
           identified=identified || event.copy.text.find("OM0RX")!=std::string::npos;
         }
       }
       require(copies>0 && identified,"Original decoder follows keyed drift without losing copy");
+      require(rf_tokens>0,"Historical tokens require measured carrier observations, not the later window frequency");
       require(identities.size()==1 && moving.metrics().tracks==1,"Drift retains one track, without mirrored or duplicate carriers");
       require(moving.metrics().coalesced==0 && moving.metrics().dropped_events==0,"Drift fixture does not hide lost work");
       const auto complete=moving.metrics();
       require(complete.submitted_jobs==copies && complete.model_jobs_started==copies && complete.model_jobs_completed==copies && complete.invalidated_jobs==0,
         "Every submitted isolated-drift job completes without hidden invalidation");
-      std::cout<<"Signed drift "<<drift<<" Hz/s: "<<copies<<" copies, maximum RF error "<<maximum_error<<" Hz\n";
+      std::cout<<"Signed drift "<<drift<<" Hz/s: "<<copies<<" copies, maximum RF error "<<maximum_error<<" Hz, observed tokens="<<rf_tokens
+        <<" maximum historical-token RF error="<<maximum_token_rf_error<<" Hz\n";
       moving.stop();
     }
     for(const bool recover:{false,true}) {

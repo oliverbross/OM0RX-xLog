@@ -4,6 +4,7 @@ import Foundation
 public enum CWSpotRejection: String, Codable, Sendable {
     case unqualifiedQuality = "quality_not_qualified", replay, staleSource = "stale_source", unmappedFrequency = "unmapped_frequency"
     case contaminated, ambiguous, insufficientOccurrences = "insufficient_occurrences", cooldown, invalidEvidence = "invalid_evidence"
+    case frequencyEvidenceUnavailable = "frequency_evidence_unavailable"
 }
 public struct CWConfirmedSpot: Codable, Hashable, Sendable, Identifiable {
     public let id: UUID
@@ -64,7 +65,7 @@ public struct CWSpotPolicy: Sendable {
                                   ambiguous: Bool) -> CWSpotDecision {
         func reject(_ reason:CWSpotRejection) -> CWSpotDecision { CWSpotDecision(spot:nil,rejection:reason) }
         guard !d.replay, d.provider != .replay else { return reject(.replay) }
-        guard d.mappingQualified, d.spectralSign != nil, (d.usableLowerHz...d.usableUpperHz).contains(frequencyHz) else { return reject(.unmappedFrequency) }
+        guard d.mappingQualified, d.spectralSign != nil else { return reject(.unmappedFrequency) }
         guard nowNS >= latestSampleNS, nowNS - latestSampleNS <= 2_000_000_000 else { return reject(.staleSource) }
         guard transmitting == false, clean else { return reject(.contaminated) }
         guard !ambiguous else { return reject(.ambiguous) }
@@ -78,6 +79,11 @@ public struct CWSpotPolicy: Sendable {
         guard calls.count == 1, let call=calls.first else { return reject(.ambiguous) }
         let distinct=CWTransmittingIdentity.distinctOccurrences(evidence)
         guard distinct.count>=2 else { return reject(.insufficientOccurrences) }
+        let measured=distinct.filter{$0.rfObservation?.valid(at:$0.endSample)==true}
+        guard measured.count>=2,let latest=evidence.max(by:{$0.endSample<$1.endSample}),
+              let observation=latest.rfObservation,observation.valid(at:latest.endSample) else {return reject(.frequencyEvidenceUnavailable)}
+        guard let observedFrequency=try? d.frequency(offsetHz:observation.offsetHz) else {return reject(.unmappedFrequency)}
+        guard observedFrequency==frequencyHz else {return reject(.invalidEvidence)}
         guard qualityQualified else { return reject(.unqualifiedQuality) }
         emitted.removeAll{nowNS < $0.at || nowNS-$0.at >= 120_000_000_000}
         guard !emitted.contains(where:{$0.call==call && $0.source==d.sourceID && abs($0.hz-frequencyHz)<=100}) else { return reject(.cooldown) }
@@ -86,7 +92,7 @@ public struct CWSpotPolicy: Sendable {
         let spot=CWConfirmedSpot(id:UUID(),sessionID:d.sessionID,sourceID:d.sourceID,radioID:d.radioID,provider:d.provider,
             receiverID:d.receiverID,streamToken:d.streamToken,epoch:d.epoch,trackID:trackID,callsign:call,
             frequencyHz:frequencyHz,observedAt:observedAt,
-            occurrenceRanges:distinct.suffix(8).map{"\($0.firstSample):\($0.endSample)"},policyVersion:1,originInstanceID:origin,
+            occurrenceRanges:measured.suffix(8).map{"\($0.firstSample):\($0.endSample)"},policyVersion:1,originInstanceID:origin,
             modelSHA256:Self.modelSHA256)
         return CWSpotDecision(spot:spot,rejection:nil)
     }

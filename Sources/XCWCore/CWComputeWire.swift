@@ -30,8 +30,9 @@ public struct CWNativeToken: Sendable {
     public let firstSample: UInt64
     public let endSample: UInt64
     public let logScore: Double
+    public var rfObservation:CWCarrierObservation?=nil
     /// Reflection padding at the exact window edge has no observed duration.
-    public var aligned: CWAlignedToken? { try? CWAlignedToken(symbol:symbol,firstSample:firstSample,endSample:endSample) }
+    public var aligned: CWAlignedToken? { try? CWAlignedToken(symbol:symbol,firstSample:firstSample,endSample:endSample,rfObservation:rfObservation) }
 }
 public struct CWNativeDecode: Sendable {
     public let track: CWNativeTrack
@@ -144,12 +145,19 @@ public enum CWComputeWire {
                   (0...60_000).contains(inference) else { throw CWComputeError.invalidEvent }
             var tokens:[CWNativeToken]=[],last=metadata.firstSample
             for row in rows {
-                guard Set(row.keys)==["symbol","first_sample","end_sample","log_score"],
+                let requiredToken:Set<String>=["symbol","first_sample","end_sample","log_score"]
+                guard requiredToken.isSubset(of:Set(row.keys)),Set(row.keys).isSubset(of:requiredToken.union(["rf_offset_hz","rf_sample"])),
                       let symbol=row["symbol"] as? String,symbol.utf8.count==1,symbol.utf8.allSatisfy({alphabet.contains($0)}) else { throw CWComputeError.invalidEvent }
                 let first=try counter(row["first_sample"]),end=try counter(row["end_sample"]),score=try number(row["log_score"])
                 guard first>=last,end>=first,end<=metadata.endSample,first<end || end==metadata.endSample,
                       (-10000...0.001).contains(score) else { throw CWComputeError.invalidEvent }
-                tokens.append(CWNativeToken(symbol:symbol,firstSample:first,endSample:end,logScore:score));last=end
+                var observation:CWCarrierObservation?
+                if row["rf_offset_hz"] != nil || row["rf_sample"] != nil {
+                    let offset=try number(row["rf_offset_hz"]),sample=try counter(row["rf_sample"])
+                    guard let measured=try? CWCarrierObservation(offsetHz:offset,sample:sample),measured.valid(at:end) else {throw CWComputeError.invalidEvent}
+                    observation=measured
+                }
+                tokens.append(CWNativeToken(symbol:symbol,firstSample:first,endSample:end,logScore:score,rfObservation:observation));last=end
             }
             guard tokens.map(\.symbol).joined()==text else { throw CWComputeError.invalidEvent }
             let wpm=try object["estimated_wpm"].map{try number($0)}

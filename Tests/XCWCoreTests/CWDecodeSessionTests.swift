@@ -330,7 +330,13 @@ final class CWDecodeSessionTests: XCTestCase {
         }
         return(session,provider,compute,clock,source,capture)
     }
-    private func spotFixture(qualifiedForTests:Bool,overload:Bool=false,loseMarker:Bool=false) async throws {
+    func testAcceptedSpotUsesCarrierAtSelfIDRatherThanLaterWindowAndKeepsPublicationProof() async throws {
+        try await spotFixture(qualifiedForTests:true,windowOffset:800)
+    }
+    func testUnknownSelfIDCarrierCannotBecomeAnAcceptedSpot() async throws {
+        try await spotFixture(qualifiedForTests:true,rfOffset:nil)
+    }
+    private func spotFixture(qualifiedForTests:Bool,overload:Bool=false,loseMarker:Bool=false,windowOffset:Double=600,rfOffset:Double?=600) async throws {
         let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),a=try source(),clock=CWSessionTestClock(),origin=UUID()
         let policy=qualifiedForTests ? CWSpotPolicy(qualifiedForTests:true,origin:origin):CWSpotPolicy(origin:origin)
         let session=CWDecodeSession(provider:provider,compute:compute,clock:{clock.now()},spotPolicy:policy)
@@ -344,18 +350,26 @@ final class CWDecodeSessionTests: XCTestCase {
             try await wait{await compute.counts().sends==count}
         }
         let capture=try XCTUnwrap(descriptor),id=UUID().uuidString
-        let tokens="CQ K1ABC K1ABC ".enumerated().map{index,symbol in CWNativeToken(symbol:String(symbol),firstSample:4000+UInt64(index*80),endSample:4060+UInt64(index*80),logScore:-0.1)}
+        let tokens=try "CQ K1ABC K1ABC ".enumerated().map{index,symbol in
+            let end=4060+UInt64(index*80)
+            return CWNativeToken(symbol:String(symbol),firstSample:4000+UInt64(index*80),endSample:end,logScore:-0.1,
+                rfObservation:try rfOffset.map{try CWCarrierObservation(offsetHz:$0,sample:end)})
+        }
         for (first,end):(UInt64,UInt64) in [(0,19200),(3200,22400)] {
             let metadata=CWNativeTrack(kind:"decode",streamToken:capture.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased(),
                 epoch:1,trackID:id,revision:0,state:"provisional",firstSample:first,endSample:end,sourceFirstSample:0,
-                filterDelaySeconds:0.02,offsetHz:600,ambiguous:false,replay:false)
+                filterDelaySeconds:0.02,offsetHz:windowOffset,ambiguous:false,replay:false)
             await compute.emit(.decode(CWNativeDecode(track:metadata,text:"CQ K1ABC K1ABC ",tokens:tokens,inferenceMilliseconds:10)))
         }
-        if qualifiedForTests {
+        if qualifiedForTests && rfOffset != nil {
             try await wait{await collector.values().count==1}
             let values=await collector.values(),spot=try XCTUnwrap(values.first)
             XCTAssertEqual(spot.callsign,"K1ABC");XCTAssertEqual(spot.originInstanceID,origin);XCTAssertEqual(spot.frequencyHz,14025600)
             let current=await session.canPublish(spot);XCTAssertTrue(current)
+            var changed=try JSONSerialization.jsonObject(with:JSONEncoder().encode(spot)) as! [String:Any]
+            changed["frequencyHz"]=spot.frequencyHz+1
+            let forged=try JSONDecoder().decode(CWConfirmedSpot.self,from:JSONSerialization.data(withJSONObject:changed))
+            let forgedCurrent=await session.canPublish(forged);XCTAssertFalse(forgedCurrent,"A retained ID cannot authorize a modified RF payload")
             if overload {
                 if !loseMarker {
                     let gap=CWNativeTrack(kind:"track",streamToken:capture.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased(),
@@ -381,8 +395,10 @@ final class CWDecodeSessionTests: XCTestCase {
                     _ = try await provider.emit(a.id,receipt:clock.now(),qualified:true,samples:8192)
                     try await wait{await compute.counts().sends==count}
                 }
-                let fresh="CQ W9XYZ W9XYZ ".enumerated().map{index,symbol in
-                    CWNativeToken(symbol:String(symbol),firstSample:23000+UInt64(index*20),endSample:23015+UInt64(index*20),logScore:-0.1)
+                let fresh=try "CQ W9XYZ W9XYZ ".enumerated().map{index,symbol in
+                    let end=23015+UInt64(index*20)
+                    return CWNativeToken(symbol:String(symbol),firstSample:23000+UInt64(index*20),endSample:end,logScore:-0.1,
+                        rfObservation:try CWCarrierObservation(offsetHz:600,sample:end))
                 }
                 for end:UInt64 in [27000,28200] {
                     let copy=CWNativeTrack(kind:"decode",streamToken:capture.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased(),
@@ -402,9 +418,10 @@ final class CWDecodeSessionTests: XCTestCase {
             await provider.invalidate(a.id)
             let stale=await session.canPublish(spot);XCTAssertFalse(stale)
         } else {
-            try await wait{await session.snapshot().tracks.first?.spotRejection=="quality_not_qualified"}
+            let expected=qualifiedForTests ? "frequency_evidence_unavailable":"quality_not_qualified"
+            try await wait{await session.snapshot().tracks.first?.spotRejection==expected}
             let values=await collector.values(),snapshot=await session.snapshot()
-            XCTAssertTrue(values.isEmpty);XCTAssertFalse(snapshot.automaticSpotsQualified)
+            XCTAssertTrue(values.isEmpty);XCTAssertEqual(snapshot.automaticSpotsQualified,qualifiedForTests)
         }
         await session.stop();reader.cancel()
     }

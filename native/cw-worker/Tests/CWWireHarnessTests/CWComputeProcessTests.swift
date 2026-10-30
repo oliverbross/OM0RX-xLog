@@ -73,18 +73,18 @@ final class CWComputeProcessTests:XCTestCase {
         var root=URL(fileURLWithPath:#filePath);for _ in 0..<5 {root.deleteLastPathComponent()}
         let file=try FileHandle(forReadingFrom:root.appendingPathComponent(".build/cw-fixtures/two-stations-96k.cf32"))
         defer {try? file.close()}
+        guard UInt32(littleEndian:0x01020304)==0x01020304 else {throw XCTSkip("This native-byte Float32 fixture requires a little-endian host")}
         let source=try source();try await owner.open(source)
         var sequence:UInt64=0,first:UInt64=0,dueNS:UInt64=0
         let started=DispatchTime.now().uptimeNanoseconds
         do {
             while let data=try file.read(upToCount:8192*8),!data.isEmpty {
                 try await wait{await owner.snapshot().queuedBytes==0}
-                let bytes=[UInt8](data)
-                XCTAssertEqual(bytes.count%8,0)
-                var samples:[Float]=[];samples.reserveCapacity(bytes.count/4)
-                for at in stride(from:0,to:bytes.count,by:4) {
-                    samples.append(Float(bitPattern:UInt32(bytes[at])|UInt32(bytes[at+1])<<8|UInt32(bytes[at+2])<<16|UInt32(bytes[at+3])<<24))
-                }
+                guard data.count%8==0 else {throw CWComputeError.invalidFrame}
+                // Byte-identical native LE copy; avoid per-sample debug-loop
+                // overhead in the replay producer. The original clock remains.
+                var samples=[Float](repeating:0,count:data.count/4)
+                samples.withUnsafeMutableBytes{target in data.withUnsafeBytes{target.copyMemory(from:$0)}}
                 // This is continuous real-rate ingress, not accelerated exposure
                 // without child flow control. Keep the original block deadline:
                 // a delayed producer must still fail the 250-ms freshness guard.
@@ -204,7 +204,12 @@ private actor CWEventCollector {
         return nil
     }
     func hasCall(_ call:String,offset:Double) -> Bool {
-        for case .decode(let value) in events where value.track.replay && value.text.contains(call) && abs(value.track.offsetHz-offset)<15 {return true}
+        let letters=call.map(String.init)
+        for case .decode(let value) in events where value.track.replay && value.text.contains(call) && abs(value.track.offsetHz-offset)<15 && value.tokens.count>=letters.count {
+            for first in 0...(value.tokens.count-letters.count) where zip(value.tokens[first...].prefix(letters.count),letters).allSatisfy({$0.0.symbol==$0.1}) {
+                if value.tokens[first+letters.count-1].rfObservation != nil {return true}
+            }
+        }
         return false
     }
 }

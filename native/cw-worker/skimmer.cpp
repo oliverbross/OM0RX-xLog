@@ -46,8 +46,29 @@ struct Track {
   bool keyed=false,ambiguous=false,spectral_ambiguity=false,association_conflict=false;
   KeyingSpeed speed;
   std::optional<double> snr{};
+  std::deque<CarrierObservation> rf_history;
+  std::deque<CarrierObservation> rf_candidates;
   Track(int rate,double offset,uint64_t origin,bool replay):origin(origin),replay(replay),offset(offset),channel(rate,offset) {}
   bool cw_keying() const { return rises>=2 && falls>=2; }
+  void observe(int rate,uint64_t source_middle,double offset_hz) {
+    if(source_middle<origin) return;
+    const uint64_t relative=source_middle-origin;
+    const auto observed_sample=(relative/uint64_t(rate))*3200+uint64_t(std::ceil(
+      double(relative%uint64_t(rate))*3200/rate+channel.group_delay_seconds()*3200));
+    rf_candidates.push_back({observed_sample,offset_hz});if(rf_candidates.size()>5) rf_candidates.pop_front();
+    if(rf_candidates.size()<5) return;
+    // Gapped keying can make an adjacent FFT lobe win for a window. Choose an
+    // actual median observation, including its original time; never backdate
+    // the current frequency or interpolate missing RF evidence.
+    std::array<CarrierObservation,5> recent;
+    std::copy(rf_candidates.begin(),rf_candidates.end(),recent.begin());
+    std::sort(recent.begin(),recent.end(),[](const auto& a,const auto& b){return a.offset_hz<b.offset_hz;});
+    const auto chosen=recent[2];const auto sample=chosen.sample;
+    // At most 25 measured points/channel-second, retaining over ten seconds.
+    // Do not replace the previous point: that would erase historical evidence.
+    if(!rf_history.empty() && (sample<=rf_history.back().sample || sample-rf_history.back().sample<128)) return;
+    rf_history.push_back(chosen);if(rf_history.size()>256) rf_history.pop_front();
+  }
   void append(const std::vector<std::complex<float>>& iq) {
     const auto samples=channel.process(iq);
     audio.insert(audio.end(),samples.begin(),samples.end());
@@ -84,13 +105,14 @@ struct Job {
   std::vector<float> audio;
   double offset;
   std::optional<double> snr{},wpm{};
+  std::vector<CarrierObservation> rf_history;
   std::chrono::steady_clock::time_point enqueued{};
 };
 struct QueuedEvent {
   SkimmerEvent event;
   std::weak_ptr<Track> track;
   uint64_t revision=0;
-  size_t bytes() const { return 256+event.copy.text.size()+event.copy.tokens.size()*128; }
+  size_t bytes() const { return 256+event.copy.text.size()+event.copy.tokens.size()*192; }
 };
 }
 struct Skimmer::Impl {
@@ -185,6 +207,13 @@ struct Skimmer::Impl {
           ++model_started;
           auto copy=engine.decode(job.audio,job.first);
           ++model_completed;
+          for(auto& token:copy.tokens) if(token.first_sample<token.end_sample) {
+            auto found=std::upper_bound(job.rf_history.begin(),job.rf_history.end(),token.end_sample,
+              [](uint64_t sample,const CarrierObservation& observed){return sample<observed.sample;});
+            if(found!=job.rf_history.begin()) {
+              --found;if(token.end_sample-found->sample<=1600) token.rf=*found;
+            }
+          }
           if(job.track->valid && !job.track->muted && job.track->revision==job.revision) {
             SkimmerEvent event{"decode",job.token,job.track->id,"provisional",job.epoch,job.first,job.end,job.offset,false,std::move(copy)};
             event.estimated_snr_db=job.snr;event.estimated_wpm=job.wpm;
@@ -305,6 +334,7 @@ void Skimmer::feed(const std::string& token,uint64_t epoch,uint64_t sequence,uin
           // Inference receives the observed offset with its exact input window,
           // never a later mutable frequency read from a worker thread.
           track.channel.retune(peak.offset_hz);track.offset=peak.offset_hz;
+          track.observe(span.rate,windowEnd-4096,peak.offset_hz);
         }
         track.last_peak=windowEnd;
         track.snr=peak.estimated_snr_db(span.rate);
@@ -330,6 +360,7 @@ void Skimmer::feed(const std::string& token,uint64_t epoch,uint64_t sequence,uin
             span.history.begin()+std::ptrdiff_t(std::min(at+8192,span.history.size())));
         track->append(before);
       }
+      if(!peak.ambiguous) track->observe(span.rate,windowEnd-4096,peak.offset_hz);
       span.tracks.push_back(track);
       ++admitted;
       impl->emit({"track",token,track->id,"acquiring",span.epoch,0,0,track->offset,false,{}},track);
@@ -340,6 +371,7 @@ void Skimmer::feed(const std::string& token,uint64_t epoch,uint64_t sequence,uin
     const bool collision=track->spectral_ambiguity || track->association_conflict || std::any_of(span.tracks.begin(),span.tracks.end(),[&](const auto& other){return other!=track && other->valid && std::abs(other->offset-track->offset)<250;});
     if(collision!=track->ambiguous) {
       track->ambiguous=collision; ++track->revision;
+      track->rf_history.clear();track->rf_candidates.clear();
       const auto fence=track->channel.output_samples();
       impl->emit({"track",token,track->id,collision?"ambiguous":"acquiring",span.epoch,fence,fence,track->offset,collision,{}},track);
     }
@@ -351,7 +383,8 @@ void Skimmer::feed(const std::string& token,uint64_t epoch,uint64_t sequence,uin
       // Filter delay remains explicitly reported; absolute channel indices are
       // tied to this track acquisition, not synthesized hardware timestamps.
       impl->enqueue({track,token,span.epoch,track->revision,last-track->audio.size(),last,track->audio,track->offset,
-          span.sample-track->last_peak<uint64_t(span.rate)/2 ? track->snr:std::nullopt,track->speed.estimate()});
+          span.sample-track->last_peak<uint64_t(span.rate)/2 ? track->snr:std::nullopt,track->speed.estimate(),
+          std::vector<CarrierObservation>(track->rf_history.begin(),track->rf_history.end())});
     }
   }
   span.tracks.erase(std::remove_if(span.tracks.begin(),span.tracks.end(),[](const auto& t){return !t->valid;}),span.tracks.end());
