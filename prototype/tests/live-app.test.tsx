@@ -199,6 +199,43 @@ it("retries an unavailable workspace from Settings and retains the selected dest
   expect(calls.request.mock.calls.some(([method]) => method === "workspace_create")).toBe(false);
 });
 
+it("retains interrupted-restore instructions through background errors and failed Retry until reload succeeds", async () => {
+  vi.useFakeTimers(); clusterStartup.native = true;
+  const recovery = "An interrupted restore needs recovery from the pre-restore backup in the workspace Recovery folder before continuing.";
+  const offline = "External services and station I/O are disabled in OM0RX-xLog Contesting Test.";
+  let rejectInitialization!: () => void;
+  clusterStartup.initialize.mockImplementationOnce(() => new Promise((_, reject) => {
+    rejectInitialization = () => reject(new Error(offline));
+  })).mockRejectedValue(new Error(offline));
+  const backend = calls.request.getMockImplementation()!;
+  let blocked = true;
+  calls.request.mockImplementation((method, params) => method === "workspace_status" && blocked
+    ? Promise.reject(new Error(recovery)) : backend(method, params));
+  try {
+    render(<LiveApp />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.getByText(recovery)).toBeTruthy();
+    await act(async () => { rejectInitialization(); await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.getByText(recovery)).toBeTruthy();
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(clusterStartup.initialize.mock.calls.length).toBeGreaterThanOrEqual(3);
+    expect(screen.getByText(recovery)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.getByRole("alert", { name: "Logbook connection error" }).textContent).toBe(recovery);
+    fireEvent.click(screen.getByRole("button", { name: "Retry connection" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(screen.getByText(recovery)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Create empty logbook" })).toBeNull();
+    expect(calls.request.mock.calls.some(([method]) => ["workspace_create", "logbook_operator_draft_apply", "sync_run"].includes(method))).toBe(false);
+    blocked = false; exists = true;
+    fireEvent.click(screen.getByRole("button", { name: "Retry connection" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.queryByText(recovery)).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Desk Callsign" })).toBeTruthy();
+    expect(calls.request.mock.calls.some(([method]) => method === "workspace_create")).toBe(false);
+  } finally { cleanup(); vi.useRealTimers(); }
+});
+
 it("allows read-only Spot History diagnostics while workspace editors remain gated", async () => {
   render(<LiveApp />);
   await screen.findByRole("button", { name: "Copy my existing xLog logbook" });

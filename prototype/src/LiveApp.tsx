@@ -326,6 +326,9 @@ function MainLiveApp() {
   const [message, setMessage] = useState("");
   const loggedFeedback = useQSOLoggedToast();
   const [error, setError] = useState("");
+  // Only the current workspace reload may remove its blocker; periodic station errors cannot replace it.
+  const [workspaceLoadError, setWorkspaceLoadError] = useState("");
+  const workspaceLoadCause = useRef("");
   useEffect(() => { if (normalAccess.error) setError(normalAccess.error); }, [normalAccess.error]);
   const presentationError = useRef("");
   useEffect(() => connectSettingsChanges(() => { void settingsSession.load(); }, setError), [settingsSession]);
@@ -866,6 +869,10 @@ function MainLiveApp() {
     }
     if (revision !== reloadRevision.current) return;
     setWorkspace(state);
+    const priorFailure = workspaceLoadCause.current;
+    workspaceLoadCause.current = "";
+    setWorkspaceLoadError("");
+    if (priorFailure) setError(current => current === priorFailure ? "" : current);
     // Contact receipt availability must not hide its own recovery controls.
     if (state.workspace_exists) void retryStartupRead(() => contactSession.refresh()).catch(() => {
       // Contact recovery owns its receipt state. A passive startup read must not
@@ -874,6 +881,12 @@ function MainLiveApp() {
     if (state.workspace_exists) void retryStartupRead(() => request("logbook_stats")).then(totals => {
       if (revision === reloadRevision.current) setStats(totals);
     }).catch(() => { /* The visible logbook owns retry and terminal feedback. */ });
+    } catch (cause) {
+      if (revision === reloadRevision.current) {
+        workspaceLoadCause.current = cause instanceof Error ? cause.message : "Operation failed";
+        setWorkspaceLoadError(startupReadFailureMessage(cause, "The logbook"));
+      }
+      throw cause;
     } finally { if (revision === reloadRevision.current) setWorkspacePending(false); }
   }, [request, settingsSession, loadRotorConfiguration, draftSession, contactSession]);
   const changeBandMapPreferences = (compact: boolean, view: BandMapViewPreferences) => {
@@ -935,7 +948,7 @@ function MainLiveApp() {
     if (method === "backup_create") await draftSession.flush();
     return request(method, params);
   }, [request, draftSession, contactSession, logbookMutations]);
-  useEffect(() => { if (!monitor) void reload().catch(cause => setError(startupReadFailureMessage(cause, "The logbook"))); }, [reload, refresh]);
+  useEffect(() => { if (!monitor) void reload().catch(() => { /* The reload owner retains its blocking diagnostic. */ }); }, [reload, refresh]);
   useEffect(() => {
     if (workspace?.workspace_exists !== true) return;
     return watchSyncCompletion(request, () => setRefresh(value => value + 1));
@@ -1372,7 +1385,8 @@ function MainLiveApp() {
     </aside>
     <main className="qso-feedback-area live-feedback-host" aria-label={displayedSeparateWindows ? "Separate Windows" : view} style={displayedSeparateWindows ? { gridColumn: "1 / -1" } : undefined}>
       <StableFeedbackLayer>
-      {error && <div className="live-error" role="alert">{error}<button onClick={() => setError("")}>Dismiss</button></div>}
+      {workspaceLoadError && <div className="live-error" role="alert" aria-label="Logbook connection error">{workspaceLoadError}</div>}
+      {error && error !== workspaceLoadError && <div className="live-error" role="alert">{error}<button onClick={() => setError("")}>Dismiss</button></div>}
       {workspaceMode(deskLayout.state.snapshot) === "windows" && recoveryVisible && (configurationRecovery || layoutRecovery) &&
         <div className="live-error" role="alert" aria-label="Workspace recovery">
           <span>{settingsState.error || rotorConfigurationState.error || deskLayout.state.error || "Configuration or workspace changes need review."}</span>
