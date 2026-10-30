@@ -94,6 +94,12 @@ final class CWDecodeSessionTests: XCTestCase {
     func testProductionPolicyCannotEmitEvenWithPreferenceAndQualifiedFixtureRF() async throws {
         try await spotFixture(qualifiedForTests:false)
     }
+    func testOverloadClearsQueuedSpotAndCannotRecommitOldOverlappingSelfIDs() async throws {
+        try await spotFixture(qualifiedForTests:true,overload:true)
+    }
+    func testLostOverloadMarkerStillFencesTheFirstNewRevisionWindow() async throws {
+        try await spotFixture(qualifiedForTests:true,overload:true,loseMarker:true)
+    }
     func testManualSelectionHasNativeCallWithoutInventingUnqualifiedFrequency() async throws {
         let (session,_,_,_,_,_)=try await selectionFixture()
         let snapshot=await session.snapshot(),selection=try XCTUnwrap(snapshot.tracks.first?.selection)
@@ -291,7 +297,7 @@ final class CWDecodeSessionTests: XCTestCase {
         try await wait{await session.snapshot().tracks.first?.selection != nil}
         return(session,provider,compute,clock,source,capture)
     }
-    private func spotFixture(qualifiedForTests:Bool) async throws {
+    private func spotFixture(qualifiedForTests:Bool,overload:Bool=false,loseMarker:Bool=false) async throws {
         let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),a=try source(),clock=CWSessionTestClock(),origin=UUID()
         let policy=qualifiedForTests ? CWSpotPolicy(qualifiedForTests:true,origin:origin):CWSpotPolicy(origin:origin)
         let session=CWDecodeSession(provider:provider,compute:compute,clock:{clock.now()},spotPolicy:policy)
@@ -317,6 +323,46 @@ final class CWDecodeSessionTests: XCTestCase {
             let values=await collector.values(),spot=try XCTUnwrap(values.first)
             XCTAssertEqual(spot.callsign,"K1ABC");XCTAssertEqual(spot.originInstanceID,origin);XCTAssertEqual(spot.frequencyHz,14025600)
             let current=await session.canPublish(spot);XCTAssertTrue(current)
+            if overload {
+                if !loseMarker {
+                    let gap=CWNativeTrack(kind:"track",streamToken:capture.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased(),
+                        epoch:1,trackID:id,revision:1,state:"overloaded",firstSample:22400,endSample:22400,sourceFirstSample:0,
+                        filterDelaySeconds:0.02,offsetHz:600,ambiguous:false,replay:false)
+                    await compute.emit(.track(gap))
+                    try await wait{await session.snapshot().tracks.first?.revision=="1"}
+                    let queued=await session.canPublish(spot);XCTAssertFalse(queued,"Queued pre-loss spot survived the continuity revision")
+                }
+                for (end,latency):(UInt64,Double) in [(22440,11),(22500,12)] {
+                    let copy=CWNativeTrack(kind:"decode",streamToken:capture.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased(),
+                        epoch:1,trackID:id,revision:1,state:"provisional",firstSample:0,endSample:end,sourceFirstSample:0,
+                        filterDelaySeconds:0.02,offsetHz:600,ambiguous:false,replay:false)
+                    await compute.emit(.decode(CWNativeDecode(track:copy,text:"CQ K1ABC K1ABC ",tokens:tokens,inferenceMilliseconds:latency)))
+                    try await wait{await session.snapshot().tracks.first?.inferenceMilliseconds==latency}
+                }
+                let after=await session.snapshot(),queued=await session.canPublish(spot)
+                XCTAssertTrue(after.tracks.first?.committed.isEmpty==true,"Old self-IDs reappeared across the overload fence")
+                XCTAssertTrue(after.tracks.first?.provisional.isEmpty==true)
+                XCTAssertNil(after.tracks.first?.selection);XCTAssertFalse(queued)
+                let emitted=await collector.values();XCTAssertEqual(emitted.count,1)
+                for count in 85...104 {
+                    _ = try await provider.emit(a.id,receipt:clock.now(),qualified:true,samples:8192)
+                    try await wait{await compute.counts().sends==count}
+                }
+                let fresh="CQ W9XYZ W9XYZ ".enumerated().map{index,symbol in
+                    CWNativeToken(symbol:String(symbol),firstSample:23000+UInt64(index*20),endSample:23015+UInt64(index*20),logScore:-0.1)
+                }
+                for end:UInt64 in [27000,28200] {
+                    let copy=CWNativeTrack(kind:"decode",streamToken:capture.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased(),
+                        epoch:1,trackID:id,revision:1,state:"provisional",firstSample:0,endSample:end,sourceFirstSample:0,
+                        filterDelaySeconds:0.02,offsetHz:600,ambiguous:false,replay:false)
+                    await compute.emit(.decode(CWNativeDecode(track:copy,text:"CQ W9XYZ W9XYZ ",tokens:fresh,inferenceMilliseconds:13)))
+                }
+                try await wait{await collector.values().count==2}
+                let recovered=await collector.values(),newSpot=try XCTUnwrap(recovered.last)
+                XCTAssertEqual(newSpot.callsign,"W9XYZ")
+                let freshCurrent=await session.canPublish(newSpot),oldCurrent=await session.canPublish(spot)
+                XCTAssertTrue(freshCurrent);XCTAssertFalse(oldCurrent)
+            }
             let snapshot=await session.snapshot(),view=try XCTUnwrap(snapshot.tracks.first),reference=try XCTUnwrap(view.controlReference)
             try await session.mute(reference)
             let muted=await session.canPublish(spot);XCTAssertFalse(muted)

@@ -50,4 +50,14 @@ final class CWComputeWirePrimitiveTests:XCTestCase {
             XCTAssertThrowsError(try CWComputeWire.event(encoded(value)),key)
         }
     }
+    func testOverloadMarkerRequiresARevisedTrackAndOneNonzeroSampleFence() throws {
+        let marker:[String:Any]=["type":"track","stream_token":String(repeating:"a",count:32),"epoch":"1",
+            "track_id":UUID().uuidString,"state":"overloaded","first_sample":"22400","end_sample":"22400","source_first_sample":"0",
+            "filter_delay_seconds":0.1,"track_revision":"1","offset_hz":600,"ambiguous":false,"replay":true]
+        XCTAssertNoThrow(try CWComputeWire.event(encoded(marker)))
+        for (key,value) in [("track_revision","0"),("first_sample","22399"),("end_sample","0"),("track_id","")] {
+            var invalid=marker;invalid[key]=value
+            XCTAssertThrowsError(try CWComputeWire.event(encoded(invalid)),key)
+        }
+    }
 }

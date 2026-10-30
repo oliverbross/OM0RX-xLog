@@ -120,15 +120,29 @@ struct Skimmer::Impl {
     QueuedEvent item{std::move(event),track,revision.value_or(track?track->revision.load():0)};
     item.event.track_revision=item.revision;
     std::lock_guard<std::mutex> lock(events_mutex);
+    const auto invalidate_lost=[&](const QueuedEvent& lost) {
+      // Missing derived copy is a text-evidence discontinuity even though the
+      // IQ clock itself remained continuous. Every later decode carries the
+      // new revision, including when its explicit notification is also lost.
+      if(auto affected=lost.track.lock()) {
+        ++affected->revision;
+        if(affected==track) {
+          item.revision=affected->revision;item.event.track_revision=item.revision;
+          if(item.event.kind=="track" && item.event.state=="overloaded") {
+            item.event.first_sample=item.event.end_sample=std::max(item.event.end_sample,lost.event.end_sample);
+          }
+        }
+      }
+    };
     // Coalesce superseded derived copy, not transmitted occurrence identities.
     if(item.event.kind=="decode") {
       auto old=std::find_if(output.begin(),output.end(),[&](const auto& value){
         return value.event.kind=="decode" && value.event.track_id==item.event.track_id;
       });
-      if(old!=output.end()) { output_bytes-=old->bytes(); output.erase(old); ++dropped; }
+      if(old!=output.end()) { invalidate_lost(*old);output_bytes-=old->bytes(); output.erase(old); ++dropped; }
     }
     while(!output.empty() && (output.size()>=64 || output_bytes+item.bytes()>1024*1024)) {
-      output_bytes-=output.front().bytes(); output.pop_front(); ++dropped;
+      invalidate_lost(output.front());output_bytes-=output.front().bytes(); output.pop_front(); ++dropped;
     }
     output_bytes+=item.bytes(); output.push_back(std::move(item));
   }
@@ -136,7 +150,13 @@ struct Skimmer::Impl {
     job.enqueued=std::chrono::steady_clock::now();
     std::lock_guard<std::mutex> lock(jobs_mutex);
     const auto id=job.track->id;
-    if(pending.count(id)) { pending[id]=std::move(job); ++coalesced; }
+    if(pending.count(id)) {
+      const auto lost_end=pending.at(id).end;
+      ++job.track->revision;++coalesced;
+      emit({"track",job.token,id,"overloaded",job.epoch,lost_end,lost_end,job.track->offset,false,{}},job.track);
+      job.revision=job.track->revision;
+      pending[id]=std::move(job);
+    }
     else { order.push(id); pending.emplace(id,std::move(job)); }
     work.notify_one();
   }

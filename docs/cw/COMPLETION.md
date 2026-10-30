@@ -20,11 +20,11 @@ held-out evaluation. AC30/P8/P9 remain outside this Mac launch.
 | --- | --- | --- |
 | NL-06 | AC01–02 native features/model | Pinned model/runtime retained; native feature, silence, 20/30-WPM tests pass. Random/unseen sequences and exact-package validation remain. |
 | NL-06 | AC06–07 channel response/tracking | Contiguous FIR and profiler integrated; scalar/Accelerate, signed tones, delay and strong-neighbour fixtures pass. Real drift/crossing/cochannel corpus remains. |
-| NL-06 | AC20 standard capacity/resource budgets | Reproduced strict failure on M1/8-core/16-GB reference Mac. All 32 tracks serviced; four and six workers both coalesce. Production remains four workers. No throughput measurement overlaps builds/tests. |
+| NL-06 | AC20 standard capacity/resource budgets | Reproduced strict failure on M1/8-core/16-GB reference Mac. Bounded shared static-CoreML experiment services all 32 tracks with 1192.10 ms p95 age but 53 coalesced jobs: FAIL. Startup timing remains dominant under current load. Production remains four CPU workers. No throughput measurement overlaps builds/tests. |
 | NL-07 | AC03/05/11–12 Flex parser/RF/one/two spans | Main e5788759 fixes actual per-band settings/RX handling; 14 subscription tests and fresh hardware RX evidence pass. Operator now selected OM0RX-WIN10, panadapter 40000000 / DAX IQ 1. Manufacturer discovery does not reach validated admission over the current VPN; no stream created. One/two actual spans and RF acceptance remain. |
 | NL-08 | AC04/05/13–15 TCI/RF/one/two/mixed | Existing shared TCI socket/receiver leases retained. Current SunSDR2 DX endpoint/version and RX1/RX2 handoff unavailable; no hardware result claimed. |
 | NL-07/08 | AC16–19 ownership, changes, TX, failure | Existing epoch/freshness, receive quarantine, scoped Stop/retry and fault fixtures retained. Actual source ownership, sleep/wake, loss and independently intended TX observations remain. |
-| NL-09 | AC08–10 text/identity/quality | Existing aligned transcript/distinct self-ID policy retained. Consented real IQ, independent recording/session/operator splits, held-out precision/recall, 30 negative band-hours, frequency and committed/spot latency results remain. |
+| NL-09 | AC08–10 text/identity/quality | Aligned transcript/distinct self-ID policy retained. Clean generated mono slice passes 150 sequences / 960 characters with zero errors. Loss now fences old windows and queued spot proofs; fresh self-IDs can recover. Consented real IQ, independent recording/session/operator splits, held-out precision/recall, 30 negative band-hours, frequency and committed/spot latency results remain. |
 | NL-09 | AC21/24–25 local ingress/loops/replay | Typed direct local_cw ingress, bounded listener and replay exclusion retained. Five actual socket cases pass, including an unread peer disconnected while the healthy client receives all 11,777 lines. Real external-client and exact-package exercise remain. |
 | NL-10 | AC22 draft/tune/recovery | Current-owner callsign/Tune integrated. Durable routing, original-ID discovery and proof-only original reconciliation preserve uncertainty/later edits; 70 focused native, 22 Swift draft, 67 host and 27 callsign/panel cases pass. Installed restart/window loss, missing native evidence and complete recovery acceptance remain. |
 | NL-10 | AC23 external client | Existing plain-TCP/IAC/history fixtures retained; one real external logger/client still required. |
@@ -63,6 +63,9 @@ held-out evaluation. AC30/P8/P9 remain outside this Mac launch.
   handoff-only receipt fails specifically at physical discovery, before stream
   creation. AetherSDR separately connects over VPN from 10.8.0.6; that connection
   does not establish xLog's discovery admission. No further blind retries occur.
+  After AetherSDR started, a separate raw BSD UDP socket successfully bound
+  0.0.0.0:4992 for 5.046 seconds and received zero datagrams of any kind; that
+  result is independent of VITA parsing. No stream or station command was sent.
 - Shared ORT thread tuning and independent-window batching did not pass the same
   strict workload. The unsuccessful batching patch is retained privately with
   SHA-256 dc5c011a4a1b3f7a37ce6e751df07db62374a18cd0e2b4059202a569fae76bd1;

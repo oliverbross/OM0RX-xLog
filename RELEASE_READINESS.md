@@ -11,6 +11,16 @@ package/notarization/installation after those gates pass. No CW candidate is
 installed or production capability enabled by this checkpoint; the accepted
 1.3.63 bundle and its preservation/rollback record below remain unchanged.
 
+31 October CW source progress: durable original draft-action reconciliation,
+actual slow-client isolation and offline relocated component-payload checks pass.
+The bounded static-CoreML experiment in `864b1b53` improves one measured run but
+still coalesces 53 jobs; capacity is unqualified. Overload now invalidates affected
+text revisions and queued-publication proof, with focused regressions recorded in
+the CW checklist. AetherSDR has native TCP access, while a raw five-second UDP
+4992 probe receives zero discovery datagrams. Actual radio spans/RF, held-out
+quality, real external client, 8h/24h elapsed stability, exact application package
+and installed CW acceptance remain open within this scope.
+
 **Historical 29 October banner (superseded only by this authorized closeout):**
 
 > **Current status — 29 October 2026: NO-GO. FA-010–FA-017 and NA-001–NA-005 are repaired within their documented scopes.** The [latest everyday logging disposition](#everyday-logging-native-acceptance--29-october-2026) records final tested source c09ecfdd: Normal file export and Edit last pass after narrow repairs; exact native timestamp reversal remains unverified. Older open-finding and acceptance sections are dated historical evidence. No installation, candidate packaging or release promotion is authorized.

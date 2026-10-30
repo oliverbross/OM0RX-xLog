@@ -7,7 +7,8 @@ import XCWCore
 final class CWComputeProcessTests:XCTestCase {
     private func resources(probe:Bool=false,badHash:Bool=false) throws -> CWComputeResources {
         var root=URL(fileURLWithPath:#filePath);for _ in 0..<5 {root.deleteLastPathComponent()}
-        let binary=root.appendingPathComponent(probe ? ".build/cw-native/cw-process-probe":".build/cw-native/xlog-cw-worker")
+        let nativeDirectory=URL(fileURLWithPath:ProcessInfo.processInfo.environment["XCW_TEST_NATIVE_DIRECTORY"] ?? root.appendingPathComponent(".build/cw-native").path,isDirectory:true)
+        let binary=nativeDirectory.appendingPathComponent(probe ? "cw-process-probe":"xlog-cw-worker")
         let runtime=URL(fileURLWithPath:ProcessInfo.processInfo.environment["XCW_TEST_RUNTIME"] ?? "/private/tmp/onnxruntime-osx-arm64-1.24.3/lib/libonnxruntime.1.24.3.dylib")
         guard FileManager.default.fileExists(atPath:binary.path),FileManager.default.fileExists(atPath:runtime.path) else {
             throw XCTSkip("Build native CW test executables and provide the pinned official runtime first.")

@@ -54,6 +54,21 @@ independent of IQ ingress. A supervisor must drain stdout/stderr independently,
 bound its own queues and kill/reap a stalled child on its shutdown deadline.
 This process boundary is not an OS sandbox.
 
+Pending-job replacement and derived-event loss both advance the affected track's
+revision. A pending replacement also emits `track / overloaded`, with a nonzero
+new revision and equal first/end channel indices marking the lost job's end.
+The coalesced/dropped counters retain their existing meanings; neither event is
+a qualified standard-load result. Old in-flight/queued revisions cannot escape
+the native result fence.
+
+The parent resets text, selection and queued-publication proof on revision loss.
+It rejects tokens preceding the continuity fence even when later overlapping
+model windows still contain them. If the explicit overload marker is lost, the
+first new-revision decode's end is the conservative fence instead. Fresh distinct
+self-IDs can establish evidence again; old occurrences cannot be counted again.
+This extends the unshipped v1 track-state vocabulary; both bundled endpoints
+validate the exact contract and an older parser fails visibly on `overloaded`.
+
 The macOS spawn primitive in `Sources/CCWProcess` uses
 `POSIX_SPAWN_CLOEXEC_DEFAULT`, explicit stdin/stdout/stderr dup actions and a
 fixed PATH/LANG/LC_ALL environment. All original pipe descriptors are
@@ -86,3 +101,23 @@ replay/epoch/track provenance, pool bounds, malformed epoch/rate/gap/nonfinite
 faults and IQ-before-open rejection. The original mono ABI and its six framing
 rejections still pass. This is replay/process evidence; no radio, live spot
 destination, application package, or hardware is exercised.
+
+For a separately built component, the real-child Swift harness accepts the
+test-only `XCW_TEST_NATIVE_DIRECTORY` and pinned `XCW_TEST_RUNTIME` paths. These
+are harness inputs, never production or renderer configuration.
+
+31 October source regressions first reproduce the defects: seven parent
+assertions fail across two overload cases, and the real native unread-output
+case fails its continuity-revision assertion. After repair, 25 focused Swift
+session/wire cases, 51 renderer projection/callsign/Tune/panel cases and TypeScript
+pass; all 15 real-child/wire cases also pass against the explicitly selected
+current component. Native CTest passes 2/2. Its injected unread-output run records
+zero coalesced / five dropped events, and accelerated inference overload records
+15 coalesced / zero dropped events; both retain a bounded queue and require a
+new revision. These are deliberately unqualified overload fixtures, not normal
+capacity or elapsed-time soak evidence. Parent fixtures reject old overlapping
+self-IDs and queued spots, then accept fresh post-fence distinct self-IDs.
+
+Lossless receipts: `3be53f2248d58d15` / `0373216b9fab4752` (failing parent/native),
+`518a21b2d0da6c6e` (Swift), `27e38ff9e2578223` (renderer),
+`2faf007ae7be3733` (CTest), `1a53ad9d49935ec8` (real child).

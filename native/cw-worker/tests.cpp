@@ -233,6 +233,38 @@ int main(int argc,char** argv) {
     require(skimmer.wait_idle(10),"Cancel drain");
     for(const auto& event:skimmer.events()) require(event.kind!="decode"||event.stream_token!=source,"No late copy after source retirement");
     skimmer.stop(); require(skimmer.metrics().sources==0,"Stop retires every span");
+    // Deliberately leave derived output unread, while draining inference. This
+    // forces output loss without depending on machine speed or a fake decoder.
+    for(const bool drain_inference:{true,false}) {
+    cw::Skimmer unread(engine,1);unread.open(source,10,96000,-39000,39000,true);
+    uint64_t unread_sequence=0;
+    const size_t input_samples=96000*(drain_inference?12:24);
+    for(size_t first=0;first<input_samples;first+=4096) {
+      const size_t count=std::min(size_t(4096),input_samples-first);
+      std::vector<std::complex<float>> block(count);
+      for(size_t i=0;i<count;++i) {
+        const size_t n=first+i,index=(n/30)%a.size();
+        const double fraction=double(n%30)/30;
+        const double key=a[index]*(1-fraction)+a[(index+1)%a.size()]*fraction;
+        block[i]=std::complex<float>(std::polar(key,2*pi*6200*n/96000));
+      }
+      unread.feed(source,10,unread_sequence++,first,96000,block);
+      require(unread.metrics().pending<=1 && unread.metrics().in_flight<=1,"Injected overload keeps bounded queues");
+      if(drain_inference) require(unread.wait_idle(10),"Unread-output inference drain");
+    }
+    require(unread.wait_idle(10),"Injected overload eventually drains");
+    const auto loss=unread.metrics();
+    std::cout<<"Injected "<<(drain_inference?"output":"inference")<<" overload: "<<loss.coalesced<<" coalesced / "<<loss.dropped_events<<" dropped events\n";
+    if(drain_inference) require(loss.coalesced==0 && loss.dropped_events>0,"Real derived output loss was injected");
+    else require(loss.coalesced>0,"Real pending inference loss was injected");
+    bool revised_copy=false;
+    for(const auto& event:unread.events()) if(event.kind=="decode") {
+      require(event.track_revision>0,"Lost derived copy invalidates track continuity");
+      require(!unread.focus(source,10,event.track_id,0),"Pre-loss control revision cannot survive output loss");
+      revised_copy=true;
+    }
+    require(revised_copy,"Post-loss copy reports a fresh continuity revision");unread.stop();
+    }
     std::cout<<"Native CW engine checks passed\n";
     return 0;
   } catch(const std::exception& e) { std::cerr<<e.what()<<'\n'; return 1; }

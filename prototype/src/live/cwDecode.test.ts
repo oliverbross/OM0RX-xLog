@@ -20,6 +20,12 @@ describe("native CW Decode projection", () => {
     expect(parseCWDecodeSnapshot(cwDecodeFixture()).state).toBe("stopped");
     expect(parseCWDecodeSnapshot(cwDecodeTrackFixture()).tracks).toHaveLength(1);
   });
+  it("keeps a verified continuity interruption visible without admitting unknown withholding reasons", () => {
+    const fixture=cwDecodeTrackFixture();fixture.tracks[0].spotRejection="continuity_interrupted";
+    expect(parseCWDecodeSnapshot(fixture).tracks[0].spotRejection).toBe("continuity_interrupted");
+    fixture.tracks[0].spotRejection="pretend_qualified";
+    expect(()=>parseCWDecodeSnapshot(fixture)).toThrow();
+  });
   it("pins mute control to the current track even without a callsign", () => {
     const fixture = cwDecodeTrackFixture(), track = fixture.tracks[0];
     track.controlReference = { sessionID: track.descriptor.sessionID, sourceID: track.sourceID, streamToken: track.descriptor.streamToken,

@@ -81,6 +81,9 @@ public actor CWDecodeSession {
         var selectionUpdatedNS:UInt64=0
         var metricsUpdatedNS:UInt64=0
         var updatedNS:UInt64=0
+        var continuityStart:UInt64=0
+        var lastDecodeEnd:UInt64=0
+        var publicationIDs:[UUID]=[]
     }
     private let provider: any CWIQSourceProviding
     private let compute: any CWComputeControlling
@@ -214,17 +217,27 @@ public actor CWDecodeSession {
     }
     /// Recheck queued output against the live provider before each external
     /// classification/listener admission. Archived accepted spots remain history.
+    private func holdsPublication(_ spot:CWConfirmedSpot) -> Bool {
+        let now=clock()
+        return tracks.values.contains { track in
+            UUID(uuidString:track.view.trackID)==spot.trackID &&
+                track.publicationIDs.contains(spot.id) && !track.view.ambiguous &&
+                track.view.selection?.callsign==spot.callsign && track.view.frequencyHz==spot.frequencyHz &&
+                track.view.descriptor.streamToken==spot.streamToken && track.view.descriptor.epoch==spot.epoch &&
+                now>=track.selectionUpdatedNS && now-track.selectionUpdatedNS<=2_000_000_000
+        }
+    }
     public func canPublish(_ spot:CWConfirmedSpot) async -> Bool {
         guard spotPolicy.isQualityQualified,configuration?.automaticSpots==true,intent==spot.sessionID,
               let source=sources[spot.sourceID],let lease=source.lease,let descriptor=source.view.descriptor,
               descriptor.streamToken==spot.streamToken,descriptor.epoch==spot.epoch,descriptor.mappingQualified,
-              !mutedTracks.contains(spot.trackID) else{return false}
+              !mutedTracks.contains(spot.trackID),holdsPublication(spot) else{return false}
         let current=await provider.current(source.view.configuration,sessionID:spot.sessionID,leaseID:lease)
         let now=clock()
         return intent==spot.sessionID && sources[spot.sourceID]?.lease==lease &&
             sources[spot.sourceID]?.view.descriptor==descriptor && current==descriptor &&
             now>=source.lastReceipt && now-source.lastReceipt<=250_000_000 &&
-            !mutedTracks.contains(spot.trackID)
+            !mutedTracks.contains(spot.trackID) && holdsPublication(spot)
     }
     public func start(configuration: CWDecodeConfiguration, resources: CWComputeResources) async throws {
         try configuration.validate()
@@ -407,7 +420,15 @@ public actor CWDecodeSession {
         if tracks[key]?.view.descriptor==descriptor,tracks[key]?.view.muted==true {return}
         guard !retiredTracks.contains(key),tracks[key].map({UInt64($0.view.revision).map{$0<=value.revision} ?? false}) ?? true else {return}
         var track=tracks[key]
-        if track?.view.revision != String(value.revision) || track?.view.descriptor != descriptor {track=nil}
+        var continuityStart=track?.continuityStart ?? 0,lastDecodeEnd=track?.lastDecodeEnd ?? 0
+        if track?.view.revision != String(value.revision) || track?.view.descriptor != descriptor {
+            // A missing overload marker cannot make a new revision continuous.
+            // With no marker, discard the first new window's evidence as well.
+            if track != nil || value.revision>0 {continuityStart=max(continuityStart,lastDecodeEnd,value.endSample)}
+            track=nil
+        }
+        if value.state=="overloaded" {continuityStart=max(continuityStart,value.endSample);track=nil}
+        var publicationIDs=track?.publicationIDs ?? []
         var reconciler=track?.transcript ?? CWTranscriptReconciler()
         var committed=track?.view.committed ?? "",provisional=track?.view.provisional ?? "",ambiguous=value.ambiguous
         var occurrences:[CWIdentityOccurrence]=[]
@@ -416,10 +437,14 @@ public actor CWDecodeSession {
             let position=Double(value.sourceFirstSample)+Double(value.endSample)*Double(descriptor.sampleRate)/3200
             guard position.isFinite,position<=Double(source.lastSample)+1,
                   Double(source.lastSample)-position<=Double(descriptor.sampleRate)*2 else {return}
-            guard let update=try? reconciler.process(decode.tokens.compactMap(\.aligned),firstSample:value.firstSample,endSample:value.endSample) else {return}
-            committed=update.committed.map(\.symbol).joined();provisional=update.provisional.map(\.symbol).joined()
-            ambiguous = ambiguous || update.ambiguous
-            occurrences=Array(CWTransmittingIdentity.occurrences(in:update.committed).suffix(128))
+            lastDecodeEnd=max(lastDecodeEnd,value.endSample)
+            if value.endSample>continuityStart {
+                let tokens=decode.tokens.compactMap(\.aligned).filter{$0.firstSample>=continuityStart}
+                guard let update=try? reconciler.process(tokens,firstSample:max(value.firstSample,continuityStart),endSample:value.endSample) else {return}
+                committed=update.committed.map(\.symbol).joined();provisional=update.provisional.map(\.symbol).joined()
+                ambiguous = ambiguous || update.ambiguous
+                occurrences=Array(CWTransmittingIdentity.occurrences(in:update.committed).suffix(128))
+            } else {committed="";provisional="";reconciler.reset()}
         }
         if ambiguous {committed="";provisional="";reconciler.reset()}
         let frequency=descriptor.mappingQualified ? try? descriptor.frequency(offsetHz:value.offsetHz):nil
@@ -437,7 +462,9 @@ public actor CWDecodeSession {
             } else {selection=nil;selectionUpdatedNS=0}
         }
         if ambiguous {selection=nil;selectionUpdatedNS=0}
-        var rejection=ambiguous ? CWSpotRejection.ambiguous.rawValue:track?.view.spotRejection
+        if selection==nil || selection?.callsign != track?.view.selection?.callsign {publicationIDs.removeAll()}
+        let recoveringContinuity=continuityStart>0 && track?.view.selection==nil
+        var rejection:String?=ambiguous ? CWSpotRejection.ambiguous.rawValue:(recoveringContinuity ? "continuity_interrupted":track?.view.spotRejection)
         if decode != nil,let trackID=UUID(uuidString:key) {
             let now=clock(),latest=occurrences.map(\.endSample).max() ?? value.endSample
             let samplePosition=Double(value.sourceFirstSample)+Double(latest)*Double(descriptor.sampleRate)/3200
@@ -446,11 +473,13 @@ public actor CWDecodeSession {
             let decision=evaluatingPolicy.evaluate(descriptor:descriptor,trackID:trackID,frequencyHz:frequency ?? 0,
                 occurrences:occurrences,channelSample:value.endSample,latestSampleNS:source.lastReceipt,nowNS:now,
                 observedAt:wallClock().addingTimeInterval(-age),transmitting:false,clean:true,ambiguous:ambiguous)
-            rejection=decision.rejection?.rawValue
+            rejection=continuityStart>0 && occurrences.isEmpty ? "continuity_interrupted":decision.rejection?.rawValue
             if configuration?.automaticSpots==true{spotPolicy=evaluatingPolicy}
             if configuration?.automaticSpots==true,let spot=decision.spot {
                 switch spotOutput.yield(spot) {
-                case .enqueued:break
+                case .enqueued:
+                    publicationIDs.append(spot.id)
+                    if publicationIDs.count>16 {publicationIDs.removeFirst(publicationIDs.count-16)}
                 case .dropped:spotDeliveryDrops=min(Int.max-1,spotDeliveryDrops)+1
                 case .terminated:break
                 @unknown default:break
@@ -472,7 +501,8 @@ public actor CWDecodeSession {
             selection:selection,controlReference:controlReference)
         if tracks[key] != nil || tracks.count<32 {
             tracks[key]=Track(view:view,transcript:reconciler,selectionUpdatedNS:selectionUpdatedNS,
-                metricsUpdatedNS:decode != nil ? clock():(track?.metricsUpdatedNS ?? 0),updatedNS:clock())
+                metricsUpdatedNS:decode != nil ? clock():(track?.metricsUpdatedNS ?? 0),updatedNS:clock(),
+                continuityStart:continuityStart,lastDecodeEnd:lastDecodeEnd,publicationIDs:publicationIDs)
         }
     }
 }

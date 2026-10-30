@@ -98,13 +98,15 @@ public enum CWComputeWire {
               let id=object["track_id"] as? String, id.isEmpty || UUID(uuidString:id) != nil,
               id.isEmpty ? ["stream","fault"].contains(kind) : true,
               let state=object["state"] as? String,
-              (["stream":["acquiring"],"track":["acquiring","ambiguous","muted"],"decode":["provisional"],
+              (["stream":["acquiring"],"track":["acquiring","ambiguous","muted","overloaded"],"decode":["provisional"],
                 "retired":["retired"],"fault":["inference_failed","discontinuity"]][kind] ?? []).contains(state) else { throw CWComputeError.invalidEvent }
         let delay=try number(object["filter_delay_seconds"]),offset=try number(object["offset_hz"])
+        let revision=try counter(object["track_revision"]),first=try counter(object["first_sample"]),end=try counter(object["end_sample"])
         guard (0...1).contains(delay),abs(offset)<=192_000 else { throw CWComputeError.invalidEvent }
+        guard state != "overloaded" || (revision>0 && first==end && end>0) else {throw CWComputeError.invalidEvent}
         return CWNativeTrack(kind:kind,streamToken:token,epoch:try counter(object["epoch"]),trackID:id,
-            revision:try counter(object["track_revision"]),state:state,firstSample:try counter(object["first_sample"]),
-            endSample:try counter(object["end_sample"]),sourceFirstSample:try counter(object["source_first_sample"]),
+            revision:revision,state:state,firstSample:first,
+            endSample:end,sourceFirstSample:try counter(object["source_first_sample"]),
             filterDelaySeconds:delay,offsetHz:offset,ambiguous:try boolean(object["ambiguous"]),replay:try boolean(object["replay"]))
     }
 

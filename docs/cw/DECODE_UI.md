@@ -124,3 +124,11 @@ installed 1.3.63 does not become a qualified skimmer through this guide.
    verify the released resource and offline payload, then explicitly restart.
    Retune, TX/unknown receive state, gaps and reconnect retire stale evidence;
    old copy cannot authorize a fresh action or spot.
+
+**Continuity interrupted** means a worker revision lost text evidence, including
+pending inference coalescing or a dropped derived event. The affected committed
+copy and callsign action are cleared. Overlapping old windows cannot restore
+them; fresh aligned copy/self-IDs must establish evidence again. A spot already
+waiting for classification or listener admission is checked against the current
+track's bounded publication proof before and after provider readback. Accepted
+historical rows remain history.
