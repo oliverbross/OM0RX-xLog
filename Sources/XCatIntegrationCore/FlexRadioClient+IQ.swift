@@ -99,6 +99,7 @@ struct FlexIQFlow {
     let startedNS:UInt64
 }
 extension FlexRadioClient {
+    public func iqDiagnostics()->[FlexIQDiagnosticEvent]{iqEvents}
     public func revokeIQHandoffs(){iqState.handoffs.removeAll()}
     public func iqCapabilities() async -> FlexIQCapabilities {
         try? await iqPrepare()
@@ -156,6 +157,7 @@ extension FlexRadioClient {
             throw FlexIQSubscriptionError.handoffRequired
         }
         let flowID=UUID()
+        iqTrace("flow_start","pan=\(pan.id) lease=\(leaseID) flow=\(flowID)")
         iqState.flows[id]=FlexIQFlow(id:flowID,generation:context.generation,pan:pan,rate:sampleRate,
             preexistingStreams:Set(iqState.inventory.streams.keys),leases:[leaseID:pair.continuation],cleanAfter:now+500_000_000,startedNS:now)
         do {
@@ -234,7 +236,16 @@ extension FlexRadioClient {
             }
             iqRevalidate()
         }
-        if iqState.inventory.consume(body){iqResolveCreatedStreams();iqRevalidate()}
+        if iqState.inventory.consume(body){
+            if !iqState.flows.isEmpty || words.first=="stream" {
+                let allowed:Set<String>=["type","client_handle","daxiq_channel","pan","daxiq_rate","rate","active","removed","center","rxant"]
+                let safe=words.enumerated().filter { index,word in
+                    index<(words.first=="stream" ? 2:3) || word=="removed" || allowed.contains(String(word.split(separator:"=",maxSplits:1).first ?? ""))
+                }.map{String($0.element)}.joined(separator:" ")
+                iqTrace("inventory",safe)
+            }
+            iqResolveCreatedStreams();iqRevalidate()
+        }
     }
     private func iqResolveCreatedStreams() {
         guard let context=iqControlContext() else{return}
@@ -261,6 +272,7 @@ extension FlexRadioClient {
                permitted?.channel != flow.pan.channel || permitted?.clientHandle != flow.pan.clientHandle {
                 // Withdraw synchronously before scheduling command cleanup.
                 flow.capture=nil;flow.invalidated=true;iqState.flows[id]=flow
+                iqTrace("flow_invalidated","pan=\(flow.pan.id) reason=station_or_pan_ownership generation=\(String(describing:context?.generation)) \(iqContextDiagnostic()) permitted=\(String(describing:permitted))")
                 let flowID=flow.id;Task{await iqEndFlow(id,expected:flowID,error:FlexIQSubscriptionError.stationChanged)}
             } else if permitted != flow.pan || context?.knownReceive != true ||
                       (flow.lastReceipt>0 && DispatchTime.now().uptimeNanoseconds-flow.lastReceipt>250_000_000) {
@@ -274,6 +286,7 @@ extension FlexRadioClient {
                        (flow.capture != nil && (stream.clientHandle != context?.ownHandle || stream.channel != flow.pan.channel ||
                            stream.panadapter != id || stream.sampleRate != flow.rate || stream.active != true))) {
                 flow.capture=nil;flow.invalidated=true;iqState.flows[id]=flow
+                iqTrace("flow_invalidated","pan=\(flow.pan.id) reason=stream_ownership_or_contract stream=\(stream)")
                 let flowID=flow.id;Task{await iqEndFlow(id,expected:flowID,error:FlexIQSubscriptionError.busy)}
             } else if flow.capture != nil,let streamID=flow.streamID,iqState.inventory.streams[streamID]==nil {
                 flow.capture=nil;flow.invalidated=true;iqState.flows[id]=flow
@@ -282,6 +295,7 @@ extension FlexRadioClient {
         }
     }
     func iqReset() {
+        if !iqState.flows.isEmpty{iqTrace("transport_reset","active_flows=\(iqState.flows.count)")}
         let old=iqState;iqState=FlexIQState()
         old.reader?.cancel();old.watchdog?.cancel()
         for flow in old.flows.values {for continuation in flow.leases.values{continuation.finish(throwing:FlexIQSubscriptionError.stationChanged)}}
@@ -318,7 +332,10 @@ extension FlexRadioClient {
     private func iqOwnedStreams()->Set<UInt32>{Set(iqState.flows.values.compactMap(\.streamID))}
     private func iqRequireFlow(_ id:UInt32,_ flowID:UUID,_ context:FlexIQControlContext) throws {
         guard let current=iqControlContext(),current.generation==context.generation,current.stationHandle==context.stationHandle,
-              iqState.flows[id]?.id==flowID,iqState.flows[id]?.invalidated==false else{throw FlexIQSubscriptionError.stopped}
+              iqState.flows[id]?.id==flowID,iqState.flows[id]?.invalidated==false else{
+            iqTrace("flow_check_failed","pan=\(FlexIQResourceInventory.identifier(id)) expected_flow=\(flowID) current_flow=\(String(describing:iqState.flows[id]?.id)) context_available=\(iqControlContext() != nil)")
+            throw FlexIQSubscriptionError.stopped
+        }
     }
     private func iqEnsureDestination(_ context:FlexIQControlContext) async throws {
         if iqState.destinationReady{return}
@@ -404,6 +421,7 @@ extension FlexRadioClient {
     }
     private func iqEndFlow(_ id:UInt32,expected:UUID?=nil,error:any Error) async {
         guard let flow=iqState.flows[id],expected==nil || expected==flow.id else{return}
+        iqTrace("flow_end","pan=\(flow.pan.id) flow=\(flow.id) stream=\(flow.streamID.map(FlexIQResourceInventory.identifier) ?? "none") error=\(error)")
         iqState.flows.removeValue(forKey:id)
         for continuation in flow.leases.values{continuation.finish(throwing:error)}
         if iqState.flows.isEmpty {

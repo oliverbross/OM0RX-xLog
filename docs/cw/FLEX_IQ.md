@@ -5,7 +5,7 @@
 Windows-side source-preserving discovery forwarding is reported using an already
 installed signed Npcap 1.80, with no new driver, radio commands or IQ actions.
 The Mac independently receives five 712-byte packets from **192.168.0.199:4992**
-over 5.04936 seconds, no other peer, during the 23:25:40–23:30:40 UTC relay window.
+over 5.04936 seconds, no other peer, before the reported 23:30:40 UTC relay expiry.
 This demonstrates discovery delivery; it is not evidence of native IQ reception.
 Raw Mac receipt: `df2fa962a5f87eac`; files remain private in
 `raw-discovery-relay-window-01` under the completion evidence directory.
@@ -29,9 +29,50 @@ the private received frame supplied (`6c8fc9fdec1f626d`).
 The developer inspector can additionally pin `--expected-serial` from an
 independent handoff before stream creation; malformed/missing arguments and
 serial mismatch fail. Its no-network self-test passes after rebuild
-(`9f48148d1ef3ba73`). The patched native live handoff, IQ delivery and cleanup
-remain to be exercised during a fresh bounded relay window. No RF mapping,
-provider support or production capability is promoted by offline parsing.
+(`9f48148d1ef3ba73`). No RF mapping, provider support or production capability
+is promoted by offline parsing.
+
+## Native handoff passes; first IQ start remains unresolved
+
+The patched inspector verifies the fresh manufacturer discovery, independently
+supplied serial, control peer, Station OM0RX-WIN10, panadapter 40000000 / DAX IQ 1
+and receive-only handoff at **23:39:52–23:40:01 UTC** (`faae6f57e2378138`). This
+verify-only operation creates no stream. The subsequent bounded capture at
+**23:41:27–23:41:39 UTC** fails at `native_iq_start: stopped`, with zero blocks,
+samples or IQ bytes (`f087dd7ab8e6910a`). The original receipt's phase-derived
+`streamCreationAttempted` does not prove a create command or returned resource.
+It requests exact-lease cleanup; station-side cleanup remains unverified. Raw
+receipts are retained in `flex-relay-handoff-02` and `flex-native-iq-01`.
+
+The existing owner now retains at most 128 bounded control events (512 ASCII
+characters each): IQ command/ACK/failure, filtered resource status, flow identity,
+invalidation and cleanup. Events survive transport reset; no IQ or discovery
+payload is recorded. The capture reports creation from actual command evidence,
+and the passive inspector exposes the same journal. This adds evidence, not a
+discovery, ownership, receive-state or admission exception. Seventeen focused
+lifecycle cases pass (`bbba06f134280841`), including trace bounds, canceled/pending
+creation, competing resources and exactly one owned remove ACK. The inspector
+rebuild and no-network self-test pass.
+
+A later eight-second passive read observes RX known off and the selected pan on
+DAX IQ 1, now centred at 7.050376 MHz, without a DAX IQ stream reported. That
+read issues subscriptions only, and closes its own transport. It cannot establish
+what happened during the original failed create or independently prove cleanup.
+The new instrumented capture awaits a fresh bounded relay window. No unchanged
+blind retry, unknown stream removal, RF orientation/width acceptance or production
+support promotion follows the failed attempt.
+
+The instrumented attempt **23:56:49–23:57:02 UTC**, inside the Windows-reported
+23:54:40.9547911–23:59:40.9547911 window, establishes actual command evidence:
+the radio acknowledges create of stream `20000000`, reports the same client's
+channel/pan ownership, then acknowledges/reports 96 ksample/s. No admitted IQ
+arrives; the five-second watchdog ends the flow as `noData`. The waiting start
+then reports `stopped`. Exact owned `stream remove` is issued, but capture teardown
+closes transport before its ACK is retained. This exposes a cleanup-await race;
+the source fix and UDP arrival/refusal diagnostics are the next work, before
+another acquisition. A subsequent passive read reports RX ready and no DAX IQ
+stream, but does not prove the lost original removal ACK. Receipt and journal:
+`flex-native-iq-02`; no Running, RF mapping or physical cleanup pass is claimed.
 
 31 October transport follow-up: the operator confirms SmartSDR/Windows DAX on
 192.168.0.117; Windows DAX is now stopped while panadapter 40000000 remains on

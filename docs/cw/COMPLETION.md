@@ -21,7 +21,7 @@ held-out evaluation. AC30/P8/P9 remain outside this Mac launch.
 | NL-06 | AC01–02 native features/model | Pinned model/runtime retained; native feature, silence, 20/30-WPM and generated unseen-sequence checks pass. Transformed candidates stay separate/unqualified. Real RF and exact-package validation remain. |
 | NL-06 | AC06–07 channel response/tracking | Contiguous FIR/profiler, phase-preserving drift and timed carrier observations integrated. Scalar/Accelerate, signed tones, delay, neighbours and convergence/recovery pass. Historical-token chirp errors max 0.672855/0.512208 Hz, with final-character RF retained for every completed test ID. Real drift/crossing/cochannel corpus and RF p95 remain. |
 | NL-06 | AC20 standard capacity/resource budgets | Strict failure on M1/8-core/16-GB reference Mac: fresh CPU completes 129/288 jobs (159 coalesced), GPU 84/288 (204 coalesced). All 32 tracks serviced in each; no zero-loss qualification. Ledger/latency/RSS and prior static-CoreML evidence are retained in diagnostics. Production remains four CPU workers. No throughput measurement overlaps builds/tests. |
-| NL-07 | AC03/05/11–12 Flex parser/RF/one/two spans | Main e5788759 fixes actual per-band settings/RX handling; 14 subscription tests and fresh hardware RX evidence pass. Operator now selected OM0RX-WIN10, panadapter 40000000 / DAX IQ 1. Manufacturer discovery does not reach validated admission over the current VPN; no stream created. One/two actual spans and RF acceptance remain. |
+| NL-07 | AC03/05/11–12 Flex parser/RF/one/two spans | Actual settings/RX correction and received-discovery padding fix pass. Fresh serial-pinned native handoff passes for OM0RX-WIN10, panadapter 40000000 / DAX IQ 1. First native IQ start fails `stopped`, zero samples; actual creation/cleanup remain unresolved. Bounded owner command/status trace passes 17 lifecycle cases. One/two spans and RF acceptance remain. |
 | NL-08 | AC04/05/13–15 TCI/RF/one/two/mixed | Existing shared TCI socket/receiver leases retained. Current SunSDR2 DX endpoint/version and RX1/RX2 handoff unavailable; no hardware result claimed. |
 | NL-07/08 | AC16–19 ownership, changes, TX, failure | Independent span Stop/restart uses the same owner, waits on exact-lease cleanup and preserves the other span/child. Stopped spans stay stopped through child recovery; canceled TCI acquisition cannot issue new IQ commands or suppress cleanup. 79 focused Swift, four native role/timeout/isolation and 32 view/projection cases pass; frontend/window budgets pass. Unchanged real-child/wire evidence is 20/20. Actual ownership, sleep/wake, loss and independently intended TX observations remain. |
 | NL-09 | AC08–10 text/identity/quality | Two distinct self-IDs gate loading/spots; DE phrase/repetition and overlap counting repaired. Spots require timed RF evidence at the IDs; missing RF and modified queued payloads are refused. All 37 focused session/policy cases pass. Clean generated mono slice passes 150 sequences / 960 characters with zero errors. Consented real IQ, independent held-out splits, precision/recall, 30 negative band-hours, RF p95 and committed/spot latency remain. |
@@ -123,9 +123,11 @@ held-out evaluation. AC30/P8/P9 remain outside this Mac launch.
   the radio peer. Native admission exposes a real parser defect: two terminal
   alignment NULs were rejected. The private received frame first fails, then
   parses after a bounded 0–3-byte padding fix; all 25 Flex checks pass. The
-  inspector also pins the independently supplied serial. Fresh patched native
-  admission/IQ/cleanup remain pending; this is discovery evidence, not AC03 IQ,
-  RF mapping, source support or two-radio qualification. See `FLEX_IQ.md`.
+  inspector also pins the independently supplied serial. Fresh native handoff then
+  passes, but first IQ start fails `stopped` with zero samples. Command creation
+  and station-side cleanup are unresolved; a bounded existing-owner trace is
+  tested for the next coordinated attempt. No AC03 IQ, RF mapping, source support
+  or two-radio qualification is claimed. See `FLEX_IQ.md`.
 - NL-09 corpus preparation now has a bounded sealing/reverification tool: actual
   IQ hashes/counts, permission provenance, independent annotation hashes and
   recording-family/session/operator split separation. It has no decode/output or

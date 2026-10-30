@@ -113,6 +113,7 @@ public actor FlexRadioClient: RadioControlling {
     private var reportedClientHandles: Set<String> = []
     private var reportedSliceIDs: Set<Int> = []
     var iqState = FlexIQState()
+    var iqEvents:[FlexIQDiagnosticEvent]=[]
     private var ownClientHandle:UInt32?
     private var iqBoundClientID:String?
 
@@ -837,15 +838,29 @@ public actor FlexRadioClient: RadioControlling {
         return FlexIQControlContext(generation:generation,peer:peer,port:peerPort.rawValue,
             ownHandle:ownClientHandle,stationHandle:station,knownReceive:interlockKnown && !value.isTransmitting && iqState.receiveKnown)
     }
+    func iqContextDiagnostic()->String {
+        "transportReady=\(transportReady) state=\(state) ownHandle=\(ownClientHandle != nil) followedClient=\(followedClientID != nil) bindingMatches=\(iqBoundClientID==followedClientID) stationMatches=\(iqState.stationMatches.count)"
+    }
     func iqCommand(_ command:String,generation expected:Int) async throws -> String {
         guard expected==generation,transportReady else{throw FlexIQSubscriptionError.stationChanged}
-        let reply=try await sendReply(command)
-        guard expected==generation,transportReady else{throw FlexIQSubscriptionError.stationChanged}
-        return reply
+        iqTrace("command",command)
+        do {
+            let reply=try await sendReply(command)
+            guard expected==generation,transportReady else{throw FlexIQSubscriptionError.stationChanged}
+            iqTrace("ack",command+" reply="+reply)
+            return reply
+        } catch {iqTrace("command_failed",command+" error=\(error)");throw error}
     }
     func iqMayRemoveStream(_ id:UInt32,generation expected:Int)->Bool {
         guard generation==expected,transportReady,let ownClientHandle else{return false}
         return iqState.inventory.streams[id]?.clientHandle.map{$0==ownClientHandle} ?? true
+    }
+    func iqTrace(_ operation:String,_ detail:String) {
+        // Keep across transport reset so the original failed operation remains reviewable.
+        let safe=String(detail.unicodeScalars.prefix(512).map{ $0.value>=32 && $0.value<127 ? Character($0):"?" })
+        iqEvents.append(FlexIQDiagnosticEvent(monotonicNS:String(DispatchTime.now().uptimeNanoseconds),
+            connectionGeneration:generation,operation:operation,detail:safe))
+        if iqEvents.count>128{iqEvents.removeFirst(iqEvents.count-128)}
     }
 
     private static func normalizedHandle(_ value: String?) -> String? {

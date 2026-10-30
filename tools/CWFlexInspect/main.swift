@@ -37,9 +37,9 @@ private actor Observations {
         controlTransmitObservation=control.map{ControlTransmitObservation(readAt:Date(),revision:String($0.revision),isConnected:$0.isConnected,isTransmitting:$0.isTransmitting)}
     }
     func message(_ value:String){messages.append(String(value.prefix(160)));if messages.count>20{messages.removeFirst(messages.count-20)}}
-    func report(_ options:Options)->Report {
+    func report(_ options:Options,diagnostics:[FlexIQDiagnosticEvent])->Report {
         Report(host:options.host,stationRequested:options.station,requestedSeconds:options.seconds,
-            observedAt:observedAt,observedCapabilities:capabilities,controlTransmitObservation:controlTransmitObservation,messages:messages)
+            observedAt:observedAt,observedCapabilities:capabilities,controlTransmitObservation:controlTransmitObservation,messages:messages,controlDiagnostics:diagnostics)
     }
 }
 private struct ControlTransmitObservation:Encodable {
@@ -53,6 +53,7 @@ private struct Report:Encodable {
     let observedCapabilities:FlexIQCapabilities?
     let controlTransmitObservation:ControlTransmitObservation?
     let messages:[String]
+    let controlDiagnostics:[FlexIQDiagnosticEvent]
 }
 @main struct CWFlexInspect {
     static func main() async {
@@ -92,7 +93,7 @@ private struct Report:Encodable {
             // this transport; no stream was created and no handoff was granted.
             await client.stopTransportOnly();await reader.value
             let encoder=JSONEncoder();encoder.outputFormatting=[.sortedKeys,.prettyPrinted];encoder.dateEncodingStrategy = .iso8601
-            let report=await observations.report(options)
+            let report=await observations.report(options,diagnostics:client.iqDiagnostics())
             try FileHandle.standardOutput.write(contentsOf:encoder.encode(report));print("")
         } catch {
             try? FileHandle.standardError.write(contentsOf:Data("\(error)\n".utf8));exit(2)

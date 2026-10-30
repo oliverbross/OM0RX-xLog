@@ -6,6 +6,20 @@ import XCTest
 import Darwin
 
 final class FlexIQSubscriptionTests:XCTestCase {
+    func testIQControlEvidenceIsBoundedAndSurvivesTransportStop() async {
+        let radio=FlexRadioClient(host:"127.0.0.1",stationName:"Fixture")
+        await radio.iqConsumeStatus("stream 0x80000001 license=private_fixture_value type=dax_iq daxiq_channel=1")
+        let inventory=await radio.iqDiagnostics()
+        XCTAssertEqual(inventory.count,1)
+        XCTAssertFalse(inventory[0].detail.contains("license"))
+        XCTAssertFalse(inventory[0].detail.contains("private_fixture_value"))
+        for index in 0..<140 {await radio.iqTrace("fixture","\(index):"+String(repeating:"x",count:600)+"\n")}
+        await radio.stopTransportOnly()
+        let events=await radio.iqDiagnostics()
+        XCTAssertEqual(events.count,128)
+        XCTAssertTrue(events.first?.detail.hasPrefix("12:")==true)
+        XCTAssertTrue(events.allSatisfy{$0.detail.utf8.count<=512 && !$0.detail.contains("\n")})
+    }
     private func setup() async throws -> (FlexRadioClient,FlexIQFixtureRadio) {
         let wire=FlexIQFixtureRadio()
         addTeardownBlock { await wire.stop() }
@@ -269,6 +283,10 @@ final class FlexIQSubscriptionTests:XCTestCase {
         let after=await wire.commands
         XCTAssertEqual(after.filter{$0.hasPrefix("stream create")}.count,1)
         XCTAssertEqual(after.filter{$0.hasPrefix("stream remove")}.count,1)
+        let evidence=await radio.iqDiagnostics()
+        XCTAssertEqual(evidence.filter{$0.operation=="ack" && $0.detail.hasPrefix("stream create ")}.count,1)
+        XCTAssertEqual(evidence.filter{$0.operation=="ack" && $0.detail.hasPrefix("stream remove ")}.count,1)
+        XCTAssertEqual(evidence.filter{$0.operation=="flow_end"}.count,1)
         drainA.cancel();drainB.cancel();await radio.stopTransportOnly();await wire.stop()
     }
     func testTwoDistinctPanadaptersShareOneUDPDestinationAndReleaseIndependently() async throws {

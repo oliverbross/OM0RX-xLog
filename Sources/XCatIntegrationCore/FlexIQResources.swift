@@ -6,6 +6,13 @@ public enum FlexIQSubscriptionError: Error, Equatable, Sendable {
     case busy, handoffRequired, rateConflict, invalidPacket, overflow, noData, stalled, stopped
     case discoveryUnavailable, receiveUnverified
 }
+/// Bounded control-plane evidence only. Never includes IQ, license or discovery payloads.
+public struct FlexIQDiagnosticEvent: Encodable, Sendable {
+    public let monotonicNS:String
+    public let connectionGeneration:Int
+    public let operation:String
+    public let detail:String
+}
 public struct FlexIQPanadapter: Encodable, Equatable, Sendable {
     public let id:String
     public var clientHandle:UInt32?
