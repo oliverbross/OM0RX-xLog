@@ -1,5 +1,38 @@
 # Flex companion IQ acquisition
 
+## Received manufacturer discovery — 31 October
+
+Windows-side source-preserving discovery forwarding is reported using an already
+installed signed Npcap 1.80, with no new driver, radio commands or IQ actions.
+The Mac independently receives five 712-byte packets from **192.168.0.199:4992**
+over 5.04936 seconds, no other peer, during the 23:25:40–23:30:40 UTC relay window.
+This demonstrates discovery delivery; it is not evidence of native IQ reception.
+Raw Mac receipt: `df2fa962a5f87eac`; files remain private in
+`raw-discovery-relay-window-01` under the completion evidence directory.
+
+The first actual frame has SHA-256
+`c9d5527cf2c9712fdb3eda25b7d499be46911bd149637fd770737ae8968f2ac7`,
+header `0x385600b2`, 28-byte timestamped preamble and 684-byte payload with two
+terminal NUL bytes. Metadata identifies FLEX-8400 / firmware 4.3.16.42034 and
+matches the independently supplied serial and control peer. Raw payloads include
+private manufacturer metadata and stay outside ordinary Git.
+
+The native attempt at 23:26:48–23:27:00 UTC still refuses discovery, before any
+stream creation (`e3d6df5161d3e06e`). Offline replay of the received frame and a
+structurally matching timestamped fixture reproduce the parser's rejection of
+terminal NUL alignment (`f34c8d9dc453eebe`). The parser now removes only 0–3
+terminal alignment zeros, retaining strict ASCII, length, class, identity and
+peer validation. Embedded NULs, non-ASCII/control bytes and a whole extra zero
+word are rejected. All 25 Flex identity/resource/subscription checks pass with
+the private received frame supplied (`6c8fc9fdec1f626d`).
+
+The developer inspector can additionally pin `--expected-serial` from an
+independent handoff before stream creation; malformed/missing arguments and
+serial mismatch fail. Its no-network self-test passes after rebuild
+(`9f48148d1ef3ba73`). The patched native live handoff, IQ delivery and cleanup
+remain to be exercised during a fresh bounded relay window. No RF mapping,
+provider support or production capability is promoted by offline parsing.
+
 31 October transport follow-up: the operator confirms SmartSDR/Windows DAX on
 192.168.0.117; Windows DAX is now stopped while panadapter 40000000 remains on
 DAX IQ 1. One post-ready acquisition still fails manufacturer discovery before
@@ -15,8 +48,9 @@ performed. Both router connections and the running OpenVPN Connect 3.8.1 client
 verify the current Mac tunnel address as **10.8.0.10**, port/protocol 1194/UDP;
 10.8.0.6 is historical. The saved client profile specifies `dev tun`.
 Unicast ping/TCP readiness cannot establish discovery or native IQ UDP delivery.
-An actual source-preserving LAN-side discovery path is still required; no peer
-or discovery gate is weakened. [OpenVPN's macOS FAQ](https://openvpn.net/connect-docs/macos-faq/)
+A fresh active bounded relay window is required for subsequent live checks;
+the later Mac delivery evidence above supersedes the initial absence of packets.
+No peer or discovery gate is weakened. [OpenVPN's macOS FAQ](https://openvpn.net/connect-docs/macos-faq/)
 documents that Connect does not support Layer 2/TAP bridging.
 
 Source implementation and loopback fixtures, 26 October 2026. This document is

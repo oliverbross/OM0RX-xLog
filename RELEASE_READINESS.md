@@ -47,6 +47,13 @@ over 5.0426 seconds. Forwarder configuration is requested; no IQ, RF or physical
 cleanup success is claimed. Shared CPU thread and bounded Accelerate experiments
 retain strict capacity failures in CW diagnostics; production defaults stay unchanged.
 
+Later Mac receipt demonstrates source-preserving discovery delivery: five actual
+FLEX-8400 frames reveal terminal NUL alignment rejected by the native parser.
+The received-frame regression fails before the bounded fix, then all 25 Flex
+identity/resource/lifecycle cases pass. Serial-pinned inspector self-test passes.
+Fresh patched live admission and first IQ capture remain pending; no stream has
+yet been created. Production capability, RF and spot-quality gates stay separate.
+
 31 October CW source progress: durable original draft-action reconciliation,
 actual slow-client isolation and offline relocated component-payload checks pass.
 CPU, bounded static-CoreML, GPU and tensor-preserving attention-fusion candidates

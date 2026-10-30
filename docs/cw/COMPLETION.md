@@ -113,6 +113,14 @@ held-out evaluation. AC30/P8/P9 remain outside this Mac launch.
   no IQ/radio controls and no persistent networking. New privileged driver use
   needs concrete operator approval. No helper implementation, driver installation
   or verified forwarding is yet claimed; Mac integration ownership remains here.
+- Later Windows forwarding uses pre-existing signed Npcap, as reported by the
+  Windows owner. Mac independently receives five genuine discovery frames from
+  the radio peer. Native admission exposes a real parser defect: two terminal
+  alignment NULs were rejected. The private received frame first fails, then
+  parses after a bounded 0–3-byte padding fix; all 25 Flex checks pass. The
+  inspector also pins the independently supplied serial. Fresh patched native
+  admission/IQ/cleanup remain pending; this is discovery evidence, not AC03 IQ,
+  RF mapping, source support or two-radio qualification. See `FLEX_IQ.md`.
 - NL-09 corpus preparation now has a bounded sealing/reverification tool: actual
   IQ hashes/counts, permission provenance, independent annotation hashes and
   recording-family/session/operator split separation. It has no decode/output or

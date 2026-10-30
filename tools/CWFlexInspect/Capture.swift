@@ -12,13 +12,19 @@ private struct CaptureFailure:Error,CustomStringConvertible {
 private struct CaptureOptions {
     let connection:Options
     let panadapter:String,channel:Int,directory:URL
+    let expectedSerial:String?
     init(_ arguments:[String]) throws {
-        guard arguments.count==13,["--capture","--verify-handoff"].contains(arguments[0]) else{throw CaptureFailure("Capture requires --host, --station, --panadapter, --channel, --seconds and --directory.")}
+        guard [13,15].contains(arguments.count),["--capture","--verify-handoff"].contains(arguments[0]) else{throw CaptureFailure("Capture requires --host, --station, --panadapter, --channel, --seconds and --directory; optionally --expected-serial.")}
         var values:[String:String]=[:]
         for index in stride(from:1,to:arguments.count,by:2) {
             let key=arguments[index]
-            guard ["--host","--station","--panadapter","--channel","--seconds","--directory"].contains(key),values[key]==nil else{throw CaptureFailure("Invalid capture arguments.")}
+            guard ["--host","--station","--panadapter","--channel","--seconds","--directory","--expected-serial"].contains(key),values[key]==nil else{throw CaptureFailure("Invalid capture arguments.")}
             values[key]=arguments[index+1]
+        }
+        guard ["--host","--station","--panadapter","--channel","--seconds","--directory"].allSatisfy({values[$0] != nil}) else{throw CaptureFailure("A required capture argument is missing.")}
+        expectedSerial=values["--expected-serial"]
+        if let serial=expectedSerial {
+            guard (1...64).contains(serial.utf8.count),serial.utf8.allSatisfy({(48...57).contains($0)||(65...90).contains($0)||(97...122).contains($0)||$0==45}) else{throw CaptureFailure("Expected radio serial is malformed.")}
         }
         connection=try Options(["--inspect","--host",values["--host"]!,"--station",values["--station"]!,"--seconds",values["--seconds"]!])
         guard let rawPan=values["--panadapter"],rawPan.count==8,let pan=UInt32(rawPan,radix:16),pan>0,
@@ -28,6 +34,9 @@ private struct CaptureOptions {
         let url=URL(fileURLWithPath:path).standardizedFileURL
         guard url.path==path,url.deletingLastPathComponent().resolvingSymlinksInPath().path==url.deletingLastPathComponent().path else{throw CaptureFailure("Capture parent must be canonical and already exist.")}
         self.panadapter=rawPan;self.channel=channel;directory=url
+    }
+    func requireExpectedSerial(_ actual:String) throws {
+        guard expectedSerial==nil || expectedSerial==actual else{throw CaptureFailure("Fresh manufacturer discovery does not match the operator-selected radio serial.")}
     }
 }
 private actor CaptureWriter {
@@ -64,6 +73,8 @@ private actor CaptureWriter {
     }
     func finish(error:String?,phase:String,identity:FlexIQIdentity?,verifyOnly:Bool) throws -> [String:Any] {
         try iq.synchronize();try journal.synchronize();try iq.close();try journal.close()
+        var selection:[String:Any]=["host":options.connection.host,"station":options.connection.station,"panadapter":options.panadapter,"daxIQChannel":options.channel]
+        if let serial=options.expectedSerial {selection["expectedSerial"]=serial}
         var result:[String:Any]=["instrument":"xlog-cw-flex-bounded-capture-v1","receiveOnly":true,
             "status":error==nil ? (verifyOnly ? "verified_handoff_no_stream_created":blocks>0 ? "captured_unqualified_iq":"incomplete"):"incomplete","sampleRate":96000,
             "lastPhase":phase,"cleanupRequested":true,"stationSideCleanupVerified":false,
@@ -72,7 +83,7 @@ private actor CaptureWriter {
             "sampleSHA256":digest.finalize().map{String(format:"%02x",$0)}.joined(),
             "format":"little_endian_float32_IQ_normalized_1_over_32768","startedUTC":ISO8601DateFormatter().string(from:started),
             "endedUTC":ISO8601DateFormatter().string(from:Date()),"rfMappingQualified":false,"independentAnnotations":false,
-            "operatorSelection":["host":options.connection.host,"station":options.connection.station,"panadapter":options.panadapter,"daxIQChannel":options.channel]]
+            "operatorSelection":selection]
         if let capture {
             result["physicalIdentity"]=["model":capture.identity.model,"serial":capture.identity.serial,"address":capture.identity.address,"controlPort":Int(capture.identity.controlPort)]
             result["capture"]=["streamToken":capture.streamToken.uuidString,"epoch":String(capture.epoch),"connectionGeneration":capture.connectionGeneration,
@@ -91,6 +102,15 @@ enum CWFlexCapture {
         let path=FileManager.default.currentDirectoryPath+"/.build/cw-capture-self-test-"+UUID().uuidString
         let valid=["--capture","--host","192.168.0.199","--station","Fixture","--panadapter","40000000","--channel","1","--seconds","2","--directory",path]
         _ = try CaptureOptions(valid)
+        let pinned=try CaptureOptions(valid+["--expected-serial","1234-5678-8400-0001"])
+        try pinned.requireExpectedSerial("1234-5678-8400-0001")
+        do{try pinned.requireExpectedSerial("another-radio");throw CaptureFailure("A different physical radio was accepted.")}catch let failure as CaptureFailure where failure.description.contains("does not match"){}
+        for serial in ["","has a space","bad\nserial"] {
+            do{_ = try CaptureOptions(valid+["--expected-serial",serial])}catch{continue}
+            throw CaptureFailure("Malformed expected radio serial was accepted.")
+        }
+        var missing=valid;missing[1]="--expected-serial";missing[2]="1234-5678-8400-0001"
+        do{_ = try CaptureOptions(missing);throw CaptureFailure("Missing host was accepted.")}catch let failure as CaptureFailure where failure.description.contains("required capture argument"){}
         for (index,value) in [(2,"8.8.8.8"),(6,"not-a-pan"),(8,"9"),(10,"31"),(12,"relative/path")] {
             var invalid=valid;invalid[index]=value
             do {_ = try CaptureOptions(invalid)} catch {continue}
@@ -117,6 +137,7 @@ enum CWFlexCapture {
             let verified=await client.iqCapabilities()
             identity=verified.identity
             guard verified.identity?.model.hasPrefix("FLEX-8400")==true else{throw CaptureFailure("Manufacturer discovery did not verify the intended FLEX-8400.")}
+            try options.requireExpectedSerial(verified.identity!.serial)
             if !verifyOnly {
             phase="native_iq_start"
             let subscription=try await client.startIQ(panadapterID:options.panadapter,sampleRate:96000,leaseID:lease)

@@ -16,7 +16,12 @@ public struct FlexIQIdentity: Equatable, Encodable, Sendable {
               be(8)==0x1c2d,be(12)&0xffff==0xffff else{throw FlexIQSubscriptionError.invalidPacket}
         let offset=16+(header>>22&3 != 0 ? 4:0)+(header>>20&3 != 0 ? 8:0)
         let end=bytes.count-(header&0x0400_0000 != 0 ? 4:0)
-        guard end>offset,let text=String(bytes:bytes[offset..<end],encoding:.utf8),
+        // Actual 8400 discovery aligns its ASCII metadata with up to three
+        // terminal NUL bytes. Preserve strict text validation everywhere else:
+        // an embedded NUL or a whole extra zero word is not alignment padding.
+        var payloadEnd=end
+        while payloadEnd>offset,bytes[payloadEnd-1]==0 {payloadEnd-=1}
+        guard payloadEnd>offset,end-payloadEnd<=3,let text=String(bytes:bytes[offset..<payloadEnd],encoding:.utf8),
               text.utf8.allSatisfy({$0>=32 && $0<127}) else{throw FlexIQSubscriptionError.invalidPacket}
         var fields:[String:String]=[:]
         for word in text.split(separator:" ") {

@@ -80,6 +80,7 @@ removes another consumer's stream. A known competing consumer blocks admission.
 ```sh
 xlog-cw-flex-inspect --verify-handoff --host 192.168.0.199 \
   --station OM0RX-WIN10 --panadapter 40000000 --channel 1 --seconds 2 \
+  --expected-serial ACTUAL-SERIAL-FROM-OPERATOR-HANDOFF \
   --directory /absolute/canonical/private/new-handoff-directory
 ```
 
@@ -92,6 +93,12 @@ partial evidence and stop this sequence. Completion requests Stop only for the
 preallocated lease and closes only this transport. Station-side cleanup is not
 claimed without separate evidence. RF mapping and independent annotations remain
 unqualified; these captures never go to spots, logging, Tune or a live listener.
+
+Supply the actual independently reported serial with `--expected-serial` whenever
+it is known. This pins a fresh manufacturer discovery identity before stream
+creation; a mismatch stops the diagnostic, without substituting another radio.
+The argument is optional for earlier passive inventory workflows. It does not
+replace discovery, peer, Station/channel/RX, ownership or freshness checks.
 
 The parser self-test covers private addresses, exact panadapter identity, channel
 and duration bounds and absolute canonical output paths without creating files
