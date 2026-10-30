@@ -111,6 +111,21 @@ final class CWDecodeSessionTests: XCTestCase {
         do {_ = try await session.resolveSelection(selection.reference);XCTFail("Stopped selection accepted")}
         catch {XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
     }
+    func testRepeatedWindowsOfOneSelfIDCannotAuthorizeCallsignLoading() async throws {
+        let (session,_,compute,_,_,capture)=try await selectionFixture(qualified:true,text:"CQ K1ABC ",expectSelection:false)
+        let first=await session.snapshot(),view=try XCTUnwrap(first.tracks.first)
+        XCTAssertEqual(view.committed,"CQ K1ABC ");XCTAssertNil(view.selection)
+        XCTAssertEqual(view.spotRejection,"insufficient_occurrences")
+        let tokens="CQ K1ABC ".enumerated().map{index,symbol in CWNativeToken(symbol:String(symbol),firstSample:4000+UInt64(index*80),endSample:4060+UInt64(index*80),logScore:-0.1)}
+        let metadata=CWNativeTrack(kind:"decode",streamToken:capture.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased(),
+            epoch:1,trackID:view.trackID,revision:0,state:"provisional",firstSample:3200,endSample:22500,sourceFirstSample:0,
+            filterDelaySeconds:0.02,offsetHz:600,ambiguous:false,replay:false)
+        await compute.emit(.decode(CWNativeDecode(track:metadata,text:"CQ K1ABC ",tokens:tokens,inferenceMilliseconds:20)))
+        try await wait{await session.snapshot().tracks.first?.inferenceMilliseconds==20}
+        let repeated=await session.snapshot();XCTAssertNil(repeated.tracks.first?.selection)
+        XCTAssertEqual(repeated.tracks.first?.committed,"CQ K1ABC ")
+        await session.stop()
+    }
     func testSelectionPinsEvidenceAndRejectsStaleInputOrChangedProvider() async throws {
         let (session,provider,_,clock,source,_)=try await selectionFixture(qualified:true)
         let snapshot=await session.snapshot(),selection=try XCTUnwrap(snapshot.tracks.first?.selection),reference=selection.reference
@@ -275,7 +290,7 @@ final class CWDecodeSessionTests: XCTestCase {
         await session.stop();await provider.resumeCurrent()
         do{_ = try await resolving.value;XCTFail("Stopped RF target accepted")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
     }
-    private func selectionFixture(qualified:Bool=false,measured:Bool=false) async throws -> (CWDecodeSession,CWSessionTestProvider,CWSessionTestCompute,CWSessionTestClock,CWSourceConfiguration,CWStreamDescriptor) {
+    private func selectionFixture(qualified:Bool=false,measured:Bool=false,text:String="CQ K1ABC K1ABC ",expectSelection:Bool=true) async throws -> (CWDecodeSession,CWSessionTestProvider,CWSessionTestCompute,CWSessionTestClock,CWSourceConfiguration,CWStreamDescriptor) {
         let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),clock=CWSessionTestClock(),source=try source()
         let session=CWDecodeSession(provider:provider,compute:compute,clock:{clock.now()})
         try await session.start(configuration:CWDecodeConfiguration(sources:[source]),resources:resources)
@@ -286,15 +301,18 @@ final class CWDecodeSessionTests: XCTestCase {
             try await wait{await compute.counts().sends==count}
         }
         let capture=try XCTUnwrap(descriptor),id=UUID().uuidString.lowercased()
-        let tokens="CQ K1ABC K1ABC ".enumerated().map{index,symbol in CWNativeToken(symbol:String(symbol),firstSample:4000+UInt64(index*80),endSample:4060+UInt64(index*80),logScore:-0.1)}
+        let tokens=text.enumerated().map{index,symbol in CWNativeToken(symbol:String(symbol),firstSample:4000+UInt64(index*80),endSample:4060+UInt64(index*80),logScore:-0.1)}
         for (first,end):(UInt64,UInt64) in [(0,19200),(3200,22400)] {
             let metadata=CWNativeTrack(kind:"decode",streamToken:capture.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased(),
                 epoch:1,trackID:id,revision:0,state:"provisional",firstSample:first,endSample:end,sourceFirstSample:0,
                 filterDelaySeconds:0.02,offsetHz:600,ambiguous:false,replay:false)
-            await compute.emit(.decode(CWNativeDecode(track:metadata,text:"CQ K1ABC K1ABC ",tokens:tokens,inferenceMilliseconds:10,
+            await compute.emit(.decode(CWNativeDecode(track:metadata,text:text,tokens:tokens,inferenceMilliseconds:10,
                 estimatedWPM:measured ? 24:nil,estimatedSNRDB:measured ? 12:nil,snrReferenceHz:measured ? 2500:nil)))
         }
-        try await wait{await session.snapshot().tracks.first?.selection != nil}
+        try await wait{
+            let value=await session.snapshot()
+            return expectSelection ? value.tracks.first?.selection != nil:value.tracks.first?.committed==text
+        }
         return(session,provider,compute,clock,source,capture)
     }
     private func spotFixture(qualifiedForTests:Bool,overload:Bool=false,loseMarker:Bool=false) async throws {

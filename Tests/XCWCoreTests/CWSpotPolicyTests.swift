@@ -38,6 +38,28 @@ final class CWSpotPolicyTests: XCTestCase {
         XCTAssertNotNil(evaluate(&policy,d,real,hz:14_026_000).spot)
         XCTAssertNotNil(evaluate(&policy,try descriptor(),real).spot) // another source keeps provenance
     }
+    func testDistinctDESelfIDsSurviveSeparateOversAndEarlierStationsRemainAmbiguous() throws {
+        let repeated=CWTransmittingIdentity.occurrences(in:try tokens("K1ABC DE OM0RX K K1ABC DE OM0RX K "))
+        XCTAssertEqual(repeated.map(\.callsign),["OM0RX","OM0RX"])
+        var policy=CWSpotPolicy(qualifiedForTests:true)
+        XCTAssertNotNil(evaluate(&policy,try descriptor(),repeated).spot)
+        let samePhrase=CWTransmittingIdentity.occurrences(in:try tokens("CQ K1ABC DE OM0RX OM0RX K "))
+        XCTAssertEqual(samePhrase.map(\.callsign),["OM0RX","OM0RX"])
+        let separate=CWTransmittingIdentity.occurrences(in:try tokens("CQ K1ABC K DE OM0RX OM0RX K "))
+        XCTAssertEqual(separate.map(\.callsign),["K1ABC","OM0RX","OM0RX"])
+        XCTAssertEqual(evaluate(&policy,try descriptor(),separate).rejection,.ambiguous)
+        let paused=CWTransmittingIdentity.occurrences(in:try tokens("CQ K1ABC ")+tokens("DE OM0RX OM0RX K ",first:10000))
+        XCTAssertEqual(paused.map(\.callsign),["K1ABC","OM0RX","OM0RX"])
+        XCTAssertEqual(evaluate(&policy,try descriptor(),paused).rejection,.ambiguous)
+        XCTAssertEqual(CWTransmittingIdentity.occurrences(in:try tokens("CQ OM0RX AR K1ABC ")).map(\.callsign),["OM0RX"])
+    }
+    func testOverlappingAlternativeRangesCannotCreateTwoSelfIDs() throws {
+        let alternatives=[(UInt64(0),UInt64(100)),(0,200),(150,250)].map{
+            CWIdentityOccurrence(callsign:"OM0RX",firstSample:$0.0,endSample:$0.1,pattern:"de_self_identification")
+        }
+        var policy=CWSpotPolicy(qualifiedForTests:true)
+        XCTAssertEqual(evaluate(&policy,try descriptor(),alternatives).rejection,.insufficientOccurrences)
+    }
     func testProductionQualityGateAndAllDestinationFences() throws {
         let d=try descriptor(), calls=CWTransmittingIdentity.occurrences(in:try tokens("CQ OM0RX OM0RX "))
         var production=CWSpotPolicy()

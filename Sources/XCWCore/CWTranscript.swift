@@ -74,6 +74,16 @@ public struct CWIdentityOccurrence: Hashable, Sendable {
 }
 
 public enum CWTransmittingIdentity {
+    /// Count connected overlapping ranges once, retaining an original observed
+    /// occurrence rather than inventing a merged RF evidence range.
+    static func distinctOccurrences(_ occurrences:[CWIdentityOccurrence])->[CWIdentityOccurrence] {
+        var result:[CWIdentityOccurrence]=[],coveredEnd:UInt64=0
+        for item in occurrences.sorted(by:{$0.firstSample<$1.firstSample}) {
+            if result.isEmpty || item.firstSample>=coveredEnd {result.append(item)}
+            coveredEnd=max(coveredEnd,item.endSample)
+        }
+        return result
+    }
     public static func plausible(_ text: String) -> Bool {
         guard (3...20).contains(text.utf8.count), !text.contains("?"),
               text.utf8.allSatisfy({ (65...90).contains($0) || (48...57).contains($0) || $0 == 47 }),
@@ -94,19 +104,25 @@ public enum CWTransmittingIdentity {
             } else { current.append(token) }
         }
         // No trailing space: the final word is still an unfinished callsign.
-        var result:[CWIdentityOccurrence]=[], context:String?
+        var result:[CWIdentityOccurrence]=[],context:String?,phraseStart=0,lastWordEnd:UInt64?
         for word in words {
-            if ["CQ","TEST","DE"].contains(word.text) { context=word.text; continue }
+            if let lastWordEnd,word.first>lastWordEnd,word.first-lastWordEnd>3200 {
+                context=nil;phraseStart=result.count
+            }
+            lastWordEnd=word.end
+            if ["K","AR","SK","BK"].contains(word.text) {context=nil;phraseStart=result.count;continue}
+            if ["CQ","TEST"].contains(word.text) {context=word.text;phraseStart=result.count;continue}
+            if word.text=="DE" {
+                // DE identifies this phrase's sender, not every earlier sender
+                // in the track history. Preserve earlier DE evidence and other
+                // completed phrases, so a later station cannot silently replace it.
+                result=Array(result.prefix(phraseStart))+result.dropFirst(phraseStart).filter{$0.pattern=="de_self_identification"}
+                context="DE";continue
+            }
             if let context, plausible(word.text) {
                 result.append(CWIdentityOccurrence(callsign:word.text,firstSample:word.first,endSample:word.end,
                                                    pattern:context == "DE" ? "de_self_identification" : "cq_self_identification"))
-            } else if !["DX","K","AR"].contains(word.text) { context=nil }
-        }
-        // A DE identifies the sender after an addressed callsign. Earlier CQ
-        // hypotheses in that same phrase must not compete with the sender.
-        if let lastDE=words.lastIndex(where:{$0.text=="DE"}) {
-            let first=words[lastDE].end
-            result.removeAll{$0.endSample <= first}
+            } else if word.text != "DX" {context=nil;phraseStart=result.count}
         }
         return result
     }

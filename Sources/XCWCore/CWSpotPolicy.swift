@@ -76,10 +76,7 @@ public struct CWSpotPolicy: Sendable {
         let evidence=occurrences.filter{channelSample >= $0.firstSample && channelSample-$0.firstSample <= 60*3200}
         let calls=Set(evidence.map(\.callsign))
         guard calls.count == 1, let call=calls.first else { return reject(.ambiguous) }
-        var distinct:[CWIdentityOccurrence]=[]
-        for item in evidence.sorted(by:{$0.firstSample<$1.firstSample}) {
-            if distinct.last.map({$0.endSample <= item.firstSample}) ?? true { distinct.append(item) }
-        }
+        let distinct=CWTransmittingIdentity.distinctOccurrences(evidence)
         guard distinct.count>=2 else { return reject(.insufficientOccurrences) }
         guard qualityQualified else { return reject(.unqualifiedQuality) }
         emitted.removeAll{nowNS < $0.at || nowNS-$0.at >= 120_000_000_000}

@@ -452,7 +452,8 @@ public actor CWDecodeSession {
         if decode != nil {
             let recent=occurrences.filter{value.endSample >= $0.endSample && value.endSample-$0.endSample<=60*3200}
             let candidates=Set(recent.map(\.callsign))
-            if !ambiguous,!descriptor.replay,candidates.count==1,let call=candidates.first,let trackID=UUID(uuidString:key) {
+            if !ambiguous,!descriptor.replay,candidates.count==1,CWTransmittingIdentity.distinctOccurrences(recent).count>=2,
+               let call=candidates.first,let trackID=UUID(uuidString:key) {
                 if selection?.callsign != call || track?.view.frequencyHz != frequency {
                     selection=CWTrackSelection(reference:CWTrackReference(sessionID:id,sourceID:descriptor.sourceID,
                         streamToken:descriptor.streamToken,epoch:descriptor.epoch,trackID:trackID,

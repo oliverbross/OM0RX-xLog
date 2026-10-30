@@ -105,7 +105,9 @@ installed 1.3.63 does not become a qualified skimmer through this guide.
    shown as unavailable remain unknown. **Copy committed text** copies committed
    text only. **Mute** lasts for that track's lifetime. Read the specific **Spot
    withheld** reason; absence of an accepted spot is not evidence of no signal.
-5. **Use callsign** deliberately targets the current Normal or Contest entry.
+5. **Use callsign** requires two distinct completed self-IDs and deliberately
+   targets the displayed Normal Logging or Contest Entry owner. Repeated windows
+   of one transmitted ID do not enable it.
    **Tune** is a separate action through the selected source's current radio
    owner. Selecting a signal performs neither action. Finish occupied/uncertain
    draft work first. If a reply is lost, use **Check original action/tune**. After

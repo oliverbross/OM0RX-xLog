@@ -32,6 +32,7 @@ export function CWCallsignAction({ signal, snapshot, request = requestCWCallsign
   const [outcome, setOutcome] = useState<CWCallsignOutcome | null>(null), [error, setError] = useState("");
   const [checkedOriginal, setCheckedOriginal] = useState(false);
   const [originals, setOriginals] = useState<{ operationId: string; target: string }[]>([]);
+  const target = snapshot.operatingModule === "normal_logging" ? "Normal Logging" : snapshot.operatingModule === "contesting" ? "Contest Entry" : null;
   const eligible = snapshot.featureEnabled === true && snapshot.state === "running" && ["normal_logging", "contesting"].includes(snapshot.operatingModule ?? "") &&
     uuid(snapshot.operatingContext) && !!signal?.selection?.activation && !signal.ambiguous;
   const retainOriginal = (id: string) => {
@@ -80,6 +81,7 @@ export function CWCallsignAction({ signal, snapshot, request = requestCWCallsign
     finally { inFlight.current = false; setBusy(false); }
   };
   return <div className="cw-decode-callsign" aria-label="CW callsign loading">
+    {target && <p>Target entry: <strong>{target}</strong>. Frequency and mode are kept.</p>}
     <div className="cw-decode-actions"><button type="button" disabled={!eligible || busy || !!pending || originals.length > 0} onClick={() => void run(false)}
       title="Load the observed callsign into the active logging entry, preserving its frequency, mode and operator text.">Use callsign{signal?.selection ? ` ${signal.selection.callsign}` : ""}</button>
       {pending && <button type="button" disabled={busy || !uuid(pending)} onClick={() => void run(true)}>Check original action</button>}
