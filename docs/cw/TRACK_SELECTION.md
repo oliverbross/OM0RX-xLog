@@ -254,6 +254,15 @@ CW Entry intents are retained by a native process; exhaustion refuses new action
 Cross-process/expired-context recovery remains a separate open gate: unknown old
 operations stay blocked for review in Main Logging, without automatic replay.
 
+The Entry consumer now uses the original native CW request ID for the existing
+`contest_draft_apply` operation and its uncertainty record. Previously it generated
+a second ID at this boundary, preventing an original-operation receipt lookup
+from finding the committed draft change. Other contest mutations keep their
+existing ID allocation. The focused callsign regression failed before this fix;
+all four CW Entry controller cases and TypeScript pass afterward. This corrects
+receipt correlation; durable contest intent routing and installed restart
+acceptance remain open.
+
 Validation: 57 CW-focused native cases, 25 callsign bridge/response/projection UI cases,
 four sole-Entry controller cases and TypeScript pass. The controller fixture
 checks field preservation, no Tune/Stop and refusal of a stale semantic revision;

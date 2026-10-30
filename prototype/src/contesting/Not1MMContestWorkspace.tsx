@@ -1573,8 +1573,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     return()=>{active=false;stop?.();};
   },[setupOnly]);
 
-  const mutate = async (method: string, base: Projection, extra: Record<string, unknown> = {}) => {
-    const operationID = crypto.randomUUID();
+  const mutate = async (method: string, base: Projection, extra: Record<string, unknown> = {}, operationID: string = crypto.randomUUID()) => {
     const laneScope=dualContestLanes(base)&&["contest_draft_apply","contest_digital_select","contest_focus","contest_run_state","contest_esm","contest_function_key","contest_qso_commit","contest_lane_context","contest_lane_select"].includes(method)
       ?contestLaneParams(captureContestLaneScope(base,base.selectedLaneID??base.operatingLanes!.keyboardLaneID)):{};
     const payload = { sessionID: base.sessionID, operationID, expectedRevision: base.revision, draftID: base.draftID, ...laneScope, ...extra };
@@ -3302,7 +3301,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
           current.draftID!==action.params.draftID || surfaceDraftRevisionRef.current?.revision!==action.params.expectedDraftRevision || busyRef.current || retiring || outputBlocked())
           throw new Error("Contest Entry changed during CW callsign readback.");
         const next={...fieldsRef.current,callsign};fieldsRef.current=next;setFields(next);editVersionRef.current+=1;
-        await runMutation(base=>mutate("contest_draft_apply",base,{fields:next}),false,false,false,true);
+        await runMutation(base=>mutate("contest_draft_apply",base,{fields:next},action.requestID),false,false,false,true);
         return;
       }
       case "entry_set_exchange":

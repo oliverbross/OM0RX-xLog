@@ -811,6 +811,7 @@ it("loads a fenced CW callsign through the sole Entry owner while preserving ope
   await act(async()=>surfaceOwner.current.handle(action));
   expect(cwCallsignSource.resolve).toHaveBeenCalledExactlyOnceWith(action);
   const params=request.mock.calls.find(([method])=>method==="contest_draft_apply")![1]!;
+  expect(params.operationID).toBe(action.requestID);
   expect(params.fields).toMatchObject({callsign:"K1ABC",sent:"579",receive:"589",other_2:"14"});
   expect(params).not.toHaveProperty("frequencyHz");expect(params).not.toHaveProperty("mode");
   expect(current.frequencyHz).toBe(14025000);expect(current.mode).toBe("CW");expect(current.score.qsos).toBe(0);
