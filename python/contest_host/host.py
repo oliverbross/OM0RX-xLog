@@ -1891,8 +1891,13 @@ class Host:
                                    else desk.other_1.text()
                                    if state["pluginID"] in SENTNR_FIELD_PLUGINS else "")}
         if method == "receipt":
+            include_original = params.get("includeOriginalRequest", False)
+            require(type(include_original) is bool, "includeOriginalRequest must be a boolean")
             row = store.exec_sql("SELECT payload,result FROM xlog_operation WHERE operation_id=?", (identifier(params.get("operationID")),))
-            return {"found": bool(row), "result": self.replay_result(json.loads(row["result"]), store) if row else None}
+            receipt = {"found": bool(row), "result": self.replay_result(json.loads(row["result"]), store) if row else None}
+            if include_original:
+                receipt["originalRequest"] = json.loads(row["payload"]) if row else None
+            return receipt
         if method == "output_claim":
             require(not state.get("practice"), "Practice sessions have native output disabled", "practice_output_disabled")
             operation = identifier(params.get("operationID"))

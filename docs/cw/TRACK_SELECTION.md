@@ -1,8 +1,9 @@
 # Retained CW track selection
 
 This branch adds retained native evidence and explicit callsign-only loading into
-the shared Normal Logging draft and the fenced contest Entry. Tune and complete
-action recovery remain pending. This work does not qualify CW for release.
+the shared Normal Logging draft and the fenced contest Entry. Separate Tune and
+durable receipt recovery use the current owners. Installed recovery acceptance
+remains pending; this source work does not qualify CW for release.
 
 A track gets an opaque selection reference only when committed aligned text
 identifies one plausible transmitting callsign in the last sixty channel seconds.
@@ -250,9 +251,9 @@ Queued/taken receipts remain pending and never claim the draft was applied.
 Only the owner’s applied receipt confirms loading; rejection closes the action.
 Checking the original operation reads its receipt and never submits it again.
 Definite failures before queue admission return a closed failure. At most 4,096
-CW Entry intents are retained by a native process; exhaustion refuses new actions.
-Cross-process/expired-context recovery remains a separate open gate: unknown old
-operations stay blocked for review in Main Logging, without automatic replay.
+CW Entry intents are retained durably; exhaustion refuses new actions without
+discarding history. Installed cross-process/expired-context recovery acceptance
+remains open. Unknown old operations stay blocked without automatic replay.
 
 The Entry consumer now uses the original native CW request ID for the existing
 `contest_draft_apply` operation and its uncertainty record. Previously it generated
@@ -260,8 +261,39 @@ a second ID at this boundary, preventing an original-operation receipt lookup
 from finding the committed draft change. Other contest mutations keep their
 existing ID allocation. The focused callsign regression failed before this fix;
 all four CW Entry controller cases and TypeScript pass afterward. This corrects
-receipt correlation; durable contest intent routing and installed restart
-acceptance remain open.
+receipt correlation. The durable routing implementation below follows this fix;
+installed restart acceptance remains open.
+
+### Durable contest intent routing
+
+The existing CW Entry owner persists its original operation, native source/track
+identity, contest/session/workspace, draft fence and callsign before queueing.
+Its private atomic journal is bounded to 4 MiB / 4,096 operations, with no automatic
+compaction. Persistence failure retains an uncertainty hold and queues nothing.
+Missing storage starts empty; unreadable, oversized, unsupported or symlinked
+storage is preserved and refuses admission. Native uppercase track UUIDs remain
+valid. One unresolved intent blocks another callsign action and CW arm/send;
+Stop remains independent. The existing output admission lock closes the race
+between output acquisition and callsign admission, with a recheck under that lock.
+
+An original-operation check first uses its live surface receipt. After source,
+surface or process loss it reads the existing contest host's durable operation
+receipt, including the original stored request. It verifies method, operation,
+session, workspace, draft, callsign, consecutive revision and absence of output
+actions. RF fields and unrelated receipts cannot substitute. Only the minimal
+confirmed/uncertain outcome reaches the CW view; no historical projection is
+published, draft restored, QSO inserted or mutation retried. A taken live surface
+receipt can be completed from this correlated proof through its existing owner.
+Missing receipts remain uncertain. Status checks require no current signal or
+expired detached-window mutation context; Apply still requires both.
+
+Validation: eight journal/Entry native cases and all 68 CW-filtered native cases
+pass. The original-request host regression failed before the change and passes
+afterward; all 67 host tests pass. These cover storage reopening, later edits,
+nil/wrong identities, unrelated/RF receipts, absent receipts, corrupt storage,
+symlinks and failed persistence. Full installed process restart, discovery after
+loss of the renderer's original ID, and recovery from missing native evidence
+remain acceptance work. Unknown evidence never authorizes replay or clearance.
 
 Validation: 57 CW-focused native cases, 25 callsign bridge/response/projection UI cases,
 four sole-Entry controller cases and TypeScript pass. The controller fixture

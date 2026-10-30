@@ -77,7 +77,8 @@ pub fn invalidate_if(context: &ContestWindowContext) -> bool {
     authority().lock().is_ok_and(|mut authority| authority.invalidate_if(context))
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ContestWindowContext {
     pub operating_context: String,
     pub session_id: String,

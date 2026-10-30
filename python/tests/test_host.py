@@ -720,6 +720,26 @@ class HostTests(unittest.TestCase):
         self.assertEqual(error.exception.code, "payload_conflict")
         self.assertTrue(self.call("session_create", self.create)["replayed"])
 
+    def test_original_draft_receipt_can_identify_its_request_without_restoring_later_edits(self):
+        draft = self.read("projection")["projection"]["draftID"]
+        params = {"sessionID": self.session, "operationID": uid(), "expectedRevision": self.revision,
+                  "draftID": draft, "fields": {"callsign": "K1ABC"}}
+        original = self.call("draft_apply", params)
+        self.mutate("draft_apply", fields={"callsign": "DL1ABC", "other_2": "14"})
+        later = self.read("projection")["projection"]
+        self.host.close()
+        self.host = Host(self.root)
+        receipt = self.read("receipt", operationID=params["operationID"], includeOriginalRequest=True)
+        self.assertEqual(receipt["originalRequest"], {"method": "draft_apply", "params": params})
+        self.assertEqual(receipt["result"]["operationID"], original["operationID"])
+        self.assertEqual(receipt["result"]["actions"], [])
+        self.assertEqual(self.read("projection")["projection"], later)
+        self.assertNotIn("originalRequest", self.read("receipt", operationID=params["operationID"]))
+        self.assertEqual(self.read("receipt", operationID=uid(), includeOriginalRequest=True),
+                         {"found": False, "result": None, "originalRequest": None})
+        with self.assertRaises(HostError):
+            self.read("receipt", operationID=params["operationID"], includeOriginalRequest=1)
+
     def test_process_death_before_and_after_commit_keeps_exact_retry_safe(self):
         for stage, minute in (("before", 10), ("after", 11)):
             params = {"sessionID": self.session, "operationID": uid(), "expectedRevision": self.revision,

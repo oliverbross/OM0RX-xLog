@@ -1,15 +1,94 @@
 //! Callsign-only intent through the sole contest Entry consumer. No RF/QSO log.
 use serde_json::{json,Value};
-use std::{collections::BTreeMap,sync::{Mutex,OnceLock}};
-#[derive(Clone)]
-struct Intent{context:crate::contest_window_context::ContestWindowContext,request:crate::spot_activation::Request,draft_scope:Value}
-fn intents()->&'static Mutex<BTreeMap<String,Intent>> {
-    static INTENTS:OnceLock<Mutex<BTreeMap<String,Intent>>>=OnceLock::new();INTENTS.get_or_init(||Mutex::new(BTreeMap::new()))
+use std::{collections::BTreeMap,io::{Read,Write},path::PathBuf,sync::{Mutex,OnceLock}};
+use tauri::Manager;
+const MAX_INTENTS:usize=4096;
+const MAX_JOURNAL_BYTES:u64=4*1024*1024;
+#[derive(Clone,serde::Serialize,serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Intent{context:crate::contest_window_context::ContestWindowContext,request:crate::spot_activation::Request,draft_scope:Value,callsign:String,terminal:Option<Value>}
+#[derive(Default,serde::Serialize,serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Saved{version:u8,rows:BTreeMap<String,Intent>}
+struct Journal{path:PathBuf,saved:Saved}
+impl Journal {
+    fn pending(&self)->bool{self.saved.rows.values().any(|row|row.terminal.is_none())}
+    fn load(path:PathBuf)->Result<Self,String>{
+        let mut options=std::fs::OpenOptions::new();options.read(true);
+        #[cfg(unix)] {use std::os::unix::fs::OpenOptionsExt;options.custom_flags(libc::O_NOFOLLOW);}
+        let saved=match options.open(&path){
+            Ok(mut file)=>{
+                let metadata=file.metadata().map_err(|_|"CW Entry journal cannot be inspected.")?;
+                if !metadata.is_file() || metadata.len()>MAX_JOURNAL_BYTES{return Err("CW Entry journal exceeds its storage contract; it was preserved.".into());}
+                let mut bytes=Vec::new();Read::by_ref(&mut file).take(MAX_JOURNAL_BYTES+1).read_to_end(&mut bytes).map_err(|_|"CW Entry journal cannot be read.")?;
+                if bytes.len() as u64>MAX_JOURNAL_BYTES{return Err("CW Entry journal exceeds its storage bound.".into());}
+                let value:Saved=serde_json::from_slice(&bytes).map_err(|_|"CW Entry journal is unreadable; preserve it and review the original action.")?;
+                if value.version!=1 || value.rows.len()>MAX_INTENTS{return Err("CW Entry journal version or count is unsupported.".into());}
+                for (operation,intent) in &value.rows{validate_intent(operation,intent)?;}
+                value
+            },
+            Err(error) if error.kind()==std::io::ErrorKind::NotFound=>Saved{version:1,..Saved::default()},
+            Err(_)=>return Err("CW Entry journal is unavailable; no action was repeated.".into()),
+        };
+        Ok(Self{path,saved})
+    }
+    fn persist(&self)->Result<(),String>{
+        let bytes=serde_json::to_vec(&self.saved).map_err(|_|"CW Entry journal serialization failed.")?;
+        if bytes.len() as u64>MAX_JOURNAL_BYTES{return Err("CW Entry journal is full; retain the original action for review.".into());}
+        let parent=self.path.parent().ok_or("CW Entry storage is unavailable.")?;
+        std::fs::create_dir_all(parent).map_err(|_|"CW Entry storage is unavailable.")?;
+        let mut file=tempfile::NamedTempFile::new_in(parent).map_err(|_|"CW Entry journal cannot be saved.")?;
+        file.write_all(&bytes).and_then(|_|file.as_file().sync_all()).map_err(|_|"CW Entry journal cannot be saved.")?;
+        file.persist(&self.path).map_err(|_|"CW Entry journal cannot be replaced.")?;
+        std::fs::File::open(parent).and_then(|file|file.sync_all()).map_err(|_|"CW Entry journal durability is uncertain.")?;
+        Ok(())
+    }
+    fn insert(&mut self,intent:Intent)->Result<(),String>{
+        let operation=intent.request.operation_id.clone();validate_intent(&operation,&intent)?;
+        if self.saved.rows.contains_key(&operation){return Err("CW Entry operation is already retained; check its original receipt.".into());}
+        if self.saved.rows.len()>=MAX_INTENTS{return Err("CW Entry journal is full; retained operations were preserved.".into());}
+        if self.pending(){return Err("Reconcile the original CW Entry action before loading another callsign.".into());}
+        // Hold the identity even if persistence fails; nothing is queued until it succeeds.
+        self.saved.rows.insert(operation,intent);self.persist()
+    }
+    fn finish(&mut self,operation:&str,value:Value)->Result<Value,String>{
+        validate_terminal(operation,&value)?;
+        let row=self.saved.rows.get_mut(operation).ok_or("CW Entry intent is missing.")?;
+        if let Some(old)=&row.terminal {if old!=&value{return Err("CW Entry receipt conflicts with its retained outcome.".into());}}
+        row.terminal=Some(value.clone());self.persist()?;Ok(value)
+    }
 }
-pub fn owns(operation:&str)->bool{intents().lock().is_ok_and(|rows|rows.contains_key(operation))}
+fn uuid(value:&str)->bool{uuid::Uuid::parse_str(value).is_ok_and(|id|!id.is_nil() && id.to_string().eq_ignore_ascii_case(value))}
+fn validate_terminal(operation:&str,value:&Value)->Result<(),String>{
+    let object=value.as_object().ok_or("CW Entry receipt is malformed.")?;
+    if value["operationId"]!=operation || value["reservationActive"]!=false || !matches!(value["phase"].as_str(),Some("confirmed"|"failed"))
+        || object.keys().any(|key|!matches!(key.as_str(),"operationId"|"reservationActive"|"phase"|"error"))
+        || object.get("error").is_some_and(|error|error.as_str().is_none_or(|text|text.len()>4096)){
+        return Err("CW Entry receipt is malformed; preserve the original journal.".into());
+    }Ok(())
+}
+fn validate_intent(operation:&str,intent:&Intent)->Result<(),String>{
+    let request=&intent.request;let context=&intent.context;
+    if operation!=request.operation_id || [&request.operation_id,&request.source_epoch,&request.spot_id,&request.spot_version,&context.operating_context,&context.session_id,&context.workspace_generation].iter().any(|value|!uuid(value))
+        || intent.callsign.len()<3 || intent.callsign.len()>32 || !intent.callsign.bytes().all(|b|b.is_ascii_uppercase()||b.is_ascii_digit()||b==b'/')
+        || intent.draft_scope.as_object().is_none_or(|value|value.len()!=5)
+        || !intent.draft_scope["draftID"].as_str().is_some_and(uuid) || !intent.draft_scope["expectedDraftRevision"].is_u64()
+        || intent.draft_scope["sourceEpoch"]!=request.source_epoch || intent.draft_scope["spotID"]!=request.spot_id || intent.draft_scope["spotVersion"]!=request.spot_version{
+        return Err("CW Entry journal identity or scope is malformed; it was preserved.".into());
+    }
+    if let Some(value)=&intent.terminal{validate_terminal(operation,value)?;}Ok(())
+}
+static JOURNAL:OnceLock<Result<Mutex<Journal>,String>>=OnceLock::new();
+pub fn initialize(app:&tauri::AppHandle)->Result<(),String>{
+    let path=app.path().app_config_dir().map_err(|_|"CW Entry storage is unavailable.")?.join("cw-contest-callsign-intents.json");
+    match JOURNAL.get_or_init(||Journal::load(path).map(Mutex::new)){Ok(_)=>Ok(()),Err(error)=>Err(error.clone())}
+}
+fn journal()->Result<&'static Mutex<Journal>,String>{JOURNAL.get().ok_or("CW Entry journal has not been opened.")?.as_ref().map_err(Clone::clone)}
+pub fn owns(operation:&str)->bool{journal().is_ok_and(|journal|journal.lock().is_ok_and(|value|value.saved.rows.contains_key(operation)))}
+pub fn pending()->bool{match JOURNAL.get(){None=>false,Some(Err(_))=>true,Some(Ok(journal))=>journal.try_lock().map_or(true,|value|value.pending())}}
 fn intent(operation:&str)->Result<Intent,String>{
     if operation.len()!=36 || !uuid::Uuid::parse_str(operation).is_ok_and(|id|!id.is_nil()){return Err("CW Entry operation identity is invalid.".into());}
-    intents().lock().map_err(|_|"CW Entry intent unavailable.")?.get(operation).cloned().ok_or_else(||"CW Entry intent is not retained. Review Main Logging before selecting again.".into())
+    journal()?.lock().map_err(|_|"CW Entry intent unavailable.")?.saved.rows.get(operation).cloned().ok_or_else(||"CW Entry intent is not retained. Review Main Logging before selecting again.".into())
 }
 pub fn validate_owner(label:&str,isolated:bool,exiting:bool)->Result<(),String>{
     if label!="contest-setup" || isolated || exiting{Err("Only the sole contest Entry owner can resolve this callsign intent.".into())}else{Ok(())}
@@ -55,10 +134,52 @@ fn outcome(operation:&str,receipt:&Value)->Result<Value,String>{
     Ok(value)
 }
 pub fn status(operation:&str)->Result<Value,String>{
-    let intent=intent(operation)?;let snapshot=entry(&intent.context)?;
-    let receipt=snapshot["receipts"].as_array().and_then(|rows|rows.iter().find(|value|value["requestID"]==operation))
-        .ok_or("CW Entry receipt is no longer retained. Review Main Logging; no action was replayed.")?;
-    outcome(operation,receipt)
+    let intent=intent(operation)?;
+    if let Some(value)=&intent.terminal{return Ok(value.clone());}
+    let snapshot=entry(&intent.context).ok();
+    let receipt=snapshot.as_ref().and_then(|snapshot|snapshot["receipts"].as_array()).and_then(|rows|rows.iter().find(|value|value["requestID"]==operation));
+    if let Some(receipt)=receipt {
+        let value=outcome(operation,receipt)?;
+        if value["reservationActive"]==false{return journal()?.lock().map_err(|_|"CW Entry journal unavailable.")?.finish(operation,value);}
+        if receipt["status"]=="queued"{return Ok(value);}
+    }
+    let generation=crate::worker::generation();crate::worker::require_existing_generation(generation)?;
+    let request=json!({"id":format!("cw-entry-receipt-{}",uuid::Uuid::new_v4()),"method":"contest_operation_receipt",
+        "params":{"sessionID":intent.context.session_id,"operationID":operation,"includeOriginalRequest":true}});
+    let response=crate::worker::request_existing_generation(request.clone(),generation)?;
+    if response["id"]!=request["id"] || response["ok"]!=true || !response["error"].is_null() || crate::worker::generation()!=generation{
+        return Err("Original CW Entry receipt is unavailable; no action was repeated.".into());
+    }
+    let value=durable_outcome(&intent,&response["result"])?;
+    if value["reservationActive"]==true{return Ok(value);}
+    if receipt.is_some(){
+        // Resolve the taken original surface receipt without publishing any historical fields.
+        crate::contest_surface::complete(&intent.context,operation,"applied",None,
+            snapshot.as_ref().and_then(|value|value["projectionRevision"].as_u64()).ok_or("CW Entry revision is unavailable.")?)?;
+    }
+    journal()?.lock().map_err(|_|"CW Entry journal unavailable.")?.finish(operation,value)
+}
+fn durable_outcome(intent:&Intent,receipt:&Value)->Result<Value,String>{
+    let operation=&intent.request.operation_id;
+    if receipt["found"]==false && receipt["result"].is_null() && receipt["originalRequest"].is_null(){
+        return Ok(json!({"operationId":operation,"phase":"uncertain","reservationActive":true,
+            "error":"Original CW Entry operation has no durable receipt. Review Main Logging; no action was repeated."}));
+    }
+    let original=&receipt["originalRequest"];let params=&original["params"];let result=&receipt["result"];let projection=&result["projection"];
+    let scope=&intent.draft_scope;
+    let expected_revision=params["expectedRevision"].as_u64();let committed_revision=result["revision"].as_u64();
+    let copy=projection["fields"].as_array().and_then(|fields|fields.iter().find(|field|field["id"]=="callsign")).and_then(|field|field["value"].as_str());
+    if receipt["found"]!=true || original["method"]!="draft_apply" || params["operationID"]!=*operation
+        || params["sessionID"]!=intent.context.session_id || params["draftID"]!=scope["draftID"] || params["fields"]["callsign"]!=intent.callsign
+        || params.as_object().is_none_or(|object|object.keys().any(|key|!matches!(key.as_str(),"sessionID"|"operationID"|"expectedRevision"|"draftID"|"fields"|"laneID"|"bindingVersion")))
+        || result["operationID"]!=*operation || result["sessionID"]!=intent.context.session_id || result["replayed"]!=true
+        || result["actions"].as_array().is_none_or(|actions|!actions.is_empty())
+        || projection["sessionID"]!=intent.context.session_id || projection["workspaceGeneration"]!=intent.context.workspace_generation
+        || projection["draftID"]!=scope["draftID"] || copy!=Some(intent.callsign.as_str()) || projection["revision"]!=result["revision"]
+        || expected_revision.zip(committed_revision).is_none_or(|(before,after)|after!=before.checked_add(1).unwrap_or(u64::MAX)){
+        return Err("Original CW Entry receipt does not match its retained callsign, draft and session; no action was repeated.".into());
+    }
+    Ok(json!({"operationId":operation,"phase":"confirmed","reservationActive":false}))
 }
 pub fn apply(app:&tauri::AppHandle,request:crate::spot_activation::Request)->Result<Value,String>{
     let context=crate::contest_window_context::active()?;
@@ -66,15 +187,22 @@ pub fn apply(app:&tauri::AppHandle,request:crate::spot_activation::Request)->Res
         if old.context!=context || old.request!=request{return Err("CW Entry identity is bound to another request.".into());}
         return status(&request.operation_id);
     }
-    crate::cw_track_selection::resolve(&request)?;
+    let _output_admission=crate::carrier_tune::reserve_output()?;
+    let target=crate::cw_track_selection::resolve(&request)?;
     require_cw_idle()?;
     let snapshot=entry(&context)?;let envelope=envelope(&snapshot,&context,&request)?;
-    let mut rows=intents().lock().map_err(|_|"CW Entry intent unavailable.")?;
-    if rows.len()>=4096{return Err("CW Entry intent history is full. Restart safely before continuing.".into());}
+    let mut rows=journal()?.lock().map_err(|_|"CW Entry intent unavailable.")?;
     crate::radio_follow::revoke_silently();crate::auto_rotor::revoke();
     let draft_scope=envelope["params"].clone();
-    let submitted=crate::contest_surface::submit("contest--active-qso",envelope,false)?;
-    rows.insert(request.operation_id.clone(),Intent{context,request:request.clone(),draft_scope});drop(rows);
+    rows.insert(Intent{context,request:request.clone(),draft_scope,callsign:target["call"].as_str().ok_or("CW callsign is unavailable.")?.into(),terminal:None})?;drop(rows);
+    let submitted=match (||{
+        let fresh=crate::cw_track_selection::resolve(&request)?;require_cw_idle()?;
+        if fresh["call"]!=target["call"]{return Err("CW callsign changed while retaining the original intent.".into());}
+        crate::contest_surface::submit("contest--active-qso",envelope,false)
+    })(){
+        Ok(value)=>value,
+        Err(error)=>return journal()?.lock().map_err(|_|"CW Entry journal unavailable.")?.finish(&request.operation_id,json!({"operationId":request.operation_id,"phase":"failed","reservationActive":false,"error":error})),
+    };
     let _=app.emit_to("contest-setup","xlog:contest-surface",());
     outcome(&request.operation_id,&submitted)
 }
@@ -87,6 +215,7 @@ pub fn apply_outcome(app:&tauri::AppHandle,request:crate::spot_activation::Reque
     }
 }
 pub fn resolve_for_owner(operation:&str)->Result<Value,String>{
+    let _output_admission=crate::carrier_tune::reserve_output()?;
     require_cw_idle()?;
     let intent=intent(operation)?;let before=entry(&intent.context)?;
     let receipt=before["receipts"].as_array().and_then(|rows|rows.iter().find(|value|value["requestID"]==operation))
@@ -97,7 +226,7 @@ pub fn resolve_for_owner(operation:&str)->Result<Value,String>{
     let target=crate::cw_track_selection::resolve(&intent.request)?;
     let after=entry(&intent.context)?;
     require_cw_idle()?;
-    if envelope(&after,&intent.context,&intent.request)?["params"]!=expected["params"] {return Err("Contest Entry changed during CW readback.".into());}
+    if envelope(&after,&intent.context,&intent.request)?["params"]!=expected["params"] || target["call"]!=intent.callsign {return Err("Contest Entry or CW identity changed during readback.".into());}
     Ok(json!({"operationId":operation,"callsign":target["call"],"draftID":expected["params"]["draftID"],
         "expectedDraftRevision":expected["params"]["expectedDraftRevision"],"operatingContext":intent.context.operating_context,
         "sessionID":intent.context.session_id,"workspaceGeneration":intent.context.workspace_generation}))
@@ -112,6 +241,71 @@ mod tests{
             "operator":{"armed":false,"status":"disarmed"},"draft":{"draftID":"draft","revision":4}}}),
          crate::contest_window_context::ContestWindowContext{operating_context:uuid::Uuid::new_v4().to_string(),session_id:uuid::Uuid::new_v4().to_string(),workspace_generation:uuid::Uuid::new_v4().to_string()},
          crate::spot_activation::Request{operation_id:uuid::Uuid::new_v4().to_string(),source_epoch:uuid::Uuid::new_v4().to_string(),spot_id:uuid::Uuid::new_v4().to_string(),spot_version:uuid::Uuid::new_v4().to_string()})
+    }
+    fn retained()->Intent{
+        let (mut snapshot,context,request)=fixture();snapshot["projection"]["draft"]["draftID"]=json!(uuid::Uuid::new_v4().to_string());
+        let draft_scope=envelope(&snapshot,&context,&request).unwrap()["params"].clone();
+        Intent{context,request,draft_scope,callsign:"K1ABC/P".into(),terminal:None}
+    }
+    fn original_receipt(intent:&Intent)->Value{
+        json!({"found":true,"originalRequest":{"method":"draft_apply","params":{"sessionID":intent.context.session_id,
+            "operationID":intent.request.operation_id,"draftID":intent.draft_scope["draftID"],"expectedRevision":9,"fields":{"callsign":intent.callsign,"sent":"579"}}},
+            "result":{"operationID":intent.request.operation_id,"sessionID":intent.context.session_id,"revision":10,"replayed":true,"actions":[],
+                "projection":{"sessionID":intent.context.session_id,"workspaceGeneration":intent.context.workspace_generation,
+                    "draftID":intent.draft_scope["draftID"],"revision":10,"fields":[{"id":"callsign","value":intent.callsign}]}}})
+    }
+    #[test]
+    fn durable_intent_survives_restart_and_blocks_new_actions_until_original_is_resolved(){
+        let directory=tempfile::tempdir().unwrap();let path=directory.path().join("intents.json");
+        let mut first=Journal::load(path.clone()).unwrap();let intent=retained();
+        assert!(!first.pending());first.insert(intent.clone()).unwrap();assert!(first.pending());drop(first);
+        let mut restarted=Journal::load(path.clone()).unwrap();
+        assert_eq!(restarted.saved.rows[&intent.request.operation_id].callsign,"K1ABC/P");
+        assert!(restarted.insert(retained()).is_err());
+        let outcome=durable_outcome(&intent,&original_receipt(&intent)).unwrap();
+        assert_eq!(outcome,json!({"operationId":intent.request.operation_id,"phase":"confirmed","reservationActive":false}));
+        restarted.finish(&intent.request.operation_id,outcome.clone()).unwrap();assert!(!restarted.pending());drop(restarted);
+        let mut reopened=Journal::load(path).unwrap();assert_eq!(reopened.saved.rows[&intent.request.operation_id].terminal,Some(outcome));
+        reopened.insert(retained()).unwrap();
+    }
+    #[test]
+    fn original_receipt_never_substitutes_other_actions_or_returns_historical_fields(){
+        let intent=retained();let receipt=original_receipt(&intent);
+        assert!(durable_outcome(&intent,&receipt).unwrap().get("projection").is_none());
+        for (path,value) in [("/originalRequest/method",json!("qso_commit")),("/originalRequest/params/operationID",json!(uuid::Uuid::new_v4().to_string())),
+            ("/originalRequest/params/draftID",json!(uuid::Uuid::new_v4().to_string())),("/originalRequest/params/fields/callsign",json!("DL1ABC")),
+            ("/result/projection/workspaceGeneration",json!(uuid::Uuid::new_v4().to_string())),("/result/projection/draftID",json!(uuid::Uuid::new_v4().to_string())),
+            ("/result/projection/fields/0/value",json!("DL1ABC")),("/result/actions",json!([{"type":"tune"}])),("/result/revision",json!(11))]{
+            let mut wrong=receipt.clone();*wrong.pointer_mut(path).unwrap()=value;assert!(durable_outcome(&intent,&wrong).is_err(),"{path}");
+        }
+        let mut rf=receipt.clone();rf["originalRequest"]["params"]["frequencyHz"]=json!(14025000);assert!(durable_outcome(&intent,&rf).is_err());
+        let missing=durable_outcome(&intent,&json!({"found":false,"result":null,"originalRequest":null})).unwrap();
+        assert_eq!(missing["phase"],"uncertain");assert_eq!(missing["reservationActive"],true);
+        assert!(durable_outcome(&intent,&json!({})).is_err());
+    }
+    #[test]
+    fn unreadable_journal_is_preserved_and_storage_failure_never_admits_a_second_operation(){
+        let directory=tempfile::tempdir().unwrap();let path=directory.path().join("intents.json");
+        std::fs::write(&path,b"unfinished journal").unwrap();assert!(Journal::load(path.clone()).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(),b"unfinished journal");
+        let mut missing_parent=Journal::load(directory.path().join("blocked/intent.json")).unwrap();
+        std::fs::write(directory.path().join("blocked"),b"preserve").unwrap();
+        let intent=retained();assert!(missing_parent.insert(intent.clone()).is_err());
+        assert!(missing_parent.saved.rows.contains_key(&intent.request.operation_id));assert!(missing_parent.insert(retained()).is_err());
+        #[cfg(unix)]{
+            let target=directory.path().join("target.json");std::fs::write(&target,b"{}").unwrap();
+            let link=directory.path().join("link.json");std::os::unix::fs::symlink(&target,&link).unwrap();
+            assert!(Journal::load(link).is_err());assert_eq!(std::fs::read(target).unwrap(),b"{}");
+        }
+    }
+    #[test]
+    fn journal_validates_identity_and_retains_native_uppercase_track_ids(){
+        let mut intent=retained();intent.request.spot_id=intent.request.spot_id.to_uppercase();intent.draft_scope["spotID"]=json!(intent.request.spot_id);
+        assert!(validate_intent(&intent.request.operation_id,&intent).is_ok());
+        intent.terminal=Some(json!({"operationId":intent.request.operation_id,"phase":"confirmed","reservationActive":false,"projection":{}}));
+        assert!(validate_intent(&intent.request.operation_id,&intent).is_err());
+        intent.terminal=None;intent.request.source_epoch=uuid::Uuid::nil().to_string();
+        assert!(validate_intent(&intent.request.operation_id,&intent).is_err());
     }
     #[test]
     fn cw_entry_envelope_is_revision_fenced_identity_only_and_refuses_dirty_or_armed_entry(){

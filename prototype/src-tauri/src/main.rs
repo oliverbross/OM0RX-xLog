@@ -395,10 +395,12 @@ async fn activate_opportunity(window: tauri::WebviewWindow, app: tauri::AppHandl
 #[tauri::command]
 async fn cw_callsign_request(window:tauri::WebviewWindow,app:tauri::AppHandle,state:tauri::State<'_,acceptance::Acceptance>,params:serde_json::Value)->Result<serde_json::Value,String> {
     cw_callsign_bridge::validate_surface(window.label(),runtime_profile::isolated(state.path.is_some()),APP_EXITING.load(Ordering::Acquire))?;
-    if let Some(context)=contest_cw_decode_url_context(window.label(),&window.url().map_err(|error|error.to_string())?)? {contest_window_context::admit(&context)?;}
     let action=cw_callsign_bridge::parse(params)?;let owner=activation_owner(&app);
+    let journal_app=app.clone();
+    tauri::async_runtime::spawn_blocking(move||cw_contest_callsign::initialize(&journal_app)).await.map_err(|_|"CW Entry journal could not be opened.".to_string())??;
     match action {
         cw_callsign_bridge::Action::Apply(request,context,module)=>{
+            if let Some(window_context)=contest_cw_decode_url_context(window.label(),&window.url().map_err(|error|error.to_string())?)? {contest_window_context::admit(&window_context)?;}
             if !cw_track_selection::owns(&request.source_epoch){return Err("CW source changed. Select the current signal again.".into());}
             let admission=operating_module::owner()?.admit(module,Some(&context))?;
             if module==operating_module::OperatingModule::Contesting {
@@ -408,7 +410,7 @@ async fn cw_callsign_request(window:tauri::WebviewWindow,app:tauri::AppHandle,st
             }
             if cw_contest_callsign::owns(&request.operation_id){return Err("That callsign identity belongs to Contesting.".into());}
             radio_follow::revoke_silently();qsy_clear::retire_terminal();radio_read::retire_terminal();
-            tauri::async_runtime::spawn_blocking(move||{let _admission=admission;cw_callsign_bridge::project(owner.activate(request)?)}).await
+            tauri::async_runtime::spawn_blocking(move||{let _admission=admission;let _output_admission=carrier_tune::reserve_output()?;cw_callsign_bridge::project(owner.activate(request)?)}).await
                 .map_err(|_|"CW callsign outcome is unknown. Check the original action before trying again.".to_string())?
         },
         cw_callsign_bridge::Action::Status(operation)=>{
@@ -430,8 +432,10 @@ async fn cw_callsign_request(window:tauri::WebviewWindow,app:tauri::AppHandle,st
 #[tauri::command]
 async fn cw_tune_request(window:tauri::WebviewWindow,app:tauri::AppHandle,state:tauri::State<'_,acceptance::Acceptance>,params:serde_json::Value)->Result<serde_json::Value,String> {
     cw_callsign_bridge::validate_surface(window.label(),runtime_profile::isolated(state.path.is_some()),APP_EXITING.load(Ordering::Acquire))?;
-    if let Some(context)=contest_cw_decode_url_context(window.label(),&window.url().map_err(|error|error.to_string())?)? {contest_window_context::admit(&context)?;}
     let action=cw_tune::parse(params)?;
+    if matches!(&action,cw_tune::Action::Apply(..)) {
+        if let Some(context)=contest_cw_decode_url_context(window.label(),&window.url().map_err(|error|error.to_string())?)? {contest_window_context::admit(&context)?;}
+    }
     tauri::async_runtime::spawn_blocking(move||match action {
         cw_tune::Action::Apply(request,context,module)=>cw_tune::apply(&app,request,context,module),
         cw_tune::Action::Status(operation,radio)=>cw_tune::status(&app,&operation,&radio),
@@ -2422,13 +2426,20 @@ async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow,
     // admitted its Entry action. Only the no-I/O test simulator may consume
     // that one-shot admission; production output still requires live focus.
     let focused = live_focus || test_simulation && relayed_focus;
+    if output_action && !test_simulation {
+        let journal_app=app.clone();
+        tauri::async_runtime::spawn_blocking(move||cw_contest_callsign::initialize(&journal_app)).await.map_err(|_|"CW Entry journal could not be opened.".to_string())??;
+    }
     if output_action
-        && (contest_surface::cw_callsign_pending() || SPOT_ACTIVATION.get().is_some_and(|owner| owner.snapshot().map_or(true, |state| state["reservationActive"] == true))) {
+        && (cw_contest_callsign::pending() || contest_surface::cw_callsign_pending() || SPOT_ACTIVATION.get().is_some_and(|owner| owner.snapshot().map_or(true, |state| state["reservationActive"] == true))) {
         return Err("Wait for the protected draft selection before arming or sending CW. Stop remains available.".into());
     }
     let owner = cw_session_backend::owner(&app);
     tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission;
         let _output=if output_action && !test_simulation {Some(carrier_tune::reserve_output()?)}else{None};
+        if output_action && (cw_contest_callsign::pending() || contest_surface::cw_callsign_pending() || SPOT_ACTIVATION.get().is_some_and(|owner|owner.snapshot().map_or(true,|state|state["reservationActive"]==true))){
+            return Err("Reconcile the protected callsign action before arming or sending CW. Stop remains available.".into());
+        }
         owner.request(&label, &client, sequence, focused, &params)
     })
         .await.map_err(|_| "CW session task failed; use Stop before retrying.".to_string())?
