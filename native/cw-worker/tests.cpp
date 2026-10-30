@@ -149,6 +149,9 @@ int main(int argc,char** argv) {
         require(cpu.text==other.text && cpu.tokens.size()==other.tokens.size(),"Profile/CPU fixture text parity");
         for(size_t i=0;i<cpu.tokens.size();++i) {
           const auto a=cpu.tokens[i],b=other.tokens[i];
+          if(a.symbol!=b.symbol || a.first_sample!=b.first_sample || a.end_sample!=b.end_sample)
+            std::cerr<<"Profile token mismatch: samples="<<audio.size()<<" steady="<<other.used_steady_plan<<" token="<<i
+              <<" CPU="<<a.symbol<<":"<<a.first_sample<<".."<<a.end_sample<<" profile="<<b.symbol<<":"<<b.first_sample<<".."<<b.end_sample<<"\n";
           require(a.symbol==b.symbol && a.first_sample==b.first_sample && a.end_sample==b.end_sample,"Profile/CPU fixture sample alignment parity");
           if(profile.provider==cw::ExecutionProvider::cpu) require(std::abs(a.log_score-b.log_score)<0.0001,"CPU profile fixture score parity");
         }

@@ -492,3 +492,15 @@ ordinary applications remain running, with no recorded thermal warning.
 These results do not select a transformed production model or establish RF
 quality, full-app budgets, cold offline startup, strict capacity or stability.
 The original bundled model, CPU backend and independent production gates remain.
+
+An explicit two-model startup/steady experiment is rejected **before** capacity
+profiling. Integer startup with the original floating CoreML steady model fails
+the existing token-alignment check in both NeuralNetwork and MLProgram profiles
+(`c64f27556861bbcf`, `86f6aaceb27d9676`). The diagnostic identifies a 23,168-sample
+startup window: X starts at 23,792 in both outputs but ends at 23,840 versus
+23,888, a 48-channel-sample / 15-ms difference. MLProgram still assigns 425/444
+nodes to seven partitions; the mismatch occurs in startup, not that steady plan.
+No timing tolerance or qualification target is relaxed. The failed code is
+removed from active source, retained privately as a patch with SHA-256
+`7cefae6caac4daa6bac4c755ab1985a9acdbfac8f269df613009160cd6ad7acd`.
+The useful window/plan/token mismatch diagnostic remains in the native harness.
