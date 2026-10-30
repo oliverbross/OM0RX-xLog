@@ -76,6 +76,13 @@ int main(int argc,char** argv) {
     for(size_t i=0;i<spectrum.size();++i)spectrum[i]=std::complex<float>(std::polar(0.1,2*pi*6000*i/96000));
     const auto clean=cw::carriers(spectrum,96000,-39000,39000,4);
     require(!clean.empty() && !clean[0].estimated_snr_db(96000),"An artificial numerical noise floor cannot become reported SNR");
+    for(double weak:{0.00001,0.0002}) {
+      for(size_t i=0;i<spectrum.size();++i) spectrum[i]=std::complex<float>(std::polar(0.1,2*pi*6000*i/96000)+std::polar(weak,2*pi*9000*i/96000));
+      const auto floor_limited=cw::carriers(spectrum,96000,-39000,39000,4);
+      require(floor_limited.size()==(weak<0.0001?1:2),"Numerical-floor rejection preserves eligible weaker carriers");
+      require(std::abs(floor_limited[0].offset_hz-6000)<2,"Strong carrier remains independently attributed");
+      if(floor_limited.size()==2)require(std::abs(floor_limited[1].offset_hz-9000)<2,"Above-floor weak carrier is not suppressed");
+    }
     for(int speed:{10,20,30,40}) {
       cw::KeyingSpeed measured;
       for(int repeat=0;repeat<12;++repeat) {

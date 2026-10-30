@@ -246,6 +246,22 @@ zero dropped, 141.118 ms maximum lateness, 2484.01 ms p95 age and 285.172 MiB pe
 RSS. No build/test overlapped either run. The arena stays enabled by default;
 system allocation did not establish a throughput or memory improvement.
 
+A bounded two-second native stack sample (534 observations per thread) shows
+matrix kernels and softmax dominating inference, rather than evidence of a
+dominant mutex wait. The sampler's run is explicitly diagnostic, never a capacity
+qualification. Carrier search also repeatedly allocated a local-neighbour vector.
+It now reuses that bounded scratch vector and skips only peaks which must fail
+the unchanged minimum-noise predicate before the median calculation.
+
+On the same `cw-dsp-profile 16 32` inputs, spectrum process CPU falls from 99.567
+to 17.881 ms (wall 117.557 to 21.543 ms); both runs detect a peak sum of 1,024
+and output 139,840 channel samples. Scalar/Accelerate, signed frequencies, SNR,
+weak carriers on both sides of the numerical-floor threshold and native process
+checks pass (CTest 2/2). This focused improvement does not fix model throughput:
+the subsequent unchanged 32-track run services 125 jobs, coalesces 163, drops
+zero, and measures 137.299 ms maximum lateness / 3377.49 ms p95 age. Strict
+capacity remains false. No build/test overlapped these measurements.
+
 ### Clean mono-copy profile
 
 `native/cw-worker/quality_profile.py` freezes and writes its generated corpus

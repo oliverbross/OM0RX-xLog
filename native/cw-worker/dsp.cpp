@@ -62,16 +62,21 @@ std::vector<Carrier> carriers(const std::vector<std::complex<float>>& iq,int rat
   std::vector<double> power(iq.size());
   for(size_t i=0;i<iq.size();++i) power[i]=std::norm(spectrum[i]);
   const double numericFloor=*std::max_element(power.begin(),power.end())*1e-8;
+  const double minimumNoise=std::max(1e-16,numericFloor);
   std::vector<Carrier> found;
   const double bin=double(rate)/iq.size();
+  const int reach=std::max(8,int(std::ceil(500/bin)));
+  std::vector<double> neighbours;neighbours.reserve(size_t(2*reach+1));
   for(size_t i=2;i<iq.size()-2;++i) {
     const double offset=(i<iq.size()/2?double(i):double(i)-iq.size())*bin;
     if(offset<lower || offset>upper || std::abs(offset)<2*bin) continue;
     if(power[i]<=power[i-1] || power[i]<power[i+1]) continue;
+    // The final noise is at least this floor. Reject only peaks that the
+    // unchanged final predicate must reject, before allocating/partitioning.
+    if(power[i]<minimumNoise*16) continue;
     // Median in a local 1-kHz neighbourhood rejects single strong adjacent
     // stations and their main lobes without imposing a global noise floor.
-    std::vector<double> neighbours;
-    const int reach=std::max(8,int(std::ceil(500/bin)));
+    neighbours.clear();
     for(int delta=-reach;delta<=reach;++delta) {
       if(std::abs(delta)<=3) continue;
       const int index=int(i)+delta;
