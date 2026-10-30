@@ -18,8 +18,11 @@ still coalesces 53 jobs; capacity is unqualified. Overload now invalidates affec
 text revisions and queued-publication proof, with focused regressions recorded in
 the CW checklist. AetherSDR has native TCP access, while a raw five-second UDP
 4992 probe receives zero discovery datagrams. Actual radio spans/RF, held-out
-quality, real external client, 8h/24h elapsed stability, exact application package
+quality, 8h/24h elapsed stability, exact application package
 and installed CW acceptance remain open within this scope.
+The source-level external-client protocol slice now passes using installed GNU
+Telnet 2.2: two isolated loopback sessions, live synthetic fractional/slash output,
+original UTC history and reconnect. This is separate from exact-app acceptance.
 
 **Historical 29 October banner (superseded only by this authorized closeout):**
 

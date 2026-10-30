@@ -66,3 +66,33 @@ full five-case run also passed; the last rerun corrects only byte accounting for
 the final probe. These are isolated synthetic server checks, not RF quality,
 an external logger, a soak or exact-package acceptance. A real external client
 and production package exercise remain open.
+
+## Installed external Telnet client — 31 October 2026
+
+The source-level interoperability gate now passes with the actual installed
+**GNU inetutils Telnet 2.2** (`/opt/homebrew/Cellar/inetutils/2.2_1/bin/gtelnet`,
+SHA-256 `db366def4edb35d97b659531cd8400865e1a7a70714c4012b4aa63dadfee5bf3`).
+`CWExternalTelnetTests` launches that executable directly, with IPv4, user rc and
+automatic login disabled. It invokes the existing `CWLocalClusterServer` in a
+marked synthetic fixture, binding only ephemeral `127.0.0.1:54050` for this run.
+No production app, settings, radio or normal output destination is involved.
+
+Two separate client processes authenticate and quit normally (exit 0/0). They
+receive live fixture output at **14025.123 kHz / K1ABC/P**, and request two retained
+lines. Original history UTC **0359Z** remains distinct from new output **0400Z**
+after reconnect; login does not silently replay history. The listener finishes
+off with zero clients. Binary hashes match before and after execution. Actual
+receipt: `86230a9a26dc5cca`, one test passed. Existing BSD plain-TCP socket tests
+provide the independent plain transport result.
+
+```sh
+XLOG_PORTABLE_ONLY=1 XCW_TEST_TELNET=/opt/homebrew/bin/telnet swift test \
+  --scratch-path .build/cw-integration-tests-20261030 --jobs 2 \
+  --filter CWExternalTelnetTests
+```
+
+Without an explicitly selected installed client this optional interoperability
+test skips visibly. Telnet is a test tool, not an application dependency. This
+closes the external-client protocol slice of AC23; useful live accepted RF spots
+through the exact packaged/installed app remain required. No external logging
+application or RF-quality result is inferred from this terminal-client result.
