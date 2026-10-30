@@ -115,7 +115,7 @@ int main(int argc,char** argv) {
         decoded.insert(event.track_id);
         model_ms.push_back(event.copy.inference_ms);features_ms.push_back(event.copy.features_ms);
         ctc_ms.push_back(event.copy.ctc_ms);queue_ms.push_back(event.queue_wait_ms);
-        const double expected=double(event.source_first_sample)/rate+double(event.end_sample)/3200;
+        const double expected=double(event.source_first_sample)/rate+double(event.end_sample)/3200-event.filter_delay_seconds;
         latencies.push_back(std::max(0.0,milliseconds(Clock::now()-start)-expected*1000));
       }
       const auto metrics=skimmer.metrics();maximum_tracks=std::max(maximum_tracks,metrics.tracks);maximum_pending=std::max(maximum_pending,metrics.pending);
@@ -187,6 +187,7 @@ int main(int argc,char** argv) {
       <<",\"workload_cpu_seconds\":"<<process_cpu_seconds()-workload_cpu_start
       <<",\"stable_under_this_synthetic_load\":"<<(stable?"true":"false");
     std::cout<<",\"timing_population\":\"emitted decode jobs\"";
+    std::cout<<",\"decode_age_reference\":\"decoded window end in capture time, including FIR delay\"";
     timing("model_run",model_ms);timing("feature_extraction",features_ms);timing("ctc",ctc_ms);timing("queue_wait",queue_ms);
     if(profile.steady_ten_second) {timing("startup_model_run",startup_model_ms);timing("steady_model_run",steady_model_ms);}
     std::cout<<"}"<<std::endl;

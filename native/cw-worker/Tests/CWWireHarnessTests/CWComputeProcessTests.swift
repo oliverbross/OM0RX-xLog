@@ -205,7 +205,7 @@ private actor CWEventCollector {
     }
     func hasCall(_ call:String,offset:Double) -> Bool {
         let letters=call.map(String.init)
-        for case .decode(let value) in events where value.track.replay && value.text.contains(call) && abs(value.track.offsetHz-offset)<15 && value.tokens.count>=letters.count {
+        for case .decode(let value) in events where value.track.replay && value.text.contains(call) && abs(value.track.offsetHz-offset)<15 && value.tokens.count>=letters.count && value.track.rfObservation != nil {
             for first in 0...(value.tokens.count-letters.count) where zip(value.tokens[first...].prefix(letters.count),letters).allSatisfy({$0.0.symbol==$0.1}) {
                 if value.tokens[first+letters.count-1].rfObservation != nil {return true}
             }

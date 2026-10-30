@@ -36,7 +36,7 @@ public struct CWDecodeTrackSnapshot: Encodable, Sendable {
     public let descriptor: CWStreamDescriptor
     public let revision: String
     public let offsetHz: Double
-    public let frequencyHz: Int64?
+    public var frequencyHz: Int64?
     public let committed: String
     public let provisional: String
     public let ambiguous: Bool
@@ -49,6 +49,8 @@ public struct CWDecodeTrackSnapshot: Encodable, Sendable {
     public var controlReference:CWTrackReference?=nil
     public var muted:Bool=false
     public var priorityRequested:Bool=false
+    public var decodeAgeMilliseconds:Double?=nil
+    public var carrierAgeMilliseconds:Double?=nil
 }
 public struct CWDecodeSessionSnapshot: Encodable, Sendable {
     public let sessionID: UUID?
@@ -68,6 +70,13 @@ public struct CWDecodeLoadSnapshot:Encodable,Sendable {
 /// Shared by main and detached views. Only this actor owns source leases and
 /// the compute child. Snapshots are passive and contain no raw IQ or model data.
 public actor CWDecodeSession {
+    private struct TimedAge {
+        let seconds:Double,receivedNS:UInt64
+        func at(_ now:UInt64)->Double? {
+            guard now>=receivedNS else{return nil}
+            return seconds+Double(now-receivedNS)/1e9
+        }
+    }
     private struct Source {
         var view: CWDecodeSourceSnapshot
         var lease: UUID?
@@ -84,6 +93,10 @@ public actor CWDecodeSession {
         var continuityStart:UInt64=0
         var lastDecodeEnd:UInt64=0
         var publicationProofs:[CWConfirmedSpot]=[]
+        var decodeAge:TimedAge?
+        var carrierAge:TimedAge?
+        let sourceFirstSample:UInt64
+        let filterDelaySeconds:Double
     }
     private let provider: any CWIQSourceProviding
     private let compute: any CWComputeControlling
@@ -125,7 +138,11 @@ public actor CWDecodeSession {
             tracks:tracks.values.map{track in
                 var view=track.view
                 view.priorityRequested=priorityReference != nil && priorityReference==view.controlReference && !view.muted && !view.ambiguous
-                if now<track.metricsUpdatedNS || now-track.metricsUpdatedNS>2_000_000_000 {
+                view.decodeAgeMilliseconds=track.decodeAge?.at(now).map{$0*1000}
+                view.carrierAgeMilliseconds=track.carrierAge?.at(now).map{$0*1000}
+                if !(track.carrierAge?.at(now).map{$0<=2} ?? false) {view.frequencyHz=nil}
+                if now<track.metricsUpdatedNS || now-track.metricsUpdatedNS>2_000_000_000 ||
+                    !(track.decodeAge?.at(now).map{$0<=2} ?? false) {
                     view.estimatedWPM=nil;view.estimatedSNRDB=nil;view.snrReferenceHz=nil
                 }
                 return view
@@ -151,11 +168,12 @@ public actor CWDecodeSession {
               now>=retained.selectionUpdatedNS,now-retained.selectionUpdatedNS<=2_000_000_000 else {
             throw CWTrackSelectionError.staleEvidence
         }
-        if requireFrequency && (!descriptor.mappingQualified || retained.view.frequencyHz==nil) {
+        let frequency=retained.carrierAge?.at(now).flatMap{$0<=2 ? retained.view.frequencyHz:nil}
+        if requireFrequency && (!descriptor.mappingQualified || frequency==nil) {
             throw CWTrackSelectionError.frequencyUnqualified
         }
         return CWResolvedTrackSelection(reference:reference,callsign:selection.callsign,radioID:descriptor.radioID,
-            provider:descriptor.provider,frequencyHz:descriptor.mappingQualified ? retained.view.frequencyHz:nil)
+            provider:descriptor.provider,frequencyHz:descriptor.mappingQualified ? frequency:nil)
     }
     public func mute(_ reference:CWTrackReference) async throws {
         guard let key=tracks.first(where:{$0.value.view.controlReference==reference})?.key,
@@ -212,7 +230,8 @@ public actor CWDecodeSession {
               let track=tracks[key],track.view.controlReference==reference,!track.view.muted,!track.view.ambiguous,
               now>=source.lastReceipt,now-source.lastReceipt<=250_000_000,
               now>=track.updatedNS,now-track.updatedNS<=2_000_000_000 else{throw CWTrackSelectionError.staleEvidence}
-        guard descriptor.mappingQualified,let frequency=track.view.frequencyHz else{throw CWTrackSelectionError.frequencyUnqualified}
+        guard descriptor.mappingQualified,track.carrierAge?.at(now).map({$0<=2})==true,
+              let frequency=track.view.frequencyHz else{throw CWTrackSelectionError.frequencyUnqualified}
         return CWResolvedSignal(reference:reference,radioID:descriptor.radioID,provider:descriptor.provider,frequencyHz:frequency)
     }
     /// Recheck queued output against the live provider before each external
@@ -391,6 +410,16 @@ public actor CWDecodeSession {
     private static func token(_ descriptor: CWStreamDescriptor) -> String {
         descriptor.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased()
     }
+    private static func sampleAge(_ sample:UInt64,metadata:CWNativeTrack,source:Source,now:UInt64)->TimedAge? {
+        guard now>=source.lastReceipt,source.lastSample>=metadata.sourceFirstSample,
+              let rate=source.view.descriptor?.sampleRate else{return nil}
+        // Subtract in the integer capture clock before converting to seconds;
+        // large absolute sample positions must not erase a small backlog.
+        let seconds=Double(now-source.lastReceipt)/1e9 +
+            Double(source.lastSample-metadata.sourceFirstSample)/Double(rate)-Double(sample)/3200+metadata.filterDelaySeconds
+        guard seconds.isFinite,seconds>=0 else{return nil}
+        return TimedAge(seconds:seconds,receivedNS:now)
+    }
     private func receive(_ event: CWComputeEvent,id: UUID,generation:UUID) async {
         guard intent==id,computeGeneration==generation else {return}
         switch event {
@@ -426,6 +455,14 @@ public actor CWDecodeSession {
         }
         if tracks[key]?.view.descriptor==descriptor,tracks[key]?.view.muted==true {return}
         guard !retiredTracks.contains(key),tracks[key].map({UInt64($0.view.revision).map{$0<=value.revision} ?? false}) ?? true else {return}
+        if let retained=tracks[key],retained.view.descriptor != descriptor ||
+            retained.sourceFirstSample != value.sourceFirstSample || retained.filterDelaySeconds != value.filterDelaySeconds {
+            // A UUID cannot move between captures or change its sample clock.
+            // Retire its evidence even if text and the source epoch still match.
+            tracks.removeValue(forKey:key);retiredTracks.append(key)
+            if retiredTracks.count>128 {retiredTracks.removeFirst(retiredTracks.count-128)}
+            return
+        }
         var track=tracks[key]
         var continuityStart=track?.continuityStart ?? 0,lastDecodeEnd=track?.lastDecodeEnd ?? 0
         if track?.view.revision != String(value.revision) || track?.view.descriptor != descriptor {
@@ -439,11 +476,17 @@ public actor CWDecodeSession {
         var reconciler=track?.transcript ?? CWTranscriptReconciler()
         var committed=track?.view.committed ?? "",provisional=track?.view.provisional ?? "",ambiguous=value.ambiguous
         var occurrences:[CWIdentityOccurrence]=[]
+        var decodeAge=track?.decodeAge,carrierAge=track?.carrierAge
+        var frequency=track?.view.frequencyHz
         if let decode {
-            // Convert track-local 3.2 kHz time to the capture sample clock.
-            let position=Double(value.sourceFirstSample)+Double(value.endSample)*Double(descriptor.sampleRate)/3200
-            guard position.isFinite,position<=Double(source.lastSample)+1,
-                  Double(source.lastSample)-position<=Double(descriptor.sampleRate)*2 else {return}
+            let now=clock()
+            guard let measured=Self.sampleAge(value.endSample,metadata:value,source:source,now:now),measured.seconds<=2 else{return}
+            decodeAge=measured;carrierAge=nil;frequency=nil
+            if let observed=value.rfObservation,observed.valid(at:value.endSample),
+               let age=Self.sampleAge(observed.sample,metadata:value,source:source,now:now),age.seconds<=2 {
+                carrierAge=age
+                frequency=descriptor.mappingQualified ? try? descriptor.frequency(offsetHz:observed.offsetHz):nil
+            }
             lastDecodeEnd=max(lastDecodeEnd,value.endSample)
             if value.endSample>continuityStart {
                 let tokens=decode.tokens.compactMap(\.aligned).filter{$0.firstSample>=continuityStart}
@@ -453,8 +496,7 @@ public actor CWDecodeSession {
                 occurrences=Array(CWTransmittingIdentity.occurrences(in:update.committed).suffix(128))
             } else {committed="";provisional="";reconciler.reset()}
         }
-        if ambiguous {committed="";provisional="";reconciler.reset()}
-        let frequency=descriptor.mappingQualified ? try? descriptor.frequency(offsetHz:value.offsetHz):nil
+        if ambiguous {committed="";provisional="";reconciler.reset();frequency=nil;carrierAge=nil}
         var selection=track?.view.selection,selectionUpdatedNS=track?.selectionUpdatedNS ?? 0
         if decode != nil {
             let recent=occurrences.filter{value.endSample >= $0.endSample && value.endSample-$0.endSample<=60*3200}
@@ -513,7 +555,8 @@ public actor CWDecodeSession {
         if tracks[key] != nil || tracks.count<32 {
             tracks[key]=Track(view:view,transcript:reconciler,selectionUpdatedNS:selectionUpdatedNS,
                 metricsUpdatedNS:decode != nil ? clock():(track?.metricsUpdatedNS ?? 0),updatedNS:clock(),
-            continuityStart:continuityStart,lastDecodeEnd:lastDecodeEnd,publicationProofs:publicationProofs)
+            continuityStart:continuityStart,lastDecodeEnd:lastDecodeEnd,publicationProofs:publicationProofs,
+            decodeAge:decodeAge,carrierAge:carrierAge,sourceFirstSample:value.sourceFirstSample,filterDelaySeconds:value.filterDelaySeconds)
         }
     }
 }

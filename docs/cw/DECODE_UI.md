@@ -139,3 +139,12 @@ them; fresh aligned copy/self-IDs must establish evidence again. A spot already
 waiting for classification or listener admission is checked against the current
 track's bounded publication proof before and after provider readback. Accepted
 historical rows remain history.
+
+**Decode age** measures the decoded window's end behind the newest received IQ,
+including FIR delay and elapsed local time. **Carrier age** uses the actual
+carrier sample; metadata-only updates cannot renew it. Both stay unavailable
+without evidence. These receive-relative measurements do not establish radio/
+transport latency, committed-character delay or spot delay. Model time remains
+separate. Expired or missing carrier evidence shows **RF unavailable**, withdraws
+RF actions and retains only the diagnostic offset. Fresh qualified RF and two
+distinct self-IDs are still required for callsign loading.

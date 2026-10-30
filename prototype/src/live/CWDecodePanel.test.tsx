@@ -14,6 +14,18 @@ function service(initial = cwDecodeFixture()) {
   return { request, set: (next: CWDecodeSnapshot) => { current = next; } };
 }
 describe("CW Decode shared native view", () => {
+  it.each([false,true])("shows measured sample ages separately from model time; measured=%s", async measured => {
+    const fixture=cwDecodeTrackFixture(),track=fixture.tracks[0];
+    track.descriptor.mappingQualified=true;track.inferenceMilliseconds=17;
+    if(measured){track.decodeAgeMilliseconds=188;track.carrierAgeMilliseconds=198;}
+    const owner=service(fixture);render(<CWDecodePanel request={owner.request} />);
+    fireEvent.click(await screen.findByRole("button",{name:/Inspect signal/}));
+    expect(screen.getByText("17 ms")).toBeTruthy();
+    expect(screen.getByText("Decode age").nextElementSibling?.textContent).toBe(measured?"0.19 s":"Unavailable");
+    expect(screen.getByText("Carrier age").nextElementSibling?.textContent).toBe(measured?"0.20 s":"Unavailable");
+    expect(screen.getByText("RF unavailable")).toBeTruthy();
+    expect(owner.request.mock.calls.every(([method])=>method==="cw_decode_snapshot")).toBe(true);
+  });
   it.each([
     ["compute_memory_limit", /exceeded its 1.5 GiB memory ceiling/],
     ["compute_memory_unknown", /memory measurement is unavailable/],

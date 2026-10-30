@@ -55,6 +55,16 @@ cannot become aligned evidence. Mono inference does not invent RF metadata.
 This additive unshipped v1 extension is validated at both bundled endpoints.
 An old child without observations cannot supply accepted-spot RF evidence.
 
+An IQ **decode event** can carry the same optional pair at its top level, bound
+to the most recent actual carrier observation preceding its window end (at most
+1600 samples old). The diagnostic `offset_hz` alone does not authorize RF actions.
+Unknown current carrier evidence remains absent. The parent also accounts for
+received-IQ/sample backlog, elapsed local time and FIR delay before admitting an
+RF target. Metadata-only track notifications cannot renew that measurement.
+A retained UUID cannot change capture descriptor, source sample origin or FIR
+delay: the parent retires its evidence if any changes. The event queue reserves
+384 bytes per event plus its bounded text/token estimate within the same 1 MiB.
+
 All 64-bit identities/counters/sample indices use decimal strings in JSON.
 Events are at most 667 tokens for a ten-second window; consumers must impose a
 128-KiB line limit. The worker's derived-event queue is capped at 64 entries /

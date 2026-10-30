@@ -415,3 +415,23 @@ manual tune and selection-owner regressions; **31 focused frontend tests** passe
 TypeScript, Vite and every configured window graph check passed. CW Decode's
 startup graph measured **302,032 bytes**, still separate from the main logging
 controller, map and CW transmit bundles. No application candidate was packaged.
+
+### Timed current RF evidence
+
+An acquiring track's diagnostic offset cannot authorize Tune or callsign loading.
+A regression reproduced that grant despite missing carrier timing. Native IQ
+decode events now retain their latest actual carrier observation, with its own
+channel sample. Current RF targets use that measurement, qualified mapping and
+at most two seconds of receive-relative age, including FIR delay and elapsed
+local time. Metadata-only notifications preserve the original measurement age;
+they cannot renew it or substitute a new offset. Expiry withdraws the displayed
+RF frequency and native action grants. Mute/focus remain available for diagnostic
+tracks. Tune still does not require a decoded callsign.
+
+The parent pins capture descriptor, source sample origin and FIR delay for each
+retained track UUID, including revision changes. A changed clock retires that
+track's evidence. Focused session/policy checks pass **35/35**; native CTest is
+2/2 and projection/panel checks are 25/25 with TypeScript passing. The subsequent
+real-child suite has 18/19 passes: real-rate replay misses input freshness at
+sample 1048576, sequence 128, **279.6405 ms** lateness, child failure nil. Its
+250-ms guard is preserved; exact-package/live acceptance remains unclosed.

@@ -24,6 +24,7 @@ public struct CWNativeTrack: Sendable {
     public let offsetHz: Double
     public let ambiguous: Bool
     public let replay: Bool
+    public var rfObservation:CWCarrierObservation?=nil
 }
 public struct CWNativeToken: Sendable {
     public let symbol: String
@@ -106,10 +107,17 @@ public enum CWComputeWire {
         let revision=try counter(object["track_revision"]),first=try counter(object["first_sample"]),end=try counter(object["end_sample"])
         guard (0...1).contains(delay),abs(offset)<=192_000 else { throw CWComputeError.invalidEvent }
         guard state != "overloaded" || (revision>0 && first==end && end>0) else {throw CWComputeError.invalidEvent}
+        let observation=try carrier(object,at:end)
         return CWNativeTrack(kind:kind,streamToken:token,epoch:try counter(object["epoch"]),trackID:id,
             revision:revision,state:state,firstSample:first,
             endSample:end,sourceFirstSample:try counter(object["source_first_sample"]),
-            filterDelaySeconds:delay,offsetHz:offset,ambiguous:try boolean(object["ambiguous"]),replay:try boolean(object["replay"]))
+            filterDelaySeconds:delay,offsetHz:offset,ambiguous:try boolean(object["ambiguous"]),replay:try boolean(object["replay"]),rfObservation:observation)
+    }
+    private static func carrier(_ object:[String:Any],at end:UInt64) throws -> CWCarrierObservation? {
+        guard object["rf_offset_hz"] != nil || object["rf_sample"] != nil else{return nil}
+        let offset=try number(object["rf_offset_hz"]),sample=try counter(object["rf_sample"])
+        guard let measured=try? CWCarrierObservation(offsetHz:offset,sample:sample),measured.valid(at:end) else{throw CWComputeError.invalidEvent}
+        return measured
     }
 
     public static func event(_ data:Data) throws -> CWComputeEvent {
@@ -137,7 +145,7 @@ public enum CWComputeWire {
             return .track(try track(object,kind:kind))
         case "decode":
             let required=trackKeys.union(["text","inference_ms","tokens"])
-            guard required.isSubset(of:Set(object.keys)),Set(object.keys).isSubset(of:required.union(["estimated_wpm","estimated_snr_db","snr_reference_hz"])),
+            guard required.isSubset(of:Set(object.keys)),Set(object.keys).isSubset(of:required.union(["estimated_wpm","estimated_snr_db","snr_reference_hz","rf_offset_hz","rf_sample"])),
                   let text=object["text"] as? String, text.utf8.count<=667,text.utf8.allSatisfy({alphabet.contains($0)}),
                   let rows=object["tokens"] as? [[String:Any]],rows.count<=667 else { throw CWComputeError.invalidEvent }
             let metadata=try track(object,kind:kind),inference=try number(object["inference_ms"])
@@ -151,12 +159,7 @@ public enum CWComputeWire {
                 let first=try counter(row["first_sample"]),end=try counter(row["end_sample"]),score=try number(row["log_score"])
                 guard first>=last,end>=first,end<=metadata.endSample,first<end || end==metadata.endSample,
                       (-10000...0.001).contains(score) else { throw CWComputeError.invalidEvent }
-                var observation:CWCarrierObservation?
-                if row["rf_offset_hz"] != nil || row["rf_sample"] != nil {
-                    let offset=try number(row["rf_offset_hz"]),sample=try counter(row["rf_sample"])
-                    guard let measured=try? CWCarrierObservation(offsetHz:offset,sample:sample),measured.valid(at:end) else {throw CWComputeError.invalidEvent}
-                    observation=measured
-                }
+                let observation=try carrier(row,at:end)
                 tokens.append(CWNativeToken(symbol:symbol,firstSample:first,endSample:end,logScore:score,rfObservation:observation));last=end
             }
             guard tokens.map(\.symbol).joined()==text else { throw CWComputeError.invalidEvent }

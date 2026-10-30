@@ -92,6 +92,19 @@ final class CWWireHarnessTests:XCTestCase {
         XCTAssertThrowsError(try event(record))
         XCTAssertThrowsError(try CWComputeWire.event(Data(repeating:32,count:131073)))
     }
+    func testCurrentCarrierUsesCompleteBoundedObservationWithoutInventingMissingRF() throws {
+        var record=decode();record["rf_offset_hz"] = -4199.5;record["rf_sample"]="19168"
+        guard case .decode(let parsed)=try event(record) else{return XCTFail("Expected decode")}
+        XCTAssertEqual(parsed.track.rfObservation?.offsetHz,-4199.5);XCTAssertEqual(parsed.track.rfObservation?.sample,19168)
+        for fields:[String:Any] in [["rf_offset_hz":0.0],["rf_sample":"19168"],
+            ["rf_offset_hz":0.0,"rf_sample":"19201"],["rf_offset_hz":0.0,"rf_sample":"17599"],
+            ["rf_offset_hz":0.0,"rf_sample":"019168"],["rf_offset_hz":true,"rf_sample":"19168"]] {
+            var invalid=decode();invalid.merge(fields){_,new in new};XCTAssertThrowsError(try event(invalid))
+        }
+        record["rf_sample"]="17600";XCTAssertNoThrow(try event(record))
+        guard case .decode(let unknown)=try event(decode()) else{return XCTFail("Expected diagnostic decode")}
+        XCTAssertNil(unknown.track.rfObservation)
+    }
     func testSignalEstimatesRequireFiniteValuesAndExplicitNoiseBandwidth() throws {
         var record=decode();record["estimated_wpm"]=24.5;record["estimated_snr_db"]=12.0;record["snr_reference_hz"]=2500
         guard case .decode(let value)=try event(record) else{return XCTFail("Expected decode")}

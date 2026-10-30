@@ -544,3 +544,21 @@ The failed implementation is removed from active source and retained as patch
 SHA-256 `d77636a3891355882634c8f6f7b9959e75b8ee11ff55daf2ed9fc4d7e89c375b`.
 Only the useful observed-in-flight count and explicit emitted-job timing
 population remain in the profiler. Production retains its original CPU path.
+
+## Receive-relative age definition
+
+Before further qualification, the profiler and session now both include FIR
+group delay when mapping a decoded window end into capture sample time. The
+profiler's real-rate generation clock supplies its reference; the session uses
+the newest admitted IQ's sample end and local monotonic receipt. It subtracts
+integer capture origins before conversion, then adds elapsed local time. The
+session also expires measured current RF independently of metadata receipt.
+Radio/transport latency, committed-character delay and spot delay still need
+their own evidence. Unknown age stays absent, not zero.
+
+Earlier profiler receipts in this document are unchanged historical results;
+they excluded the 20-ms filter delay. This correction increases measured age,
+preserves the two-second limit and cannot turn any earlier strict failure into
+a pass. New receipts identify `decode_age_reference` explicitly. The session
+fixture independently expects 188-ms decode age / 198-ms carrier age, then
+2088/2098 ms after elapsed time; fresh IQ and track metadata do not renew RF.

@@ -251,7 +251,7 @@ int main(int argc,char** argv) {
     for(double drift:{8.0,-8.0}) {
       const double initial=drift>0?6200:-6100;
       cw::Skimmer moving(engine,1);moving.open(source,11,96000,-39000,39000,true);
-      uint64_t seq=0;size_t copies=0,rf_tokens=0;double maximum_error=0,maximum_token_rf_error=0;bool identified=false;
+      uint64_t seq=0;size_t copies=0,rf_tokens=0,measured_windows=0;double maximum_error=0,maximum_token_rf_error=0;bool identified=false;
       std::set<std::string> identities;
       for(size_t first=0;first<96000*8;first+=4096) {
         const size_t count=std::min(size_t(4096),size_t(96000*8)-first);
@@ -268,6 +268,12 @@ int main(int argc,char** argv) {
           ++copies;const double t=double(event.source_first_sample)/96000+double(event.end_sample)/3200;
           maximum_error=std::max(maximum_error,std::abs(event.offset_hz-(initial+drift*t)));
           require(maximum_error<=10,"Gradual signed drift must update RF attribution within 10 Hz");
+          if(event.rf) {
+            ++measured_windows;
+            require(event.rf->sample<=event.end_sample && event.end_sample-event.rf->sample<=1600,"Current RF retains the actual observation's bounded sample time");
+            const double observed_time=double(event.source_first_sample)/96000+double(event.rf->sample)/3200-event.filter_delay_seconds;
+            require(std::abs(event.rf->offset_hz-(initial+drift*observed_time))<=10,"Current RF observation follows either signed chirp without borrowing a later carrier");
+          }
           if(event.copy.text.find("OM0RX")!=std::string::npos) for(const auto& token:event.copy.tokens) if(token.symbol=='X')
             require(bool(token.rf),"Every completed synthetic self-ID needs measured last-character RF; withholding cannot hide the frequency error");
           for(const auto& token:event.copy.tokens) if(token.rf) {
@@ -284,6 +290,7 @@ int main(int argc,char** argv) {
       }
       require(copies>0 && identified,"Original decoder follows keyed drift without losing copy");
       require(rf_tokens>0,"Historical tokens require measured carrier observations, not the later window frequency");
+      require(measured_windows>0,"Signed drift produces actual current RF evidence, not only diagnostic offsets");
       require(identities.size()==1 && moving.metrics().tracks==1,"Drift retains one track, without mirrored or duplicate carriers");
       require(moving.metrics().coalesced==0 && moving.metrics().dropped_events==0,"Drift fixture does not hide lost work");
       const auto complete=moving.metrics();

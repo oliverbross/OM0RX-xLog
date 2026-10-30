@@ -11,6 +11,14 @@ package/notarization/installation after those gates pass. No CW candidate is
 installed or production capability enabled by this checkpoint; the accepted
 1.3.63 bundle and its preservation/rollback record below remain unchanged.
 
+31 October timed-RF follow-up: diagnostic offsets no longer authorize RF actions;
+actual carrier samples, receive-relative ages and immutable track capture clocks
+are enforced. Focused session/policy 35/35, native CTest 2/2 and view/projection
+25/25 pass. Latest real-child suite is **18/19**, with replay input 279.6405 ms
+late against the unchanged 250-ms limit. No installed or full-scope CW acceptance
+is inferred from these checks. Bounded startup batching remains a failed private
+experiment; its strict load failures are retained in CW diagnostics.
+
 31 October CW source progress: durable original draft-action reconciliation,
 actual slow-client isolation and offline relocated component-payload checks pass.
 CPU, bounded static-CoreML, GPU and tensor-preserving attention-fusion candidates

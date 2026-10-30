@@ -3,6 +3,20 @@ import { parseCWDecodeSnapshot } from "./cwDecode";
 import { cwDecodeFixture, cwDecodeTrackFixture } from "./cwDecode.fixtures";
 
 describe("native CW Decode projection", () => {
+  it("preserves unknown ages and rejects invalid or contradictory measured ages", () => {
+    const fixture=cwDecodeTrackFixture(),track=fixture.tracks[0];
+    expect(parseCWDecodeSnapshot(fixture).tracks[0].decodeAgeMilliseconds).toBeUndefined();
+    track.decodeAgeMilliseconds=188;track.carrierAgeMilliseconds=198;
+    expect(parseCWDecodeSnapshot(fixture).tracks[0].carrierAgeMilliseconds).toBe(198);
+    for(const invalid of [-1,NaN,Infinity,true,"0"]) {
+      const bad=structuredClone(fixture);(bad.tracks[0] as any).decodeAgeMilliseconds=invalid;
+      expect(()=>parseCWDecodeSnapshot(bad)).toThrow();
+    }
+    track.descriptor.mappingQualified=true;track.frequencyHz=14031200;track.carrierAgeMilliseconds=2000;
+    expect(()=>parseCWDecodeSnapshot(fixture)).not.toThrow();
+    track.carrierAgeMilliseconds=2000.001;expect(()=>parseCWDecodeSnapshot(fixture)).toThrow();
+    delete track.frequencyHz;expect(()=>parseCWDecodeSnapshot(fixture)).not.toThrow();
+  });
   it("keeps load counters lossless and bounded", () => {
     const fixture = cwDecodeFixture(); fixture.load = { sources: 2, tracks: 32, pending: 16, inFlight: 4, coalesced: "18446744073709551615", droppedEvents: "0" };
     expect(parseCWDecodeSnapshot(fixture).load?.coalesced).toBe("18446744073709551615");

@@ -76,7 +76,7 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
           <div className="cw-decode-table-scroll"><table><thead><tr><th>Source</th><th>RF / offset</th><th>Call</th><th>Decoded text</th><th>Est. WPM</th><th>Est. SNR</th><th>Opportunity</th><th>State</th></tr></thead>
             <tbody>{tracks.map(track => <tr key={track.trackID} aria-selected={selected === track.trackID}>
               <td><button type="button" onClick={() => setSelected(track.trackID)} aria-label={`Inspect signal ${offset(track.offsetHz)} on ${cwSourceName(track.descriptor)}`}>{cwSourceName(track.descriptor)}</button></td>
-              <td className="cw-decode-frequency">{track.frequencyHz === undefined ? offset(track.offsetHz) : mhz(track.frequencyHz)}{track.frequencyHz === undefined && <small>RF unqualified</small>}</td>
+              <td className="cw-decode-frequency">{track.frequencyHz === undefined ? offset(track.offsetHz) : mhz(track.frequencyHz)}{track.frequencyHz === undefined && <small>{track.descriptor.mappingQualified ? "RF unavailable" : "RF unqualified"}</small>}</td>
               <td>{track.selection?.callsign ?? "—"}</td>
               <td className="cw-decode-copy"><span>{track.committed}</span><span className="cw-decode-provisional" aria-label="Provisional text">{track.provisional}</span>{!track.committed && !track.provisional && <span className="cw-decode-placeholder">Waiting for copy</span>}</td>
               <td title={track.estimatedWPM === undefined ? "Speed has not been measured" : "Estimated from observed key-down durations using the PARIS timing unit"}>{track.estimatedWPM?.toFixed(1) ?? "—"}</td>
@@ -91,7 +91,9 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
         {signal && <aside className="cw-decode-detail" aria-label="Selected CW signal"><div className="cw-decode-detail-heading"><h3>Signal detail</h3><button type="button" aria-label="Close signal detail" onClick={() => setSelected(null)}><X size={16} /></button></div>
           <strong className="cw-decode-frequency">{signal.frequencyHz === undefined ? offset(signal.offsetHz) : mhz(signal.frequencyHz)}</strong>
           <p>{cwSourceName(signal.descriptor)}</p><dl><div><dt>IQ centre</dt><dd>{mhz(signal.descriptor.centreHz)}</dd></div><div><dt>Capture epoch</dt><dd>{signal.descriptor.epoch}</dd></div>
-            <div><dt>RF mapping</dt><dd>{signal.descriptor.mappingQualified ? "Qualified" : "Unqualified"}</dd></div><div><dt>Model time</dt><dd>{signal.inferenceMilliseconds === undefined ? "Unavailable" : `${signal.inferenceMilliseconds.toFixed(0)} ms`}</dd></div></dl>
+            <div><dt>RF mapping</dt><dd>{signal.descriptor.mappingQualified ? "Qualified" : "Unqualified"}</dd></div><div><dt>Model time</dt><dd>{signal.inferenceMilliseconds === undefined ? "Unavailable" : `${signal.inferenceMilliseconds.toFixed(0)} ms`}</dd></div>
+            <div><dt title="Age behind the latest received IQ, including filter delay. Radio/transport delay, committed-text delay and spot delay need their own measurements.">Decode age</dt><dd>{signal.decodeAgeMilliseconds === undefined ? "Unavailable" : `${(signal.decodeAgeMilliseconds / 1000).toFixed(2)} s`}</dd></div>
+            <div><dt title="Age of the measured carrier. RF actions require fresh carrier evidence.">Carrier age</dt><dd>{signal.carrierAgeMilliseconds === undefined ? "Unavailable" : `${(signal.carrierAgeMilliseconds / 1000).toFixed(2)} s`}</dd></div></dl>
           <label>Committed text<textarea readOnly value={signal.committed} rows={5} /></label>
           <label>Provisional tail<textarea readOnly value={signal.provisional} rows={3} /></label>
           <button type="button" disabled={snapshot.featureEnabled !== true || busy || signal.muted || signal.ambiguous || !signal.controlReference || snapshot.state !== "running"}

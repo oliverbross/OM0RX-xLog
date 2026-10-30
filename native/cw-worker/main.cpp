@@ -49,6 +49,7 @@ void outputEvent(const cw::SkimmerEvent& e) {
     <<",\"offset_hz\":"<<e.offset_hz<<",\"ambiguous\":"<<(e.ambiguous?"true":"false")
     <<",\"replay\":"<<(e.replay?"true":"false");
   if(e.kind=="decode") {
+    if(e.rf) std::cout<<",\"rf_offset_hz\":"<<e.rf->offset_hz<<",\"rf_sample\":\""<<e.rf->sample<<'"';
     if(e.estimated_snr_db) std::cout<<",\"estimated_snr_db\":"<<*e.estimated_snr_db<<",\"snr_reference_hz\":2500";
     if(e.estimated_wpm) std::cout<<",\"estimated_wpm\":"<<*e.estimated_wpm;
     std::cout<<",\"text\":\""<<e.copy.text<<"\",\"inference_ms\":"<<e.copy.inference_ms<<",\"tokens\":[";

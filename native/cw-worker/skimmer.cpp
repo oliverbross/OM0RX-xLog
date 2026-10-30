@@ -112,7 +112,7 @@ struct QueuedEvent {
   SkimmerEvent event;
   std::weak_ptr<Track> track;
   uint64_t revision=0;
-  size_t bytes() const { return 256+event.copy.text.size()+event.copy.tokens.size()*192; }
+  size_t bytes() const { return 384+event.copy.text.size()+event.copy.tokens.size()*192; }
 };
 }
 struct Skimmer::Impl {
@@ -218,6 +218,11 @@ struct Skimmer::Impl {
             SkimmerEvent event{"decode",job.token,job.track->id,"provisional",job.epoch,job.first,job.end,job.offset,false,std::move(copy)};
             event.estimated_snr_db=job.snr;event.estimated_wpm=job.wpm;
             event.queue_wait_ms=queue_ms;
+            auto measured=std::upper_bound(job.rf_history.begin(),job.rf_history.end(),job.end,
+              [](uint64_t sample,const CarrierObservation& observed){return sample<observed.sample;});
+            if(measured!=job.rf_history.begin()) {
+              --measured;if(job.end-measured->sample<=1600) event.rf=*measured;
+            }
             emit(std::move(event),job.track,job.revision);
             invalidated_job=false;
           }

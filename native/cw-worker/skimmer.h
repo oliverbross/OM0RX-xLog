@@ -17,6 +17,7 @@ struct SkimmerEvent {
   uint64_t track_revision=0;
   std::optional<double> estimated_snr_db{},estimated_wpm{};
   double queue_wait_ms=0; // Internal developer timing, excluded from wire output.
+  std::optional<CarrierObservation> rf{};
 };
 struct SkimmerMetrics {
   size_t sources,tracks,pending,in_flight;

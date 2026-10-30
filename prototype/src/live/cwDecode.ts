@@ -8,6 +8,7 @@ export type CWTrackReference = { sessionID: string; sourceID: string; streamToke
 export type CWTrackSelection = { reference: CWTrackReference; callsign: string; activation?: { sourceEpoch: string; spotVersion: string } };
 export type CWDecodeTrack = { sourceID: string; trackID: string; descriptor: CWDescriptor; revision: string; offsetHz: number; frequencyHz?: number;
   committed: string; provisional: string; ambiguous: boolean; inferenceMilliseconds?: number; spotRejection?: string;
+  decodeAgeMilliseconds?: number; carrierAgeMilliseconds?: number;
   estimatedWPM?: number; estimatedSNRDB?: number; snrReferenceHz?: number; selection?: CWTrackSelection; controlReference?: CWTrackReference;
   controlActivation?: { sourceEpoch: string; spotVersion: string }; muted?: boolean; priorityRequested?: boolean;
   opportunity?: { callStatus: string; dxccStatus: string } };
@@ -101,6 +102,8 @@ export function parseCWDecodeSnapshot(value: unknown): CWDecodeSnapshot {
     typeof track.provisional === "string" && track.provisional.length <= 1024 && typeof track.ambiguous === "boolean" &&
     trackSelection(track) && trackControl(track) && trackOpportunity(track) &&
     (track.frequencyHz === undefined || track.descriptor.mappingQualified && integer(track.frequencyHz, 100000, 1e9)) &&
+    [track.decodeAgeMilliseconds, track.carrierAgeMilliseconds].every(age => age === undefined || typeof age === "number" && Number.isFinite(age) && age >= 0) &&
+    (track.frequencyHz === undefined || track.carrierAgeMilliseconds === undefined || track.carrierAgeMilliseconds <= 2000) &&
     (track.spotRejection === undefined || ["quality_not_qualified", "replay", "stale_source", "unmapped_frequency", "contaminated", "ambiguous", "insufficient_occurrences", "cooldown", "invalid_evidence", "continuity_interrupted", "frequency_evidence_unavailable"].includes(track.spotRejection)) &&
     (track.estimatedWPM === undefined || Number.isFinite(track.estimatedWPM) && track.estimatedWPM >= 5 && track.estimatedWPM <= 80) &&
     (track.estimatedSNRDB === undefined ? track.snrReferenceHz === undefined : Number.isFinite(track.estimatedSNRDB) && track.estimatedSNRDB >= -100 && track.estimatedSNRDB <= 150 && track.snrReferenceHz === 2500) &&
