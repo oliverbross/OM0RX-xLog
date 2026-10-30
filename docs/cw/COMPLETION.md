@@ -78,6 +78,13 @@ held-out evaluation. AC30/P8/P9 remain outside this Mac launch.
   the input deadline before inference. The experiment is preserved and removed;
   no batching speedup or production promotion is claimed. Exact runs and hashes
   are recorded in `SIGNAL_DIAGNOSTICS.md`; further identical retries are avoided.
+- Original-model shared CPU thread comparison also fails: 1 caller × 4 threads
+  completes 101/288 with 187 coalesced, p95 age 3698.355 ms; fresh 4 × 1 control
+  completes 149/288 with 139 coalesced, p95 age 2761.092 ms. Both deliver all
+  input and service all 32 tracks. The integer candidate's four-thread token
+  alignment fails parity and is rejected before profiling. NL-06 capacity stays
+  open; defaults and thresholds are unchanged. Exact conditions are recorded in
+  `SIGNAL_DIAGNOSTICS.md`.
 
 Private raw tool receipts and reference copies are retained under
 `.build/cw-completion-20261030` and lossless lean-ctx archives. No production

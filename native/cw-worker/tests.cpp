@@ -34,7 +34,8 @@ int main(int argc,char** argv) {
   try {
     require(argc==2 || (argc==3 && (std::string(argv[2])=="coreml" || std::string(argv[2])=="coreml-neural" || std::string(argv[2])=="system-allocator" ||
       std::string(argv[2])=="cpu-steady" || std::string(argv[2])=="coreml-steady" || std::string(argv[2])=="coreml-neural-steady" ||
-      std::string(argv[2])=="coreml-neural-gpu" || std::string(argv[2])=="coreml-neural-gpu-steady")),"Model path and bounded provider/allocator/shape profile required");
+      std::string(argv[2])=="coreml-neural-gpu" || std::string(argv[2])=="coreml-neural-gpu-steady" ||
+      std::string(argv[2])=="cpu-intra4")),"Model path and bounded provider/allocator/shape/thread profile required");
     cw::JobOrder jobs;
     const auto ready=[](const auto&){return true;};
     jobs.push("oldest");jobs.push("second");jobs.push("selected");jobs.focus("selected");
@@ -138,6 +139,7 @@ int main(int argc,char** argv) {
       cw::EngineProfile profile;
       const std::string selected=argv[2];profile.steady_ten_second=selected.find("-steady")!=std::string::npos;
       if(selected=="system-allocator") profile.cpu_mem_arena=false;
+      else if(selected=="cpu-intra4") profile.intra_op_threads=4;
       else if(selected=="coreml" || selected=="coreml-steady") profile.provider=cw::ExecutionProvider::core_ml;
       else if(selected=="coreml-neural" || selected=="coreml-neural-steady") profile.provider=cw::ExecutionProvider::core_ml_neural_network;
       else if(selected=="coreml-neural-gpu" || selected=="coreml-neural-gpu-steady") profile.provider=cw::ExecutionProvider::core_ml_neural_network_gpu;

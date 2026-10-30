@@ -585,3 +585,33 @@ other task build/test runs during replay. The same 96-kHz samples, pacing and
 profiler bypasses Swift framing, so this cannot repair or qualify its capacity.
 The earlier deadline failure remains recorded; this is not a soak or installed
 application result.
+
+## Shared CPU thread-budget comparison
+
+The same original model and 15-second two-span/32-track workload are compared
+with one caller/four ORT intra-op threads and a fresh four-caller/one-thread
+control. Both deliver all input and visit all 32 tracks; neither qualifies.
+Decode age includes FIR delay under the definition above.
+
+| Callers × intra-op threads | Completed / submitted | Coalesced / dropped / invalidated | Max input lateness ms | P95 decode age ms | Peak RSS MiB | Workload CPU / wall seconds |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 × 4 | 101 / 288 | 187 / 0 / 0 | 42.4993 | 3698.35525 | 146.938 | 30.8012 / 17.8865 |
+| 4 × 1 | 149 / 288 | 139 / 0 / 0 | 77.1809 | 2761.092292 | 281.641 | 25.1447 / 16.9494 |
+
+Model Run mean/p95 are 113.106/225.827 ms and 284.975/567.069 ms respectively;
+the lower single-caller wall time does not imply higher aggregate throughput.
+Queue mean/p95 are 947.058/3072.808 ms and 637.120/1946.165 ms. Preparation is
+92.0322/62.5398 ms. Neither run has inference faults. No compiler/test overlaps
+either run; host one-minute loads are 10.91→14.79 and 8.81→13.70. Ordinary
+applications remain running. No thermal warning is recorded; sustained thermal
+and complete app responsiveness qualification remain open.
+
+The original model passes strict scalar/token/sample/score parity at four
+intra-op threads. The separate integer-attention candidate fails that check:
+in the window beginning at sample 23168, token 7 (`X`) starts at sample 23840
+instead of the scalar reference's 23792 (both end at 23888). Its four-thread
+profile is rejected before load testing; alignment tolerance is unchanged.
+The bounded test selector `cpu-intra4` remains for reproducibility. No decoder
+default, model, production capability or acceptance predicate changes.
+Private exact-source receipts are `thread-budget-original-{1x4,4x1}-01` under
+the completion evidence directory; native parity receipt is `e0d3dbd130e69ead`.
