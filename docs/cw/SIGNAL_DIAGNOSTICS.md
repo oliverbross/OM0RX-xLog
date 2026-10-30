@@ -562,3 +562,26 @@ preserves the two-second limit and cannot turn any earlier strict failure into
 a pass. New receipts identify `decode_age_reference` explicitly. The session
 fixture independently expects 188-ms decode age / 198-ms carrier age, then
 2088/2098 ms after elapsed time; fresh IQ and track metadata do not renew RF.
+
+## Binary IQ encoding
+
+The timed-RF 19-case wire suite has 18 passes and one real-rate input failure at
+sample 1048576 / sequence 128, 279.6405-ms lateness, child failure nil. A separate
+64-iteration alternating-order payload benchmark uses the exact original loop
+and native-LE copy on the same 16,384 finite Float32 values / 65,536 bytes. All
+bits match, SHA-256 `e689238e162613611914ffcfd6c8098065aaaa832acc1a2c962e88fdd45d62a4`.
+Original median/p95/max are 1.824916/2.456583/3.179708 ms; native copy is
+0.002292/0.007250/0.013625 ms. This is an unoptimized Swift-interpreter **payload
+microbenchmark**, not a complete-path or release-throughput measurement, and
+does not attribute the entire deadline failure to encoding.
+
+The production binary encoder now builds the final bounded frame directly,
+copies native-LE sample bytes once and retains an explicit opposite-endian path.
+It removes per-value Data appends and the second whole-payload frame copy. The
+following complete real-child/wire run passes **20/20**, including the enhanced
+two-call replay in 12.133 seconds with current and self-ID RF observations. No
+other task build/test runs during replay. The same 96-kHz samples, pacing and
+250-ms input guard remain. This is a component path check; the 32-track native
+profiler bypasses Swift framing, so this cannot repair or qualify its capacity.
+The earlier deadline failure remains recorded; this is not a soak or installed
+application result.

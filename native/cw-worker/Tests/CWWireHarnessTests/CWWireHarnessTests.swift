@@ -43,6 +43,20 @@ final class CWWireHarnessTests:XCTestCase {
         XCTAssertEqual(le(frame,36,8),0);XCTAssertEqual(le(frame,44,8),0);XCTAssertEqual(le(frame,52,4),0);XCTAssertEqual(le(frame,56,4),0)
         XCTAssertEqual(frame.subdata(in:60..<76),Data([1,35,69,103,137,171,205,239,1,35,69,103,137,171,205,239]))
     }
+    func testIQBulkEncodingPreservesEveryFloatBitAndMaximumDurationFrame() throws {
+        let patterns:[UInt32]=[0,0x80000000,1,0x007fffff,0x00800000,0x7f7fffff,0xff7fffff,0x3f000001,0xbf800001]
+        for count in [1,8192,12000] {
+            let samples=(0..<count*2).map{Float(bitPattern:patterns[$0%patterns.count])}
+            let start=UInt64.max-UInt64(count)
+            let block=try CWIQBlock(descriptor:descriptor(),sequence:UInt64.max,firstSample:start,receivedMonotonicNS:1,samples:samples)
+            let frame=try CWComputeWire.iq(block)
+            XCTAssertEqual(frame.count,60+count*8);XCTAssertEqual(le(frame,4,4),UInt64(52+count*8))
+            XCTAssertEqual(le(frame,36,8),UInt64.max);XCTAssertEqual(le(frame,44,8),start);XCTAssertEqual(le(frame,56,4),UInt64(count))
+            var expected=Data()
+            for index in 0..<count*2 {for byte in 0..<4 {expected.append(UInt8(truncatingIfNeeded:patterns[index%patterns.count]>>(byte*8)))}}
+            XCTAssertEqual(Data(frame.dropFirst(60)),expected,"Signed zero, subnormal, finite extrema and interleaved I/Q bits are unchanged")
+        }
+    }
     func testFocusFramesCarryCaptureTrackRevisionOrExactEmptyClear() throws {
         let track=UUID(uuidString:"01234567-89ab-cdef-0123-456789abcdef")!
         let frame=try CWComputeWire.focus(descriptor(),trackID:track,revision:UInt64.max)

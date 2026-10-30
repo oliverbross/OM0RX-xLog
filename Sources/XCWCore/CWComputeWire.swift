@@ -196,11 +196,19 @@ public enum CWComputeWire {
     }
     public static func iq(_ block:CWIQBlock) throws -> Data {
         guard let epoch=UInt64(block.descriptor.epoch),block.sampleCount<=block.descriptor.sampleRate/8 else { throw CWComputeError.invalidFrame }
-        var body=header(kind:5,token:block.descriptor.streamToken,epoch:epoch,sequence:block.sequence,first:block.firstSample,
-                        rate:UInt32(block.descriptor.sampleRate),count:UInt32(block.sampleCount))
-        body.reserveCapacity(52+block.samples.count*4)
-        for value in block.samples { append(value.bitPattern,to:&body) }
-        return frame(body)
+        // Build the final bounded frame once. Native LE Float32 bytes already
+        // have the wire representation; avoid thousands of tiny Data appends
+        // and a second whole-payload copy through frame(body).
+        var packet=Data("XCW1".utf8);packet.reserveCapacity(60+block.samples.count*4)
+        append(UInt32(52+block.samples.count*4),to:&packet)
+        packet.append(header(kind:5,token:block.descriptor.streamToken,epoch:epoch,sequence:block.sequence,first:block.firstSample,
+                             rate:UInt32(block.descriptor.sampleRate),count:UInt32(block.sampleCount)))
+        #if _endian(little)
+        block.samples.withUnsafeBytes{packet.append(contentsOf:$0)}
+        #else
+        for value in block.samples {append(value.bitPattern,to:&packet)}
+        #endif
+        return packet
     }
     public static func end(_ descriptor:CWStreamDescriptor,gap:Bool=false) throws -> Data {
         guard let epoch=UInt64(descriptor.epoch) else { throw CWComputeError.invalidFrame }

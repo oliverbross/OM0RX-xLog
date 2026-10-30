@@ -14,8 +14,10 @@ installed or production capability enabled by this checkpoint; the accepted
 31 October timed-RF follow-up: diagnostic offsets no longer authorize RF actions;
 actual carrier samples, receive-relative ages and immutable track capture clocks
 are enforced. Focused session/policy 35/35, native CTest 2/2 and view/projection
-25/25 pass. Latest real-child suite is **18/19**, with replay input 279.6405 ms
-late against the unchanged 250-ms limit. No installed or full-scope CW acceptance
+25/25 pass. The first timed-RF real-child suite is **18/19**, with replay input
+279.6405 ms late against the unchanged 250-ms limit. After byte-identical binary
+IQ framing improvements, the latest complete suite passes **20/20**, including
+the real-rate replay. No installed or full-scope CW acceptance
 is inferred from these checks. Bounded startup batching remains a failed private
 experiment; its strict load failures are retained in CW diagnostics.
 

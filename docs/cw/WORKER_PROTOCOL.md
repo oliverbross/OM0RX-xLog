@@ -73,6 +73,12 @@ independent of IQ ingress. A supervisor must drain stdout/stderr independently,
 bound its own queues and kill/reap a stalled child on its shutdown deadline.
 This process boundary is not an OS sandbox.
 
+IQ encoding builds the final bounded frame directly. Little-endian hosts copy
+the interleaved Float32 payload once; other hosts retain explicit per-value LE
+conversion. Header lengths, sample/sequence counters, float bits, I/Q order and
+the 125-ms frame budget are unchanged. Bit-pattern fixtures cover signed zero,
+subnormals, finite extrema, near-UInt64-limit positions and the maximum frame.
+
 Queue accounting allows 192 bytes per derived token, including the RF pair;
 the 128-KiB line and 1-MiB derived-event limits are unchanged. Each track retains
 at most five candidate measurements and 256 historical observations, at most

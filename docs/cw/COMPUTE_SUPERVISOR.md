@@ -1,5 +1,11 @@
 # Swift compute supervisor
 
+Current timed-RF/binary-encoding follow-up: **20/20** real-child/wire cases pass,
+including real-rate IQ replay and timed carrier metadata. The preceding 19-case
+run has one 279.6405-ms input deadline miss and remains in the diagnostic record.
+The 250-ms guard is unchanged; packet bits and maximum duration are verified.
+This is source/child evidence, not 32-track, live-radio or installed acceptance.
+
 `XCWCore.CWComputeProcess` owns one native child on behalf of the existing Swift
 application worker. No Tauri or renderer process creates a competing compute
 child. The shared receive UI uses this owner through the gated engineering path;
