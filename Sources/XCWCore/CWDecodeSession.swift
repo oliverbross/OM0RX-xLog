@@ -340,16 +340,18 @@ public actor CWDecodeSession {
                     try await self?.accept(block,source:source,lease:lease,id:id)
                 }
                 if !Task.isCancelled {await self?.sourceFailed(source,lease:lease,id:id)}
-            } catch {if !Task.isCancelled {await self?.sourceFailed(source,lease:lease,id:id)}}
+            } catch {if !Task.isCancelled {await self?.sourceFailed(source,lease:lease,id:id,reason:CWIQSourceFailure.classify(error))}}
         }
     }
-    private func sourceFailed(_ source: CWSourceConfiguration,lease: UUID,id: UUID) async {
+    private func sourceFailed(_ source: CWSourceConfiguration,lease: UUID,id: UUID,reason:CWIQSourceFailure = .stopped) async {
         guard intent==id,sources[source.id]?.lease==lease else {return}
         await invalidate(source.id)
-        sources[source.id]?.lease=nil;sources[source.id]?.view.state = .recovering
-        sources[source.id]?.view.failure="iq_unavailable"
+        guard intent==id,sources[source.id]?.lease==lease else{await provider.release(source,leaseID:lease);return}
+        sources[source.id]?.lease=nil;sources[source.id]?.view.state = reason.requiresOperatorAction ? .blocked:.recovering
+        sources[source.id]?.view.failure=reason.rawValue
         await provider.release(source,leaseID:lease)
         guard intent==id,sources[source.id]?.lease==nil else {return}
+        guard !reason.requiresOperatorAction else{return}
         let attempts=sources[source.id]?.view.retryCount ?? 3
         guard attempts<3 else {sources[source.id]?.view.state = .blocked;return}
         sources[source.id]?.view.retryCount=attempts+1
@@ -392,7 +394,9 @@ public actor CWDecodeSession {
             let current=await provider.current(source,sessionID:id,leaseID:lease)
             guard intent==id,sources[source.id]?.lease==lease else {continue}
             if current != descriptor {
-                await invalidate(source.id);sources[source.id]?.view.state = .quarantined
+                await invalidate(source.id)
+                guard intent==id,sources[source.id]?.lease==lease else{continue}
+                sources[source.id]?.view.state = .quarantined
             } else if clock()>=sources[source.id]!.lastReceipt,clock()-sources[source.id]!.lastReceipt>250_000_000 {
                 // Keep the provider lease until its own timeout, but never show
                 // stale copy while waiting for it to fail or resume with an epoch.
@@ -444,7 +448,7 @@ public actor CWDecodeSession {
               sources[descriptor.sourceID]?.view.descriptor==descriptor,current==descriptor,
               clock()>=source.lastReceipt,clock()-source.lastReceipt<=250_000_000 else {return}
         if value.kind=="fault",value.trackID.isEmpty {
-            await sourceFailed(source.view.configuration,lease:lease,id:id);return
+            await sourceFailed(source.view.configuration,lease:lease,id:id,reason:value.state=="discontinuity" ? .continuityLost:.invalidSamples);return
         }
         guard !value.trackID.isEmpty else {return}
         let key=value.trackID

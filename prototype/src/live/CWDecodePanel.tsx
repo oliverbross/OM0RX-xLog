@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ExternalLink, Play, RefreshCw, Settings2, Square, X } from "lucide-react";
-import { cwSourceName, requestCWDecode, type CWCapability, type CWDecodeConfiguration, type CWDecodeSnapshot, type CWIQSource } from "./cwDecode";
+import { cwSourceName, cwSourceFailureMessages, requestCWDecode, type CWCapability, type CWDecodeConfiguration, type CWDecodeSnapshot, type CWIQSource } from "./cwDecode";
 import { useCWDecode } from "./useCWDecode";
 import { CWCallsignAction, type CWCallsignRequest } from "./CWCallsignAction";
 import { CWTuneAction, type CWTuneRequest } from "./CWTuneAction";
@@ -63,7 +63,8 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
           {!capability?.ready && snapshot.featureEnabled !== false && <small>Connect this radio in Radio Settings to receive IQ.</small>}
           {source.provider === "flex_dax_iq" && <FlexHandoff source={source} capability={capability} revision={snapshot.configuration.revision}
             disabled={snapshot.featureEnabled === false || busy || active} command={command} />}
-          {live?.failure && <small>{live.retryCount >= 3 ? "Retry limit reached. Stop, check the source, then start again." : `Source interrupted · retry ${live.retryCount} of 3`}</small>}
+          {live?.failure && <small>{cwSourceFailureMessages[live.failure]} {live.state === "blocked" || live.retryCount >= 3
+            ? "Stop, correct the source, then start again deliberately." : `Retry ${live.retryCount} of 3.`}</small>}
         </div>;
       }) : <div><strong>No monitoring spans selected</strong><span>Choose one or two IQ sources to begin.</span><button type="button" onClick={edit}>Choose sources</button></div>}</div>
       {editor && <CWDecodeSettings value={editor} snapshot={snapshot} busy={busy} change={setEditor} save={save} close={() => setEditor(null)} />}

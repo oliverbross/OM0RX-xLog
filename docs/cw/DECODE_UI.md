@@ -148,3 +148,10 @@ transport latency, committed-character delay or spot delay. Model time remains
 separate. Expired or missing carrier evidence shows **RF unavailable**, withdraws
 RF actions and retains only the diagnostic offset. Fresh qualified RF and two
 distinct self-IDs are still required for callsign loading.
+
+Source cards retain the actual failure category: unsupported TCI contract,
+missing manufacturer discovery, unverified receive state, resource ownership,
+expired handoff, rate conflict, invalid IQ, missing data, stall, overflow or
+continuity loss. Fix a blocked resource, then explicitly Stop/Start. A transient
+failure shows its bounded retry count. An error on one source leaves the other
+source running. The view does not retry acquisition by itself.

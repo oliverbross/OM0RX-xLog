@@ -29,6 +29,24 @@ export type CWDecodeSnapshot = { sessionID?: string; state: string; failure?: st
     acceptedConnections: number; refusedConnections: number; slowDisconnects: number; protocolDisconnects: number } };
 export const cwDecodeMethods = ["cw_decode_snapshot", "cw_decode_configuration_save", "cw_decode_start", "cw_decode_stop", "cw_decode_listener_start", "cw_decode_listener_stop", "cw_decode_flex_handoff", "cw_decode_track_mute", "cw_decode_track_focus"] as const;
 export type CWDecodeMethod = typeof cwDecodeMethods[number];
+export const cwSourceFailureMessages: Record<string,string> = {
+  iq_unavailable: "The IQ provider is not ready. Check its direct connection and selected receiver in Radio Settings.",
+  iq_unsupported_protocol: "The negotiated TCI version is unsupported. Use a supported ExpertSDR3/TCI contract.",
+  iq_resource_occupied: "The selected IQ resource is occupied. Release its other consumer or choose an available resource.",
+  iq_ownership_unknown: "Ownership of the selected IQ resource is unknown. Verify the Station and released resource.",
+  iq_resource_missing: "The selected panadapter, DAX IQ channel or receiver is unavailable. Reload resources and select it explicitly.",
+  iq_handoff_required: "The Flex IQ handoff is missing, expired or changed. Release the selected resource and grant a fresh handoff.",
+  iq_rate_conflict: "The actual or shared IQ rate conflicts with the requested rate. Check the selected resource and rate.",
+  iq_discovery_unavailable: "Verified Flex manufacturer discovery did not arrive on UDP 4992. Check the LAN/VPN discovery path to this Mac.",
+  iq_receive_unverified: "Receive state is not verified. Wait for fresh, known receive state before acquiring IQ.",
+  iq_capture_changed: "The provider connection, receiver or RF capture changed. Previous copy was invalidated.",
+  iq_invalid_samples: "The IQ samples, binary format or RF coverage are invalid or unsupported. Check the provider diagnostics.",
+  iq_overflow: "The bounded IQ queue overflowed. Previous continuity was invalidated. Check decoder load.",
+  iq_no_data: "No fresh IQ samples arrived. A successful stream request alone does not establish reception.",
+  iq_stalled: "IQ delivery stalled. Check the provider and native UDP/TCP transport.",
+  iq_continuity_lost: "IQ samples were missing, duplicated, out of order or late. Previous continuity was invalidated.",
+  iq_stopped: "The provider ended this IQ subscription.",
+};
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const counter = /^(0|[1-9][0-9]{0,19})$/;
 const panID = /^[0-9a-f]{8}$/;
@@ -94,6 +112,7 @@ export function parseCWDecodeSnapshot(value: unknown): CWDecodeSnapshot {
     typeof config.automaticSpots !== "boolean" || !integer(config.listenerPort, 1024, 65535)) throw new Error("CW Decode settings could not be verified.");
   if (!Array.isArray(value.sources) || value.sources.length > 2 || !value.sources.every(row => object(row) && source(row.configuration) &&
     ["stopped", "preparing", "acquiring", "running", "quarantined", "muted", "recovering", "blocked"].includes(row.state) && integer(row.retryCount, 0, 3) &&
+    (row.failure === undefined || typeof row.failure === "string" && Object.hasOwn(cwSourceFailureMessages,row.failure)) &&
     (row.descriptor === undefined || descriptor(row.descriptor)))) throw new Error("CW Decode source state could not be verified.");
   if (!Array.isArray(value.tracks) || value.tracks.length > 32 || !value.tracks.every(track => object(track) && descriptor(track.descriptor) &&
     track.sourceID === track.descriptor.sourceID && typeof track.trackID === "string" && uuid.test(track.trackID) &&

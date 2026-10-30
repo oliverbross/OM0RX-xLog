@@ -4,6 +4,7 @@ import Foundation
 public enum FlexIQSubscriptionError: Error, Equatable, Sendable {
     case unavailable, stationChanged, unknownOwnership, missingPanadapter, missingChannel, ambiguousChannel
     case busy, handoffRequired, rateConflict, invalidPacket, overflow, noData, stalled, stopped
+    case discoveryUnavailable, receiveUnverified
 }
 public struct FlexIQPanadapter: Encodable, Equatable, Sendable {
     public let id:String

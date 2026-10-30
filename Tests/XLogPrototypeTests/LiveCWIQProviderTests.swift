@@ -53,7 +53,7 @@ final class LiveCWIQProviderTests:XCTestCase {
         var iterator=stream.makeAsyncIterator()
         pair.continuation.yield(TCIIQBlock(capture:capture(),sequence:0,firstSample:0,receivedMonotonicNS:0,frame:try frame(samples:4)))
         do {_ = try await iterator.next();XCTFail("Mismatched capture must fail")}
-        catch {XCTAssertEqual(error as? CWContractError,.staleEpoch)}
+        catch {XCTAssertEqual(error as? CWIQSourceFailure,.captureChanged)}
         for _ in 0..<100 {if await stops.value()>0{break};try await Task.sleep(nanoseconds:1_000_000)}
         let count=await stops.value();XCTAssertEqual(count,1)
         pair.continuation.finish()
@@ -75,6 +75,31 @@ final class LiveCWIQProviderTests:XCTestCase {
         pair.continuation.yield(FlexIQBlock(capture:capture,sequence:11,firstSample:704,receivedMonotonicNS:2345,packet:packet))
         let second=try await iterator.next();XCTAssertEqual(second?.firstSample,64);XCTAssertEqual(second?.sequence,1)
         pair.continuation.finish()
+    }
+    func testUnsupportedTCIContractRetainsTypedFailureAndScopedRelease() async throws {
+        let pair=AsyncThrowingStream<TCIIQBlock,Error>.makeStream(bufferingPolicy:.bufferingOldest(2)),stops=CWProviderStopCounter()
+        let stream=LiveCWIQProvider.adapt(TCIIQSubscription(leaseID:UUID(),receiver:1,blocks:pair.stream),
+            source:try source(),sessionID:UUID(),stop:{await stops.increment()})
+        var iterator=stream.makeAsyncIterator()
+        pair.continuation.finish(throwing:TCIIQSubscriptionError.unsupportedVersion)
+        do{_ = try await iterator.next();XCTFail("Unsupported contract must fail visibly")}
+        catch{XCTAssertEqual(error as? CWIQSourceFailure,.unsupportedProtocol)}
+        for _ in 0..<100 {if await stops.value()>0{break};try await Task.sleep(nanoseconds:1_000_000)}
+        let count=await stops.value();XCTAssertEqual(count,1)
+    }
+    func testKnownProviderReasonsRemainSpecificAndUnknownErrorsDoNotLeakText() {
+        for (error,expected):(Error,CWIQSourceFailure) in [
+            (FlexIQSubscriptionError.discoveryUnavailable,.discoveryUnavailable),
+            (FlexIQSubscriptionError.receiveUnverified,.receiveUnverified),
+            (FlexIQSubscriptionError.handoffRequired,.handoffRequired),
+            (FlexIQSubscriptionError.unknownOwnership,.ownershipUnknown),
+            (FlexIQSubscriptionError.missingChannel,.resourceMissing),
+            (TCIIQSubscriptionError.occupied,.occupied),(TCIIQSubscriptionError.rateConflict,.rateConflict)] {
+            XCTAssertEqual(LiveCWIQProvider.failure(error),expected)
+        }
+        let unknown=WorkerFailure("private_code","private endpoint/credential must stay out of snapshots")
+        XCTAssertEqual(LiveCWIQProvider.failure(unknown),.unavailable)
+        XCTAssertFalse(LiveCWIQProvider.failure(unknown).operatorMessage.contains("credential"))
     }
 }
 private actor CWProviderStopCounter {

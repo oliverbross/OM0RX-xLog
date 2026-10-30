@@ -137,9 +137,11 @@ extension FlexRadioClient {
             pan:pan,station:context.stationHandle,expiresNS:now+30_000_000_000)
     }
     public func startIQ(panadapterID:String,sampleRate:Int,leaseID:UUID) async throws -> FlexIQSubscription {
-        guard [48000,96000,192000].contains(sampleRate),let context=iqControlContext(),context.knownReceive,
-              let id=FlexIQResourceInventory.handle(panadapterID),iqState.identity != nil,
+        guard [48000,96000,192000].contains(sampleRate),let context=iqControlContext(),
+              let id=FlexIQResourceInventory.handle(panadapterID),
               !iqState.flows.values.contains(where:{$0.leases[leaseID] != nil}) else{throw FlexIQSubscriptionError.unavailable}
+        guard context.knownReceive else{throw FlexIQSubscriptionError.receiveUnverified}
+        guard iqState.identity != nil else{throw FlexIQSubscriptionError.handoffRequired}
         let pan=try iqState.inventory.permittedPanadapter(id,stationHandle:context.stationHandle,ownedStreams:iqOwnedStreams())
         let pair=AsyncThrowingStream<FlexIQBlock,Error>.makeStream(bufferingPolicy:.bufferingOldest(2))
         pair.continuation.onTermination={[weak self] _ in Task{await self?.stopIQ(leaseID:leaseID)}}
@@ -304,11 +306,11 @@ extension FlexRadioClient {
                     for try await packet in packets {
                         if let identity=try? FlexIQIdentity.parse(packet.data),identity.address=="\(context.peer)",identity.controlPort==context.port{return identity}
                     }
-                    throw FlexIQSubscriptionError.noData
+                    throw FlexIQSubscriptionError.discoveryUnavailable
                 }
-                group.addTask {try await Task.sleep(for:.seconds(5));throw FlexIQSubscriptionError.noData}
+                group.addTask {try await Task.sleep(for:.seconds(5));throw FlexIQSubscriptionError.discoveryUnavailable}
                 defer{group.cancelAll()}
-                guard let first=try await group.next() else{throw FlexIQSubscriptionError.noData};return first
+                guard let first=try await group.next() else{throw FlexIQSubscriptionError.discoveryUnavailable};return first
             }
             await receiver.stop();return identity
         } catch {await receiver.stop();throw error}

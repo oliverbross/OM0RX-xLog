@@ -1,8 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { parseCWDecodeSnapshot } from "./cwDecode";
+import { readFileSync } from "node:fs";
+import { cwSourceFailureMessages, parseCWDecodeSnapshot } from "./cwDecode";
 import { cwDecodeFixture, cwDecodeTrackFixture } from "./cwDecode.fixtures";
 
 describe("native CW Decode projection", () => {
+  it("keeps native source failure codes and the operator projection in agreement", () => {
+    const source=readFileSync(new URL("../../../Sources/XCWCore/CWIQSourceFailure.swift",import.meta.url),"utf8");
+    const codes=[...source.matchAll(/"(iq_[a-z_]+)"/g)].map(match=>match[1]).sort();
+    expect(Object.keys(cwSourceFailureMessages).sort()).toEqual(codes);
+  });
+  it("accepts only bounded source reasons and preserves unknown diagnostics as unavailable", () => {
+    const fixture=cwDecodeFixture();fixture.sources=[{configuration:fixture.configuration.sources[0],state:"blocked",retryCount:0}];
+    expect(parseCWDecodeSnapshot(fixture).sources[0].failure).toBeUndefined();
+    for(const failure of Object.keys(cwSourceFailureMessages)) {
+      fixture.sources[0].failure=failure;expect(parseCWDecodeSnapshot(fixture).sources[0].failure).toBe(failure);
+    }
+    for(const failure of ["private endpoint text","toString","__proto__",true]) {
+      (fixture.sources[0] as any).failure=failure;expect(()=>parseCWDecodeSnapshot(fixture)).toThrow();
+    }
+  });
   it("preserves unknown ages and rejects invalid or contradictory measured ages", () => {
     const fixture=cwDecodeTrackFixture(),track=fixture.tracks[0];
     expect(parseCWDecodeSnapshot(fixture).tracks[0].decodeAgeMilliseconds).toBeUndefined();

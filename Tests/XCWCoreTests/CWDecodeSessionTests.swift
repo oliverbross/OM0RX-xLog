@@ -93,6 +93,43 @@ final class CWDecodeSessionTests: XCTestCase {
             await session.stop()
         }
     }
+    func testOperatorRequiredSourceFailureKeepsReasonAndDoesNotRetryOrStopHealthySpan() async throws {
+        let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),a=try source(),b=try source("1"),sleeps=CWSessionTestSleeps()
+        await provider.failSource(a.id,reason:.unsupportedProtocol)
+        let session=CWDecodeSession(provider:provider,compute:compute,sleep:{await sleeps.record($0)})
+        try await session.start(configuration:CWDecodeConfiguration(sources:[a,b]),resources:resources)
+        try await wait{await session.snapshot().sources.first{$0.configuration.id==a.id}?.state == .blocked}
+        let snapshot=await session.snapshot(),failed=try XCTUnwrap(snapshot.sources.first{$0.configuration.id==a.id})
+        XCTAssertEqual(failed.failure,"iq_unsupported_protocol");XCTAssertEqual(failed.retryCount,0)
+        let attempts=await provider.attempts(a.id),healthy=await provider.attempts(b.id),delays=await sleeps.values()
+        XCTAssertEqual(attempts,1);XCTAssertEqual(healthy,1);XCTAssertTrue(delays.isEmpty)
+        _ = try await provider.emit(b.id)
+        try await wait{await compute.counts().sends==1}
+        let count=await compute.counts();XCTAssertEqual(count.stops,0)
+        await session.stop()
+    }
+    func testOldSourceFailureCannotClearNewStartWhileScopedEndIsAwaited() async throws {
+        let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),source=try source()
+        let session=CWDecodeSession(provider:provider,compute:compute)
+        try await session.start(configuration:CWDecodeConfiguration(sources:[source]),resources:resources)
+        try await wait{await provider.leaseCount()==1}
+        _ = try await provider.emit(source.id)
+        try await wait{await compute.counts().sends==1}
+        await compute.holdEnds();await provider.endSource(source.id,reason:.stalled)
+        try await wait{await compute.endWaiterCount()==1}
+        await session.stop()
+        try await session.start(configuration:CWDecodeConfiguration(sources:[source]),resources:resources)
+        try await wait{await provider.leaseCount()==1}
+        _ = try await provider.emit(source.id)
+        try await wait{await compute.counts().sends==2}
+        await compute.resumeEnds()
+        try await wait{await provider.releaseCount()>=2}
+        _ = try await provider.emit(source.id)
+        try await wait{await compute.counts().sends==3}
+        let snapshot=await session.snapshot()
+        XCTAssertEqual(snapshot.sources.first?.state,.running);XCTAssertNil(snapshot.sources.first?.failure)
+        await session.stop()
+    }
     func testChildRetriesStopAfterThreeBackoffs() async throws {
         let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),sleeps=CWSessionTestSleeps()
         await compute.failStarts()
@@ -508,6 +545,10 @@ private final class CWSessionTestClock:@unchecked Sendable {
 }
 private actor CWSessionTestCompute:CWComputeControlling {
     private var focused:UUID?
+    private var holdingEnds=false,endWaiters:[CheckedContinuation<Void,Never>]=[]
+    func holdEnds(){holdingEnds=true}
+    func endWaiterCount()->Int{endWaiters.count}
+    func resumeEnds(){holdingEnds=false;let pending=endWaiters;endWaiters=[];for waiter in pending{waiter.resume()}}
     func focus(_ descriptor:CWStreamDescriptor?,trackID:UUID?,revision:UInt64){focused=trackID}
     func focusedTrack()->UUID?{focused}
     private var requestedMetrics:UInt64?
@@ -530,7 +571,9 @@ private actor CWSessionTestCompute:CWComputeControlling {
     func fail(_ error:CWComputeError){events?.finish(throwing:error)}
     func open(_ descriptor:CWStreamDescriptor){count.opens+=1}
     func send(_ block:CWIQBlock){count.sends+=1}
-    func end(_ descriptor:CWStreamDescriptor,gap:Bool){count.ends+=1}
+    func end(_ descriptor:CWStreamDescriptor,gap:Bool) async {
+        count.ends+=1;if holdingEnds{await withCheckedContinuation{endWaiters.append($0)}}
+    }
     func stop(){count.stops+=1;events?.finish();events=nil}
 }
 private actor CWSessionTestProvider:CWIQSourceProviding {
@@ -541,6 +584,7 @@ private actor CWSessionTestProvider:CWIQSourceProviding {
     }
     private var leases:[UUID:Lease]=[:],failed:Set<UUID>=[],counts:[UUID:Int]=[:]
     private var releases=0,hold=false,waiter:CheckedContinuation<Void,Never>?
+    private var reasons:[UUID:CWIQSourceFailure]=[:]
     private var holdCurrent=false,currentWaiters:[CheckedContinuation<Void,Never>]=[]
     func setCurrentHold(){holdCurrent=true}
     func currentWaiterCount()->Int{currentWaiters.count}
@@ -548,11 +592,14 @@ private actor CWSessionTestProvider:CWIQSourceProviding {
     func setHold(_ value:Bool){hold=value}
     func resumeAcquire(){hold=false;waiter?.resume();waiter=nil}
     func failSource(_ id:UUID){failed.insert(id)}
+    func failSource(_ id:UUID,reason:CWIQSourceFailure){reasons[id]=reason}
+    func endSource(_ id:UUID,reason:CWIQSourceFailure){leases[id]?.continuation.finish(throwing:reason)}
     func attempts(_ id:UUID)->Int{counts[id,default:0]}
     func leaseCount()->Int{leases.count}
     func releaseCount()->Int{releases}
     func acquire(_ source:CWSourceConfiguration,sessionID:UUID,leaseID:UUID) async throws -> AsyncThrowingStream<CWIQBlock,Error> {
         counts[source.id,default:0]+=1
+        if let reason=reasons[source.id]{throw reason}
         if failed.contains(source.id){throw CWComputeError.stopped}
         let pair=AsyncThrowingStream<CWIQBlock,Error>.makeStream(bufferingPolicy:.bufferingOldest(4))
         leases[source.id]=Lease(id:leaseID,source:source,session:sessionID,continuation:pair.continuation)

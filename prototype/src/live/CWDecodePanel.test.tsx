@@ -14,6 +14,18 @@ function service(initial = cwDecodeFixture()) {
   return { request, set: (next: CWDecodeSnapshot) => { current = next; } };
 }
 describe("CW Decode shared native view", () => {
+  it.each([
+    ["iq_unsupported_protocol", /negotiated TCI version is unsupported/],
+    ["iq_handoff_required", /Flex IQ handoff is missing/],
+    ["iq_resource_occupied", /selected IQ resource is occupied/],
+  ])("explains %s without retrying capture from a view", async (failure,message) => {
+    const fixture=cwDecodeFixture();fixture.state="running";
+    fixture.sources=[{configuration:fixture.configuration.sources[0],state:"blocked",retryCount:0,failure}];
+    const owner=service(fixture);render(<CWDecodePanel request={owner.request} />);
+    await screen.findByText(message);
+    expect(screen.getByText(/Stop, correct the source, then start again deliberately/)).toBeTruthy();
+    expect(owner.request.mock.calls.every(([method])=>method==="cw_decode_snapshot")).toBe(true);
+  });
   it.each([false,true])("shows measured sample ages separately from model time; measured=%s", async measured => {
     const fixture=cwDecodeTrackFixture(),track=fixture.tracks[0];
     track.descriptor.mappingQualified=true;track.inferenceMilliseconds=17;

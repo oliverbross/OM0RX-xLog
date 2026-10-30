@@ -8,18 +8,54 @@ import XCatIntegrationCore
 /// This adapter has no TCP connection, radio command or transmit owner.
 struct LiveCWIQProvider: CWIQSourceProviding {
     func acquire(_ source: CWSourceConfiguration, sessionID: UUID, leaseID: UUID) async throws -> AsyncThrowingStream<CWIQBlock,Error> {
-        if source.provider == .flexDAXIQ {
-            let subscription=try await LiveStationMethods.cwStartFlex(radioID:source.radioID,panadapterID:source.receiverID,sampleRate:source.sampleRate,leaseID:leaseID)
-            return Self.adapt(subscription,source:source,sessionID:sessionID){await LiveStationMethods.cwStopFlex(radioID:source.radioID,leaseID:leaseID)}
+        do {
+            if source.provider == .flexDAXIQ {
+                let subscription=try await LiveStationMethods.cwStartFlex(radioID:source.radioID,panadapterID:source.receiverID,sampleRate:source.sampleRate,leaseID:leaseID)
+                return Self.adapt(subscription,source:source,sessionID:sessionID){await LiveStationMethods.cwStopFlex(radioID:source.radioID,leaseID:leaseID)}
+            }
+            guard source.provider == .tciIQ,let receiver=Int(source.receiverID) else {throw CWIQSourceFailure.unavailable}
+            let subscription=try await LiveStationMethods.cwStartTCI(radioID:source.radioID,
+                receiver:receiver,sampleRate:source.sampleRate,leaseID:leaseID)
+            return Self.adapt(subscription,source:source,sessionID:sessionID) {
+                await LiveStationMethods.cwStopTCI(radioID:source.radioID,leaseID:leaseID)
+            }
+        } catch {throw Self.failure(error)}
+    }
+    static func failure(_ error:Error)->CWIQSourceFailure {
+        if let flex=error as? FlexIQSubscriptionError {
+            switch flex {
+            case .unavailable:return .unavailable
+            case .stationChanged:return .captureChanged
+            case .unknownOwnership:return .ownershipUnknown
+            case .missingPanadapter,.missingChannel,.ambiguousChannel:return .resourceMissing
+            case .busy:return .occupied
+            case .handoffRequired:return .handoffRequired
+            case .rateConflict:return .rateConflict
+            case .invalidPacket:return .invalidSamples
+            case .overflow:return .overflow
+            case .noData:return .noData
+            case .stalled:return .stalled
+            case .stopped:return .stopped
+            case .discoveryUnavailable:return .discoveryUnavailable
+            case .receiveUnverified:return .receiveUnverified
+            }
         }
-        guard source.provider == .tciIQ,let receiver=Int(source.receiverID) else {
-            throw WorkerFailure("cw_source_unavailable","The selected IQ source is not available.")
+        if let tci=error as? TCIIQSubscriptionError {
+            switch tci {
+            case .unavailable:return .unavailable
+            case .unsupportedVersion:return .unsupportedProtocol
+            case .occupied:return .occupied
+            case .rateConflict:return .rateConflict
+            case .connectionChanged:return .captureChanged
+            case .invalidFrame:return .invalidSamples
+            case .overflow:return .overflow
+            case .noData:return .noData
+            case .stalled:return .stalled
+            case .stopped:return .stopped
+            }
         }
-        let subscription=try await LiveStationMethods.cwStartTCI(radioID:source.radioID,
-            receiver:receiver,sampleRate:source.sampleRate,leaseID:leaseID)
-        return Self.adapt(subscription,source:source,sessionID:sessionID) {
-            await LiveStationMethods.cwStopTCI(radioID:source.radioID,leaseID:leaseID)
-        }
+        if error is FlexIQError || error is TCIIQError{return .invalidSamples}
+        return CWIQSourceFailure.classify(error)
     }
     func current(_ source: CWSourceConfiguration,sessionID: UUID,leaseID: UUID) async -> CWStreamDescriptor? {
         if source.provider == .flexDAXIQ,let capture=await LiveStationMethods.cwFlexCapture(radioID:source.radioID,leaseID:leaseID) {
@@ -70,7 +106,7 @@ struct LiveCWIQProvider: CWIQSourceProviding {
                     }
                 }
                 pair.continuation.finish()
-            } catch {pair.continuation.finish(throwing:error)}
+            } catch {pair.continuation.finish(throwing:Self.failure(error))}
         }
         pair.continuation.onTermination={_ in reader.cancel();Task{await stop()}}
         return pair.stream
@@ -114,7 +150,7 @@ struct LiveCWIQProvider: CWIQSourceProviding {
                     }
                 }
                 pair.continuation.finish()
-            } catch {pair.continuation.finish(throwing:error)}
+            } catch {pair.continuation.finish(throwing:Self.failure(error))}
         }
         pair.continuation.onTermination = {_ in reader.cancel();Task{await stop()}}
         return pair.stream

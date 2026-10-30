@@ -114,7 +114,7 @@ actor LiveCWDecodeMethods {
             guard revision==configuration.revision else{throw changed()}
             guard configuration.sources.contains(where:{$0.radioID==radioID && $0.provider == .flexDAXIQ && $0.receiverID==pan}) else{throw invalid()}
             do {try await LiveStationMethods.cwFlexHandoff(radioID:radioID,panadapterID:pan,inventoryRevision:inventory)}
-            catch {throw WorkerFailure("cw_flex_handoff_unavailable","FLEX handoff could not be verified. Check the Station, panadapter, DAX ownership and local discovery, then reload resources.")}
+            catch {let reason=LiveCWIQProvider.failure(error);throw WorkerFailure(reason.rawValue,reason.operatorMessage)}
             guard !terminated,handoffIntent==intent else {
                 await LiveStationMethods.cwFlexRevokeHandoffs();throw WorkerFailure("cw_cancelled","FLEX handoff was cancelled.")
             }
