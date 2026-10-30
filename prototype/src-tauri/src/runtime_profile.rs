@@ -137,7 +137,7 @@ mod tests {
             assert!(offline_coordinate(&[format!("{OFFLINE_ARGUMENT}{}", alias.display())]).is_err());
             std::fs::remove_file(alias).unwrap();
         }
-        for method in ["station_connect", "cluster_connect", "sync_run", "lookup_call", "cw_decode_start", "winkeyer_send", "contest_scp_download"] {
+        for method in ["station_connect", "cluster_connect", "sync_run", "lookup_call", "cw_decode_start", "cw_decode_source_start", "cw_decode_source_stop", "winkeyer_send", "contest_scp_download"] {
             assert!(!profile_allows_worker_method(method, false, true), "{method}");
         }
         for method in ["contest_qso_commit", "contest_operation_receipt", "contest_notes", "contest_analytics", "settings_load"] {

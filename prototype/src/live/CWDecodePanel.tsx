@@ -33,10 +33,15 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
   };
   const configured = snapshot?.configuration.sources ?? [], active = snapshot?.state !== "stopped";
   const serverActive = snapshot && ["starting", "listening"].includes(snapshot.listener.state);
+  const receivePhase = snapshot?.state === "running" && !snapshot.sources.some(source => source.state === "running")
+    ? snapshot.sources.some(source => source.state === "blocked") ? "blocked"
+      : snapshot.sources.some(source => source.state !== "stopped") ? "quarantined" : "idle"
+    : snapshot?.state ?? "unavailable";
+  const receiveState = receivePhase === "idle" ? "Ready · spans stopped" : receivePhase === "unavailable" ? "Unavailable" : stateName(receivePhase);
   return <section className={`cw-decode${detached ? " cw-decode-detached" : ""}`} aria-label="CW Decode">
     <header className="cw-decode-header"><div><h2>CW Decode</h2><p>Local IQ decoding · up to two monitoring spans</p></div>
       <div className="cw-decode-actions">
-        <span className={`cw-decode-state state-${snapshot?.state ?? "stopped"}`}>{snapshot ? stateName(snapshot.state) : "Unavailable"}</span>
+        <span className={`cw-decode-state state-${receivePhase === "idle" ? "stopped" : receivePhase}`}>{receiveState}</span>
         <button type="button" className="cw-decode-start" disabled={!snapshot || snapshot.featureEnabled === false || busy || active || !configured.length || !snapshot.resourcesAvailable}
           onClick={() => snapshot && void command("cw_decode_start", { expected_revision: snapshot.configuration.revision })}><Play size={14} />Start decoding</button>
         <button type="button" disabled={!snapshot || !active && !busy} onClick={() => void command("cw_decode_stop")}><Square size={14} />Stop</button>
@@ -62,9 +67,21 @@ export function CWDecodePanel({ detached = false, onUndock, request = requestCWD
             : "Usable coverage unavailable"}</small>}
           {!capability?.ready && snapshot.featureEnabled !== false && <small>Connect this radio in Radio Settings to receive IQ.</small>}
           {source.provider === "flex_dax_iq" && <FlexHandoff source={source} capability={capability} revision={snapshot.configuration.revision}
-            disabled={snapshot.featureEnabled === false || busy || active} command={command} />}
-          {live?.failure && <small>{cwSourceFailureMessages[live.failure]} {live.state === "blocked" || live.retryCount >= 3
-            ? "Stop, correct the source, then start again deliberately." : `Retry ${live.retryCount} of 3.`}</small>}
+            disabled={snapshot.featureEnabled === false || busy || !["stopped","running"].includes(snapshot.state) ||
+              !["stopped","blocked"].includes(live?.state ?? "stopped")} command={command} />}
+          {snapshot.sessionID && snapshot.state !== "stopped" && <div className="cw-decode-actions">
+            <button type="button" disabled={busy || snapshot.featureEnabled !== true || !snapshot.resourcesAvailable || snapshot.state !== "running" ||
+              !["stopped","blocked"].includes(live?.state ?? "")}
+              aria-label={`Start span ${cwSourceName(source)}`} onClick={() => void command("cw_decode_source_start", {
+                source_id:source.id,session_id:snapshot.sessionID,expected_revision:snapshot.configuration.revision,
+              })}><Play size={12} />Start span</button>
+            <button type="button" disabled={snapshot.state === "stopping" || live?.state === "stopping"}
+              aria-label={`Stop span ${cwSourceName(source)}`} title="Stop this span or cancel its pending Start."
+              onClick={() => void command("cw_decode_source_stop", {source_id:source.id,session_id:snapshot.sessionID})}><Square size={12} />Stop span</button>
+          </div>}
+          {live?.failure && <small>{cwSourceFailureMessages[live.failure]} {live.state === "stopping" ? "Releasing this span's IQ resource."
+            : ["stopped","blocked"].includes(live.state) || live.retryCount >= 3
+              ? "Correct the source, then start this span deliberately." : `Retry ${live.retryCount} of 3.`}</small>}
         </div>;
       }) : <div><strong>No monitoring spans selected</strong><span>Choose one or two IQ sources to begin.</span><button type="button" onClick={edit}>Choose sources</button></div>}</div>
       {editor && <CWDecodeSettings value={editor} snapshot={snapshot} busy={busy} change={setEditor} save={save} close={() => setEditor(null)} />}

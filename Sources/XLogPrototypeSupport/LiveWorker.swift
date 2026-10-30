@@ -775,7 +775,7 @@ public actor LiveWorker {
             } else {
                 #if os(macOS)
                 if method.hasPrefix("cw_decode_") {
-                    guard !["cw_decode_start","cw_decode_listener_start","cw_decode_flex_handoff"].contains(method) || ownsProcessSessions else {
+                    guard !["cw_decode_start","cw_decode_source_start","cw_decode_listener_start","cw_decode_flex_handoff"].contains(method) || ownsProcessSessions else {
                         throw WorkerFailure("cw_owner_required", "CW Decode requires the application worker owner.")
                     }
                     result = try await cwDecode.handle(method: method, params: params)

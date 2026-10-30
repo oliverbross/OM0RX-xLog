@@ -44,7 +44,7 @@ actor LiveCWDecodeMethods {
     func terminate() async {terminated=true;publisher?.cancel();publisher=nil;listenerIntent=UUID();handoffIntent=UUID();await LiveStationMethods.cwFlexRevokeHandoffs();await listener.stop();await session.stop()}
     func handle(method: String,params: [String:Any]) async throws -> [String:Any] {
         guard !terminated else {throw WorkerFailure("worker_stopping","CW Decode is shutting down.")}
-        if ["cw_decode_start","cw_decode_listener_start","cw_decode_flex_handoff","cw_decode_resolve_selection","cw_decode_resolve_signal","cw_decode_track_mute","cw_decode_track_focus"].contains(method),!featureEnabled() {
+        if ["cw_decode_start","cw_decode_source_start","cw_decode_listener_start","cw_decode_flex_handoff","cw_decode_resolve_selection","cw_decode_resolve_signal","cw_decode_track_mute","cw_decode_track_focus"].contains(method),!featureEnabled() {
             throw WorkerFailure("cw_feature_disabled","CW Decode is disabled in this build while input and release qualification are incomplete.")
         }
         if publisher==nil {
@@ -98,6 +98,24 @@ actor LiveCWDecodeMethods {
             }
         case "cw_decode_snapshot":
             guard params.isEmpty else {throw invalid()}
+        case "cw_decode_source_stop":
+            guard Set(params.keys)==["source_id","session_id"],let raw=params["source_id"] as? String,let sourceID=UUID(uuidString:raw),
+                  let sessionText=params["session_id"] as? String,let sessionID=UUID(uuidString:sessionText) else{throw invalid()}
+            do{try await session.stopSource(sourceID,sessionID:sessionID)}
+            catch{throw WorkerFailure("cw_source_stop_unavailable","This span is not part of an active decoding session. Read its current state.")}
+        case "cw_decode_source_start":
+            guard Set(params.keys)==["source_id","session_id","expected_revision"],let raw=params["source_id"] as? String,let sourceID=UUID(uuidString:raw),
+                  let sessionText=params["session_id"] as? String,let sessionID=UUID(uuidString:sessionText),
+                  let revisionText=params["expected_revision"] as? String,let revision=UUID(uuidString:revisionText) else{throw invalid()}
+            guard !mutation else{throw WorkerFailure("cw_busy","CW Decode is applying another request.")}
+            mutation=true;defer{mutation=false}
+            let configuration=try store.load(),active=await session.snapshot()
+            guard !terminated else{throw WorkerFailure("worker_stopping","CW Decode is shutting down.")}
+            guard configuration.revision==revision,
+                  let configured=configuration.sources.first(where:{$0.id==sourceID}),
+                  active.sources.contains(where:{$0.configuration==configured}) else{throw changed()}
+            do{try await session.startSource(sourceID,sessionID:sessionID)}
+            catch{throw WorkerFailure("cw_source_start_unavailable","Wait for the decoder to be ready and this span's previous lease to finish releasing before starting it.")}
         case "cw_decode_stop":
             guard params.isEmpty else {throw invalid()}
             // Stop does not wait for an in-progress Start request to release

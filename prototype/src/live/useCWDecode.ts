@@ -15,7 +15,7 @@ export function useCWDecode(request: typeof requestCWDecode = requestCWDecode) {
     finally { reading.current = false; }
   }, [request]);
   const command = useCallback(async (method: Exclude<CWDecodeMethod, "cw_decode_snapshot">, params: Record<string, unknown> = {}) => {
-    const stop = method === "cw_decode_stop" || method === "cw_decode_listener_stop";
+    const stop = method === "cw_decode_stop" || method === "cw_decode_source_stop" || method === "cw_decode_listener_stop";
     if (mutation.current && !stop) return false;
     mutation.current = true; commandFailed.current = false; const order = ++revision.current; setBusy(true); setError("");
     try { const next = await request(method, params); if (active.current && order === revision.current) setSnapshot(next); return true; }

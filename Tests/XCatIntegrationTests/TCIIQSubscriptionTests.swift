@@ -65,6 +65,36 @@ final class TCIIQSubscriptionTests: XCTestCase {
         XCTAssertEqual(closeCount,0); XCTAssertEqual(state.availability,.available)
         await session.stopIQ(leaseID:second.leaseID); await session.disconnect()
     }
+    func testCancelledAcquisitionCannotIssueIQRateOrStartCommands() async throws {
+        let (session,wire,_)=try await setup(),generation=await session.currentObservation().generation
+        let before=await wire.sentTexts()
+        let request=Task {
+            withUnsafeCurrentTask{$0?.cancel()}
+            return try await session.startIQ(receiver:0,sampleRate:96000,expectedGeneration:generation)
+        }
+        do{let result=try await request.value;await session.stopIQ(leaseID:result.leaseID);XCTFail("Cancelled request acquired IQ")}
+        catch{XCTAssertTrue(error is CancellationError)}
+        let after=await wire.sentTexts();XCTAssertEqual(after,before)
+        await session.disconnect()
+    }
+    func testCancellationDuringStartStillStopsItsLeaseWithCancellationAwareTransport() async throws {
+        for atRate in [true,false] {
+        let (session,wire,_)=try await setup(),generation=await session.currentObservation().generation
+        if atRate{await wire.holdRate()}else{await wire.holdStart()}
+        await wire.requireUncancelledStop()
+        let request=Task{try await session.startIQ(receiver:0,sampleRate:96000,expectedGeneration:generation)}
+        for _ in 0..<200 {
+            if await wire.sentTexts().contains(atRate ? "iq_samplerate:96000;":"iq_start:0;"){break}
+            try await Task.sleep(nanoseconds:1_000_000)
+        }
+        request.cancel();await wire.releaseStart()
+        do{_ = try await request.value;XCTFail("Cancelled IQ request attached")}
+        catch{XCTAssertTrue(error is CancellationError)}
+        let commands=await wire.sentTexts()
+        XCTAssertEqual(commands,atRate ? ["iq_samplerate:96000;","iq_stop:0;"]:["iq_samplerate:96000;","iq_start:0;","iq_stop:0;"])
+        await session.disconnect()
+        }
+    }
     func testVFODoesNotRelabelDDSAndRetuneChangesEpochAfterQuarantine() async throws {
         let (session,wire,clock)=try await setup()
         let initial=await session.currentObservation()
@@ -174,6 +204,8 @@ private actor IQTestConnection: TCIWebSocketConnection {
     private var waiter:CheckedContinuation<TCIWebSocketMessage,Error>?
     private var sent:[String]=[]; private var closes=0
     private var holding=false,startWaiter:CheckedContinuation<Void,Never>?
+    private var holdingRate=false
+    private var cancellationAwareStop=false
     func receive() async throws -> TCIWebSocketMessage {
         if !pending.isEmpty { return pending.removeFirst() }
         return try await withCheckedThrowingContinuation{waiter=$0}
@@ -182,11 +214,14 @@ private actor IQTestConnection: TCIWebSocketConnection {
         if let waiter { self.waiter=nil; waiter.resume(returning:message) } else { pending.append(message) }
     }
     func send(text:String) async throws {
+        if cancellationAwareStop,text.hasPrefix("iq_stop:"){try Task.checkCancellation()}
         sent.append(text)
-        if holding,text.hasPrefix("iq_start:") {await withCheckedContinuation{startWaiter=$0}}
+        if (holding && text.hasPrefix("iq_start:")) || (holdingRate && text.hasPrefix("iq_samplerate:")) {await withCheckedContinuation{startWaiter=$0}}
     }
     func holdStart() {holding=true}
-    func releaseStart() {holding=false;startWaiter?.resume();startWaiter=nil}
+    func holdRate(){holdingRate=true}
+    func requireUncancelledStop(){cancellationAwareStop=true}
+    func releaseStart() {holding=false;holdingRate=false;startWaiter?.resume();startWaiter=nil}
     func close() async { closes+=1; waiter?.resume(throwing:TCIIQSubscriptionError.stopped); waiter=nil }
     func sentTexts() -> [String] { sent }
     func closeCount() -> Int { closes }

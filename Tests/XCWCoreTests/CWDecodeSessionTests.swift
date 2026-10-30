@@ -24,7 +24,8 @@ final class CWDecodeSessionTests: XCTestCase {
         try await Task.sleep(nanoseconds:10_000_000)
         let stopped=await session.snapshot(),counts=await compute.counts(),releases=await provider.releaseCount()
         XCTAssertEqual(stopped.state,"stopped");XCTAssertTrue(stopped.tracks.isEmpty)
-        XCTAssertEqual(counts.opens,0);XCTAssertEqual(releases,1)
+        XCTAssertEqual(counts.opens,0)
+        XCTAssertEqual(releases,2,"Cancel the original lease and check scoped cleanup again when its late acquire acknowledges")
     }
     func testTXAndRetuneRejectLateCopyAndPreserveOtherSource() async throws {
         let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),a=try source(),b=try source("1")
@@ -78,6 +79,94 @@ final class CWDecodeSessionTests: XCTestCase {
         try await wait{await compute.counts().sends==1}
         await session.stop()
     }
+    func testStoppingAndRestartingOneSpanPreservesOtherLeaseTrackAndSharedChild() async throws {
+        let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),a=try source(),b=try source("1")
+        let session=CWDecodeSession(provider:provider,compute:compute)
+        try await session.start(configuration:CWDecodeConfiguration(sources:[a,b]),resources:resources)
+        try await wait{await provider.leaseCount()==2}
+        let initial=await session.snapshot(),intent=try XCTUnwrap(initial.sessionID)
+        do{try await session.stopSource(a.id,sessionID:UUID());XCTFail("Old session stopped a current span")}
+        catch{XCTAssertEqual(error as? CWContractError,.staleEpoch)}
+        do{try await session.startSource(a.id,sessionID:UUID());XCTFail("Old session started a current span")}
+        catch{XCTAssertEqual(error as? CWContractError,.staleEpoch)}
+        let firstA=try await provider.emit(a.id),firstB=try await provider.emit(b.id)
+        try await wait{await compute.counts().sends==2}
+        let otherTrack=track(firstB);await compute.emit(.track(otherTrack))
+        try await wait{await session.snapshot().tracks.count==1}
+        try await session.stopSource(a.id,sessionID:intent)
+        let stopped=await session.snapshot(),leases=await provider.leaseCount(),initialCounts=await compute.counts()
+        XCTAssertEqual(stopped.sources.first{$0.configuration.id==a.id}?.state,.stopped)
+        XCTAssertNil(stopped.sources.first{$0.configuration.id==a.id}?.descriptor)
+        XCTAssertEqual(leases,1);XCTAssertEqual(initialCounts.starts,1);XCTAssertEqual(initialCounts.stops,0);XCTAssertEqual(initialCounts.ends,1)
+        XCTAssertEqual(stopped.tracks.first?.trackID,otherTrack.trackID)
+        _ = try await provider.emit(b.id);try await wait{await compute.counts().sends==3}
+        try await session.startSource(a.id,sessionID:intent)
+        try await wait{await provider.leaseCount()==2}
+        let replacement=try await provider.emit(a.id);try await wait{await compute.counts().sends==4}
+        XCTAssertNotEqual(firstA.streamToken,replacement.streamToken)
+        let attemptsA=await provider.attempts(a.id),attemptsB=await provider.attempts(b.id),finalCounts=await compute.counts()
+        XCTAssertEqual(attemptsA,2);XCTAssertEqual(attemptsB,1);XCTAssertEqual(finalCounts.starts,1);XCTAssertEqual(finalCounts.stops,0)
+        await compute.emit(.track(track(firstA)))
+        let current=await session.snapshot();XCTAssertEqual(current.tracks.map(\.trackID),[otherTrack.trackID])
+        await session.stop()
+    }
+    func testStoppedSpanStaysStoppedWhenOtherSpanRecoversFromChildCrash() async throws {
+        let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),a=try source(),b=try source("1")
+        let session=CWDecodeSession(provider:provider,compute:compute,sleep:{_ in})
+        try await session.start(configuration:CWDecodeConfiguration(sources:[a,b]),resources:resources)
+        try await wait{await provider.leaseCount()==2}
+        let initial=await session.snapshot(),intent=try XCTUnwrap(initial.sessionID)
+        try await session.stopSource(a.id,sessionID:intent)
+        await compute.fail(.childExited(9))
+        try await wait{let count=await compute.counts(),attempts=await provider.attempts(b.id);return count.starts==2 && attempts==2}
+        let attemptsA=await provider.attempts(a.id),snapshot=await session.snapshot()
+        XCTAssertEqual(attemptsA,1);XCTAssertEqual(snapshot.sources.first{$0.configuration.id==a.id}?.state,.stopped)
+        _ = try await provider.emit(b.id)
+        try await wait{await compute.counts().sends==1}
+        await session.stop()
+    }
+    func testSpanAndGlobalStopWaitForTheSameOwnedCleanupBeforeRestart() async throws {
+        let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),a=try source(),b=try source("1")
+        let session=CWDecodeSession(provider:provider,compute:compute)
+        try await session.start(configuration:CWDecodeConfiguration(sources:[a,b]),resources:resources)
+        try await wait{await provider.leaseCount()==2}
+        let initial=await session.snapshot(),intent=try XCTUnwrap(initial.sessionID)
+        _ = try await provider.emit(a.id);_ = try await provider.emit(b.id)
+        try await wait{await compute.counts().sends==2}
+        await provider.holdRelease(a.id)
+        let stopping=Task{try await session.stopSource(a.id,sessionID:intent)}
+        try await wait{await provider.releaseWaiterCount()==1}
+        let pending=await session.snapshot();XCTAssertEqual(pending.sources.first{$0.configuration.id==a.id}?.state,.stopping)
+        do{try await session.startSource(a.id,sessionID:intent);XCTFail("Restart overlapped an uncompleted release")}
+        catch{XCTAssertEqual(error as? CWComputeError,.occupied)}
+        _ = try await provider.emit(b.id);try await wait{await compute.counts().sends==3}
+        let global=Task{await session.stop()}
+        try await wait{await session.snapshot().state=="stopping"}
+        let beforeRelease=await compute.counts();XCTAssertEqual(beforeRelease.stops,0)
+        await provider.resumeReleases()
+        try await stopping.value;await global.value
+        let final=await compute.counts(),released=await provider.releaseCount(),remaining=await provider.leaseCount()
+        XCTAssertEqual(final.stops,1);XCTAssertEqual(released,2);XCTAssertEqual(remaining,0)
+    }
+    func testLateCancelledAcquireCleanupCannotReleaseTheReplacementLease() async throws {
+        let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),source=try source()
+        await provider.setHold(true)
+        let session=CWDecodeSession(provider:provider,compute:compute)
+        try await session.start(configuration:CWDecodeConfiguration(sources:[source]),resources:resources)
+        try await wait{await provider.leaseCount()==1}
+        let initial=await session.snapshot(),intent=try XCTUnwrap(initial.sessionID)
+        try await session.stopSource(source.id,sessionID:intent)
+        await provider.setHold(false)
+        try await session.startSource(source.id,sessionID:intent)
+        try await wait{await provider.leaseCount()==1}
+        _ = try await provider.emit(source.id);try await wait{await compute.counts().sends==1}
+        await provider.resumeAcquire()
+        try await wait{await provider.releaseCount()==2}
+        _ = try await provider.emit(source.id);try await wait{await compute.counts().sends==2}
+        let remaining=await provider.leaseCount(),snapshot=await session.snapshot()
+        XCTAssertEqual(remaining,1);XCTAssertEqual(snapshot.sources.first?.state,.running)
+        await session.stop()
+    }
     func testMemoryFailureReleasesBothSourcesWithoutAutomaticReacquisition() async throws {
         for error in [CWComputeError.memoryLimitExceeded,.memoryMetricsUnavailable] {
             let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),sleeps=CWSessionTestSleeps()
@@ -123,7 +212,8 @@ final class CWDecodeSessionTests: XCTestCase {
         _ = try await provider.emit(source.id)
         try await wait{await compute.counts().sends==2}
         await compute.resumeEnds()
-        try await wait{await provider.releaseCount()>=2}
+        await Task.yield()
+        let releases=await provider.releaseCount();XCTAssertEqual(releases,1,"Concurrent cleanup shares the original scoped release")
         _ = try await provider.emit(source.id)
         try await wait{await compute.counts().sends==3}
         let snapshot=await session.snapshot()
@@ -585,6 +675,10 @@ private actor CWSessionTestProvider:CWIQSourceProviding {
     private var leases:[UUID:Lease]=[:],failed:Set<UUID>=[],counts:[UUID:Int]=[:]
     private var releases=0,hold=false,waiter:CheckedContinuation<Void,Never>?
     private var reasons:[UUID:CWIQSourceFailure]=[:]
+    private var heldReleases:Set<UUID>=[],releaseWaiters:[CheckedContinuation<Void,Never>]=[]
+    func holdRelease(_ id:UUID){heldReleases.insert(id)}
+    func releaseWaiterCount()->Int{releaseWaiters.count}
+    func resumeReleases(){heldReleases.removeAll();let pending=releaseWaiters;releaseWaiters=[];for waiter in pending{waiter.resume()}}
     private var holdCurrent=false,currentWaiters:[CheckedContinuation<Void,Never>]=[]
     func setCurrentHold(){holdCurrent=true}
     func currentWaiterCount()->Int{currentWaiters.count}
@@ -611,9 +705,11 @@ private actor CWSessionTestProvider:CWIQSourceProviding {
         guard let lease=leases[source.id],lease.session==sessionID,lease.id==leaseID else{return nil}
         return lease.descriptor
     }
-    func release(_ source:CWSourceConfiguration,leaseID:UUID){
+    func release(_ source:CWSourceConfiguration,leaseID:UUID) async {
         releases+=1;guard leases[source.id]?.id==leaseID else{return}
-        leases.removeValue(forKey:source.id)?.continuation.finish()
+        let continuation=leases.removeValue(forKey:source.id)?.continuation
+        if heldReleases.contains(source.id){await withCheckedContinuation{releaseWaiters.append($0)}}
+        continuation?.finish()
     }
     func invalidate(_ id:UUID){leases[id]?.descriptor=nil}
     func emit(_ id:UUID,newEpoch:Bool=false,receipt:UInt64=DispatchTime.now().uptimeNanoseconds,qualified:Bool=false,samples:Int=256) throws -> CWStreamDescriptor {

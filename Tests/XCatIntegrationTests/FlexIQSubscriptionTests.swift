@@ -48,6 +48,32 @@ final class FlexIQSubscriptionTests:XCTestCase {
         XCTAssertFalse(commands.contains{$0.hasPrefix("stream ") || $0.hasPrefix("client udpport")})
         await wire.stop()
     }
+    func testCancelledAcquisitionCannotIssueAnyIQResourceCommand() async throws {
+        let (radio,wire)=try await setup();try await authorize(radio)
+        let before=await wire.commands
+        let request=Task {
+            withUnsafeCurrentTask{$0?.cancel()}
+            return try await radio.startIQ(panadapterID:"40000000",sampleRate:96000,leaseID:UUID())
+        }
+        do{let result=try await request.value;await radio.stopIQ(leaseID:result.leaseID);XCTFail("Cancelled request acquired IQ")}
+        catch{XCTAssertTrue(error is CancellationError)}
+        let after=await wire.commands
+        XCTAssertEqual(after,before,"Cancellation must precede UDP destination and stream-creation commands")
+    }
+    func testCancelledPendingAcquisitionStillRemovesItsCreatedStream() async throws {
+        let (radio,wire)=try await setup();try await authorize(radio)
+        let request=Task{try await radio.startIQ(panadapterID:"40000000",sampleRate:96000,leaseID:UUID())}
+        var created=false
+        for _ in 0..<200 {
+            if await wire.commands.contains(where:{$0.hasPrefix("stream set ")}) {created=true;break}
+            try await Task.sleep(for:.milliseconds(1))
+        }
+        XCTAssertTrue(created);request.cancel()
+        do{_ = try await request.value;XCTFail("Cancelled pending IQ request attached")}
+        catch{XCTAssertTrue(error is CancellationError)}
+        let commands=await wire.commands
+        XCTAssertEqual(commands.filter{$0.hasPrefix("stream remove ")}.count,1,"An already-cancelled caller must still release its owned stream")
+    }
     func testInterlockRefusalDiagnosticsAreBoundedAndCannotAuthorizeMissingOrAmbiguousState() async throws {
         let (radio,wire)=try await setup()
         for (body,fields,raw,accepted) in [

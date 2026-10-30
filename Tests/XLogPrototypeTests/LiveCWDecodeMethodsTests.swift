@@ -97,7 +97,7 @@ final class LiveCWDecodeMethodsTests:XCTestCase {
         let provider=CWMethodsTestProvider(),owner=LiveCWDecodeMethods(configurationURL:file(),provider:provider,featureEnabled:{false})
         let snapshot=try await owner.handle(method:"cw_decode_snapshot",params:[:])
         XCTAssertEqual(snapshot["featureEnabled"] as? Bool,false);XCTAssertEqual((snapshot["capabilities"] as? [Any])?.count,0)
-        for method in ["cw_decode_start","cw_decode_listener_start","cw_decode_flex_handoff","cw_decode_resolve_selection","cw_decode_resolve_signal","cw_decode_track_mute","cw_decode_track_focus"] {
+        for method in ["cw_decode_start","cw_decode_source_start","cw_decode_listener_start","cw_decode_flex_handoff","cw_decode_resolve_selection","cw_decode_resolve_signal","cw_decode_track_mute","cw_decode_track_focus"] {
             do {_ = try await owner.handle(method:method,params:[:]);XCTFail("Disabled build must not acquire or listen")}
             catch {XCTAssertEqual((error as? WorkerFailure)?.code,"cw_feature_disabled")}
         }
@@ -119,6 +119,19 @@ final class LiveCWDecodeMethodsTests:XCTestCase {
         }
         do {_ = try await owner.handle(method:"cw_decode_resolve_selection",params:["reference":reference,"require_frequency":false]);XCTFail("Expired selection accepted")}
         catch {XCTAssertEqual((error as? WorkerFailure)?.code,"cw_selection_stale")}
+        let attempts=await provider.acquisitions();XCTAssertEqual(attempts,0)
+        await owner.terminate()
+    }
+    func testSpanControlRejectsUnknownFieldsAndUnboundSessionsBeforeAcquisition() async throws {
+        let provider=CWMethodsTestProvider(),owner=LiveCWDecodeMethods(configurationURL:file(),provider:provider,featureEnabled:{true})
+        let id=UUID().uuidString,session=UUID().uuidString
+        for method in ["cw_decode_source_start","cw_decode_source_stop"] {
+            for params:[String:Any] in [["source_id":id],["source_id":true,"session_id":session],
+                ["source_id":id,"session_id":session,"radio_id":"radio2"],["source_id":id,"session_id":17]] {
+                do{_ = try await owner.handle(method:method,params:params);XCTFail("Unbound source control accepted")}
+                catch{XCTAssertEqual((error as? WorkerFailure)?.code,"invalid_params")}
+            }
+        }
         let attempts=await provider.acquisitions();XCTAssertEqual(attempts,0)
         await owner.terminate()
     }

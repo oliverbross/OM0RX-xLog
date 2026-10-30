@@ -99,7 +99,10 @@ installed 1.3.63 does not become a qualified skimmer through this guide.
    the shared connection and the explicitly selected receiver lease.
 3. Use **Start decoding** deliberately. Opening a main, detached or Contest CW
    view and loading saved settings stay passive. All views share capture. Use
-   **Stop** to release this feature's resources; closing a view is not Stop.
+   **Stop** to release all capture resources. **Stop span** releases only that
+   source; **Start span** deliberately resumes a stopped/corrected source while
+   the other keeps receiving. Wait for Stopping to finish and obtain a fresh Flex
+   handoff when needed. Closing a view is not Stop.
 4. Inspect frequency-ordered signals and the selected track's **Show evidence**.
    Committed text and the changing provisional tail are distinct. WPM/SNR or RF
    shown as unavailable remain unknown. **Copy committed text** copies committed
@@ -152,6 +155,12 @@ distinct self-IDs are still required for callsign loading.
 Source cards retain the actual failure category: unsupported TCI contract,
 missing manufacturer discovery, unverified receive state, resource ownership,
 expired handoff, rate conflict, invalid IQ, missing data, stall, overflow or
-continuity loss. Fix a blocked resource, then explicitly Stop/Start. A transient
+continuity loss. Fix a blocked resource, then explicitly Start that span. A transient
 failure shows its bounded retry count. An error on one source leaves the other
 source running. The view does not retry acquisition by itself.
+
+Span controls bind the current session and configured source. A late Start reply
+cannot overwrite a newer span Stop. A stopped span stays stopped when the shared
+child recovers; starting it does not restart the child or listener. With every
+span stopped, the header says **Ready · spans stopped**, rather than claiming
+fresh reception. Listener controls remain separate.

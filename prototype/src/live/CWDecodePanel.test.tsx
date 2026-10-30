@@ -14,6 +14,46 @@ function service(initial = cwDecodeFixture()) {
   return { request, set: (next: CWDecodeSnapshot) => { current = next; } };
 }
 describe("CW Decode shared native view", () => {
+  it("stops and restarts only the deliberately chosen span through the shared owner", async () => {
+    const fixture=cwDecodeTrackFixture();fixture.featureEnabled=true;
+    const first=fixture.configuration.sources[0],second={...first,id:"20000000-0000-0000-0000-000000000002",receiverID:"1"};
+    fixture.configuration.sources.push(second);
+    fixture.sources.push({configuration:second,state:"running",retryCount:0,descriptor:{...fixture.sources[0].descriptor!,sourceID:second.id,
+      receiverID:"1",streamToken:"40000000-0000-0000-0000-000000000002",centreHz:7025000}});
+    let current=structuredClone(fixture);
+    const request=vi.fn(async(method:CWDecodeMethod,params:Record<string,unknown>={}):Promise<CWDecodeSnapshot>=>{
+      if(method==="cw_decode_source_stop") {
+        expect(params).toEqual({source_id:first.id,session_id:fixture.sessionID});
+        current.sources[0].state="stopped";delete current.sources[0].descriptor;current.tracks=[];
+      } else if(method==="cw_decode_source_start") {
+        expect(params).toEqual({source_id:first.id,session_id:fixture.sessionID,expected_revision:fixture.configuration.revision});
+        current.sources[0].state="acquiring";
+      }
+      return structuredClone(current);
+    });
+    render(<CWDecodePanel request={request} />);
+    expect(request.mock.calls.every(([method])=>method==="cw_decode_snapshot")).toBe(true);
+    fireEvent.click(await screen.findByRole("button",{name:"Stop span Radio 1 · TCI RX 1"}));
+    await waitFor(()=>expect(request.mock.calls.some(([method])=>method==="cw_decode_source_stop")).toBe(true));
+    fireEvent.click(await screen.findByRole("button",{name:"Start span Radio 1 · TCI RX 1"}));
+    await waitFor(()=>expect(request.mock.calls.some(([method])=>method==="cw_decode_source_start")).toBe(true));
+    expect(current.sources[1].state).toBe("running");expect(current.sources[1].descriptor).toEqual(fixture.sources[1].descriptor);
+    expect(request.mock.calls.every(([method])=>["cw_decode_snapshot","cw_decode_source_start","cw_decode_source_stop"].includes(method))).toBe(true);
+  });
+  it("span Stop preempts a pending Start and its late reply cannot restore capture", async () => {
+    const stopped=cwDecodeTrackFixture();stopped.featureEnabled=true;stopped.sources[0].state="stopped";
+    delete stopped.sources[0].descriptor;stopped.tracks=[];
+    const owner=service(stopped);let finish!:(value:CWDecodeSnapshot)=>void;
+    const request=vi.fn(async(method:CWDecodeMethod,params?:Record<string,unknown>)=>method==="cw_decode_source_start"
+      ?new Promise<CWDecodeSnapshot>(resolve=>{finish=resolve;}):owner.request(method,params));
+    render(<CWDecodePanel request={request} />);
+    fireEvent.click(await screen.findByRole("button",{name:"Start span Radio 1 · TCI RX 1"}));
+    await waitFor(()=>expect(finish).toBeTypeOf("function"));
+    fireEvent.click(screen.getByRole("button",{name:"Stop span Radio 1 · TCI RX 1"}));
+    await waitFor(()=>expect(request.mock.calls.some(([method])=>method==="cw_decode_source_stop")).toBe(true));
+    await act(async()=>{finish(cwDecodeTrackFixture());await Promise.resolve();});
+    expect(screen.getByText("Ready · spans stopped",{selector:".cw-decode-state"})).toBeTruthy();
+  });
   it.each([
     ["iq_unsupported_protocol", /negotiated TCI version is unsupported/],
     ["iq_handoff_required", /Flex IQ handoff is missing/],
@@ -23,7 +63,7 @@ describe("CW Decode shared native view", () => {
     fixture.sources=[{configuration:fixture.configuration.sources[0],state:"blocked",retryCount:0,failure}];
     const owner=service(fixture);render(<CWDecodePanel request={owner.request} />);
     await screen.findByText(message);
-    expect(screen.getByText(/Stop, correct the source, then start again deliberately/)).toBeTruthy();
+    expect(screen.getByText(/Correct the source, then start this span deliberately/)).toBeTruthy();
     expect(owner.request.mock.calls.every(([method])=>method==="cw_decode_snapshot")).toBe(true);
   });
   it.each([false,true])("shows measured sample ages separately from model time; measured=%s", async measured => {

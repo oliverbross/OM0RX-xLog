@@ -27,6 +27,13 @@ All 70 focused native/provider/session checks and 30 view/projection checks pass
 with frontend/window budgets passing. This preserves separate hardware, strict
 capacity, real-corpus, elapsed-soak and exact-package gates in the CW checklist.
 
+Independent span Stop/restart now preserves the other receiver and shared child,
+binds session/source identities and waits for held lease cleanup. TCI cancellation
+is checked before/after IQ sends; canceled acquisition cannot cancel its own Stop
+send. All 79 focused Swift, four native authority/timeout/isolation and 32 view
+checks pass, with frontend/window budgets passing. Live resource release remains
+unverified; no production capability or installed version changes.
+
 31 October CW source progress: durable original draft-action reconciliation,
 actual slow-client isolation and offline relocated component-payload checks pass.
 CPU, bounded static-CoreML, GPU and tensor-preserving attention-fusion candidates

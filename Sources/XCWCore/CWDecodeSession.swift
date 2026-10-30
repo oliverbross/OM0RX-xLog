@@ -77,12 +77,18 @@ public actor CWDecodeSession {
             return seconds+Double(now-receivedNS)/1e9
         }
     }
+    private struct Cleanup {
+        let lease:UUID
+        let task:Task<Void,Never>
+    }
     private struct Source {
         var view: CWDecodeSourceSnapshot
         var lease: UUID?
         var task: Task<Void,Never>?
         var lastReceipt: UInt64 = 0
         var lastSample: UInt64 = 0
+        var requested=true
+        var cleanup:Cleanup?
     }
     private struct Track {
         var view: CWDecodeTrackSnapshot
@@ -282,6 +288,32 @@ public actor CWDecodeSession {
         await compute.stop()
         tracks.removeAll();retiredTracks.removeAll();mutedTracks.removeAll();priorityReference=nil;state="stopped";failure=nil
     }
+    public func stopSource(_ sourceID:UUID,sessionID:UUID) async throws {
+        guard intent==sessionID else{throw CWContractError.staleEpoch}
+        let id=sessionID
+        guard state != "stopping" else{throw CWComputeError.occupied}
+        guard let source=sources[sourceID] else{throw CWContractError.invalidConfiguration}
+        sources[sourceID]?.requested=false;sources[sourceID]?.task?.cancel();sources[sourceID]?.task=nil
+        let cleanup=beginCleanup(sourceID),descriptor=source.view.descriptor
+        sources[sourceID]?.view.descriptor=nil
+        sources[sourceID]?.view.state = cleanup != nil || descriptor != nil ? .stopping:.stopped
+        tracks=tracks.filter{$0.value.view.sourceID != sourceID}
+        if priorityReference?.sourceID==sourceID {priorityReference=nil}
+        if let descriptor{await compute.end(descriptor,gap:true)}
+        if let cleanup{await cleanup.task.value}
+        guard intent==id,sources[sourceID]?.lease==nil,sources[sourceID]?.requested==false else{return}
+        if sources[sourceID]?.cleanup?.lease==cleanup?.lease {sources[sourceID]?.cleanup=nil}
+        sources[sourceID]?.view.state = .stopped
+    }
+    public func startSource(_ sourceID:UUID,sessionID:UUID) throws {
+        guard intent==sessionID else{throw CWContractError.staleEpoch}
+        let id=sessionID
+        guard state=="running",computeGeneration != nil else{throw CWComputeError.occupied}
+        guard let source=sources[sourceID] else{throw CWContractError.invalidConfiguration}
+        guard source.lease==nil,source.cleanup==nil,[CWSourceState.stopped,.blocked].contains(source.view.state) else{throw CWComputeError.occupied}
+        sources[sourceID]?.requested=true;sources[sourceID]?.view.retryCount=0;sources[sourceID]?.view.failure=nil
+        beginSource(source.view.configuration,id:id)
+    }
     private func launchChild(id: UUID) async {
         guard intent==id,let resources else {return}
         let generation=UUID();computeGeneration=generation;load=nil;pendingMetrics=nil;metricsRequestedNS=0;priorityReference=nil;focusIntent=UUID()
@@ -309,7 +341,7 @@ public actor CWDecodeSession {
         case .memoryMetricsUnavailable:failure="compute_memory_unknown";requiresOperatorRestart=true
         default:requiresOperatorRestart=false
         }
-        await releaseAll();await compute.stop()
+        await releaseAll(preparingForRetry:!requiresOperatorRestart && childAttempt<3);await compute.stop()
         guard intent==id else {return}
         guard !requiresOperatorRestart else {state="blocked";return}
         guard childAttempt<3 else {state="blocked";return}
@@ -318,23 +350,37 @@ public actor CWDecodeSession {
         guard intent==id else {return}
         await launchChild(id:id)
     }
-    private func releaseAll() async {
-        let closing=sources.values.compactMap {value -> (CWSourceConfiguration,UUID)? in
-            guard let lease=value.lease else {return nil};return (value.view.configuration,lease)
-        }
-        for key in sources.keys {
+    private func beginCleanup(_ sourceID:UUID)->Cleanup? {
+        if let existing=sources[sourceID]?.cleanup{return existing}
+        guard let source=sources[sourceID],let lease=source.lease else{return nil}
+        let configuration=source.view.configuration
+        let cleanup=Cleanup(lease:lease,task:Task{[provider,configuration] in await provider.release(configuration,leaseID:lease)})
+        sources[sourceID]?.cleanup=cleanup;sources[sourceID]?.lease=nil
+        return cleanup
+    }
+    private func releaseAll(preparingForRetry:Bool=false) async {
+        var closing:[(UUID,Cleanup)]=[]
+        for key in Array(sources.keys) {
+            if let cleanup=beginCleanup(key){closing.append((key,cleanup))}
+            let nextState:CWSourceState = preparingForRetry && sources[key]?.requested==true ? .preparing:.stopped
             sources[key]?.task?.cancel();sources[key]?.task=nil;sources[key]?.lease=nil
-            sources[key]?.view.descriptor=nil;sources[key]?.view.state = .stopped
+            sources[key]?.view.descriptor=nil
+            sources[key]?.view.state = nextState
         }
         tracks.removeAll();retiredTracks.removeAll()
-        for (source,lease) in closing {await provider.release(source,leaseID:lease)}
+        for (key,cleanup) in closing {
+            await cleanup.task.value
+            if sources[key]?.cleanup?.lease==cleanup.lease {sources[key]?.cleanup=nil}
+        }
     }
     private func beginSource(_ source: CWSourceConfiguration,id: UUID) {
-        guard intent==id,sources[source.id]?.lease==nil else {return}
+        guard intent==id,sources[source.id]?.lease==nil,sources[source.id]?.cleanup==nil,sources[source.id]?.requested==true else {return}
         let lease=UUID();sources[source.id]?.lease=lease;sources[source.id]?.view.state = .acquiring
         sources[source.id]?.task=Task {[weak self,provider] in
             do {
+                try Task.checkCancellation()
                 let blocks=try await provider.acquire(source,sessionID:id,leaseID:lease)
+                if Task.isCancelled {await provider.release(source,leaseID:lease);return}
                 for try await block in blocks {
                     if Task.isCancelled {return}
                     try await self?.accept(block,source:source,lease:lease,id:id)
@@ -345,18 +391,20 @@ public actor CWDecodeSession {
     }
     private func sourceFailed(_ source: CWSourceConfiguration,lease: UUID,id: UUID,reason:CWIQSourceFailure = .stopped) async {
         guard intent==id,sources[source.id]?.lease==lease else {return}
+        let cleanup=beginCleanup(source.id)
+        sources[source.id]?.view.state = .stopping;sources[source.id]?.view.failure=reason.rawValue
         await invalidate(source.id)
-        guard intent==id,sources[source.id]?.lease==lease else{await provider.release(source,leaseID:lease);return}
-        sources[source.id]?.lease=nil;sources[source.id]?.view.state = reason.requiresOperatorAction ? .blocked:.recovering
-        sources[source.id]?.view.failure=reason.rawValue
-        await provider.release(source,leaseID:lease)
-        guard intent==id,sources[source.id]?.lease==nil else {return}
+        if let cleanup{await cleanup.task.value}
+        guard intent==id,sources[source.id]?.lease==nil,sources[source.id]?.cleanup?.lease==cleanup?.lease else {return}
+        sources[source.id]?.cleanup=nil
+        guard sources[source.id]?.requested==true else{sources[source.id]?.view.state = .stopped;return}
+        sources[source.id]?.view.state = reason.requiresOperatorAction ? .blocked:.recovering
         guard !reason.requiresOperatorAction else{return}
         let attempts=sources[source.id]?.view.retryCount ?? 3
         guard attempts<3 else {sources[source.id]?.view.state = .blocked;return}
         sources[source.id]?.view.retryCount=attempts+1
         do {try await sleep(UInt64(1<<attempts)*1_000_000_000)} catch {return}
-        guard intent==id,state=="running",sources[source.id]?.lease==nil else {return}
+        guard !Task.isCancelled,intent==id,state=="running",sources[source.id]?.lease==nil,sources[source.id]?.requested==true else {return}
         beginSource(source,id:id)
     }
     private func invalidate(_ sourceID: UUID) async {

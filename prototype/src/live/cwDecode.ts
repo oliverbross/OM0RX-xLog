@@ -27,7 +27,7 @@ export type CWDecodeSnapshot = { sessionID?: string; state: string; failure?: st
   tracks: CWDecodeTrack[]; capabilities: CWCapability[];
   listener: { state: string; address: string; port?: number; clients: number; authenticatedClients: number; retainedSpots: number;
     acceptedConnections: number; refusedConnections: number; slowDisconnects: number; protocolDisconnects: number } };
-export const cwDecodeMethods = ["cw_decode_snapshot", "cw_decode_configuration_save", "cw_decode_start", "cw_decode_stop", "cw_decode_listener_start", "cw_decode_listener_stop", "cw_decode_flex_handoff", "cw_decode_track_mute", "cw_decode_track_focus"] as const;
+export const cwDecodeMethods = ["cw_decode_snapshot", "cw_decode_configuration_save", "cw_decode_start", "cw_decode_stop", "cw_decode_source_start", "cw_decode_source_stop", "cw_decode_listener_start", "cw_decode_listener_stop", "cw_decode_flex_handoff", "cw_decode_track_mute", "cw_decode_track_focus"] as const;
 export type CWDecodeMethod = typeof cwDecodeMethods[number];
 export const cwSourceFailureMessages: Record<string,string> = {
   iq_unavailable: "The IQ provider is not ready. Check its direct connection and selected receiver in Radio Settings.",
@@ -111,7 +111,7 @@ export function parseCWDecodeSnapshot(value: unknown): CWDecodeSnapshot {
     new Set(config.sources.map(item => item.id)).size !== config.sources.length || typeof config.listenerEnabled !== "boolean" ||
     typeof config.automaticSpots !== "boolean" || !integer(config.listenerPort, 1024, 65535)) throw new Error("CW Decode settings could not be verified.");
   if (!Array.isArray(value.sources) || value.sources.length > 2 || !value.sources.every(row => object(row) && source(row.configuration) &&
-    ["stopped", "preparing", "acquiring", "running", "quarantined", "muted", "recovering", "blocked"].includes(row.state) && integer(row.retryCount, 0, 3) &&
+    ["stopped", "preparing", "acquiring", "running", "quarantined", "muted", "recovering", "blocked", "stopping"].includes(row.state) && integer(row.retryCount, 0, 3) &&
     (row.failure === undefined || typeof row.failure === "string" && Object.hasOwn(cwSourceFailureMessages,row.failure)) &&
     (row.descriptor === undefined || descriptor(row.descriptor)))) throw new Error("CW Decode source state could not be verified.");
   if (!Array.isArray(value.tracks) || value.tracks.length > 32 || !value.tracks.every(track => object(track) && descriptor(track.descriptor) &&

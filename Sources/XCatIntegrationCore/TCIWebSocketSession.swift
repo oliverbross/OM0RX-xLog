@@ -888,6 +888,7 @@ extension TCIReadOnlyWebSocketSession {
     /// Leases only IQ on the existing control connection. Does not enable RX2,
     /// move DDS/VFO, select a radio or acquire transmit permissions.
     public func startIQ(receiver: Int, sampleRate: Int, expectedGeneration: UInt64, leaseID:UUID=UUID()) async throws -> TCIIQSubscription {
+        try Task.checkCancellation()
         guard !iqMutationInFlight, !iqCleanupInFlight, iqLeases[receiver] == nil,
               !iqLeases.values.contains(where:{$0.id==leaseID}) else { throw TCIIQSubscriptionError.occupied }
         guard [48_000,96_000,192_000,384_000].contains(sampleRate),
@@ -910,10 +911,12 @@ extension TCIReadOnlyWebSocketSession {
         defer { iqMutationInFlight = false }
         do {
             if iqLeases.count == 1 { try await active.send(text:"iq_samplerate:\(sampleRate);") }
+            try Task.checkCancellation()
             guard connectionID == id, generation == expectedGeneration, iqLeases[receiver]?.id == leaseID else {
                 throw TCIIQSubscriptionError.connectionChanged
             }
             try await active.send(text:"iq_start:\(receiver);")
+            try Task.checkCancellation()
             guard connectionID == id, generation == expectedGeneration, iqLeases[receiver]?.id == leaseID else {
                 throw TCIIQSubscriptionError.connectionChanged
             }
@@ -929,10 +932,10 @@ extension TCIReadOnlyWebSocketSession {
             }
             return TCIIQSubscription(leaseID:leaseID,receiver:receiver,blocks:pair.stream)
         } catch {
-            if iqLeases[receiver]?.id == leaseID {
-                iqLeases.removeValue(forKey:receiver)?.continuation.finish(throwing:TCIIQSubscriptionError.connectionChanged)
-                if connectionID == id { try? await active.send(text:"iq_stop:\(receiver);") }
-            }
+            // A cancelled acquire must not cancel its own cleanup send. Reuse
+            // the exact-lease Stop owner in an independently held task.
+            let cleanup=Task{await self.stopIQ(leaseID:leaseID)}
+            await cleanup.value
             throw error
         }
     }

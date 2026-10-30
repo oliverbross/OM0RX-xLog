@@ -2,7 +2,7 @@
 import Foundation
 
 public enum CWProvider: String, Codable, Sendable { case flexDAXIQ = "flex_dax_iq", tciIQ = "tci_iq", replay }
-public enum CWSourceState: String, Codable, Sendable { case stopped, preparing, acquiring, running, quarantined, muted, recovering, blocked }
+public enum CWSourceState: String, Codable, Sendable { case stopped, preparing, acquiring, running, quarantined, muted, recovering, blocked, stopping }
 public enum CWContractError: Error, Equatable { case invalidDescriptor, invalidSamples, staleEpoch, discontinuity, sizeLimit, invalidConfiguration }
 
 /// Immutable capture identity. A change to any frequency/path/transport field
