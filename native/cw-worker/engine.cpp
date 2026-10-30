@@ -55,23 +55,30 @@ std::vector<float> features(const std::vector<float>& audio) {
 
 struct Engine::Impl {
   Ort::Env env{ORT_LOGGING_LEVEL_WARNING,"xlog-cw"};
-  Ort::SessionOptions options;
   Ort::Session session{nullptr};
-  Impl(const std::string& path,const EngineProfile& profile) {
+  std::unique_ptr<Ort::Session> startup;
+  static Ort::SessionOptions options_for(const EngineProfile& profile,bool fixed) {
+    Ort::SessionOptions options;
     if(profile.intra_op_threads<1 || profile.intra_op_threads>4) throw std::invalid_argument("ORT shared pool outside bounded profile");
     options.SetIntraOpNumThreads(profile.intra_op_threads); options.SetInterOpNumThreads(1);
     if(!profile.cpu_mem_arena) options.DisableCpuMemArena();
+    if(fixed) {
+      Ort::ThrowOnError(Ort::GetApi().AddFreeDimensionOverrideByName(options,"batch",1));
+      Ort::ThrowOnError(Ort::GetApi().AddFreeDimensionOverrideByName(options,"time",667));
+    }
     options.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
     if(!profile.profiling_prefix.empty()) options.EnableProfiling(profile.profiling_prefix.c_str());
     if(profile.provider!=ExecutionProvider::cpu) {
 #if defined(__APPLE__)
       options.AppendExecutionProvider("CoreML",{{"ModelFormat",profile.provider==ExecutionProvider::core_ml?"MLProgram":"NeuralNetwork"},{"MLComputeUnits","CPUAndNeuralEngine"},
-        {"RequireStaticInputShapes","0"},{"EnableOnSubgraphs","0"}});
+        {"RequireStaticInputShapes",fixed?"1":"0"},{"EnableOnSubgraphs","0"}});
 #else
       throw std::invalid_argument("CoreML profile requires Apple Silicon Mac qualification");
 #endif
     }
-    session=Ort::Session(env,path.c_str(),options);
+    return options;
+  }
+  static void validate(const Ort::Session& session,bool fixed) {
     if (session.GetInputCount()!=1 || session.GetOutputCount()!=1) throw std::runtime_error("Unexpected model I/O count");
     const auto inputInfo=session.GetInputTypeInfo(0);
     const auto outputInfo=session.GetOutputTypeInfo(0);
@@ -79,10 +86,22 @@ struct Engine::Impl {
     const auto in=input.GetShape(),out=output.GetShape();
     Ort::AllocatorWithDefaultOptions alloc;
     if (input.GetElementType()!=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT || output.GetElementType()!=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT ||
-        in.size()!=4 || in[1]!=1 || in[3]!=65 || out.size()!=3 || out[2]!=42 ||
+        in.size()!=4 || in[1]!=1 || in[3]!=65 || (fixed && (in[0]!=1 || in[2]!=667)) || out.size()!=3 || out[2]!=42 ||
         std::string(session.GetInputNameAllocated(0,alloc).get())!=model::onnx_input_name ||
         std::string(session.GetOutputNameAllocated(0,alloc).get())!=model::onnx_output_name)
       throw std::runtime_error("Model tensor contract mismatch");
+  }
+  Impl(const std::string& path,const EngineProfile& profile) {
+    if(profile.steady_ten_second) {
+      // Exactly two shared plans for the same model. Startup keeps every
+      // original variable-length window; no input is padded or shortened.
+      auto warm=profile;warm.provider=ExecutionProvider::cpu;warm.steady_ten_second=false;
+      if(!warm.profiling_prefix.empty()) warm.profiling_prefix+=".startup";
+      auto options=options_for(warm,false);
+      startup=std::make_unique<Ort::Session>(env,path.c_str(),options);validate(*startup,false);
+    }
+    auto options=options_for(profile,profile.steady_ten_second);
+    session=Ort::Session(env,path.c_str(),options);validate(session,profile.steady_ten_second);
   }
 };
 Engine::Engine(const std::string& path,const EngineProfile& profile):impl(std::make_unique<Impl>(path,profile)) {}
@@ -98,11 +117,14 @@ Decode Engine::decode(const std::vector<float>& audio,uint64_t first) {
   auto input=Ort::Value::CreateTensor<float>(mem,data.data(),data.size(),shape.data(),shape.size());
   const char* names[]{model::onnx_input_name}; const char* outputs[]{model::onnx_output_name};
   const auto start=std::chrono::steady_clock::now();
-  auto tensors=impl->session.Run(Ort::RunOptions{nullptr},names,&input,1,outputs,1);
+  const bool steady=impl->startup && shape[2]==667;
+  auto& session=impl->startup && !steady ? *impl->startup:impl->session;
+  auto tensors=session.Run(Ort::RunOptions{nullptr},names,&input,1,outputs,1);
   const auto dims=tensors[0].GetTensorTypeAndShapeInfo().GetShape();
   if (dims.size()!=3 || dims[0]!=1 || dims[1]!=shape[2] || dims[2]!=42) throw std::runtime_error("Unexpected output shape");
   Decode result{"",{},std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count()};
   result.features_ms=feature_ms;
+  result.used_steady_plan=steady;
   const auto ctc_start=std::chrono::steady_clock::now();
   const float* logits=tensors[0].GetTensorData<float>();
   int previous=-1;

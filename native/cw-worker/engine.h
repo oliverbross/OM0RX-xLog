@@ -15,6 +15,7 @@ struct Decode {
   // Internal attribution only. The XCW1/JSON wire retains its existing model
   // Run timing; these clocks do not change samples, features or acceptance.
   double features_ms=0,ctc_ms=0;
+  bool used_steady_plan=false;
 };
 void fft(std::vector<std::complex<double>>& values);
 std::vector<float> features(const std::vector<float>& audio);
@@ -23,6 +24,9 @@ struct EngineProfile {
   ExecutionProvider provider=ExecutionProvider::cpu;
   int intra_op_threads=1;
   bool cpu_mem_arena=true;
+  // Engineering-only, at most two shared sessions for the unchanged model.
+  // Dynamic CPU startup and an exact full-window preferred-provider plan.
+  bool steady_ten_second=false;
   std::string profiling_prefix;
 };
 class Engine {

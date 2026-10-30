@@ -31,7 +31,8 @@ std::vector<float> morse(int wpm,const std::string& text="CQ OM0RX",bool envelop
 }
 int main(int argc,char** argv) {
   try {
-    require(argc==2 || (argc==3 && (std::string(argv[2])=="coreml" || std::string(argv[2])=="coreml-neural" || std::string(argv[2])=="system-allocator")),"Model path and optional CoreML/allocator profile required");
+    require(argc==2 || (argc==3 && (std::string(argv[2])=="coreml" || std::string(argv[2])=="coreml-neural" || std::string(argv[2])=="system-allocator" ||
+      std::string(argv[2])=="cpu-steady" || std::string(argv[2])=="coreml-steady" || std::string(argv[2])=="coreml-neural-steady")),"Model path and bounded provider/allocator/shape profile required");
     cw::JobOrder jobs;
     const auto ready=[](const auto&){return true;};
     jobs.push("oldest");jobs.push("second");jobs.push("selected");jobs.focus("selected");
@@ -126,16 +127,20 @@ int main(int argc,char** argv) {
     cw::Engine engine(argv[1]);
     if(argc==3) {
       cw::EngineProfile profile;
-      if(std::string(argv[2])=="system-allocator") profile.cpu_mem_arena=false;
-      else profile.provider=std::string(argv[2])=="coreml"?cw::ExecutionProvider::core_ml:cw::ExecutionProvider::core_ml_neural_network;
+      const std::string selected=argv[2];profile.steady_ten_second=selected.find("-steady")!=std::string::npos;
+      if(selected=="system-allocator") profile.cpu_mem_arena=false;
+      else if(selected=="coreml" || selected=="coreml-steady") profile.provider=cw::ExecutionProvider::core_ml;
+      else if(selected=="coreml-neural" || selected=="coreml-neural-steady") profile.provider=cw::ExecutionProvider::core_ml_neural_network;
       cw::Engine accelerated(argv[1],profile);
-      for(const auto& audio:{std::vector<float>(19200),morse(20),morse(30)}) {
+      auto full=morse(20);full.resize(32000);
+      for(const auto& audio:{std::vector<float>(19200),morse(20),morse(30),std::vector<float>(32000),full}) {
         const auto cpu=engine.decode(audio,3200),other=accelerated.decode(audio,3200);
+        if(profile.steady_ten_second) require(other.used_steady_plan==(audio.size()/48+1==667),"Exact shape selects bounded shared plan");
         require(cpu.text==other.text && cpu.tokens.size()==other.tokens.size(),"Profile/CPU fixture text parity");
         for(size_t i=0;i<cpu.tokens.size();++i) {
           const auto a=cpu.tokens[i],b=other.tokens[i];
           require(a.symbol==b.symbol && a.first_sample==b.first_sample && a.end_sample==b.end_sample,"Profile/CPU fixture sample alignment parity");
-          if(!profile.cpu_mem_arena) require(std::abs(a.log_score-b.log_score)<0.0001,"CPU allocator fixture score parity");
+          if(profile.provider==cw::ExecutionProvider::cpu) require(std::abs(a.log_score-b.log_score)<0.0001,"CPU profile fixture score parity");
         }
       }
     }

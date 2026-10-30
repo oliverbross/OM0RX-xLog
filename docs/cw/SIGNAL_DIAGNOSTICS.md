@@ -306,3 +306,48 @@ cadence changed. Three scoring/provenance tests pass.
 These generated mono results are not real-RF held-out evaluation or a deployment
 approval. Neither candidate closes capacity, RF quality or release admission;
 the original model and production support gates remain unchanged.
+
+### Bounded execution-plan experiment — 31 October 2026
+
+The original tracker first submits roughly six seconds and grows each window
+to ten seconds; the inputs are not fixed six-second blocks. A proposed static
+six-second plan rejected every job (zero inferred tracks), so that failed patch
+is retained privately with SHA-256
+`2762aef782658f8cd3fa8a06c5370c2944c1dc97b0a2b996f6b648145a525f96`.
+The profiler now counts inference faults and reports missing age/timing statistics
+as null. Faults independently fail its existing strict predicate.
+
+The explicit engineering `steady-ten-second` profile uses at most two shared
+sessions of the unchanged pinned model: dynamic CPU for the original startup
+lengths, and a static batch-one / 667-feature-frame plan for full windows. No
+samples are padded/truncated and no job/stride is removed. CPU and static CoreML
+silence, 20/30-WPM, full-window text and sample-alignment parity pass. CoreML
+assigns 425/444 graph nodes to seven partitions. A separate single-batch,
+dynamic-time experiment still fails MLProgram plan construction (error -14);
+its patch remains private, SHA-256
+`3644fd652e42007b5ed8a77448c24ff39ba2cd7b318809316afe1a5548062468`.
+Provider settings follow the [official ORT CoreML contract](https://onnxruntime.ai/docs/execution-providers/CoreML-ExecutionProvider.html).
+
+The same `16 15 4` CoreML steady-window run delivered 15 seconds, serviced all
+32 tracks / 235 jobs (102 startup, 133 steady), coalesced **53**, dropped zero,
+and recorded zero faults, 61.1294 ms maximum input lateness, 1192.10 ms p95 decode
+age and 362.844 MiB peak RSS: **FAIL**. The sequential dynamic CPU control also
+failed: 13.9947 seconds delivered, 164 jobs, 92 coalesced, zero drops/faults,
+407.645 ms maximum lateness and 3542.25 ms p95 age. Host load averages during the
+first run were 10.57/10.15/11.14; no thermal/performance warning was recorded.
+No task build or test competed with either profile; operator applications and
+background services remained running.
+
+After adding per-plan timing, a further identical requested run failed during
+startup: 8.576 seconds delivered, 63 jobs, 32 coalesced / one dropped event,
+266.410 ms maximum lateness and 3051.13 ms p95 age. Its steady-plan sample count
+is zero, so its steady timing percentiles are explicitly null. Startup model
+Run p95 is 459.039 ms. Preparation and workload CPU intervals are now separate;
+their scope is this profiler process, not CoreML services or the complete app
+process tree. No application CPU-headroom or responsiveness pass is inferred.
+
+This profile remains accessible only to native engineering tools. The production
+child still uses its original single dynamic CPU session; capacity, model/backend
+quality, production admission and installed qualification remain open. Lossless
+receipts: `7aea3c8d947ff847` (CoreML parity), `86767527253e1e13` (first load),
+`d22094181e5d24e2` (CPU control), `48fcba7fee0240eb` (per-plan load).

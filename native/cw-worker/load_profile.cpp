@@ -18,6 +18,10 @@
 namespace {
 using Clock=std::chrono::steady_clock;
 double milliseconds(Clock::duration value){return std::chrono::duration<double,std::milli>(value).count();}
+double process_cpu_seconds() {
+  struct rusage usage{};if(getrusage(RUSAGE_SELF,&usage)!=0) throw std::runtime_error("Cannot measure process CPU");
+  return double(usage.ru_utime.tv_sec+usage.ru_stime.tv_sec)+double(usage.ru_utime.tv_usec+usage.ru_stime.tv_usec)/1e6;
+}
 std::vector<float> envelope(int wpm,const std::string& text) {
   const std::map<char,std::string> code{{'C',"-.-."},{'Q',"--.-"},{'O',"---"},{'M',"--"},{'0',"-----"},{'R',".-."},{'X',"-..-"},
     {'D',"-.."},{'L',".-.."},{'1',".----"},{'A',".-"},{'B',"-..."}};
@@ -38,7 +42,7 @@ struct Signal {std::vector<float> key;std::complex<double> oscillator{1,0},step;
 }
 int main(int argc,char** argv) {
   try {
-    if(argc<4 || argc>10) throw std::invalid_argument("Usage: cw-load-profile model.onnx tracks_per_span seconds (10..60) [workers (1..4)] [cpu|coreml|coreml-neural] [ORT intra-op threads (1..4)] [ORT profiling prefix or -] [inherited|user-initiated] [arena|system]");
+    if(argc<4 || argc>11) throw std::invalid_argument("Usage: cw-load-profile model.onnx tracks_per_span seconds (10..60) [workers (1..4)] [cpu|coreml|coreml-neural] [ORT intra-op threads (1..4)] [ORT profiling prefix or -] [inherited|user-initiated] [arena|system] [dynamic|steady-ten-second]");
     const int count=std::stoi(argv[2]),seconds=std::stoi(argv[3]),rate=96000;
     const int workers=argc>=5?std::stoi(argv[4]):2;
     const std::string provider=argc>=6?argv[5]:"cpu";
@@ -51,6 +55,9 @@ int main(int argc,char** argv) {
     const std::string allocator=argc>=10?argv[9]:"arena";
     if(allocator!="arena" && allocator!="system") throw std::invalid_argument("Unsupported CPU allocator profile");
     profile.cpu_mem_arena=allocator=="arena";
+    const std::string input_shape=argc>=11?argv[10]:"dynamic";
+    if(input_shape!="dynamic" && input_shape!="steady-ten-second") throw std::invalid_argument("Unsupported input shape profile");
+    profile.steady_ten_second=input_shape=="steady-ten-second";
     std::string actual_qos="null";
 #if defined(__APPLE__)
     if(scheduling=="user-initiated" && pthread_set_qos_class_self_np(QOS_CLASS_USER_INITIATED,0)!=0) throw std::runtime_error("Cannot apply requested scheduling profile");
@@ -61,9 +68,11 @@ int main(int argc,char** argv) {
     if(scheduling!="inherited") throw std::invalid_argument("Explicit Mac scheduling profile is unavailable");
 #endif
     if(count<1 || count>16 || seconds<10 || seconds>60 || workers<1 || workers>4) throw std::invalid_argument("Outside bounded profile");
+    const double preparation_cpu_start=process_cpu_seconds();
     const auto preparing=Clock::now();
     cw::Engine engine(argv[1],profile);cw::Skimmer skimmer(engine,size_t(workers),16);
     const double preparation_ms=milliseconds(Clock::now()-preparing);
+    const double workload_cpu_start=process_cpu_seconds();
     const std::string tokens[2]={"00112233445566778899aabbccddeeff","ffeeddccbbaa99887766554433221100"};
     for(int span=0;span<2;++span)skimmer.open(tokens[span],uint64_t(span+1),rate,-39000,39000,true);
     std::vector<Signal> signals[2];
@@ -76,12 +85,20 @@ int main(int argc,char** argv) {
     std::set<std::string> decoded;
     std::vector<double> latencies;
     std::vector<double> model_ms,features_ms,ctc_ms,queue_ms;
+    std::vector<double> startup_model_ms,steady_model_ms;
+    size_t fault_events=0,startup_jobs=0,steady_jobs=0;
     size_t maximum_tracks=0,maximum_pending=0;
     double maximum_lag=0,generation_ms=0,feed_ms=0;
     bool deadline_missed=false;
     const auto start=Clock::now();
     const auto drain=[&] {
-      for(const auto& event:skimmer.events())if(event.kind=="decode") {
+      for(const auto& event:skimmer.events()) {
+        if(event.kind=="fault") ++fault_events;
+        if(event.kind!="decode") continue;
+        if(profile.steady_ten_second) {
+          if(event.copy.used_steady_plan) {++steady_jobs;steady_model_ms.push_back(event.copy.inference_ms);}
+          else {++startup_jobs;startup_model_ms.push_back(event.copy.inference_ms);}
+        }
         decoded.insert(event.track_id);
         model_ms.push_back(event.copy.inference_ms);features_ms.push_back(event.copy.features_ms);
         ctc_ms.push_back(event.copy.ctc_ms);queue_ms.push_back(event.queue_wait_ms);
@@ -126,8 +143,8 @@ int main(int argc,char** argv) {
       const double sum=std::accumulate(values.begin(),values.end(),0.0);
       const double p95=values.empty()?0:values[std::min(values.size()-1,size_t(std::ceil(values.size()*0.95))-1)];
       std::cout<<",\""<<name<<"\":{\"count\":"<<values.size()<<",\"sum_ms\":"<<sum
-        <<",\"mean_ms\":"<<(values.empty()?0:sum/values.size())<<",\"p95_ms\":"<<p95
-        <<",\"maximum_ms\":"<<(values.empty()?0:values.back())<<"}";
+        <<",\"mean_ms\":"<<(values.empty()?"null":std::to_string(sum/values.size()))<<",\"p95_ms\":"<<(values.empty()?"null":std::to_string(p95))
+        <<",\"maximum_ms\":"<<(values.empty()?"null":std::to_string(values.back()))<<"}";
     };
     const double rss=double(usage.ru_maxrss)
 #if defined(__APPLE__)
@@ -136,22 +153,27 @@ int main(int argc,char** argv) {
       /1024;
 #endif
     const bool stable=!deadline_missed && drained && decoded.size()==size_t(count*2) && maximum_tracks==size_t(count*2) &&
-      !latencies.empty() && p95<=2000 && metrics.coalesced==0 && metrics.dropped_events==0;
+      !latencies.empty() && p95<=2000 && metrics.coalesced==0 && metrics.dropped_events==0 && fault_events==0;
     std::cout<<"{\"instrument\":\"synthetic-paced-cw-v1\",\"replay\":true,\"spans\":2,\"tracks_per_span\":"<<count
       <<",\"inference_workers\":"<<workers
       <<",\"execution_provider_profile\":\""<<provider<<"\",\"ort_intra_op_threads\":"<<profile.intra_op_threads
       <<",\"cpu_allocator_profile\":\""<<allocator<<"\""
+      <<",\"input_shape_profile\":\""<<input_shape<<"\""
       <<",\"engine_preparation_ms\":"<<preparation_ms
       <<",\"scheduling_profile\":\""<<scheduling<<"\",\"main_thread_qos\":"<<actual_qos
       <<",\"sample_rate\":"<<rate<<",\"requested_seconds\":"<<seconds<<",\"delivered_seconds\":"<<double(samples_fed)/rate
       <<",\"wall_seconds\":"<<milliseconds(Clock::now()-start)/1000<<",\"maximum_tracks\":"<<maximum_tracks
       <<",\"inferred_tracks\":"<<decoded.size()<<",\"inference_events\":"<<latencies.size()<<",\"maximum_pending\":"<<maximum_pending
       <<",\"coalesced\":"<<metrics.coalesced<<",\"dropped_events\":"<<metrics.dropped_events
-      <<",\"maximum_input_lateness_ms\":"<<maximum_lag<<",\"decode_p95_ms\":"<<p95
+      <<",\"fault_events\":"<<fault_events<<",\"startup_plan_jobs\":"<<startup_jobs<<",\"steady_plan_jobs\":"<<steady_jobs
+      <<",\"maximum_input_lateness_ms\":"<<maximum_lag<<",\"decode_p95_ms\":"<<(latencies.empty()?"null":std::to_string(p95))
       <<",\"signal_generation_ms\":"<<generation_ms<<",\"dsp_ingress_ms\":"<<feed_ms<<",\"peak_rss_mib\":"<<rss
       <<",\"cpu_seconds\":"<<double(usage.ru_utime.tv_sec+usage.ru_stime.tv_sec)+double(usage.ru_utime.tv_usec+usage.ru_stime.tv_usec)/1e6
+      <<",\"cpu_measurement_scope\":\"profiler-process-only\",\"engine_preparation_cpu_seconds\":"<<workload_cpu_start-preparation_cpu_start
+      <<",\"workload_cpu_seconds\":"<<process_cpu_seconds()-workload_cpu_start
       <<",\"stable_under_this_synthetic_load\":"<<(stable?"true":"false");
     timing("model_run",model_ms);timing("feature_extraction",features_ms);timing("ctc",ctc_ms);timing("queue_wait",queue_ms);
+    if(profile.steady_ten_second) {timing("startup_model_run",startup_model_ms);timing("steady_model_run",steady_model_ms);}
     std::cout<<"}"<<std::endl;
     skimmer.stop();return 0;
   } catch(const std::exception& error){std::cerr<<error.what()<<std::endl;return 1;}
