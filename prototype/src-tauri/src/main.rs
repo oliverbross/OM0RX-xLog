@@ -88,6 +88,9 @@ use std::time::{Duration, Instant};
 static MAIN_CREATION: Mutex<()> = Mutex::new(());
 static CONTEST_SETUP_CREATION: Mutex<()> = Mutex::new(());
 static WORKSPACE_PRESENTATION: Mutex<bool> = Mutex::new(false);
+// Menu construction may run on the UI thread while the presentation owner is
+// waiting for that thread. Never acquire WORKSPACE_PRESENTATION from a menu.
+static WORKSPACE_MENU_WINDOWS: AtomicBool = AtomicBool::new(false);
 static FOREGROUND_PRESENTATION: Mutex<()> = Mutex::new(());
 static APP_EXITING: AtomicBool = AtomicBool::new(false);
 static CW_DECODE_MENU_VISIBLE: AtomicBool = AtomicBool::new(false);
@@ -722,7 +725,7 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     )?)?;
     windows.append(&PredefinedMenuItem::separator(app)?)?;
     let modes = Submenu::with_id(app, "workspace_mode_menu", "Workspace Mode", true)?;
-    let separate_windows = *recover_presentation_hint(&WORKSPACE_PRESENTATION);
+    let separate_windows = WORKSPACE_MENU_WINDOWS.load(Ordering::Acquire);
     modes.append(&CheckMenuItem::with_id(app, "workspace_mode_canvas", "Canvas", true, !separate_windows, None::<&str>)?)?;
     modes.append(&CheckMenuItem::with_id(app, "workspace_mode_windows", "Separate Windows", true, separate_windows, None::<&str>)?)?;
     windows.append(&modes)?;
@@ -1532,31 +1535,59 @@ async fn workspace_mode_present(window: tauri::WebviewWindow, app: tauri::AppHan
             return Err("The workspace mode changed. Reload its saved layout before continuing.".into());
         }
         let windows = layout["document"]["activePresetID"] == "windowed";
-        if !windows && *presented_windows { workspace_window_runtime::canvas(&app, &generation, revision, layout.clone())?; }
-        if let Some(main) = app.get_webview_window("main") {
-            if windows && hide_main {
-                workspace_mode_ready()?;
-                wait_for_workspace_windows(&app, &generation, revision)?;
-                MAIN_WORKSPACE_REOPENED.store(false, Ordering::Release);
-                main.hide().map_err(|error| error.to_string())?;
+        let previous = *presented_windows;
+        let menu_hint = WorkspaceMenuHint::new(&WORKSPACE_MENU_WINDOWS, previous, windows);
+        let presentation = (|| -> Result<(), String> {
+            if !windows && previous { workspace_window_runtime::canvas(&app, &generation, revision, layout.clone())?; }
+            if let Some(main) = app.get_webview_window("main") {
+                if windows && hide_main {
+                    workspace_mode_ready()?;
+                    wait_for_workspace_windows(&app, &generation, revision)?;
+                    MAIN_WORKSPACE_REOPENED.store(false, Ordering::Release);
+                    main.hide().map_err(|error| error.to_string())?;
+                }
+                else if operating_module::owner()?.snapshot()?["selected"] != "contesting"
+                    && !main.is_visible().map_err(|error| error.to_string())?
+                    && !main.is_minimized().map_err(|error| error.to_string())? {
+                    // Saved-layout reconciliation runs in the background, including
+                    // after draft and logbook updates. Reveal a hidden canvas, but
+                    // leave activation/minimization to explicit Open/Dock/menu intent.
+                    main.show().map_err(|error| error.to_string())?;
+                }
             }
-            else if operating_module::owner()?.snapshot()?["selected"] != "contesting"
-                && !main.is_visible().map_err(|error| error.to_string())?
-                && !main.is_minimized().map_err(|error| error.to_string())? {
-                // Saved-layout reconciliation runs in the background, including
-                // after draft and logbook updates. Reveal a hidden canvas, but
-                // leave activation/minimization to explicit Open/Dock/menu intent.
-                main.show().map_err(|error| error.to_string())?;
+            update_workspace_mode_checks(&app, windows)
+        })();
+        if let Err(error) = presentation {
+            // Publish rollback before the UI check update. An unwind also rolls
+            // back the atomic hint through Drop without making another UI call.
+            drop(menu_hint);
+            if let Err(restore_error) = update_workspace_mode_checks(&app, previous) {
+                eprintln!("Could not restore Workspace Mode menu checks: {restore_error}");
             }
+            return Err(error);
         }
-        update_workspace_mode_checks(&app, windows)?;
         *presented_windows = windows;
+        menu_hint.commit();
         Ok(())
     }).await.map_err(|error| format!("Workspace mode presentation failed: {error}"))?
 }
 
 fn recover_presentation_hint(mutex: &Mutex<bool>) -> std::sync::MutexGuard<'_, bool> {
     mutex.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+struct WorkspaceMenuHint<'a> { value: &'a AtomicBool, previous: bool, rollback: bool }
+impl<'a> WorkspaceMenuHint<'a> {
+    fn new(value: &'a AtomicBool, previous: bool, next: bool) -> Self {
+        value.store(next, Ordering::Release);
+        Self { value, previous, rollback: true }
+    }
+    fn commit(mut self) { self.rollback = false; }
+}
+impl Drop for WorkspaceMenuHint<'_> {
+    fn drop(&mut self) {
+        if self.rollback { self.value.store(self.previous, Ordering::Release); }
+    }
 }
 
 #[tauri::command]
@@ -4644,6 +4675,37 @@ mod workspace_layout_tests {
             assert!(super::experimental_menu_includes_for(id, false));
         }
         assert!(!super::window_menu_includes("about"));
+    }
+
+    #[test]
+    fn presentation_menu_hint_is_nonblocking_and_rolls_back_both_mode_directions() {
+        let presentation = std::sync::Mutex::new(false);
+        let value = std::sync::atomic::AtomicBool::new(false);
+        let mut owned = super::recover_presentation_hint(&presentation);
+        let pending = super::WorkspaceMenuHint::new(&value, *owned, true);
+        assert!(value.load(std::sync::atomic::Ordering::Acquire), "menu reads do not acquire the held presentation mutex");
+        drop(pending);
+        assert!(!value.load(std::sync::atomic::Ordering::Acquire));
+        let committed = super::WorkspaceMenuHint::new(&value, *owned, true);
+        *owned = true;
+        committed.commit();
+        assert!(value.load(std::sync::atomic::Ordering::Acquire));
+        drop(super::WorkspaceMenuHint::new(&value, *owned, false));
+        assert!(value.load(std::sync::atomic::Ordering::Acquire));
+    }
+
+    #[test]
+    fn presentation_menu_hint_unwind_preserves_the_previous_owned_mode() {
+        let presentation = std::sync::Mutex::new(false);
+        let value = std::sync::atomic::AtomicBool::new(false);
+        let result = std::panic::catch_unwind(|| {
+            let owned = super::recover_presentation_hint(&presentation);
+            let _pending = super::WorkspaceMenuHint::new(&value, *owned, true);
+            panic!("disposable presentation failure");
+        });
+        assert!(result.is_err());
+        assert!(!value.load(std::sync::atomic::Ordering::Acquire));
+        assert!(!*super::recover_presentation_hint(&presentation));
     }
 
     #[test]
