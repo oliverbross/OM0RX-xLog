@@ -127,3 +127,25 @@ formal speedup claims.
 Version preparation is 1.3.68, advancing installed 1.3.67. The exact clean
 versioned commit is captured by the packaging script in DistributionMetadata;
 append the independently verified source and installation record below.
+
+## Installed acceptance and remaining Maestro gate
+
+Source 6814a8ff5197989ae645b2ca8f489d6e30ff0890 was signed and accepted by Apple
+(c1d05e62-58e9-44b8-968b-5e91e4b4bbc1), stapled, Gatekeeper-accepted and installed.
+The full original database stayed byte-identical through replacement. Signed
+private save → page → HM runs took 112–381 ms; native save with HM open showed
+durable success within the first AX observation (1461 ms including automation),
+and both windows increased from 69,561 to 69,562 private contacts with the same
+logged-call notification. Ordinary private Quit completed.
+
+The live 1.3.68 logbook displayed 69,556 contacts and the Scotland history row.
+HM connected without manual retry, displayed the same log, direct-agent radio
+14.003810 MHz, PSKReporter and 11 tracked satellites. Production fields were not
+edited by the acceptance sequence.
+
+Actual Maestro acceptance failed: zero new radio acknowledgements, while the
+legacy spot ledger held 256 unresolved attempts (189 contest, 67 normal), all
+without confirmed radio IDs or timestamps. That saturated the shared durable
+admission cap before any new send. This is an unfinished live requirement,
+addressed by the 1.3.69 recovery follow-up; initial unit forwarding tests alone
+were not accepted as proof that Maestro delivery was restored.
