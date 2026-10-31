@@ -258,6 +258,7 @@ function MainLiveApp() {
   const preferenceWrite = useRef<Promise<unknown>>(Promise.resolve());
   const preferenceRevision = useRef(0);
   const reloadRevision = useRef(0);
+  const loadedWorkspaceGeneration = useRef<string | null>(null);
   const [draftSession] = useState(() => new OperatorDraftSession(requestOperatorDraft,
     journal => localStorage.setItem(draftJournalKey, JSON.stringify(journal)), readDraftJournal(storedDraftValue(draftJournalKey)), undefined, nativeSpotEditor()));
   const sharedDraft = useSyncExternalStore(draftSession.subscribe, draftSession.getSnapshot);
@@ -844,12 +845,15 @@ function MainLiveApp() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Station handover failed."); }
     finally { providerTransition.current = false; setBusy(false); }
   };
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (contactsChanged = false) => {
     const revision = ++reloadRevision.current;
     setWorkspacePending(true);
     try {
     const state = await retryStartupRead(() => request("workspace_status"));
-    if (state.workspace_exists) {
+    // A committed contact changes the log, not station/rotor/preferences setup.
+    // Keep full initialization for explicit reloads and every new workspace.
+    if (state.workspace_exists && (!contactsChanged || typeof state.generation !== "string"
+        || loadedWorkspaceGeneration.current !== state.generation)) {
       await preferenceWrite.current.catch(() => {});
       const [, , , loaded] = await Promise.all([
         retryStartupRead(() => settingsSession.load()),
@@ -863,10 +867,12 @@ function MainLiveApp() {
       const saved = migrated && validPreferenceSnapshot(loaded) ? await request("workspace_preferences_save", {
         preferences: migrated, generation: loaded.generation, expectedRevision: loaded.revision,
       }) : loaded;
+      if (revision !== reloadRevision.current) return;
       const preferences = saved.preferences as WorkspacePreferences;
       latestPreferenceSnapshot.current = validPreferenceSnapshot(saved) ? saved : null;
       latestWorkspacePreferences.current = preferences;
       setWorkspacePreferences(preferences);
+      loadedWorkspaceGeneration.current = typeof state.generation === "string" ? state.generation : null;
     }
     if (revision !== reloadRevision.current) return;
     setWorkspace(state);
@@ -949,7 +955,7 @@ function MainLiveApp() {
     if (method === "backup_create") await draftSession.flush();
     return request(method, params);
   }, [request, draftSession, contactSession, logbookMutations]);
-  useEffect(() => { if (!monitor) void reload().catch(() => { /* The reload owner retains its blocking diagnostic. */ }); }, [reload, refresh]);
+  useEffect(() => { if (!monitor) void reload(refresh > 0).catch(() => { /* The reload owner retains its blocking diagnostic. */ }); }, [reload, refresh]);
   useEffect(() => {
     if (workspace?.workspace_exists !== true) return;
     return watchSyncCompletion(request, () => setRefresh(value => value + 1));
@@ -1490,7 +1496,7 @@ function MainLiveApp() {
         onReconcile={async () => { try { await settingsSession.reconcile(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Settings receipt could not be checked."); } }}
         onRetry={async () => { try { await settingsSession.retry(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Settings save could not be retried."); } }}
         onUseSaved={() => { try { settingsSession.useSaved(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Saved Settings could not be restored."); } }}
-        requestedTab={settingsTabRequest.tab} requestedTabRevision={settingsTabRequest.revision} radioSettings={<RadioSettings onDraftState={(id, blocked) => { radioSettingsBlocked.current[id] = blocked; }} requestedRadioId={radioSettingsRequest.radioId} requestedRadioRevision={radioSettingsRequest.revision} onRefreshLocalState={refreshLocalRadioState} />} syncSettings={settings.logbookMode === "local" ? <p>Integrated-only mode. Wavelog synchronization is disabled. Choose Integrated logbook + Wavelog synchronization in Settings → Logbook to enable it.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />} onExternalContact={() => setRefresh(n => n + 1)} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} configurationSession={rotorConfigurationSession} automaticRotorArmed={autoRotor} automaticRotorAvailable={!!nativeAutoRotor.state && !nativeAutoRotor.error && rotorProjection(rotorState).connected === true} automaticRotorError={nativeAutoRotor.error} onAutomaticRotorChange={setAutomaticRotor} />} clusterSettings={<ClusterPanel settingsOnly snapshot={null} onRequest={request} onSelect={() => {}} />} workspaceSettings={<WorkspaceSettings {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} requiredRotor={deskKind === "rotor" && !!rotorState?.owner} available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "chaser-dx", "spot-history", ...(deskKind === "none" ? [] : [deskKind] as ("rotor" | "antenna")[])]} />} dataRequest={dataManagementRequest} dataWorkspaceGeneration={settingsState.snapshot?.generation ?? settingsState.base?.generation} onDataChanged={() => { setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
+        requestedTab={settingsTabRequest.tab} requestedTabRevision={settingsTabRequest.revision} radioSettings={<RadioSettings onDraftState={(id, blocked) => { radioSettingsBlocked.current[id] = blocked; }} requestedRadioId={radioSettingsRequest.radioId} requestedRadioRevision={radioSettingsRequest.revision} onRefreshLocalState={refreshLocalRadioState} />} syncSettings={settings.logbookMode === "local" ? <p>Integrated-only mode. Wavelog synchronization is disabled. Choose Integrated logbook + Wavelog synchronization in Settings → Logbook to enable it.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />} onExternalContact={() => setRefresh(n => n + 1)} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} configurationSession={rotorConfigurationSession} automaticRotorArmed={autoRotor} automaticRotorAvailable={!!nativeAutoRotor.state && !nativeAutoRotor.error && rotorProjection(rotorState).connected === true} automaticRotorError={nativeAutoRotor.error} onAutomaticRotorChange={setAutomaticRotor} />} clusterSettings={<ClusterPanel settingsOnly snapshot={null} onRequest={request} onSelect={() => {}} />} workspaceSettings={<WorkspaceSettings {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} requiredRotor={deskKind === "rotor" && !!rotorState?.owner} available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "chaser-dx", "spot-history", ...(deskKind === "none" ? [] : [deskKind] as ("rotor" | "antenna")[])]} />} dataRequest={dataManagementRequest} dataWorkspaceGeneration={settingsState.snapshot?.generation ?? settingsState.base?.generation} onDataChanged={() => { loadedWorkspaceGeneration.current = null; setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
       </>}
       </>
       </WorkspaceModeSurface>

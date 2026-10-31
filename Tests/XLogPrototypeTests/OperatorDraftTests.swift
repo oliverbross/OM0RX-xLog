@@ -30,6 +30,35 @@ struct OperatorDraftTests {
         guard sqlite3_exec(handle, sql, nil, nil, nil) == SQLITE_OK else { throw LogbookDatabaseError.sqlite("test fixture") }
     }
 
+    @Test("Existing drafts, replacements and replayed receipts do not construct unused blank drafts")
+    func lazyDraftSeeds() throws {
+        let url = databaseURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let db = try LogbookDatabase(url: url)
+        defer { db.close() }
+        enum UnusedSeed: Error { case evaluated }
+        func unavailableSeed() throws -> QSO { throw UnusedSeed.evaluated }
+        func legacySeed() throws -> QSO {
+            _ = try db.integrationSettings(seed: XLogSettings.defaults)
+            return blank()
+        }
+        let initial = try db.operatorDraft(initial: legacySeed())
+        #expect(try db.operatorDraft(initial: unavailableSeed()) == initial)
+        var qso = initial.qso; qso.call = "K1ABC"
+        let replacement = try db.applyOperatorDraft(mutation(initial, .replace, qso: qso),
+            nextDraft: unavailableSeed())
+        #expect(replacement.draft.qso.call == "K1ABC")
+        let save = mutation(replacement.draft, .save)
+        #expect(throws: UnusedSeed.self) {
+            try db.applyOperatorDraft(save, nextDraft: unavailableSeed())
+        }
+        #expect(try db.count() == 0)
+        #expect(try db.operatorDraft() == replacement.draft)
+        let receipt = try db.applyOperatorDraft(save, nextDraft: blank())
+        #expect(try db.applyOperatorDraft(save, nextDraft: unavailableSeed()) == receipt)
+        #expect(try db.count() == 1)
+    }
+
     @Test("New drafts and mode changes use conventional voice and CW reports")
     func signalReportDefaults() throws {
         #expect(QSO(call: "", band: "20m", mode: "SSB").rstSent == "59")

@@ -388,7 +388,9 @@ it("shows saving immediately and confirms logging only after the durable receipt
   const held = new Promise<void>(resolve => { release = resolve; });
   calls.request.mockImplementation(async (method, params) => {
     if (method === "logbook_operator_draft_apply" && params.action === "save") await held;
-    return backend(method, params);
+    const reply = await backend(method, params);
+    if (method === "workspace_status") reply.result.generation = testWorkspaceGeneration;
+    return reply;
   });
   render(<LiveApp />);
   fireEvent.change(await screen.findByLabelText("Callsign"), { target: { value: "K1ABC" } });
@@ -396,11 +398,16 @@ it("shows saving immediately and confirms logging only after the durable receipt
   expect(await screen.findByText("Saving QSO…")).toBeTruthy();
   expect(screen.queryByText("QSO logged")).toBeNull();
   expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("K1ABC");
+  const setupMethods = ["settings_load", "workspace_rotor_configuration_load", "workspace_preferences_load"];
+  const setupReads = calls.request.mock.calls.filter(([method]) => setupMethods.includes(method)).length;
+  const workspaceReads = calls.request.mock.calls.filter(([method]) => method === "workspace_status").length;
   await act(async () => release());
   await waitFor(() => expect(screen.queryByText("Saving QSO…")).toBeNull());
   expect(screen.getAllByText("QSO logged")).toHaveLength(1);
   expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("");
   expect(calls.request.mock.calls.filter(([method, params]) => method === "logbook_operator_draft_apply" && params.action === "save")).toHaveLength(1);
+  await waitFor(() => expect(calls.request.mock.calls.filter(([method]) => method === "workspace_status").length).toBeGreaterThan(workspaceReads));
+  expect(calls.request.mock.calls.filter(([method]) => setupMethods.includes(method))).toHaveLength(setupReads);
 });
 
 it("populates a clean blank draft from observed radio state and preserves a later manual frequency",async()=>{

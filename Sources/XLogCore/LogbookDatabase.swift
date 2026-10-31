@@ -1310,9 +1310,13 @@ public final class LogbookDatabase: @unchecked Sendable {
 
     /// Initial creation and all mutations use SQLite's write lock as well as the
     /// instance lock, so two service instances cannot accept the same revision.
-    public func operatorDraft(initial: QSO) throws -> OperatorDraftSnapshot {
+    /// Resolve default settings only when a new draft is actually needed; passive
+    /// reads must not repeat workspace/authorization I/O for an unused seed.
+    public func operatorDraft(initial: @autoclosure () throws -> QSO) throws -> OperatorDraftSnapshot {
         try withDatabaseLock {
             if let existing = try readOperatorDraft() { return existing }
+            // A legacy seed may initialize settings in its own transaction.
+            let initial = try initial()
             try execute("BEGIN IMMEDIATE;")
             do {
                 if let existing = try readOperatorDraft() {
@@ -1952,7 +1956,8 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// returns its original receipt even after another window advances the draft.
     /// Only creating new contacts is exposed here; editing a logged QSO requires
     /// a separate record revision contract and cannot hijack this draft's ID.
-    public func applyOperatorDraft(_ mutation: OperatorDraftMutation, nextDraft: QSO,
+    /// Replacements and receipt replays never evaluate the next blank draft.
+    public func applyOperatorDraft(_ mutation: OperatorDraftMutation, nextDraft: @autoclosure () throws -> QSO,
                                   powerConfiguration: (workspaceID: UUID, enabled: Bool, fallback: String)? = nil,
                                   now: Date = Date()) throws -> OperatorDraftReceipt {
         try withDatabaseLock {
@@ -2012,6 +2017,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                         updated = replacement
                     }
                 case .clear, .save:
+                    let nextDraft = try nextDraft()
                     guard mutation.qso == nil, mutation.powerIntent == nil,
                           nextDraft.id != current.qso.id, nextDraft.call.isEmpty else { throw OperatorDraftError.invalid }
                     try nextDraft.validateOperatorDraft(forSave: false)

@@ -220,9 +220,10 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
 
     func currentSettings() throws -> XLogSettings {
         try lock.withLock {
-            var settings = try storedSettingsSnapshot().settings
+            let snapshot = try storedSettingsSnapshot()
+            var settings = snapshot.settings
             settings.automaticSync = false
-            if let authorization = try syncAuthorization(settings: settings) {
+            if let authorization = try syncAuthorization(settings: settings, targetRevision: snapshot.syncTargetRevision) {
                 settings.automaticSync = true
                 settings.syncIntervalMinutes = authorization.intervalMinutes
             }
@@ -436,14 +437,14 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         }
     }
 
-    private func syncAuthorization(settings: XLogSettings) throws -> SyncAuthorization? {
+    private func syncAuthorization(settings: XLogSettings, targetRevision: Int64? = nil) throws -> SyncAuthorization? {
         guard settings.logbookMode == .wavelog,
               let defaults = workspace?.makeDefaults(), let data = defaults.data(forKey: syncAuthorizationKey),
               data.count <= 8192, let value = try? JSONDecoder().decode(SyncAuthorization.self, from: data),
               value.matches(generation: try editGeneration(), service: try currentKeychainService(),
                             workspacePath: workspaceURL.standardizedFileURL.resolvingSymlinksInPath().path,
                             endpoint: settings.wavelogURL, stationID: settings.wavelogStationID,
-                            targetRevision: try storedSettingsSnapshot().syncTargetRevision) else { return nil }
+                            targetRevision: try targetRevision ?? storedSettingsSnapshot().syncTargetRevision) else { return nil }
         return value
     }
 
@@ -778,7 +779,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                     let mutation = try preservingOperatorDraftWireDates(mutation, database: db)
                     let settings = try currentSettings()
                     guard let workspaceID = UUID(uuidString: generation) else { throw invalid() }
-                    let receipt = try db.applyOperatorDraft(mutation, nextDraft: newOperatorDraft(),
+                    let receipt = try db.applyOperatorDraft(mutation, nextDraft: newOperatorDraft(settings: settings),
                         powerConfiguration: (workspaceID, settings.automaticTransmitPower, settings.defaultPower))
                     return ["status": "applied", "receipt": try scopedReceipt(receipt, field: "draft", generation: generation)]
                 } catch OperatorDraftError.conflict(let current) {
@@ -2171,8 +2172,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
 
     private func savedFilterKey(_ value: String) -> String { value.lowercased() }
 
-    private func newOperatorDraft() throws -> QSO {
-        let settings = try currentSettings()
+    private func newOperatorDraft(settings suppliedSettings: XLogSettings? = nil) throws -> QSO {
+        let settings = try suppliedSettings ?? currentSettings()
         return QSO(call: "", band: "20m", mode: "SSB", stationLocation: settings.stationLocation,
                    radio: settings.defaultRadio, txPower: settings.defaultPower,
                    operatorCall: settings.operatorCall, myCall: settings.stationCall, myGrid: settings.gridSquare)
