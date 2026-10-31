@@ -98,6 +98,17 @@ renderer load, and is not a claim about operator-visible 10-second delays.
 
 ## Release provenance and installed acceptance
 
-Pending completion. No installed candidate or live hardware acceptance is
-claimed by this intermediate record. The running 1.3.64 application is retained
-until the replacement passes the required checks and a stopped-app backup exists.
+Version preparation: **1.3.65**, advancing the installed 1.3.64 candidate.
+Implementation source: `4108f1a2f7abcd7afed2940fc26aeb576932a18e` (HM Control),
+with save fix `35c0dedd7469e0fd0246bf7c7d4ac0fb0010bdb1`, QSY/rotor fix
+`798687f578b7c6f240826abdbff0c5f5778ca21d`, and cluster/forwarding fix
+`86fc95ae094dc7acec802763beb34bc6111c3d24`.
+
+Build only from this canonical clean main checkout. Warm the Swift release
+worker using `bash prototype/scripts/build-worker.sh --jobs 1`; then run
+`CARGO_BUILD_JOBS=1 bash prototype/scripts/package-macos.sh` at reduced scheduling
+priority. The packaging script captures the exact versioned source commit in
+DistributionMetadata and verifies the packaged worker/resources/CW payload.
+Notarization and installation are separate acceptance steps; their exact source
+commit, signatures, hashes, backup and rollback evidence are recorded below after
+verification. No installed or physical-hardware acceptance is claimed yet.
