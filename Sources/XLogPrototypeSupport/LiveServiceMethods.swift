@@ -467,7 +467,7 @@ actor LiveServiceMethods {
             return publicSyncReceipt(prior)
         }
         let current = try handleSync(method: "sync_status", params: [:])["mutation_owner"] as! [String: Any]
-        guard NSDictionary(dictionary: current).isEqual(to: owner) else {
+        guard jsonObjectsEqual(current, owner) else {
             throw WorkerFailure("sync_changed", "Sync state changed. Refresh and review before another action.")
         }
         if receipts.count >= 1024 {

@@ -1388,7 +1388,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 guard let defaults = workspace?.makeDefaults() else {
                     throw WorkerFailure("workspace_required", "Create an isolated logbook first.")
                 }
-                if !NSDictionary(dictionary: object).isEqual(to: current["preferences"] as! [String: Any]) {
+                if !jsonObjectsEqual(object, current["preferences"] as! [String: Any]) {
                     guard expected < 9_007_199_254_740_990 else { throw invalid() }
                     applyBackupPreferences(value, to: defaults)
                     defaults.set(expected + 1, forKey: "OM0RX-xLog.workspacePreferencesRevision")
@@ -2097,10 +2097,10 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         if try !matchesEditGeneration(params, current["generation"] as! String) {
             return current.merging(["status": "workspace_changed"]) { _, new in new }
         }
-        if !NSDictionary(dictionary: baseline).isEqual(to: original) {
+        if !jsonObjectsEqual(baseline, original) {
             return current.merging(["status": "conflict"]) { _, new in new }
         }
-        if !NSDictionary(dictionary: next).isEqual(to: original) {
+        if !jsonObjectsEqual(next, original) {
             let revision = current["revision"] as! Int
             guard revision < 9_007_199_254_740_990, let defaults = workspace?.makeDefaults() else { throw invalid() }
             applyBackupPreferences(value, to: defaults)

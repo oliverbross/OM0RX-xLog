@@ -39,15 +39,33 @@ final class SyncMutationOwnerTests: XCTestCase {
         XCTAssertEqual(first["status"] as? String, "acknowledged")
         let reopened = LiveServiceMethods(logbook: logbook)
         let repeatReceipt = try await reopened.handle(method: "sync_mutation", params: request)
-        XCTAssertTrue(NSDictionary(dictionary: first).isEqual(to: repeatReceipt))
+        XCTAssertEqual(try JSONSerialization.data(withJSONObject: first, options: [.sortedKeys]),
+                       try JSONSerialization.data(withJSONObject: repeatReceipt, options: [.sortedKeys]))
         let owner = request["owner"] as! [String: Any]
         let recovered = try await reopened.handle(method: "sync_receipt", params: ["generation": owner["generation"]!, "operation_id": request["operation_id"]!])
-        XCTAssertTrue(NSDictionary(dictionary: first).isEqual(to: recovered["receipt"] as! [String: Any]))
+        XCTAssertEqual(try JSONSerialization.data(withJSONObject: first, options: [.sortedKeys]),
+                       try JSONSerialization.data(withJSONObject: recovered["receipt"] as! [String: Any], options: [.sortedKeys]))
         var reused = request; reused["params"] = ["enabled": false, "interval_minutes": 6, "confirm_single_writer": false]
         do { _ = try await reopened.handle(method: "sync_mutation", params: reused); XCTFail("Reused operation identity") }
         catch let error as WorkerFailure { XCTAssertEqual(error.code, "sync_operation_reused") }
         let current = try await reopened.handle(method: "sync_status", params: [:])["mutation_owner"] as! [String: Any]
         XCTAssertEqual(current["revision"] as? Int, 1)
+    }
+    func testRoundTrippedOwnerAcceptsButBooleanRevisionCannotAuthorize() async throws {
+        let (root, logbook, service) = try fixture(); defer { try? FileManager.default.removeItem(at: root) }
+        let request = try await intent(service)
+        var invalid = request
+        var owner = request["owner"] as! [String: Any]
+        owner["revision"] = false
+        invalid["owner"] = owner
+        do { _ = try await service.handle(method: "sync_mutation", params: invalid); XCTFail("Boolean owner revision admitted") }
+        catch let error as WorkerFailure { XCTAssertEqual(error.code, "invalid_params") }
+        XCTAssertNil(try logbook.openedDatabase().syncMutationJournal())
+        let decoded = try JSONSerialization.jsonObject(with: JSONSerialization.data(withJSONObject: request)) as! [String: Any]
+        let receipt = try await service.handle(method: "sync_mutation", params: decoded)
+        XCTAssertEqual(receipt["status"] as? String, "acknowledged")
+        let status = try await service.handle(method: "sync_status", params: [:])
+        XCTAssertEqual((status["mutation_owner"] as? [String: Any])?["revision"] as? Int, 1)
     }
     func testTwoViewsAtTheSameRevisionCannotBothDispatch() async throws {
         let (root, logbook, service) = try fixture(); defer { try? FileManager.default.removeItem(at: root) }

@@ -74,13 +74,16 @@ struct BandMapPreferencesTests {
     func validationAndNoop() throws {
         let (root, service) = try fixture(); defer { try? service.openedDatabase().close(); try? FileManager.default.removeItem(at: root) }
         let base = try service.handle(method: "workspace_preferences_load", params: [:])
+        let wirePreferences = try JSONSerialization.jsonObject(with: JSONSerialization.data(withJSONObject: base["preferences"]!)) as! [String: Any]
+        let fullNoOp = try saveWorkspacePreferences(service, wirePreferences)
+        #expect(fullNoOp["revision"] as? Int == base["revision"] as? Int)
         let noOp = try patch(service, base, expected: ["fontScale": 1], patch: ["fontScale": 1])
         #expect(noOp["revision"] as? Int == base["revision"] as? Int)
         for bad: [String: Any] in [["fontScale": true], ["fontScale": 4], ["fontScale": "1"], ["layout": "Single row"],
             ["bands": ["20m", "20m"]], ["modes": ["bogus"]], ["intelligenceBands": ["40m"]]] {
             #expect(throws: Error.self) { try patch(service, base, expected: bad, patch: bad) }
         }
-        #expect(NSDictionary(dictionary: try service.handle(method: "workspace_preferences_load", params: [:])).isEqual(to: base))
+        #expect(try JSONSerialization.data(withJSONObject: service.handle(method: "workspace_preferences_load", params: [:]), options: [.sortedKeys]) == JSONSerialization.data(withJSONObject: base, options: [.sortedKeys]))
     }
     @Test("Restore fences a delayed preference operation even with unchanged values")
     func restoreGeneration() throws {
@@ -102,7 +105,7 @@ struct BandMapPreferencesTests {
         let base = try service.handle(method: "workspace_preferences_load", params: [:])
         var changed = base["preferences"] as! [String: Any]; changed["bandMapFontScale"] = 1.5
         #expect(throws: Error.self) { try saveWorkspacePreferences(service, changed) }
-        #expect(NSDictionary(dictionary: try service.handle(method: "workspace_preferences_load", params: [:])).isEqual(to: base))
+        #expect(try JSONSerialization.data(withJSONObject: service.handle(method: "workspace_preferences_load", params: [:]), options: [.sortedKeys]) == JSONSerialization.data(withJSONObject: base, options: [.sortedKeys]))
         #expect(try patch(service, base, expected: ["fontScale": 1], patch: ["fontScale": 1])["revision"] as? Int == 9_007_199_254_740_990)
     }
 }
