@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { OpportunitiesPanel, compareOpportunityUnworked, opportunityDXCCNeed } from "./OpportunitiesPanel";
+import { createDeferredPanelReads } from "./deferredPanelReads";
 
 const pota = { id: "pota:OM0RX:OM-0001", kind: "pota", callsign: "OM0RX/P", reference: "OM-0001", name: "Verified park",
   frequency_hz: 14_074_000, mode: "FT8", observed_at: "2026-10-12T10:00:00Z", expires_at: "2026-10-12T10:30:00Z",
@@ -17,7 +18,7 @@ const snapshot = { generated_at: "2026-10-12T10:01:00Z", items: [pota, expeditio
   sources: [{ source: "pota", state: "stale", count: 1, source_url: pota.source_url, last_success: "2026-10-11T10:00:00Z", last_attempt: null, safe_error: "SOURCE_UNAVAILABLE_OR_INVALID" }], selection_tunes: false, transmit: false };
 vi.mock("../Map", () => ({ default: (props: { data: { id: string }[]; onSpot: (spot: { id: string }) => void; spotActionLabel: string }) =>
   <button onClick={() => props.onSpot(props.data[0])}>{props.spotActionLabel}</button> }));
-afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe("read-only opportunities", () => {
   it("sorts unworked operations by callsign history and places missing history last", () => {
@@ -47,6 +48,72 @@ describe("read-only opportunities", () => {
     expect(screen.queryByText("Verified park")).toBeNull();
     expect(oldRequest).toHaveBeenCalledTimes(1);
     expect(freshRequest).toHaveBeenCalledTimes(3);
+  });
+  it("retires a pending snapshot after a stable request owner invalidates its logbook revision", async () => {
+    let finishOld!: (value: unknown) => void;
+    const fresh = { ...snapshot, generated_at: "2026-10-12T10:02:00Z", items: [expedition] };
+    const worker = vi.fn().mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve; }))
+      .mockResolvedValue(fresh);
+    const reads = createDeferredPanelReads(worker);
+    const view = render(<OpportunitiesPanel request={reads.request} />);
+    expect(worker).toHaveBeenCalledTimes(1);
+    // Detached Chaser keeps the request function while its native wake clears
+    // retained reads and advances refresh, including same-count contact edits.
+    reads.invalidate();
+    view.rerender(<OpportunitiesPanel request={reads.request} refresh={1} />);
+    await screen.findByText("DX1ABC");
+    expect(worker.mock.calls.filter(([method]) => method === "opportunities_snapshot")).toHaveLength(2);
+    await act(async () => { finishOld({ ...snapshot, generated_at: "2026-10-12T10:03:00Z" }); });
+    expect(screen.queryByText("Verified park")).toBeNull();
+    expect(screen.getByText("DX1ABC")).toBeTruthy();
+  });
+  it("starts a fresh read after a hidden lifecycle instead of adopting its pending reply", async () => {
+    let visible = true, finishOld!: (value: unknown) => void;
+    vi.spyOn(document, "visibilityState", "get").mockImplementation(() => visible ? "visible" : "hidden");
+    const fresh = { ...snapshot, generated_at: "2026-10-12T10:02:00Z", items: [expedition] };
+    const request = vi.fn().mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve; }))
+      .mockResolvedValue(fresh);
+    render(<OpportunitiesPanel request={request} />);
+    expect(request).toHaveBeenCalledTimes(1);
+    visible = false; await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
+    visible = true; await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
+    await screen.findByText("DX1ABC");
+    expect(request.mock.calls.filter(([method]) => method === "opportunities_snapshot")).toHaveLength(2);
+    await act(async () => { finishOld({ ...snapshot, generated_at: "2026-10-12T10:03:00Z" }); });
+    expect(screen.queryByText("Verified park")).toBeNull();
+  });
+  it("keeps the transport cooldown across ordinary remounts", async () => {
+    const worker = vi.fn(async (_method: string) => snapshot);
+    const reads = createDeferredPanelReads(worker);
+    const first = render(<OpportunitiesPanel request={reads.request} />);
+    await screen.findByText("Verified park");
+    await waitFor(() => expect(worker).toHaveBeenCalledTimes(3));
+    first.unmount();
+    render(<OpportunitiesPanel request={reads.request} />);
+    await screen.findByText("Verified park");
+    await act(async () => {});
+    expect(worker).toHaveBeenCalledTimes(3);
+    expect(worker.mock.calls.filter(([method]) => method === "opportunities_refresh")).toHaveLength(2);
+  });
+  it("rejects delayed feed replies after a same-count logbook invalidation", async () => {
+    const finishOld: ((value: unknown) => void)[] = [];
+    const fresh = { ...snapshot, generated_at: "2026-10-12T10:02:00Z", items: [expedition] };
+    let changed = false;
+    const worker = vi.fn((method: string) => {
+      if (changed) return Promise.resolve(fresh);
+      if (method === "opportunities_snapshot") return Promise.resolve(snapshot);
+      return new Promise(resolve => { finishOld.push(resolve); });
+    });
+    const reads = createDeferredPanelReads(worker);
+    const view = render(<OpportunitiesPanel request={reads.request} />);
+    await screen.findByText("Verified park");
+    await waitFor(() => expect(finishOld).toHaveLength(2));
+    changed = true; reads.invalidate();
+    view.rerender(<OpportunitiesPanel request={reads.request} refresh={1} />);
+    await screen.findByText("DX1ABC");
+    await act(async () => { for (const finish of finishOld) finish({ ...snapshot, generated_at: "2026-10-12T10:03:00Z" }); });
+    expect(screen.queryByText("Verified park")).toBeNull();
+    expect(screen.getByText("DX1ABC")).toBeTruthy();
   });
   it("puts DXpeditions second and includes island operations in IOTA without duplicating All", async () => {
     const island = { ...expedition, reference: "EU-001", reference_kind: "iota", programmes: ["dxpedition", "iota"],
@@ -260,12 +327,13 @@ describe("read-only opportunities", () => {
     expect(request.mock.calls.filter(([method]) => method === "opportunities_refresh")).toHaveLength(2);
     view.unmount();
   });
-  it("shares pending requests across a refresh prop change and ignores the retired lifecycle", async () => {
+  it("shares transport pending reads across a refresh without invalidation and ignores the retired lifecycle", async () => {
     let finish!: (value: unknown) => void;
     const shared = new Promise(resolve => { finish = resolve; });
     const request = vi.fn(() => shared);
-    const view = render(<OpportunitiesPanel request={request} onSelect={vi.fn()} refresh={0} />);
-    view.rerender(<OpportunitiesPanel request={request} onSelect={vi.fn()} refresh={1} />);
+    const reads = createDeferredPanelReads(request);
+    const view = render(<OpportunitiesPanel request={reads.request} onSelect={vi.fn()} refresh={0} />);
+    view.rerender(<OpportunitiesPanel request={reads.request} onSelect={vi.fn()} refresh={1} />);
     expect(request).toHaveBeenCalledTimes(1);
     await act(async () => { finish(snapshot); });
     expect(screen.getByText("Verified park")).toBeTruthy();

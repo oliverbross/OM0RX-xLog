@@ -168,7 +168,9 @@ export function OpportunitiesPanel({ request, onSelect, onDock, refresh = 0, hom
   const requestRef = useRef(request); requestRef.current = request;
   const kindRef = useRef(kind); kindRef.current = kind;
   const reloadRef = useRef<(automatic: boolean) => void>(() => {});
-  const inFlight = useMemo(() => new Map<string, Promise<unknown>>(), [request]);
+  // A new visible/logbook lifecycle must not adopt a retired request's reply.
+  // The transport still owns cross-lifecycle freshness and feed cooldowns.
+  const inFlight = useMemo(() => new Map<string, Promise<unknown>>(), [request, refresh, visible]);
   const responseOrder = useRef(0), acceptedOrder = useRef(0);
   useEffect(() => {
     if (!visible) return;
